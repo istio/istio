@@ -1,0 +1,581 @@
+From 51aceb795be311de47ad3f1c844c6a5fa6cc558b Mon Sep 17 00:00:00 2001
+From: lowerpierman <952012079@qq.com>
+Date: Mon, 24 Jul 2023 11:24:18 +0800
+Subject: [PATCH] port to loong64
+
+---
+ Makefile                        |   5 +-
+ Makefile.core.mk                |  19 +++--
+ Makefile.overrides.mk           |   2 +-
+ bin/init.sh                     |   6 +-
+ common/scripts/gobuild.sh       |   6 +-
+ common/scripts/setup_env.sh     |   4 +-
+ docker/Dockerfile.base          |   2 +-
+ docker/Dockerfile.distroless    |   6 +-
+ go.mod                          | 131 ++++++++++++++++++++++++++++++--
+ go.sum                          |  47 +++++++++---
+ pilot/docker/Dockerfile.proxyv2 |  19 +++--
+ 11 files changed, 194 insertions(+), 53 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 124ae1d877..6c0c44efb8 100644
+--- a/Makefile
++++ b/Makefile
+@@ -19,7 +19,7 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-SHELL := /bin/bash
++SHELL := /bin/bash -x
+ 
+ # allow optional per-repo overrides
+ -include Makefile.overrides.mk
+@@ -28,7 +28,7 @@ SHELL := /bin/bash
+ # to build the repo. The only dependencies in this mode are to have make and
+ # docker. If you'd rather build with a local tool chain instead, you'll need to
+ # figure out all the tools you need in your environment to make that work.
+-export BUILD_WITH_CONTAINER ?= 0
++export BUILD_WITH_CONTAINER := 0
+ 
+ ifeq ($(BUILD_WITH_CONTAINER),1)
+ 
+@@ -51,6 +51,7 @@ default:
+ shell:
+ 	@$(RUN) /bin/bash
+ 
++
+ .PHONY: default shell
+ 
+ else
+diff --git a/Makefile.core.mk b/Makefile.core.mk
+index f8f8388c6a..550ae97ee9 100644
+--- a/Makefile.core.mk
++++ b/Makefile.core.mk
+@@ -25,7 +25,7 @@ export VERSION ?= 1.11-dev
+ BASE_VERSION ?= 1.11-dev.6
+ 
+ export GO111MODULE ?= on
+-export GOPROXY ?= https://proxy.golang.org
++export GOPROXY ?= https://goproxy.cn
+ export GOSUMDB ?= sum.golang.org
+ 
+ # If GOPATH is not set by the env, set it to a sane value
+@@ -72,7 +72,7 @@ export ISTIO_BIN=$(GOBIN)
+ 
+ export ISTIO_OUT:=$(TARGET_OUT)
+ export ISTIO_OUT_LINUX:=$(TARGET_OUT_LINUX)
+-
++#TARGET_OUT_LINUX = out/linux_loong64
+ # LOCAL_OUT should point to architecture where we are currently running versus the desired.
+ # This is used when we need to run a build artifact during tests or later as part of another
+ # target. If we are running in the Linux build container on non Linux hosts, we add the
+@@ -129,11 +129,9 @@ export SIDECAR ?= envoy
+ # OS-neutral vars. These currently only work for linux.
+ export ISTIO_ENVOY_VERSION ?= ${PROXY_REPO_SHA}
+ export ISTIO_ENVOY_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-debug-$(ISTIO_ENVOY_VERSION).tar.gz
+-export ISTIO_ENVOY_CENTOS_DEBUG_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-centos-debug-$(ISTIO_ENVOY_VERSION).tar.gz
+-export ISTIO_ENVOY_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
+-export ISTIO_ENVOY_CENTOS_RELEASE_URL ?= $(ISTIO_ENVOY_BASE_URL)/envoy-centos-alpha-$(ISTIO_ENVOY_VERSION).tar.gz
++export ISTIO_ENVOY_RELEASE_URL ?= https://github.com/Loongson-Cloud-Community/envoy/releases/download/v1.15.0/envoy-1.15.0-linux-loongarch64
+ 
+-# Envoy Linux vars.
++# Envoy Linux vars. Delete Centos Var
+ export ISTIO_ENVOY_LINUX_VERSION ?= ${ISTIO_ENVOY_VERSION}
+ export ISTIO_ENVOY_LINUX_DEBUG_URL ?= ${ISTIO_ENVOY_DEBUG_URL}
+ export ISTIO_ENVOY_LINUX_RELEASE_URL ?= ${ISTIO_ENVOY_RELEASE_URL}
+@@ -141,14 +139,10 @@ export ISTIO_ENVOY_LINUX_RELEASE_URL ?= ${ISTIO_ENVOY_RELEASE_URL}
+ export ISTIO_ENVOY_LINUX_DEBUG_DIR ?= ${TARGET_OUT_LINUX}/debug
+ export ISTIO_ENVOY_LINUX_DEBUG_NAME ?= envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}
+ export ISTIO_ENVOY_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}
+-export ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME ?= envoy-centos-debug-${ISTIO_ENVOY_LINUX_VERSION}
+-export ISTIO_ENVOY_CENTOS_LINUX_DEBUG_PATH ?= ${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME}
+ 
+ export ISTIO_ENVOY_LINUX_RELEASE_DIR ?= ${TARGET_OUT_LINUX}/release
+ export ISTIO_ENVOY_LINUX_RELEASE_NAME ?= ${SIDECAR}-${ISTIO_ENVOY_VERSION}
+ export ISTIO_ENVOY_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}
+-export ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME ?= envoy-centos-${ISTIO_ENVOY_LINUX_VERSION}
+-export ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH ?= ${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME}
+ 
+ # Envoy macOS vars.
+ # TODO Change url when official envoy release for macOS is available
+@@ -227,6 +221,11 @@ init: $(ISTIO_OUT)/istio_is_init
+ $(ISTIO_OUT)/istio_is_init: bin/init.sh istio.deps | $(ISTIO_OUT)
+ 	@# Add a retry, as occasionally we see transient connection failures to GCS
+ 	@# Like `curl: (56) OpenSSL SSL_read: SSL_ERROR_SYSCALL, errno 104`
++	#if [ ! -d $(ISTIO_OUT)/release ]; then
++	mkdir -p $(ISTIO_OUT)/release
++	#touch $(ISTIO_OUT)/release/envoy-9a976952980250ed356ebdd4f94e219e28a041dd
++	wget -O $(ISTIO_OUT)/release/envoy-9a976952980250ed356ebdd4f94e219e28a041dd https://github.com/Loongson-Cloud-Community/envoy/releases/download/v1.15.0/envoy-1.15.0-linux-loongarch64
++	#fi
+ 	ISTIO_OUT=$(ISTIO_OUT) ISTIO_BIN=$(ISTIO_BIN) GOOS_LOCAL=$(GOOS_LOCAL) bin/retry.sh SSL_ERROR_SYSCALL bin/init.sh
+ 	touch $(ISTIO_OUT)/istio_is_init
+ 
+diff --git a/Makefile.overrides.mk b/Makefile.overrides.mk
+index 7075a61a85..22f94c3082 100644
+--- a/Makefile.overrides.mk
++++ b/Makefile.overrides.mk
+@@ -18,7 +18,7 @@
+ # test cases fail within Docker, and Mac + Docker isn't quite perfect.
+ # For more information see: https://github.com/istio/istio/pull/19322/
+ 
+-BUILD_WITH_CONTAINER ?= 1
++BUILD_WITH_CONTAINER := 0
+ CONTAINER_OPTIONS = --mount type=bind,source=/tmp,destination=/tmp --net=host
+ 
+ ifeq ($(BUILD_WITH_CONTAINER),1)
+diff --git a/bin/init.sh b/bin/init.sh
+index bab75bfec4..eea14b4264 100755
+--- a/bin/init.sh
++++ b/bin/init.sh
+@@ -68,7 +68,7 @@ function download_envoy_if_necessary () {
+ 
+     # Download and extract the binary to the output directory.
+     echo "Downloading ${SIDECAR}: $1 to $2"
+-    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" | tar xz
++    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1"
+ 
+     # Copy the extracted binary to the output location
+     cp usr/local/bin/"${SIDECAR}" "$2"
+@@ -124,7 +124,6 @@ fi
+ 
+ # Download and extract the Envoy linux release binary.
+ download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH" "${SIDECAR}"
+-download_envoy_if_necessary "${ISTIO_ENVOY_CENTOS_RELEASE_URL}" "$ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH" "${SIDECAR}-centos"
+ 
+ if [[ "$GOOS_LOCAL" == "darwin" ]]; then
+   # Download and extract the Envoy macOS release binary
+@@ -148,9 +147,6 @@ done
+ echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${ISTIO_OUT}/${SIDECAR}"
+ cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${ISTIO_OUT}/${SIDECAR}"
+ 
+-# Copy CentOS binary
+-echo "Copying ${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH} to ${ISTIO_OUT_LINUX}/${SIDECAR}-centos"
+-cp -f "${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH}" "${ISTIO_OUT_LINUX}/${SIDECAR}-centos"
+ 
+ # Copy the envoy binary to ISTIO_OUT_LINUX if the local OS is not Linux
+ if [[ "$GOOS_LOCAL" != "linux" ]]; then
+diff --git a/common/scripts/gobuild.sh b/common/scripts/gobuild.sh
+index 500aeee580..28513706f1 100755
+--- a/common/scripts/gobuild.sh
++++ b/common/scripts/gobuild.sh
+@@ -35,10 +35,10 @@ SCRIPTPATH="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+ OUT=${1:?"output path"}
+ shift
+ 
+-set -e
++set -ex
+ 
+ BUILD_GOOS=${GOOS:-linux}
+-BUILD_GOARCH=${GOARCH:-amd64}
++BUILD_GOARCH=${GOARCH:-loong64}
+ GOBINARY=${GOBINARY:-go}
+ GOPKG="$GOPATH/pkg"
+ BUILDINFO=${BUILDINFO:-""}
+@@ -72,7 +72,7 @@ done < "${BUILDINFO}"
+ 
+ # verify go version before build
+ # NB. this was copied verbatim from Kubernetes hack
+-minimum_go_version=go1.13 # supported patterns: go1.x, go1.x.x (x should be a number)
++minimum_go_version=go1.19 # supported patterns: go1.x, go1.x.x (x should be a number)
+ IFS=" " read -ra go_version <<< "$(${GOBINARY} version)"
+ if [[ "${minimum_go_version}" != $(echo -e "${minimum_go_version}\n${go_version[2]}" | sort -s -t. -k 1,1 -k 2,2n -k 3,3n | head -n1) && "${go_version[2]}" != "devel" ]]; then
+     echo "Warning: Detected that you are using an older version of the Go compiler. Istio requires ${minimum_go_version} or greater."
+diff --git a/common/scripts/setup_env.sh b/common/scripts/setup_env.sh
+index 01b2e52606..a4a5f34526 100755
+--- a/common/scripts/setup_env.sh
++++ b/common/scripts/setup_env.sh
+@@ -21,7 +21,7 @@
+ # See the License for the specific language governing permissions and
+ # limitations under the License.
+ 
+-set -e
++set -ex
+ 
+ LOCAL_ARCH=$(uname -m)
+ export LOCAL_ARCH
+@@ -40,6 +40,8 @@ elif [[ ${LOCAL_ARCH} == s390x ]]; then
+ ￼    export TARGET_ARCH=s390x
+ elif [[ ${LOCAL_ARCH} == ppc64le ]]; then
+     export TARGET_ARCH=ppc64le
++elif [[ ${LOCAL_ARCH} == loongarch64 ]]; then
++    export TARGET_ARCH=loong64
+ else
+     echo "This system's architecture, ${LOCAL_ARCH}, isn't supported"
+     exit 1
+diff --git a/docker/Dockerfile.base b/docker/Dockerfile.base
+index d978ccf46a..609f9e14a9 100644
+--- a/docker/Dockerfile.base
++++ b/docker/Dockerfile.base
+@@ -1,4 +1,4 @@
+-FROM ubuntu:focal
++FROM cr.loongnix.cn/library/debian:buster
+ 
+ ENV DEBIAN_FRONTEND=noninteractive
+ 
+diff --git a/docker/Dockerfile.distroless b/docker/Dockerfile.distroless
+index 1719699161..9f5ad9ebf8 100644
+--- a/docker/Dockerfile.distroless
++++ b/docker/Dockerfile.distroless
+@@ -1,9 +1,9 @@
+ # prepare a distroless source context to copy files from
+-FROM gcr.io/distroless/static-debian10@sha256:c9320b754c2fa2cd2dea50993195f104a24f4c7ebe6e0297c6ddb40ce3679e7d as distroless_source
++#FROM gcr.io/distroless/static-debian10@sha256:c9320b754c2fa2cd2dea50993195f104a24f4c7ebe6e0297c6ddb40ce3679e7d as distroless_source
+ 
+ # prepare a base dev to modify file contents
+-FROM ubuntu:focal as ubuntu_source
+-
++#FROM ubuntu:focal as ubuntu_source
++FROM cr.loongnix.cn/library/debian:buster
+ # Modify contents of container
+ COPY --from=distroless_source /etc/ /home/etc
+ COPY --from=distroless_source /home/nonroot /home/nonroot
+diff --git a/go.mod b/go.mod
+index 443a30b5b2..1481a77622 100644
+--- a/go.mod
++++ b/go.mod
+@@ -1,6 +1,6 @@
+ module istio.io/istio
+ 
+-go 1.16
++go 1.17
+ 
+ replace github.com/spf13/viper => github.com/istio/viper v1.3.3-0.20190515210538-2789fed3109c
+ 
+@@ -23,7 +23,6 @@ require (
+ 	github.com/aws/aws-sdk-go v1.38.51
+ 	github.com/cenkalti/backoff v2.2.1+incompatible
+ 	github.com/census-instrumentation/opencensus-proto v0.3.0
+-	github.com/cespare/xxhash v1.1.0 // indirect
+ 	github.com/cheggaaa/pb/v3 v3.0.8
+ 	github.com/cncf/udpa/go v0.0.0-20210322005330-6414d713912e
+ 	github.com/cncf/xds/go v0.0.0-20210323124008-b88cc788a63e
+@@ -71,15 +70,14 @@ require (
+ 	github.com/spf13/pflag v1.0.5
+ 	github.com/spf13/viper v1.8.1
+ 	github.com/stretchr/testify v1.7.0
+-	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
+ 	github.com/yl2chen/cidranger v1.0.2
+ 	go.opencensus.io v0.23.0
+ 	go.uber.org/atomic v1.7.0
+ 	go.uber.org/multierr v1.7.0
+-	golang.org/x/net v0.0.0-20210525063256-abc453219eb5
++	golang.org/x/net v0.12.0
+ 	golang.org/x/oauth2 v0.0.0-20210514164344-f6687ab2804c
+-	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c
+-	golang.org/x/sys v0.0.0-20210601080250-7ecdf8ef093b
++	golang.org/x/sync v0.1.0
++	golang.org/x/sys v0.10.0
+ 	golang.org/x/time v0.0.0-20210220033141-f8bda1e9f3ba
+ 	gomodules.xyz/jsonpatch/v2 v2.2.0
+ 	gomodules.xyz/jsonpatch/v3 v3.0.1
+@@ -91,7 +89,6 @@ require (
+ 	gopkg.in/yaml.v2 v2.4.0
+ 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+ 	helm.sh/helm/v3 v3.6.0
+-	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
+ 	istio.io/api v0.0.0-20210809175348-eff556fb5d8a
+ 	istio.io/client-go v1.11.0-rc.3
+ 	istio.io/gogo-genproto v0.0.0-20210809183655-16cc1841f1f7
+@@ -110,3 +107,123 @@ require (
+ 	sigs.k8s.io/mcs-api v0.1.0
+ 	sigs.k8s.io/yaml v1.2.0
+ )
++
++require (
++	cloud.google.com/go/logging v1.2.0 // indirect
++	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
++	github.com/Azure/go-autorest v14.2.0+incompatible // indirect
++	github.com/Azure/go-autorest/autorest v0.11.12 // indirect
++	github.com/Azure/go-autorest/autorest/adal v0.9.5 // indirect
++	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
++	github.com/Azure/go-autorest/logger v0.2.0 // indirect
++	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
++	github.com/BurntSushi/toml v0.3.1 // indirect
++	github.com/MakeNowJust/heredoc v0.0.0-20170808103936-bb23615498cd // indirect
++	github.com/Masterminds/goutils v1.1.1 // indirect
++	github.com/Masterminds/semver/v3 v3.1.1 // indirect
++	github.com/PuerkitoBio/purell v1.1.1 // indirect
++	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
++	github.com/VividCortex/ewma v1.1.1 // indirect
++	github.com/alecthomas/template v0.0.0-20190718012654-fb15b899a751 // indirect
++	github.com/alecthomas/units v0.0.0-20190924025748-f65c72e2690d // indirect
++	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535 // indirect
++	github.com/beorn7/perks v1.0.1 // indirect
++	github.com/cespare/xxhash v1.1.0 // indirect
++	github.com/cespare/xxhash/v2 v2.1.1 // indirect
++	github.com/chai2010/gettext-go v0.0.0-20160711120539-c6fed771bfd5 // indirect
++	github.com/cheekybits/genny v1.0.0 // indirect
++	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
++	github.com/cyphar/filepath-securejoin v0.2.2 // indirect
++	github.com/decred/dcrd/dcrec/secp256k1/v3 v3.0.0 // indirect
++	github.com/envoyproxy/protoc-gen-validate v0.1.0 // indirect
++	github.com/exponent-io/jsonpath v0.0.0-20151013193312-d6023ce2651d // indirect
++	github.com/fatih/camelcase v1.0.0 // indirect
++	github.com/form3tech-oss/jwt-go v3.2.2+incompatible // indirect
++	github.com/go-errors/errors v1.0.1 // indirect
++	github.com/go-logr/logr v0.4.0 // indirect
++	github.com/go-openapi/jsonpointer v0.19.3 // indirect
++	github.com/go-openapi/jsonreference v0.19.3 // indirect
++	github.com/go-openapi/spec v0.19.5 // indirect
++	github.com/go-openapi/swag v0.19.5 // indirect
++	github.com/gobwas/glob v0.2.3 // indirect
++	github.com/goccy/go-json v0.4.8 // indirect
++	github.com/golang/groupcache v0.0.0-20200121045136-8c9f03a8e57e // indirect
++	github.com/google/btree v1.0.0 // indirect
++	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
++	github.com/googleapis/gax-go/v2 v2.0.5 // indirect
++	github.com/googleapis/gnostic v0.5.4 // indirect
++	github.com/gregjones/httpcache v0.0.0-20180305231024-9cad4c3443a7 // indirect
++	github.com/hashicorp/errwrap v1.0.0 // indirect
++	github.com/hashicorp/hcl v1.0.0 // indirect
++	github.com/huandu/xstrings v1.3.1 // indirect
++	github.com/imdario/mergo v0.3.11 // indirect
++	github.com/inconshreveable/mousetrap v1.0.0 // indirect
++	github.com/jmespath/go-jmespath v0.4.0 // indirect
++	github.com/jonboulle/clockwork v0.1.0 // indirect
++	github.com/json-iterator/go v1.1.10 // indirect
++	github.com/jstemmer/go-junit-report v0.9.1 // indirect
++	github.com/kr/text v0.2.0 // indirect
++	github.com/lestrrat-go/backoff/v2 v2.0.7 // indirect
++	github.com/lestrrat-go/blackmagic v1.0.0 // indirect
++	github.com/lestrrat-go/httpcc v1.0.0 // indirect
++	github.com/lestrrat-go/iter v1.0.1 // indirect
++	github.com/lestrrat-go/option v1.0.0 // indirect
++	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
++	github.com/magiconair/properties v1.8.1 // indirect
++	github.com/mailru/easyjson v0.7.0 // indirect
++	github.com/marten-seemann/qpack v0.2.1 // indirect
++	github.com/marten-seemann/qtls-go1-15 v0.1.4 // indirect
++	github.com/marten-seemann/qtls-go1-16 v0.1.3 // indirect
++	github.com/marten-seemann/qtls-go1-17 v0.1.0-beta.1.2 // indirect
++	github.com/mattn/go-colorable v0.1.8 // indirect
++	github.com/mattn/go-runewidth v0.0.12 // indirect
++	github.com/matttproud/golang_protobuf_extensions v1.0.2-0.20181231171920-c182affec369 // indirect
++	github.com/mitchellh/go-wordwrap v1.0.0 // indirect
++	github.com/mitchellh/mapstructure v1.1.2 // indirect
++	github.com/mitchellh/reflectwalk v1.0.2 // indirect
++	github.com/moby/spdystream v0.2.0 // indirect
++	github.com/moby/term v0.0.0-20201216013528-df9cb8a40635 // indirect
++	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
++	github.com/modern-go/reflect2 v1.0.1 // indirect
++	github.com/monochromegane/go-gitignore v0.0.0-20200626010858-205db1a8cc00 // indirect
++	github.com/natefinch/lumberjack v2.0.0+incompatible // indirect
++	github.com/opencontainers/go-digest v1.0.0 // indirect
++	github.com/pelletier/go-toml v1.7.0 // indirect
++	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
++	github.com/pquerna/cachecontrol v0.0.0-20171018203845-0dec1b30a021 // indirect
++	github.com/prometheus/procfs v0.6.0 // indirect
++	github.com/prometheus/prom2json v1.3.0 // indirect
++	github.com/prometheus/statsd_exporter v0.20.0 // indirect
++	github.com/rivo/uniseg v0.2.0 // indirect
++	github.com/russross/blackfriday v1.5.2 // indirect
++	github.com/russross/blackfriday/v2 v2.1.0 // indirect
++	github.com/shopspring/decimal v1.2.0 // indirect
++	github.com/sirupsen/logrus v1.8.1 // indirect
++	github.com/spaolacci/murmur3 v1.1.0 // indirect
++	github.com/spf13/afero v1.2.2 // indirect
++	github.com/spf13/cast v1.3.1 // indirect
++	github.com/spf13/jwalterweatherman v1.0.0 // indirect
++	github.com/xeipuuv/gojsonpointer v0.0.0-20190905194746-02993c407bfb // indirect
++	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
++	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
++	github.com/xlab/treeprint v0.0.0-20181112141820-a009c3971eca // indirect
++	go.opentelemetry.io/proto/otlp v0.7.0 // indirect
++	go.starlark.net v0.0.0-20200306205701-8dd3e2ee1dd5 // indirect
++	go.uber.org/zap v1.16.0 // indirect
++	golang.org/x/crypto v0.11.0 // indirect
++	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
++	golang.org/x/mod v0.8.0 // indirect
++	golang.org/x/term v0.10.0 // indirect
++	golang.org/x/text v0.11.0 // indirect
++	golang.org/x/tools v0.6.0 // indirect
++	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
++	gomodules.xyz/orderedmap v0.1.0 // indirect
++	google.golang.org/appengine v1.6.7 // indirect
++	gopkg.in/alecthomas/kingpin.v2 v2.2.6 // indirect
++	gopkg.in/inf.v0 v0.9.1 // indirect
++	honnef.co/go/tools v0.0.1-2020.1.5 // indirect
++	k8s.io/component-base v0.21.2 // indirect
++	sigs.k8s.io/kustomize/api v0.8.8 // indirect
++	sigs.k8s.io/kustomize/kyaml v0.10.17 // indirect
++	sigs.k8s.io/structured-merge-diff/v4 v4.1.0 // indirect
++)
+diff --git a/go.sum b/go.sum
+index ea335ac3f5..7af32e10c9 100644
+--- a/go.sum
++++ b/go.sum
+@@ -1014,6 +1014,7 @@ github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9de
+ github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
+ github.com/yuin/goldmark v1.2.1/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
+ github.com/yuin/goldmark v1.3.5/go.mod h1:mwnBkeHKe2W/ZEtQ+71ViKU8L12m81fl3OWwC1Zlc8k=
++github.com/yuin/goldmark v1.4.13/go.mod h1:6yULJ656Px+3vBD8DxQVa3kxgyrAnzto9xy5taEt/CY=
+ github.com/yvasiyarov/go-metrics v0.0.0-20140926110328-57bccd1ccd43/go.mod h1:aX5oPXxHm3bOH+xeAttToC8pqch2ScQN/JoXYupl6xs=
+ github.com/yvasiyarov/gorelic v0.0.0-20141212073537-a9bba5b9ab50/go.mod h1:NUSPSUX/bi6SeDMUh6brw0nXpxHnc96TguQh0+r/ssA=
+ github.com/yvasiyarov/newrelic_platform_go v0.0.0-20140908184405-b21fdbd4370f/go.mod h1:GlGEuHIJweS1mbCqG+7vt2nvWLzLLnRHbXz5JKd/Qbg=
+@@ -1087,8 +1088,10 @@ golang.org/x/crypto v0.0.0-20200622213623-75b288015ac9/go.mod h1:LzIPMQfyMNhhGPh
+ golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0/go.mod h1:LzIPMQfyMNhhGPhUkYOs5KpL4U8rLKemX1yGLhDgUto=
+ golang.org/x/crypto v0.0.0-20201217014255-9d1352758620/go.mod h1:jdWPYTVW3xRLrWPugEBEK3UY2ZEsg3UU495nc5E+M+I=
+ golang.org/x/crypto v0.0.0-20201221181555-eec23a3978ad/go.mod h1:jdWPYTVW3xRLrWPugEBEK3UY2ZEsg3UU495nc5E+M+I=
+-golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83 h1:/ZScEX8SfEmUGRHs0gxpqteO5nfNW6axyZbBdw9A12g=
+ golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83/go.mod h1:jdWPYTVW3xRLrWPugEBEK3UY2ZEsg3UU495nc5E+M+I=
++golang.org/x/crypto v0.0.0-20210921155107-089bfa567519/go.mod h1:GvvjBRRGRdwPK5ydBHafDWAxML/pGHZbMvKqRZ5+Abc=
++golang.org/x/crypto v0.11.0 h1:6Ewdq3tDic1mg5xRO4milcWCfMVQhI4NkqWWvqejpuA=
++golang.org/x/crypto v0.11.0/go.mod h1:xgJhtzW8F9jGdVFWZESrid1U1bjeNy4zgy5cRr/CIio=
+ golang.org/x/exp v0.0.0-20190121172915-509febef88a4/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
+ golang.org/x/exp v0.0.0-20190306152737-a1d7652674e8/go.mod h1:CJ0aWSM057203Lf6IL+f9T1iT9GByDxfZKAQTCR3kQA=
+ golang.org/x/exp v0.0.0-20190510132918-efd6b22b2522/go.mod h1:ZjyILWgesfNpC6sMxTJOJm9Kp84zZh5NQWvqDGG3Qr8=
+@@ -1126,8 +1129,10 @@ golang.org/x/mod v0.3.0/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
+ golang.org/x/mod v0.3.1-0.20200828183125-ce943fd02449/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
+ golang.org/x/mod v0.4.0/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
+ golang.org/x/mod v0.4.1/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
+-golang.org/x/mod v0.4.2 h1:Gz96sIWK3OalVv/I/qNygP42zyoKp3xptRVCWRFEBvo=
+ golang.org/x/mod v0.4.2/go.mod h1:s0Qsj1ACt9ePp/hMypM3fl4fZqREWJwdYDEqhRiZZUA=
++golang.org/x/mod v0.6.0-dev.0.20220419223038-86c51ed26bb4/go.mod h1:jJ57K6gSWd91VN4djpZkiMVwK6gcyfeH4XE8wZrZaV4=
++golang.org/x/mod v0.8.0 h1:LUYupSeNrTNCGzR/hVBk2NHZO4hXcVaW1k4Qx7rjPx8=
++golang.org/x/mod v0.8.0/go.mod h1:iBbtSCu2XBx23ZKBPSOrRkjjQPZFPuis4dIYUhu/chs=
+ golang.org/x/net v0.0.0-20170114055629-f2499483f923/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
+ golang.org/x/net v0.0.0-20180724234803-3673e40ba225/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
+ golang.org/x/net v0.0.0-20180826012351-8a410e7b638d/go.mod h1:mL1N/T3taQHkDXs73rZJwtUhF3w3ftmwwsq0BUmARs4=
+@@ -1185,9 +1190,11 @@ golang.org/x/net v0.0.0-20210316092652-d523dce5a7f4/go.mod h1:RBQZq4jEuRlivfhVLd
+ golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4/go.mod h1:p54w0d4576C0XHj96bSt6lcn1PtDYWL6XObtHCRCNQM=
+ golang.org/x/net v0.0.0-20210428140749-89ef3d95e781/go.mod h1:OJAsFXCWl8Ukc7SiCT/9KSuxbyM7479/AVlXFRxuMCk=
+ golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
+-golang.org/x/net v0.0.0-20210503060351-7fd8e65b6420/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
+-golang.org/x/net v0.0.0-20210525063256-abc453219eb5 h1:wjuX4b5yYQnEQHzd+CBcrcC6OVR2J1CN6mUy0oSxIPo=
+-golang.org/x/net v0.0.0-20210525063256-abc453219eb5/go.mod h1:9nx3DQGgdP8bBQD5qxJ1jj9UTztislL4KSBs9R2vV5Y=
++golang.org/x/net v0.0.0-20220722155237-a158d28d115b/go.mod h1:XRhObCWvk6IyKnWLug+ECip1KBveYUHfp+8e9klMJ9c=
++golang.org/x/net v0.6.0/go.mod h1:2Tu9+aMcznHK/AK1HMvgo6xiTLG5rD5rZLDS+rp2Bjs=
++golang.org/x/net v0.10.0/go.mod h1:0qNGK6F8kojg2nk9dLZ2mShWaEBan6FAoqfSigmmuDg=
++golang.org/x/net v0.12.0 h1:cfawfvKITfUsFCeJIHJrbSxpeu/E81khclypR0GVT50=
++golang.org/x/net v0.12.0/go.mod h1:zEVYFnQC7m/vmpQFELhcD1EWkZlX69l4oqgmer6hfKA=
+ golang.org/x/oauth2 v0.0.0-20180821212333-d2e6202438be/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
+ golang.org/x/oauth2 v0.0.0-20181017192945-9dcd33a902f4/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
+ golang.org/x/oauth2 v0.0.0-20181203162652-d668ce993890/go.mod h1:N/0e6XlmueqKjAGxoOufVs8QHGRruUQn6yWY3a++T0U=
+@@ -1218,8 +1225,10 @@ golang.org/x/sync v0.0.0-20200317015054-43a5402ce75a/go.mod h1:RxMgew5VJxzue5/jJ
+ golang.org/x/sync v0.0.0-20200625203802-6e8e738ad208/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+ golang.org/x/sync v0.0.0-20201020160332-67f06af15bc9/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+ golang.org/x/sync v0.0.0-20201207232520-09787c993a3a/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+-golang.org/x/sync v0.0.0-20210220032951-036812b2e83c h1:5KslGYwFpkhGh+Q16bwMP3cOontH8FOep7tGV86Y7SQ=
+ golang.org/x/sync v0.0.0-20210220032951-036812b2e83c/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
++golang.org/x/sync v0.0.0-20220722155255-886fb9371eb4/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
++golang.org/x/sync v0.1.0 h1:wsuoTGHzEhffawBOhz5CYhcrV4IdKZbEyZjBMuTp12o=
++golang.org/x/sync v0.1.0/go.mod h1:RxMgew5VJxzue5/jJTE5uejpjVlOe/izrB70Jof72aM=
+ golang.org/x/sys v0.0.0-20170830134202-bb24a47a89ea/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+ golang.org/x/sys v0.0.0-20180823144017-11551d06cbcc/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+ golang.org/x/sys v0.0.0-20180830151530-49385e6e1522/go.mod h1:STP8DvDyc/dI5b8T5hshtkjS+E42TnysNCUPdjciGhY=
+@@ -1304,12 +1313,21 @@ golang.org/x/sys v0.0.0-20210426230700-d19ff857e887/go.mod h1:h1NjWce9XRLGQEsW7w
+ golang.org/x/sys v0.0.0-20210503080704-8803ae5d1324/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+ golang.org/x/sys v0.0.0-20210510120138-977fb7262007/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/sys v0.0.0-20210514084401-e8d321eab015/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+-golang.org/x/sys v0.0.0-20210601080250-7ecdf8ef093b h1:qh4f65QIVFjq9eBURLEYWqaEXmOyqdUyiBSgaXWccWk=
+-golang.org/x/sys v0.0.0-20210601080250-7ecdf8ef093b/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.0.0-20210615035016-665e8c7367d1/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.5.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.8.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
++golang.org/x/sys v0.10.0 h1:SqMFp9UcQJZa+pmYuAKjd9xq1f0j5rLcDIk0mj4qAsA=
++golang.org/x/sys v0.10.0/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
+ golang.org/x/term v0.0.0-20201117132131-f5c789dd3221/go.mod h1:Nr5EML6q2oocZ2LXRh80K7BxOlk5/8JxuGnuhpl+muw=
+ golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
+-golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d h1:SZxvLBoTP5yHO3Frd4z4vrF+DBX9vMVanchswa69toE=
+ golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d/go.mod h1:bj7SfCRtBDWHUb9snDiAeCFNEtKQo2Wmx5Cou7ajbmo=
++golang.org/x/term v0.0.0-20210927222741-03fcf44c2211/go.mod h1:jbD1KX2456YbFQfuXm/mYQcufACuNUgVhRMnK/tPxf8=
++golang.org/x/term v0.5.0/go.mod h1:jMB1sMXY+tzblOD4FWmEbocvup2/aLOaQEp7JmGp78k=
++golang.org/x/term v0.8.0/go.mod h1:xPskH00ivmX89bAKVGSKKtLOWNx2+17Eiy94tnKShWo=
++golang.org/x/term v0.10.0 h1:3R7pNqamzBraeqj/Tj8qt1aQ2HpmlC+Cx/qL/7hn4/c=
++golang.org/x/term v0.10.0/go.mod h1:lpqdcUyK/oCiQxvxVrppt5ggO2KCZ5QblwqPnfZ6d5o=
+ golang.org/x/text v0.0.0-20160726164857-2910a502d2bf/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+ golang.org/x/text v0.0.0-20170915032832-14c0d48ead0c/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+ golang.org/x/text v0.3.0/go.mod h1:NqM8EUOU14njkJ3fqMW+pc6Ldnwhi/IjpwHt7yyuwOQ=
+@@ -1318,8 +1336,12 @@ golang.org/x/text v0.3.2/go.mod h1:bEr9sfX3Q8Zfm5fL9x+3itogRgK3+ptLWKqgva+5dAk=
+ golang.org/x/text v0.3.3/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+ golang.org/x/text v0.3.4/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+ golang.org/x/text v0.3.5/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
+-golang.org/x/text v0.3.6 h1:aRYxNxv6iGQlyVaZmk6ZgYEDa+Jg18DxebPSrd6bg1M=
+ golang.org/x/text v0.3.6/go.mod h1:5Zoc/QRtKVWzQhOtBMvqHzDpF6irO9z98xDceosuGiQ=
++golang.org/x/text v0.3.7/go.mod h1:u+2+/6zg+i71rQMx5EYifcz6MCKuco9NR6JIITiCfzQ=
++golang.org/x/text v0.7.0/go.mod h1:mrYo+phRRbMaCq/xk9113O4dZlRixOauAjOtrjsXDZ8=
++golang.org/x/text v0.9.0/go.mod h1:e1OnstbJyHTd6l/uOt8jFFHp6TRDWZR/bV3emEE/zU8=
++golang.org/x/text v0.11.0 h1:LAntKIrcmeSKERyiOh0XMV39LXS8IE9UL2yP7+f5ij4=
++golang.org/x/text v0.11.0/go.mod h1:TvPlkZtksWOMsz7fbANvkp4WM8x/WCo/om8BMLbz+aE=
+ golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
+ golang.org/x/time v0.0.0-20181108054448-85acf8d2951c/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
+ golang.org/x/time v0.0.0-20190308202827-9d24e82272b4/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
+@@ -1398,8 +1420,10 @@ golang.org/x/tools v0.0.0-20210106214847-113979e3529a/go.mod h1:emZCQorbCU4vsT4f
+ golang.org/x/tools v0.0.0-20210108195828-e2f9c7f1fc8e/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
+ golang.org/x/tools v0.0.0-20210114065538-d78b04bdf963/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
+ golang.org/x/tools v0.1.0/go.mod h1:xkSsbof2nBLbhDlRMhhhyNLN/zl3eTqcnHD5viDpcZ0=
+-golang.org/x/tools v0.1.1 h1:wGiQel/hW0NnEkJUk8lbzkX2gFJU6PFxf1v5OlCfuOs=
+ golang.org/x/tools v0.1.1/go.mod h1:o0xws9oXOQQZyjljx8fwUC0k7L1pTE6eaCbjGeHmOkk=
++golang.org/x/tools v0.1.12/go.mod h1:hNGJHUnrk76NpqgfD5Aqm5Crs+Hm0VOH/i9J2+nxYbc=
++golang.org/x/tools v0.6.0 h1:BOw41kyTf3PuCW1pVQf8+Cyg8pMlkYB1oo9iJ6D/lKM=
++golang.org/x/tools v0.6.0/go.mod h1:Xwgl3UAJ/d3gWutnCtw505GrjyAbvKui8lOU390QaIU=
+ golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+ golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+ golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
+@@ -1441,7 +1465,6 @@ google.golang.org/api v0.40.0/go.mod h1:fYKFpnQN0DsDSKRVRcQSDQNtqWPfM9i+zNPxepjR
+ google.golang.org/api v0.41.0/go.mod h1:RkxM5lITDfTzmyKFPt+wGrCJbVfniCr2ool8kTBzRTU=
+ google.golang.org/api v0.43.0/go.mod h1:nQsDGjRXMo4lvh5hP0TKqF244gqhGcr/YSIykhUk/94=
+ google.golang.org/api v0.46.0/go.mod h1:ceL4oozhkAiTID8XMmJBsIxID/9wMXJVVFXPg4ylg3I=
+-google.golang.org/api v0.46.0/go.mod h1:ceL4oozhkAiTID8XMmJBsIxID/9wMXJVVFXPg4ylg3I=
+ google.golang.org/api v0.47.0 h1:sQLWZQvP6jPGIP4JGPkJu4zHswrv81iobiyszr3b/0I=
+ google.golang.org/api v0.47.0/go.mod h1:Wbvgpq1HddcWVtzsVLyfLp8lDg6AA241LmgIL59tHXo=
+ google.golang.org/appengine v1.1.0/go.mod h1:EbEs0AVv82hx2wNQdGPgUI5lhzA/G0D9YwlJXL52JkM=
+diff --git a/pilot/docker/Dockerfile.proxyv2 b/pilot/docker/Dockerfile.proxyv2
+index a128501970..bc7ca5b771 100644
+--- a/pilot/docker/Dockerfile.proxyv2
++++ b/pilot/docker/Dockerfile.proxyv2
+@@ -1,22 +1,22 @@
+ # BASE_DISTRIBUTION is used to switch between the old base distribution and distroless base images
+-ARG BASE_DISTRIBUTION=default
++#ARG BASE_DISTRIBUTION=default
+ 
+ # Version is the base image version from the TLD Makefile
+-ARG BASE_VERSION=latest
++#ARG BASE_VERSION=latest
+ 
+ # The following section is used as base image if BASE_DISTRIBUTION=default
+-FROM gcr.io/istio-release/base:${BASE_VERSION} as default
++#FROM gcr.io/istio-release/base:${BASE_VERSION} as default
+ 
+ # The following section is used as base image if BASE_DISTRIBUTION=distroless
+ # This image is a custom built debian10 distroless image with multiarchitecture support.
+ # It is built on the base distroless image, with iptables binary and libraries added
+ # The source can be found at https://github.com/istio/distroless/tree/iptables
+-FROM gcr.io/istio-release/iptables@sha256:e8f940d0d0163ec4563ee070188c1d97308ac08f4a711152ff55f3a81e525140 as distroless
++#FROM gcr.io/istio-release/iptables@sha256:e8f940d0d0163ec4563ee070188c1d97308ac08f4a711152ff55f3a81e525140 as distroless
+ 
+ # This will build the final image based on either default or distroless from above
+ # hadolint ignore=DL3006
+-FROM ${BASE_DISTRIBUTION}
+-
++#FROM ${BASE_DISTRIBUTION}
++FROM cr.loongnix.cn/library/istio:0.1.0-base
+ WORKDIR /
+ 
+ ARG proxy_version
+@@ -29,7 +29,8 @@ COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
+ 
+ # Install Envoy.
+ ARG TARGETARCH
+-COPY ${TARGETARCH:-amd64}/${SIDECAR} /usr/local/bin/${SIDECAR}
++#COPY ${TARGETARCH:-linux_loong64}/${SIDECAR} /usr/local/bin/${SIDECAR}
++COPY envoy /usr/local/bin/${SIDECAR}
+ 
+ # Environment variable indicating the exact proxy sha - for debugging or version-specific configs 
+ ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
+@@ -37,7 +38,9 @@ ENV ISTIO_META_ISTIO_PROXY_SHA $proxy_version
+ ENV ISTIO_META_ISTIO_VERSION $istio_version
+ 
+ ARG TARGETARCH
+-COPY ${TARGETARCH:-amd64}/pilot-agent /usr/local/bin/pilot-agent
++#COPY ${TARGETARCH:-loong64}/pilot-agent /usr/local/bin/pilot-agent
++COPY pilot-agent /usr/local/bin/pilot-agent
++
+ 
+ COPY stats-filter.wasm /etc/istio/extensions/stats-filter.wasm
+ COPY stats-filter.compiled.wasm /etc/istio/extensions/stats-filter.compiled.wasm
+-- 
+2.20.1
+
