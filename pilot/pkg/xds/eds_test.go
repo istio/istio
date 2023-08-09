@@ -353,6 +353,7 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, true)
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	addUnhealthyCluster(s)
+	s.EnsureSynced(t)
 	adscon := s.Connect(nil, nil, watchEds)
 	_, err := adscon.Wait(5 * time.Second)
 	if err != nil {
