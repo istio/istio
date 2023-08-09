@@ -21,6 +21,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -28,13 +29,81 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/util/reserveport"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+// DelayedListener is like net.Listener but delays the Listen() syscall.
+// This allows reserving a port without listening.
+type DelayedListener struct {
+	fd   int
+	port int
+}
+
+func NewDelayedListener() (*DelayedListener, error) {
+	d := &DelayedListener{}
+	addr := &syscall.SockaddrInet4{
+		Port: 0,
+		Addr: [4]byte{0, 0, 0, 0},
+	}
+	s, err := syscall.Socket(syscall.AF_INET, syscall.SOCK_STREAM, syscall.IPPROTO_IP)
+	if err != nil {
+		return nil, err
+	}
+	d.fd = s
+	if err := syscall.Bind(s, addr); err != nil {
+		return nil, err
+	}
+	sa, err := syscall.Getsockname(s)
+	if err != nil {
+		return nil, err
+	}
+	d.port = sa.(*syscall.SockaddrInet4).Port
+	return d, nil
+}
+
+func (d *DelayedListener) Address() string {
+	return net.JoinHostPort("127.0.0.1", strconv.Itoa(d.port))
+}
+
+func (d *DelayedListener) Listen() error {
+	if err := syscall.Listen(d.fd, 128); err != nil {
+		return nil
+	}
+	return nil
+}
+
+func (d *DelayedListener) Close() error {
+	if err := syscall.Close(d.fd); err != nil {
+		return nil
+	}
+	return nil
+}
+
+func TestDelayedListener(t *testing.T) {
+	d, err := NewDelayedListener()
+	assert.NoError(t, err)
+
+	// Should have connection refused before we listen
+	_, err = net.Dial("tcp", d.Address())
+	assert.Error(t, err)
+
+	assert.NoError(t, d.Listen())
+
+	// Now we should see success
+	_, err = net.Dial("tcp", d.Address())
+	assert.NoError(t, err)
+
+	assert.NoError(t, d.Close())
+	// Now we should failure again success
+	_, err = net.Dial("tcp", d.Address())
+	assert.Error(t, err)
+}
+
 func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 	t.Run("tcp", func(t *testing.T) {
-		port := reserveport.NewPortManagerOrFail(t).ReservePortNumberOrFail(t)
+		listener, err := NewDelayedListener()
+		assert.NoError(t, err)
 		tcpHealthChecker := NewWorkloadHealthChecker(&v1alpha3.ReadinessProbe{
 			InitialDelaySeconds: 0,
 			TimeoutSeconds:      1,
@@ -44,7 +113,7 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 			HealthCheckMethod: &v1alpha3.ReadinessProbe_TcpSocket{
 				TcpSocket: &v1alpha3.TCPHealthCheckConfig{
 					Host: "localhost",
-					Port: uint32(port),
+					Port: uint32(listener.port),
 				},
 			},
 		}, nil, []string{"127.0.0.1"}, false)
@@ -53,43 +122,32 @@ func TestWorkloadHealthChecker_PerformApplicationHealthCheck(t *testing.T) {
 
 		quitChan := make(chan struct{})
 
-		expectedTCPEvents := [7]*ProbeEvent{
-			{Healthy: false},
-			{Healthy: true},
-			{Healthy: false},
-			{Healthy: true},
+		expectedTCPEvents := [3]*ProbeEvent{
 			{Healthy: false},
 			{Healthy: true},
 			{Healthy: false},
 		}
-		tcpHealthStatuses := [7]bool{false, true, false, true, false, true, false}
+		tcpHealthStatuses := [3]bool{false, true, false}
 
-		cont := make(chan struct{}, 6)
+		cont := make(chan struct{}, len(expectedTCPEvents))
 		// wait for go-ahead for state change
 		go func() {
-			for i := 0; i < len(tcpHealthStatuses); i++ {
-				if tcpHealthStatuses[i] {
-					var srv net.Listener
-					// open port until we get confirmation that
-					// retry in case of port conflicts
-					if err := retry.UntilSuccess(func() (err error) {
-						srv, err = net.Listen("tcp", fmt.Sprintf("localhost:%d", port))
-						return
-					}, retry.Delay(time.Millisecond)); err != nil {
-						t.Log(err)
-						return
-					}
-					<-cont
-					srv.Close()
-				} else {
-					<-cont
+			prev := false
+			for _, want := range tcpHealthStatuses {
+				if !prev && want {
+					assert.NoError(t, listener.Listen())
 				}
+				if prev && !want {
+					assert.NoError(t, listener.Close())
+				}
+				<-cont
+				prev = want
 			}
 		}()
 
 		eventNum := atomic.NewInt32(0)
 		go tcpHealthChecker.PerformApplicationHealthCheck(func(event *ProbeEvent) {
-			if eventNum.Load() >= 7 {
+			if int(eventNum.Load()) >= len(tcpHealthStatuses) {
 				return
 			}
 			if event.Healthy != expectedTCPEvents[eventNum.Load()].Healthy {
