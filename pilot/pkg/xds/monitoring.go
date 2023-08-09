@@ -84,16 +84,16 @@ var (
 		"Pilot XDS response write timeouts.",
 	)
 
-	// Covers xds_builderr and xds_senderr for xds in {lds, rds, cds, eds}.
+	// Covers xds builder and xds sender for xds in {lds, rds, cds, eds}.
 	pushes = monitoring.NewSum(
 		"pilot_xds_pushes",
 		"Pilot build and send errors for lds, rds, cds and eds.",
 	)
 
-	cdsSendErrPushes = pushes.With(typeTag.Value("cds_senderr"))
-	edsSendErrPushes = pushes.With(typeTag.Value("eds_senderr"))
-	ldsSendErrPushes = pushes.With(typeTag.Value("lds_senderr"))
-	rdsSendErrPushes = pushes.With(typeTag.Value("rds_senderr"))
+	cdsSendErrPushes = pushes.With(typeTag.Value("cds_sender"))
+	edsSendErrPushes = pushes.With(typeTag.Value("eds_sender"))
+	ldsSendErrPushes = pushes.With(typeTag.Value("lds_sender"))
+	rdsSendErrPushes = pushes.With(typeTag.Value("rds_sender"))
 
 	debounceTime = monitoring.NewDistribution(
 		"pilot_debounce_time",
