@@ -3,7 +3,7 @@
 # is inherently created from a specific revision
 {{/* Copy just what we need to avoid expensive deepCopy */}}
 {{- $whv := dict
- "revision" .Values.revision
+  "revision" .Values.revision
   "injectionURL" .Values.istiodRemote.injectionURL
   "namespace" .Release.Namespace }}
 {{- define "core" }}
@@ -44,7 +44,8 @@ webhooks:
     matchExpressions:
     - key: "kubernetes.io/metadata.name"
       operator: NotIn
-      values: {{ .Values.sidecarInjectorWebhook.defaultExcludedNamespace | toYaml | nindent 6 }}
+      values:
+{{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
     - key: istio.io/rev
       operator: In
       values:
@@ -62,7 +63,8 @@ webhooks:
     matchExpressions:
     - key: "kubernetes.io/metadata.name"
       operator: NotIn
-      values: {{ .Values.sidecarInjectorWebhook.defaultExcludedNamespace | toYaml | nindent 6 }}
+      values:
+{{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
     - key: istio.io/rev
       operator: DoesNotExist
     - key: istio-injection
@@ -84,7 +86,8 @@ webhooks:
     matchExpressions:
     - key: "kubernetes.io/metadata.name"
       operator: NotIn
-      values: {{ .Values.sidecarInjectorWebhook.defaultExcludedNamespace | toYaml | nindent 6 }}
+      values:
+{{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
     - key: istio-injection
       operator: In
       values:
@@ -102,7 +105,8 @@ webhooks:
     matchExpressions:
     - key: "kubernetes.io/metadata.name"
       operator: NotIn
-      values: {{ .Values.sidecarInjectorWebhook.defaultExcludedNamespace | toYaml | nindent 6 }}
+      values:
+{{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
     - key: istio-injection
       operator: DoesNotExist
     - key: istio.io/rev
@@ -123,7 +127,8 @@ webhooks:
     matchExpressions:
     - key: "kubernetes.io/metadata.name"
       operator: NotIn
-      values: {{ .Values.sidecarInjectorWebhook.defaultExcludedNamespace | toYaml | nindent 6 }}
+      values:
+{{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
     - key: istio-injection
       operator: DoesNotExist
     - key: istio.io/rev

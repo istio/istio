@@ -82,6 +82,8 @@ type GenerateOptions struct {
 	AutoInjectNamespaces bool
 	// CustomLabels are labels to add to the generated webhook.
 	CustomLabels map[string]string
+	// DefaultExcludeNamespaces are namespaces to exclude from auto-injection.
+	DefaultExcludeNamespaces []string
 }
 
 // Generate generates the manifests for a revision tag pointed the given revision.
@@ -275,10 +277,11 @@ sidecarInjectorWebhook:
   objectSelector:
     enabled: true
     autoInject: true
-
+  defaultExcludedNamespaces: %v
+  
 istiodRemote:
   injectionURL: %s
-`, config.Revision, config.Tag, opts.AutoInjectNamespaces, config.URL)
+`, config.Revision, config.Tag, opts.AutoInjectNamespaces, opts.DefaultExcludeNamespaces, config.URL)
 
 	tagWebhookYaml, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, revisionTagTemplateName)

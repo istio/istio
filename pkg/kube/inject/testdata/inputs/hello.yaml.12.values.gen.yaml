@@ -106,7 +106,7 @@
   "revision": "",
   "sidecarInjectorWebhook": {
     "alwaysInjectSelector": [],
-    "defaultExcludedNamespace": [
+    "defaultExcludedNamespaces": [
       "kube-system",
       "kube-public",
       "kube-node-lease",

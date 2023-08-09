@@ -112,8 +112,8 @@ sidecarInjectorWebhook:
   #
   # defaultTemplates: ["sidecar", "hello"]
   defaultTemplates: []
-  # defaultExcludedNamespace specifies a set of namespaces that sidecar injection will be skipped.
-  defaultExcludedNamespace:
+  # defaultExcludedNamespaces specifies a set of namespaces that sidecar injection will be skipped.
+  defaultExcludedNamespaces:
     - "kube-system"
     - "kube-public"
     - "kube-node-lease"

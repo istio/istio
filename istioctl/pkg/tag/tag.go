@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/inject"
 )
 
 const (
@@ -48,20 +49,23 @@ overwrite existing revision tags.`
 	tagCreatedStr   = `Revision tag %q created, referencing control plane revision %q. To enable injection using this
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
-	webhookNameHelpStr          = "Name to use for a revision tag's mutating webhook configuration."
-	autoInjectNamespacesHelpStr = "If set to true, the sidecars should be automatically injected into all namespaces by default"
+	webhookNameHelpStr               = "Name to use for a revision tag's mutating webhook configuration."
+	autoInjectNamespacesHelpStr      = "If set to true, the sidecars should be automatically injected into all namespaces by default"
+	defaultExcludedNamespacessHelpStr = `Namespaces to exclude from automatic injection.
+Defaults are kube-system, kube-public, kube-node-lease, and local-path-storage`
 )
 
 // options for CLI
 var (
 	// revision to point tag webhook at
-	revision             = ""
-	manifestsPath        = ""
-	overwrite            = false
-	skipConfirmation     = false
-	webhookName          = ""
-	autoInjectNamespaces = false
-	outputFormat         = util.TableFormat
+	revision                  = ""
+	manifestsPath             = ""
+	overwrite                 = false
+	skipConfirmation          = false
+	webhookName               = ""
+	autoInjectNamespaces      = false
+	outputFormat              = util.TableFormat
+	defaultExcludedNamespacess []string
 )
 
 type tagDescription struct {
@@ -153,6 +157,8 @@ injection labels.`,
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
 	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
+	cmd.PersistentFlags().StringArrayVarP(&defaultExcludedNamespacess, "excluded-namespaces", "e",
+		inject.IgnoredNamespaces.UnsortedList(), defaultExcludedNamespacessHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -270,13 +276,14 @@ revision tag before removing using the "istioctl tag list" command.
 // setTag creates or modifies a revision tag.
 func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, istioNS string, generate bool, w, stderr io.Writer) error {
 	opts := &GenerateOptions{
-		Tag:                  tagName,
-		Revision:             revision,
-		WebhookName:          webhookName,
-		ManifestsPath:        manifestsPath,
-		Generate:             generate,
-		Overwrite:            overwrite,
-		AutoInjectNamespaces: autoInjectNamespaces,
+		Tag:                      tagName,
+		Revision:                 revision,
+		WebhookName:              webhookName,
+		ManifestsPath:            manifestsPath,
+		Generate:                 generate,
+		Overwrite:                overwrite,
+		AutoInjectNamespaces:     autoInjectNamespaces,
+		DefaultExcludeNamespaces: defaultExcludedNamespacess,
 	}
 	tagWhYAML, err := Generate(ctx, kubeClient, opts, istioNS)
 	if err != nil {

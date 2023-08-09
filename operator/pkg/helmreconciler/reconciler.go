@@ -22,6 +22,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/kube/inject"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -623,11 +624,12 @@ func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator,
 		}
 
 		o := &revtag.GenerateOptions{
-			Tag:                  revtag.DefaultRevisionName,
-			Revision:             rev,
-			Overwrite:            true,
-			AutoInjectNamespaces: autoInjectNamespaces,
-			CustomLabels:         ignorePruneLabel,
+			Tag:                      revtag.DefaultRevisionName,
+			Revision:                 rev,
+			Overwrite:                true,
+			AutoInjectNamespaces:     autoInjectNamespaces,
+			CustomLabels:             ignorePruneLabel,
+			DefaultExcludeNamespaces: inject.IgnoredNamespaces.UnsortedList(),
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)

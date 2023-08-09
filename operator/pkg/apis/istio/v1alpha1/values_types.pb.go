@@ -4341,8 +4341,8 @@ type SidecarInjectorConfig struct {
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	UseLegacySelectors *wrapperspb.BoolValue `protobuf:"bytes,4,opt,name=useLegacySelectors,proto3" json:"useLegacySelectors,omitempty"`
-	// defaultExcludedNamespace is a list of namespaces that should not be injected with the sidecar.
-	DefaultExcludedNamespace []string `protobuf:"bytes,25,rep,name=defaultExcludedNamespace,proto3" json:"defaultExcludedNamespace,omitempty"`
+	// defaultExcludedNamespaces is a list of namespaces that should not be injected with the sidecar.
+	defaultExcludedNamespaces []string `protobuf:"bytes,25,rep,name=defaultExcludedNamespaces,proto3" json:"defaultExcludedNamespaces,omitempty"`
 }
 
 func (x *SidecarInjectorConfig) Reset() {
@@ -4455,9 +4455,9 @@ func (x *SidecarInjectorConfig) GetUseLegacySelectors() *wrapperspb.BoolValue {
 	return nil
 }
 
-func (x *SidecarInjectorConfig) GetDefaultExcludedNamespace() []string {
+func (x *SidecarInjectorConfig) GetdefaultExcludedNamespaces() []string {
 	if x != nil {
-		return x.DefaultExcludedNamespace
+		return x.defaultExcludedNamespaces
 	}
 	return nil
 }

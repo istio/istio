@@ -1097,8 +1097,8 @@ message SidecarInjectorConfig {
   // This is option is intended for migration purposes only and will be removed in Istio 1.10.
   google.protobuf.BoolValue useLegacySelectors = 4 [deprecated=true];
 
-  // defaultExcludedNamespace is a list of namespaces that should not be injected with the sidecar.
-  repeated string defaultExcludedNamespace = 25;
+  // defaultExcludedNamespaces is a list of namespaces that should not be injected with the sidecar.
+  repeated string defaultExcludedNamespaces = 25;
 }
 
 // Configuration for each of the supported tracers.

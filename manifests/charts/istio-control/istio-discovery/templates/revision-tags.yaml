@@ -6,7 +6,7 @@
   "injectionPath" .Values.istiodRemote.injectionPath
   "injectionURL" .Values.istiodRemote.injectionURL
   "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
-  "defaultExcludedNamespace" .Values.sidecarInjectorWebhook.defaultExcludedNamespace
+  "defaultExcludedNamespaces" .Values.sidecarInjectorWebhook.defaultExcludedNamespaces
   "namespace" .Release.Namespace }}
 {{- define "core" }}
 {{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
@@ -53,7 +53,8 @@ webhooks:
     matchExpressions:
     - key: "kubernetes.io/metadata.name"
       operator: NotIn
-      values: {{ .defaultExcludedNamespace | toYaml | nindent 6 }}
+      values:
+{{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
     - key: istio.io/rev
       operator: In
       values:
@@ -71,7 +72,8 @@ webhooks:
     matchExpressions:
     - key: "kubernetes.io/metadata.name"
       operator: NotIn
-      values: {{ .defaultExcludedNamespace | toYaml | nindent 6 }}
+      values:
+{{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
     - key: istio.io/rev
       operator: DoesNotExist
     - key: istio-injection
@@ -97,7 +99,8 @@ webhooks:
     matchExpressions:
     - key: "kubernetes.io/metadata.name"
       operator: NotIn
-      values: {{ .defaultExcludedNamespace | toYaml | nindent 6 }}
+      values:
+{{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
     - key: istio-injection
       operator: In
       values:
@@ -115,7 +118,8 @@ webhooks:
     matchExpressions:
     - key: "kubernetes.io/metadata.name"
       operator: NotIn
-      values: {{ .defaultExcludedNamespace | toYaml | nindent 6 }}
+      values:
+{{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
     - key: istio-injection
       operator: DoesNotExist
     - key: istio.io/rev
@@ -136,7 +140,8 @@ webhooks:
     matchExpressions:
     - key: "kubernetes.io/metadata.name"
       operator: NotIn
-      values: {{ .defaultExcludedNamespace | toYaml | nindent 6 }}
+      values:
+{{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
     - key: istio-injection
       operator: DoesNotExist
     - key: istio.io/rev
