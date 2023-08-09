@@ -371,12 +371,13 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
 // Runs if a goroutine, with errors reported through gErrors.
 func getFromCluster(f func(params *content.Params) (map[string]string, error), params *content.Params, dir string, wg *sync.WaitGroup) {
+	startTime := time.Now()
 	wg.Add(1)
 	log.Infof("Waiting on %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	go func() {
 		defer func() {
 			wg.Done()
-			logRuntime(time.Now(), "Done getting from cluster for %v", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+			logRuntime(startTime, "Done getting from cluster for %v", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 		}()
 
 		out, err := f(params)
@@ -394,12 +395,13 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
 	path, namespace, pod, container string, wg *sync.WaitGroup,
 ) {
+	startTime := time.Now()
 	wg.Add(1)
 	log.Infof("Waiting on proxy logs %v/%v/%v", namespace, pod, container)
 	go func() {
 		defer func() {
 			wg.Done()
-			logRuntime(time.Now(), "Done getting from proxy logs for %v/%v/%v", namespace, pod, container)
+			logRuntime(startTime, "Done getting from proxy logs for %v/%v/%v", namespace, pod, container)
 		}()
 
 		clog, cstat, imp, err := getLog(runner, resources, config, namespace, pod, container)
@@ -418,12 +420,13 @@ func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, res
 func getIstiodLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
+	startTime := time.Now()
 	wg.Add(1)
 	log.Infof("Waiting on Istiod logs for %v/%v", namespace, pod)
 	go func() {
 		defer func() {
 			wg.Done()
-			logRuntime(time.Now(), "Done getting Istiod logs for %v/%v", namespace, pod)
+			logRuntime(startTime, "Done getting Istiod logs for %v/%v", namespace, pod)
 		}()
 
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.DiscoveryContainerName)
@@ -437,12 +440,13 @@ func getIstiodLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, re
 func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
+	startTime := time.Now()
 	wg.Add(1)
 	log.Infof("Waiting on operator logs for %v/%v", namespace, pod)
 	go func() {
 		defer func() {
 			wg.Done()
-			logRuntime(time.Now(), "Done getting operator logs for %v/%v", namespace, pod)
+			logRuntime(startTime, "Done getting operator logs for %v/%v", namespace, pod)
 		}()
 
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.OperatorContainerName)
@@ -457,12 +461,13 @@ func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, 
 func getCniLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
+	startTime := time.Now()
 	wg.Add(1)
 	log.Infof("Waiting on CNI logs for %v", pod)
 	go func() {
 		defer func() {
 			wg.Done()
-			logRuntime(time.Now(), "Done getting CNI logs for %v", pod)
+			logRuntime(startTime, "Done getting CNI logs for %v", pod)
 		}()
 
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, "")
