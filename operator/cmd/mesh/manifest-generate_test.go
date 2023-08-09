@@ -397,8 +397,8 @@ func TestManifestGenerateFlagsSetValues(t *testing.T) {
 }
 
 func TestManifestGenerateFlags(t *testing.T) {
-	flagOutputDir := createTempDirOrFail(t, "flag-output")
-	flagOutputValuesDir := createTempDirOrFail(t, "flag-output-values")
+	flagOutputDir := t.TempDir()
+	flagOutputValuesDir := t.TempDir()
 	runTestGroup(t, testGroup{
 		{
 			desc:                        "all_on",
@@ -434,8 +434,6 @@ func TestManifestGenerateFlags(t *testing.T) {
 			flags:      "--force",
 		},
 	})
-	removeDirOrFail(t, flagOutputDir)
-	removeDirOrFail(t, flagOutputValuesDir)
 }
 
 func TestManifestGeneratePilot(t *testing.T) {
