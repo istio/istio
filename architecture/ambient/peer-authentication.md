@@ -45,15 +45,15 @@ The above policies reject unauthenticated traffic at the ztunnel unless its dest
 
 (Note for PR reviewers: this section is not yet implemented and is dependent upon discussion in the [ztunnel hairpinning doc](https://docs.google.com/document/d/1uM1c3zzoehiijh1ZpZuJ1-SzuVVupenv8r5yuCaFshs/edit#heading=h.dwbqvwmg6ud3))
 
-When a ztunnel receives traffic (authenticated or not) from a workload, it will forward that traffic to the Waypoint proxy **after** applying any `TRANSPORT` layer policies (i.e. `Authorization`s). Thus, if the destination workload has at least the equivalent of a STRICT `PeerAuthentication`, unauthenticated traffic will be rejected before it reaches the Waypoint proxy. If the effective policy is `PERMISSIVE` (the default), the ztunnel will open a vanilla TLS HBONE tunnel (NOTE: this is not mTLS) to the Waypoint proxy and forward the traffic over that connection without presenting a client certificate. Therefore, it is absolutely critical that the waypoint proxy not assume any identity from incoming connections, even if the ztunnel is hairpinning. In other words, all traffic over TLS HBONE tunnels must be considered to be untrusted. From there, traffic is returned to the ztunnel (still over the TLS HBONE tunnel) and forwarded to the destination workload.
+When a ztunnel receives traffic (authenticated or not) from a workload, it will forward that traffic to the Waypoint proxy **after** applying any `TRANSPORT` layer policies (i.e. `Authorization`s). Thus, if the destination workload has at least the equivalent of a `STRICT` `PeerAuthentication`, unauthenticated traffic will be rejected before it reaches the Waypoint proxy. If the effective policy is `PERMISSIVE` (the default), the ztunnel will open a vanilla TLS HBONE tunnel (NOTE: this is not mTLS) to the Waypoint proxy and forward the traffic over that connection without presenting a client certificate. Therefore, it is absolutely critical that the waypoint proxy not assume any identity from incoming connections, even if the ztunnel is hairpinning. In other words, all traffic over TLS HBONE tunnels must be considered to be untrusted. From there, traffic is returned to the ztunnel (still over the TLS HBONE tunnel) and forwarded to the destination workload.
 
 The following diagram illustrates the flow of unauthenticated traffic with a `PERMISSIVE` policy:
 
 ```mermaid
 graph TD;
 src[src pod]-->|plaintext port|ztunnel{"ztunnel (L4 policy applied here)"}
-ztunnel{ztunnel}-->|tls|wp{waypoint}
-wp-->|tls|ztunnel
+ztunnel{ztunnel}-->|TLS|wp{waypoint}
+wp-->|mTLS|ztunnel
 ztunnel-->|plaintext|dst[dst pod]
 ```
 
@@ -62,9 +62,7 @@ And here's an example of an authenticated request to a captured destination:
 ```mermaid
 graph TD;
 src[src pod]-->|15008|ztunnel{ztunnel}
-ztunnel-->|HBONE|wp{"waypoint (all policy applied here)"}
-wp{waypoint}-->|HBONE|dwp{destination waypoint}
-dwp-->|HBONE|dst[dst pod]
-dst-->|15008|dztunnel{destination ztunnel}
+ztunnel-->|HBONE|dwp{"destination waypoint (all policy applied here)"}
+dwp{destination waypoint}-->|15008|dztunnel{destination ztunnel}
 dztunnel-->|host network|dst[dst pod]
 ```
