@@ -1319,18 +1319,6 @@ func makeService(t *testing.T, c kubernetes.Interface, svc *v1.Service) {
 	}
 }
 
-func makeNode(t *testing.T, c kubernetes.Interface, node *v1.Node) {
-	t.Helper()
-
-	_, err := c.CoreV1().Nodes().Create(context.Background(), node, metav1.CreateOptions{})
-	if kerrors.IsAlreadyExists(err) {
-		_, err = c.CoreV1().Nodes().Update(context.Background(), node, metav1.UpdateOptions{})
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
-}
-
 func makeIstioObject(t *testing.T, c model.ConfigStore, svc config.Config) {
 	t.Helper()
 	_, err := c.Create(svc)
