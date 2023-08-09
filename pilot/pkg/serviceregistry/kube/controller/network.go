@@ -218,10 +218,6 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 	c.networkManager.RLock()
 	defer c.networkManager.RUnlock()
 
-	if len(c.networkGatewaysBySvc) == 0 {
-		return nil
-	}
-
 	// Merge all the gateways into a single set to eliminate duplicates.
 	out := make(model.NetworkGatewaySet)
 	for _, gateways := range c.networkGatewaysBySvc {
