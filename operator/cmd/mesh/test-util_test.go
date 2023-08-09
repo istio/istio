@@ -16,11 +16,9 @@ package mesh
 
 import (
 	"fmt"
-	"os"
 	"reflect"
 	"regexp"
 	"strings"
-	"testing"
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -424,21 +422,6 @@ func mustGetValueAtPath(g *gomega.WithT, t map[string]any, path string) any {
 	g.Expect(err).Should(gomega.BeNil(), "path %s should exist (%s)", path, err)
 	g.Expect(f).Should(gomega.BeTrue(), "path %s should exist", path)
 	return got.Node
-}
-
-func createTempDirOrFail(t *testing.T, prefix string) string {
-	dir, err := os.MkdirTemp("", prefix)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return dir
-}
-
-func removeDirOrFail(t *testing.T, path string) {
-	err := os.RemoveAll(path)
-	if err != nil {
-		t.Fatal(err)
-	}
 }
 
 // toMap transforms a comma separated key:value list (e.g. "a:aval, b:bval") to a map.

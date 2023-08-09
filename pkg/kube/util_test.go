@@ -28,16 +28,8 @@ import (
 )
 
 func TestBuildClientConfig(t *testing.T) {
-	config1, err := generateKubeConfig("1.1.1.1", "3.3.3.3")
-	if err != nil {
-		t.Fatalf("Failed to create a sample kubernetes config file. Err: %v", err)
-	}
-	defer os.RemoveAll(filepath.Dir(config1))
-	config2, err := generateKubeConfig("2.2.2.2", "4.4.4.4")
-	if err != nil {
-		t.Fatalf("Failed to create a sample kubernetes config file. Err: %v", err)
-	}
-	defer os.RemoveAll(filepath.Dir(config2))
+	config1 := generateKubeConfig(t, "1.1.1.1", "3.3.3.3")
+	config2 := generateKubeConfig(t, "2.2.2.2", "4.4.4.4")
 
 	tests := []struct {
 		name               string
@@ -99,11 +91,10 @@ func TestBuildClientConfig(t *testing.T) {
 	}
 }
 
-func generateKubeConfig(cluster1Host string, cluster2Host string) (string, error) {
-	tempDir, err := os.MkdirTemp("/tmp/", ".kube")
-	if err != nil {
-		return "", err
-	}
+func generateKubeConfig(t *testing.T, cluster1Host string, cluster2Host string) string {
+	t.Helper()
+
+	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "config")
 
 	template := `apiVersion: v1
@@ -136,11 +127,11 @@ users:
     token: sdsddsd`
 
 	sampleConfig := fmt.Sprintf(template, cluster1Host, cluster2Host)
-	err = os.WriteFile(filePath, []byte(sampleConfig), 0o644)
+	err := os.WriteFile(filePath, []byte(sampleConfig), 0o644)
 	if err != nil {
-		return "", err
+		t.Fatal(err)
 	}
-	return filePath, nil
+	return filePath
 }
 
 func TestCronJobMetadata(t *testing.T) {
