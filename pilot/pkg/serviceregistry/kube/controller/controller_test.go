@@ -27,7 +27,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	corev1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -2448,9 +2447,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 	verifyGetByIP := func(address string, want []*model.WorkloadInstance) {
 		got := ctl.workloadInstancesIndex.GetByIP(address)
 
-		if diff := cmp.Diff(want, got, cmpopts.IgnoreUnexported(model.IstioEndpoint{})); diff != "" {
-			t.Fatalf("workload index is not valid (--want/++got): %v", diff)
-		}
+		assert.Equal(t, want, got)
 	}
 
 	wi1 := &model.WorkloadInstance{

@@ -31,6 +31,8 @@ import (
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mitchellh/copystructure"
 	"google.golang.org/protobuf/proto"
 
@@ -123,6 +125,12 @@ func (s *Service) Key() string {
 	}
 
 	return s.Attributes.Namespace + "/" + string(s.Hostname)
+}
+
+var serviceCmpOpts = []cmp.Option{cmpopts.IgnoreFields(AddressMap{}, "mutex")}
+
+func (s *Service) CmpOpts() []cmp.Option {
+	return serviceCmpOpts
 }
 
 // Resolution indicates how the service instances need to be resolved before routing traffic.
@@ -271,6 +279,13 @@ type ServiceInstance struct {
 	Endpoint    *IstioEndpoint `json:"endpoint,omitempty"`
 }
 
+func (instance *ServiceInstance) CmpOpts() []cmp.Option {
+	res := []cmp.Option{}
+	res = append(res, istioEndpointCmpOpts...)
+	res = append(res, serviceCmpOpts...)
+	return res
+}
+
 // ServiceTarget includes a Service object, along with a specific service port
 // and target port. This is basically a smaller version of ServiceInstance,
 // intended to avoid the need to have the full object when only port information
@@ -342,6 +357,10 @@ type WorkloadInstance struct {
 	PortMap  map[string]uint32 `json:"portMap,omitempty"`
 	// Can only be selected by service entry of DNS type.
 	DNSServiceEntryOnly bool `json:"dnsServiceEntryOnly,omitempty"`
+}
+
+func (instance *WorkloadInstance) CmpOpts() []cmp.Option {
+	return istioEndpointCmpOpts
 }
 
 // DeepCopy creates a copy of WorkloadInstance.
@@ -566,6 +585,12 @@ func (ep *IstioEndpoint) Metadata() *EndpointMetadata {
 	}
 }
 
+var istioEndpointCmpOpts = []cmp.Option{cmpopts.IgnoreUnexported(IstioEndpoint{}), endpointDiscoverabilityPolicyImplCmpOpt, cmp.AllowUnexported()}
+
+func (ep *IstioEndpoint) CmpOpts() []cmp.Option {
+	return istioEndpointCmpOpts
+}
+
 // EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.
 type EndpointMetadata struct {
 	// Network holds the network where this endpoint is present
@@ -607,6 +632,14 @@ func (p *endpointDiscoverabilityPolicyImpl) IsDiscoverableFromProxy(ep *IstioEnd
 
 func (p *endpointDiscoverabilityPolicyImpl) String() string {
 	return p.name
+}
+
+var endpointDiscoverabilityPolicyImplCmpOpt = cmp.Comparer(func(x, y endpointDiscoverabilityPolicyImpl) bool {
+	return x.String() == y.String()
+})
+
+func (p *endpointDiscoverabilityPolicyImpl) CmpOpts() []cmp.Option {
+	return []cmp.Option{endpointDiscoverabilityPolicyImplCmpOpt}
 }
 
 // AlwaysDiscoverable is an EndpointDiscoverabilityPolicy that allows an endpoint to be discoverable throughout the mesh.
