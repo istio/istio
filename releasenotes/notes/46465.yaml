@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Fixed** Do not include empty IP strings in VIPs (fixes crash when LoadBalancer.Ingress.IP is unset/not present)

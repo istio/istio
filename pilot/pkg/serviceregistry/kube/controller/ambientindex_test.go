@@ -815,6 +815,25 @@ func TestRBACConvert(t *testing.T) {
 	}
 }
 
+func TestEmptyVIPsExcluded(t *testing.T) {
+	testSVC := corev1.Service{
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "",
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{
+						IP: "",
+					},
+				},
+			},
+		},
+	}
+	vips := getVIPs(&testSVC)
+	assert.Equal(t, 0, len(vips), "optional IP fields should be ignored if empty")
+}
+
 type ambientTestServer struct {
 	cfg        *memory.Controller
 	controller *FakeController
