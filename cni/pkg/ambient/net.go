@@ -249,6 +249,11 @@ func (s *Server) AddPodToMesh(pod *corev1.Pod) {
 			log.Errorf("failed to update POD ebpf: %v", err)
 			return
 		}
+	case PluginMode:
+		if err := s.plugin.UpdatePodOnNode(pod); err != nil {
+			log.Errorf("failed to update POD plugin: %v", err)
+			return
+		}
 	}
 	if err := AnnotateEnrolledPod(s.kubeClient.Kube(), pod); err != nil {
 		log.Errorf("failed to annotate pod enrollment: %v", err)
@@ -267,6 +272,10 @@ func (s *Server) DelPodFromMesh(pod *corev1.Pod, event controllers.Event) {
 		}
 		if err := s.delPodEbpfOnNode(pod.Status.PodIP, false); err != nil {
 			log.Errorf("failed to del POD ebpf: %v", err)
+		}
+	case PluginMode:
+		if err := s.plugin.DelPodOnNode(pod.Status.PodIP); err != nil {
+			log.Errorf("failed to del POD plugin: %v", err)
 		}
 	}
 	// event.New will be nil if the pod is deleted
@@ -292,6 +301,12 @@ func (s *Server) cleanStaleIPs(stales sets.Set[string]) {
 		for ip := range stales {
 			if err := s.delPodEbpfOnNode(ip, false); err != nil {
 				log.Errorf("failed to cleanup POD(%s) ebpf: %v", ip, err)
+			}
+		}
+	case PluginMode:
+		for ip := range stales {
+			if err := s.plugin.DelPodOnNode(ip); err != nil {
+				log.Errorf("failed to cleanup POD(%s) plugin: %v", ip, err)
 			}
 		}
 	}

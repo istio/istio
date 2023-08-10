@@ -50,6 +50,7 @@ type Server struct {
 	iptablesCommand lazy.Lazy[string]
 	redirectMode    RedirectMode
 	ebpfServer      *ebpf.RedirectServer
+	plugin          Plugin
 }
 
 type AmbientConfigFile struct {
@@ -87,6 +88,17 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		s.ebpfServer = ebpf.NewRedirectServer()
 		s.ebpfServer.SetLogLevel(args.LogLevel)
 		s.ebpfServer.Start(ctx.Done())
+	case PluginMode:
+		s.redirectMode = PluginMode
+		factory := GetFactory(PluginType(args.PluginName))
+		if s.plugin == nil {
+			return nil, fmt.Errorf("plugin %s not found", args.PluginName)
+		}
+		plugin, err := factory.Create(ctx, s.kubeClient)
+		if err != nil {
+			return nil, fmt.Errorf("error creating plugin: %v", err)
+		}
+		s.plugin = plugin
 	}
 
 	log.Infof("Ambient enrolled IPs before reconciling: %+v", s.getEnrolledIPSets())
@@ -250,6 +262,18 @@ func (s *Server) UpdateActiveNodeProxy() error {
 		if err := s.updateNodeProxyEBPF(activePod, captureDNS); err != nil {
 			return fmt.Errorf("failed to configure ztunnel: %v", err)
 		}
+	case PluginMode:
+		h, err := GetHostIPByRoute(s.pods)
+		if err != nil || h == "" {
+			log.Warnf("failed to getting host IP: %v", err)
+		} else if HostIP != h {
+			log.Infof("HostIP changed: (%v) -> (%v)", HostIP, h)
+			HostIP = h
+			if err := s.plugin.UpdateHostIP([]string{HostIP}); err != nil {
+				log.Errorf("failed to update host IP: %v", err)
+			}
+		}
+		s.plugin.UpdateNodeProxy(activePod, captureDNS)
 	}
 	existed := s.getEnrolledIPSets()
 	// Reconcile namespaces, as it is possible for the original reconciliation to have failed, and a

@@ -77,6 +77,9 @@ type InstallConfig struct {
 	// Whether ebpf is enabled
 	EbpfEnabled bool
 
+	// Whether to use another CNI plugin to configure the network in ambient mode
+	AmbientCustomCNIPlugin string
+
 	// Use the external nsenter command for network namespace switching
 	HostNSEnterExec bool
 }

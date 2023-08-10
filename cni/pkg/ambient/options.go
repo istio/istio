@@ -37,6 +37,7 @@ type RedirectMode int
 const (
 	IptablesMode RedirectMode = iota
 	EbpfMode
+	PluginMode // means use a specific plugin
 )
 
 func (v RedirectMode) String() string {
@@ -45,6 +46,8 @@ func (v RedirectMode) String() string {
 		return "iptables"
 	case EbpfMode:
 		return "ebpf"
+	case PluginMode:
+		return "plugin"
 	}
 	return ""
 }
@@ -55,4 +58,5 @@ type AmbientArgs struct {
 	KubeConfig      string
 	RedirectMode    RedirectMode
 	LogLevel        string
+	PluginName      string
 }

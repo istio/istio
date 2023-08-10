@@ -86,11 +86,15 @@ var rootCmd = &cobra.Command{
 			if cfg.InstallConfig.EbpfEnabled {
 				redirectMode = ambient.EbpfMode
 			}
+			if cfg.InstallConfig.AmbientCustomCNIPlugin != "" {
+				redirectMode = ambient.PluginMode
+			}
 			server, err := ambient.NewServer(ctx, ambient.AmbientArgs{
 				SystemNamespace: ambient.PodNamespace,
 				Revision:        ambient.Revision,
 				RedirectMode:    redirectMode,
 				LogLevel:        cfg.InstallConfig.LogLevel,
+				PluginName:      cfg.InstallConfig.AmbientCustomCNIPlugin,
 			})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient informer service: %v", err)
@@ -164,6 +168,7 @@ func init() {
 	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log output to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
 	registerBooleanParameter(constants.EbpfEnabled, false, "Whether ebpf redirection is enabled")
+	registerStringParameter(constants.AmbientCustomCNIPluginName, "", "Name of the CNI plugin you want to use instead of istio-cni")
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")

@@ -1266,6 +1266,10 @@ func (s *Server) ztunnelDown() {
 		}
 	case IptablesMode:
 		// nothing to do with IptablesMode
+	case PluginMode:
+		if err := s.plugin.DelZTunnel(); err != nil {
+			log.Error(err)
+		}
 	}
 }
 
@@ -1292,6 +1296,10 @@ func (s *Server) cleanupNode() {
 		if err != nil {
 			log.Warnf("unable to delete IPSet: %v", err)
 		}
+	case PluginMode:
+		if err := s.plugin.CleanupPodsOnNode(); err != nil {
+			log.Error(err)
+		}
 	}
 }
 
@@ -1308,6 +1316,8 @@ func (s *Server) getEnrolledIPSets() sets.Set[string] {
 		}
 	case EbpfMode:
 		pods = s.ebpfServer.DumpAppIPs()
+	case PluginMode:
+		pods = s.plugin.DumpEnrolledIPs()
 	}
 	return pods
 }
