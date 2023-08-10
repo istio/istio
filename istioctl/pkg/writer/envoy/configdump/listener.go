@@ -334,8 +334,8 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 			})
 			for _, match := range matches {
 				if includeConfigType {
-					l.Name = fmt.Sprintf("listener/%s", l.Name)
-					fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", l.Name, strings.Join(addresses, ","), port, match.match, match.destination)
+					name := fmt.Sprintf("listener/%s", l.Name)
+					fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", name, strings.Join(addresses, ","), port, match.match, match.destination)
 				} else {
 					fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", strings.Join(addresses, ","), port, match.match, match.destination)
 				}
@@ -343,8 +343,8 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 		} else {
 			listenerType := retrieveListenerType(l)
 			if includeConfigType {
-				l.Name = fmt.Sprintf("listener/%s", l.Name)
-				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", l.Name, strings.Join(addresses, ","), port, listenerType)
+				name := fmt.Sprintf("listener/%s", l.Name)
+				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", name, strings.Join(addresses, ","), port, listenerType)
 			} else {
 				fmt.Fprintf(w, "%v\t%v\t%v\n", strings.Join(addresses, ","), port, listenerType)
 			}
