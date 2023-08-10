@@ -328,7 +328,7 @@ func getValidationFuncForPath(validations map[string]ValidatorFunc, path util.Pa
 }
 
 // check whether the pn path node match pattern.
-// pattern may container '*', eg. [1] match [*].
+// pattern may contain '*', e.g. [1] match [*].
 func matchPathNode(pattern, pn string) bool {
 	if !strings.Contains(pattern, "[") && !strings.Contains(pattern, "]") {
 		return pattern == pn

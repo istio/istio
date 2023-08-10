@@ -83,7 +83,7 @@ components:
 			expectSkip: true,
 		},
 		{
-			name:       "hpa enabled for ingressgateway with replicass",
+			name:       "hpa enabled for ingressgateway with replicas",
 			component:  name.IngressComponentName,
 			values:     fmt.Sprintf(valuesWithHPAndReplicaCountFormat, false, true, false),
 			expectSkip: true,

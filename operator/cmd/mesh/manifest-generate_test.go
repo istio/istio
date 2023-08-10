@@ -89,7 +89,7 @@ type testGroup []struct {
 	// By default we hide these changes to make developers life's a bit easier. However,
 	// it is still useful to sometimes override this behavior and show the full diff.
 	// When this flag is true, use an alternative file suffix that is not hidden by
-	// default github in pull requests.
+	// default GitHub in pull requests.
 	showOutputFileInPullRequest bool
 	flags                       string
 	noInput                     bool
@@ -142,7 +142,7 @@ func extract(gzipStream io.Reader, destination string) error {
 			}
 			outFile.Close()
 		default:
-			return fmt.Errorf("uknown type: %v in %v", header.Typeflag, header.Name)
+			return fmt.Errorf("unknown type: %v in %v", header.Typeflag, header.Name)
 		}
 	}
 	return nil
