@@ -1,590 +1,1594 @@
 {
-  "workloads": {
-    "/10.124.2.108": {
-      "workloadIp": "10.124.2.108",
-      "waypoint": null,
-      "networkGateway": null,
-      "gatewayAddress": null,
-      "protocol": "TCP",
-      "uid": "",
-      "name": "istio-egressgateway-789d9959fd-r2zgt",
-      "namespace": "istio-system",
-      "trustDomain": "cluster.local",
-      "serviceAccount": "istio-egressgateway-service-account",
-      "network": "",
-      "workloadName": "istio-egressgateway",
-      "workloadType": "deployment",
-      "canonicalName": "istio-egressgateway",
-      "canonicalRevision": "latest",
-      "node": "node-2",
-      "nativeTunnel": false,
-      "authorizationPolicies": [],
-      "status": "Healthy",
-      "clusterId": "Kubernetes"
-    },
-    "/10.124.0.42": {
-      "workloadIp": "10.124.0.42",
-      "waypoint": null,
-      "networkGateway": null,
-      "gatewayAddress": null,
-      "protocol": "TCP",
-      "uid": "",
-      "name": "ztunnel-bl6n7",
-      "namespace": "istio-system",
-      "trustDomain": "cluster.local",
-      "serviceAccount": "ztunnel",
-      "network": "",
-      "workloadName": "ztunnel-bl6n7",
-      "workloadType": "pod",
-      "canonicalName": "ztunnel",
-      "canonicalRevision": "latest",
-      "node": "node-1",
-      "nativeTunnel": false,
-      "authorizationPolicies": [],
-      "status": "Healthy",
-      "clusterId": "Kubernetes"
-    },
-    "/10.124.1.171": {
-      "workloadIp": "10.124.1.171",
-      "waypoint": null,
-      "networkGateway": null,
-      "gatewayAddress": null,
-      "protocol": "TCP",
-      "uid": "",
-      "name": "istiod-777c46c494-gnq6w",
-      "namespace": "istio-system",
-      "trustDomain": "cluster.local",
-      "serviceAccount": "istiod",
-      "network": "",
-      "workloadName": "istiod",
-      "workloadType": "deployment",
-      "canonicalName": "istiod",
-      "canonicalRevision": "latest",
-      "node": "node-3",
-      "nativeTunnel": false,
-      "authorizationPolicies": [],
-      "status": "Healthy",
-      "clusterId": "Kubernetes"
-    },
-    "/10.124.0.47": {
-      "workloadIp": "10.124.0.47",
-      "waypoint": null,
-      "networkGateway": null,
-      "gatewayAddress": null,
+  "by_addr": {
+    "/10.244.2.54": {
+      "workloadIps": [
+        "10.244.2.54"
+      ],
+      "waypoint": {
+        "destination": "/10.96.65.117",
+        "port": 15008
+      },
       "protocol": "HBONE",
-      "uid": "",
-      "name": "sleep-78ff5975c6-txwbh",
+      "uid": "Kubernetes//Pod/bookinfo/ratings-v1-6484c4d9bb-mdxm5",
+      "name": "ratings-v1-6484c4d9bb-mdxm5",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-ratings",
+      "workloadName": "ratings-v1",
+      "workloadType": "deployment",
+      "canonicalName": "ratings",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.2.58": {
+      "workloadIps": [
+        "10.244.2.58"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/sleep-7656cf8794-lxcmx",
+      "name": "sleep-7656cf8794-lxcmx",
       "namespace": "default",
       "trustDomain": "cluster.local",
       "serviceAccount": "sleep",
-      "network": "",
       "workloadName": "sleep",
       "workloadType": "deployment",
       "canonicalName": "sleep",
       "canonicalRevision": "latest",
-      "node": "node-1",
-      "nativeTunnel": false,
-      "authorizationPolicies": [],
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
       "status": "Healthy",
       "clusterId": "Kubernetes"
     },
-    "/10.124.2.115": {
-      "workloadIp": "10.124.2.115",
-      "waypoint": null,
-      "networkGateway": null,
-      "gatewayAddress": null,
+    "/10.244.1.10": {
+      "workloadIps": [
+        "10.244.1.10"
+      ],
       "protocol": "TCP",
-      "uid": "",
-      "name": "httpbin-istio-waypoint-6d86d5bd9-9pn8v",
-      "namespace": "default",
-      "trustDomain": "cluster.local",
-      "serviceAccount": "httpbin-istio-waypoint",
-      "network": "",
-      "workloadName": "httpbin-istio-waypoint",
-      "workloadType": "deployment",
-      "canonicalName": "httpbin-istio-waypoint",
-      "canonicalRevision": "latest",
-      "node": "node-2",
-      "nativeTunnel": false,
-      "authorizationPolicies": [],
-      "status": "Healthy",
-      "clusterId": "Kubernetes"
-    },
-    "/10.124.0.48": {
-      "workloadIp": "10.124.0.48",
-      "waypoint": {
-        "destination": {
-          "address": "Address",
-          "content": "/10.0.15.182"
-        },
-        "port": 15008
-      },
-      "networkGateway": null,
-      "gatewayAddress": null,
-      "protocol": "HBONE",
-      "uid": "",
-      "name": "httpbin-797587ddc5-b74np",
-      "namespace": "default",
+      "uid": "Kubernetes//Pod/httpbin/httpbin-65975d4c6f-jr69n",
+      "name": "httpbin-65975d4c6f-jr69n",
+      "namespace": "httpbin",
       "trustDomain": "cluster.local",
       "serviceAccount": "httpbin",
-      "network": "",
       "workloadName": "httpbin",
       "workloadType": "deployment",
       "canonicalName": "httpbin",
       "canonicalRevision": "v1",
-      "node": "node-1",
-      "nativeTunnel": false,
-      "authorizationPolicies": [],
+      "node": "ambient-worker",
       "status": "Healthy",
       "clusterId": "Kubernetes"
     },
-    "/10.124.2.109": {
-      "workloadIp": "10.124.2.109",
-      "waypoint": null,
-      "networkGateway": null,
-      "gatewayAddress": null,
+    "/10.244.2.8": {
+      "workloadIps": [
+        "10.244.2.8"
+      ],
       "protocol": "TCP",
-      "uid": "",
-      "name": "istio-ingressgateway-67dbb75b4c-fmf9j",
-      "namespace": "istio-system",
+      "uid": "Kubernetes//Pod/gateway-system/gateway-api-admission-server-85985d48ff-5jcvd",
+      "name": "gateway-api-admission-server-85985d48ff-5jcvd",
+      "namespace": "gateway-system",
       "trustDomain": "cluster.local",
-      "serviceAccount": "istio-ingressgateway-service-account",
-      "network": "",
-      "workloadName": "istio-ingressgateway",
+      "serviceAccount": "default",
+      "workloadName": "gateway-api-admission-server",
       "workloadType": "deployment",
-      "canonicalName": "istio-ingressgateway",
+      "canonicalName": "gateway-api-admission-server",
       "canonicalRevision": "latest",
-      "node": "node-2",
-      "nativeTunnel": false,
-      "authorizationPolicies": [],
+      "node": "ambient-worker2",
       "status": "Healthy",
       "clusterId": "Kubernetes"
     },
-    "/10.124.1.172": {
-      "workloadIp": "10.124.1.172",
-      "waypoint": null,
-      "networkGateway": null,
-      "gatewayAddress": null,
+    "/10.244.1.34": {
+      "workloadIps": [
+        "10.244.1.34"
+      ],
       "protocol": "TCP",
-      "uid": "",
-      "name": "ztunnel-l4z2z",
+      "uid": "Kubernetes//Pod/istio-system/istiod-test-6bdfb786d-s58pj",
+      "name": "istiod-test-6bdfb786d-s58pj",
       "namespace": "istio-system",
       "trustDomain": "cluster.local",
-      "serviceAccount": "ztunnel",
-      "network": "",
-      "workloadName": "ztunnel-l4z2z",
-      "workloadType": "pod",
-      "canonicalName": "ztunnel",
+      "serviceAccount": "istiod-test",
+      "workloadName": "istiod-test",
+      "workloadType": "deployment",
+      "canonicalName": "istiod",
       "canonicalRevision": "latest",
-      "node": "node-3",
-      "nativeTunnel": false,
-      "authorizationPolicies": [],
+      "node": "ambient-worker",
       "status": "Healthy",
       "clusterId": "Kubernetes"
     },
-    "/10.124.2.110": {
-      "workloadIp": "10.124.2.110",
-      "waypoint": null,
-      "networkGateway": null,
-      "gatewayAddress": null,
+    "/10.244.1.39": {
+      "workloadIps": [
+        "10.244.1.39"
+      ],
+      "waypoint": {
+        "destination": "/10.96.65.117",
+        "port": 15008
+      },
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/bookinfo/reviews-v3-5b9bd44f4-7fff4",
+      "name": "reviews-v3-5b9bd44f4-7fff4",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v3",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v3",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.2.55": {
+      "workloadIps": [
+        "10.244.2.55"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/details-v1-698d88b-krdw7",
+      "name": "details-v1-698d88b-krdw7",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-details",
+      "workloadName": "details-v1",
+      "workloadType": "deployment",
+      "canonicalName": "details",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.1.16": {
+      "workloadIps": [
+        "10.244.1.16"
+      ],
       "protocol": "TCP",
-      "uid": "",
-      "name": "ztunnel-l6j4v",
+      "uid": "Kubernetes//Pod/sleep/sleep-7656cf8794-qpvbm",
+      "name": "sleep-7656cf8794-qpvbm",
+      "namespace": "sleep",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "sleep",
+      "workloadName": "sleep",
+      "workloadType": "deployment",
+      "canonicalName": "sleep",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.0.8": {
+      "workloadIps": [
+        "10.244.0.8"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/istio-system/ztunnel-n5bg2",
+      "name": "ztunnel-n5bg2",
       "namespace": "istio-system",
       "trustDomain": "cluster.local",
       "serviceAccount": "ztunnel",
-      "network": "",
-      "workloadName": "ztunnel-l6j4v",
+      "workloadName": "ztunnel-n5bg2",
       "workloadType": "pod",
       "canonicalName": "ztunnel",
       "canonicalRevision": "latest",
-      "node": "node-2",
-      "nativeTunnel": false,
-      "authorizationPolicies": [],
+      "node": "ambient-control-plane",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.2.57": {
+      "workloadIps": [
+        "10.244.2.57"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/ratings-v1-6484c4d9bb-8xc2r",
+      "name": "ratings-v1-6484c4d9bb-8xc2r",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-ratings",
+      "workloadName": "ratings-v1",
+      "workloadType": "deployment",
+      "canonicalName": "ratings",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.2.53": {
+      "workloadIps": [
+        "10.244.2.53"
+      ],
+      "waypoint": {
+        "destination": "/10.96.71.36",
+        "port": 15008
+      },
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/bookinfo/productpage-v1-675fc69cf-jscn2",
+      "name": "productpage-v1-675fc69cf-jscn2",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-productpage",
+      "workloadName": "productpage-v1",
+      "workloadType": "deployment",
+      "canonicalName": "productpage",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.2.60": {
+      "workloadIps": [
+        "10.244.2.60"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/istio-system/ztunnel-qk2pp",
+      "name": "ztunnel-qk2pp",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "ztunnel",
+      "workloadName": "ztunnel-qk2pp",
+      "workloadType": "pod",
+      "canonicalName": "ztunnel",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.0.2": {
+      "workloadIps": [
+        "10.244.0.2"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/kube-system/coredns-5dd5756b68-mgjn9",
+      "name": "coredns-5dd5756b68-mgjn9",
+      "namespace": "kube-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "coredns",
+      "workloadName": "coredns",
+      "workloadType": "deployment",
+      "canonicalName": "coredns",
+      "canonicalRevision": "latest",
+      "node": "ambient-control-plane",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.0.3": {
+      "workloadIps": [
+        "10.244.0.3"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/kube-system/coredns-5dd5756b68-nzlpw",
+      "name": "coredns-5dd5756b68-nzlpw",
+      "namespace": "kube-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "coredns",
+      "workloadName": "coredns",
+      "workloadType": "deployment",
+      "canonicalName": "coredns",
+      "canonicalRevision": "latest",
+      "node": "ambient-control-plane",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.1.43": {
+      "workloadIps": [
+        "10.244.1.43"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/reviews-v3-5b9bd44f4-z9ms4",
+      "name": "reviews-v3-5b9bd44f4-z9ms4",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v3",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v3",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.0.4": {
+      "workloadIps": [
+        "10.244.0.4"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/local-path-storage/local-path-provisioner-6f8956fb48-vvnpn",
+      "name": "local-path-provisioner-6f8956fb48-vvnpn",
+      "namespace": "local-path-storage",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "local-path-provisioner-service-account",
+      "workloadName": "local-path-provisioner",
+      "workloadType": "deployment",
+      "canonicalName": "local-path-provisioner",
+      "canonicalRevision": "latest",
+      "node": "ambient-control-plane",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.1.44": {
+      "workloadIps": [
+        "10.244.1.44"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/istio-system/ztunnel-xljhg",
+      "name": "ztunnel-xljhg",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "ztunnel",
+      "workloadName": "ztunnel-xljhg",
+      "workloadType": "pod",
+      "canonicalName": "ztunnel",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.1.38": {
+      "workloadIps": [
+        "10.244.1.38"
+      ],
+      "waypoint": {
+        "destination": "/10.96.65.117",
+        "port": 15008
+      },
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/bookinfo/reviews-v2-5b667bcbf8-q5pn2",
+      "name": "reviews-v2-5b667bcbf8-q5pn2",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v2",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v2",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.1.42": {
+      "workloadIps": [
+        "10.244.1.42"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/reviews-v2-5b667bcbf8-twvx6",
+      "name": "reviews-v2-5b667bcbf8-twvx6",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v2",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v2",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.2.49": {
+      "workloadIps": [
+        "10.244.2.49"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/istio-system/istiod-8c7b98fc4-mwjfp",
+      "name": "istiod-8c7b98fc4-mwjfp",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "istiod",
+      "workloadName": "istiod",
+      "workloadType": "deployment",
+      "canonicalName": "istiod",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.1.37": {
+      "workloadIps": [
+        "10.244.1.37"
+      ],
+      "waypoint": {
+        "destination": "/10.96.65.117",
+        "port": 15008
+      },
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/bookinfo/reviews-v1-5b5d6494f4-qwjv4",
+      "name": "reviews-v1-5b5d6494f4-qwjv4",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v1",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.2.56": {
+      "workloadIps": [
+        "10.244.2.56"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/productpage-v1-675fc69cf-kkrm2",
+      "name": "productpage-v1-675fc69cf-kkrm2",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-productpage",
+      "workloadName": "productpage-v1",
+      "workloadType": "deployment",
+      "canonicalName": "productpage",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.2.51": {
+      "workloadIps": [
+        "10.244.2.51"
+      ],
+      "waypoint": {
+        "destination": "/10.96.65.117",
+        "port": 15008
+      },
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/bookinfo/details-v1-698d88b-dqrbr",
+      "name": "details-v1-698d88b-dqrbr",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-details",
+      "workloadName": "details-v1",
+      "workloadType": "deployment",
+      "canonicalName": "details",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.1.40": {
+      "workloadIps": [
+        "10.244.1.40"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/default/httpbin-7447985f87-t8hv7",
+      "name": "httpbin-7447985f87-t8hv7",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "httpbin",
+      "workloadName": "httpbin",
+      "workloadType": "deployment",
+      "canonicalName": "httpbin",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.1.41": {
+      "workloadIps": [
+        "10.244.1.41"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/reviews-v1-5b5d6494f4-c7z5w",
+      "name": "reviews-v1-5b5d6494f4-c7z5w",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v1",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.2.52": {
+      "workloadIps": [
+        "10.244.2.52"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/bookinfo/namespace-istio-waypoint-d94944bf6-z89g2",
+      "name": "namespace-istio-waypoint-d94944bf6-z89g2",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "namespace-istio-waypoint",
+      "workloadName": "namespace-istio-waypoint",
+      "workloadType": "deployment",
+      "canonicalName": "namespace-istio-waypoint",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "/10.244.2.59": {
+      "workloadIps": [
+        "10.244.2.59"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/bookinfo/bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg",
+      "name": "bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-productpage-istio-waypoint",
+      "workloadName": "bookinfo-productpage-istio-waypoint",
+      "workloadType": "deployment",
+      "canonicalName": "bookinfo-productpage-istio-waypoint",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
       "status": "Healthy",
       "clusterId": "Kubernetes"
     }
   },
-  "workload_to_vips": {
-    "/10.124.2.108": [
-      "/10.0.7.112"
+  "by_uid": {
+    "Kubernetes//Pod/istio-system/istiod-test-6bdfb786d-s58pj": {
+      "workloadIps": [
+        "10.244.1.34"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/istio-system/istiod-test-6bdfb786d-s58pj",
+      "name": "istiod-test-6bdfb786d-s58pj",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "istiod-test",
+      "workloadName": "istiod-test",
+      "workloadType": "deployment",
+      "canonicalName": "istiod",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/istio-system/ztunnel-n5bg2": {
+      "workloadIps": [
+        "10.244.0.8"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/istio-system/ztunnel-n5bg2",
+      "name": "ztunnel-n5bg2",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "ztunnel",
+      "workloadName": "ztunnel-n5bg2",
+      "workloadType": "pod",
+      "canonicalName": "ztunnel",
+      "canonicalRevision": "latest",
+      "node": "ambient-control-plane",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/bookinfo/ratings-v1-6484c4d9bb-mdxm5": {
+      "workloadIps": [
+        "10.244.2.54"
+      ],
+      "waypoint": {
+        "destination": "/10.96.65.117",
+        "port": 15008
+      },
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/bookinfo/ratings-v1-6484c4d9bb-mdxm5",
+      "name": "ratings-v1-6484c4d9bb-mdxm5",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-ratings",
+      "workloadName": "ratings-v1",
+      "workloadType": "deployment",
+      "canonicalName": "ratings",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/bookinfo/reviews-v3-5b9bd44f4-7fff4": {
+      "workloadIps": [
+        "10.244.1.39"
+      ],
+      "waypoint": {
+        "destination": "/10.96.65.117",
+        "port": 15008
+      },
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/bookinfo/reviews-v3-5b9bd44f4-7fff4",
+      "name": "reviews-v3-5b9bd44f4-7fff4",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v3",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v3",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/default/reviews-v3-5b9bd44f4-z9ms4": {
+      "workloadIps": [
+        "10.244.1.43"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/reviews-v3-5b9bd44f4-z9ms4",
+      "name": "reviews-v3-5b9bd44f4-z9ms4",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v3",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v3",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/istio-system/istiod-8c7b98fc4-mwjfp": {
+      "workloadIps": [
+        "10.244.2.49"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/istio-system/istiod-8c7b98fc4-mwjfp",
+      "name": "istiod-8c7b98fc4-mwjfp",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "istiod",
+      "workloadName": "istiod",
+      "workloadType": "deployment",
+      "canonicalName": "istiod",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/bookinfo/reviews-v2-5b667bcbf8-q5pn2": {
+      "workloadIps": [
+        "10.244.1.38"
+      ],
+      "waypoint": {
+        "destination": "/10.96.65.117",
+        "port": 15008
+      },
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/bookinfo/reviews-v2-5b667bcbf8-q5pn2",
+      "name": "reviews-v2-5b667bcbf8-q5pn2",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v2",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v2",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/default/reviews-v2-5b667bcbf8-twvx6": {
+      "workloadIps": [
+        "10.244.1.42"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/reviews-v2-5b667bcbf8-twvx6",
+      "name": "reviews-v2-5b667bcbf8-twvx6",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v2",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v2",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/bookinfo/namespace-istio-waypoint-d94944bf6-z89g2": {
+      "workloadIps": [
+        "10.244.2.52"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/bookinfo/namespace-istio-waypoint-d94944bf6-z89g2",
+      "name": "namespace-istio-waypoint-d94944bf6-z89g2",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "namespace-istio-waypoint",
+      "workloadName": "namespace-istio-waypoint",
+      "workloadType": "deployment",
+      "canonicalName": "namespace-istio-waypoint",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/local-path-storage/local-path-provisioner-6f8956fb48-vvnpn": {
+      "workloadIps": [
+        "10.244.0.4"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/local-path-storage/local-path-provisioner-6f8956fb48-vvnpn",
+      "name": "local-path-provisioner-6f8956fb48-vvnpn",
+      "namespace": "local-path-storage",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "local-path-provisioner-service-account",
+      "workloadName": "local-path-provisioner",
+      "workloadType": "deployment",
+      "canonicalName": "local-path-provisioner",
+      "canonicalRevision": "latest",
+      "node": "ambient-control-plane",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/kube-system/coredns-5dd5756b68-mgjn9": {
+      "workloadIps": [
+        "10.244.0.2"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/kube-system/coredns-5dd5756b68-mgjn9",
+      "name": "coredns-5dd5756b68-mgjn9",
+      "namespace": "kube-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "coredns",
+      "workloadName": "coredns",
+      "workloadType": "deployment",
+      "canonicalName": "coredns",
+      "canonicalRevision": "latest",
+      "node": "ambient-control-plane",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/istio-system/ztunnel-qk2pp": {
+      "workloadIps": [
+        "10.244.2.60"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/istio-system/ztunnel-qk2pp",
+      "name": "ztunnel-qk2pp",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "ztunnel",
+      "workloadName": "ztunnel-qk2pp",
+      "workloadType": "pod",
+      "canonicalName": "ztunnel",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/istio-system/ztunnel-xljhg": {
+      "workloadIps": [
+        "10.244.1.44"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/istio-system/ztunnel-xljhg",
+      "name": "ztunnel-xljhg",
+      "namespace": "istio-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "ztunnel",
+      "workloadName": "ztunnel-xljhg",
+      "workloadType": "pod",
+      "canonicalName": "ztunnel",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/bookinfo/productpage-v1-675fc69cf-jscn2": {
+      "workloadIps": [
+        "10.244.2.53"
+      ],
+      "waypoint": {
+        "destination": "/10.96.71.36",
+        "port": 15008
+      },
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/bookinfo/productpage-v1-675fc69cf-jscn2",
+      "name": "productpage-v1-675fc69cf-jscn2",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-productpage",
+      "workloadName": "productpage-v1",
+      "workloadType": "deployment",
+      "canonicalName": "productpage",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/kube-system/coredns-5dd5756b68-nzlpw": {
+      "workloadIps": [
+        "10.244.0.3"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/kube-system/coredns-5dd5756b68-nzlpw",
+      "name": "coredns-5dd5756b68-nzlpw",
+      "namespace": "kube-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "coredns",
+      "workloadName": "coredns",
+      "workloadType": "deployment",
+      "canonicalName": "coredns",
+      "canonicalRevision": "latest",
+      "node": "ambient-control-plane",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/default/details-v1-698d88b-krdw7": {
+      "workloadIps": [
+        "10.244.2.55"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/details-v1-698d88b-krdw7",
+      "name": "details-v1-698d88b-krdw7",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-details",
+      "workloadName": "details-v1",
+      "workloadType": "deployment",
+      "canonicalName": "details",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/default/ratings-v1-6484c4d9bb-8xc2r": {
+      "workloadIps": [
+        "10.244.2.57"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/ratings-v1-6484c4d9bb-8xc2r",
+      "name": "ratings-v1-6484c4d9bb-8xc2r",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-ratings",
+      "workloadName": "ratings-v1",
+      "workloadType": "deployment",
+      "canonicalName": "ratings",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/default/productpage-v1-675fc69cf-kkrm2": {
+      "workloadIps": [
+        "10.244.2.56"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/productpage-v1-675fc69cf-kkrm2",
+      "name": "productpage-v1-675fc69cf-kkrm2",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-productpage",
+      "workloadName": "productpage-v1",
+      "workloadType": "deployment",
+      "canonicalName": "productpage",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/default/reviews-v1-5b5d6494f4-c7z5w": {
+      "workloadIps": [
+        "10.244.1.41"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/reviews-v1-5b5d6494f4-c7z5w",
+      "name": "reviews-v1-5b5d6494f4-c7z5w",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v1",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/gateway-system/gateway-api-admission-server-85985d48ff-5jcvd": {
+      "workloadIps": [
+        "10.244.2.8"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/gateway-system/gateway-api-admission-server-85985d48ff-5jcvd",
+      "name": "gateway-api-admission-server-85985d48ff-5jcvd",
+      "namespace": "gateway-system",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "default",
+      "workloadName": "gateway-api-admission-server",
+      "workloadType": "deployment",
+      "canonicalName": "gateway-api-admission-server",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/httpbin/httpbin-65975d4c6f-jr69n": {
+      "workloadIps": [
+        "10.244.1.10"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/httpbin/httpbin-65975d4c6f-jr69n",
+      "name": "httpbin-65975d4c6f-jr69n",
+      "namespace": "httpbin",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "httpbin",
+      "workloadName": "httpbin",
+      "workloadType": "deployment",
+      "canonicalName": "httpbin",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/default/httpbin-7447985f87-t8hv7": {
+      "workloadIps": [
+        "10.244.1.40"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/default/httpbin-7447985f87-t8hv7",
+      "name": "httpbin-7447985f87-t8hv7",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "httpbin",
+      "workloadName": "httpbin",
+      "workloadType": "deployment",
+      "canonicalName": "httpbin",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/bookinfo/reviews-v1-5b5d6494f4-qwjv4": {
+      "workloadIps": [
+        "10.244.1.37"
+      ],
+      "waypoint": {
+        "destination": "/10.96.65.117",
+        "port": 15008
+      },
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/bookinfo/reviews-v1-5b5d6494f4-qwjv4",
+      "name": "reviews-v1-5b5d6494f4-qwjv4",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-reviews",
+      "workloadName": "reviews-v1",
+      "workloadType": "deployment",
+      "canonicalName": "reviews",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/sleep/sleep-7656cf8794-qpvbm": {
+      "workloadIps": [
+        "10.244.1.16"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/sleep/sleep-7656cf8794-qpvbm",
+      "name": "sleep-7656cf8794-qpvbm",
+      "namespace": "sleep",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "sleep",
+      "workloadName": "sleep",
+      "workloadType": "deployment",
+      "canonicalName": "sleep",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/default/sleep-7656cf8794-lxcmx": {
+      "workloadIps": [
+        "10.244.2.58"
+      ],
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/default/sleep-7656cf8794-lxcmx",
+      "name": "sleep-7656cf8794-lxcmx",
+      "namespace": "default",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "sleep",
+      "workloadName": "sleep",
+      "workloadType": "deployment",
+      "canonicalName": "sleep",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/bookinfo/bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg": {
+      "workloadIps": [
+        "10.244.2.59"
+      ],
+      "protocol": "TCP",
+      "uid": "Kubernetes//Pod/bookinfo/bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg",
+      "name": "bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-productpage-istio-waypoint",
+      "workloadName": "bookinfo-productpage-istio-waypoint",
+      "workloadType": "deployment",
+      "canonicalName": "bookinfo-productpage-istio-waypoint",
+      "canonicalRevision": "latest",
+      "node": "ambient-worker2",
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    },
+    "Kubernetes//Pod/bookinfo/details-v1-698d88b-dqrbr": {
+      "workloadIps": [
+        "10.244.2.51"
+      ],
+      "waypoint": {
+        "destination": "/10.96.65.117",
+        "port": 15008
+      },
+      "protocol": "HBONE",
+      "uid": "Kubernetes//Pod/bookinfo/details-v1-698d88b-dqrbr",
+      "name": "details-v1-698d88b-dqrbr",
+      "namespace": "bookinfo",
+      "trustDomain": "cluster.local",
+      "serviceAccount": "bookinfo-details",
+      "workloadName": "details-v1",
+      "workloadType": "deployment",
+      "canonicalName": "details",
+      "canonicalRevision": "v1",
+      "node": "ambient-worker2",
+      "nativeTunnel": true,
+      "status": "Healthy",
+      "clusterId": "Kubernetes"
+    }
+  },
+  "workload_to_services": {
+    "Kubernetes//Pod/default/reviews-v2-5b667bcbf8-twvx6": [
+      "default/reviews.default.svc.cluster.local"
     ],
-    "/10.124.1.171": [
-      "/10.0.6.92"
+    "Kubernetes//Pod/bookinfo/bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg": [
+      "bookinfo/bookinfo-productpage-istio-waypoint.bookinfo.svc.cluster.local"
     ],
-    "/10.124.0.47": [
-      "/10.0.12.146"
+    "Kubernetes//Pod/kube-system/coredns-5dd5756b68-nzlpw": [
+      "kube-system/kube-dns.kube-system.svc.cluster.local"
     ],
-    "/10.124.2.109": [
-      "/10.0.14.229",
-      "/11.22.33.44"
+    "Kubernetes//Pod/bookinfo/namespace-istio-waypoint-d94944bf6-z89g2": [
+      "bookinfo/namespace-istio-waypoint.bookinfo.svc.cluster.local"
     ],
-    "/10.124.2.115": [
-      "/10.0.15.182"
+    "Kubernetes//Pod/istio-system/istiod-test-6bdfb786d-s58pj": [
+      "istio-system/istiod-test.istio-system.svc.cluster.local"
     ],
-    "/10.124.0.48": [
-      "/10.0.14.4"
+    "Kubernetes//Pod/default/reviews-v1-5b5d6494f4-c7z5w": [
+      "default/reviews.default.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/bookinfo/productpage-v1-675fc69cf-jscn2": [
+      "bookinfo/productpage.bookinfo.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/default/ratings-v1-6484c4d9bb-8xc2r": [
+      "default/ratings.default.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/gateway-system/gateway-api-admission-server-85985d48ff-5jcvd": [
+      "gateway-system/gateway-api-admission-server.gateway-system.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/bookinfo/details-v1-698d88b-dqrbr": [
+      "bookinfo/details.bookinfo.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/istio-system/istiod-8c7b98fc4-mwjfp": [
+      "istio-system/istiod.istio-system.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/default/reviews-v3-5b9bd44f4-z9ms4": [
+      "default/reviews.default.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/sleep/sleep-7656cf8794-qpvbm": [
+      "sleep/sleep.sleep.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/bookinfo/reviews-v1-5b5d6494f4-qwjv4": [
+      "bookinfo/reviews.bookinfo.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/default/httpbin-7447985f87-t8hv7": [
+      "default/httpbin.default.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/httpbin/httpbin-65975d4c6f-jr69n": [
+      "httpbin/httpbin.httpbin.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/bookinfo/reviews-v3-5b9bd44f4-7fff4": [
+      "bookinfo/reviews.bookinfo.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/default/productpage-v1-675fc69cf-kkrm2": [
+      "default/productpage.default.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/bookinfo/reviews-v2-5b667bcbf8-q5pn2": [
+      "bookinfo/reviews.bookinfo.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/kube-system/coredns-5dd5756b68-mgjn9": [
+      "kube-system/kube-dns.kube-system.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/default/details-v1-698d88b-krdw7": [
+      "default/details.default.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/default/sleep-7656cf8794-lxcmx": [
+      "default/sleep.default.svc.cluster.local"
+    ],
+    "Kubernetes//Pod/bookinfo/ratings-v1-6484c4d9bb-mdxm5": [
+      "bookinfo/ratings.bookinfo.svc.cluster.local"
     ]
   },
-  "services_by_ip": {
-    "/10.0.14.4": {
-      "name": "httpbin",
-      "namespace": "default",
-      "hostname": "httpbin.default.svc.cluster.local",
-      "addresses": [
-        "/10.0.14.4"
+  "by_vip": {
+    "/10.96.65.117": {
+      "name": "namespace-istio-waypoint",
+      "namespace": "bookinfo",
+      "hostname": "namespace-istio-waypoint.bookinfo.svc.cluster.local",
+      "vips": [
+        "/10.96.65.117"
       ],
       "ports": {
-        "8000": 80
+        "15008": 15008,
+        "15021": 15021
       },
       "endpoints": {
-        "/10.124.0.48": {
-          "address": "/10.124.0.48",
+        "Kubernetes//Pod/bookinfo/namespace-istio-waypoint-d94944bf6-z89g2:/10.244.2.52": {
+          "workloadUid": "Kubernetes//Pod/bookinfo/namespace-istio-waypoint-d94944bf6-z89g2",
+          "service": "bookinfo/namespace-istio-waypoint.bookinfo.svc.cluster.local",
+          "address": "/10.244.2.52",
           "port": {
-            "8000": 80
+            "15008": 15008,
+            "15021": 15021
           }
         }
-      }
+      },
+      "subjectAltNames": []
     },
-    "/10.0.7.112": {
-      "name": "istio-egressgateway",
-      "namespace": "istio-system",
-      "hostname": "istio-egressgateway.istio-system.svc.cluster.local",
-      "addresses": [
-        "/10.0.7.112"
+    "/10.96.115.16": {
+      "name": "gateway-api-admission-server",
+      "namespace": "gateway-system",
+      "hostname": "gateway-api-admission-server.gateway-system.svc.cluster.local",
+      "vips": [
+        "/10.96.115.16"
       ],
       "ports": {
-        "80": 8080,
         "443": 8443
       },
       "endpoints": {
-        "/10.124.2.108": {
-          "address": "/10.124.2.108",
+        "Kubernetes//Pod/gateway-system/gateway-api-admission-server-85985d48ff-5jcvd:/10.244.2.8": {
+          "workloadUid": "Kubernetes//Pod/gateway-system/gateway-api-admission-server-85985d48ff-5jcvd",
+          "service": "gateway-system/gateway-api-admission-server.gateway-system.svc.cluster.local",
+          "address": "/10.244.2.8",
           "port": {
-            "443": 8443,
-            "80": 8080
+            "443": 8443
           }
         }
-      }
+      },
+      "subjectAltNames": []
     },
-    "/10.0.12.146": {
-      "name": "sleep",
+    "/10.96.198.255": {
+      "name": "productpage",
       "namespace": "default",
-      "hostname": "sleep.default.svc.cluster.local",
-      "addresses": [
-        "/10.0.12.146"
+      "hostname": "productpage.default.svc.cluster.local",
+      "vips": [
+        "/10.96.198.255"
+      ],
+      "ports": {
+        "9080": 9080
+      },
+      "endpoints": {
+        "Kubernetes//Pod/default/productpage-v1-675fc69cf-kkrm2:/10.244.2.56": {
+          "workloadUid": "Kubernetes//Pod/default/productpage-v1-675fc69cf-kkrm2",
+          "service": "default/productpage.default.svc.cluster.local",
+          "address": "/10.244.2.56",
+          "port": {
+            "9080": 9080
+          }
+        }
+      },
+      "subjectAltNames": []
+    },
+    "/10.96.101.171": {
+      "name": "details",
+      "namespace": "default",
+      "hostname": "details.default.svc.cluster.local",
+      "vips": [
+        "/10.96.101.171"
+      ],
+      "ports": {
+        "9080": 9080
+      },
+      "endpoints": {
+        "Kubernetes//Pod/default/details-v1-698d88b-krdw7:/10.244.2.55": {
+          "workloadUid": "Kubernetes//Pod/default/details-v1-698d88b-krdw7",
+          "service": "default/details.default.svc.cluster.local",
+          "address": "/10.244.2.55",
+          "port": {
+            "9080": 9080
+          }
+        }
+      },
+      "subjectAltNames": []
+    },
+    "/10.96.200.228": {
+      "name": "details",
+      "namespace": "bookinfo",
+      "hostname": "details.bookinfo.svc.cluster.local",
+      "vips": [
+        "/10.96.200.228"
+      ],
+      "ports": {
+        "9080": 9080
+      },
+      "endpoints": {
+        "Kubernetes//Pod/bookinfo/details-v1-698d88b-dqrbr:/10.244.2.51": {
+          "workloadUid": "Kubernetes//Pod/bookinfo/details-v1-698d88b-dqrbr",
+          "service": "bookinfo/details.bookinfo.svc.cluster.local",
+          "address": "/10.244.2.51",
+          "port": {
+            "9080": 9080
+          }
+        }
+      },
+      "subjectAltNames": []
+    },
+    "/10.96.182.227": {
+      "name": "istiod-test",
+      "namespace": "istio-system",
+      "hostname": "istiod-test.istio-system.svc.cluster.local",
+      "vips": [
+        "/10.96.182.227"
+      ],
+      "ports": {
+        "443": 15017,
+        "15010": 15010,
+        "15012": 15012,
+        "15014": 15014
+      },
+      "endpoints": {
+        "Kubernetes//Pod/istio-system/istiod-test-6bdfb786d-s58pj:/10.244.1.34": {
+          "workloadUid": "Kubernetes//Pod/istio-system/istiod-test-6bdfb786d-s58pj",
+          "service": "istio-system/istiod-test.istio-system.svc.cluster.local",
+          "address": "/10.244.1.34",
+          "port": {
+            "443": 15017,
+            "15010": 15010,
+            "15012": 15012,
+            "15014": 15014
+          }
+        }
+      },
+      "subjectAltNames": []
+    },
+    "/10.96.6.205": {
+      "name": "ratings",
+      "namespace": "default",
+      "hostname": "ratings.default.svc.cluster.local",
+      "vips": [
+        "/10.96.6.205"
+      ],
+      "ports": {
+        "9080": 9080
+      },
+      "endpoints": {
+        "Kubernetes//Pod/default/ratings-v1-6484c4d9bb-8xc2r:/10.244.2.57": {
+          "workloadUid": "Kubernetes//Pod/default/ratings-v1-6484c4d9bb-8xc2r",
+          "service": "default/ratings.default.svc.cluster.local",
+          "address": "/10.244.2.57",
+          "port": {
+            "9080": 9080
+          }
+        }
+      },
+      "subjectAltNames": []
+    },
+    "/10.96.89.127": {
+      "name": "sleep",
+      "namespace": "sleep",
+      "hostname": "sleep.sleep.svc.cluster.local",
+      "vips": [
+        "/10.96.89.127"
       ],
       "ports": {
         "80": 80
       },
       "endpoints": {
-        "/10.124.0.47": {
-          "address": "/10.124.0.47",
+        "Kubernetes//Pod/sleep/sleep-7656cf8794-qpvbm:/10.244.1.16": {
+          "workloadUid": "Kubernetes//Pod/sleep/sleep-7656cf8794-qpvbm",
+          "service": "sleep/sleep.sleep.svc.cluster.local",
+          "address": "/10.244.1.16",
           "port": {
             "80": 80
           }
         }
-      }
+      },
+      "subjectAltNames": []
     },
-    "/11.22.33.444": {
-      "name": "istio-ingressgateway",
-      "namespace": "istio-system",
-      "hostname": "istio-ingressgateway.istio-system.svc.cluster.local",
-      "addresses": [
-        "/10.0.14.229",
-        "/11.22.33.44"
+    "/10.96.95.231": {
+      "name": "ratings",
+      "namespace": "bookinfo",
+      "hostname": "ratings.bookinfo.svc.cluster.local",
+      "vips": [
+        "/10.96.95.231"
       ],
       "ports": {
-        "15021": 15021,
-        "15012": 15012,
-        "80": 8080,
-        "15443": 15443,
-        "15017": 15017,
-        "31400": 31400,
-        "443": 8443
+        "9080": 9080
       },
       "endpoints": {
-        "/10.124.2.109": {
-          "address": "/10.124.2.109",
+        "Kubernetes//Pod/bookinfo/ratings-v1-6484c4d9bb-mdxm5:/10.244.2.54": {
+          "workloadUid": "Kubernetes//Pod/bookinfo/ratings-v1-6484c4d9bb-mdxm5",
+          "service": "bookinfo/ratings.bookinfo.svc.cluster.local",
+          "address": "/10.244.2.54",
           "port": {
-            "31400": 31400,
-            "15021": 15021,
-            "80": 8080,
-            "15443": 15443,
-            "15012": 15012,
-            "15017": 15017,
-            "443": 8443
+            "9080": 9080
           }
         }
-      }
+      },
+      "subjectAltNames": []
     },
-    "/10.0.14.229": {
-      "name": "istio-ingressgateway",
-      "namespace": "istio-system",
-      "hostname": "istio-ingressgateway.istio-system.svc.cluster.local",
-      "addresses": [
-        "/10.0.14.229",
-        "/11.22.33.44"
+    "/10.96.74.131": {
+      "name": "reviews",
+      "namespace": "bookinfo",
+      "hostname": "reviews.bookinfo.svc.cluster.local",
+      "vips": [
+        "/10.96.74.131"
       ],
       "ports": {
-        "15021": 15021,
-        "15012": 15012,
-        "80": 8080,
-        "15443": 15443,
-        "15017": 15017,
-        "31400": 31400,
-        "443": 8443
+        "9080": 9080
       },
       "endpoints": {
-        "/10.124.2.109": {
-          "address": "/10.124.2.109",
+        "Kubernetes//Pod/bookinfo/reviews-v2-5b667bcbf8-q5pn2:/10.244.1.38": {
+          "workloadUid": "Kubernetes//Pod/bookinfo/reviews-v2-5b667bcbf8-q5pn2",
+          "service": "bookinfo/reviews.bookinfo.svc.cluster.local",
+          "address": "/10.244.1.38",
           "port": {
-            "31400": 31400,
-            "15021": 15021,
-            "80": 8080,
-            "15443": 15443,
-            "15012": 15012,
-            "15017": 15017,
-            "443": 8443
+            "9080": 9080
+          }
+        },
+        "Kubernetes//Pod/bookinfo/reviews-v1-5b5d6494f4-qwjv4:/10.244.1.37": {
+          "workloadUid": "Kubernetes//Pod/bookinfo/reviews-v1-5b5d6494f4-qwjv4",
+          "service": "bookinfo/reviews.bookinfo.svc.cluster.local",
+          "address": "/10.244.1.37",
+          "port": {
+            "9080": 9080
+          }
+        },
+        "Kubernetes//Pod/bookinfo/reviews-v3-5b9bd44f4-7fff4:/10.244.1.39": {
+          "workloadUid": "Kubernetes//Pod/bookinfo/reviews-v3-5b9bd44f4-7fff4",
+          "service": "bookinfo/reviews.bookinfo.svc.cluster.local",
+          "address": "/10.244.1.39",
+          "port": {
+            "9080": 9080
           }
         }
-      }
-    },
-    "/10.0.6.92": {
-      "name": "istiod",
-      "namespace": "istio-system",
-      "hostname": "istiod.istio-system.svc.cluster.local",
-      "addresses": [
-        "/10.0.6.92"
-      ],
-      "ports": {
-        "443": 15017,
-        "15014": 15014,
-        "15010": 15010,
-        "15012": 15012
       },
-      "endpoints": {
-        "/10.124.1.171": {
-          "address": "/10.124.1.171",
-          "port": {
-            "15012": 15012,
-            "15010": 15010,
-            "443": 15017,
-            "15014": 15014
-          }
-        }
-      }
+      "subjectAltNames": []
     },
-    "/10.0.15.182": {
-      "name": "httpbin-istio-waypoint",
+    "/10.96.0.1": {
+      "name": "kubernetes",
       "namespace": "default",
-      "hostname": "httpbin-istio-waypoint.default.svc.cluster.local",
-      "addresses": [
-        "/10.0.15.182"
+      "hostname": "kubernetes.default.svc.cluster.local",
+      "vips": [
+        "/10.96.0.1"
       ],
       "ports": {
-        "15008": 15008
+        "443": 6443
+      },
+      "endpoints": {},
+      "subjectAltNames": []
+    },
+    "/10.96.71.36": {
+      "name": "bookinfo-productpage-istio-waypoint",
+      "namespace": "bookinfo",
+      "hostname": "bookinfo-productpage-istio-waypoint.bookinfo.svc.cluster.local",
+      "vips": [
+        "/10.96.71.36"
+      ],
+      "ports": {
+        "15008": 15008,
+        "15021": 15021
       },
       "endpoints": {
-        "/10.124.2.115": {
-          "address": "/10.124.2.115",
+        "Kubernetes//Pod/bookinfo/bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg:/10.244.2.59": {
+          "workloadUid": "Kubernetes//Pod/bookinfo/bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg",
+          "service": "bookinfo/bookinfo-productpage-istio-waypoint.bookinfo.svc.cluster.local",
+          "address": "/10.244.2.59",
           "port": {
-            "15008": 15008
+            "15008": 15008,
+            "15021": 15021
           }
         }
-      }
-    }
-  },
-  "services_by_hostname": {
-    "default/httpbin.default.svc.cluster.local": {
+      },
+      "subjectAltNames": []
+    },
+    "/10.96.0.10": {
+      "name": "kube-dns",
+      "namespace": "kube-system",
+      "hostname": "kube-dns.kube-system.svc.cluster.local",
+      "vips": [
+        "/10.96.0.10"
+      ],
+      "ports": {
+        "53": 53,
+        "9153": 9153
+      },
+      "endpoints": {
+        "Kubernetes//Pod/kube-system/coredns-5dd5756b68-mgjn9:/10.244.0.2": {
+          "workloadUid": "Kubernetes//Pod/kube-system/coredns-5dd5756b68-mgjn9",
+          "service": "kube-system/kube-dns.kube-system.svc.cluster.local",
+          "address": "/10.244.0.2",
+          "port": {
+            "53": 53,
+            "9153": 9153
+          }
+        },
+        "Kubernetes//Pod/kube-system/coredns-5dd5756b68-nzlpw:/10.244.0.3": {
+          "workloadUid": "Kubernetes//Pod/kube-system/coredns-5dd5756b68-nzlpw",
+          "service": "kube-system/kube-dns.kube-system.svc.cluster.local",
+          "address": "/10.244.0.3",
+          "port": {
+            "53": 53,
+            "9153": 9153
+          }
+        }
+      },
+      "subjectAltNames": []
+    },
+    "/10.96.26.108": {
       "name": "httpbin",
       "namespace": "default",
       "hostname": "httpbin.default.svc.cluster.local",
-      "addresses": [
-        "/10.0.14.4"
+      "vips": [
+        "/10.96.26.108"
       ],
       "ports": {
         "8000": 80
       },
       "endpoints": {
-        "/10.124.0.48": {
-          "address": "/10.124.0.48",
+        "Kubernetes//Pod/default/httpbin-7447985f87-t8hv7:/10.244.1.40": {
+          "workloadUid": "Kubernetes//Pod/default/httpbin-7447985f87-t8hv7",
+          "service": "default/httpbin.default.svc.cluster.local",
+          "address": "/10.244.1.40",
           "port": {
             "8000": 80
           }
         }
-      }
+      },
+      "subjectAltNames": []
     },
-    "istio-system/istio-egressgateway.istio-system.svc.cluster.local": {
-      "name": "istio-egressgateway",
-      "namespace": "istio-system",
-      "hostname": "istio-egressgateway.istio-system.svc.cluster.local",
-      "addresses": [
-        "/10.0.7.112"
+    "/10.96.136.225": {
+      "name": "httpbin",
+      "namespace": "httpbin",
+      "hostname": "httpbin.httpbin.svc.cluster.local",
+      "vips": [
+        "/10.96.136.225"
       ],
       "ports": {
-        "80": 8080,
-        "443": 8443
+        "8000": 80
       },
       "endpoints": {
-        "/10.124.2.108": {
-          "address": "/10.124.2.108",
+        "Kubernetes//Pod/httpbin/httpbin-65975d4c6f-jr69n:/10.244.1.10": {
+          "workloadUid": "Kubernetes//Pod/httpbin/httpbin-65975d4c6f-jr69n",
+          "service": "httpbin/httpbin.httpbin.svc.cluster.local",
+          "address": "/10.244.1.10",
           "port": {
-            "443": 8443,
-            "80": 8080
+            "8000": 80
           }
         }
-      }
+      },
+      "subjectAltNames": []
     },
-    "default/sleep.default.svc.cluster.local": {
+    "/10.96.131.140": {
+      "name": "productpage",
+      "namespace": "bookinfo",
+      "hostname": "productpage.bookinfo.svc.cluster.local",
+      "vips": [
+        "/10.96.131.140"
+      ],
+      "ports": {
+        "9080": 9080
+      },
+      "endpoints": {
+        "Kubernetes//Pod/bookinfo/productpage-v1-675fc69cf-jscn2:/10.244.2.53": {
+          "workloadUid": "Kubernetes//Pod/bookinfo/productpage-v1-675fc69cf-jscn2",
+          "service": "bookinfo/productpage.bookinfo.svc.cluster.local",
+          "address": "/10.244.2.53",
+          "port": {
+            "9080": 9080
+          }
+        }
+      },
+      "subjectAltNames": []
+    },
+    "/10.96.111.11": {
+      "name": "istiod",
+      "namespace": "istio-system",
+      "hostname": "istiod.istio-system.svc.cluster.local",
+      "vips": [
+        "/10.96.111.11"
+      ],
+      "ports": {
+        "443": 15017,
+        "15010": 15010,
+        "15012": 15012,
+        "15014": 15014
+      },
+      "endpoints": {
+        "Kubernetes//Pod/istio-system/istiod-8c7b98fc4-mwjfp:/10.244.2.49": {
+          "workloadUid": "Kubernetes//Pod/istio-system/istiod-8c7b98fc4-mwjfp",
+          "service": "istio-system/istiod.istio-system.svc.cluster.local",
+          "address": "/10.244.2.49",
+          "port": {
+            "443": 15017,
+            "15010": 15010,
+            "15012": 15012,
+            "15014": 15014
+          }
+        }
+      },
+      "subjectAltNames": []
+    },
+    "/10.96.30.20": {
       "name": "sleep",
       "namespace": "default",
       "hostname": "sleep.default.svc.cluster.local",
-      "addresses": [
-        "/10.0.12.146"
+      "vips": [
+        "/10.96.30.20"
       ],
       "ports": {
         "80": 80
       },
       "endpoints": {
-        "/10.124.0.47": {
-          "address": "/10.124.0.47",
+        "Kubernetes//Pod/default/sleep-7656cf8794-lxcmx:/10.244.2.58": {
+          "workloadUid": "Kubernetes//Pod/default/sleep-7656cf8794-lxcmx",
+          "service": "default/sleep.default.svc.cluster.local",
+          "address": "/10.244.2.58",
           "port": {
             "80": 80
           }
         }
-      }
+      },
+      "subjectAltNames": []
     },
-    "default/httpbin-istio-waypoint.default.svc.cluster.local": {
-      "name": "httpbin-istio-waypoint",
+    "/10.96.68.3": {
+      "name": "reviews",
       "namespace": "default",
-      "hostname": "httpbin-istio-waypoint.default.svc.cluster.local",
-      "addresses": [
-        "/10.0.15.182"
+      "hostname": "reviews.default.svc.cluster.local",
+      "vips": [
+        "/10.96.68.3"
       ],
       "ports": {
-        "15008": 15008
+        "9080": 9080
       },
       "endpoints": {
-        "/10.124.2.115": {
-          "address": "/10.124.2.115",
+        "Kubernetes//Pod/default/reviews-v3-5b9bd44f4-z9ms4:/10.244.1.43": {
+          "workloadUid": "Kubernetes//Pod/default/reviews-v3-5b9bd44f4-z9ms4",
+          "service": "default/reviews.default.svc.cluster.local",
+          "address": "/10.244.1.43",
           "port": {
-            "15008": 15008
+            "9080": 9080
+          }
+        },
+        "Kubernetes//Pod/default/reviews-v2-5b667bcbf8-twvx6:/10.244.1.42": {
+          "workloadUid": "Kubernetes//Pod/default/reviews-v2-5b667bcbf8-twvx6",
+          "service": "default/reviews.default.svc.cluster.local",
+          "address": "/10.244.1.42",
+          "port": {
+            "9080": 9080
+          }
+        },
+        "Kubernetes//Pod/default/reviews-v1-5b5d6494f4-c7z5w:/10.244.1.41": {
+          "workloadUid": "Kubernetes//Pod/default/reviews-v1-5b5d6494f4-c7z5w",
+          "service": "default/reviews.default.svc.cluster.local",
+          "address": "/10.244.1.41",
+          "port": {
+            "9080": 9080
           }
         }
-      }
-    },
-    "istio-system/istio-ingressgateway.istio-system.svc.cluster.local": {
-      "name": "istio-ingressgateway",
-      "namespace": "istio-system",
-      "hostname": "istio-ingressgateway.istio-system.svc.cluster.local",
-      "addresses": [
-        "/10.0.14.229",
-        "/11.22.33.44"
-      ],
-      "ports": {
-        "15021": 15021,
-        "15012": 15012,
-        "80": 8080,
-        "15443": 15443,
-        "15017": 15017,
-        "31400": 31400,
-        "443": 8443
       },
-      "endpoints": {
-        "/10.124.2.109": {
-          "address": "/10.124.2.109",
-          "port": {
-            "31400": 31400,
-            "15021": 15021,
-            "80": 8080,
-            "15443": 15443,
-            "15012": 15012,
-            "15017": 15017,
-            "443": 8443
-          }
-        }
-      }
-    },
-    "istio-system/istiod.istio-system.svc.cluster.local": {
-      "name": "istiod",
-      "namespace": "istio-system",
-      "hostname": "istiod.istio-system.svc.cluster.local",
-      "addresses": [
-        "/10.0.6.92"
-      ],
-      "ports": {
-        "443": 15017,
-        "15014": 15014,
-        "15010": 15010,
-        "15012": 15012
-      },
-      "endpoints": {
-        "/10.124.1.171": {
-          "address": "/10.124.1.171",
-          "port": {
-            "15012": 15012,
-            "15010": 15010,
-            "443": 15017,
-            "15014": 15014
-          }
-        }
-      }
+      "subjectAltNames": []
     }
-  },
-  "staged_vips": {},
-  "policies": {},
-  "policies_by_namespace": {},
-  "proxy_mode": "Shared",
-  "local_node": "node-1",
-  "static_config": {
-    "workloads": [],
-    "policies": [],
-    "services": []
-  },
-  "version": {
-    "version": "dc75c58af9dfd7620e2413875d6bc423607c2c80-dirty",
-    "git_revision": "dc75c58af9dfd7620e2413875d6bc423607c2c80-dirty",
-    "rust_version": "1.66.0",
-    "build_status": "Modified",
-    "git_tag": "dc75c58",
-    "istio_version": "unknown"
-  },
-  "config": {
-    "window_size": 4194304,
-    "connection_window_size": 4194304,
-    "frame_size": 1048576,
-    "socks5_addr": "127.0.0.1:15080",
-    "admin_addr": "127.0.0.1:15000",
-    "stats_addr": "[::]:15020",
-    "readiness_addr": "[::]:15021",
-    "inbound_addr": "[::]:15008",
-    "inbound_plaintext_addr": "[::]:15006",
-    "outbound_addr": "[::]:15001",
-    "local_node": "ambient-worker",
-    "proxy_mode": "Shared",
-    "local_ip": "10.244.1.3",
-    "cluster_id": "Kubernetes",
-    "ca_address": "https://istiod.istio-system.svc:15012",
-    "ca_root_cert": {
-      "File": "./var/run/secrets/istio/root-cert.pem"
-    },
-    "xds_address": "https://istiod.istio-system.svc:15012",
-    "xds_root_cert": {
-      "File": "./var/run/secrets/istio/root-cert.pem"
-    },
-    "xds_on_demand": false,
-    "fake_ca": false,
-    "termination_grace_period": {
-      "secs": 5,
-      "nanos": 0
-    },
-    "proxy_metadata": {
-      "ISTIO_VERSION": "1.20-dev"
-    },
-    "num_worker_threads": 2,
-    "enable_original_source": null,
-    "proxy_args": "proxy ztunnel"
   },
   "certificates": [
     {
