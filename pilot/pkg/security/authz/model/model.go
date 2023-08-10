@@ -258,7 +258,7 @@ func (r rule) principal(forTCP bool, useAuthenticated bool, action rbacpb.RBAC_A
 	var principals []*rbacpb.Principal
 	var or []*rbacpb.Principal
 	for _, value := range r.values {
-		p, err := r.g.principal(r.key, value, forTCP, false)
+		p, err := r.g.principal(r.key, value, forTCP, useAuthenticated)
 		if err := r.checkError(action, err); err != nil {
 			return nil, err
 		}

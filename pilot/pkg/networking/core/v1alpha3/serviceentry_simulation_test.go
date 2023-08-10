@@ -72,7 +72,7 @@ spec:
 func TestServiceEntry(t *testing.T) {
 	cases := []simulationTest{
 		{
-			name:       "identical CIDR (ignoreing insignificant bits) is dropped",
+			name:       "identical CIDR (ignoring insignificant bits) is dropped",
 			config:     fmt.Sprintf(se, "1234:1f1:123:123:f816:3eff:feb8:2287/32", "1234:1f1:123:123:f816:3eff:febf:57ce/32"),
 			kubeConfig: "",
 			calls: []simulation.Expect{{
@@ -166,7 +166,7 @@ func TestServiceEntryDuplicatedHostname(t *testing.T) {
 				{
 					Name: "HTTP call",
 					Call: simulation.Call{
-						Address:    "240.240.0.1",
+						Address:    "240.240.21.222",
 						Port:       80,
 						HostHeader: "istio.io",
 						Protocol:   simulation.HTTP,
@@ -179,14 +179,14 @@ func TestServiceEntryDuplicatedHostname(t *testing.T) {
 				{
 					Name: "HTTPS call",
 					Call: simulation.Call{
-						Address:    "240.240.0.1",
+						Address:    "240.240.21.222",
 						Port:       443,
 						HostHeader: "istio.io",
 						Protocol:   simulation.HTTP,
 						TLS:        simulation.TLS,
 					},
 					Result: simulation.Result{
-						ListenerMatched: "240.240.0.1_443",
+						ListenerMatched: "240.240.21.222_443",
 						ClusterMatched:  "outbound|443||istio.io",
 					},
 				},

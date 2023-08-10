@@ -67,6 +67,7 @@ var (
 		name.IstioOperatorCustomResourceName: true,
 		name.CNIComponentName:                true,
 		name.IstiodRemoteComponentName:       true,
+		name.ZtunnelComponentName:            true,
 	}
 
 	gatewayPathMapping = map[string]name.ComponentName{

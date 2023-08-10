@@ -23,12 +23,14 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/echotest"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -85,6 +87,9 @@ type TrafficTestCase struct {
 
 	// minIstioVersion allows conditionally skipping based on required version
 	minIstioVersion string
+
+	// If set, a datapath with no L7 proxies can run this test
+	RequiresL4 bool
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -110,6 +115,10 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 	}
 	if !optsSpecified && len(c.children) == 0 {
 		t.Fatal("TrafficTestCase: must specify either opts or children")
+	}
+
+	if !c.RequiresL4 {
+		c.comboFilters = append(c.comboFilters, echotest.HasL7)
 	}
 
 	job := func(t framework.TestContext) {
@@ -157,6 +166,10 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				if c.setupOpts != nil {
 					c.setupOpts(from, &opts)
 				}
+				// If unset, assume they want to just check the request succeeds
+				if opts.Check == nil {
+					opts.Check = check.OK()
+				}
 				return opts
 			}
 			if optsSpecified {
@@ -202,10 +215,17 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 				t.SkipNow()
 			}
 		}
+		// we only apply to config clusters
 		if len(c.config) > 0 {
-			cfg := yml.MustApplyNamespace(t, c.config, namespace)
-			// we only apply to config clusters
-			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t)
+			tmplData := map[string]any{}
+			if c.templateVars != nil {
+				// we don't have echo instances so just pass nil
+				for k, v := range c.templateVars(nil, nil) {
+					tmplData[k] = v
+				}
+			}
+			cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
+			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t, apply.CleanupConditionally)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
@@ -229,30 +249,44 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 	}
 }
 
+func skipAmbient(t framework.TestContext, reason string) skip {
+	return skip{skip: t.Settings().Ambient, reason: reason}
+}
+
 func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployment.SingleNamespaceView) {
 	RunCase := func(name string, f func(t TrafficContext)) {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
 			f(TrafficContext{TestContext: t, Apps: apps, Istio: i})
 		})
 	}
-	RunCase("jwt-claim-route", jwtClaimRoute)
+	RunSkipAmbient := func(name string, f func(t TrafficContext), reason string) {
+		t.NewSubTest(name).Run(func(t framework.TestContext) {
+			if t.Settings().Ambient {
+				t.Skipf("ambient skipped: %v", reason)
+			} else {
+				f(TrafficContext{TestContext: t, Apps: apps, Istio: i})
+			}
+		})
+	}
+	RunSkipAmbient("jwt-claim-route", jwtClaimRoute, "ingress needed")
 	RunCase("virtualservice", virtualServiceCases)
 	RunCase("sniffing", protocolSniffingCases)
 	RunCase("selfcall", selfCallsCases)
-	RunCase("serverfirst", serverFirstTestCases)
+	RunSkipAmbient("serverfirst", serverFirstTestCases, "Expected success cases time out")
 	RunCase("gateway", gatewayCases)
-	RunCase("autopassthrough", autoPassthroughCases)
-	RunCase("loop", trafficLoopCases)
-	RunCase("tls-origination", tlsOriginationCases)
-	RunCase("instanceip", instanceIPTests)
+	RunSkipAmbient("autopassthrough", autoPassthroughCases, "ingress needed")
+	RunSkipAmbient("loop", trafficLoopCases, "does not error (waypoint -> waypoint)")
+	RunSkipAmbient("tls-origination", tlsOriginationCases, "not workload agnostic")
+	RunSkipAmbient("instanceip", instanceIPTests, "not supported")
 	RunCase("services", serviceCases)
-	RunCase("host", hostCases)
-	RunCase("envoyfilter", envoyFilterCases)
-	RunCase("consistent-hash", consistentHashCases)
-	RunCase("use-client-protocol", useClientProtocolCases)
+	RunSkipAmbient("host", hostCases, "Relies on X-Forwarded-Client-Cert in checker")
+	RunSkipAmbient("envoyfilter", envoyFilterCases, "not supported")
+	RunSkipAmbient("consistent-hash", consistentHashCases, "likey the same issue as https://github.com/istio/istio/issues/43161")
+	RunSkipAmbient("use-client-protocol", useClientProtocolCases, "https://github.com/istio/istio/issues/43161")
 	RunCase("destinationrule", destinationRuleCases)
 	RunCase("vm", VMTestCases(apps.VM))
-	RunCase("dns", DNSTestCases)
+	RunSkipAmbient("dns", DNSTestCases, "https://github.com/istio/istio/issues/45923")
+	RunCase("externalservice", TestExternalService)
 }
 
 func ExpectString(got, expected, help string) error {

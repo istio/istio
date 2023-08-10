@@ -19,51 +19,41 @@ import (
 	"path/filepath"
 
 	"istio.io/istio/pkg/file"
+	"istio.io/istio/pkg/util/sets"
 )
 
-func copyBinaries(srcDir string, targetDirs []string, updateBinaries bool, skipBinaries []string) error {
-	skipBinariesSet := arrToSet(skipBinaries)
+// Copies/mirrors any files present in a single source dir to N number of target dirs
+// and returns a set of the filenames copied.
+func copyBinaries(srcDir string, targetDirs []string) (sets.Set[string], error) {
+	copiedFilenames := sets.Set[string]{}
+	srcFiles, err := os.ReadDir(srcDir)
+	if err != nil {
+		return copiedFilenames, err
+	}
 
-	for _, targetDir := range targetDirs {
-		if file.IsDirWriteable(targetDir) != nil {
-			installLog.Infof("Directory %s is not writable, skipping.", targetDir)
+	for _, f := range srcFiles {
+		if f.IsDir() {
 			continue
 		}
 
-		files, err := os.ReadDir(srcDir)
-		if err != nil {
-			return err
-		}
+		filename := f.Name()
+		srcFilepath := filepath.Join(srcDir, filename)
 
-		for _, f := range files {
-			filename := f.Name()
-			if skipBinariesSet[filename] {
-				installLog.Infof("%s is in SKIP_CNI_BINARIES, skipping.", filename)
+		for _, targetDir := range targetDirs {
+			if err := file.IsDirWriteable(targetDir); err != nil {
+				installLog.Infof("Directory %s is not writable, skipping.", targetDir)
 				continue
 			}
 
-			targetFilepath := filepath.Join(targetDir, filename)
-			if _, err := os.Stat(targetFilepath); err == nil && !updateBinaries {
-				installLog.Infof("%s is already here and UPDATE_CNI_BINARIES isn't true, skipping", targetFilepath)
-				continue
-			}
-
-			srcFilepath := filepath.Join(srcDir, filename)
 			err := file.AtomicCopy(srcFilepath, targetDir, filename)
 			if err != nil {
-				return err
+				return copiedFilenames, err
 			}
 			installLog.Infof("Copied %s to %s.", filename, targetDir)
 		}
+
+		copiedFilenames.Insert(filename)
 	}
 
-	return nil
-}
-
-func arrToSet(array []string) map[string]bool {
-	set := make(map[string]bool)
-	for _, v := range array {
-		set[v] = true
-	}
-	return set
+	return copiedFilenames, nil
 }

@@ -52,7 +52,7 @@ type tunnelingTestCase struct {
 
 type testRequestSpec struct {
 	protocol protocol.Instance
-	portName string
+	port     echo.Port
 }
 
 var forwardProxyConfigurations = []forwardproxy.ListenerSettings{
@@ -81,11 +81,11 @@ var forwardProxyConfigurations = []forwardproxy.ListenerSettings{
 var requestsSpec = []testRequestSpec{
 	{
 		protocol: protocol.HTTP,
-		portName: ports.TCPForHTTP,
+		port:     ports.TCPForHTTP,
 	},
 	{
 		protocol: protocol.HTTPS,
-		portName: ports.HTTPS,
+		port:     ports.HTTPS,
 	},
 }
 
@@ -121,11 +121,14 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 
 			for _, proxyConfig := range forwardProxyConfigurations {
 				templateParams := map[string]any{
-					"externalNamespace":  externalNs,
-					"forwardProxyPort":   proxyConfig.Port,
-					"tlsEnabled":         proxyConfig.TLSEnabled,
-					"externalSvcTcpPort": apps.External.All.PortForName(ports.TCPForHTTP).ServicePort,
-					"externalSvcTlsPort": apps.External.All.PortForName(ports.HTTPS).ServicePort,
+					"externalNamespace":             externalNs,
+					"forwardProxyPort":              proxyConfig.Port,
+					"tlsEnabled":                    proxyConfig.TLSEnabled,
+					"externalSvcTcpPort":            ports.TCPForHTTP.ServicePort,
+					"externalSvcTlsPort":            ports.HTTPS.ServicePort,
+					"EgressGatewayIstioLabel":       i.Settings().EgressGatewayIstioLabel,
+					"EgressGatewayServiceName":      i.Settings().EgressGatewayServiceName,
+					"EgressGatewayServiceNamespace": i.Settings().EgressGatewayServiceNamespace,
 				}
 				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).ApplyOrFail(ctx)
 
@@ -142,7 +145,7 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 							retry.UntilSuccessOrFail(ctx, func() error {
 								client := apps.A[0]
 								target := apps.External.All[0]
-								if err := testConnectivity(client, target, spec.protocol, spec.portName, testName); err != nil {
+								if err := testConnectivity(client, target, spec.protocol, spec.port, testName); err != nil {
 									return err
 								}
 								if err := verifyThatRequestWasTunneled(target, externalForwardProxyIP, testName); err != nil {
@@ -160,7 +163,8 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 					// Make sure that configuration changes were pushed to istio-proxies.
 					// Otherwise, test results could be false-positive,
 					// because subsequent test cases could work thanks to previous configurations.
-					waitUntilTunnelingConfigurationIsRemovedOrFail(ctx, meshNs)
+
+					waitUntilTunnelingConfigurationIsRemovedOrFail(ctx, meshNs, i.Settings().EgressGatewayServiceNamespace, i.Settings().EgressGatewayServiceName)
 				}
 
 				ctx.ConfigIstio().EvalFile(externalNs, templateParams, tunnelingDestinationRuleFile).DeleteOrFail(ctx)
@@ -168,12 +172,12 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 		})
 }
 
-func testConnectivity(from, to echo.Instance, p protocol.Instance, portName, testName string) error {
+func testConnectivity(from, to echo.Instance, p protocol.Instance, port echo.Port, testName string) error {
 	res, err := from.Call(echo.CallOptions{
 		Address: to.ClusterLocalFQDN(),
 		Port: echo.Port{
 			Protocol:    p,
-			ServicePort: to.PortForName(portName).ServicePort,
+			ServicePort: port.ServicePort,
 		},
 		HTTP: echo.HTTP{
 			Path: "/" + testName,
@@ -235,7 +239,7 @@ func applyForwardProxyService(ctx framework.TestContext, externalNs string) {
 		servicePorts = append(servicePorts, corev1.ServicePort{
 			Name:       fmt.Sprintf("%s-%d", selectPortName(cfg.HTTPVersion), i),
 			Port:       int32(cfg.Port),
-			TargetPort: intstr.FromInt(int(cfg.Port)),
+			TargetPort: intstr.FromInt32(int32(cfg.Port)),
 		})
 	}
 	templateParams := map[string]any{
@@ -302,7 +306,7 @@ func waitForPodsReadyOrFail(ctx framework.TestContext, ns, appSelector string) {
 	}, retry.Timeout(1*time.Minute), retry.Delay(500*time.Millisecond))
 }
 
-func waitUntilTunnelingConfigurationIsRemovedOrFail(ctx framework.TestContext, meshNs string) {
+func waitUntilTunnelingConfigurationIsRemovedOrFail(ctx framework.TestContext, meshNs string, egressNs string, egressLabel string) {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -312,7 +316,7 @@ func waitUntilTunnelingConfigurationIsRemovedOrFail(ctx framework.TestContext, m
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		waitForTunnelingRemovedOrFail(ctx, "istio-system", "istio-egressgateway")
+		waitForTunnelingRemovedOrFail(ctx, egressNs, egressLabel)
 	}()
 	wg.Wait()
 }

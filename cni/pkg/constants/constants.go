@@ -23,23 +23,20 @@ const (
 	ChainedCNIPlugin     = "chained-cni-plugin"
 	CNINetworkConfigFile = "cni-network-config-file"
 	CNINetworkConfig     = "cni-network-config"
-	CNIEnableInstall     = "cni-enable-install"
-	CNIEnableReinstall   = "cni-enable-reinstall"
 	LogLevel             = "log-level"
 	KubeconfigFilename   = "kubecfg-file-name"
 	KubeconfigMode       = "kubeconfig-mode"
 	KubeCAFile           = "kube-ca-file"
 	SkipTLSVerify        = "skip-tls-verify"
-	SkipCNIBinaries      = "skip-cni-binaries"
-	UpdateCNIBinaries    = "update-cni-binaries"
 	MonitoringPort       = "monitoring-port"
 	LogUDSAddress        = "log-uds-address"
+	AmbientEnabled       = "ambient-enabled"
+	EbpfEnabled          = "ebpf-enabled"
 
 	// Repair
 	RepairEnabled            = "repair-enabled"
 	RepairDeletePods         = "repair-delete-pods"
 	RepairLabelPods          = "repair-label-pods"
-	RepairRunAsDaemon        = "repair-run-as-daemon"
 	RepairLabelKey           = "repair-broken-pod-label-key"
 	RepairLabelValue         = "repair-broken-pod-label-value"
 	RepairNodeName           = "repair-node-name"
@@ -52,16 +49,21 @@ const (
 )
 
 // Internal constants
-var (
-	CNIBinDir             = "/opt/cni/bin"
-	HostCNIBinDir         = "/host/opt/cni/bin"
-	SecondaryBinDir       = "/host/secondary-bin-dir"
-	ServiceAccountPath    = "/var/run/secrets/kubernetes.io/serviceaccount"
+const (
 	DefaultKubeconfigMode = 0o600
-	UDSLogPath            = "/log"
+
+	UDSLogPath      = "/log"
+	SecondaryBinDir = "/host/secondary-bin-dir"
 
 	// K8s liveness and readiness endpoints
 	LivenessEndpoint  = "/healthz"
 	ReadinessEndpoint = "/readyz"
-	Port              = "8000"
+	ReadinessPort     = "8000"
+)
+
+// Exposed for testing constants
+var (
+	CNIBinDir          = "/opt/cni/bin"
+	HostCNIBinDir      = "/host/opt/cni/bin"
+	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
 )

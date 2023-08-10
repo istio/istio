@@ -39,8 +39,8 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type testAdscRunServer struct{}
@@ -102,7 +102,7 @@ func TestADSC_Run(t *testing.T) {
 			desc:            "stream-4-uncompleted-mcp-resources",
 			initialRequests: ConfigInitialRequests(),
 			// XDS Server don't push this kind resource.
-			excludedResource: collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind().String(),
+			excludedResource: gvk.ServiceEntry.String(),
 			validator: func(testCase testCase) error {
 				if testCase.inAdsc.HasSynced() {
 					return errors.New("ADSC should not be synced")
@@ -486,13 +486,8 @@ func TestADSC_handleMCP(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
-			gvk := config.GroupVersionKind{
-				Group:   "networking.istio.io",
-				Version: "v1alpha3",
-				Kind:    "ServiceEntry",
-			}
-			adsc.handleMCP(gvk, tt.resources)
-			configs, _ := adsc.Store.List(collections.IstioNetworkingV1Alpha3Serviceentries.Resource().GroupVersionKind(), "")
+			adsc.handleMCP(gvk.ServiceEntry, tt.resources)
+			configs := adsc.Store.List(gvk.ServiceEntry, "")
 			if len(configs) != len(tt.expectedResources) {
 				t.Errorf("expected %v got %v", len(tt.expectedResources), len(configs))
 			}

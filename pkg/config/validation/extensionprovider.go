@@ -24,6 +24,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func validateExtensionProviderService(service string) error {
@@ -232,17 +233,17 @@ func ValidateExtensionProviderEnvoyTCPAls(provider *meshconfig.MeshConfig_Extens
 }
 
 func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
-	definedProviders := map[string]struct{}{}
+	definedProviders := sets.String{}
 	for _, c := range config.ExtensionProviders {
 		var currentErrs error
 		// Provider name must be unique and not empty.
 		if c.Name == "" {
 			currentErrs = appendErrors(currentErrs, fmt.Errorf("empty extension provider name"))
 		} else {
-			if _, found := definedProviders[c.Name]; found {
+			if definedProviders.Contains(c.Name) {
 				currentErrs = appendErrors(currentErrs, fmt.Errorf("duplicate extension provider name %s", c.Name))
 			}
-			definedProviders[c.Name] = struct{}{}
+			definedProviders.Insert(c.Name)
 		}
 
 		switch provider := c.Provider.(type) {
@@ -252,6 +253,7 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 			currentErrs = appendErrors(currentErrs, ValidateExtensionProviderEnvoyExtAuthzGRPC(provider.EnvoyExtAuthzGrpc))
 		case *meshconfig.MeshConfig_ExtensionProvider_Zipkin:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingZipkin(provider.Zipkin))
+		//nolint: staticcheck  // Lightstep deprecated
 		case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingLightStep(provider.Lightstep))
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:

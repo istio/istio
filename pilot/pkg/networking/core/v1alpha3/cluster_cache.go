@@ -15,8 +15,6 @@
 package v1alpha3
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"strconv"
 	"strings"
 
@@ -25,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/hash"
 )
 
 var (
@@ -42,6 +41,7 @@ type clusterCache struct {
 	locality       *core.Locality // identifies the locality the cluster is generated for
 	proxyClusterID string         // identifies the kubernetes cluster a proxy is in
 	proxySidecar   bool           // identifies if this proxy is a Sidecar
+	hbone          bool
 	proxyView      model.ProxyView
 	metadataCerts  *metadataCerts // metadata certificates of proxy
 
@@ -50,7 +50,7 @@ type clusterCache struct {
 	downstreamAuto bool
 	supportsIPv4   bool
 
-	// Dependent configs
+	// dependent configs
 	service         *model.Service
 	destinationRule *model.ConsolidatedDestRule
 	envoyFilterKeys []string
@@ -58,71 +58,76 @@ type clusterCache struct {
 	serviceAccounts []string // contains all the service accounts associated with the service
 }
 
-func (t *clusterCache) Key() string {
-	// nolint: gosec
-	// Not security sensitive code
-	hash := md5.New()
-	hash.Write([]byte(t.clusterName))
-	hash.Write(Separator)
-	hash.Write([]byte(t.proxyVersion))
-	hash.Write(Separator)
-	hash.Write([]byte(util.LocalityToString(t.locality)))
-	hash.Write(Separator)
-	hash.Write([]byte(t.proxyClusterID))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(t.proxySidecar)))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(t.http2)))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(t.downstreamAuto)))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(t.supportsIPv4)))
-	hash.Write(Separator)
-
-	if t.proxyView != nil {
-		hash.Write([]byte(t.proxyView.String()))
-	}
-	hash.Write(Separator)
-
-	if t.metadataCerts != nil {
-		hash.Write([]byte(t.metadataCerts.String()))
-	}
-	hash.Write(Separator)
-
-	if t.service != nil {
-		hash.Write([]byte(t.service.Hostname))
-		hash.Write(Slash)
-		hash.Write([]byte(t.service.Attributes.Namespace))
-	}
-	hash.Write(Separator)
-
-	for _, dr := range t.destinationRule.GetFrom() {
-		hash.Write([]byte(dr.Name))
-		hash.Write(Slash)
-		hash.Write([]byte(dr.Namespace))
-	}
-	hash.Write(Separator)
-
-	for _, efk := range t.envoyFilterKeys {
-		hash.Write([]byte(efk))
-		hash.Write(Separator)
-	}
-	hash.Write(Separator)
-
-	hash.Write([]byte(t.peerAuthVersion))
-	hash.Write(Separator)
-
-	for _, sa := range t.serviceAccounts {
-		hash.Write([]byte(sa))
-		hash.Write(Separator)
-	}
-	hash.Write(Separator)
-
-	sum := hash.Sum(nil)
-	return hex.EncodeToString(sum)
+func (t *clusterCache) Type() string {
+	return model.CDSType
 }
 
-func (t clusterCache) DependentConfigs() []model.ConfigHash {
+func (t *clusterCache) Key() any {
+	// nolint: gosec
+	// Not security sensitive code
+	h := hash.New()
+	h.Write([]byte(t.clusterName))
+	h.Write(Separator)
+	h.Write([]byte(t.proxyVersion))
+	h.Write(Separator)
+	h.Write([]byte(util.LocalityToString(t.locality)))
+	h.Write(Separator)
+	h.Write([]byte(t.proxyClusterID))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(t.proxySidecar)))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(t.http2)))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(t.downstreamAuto)))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(t.supportsIPv4)))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(t.hbone)))
+	h.Write(Separator)
+
+	if t.proxyView != nil {
+		h.Write([]byte(t.proxyView.String()))
+	}
+	h.Write(Separator)
+
+	if t.metadataCerts != nil {
+		h.Write([]byte(t.metadataCerts.String()))
+	}
+	h.Write(Separator)
+
+	if t.service != nil {
+		h.Write([]byte(t.service.Hostname))
+		h.Write(Slash)
+		h.Write([]byte(t.service.Attributes.Namespace))
+	}
+	h.Write(Separator)
+
+	for _, dr := range t.destinationRule.GetFrom() {
+		h.Write([]byte(dr.Name))
+		h.Write(Slash)
+		h.Write([]byte(dr.Namespace))
+	}
+	h.Write(Separator)
+
+	for _, efk := range t.envoyFilterKeys {
+		h.Write([]byte(efk))
+		h.Write(Separator)
+	}
+	h.Write(Separator)
+
+	h.Write([]byte(t.peerAuthVersion))
+	h.Write(Separator)
+
+	for _, sa := range t.serviceAccounts {
+		h.Write([]byte(sa))
+		h.Write(Separator)
+	}
+	h.Write(Separator)
+
+	return h.Sum64()
+}
+
+func (t *clusterCache) DependentConfigs() []model.ConfigHash {
 	drs := t.destinationRule.GetFrom()
 	configs := make([]model.ConfigHash, 0, len(drs)+1+len(t.envoyFilterKeys))
 	if t.destinationRule != nil {
@@ -140,11 +145,7 @@ func (t clusterCache) DependentConfigs() []model.ConfigHash {
 	return configs
 }
 
-func (t *clusterCache) DependentTypes() []kind.Kind {
-	return nil
-}
-
-func (t clusterCache) Cacheable() bool {
+func (t *clusterCache) Cacheable() bool {
 	return true
 }
 
@@ -173,8 +174,9 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		proxyClusterID:  cb.clusterID,
 		proxySidecar:    cb.sidecarProxy(),
 		proxyView:       cb.proxyView,
+		hbone:           cb.hbone,
 		http2:           port.Protocol.IsHTTP2(),
-		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
+		downstreamAuto:  cb.sidecarProxy() && port.Protocol.IsUnsupported(),
 		supportsIPv4:    cb.supportsIPv4,
 		service:         service,
 		destinationRule: proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname),

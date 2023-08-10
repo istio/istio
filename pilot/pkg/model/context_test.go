@@ -597,9 +597,9 @@ func TestSetServiceInstances(t *testing.T) {
 	proxy.SetServiceInstances(env)
 
 	assert.Equal(t, len(proxy.ServiceInstances), 3)
-	assert.Equal(t, proxy.ServiceInstances[0].Service.Hostname, host.Name("test2.com"))
-	assert.Equal(t, proxy.ServiceInstances[1].Service.Hostname, host.Name("test3.com"))
-	assert.Equal(t, proxy.ServiceInstances[2].Service.Hostname, host.Name("test1.com"))
+	assert.Equal(t, proxy.ServiceInstances[0].Service.Hostname, "test2.com")
+	assert.Equal(t, proxy.ServiceInstances[1].Service.Hostname, "test3.com")
+	assert.Equal(t, proxy.ServiceInstances[2].Service.Hostname, "test1.com")
 }
 
 func TestGlobalUnicastIP(t *testing.T) {

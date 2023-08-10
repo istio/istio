@@ -17,61 +17,34 @@ package kuberesource
 import (
 	"fmt"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 )
 
-func SkipExcludedCollections(requiredCols collection.Names, excludedResourceKinds []string, enableServiceDiscovery bool) collection.Schemas {
+func ConvertInputsToSchemas(inputs []config.GroupVersionKind) collection.Schemas {
 	resultBuilder := collection.NewSchemasBuilder()
-	for _, name := range requiredCols {
-		s, f := collections.All.Find(name.String())
+	for _, gv := range inputs {
+		s, f := collections.All.FindByGroupVersionKind(gv)
 		if !f {
 			continue
 		}
-		disabled := false
-		if isKindExcluded(excludedResourceKinds, s.Resource().Kind()) {
-			// Found a matching exclude directive for this KubeResource. Disable the resource.
-			disabled = true
-
-			// Check and see if this is needed for Service Discovery. If needed, we will need to re-enable.
-			if enableServiceDiscovery {
-				if IsRequiredForServiceDiscovery(s.Resource()) {
-					// This is needed for service discovery. Re-enable.
-					disabled = false
-				}
-			}
-		}
-
-		if disabled {
-			continue
-		}
-
 		_ = resultBuilder.Add(s)
 	}
 
 	return resultBuilder.Build()
 }
 
-// DefaultExcludedResourceKinds returns the default list of resource kinds to exclude.
-func DefaultExcludedResourceKinds() []string {
-	resources := make([]string, 0)
+func DefaultExcludedSchemas() collection.Schemas {
+	resultBuilder := collection.NewSchemasBuilder()
 	for _, r := range collections.Kube.All() {
-		if IsDefaultExcluded(r.Resource()) {
-			resources = append(resources, r.Resource().Kind())
-		}
-	}
-	return resources
-}
-
-func isKindExcluded(excludedResourceKinds []string, kind string) bool {
-	for _, excludedKind := range excludedResourceKinds {
-		if kind == excludedKind {
-			return true
+		if IsDefaultExcluded(r) {
+			_ = resultBuilder.Add(r)
 		}
 	}
 
-	return false
+	return resultBuilder.Build()
 }
 
 // the following code minimally duplicates logic from galley/pkg/config/source/kube/rt/known.go
@@ -92,12 +65,8 @@ func asTypesKey(group, kind string) string {
 	return fmt.Sprintf("%s/%s", group, kind)
 }
 
-func IsRequiredForServiceDiscovery(res resource.Schema) bool {
+func IsDefaultExcluded(res resource.Schema) bool {
 	key := asTypesKey(res.Group(), res.Kind())
 	_, ok := knownTypes[key]
 	return ok
-}
-
-func IsDefaultExcluded(res resource.Schema) bool {
-	return IsRequiredForServiceDiscovery(res)
 }

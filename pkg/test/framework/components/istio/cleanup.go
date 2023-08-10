@@ -57,6 +57,9 @@ func (i *istioImpl) Close() error {
 		}
 		return errG.Wait().ErrorOrNil()
 	}
+	for _, f := range i.istiod {
+		f.Close()
+	}
 	return nil
 }
 
@@ -81,15 +84,15 @@ func (i *istioImpl) Dump(ctx resource.Context) {
 	for _, c := range ctx.Clusters().Kube().Primaries() {
 		c := c
 		g.Go(func() error {
-			kube2.DumpDebug(ctx, c, d, "configz")
+			kube2.DumpDebug(ctx, c, d, "configz", ns)
 			return nil
 		})
 		g.Go(func() error {
-			kube2.DumpDebug(ctx, c, d, "mcsz")
+			kube2.DumpDebug(ctx, c, d, "mcsz", ns)
 			return nil
 		})
 		g.Go(func() error {
-			kube2.DumpDebug(ctx, c, d, "clusterz")
+			kube2.DumpDebug(ctx, c, d, "clusterz", ns)
 			return nil
 		})
 	}

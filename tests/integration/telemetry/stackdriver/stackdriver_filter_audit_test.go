@@ -24,7 +24,6 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -112,7 +111,7 @@ func TestStackdriverHTTPAuditLogging(t *testing.T) {
 						}
 
 						return fmt.Errorf(strings.Join(errs, "\n"))
-					}, retry.Delay(5*time.Second), retry.Timeout(20*time.Second))
+					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 					if err != nil {
 						return err
 					}

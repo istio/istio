@@ -23,12 +23,15 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/api/label"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 // Config for new echo deployment.
@@ -67,6 +70,22 @@ type Config struct {
 	Configs echo.ConfigGetter
 }
 
+// AddConfigs appends to the configs to be deployed
+func (c *Config) AddConfigs(configs []echo.Config) *Config {
+	var existing echo.ConfigGetter
+	if c.Configs != nil {
+		existing = c.Configs
+	}
+	c.Configs = func() []echo.Config {
+		var out []echo.Config
+		if existing != nil {
+			out = append(out, existing()...)
+		}
+		return append(out, configs...)
+	}
+	return c
+}
+
 func (c *Config) fillDefaults(ctx resource.Context) error {
 	// Create the namespaces concurrently.
 	g, _ := errgroup.WithContext(context.TODO())
@@ -103,6 +122,11 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 		c.NamespaceCount = 1
 	}
 
+	nsLabels := map[string]string{}
+	if ctx.Settings().Ambient {
+		nsLabels["istio.io/dataplane-mode"] = "ambient"
+	}
+
 	// Create the echo namespaces.
 	if len(c.Namespaces) == 0 {
 		c.Namespaces = make([]namespace.Getter, c.NamespaceCount)
@@ -110,8 +134,9 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 			// If only using a single namespace, preserve the "echo" prefix.
 			g.Go(func() error {
 				ns, err := namespace.New(ctx, namespace.Config{
+					Inject: !ctx.Settings().AmbientEverywhere,
 					Prefix: "echo",
-					Inject: true,
+					Labels: nsLabels,
 				})
 				if err != nil {
 					return err
@@ -159,6 +184,11 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 	var defaultConfigs []echo.Config
 
+	disableAutomountSAToken := true
+	if t.Settings().Revisions.Minimum() < "1.16" {
+		disableAutomountSAToken = false
+	}
+
 	a := echo.Config{
 		Service:                 ASvc,
 		ServiceAccount:          true,
@@ -166,7 +196,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		Subsets:                 []echo.SubsetConfig{{}},
 		Locality:                "region.zone.subzone",
 		IncludeExtAuthz:         c.IncludeExtAuthz,
-		DisableAutomountSAToken: true,
+		DisableAutomountSAToken: disableAutomountSAToken,
 	}
 
 	b := echo.Config{
@@ -215,6 +245,10 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 						Value: strconv.FormatBool(false),
 					},
 				},
+				Labels: map[string]string{
+					label.SidecarInject.Name:     "false",
+					constants.AmbientRedirection: constants.AmbientRedirectionDisabled,
+				},
 			},
 		},
 	}
@@ -225,6 +259,9 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		Ports:          ports.All(),
 		Subsets: []echo.SubsetConfig{{
 			Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
+			Labels: map[string]string{
+				constants.AmbientRedirection: constants.AmbientRedirectionDisabled,
+			},
 		}},
 		IncludeExtAuthz: c.IncludeExtAuthz,
 	}
@@ -247,6 +284,7 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			ServiceAccount: true,
 			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{{
+				Labels: map[string]string{label.SidecarInject.Name: "true"},
 				Annotations: echo.NewAnnotations().Set(echo.SidecarProxyConfig, `proxyMetadata:
 ISTIO_DELTA_XDS: "true"`),
 			}},
@@ -262,6 +300,7 @@ ISTIO_DELTA_XDS: "true"`),
 			Ports:          ports.All(),
 			Subsets: []echo.SubsetConfig{
 				{
+					Labels: map[string]string{label.SidecarInject.Name: "true"},
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
 						echo.SidecarInjectTemplates: {
 							Value: "grpc-agent",
@@ -271,6 +310,41 @@ ISTIO_DELTA_XDS: "true"`),
 			},
 		}
 		defaultConfigs = append(defaultConfigs, proxylessGRPC)
+	}
+
+	if t.Settings().Ambient {
+		if t.Settings().AmbientEverywhere {
+			for i, config := range defaultConfigs {
+				if !config.HasSidecar() && !config.IsProxylessGRPC() {
+					scopes.Framework.Infof("adding waypoint to %s", config.NamespacedName())
+					defaultConfigs[i].WaypointProxy = true
+				}
+			}
+		} else {
+			waypointed := echo.Config{
+				Service:        WaypointSvc,
+				ServiceAccount: true,
+				Ports:          ports.All(),
+				WaypointProxy:  true,
+				Subsets: []echo.SubsetConfig{{
+					Labels: map[string]string{label.SidecarInject.Name: "false"},
+				}},
+			}
+			defaultConfigs = append(defaultConfigs, waypointed)
+		}
+
+		captured := echo.Config{
+			Service:        CapturedSvc,
+			ServiceAccount: true,
+			Ports:          ports.All(),
+			Subsets: []echo.SubsetConfig{{
+				Labels: map[string]string{
+					label.SidecarInject.Name:     "false",
+					constants.AmbientRedirection: constants.AmbientRedirectionEnabled,
+				},
+			}},
+		}
+		defaultConfigs = append(defaultConfigs, captured)
 	}
 
 	return defaultConfigs
@@ -357,7 +431,9 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 	for i, ns := range cfg.Namespaces {
 		apps.NS[i].Namespace = ns.Get()
 	}
-	apps.External.Namespace = cfg.ExternalNamespace.Get()
+	if !cfg.NoExternalNamespace {
+		apps.External.Namespace = cfg.ExternalNamespace.Get()
+	}
 
 	builder := deployment.New(ctx).WithClusters(ctx.Clusters()...)
 	for _, n := range apps.NS {

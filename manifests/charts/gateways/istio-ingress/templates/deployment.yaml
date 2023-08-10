@@ -34,16 +34,13 @@ spec:
         chart: gateways
 {{- end }}
         service.istio.io/canonical-name: {{ $gateway.name }}
-        {{- if not (eq .Values.revision "") }}
-        service.istio.io/canonical-revision: {{ .Values.revision }}
-        {{- else}}
-        service.istio.io/canonical-revision: latest
-        {{- end }}
+        service.istio.io/canonical-revision: {{ index $gateway.labels "app.kubernetes.io/version" | default (index $gateway.labels "version") | default .Values.revision | default "latest" }}
         istio.io/rev: {{ .Values.revision | default "default" }}
         install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
         operator.istio.io/component: "IngressGateways"
         sidecar.istio.io/inject: "false"
       annotations:
+        istio.io/rev: {{ .Values.revision | default "default" }}
         {{- if .Values.meshConfig.enablePrometheusMerge }}
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
@@ -186,6 +183,10 @@ spec:
               fieldRef:
                 apiVersion: v1
                 fieldPath: status.hostIP
+          - name: ISTIO_CPU_LIMIT
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.cpu
           - name: SERVICE_ACCOUNT
             valueFrom:
               fieldRef:
@@ -224,6 +225,10 @@ spec:
           {{- end }}
           - name: ISTIO_META_CLUSTER_ID
             value: "{{ $.Values.global.multiCluster.clusterName | default `Kubernetes` }}"
+          - name: ISTIO_META_NODE_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: spec.nodeName
           volumeMounts:
           - name: workload-socket
             mountPath: /var/run/secrets/workload-spiffe-uds

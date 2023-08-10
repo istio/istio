@@ -34,8 +34,9 @@ import (
 	"k8s.io/client-go/tools/clientcmd"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
-	istioversion "istio.io/pkg/version"
+	istioversion "istio.io/istio/pkg/version"
 )
 
 var cronJobNameRegexp = regexp.MustCompile(`(.+)-\d{8,10}$`)
@@ -147,7 +148,16 @@ func SetRestDefaults(config *rest.Config) *rest.Config {
 		}
 	}
 	if len(config.ContentType) == 0 {
-		config.ContentType = runtime.ContentTypeJSON
+		if features.KubernetesClientContentType == "json" {
+			config.ContentType = runtime.ContentTypeJSON
+		} else {
+			// Prefer to accept protobuf, but send JSON. This is due to some types (CRDs)
+			// not accepting protobuf.
+			// If we end up writing many core types in the future we may want to set ContentType to
+			// ContentTypeProtobuf only for the core client.
+			config.AcceptContentTypes = runtime.ContentTypeProtobuf + "," + runtime.ContentTypeJSON
+			config.ContentType = runtime.ContentTypeJSON
+		}
 	}
 	if config.NegotiatedSerializer == nil {
 		// This codec factory ensures the resources are not converted. Therefore, resources
@@ -180,6 +190,11 @@ func CheckPodReady(pod *corev1.Pod) error {
 	switch pod.Status.Phase {
 	case corev1.PodRunning:
 		// Wait until all containers are ready.
+		for _, containerStatus := range pod.Status.InitContainerStatuses {
+			if !containerStatus.Ready {
+				return fmt.Errorf("init container not ready: '%s'", containerStatus.Name)
+			}
+		}
 		for _, containerStatus := range pod.Status.ContainerStatuses {
 			if !containerStatus.Ready {
 				return fmt.Errorf("container not ready: '%s'", containerStatus.Name)
@@ -302,6 +317,68 @@ func StripUnusedFields(obj any) (any, error) {
 	}
 	// ManagedFields is large and we never use it
 	t.GetObjectMeta().SetManagedFields(nil)
+	return obj, nil
+}
+
+// StripNodeUnusedFields is the transform function for shared node informers,
+// it removes unused fields from objects before they are stored in the cache to save memory.
+func StripNodeUnusedFields(obj any) (any, error) {
+	t, ok := obj.(metav1.ObjectMetaAccessor)
+	if !ok {
+		// shouldn't happen
+		return obj, nil
+	}
+	// ManagedFields is large and we never use it
+	t.GetObjectMeta().SetManagedFields(nil)
+	// Annotation is never used
+	t.GetObjectMeta().SetAnnotations(nil)
+	// OwnerReference is never used
+	t.GetObjectMeta().SetOwnerReferences(nil)
+	// only node labels and addressed are useful
+	if node := obj.(*corev1.Node); node != nil {
+		node.Status.Allocatable = nil
+		node.Status.Capacity = nil
+		node.Status.Images = nil
+		node.Status.Conditions = nil
+	}
+
+	return obj, nil
+}
+
+// StripPodUnusedFields is the transform function for shared pod informers,
+// it removes unused fields from objects before they are stored in the cache to save memory.
+func StripPodUnusedFields(obj any) (any, error) {
+	t, ok := obj.(metav1.ObjectMetaAccessor)
+	if !ok {
+		// shouldn't happen
+		return obj, nil
+	}
+	// ManagedFields is large and we never use it
+	t.GetObjectMeta().SetManagedFields(nil)
+	// only container ports can be used
+	if pod := obj.(*corev1.Pod); pod != nil {
+		containers := []corev1.Container{}
+		for _, c := range pod.Spec.Containers {
+			if len(c.Ports) > 0 {
+				containers = append(containers, corev1.Container{
+					Ports: c.Ports,
+				})
+			}
+		}
+		oldSpec := pod.Spec
+		newSpec := corev1.PodSpec{
+			Containers:         containers,
+			ServiceAccountName: oldSpec.ServiceAccountName,
+			NodeName:           oldSpec.NodeName,
+			HostNetwork:        oldSpec.HostNetwork,
+			Hostname:           oldSpec.Hostname,
+			Subdomain:          oldSpec.Subdomain,
+		}
+		pod.Spec = newSpec
+		pod.Status.InitContainerStatuses = nil
+		pod.Status.ContainerStatuses = nil
+	}
+
 	return obj, nil
 }
 

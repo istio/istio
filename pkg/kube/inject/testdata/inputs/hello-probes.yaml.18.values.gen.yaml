@@ -75,17 +75,7 @@
       "tracer": "zipkin"
     },
     "proxy_init": {
-      "image": "proxyv2",
-      "resources": {
-        "limits": {
-          "cpu": "2000m",
-          "memory": "1024Mi"
-        },
-        "requests": {
-          "cpu": "10m",
-          "memory": "10Mi"
-        }
-      }
+      "image": "proxyv2"
     },
     "remotePilotAddress": "",
     "sds": {
@@ -98,27 +88,16 @@
     },
     "tag": "latest",
     "tracer": {
-      "datadog": {
-        "address": "$(HOST_IP):8126"
-      },
-      "lightstep": {
-        "accessToken": "",
-        "address": ""
-      },
-      "stackdriver": {
-        "debug": false,
-        "maxNumberOfAnnotations": 200,
-        "maxNumberOfAttributes": 200,
-        "maxNumberOfMessageEvents": 200
-      },
-      "zipkin": {
-        "address": ""
-      }
+      "datadog": {},
+      "lightstep": {},
+      "stackdriver": {},
+      "zipkin": {}
     },
     "useMCP": false,
     "variant": ""
   },
   "istio_cni": {
+    "chained": true,
     "enabled": false
   },
   "revision": "",
@@ -128,6 +107,7 @@
     "enableNamespacesByDefault": false,
     "injectedAnnotations": {},
     "neverInjectSelector": [],
+    "reinvocationPolicy": "Never",
     "rewriteAppHTTPProbe": true,
     "templates": {}
   }

@@ -355,3 +355,29 @@ spec:
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 9080
+---
+# Deployment has no services attached, has the istio-proxy image, but is waypoint deployment.
+# It shouldn't generate a warning since it's controlled by Istio.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: test-waypoint
+  namespace: bookinfo
+  labels:
+    gateway.istio.io/managed: istio.io-mesh-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      istio.io/gateway-name: productpage
+  template:
+    metadata:
+      labels:
+        sidecar.istio.io/inject: "false"
+        istio.io/gateway-name: productpage
+    spec:
+      serviceAccountName: productpage-istio-waypoint
+      containers:
+        - name: istio-proxy
+          image: docker.io/istio/proxyv2:1.19.0-dev1
+          imagePullPolicy: IfNotPresent

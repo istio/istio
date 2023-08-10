@@ -21,12 +21,12 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // IngressGatewayPortAnalyzer checks a gateway's ports against the gateway's Kubernetes service ports.
@@ -40,17 +40,17 @@ func (*IngressGatewayPortAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "gateway.IngressGatewayPortAnalyzer",
 		Description: "Checks a gateway's ports against the gateway's Kubernetes service ports",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Gateways.Name(),
-			collections.K8SCoreV1Pods.Name(),
-			collections.K8SCoreV1Services.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Gateway,
+			gvk.Pod,
+			gvk.Service,
 		},
 	}
 }
 
 // Analyze implements analysis.Analyzer
 func (s *IngressGatewayPortAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(collections.IstioNetworkingV1Alpha3Gateways.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Gateway, func(r *resource.Instance) bool {
 		s.analyzeGateway(r, c)
 		return true
 	})
@@ -68,11 +68,11 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 
 	// For pods selected by gw.Selector, find Services that select them and remember those ports
 	gwSelector := klabels.SelectorFromSet(gw.Selector)
-	c.ForEach(collections.K8SCoreV1Pods.Name(), func(rPod *resource.Instance) bool {
+	c.ForEach(gvk.Pod, func(rPod *resource.Instance) bool {
 		podLabels := klabels.Set(rPod.Metadata.Labels)
 		if gwSelector.Matches(podLabels) {
 			gwSelectorMatches++
-			c.ForEach(collections.K8SCoreV1Services.Name(), func(rSvc *resource.Instance) bool {
+			c.ForEach(gvk.Service, func(rSvc *resource.Instance) bool {
 				nsSvc := string(rSvc.Metadata.FullName.Namespace)
 				if nsSvc != rPod.Metadata.FullName.Namespace.String() {
 					return true // Services only select pods in their namespace
@@ -84,7 +84,13 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 				if svcSelector.Matches(podLabels) {
 					for _, port := range service.Ports {
 						if port.Protocol == "TCP" {
-							servicePorts[uint32(port.Port)] = true
+							// Because the Gateway's server port is the port on which the proxy should listen for incoming connections,
+							// the actual port associated with the service is the `TargetPort` that reaches the sidecar *workload instances*.
+							if tp := port.TargetPort.IntValue(); tp != 0 {
+								servicePorts[uint32(tp)] = true
+							} else {
+								servicePorts[uint32(port.Port)] = true
+							}
 						}
 					}
 				}
@@ -103,7 +109,7 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 			m.Line = line
 		}
 
-		c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
+		c.Report(gvk.Gateway, m)
 		return
 	}
 
@@ -119,7 +125,7 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 					m.Line = line
 				}
 
-				c.Report(collections.IstioNetworkingV1Alpha3Gateways.Name(), m)
+				c.Report(gvk.Gateway, m)
 			}
 		}
 	}

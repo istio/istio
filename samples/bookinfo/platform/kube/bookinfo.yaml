@@ -72,12 +72,10 @@ spec:
       serviceAccountName: bookinfo-details
       containers:
       - name: details
-        image: docker.io/istio/examples-bookinfo-details-v1:1.17.0
+        image: docker.io/istio/examples-bookinfo-details-v1:1.18.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
-        securityContext:
-          runAsUser: 1000
 ---
 ##################################################################################################
 # Ratings service
@@ -125,12 +123,10 @@ spec:
       serviceAccountName: bookinfo-ratings
       containers:
       - name: ratings
-        image: docker.io/istio/examples-bookinfo-ratings-v1:1.17.0
+        image: docker.io/istio/examples-bookinfo-ratings-v1:1.18.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
-        securityContext:
-          runAsUser: 1000
 ---
 ##################################################################################################
 # Reviews service
@@ -178,7 +174,7 @@ spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v1:1.17.0
+        image: docker.io/istio/examples-bookinfo-reviews-v1:1.18.0
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
@@ -190,8 +186,6 @@ spec:
           mountPath: /tmp
         - name: wlp-output
           mountPath: /opt/ibm/wlp/output
-        securityContext:
-          runAsUser: 1000
       volumes:
       - name: wlp-output
         emptyDir: {}
@@ -220,7 +214,7 @@ spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v2:1.17.0
+        image: docker.io/istio/examples-bookinfo-reviews-v2:1.18.0
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
@@ -232,8 +226,6 @@ spec:
           mountPath: /tmp
         - name: wlp-output
           mountPath: /opt/ibm/wlp/output
-        securityContext:
-          runAsUser: 1000
       volumes:
       - name: wlp-output
         emptyDir: {}
@@ -262,7 +254,7 @@ spec:
       serviceAccountName: bookinfo-reviews
       containers:
       - name: reviews
-        image: docker.io/istio/examples-bookinfo-reviews-v3:1.17.0
+        image: docker.io/istio/examples-bookinfo-reviews-v3:1.18.0
         imagePullPolicy: IfNotPresent
         env:
         - name: LOG_DIR
@@ -274,8 +266,6 @@ spec:
           mountPath: /tmp
         - name: wlp-output
           mountPath: /opt/ibm/wlp/output
-        securityContext:
-          runAsUser: 1000
       volumes:
       - name: wlp-output
         emptyDir: {}
@@ -321,6 +311,10 @@ spec:
       version: v1
   template:
     metadata:
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9080"
+        prometheus.io/path: "/metrics"
       labels:
         app: productpage
         version: v1
@@ -328,15 +322,13 @@ spec:
       serviceAccountName: bookinfo-productpage
       containers:
       - name: productpage
-        image: docker.io/istio/examples-bookinfo-productpage-v1:1.17.0
+        image: docker.io/istio/examples-bookinfo-productpage-v1:1.18.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
         volumeMounts:
         - name: tmp
           mountPath: /tmp
-        securityContext:
-          runAsUser: 1000
       volumes:
       - name: tmp
         emptyDir: {}

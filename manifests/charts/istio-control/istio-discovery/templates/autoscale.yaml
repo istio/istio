@@ -54,6 +54,9 @@ spec:
       target:
         type: Utilization
         averageUtilization: {{ .Values.pilot.cpu.targetAverageUtilization }}
+  {{- if .Values.pilot.autoscaleBehavior }}
+  behavior: {{ toYaml .Values.pilot.autoscaleBehavior | nindent 4 }}
+  {{- end }}
 ---
 {{- end }}
 {{- end }}

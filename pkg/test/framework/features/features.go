@@ -21,8 +21,8 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/log"
 )
 
 type Feature string

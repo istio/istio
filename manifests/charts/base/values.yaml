@@ -15,6 +15,11 @@ global:
   externalIstiod: false
   remotePilotAddress: ""
 
+  # Platform where Istio is deployed. Possible values are: "openshift", "gcp".
+  # An empty value means it is a vanilla Kubernetes distribution, therefore no special
+  # treatment will be considered.
+  platform: ""
+
 base:
   # Used for helm2 to add the CRDs to templates.
   enableCRDTemplates: false

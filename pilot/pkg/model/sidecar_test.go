@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -30,7 +31,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test/util/assert"
@@ -66,6 +67,34 @@ var (
 			Port:     7442,
 			Protocol: "HTTP",
 			Name:     "http-tls",
+		},
+	}
+
+	port803x = []*Port{
+		{
+			Port:     8031,
+			Protocol: "TCP",
+			Name:     "tcp-1",
+		},
+		{
+			Port:     8032,
+			Protocol: "TCP",
+			Name:     "tcp-2",
+		},
+		{
+			Port:     8033,
+			Protocol: "TCP",
+			Name:     "tcp-3",
+		},
+		{
+			Port:     8034,
+			Protocol: "TCP",
+			Name:     "tcp-4",
+		},
+		{
+			Port:     8035,
+			Protocol: "TCP",
+			Name:     "tcp-5",
 		},
 	}
 
@@ -490,6 +519,56 @@ var (
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"foo/virtualbar"},
+				},
+			},
+		},
+	}
+
+	configs22 = &config.Config{
+		Meta: config.Meta{
+			Name: "sidecar-scope-with-multiple-ports",
+		},
+		Spec: &networking.Sidecar{
+			Egress: []*networking.IstioEgressListener{
+				{
+					Port: &networking.Port{
+						Number:   8031,
+						Protocol: "TCP",
+						Name:     "tcp-ipc1",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8032,
+						Protocol: "TCP",
+						Name:     "tcp-ipc2",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8033,
+						Protocol: "TCP",
+						Name:     "tcp-ipc3",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8034,
+						Protocol: "TCP",
+						Name:     "tcp-ipc4",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
+				},
+				{
+					Port: &networking.Port{
+						Number:   8035,
+						Protocol: "TCP",
+						Name:     "tcp-ipc5",
+					},
+					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 			},
 		},
@@ -923,10 +1002,37 @@ var (
 		},
 	}
 
+	services23 = []*Service{
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port803x,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "foo.svc.cluster.local",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns2",
+			},
+		},
+		{
+			Hostname: "baz.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns3",
+			},
+		},
+	}
+
 	virtualServices1 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -945,7 +1051,7 @@ var (
 	virtualServices2 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -964,7 +1070,7 @@ var (
 	virtualServices3 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -989,7 +1095,7 @@ var (
 	virtualServices4 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -1013,7 +1119,7 @@ var (
 	virtualServices5 = []config.Config{
 		{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             "virtualbar",
 				Namespace:        "foo",
 			},
@@ -1159,8 +1265,8 @@ func TestCreateSidecarScope(t *testing.T) {
 		services        []*Service
 		virtualServices []config.Config
 		// list of services expected to be in the listener
-		excpectedServices []*Service
-		expectedDr        *config.Config
+		expectedServices []*Service
+		expectedDr       *config.Config
 	}{
 		{
 			"no-sidecar-config",
@@ -1831,7 +1937,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					},
 				},
 			},
-			excpectedServices: []*Service{
+			expectedServices: []*Service{
 				{
 					Hostname: "proxy",
 					Ports:    PortList{port7000[0], port7443[0], port7442[0]},
@@ -1842,11 +1948,27 @@ func TestCreateSidecarScope(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:          "multi-port-merge",
+			sidecarConfig: configs22,
+			services:      services23,
+			expectedServices: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    PortList{port803x[0], port803x[1], port803x[2], port803x[3], port803x[4]},
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+			},
+		},
 	}
 
 	for idx, tt := range tests {
 		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
-			var found bool
+			var serviceFound bool
+			var portsMatched bool
 			ps := NewPushContext()
 			meshConfig := mesh.DefaultMeshConfig()
 			ps.Mesh = meshConfig
@@ -1888,34 +2010,38 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			for _, s1 := range sidecarScope.services {
-				found = false
-				for _, s2 := range tt.excpectedServices {
+				serviceFound = false
+				portsMatched = false
+				var ports PortList
+				for _, s2 := range tt.expectedServices {
 					if s1.Hostname == s2.Hostname {
+						serviceFound = true
 						if len(s2.Ports) > 0 {
 							if reflect.DeepEqual(s2.Ports, s1.Ports) {
-								found = true
-								break
+								portsMatched = true
+							} else {
+								ports = s2.Ports
 							}
-						} else {
-							found = true
-							break
 						}
-					}
-				}
-				if !found {
-					t.Errorf("Expected service %v in SidecarScope but not found", s1.Hostname)
-				}
-			}
-
-			for _, s1 := range tt.excpectedServices {
-				found = false
-				for _, s2 := range sidecarScope.services {
-					if s1.Hostname == s2.Hostname {
-						found = true
 						break
 					}
 				}
-				if !found {
+				if !serviceFound {
+					t.Errorf("Expected service %v in SidecarScope but not found", s1.Hostname)
+				} else if len(ports) > 0 && !portsMatched {
+					t.Errorf("Expected service %v found in SidecarScope but ports not merged correctly. want: %v, got: %v", s1.Hostname, ports, s1.Ports)
+				}
+			}
+
+			for _, s1 := range tt.expectedServices {
+				serviceFound = false
+				for _, s2 := range sidecarScope.services {
+					if s1.Hostname == s2.Hostname {
+						serviceFound = true
+						break
+					}
+				}
+				if !serviceFound {
 					t.Errorf("UnExpected service %v in SidecarScope", s1.Hostname)
 				}
 			}
@@ -1962,6 +2088,12 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 	}
 	serviceBalt := &Service{
 		Hostname:   "alt",
+		Ports:      port8000,
+		Attributes: ServiceAttributes{Namespace: "b"},
+	}
+
+	serviceBWildcard := &Service{
+		Hostname:   "*.test.wildcard.com",
 		Ports:      port8000,
 		Attributes: ServiceAttributes{Namespace: "b"},
 	}
@@ -2036,6 +2168,20 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 			services:      allServices,
 			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
 			namespace:     "a",
+		},
+		{
+			name:          "service is wildcard, but not listener's subset",
+			listenerHosts: map[string][]host.Name{"b": {"wildcard.com"}},
+			services:      []*Service{serviceBWildcard},
+			expected:      []*Service{},
+			namespace:     "b",
+		},
+		{
+			name:          "service is wildcard",
+			listenerHosts: map[string][]host.Name{"b": {"*.wildcard.com"}},
+			services:      []*Service{serviceBWildcard},
+			expected:      []*Service{serviceBWildcard},
+			namespace:     "b",
 		},
 	}
 
@@ -2161,11 +2307,23 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 
 		contains map[ConfigKey]bool
 	}{
-		{"authorizationPolicy in same ns with workload", []string{"*/*"}, map[ConfigKey]bool{
+		{"AuthorizationPolicy in the same ns as workload", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.AuthorizationPolicy, "authz", "default"}: true,
 		}},
-		{"authorizationPolicy in different ns with workload", []string{"*/*"}, map[ConfigKey]bool{
+		{"AuthorizationPolicy in a different ns from workload", []string{"*/*"}, map[ConfigKey]bool{
 			{kind.AuthorizationPolicy, "authz", "ns1"}: false,
+		}},
+		{"AuthorizationPolicy in the root namespace", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.AuthorizationPolicy, "authz", constants.IstioSystemNamespace}: true,
+		}},
+		{"WasmPlugin in same ns as workload", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.WasmPlugin, "wasm", "default"}: true,
+		}},
+		{"WasmPlugin in different ns from workload", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.WasmPlugin, "wasm", "ns1"}: false,
+		}},
+		{"WasmPlugin in the root namespace", []string{"*/*"}, map[ConfigKey]bool{
+			{kind.WasmPlugin, "wasm", constants.IstioSystemNamespace}: true,
 		}},
 	}
 
@@ -2329,5 +2487,87 @@ outboundTrafficPolicy:
 					test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy)
 			}
 		})
+	}
+}
+
+func BenchmarkConvertIstioListenerToWrapper(b *testing.B) {
+	b.Run("small-exact", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 10, 3, "", false)
+	})
+	b.Run("small-wildcard", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 10, 3, "*.", false)
+	})
+	b.Run("small-match-all", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 10, 3, "", true)
+	})
+
+	b.Run("middle-exact", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 100, 10, "", false)
+	})
+	b.Run("middle-wildcard", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 100, 10, "*.", false)
+	})
+	b.Run("middle-match-all", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 100, 10, "", true)
+	})
+
+	b.Run("big-exact", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 300, 15, "", false)
+	})
+	b.Run("big-wildcard", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 300, 15, "*.", false)
+	})
+	b.Run("big-match-all", func(b *testing.B) {
+		benchmarkConvertIstioListenerToWrapper(b, 300, 15, "", true)
+	})
+}
+
+func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int, wildcard string, matchAll bool) {
+	// virtual service
+	cfgs := make([]config.Config, 0)
+	for i := 0; i < vsNum; i++ {
+		cfgs = append(cfgs, config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.VirtualService,
+				Name:             "vs-name-" + strconv.Itoa(i),
+				Namespace:        "default",
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"host-" + strconv.Itoa(i) + ".com"},
+			},
+		})
+	}
+	ps := NewPushContext()
+	ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = cfgs
+
+	// service
+	svcList := make([]*Service, 0, vsNum)
+	for i := 0; i < vsNum; i++ {
+		svcList = append(svcList, &Service{
+			Attributes: ServiceAttributes{Namespace: "default"},
+			Hostname:   host.Name("host-" + strconv.Itoa(i) + ".com"),
+		})
+	}
+	ps.ServiceIndex.public = svcList
+
+	hosts := make([]string, 0)
+	if matchAll {
+		// default/*
+		hosts = append(hosts, "default/*")
+	} else {
+		// default/xx or default/*.xx
+		for i := 0; i < hostNum; i++ {
+			h := "default/" + wildcard + "host-" + strconv.Itoa(i) + ".com"
+			hosts = append(hosts, h)
+		}
+	}
+
+	istioListener := &networking.IstioEgressListener{
+		Hosts: hosts,
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		convertIstioListenerToWrapper(ps, "default", istioListener)
 	}
 }

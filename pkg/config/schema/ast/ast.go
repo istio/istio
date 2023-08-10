@@ -16,41 +16,34 @@ package ast
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/util/strcase"
 )
 
 // Metadata is the top-level container.
 type Metadata struct {
-	Collections []*Collection `json:"collections"`
-	Resources   []*Resource   `json:"resources"`
+	Resources []*Resource `json:"resources"`
 }
 
 var _ json.Unmarshaler = &Metadata{}
 
-// Collection metadata. Describes basic structure of collections.
-type Collection struct {
-	Name         string `json:"name"`
-	VariableName string `json:"variableName"`
-	Description  string `json:"description"`
-	Group        string `json:"group"`
-	Kind         string `json:"kind"`
-	Pilot        bool   `json:"pilot"`
-	Builtin      bool   `json:"builtin"`
-	Deprecated   bool   `json:"deprecated"`
-}
-
 // Resource metadata for resources contained within a collection.
 type Resource struct {
+	Identifier         string   `json:"identifier"`
 	Group              string   `json:"group"`
 	Version            string   `json:"version"`
 	VersionAliases     []string `json:"versionAliases"`
 	Kind               string   `json:"kind"`
 	Plural             string   `json:"plural"`
 	ClusterScoped      bool     `json:"clusterScoped"`
+	Builtin            bool     `json:"builtin"`
+	Specless           bool     `json:"specless"`
+	Synthetic          bool     `json:"synthetic"`
 	Proto              string   `json:"proto"`
 	ProtoPackage       string   `json:"protoPackage"`
 	StatusProto        string   `json:"statusProto"`
@@ -72,17 +65,15 @@ func (m *Metadata) FindResourceForGroupKind(group, kind string) *Resource {
 // UnmarshalJSON implements json.Unmarshaler
 func (m *Metadata) UnmarshalJSON(data []byte) error {
 	var in struct {
-		Collections []*Collection `json:"collections"`
-		Resources   []*Resource   `json:"resources"`
+		Resources []*Resource `json:"resources"`
 	}
 
 	if err := json.Unmarshal(data, &in); err != nil {
 		return err
 	}
 
-	m.Collections = in.Collections
 	m.Resources = in.Resources
-
+	seen := sets.New[string]()
 	// Process resources.
 	for i, r := range m.Resources {
 		if r.Validate == "" {
@@ -92,17 +83,11 @@ func (m *Metadata) UnmarshalJSON(data []byte) error {
 			}
 			m.Resources[i].Validate = validateFn
 		}
-	}
-
-	// Process collections.
-	for i, c := range m.Collections {
-		// If no variable name was specified, use default.
-		if c.VariableName == "" {
-			m.Collections[i].VariableName = asCollectionVariableName(c.Name)
+		if r.Identifier == "" {
+			r.Identifier = r.Kind
 		}
-
-		if c.Description == "" {
-			m.Collections[i].Description = "describes the collection " + c.Name
+		if seen.InsertContains(r.Identifier) {
+			return fmt.Errorf("identifier %q already registered, set a unique identifier", r.Identifier)
 		}
 	}
 
@@ -121,10 +106,4 @@ func Parse(yamlText string) (*Metadata, error) {
 
 func asResourceVariableName(n string) string {
 	return strcase.CamelCase(n)
-}
-
-func asCollectionVariableName(n string) string {
-	n = strcase.CamelCaseWithSeparator(n, "/")
-	n = strcase.CamelCaseWithSeparator(n, ".")
-	return n
 }

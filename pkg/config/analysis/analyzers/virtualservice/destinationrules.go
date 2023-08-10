@@ -18,12 +18,12 @@ import (
 	"fmt"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // DestinationRuleAnalyzer checks the destination rules associated with each virtual service
@@ -36,9 +36,9 @@ func (d *DestinationRuleAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.DestinationRuleAnalyzer",
 		Description: "Checks the destination rules associated with each virtual service",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			collections.IstioNetworkingV1Alpha3Destinationrules.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.VirtualService,
+			gvk.DestinationRule,
 		},
 	}
 }
@@ -48,7 +48,7 @@ func (d *DestinationRuleAnalyzer) Analyze(ctx analysis.Context) {
 	// To avoid repeated iteration, precompute the set of existing destination host+subset combinations
 	destHostsAndSubsets := initDestHostsAndSubsets(ctx)
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
 		d.analyzeVirtualService(r, ctx, destHostsAndSubsets)
 		return true
 	})
@@ -71,7 +71,7 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 				m.Line = line
 			}
 
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+			ctx.Report(gvk.VirtualService, m)
 		}
 	}
 
@@ -86,7 +86,7 @@ func (d *DestinationRuleAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 				m.Line = line
 			}
 
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+			ctx.Report(gvk.VirtualService, m)
 		}
 	}
 }
@@ -115,7 +115,7 @@ func (d *DestinationRuleAnalyzer) checkDestinationSubset(vsNamespace resource.Na
 
 func initDestHostsAndSubsets(ctx analysis.Context) map[hostAndSubset]bool {
 	hostsAndSubsets := make(map[hostAndSubset]bool)
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.DestinationRule, func(r *resource.Instance) bool {
 		dr := r.Message.(*v1alpha3.DestinationRule)
 		drNamespace := r.Metadata.FullName.Namespace
 

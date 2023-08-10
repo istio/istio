@@ -26,24 +26,20 @@ import (
 
 var (
 	// Mock is used purely for testing
-	Mock = collection.Builder{
-		Name:         "mock",
-		VariableName: "Mock",
-		Resource: resource.Builder{
-			ClusterScoped: false,
-			Kind:          "MockConfig",
-			Plural:        "mockconfigs",
-			Group:         "test.istio.io",
-			Version:       "v1",
-			Proto:         "config.MockConfig",
-			ProtoPackage:  "istio.io/istio/pkg/test/config",
-			ValidateProto: func(cfg config.Config) (validation.Warning, error) {
-				if cfg.Spec.(*testconfig.MockConfig).Key == "" {
-					return nil, errors.New("empty key")
-				}
-				return nil, nil
-			},
-		}.MustBuild(),
+	Mock = resource.Builder{
+		ClusterScoped: false,
+		Kind:          "MockConfig",
+		Plural:        "mockconfigs",
+		Group:         "test.istio.io",
+		Version:       "v1",
+		Proto:         "config.MockConfig",
+		ProtoPackage:  "istio.io/istio/pkg/test/config",
+		ValidateProto: func(cfg config.Config) (validation.Warning, error) {
+			if cfg.Spec.(*testconfig.MockConfig).Key == "" {
+				return nil, errors.New("empty key")
+			}
+			return nil, nil
+		},
 	}.MustBuild()
 
 	// Mocks is a Schemas containing the Mock Schema.

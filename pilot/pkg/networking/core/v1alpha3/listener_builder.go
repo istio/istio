@@ -42,8 +42,8 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
-	"istio.io/pkg/log"
 )
 
 // A stateful listener builder
@@ -93,14 +93,12 @@ func (lb *ListenerBuilder) appendSidecarInboundListeners() *ListenerBuilder {
 	if lb.node.EnableHBONE() {
 		lb.inboundListeners = append(lb.inboundListeners, lb.buildInboundHBONEListeners()...)
 	}
+
 	return lb
 }
 
 func (lb *ListenerBuilder) appendSidecarOutboundListeners() *ListenerBuilder {
 	lb.outboundListeners = lb.buildSidecarOutboundListeners(lb.node, lb.push)
-	if lb.node.EnableHBONE() {
-		lb.outboundListeners = append(lb.outboundListeners, outboundTunnelListener(lb.push, lb.node))
-	}
 	return lb
 }
 
@@ -181,40 +179,39 @@ func (lb *ListenerBuilder) patchListeners() {
 }
 
 func (lb *ListenerBuilder) getListeners() []*listener.Listener {
-	if lb.node.Type == model.SidecarProxy {
-		nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
-		nHTTPProxy, nVirtual := 0, 0
-		if lb.httpProxyListener != nil {
-			nHTTPProxy = 1
-		}
-		if lb.virtualOutboundListener != nil {
-			nVirtual = 1
-		}
-
-		nListener := nInbound + nOutbound + nHTTPProxy + nVirtual
-
-		listeners := make([]*listener.Listener, 0, nListener)
-		listeners = append(listeners, lb.outboundListeners...)
-		if lb.httpProxyListener != nil {
-			listeners = append(listeners, lb.httpProxyListener)
-		}
-		if lb.virtualOutboundListener != nil {
-			listeners = append(listeners, lb.virtualOutboundListener)
-		}
-		listeners = append(listeners, lb.inboundListeners...)
-
-		log.Debugf("Build %d listeners for node %s including %d outbound, %d http proxy, "+
-			"%d virtual outbound",
-			nListener,
-			lb.node.ID,
-			nOutbound,
-			nHTTPProxy,
-			nVirtual,
-		)
-		return listeners
+	if lb.node.Type == model.Router {
+		return lb.gatewayListeners
+	}
+	nInbound, nOutbound := len(lb.inboundListeners), len(lb.outboundListeners)
+	nHTTPProxy, nVirtual := 0, 0
+	if lb.httpProxyListener != nil {
+		nHTTPProxy = 1
+	}
+	if lb.virtualOutboundListener != nil {
+		nVirtual = 1
 	}
 
-	return lb.gatewayListeners
+	nListener := nInbound + nOutbound + nHTTPProxy + nVirtual
+
+	listeners := make([]*listener.Listener, 0, nListener)
+	listeners = append(listeners, lb.outboundListeners...)
+	if lb.httpProxyListener != nil {
+		listeners = append(listeners, lb.httpProxyListener)
+	}
+	if lb.virtualOutboundListener != nil {
+		listeners = append(listeners, lb.virtualOutboundListener)
+	}
+	listeners = append(listeners, lb.inboundListeners...)
+
+	log.Debugf("Build %d listeners for node %s including %d outbound, %d http proxy, "+
+		"%d virtual outbound",
+		nListener,
+		lb.node.ID,
+		nOutbound,
+		nHTTPProxy,
+		nVirtual,
+	)
+	return listeners
 }
 
 func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *model.Proxy) []*listener.Filter {
@@ -363,35 +360,33 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	routerFilterCtx, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
 
 	filters := []*hcm.HttpFilter{}
-	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
-		Port:  httpOpts.port,
-		Class: httpOpts.class,
-	})
+	if !httpOpts.isWaypoint {
+		wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+			Port:  httpOpts.port,
+			Class: httpOpts.class,
+		})
 
-	// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
-	// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
-	if features.MetadataExchange && !httpOpts.hbone {
-		filters = append(filters, xdsfilters.HTTPMx)
+		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
+		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
+		if features.MetadataExchange && !httpOpts.hbone && !lb.node.IsAmbient() {
+			filters = append(filters, xdsfilters.HTTPMx)
+		}
+		// TODO: how to deal with ext-authz? It will be in the ordering twice
+		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
+		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
+		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
+		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
+		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
+		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
+		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
+		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	}
-
-	// TODO: how to deal with ext-authz? It will be in the ordering twice
-	filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
-	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
-	filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
-	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
-	filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
-
-	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
-	filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 
 	if httpOpts.protocol == protocol.GRPCWeb {
 		filters = append(filters, xdsfilters.GrpcWeb)
 	}
 
-	if httpOpts.protocol.IsGRPC() {
-		filters = append(filters, xdsfilters.GrpcStats)
-	}
+	filters = append(filters, xdsfilters.GrpcStats)
 
 	// append ALPN HTTP filter in HTTP connection manager for outbound listener only.
 	if features.ALPNFilter {
@@ -402,7 +397,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	// TypedPerFilterConfig in route needs these filters.
 	filters = append(filters, xdsfilters.Fault, xdsfilters.Cors)
-	filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class)...)
+	if !httpOpts.isWaypoint {
+		filters = append(filters, lb.push.Telemetry.HTTPFilters(lb.node, httpOpts.class)...)
+	}
+	// Add EmptySessionFilter so that it can be overridden at route level per service.
+	if features.EnablePersistentSessionFilter && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
+		filters = append(filters, xdsfilters.EmptySessionFilter)
+	}
 	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
 
 	connectionManager.HttpFilters = filters

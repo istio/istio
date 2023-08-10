@@ -15,15 +15,16 @@
 package configdump
 
 import (
-	"bytes"
-	"reflect"
 	"strings"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/golang/protobuf/jsonpb"
 	legacyproto "github.com/golang/protobuf/proto" // nolint: staticcheck
 	emptypb "github.com/golang/protobuf/ptypes/empty"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // nonstrictResolver is an AnyResolver that ignores unknown proto messages
@@ -37,13 +38,12 @@ func (m *nonstrictResolver) Resolve(typeURL string) (legacyproto.Message, error)
 	if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
 		mname = mname[slash+1:]
 	}
-	// nolint: staticcheck
-	mt := legacyproto.MessageType(mname)
-	if mt == nil {
+	mt, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(mname))
+	if err != nil {
 		// istioctl should keep going if it encounters new Envoy versions; ignore unknown types
 		return &exprpb.Type{TypeKind: &exprpb.Type_Dyn{Dyn: &emptypb.Empty{}}}, nil
 	}
-	return reflect.New(mt.Elem()).Interface().(legacyproto.Message), nil
+	return legacyproto.MessageV1(mt.New().Interface()), nil
 }
 
 // Wrapper is a wrapper around the Envoy ConfigDump
@@ -54,21 +54,13 @@ type Wrapper struct {
 
 // MarshalJSON is a custom marshaller to handle protobuf pain
 func (w *Wrapper) MarshalJSON() ([]byte, error) {
-	buffer := &bytes.Buffer{}
-	err := (&jsonpb.Marshaler{}).Marshal(buffer, w)
-	if err != nil {
-		return nil, err
-	}
-	return buffer.Bytes(), nil
+	return protomarshal.Marshal(w)
 }
 
 // UnmarshalJSON is a custom unmarshaller to handle protobuf pain
 func (w *Wrapper) UnmarshalJSON(b []byte) error {
 	cd := &admin.ConfigDump{}
-	err := (&jsonpb.Unmarshaler{
-		AllowUnknownFields: true,
-		AnyResolver:        &envoyResolver,
-	}).Unmarshal(bytes.NewReader(b), cd)
+	err := protomarshal.UnmarshalAllowUnknownWithAnyResolver(&envoyResolver, b, cd)
 	*w = Wrapper{cd}
 	return err
 }

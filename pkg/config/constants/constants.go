@@ -17,6 +17,8 @@ package constants
 const (
 	// UnspecifiedIP constant for empty IP address
 	UnspecifiedIP = "0.0.0.0"
+	// UnspecifiedIPv6 constant for empty IPv6 address
+	UnspecifiedIPv6 = "::/0"
 
 	// AuthCertsPath is the path location for mTLS certificates
 	AuthCertsPath = "/etc/certs/"
@@ -150,4 +152,35 @@ const (
 	// CertProviderNone does not create any certificates for the control plane. It is assumed that some external
 	// load balancer, such as an Istio Gateway, is terminating the TLS.
 	CertProviderNone = "none"
+
+	WaypointServiceAccount = "istio.io/for-service-account"
+
+	ManagedGatewayLabel               = "gateway.istio.io/managed"
+	ManagedGatewayController          = "istio.io/gateway-controller"
+	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
+	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
+	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
+	ManagedGatewayMeshController      = "istio.io/mesh-controller"
+
+	RemoteGatewayClassName   = "istio-remote"
+	WaypointGatewayClassName = "istio-waypoint"
+	// TODO formalize this API
+	GatewayNameLabel = "istio.io/gateway-name"
+
+	// TODO formalize this API
+	// TODO additional values to represent passthrough and hbone or both
+	ListenerModeOption          = "gateway.istio.io/listener-protocol"
+	ListenerModeAutoPassthrough = "auto-passthrough"
+
+	// DataplaneMode namespace label for determining ambient mesh behavior
+	DataplaneMode        = "istio.io/dataplane-mode"
+	DataplaneModeAmbient = "ambient"
+
+	// AmbientRedirection specifies whether a pod has ambient redirection (to ztunnel) configured.
+	AmbientRedirection = "ambient.istio.io/redirection"
+	// AmbientRedirectionEnabled indicates redirection is configured. This is set by the CNI when it
+	// actually sets up redirection, rather than by the user.
+	AmbientRedirectionEnabled = "enabled"
+	// AmbientRedirectionDisabled is an opt-out, configured by user.
+	AmbientRedirectionDisabled = "disabled"
 )

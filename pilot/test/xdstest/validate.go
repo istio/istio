@@ -22,9 +22,8 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
-	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/testing/protocmp"
 
+	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -84,23 +83,23 @@ func validateFilterChainMatch(t testing.TB, l *listener.Listener) {
 	t.Helper()
 
 	// Check for duplicate filter chains, to avoid "multiple filter chains with the same matching rules are defined" error
+	check := map[string]int{}
 	for i1, l1 := range l.FilterChains {
-		for i2, l2 := range l.FilterChains {
-			if i1 == i2 {
-				continue
+		// We still create virtual inbound listeners before merging into single inbound
+		// This hack skips these ones, as they will be processed later
+		if hcm := ExtractHTTPConnectionManager(t, l1); strings.HasPrefix(hcm.GetStatPrefix(), "inbound_") && l.Name != "virtualInbound" {
+			continue
+		}
+
+		s := Dump(t, l1.FilterChainMatch)
+		if i2, ok := check[s]; ok {
+			var fcms []string
+			for _, fc := range l.FilterChains {
+				fcms = append(fcms, Dump(t, fc.GetFilterChainMatch()))
 			}
-			// We still create virtual inbound listeners before merging into single inbound
-			// This hack skips these ones, as they will be processed later
-			if hcm := ExtractHTTPConnectionManager(t, l1); strings.HasPrefix(hcm.GetStatPrefix(), "inbound_") && l.Name != "virtualInbound" {
-				continue
-			}
-			if cmp.Equal(l1.FilterChainMatch, l2.FilterChainMatch, protocmp.Transform()) {
-				fcms := []string{}
-				for _, fc := range l.FilterChains {
-					fcms = append(fcms, Dump(t, fc.GetFilterChainMatch()))
-				}
-				t.Errorf("overlapping filter chains %d and %d:\n%v\n Full listener: %v", i1, i2, strings.Join(fcms, ",\n"), Dump(t, l))
-			}
+			t.Errorf("overlapping filter chains %d and %d:\n%v\n Full listener: %v", i1, i2, strings.Join(fcms, ",\n"), Dump(t, l))
+		} else {
+			check[s] = i1
 		}
 	}
 
@@ -229,6 +228,11 @@ func ValidateRouteConfiguration(t testing.TB, l *route.RouteConfiguration) {
 	t.Helper()
 	if err := l.Validate(); err != nil {
 		t.Errorf("route configuration %v is invalid: %v", l.Name, err)
+	}
+
+	if l.MaxDirectResponseBodySizeBytes.Value != istio_route.DefaultMaxDirectResponseBodySizeBytes.Value {
+		t.Errorf("expected MaxDirectResponseBodySizeBytes %v, got %v",
+			istio_route.DefaultMaxDirectResponseBodySizeBytes, l.MaxDirectResponseBodySizeBytes)
 	}
 	validateRouteConfigurationDomains(t, l)
 }

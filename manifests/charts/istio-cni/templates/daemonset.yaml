@@ -24,7 +24,7 @@ spec:
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
-      maxUnavailable: 1
+      maxUnavailable: {{ .Values.cni.rollingMaxUnavailable }}
   template:
     metadata:
       labels:
@@ -32,6 +32,7 @@ spec:
         sidecar.istio.io/inject: "false"
       annotations:
         sidecar.istio.io/inject: "false"
+        ambient.istio.io/redirection: disabled
         # Add Prometheus Scrape annotations
         prometheus.io/scrape: 'true'
         prometheus.io/port: "15014"
@@ -41,8 +42,14 @@ spec:
 {{ toYaml .Values.cni.podAnnotations | indent 8 }}
         {{- end }}
     spec:
+      {{if .Values.cni.ambient.enabled }}hostNetwork: true{{ end }}
       nodeSelector:
         kubernetes.io/os: linux
+      # Can be configured to allow for excluding instio-cni from being scheduled on specified nodes
+      {{- with .Values.cni.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       tolerations:
         # Make sure istio-cni-node gets scheduled on all nodes.
         - effect: NoSchedule
@@ -128,6 +135,29 @@ spec:
               value: "{{.Values.cni.repair.brokenPodLabelKey}}"
             - name: REPAIR_BROKEN_POD_LABEL_VALUE
               value: "{{.Values.cni.repair.brokenPodLabelValue}}"
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  apiVersion: v1
+                  fieldPath: spec.nodeName
+            - name: LOG_LEVEL
+              value: {{ .Values.cni.logLevel | quote }}
+            {{- if .Values.cni.ambient.enabled }}
+            - name: AMBIENT_ENABLED
+              value: "true"
+            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
+            - name: EBPF_ENABLED
+              value: "true"
+            {{- end }}
+            {{- end }}
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
@@ -135,44 +165,34 @@ spec:
               name: cni-net-dir
             - mountPath: /var/run/istio-cni
               name: cni-log-dir
+            {{- if .Values.cni.ambient.enabled }}
+            - mountPath: /etc/ambient-config
+              name: cni-ambient-config-dir
+            - mountPath: /var/run/netns
+              mountPropagation: HostToContainer
+              name: cni-netns-dir
+            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
+            - mountPath: /sys/fs/bpf
+              mountPropagation: Bidirectional
+              name: cni-bpffs-dir
+            {{- end }}
+            {{ end }}
           resources:
 {{- if .Values.cni.resources }}
 {{ toYaml .Values.cni.resources | trim | indent 12 }}
 {{- else }}
 {{ toYaml .Values.global.defaultResources | trim | indent 12 }}
 {{- end }}
-{{- if .Values.cni.taint.enabled }}
-        - name: taint-controller
-{{- if contains "/" .Values.cni.image }}
-          image: "{{ .Values.cni.image }}"
-{{- else }}
-          image: "{{ .Values.cni.hub | default .Values.global.hub }}/{{ .Values.cni.image | default "install-cni" }}:{{ .Values.cni.tag | default .Values.global.tag }}{{with (.Values.cni.variant | default .Values.global.variant)}}-{{.}}{{end}}"
-{{- end }}
-{{- if or .Values.cni.pullPolicy .Values.global.imagePullPolicy }}
-          imagePullPolicy: {{ .Values.cni.pullPolicy | default .Values.global.imagePullPolicy }}
-{{- end }}
-          command: ["/opt/local/bin/istio-cni-taint"]
-          securityContext:
-            runAsUser: 1337
-            runAsGroup: 1337
-            runAsNonRoot: true
-{{- if .Values.cni.seccompProfile }}
-            seccompProfile:
-{{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
-{{- end }}
-          env:
-          - name: "TAINT_RUN-AS-DAEMON"
-            value: "true"
-          - name: "TAINT_CONFIGMAP-NAME"
-            value: "istio-cni-taint-configmap"
-          - name: "TAINT_CONFIGMAP-NAMESPACE"
-            value: {{ .Release.Namespace | quote }}
-{{- end }}
       volumes:
         # Used to install CNI.
         - name: cni-bin-dir
           hostPath:
             path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
+        {{- if .Values.cni.ambient.enabled }}
+        - name: cni-ambient-config-dir
+          hostPath:
+            path: {{ .Values.cni.ambient.configDir | default "/etc/ambient-config" }}
+        {{- end }}
         - name: cni-net-dir
           hostPath:
             path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
@@ -180,3 +200,11 @@ spec:
         - name: cni-log-dir
           hostPath:
             path: /var/run/istio-cni
+        - name: cni-netns-dir
+          hostPath:
+            path: /var/run/netns
+        {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
+        - name: cni-bpffs-dir
+          hostPath:
+            path: /sys/fs/bpf
+        {{- end }}

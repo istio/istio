@@ -152,10 +152,10 @@ func (c *kubeComponent) APIForCluster(cluster cluster.Cluster) prometheusApiV1.A
 	return c.api[cluster.Name()]
 }
 
-func (c *kubeComponent) Query(cluster cluster.Cluster, query Query) (model.Value, error) {
-	scopes.Framework.Debugf("Query running: %q", query)
+func (c *kubeComponent) RawQuery(cluster cluster.Cluster, promQL string) (model.Value, error) {
+	scopes.Framework.Debugf("Query running: %s", promQL)
 
-	v, _, err := c.api[cluster.Name()].Query(context.Background(), query.String(), time.Now())
+	v, _, err := c.api[cluster.Name()].Query(context.Background(), promQL, time.Now())
 	if err != nil {
 		return nil, fmt.Errorf("error querying Prometheus: %v", err)
 	}
@@ -168,13 +168,17 @@ func (c *kubeComponent) Query(cluster cluster.Cluster, query Query) (model.Value
 	case model.ValVector:
 		value := v.(model.Vector)
 		if len(value) == 0 {
-			return nil, fmt.Errorf("value not found (query: %v)", query)
+			return nil, fmt.Errorf("value not found (query: %v)", promQL)
 		}
 		return v, nil
 
 	default:
 		return nil, fmt.Errorf("unhandled value type: %v", v.Type())
 	}
+}
+
+func (c *kubeComponent) Query(cluster cluster.Cluster, query Query) (model.Value, error) {
+	return c.RawQuery(cluster, query.String())
 }
 
 func (c *kubeComponent) QuerySum(cluster cluster.Cluster, query Query) (float64, error) {

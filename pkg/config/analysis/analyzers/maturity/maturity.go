@@ -17,13 +17,16 @@ package maturity
 import (
 	"strings"
 
+	corev1 "k8s.io/api/core/v1"
+
 	"istio.io/api/annotation"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // AlphaAnalyzer checks for alpha Istio annotations in K8s resources
@@ -40,38 +43,68 @@ func (*AlphaAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "annotations.AlphaAnalyzer",
 		Description: "Checks for alpha Istio annotations in Kubernetes resources",
-		Inputs: collection.Names{
-			collections.K8SCoreV1Namespaces.Name(),
-			collections.K8SCoreV1Services.Name(),
-			collections.K8SCoreV1Pods.Name(),
-			collections.K8SAppsV1Deployments.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Namespace,
+			gvk.Service,
+			gvk.Pod,
+			gvk.Deployment,
 		},
 	}
 }
 
+var conditionallyIgnoredAnnotations = map[string]bool{
+	annotation.SidecarInterceptionMode.Name:               true,
+	annotation.SidecarTrafficIncludeInboundPorts.Name:     true,
+	annotation.SidecarTrafficExcludeInboundPorts.Name:     true,
+	annotation.SidecarTrafficIncludeOutboundIPRanges.Name: true,
+}
+
+var AlwaysIgnoredAnnotations = map[string]bool{
+	// this annotation is set by default in istiod, don't alert on it.
+	annotation.SidecarStatus.Name: true,
+
+	// this annotation is set by controller, don't alert on it.
+	annotation.GatewayControllerVersion.Name: true,
+
+	// this annotation is added automatically.
+	annotation.IoIstioRev.Name: true,
+
+	// TODO below are ambient related annotations that are not yet known to be stable.
+	// They are added automatically, and should not be alerted on.
+	// Delete these related annotations once they are stable.
+	// Ref: https://github.com/istio/api/pull/2695
+	constants.WaypointServiceAccount: true,
+	constants.AmbientRedirection:     true,
+}
+
 // Analyze implements analysis.Analyzer
 func (fa *AlphaAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.K8SCoreV1Namespaces.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Namespaces.Name())
+	ctx.ForEach(gvk.Namespace, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, gvk.Namespace)
 		return true
 	})
-	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Services.Name())
+	ctx.ForEach(gvk.Service, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, gvk.Service)
 		return true
 	})
-	ctx.ForEach(collections.K8SCoreV1Pods.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, collections.K8SCoreV1Pods.Name())
+	ctx.ForEach(gvk.Pod, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, gvk.Pod)
 		return true
 	})
-	ctx.ForEach(collections.K8SAppsV1Deployments.Name(), func(r *resource.Instance) bool {
-		fa.allowAnnotations(r, ctx, collections.K8SAppsV1Deployments.Name())
+	ctx.ForEach(gvk.Deployment, func(r *resource.Instance) bool {
+		fa.allowAnnotations(r, ctx, gvk.Deployment)
 		return true
 	})
 }
 
-func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, collectionType collection.Name) {
+func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Context, collectionType config.GroupVersionKind) {
 	if len(r.Metadata.Annotations) == 0 {
 		return
+	}
+
+	var shouldSkipDefault bool
+	if r.Metadata.Schema.GroupVersionKind() == gvk.Pod {
+		shouldSkipDefault = isCNIEnabled(r.Message.(*corev1.PodSpec))
 	}
 
 	// It is fine if the annotation is kubectl.kubernetes.io/last-applied-configuration.
@@ -82,8 +115,11 @@ func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Contex
 
 		if annotationDef := lookupAnnotation(ann); annotationDef != nil {
 			if annotationDef.FeatureStatus == annotation.Alpha {
-				// this annotation is set by default in istiod, don't alert on it.
-				if annotationDef.Name == annotation.SidecarStatus.Name {
+				if AlwaysIgnoredAnnotations[annotationDef.Name] {
+					continue
+				}
+				// some annotations are set by default in istiod, don't alert on it.
+				if shouldSkipDefault && conditionallyIgnoredAnnotations[annotationDef.Name] {
 					continue
 				}
 				m := msg.NewAlphaAnnotation(r, ann)
@@ -93,6 +129,17 @@ func (*AlphaAnalyzer) allowAnnotations(r *resource.Instance, ctx analysis.Contex
 			}
 		}
 	}
+}
+
+func isCNIEnabled(pod *corev1.PodSpec) bool {
+	var hasIstioInitContainer bool
+	for _, c := range pod.InitContainers {
+		if c.Name == "istio-init" {
+			hasIstioInitContainer = true
+			break
+		}
+	}
+	return !hasIstioInitContainer
 }
 
 // istioAnnotation is true if the annotation is in Istio's namespace

@@ -32,8 +32,8 @@ import (
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/test/util/assert"
+	istioversion "istio.io/istio/pkg/version"
 	"istio.io/istio/tests/util"
-	istioversion "istio.io/pkg/version"
 )
 
 var preDefinedNonce = newNonce()
@@ -55,6 +55,7 @@ func TestStatusWriter_PrintAll(t *testing.T) {
 				"istiod1": statusInput1(),
 				"istiod2": statusInput2(),
 				"istiod3": statusInput3(),
+				"istiod4": statusInput4(),
 			},
 			want: "testdata/multiStatusMultiPilot.txt",
 		},
@@ -114,6 +115,7 @@ func TestStatusWriter_PrintSingle(t *testing.T) {
 			input: map[string][]xds.SyncStatus{
 				"istiod1": statusInput1(),
 				"istiod2": statusInput2(),
+				"istiod4": statusInput4(),
 			},
 			filterPod: "proxy2",
 			want:      "testdata/singleStatus.txt",
@@ -221,6 +223,24 @@ func statusInput3() []xds.SyncStatus {
 	}
 }
 
+func statusInput4() []xds.SyncStatus {
+	return []xds.SyncStatus{
+		{
+			ClusterID:     "cluster4",
+			ProxyID:       "proxy4",
+			IstioVersion:  "1.1",
+			ProxyType:     model.Ztunnel,
+			ClusterSent:   "",
+			ClusterAcked:  "",
+			ListenerAcked: "",
+			EndpointSent:  "",
+			EndpointAcked: "",
+			RouteSent:     "",
+			RouteAcked:    "",
+		},
+	}
+}
+
 func statusInputProxyVersion() []xds.SyncStatus {
 	return []xds.SyncStatus{
 		{
@@ -253,6 +273,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy1",
 						clusterID:      "cluster1",
+						version:        "1.19",
 						cdsSyncStatus:  status.ConfigStatus_STALE,
 						ldsSyncStatus:  status.ConfigStatus_SYNCED,
 						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
@@ -264,6 +285,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy2",
 						clusterID:      "cluster2",
+						version:        "1.18",
 						cdsSyncStatus:  status.ConfigStatus_STALE,
 						ldsSyncStatus:  status.ConfigStatus_SYNCED,
 						rdsSyncStatus:  status.ConfigStatus_SYNCED,
@@ -275,11 +297,24 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy3",
 						clusterID:      "cluster3",
-						cdsSyncStatus:  status.ConfigStatus_UNKNOWN,
+						version:        "1.19",
+						cdsSyncStatus:  status.ConfigStatus_NOT_SENT,
 						ldsSyncStatus:  status.ConfigStatus_ERROR,
 						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
 						edsSyncStatus:  status.ConfigStatus_STALE,
 						ecdsSyncStatus: status.ConfigStatus_NOT_SENT,
+					},
+				}),
+				"istiod4": xdsResponseInput("istiod4", []clientConfigInput{
+					{
+						proxyID:        "proxy4",
+						clusterID:      "cluster4",
+						version:        "1.19",
+						cdsSyncStatus:  status.ConfigStatus_UNKNOWN,
+						ldsSyncStatus:  status.ConfigStatus_UNKNOWN,
+						rdsSyncStatus:  status.ConfigStatus_UNKNOWN,
+						edsSyncStatus:  status.ConfigStatus_UNKNOWN,
+						ecdsSyncStatus: status.ConfigStatus_UNKNOWN,
 					},
 				}),
 			},
@@ -292,6 +327,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy1",
 						clusterID:      "cluster1",
+						version:        "1.19",
 						cdsSyncStatus:  status.ConfigStatus_STALE,
 						ldsSyncStatus:  status.ConfigStatus_SYNCED,
 						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
@@ -301,6 +337,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy2",
 						clusterID:      "cluster2",
+						version:        "1.19",
 						cdsSyncStatus:  status.ConfigStatus_STALE,
 						ldsSyncStatus:  status.ConfigStatus_SYNCED,
 						rdsSyncStatus:  status.ConfigStatus_SYNCED,
@@ -340,6 +377,7 @@ const clientConfigType = "type.googleapis.com/envoy.service.status.v3.ClientConf
 type clientConfigInput struct {
 	proxyID   string
 	clusterID string
+	version   string
 
 	cdsSyncStatus  status.ConfigStatus
 	ldsSyncStatus  status.ConfigStatus
@@ -350,7 +388,8 @@ type clientConfigInput struct {
 
 func newXdsClientConfig(config clientConfigInput) *status.ClientConfig {
 	meta := model.NodeMetadata{
-		ClusterID: cluster.ID(config.clusterID),
+		ClusterID:    cluster.ID(config.clusterID),
+		IstioVersion: config.version,
 	}
 	return &status.ClientConfig{
 		Node: &core.Node{

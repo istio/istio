@@ -21,7 +21,7 @@ import (
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 func (s *Server) ServiceController() *aggregate.Controller {
@@ -58,7 +58,7 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	}
 
 	// Defer running of the service controllers.
-	s.addStartFunc(func(stop <-chan struct{}) error {
+	s.addStartFunc("service controllers", func(stop <-chan struct{}) error {
 		go serviceControllers.Run(stop)
 		return nil
 	})
@@ -71,7 +71,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 	args.RegistryOptions.KubeOptions.ClusterID = s.clusterID
 	args.RegistryOptions.KubeOptions.Metrics = s.environment
 	args.RegistryOptions.KubeOptions.XDSUpdater = s.XDSServer
-	args.RegistryOptions.KubeOptions.NetworksWatcher = s.environment.NetworksWatcher
+	args.RegistryOptions.KubeOptions.MeshNetworksWatcher = s.environment.NetworksWatcher
 	args.RegistryOptions.KubeOptions.MeshWatcher = s.environment.Watcher
 	args.RegistryOptions.KubeOptions.SystemNamespace = args.Namespace
 	args.RegistryOptions.KubeOptions.MeshServiceController = s.ServiceController()
@@ -82,6 +82,7 @@ func (s *Server) initKubeRegistry(args *PilotArgs) (err error) {
 		args.RegistryOptions.ClusterRegistriesNamespace,
 		args.RegistryOptions.KubeOptions,
 		s.serviceEntryController,
+		s.configController,
 		s.istiodCertBundleWatcher,
 		args.Revision,
 		s.shouldStartNsController(),

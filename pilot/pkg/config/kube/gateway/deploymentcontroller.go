@@ -15,13 +15,11 @@
 package gateway
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
-	"text/template"
-	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -30,19 +28,27 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	appsinformersv1 "k8s.io/client-go/informers/apps/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
-	lister "sigs.k8s.io/gateway-api/pkg/client/listers/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/config"
+	"istio.io/api/label"
+	meshapi "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	istiolog "istio.io/pkg/log"
+	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/kclient"
+	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/revisions"
+	"istio.io/istio/pkg/test/util/tmpl"
+	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // DeploymentController implements a controller that materializes a Gateway into an in cluster gateway proxy
@@ -69,45 +75,105 @@ import (
 //   - SSA using standard API types doesn't work well either: https://github.com/kubernetes-sigs/controller-runtime/issues/1669
 //   - This leaves YAML templates, converted to unstructured types and Applied with the dynamic client.
 type DeploymentController struct {
-	client             kube.Client
-	queue              controllers.Queue
-	templates          *template.Template
-	patcher            patcher
-	gatewayLister      lister.GatewayLister
-	gatewayClassLister lister.GatewayClassLister
+	client         kube.Client
+	clusterID      cluster.ID
+	env            *model.Environment
+	queue          controllers.Queue
+	patcher        patcher
+	gateways       kclient.Client[*gateway.Gateway]
+	gatewayClasses kclient.Client[*gateway.GatewayClass]
 
-	serviceInformer    cache.SharedIndexInformer
-	serviceHandle      cache.ResourceEventHandlerRegistration
-	deploymentInformer cache.SharedIndexInformer
-	deploymentHandle   cache.ResourceEventHandlerRegistration
-	gwInformer         cache.SharedIndexInformer
-	gwHandle           cache.ResourceEventHandlerRegistration
-	gwClassInformer    cache.SharedIndexInformer
-	gwClassHandle      cache.ResourceEventHandlerRegistration
+	clients         map[schema.GroupVersionResource]getter
+	injectConfig    func() inject.WebhookConfig
+	deployments     kclient.Client[*appsv1.Deployment]
+	services        kclient.Client[*corev1.Service]
+	serviceAccounts kclient.Client[*corev1.ServiceAccount]
+	namespaces      kclient.Client[*corev1.Namespace]
+	tagWatcher      revisions.TagWatcher
+	revision        string
 }
 
 // Patcher is a function that abstracts patching logic. This is largely because client-go fakes do not handle patching
 type patcher func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error
 
+// classInfo holds information about a gateway class
+type classInfo struct {
+	// controller name for this class
+	controller string
+	// description for this class
+	description string
+	// The key in the templates to use for this class
+	templates string
+	// reportGatewayClassStatus, if enabled, will update the status when it is first created.
+	reportGatewayClassStatus bool
+}
+
+var classInfos = getClassInfos()
+
+var builtinClasses = getBuiltinClasses()
+
+func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
+	res := map[gateway.ObjectName]gateway.GatewayController{
+		defaultClassName:                 constants.ManagedGatewayController,
+		constants.RemoteGatewayClassName: constants.UnmanagedGatewayController,
+	}
+	if features.EnableAmbientControllers {
+		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
+	}
+	return res
+}
+
+func getClassInfos() map[gateway.GatewayController]classInfo {
+	m := map[gateway.GatewayController]classInfo{
+		constants.ManagedGatewayController: {
+			controller:  constants.ManagedGatewayController,
+			description: "The default Istio GatewayClass",
+			templates:   "kube-gateway",
+		},
+		constants.UnmanagedGatewayController: {
+			// This represents a gateway that our control plane cannot discover directly via the API server.
+			// We shouldn't generate Istio resources for it. We aren't programming this gateway.
+			controller:  constants.UnmanagedGatewayController,
+			description: "Remote to this cluster. Does not deploy or affect configuration.",
+		},
+	}
+	if features.EnableAmbientControllers {
+		m[constants.ManagedGatewayMeshController] = classInfo{
+			controller:               constants.ManagedGatewayMeshController,
+			description:              "The default Istio waypoint GatewayClass",
+			templates:                "waypoint",
+			reportGatewayClassStatus: true,
+		}
+	}
+	return m
+}
+
 // NewDeploymentController constructs a DeploymentController and registers required informers.
 // The controller will not start until Run() is called.
-func NewDeploymentController(client kube.Client) *DeploymentController {
-	gw := client.GatewayAPIInformer().Gateway().V1beta1().Gateways()
-	gwc := client.GatewayAPIInformer().Gateway().V1beta1().GatewayClasses()
+func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *model.Environment,
+	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher, revision string,
+) *DeploymentController {
+	gateways := kclient.New[*gateway.Gateway](client)
+	gatewayClasses := kclient.New[*gateway.GatewayClass](client)
 	dc := &DeploymentController{
 		client:    client,
-		templates: processTemplates(),
+		clusterID: clusterID,
+		clients:   map[schema.GroupVersionResource]getter{},
+		env:       env,
 		patcher: func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 			c := client.Dynamic().Resource(gvr).Namespace(namespace)
 			t := true
 			_, err := c.Patch(context.Background(), name, types.ApplyPatchType, data, metav1.PatchOptions{
 				Force:        &t,
-				FieldManager: ControllerName,
+				FieldManager: constants.ManagedGatewayController,
 			}, subresources...)
 			return err
 		},
-		gatewayLister:      gw.Lister(),
-		gatewayClassLister: gwc.Lister(),
+		gateways:       gateways,
+		gatewayClasses: gatewayClasses,
+		injectConfig:   webhookConfig,
+		tagWatcher:     tw,
+		revision:       revision,
 	}
 	dc.queue = controllers.NewQueue("gateway deployment",
 		controllers.WithReconciler(dc.Reconcile),
@@ -116,147 +182,272 @@ func NewDeploymentController(client kube.Client) *DeploymentController {
 	// Set up a handler that will add the parent Gateway object onto the queue.
 	// The queue will only handle Gateway objects; if child resources (Service, etc) are updated we re-add
 	// the Gateway to the queue and reconcile the state of the world.
-	handler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
+	parentHandler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
 
-	// Use the full informer, since we are already fetching all Services for other purposes
-	// If we somehow stop watching Services in the future we can add a label selector like below.
-	dc.serviceInformer = client.KubeInformer().Core().V1().Services().Informer()
-	dc.serviceHandle, _ = client.KubeInformer().Core().V1().Services().Informer().
-		AddEventHandler(handler)
+	dc.services = kclient.New[*corev1.Service](client)
+	dc.services.AddEventHandler(parentHandler)
+	dc.clients[gvr.Service] = NewUntypedWrapper(dc.services)
 
-	// For Deployments, this is the only controller watching. We can filter to just the deployments we care about
-	deployInformer := client.KubeInformer().InformerFor(&appsv1.Deployment{}, func(k kubernetes.Interface, resync time.Duration) cache.SharedIndexInformer {
-		return appsinformersv1.NewFilteredDeploymentInformer(
-			k, metav1.NamespaceAll, resync, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
-			func(options *metav1.ListOptions) {
-				options.LabelSelector = "gateway.istio.io/managed=istio.io-gateway-controller"
-			},
-		)
-	})
-	_ = deployInformer.SetTransform(kube.StripUnusedFields)
-	dc.deploymentHandle, _ = deployInformer.AddEventHandler(handler)
-	dc.deploymentInformer = deployInformer
+	dc.deployments = kclient.New[*appsv1.Deployment](client)
+	dc.deployments.AddEventHandler(parentHandler)
+	dc.clients[gvr.Deployment] = NewUntypedWrapper(dc.deployments)
 
-	// Use the full informer; we are already watching all Gateways for the core Istiod logic
-	dc.gwInformer = gw.Informer()
-	dc.gwClassHandle, _ = dc.gwInformer.AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
-	dc.gwClassInformer = gwc.Informer()
-	dc.gwClassHandle, _ = dc.gwClassInformer.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-		gws, _ := dc.gatewayLister.List(klabels.Everything())
-		for _, g := range gws {
+	dc.serviceAccounts = kclient.New[*corev1.ServiceAccount](client)
+	dc.serviceAccounts.AddEventHandler(parentHandler)
+	dc.clients[gvr.ServiceAccount] = NewUntypedWrapper(dc.serviceAccounts)
+
+	dc.namespaces = kclient.New[*corev1.Namespace](client)
+	dc.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		// TODO: make this more intelligent, checking if something we care about has changed
+		// requeue this namespace
+		for _, gw := range dc.gateways.List(o.GetName(), klabels.Everything()) {
+			dc.queue.AddObject(gw)
+		}
+	}))
+
+	gateways.AddEventHandler(controllers.ObjectHandler(dc.queue.AddObject))
+	gatewayClasses.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		for _, g := range dc.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 			if string(g.Spec.GatewayClassName) == o.GetName() {
 				dc.queue.AddObject(g)
 			}
 		}
 	}))
 
+	// On injection template change, requeue all gateways
+	injectionHandler(func() {
+		for _, gw := range dc.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
+			dc.queue.AddObject(gw)
+		}
+	})
+
+	dc.tagWatcher.AddHandler(dc.HandleTagChange)
+
 	return dc
 }
 
 func (d *DeploymentController) Run(stop <-chan struct{}) {
+	kube.WaitForCacheSync(
+		"deployment controller",
+		stop,
+		d.namespaces.HasSynced,
+		d.deployments.HasSynced,
+		d.services.HasSynced,
+		d.serviceAccounts.HasSynced,
+		d.gateways.HasSynced,
+		d.gatewayClasses.HasSynced,
+		d.tagWatcher.HasSynced,
+	)
 	d.queue.Run(stop)
-	_ = d.serviceInformer.RemoveEventHandler(d.serviceHandle)
-	_ = d.deploymentInformer.RemoveEventHandler(d.deploymentHandle)
-	_ = d.gwInformer.RemoveEventHandler(d.gwHandle)
-	_ = d.gwClassInformer.RemoveEventHandler(d.gwClassHandle)
+	controllers.ShutdownAll(d.namespaces, d.deployments, d.services, d.serviceAccounts, d.gateways, d.gatewayClasses)
 }
 
 // Reconcile takes in the name of a Gateway and ensures the cluster is in the desired state
 func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 	log := log.WithLabels("gateway", req)
 
-	gw, err := d.gatewayLister.Gateways(req.Namespace).Get(req.Name)
-	if err != nil || gw == nil {
+	gw := d.gateways.Get(req.Name, req.Namespace)
+	if gw == nil {
 		// we'll ignore not-found errors, since they can't be fixed by an immediate
 		// requeue (we'll need to wait for a new notification), and we can get them
 		// on deleted requests.
-		if err := controllers.IgnoreNotFound(err); err != nil {
-			log.Errorf("unable to fetch Gateway: %v", err)
-			return err
-		}
 		return nil
 	}
 
-	gc, _ := d.gatewayClassLister.Get(string(gw.Spec.GatewayClassName))
-	if gc != nil {
-		// We found the gateway class, but we do not implement it. Skip
-		if gc.Spec.ControllerName != ControllerName {
-			return nil
-		}
+	var controller gateway.GatewayController
+	if gc := d.gatewayClasses.Get(string(gw.Spec.GatewayClassName), ""); gc != nil {
+		controller = gc.Spec.ControllerName
 	} else {
-		// Didn't find gateway class... it must use implicit Istio one.
-		if gw.Spec.GatewayClassName != DefaultClassName {
-			return nil
+		if builtin, f := builtinClasses[gw.Spec.GatewayClassName]; f {
+			controller = builtin
 		}
 	}
+	ci, f := classInfos[controller]
+	if !f {
+		log.Debugf("skipping unknown controller %q", controller)
+		return nil
+	}
+
+	// find the tag or revision indicated by the object
+	selectedTag, ok := gw.Labels[label.IoIstioRev.Name]
+	if !ok {
+		ns := d.namespaces.Get(gw.Namespace, "")
+		if ns == nil {
+			return nil
+		}
+		selectedTag = ns.Labels[label.IoIstioRev.Name]
+	}
+	myTags := d.tagWatcher.GetMyTags()
+	if !myTags.Contains(selectedTag) && !(selectedTag == "" && myTags.Contains("default")) {
+		return nil
+	}
+	// TODO: Here we could check if the tag is set and matches no known tags, and handle that if we are default.
 
 	// Matched class, reconcile it
-	return d.configureIstioGateway(log, *gw)
+	return d.configureIstioGateway(log, *gw, ci)
 }
 
-func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway) error {
+func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gateway.Gateway, gi classInfo) error {
 	// If user explicitly sets addresses, we are assuming they are pointing to an existing deployment.
 	// We will not manage it in this case
+	if gi.templates == "" {
+		log.Debug("skip gateway class without template")
+		return nil
+	}
 	if !IsManaged(&gw.Spec) {
-		log.Debug("skip unmanaged gateway")
+		log.Debug("skip disabled gateway")
+		return nil
+	}
+	existingControllerVersion, overwriteControllerVersion, shouldHandle := ManagedGatewayControllerVersion(gw)
+	if !shouldHandle {
+		log.Debugf("skipping gateway which is managed by controller version %v", existingControllerVersion)
 		return nil
 	}
 	log.Info("reconciling")
 
-	svc := serviceInput{Gateway: &gw, Ports: extractServicePorts(gw)}
-	if err := d.ApplyTemplate("service.yaml", svc); err != nil {
-		return fmt.Errorf("update service: %v", err)
+	defaultName := getDefaultName(gw.Name, &gw.Spec)
+	input := TemplateInput{
+		Gateway:        &gw,
+		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
+		ServiceAccount: model.GetOrDefault(gw.Annotations[gatewaySAOverride], defaultName),
+		Ports:          extractServicePorts(gw),
+		ClusterID:      d.clusterID.String(),
+		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
+		Revision:       d.revision,
 	}
-	log.Info("service updated")
 
-	dep := deploymentInput{Gateway: &gw, KubeVersion122: kube.IsAtLeastVersion(d.client, 22)}
-	if err := d.ApplyTemplate("deployment.yaml", dep); err != nil {
-		return fmt.Errorf("update deployment: %v", err)
+	if overwriteControllerVersion {
+		log.Debugf("write controller version, existing=%v", existingControllerVersion)
+		if err := d.setGatewayControllerVersion(gw); err != nil {
+			return fmt.Errorf("update gateway annotation: %v", err)
+		}
+	} else {
+		log.Debugf("controller version existing=%v, no action needed", existingControllerVersion)
 	}
-	log.Info("deployment updated")
 
-	gws := &gateway.Gateway{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       gvk.KubernetesGateway.Kind,
-			APIVersion: gvk.KubernetesGateway.Group + "/" + gvk.KubernetesGateway.Version,
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      gw.Name,
-			Namespace: gw.Namespace,
-		},
-		Status: gateway.GatewayStatus{
-			Conditions: setConditions(gw.Generation, nil, map[string]*condition{
-				string(gateway.GatewayConditionAccepted): {
-					reason:  string(gateway.GatewayReasonAccepted),
-					message: "Deployed gateway to the cluster",
-				},
-				// nolint: staticcheck // Deprecated condition, set both until 1.17
-				string(gateway.GatewayConditionScheduled): {
-					reason:  "ResourcesAvailable",
-					message: "Deployed gateway to the cluster",
-				},
-			}),
-		},
+	rendered, err := d.render(gi.templates, input)
+	if err != nil {
+		return fmt.Errorf("failed to render template: %v", err)
 	}
-	if err := d.ApplyObject(gws, "status"); err != nil {
-		return fmt.Errorf("update gateway status: %v", err)
+	for _, t := range rendered {
+		if err := d.apply(gi.controller, t); err != nil {
+			return fmt.Errorf("apply failed: %v", err)
+		}
 	}
+
 	log.Info("gateway updated")
 	return nil
 }
 
-// ApplyTemplate renders a template with the given input and (server-side) applies the results to the cluster.
-func (d *DeploymentController) ApplyTemplate(template string, input metav1.Object, subresources ...string) error {
-	var buf bytes.Buffer
-	if err := d.templates.ExecuteTemplate(&buf, template, input); err != nil {
-		return err
+const (
+	// ControllerVersionAnnotation is an annotation added to the Gateway by the controller specifying
+	// the "controller version". The original intent of this was to work around
+	// https://github.com/istio/istio/issues/44164, where we needed to transition from a global owner
+	// to a per-revision owner. The newer version number allows forcing ownership, even if the other
+	// version was otherwise expected to control the Gateway.
+	// The version number has no meaning other than "larger numbers win".
+	// Numbers are used to future-proof in case we need to do another migration in the future.
+	ControllerVersionAnnotation = "gateway.istio.io/controller-version"
+	// ControllerVersion is the current version of our controller logic. Known versions are:
+	//
+	// * 1.17 and older: version 1 OR no version at all, depending on patch release
+	// * 1.18+: version 5
+	//
+	// 2, 3, and 4 were intentionally skipped to allow for the (unlikely) event we need to insert
+	// another version between these
+	ControllerVersion = 5
+)
+
+// ManagedGatewayControllerVersion determines the version of the controller managing this Gateway,
+// and if we should manage this.
+// See ControllerVersionAnnotation for motivations.
+func ManagedGatewayControllerVersion(gw gateway.Gateway) (existing string, takeOver bool, manage bool) {
+	cur, f := gw.Annotations[ControllerVersionAnnotation]
+	if !f {
+		// No current owner, we should take it over.
+		return "", true, true
 	}
+	curNum, err := strconv.Atoi(cur)
+	if err != nil {
+		// We cannot parse it - must be some new schema we don't know about. We should assume we do not manage it.
+		// In theory, this should never happen, unless we decide a number was a bad idea in the future.
+		return cur, false, false
+	}
+	if curNum > ControllerVersion {
+		// A newer version owns this gateway, let them handle it
+		return cur, false, false
+	}
+	if curNum == ControllerVersion {
+		// We already manage this at this version
+		// We will manage it, but no need to attempt to apply the version annotation, which could race with newer versions
+		return cur, false, true
+	}
+	// We are either newer or the same version of the last owner - we can take over. We need to actually
+	// re-apply the annotation
+	return cur, true, true
+}
+
+type derivedInput struct {
+	TemplateInput
+
+	// Inserted from injection config
+	ProxyImage  string
+	ProxyConfig *meshapi.ProxyConfig
+	MeshConfig  *meshapi.MeshConfig
+	Values      map[string]any
+}
+
+func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]string, error) {
+	cfg := d.injectConfig()
+
+	template := cfg.Templates[templateName]
+	if template == nil {
+		return nil, fmt.Errorf("no %q template defined", templateName)
+	}
+
+	labelToMatch := map[string]string{"istio.io/gateway-name": mi.Name}
+	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
+	input := derivedInput{
+		TemplateInput: mi,
+		ProxyImage: inject.ProxyImage(
+			cfg.Values.Struct(),
+			proxyConfig.GetImage(),
+			mi.Annotations,
+		),
+		ProxyConfig: proxyConfig,
+		MeshConfig:  cfg.MeshConfig,
+		Values:      cfg.Values.Map(),
+	}
+	results, err := tmpl.Execute(template, input)
+	if err != nil {
+		return nil, err
+	}
+
+	return yml.SplitString(results), nil
+}
+
+func (d *DeploymentController) setGatewayControllerVersion(gws gateway.Gateway) error {
+	patch := fmt.Sprintf(`{"apiVersion":"gateway.networking.k8s.io/v1beta1","kind":"Gateway","metadata":{"annotations":{"%s":"%d"}}}`,
+		ControllerVersionAnnotation, ControllerVersion)
+
+	log.Debugf("applying %v", patch)
+	return d.patcher(gvr.KubernetesGateway, gws.GetName(), gws.GetNamespace(), []byte(patch))
+}
+
+// apply server-side applies a template to the cluster.
+func (d *DeploymentController) apply(controller string, yml string) error {
 	data := map[string]any{}
-	err := yaml.Unmarshal(buf.Bytes(), &data)
+	err := yaml.Unmarshal([]byte(yml), &data)
 	if err != nil {
 		return err
 	}
 	us := unstructured.Unstructured{Object: data}
+	// set managed-by label
+	clabel := strings.ReplaceAll(controller, "/", "-")
+	err = unstructured.SetNestedField(us.Object, clabel, "metadata", "labels", constants.ManagedGatewayLabel)
+	if err != nil {
+		return err
+	}
 	gvr, err := controllers.UnstructuredToGVR(us)
 	if err != nil {
 		return err
@@ -265,49 +456,57 @@ func (d *DeploymentController) ApplyTemplate(template string, input metav1.Objec
 	if err != nil {
 		return err
 	}
-
-	log.Debugf("applying %v", string(j))
-	return d.patcher(gvr, us.GetName(), input.GetNamespace(), j, subresources...)
-}
-
-// ApplyObject renders an object with the given input and (server-side) applies the results to the cluster.
-func (d *DeploymentController) ApplyObject(obj controllers.Object, subresources ...string) error {
-	j, err := config.ToJSON(obj)
-	if err != nil {
-		return err
-	}
-
-	gvr, err := controllers.ObjectToGVR(obj)
-	if err != nil {
-		return err
-	}
-	log.Debugf("applying %v", string(j))
-
-	return d.patcher(gvr, obj.GetName(), obj.GetNamespace(), j, subresources...)
-}
-
-// Merge maps merges multiple maps. Latter maps take precedence over previous maps on overlapping fields
-func mergeMaps(maps ...map[string]string) map[string]string {
-	if len(maps) == 0 {
+	canManage, resourceVersion := d.canManage(gvr, us.GetName(), us.GetNamespace())
+	if !canManage {
+		log.Debugf("skipping %v/%v/%v, already managed", gvr, us.GetName(), us.GetNamespace())
 		return nil
 	}
-	res := make(map[string]string, len(maps[0]))
-	for _, m := range maps {
-		for k, v := range m {
-			res[k] = v
-		}
+	// Ensure our canManage assertion is not stale
+	us.SetResourceVersion(resourceVersion)
+
+	log.Debugf("applying %v", string(j))
+	if err := d.patcher(gvr, us.GetName(), us.GetNamespace(), j); err != nil {
+		return fmt.Errorf("patch %v/%v/%v: %v", us.GroupVersionKind(), us.GetNamespace(), us.GetName(), err)
 	}
-	return res
+	return nil
 }
 
-type serviceInput struct {
-	*gateway.Gateway
-	Ports []corev1.ServicePort
+func (d *DeploymentController) HandleTagChange(newTags sets.Set[string]) {
+	for _, gw := range d.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
+		d.queue.AddObject(gw)
+	}
 }
 
-type deploymentInput struct {
+// canManage checks if a resource we are about to write should be managed by us. If the resource already exists
+// but does not have the ManagedGatewayLabel, we won't overwrite it.
+// This ensures we don't accidentally take over some resource we weren't supposed to, which could cause outages.
+// Note K8s doesn't have a perfect way to "conditionally SSA", but its close enough (https://github.com/kubernetes/kubernetes/issues/116156).
+func (d *DeploymentController) canManage(gvr schema.GroupVersionResource, name, namespace string) (bool, string) {
+	store, f := d.clients[gvr]
+	if !f {
+		log.Warnf("unknown GVR %v", gvr)
+		// Even though we don't know what it is, allow users to put the resource. We won't be able to
+		// protect against overwrites though.
+		return true, ""
+	}
+	obj := store.Get(name, namespace)
+	if obj == nil {
+		// no object, we can manage it
+		return true, ""
+	}
+	_, managed := obj.GetLabels()[constants.ManagedGatewayLabel]
+	// If object already exists, we can only manage it if it has the label
+	return managed, obj.GetResourceVersion()
+}
+
+type TemplateInput struct {
 	*gateway.Gateway
+	DeploymentName string
+	ServiceAccount string
+	Ports          []corev1.ServicePort
+	ClusterID      string
 	KubeVersion122 bool
+	Revision       string
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
@@ -318,12 +517,12 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 		Port:        int32(15021),
 		AppProtocol: &tcp,
 	})
-	portNums := map[int32]struct{}{}
+	portNums := sets.New[int32]()
 	for i, l := range gw.Spec.Listeners {
-		if _, f := portNums[int32(l.Port)]; f {
+		if portNums.Contains(int32(l.Port)) {
 			continue
 		}
-		portNums[int32(l.Port)] = struct{}{}
+		portNums.Insert(int32(l.Port))
 		name := string(l.Name)
 		if name == "" {
 			// Should not happen since name is required, but in case an invalid resource gets in...
@@ -338,3 +537,26 @@ func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
 	}
 	return svcPorts
 }
+
+// UntypedWrapper wraps a typed reader to an untyped one, since Go cannot do it automatically.
+type UntypedWrapper[T controllers.ComparableObject] struct {
+	reader kclient.Reader[T]
+}
+type getter interface {
+	Get(name, namespace string) controllers.Object
+}
+
+func NewUntypedWrapper[T controllers.ComparableObject](c kclient.Client[T]) getter {
+	return UntypedWrapper[T]{c}
+}
+
+func (u UntypedWrapper[T]) Get(name, namespace string) controllers.Object {
+	// DO NOT return u.reader.Get directly, or we run into issues with https://go.dev/tour/methods/12
+	res := u.reader.Get(name, namespace)
+	if controllers.IsNil(res) {
+		return nil
+	}
+	return res
+}
+
+var _ getter = UntypedWrapper[*corev1.Service]{}

@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"path"
 	"path/filepath"
@@ -22,11 +23,12 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/log"
 	testenv "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/tracing"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/docker-builder/builder"
 	"istio.io/istio/tools/docker-builder/dockerfile"
-	"istio.io/pkg/log"
 )
 
 // RunCrane builds docker images using go-containerregistry, rather than relying on Docker. This
@@ -45,7 +47,9 @@ import (
 // sha256-simd (https://github.com/google/go-containerregistry/issues/1330) makes this even faster -
 // pushing all images drops to sub-second times, with the registry being the bottleneck (which could
 // also use sha256-simd possibly).
-func RunCrane(a Args) error {
+func RunCrane(ctx context.Context, a Args) error {
+	ctx, span := tracing.Start(ctx, "RunCrane")
+	defer span.End()
 	g := errgroup.Group{}
 
 	variants := sets.New(a.Variants...)
@@ -101,12 +105,12 @@ func RunCrane(a Args) error {
 
 	// Warm up our base images while we are building everything. This isn't pulling them -- we actually
 	// never pull them -- but it is pulling the config file from the remote registry.
-	builder.WarmBase(a.Architectures, sets.SortedList(bases)...)
+	builder.WarmBase(ctx, a.Architectures, sets.SortedList(bases)...)
 
 	// Build all dependencies
 	makeStart := time.Now()
 	for _, arch := range a.Architectures {
-		if err := RunMake(a, arch, a.PlanFor(arch).Targets()...); err != nil {
+		if err := RunMake(ctx, a, arch, a.PlanFor(arch).Targets()...); err != nil {
 			return err
 		}
 	}
@@ -117,7 +121,7 @@ func RunCrane(a Args) error {
 	for _, b := range builds {
 		b := b
 		g.Go(func() error {
-			if err := builder.Build(b); err != nil {
+			if err := builder.Build(ctx, b); err != nil {
 				return fmt.Errorf("build %v: %v", b.Name, err)
 			}
 			return nil
@@ -156,10 +160,6 @@ func translate(plan []string, src string) (string, error) {
 	}
 
 	return "", fmt.Errorf("failed to find real source for %v. plan: %+v", src, plan)
-}
-
-func sp(s string) *string {
-	return &s
 }
 
 func absPath(p string) string {

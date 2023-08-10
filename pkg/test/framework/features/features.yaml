@@ -22,9 +22,12 @@ features:
       logging:
       stats:
         prometheus:
+          ambient:
           customize-metric:
           merge:
+          grpc:
           http:
+            api:
             nullvm:
             wasm:
           tcp:
@@ -36,6 +39,7 @@ features:
       istioctl:
   # features relating to controlling the traffic of the service mesh.
   traffic:
+    ambient:
     locality:
     reachability:
     shifting:
@@ -72,8 +76,6 @@ features:
       tcp-probe:
       grpc-probe:
     helpers:
-      add-to-mesh:
-      remove-from-mesh:
       kube-inject:
   # features that allow users to secure their services and service mesh.
   security:
@@ -99,6 +101,7 @@ features:
           invalid-secret:
           K8sca:
           valid-secret:
+          optional-mtls:
       quic:
         sds:
           tls:
@@ -147,7 +150,7 @@ features:
     wasm:
       remote-load:
       image-pull-policy:
-  # features releated to the lifecycle of istio installations
+  # features related to the lifecycle of istio installations
   installation:
     operator:
       uninstall_revision:
@@ -164,6 +167,7 @@ features:
       multimaster:
       remote:
       centralremotekubeconfig:
+    multiplecontrolplanes:
     istiodremote:
     helm:
       default:

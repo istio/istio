@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM node:12.18.1-slim
+FROM node:18.16-slim
 
 #hadolint ignore=DL3008
 RUN apt-get update \
@@ -29,3 +29,5 @@ RUN npm install
 
 EXPOSE 9080
 CMD ["node", "/opt/microservices/ratings.js", "9080"]
+
+USER 1000

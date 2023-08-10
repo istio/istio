@@ -17,7 +17,7 @@ package cache
 import (
 	"fmt"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 func resourceLog(resourceName string) *log.Scope {

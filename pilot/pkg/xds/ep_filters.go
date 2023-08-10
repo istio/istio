@@ -17,6 +17,7 @@ package xds
 import (
 	"math"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/proto"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -26,6 +27,7 @@ import (
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
 )
 
@@ -35,7 +37,7 @@ import (
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
 func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoints) []*LocalityEndpoints {
-	if !b.push.NetworkManager().IsMultiNetworkEnabled() {
+	if !b.gateways().IsMultiNetworkEnabled() {
 		// Multi-network is not configured (this is the case by default). Just access all endpoints directly.
 		return endpoints
 	}
@@ -47,7 +49,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 	// Scale all weights by the lcm of gateways per network and gateways per cluster.
 	// This will allow us to more easily spread traffic to the endpoint across multiple
 	// network gateways, increasing reliability of the endpoint.
-	scaleFactor := b.push.NetworkManager().GetLBWeightScaleFactor()
+	scaleFactor := b.gateways().GetLBWeightScaleFactor()
 
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
@@ -93,13 +95,17 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// directly from the local network.
 			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
 				// The endpoint is directly reachable - just add it.
-				lbEndpoints.append(ep.istioEndpoints[i], lbEp)
+				// If there is no gateway, the address must not be empty
+				if lbEp.GetEndpoint().GetAddress().GetSocketAddress().GetAddress() != "" {
+					lbEndpoints.append(ep.istioEndpoints[i], lbEp)
+				}
+
 				continue
 			}
 
 			// Cross-network traffic relies on mTLS to be enabled for SNI routing
 			// TODO BTS may allow us to work around this
-			if b.mtlsChecker.isMtlsDisabled(lbEp) {
+			if !isMtlsEnabled(lbEp) {
 				continue
 			}
 
@@ -108,10 +114,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 		}
 
 		// Sort the gateways into an ordered list so that the generated endpoints are deterministic.
-		gateways := make([]model.NetworkGateway, 0, len(gatewayWeights))
-		for gw := range gatewayWeights {
-			gateways = append(gateways, gw)
-		}
+		gateways := maps.Keys(gatewayWeights)
 		gateways = model.SortGateways(gateways)
 
 		// Create endpoints for the gateways.
@@ -129,7 +132,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				Locality: model.Locality{
 					ClusterID: gw.Cluster,
 				},
-				Labels: labelutil.AugmentLabels(nil, gw.Cluster, "", gw.Network),
+				Labels: labelutil.AugmentLabels(nil, gw.Cluster, "", "", gw.Network),
 			}
 
 			// Generate the EDS endpoint for this gateway.
@@ -142,10 +145,15 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 				LoadBalancingWeight: &wrappers.UInt32Value{
 					Value: epWeight,
 				},
+				Metadata: &core.Metadata{},
 			}
 			// TODO: figure out a way to extract locality data from the gateway public endpoints in meshNetworks
-			gwEp.Metadata = util.BuildLbEndpointMetadata(gw.Network, model.IstioMutualTLSModeLabel,
-				"", "", b.clusterID, labels.Instance{})
+			util.AppendLbEndpointMetadata(&model.EndpointMetadata{
+				Network:   gw.Network,
+				TLSMode:   model.IstioMutualTLSModeLabel,
+				ClusterID: b.clusterID,
+				Labels:    labels.Instance{},
+			}, gwEp.Metadata)
 			// Currently gateway endpoint does not support tunnel.
 			lbEndpoints.append(gwIstioEp, gwEp)
 		}
@@ -170,10 +178,10 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 //     where the exported endpoints reside, we ensure that we only send traffic to exported endpoints.
 func (b *EndpointBuilder) selectNetworkGateways(nw network.ID, c cluster.ID) []model.NetworkGateway {
 	// Get the gateways for this network+cluster combination.
-	gws := b.push.NetworkManager().GatewaysForNetworkAndCluster(nw, c)
+	gws := b.gateways().GatewaysForNetworkAndCluster(nw, c)
 	if len(gws) == 0 {
 		// No match for network+cluster, just match the network.
-		gws = b.push.NetworkManager().GatewaysForNetwork(nw)
+		gws = b.gateways().GatewaysForNetwork(nw)
 	}
 	return gws
 }
@@ -217,7 +225,7 @@ func (b *EndpointBuilder) EndpointsWithMTLSFilter(endpoints []*LocalityEndpoints
 		}
 
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
-			if b.mtlsChecker.isMtlsDisabled(lbEp) {
+			if !isMtlsEnabled(lbEp) {
 				// no mTLS, skip it
 				continue
 			}

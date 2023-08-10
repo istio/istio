@@ -12,6 +12,7 @@ spec:
     metadata:
       annotations:
         inject.istio.io/templates: gateway
+        istio.io/rev: default
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
@@ -20,7 +21,6 @@ spec:
       creationTimestamp: null
       labels:
         istio: ingressgateway
-        istio.io/rev: default
         service.istio.io/canonical-name: istio-ingressgateway
         service.istio.io/canonical-revision: latest
     spec:
@@ -60,6 +60,11 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.hostIP
+        - name: ISTIO_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              divisor: "0"
+              resource: limits.cpu
         - name: PROXY_CONFIG
           value: |
             {}
@@ -67,9 +72,23 @@ spec:
           value: |-
             [
             ]
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              divisor: "0"
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              divisor: "0"
+              resource: limits.cpu
         - name: ISTIO_META_APP_CONTAINERS
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
+        - name: ISTIO_META_NODE_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: spec.nodeName
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME

@@ -24,29 +24,36 @@ import (
 
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
+	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/version"
 )
 
 // HelmReconciler reconciles resources rendered by a set of helm charts.
@@ -246,9 +253,17 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 
 // CheckSSAEnabled is a helper function to check whether ServerSideApply should be used when applying manifests.
 func (h *HelmReconciler) CheckSSAEnabled() bool {
+	if TestMode {
+		return false // our unit test setup doesn't work with SSA
+	}
 	if h.kubeClient != nil {
-		// There is a mutatingwebhook in gke that would corrupt the managedFields, which is fixed in k8s 1.18.
-		// See: https://github.com/kubernetes/kubernetes/issues/96351
+		// SSA went GA in k8s 1.22
+		if kube.IsAtLeastVersion(h.kubeClient, 22) {
+			return true
+		}
+		// For versions greater than 1.18, detect if SSA is enabled.
+		// There is a known issue with this detection logic for k8s clusters that were upgraded.
+		// See: https://github.com/istio/istio/issues/37946#issuecomment-1072875625
 		if kube.IsAtLeastVersion(h.kubeClient, 18) {
 			// todo(kebe7jun) a more general test method
 			// API Server does not support detecting whether ServerSideApply is enabled
@@ -302,11 +317,7 @@ func (h *HelmReconciler) Delete() error {
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
 func (h *HelmReconciler) SetStatusBegin() error {
 	isop := &istioV1Alpha1.IstioOperator{}
-	namespacedName := types.NamespacedName{
-		Name:      h.iop.Name,
-		Namespace: h.iop.Namespace,
-	}
-	if err := h.getClient().Get(context.TODO(), namespacedName, isop); err != nil {
+	if err := h.getClient().Get(context.TODO(), config.NamespacedName(h.iop), isop); err != nil {
 		if runtime.IsNotRegisteredError(err) {
 			// CRD not yet installed in cluster, nothing to update.
 			return nil
@@ -330,11 +341,7 @@ func (h *HelmReconciler) SetStatusBegin() error {
 // SetStatusComplete updates the status field on the IstioOperator instance based on the resulting err parameter.
 func (h *HelmReconciler) SetStatusComplete(status *v1alpha1.InstallStatus) error {
 	iop := &istioV1Alpha1.IstioOperator{}
-	namespacedName := types.NamespacedName{
-		Name:      h.iop.Name,
-		Namespace: h.iop.Namespace,
-	}
-	if err := h.getClient().Get(context.TODO(), namespacedName, iop); err != nil {
+	if err := h.getClient().Get(context.TODO(), config.NamespacedName(h.iop), iop); err != nil {
 		return fmt.Errorf("failed to get IstioOperator before updating status due to %v", err)
 	}
 	iop.Status = status
@@ -522,8 +529,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
 		SkipServiceCheck: true,
-	}),
-		resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil, true, 30*time.Second)
+	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil)
 	var localWebhookYAMLReaders []local.ReaderSource
 	var parsedK8sObjects object.K8sObjects
 	for _, wh := range whs {
@@ -556,7 +562,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	if err != nil {
 		return err
 	}
-	relevantMessages := res.Messages.FilterOutBasedOnResources(parsedK8sObjects)
+	relevantMessages := filterOutBasedOnResources(res.Messages, parsedK8sObjects)
 	if len(relevantMessages) > 0 {
 		o, err := formatting.Print(relevantMessages, formatting.LogFormat, false)
 		if err != nil {
@@ -565,6 +571,19 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return fmt.Errorf("creating default tag would conflict:\n%v", o)
 	}
 	return nil
+}
+
+func filterOutBasedOnResources(ms diag.Messages, resources object.K8sObjects) diag.Messages {
+	outputMessages := diag.Messages{}
+	for _, m := range ms {
+		for _, rs := range resources {
+			if rs.Name == m.Resource.Metadata.FullName.Name.String() {
+				outputMessages = append(outputMessages, m)
+				break
+			}
+		}
+	}
+	return outputMessages
 }
 
 func (h *HelmReconciler) networkName() string {
@@ -581,4 +600,111 @@ func (h *HelmReconciler) networkName() string {
 		return ""
 	}
 	return nw
+}
+
+type ProcessDefaultWebhookOptions struct {
+	Namespace string
+	DryRun    bool
+}
+
+func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
+	// Detect whether previous installation exists prior to performing the installation.
+	rev := iop.Spec.Revision
+	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
+	operatorManageWebhooks := operatorManageWebhooks(iop)
+	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
+		if rev == "" {
+			rev = revtag.DefaultRevisionName
+		}
+		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
+
+		ignorePruneLabel := map[string]string{
+			OwningResourceNotPruned: "true",
+		}
+
+		o := &revtag.GenerateOptions{
+			Tag:                  revtag.DefaultRevisionName,
+			Revision:             rev,
+			Overwrite:            true,
+			AutoInjectNamespaces: autoInjectNamespaces,
+			CustomLabels:         ignorePruneLabel,
+		}
+		// If tag cannot be created could be remote cluster install, don't fail out.
+		tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)
+		if err == nil && !opt.DryRun {
+			if err = applyManifests(client, tagManifests); err != nil {
+				return false, err
+			}
+		}
+		processed = true
+	}
+	return processed, nil
+}
+
+func applyManifests(kubeClient kube.Client, manifests string) error {
+	yamls := strings.Split(manifests, helm.YAMLSeparator)
+	for _, yml := range yamls {
+		if strings.TrimSpace(yml) == "" {
+			continue
+		}
+
+		obj := &unstructured.Unstructured{}
+
+		if err := yaml.Unmarshal([]byte(yml), obj); err != nil {
+			return fmt.Errorf("failed to unmarshal YAML: %w", err)
+		}
+		var ogvr schema.GroupVersionResource
+		if obj.GetKind() == name.MutatingWebhookConfigurationStr {
+			ogvr = gvr.MutatingWebhookConfiguration
+		} else if obj.GetKind() == name.ValidatingWebhookConfigurationStr {
+			ogvr = gvr.ValidatingWebhookConfiguration
+		}
+
+		t := true
+		_, err := kubeClient.Dynamic().Resource(ogvr).Namespace(obj.GetNamespace()).Patch(
+			context.TODO(), obj.GetName(), types.ApplyPatchType, []byte(yml), metav1.PatchOptions{
+				Force:        &t,
+				FieldManager: fieldOwnerOperator,
+			})
+		if err != nil {
+			return fmt.Errorf("failed to apply YAML: %w", err)
+		}
+	}
+	return nil
+}
+
+// operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
+func operatorManageWebhooks(iop *istioV1Alpha1.IstioOperator) bool {
+	if iop.Spec.GetValues() == nil {
+		return false
+	}
+	globalValues := iop.Spec.Values.AsMap()["global"]
+	global, ok := globalValues.(map[string]any)
+	if !ok {
+		return false
+	}
+	omw, ok := global["operatorManageWebhooks"].(bool)
+	if !ok {
+		return false
+	}
+	return omw
+}
+
+// validateEnableNamespacesByDefault checks whether there is .Values.sidecarInjectorWebhook.enableNamespacesByDefault set in the Istio Operator.
+// Should be used in installer when deciding whether to enable an automatic sidecar injection in all namespaces.
+func validateEnableNamespacesByDefault(iop *istioV1Alpha1.IstioOperator) bool {
+	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
+		return false
+	}
+	sidecarValues := iop.Spec.Values.AsMap()["sidecarInjectorWebhook"]
+	sidecarMap, ok := sidecarValues.(map[string]any)
+	if !ok {
+		return false
+	}
+	autoInjectNamespaces, ok := sidecarMap["enableNamespacesByDefault"].(bool)
+	if !ok {
+		return false
+	}
+
+	return autoInjectNamespaces
 }

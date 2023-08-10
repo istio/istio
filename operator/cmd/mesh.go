@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/operator/cmd/mesh"
 	binversion "istio.io/istio/operator/version"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/version"
 )
 
 func main() {

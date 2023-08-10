@@ -35,6 +35,13 @@ const (
 	TABULAR
 )
 
+// includeConfigType is a flag to indicate whether to include the config type in the output
+var includeConfigType bool
+
+func SetPrintConfigTypeInSummary(p bool) {
+	includeConfigType = p
+}
+
 // NewSDSWriter generates a new instance which conforms to SDSWriter interface
 func NewSDSWriter(w io.Writer, format Format) SDSWriter {
 	return &sdsWriter{
@@ -75,6 +82,9 @@ func (w *sdsWriter) printSecretItemsTabular(secrets []SecretItem) error {
 	tw := new(tabwriter.Writer).Init(w.w, 0, 5, 5, ' ', 0)
 	fmt.Fprintln(tw, strings.Join(secretItemColumns, "\t"))
 	for _, s := range secrets {
+		if includeConfigType {
+			s.Name = fmt.Sprintf("secret/%s", s.Name)
+		}
 		fmt.Fprintf(tw, "%s\t%s\t%s\t%t\t%s\t%s\t%s\n",
 			s.Name, s.Type, s.State, s.Valid, s.SerialNumber, s.NotAfter, s.NotBefore)
 	}
@@ -108,7 +118,7 @@ func (w *sdsWriter) PrintDiffs(statuses []SecretItemDiff) error {
 	return err
 }
 
-// printsDiffsTabular prints the secret in table format
+// printDiffsTabular prints the secret in table format
 func (w *sdsWriter) printDiffsTabular(statuses []SecretItemDiff) error {
 	if len(statuses) == 0 {
 		fmt.Fprintln(w.w, "No secrets found to diff.")

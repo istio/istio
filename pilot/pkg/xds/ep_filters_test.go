@@ -15,15 +15,19 @@
 package xds
 
 import (
-	"reflect"
+	"fmt"
 	"sort"
 	"testing"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -179,6 +183,7 @@ var mtlsCases = map[string]map[string]struct {
 	Config         config.Config
 	Configs        []config.Config
 	IsMtlsDisabled bool
+	SubsetName     string
 }{
 	gvk.PeerAuthentication.String(): {
 		"mtls-off-ineffective": {
@@ -410,6 +415,7 @@ var mtlsCases = map[string]map[string]struct {
 				},
 			},
 			IsMtlsDisabled: true,
+			SubsetName:     "disable-tls",
 		},
 		"mtls-on-subset-level": {
 			Config: config.Config{
@@ -425,7 +431,7 @@ var mtlsCases = map[string]map[string]struct {
 						Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_DISABLE},
 					},
 					Subsets: []*networking.Subset{{
-						Name:   "disable-tls",
+						Name:   "enable-tls",
 						Labels: map[string]string{"app": "example"},
 						TrafficPolicy: &networking.TrafficPolicy{
 							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
@@ -434,19 +440,22 @@ var mtlsCases = map[string]map[string]struct {
 				},
 			},
 			IsMtlsDisabled: false,
+			SubsetName:     "enable-tls",
 		},
 	},
 }
 
 func TestEndpointsByNetworkFilter(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	env := environment(t)
 	env.Env().InitNetworksManager(env.Discovery)
 	// The tests below are calling the endpoints filter from each one of the
 	// networks and examines the returned filtered endpoints
-	runNetworkFilterTest(t, env, networkFiltered)
+	runNetworkFilterTest(t, env, networkFiltered, "")
 }
 
 func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	noCrossNetwork := []networkFilterCase{
 		{
 			name: "from_network1_cluster1a",
@@ -557,7 +566,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					} else {
 						tests = networkFiltered
 					}
-					runNetworkFilterTest(t, env, tests)
+					runNetworkFilterTest(t, env, tests, pa.SubsetName)
 				})
 			}
 		})
@@ -565,6 +574,7 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 }
 
 func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	//  - 1 IP gateway for network1
 	//  - 1 DNS gateway for network2
 	//  - 1 IP gateway for network3
@@ -575,7 +585,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	ds.MemRegistry.AddService(&model.Service{
 		Hostname: "istio-ingressgateway.istio-system.svc.cluster.local",
 		Attributes: model.ServiceAttributes{
-			ClusterExternalAddresses: model.AddressMap{
+			ClusterExternalAddresses: &model.AddressMap{
 				Addresses: map[cluster.ID][]string{
 					"cluster2a": {""},
 					"cluster2b": {""},
@@ -595,7 +605,7 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 	})
 
 	// Run the tests and ensure that the new gateway is never used.
-	runNetworkFilterTest(t, ds, networkFiltered)
+	runNetworkFilterTest(t, ds, networkFiltered, "")
 }
 
 type networkFilterCase struct {
@@ -606,51 +616,65 @@ type networkFilterCase struct {
 
 // runNetworkFilterTest calls the endpoints filter from each one of the
 // networks and examines the returned filtered endpoints
-func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase) {
+func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase, subset string) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cn := fmt.Sprintf("outbound|80|%s|example.ns.svc.cluster.local", subset)
 			proxy := ds.SetupProxy(tt.conn.proxy)
-			b := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", proxy, ds.PushContext())
+			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
 			}
-			compareEndpoints(t, filtered, tt.want)
+			compareEndpointsOrFail(t, cn, extractEnvoyEndpoints(filtered), tt.want)
 
-			b2 := NewEndpointBuilder("outbound|80||example.ns.svc.cluster.local", proxy, ds.PushContext())
+			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
-			if !reflect.DeepEqual(filtered2, filtered) {
-				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic")
+			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
+				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
 			}
 		})
 	}
 }
 
-func compareEndpoints(t *testing.T, got []*LocalityEndpoints, want []LocLbEpInfo) {
+func extractEnvoyEndpoints(locEps []*LocalityEndpoints) []*endpoint.LocalityLbEndpoints {
+	var locLbEps []*endpoint.LocalityLbEndpoints
+	for _, eps := range locEps {
+		locLbEps = append(locLbEps, &eps.llbEndpoints)
+	}
+	return locLbEps
+}
+
+func compareEndpointsOrFail(t *testing.T, cluster string, got []*endpoint.LocalityLbEndpoints, want []LocLbEpInfo) {
+	if err := compareEndpoints(cluster, got, want); err != nil {
+		t.Error(err)
+	}
+}
+
+func compareEndpoints(cluster string, got []*endpoint.LocalityLbEndpoints, want []LocLbEpInfo) error {
 	if len(got) != len(want) {
-		t.Errorf("Unexpected number of filtered endpoints: got %v, want %v", len(got), len(want))
-		return
+		return fmt.Errorf("unexpected number of filtered endpoints for %s: got %v, want %v", cluster, len(got), len(want))
 	}
 
 	sort.Slice(got, func(i, j int) bool {
-		addrI := got[i].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-		addrJ := got[j].llbEndpoints.LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+		addrI := got[i].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
+		addrJ := got[j].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
 		return addrI < addrJ
 	})
 
 	for i, ep := range got {
-		if len(ep.llbEndpoints.LbEndpoints) != len(want[i].lbEps) {
-			t.Errorf("Unexpected number of LB endpoints within endpoint %d: %v, want %v",
-				i, getLbEndpointAddrs(&ep.llbEndpoints), want[i].getAddrs())
+		if len(ep.LbEndpoints) != len(want[i].lbEps) {
+			return fmt.Errorf("unexpected number of LB endpoints within endpoint %d: %v, want %v",
+				i, getLbEndpointAddrs(ep), want[i].getAddrs())
 		}
 
-		if ep.llbEndpoints.LoadBalancingWeight.GetValue() != want[i].weight {
-			t.Errorf("Unexpected weight for endpoint %d: got %v, want %v", i, ep.llbEndpoints.LoadBalancingWeight.GetValue(), want[i].weight)
+		if ep.LoadBalancingWeight.GetValue() != want[i].weight {
+			return fmt.Errorf("unexpected weight for endpoint %d: got %v, want %v", i, ep.LoadBalancingWeight.GetValue(), want[i].weight)
 		}
 
-		for _, lbEp := range ep.llbEndpoints.LbEndpoints {
+		for _, lbEp := range ep.LbEndpoints {
 			addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
 			found := false
 			for _, wantLbEp := range want[i].lbEps {
@@ -659,17 +683,18 @@ func compareEndpoints(t *testing.T, got []*LocalityEndpoints, want []LocLbEpInfo
 
 					// Now compare the weight.
 					if lbEp.GetLoadBalancingWeight().Value != wantLbEp.weight {
-						t.Errorf("Unexpected weight for endpoint %s: got %v, want %v",
+						return fmt.Errorf("unexpected weight for endpoint %s: got %v, want %v",
 							addr, lbEp.GetLoadBalancingWeight().Value, wantLbEp.weight)
 					}
 					break
 				}
 			}
 			if !found {
-				t.Errorf("Unexpected address for endpoint %d: %v", i, addr)
+				return fmt.Errorf("unexpected address for endpoint %d: %v", i, addr)
 			}
 		}
 	}
+	return nil
 }
 
 func TestEndpointsWithMTLSFilter(t *testing.T) {
@@ -701,32 +726,33 @@ func TestEndpointsWithMTLSFilter(t *testing.T) {
 					} else {
 						tests = networkFiltered
 					}
-					runMTLSFilterTest(t, env, tests)
+					runMTLSFilterTest(t, env, tests, pa.SubsetName)
 				})
 			}
 		})
 	}
 }
 
-func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase) {
+func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase, subset string) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := ds.SetupProxy(tt.conn.proxy)
-			b := NewEndpointBuilder("outbound_.80_._.example.ns.svc.cluster.local", proxy, ds.PushContext())
+			cn := fmt.Sprintf("outbound_.80_.%s_.example.ns.svc.cluster.local", subset)
+			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			filtered = b.EndpointsWithMTLSFilter(filtered)
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
 			}
-			compareEndpoints(t, filtered, tt.want)
+			compareEndpointsOrFail(t, cn, extractEnvoyEndpoints(filtered), tt.want)
 
-			b2 := NewEndpointBuilder("outbound_.80_._.example.ns.svc.cluster.local", proxy, ds.PushContext())
+			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
 			filtered2 = b2.EndpointsWithMTLSFilter(filtered2)
-			if !reflect.DeepEqual(filtered2, filtered) {
-				t.Fatalf("output of EndpointsWithMTLSFilter is non-deterministic")
+			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
+				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
 			}
 		})
 	}

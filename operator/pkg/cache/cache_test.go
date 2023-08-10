@@ -103,7 +103,7 @@ func TestRemoveObject(t *testing.T) {
 	tests := []struct {
 		desc string
 		in   map[string]*ObjectCache
-		// key for map of caces
+		// key for map of caches
 		objCacheRemovalKey string
 		// key for map of K8sObjects
 		removalKey string
@@ -146,6 +146,61 @@ func TestRemoveObject(t *testing.T) {
 			RemoveObject(tt.objCacheRemovalKey, tt.removalKey)
 			if got := objectCaches[tt.objCacheRemovalKey]; !reflect.DeepEqual(*got, tt.expectedCache) {
 				t.Errorf("%s: expected object cache %v, got %v\n", tt.desc, tt.expectedCache, got)
+			}
+		})
+	}
+}
+
+func TestRemoveCache(t *testing.T) {
+	tests := []struct {
+		desc string
+		in   map[string]*ObjectCache
+		// key for map of caches
+		objCacheRemovalKey string
+		expected           map[string]*ObjectCache
+	}{
+		{
+			desc: "remove-cache",
+			in: map[string]*ObjectCache{
+				"cache-foo-key": {
+					Cache: map[string]*object.K8sObject{
+						"obj-foo-key": object.NewK8sObject(&unstructured.Unstructured{
+							Object: make(map[string]any),
+						}, nil, nil),
+					},
+					Mu: &sync.RWMutex{},
+				},
+				"dont-touch-me-key": {
+					Cache: map[string]*object.K8sObject{
+						"obj-foo-key": object.NewK8sObject(&unstructured.Unstructured{
+							Object: make(map[string]any),
+						}, nil, nil),
+					},
+					Mu: &sync.RWMutex{},
+				},
+			},
+			objCacheRemovalKey: "cache-foo-key",
+			expected: map[string]*ObjectCache{
+				"dont-touch-me-key": {
+					Cache: map[string]*object.K8sObject{
+						"obj-foo-key": object.NewK8sObject(&unstructured.Unstructured{
+							Object: make(map[string]any),
+						}, nil, nil),
+					},
+					Mu: &sync.RWMutex{},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			for key, value := range tt.in {
+				objectCaches[key] = value
+			}
+			defer FlushObjectCaches()
+			RemoveCache(tt.objCacheRemovalKey)
+			if !reflect.DeepEqual(objectCaches, tt.expected) {
+				t.Errorf("%s: expected object cache %v, got %v\n", tt.desc, tt.expected, objectCaches)
 			}
 		})
 	}

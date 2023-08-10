@@ -18,8 +18,7 @@ package aggregate
 import (
 	"errors"
 
-	"github.com/hashicorp/go-multierror"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -36,12 +35,12 @@ func makeStore(stores []model.ConfigStore, writer model.ConfigStore) (model.Conf
 	storeTypes := make(map[config.GroupVersionKind][]model.ConfigStore)
 	for _, store := range stores {
 		for _, s := range store.Schemas().All() {
-			if len(storeTypes[s.Resource().GroupVersionKind()]) == 0 {
+			if len(storeTypes[s.GroupVersionKind()]) == 0 {
 				if err := union.Add(s); err != nil {
 					return nil, err
 				}
 			}
-			storeTypes[s.Resource().GroupVersionKind()] = append(storeTypes[s.Resource().GroupVersionKind()], store)
+			storeTypes[s.GroupVersionKind()] = append(storeTypes[s.GroupVersionKind()], store)
 		}
 	}
 
@@ -107,28 +106,23 @@ func (cr *store) Get(typ config.GroupVersionKind, name, namespace string) *confi
 }
 
 // List all configs in the stores.
-func (cr *store) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
+func (cr *store) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	if len(cr.stores[typ]) == 0 {
-		return nil, nil
+		return nil
 	}
-	var errs *multierror.Error
 	var configs []config.Config
 	// Used to remove duplicated config
-	configMap := sets.New[string]()
+	configMap := sets.New[types.NamespacedName]()
 
 	for _, store := range cr.stores[typ] {
-		storeConfigs, err := store.List(typ, namespace)
-		if err != nil {
-			errs = multierror.Append(errs, err)
-		}
+		storeConfigs := store.List(typ, namespace)
 		for _, cfg := range storeConfigs {
-			key := cfg.GroupVersionKind.Kind + cfg.Namespace + cfg.Name
-			if !configMap.InsertContains(key) {
+			if !configMap.InsertContains(config.NamespacedName(cfg)) {
 				configs = append(configs, cfg)
 			}
 		}
 	}
-	return configs, errs.ErrorOrNil()
+	return configs
 }
 
 func (cr *store) Delete(typ config.GroupVersionKind, name, namespace string, resourceVersion *string) error {
@@ -171,16 +165,6 @@ type storeCache struct {
 	caches []model.ConfigStoreController
 }
 
-func (cr *storeCache) HasStarted() bool {
-	for _, cache := range cr.caches {
-		if !cache.HasStarted() {
-			return false
-		}
-	}
-
-	return true
-}
-
 func (cr *storeCache) HasSynced() bool {
 	for _, cache := range cr.caches {
 		if !cache.HasSynced() {
@@ -196,16 +180,6 @@ func (cr *storeCache) RegisterEventHandler(kind config.GroupVersionKind, handler
 			cache.RegisterEventHandler(kind, handler)
 		}
 	}
-}
-
-func (cr *storeCache) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
-	var errs error
-	for _, cache := range cr.caches {
-		if err := cache.SetWatchErrorHandler(handler); err != nil {
-			errs = multierror.Append(errs, err)
-		}
-	}
-	return errs
 }
 
 func (cr *storeCache) Run(stop <-chan struct{}) {

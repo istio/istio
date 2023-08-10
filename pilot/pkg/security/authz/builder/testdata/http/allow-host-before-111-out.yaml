@@ -12,17 +12,14 @@ typedConfig:
                 - header:
                     name: :authority
                     safeRegexMatch:
-                      googleRe2: {}
                       regex: (?i)example\.com
                 - header:
                     name: :authority
                     safeRegexMatch:
-                      googleRe2: {}
                       regex: (?i)prefix\.example\..*
                 - header:
                     name: :authority
                     safeRegexMatch:
-                      googleRe2: {}
                       regex: (?i).*\.example\.com
                 - header:
                     name: :authority
@@ -33,17 +30,14 @@ typedConfig:
                   - header:
                       name: :authority
                       safeRegexMatch:
-                        googleRe2: {}
                         regex: (?i)not-example\.com
                   - header:
                       name: :authority
                       safeRegexMatch:
-                        googleRe2: {}
                         regex: (?i)prefix\.not-example\..*
                   - header:
                       name: :authority
                       safeRegexMatch:
-                        googleRe2: {}
                         regex: (?i).*\.not-example\.com
                   - header:
                       name: :authority

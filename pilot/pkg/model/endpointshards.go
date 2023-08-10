@@ -91,6 +91,22 @@ func (es *EndpointShards) Keys() []ShardKey {
 	return keys
 }
 
+func (es *EndpointShards) DeepCopy() *EndpointShards {
+	es.RLock()
+	defer es.RUnlock()
+	res := &EndpointShards{
+		Shards:          make(map[ShardKey][]*IstioEndpoint, len(es.Shards)),
+		ServiceAccounts: es.ServiceAccounts.Copy(),
+	}
+	for k, v := range es.Shards {
+		res.Shards[k] = make([]*IstioEndpoint, 0, len(v))
+		for _, ep := range v {
+			res.Shards[k] = append(res.Shards[k], ep.DeepCopy())
+		}
+	}
+	return res
+}
+
 // EndpointIndex is a mutex protected index of endpoint shards
 type EndpointIndex struct {
 	mu sync.RWMutex
@@ -100,23 +116,15 @@ type EndpointIndex struct {
 	cache XdsCache
 }
 
-func NewEndpointIndex() *EndpointIndex {
+func NewEndpointIndex(cache XdsCache) *EndpointIndex {
 	return &EndpointIndex{
 		shardsBySvc: make(map[string]map[string]*EndpointShards),
+		cache:       cache,
 	}
-}
-
-func (e *EndpointIndex) SetCache(cache XdsCache) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.cache = cache
 }
 
 // must be called with lock
 func (e *EndpointIndex) clearCacheForService(svc, ns string) {
-	if e.cache == nil {
-		return
-	}
 	e.cache.Clear(sets.Set[ConfigKey]{{
 		Kind:      kind.ServiceEntry,
 		Name:      svc,
@@ -124,7 +132,8 @@ func (e *EndpointIndex) clearCacheForService(svc, ns string) {
 	}: {}})
 }
 
-// Shardz returns a copy of the global map of shards but does NOT copy the underlying individual EndpointShards.
+// Shardz returns a full deep copy of the global map of shards. This should be used only for testing
+// and debugging, as the cloning is expensive.
 func (e *EndpointIndex) Shardz() map[string]map[string]*EndpointShards {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -132,7 +141,7 @@ func (e *EndpointIndex) Shardz() map[string]map[string]*EndpointShards {
 	for svcKey, v := range e.shardsBySvc {
 		out[svcKey] = make(map[string]*EndpointShards, len(v))
 		for nsKey, v := range v {
-			out[svcKey][nsKey] = v
+			out[svcKey][nsKey] = v.DeepCopy()
 		}
 	}
 	return out
@@ -186,6 +195,9 @@ func (e *EndpointIndex) DeleteShard(shardKey ShardKey) {
 		for ns := range shardsByNamespace {
 			e.deleteServiceInner(shardKey, svc, ns, false)
 		}
+	}
+	if e.cache == nil {
+		return
 	}
 	e.cache.ClearAll()
 }

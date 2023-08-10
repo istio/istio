@@ -42,8 +42,10 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/jwt"
 	protovalue "istio.io/istio/pkg/proto"
 	istiotest "istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestJwtFilter(t *testing.T) {
@@ -55,10 +57,10 @@ func TestJwtFilter(t *testing.T) {
 	jwksURI := ms.URL + "/oauth2/v3/certs"
 
 	cases := []struct {
-		name             string
-		in               []*config.Config
-		enableRemoteJwks bool
-		expected         *hcm.HttpFilter
+		name          string
+		in            []*config.Config
+		jwksFetchMode jwt.JwksFetchMode
+		expected      *hcm.HttpFilter
 	}{
 		{
 			name:     "No policy",
@@ -142,7 +144,7 @@ func TestJwtFilter(t *testing.T) {
 			},
 		},
 		{
-			name: "JWT policy with Mesh cluster as issuer and remote jwks enabled",
+			name: "JWT policy with Mesh cluster as issuer and remote jwks mode Hybrid",
 			in: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
@@ -155,7 +157,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			enableRemoteJwks: true,
+			jwksFetchMode: jwt.Hybrid,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -215,7 +217,80 @@ func TestJwtFilter(t *testing.T) {
 			},
 		},
 		{
-			name: "JWT policy with non Mesh cluster as issuer and remote jwks enabled",
+			name: "JWT policy with Mesh cluster as issuer and remote jwks mode Envoy",
+			in: []*config.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:  "mesh cluster",
+								JwksUri: "http://jwt-token-issuer.mesh:7443/jwks",
+							},
+						},
+					},
+				},
+			},
+			jwksFetchMode: jwt.Envoy,
+			expected: &hcm.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &hcm.HttpFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									RequirementType: &envoy_jwt.RequirementRule_Requires{
+										Requires: &envoy_jwt.JwtRequirement{
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+												RequiresAny: &envoy_jwt.JwtRequirementOrList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																ProviderName: "origins-0",
+															},
+														},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																AllowMissing: &emptypb.Empty{},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "mesh cluster",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_RemoteJwks{
+										RemoteJwks: &envoy_jwt.RemoteJwks{
+											HttpUri: &core.HttpUri{
+												Uri: "http://jwt-token-issuer.mesh:7443/jwks",
+												HttpUpstreamType: &core.HttpUri_Cluster{
+													Cluster: "outbound|7443||jwt-token-issuer.mesh.svc.cluster.local",
+												},
+												Timeout: &durationpb.Duration{Seconds: 5},
+											},
+											CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
+										},
+									},
+									Forward:           false,
+									PayloadInMetadata: "mesh cluster",
+								},
+							},
+							BypassCorsPreflight: true,
+						}),
+				},
+			},
+		},
+		{
+			name: "JWT policy with non Mesh cluster as issuer and remote jwks mode Hybrid",
 			in: []*config.Config{
 				{
 					Spec: &v1beta1.RequestAuthentication{
@@ -228,7 +303,7 @@ func TestJwtFilter(t *testing.T) {
 					},
 				},
 			},
-			enableRemoteJwks: true,
+			jwksFetchMode: jwt.Hybrid,
 			expected: &hcm.HttpFilter{
 				Name: "envoy.filters.http.jwt_authn",
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -271,6 +346,79 @@ func TestJwtFilter(t *testing.T) {
 											Specifier: &core.DataSource_InlineString{
 												InlineString: test.JwtPubKey2,
 											},
+										},
+									},
+									Forward:           false,
+									PayloadInMetadata: "invalid|7443|",
+								},
+							},
+							BypassCorsPreflight: true,
+						}),
+				},
+			},
+		},
+		{
+			name: "JWT policy with non Mesh cluster as issuer and remote jwks mode Envoy",
+			in: []*config.Config{
+				{
+					Spec: &v1beta1.RequestAuthentication{
+						JwtRules: []*v1beta1.JWTRule{
+							{
+								Issuer:  "invalid|7443|",
+								JwksUri: "http://invalid-issuer.com:7443/jwks",
+							},
+						},
+					},
+				},
+			},
+			jwksFetchMode: jwt.Envoy,
+			expected: &hcm.HttpFilter{
+				Name: "envoy.filters.http.jwt_authn",
+				ConfigType: &hcm.HttpFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(
+						&envoy_jwt.JwtAuthentication{
+							Rules: []*envoy_jwt.RequirementRule{
+								{
+									Match: &route.RouteMatch{
+										PathSpecifier: &route.RouteMatch_Prefix{
+											Prefix: "/",
+										},
+									},
+									RequirementType: &envoy_jwt.RequirementRule_Requires{
+										Requires: &envoy_jwt.JwtRequirement{
+											RequiresType: &envoy_jwt.JwtRequirement_RequiresAny{
+												RequiresAny: &envoy_jwt.JwtRequirementOrList{
+													Requirements: []*envoy_jwt.JwtRequirement{
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_ProviderName{
+																ProviderName: "origins-0",
+															},
+														},
+														{
+															RequiresType: &envoy_jwt.JwtRequirement_AllowMissing{
+																AllowMissing: &emptypb.Empty{},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							Providers: map[string]*envoy_jwt.JwtProvider{
+								"origins-0": {
+									Issuer: "invalid|7443|",
+									JwksSourceSpecifier: &envoy_jwt.JwtProvider_RemoteJwks{
+										RemoteJwks: &envoy_jwt.RemoteJwks{
+											HttpUri: &core.HttpUri{
+												Uri: "http://invalid-issuer.com:7443/jwks",
+												HttpUpstreamType: &core.HttpUri_Cluster{
+													Cluster: "outbound|7443||invalid-issuer.com",
+												},
+												Timeout: &durationpb.Duration{Seconds: 5},
+											},
+											CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 										},
 									},
 									Forward:           false,
@@ -767,11 +915,10 @@ func TestJwtFilter(t *testing.T) {
 			},
 		},
 	}
-
 	push := model.NewPushContext()
 	push.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond)
 	defer push.JwtKeyResolver.Close()
 
 	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
@@ -780,7 +927,7 @@ func TestJwtFilter(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			istiotest.SetForTest(t, &features.EnableRemoteJwks, c.enableRemoteJwks)
+			istiotest.SetForTest(t, &features.JwksFetchMode, c.jwksFetchMode)
 			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
@@ -1090,7 +1237,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 	push := &model.PushContext{}
 	push.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
+		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond)
 	defer push.JwtKeyResolver.Close()
 
 	for _, c := range cases {
@@ -1637,15 +1784,13 @@ func TestComposePeerAuthentication(t *testing.T) {
 	tests := []struct {
 		name    string
 		configs []*config.Config
-		want    *v1beta1.PeerAuthentication
+		want    MergedPeerAuthentication
 	}{
 		{
 			name:    "no config",
 			configs: []*config.Config{},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1663,10 +1808,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSStrict,
 			},
 		},
 		{
@@ -1698,10 +1841,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1724,10 +1865,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1754,10 +1893,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1786,10 +1923,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1832,10 +1967,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1878,10 +2011,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1939,10 +2070,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1960,10 +2089,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSPermissive,
 			},
 		},
 		{
@@ -1994,10 +2121,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSStrict,
 			},
 		},
 		{
@@ -2028,10 +2153,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSStrict,
 			},
 		},
 		{
@@ -2073,10 +2196,8 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-				},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSStrict,
 			},
 		},
 		{
@@ -2116,73 +2237,20 @@ func TestComposePeerAuthentication(t *testing.T) {
 					},
 				},
 			},
-			want: &v1beta1.PeerAuthentication{
-				Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-				},
-				PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
-					80: {
-						Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
-					},
-					90: {
-						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-					},
-					100: {
-						Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-					},
+			want: MergedPeerAuthentication{
+				Mode: model.MTLSStrict,
+				PerPort: map[uint32]model.MutualTLSMode{
+					80:  model.MTLSDisable,
+					90:  model.MTLSStrict,
+					100: model.MTLSStrict,
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := ComposePeerAuthentication("root-namespace", tt.configs); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("composePeerAuthentication() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestGetMutualTLSMode(t *testing.T) {
-	tests := []struct {
-		name string
-		in   *v1beta1.PeerAuthentication_MutualTLS
-		want model.MutualTLSMode
-	}{
-		{
-			name: "unset",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_UNSET,
-			},
-			want: model.MTLSUnknown,
-		},
-		{
-			name: "disable",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_DISABLE,
-			},
-			want: model.MTLSDisable,
-		},
-		{
-			name: "permissive",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-			},
-			want: model.MTLSPermissive,
-		},
-		{
-			name: "strict",
-			in: &v1beta1.PeerAuthentication_MutualTLS{
-				Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
-			},
-			want: model.MTLSStrict,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := getMutualTLSMode(tt.in); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("getMutualTLSMode() = %v, want %v", got, tt.want)
-			}
+			got := ComposePeerAuthentication("root-namespace", tt.configs)
+			assert.Equal(t, got, tt.want)
 		})
 	}
 }

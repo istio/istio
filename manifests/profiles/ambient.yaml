@@ -1,14 +1,52 @@
-# The ambient profile has ambient mesh enabled
-# Note: currently this only enables HBONE for sidecars, as the full ambient mode is not yet implemented.
 apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 spec:
+  # You may override parts of meshconfig by uncommenting the following lines.
   meshConfig:
     defaultConfig:
       proxyMetadata:
         ISTIO_META_ENABLE_HBONE: "true"
+    # Telemetry API is used with ambient instead of EnvoyFilters
+    defaultProviders:
+      metrics:
+      - prometheus
+    extensionProviders:
+    - name: prometheus
+      prometheus: {}
+
+  components:
+    cni:
+      enabled: true
+    ztunnel:
+      enabled: true
+    ingressGateways:
+    - name: istio-ingressgateway
+      enabled: false
+
   values:
     pilot:
       env:
-        PILOT_ENABLE_INBOUND_PASSTHROUGH: "false"
+        # Setup more secure default that is off in 'default' only for backwards compatibility
+        VERIFY_CERTIFICATE_AT_CLIENT: "true"
+        ENABLE_AUTO_SNI: "true"
+
         PILOT_ENABLE_HBONE: "true"
+        CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
+        PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
+    cni:
+      logLevel: info
+      privileged: true
+      ambient:
+        enabled: true
+
+      # Default excludes istio-system; its actually fine to redirect there since we opt-out istiod, ztunnel, and istio-cni
+      excludeNamespaces:
+      - kube-system
+
+      # TODO: https://github.com/istio/istio/issues/43243
+      # variant: distroless
+    telemetry:
+      # Telemetry handled with Telemetry API only
+      enabled: false
+      v2:
+        enabled: false

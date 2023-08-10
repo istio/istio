@@ -82,9 +82,9 @@ func operatorRemove(cmd *cobra.Command, args *RootArgs, orArgs *operatorRemoveAr
 	// should be displayed and do nothing
 	if orArgs.purge && orArgs.revision != "" {
 		orArgs.revision = ""
-		l.LogAndFatal("At most one of the --revision (or --set revision=<revision>) or --purge flags could be set\n")
-	} else if !orArgs.purge && orArgs.revision == "" {
-		orArgs.revision = "default"
+		l.LogAndFatal("At most one of the --revision or --purge flags could be set\n")
+	} else if orArgs.revision == "default" {
+		orArgs.revision = ""
 	}
 
 	installed, err := isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, orArgs.revision)
@@ -103,7 +103,7 @@ func operatorRemove(cmd *cobra.Command, args *RootArgs, orArgs *operatorRemoveAr
 	if orArgs.revision != "" {
 		message = "Istio operator revision " + orArgs.revision + " will be removed from cluster, Proceed? (y/N)"
 	}
-	if !orArgs.skipConfirmation && !confirm(message, cmd.OutOrStdout()) {
+	if !orArgs.skipConfirmation && !args.DryRun && !Confirm(message, cmd.OutOrStdout()) {
 		cmd.Print("Cancelled.\n")
 		os.Exit(1)
 	}

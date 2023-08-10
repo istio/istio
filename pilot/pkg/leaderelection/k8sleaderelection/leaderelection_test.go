@@ -1268,9 +1268,9 @@ func testReleaseOnCancellation(t *testing.T, objectType string) {
 
 	lec := LeaderElectionConfig{
 		Lock:          lock,
-		LeaseDuration: 15 * time.Second,
-		RenewDeadline: 2 * time.Second,
-		RetryPeriod:   1 * time.Second,
+		LeaseDuration: 40 * time.Millisecond,
+		RenewDeadline: 20 * time.Millisecond,
+		RetryPeriod:   10 * time.Millisecond,
 
 		// This is what we're testing
 		ReleaseOnCancel: true,
@@ -1296,14 +1296,14 @@ func testReleaseOnCancellation(t *testing.T, objectType string) {
 	// Wait for us to become the leader
 	select {
 	case <-onNewLeader:
-	case <-time.After(10 * time.Second):
+	case <-time.After(1 * time.Second):
 		t.Fatal("failed to become the leader")
 	}
 
 	// Wait for renew (update) to be invoked
 	select {
 	case <-onRenewCalled:
-	case <-time.After(10 * time.Second):
+	case <-time.After(1 * time.Second):
 		t.Fatal("the elector failed to renew the lock")
 	}
 
@@ -1317,7 +1317,7 @@ func testReleaseOnCancellation(t *testing.T, objectType string) {
 
 	select {
 	case <-onRelease:
-	case <-time.After(10 * time.Second):
+	case <-time.After(1 * time.Second):
 		t.Fatal("the lock was not released")
 	}
 }

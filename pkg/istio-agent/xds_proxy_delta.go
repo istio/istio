@@ -284,15 +284,14 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 	for i := range resp.Resources {
 		resources = append(resources, resp.Resources[i].Resource)
 	}
-	sendNack := wasm.MaybeConvertWasmExtensionConfig(resources, p.wasmCache)
-	if sendNack {
+
+	if err := wasm.MaybeConvertWasmExtensionConfig(resources, p.wasmCache); err != nil {
 		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
 		con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
 			TypeUrl:       v3.ExtensionConfigurationType,
 			ResponseNonce: resp.Nonce,
 			ErrorDetail: &google_rpc.Status{
-				// TODO(bianpengyuan): make error message more informative.
-				Message: "failed to fetch wasm module",
+				Message: err.Error(),
 			},
 		})
 		return

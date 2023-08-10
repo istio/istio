@@ -145,11 +145,25 @@ spec:
   http:
   - match:
     - uri:
-        prefix: /original
+        prefix: /prefix-original
     name: default.rewrite.0
     rewrite:
       authority: new.example.com
       uri: /replacement
+    route:
+    - destination:
+        host: httpbin.default.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - uri:
+        prefix: /full-original
+    name: default.rewrite.1
+    rewrite:
+      authority: new.example.com
+      uriRegexRewrite:
+        match: /.*
+        rewrite: /replacement
     route:
     - destination:
         host: httpbin.default.svc.domain.suffix
@@ -171,12 +185,6 @@ spec:
       redirectCode: 302
       scheme: https
       uri: /replace-full
-  - name: default.rewrite.1
-    route:
-    - destination:
-        host: httpbin.default.svc.domain.suffix
-        port:
-          number: 80
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -201,5 +209,5 @@ spec:
       port: 8080
       redirectCode: 302
       scheme: https
-      uri: '*prefix*/replacement'
+      uri: '%PREFIX()%/replacement'
 ---

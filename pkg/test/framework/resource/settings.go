@@ -138,6 +138,12 @@ type Settings struct {
 	// Skip TProxy related parts for all the tests.
 	SkipTProxy bool
 
+	// Ambient mesh is being used
+	Ambient bool
+
+	// Use ambient instead of sidecars
+	AmbientEverywhere bool
+
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
 	// on different control plane versions.
@@ -165,9 +171,21 @@ type Settings struct {
 
 	// EnableDualStack indicates the test should have dual stack enabled or not.
 	EnableDualStack bool
+
+	// Helm repo to be used for tests
+	HelmRepo string
+
+	DisableDefaultExternalServiceConnectivity bool
 }
 
-func (s Settings) Skip(class string) bool {
+// SkipVMs changes the skip settings at runtime
+func (s *Settings) SkipVMs() {
+	s.SkipVM = true
+	s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "vm")
+}
+
+// Skip checks whether a given class is skipped
+func (s *Settings) Skip(class string) bool {
 	if s.SkipWorkloadClassesAsSet().Contains(class) {
 		return true
 	}
@@ -178,11 +196,11 @@ func (s Settings) Skip(class string) bool {
 }
 
 func (s *Settings) SkipWorkloadClassesAsSet() sets.String {
-	return sets.New(s.SkipWorkloadClasses...)
+	return sets.New[string](s.SkipWorkloadClasses...)
 }
 
 func (s *Settings) OnlyWorkloadClassesAsSet() sets.String {
-	return sets.New(s.OnlyWorkloadClasses...)
+	return sets.New[string](s.OnlyWorkloadClasses...)
 }
 
 // RunDir is the name of the dir to output, for this particular run.
@@ -235,6 +253,7 @@ func (s *Settings) String() string {
 	result += fmt.Sprintf("PullPolicy:        %s\n", s.Image.PullPolicy)
 	result += fmt.Sprintf("PullSecret:        %s\n", s.Image.PullSecret)
 	result += fmt.Sprintf("MaxDumps:          %d\n", s.MaxDumps)
+	result += fmt.Sprintf("HelmRepo:          %v\n", s.HelmRepo)
 	return result
 }
 

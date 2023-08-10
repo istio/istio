@@ -35,7 +35,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	kubeJson "k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/util/yaml"
-	"k8s.io/client-go/tools/cache"
 
 	kubeyaml2 "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -44,15 +43,16 @@ import (
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
-	schemaresource "istio.io/istio/pkg/config/schema/resource"
+	sresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 var (
 	inMemoryKubeNameDiscriminator int64
-	scope                         = log.RegisterScope("file", "File client messages", 0)
+	scope                         = log.RegisterScope("file", "File client messages")
 )
 
 // KubeSource is an in-memory source implementation that can handle K8s style resources.
@@ -80,21 +80,14 @@ func (s *KubeSource) Get(typ config.GroupVersionKind, name, namespace string) *c
 	return s.inner.Get(typ, name, namespace)
 }
 
-func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	configs, err := s.inner.List(typ, namespace)
-	if err != nil {
-		return nil, err
-	}
+func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) []config.Config {
+	configs := s.inner.List(typ, namespace)
 	if s.namespacesFilter != nil {
-		var out []config.Config
-		for _, config := range configs {
-			if s.namespacesFilter(config) {
-				out = append(out, config)
-			}
-		}
-		return out, err
+		return slices.Filter(configs, func(c config.Config) bool {
+			return s.namespacesFilter(c)
+		})
 	}
-	return configs, nil
+	return configs
 }
 
 func (s *KubeSource) Create(config config.Config) (revision string, err error) {
@@ -124,14 +117,6 @@ func (s *KubeSource) RegisterEventHandler(kind config.GroupVersionKind, handler 
 func (s *KubeSource) Run(stop <-chan struct{}) {
 }
 
-func (s *KubeSource) SetWatchErrorHandler(f func(r *cache.Reflector, err error)) error {
-	panic("implement me")
-}
-
-func (s *KubeSource) HasStarted() bool {
-	return true
-}
-
 func (s *KubeSource) HasSynced() bool {
 	return true
 }
@@ -141,13 +126,13 @@ type resourceSha [sha256.Size]byte
 type kubeResource struct {
 	// resource *resource.Instance
 	config *config.Config
-	schema collection.Schema
+	schema sresource.Schema
 	sha    resourceSha
 }
 
 func (r *kubeResource) newKey() kubeResourceKey {
 	return kubeResourceKey{
-		kind:     r.schema.Resource().Kind(),
+		kind:     r.schema.Kind(),
 		fullName: r.fullName(),
 	}
 }
@@ -225,21 +210,21 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 		if !found || oldSha != r.sha {
 			s.versionCtr++
 			r.config.ResourceVersion = fmt.Sprintf("v%d", s.versionCtr)
-			scope.Debug("KubeSource.ApplyContent: Set: ", r.schema.Name(), r.fullName())
+			scope.Debugf("KubeSource.ApplyContent: Set: %v/%v", r.schema.GroupVersionKind(), r.fullName())
 			// apply is idempotent, but configstore is not, thus the odd logic here
 			_, err := s.inner.Update(*r.config)
 			if err != nil {
 				_, err = s.inner.Create(*r.config)
 				if err != nil {
 					return fmt.Errorf("cannot store config %s/%s %s from reader: %s",
-						r.schema.Resource().Version(), r.schema.Resource().Kind(), r.fullName(), err)
+						r.schema.Version(), r.schema.Kind(), r.fullName(), err)
 				}
 			}
 			s.shas[key] = r.sha
 		}
-		newKeys[key] = r.schema.Resource().GroupVersionKind()
+		newKeys[key] = r.schema.GroupVersionKind()
 		if oldKeys != nil {
-			scope.Debug("KubeSource.ApplyContent: Delete: ", r.schema.Name(), key)
+			scope.Debugf("KubeSource.ApplyContent: Delete: %v/%v", r.schema.GroupVersionKind(), key)
 			delete(oldKeys, key)
 		}
 	}
@@ -302,6 +287,9 @@ func (s *KubeSource) parseContent(r *collection.Schemas, name, yamlText string) 
 		}
 
 		chunk := bytes.TrimSpace(doc)
+		if len(chunk) == 0 {
+			continue
+		}
 		chunkResources, err := s.parseChunk(r, name, lineNum, chunk)
 		if err != nil {
 			var uerr *unknownSchemaError
@@ -365,7 +353,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		return resources, fmt.Errorf("unable to parse resource with no group, version and kind")
 	}
 
-	schema, found := r.FindByGroupVersionAliasesKind(schemaresource.FromKubernetesGVK(groupVersionKind))
+	schema, found := r.FindByGroupVersionAliasesKind(sresource.FromKubernetesGVK(groupVersionKind))
 
 	if !found {
 		return resources, &unknownSchemaError{
@@ -379,7 +367,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	// this legacy code only supports proto.Messages.
 	// Note: while NewInstance can be slightly modified to not return error here, the rest of the code
 	// still requires a proto.Message so it won't work without completely refactoring galley/
-	_, e := schema.Resource().NewInstance()
+	_, e := schema.NewInstance()
 	cannotHandleProto := e != nil
 	if cannotHandleProto {
 		return resources, &unknownSchemaError{
@@ -392,7 +380,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	runtimeScheme := runtime.NewScheme()
 	codecs := serializer.NewCodecFactory(runtimeScheme)
 	deserializer := codecs.UniversalDeserializer()
-	obj, err := kube.IstioScheme.New(schema.Resource().GroupVersionKind().Kubernetes())
+	obj, err := kube.IstioScheme.New(schema.GroupVersionKind().Kubernetes())
 	if err != nil {
 		return resources, fmt.Errorf("failed to initialize interface for built-in type: %v", err)
 	}
@@ -408,7 +396,7 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 	// If namespace is blank and we have a default set, fill in the default
 	// (This mirrors the behavior if you kubectl apply a resource without a namespace defined)
 	// Don't do this for cluster scoped resources
-	if !schema.Resource().IsClusterScoped() {
+	if !schema.IsClusterScoped() {
 		if objMeta.GetNamespace() == "" && s.defaultNs != "" {
 			scope.Debugf("KubeSource.parseChunk: namespace not specified for %q, using %q", objMeta.GetName(), s.defaultNs)
 			objMeta.SetNamespace(string(s.defaultNs))
@@ -494,7 +482,7 @@ const (
 )
 
 // ToConfig converts the given object and proto to a config.Config
-func ToConfig(object metav1.Object, schema collection.Schema, source resource.Reference, fieldMap map[string]int) (*config.Config, error) {
+func ToConfig(object metav1.Object, schema sresource.Schema, source resource.Reference, fieldMap map[string]int) (*config.Config, error) {
 	m, err := runtime.DefaultUnstructuredConverter.ToUnstructured(object)
 	if err != nil {
 		return nil, err
@@ -522,8 +510,8 @@ func ToConfig(object metav1.Object, schema collection.Schema, source resource.Re
 	return result, nil
 }
 
-func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema collection.Schema) *config.Config {
-	mv2, err := schema.Resource().NewInstance()
+func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema sresource.Schema) *config.Config {
+	mv2, err := schema.NewInstance()
 	if err != nil {
 		panic(err)
 	}
@@ -539,7 +527,7 @@ func TranslateObject(obj *unstructured.Unstructured, domainSuffix string, schema
 	m := obj
 	return &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  schema.Resource().GroupVersionKind(),
+			GroupVersionKind:  schema.GroupVersionKind(),
 			UID:               string(m.GetUID()),
 			Name:              m.GetName(),
 			Namespace:         m.GetNamespace(),

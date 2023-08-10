@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 type delayTask struct {
@@ -83,7 +83,7 @@ func (q *pq) Peek() any {
 
 // Delayed implements queue such that tasks are executed after a specified delay.
 type Delayed interface {
-	Instance
+	baseInstance
 	PushDelayed(t Task, delay time.Duration)
 }
 
@@ -157,9 +157,19 @@ type delayQueue struct {
 	queue *pq
 }
 
+// Push will execute the task as soon as possible
+func (d *delayQueue) Push(task Task) {
+	d.pushInternal(&delayTask{do: task, runAt: time.Now()})
+}
+
 // PushDelayed will execute the task after waiting for the delay
 func (d *delayQueue) PushDelayed(t Task, delay time.Duration) {
 	task := &delayTask{do: t, runAt: time.Now().Add(delay)}
+	d.pushInternal(task)
+}
+
+// pushInternal will enqueue the delayTask with retries.
+func (d *delayQueue) pushInternal(task *delayTask) {
 	select {
 	case d.enqueue <- task:
 	// buffer has room to enqueue
@@ -170,11 +180,6 @@ func (d *delayQueue) PushDelayed(t Task, delay time.Duration) {
 		heap.Push(d.queue, task)
 		d.mu.Unlock()
 	}
-}
-
-// Push will execute the task as soon as possible
-func (d *delayQueue) Push(task Task) {
-	d.PushDelayed(task, 0)
 }
 
 func (d *delayQueue) Closed() <-chan struct{} {
@@ -263,9 +268,9 @@ func (d *delayQueue) work(stop <-chan struct{}) (stopped chan struct{}) {
 			case t := <-d.execute:
 				if err := t.do(); err != nil {
 					if t.retries < maxTaskRetry {
-						d.Push(t.do)
 						t.retries++
 						log.Warnf("Work item handle failed: %v %d times, retry it", err, t.retries)
+						d.pushInternal(t)
 						continue
 					}
 					log.Errorf("Work item handle failed: %v, reaching the maximum retry times: %d, drop it", err, maxTaskRetry)

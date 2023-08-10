@@ -22,7 +22,7 @@ set -o nounset
 set -o pipefail
 
 if [[ "${TARGET_OUT_LINUX:-}" == "" ]]; then
-  echo "Environment variables no set. Make sure you run through the makefile (\`make init\`) rather than directly."
+  echo "Environment variables not set. Make sure you run through the makefile (\`make init\`) rather than directly."
   exit 1
 fi
 
@@ -39,14 +39,18 @@ PROXY_REPO_SHA="${PROXY_REPO_SHA:-$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep 
 # Envoy binary variables
 ISTIO_ENVOY_BASE_URL="${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/istio-build/proxy}"
 
+# If we are not using the default, assume its private and we need to authenticate
+if [[ "${ISTIO_ENVOY_BASE_URL}" != "https://storage.googleapis.com/istio-build/proxy" ]]; then
+  AUTH_HEADER="Authorization: Bearer $(gcloud auth print-access-token)"
+  export AUTH_HEADER
+fi
+
 SIDECAR="${SIDECAR:-envoy}"
 
 # OS-neutral vars. These currently only work for linux.
 ISTIO_ENVOY_VERSION="${ISTIO_ENVOY_VERSION:-${PROXY_REPO_SHA}}"
 ISTIO_ENVOY_DEBUG_URL="${ISTIO_ENVOY_DEBUG_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-debug-${ISTIO_ENVOY_VERSION}${ISTIO_ENVOY_ARCH_SUFFIX}.tar.gz}"
-ISTIO_ENVOY_CENTOS_DEBUG_URL="${ISTIO_ENVOY_CENTOS_DEBUG_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-centos-debug-${ISTIO_ENVOY_VERSION}.tar.gz}"
 ISTIO_ENVOY_RELEASE_URL="${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-alpha-${ISTIO_ENVOY_VERSION}${ISTIO_ENVOY_ARCH_SUFFIX}.tar.gz}"
-ISTIO_ENVOY_CENTOS_RELEASE_URL="${ISTIO_ENVOY_CENTOS_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-centos-alpha-${ISTIO_ENVOY_VERSION}.tar.gz}"
 
 # Envoy Linux vars.
 ISTIO_ENVOY_LINUX_VERSION="${ISTIO_ENVOY_LINUX_VERSION:-${ISTIO_ENVOY_VERSION}}"
@@ -56,14 +60,10 @@ ISTIO_ENVOY_LINUX_RELEASE_URL="${ISTIO_ENVOY_LINUX_RELEASE_URL:-${ISTIO_ENVOY_RE
 ISTIO_ENVOY_LINUX_DEBUG_DIR="${ISTIO_ENVOY_LINUX_DEBUG_DIR:-${TARGET_OUT_LINUX}/debug}"
 ISTIO_ENVOY_LINUX_DEBUG_NAME="${ISTIO_ENVOY_LINUX_DEBUG_NAME:-envoy-debug-${ISTIO_ENVOY_LINUX_VERSION}}"
 ISTIO_ENVOY_LINUX_DEBUG_PATH="${ISTIO_ENVOY_LINUX_DEBUG_PATH:-${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_LINUX_DEBUG_NAME}}"
-ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME="${ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME:-envoy-centos-debug-${ISTIO_ENVOY_LINUX_VERSION}}"
-ISTIO_ENVOY_CENTOS_LINUX_DEBUG_PATH="${ISTIO_ENVOY_CENTOS_LINUX_DEBUG_PATH:-${ISTIO_ENVOY_LINUX_DEBUG_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_DEBUG_NAME}}"
 
 ISTIO_ENVOY_LINUX_RELEASE_DIR="${ISTIO_ENVOY_LINUX_RELEASE_DIR:-${TARGET_OUT_LINUX}/release}"
 ISTIO_ENVOY_LINUX_RELEASE_NAME="${ISTIO_ENVOY_LINUX_RELEASE_NAME:-${SIDECAR}-${ISTIO_ENVOY_VERSION}}"
 ISTIO_ENVOY_LINUX_RELEASE_PATH="${ISTIO_ENVOY_LINUX_RELEASE_PATH:-${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_LINUX_RELEASE_NAME}}"
-ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME="${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME:-envoy-centos-${ISTIO_ENVOY_LINUX_VERSION}}"
-ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH="${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH:-${ISTIO_ENVOY_LINUX_RELEASE_DIR}/${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_NAME}}"
 
 # There is no longer an Istio built Envoy binary available for the Mac. Copy the Linux binary as the Mac binary was
 # very old and likely no one was really using it (at least temporarily).
@@ -125,33 +125,6 @@ function download_envoy_if_necessary () {
   fi
 }
 
-# Downloads WebAssembly based plugin if it doesn't already exist.
-# Params:
-#   $1: The URL of the WebAssembly file to be downloaded.
-#   $2: The full path of the output file.
-function download_wasm_if_necessary () {
-  download_file_dir="$(dirname "$2")"
-  download_file_name="$(basename "$1")"
-  download_file_path="${download_file_dir}/${download_file_name}"
-  if [[ ! -f "${download_file_path}" ]] ; then
-    # Enter the output directory.
-    mkdir -p "${download_file_dir}"
-    pushd "${download_file_dir}"
-
-    # Download the WebAssembly plugin files to the output directory.
-    echo "Downloading WebAssembly file: $1 to ${download_file_path}"
-    if [[ ${DOWNLOAD_COMMAND} == curl* ]]; then
-      time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" -o "${download_file_name}"
-    elif [[ ${DOWNLOAD_COMMAND} == wget* ]]; then
-      time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" -O "${download_file_name}"
-    fi
-
-    # Copy the webassembly file to the output location
-    cp "${download_file_path}" "$2"
-    popd
-  fi
-}
-
 mkdir -p "${TARGET_OUT}"
 
 # Set the value of DOWNLOAD_COMMAND (either curl or wget)
@@ -166,26 +139,11 @@ fi
 
 # Download and extract the Envoy linux release binary.
 download_envoy_if_necessary "${ISTIO_ENVOY_LINUX_RELEASE_URL}" "$ISTIO_ENVOY_LINUX_RELEASE_PATH" "${SIDECAR}"
-download_envoy_if_necessary "${ISTIO_ENVOY_CENTOS_RELEASE_URL}" "$ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH" "${SIDECAR}-centos"
 ISTIO_ENVOY_NATIVE_PATH=${ISTIO_ENVOY_LINUX_RELEASE_PATH}
-
-# Download WebAssembly plugin files
-WASM_RELEASE_DIR=${ISTIO_ENVOY_LINUX_RELEASE_DIR}
-for plugin in stats metadata_exchange
-do
-  FILTER_WASM_URL="${ISTIO_ENVOY_BASE_URL}/${plugin}-${ISTIO_ENVOY_VERSION}.wasm"
-  download_wasm_if_necessary "${FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/"${plugin//_/-}"-filter.wasm
-  FILTER_WASM_URL="${ISTIO_ENVOY_BASE_URL}/${plugin}-${ISTIO_ENVOY_VERSION}.compiled.wasm"
-  download_wasm_if_necessary "${FILTER_WASM_URL}" "${WASM_RELEASE_DIR}"/"${plugin//_/-}"-filter.compiled.wasm
-done
 
 # Copy native envoy binary to TARGET_OUT
 echo "Copying ${ISTIO_ENVOY_NATIVE_PATH} to ${TARGET_OUT}/${SIDECAR}"
 cp -f "${ISTIO_ENVOY_NATIVE_PATH}" "${TARGET_OUT}/${SIDECAR}"
-
-# Copy CentOS binary
-echo "Copying ${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH} to ${TARGET_OUT_LINUX}/${SIDECAR}-centos"
-cp -f "${ISTIO_ENVOY_CENTOS_LINUX_RELEASE_PATH}" "${TARGET_OUT_LINUX}/${SIDECAR}-centos"
 
 # Copy the envoy binary to TARGET_OUT_LINUX if the local OS is not Linux
 if [[ "$GOOS_LOCAL" != "linux" ]]; then

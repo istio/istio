@@ -11,7 +11,7 @@
 
 ---
 
-An open platform to connect, manage, and secure microservices.
+Istio is an open source service mesh that layers transparently onto existing distributed applications. Istio’s powerful features provide a uniform and more efficient way to secure, connect, and monitor services. Istio is the path to load balancing, service-to-service authentication, and monitoring – with few or no service code changes.
 
 - For in-depth information about how to use Istio, visit [istio.io](https://istio.io)
 - To ask questions and get assistance from our community, visit [discuss.istio.io](https://discuss.istio.io)
@@ -108,3 +108,10 @@ think the issue should get addressed.
 - **Priority**. Each issue has a priority which is represented by the column in the [Prioritization](https://github.com/orgs/istio/projects/6) project. Priority can be one of
 P0, P1, P2, or >P2. The priority indicates how important it is to address the issue within the milestone. P0 says that the
 milestone cannot be considered achieved if the issue isn't resolved.
+
+---
+
+<div align="center">
+    <img src="https://raw.githubusercontent.com/cncf/artwork/master/other/cncf/horizontal/color/cncf-color.svg" width="300" alt="Cloud Native Computing Foundation logo"/>
+    <p>Istio is a <a href="https://cncf.io">Cloud Native Computing Foundation</a> project.</p>
+</div>

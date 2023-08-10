@@ -23,10 +23,10 @@ import (
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 	dep "istio.io/istio/tools/istio-iptables/pkg/dependencies"
-	"istio.io/pkg/log"
 )
 
 // configureTProxyRoutes configures ip firewall rules to enable TPROXY support.
@@ -97,7 +97,7 @@ func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
 	if ext != nil && cfg.CNIMode {
 		if cfg.HostNSEnterExec {
 			command := os.Args[0]
-			return ext.Run(command, constants.CommandConfigureRoutes)
+			return ext.Run(command, nil, constants.CommandConfigureRoutes)
 		}
 
 		nsContainer, err := ns.GetNS(cfg.NetworkNamespace)

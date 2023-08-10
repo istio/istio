@@ -15,11 +15,11 @@ package sidecar
 
 import (
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // DefaultSelectorAnalyzer validates, per namespace, that there aren't multiple
@@ -35,8 +35,8 @@ func (a *DefaultSelectorAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "sidecar.DefaultSelectorAnalyzer",
 		Description: "Validates that there aren't multiple sidecar resources that have no selector",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Sidecars.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Sidecar,
 		},
 	}
 }
@@ -45,7 +45,7 @@ func (a *DefaultSelectorAnalyzer) Metadata() analysis.Metadata {
 func (a *DefaultSelectorAnalyzer) Analyze(c analysis.Context) {
 	nsToSidecars := make(map[resource.Namespace][]*resource.Instance)
 
-	c.ForEach(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Sidecar, func(r *resource.Instance) bool {
 		s := r.Message.(*v1alpha3.Sidecar)
 
 		ns := r.Metadata.FullName.Namespace
@@ -61,7 +61,7 @@ func (a *DefaultSelectorAnalyzer) Analyze(c analysis.Context) {
 		if len(sList) > 1 {
 			sNames := getNames(sList)
 			for _, r := range sList {
-				c.Report(collections.IstioNetworkingV1Alpha3Sidecars.Name(), msg.NewMultipleSidecarsWithoutWorkloadSelectors(r, sNames, string(ns)))
+				c.Report(gvk.Sidecar, msg.NewMultipleSidecarsWithoutWorkloadSelectors(r, sNames, string(ns)))
 			}
 		}
 	}

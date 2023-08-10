@@ -189,6 +189,7 @@ func DumpCoreDumps(_ resource.Context, c cluster.Cluster, workDir string, namesp
 		if coreDumpedPods.Load() >= maxCoreDumpedPods {
 			return
 		}
+		isVM := checkIfVM(pod)
 		wroteDumpsForPod := false
 		containers := append(pod.Spec.Containers, pod.Spec.InitContainers...)
 		for _, container := range containers {
@@ -213,7 +214,11 @@ func DumpCoreDumps(_ resource.Context, c cluster.Cluster, workDir string, namesp
 				if strings.TrimSpace(cd) == "" {
 					continue
 				}
-				stdout, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, "cat "+cd)
+				cmd := "cat " + cd
+				if isVM {
+					cmd = "sudo " + cmd
+				}
+				stdout, _, err := c.PodExec(pod.Name, pod.Namespace, container.Name, cmd)
 				if err != nil {
 					scopes.Framework.Warnf("Unable to get core dumps %v for cluster/pod: %s/%s/%s: %v",
 						cd, c.Name(), pod.Namespace, pod.Name, err)
@@ -348,7 +353,7 @@ func DumpPodLogs(_ resource.Context, c cluster.Cluster, workDir, namespace strin
 					// This is only called if the test failed, so we cannot mark it as "failed" again. Instead, output
 					// a log which will get highlighted in the test logs
 					// TODO proper analysis of restarts to ensure we do not miss crashes when tests still pass.
-					scopes.Framework.Errorf("FAIL: cluster/pod/container %s/%s/%s/%s restarted %d times. Logs: %v",
+					scopes.Framework.Errorf("FAIL: cluster/pod/container %s/%s/%s/%s crashed/restarted %d times. Logs: %v",
 						c.Name(), pod.Namespace, pod.Name, container.Name, restarts, prow.ArtifactsURL(fname))
 				}
 				l, err := c.PodLogs(context.TODO(), pod.Name, pod.Namespace, container.Name, true /* previousLog */)
@@ -514,7 +519,7 @@ func dumpProxyCommand(c cluster.Cluster, fw kube.PortForwarder, pod corev1.Pod, 
 						break
 					}
 					if attempts > 3 {
-						scopes.Framework.Warnf("FAIL: cluster/pod %s/%s/%s found warming resources (%v) on final attempt. Logs: %v",
+						scopes.Framework.Warnf("FAIL: cluster/pod %s/%s/%s found warming resources (%v) on final attempt. Config: %v",
 							c.Name(), pod.Namespace, pod.Name, warming, prow.ArtifactsURL(fname))
 						break
 					}
@@ -587,7 +592,7 @@ func checkIfVM(pod corev1.Pod) bool {
 	return false
 }
 
-func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint string) {
+func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir, endpoint, namespace string) {
 	ik, err := istioctl.New(ctx, istioctl.Config{Cluster: c})
 	if err != nil {
 		scopes.Framework.Warnf("failed dumping %s (cluster %s): %v", endpoint, c.Name(), err)
@@ -596,6 +601,9 @@ func DumpDebug(ctx resource.Context, c cluster.Cluster, workDir string, endpoint
 	args := []string{"x", "internal-debug", "--all", endpoint}
 	if ctx.Settings().Revisions.Default() != "" {
 		args = append(args, "--revision", ctx.Settings().Revisions.Default())
+	}
+	if namespace != "" && namespace != "istio-system" {
+		args = append(args, "--istioNamespace", namespace)
 	}
 	scopes.Framework.Debugf("dump %s (cluster %s): %v", endpoint, c.Name(), args)
 	stdout, _, err := ik.Invoke(args)

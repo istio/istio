@@ -21,12 +21,12 @@ import (
 
 	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/multicluster"
 )
 
@@ -47,16 +47,16 @@ func (s *MeshNetworksAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "meshnetworks.MeshNetworksAnalyzer",
 		Description: "Check the validity of MeshNetworks in the cluster",
-		Inputs: collection.Names{
-			collections.IstioMeshV1Alpha1MeshNetworks.Name(),
-			collections.K8SCoreV1Secrets.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.MeshNetworks,
+			gvk.Secret,
 		},
 	}
 }
 
 // Analyze implements Analyzer
 func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(collections.K8SCoreV1Secrets.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Secret, func(r *resource.Instance) bool {
 		if r.Metadata.Labels[multicluster.MultiClusterSecretLabel] == "true" {
 			s := r.Message.(*v1.Secret)
 			for c := range s.Data {
@@ -67,7 +67,7 @@ func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
 	})
 
 	// only one meshnetworks config should exist.
-	c.ForEach(collections.IstioMeshV1Alpha1MeshNetworks.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.MeshNetworks, func(r *resource.Instance) bool {
 		mn := r.Message.(*v1alpha1.MeshNetworks)
 		for i, n := range mn.Networks {
 			for j, e := range n.Endpoints {
@@ -86,7 +86,7 @@ func (s *MeshNetworksAnalyzer) Analyze(c analysis.Context) {
 							m.Line = line
 						}
 
-						c.Report(collections.IstioMeshV1Alpha1MeshNetworks.Name(), m)
+						c.Report(gvk.MeshNetworks, m)
 					}
 				}
 			}

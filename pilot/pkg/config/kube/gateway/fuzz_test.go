@@ -22,7 +22,7 @@ import (
 
 func FuzzConvertResources(f *testing.F) {
 	fuzz.Fuzz(f, func(fg fuzz.Helper) {
-		r := fuzz.Struct[KubernetesResources](fg)
+		r := fuzz.Struct[GatewayResources](fg)
 		convertResources(r)
 	})
 }

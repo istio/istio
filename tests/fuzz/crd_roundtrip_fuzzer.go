@@ -64,7 +64,7 @@ func FuzzCRDRoundtrip(data []byte) int {
 
 	// select a target:
 	r := collections.Pilot.All()[int(data[0])%len(collections.Pilot.All())]
-	gvk := r.Resource().GroupVersionKind()
+	gvk := r.GroupVersionKind()
 	kgvk := schema.GroupVersionKind{
 		Group:   gvk.Group,
 		Version: gvk.Version,

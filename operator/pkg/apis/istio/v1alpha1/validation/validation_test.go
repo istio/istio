@@ -33,6 +33,8 @@ import (
 	"istio.io/istio/pkg/test/env"
 )
 
+const operatorSubdirFilePath = "manifests"
+
 // nolint: lll
 func TestValidateConfig(t *testing.T) {
 	tests := []struct {
@@ -266,7 +268,7 @@ components:
 }
 
 func TestValidateProfiles(t *testing.T) {
-	manifests := filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath)
+	manifests := filepath.Join(env.IstioSrc, operatorSubdirFilePath)
 	profiles, err := helm.ListProfiles(manifests)
 	if err != nil {
 		t.Fatal(err)

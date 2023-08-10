@@ -31,6 +31,7 @@ import (
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 )
 
 const (
@@ -75,7 +76,7 @@ func TestNewJwtAuthenticator(t *testing.T) {
 				t.Fatalf("failed at unmarshal the jwt rule (%v), err: %v",
 					tt.jwtRule, err)
 			}
-			_, err = NewJwtAuthenticator(&jwtRule, "domain-foo")
+			_, err = NewJwtAuthenticator(&jwtRule)
 			gotErr := err != nil
 			if gotErr != tt.expectErr {
 				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)
@@ -133,6 +134,8 @@ func TestOIDCAuthenticate(t *testing.T) {
 	server := httptest.NewServer(&jwksServer{key: keySet})
 	defer server.Close()
 
+	spiffe.SetTrustDomain("baz.svc.id.goog")
+
 	// Create a JWT authenticator
 	jwtRuleStr := `{"issuer": "` + server.URL + `", "jwks_uri": "` + server.URL + `", "audiences": ["baz.svc.id.goog"]}`
 	jwtRule := v1beta1.JWTRule{}
@@ -140,7 +143,7 @@ func TestOIDCAuthenticate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed at unmarshal jwt rule")
 	}
-	authenticator, err := NewJwtAuthenticator(&jwtRule, "baz.svc.id.goog")
+	authenticator, err := NewJwtAuthenticator(&jwtRule)
 	if err != nil {
 		t.Fatalf("failed to create the JWT authenticator: %v", err)
 	}
@@ -183,7 +186,7 @@ func TestOIDCAuthenticate(t *testing.T) {
 		"Valid token": {
 			token:      token,
 			expectErr:  false,
-			expectedID: fmt.Sprintf(IdentityTemplate, "baz.svc.id.goog", "bar", "foo"),
+			expectedID: spiffe.MustGenSpiffeURI("bar", "foo"),
 		},
 		"Expired token": {
 			token:     expiredToken,

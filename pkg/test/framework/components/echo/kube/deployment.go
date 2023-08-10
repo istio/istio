@@ -35,9 +35,10 @@ import (
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
-	istioctlcmd "istio.io/istio/istioctl/cmd"
+	istioctlcmd "istio.io/istio/istioctl/pkg/workload"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	echoCommon "istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -52,7 +53,6 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -270,7 +270,6 @@ var VMImages = map[echo.VMDistro]string{
 	echo.UbuntuXenial: "app_sidecar_ubuntu_xenial",
 	echo.UbuntuJammy:  "app_sidecar_ubuntu_jammy",
 	echo.Debian11:     "app_sidecar_debian_11",
-	echo.Centos7:      "app_sidecar_centos_7",
 	// echo.Rockylinux8:  "app_sidecar_rockylinux_8", TODO(https://github.com/istio/istio/issues/38224)
 }
 
@@ -381,7 +380,8 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"Revisions":               settings.Revisions.TemplateMap(),
 		"Compatibility":           settings.Compatibility,
 		"WorkloadClass":           cfg.WorkloadClass(),
-		"OverlayIstioProxy":       canCreateIstioProxy(settings.Revisions.Minimum()),
+		"OverlayIstioProxy":       canCreateIstioProxy(settings.Revisions.Minimum()) && !settings.Ambient,
+		"Ambient":                 settings.Ambient,
 	}
 
 	vmIstioHost, vmIstioIP := "", ""
@@ -545,7 +545,7 @@ spec:
 			return fmt.Errorf("failed customizing cluster.env: %v", err)
 		}
 
-		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
+		// push bootstrap config as a ConfigMap so we can mount it on our "vm" pods
 		cmData := map[string][]byte{}
 		generatedFiles, err := os.ReadDir(subsetDir)
 		if err != nil {

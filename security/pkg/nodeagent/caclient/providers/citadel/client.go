@@ -17,32 +17,26 @@ package caclient
 import (
 	"context"
 	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
-	"net"
-	"os"
-	"strings"
 
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	pb "istio.io/api/security/v1alpha1"
+	istiogrpc "istio.io/istio/pilot/pkg/grpc"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
-	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 const (
 	bearerTokenPrefix = "Bearer "
 )
 
-var citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging", 0)
+var citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugging")
 
 type CitadelClient struct {
 	// It means enable tls connection to Citadel if this is not nil.
@@ -117,97 +111,33 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]strin
 	return resp.CertChain, nil
 }
 
-func (c *CitadelClient) getTLSDialOption() (grpc.DialOption, error) {
-	certPool, err := getRootCertificate(c.tlsOpts.RootCert)
-	if err != nil {
-		return nil, err
-	}
-	config := tls.Config{
-		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			var certificate tls.Certificate
-			key, cert := c.tlsOpts.Key, c.tlsOpts.Cert
-			if cert != "" {
-				var isExpired bool
-				isExpired, err = util.IsCertExpired(cert)
-				if err != nil {
-					citadelClientLog.Warnf("cannot parse the cert chain, using token instead: %v", err)
-					return &certificate, nil
-				}
-				if isExpired {
-					citadelClientLog.Warnf("cert expired, using token instead")
-					return &certificate, nil
-				}
-
-				// Load the certificate from disk
-				certificate, err = tls.LoadX509KeyPair(cert, key)
-				if err != nil {
-					return nil, err
-				}
+func (c *CitadelClient) getTLSOptions() *istiogrpc.TLSOptions {
+	if c.tlsOpts != nil {
+		return &istiogrpc.TLSOptions{
+			RootCert:      c.tlsOpts.RootCert,
+			Key:           c.tlsOpts.Key,
+			Cert:          c.tlsOpts.Cert,
+			ServerAddress: c.opts.CAEndpoint,
+			SAN:           c.opts.CAEndpointSAN,
+			GetClientCertificateCb: func() {
 				c.usingMtls.Store(true)
-			}
-			return &certificate, nil
-		},
-		RootCAs:    certPool,
-		MinVersion: tls.VersionTLS12,
-	}
-
-	if host, _, err := net.SplitHostPort(c.opts.CAEndpoint); err == nil {
-		config.ServerName = host
-	}
-	// For debugging on localhost (with port forward)
-	// TODO: remove once istiod is stable and we have a way to validate JWTs locally
-	if strings.Contains(c.opts.CAEndpoint, "localhost") {
-		config.ServerName = "istiod.istio-system.svc"
-	}
-	if c.opts.CAEndpointSAN != "" {
-		config.ServerName = c.opts.CAEndpointSAN
-	}
-
-	transportCreds := credentials.NewTLS(&config)
-	return grpc.WithTransportCredentials(transportCreds), nil
-}
-
-func getRootCertificate(rootCertFile string) (*x509.CertPool, error) {
-	if rootCertFile == "" {
-		// No explicit certificate - assume the citadel-compatible server uses a public cert
-		certPool, err := x509.SystemCertPool()
-		if err != nil {
-			return nil, err
+			},
 		}
-		citadelClientLog.Info("Citadel client using system cert")
-		return certPool, nil
 	}
-
-	certPool := x509.NewCertPool()
-	rootCert, err := os.ReadFile(rootCertFile)
-	if err != nil {
-		return nil, err
-	}
-	ok := certPool.AppendCertsFromPEM(rootCert)
-	if !ok {
-		return nil, fmt.Errorf("failed to append certificates")
-	}
-	citadelClientLog.Info("Citadel client using custom root cert: ", rootCertFile)
-	return certPool, nil
+	return nil
 }
 
 func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
-	var opts grpc.DialOption
-	var err error
-	// CA tls disabled
-	if c.tlsOpts == nil {
-		opts = grpc.WithTransportCredentials(insecure.NewCredentials())
-	} else {
-		opts, err = c.getTLSDialOption()
-		if err != nil {
-			return nil, err
-		}
+	tlsOpts := c.getTLSOptions()
+	opts, err := istiogrpc.ClientOptions(nil, tlsOpts)
+	if err != nil {
+		return nil, err
 	}
-
-	conn, err := grpc.Dial(c.opts.CAEndpoint,
-		opts,
+	opts = append(opts,
 		grpc.WithPerRPCCredentials(c.provider),
-		security.CARetryInterceptor())
+		security.CARetryInterceptor(),
+	)
+	conn, err := grpc.Dial(c.opts.CAEndpoint, opts...)
 	if err != nil {
 		citadelClientLog.Errorf("Failed to connect to endpoint %s: %v", c.opts.CAEndpoint, err)
 		return nil, fmt.Errorf("failed to connect to endpoint %s", c.opts.CAEndpoint)
@@ -223,6 +153,7 @@ func (c *CitadelClient) reconnectIfNeeded() error {
 	}
 	_, err := tls.LoadX509KeyPair(c.tlsOpts.Cert, c.tlsOpts.Key)
 	if err != nil {
+		citadelClientLog.Errorf("Failed to load key pair %v", err)
 		// Cannot load the certificates yet, don't both reconnecting
 		return nil
 	}

@@ -34,11 +34,26 @@
       ]
   },
   "bootstrap_extensions": [
+    {{- if .metadata_discovery }}
+    {
+      "name": "metadata_discovery",
+      "typed_config": {
+        "@type": "type.googleapis.com/udpa.type.v1.TypedStruct",
+        "type_url": "type.googleapis.com/istio.workload.BootstrapExtension",
+        "value": {
+          "config_source": { "ads": {} }
+        }
+      }
+    },
+    {{- end }}
     {
       "name": "envoy.bootstrap.internal_listener",
       "typed_config": {
         "@type":"type.googleapis.com/udpa.type.v1.TypedStruct",
-        "type_url": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener"
+        "type_url": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener",
+        "value": {
+          "buffer_size_kb": 64
+        }
       }
     }
   ],
@@ -52,10 +67,6 @@
       {
         "tag_name": "tcp_prefix",
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
-      },
-      {
-        "regex": "(response_code=\\.=(.+?);\\.;)",
-        "tag_name": "response_code"
       },
       {
         "regex": "_rq(_(\\d{3}))$",
@@ -116,12 +127,20 @@
         "regex": "(\\.shadow_(allowed|denied))"
       }
     ],
+    {{- if .histogram_buckets }}
+    "histogram_bucket_settings": {{ toJson .histogram_buckets }},
+    {{- end }}
     "stats_matcher": {
       "inclusion_list": {
         "patterns": [
           {
           "prefix": "reporter="
           },
+          {{- if .metadata_discovery }}
+          {
+          "prefix": "workload_discovery"
+          },
+          {{- end }}
           {{- range $a, $s := .inclusionPrefix }}
           {
           "prefix": "{{$s}}"
@@ -134,7 +153,7 @@
           {{- end }}
           {{- range $a, $s := .inclusionRegexps }}
           {
-          "safe_regex": {"google_re2":{}, "regex":"{{js $s}}"}
+          "safe_regex": {"regex":"{{js $s}}"}
           },
           {{- end }}
           {
@@ -720,12 +739,20 @@
     {{ end }}
   ]
   {{ end }}
-  {{ if .outlier_log_path }}
+  {{ if or .outlier_log_path .load_stats_config_json_str }}
   ,
   "cluster_manager": {
+    {{- if .outlier_log_path}}
     "outlier_detection": {
       "event_log_path": "{{ .outlier_log_path }}"
     }
+    {{- end}}
+    {{- if and .outlier_log_path .load_stats_config_json_str }}
+    ,
+    {{- end}}
+    {{- if .load_stats_config_json_str }}
+    "load_stats_config": {{- .load_stats_config_json_str }}
+    {{- end }}
   }
   {{ end }}
 }

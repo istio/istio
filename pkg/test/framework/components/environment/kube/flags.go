@@ -222,7 +222,7 @@ func parseClusterIndex(index string) (clusterIndex, error) {
 }
 
 // configsVal implements config.Value to allow setting the path as a flag or embedding the topology content
-// in the overal test framework config
+// in the overall test framework config
 type configsVal []cluster.Config
 
 func (c *configsVal) String() string {

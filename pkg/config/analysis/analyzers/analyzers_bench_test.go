@@ -24,9 +24,9 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
-	"istio.io/pkg/log"
+	resource2 "istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/log"
 )
 
 // This is a very basic benchmark on unit test data, so it doesn't tell us anything about how an analyzer performs at scale
@@ -77,22 +77,22 @@ func benchmarkAnalyzersArtificialBlankData(count int, b *testing.B) {
 
 	// Generate blank test data
 	store := memory.MakeSkipValidation(collections.All)
-	collections.All.ForEach(func(s collection.Schema) bool {
+	collections.All.ForEach(func(s resource2.Schema) bool {
 		for i := 0; i < count; i++ {
-			name := resource.NewFullName("default", resource.LocalName(fmt.Sprintf("%s-%d", s.Name(), i)))
+			name := resource.NewFullName("default", resource.LocalName(fmt.Sprintf("%s-%d", s.Kind(), i)))
 			_, _ = store.Create(config.Config{
 				Meta: config.Meta{
-					GroupVersionKind: s.Resource().GroupVersionKind(),
+					GroupVersionKind: s.GroupVersionKind(),
 					Name:             name.Name.String(),
 					Namespace:        name.Namespace.String(),
 				},
-				Spec: s.Resource().MustNewInstance(),
+				Spec: s.MustNewInstance(),
 			})
 		}
 
 		return false
 	})
-	ctx := local.NewContext(store, make(chan struct{}), func(name collection.Name) {})
+	ctx := local.NewContext(store, make(chan struct{}), func(name config.GroupVersionKind) {})
 
 	b.ResetTimer()
 	for _, a := range All() {

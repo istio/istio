@@ -160,12 +160,14 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 	// Normalize the image pull secret to the full resource name.
 	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace)
 	datasource := buildDataSource(u, wasmPlugin)
+	resourceName := plugin.Namespace + "." + plugin.Name
 	wasmExtensionConfig := &envoyWasmFilterV3.Wasm{
 		Config: &envoyExtensionsWasmV3.PluginConfig{
-			Name:          plugin.Namespace + "." + plugin.Name,
+			Name:          resourceName,
 			RootId:        wasmPlugin.PluginName,
 			Configuration: cfg,
 			Vm:            buildVMConfig(datasource, plugin.ResourceVersion, wasmPlugin),
+			FailOpen:      wasmPlugin.FailStrategy == extensions.FailStrategy_FAIL_OPEN,
 		},
 	}
 	if err != nil {
@@ -175,7 +177,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 	return &WasmPluginWrapper{
 		Name:                plugin.Name,
 		Namespace:           plugin.Namespace,
-		ResourceName:        plugin.Namespace + "." + plugin.Name,
+		ResourceName:        resourceName,
 		WasmPlugin:          wasmPlugin,
 		WasmExtensionConfig: wasmExtensionConfig,
 	}

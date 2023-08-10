@@ -60,6 +60,14 @@ data:
       grpc-agent: |
 {{ .Files.Get "files/grpc-agent.yaml" | trim | indent 8 }}
 {{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "waypoint") }}
+      waypoint: |
+{{ .Files.Get "files/waypoint.yaml" | trim | indent 8 }}
+{{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "kube-gateway") }}
+      kube-gateway: |
+{{ .Files.Get "files/kube-gateway.yaml" | trim | indent 8 }}
+{{- end }}
 {{- with .Values.sidecarInjectorWebhook.templates }}
 {{ toYaml . | trim | indent 6 }}
 {{- end }}

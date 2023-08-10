@@ -76,4 +76,3 @@ Detailed steps to onboard a VM could be found in [VM onboarding documentation](h
 
 Currently, these steps are pre-configured and built in the deployment. However, each of them could be tested
 by tweaking the [VM deployment template](https://github.com/istio/istio/blob/master/pkg/test/framework/components/echo/kube/deployment.go#L193).
-

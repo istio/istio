@@ -81,7 +81,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 			instances := gc.ps.ServiceInstancesByPort(svc, port, nil)
 			if len(instances) > 0 {
 				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
-				if !svc.Attributes.ClusterExternalAddresses.IsEmpty() {
+				if svc.Attributes.ClusterExternalAddresses.Len() > 0 {
 					// Fetch external IPs from all clusters
 					svc.Attributes.ClusterExternalAddresses.ForEach(func(c cluster.ID, externalIPs []string) {
 						foundExternal.InsertAll(externalIPs...)
@@ -105,7 +105,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 							}
 						}
 					}
-					if len(hintPort) > 0 {
+					if hintPort.Len() > 0 {
 						warnings = append(warnings, fmt.Sprintf(
 							"port %d not found for hostname %q (hint: the service port should be specified, not the workload port. Did you mean one of these ports: %v?)",
 							port, g, sets.SortedList(hintPort)))

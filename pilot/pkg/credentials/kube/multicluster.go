@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/kube/multicluster"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Multicluster structure holds the remote kube Controllers and multicluster specific attributes.
@@ -43,29 +43,26 @@ func NewMulticluster(configCluster cluster.ID) *Multicluster {
 	return m
 }
 
-func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, _ <-chan struct{}) error {
+func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, _ <-chan struct{}) {
 	log.Infof("initializing Kubernetes credential reader for cluster %v", cluster.ID)
-	sc := NewCredentialsController(cluster.Client, cluster.ID)
+	sc := NewCredentialsController(cluster.Client)
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.addCluster(cluster, sc)
-	return nil
 }
 
-func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
-	sc := NewCredentialsController(cluster.Client, cluster.ID)
+func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, _ <-chan struct{}) {
+	sc := NewCredentialsController(cluster.Client)
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.deleteCluster(cluster.ID)
 	m.addCluster(cluster, sc)
-	return nil
 }
 
-func (m *Multicluster) ClusterDeleted(key cluster.ID) error {
+func (m *Multicluster) ClusterDeleted(key cluster.ID) {
 	m.m.Lock()
 	defer m.m.Unlock()
 	delete(m.remoteKubeControllers, key)
-	return nil
 }
 
 func (m *Multicluster) addCluster(cluster *multicluster.Cluster, sc *CredentialsController) {
@@ -116,23 +113,23 @@ type AggregateController struct {
 
 var _ credentials.Controller = &AggregateController{}
 
-func (a *AggregateController) GetKeyAndCert(name, namespace string) (key []byte, cert []byte, err error) {
+func (a *AggregateController) GetCertInfo(name, namespace string) (certInfo *credentials.CertInfo, err error) {
 	// Search through all clusters, find first non-empty result
 	var firstError error
 	for _, c := range a.controllers {
-		k, c, err := c.GetKeyAndCert(name, namespace)
+		certInfo, err := c.GetCertInfo(name, namespace)
 		if err != nil {
 			if firstError == nil {
 				firstError = err
 			}
 		} else {
-			return k, c, nil
+			return certInfo, nil
 		}
 	}
-	return nil, nil, firstError
+	return nil, firstError
 }
 
-func (a *AggregateController) GetCaCert(name, namespace string) (cert []byte, err error) {
+func (a *AggregateController) GetCaCert(name, namespace string) (certInfo *credentials.CertInfo, err error) {
 	// Search through all clusters, find first non-empty result
 	var firstError error
 	for _, c := range a.controllers {

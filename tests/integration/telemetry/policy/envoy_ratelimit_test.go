@@ -21,7 +21,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/test/env"
@@ -36,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/kube"
-	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/tmpl"
 )
 
@@ -201,20 +199,12 @@ func setupEnvoyFilter(ctx framework.TestContext, file string) func() {
 
 func sendTrafficAndCheckIfRatelimited(t framework.TestContext) {
 	t.Helper()
-	retry.UntilSuccessOrFail(t, func() error {
-		t.Logf("Sending 5 requests...")
-		httpOpts := echo.CallOptions{
-			To: srv,
-			Port: echo.Port{
-				Name: "http",
-			},
-			Count: 5,
-			Retry: echo.Retry{
-				NoRetry: true,
-			},
-		}
-
-		result, err := clt.Call(httpOpts)
-		return check.TooManyRequests().Check(result, err)
-	}, retry.Delay(10*time.Second), retry.Timeout(60*time.Second))
+	clt.CallOrFail(t, echo.CallOptions{
+		To: srv,
+		Port: echo.Port{
+			Name: "http",
+		},
+		Count: 5,
+		Check: check.TooManyRequests(),
+	})
 }

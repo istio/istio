@@ -15,28 +15,45 @@
 package ingress
 
 import (
-	"context"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
+	knetworking "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	"istio.io/api/annotation"
+	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var (
-	pod           = "test"
-	serviceIP     = "1.2.3.4"
-	hostname      = "foo.bar.com"
-	nodeIP        = "10.0.0.2"
-	testNamespace = "test"
+	serviceIP = "1.2.3.4"
+	hostname  = "foo.bar.com"
+	nodeIP    = "10.0.0.2"
 )
 
-func setupFake(t *testing.T, client kubelib.Client) {
-	t.Helper()
-	if _, err := client.Kube().CoreV1().Pods("istio-system").Create(context.TODO(), &corev1.Pod{
+var ingressService = &corev1.Service{
+	ObjectMeta: metav1.ObjectMeta{
+		Name:      "istio-ingress",
+		Namespace: IngressNamespace,
+	},
+	Status: corev1.ServiceStatus{
+		LoadBalancer: corev1.LoadBalancerStatus{
+			Ingress: []corev1.LoadBalancerIngress{{
+				IP: serviceIP,
+			}},
+		},
+	},
+}
+
+var testObjects = []runtime.Object{
+	&corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "ingressgateway",
 			Namespace: "istio-system",
@@ -50,30 +67,12 @@ func setupFake(t *testing.T, client kubelib.Client) {
 		Status: corev1.PodStatus{
 			Phase: corev1.PodRunning,
 		},
-	}, metav1.CreateOptions{}); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := client.Kube().CoreV1().Services(testNamespace).Create(context.TODO(), &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "istio-ingress",
-			Namespace: testNamespace,
-		},
-		Status: corev1.ServiceStatus{
-			LoadBalancer: corev1.LoadBalancerStatus{
-				Ingress: []corev1.LoadBalancerIngress{{
-					IP: serviceIP,
-				}},
-			},
-		},
-	}, metav1.CreateOptions{}); err != nil {
-		t.Fatal(err)
-	}
-
-	if _, err := client.Kube().CoreV1().Services(testNamespace).Create(context.TODO(), &corev1.Service{
+	},
+	ingressService,
+	&corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "istio-ingress-hostname",
-			Namespace: testNamespace,
+			Namespace: IngressNamespace,
 		},
 		Status: corev1.ServiceStatus{
 			LoadBalancer: corev1.LoadBalancerStatus{
@@ -82,10 +81,8 @@ func setupFake(t *testing.T, client kubelib.Client) {
 				}},
 			},
 		},
-	}, metav1.CreateOptions{}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := client.Kube().CoreV1().Nodes().Create(context.TODO(), &corev1.Node{
+	},
+	&corev1.Node{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo_node",
 		},
@@ -97,33 +94,105 @@ func setupFake(t *testing.T, client kubelib.Client) {
 				},
 			},
 		},
-	}, metav1.CreateOptions{}); err != nil {
-		t.Fatal(err)
-	}
+	},
 }
 
-func fakeMeshHolder(ingressService string) mesh.Holder {
+func fakeMeshHolder(ingressService string) mesh.Watcher {
 	config := mesh.DefaultMeshConfig()
 	config.IngressService = ingressService
 	return mesh.NewFixedWatcher(config)
 }
 
-func makeStatusSyncer(t *testing.T) *StatusSyncer {
-	setEnvs(t, map[string]string{"POD_NAME": pod, "POD_NAMESPACE": testNamespace})
-
-	client := kubelib.NewFakeClient()
-	setupFake(t, client)
-	sync := NewStatusSyncer(fakeMeshHolder("istio-ingress"), client)
-	stop := test.NewStop(t)
-	client.RunAndWait(stop)
+func makeStatusSyncer(t *testing.T, name string) *StatusSyncer {
+	client := kubelib.NewFakeClient(testObjects...)
+	sync := NewStatusSyncer(fakeMeshHolder(name), client, kubecontroller.Options{})
+	client.RunAndWait(test.NewStop(t))
+	go sync.Run(test.NewStop(t))
 	return sync
 }
 
-// setEnvs set the envs with given value.
-func setEnvs(t *testing.T, inputs map[string]string) {
-	for k, v := range inputs {
-		t.Setenv(k, v)
+// nolint: unparam
+func getIPs(ing clienttest.TestClient[*knetworking.Ingress], name string, ns string) func() []string {
+	return func() []string {
+		i := ing.Get(name, ns)
+		if i == nil {
+			return nil
+		}
+		res := []string{}
+		for _, v := range i.Status.LoadBalancer.Ingress {
+			if v.IP != "" {
+				res = append(res, v.IP)
+			} else {
+				res = append(res, v.Hostname)
+			}
+		}
+		return res
 	}
+}
+
+func TestStatusController(t *testing.T) {
+	statusLog.SetOutputLevel(istiolog.DebugLevel)
+	c := makeStatusSyncer(t, "istio-ingress")
+	ing := clienttest.Wrap(t, c.ingresses)
+	svc := clienttest.Wrap(t, c.services)
+	ingc := clienttest.Wrap(t, c.ingressClasses)
+	ing.Create(&knetworking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        "ingress",
+			Namespace:   "default",
+			Annotations: map[string]string{annotation.IoKubernetesIngressClass.Name: "istio"},
+		},
+	})
+
+	// Test initial state
+	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{serviceIP})
+
+	// Update service IP
+	updated := ingressService.DeepCopy()
+	updated.Status.LoadBalancer.Ingress = []corev1.LoadBalancerIngress{{IP: "5.6.7.8"}}
+	svc.Update(updated)
+	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{"5.6.7.8"})
+
+	// Remove service
+	svc.Delete(ingressService.Name, ingressService.Namespace)
+	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{})
+
+	// Add it back
+	svc.Create(updated)
+	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{"5.6.7.8"})
+
+	// Remove ingress class
+	ing.Update(&knetworking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ingress",
+			Namespace: "default",
+		},
+	})
+	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{})
+
+	ingressClassName := "istio"
+	// Set IngressClassName
+	ing.Update(&knetworking.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "ingress",
+			Namespace: "default",
+		},
+		Spec: knetworking.IngressSpec{
+			IngressClassName: &ingressClassName,
+		},
+	})
+	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{})
+
+	// Create IngressClass
+	ingc.Create(&knetworking.IngressClass{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: ingressClassName,
+		},
+		Spec: knetworking.IngressClassSpec{
+			Controller: IstioIngressController,
+		},
+	})
+	assert.EventuallyEqual(t, getIPs(ing, "ingress", "default"), []string{"5.6.7.8"})
 }
 
 func TestRunningAddresses(t *testing.T) {
@@ -132,11 +201,8 @@ func TestRunningAddresses(t *testing.T) {
 }
 
 func testRunningAddressesWithService(t *testing.T) {
-	syncer := makeStatusSyncer(t)
-	address, err := syncer.runningAddresses(testNamespace)
-	if err != nil {
-		t.Fatal(err)
-	}
+	syncer := makeStatusSyncer(t, "istio-ingress")
+	address := syncer.runningAddresses()
 
 	if len(address) != 1 || address[0] != serviceIP {
 		t.Errorf("Address is not correctly set to service ip")
@@ -144,13 +210,9 @@ func testRunningAddressesWithService(t *testing.T) {
 }
 
 func testRunningAddressesWithHostname(t *testing.T) {
-	syncer := makeStatusSyncer(t)
-	syncer.meshHolder = fakeMeshHolder("istio-ingress-hostname")
+	syncer := makeStatusSyncer(t, "istio-ingress-hostname")
 
-	address, err := syncer.runningAddresses(testNamespace)
-	if err != nil {
-		t.Fatal(err)
-	}
+	address := syncer.runningAddresses()
 
 	if len(address) != 1 || address[0] != hostname {
 		t.Errorf("Address is not correctly set to hostname")
@@ -158,14 +220,9 @@ func testRunningAddressesWithHostname(t *testing.T) {
 }
 
 func TestRunningAddressesWithPod(t *testing.T) {
-	ingressNamespace = "istio-system" // it is set in real pilot on newController.
-	syncer := makeStatusSyncer(t)
-	syncer.meshHolder = fakeMeshHolder("")
+	syncer := makeStatusSyncer(t, "")
 
-	address, err := syncer.runningAddresses(ingressNamespace)
-	if err != nil {
-		t.Fatal(err)
-	}
+	address := syncer.runningAddresses()
 
 	if len(address) != 1 || address[0] != nodeIP {
 		t.Errorf("Address is not correctly set to node ip %v %v", address, nodeIP)

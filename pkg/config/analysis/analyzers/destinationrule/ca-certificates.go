@@ -18,12 +18,12 @@ import (
 	"fmt"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // CaCertificateAnalyzer checks if CaCertificate is set in case mode is SIMPLE/MUTUAL
@@ -35,14 +35,14 @@ func (c *CaCertificateAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "destinationrule.CaCertificateAnalyzer",
 		Description: "Checks if caCertificates is set when TLS mode is SIMPLE/MUTUAL",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Destinationrules.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.DestinationRule,
 		},
 	}
 }
 
 func (c *CaCertificateAnalyzer) Analyze(ctx analysis.Context) {
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.DestinationRule, func(r *resource.Instance) bool {
 		c.analyzeDestinationRule(r, ctx)
 		return true
 	})
@@ -62,7 +62,7 @@ func (c *CaCertificateAnalyzer) analyzeDestinationRule(r *resource.Instance, ctx
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.DestinationRuleTLSCert)); ok {
 				m.Line = line
 			}
-			ctx.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), m)
+			ctx.Report(gvk.DestinationRule, m)
 		}
 	}
 	portSettings := dr.TrafficPolicy.GetPortLevelSettings()
@@ -77,7 +77,7 @@ func (c *CaCertificateAnalyzer) analyzeDestinationRule(r *resource.Instance, ctx
 				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.DestinationRuleTLSPortLevelCert, i)); ok {
 					m.Line = line
 				}
-				ctx.Report(collections.IstioNetworkingV1Alpha3Destinationrules.Name(), m)
+				ctx.Report(gvk.DestinationRule, m)
 			}
 		}
 	}

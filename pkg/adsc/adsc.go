@@ -55,9 +55,11 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -240,7 +242,7 @@ func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
 	return serialItem, nil
 }
 
-var adscLog = log.RegisterScope("adsc", "adsc debugging", 0)
+var adscLog = log.RegisterScope("adsc", "adsc debugging")
 
 func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
 	adsc, err := New(discoveryAddr, opts)
@@ -373,6 +375,9 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		serverCABytes = a.cfg.RootCert
 	} else if a.cfg.XDSRootCAFile != "" {
 		serverCABytes, err = os.ReadFile(a.cfg.XDSRootCAFile)
+		if err != nil {
+			return nil, err
+		}
 	} else if a.cfg.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
 		rootCA, err := a.cfg.SecretManager.GenerateSecret(security.RootCertReqResourceName)
@@ -478,15 +483,17 @@ func (a *ADSC) reconnect() {
 	a.mutex.RUnlock()
 
 	err := a.Run()
-	if err == nil {
-		a.cfg.BackoffPolicy.Reset()
-	} else {
+	if err != nil {
 		// TODO: fix reconnect
 		time.AfterFunc(a.cfg.BackoffPolicy.NextBackOff(), a.reconnect)
 	}
 }
 
 func (a *ADSC) handleRecv() {
+	// We connected, so reset the backoff
+	if a.cfg.BackoffPolicy != nil {
+		a.cfg.BackoffPolicy.Reset()
+	}
 	for {
 		var err error
 		msg, err := a.stream.Recv()
@@ -511,21 +518,20 @@ func (a *ADSC) handleRecv() {
 		}
 
 		// Group-value-kind - used for high level api generator.
-		gvk, isMCP := convertTypeURLToMCPGVK(msg.TypeUrl)
+		resourceGvk, isMCP := convertTypeURLToMCPGVK(msg.TypeUrl)
 
-		adscLog.Info("Received ", a.url, " type ", msg.TypeUrl,
-			" cnt=", len(msg.Resources), " nonce=", msg.Nonce)
+		adscLog.WithLabels("type", msg.TypeUrl, "count", len(msg.Resources), "nonce", msg.Nonce).Info("Received")
 		if a.cfg.ResponseHandler != nil {
 			a.cfg.ResponseHandler.HandleResponse(a, msg)
 		}
 
-		if msg.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() &&
+		if msg.TypeUrl == gvk.MeshConfig.String() &&
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
 			err = proto.Unmarshal(rsc.Value, m)
 			if err != nil {
-				adscLog.Warn("Failed to unmarshal mesh config", err)
+				adscLog.Warnf("Failed to unmarshal mesh config: %v", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
@@ -582,7 +588,7 @@ func (a *ADSC) handleRecv() {
 			a.handleRDS(routes)
 		default:
 			if isMCP {
-				a.handleMCP(gvk, msg.Resources)
+				a.handleMCP(resourceGvk, msg.Resources)
 			}
 		}
 
@@ -593,8 +599,8 @@ func (a *ADSC) handleRecv() {
 
 		a.mutex.Lock()
 		if isMCP {
-			if _, exist := a.sync[gvk.String()]; !exist {
-				a.sync[gvk.String()] = time.Now()
+			if _, exist := a.sync[resourceGvk.String()]; !exist {
+				a.sync[resourceGvk.String()] = time.Now()
 			}
 		}
 		a.Received[msg.TypeUrl] = msg
@@ -1035,10 +1041,7 @@ func (a *ADSC) WaitSingle(to time.Duration, want string, reject string) error {
 // If updates is empty, this will wait for any update
 func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	t := time.NewTimer(to)
-	want := map[string]struct{}{}
-	for _, update := range updates {
-		want[update] = struct{}{}
-	}
+	want := sets.New[string](updates...)
 	got := make([]string, 0, len(updates))
 	for {
 		select {
@@ -1046,9 +1049,9 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 			if toDelete == "" {
 				return got, fmt.Errorf("closed")
 			}
-			delete(want, toDelete)
+			want.Delete(toDelete)
 			got = append(got, toDelete)
-			if len(want) == 0 {
+			if want.Len() == 0 {
 				return got, nil
 			}
 		case <-t.C:
@@ -1114,32 +1117,15 @@ func (a *ADSC) Watch() {
 func ConfigInitialRequests() []*discovery.DiscoveryRequest {
 	out := make([]*discovery.DiscoveryRequest, 0, len(collections.Pilot.All())+1)
 	out = append(out, &discovery.DiscoveryRequest{
-		TypeUrl: collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
+		TypeUrl: gvk.MeshConfig.String(),
 	})
 	for _, sch := range collections.Pilot.All() {
 		out = append(out, &discovery.DiscoveryRequest{
-			TypeUrl: sch.Resource().GroupVersionKind().String(),
+			TypeUrl: sch.GroupVersionKind().String(),
 		})
 	}
 
 	return out
-}
-
-// WatchConfig will use the new experimental API watching, similar with MCP.
-func (a *ADSC) WatchConfig() {
-	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: time.Now().String(),
-		Node:          a.node(),
-		TypeUrl:       collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String(),
-	})
-
-	for _, sch := range collections.Pilot.All() {
-		_ = a.stream.Send(&discovery.DiscoveryRequest{
-			ResponseNonce: time.Now().String(),
-			Node:          a.node(),
-			TypeUrl:       sch.Resource().GroupVersionKind().String(),
-		})
-	}
 }
 
 func (a *ADSC) sendRsc(typeurl string, rsc []string) {
@@ -1197,36 +1183,36 @@ func (a *ADSC) GetHTTPListeners() map[string]*listener.Listener {
 
 // GetTCPListeners returns all the tcp listeners.
 func (a *ADSC) GetTCPListeners() map[string]*listener.Listener {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.tcpListeners
 }
 
 // GetEdsClusters returns all the eds type clusters.
 func (a *ADSC) GetEdsClusters() map[string]*cluster.Cluster {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.edsClusters
 }
 
 // GetClusters returns all the non-eds type clusters.
 func (a *ADSC) GetClusters() map[string]*cluster.Cluster {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.clusters
 }
 
 // GetRoutes returns all the routes.
 func (a *ADSC) GetRoutes() map[string]*route.RouteConfiguration {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.routes
 }
 
 // GetEndpoints returns all the routes.
 func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
+	a.mutex.RLock()
+	defer a.mutex.RUnlock()
 	return a.eds
 }
 
@@ -1236,11 +1222,7 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 		return
 	}
 
-	existingConfigs, err := a.Store.List(groupVersionKind, "")
-	if err != nil {
-		adscLog.Warnf("Error listing existing configs %v", err)
-		return
-	}
+	existingConfigs := a.Store.List(groupVersionKind, "")
 
 	received := make(map[string]*config.Config)
 	for _, rsc := range resources {
@@ -1252,7 +1234,7 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 		}
 		newCfg, err := a.mcpToPilot(m)
 		if err != nil {
-			adscLog.Warn("Invalid data ", err, " ", string(rsc.Value))
+			adscLog.Warnf("Invalid data: %v (%v)", err, string(rsc.Value))
 			continue
 		}
 		if newCfg == nil {
@@ -1299,7 +1281,7 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 				continue
 			}
 			if a.LocalCacheDir != "" {
-				err = os.Remove(a.LocalCacheDir + "_res." +
+				err := os.Remove(a.LocalCacheDir + "_res." +
 					config.GroupVersionKind.Kind + "." + config.Namespace + "." + config.Name + ".json")
 				if err != nil {
 					adscLog.Warnf("Error deleting received MCP config to local file %v", err)

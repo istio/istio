@@ -5,6 +5,7 @@ pilot:
   autoscaleEnabled: true
   autoscaleMin: 1
   autoscaleMax: 5
+  autoscaleBehavior: {}
   replicaCount: 1
   rollingMaxSurge: 100%
   rollingMaxUnavailable: 25%
@@ -21,16 +22,19 @@ pilot:
       memory: 2048Mi
   # Set to `type: RuntimeDefault` to use the default profile if available.
   seccompProfile: {}
+  # Additional container arguments
+  extraContainerArgs: []
   env: {}
   cpu:
     targetAverageUtilization: 80
-  # if protocol sniffing is enabled for outbound
-  enableProtocolSniffingForOutbound: true
-  # if protocol sniffing is enabled for inbound
-  enableProtocolSniffingForInbound: true
+  # Additional volumeMounts to the istiod container
+  volumeMounts: []
+  # Additional volumes to the istiod pod
+  volumes: []
   nodeSelector: {}
   podAnnotations: {}
   serviceAnnotations: {}
+  topologySpreadConstraints: []
   # You can use jwksResolverExtraRootCA to provide a root certificate
   # in PEM format. This will then be trusted by pilot when resolving
   # JWKS URIs.
@@ -77,6 +81,10 @@ sidecarInjectorWebhook:
   # with the exception of namespaces with "istio-injection:disabled" annotation
   # Only one environment should have this enabled.
   enableNamespacesByDefault: false
+  # Mutations that occur after the sidecar injector are not handled by default, as the Istio sidecar injector is only run
+  # once. For example, an OPA sidecar injected after the Istio sidecar will not have it's liveness/readiness probes rewritten.
+  # Setting this to `IfNeeded` will result in the sidecar injector being run again if additonal mutations occur.
+  reinvocationPolicy: Never
   rewriteAppHTTPProbe: true
   # Templates defines a set of custom injection templates that can be used. For example, defining:
   #
@@ -161,28 +169,6 @@ ownerName: ""
 # See https://istio.io/docs/reference/config/istio.mesh.v1alpha1/ for all available options
 meshConfig:
   enablePrometheusMerge: true
-  # Config for the default ProxyConfig.
-  # Initially using directly the proxy metadata - can also be activated using annotations
-  # on the pod. This is an unsupported low-level API, pending review and decisions on
-  # enabling the feature. Enabling the DNS listener is safe - and allows further testing
-  # and gradual adoption by setting capture only on specific workloads. It also allows
-  # VMs to use other DNS options, like dnsmasq or unbound.
-
-  # The namespace to treat as the administrative root namespace for Istio configuration.
-  # When processing a leaf namespace Istio will search for declarations in that namespace first
-  # and if none are found it will search in the root namespace. Any matching declaration found in the root namespace
-  # is processed as if it were declared in the leaf namespace.
-  rootNamespace:
-  # The trust domain corresponds to the trust root of a system
-  # Refer to https://github.com/spiffe/spiffe/blob/master/standards/SPIFFE-ID.md#21-trust-domain
-  trustDomain: "cluster.local"
-  # TODO: the intent is to eventually have this enabled by default when security is used.
-  # It is not clear if user should normally need to configure - the metadata is typically
-  # used as an escape and to control testing and rollout, but it is not intended as a long-term
-  # stable API.
-
-  # What we may configure in mesh config is the ".global" - and use of other suffixes.
-  # No hurry to do this in 1.6, we're trying to prove the code.
 global:
   # Used to locate istiod.
   istioNamespace: istio-system
@@ -316,8 +302,6 @@ global:
     # Specify which tracer to use. One of: zipkin, lightstep, datadog, stackdriver.
     # If using stackdriver tracer outside GCP, set env GOOGLE_APPLICATION_CREDENTIALS to the GCP credential file.
     tracer: "zipkin"
-    # Controls if sidecar is injected at the front of the container list and blocks the start of the other containers until the proxy is ready
-    holdApplicationUntilProxyStarts: false
   proxy_init:
     # Base name for the proxy_init container, used to configure iptables.
     image: proxyv2
@@ -420,34 +404,6 @@ global:
     # The service port used by Security Token Service (STS) server to handle token exchange requests.
     # Setting this port to a non-zero value enables STS server.
     servicePort: 0
-  # Configuration for each of the supported tracers
-  tracer:
-    # Configuration for envoy to send trace data to LightStep.
-    # Disabled by default.
-    # address: the <host>:<port> of the satellite pool
-    # accessToken: required for sending data to the pool
-    #
-    datadog:
-      # Host:Port for submitting traces to the Datadog agent.
-      address: "$(HOST_IP):8126"
-    lightstep:
-      address: "" # example: lightstep-satellite:443
-      accessToken: "" # example: abcdefg1234567
-    stackdriver:
-      # enables trace output to stdout.
-      debug: false
-      # The global default max number of message events per span.
-      maxNumberOfMessageEvents: 200
-      # The global default max number of annotation events per span.
-      maxNumberOfAnnotations: 200
-      # The global default max number of attributes per span.
-      maxNumberOfAttributes: 200
-    zipkin:
-      # Host:Port for reporting trace data in zipkin format. If not specified, will default to
-      # zipkin service (port 9411) in the same namespace as the other istio components.
-      address: ""
-  # Use the Mesh Control Protocol (MCP) for configuring Istiod. Requires an MCP source.
-  useMCP: false
   # The name of the CA for workload certificates.
   # For example, when caName=GkeWorkloadCertificate, GKE workload certificates
   # will be used as the certificates for workloads.
@@ -466,3 +422,7 @@ base:
   # it works to have multiple redundant validations, this adds complexity and operational risks.
   # Users should consider enabling this if they want full gateway-api validation but don't have other validation servers.
   validateGateway: false
+# keep in sync with settings used when installing the Istio CNI chart
+istio_cni:
+  enabled: false
+  chained: true

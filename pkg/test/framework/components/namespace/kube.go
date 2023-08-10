@@ -30,11 +30,12 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 // nolint: gosec
@@ -89,7 +90,7 @@ func (n *kubeNamespace) Prefix() string {
 }
 
 func (n *kubeNamespace) Labels() (map[string]string, error) {
-	perCluster := make([]map[string]string, len(n.ctx.Clusters()))
+	perCluster := make([]map[string]string, len(n.ctx.AllClusters().Kube()))
 	if err := n.forEachCluster(func(i int, c cluster.Cluster) error {
 		ns, err := c.Kube().CoreV1().Namespaces().Get(context.TODO(), n.Name(), metav1.GetOptions{})
 		if err != nil {
@@ -241,11 +242,14 @@ func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 		if err := c.ApplyYAMLFiles(n.name, s.Image.PullSecret); err != nil {
 			return err
 		}
-		_, err := c.Kube().CoreV1().ServiceAccounts(n.name).Patch(context.TODO(),
-			"default",
-			types.JSONPatchType,
-			[]byte(`[{"op": "add", "path": "/imagePullSecrets", "value": [{"name": "test-gcr-secret"}]}]`),
-			metav1.PatchOptions{})
+		err := retry.UntilSuccess(func() error {
+			_, err := c.Kube().CoreV1().ServiceAccounts(n.name).Patch(context.TODO(),
+				"default",
+				types.JSONPatchType,
+				[]byte(`[{"op": "add", "path": "/imagePullSecrets", "value": [{"name": "test-gcr-secret"}]}]`),
+				metav1.PatchOptions{})
+			return err
+		}, retry.Delay(1*time.Second), retry.Timeout(10*time.Second))
 		if err != nil {
 			return err
 		}
@@ -268,6 +272,26 @@ func (n *kubeNamespace) addCleanup(fn func() error) {
 	n.cleanupMutex.Lock()
 	defer n.cleanupMutex.Unlock()
 	n.cleanupFuncs = append(n.cleanupFuncs, fn)
+}
+
+func (n *kubeNamespace) IsAmbient() bool {
+	// TODO cache labels and invalidate on SetLabel to avoid a ton of kube calls
+	labels, err := n.Labels()
+	if err != nil {
+		scopes.Framework.Warnf("failed getting labels for namespace %s, assuming ambient is on", n.name)
+	}
+	return err != nil || labels["istio.io/dataplane-mode"] == "ambient"
+}
+
+func (n *kubeNamespace) IsInjected() bool {
+	// TODO cache labels and invalidate on SetLabel to avoid a ton of kube calls
+	labels, err := n.Labels()
+	if err != nil {
+		scopes.Framework.Warnf("failed getting labels for namespace %s, assuming injection is on", n.name)
+		return true
+	}
+	_, hasRevision := labels[label.IoIstioRev.Name]
+	return hasRevision || labels["istio-injection"] == "enabled"
 }
 
 // createNamespaceLabels will take a namespace config and generate the proper k8s labels

@@ -24,9 +24,10 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/runtime"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 func ApplyRouteConfigurationPatches(
@@ -37,7 +38,7 @@ func ApplyRouteConfigurationPatches(
 ) (out *route.RouteConfiguration) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		IncrementEnvoyFilterErrorMetric(Route)
-		log.Errorf("route patch caused panic, so the patches did not take effect")
+		log.Errorf("route patch %s/%s caused panic, so the patches did not take effect", efw.Namespace, efw.Name)
 	})
 	// In case the patches cause panic, use the route generated before to reduce the influence.
 	out = routeConfiguration
@@ -93,8 +94,8 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 			IncrementEnvoyFilterMetric(rp.Key(), VirtualHost, false)
 		}
 	}
-	if len(removedVirtualHosts) > 0 {
-		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts))
+	if removedVirtualHosts.Len() > 0 {
+		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts)-removedVirtualHosts.Len())
 		for _, virtualHost := range routeConfiguration.VirtualHosts {
 			if removedVirtualHosts.Contains(virtualHost.Name) {
 				continue
@@ -150,10 +151,11 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, portMap model.GatewayPortMap,
 ) {
+	clonedVhostRoutes := false
 	routesRemoved := false
 	// Apply the route level removes/merges if any.
 	for index := range virtualHost.Routes {
-		patchHTTPRoute(patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved, portMap)
+		patchHTTPRoute(patchContext, patches, routeConfiguration, virtualHost, index, &routesRemoved, portMap, &clonedVhostRoutes)
 	}
 
 	// now for the adds
@@ -242,6 +244,7 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 	patches map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper,
 	routeConfiguration *route.RouteConfiguration, virtualHost *route.VirtualHost, routeIndex int, routesRemoved *bool, portMap model.GatewayPortMap,
+	clonedVhostRoutes *bool,
 ) {
 	for _, rp := range patches[networking.EnvoyFilter_HTTP_ROUTE] {
 		applied := false
@@ -249,6 +252,11 @@ func patchHTTPRoute(patchContext networking.EnvoyFilter_PatchContext,
 			routeConfigurationMatch(patchContext, routeConfiguration, rp, portMap) &&
 			virtualHostMatch(virtualHost, rp) &&
 			routeMatch(virtualHost.Routes[routeIndex], rp) {
+			if !*clonedVhostRoutes {
+				// different virtualHosts may share same routes pointer
+				virtualHost.Routes = slices.Clone(virtualHost.Routes)
+				*clonedVhostRoutes = true
+			}
 			if rp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 				virtualHost.Routes[routeIndex] = nil
 				*routesRemoved = true

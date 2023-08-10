@@ -33,7 +33,10 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/cmd"
 	"istio.io/istio/security/pkg/pki/ca"
@@ -41,8 +44,6 @@ import (
 	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 type caOptions struct {
@@ -54,6 +55,7 @@ type caOptions struct {
 	Namespace        string
 	Authenticators   []security.Authenticator
 	CertSignerDomain string
+	DiscoveryFilter  namespace.DiscoveryFilter
 }
 
 // Based on istio_ca main - removing creation of Secrets with private keys in all namespaces and install complexity.
@@ -136,7 +138,7 @@ var (
 
 	// TODO: Likely to be removed and added to mesh config
 	k8sSigner = env.Register("K8S_SIGNER", "",
-		"Kubernates CA Signer type. Valid from Kubernates 1.18").Get()
+		"Kubernetes CA Signer type. Valid from Kubernetes 1.18").Get()
 )
 
 // RunCA will start the cert signing GRPC service on an existing server.
@@ -151,7 +153,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	if err == nil {
 		tok, err := detectAuthEnv(string(token))
 		if err != nil {
-			log.Warn("Starting with invalid K8S JWT token", err, string(token))
+			log.Warnf("Starting with invalid K8S JWT token: %v", err)
 		} else {
 			if iss == "" {
 				iss = tok.Iss
@@ -165,7 +167,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 	// The CA API uses cert with the max workload cert TTL.
 	// 'hostlist' must be non-empty - but is not used since a grpc server is passed.
 	// Adds client cert auth and kube (sds enabled)
-	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators)
+	caServer, startErr := caserver.New(ca, maxWorkloadCertTTL.Get(), opts.Authenticators, s.kubeClient, opts.DiscoveryFilter)
 	if startErr != nil {
 		log.Fatalf("failed to create istio ca server: %v", startErr)
 	}
@@ -178,7 +180,7 @@ func (s *Server) RunCA(grpc *grpc.Server, ca caserver.CertificateAuthority, opts
 		// Add a custom authenticator using standard JWT validation, if not running in K8S
 		// When running inside K8S - we can use the built-in validator, which also check pod removal (invalidation).
 		jwtRule := v1beta1.JWTRule{Issuer: iss, Audiences: []string{aud}}
-		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule, opts.TrustDomain)
+		oidcAuth, err := authenticate.NewJwtAuthenticator(&jwtRule)
 		if err == nil {
 			caServer.Authenticators = append(caServer.Authenticators, oidcAuth)
 			log.Info("Using out-of-cluster JWT authentication")
@@ -313,7 +315,7 @@ func handleEvent(s *Server) {
 	newCABundle, err = os.ReadFile(fileBundle.RootCertFile)
 
 	if err != nil {
-		log.Error("failed reading root-cert.pem: ", err)
+		log.Errorf("failed reading root-cert.pem: %v", err)
 		return
 	}
 
@@ -330,13 +332,13 @@ func handleEvent(s *Server) {
 		fileBundle.RootCertFile)
 
 	if err != nil {
-		log.Error("Failed to update new Plug-in CA certs: ", err)
+		log.Errorf("Failed to update new Plug-in CA certs: %v", err)
 		return
 	}
 
 	err = s.updatePluggedinRootCertAndGenKeyCert()
 	if err != nil {
-		log.Error("Failed generating plugged-in istiod key cert: ", err)
+		log.Errorf("Failed generating plugged-in istiod key cert: %v", err)
 		return
 	}
 
@@ -365,7 +367,7 @@ func (s *Server) handleCACertsFileWatch() {
 
 		case err := <-s.cacertsWatcher.Errors:
 			if err != nil {
-				log.Error("Failed to catch events on cacerts file: ", err)
+				log.Errorf("failed to catch events on cacerts file: %v", err)
 				return
 			}
 
@@ -378,11 +380,11 @@ func (s *Server) handleCACertsFileWatch() {
 func (s *Server) addCACertsFileWatcher(dir string) error {
 	err := s.cacertsWatcher.Add(dir)
 	if err != nil {
-		log.Info("AUTO_RELOAD_PLUGIN_CERTS will not work, failed to add file watcher: ", err)
+		log.Infof("AUTO_RELOAD_PLUGIN_CERTS will not work, failed to add file watcher: %v", err)
 		return err
 	}
 
-	log.Info("Added cacerts files watcher at ", dir)
+	log.Infof("Added cacerts files watcher at %v", dir)
 
 	return nil
 }
@@ -395,7 +397,7 @@ func (s *Server) initCACertsWatcher() {
 
 	s.cacertsWatcher, err = fsnotify.NewWatcher()
 	if err != nil {
-		log.Info("Failed to add CAcerts watcher: ", err)
+		log.Infof("failed to add CAcerts watcher: %v", err)
 		return
 	}
 
@@ -461,9 +463,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
 
-		if features.AutoReloadPluginCerts {
-			s.initCACertsWatcher()
-		}
+		s.initCACertsWatcher()
 	}
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
@@ -536,7 +536,7 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 
 // getJwtPath returns jwt path.
 func getJwtPath() string {
-	log.Info("JWT policy is ", features.JwtPolicy)
+	log.Infof("JWT policy is %v", features.JwtPolicy)
 	switch features.JwtPolicy {
 	case jwt.PolicyThirdParty:
 		return securityModel.K8sSATrustworthyJwtFileName

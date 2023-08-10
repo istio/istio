@@ -33,16 +33,17 @@ import (
 
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/tests/integration/telemetry/common"
-	"istio.io/pkg/log"
 )
 
 var dashboards = []struct {
@@ -315,6 +316,7 @@ func setupDashboardTest(done <-chan struct{}) {
 						Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
 						Headers: headers.New().WithHost("server").Build(),
 					},
+					Check: check.NoError(), // Do not use check.OK since we expect non-200
 					Retry: echo.Retry{
 						NoRetry: true,
 					},
@@ -334,6 +336,7 @@ func setupDashboardTest(done <-chan struct{}) {
 						Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
 						Headers: headers.New().WithHost("server").Build(),
 					},
+					Check: check.OK(),
 					Retry: echo.Retry{
 						NoRetry: true,
 					},

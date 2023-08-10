@@ -60,6 +60,26 @@ func TestTrustDomainsForValidation(t *testing.T) {
 			},
 			want: []string{"cluster.local", "alias-1.domain", "alias-2.domain", "some-other-alias-1.domain"},
 		},
+		{
+			name: "Extra trust domains in mesh config caCertificates",
+			meshConfig: &meshconfig.MeshConfig{
+				TrustDomain: "cluster.local",
+				CaCertificates: []*meshconfig.MeshConfig_CertificateData{
+					{
+						TrustDomains: []string{
+							"external-1.domain",
+						},
+					},
+					{
+						TrustDomains: []string{
+							"external-2.domain",
+							"external-3.domain",
+						},
+					},
+				},
+			},
+			want: []string{"cluster.local", "external-1.domain", "external-2.domain", "external-3.domain"},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

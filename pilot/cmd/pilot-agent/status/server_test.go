@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"mime"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -34,6 +33,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/prometheus/model/textparse"
 	"go.uber.org/atomic"
@@ -45,9 +45,12 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/lazy"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 type handler struct {
@@ -59,7 +62,7 @@ type handler struct {
 const (
 	testHeader      = "Some-Header"
 	testHeaderValue = "some-value"
-	testHostValue   = "host"
+	testHostValue   = "test.com:9999"
 )
 
 var liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\nlistener_manager.workers_started: 1"
@@ -70,7 +73,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch segments[0] {
 	case "header":
 		if r.Host != testHostValue {
-			log.Errorf("Missing expected host header, got %v", r.Host)
+			log.Errorf("Missing expected host value %s, got %v", testHostValue, r.Host)
 			w.WriteHeader(http.StatusBadRequest)
 		}
 		if r.Header.Get(testHeader) != testHeaderValue {
@@ -181,7 +184,8 @@ func TestNewServer(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		_, err := NewServer(Options{
-			KubeAppProbers: tc.probe,
+			KubeAppProbers:     tc.probe,
+			PrometheusRegistry: TestingRegistry(t),
 		})
 
 		if err == nil {
@@ -203,7 +207,7 @@ func TestNewServer(t *testing.T) {
 func TestPprof(t *testing.T) {
 	pprofPath := "/debug/pprof/cmdline"
 	// Starts the pilot agent status server.
-	server, err := NewServer(Options{StatusPort: 0})
+	server, err := NewServer(Options{StatusPort: 0, EnableProfiling: true, PrometheusRegistry: TestingRegistry(t)})
 	if err != nil {
 		t.Fatalf("failed to create status server %v", err)
 	}
@@ -219,7 +223,7 @@ func TestPprof(t *testing.T) {
 	}
 
 	client := http.Client{}
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v/%s", statusPort, pprofPath), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v/%s", statusPort, pprofPath), nil)
 	if err != nil {
 		t.Fatalf("[%v] failed to create request", pprofPath)
 	}
@@ -352,6 +356,7 @@ my_metric{app="bar"} 0
 				},
 				envoyStatsPort: envoyPort,
 				http:           &http.Client{},
+				registry:       TestingRegistry(t),
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)
@@ -369,6 +374,50 @@ my_metric{app="bar"} 0
 			} else if err == nil && tt.expectParseError {
 				t.Fatalf("expected a prse error, got %+v", mfMap)
 			}
+		})
+	}
+}
+
+func TestNegotiateMetricsFormat(t *testing.T) {
+	cases := []struct {
+		name        string
+		contentType string
+		expected    expfmt.Format
+	}{
+		{
+			name:        "openmetrics minimal accept header",
+			contentType: `application/openmetrics-text; version=0.0.1`,
+			expected:    expfmt.FmtOpenMetrics_0_0_1,
+		},
+		{
+			name:        "openmetrics minimal v1 accept header",
+			contentType: `application/openmetrics-text; version=1.0.0`,
+			expected:    expfmt.FmtOpenMetrics_1_0_0,
+		},
+		{
+			name:        "openmetrics accept header",
+			contentType: `application/openmetrics-text; version=0.0.1; charset=utf-8`,
+			expected:    expfmt.FmtOpenMetrics_0_0_1,
+		},
+		{
+			name:        "openmetrics v1 accept header",
+			contentType: `application/openmetrics-text; version=1.0.0; charset=utf-8`,
+			expected:    expfmt.FmtOpenMetrics_1_0_0,
+		},
+		{
+			name:        "plaintext accept header",
+			contentType: "text/plain; version=0.0.4; charset=utf-8",
+			expected:    expfmt.FmtText,
+		},
+		{
+			name:        "empty accept header",
+			contentType: "",
+			expected:    expfmt.FmtText,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, negotiateMetricsFormat(tt.contentType), tt.expected)
 		})
 	}
 }
@@ -405,6 +454,10 @@ my_other_metric{} 0
 			acceptHeader: `application/openmetrics-text; version=0.0.1,text/plain;version=0.0.4;q=0.5,*/*;q=0.1`,
 		},
 		{
+			name:         "openmetrics v1 accept header",
+			acceptHeader: `application/openmetrics-text; version=1.0.0,text/plain;version=0.0.4;q=0.5,*/*;q=0.1`,
+		},
+		{
 			name:         "plaintext accept header",
 			acceptHeader: string(expfmt.FmtText),
 		},
@@ -425,13 +478,12 @@ my_other_metric{} 0
 			app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
 				var negotiatedMetrics string
-				if format == expfmt.FmtOpenMetrics {
-					negotiatedMetrics = appOpenMetrics
-					w.Header().Set("Content-Type", string(expfmt.FmtOpenMetrics))
-				} else {
+				if format == expfmt.FmtText {
 					negotiatedMetrics = appText004
-					w.Header().Set("Content-Type", string(expfmt.FmtText))
+				} else {
+					negotiatedMetrics = appOpenMetrics
 				}
+				w.Header().Set("Content-Type", string(format))
 				if _, err := w.Write([]byte(negotiatedMetrics)); err != nil {
 					t.Fatalf("write failed: %v", err)
 				}
@@ -445,6 +497,7 @@ my_other_metric{} 0
 				prometheus: &PrometheusScrapeConfiguration{
 					Port: strings.Split(app.URL, ":")[2],
 				},
+				registry:       TestingRegistry(t),
 				envoyStatsPort: envoyPort,
 				http:           &http.Client{},
 			}
@@ -456,15 +509,13 @@ my_other_metric{} 0
 				t.Fatalf("handleStats() => %v; want 200", rec.Code)
 			}
 
-			var format expfmt.Format
-			mediaType, _, err := mime.ParseMediaType(rec.Header().Get("Content-Type"))
-			if err == nil && mediaType == "application/openmetrics-text" {
-				format = expfmt.FmtOpenMetrics
+			if negotiateMetricsFormat(rec.Header().Get("Content-Type")) == expfmt.FmtText {
+				textParser := expfmt.TextParser{}
+				_, err := textParser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
+				if err != nil {
+					t.Fatalf("failed to parse text metrics: %v", err)
+				}
 			} else {
-				format = expfmt.FmtText
-			}
-
-			if format == expfmt.FmtOpenMetrics {
 				omParser := textparse.NewOpenMetricsParser(rec.Body.Bytes())
 				for {
 					_, err := omParser.Next()
@@ -474,12 +525,6 @@ my_other_metric{} 0
 					if err != nil {
 						t.Fatalf("failed to parse openmetrics: %v", err)
 					}
-				}
-			} else {
-				textParser := expfmt.TextParser{}
-				_, err := textParser.TextToMetricFamilies(strings.NewReader(rec.Body.String()))
-				if err != nil {
-					t.Fatalf("failed to parse text metrics: %v", err)
 				}
 			}
 		})
@@ -519,6 +564,7 @@ func TestStatsError(t *testing.T) {
 				prometheus: &PrometheusScrapeConfiguration{
 					Port: strconv.Itoa(tt.app),
 				},
+				registry:       TestingRegistry(t),
 				envoyStatsPort: tt.envoy,
 				http:           &http.Client{},
 			}
@@ -543,17 +589,21 @@ jmx_config_reload_success_total 0.0
 jmx_config_reload_success_created 1.623984612719E9
 `
 	appOpenMetrics := appText + "# EOF"
-	envoy := `# TYPE my_metric counter
+
+	envoy := strings.Builder{}
+	envoy.Grow(size << 10 * 100)
+	envoy.WriteString(`# TYPE my_metric counter
 my_metric{} 0
 # TYPE my_other_metric counter
 my_other_metric{} 0
-`
-	for i := 0; len(envoy)+len(appText) < size<<10; i++ {
-		envoy = envoy + "#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0\n"
+`)
+	for i := 0; envoy.Len()+len(appText) < size<<10; i++ {
+		envoy.WriteString("#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0\n")
 	}
+	eb := []byte(envoy.String())
 
 	envoyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, err := w.Write([]byte(envoy)); err != nil {
+		if _, err := w.Write(eb); err != nil {
 			t.Fatalf("write failed: %v", err)
 		}
 	}))
@@ -561,13 +611,12 @@ my_other_metric{} 0
 	app := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		format := expfmt.NegotiateIncludingOpenMetrics(r.Header)
 		var negotiatedMetrics string
-		if format == expfmt.FmtOpenMetrics {
-			negotiatedMetrics = appOpenMetrics
-			w.Header().Set("Content-Type", string(expfmt.FmtOpenMetrics))
-		} else {
+		if format == expfmt.FmtText {
 			negotiatedMetrics = appText
-			w.Header().Set("Content-Type", string(expfmt.FmtText))
+		} else {
+			negotiatedMetrics = appOpenMetrics
 		}
+		w.Header().Set("Content-Type", string(format))
 		if _, err := w.Write([]byte(negotiatedMetrics)); err != nil {
 			t.Fatalf("write failed: %v", err)
 		}
@@ -577,12 +626,19 @@ my_other_metric{} 0
 	if err != nil {
 		t.Fatal(err)
 	}
+	registry, err := initializeMonitoring()
+	if err != nil {
+		t.Fatal(err)
+	}
 	server := &Server{
+		registry: registry,
 		prometheus: &PrometheusScrapeConfiguration{
 			Port: strings.Split(app.URL, ":")[2],
 		},
 		envoyStatsPort: envoyPort,
+		http:           &http.Client{},
 	}
+	t.ResetTimer()
 	return server
 }
 
@@ -607,7 +663,7 @@ func BenchmarkStats(t *testing.B) {
 			for i := 0; i < t.N; i++ {
 				req := &http.Request{}
 				req.Header = make(http.Header)
-				req.Header.Add("Accept", string(expfmt.FmtOpenMetrics))
+				req.Header.Add("Accept", string(expfmt.FmtOpenMetrics_1_0_0))
 				rec := httptest.NewRecorder()
 				server.handleStats(rec, req)
 			}
@@ -693,8 +749,8 @@ func TestAppProbe(t *testing.T) {
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
 						HTTPHeaders: []apimirror.HTTPHeader{
-							{Name: "Host", Value: testHostValue},
 							{Name: testHeader, Value: testHeaderValue},
+							{Name: "Host", Value: testHostValue},
 						},
 					},
 				},
@@ -815,10 +871,11 @@ func TestAppProbe(t *testing.T) {
 			t.Fatalf("invalid app probers")
 		}
 		config := Options{
-			StatusPort:     0,
-			KubeAppProbers: string(appProber),
-			PodIP:          tc.podIP,
-			IPv6:           tc.ipv6,
+			StatusPort:         0,
+			PrometheusRegistry: TestingRegistry(t),
+			KubeAppProbers:     string(appProber),
+			PodIP:              tc.podIP,
+			IPv6:               tc.ipv6,
 		}
 		// Starts the pilot agent status server.
 		server, err := NewServer(config)
@@ -841,10 +898,20 @@ func TestAppProbe(t *testing.T) {
 		}
 
 		client := http.Client{}
-		req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v/%s", statusPort, tc.probePath), nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v/%s", statusPort, tc.probePath), nil)
 		if err != nil {
 			t.Fatalf("[%v] failed to create request", tc.probePath)
 		}
+		if c := tc.config["/"+tc.probePath]; c != nil {
+			if hc := c.HTTPGet; hc != nil {
+				for _, h := range hc.HTTPHeaders {
+					req.Header[h.Name] = append(req.Header[h.Name], h.Value)
+				}
+			}
+		}
+		// This is simulating the kubelet behavior of setting the Host to Header["Host"].
+		// https://github.com/kubernetes/kubernetes/blob/d3b7391dc2f1040083ee2a8bfcb02edf7b0ded4b/pkg/probe/http/request.go#L84C1-L84C1
+		req.Host = req.Header.Get("Host")
 		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatal("request failed: ", err)
@@ -913,7 +980,8 @@ func TestHttpsAppProbe(t *testing.T) {
 
 		// Starts the pilot agent status server.
 		server, err := NewServer(Options{
-			StatusPort: 0,
+			StatusPort:         0,
+			PrometheusRegistry: TestingRegistry(t),
 			KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"}},
 "/app-health/hello-world/livez": {"httpGet": {"port": %v, "scheme": "HTTPS"}}}`, appPort, appPort),
 		})
@@ -1001,7 +1069,7 @@ func TestHttpsAppProbe(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			statusPort, getAlpn := setupServer(t, tc.alpns)
 			client := http.Client{}
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/%s", statusPort, tc.probePath), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%d/%s", statusPort, tc.probePath), nil)
 			if err != nil {
 				t.Fatalf("failed to create request")
 			}
@@ -1038,7 +1106,8 @@ func TestGRPCAppProbe(t *testing.T) {
 	appPort := listener.Addr().(*net.TCPAddr).Port
 	// Starts the pilot agent status server.
 	server, err := NewServer(Options{
-		StatusPort: 0,
+		StatusPort:         0,
+		PrometheusRegistry: TestingRegistry(t),
 		KubeAppProbers: fmt.Sprintf(`
 {
     "/app-health/foo/livez": {
@@ -1125,7 +1194,7 @@ func TestGRPCAppProbe(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			client := http.Client{}
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost%s", tc.probePath), nil)
 			if err != nil {
 				t.Errorf("[%v] failed to create request", tc.probePath)
 			}
@@ -1159,9 +1228,10 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 	appPort := listener.Addr().(*net.TCPAddr).Port
 	// Starts the pilot agent status server.
 	server, err := NewServer(Options{
-		StatusPort: 0,
-		IPv6:       true,
-		PodIP:      "::1",
+		StatusPort:         0,
+		IPv6:               true,
+		PodIP:              "::1",
+		PrometheusRegistry: TestingRegistry(t),
 		KubeAppProbers: fmt.Sprintf(`
 {
     "/app-health/foo/livez": {
@@ -1250,7 +1320,7 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			client := http.Client{}
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost%s", tc.probePath), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost%s", tc.probePath), nil)
 			if err != nil {
 				t.Errorf("[%v] failed to create request", tc.probePath)
 			}
@@ -1323,7 +1393,6 @@ func TestProbeHeader(t *testing.T) {
 				},
 			},
 			want: http.Header{
-				testHeader:   []string{testHeaderValue},
 				"Connection": []string{"close"},
 			},
 		},
@@ -1341,23 +1410,22 @@ func TestProbeHeader(t *testing.T) {
 				},
 			},
 			want: http.Header{
-				testHeader:   []string{testHeaderValue, testHeaderValue},
 				"Connection": []string{"close"},
 			},
 		},
 		{
 			name: "Proxy overwrites Origin",
 			originHeaders: http.Header{
-				testHeader: []string{testHeaderValue, testHeaderValue},
+				testHeader: []string{testHeaderValue},
 			},
 			proxyHeaders: []apimirror.HTTPHeader{
 				{
 					Name:  testHeader,
-					Value: testHeaderValue + "Over",
+					Value: testHeaderValue + "over",
 				},
 			},
 			want: http.Header{
-				testHeader:   []string{testHeaderValue + "Over"},
+				testHeader:   []string{testHeaderValue},
 				"Connection": []string{"close"},
 			},
 		},
@@ -1382,8 +1450,9 @@ func TestProbeHeader(t *testing.T) {
 				t.Fatalf("invalid app probers")
 			}
 			config := Options{
-				StatusPort:     0,
-				KubeAppProbers: string(appProber),
+				StatusPort:         0,
+				PrometheusRegistry: TestingRegistry(t),
+				KubeAppProbers:     string(appProber),
 			}
 			// Starts the pilot agent status server.
 			server, err := NewServer(config)
@@ -1402,7 +1471,7 @@ func TestProbeHeader(t *testing.T) {
 			}
 
 			client := http.Client{}
-			req, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%v%s", statusPort, probePath), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v%s", statusPort, probePath), nil)
 			if err != nil {
 				t.Fatal("failed to create request: ", err)
 			}
@@ -1421,7 +1490,7 @@ func TestProbeHeader(t *testing.T) {
 
 func TestHandleQuit(t *testing.T) {
 	statusPort := 15020
-	s, err := NewServer(Options{StatusPort: uint16(statusPort)})
+	s, err := NewServer(Options{StatusPort: uint16(statusPort), PrometheusRegistry: TestingRegistry(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1520,8 +1589,9 @@ func TestAdditionalProbes(t *testing.T) {
 	defer testServer.Close()
 	for _, tc := range testCases {
 		server, err := NewServer(Options{
-			Probes:    tc.probes,
-			AdminPort: uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
+			Probes:             tc.probes,
+			PrometheusRegistry: TestingRegistry(t),
+			AdminPort:          uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
 		})
 		if err != nil {
 			t.Errorf("failed to construct server")
@@ -1550,4 +1620,14 @@ type unreadyProbe struct{}
 
 func (u unreadyProbe) Check() error {
 	return errors.New("not ready")
+}
+
+var reg = lazy.New(initializeMonitoring)
+
+func TestingRegistry(t test.Failer) prometheus.Gatherer {
+	r, err := reg.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
 }

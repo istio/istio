@@ -76,7 +76,7 @@ For more information about integrating with Jaeger, please see the [Jaeger integ
 
 Zipkin is an alternative to Jaeger and is not deployed by default. To replace Jaeger with Zipkin, run `kubectl apply -f samples/addons/extras/zipkin.yaml`.
 You may also want to remove the Jaeger deployment, which will not be used, with `kubectl delete deployment jaeger`, or avoid installing it
-to begin with by following the selective install steps in [Getting Started](#getting-started).
+to begin with by following the selective installation steps in [Getting Started](#getting-started).
 
 For more information about integrating with Zipkin, please see the [Zipkin integration page](https://istio.io/docs/tasks/observability/distributed-tracing/zipkin/).
 
@@ -87,6 +87,16 @@ The [Prometheus Operator](https://github.com/coreos/prometheus-operator) manages
 As an alternative to the standard Prometheus deployment, we provide a `ServiceMonitor` to monitor the Istio control plane and `PodMonitor`
 Envoy proxies. To use these, make sure you have the Prometheus operator deployed, then run `kubectl apply -f samples/addons/extras/prometheus-operator.yaml`.
 
-Note: The example `PodMonitor` requires [metrics merging](https://istio.io/latest/docs/ops/integrations/prometheus/#option-1-metrics-merging) to be enabled. This is enabled by default.
-
-Note: The configurations here are only for Istio deployments, and do not scrape metrics from the Kubernetes components. See the [Cluster Monitoring](https://coreos.com/operators/prometheus/docs/latest/user-guides/cluster-monitoring.html) documentation for configuring this.
+> **Note**
+>
+> The example `PodMonitor` requires [metrics merging](https://istio.io/latest/docs/ops/integrations/prometheus/#option-1-metrics-merging) to be enabled. This is enabled by default.
+>
+> **Note**
+>
+> The configurations here are only for Istio deployments, and do not scrape metrics from the Kubernetes components.
+> See the [Cluster Monitoring](https://coreos.com/operators/prometheus/docs/latest/user-guides/cluster-monitoring.html) documentation for configuring this.
+>
+> **Warning**
+>
+> When the example `PodMonitor` is used with OpenShift Monitoring, it must be created in all namespaces where istio-proxies exist.
+> This is because `namespaceSelector` is ignored for tenancy isolation.

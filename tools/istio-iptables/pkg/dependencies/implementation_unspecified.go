@@ -17,15 +17,18 @@
 
 package dependencies
 
-import "errors"
+import (
+	"errors"
+	"io"
+)
 
 // ErrNotImplemented is returned when a requested feature is not implemented.
 var ErrNotImplemented = errors.New("not implemented")
 
-func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string) error {
+func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reader, args ...string) error {
 	return ErrNotImplemented
 }
 
-func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) error {
+func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin io.Reader, args ...string) error {
 	return ErrNotImplemented
 }

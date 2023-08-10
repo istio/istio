@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+- |
+  **Optimized** EnvoyFilter index generation to avoid rebuilding all EnvoyFilters everytime a single one has changed, instead only rebuild the changed EnvoyFilter and update it in place.

@@ -15,48 +15,47 @@
 package controller
 
 import (
-	"fmt"
-	"reflect"
 	"sync"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
-	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // PodCache is an eventually consistent pod cache
 type PodCache struct {
-	informer informer.FilteredSharedIndexInformer
+	pods kclient.Client[*v1.Pod]
 
 	sync.RWMutex
 	// podsByIP maintains stable pod IP to name key mapping
 	// this allows us to retrieve the latest status by pod IP.
 	// This should only contain RUNNING or PENDING pods with an allocated IP.
-	podsByIP map[string]string
+	podsByIP map[string]types.NamespacedName
 	// IPByPods is a reverse map of podsByIP. This exists to allow us to prune stale entries in the
 	// pod cache if a pod changes IP.
-	IPByPods map[string]string
+	IPByPods map[types.NamespacedName]string
 
 	// needResync is map of IP to endpoint namespace/name. This is used to requeue endpoint
 	// events when pod event comes. This typically happens when pod is not available
 	// in podCache when endpoint event comes.
-	needResync         map[string]sets.String
-	queueEndpointEvent func(string)
+	needResync         map[string]sets.Set[types.NamespacedName]
+	queueEndpointEvent func(types.NamespacedName)
 
 	c *Controller
 }
 
-func newPodCache(c *Controller, informer informer.FilteredSharedIndexInformer, queueEndpointEvent func(string)) *PodCache {
+func newPodCache(c *Controller, pods kclient.Client[*v1.Pod], queueEndpointEvent func(types.NamespacedName)) *PodCache {
 	out := &PodCache{
-		informer:           informer,
+		pods:               pods,
 		c:                  c,
-		podsByIP:           make(map[string]string),
-		IPByPods:           make(map[string]string),
-		needResync:         make(map[string]sets.String),
+		podsByIP:           make(map[string]types.NamespacedName),
+		IPByPods:           make(map[types.NamespacedName]string),
+		needResync:         make(map[string]sets.Set[types.NamespacedName]),
 		queueEndpointEvent: queueEndpointEvent,
 	}
 
@@ -89,6 +88,10 @@ func shouldPodBeInEndpoints(pod *v1.Pod) bool {
 // isPodPhaseTerminal returns true if the pod's phase is terminal.
 func isPodPhaseTerminal(phase v1.PodPhase) bool {
 	return phase == v1.PodFailed || phase == v1.PodSucceeded
+}
+
+func IsPodRunning(pod *v1.Pod) bool {
+	return pod.Status.Phase == v1.PodRunning
 }
 
 // IsPodReady is copied from kubernetes/pkg/api/v1/pod/utils.go
@@ -128,13 +131,10 @@ func GetPodConditionFromList(conditions []v1.PodCondition, conditionType v1.PodC
 	return -1, nil
 }
 
-func (pc *PodCache) labelFilter(old, cur interface{}) bool {
-	oldPod := old.(*v1.Pod)
-	curPod := cur.(*v1.Pod)
-
+func (pc *PodCache) labelFilter(old, cur *v1.Pod) bool {
 	// If labels updated, trigger proxy push
-	if curPod.Status.PodIP != "" && !reflect.DeepEqual(oldPod.Labels, curPod.Labels) {
-		pc.proxyUpdates(curPod.Status.PodIP)
+	if cur.Status.PodIP != "" && !maps.Equal(old.Labels, cur.Labels) {
+		pc.proxyUpdates(cur.Status.PodIP)
 	}
 
 	// always continue calling pc.onEvent
@@ -142,20 +142,7 @@ func (pc *PodCache) labelFilter(old, cur interface{}) bool {
 }
 
 // onEvent updates the IP-based index (pc.podsByIP).
-func (pc *PodCache) onEvent(curr any, ev model.Event) error {
-	// When a pod is deleted obj could be an *v1.Pod or a DeletionFinalStateUnknown marker item.
-	pod, ok := curr.(*v1.Pod)
-	if !ok {
-		tombstone, ok := curr.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %+v", curr)
-		}
-		pod, ok = tombstone.Obj.(*v1.Pod)
-		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a pod %#v", curr)
-		}
-	}
-
+func (pc *PodCache) onEvent(_, pod *v1.Pod, ev model.Event) error {
 	ip := pod.Status.PodIP
 	// PodIP will be empty when pod is just created, but before the IP is assigned
 	// via UpdateStatus.
@@ -163,7 +150,7 @@ func (pc *PodCache) onEvent(curr any, ev model.Event) error {
 		return nil
 	}
 
-	key := kube.KeyFunc(pod.Name, pod.Namespace)
+	key := config.NamespacedName(pod)
 	switch ev {
 	case model.EventAdd:
 		if shouldPodBeInEndpoints(pod) && IsPodReady(pod) {
@@ -201,7 +188,7 @@ func (pc *PodCache) notifyWorkloadHandlers(pod *v1.Pod, ev model.Event) {
 		return
 	}
 	// fire instance handles for workload
-	ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable)
+	ep := NewEndpointBuilder(pc.c, pod).buildIstioEndpoint(pod.Status.PodIP, 0, "", model.AlwaysDiscoverable, model.Healthy)
 	workloadInstance := &model.WorkloadInstance{
 		Name:      pod.Name,
 		Namespace: pod.Namespace,
@@ -229,7 +216,7 @@ func getPortMap(pod *v1.Pod) map[string]uint32 {
 }
 
 // deleteIP returns true if the pod and ip are really deleted.
-func (pc *PodCache) deleteIP(ip string, podKey string) bool {
+func (pc *PodCache) deleteIP(ip string, podKey types.NamespacedName) bool {
 	pc.Lock()
 	defer pc.Unlock()
 	if pc.podsByIP[ip] == podKey {
@@ -240,7 +227,7 @@ func (pc *PodCache) deleteIP(ip string, podKey string) bool {
 	return false
 }
 
-func (pc *PodCache) update(ip, key string) {
+func (pc *PodCache) update(ip string, key types.NamespacedName) {
 	pc.Lock()
 	// if the pod has been cached, return
 	if key == pc.podsByIP[ip] {
@@ -268,25 +255,18 @@ func (pc *PodCache) update(ip, key string) {
 
 // queueEndpointEventOnPodArrival registers this endpoint and queues endpoint event
 // when the corresponding pod arrives.
-func (pc *PodCache) queueEndpointEventOnPodArrival(key, ip string) {
+func (pc *PodCache) queueEndpointEventOnPodArrival(key types.NamespacedName, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
-	if _, f := pc.needResync[ip]; !f {
-		pc.needResync[ip] = sets.New(key)
-	} else {
-		pc.needResync[ip].Insert(key)
-	}
+	sets.InsertOrNew(pc.needResync, ip, key)
 	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
 // endpointDeleted cleans up endpoint from resync endpoint list.
-func (pc *PodCache) endpointDeleted(key string, ip string) {
+func (pc *PodCache) endpointDeleted(key types.NamespacedName, ip string) {
 	pc.Lock()
 	defer pc.Unlock()
-	delete(pc.needResync[ip], key)
-	if len(pc.needResync[ip]) == 0 {
-		delete(pc.needResync, ip)
-	}
+	sets.DeleteCleanupLast(pc.needResync, ip, key)
 	endpointsPendingPodUpdate.Record(float64(len(pc.needResync)))
 }
 
@@ -296,7 +276,7 @@ func (pc *PodCache) proxyUpdates(ip string) {
 	}
 }
 
-func (pc *PodCache) getPodKey(addr string) (string, bool) {
+func (pc *PodCache) getPodKey(addr string) (types.NamespacedName, bool) {
 	pc.RLock()
 	defer pc.RUnlock()
 	key, exists := pc.podsByIP[addr]
@@ -312,20 +292,16 @@ func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
 	return pc.getPodByKey(key)
 }
 
-// getPodByKey returns the pod by key formatted `ns/name`
-func (pc *PodCache) getPodByKey(key string) *v1.Pod {
-	item, _, _ := pc.informer.GetIndexer().GetByKey(key)
-	if item != nil {
-		return item.(*v1.Pod)
-	}
-	return nil
+// getPodByKey returns the pod by key
+func (pc *PodCache) getPodByKey(key types.NamespacedName) *v1.Pod {
+	return pc.pods.Get(key.Name, key.Namespace)
 }
 
 // getPodByKey returns the pod of the proxy
 func (pc *PodCache) getPodByProxy(proxy *model.Proxy) *v1.Pod {
 	var pod *v1.Pod
 	key := podKeyByProxy(proxy)
-	if key != "" {
+	if key.Name != "" {
 		pod = pc.getPodByKey(key)
 		if pod != nil {
 			return pod

@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 42749
+
+releaseNotes:
+- |
+  **Fixed** admission webhook fails with custom header value format.

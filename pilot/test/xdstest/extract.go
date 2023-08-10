@@ -29,13 +29,13 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -248,6 +248,17 @@ func ExtractHTTPConnectionManager(t test.Failer, fcs *listener.FilterChain) *hcm
 	return nil
 }
 
+func ExtractLocalityLbEndpoints(cla []*endpoint.ClusterLoadAssignment) map[string][]*endpoint.LocalityLbEndpoints {
+	got := map[string][]*endpoint.LocalityLbEndpoints{}
+	for _, cla := range cla {
+		if cla == nil {
+			continue
+		}
+		got[cla.ClusterName] = cla.Endpoints
+	}
+	return got
+}
+
 func ExtractLoadAssignments(cla []*endpoint.ClusterLoadAssignment) map[string][]string {
 	got := map[string][]string{}
 	for _, cla := range cla {
@@ -268,20 +279,22 @@ func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []st
 	unhealthy := []string{}
 	for _, ep := range cla.Endpoints {
 		for _, lb := range ep.LbEndpoints {
+			var addrString string
+			switch lb.GetEndpoint().GetAddress().Address.(type) {
+			case *core.Address_SocketAddress:
+				addrString = fmt.Sprintf("%s:%d",
+					lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue())
+			case *core.Address_Pipe:
+				addrString = lb.GetEndpoint().Address.GetPipe().Path
+			case *core.Address_EnvoyInternalAddress:
+				internalAddr := lb.GetEndpoint().Address.GetEnvoyInternalAddress().GetServerListenerName()
+				destinationAddr := lb.GetMetadata().GetFilterMetadata()["tunnel"].GetFields()["destination"].GetStringValue()
+				addrString = fmt.Sprintf("%s;%s", internalAddr, destinationAddr)
+			}
 			if lb.HealthStatus == core.HealthStatus_HEALTHY {
-				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					healthy = append(healthy, fmt.Sprintf("%s:%d",
-						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
-				} else {
-					healthy = append(healthy, lb.GetEndpoint().Address.GetPipe().Path)
-				}
+				healthy = append(healthy, addrString)
 			} else {
-				if lb.GetEndpoint().Address.GetSocketAddress() != nil {
-					unhealthy = append(unhealthy, fmt.Sprintf("%s:%d",
-						lb.GetEndpoint().Address.GetSocketAddress().Address, lb.GetEndpoint().Address.GetSocketAddress().GetPortValue()))
-				} else {
-					unhealthy = append(unhealthy, lb.GetEndpoint().Address.GetPipe().Path)
-				}
+				unhealthy = append(unhealthy, addrString)
 			}
 		}
 	}

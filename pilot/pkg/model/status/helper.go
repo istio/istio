@@ -17,6 +17,7 @@ package status
 import (
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -70,23 +71,39 @@ func UpdateConfigCondition(cfg config.Config, condition *v1alpha1.IstioCondition
 		cfg.Status = &v1alpha1.IstioStatus{}
 	}
 	status = cfg.Status.(*v1alpha1.IstioStatus)
-	status.Conditions = UpdateCondition(status.Conditions, condition)
+	status.Conditions = updateCondition(status.Conditions, condition)
 	return cfg
 }
 
-func UpdateCondition(conditions []*v1alpha1.IstioCondition, condition *v1alpha1.IstioCondition) []*v1alpha1.IstioCondition {
-	ret := append([]*v1alpha1.IstioCondition(nil), conditions...)
-	idx := -1
-	for i, cond := range ret {
+func updateCondition(conditions []*v1alpha1.IstioCondition, condition *v1alpha1.IstioCondition) []*v1alpha1.IstioCondition {
+	for i, cond := range conditions {
 		if cond.Type == condition.Type {
-			idx = i
-			break
+			conditions[i] = condition
+			return conditions
 		}
 	}
-	if idx == -1 {
-		ret = append(ret, condition)
-	} else {
-		ret[idx] = condition
+
+	return append(conditions, condition)
+}
+
+func DeleteConfigCondition(cfg config.Config, condition string) config.Config {
+	c, ok := cfg.Status.(*v1alpha1.IstioStatus)
+	if !ok {
+		return cfg
 	}
-	return ret
+	if GetCondition(c.Conditions, condition) == nil {
+		return cfg
+	}
+	cfg = cfg.DeepCopy()
+	status := cfg.Status.(*v1alpha1.IstioStatus)
+	status.Conditions = deleteCondition(status.Conditions, condition)
+	return cfg
+}
+
+func deleteCondition(conditions []*v1alpha1.IstioCondition, condition string) []*v1alpha1.IstioCondition {
+	conditions = slices.FilterInPlace(conditions, func(c *v1alpha1.IstioCondition) bool {
+		return c.Type != condition
+	})
+
+	return conditions
 }

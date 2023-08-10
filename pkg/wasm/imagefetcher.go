@@ -25,7 +25,6 @@ import (
 	"io"
 	"net/http"
 	"path/filepath"
-	"reflect"
 	"strings"
 
 	"github.com/docker/cli/cli/config/configfile"
@@ -337,7 +336,7 @@ type wasmKeyChain struct {
 // The function code is borrowed from https://github.com/google/go-containerregistry/blob/v0.8.0/pkg/authn/keychain.go#L65,
 // by making it take dockerconfigjson directly as bytes instead of reading from files.
 func (k *wasmKeyChain) Resolve(target authn.Resource) (authn.Authenticator, error) {
-	if reflect.DeepEqual(k.data, []byte("null")) {
+	if bytes.Equal(k.data, []byte("null")) {
 		// Filter out key chain with content "null" to prevent crash at underlying docker library.
 		// Remove this check when https://github.com/docker/cli/pull/3434 is merged.
 		return nil, fmt.Errorf("")

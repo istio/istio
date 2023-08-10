@@ -28,9 +28,7 @@ import (
 	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8s "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -50,237 +48,6 @@ import (
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
-func TestGateway(t *testing.T) {
-	framework.
-		NewTest(t).
-		Run(func(t framework.TestContext) {
-			DeployGatewayAPICRD(t)
-
-			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
-				false, t.Clusters().Configs()...)
-			ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
-				false, t.Clusters().Configs()...)
-
-			retry.UntilSuccessOrFail(t, func() error {
-				err := t.ConfigIstio().YAML("", fmt.Sprintf(`
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: GatewayClass
-metadata:
-  name: istio
-spec:
-  controllerName: istio.io/gateway-controller
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  name: gateway
-  namespace: istio-system
-spec:
-  addresses:
-  - value: istio-ingressgateway
-    type: Hostname
-  gatewayClassName: istio
-  listeners:
-  - name: http
-    hostname: "*.domain.example"
-    port: 80
-    protocol: HTTP
-    allowedRoutes:
-      namespaces:
-        from: All
-  - name: tcp
-    port: 31400
-    protocol: TCP
-    allowedRoutes:
-      namespaces:
-        from: All
-  - name: tls-cross
-    hostname: cross-namespace.domain.example
-    port: 443
-    protocol: HTTPS
-    allowedRoutes:
-      namespaces:
-        from: All
-    tls:
-      mode: Terminate
-      certificateRefs:
-      - kind: Secret
-        name: test-gateway-cert-cross
-        namespace: "%s"
-  - name: tls-same
-    hostname: same-namespace.domain.example
-    port: 443
-    protocol: HTTPS
-    allowedRoutes:
-      namespaces:
-        from: All
-    tls:
-      mode: Terminate
-      certificateRefs:
-      - kind: Secret
-        name: test-gateway-cert-same
----`, apps.Namespace.Name())).Apply()
-				return err
-			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
-			retry.UntilSuccessOrFail(t, func() error {
-				err := t.ConfigIstio().YAML(apps.Namespace.Name(), `
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: HTTPRoute
-metadata:
-  name: http
-spec:
-  hostnames: ["my.domain.example"]
-  parentRefs:
-  - name: gateway
-    namespace: istio-system
-  rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /get/
-    backendRefs:
-    - name: b
-      port: 80
----
-apiVersion: gateway.networking.k8s.io/v1alpha2
-kind: TCPRoute
-metadata:
-  name: tcp
-spec:
-  parentRefs:
-  - name: gateway
-    namespace: istio-system
-  rules:
-  - backendRefs:
-    - name: b
-      port: 80
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: HTTPRoute
-metadata:
-  name: b
-spec:
-  parentRefs:
-  - kind: Service
-    name: b
-  - name: gateway
-    namespace: istio-system
-  hostnames: ["b"]
-  rules:
-  - matches:
-    - path:
-        type: PathPrefix
-        value: /path
-    filters:
-    - type: RequestHeaderModifier
-      requestHeaderModifier:
-        add:
-        - name: my-added-header
-          value: added-value
-    backendRefs:
-    - name: b
-      port: 80
-`).Apply()
-				return err
-			}, retry.Delay(time.Second*10), retry.Timeout(time.Second*90))
-			for _, ingr := range istio.IngressesOrFail(t, t) {
-				t.NewSubTest(ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
-					t.NewSubTest("http").Run(func(t framework.TestContext) {
-						paths := []string{"/get", "/get/", "/get/prefix"}
-						for _, path := range paths {
-							_ = ingr.CallOrFail(t, echo.CallOptions{
-								Port: echo.Port{
-									Protocol: protocol.HTTP,
-								},
-								HTTP: echo.HTTP{
-									Path:    path,
-									Headers: headers.New().WithHost("my.domain.example").Build(),
-								},
-							})
-						}
-					})
-					t.NewSubTest("tcp").Run(func(t framework.TestContext) {
-						_ = ingr.CallOrFail(t, echo.CallOptions{
-							Port: echo.Port{
-								Protocol:    protocol.HTTP,
-								ServicePort: 31400,
-							},
-							HTTP: echo.HTTP{
-								Path:    "/",
-								Headers: headers.New().WithHost("my.domain.example").Build(),
-							},
-						})
-					})
-					t.NewSubTest("mesh").Run(func(t framework.TestContext) {
-						_ = apps.A[0].CallOrFail(t, echo.CallOptions{
-							To:    apps.B,
-							Count: 1,
-							Port: echo.Port{
-								Name: "http",
-							},
-							HTTP: echo.HTTP{
-								Path: "/path",
-							},
-							Check: check.And(
-								check.OK(),
-								check.RequestHeader("My-Added-Header", "added-value")),
-						})
-					})
-					t.NewSubTest("status").Run(func(t framework.TestContext) {
-						retry.UntilSuccessOrFail(t, func() error {
-							gwc, err := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
-							if err != nil {
-								return err
-							}
-							if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted)).Status; s != metav1.ConditionTrue {
-								return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
-							}
-							return nil
-						})
-					})
-				})
-			}
-			t.NewSubTest("managed").Run(func(t framework.TestContext) {
-				t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1beta1
-kind: Gateway
-metadata:
-  name: gateway
-spec:
-  gatewayClassName: istio
-  listeners:
-  - name: default
-    hostname: "*.example.com"
-    port: 80
-    protocol: HTTP
----
-apiVersion: gateway.networking.k8s.io/v1beta1
-kind: HTTPRoute
-metadata:
-  name: http
-spec:
-  parentRefs:
-  - name: gateway
-  rules:
-  - backendRefs:
-    - name: b
-      port: 80
-`).ApplyOrFail(t)
-				apps.B[0].CallOrFail(t, echo.CallOptions{
-					Port:   echo.Port{ServicePort: 80},
-					Scheme: scheme.HTTP,
-					HTTP: echo.HTTP{
-						Headers: headers.New().WithHost("bar.example.com").Build(),
-					},
-					Address: fmt.Sprintf("gateway.%s.svc.cluster.local", apps.Namespace.Name()),
-					Check:   check.OK(),
-					Retry: echo.Retry{
-						Options: []retry.Option{retry.Timeout(time.Minute)},
-					},
-				})
-			})
-		})
-}
-
 func skipIfIngressClassUnsupported(t framework.TestContext) {
 	if !t.Clusters().Default().MinKubeVersion(18) {
 		t.Skip("IngressClass not supported")
@@ -298,49 +65,15 @@ func TestIngress(t *testing.T) {
 			ingressutil.CreateIngressKubeSecret(t, "k8s-ingress-secret-foo", ingressutil.TLS, ingressutil.IngressCredentialA, false, t.Clusters().Kube()...)
 			ingressutil.CreateIngressKubeSecret(t, "k8s-ingress-secret-bar", ingressutil.TLS, ingressutil.IngressCredentialB, false, t.Clusters().Kube()...)
 
-			apiVersion := "v1beta1"
-			if t.Clusters().Default().MinKubeVersion(19) {
-				apiVersion = "v1"
-			}
-
-			ingressClassConfig := fmt.Sprintf(`
-apiVersion: networking.k8s.io/%s
+			ingressClassConfig := `
+apiVersion: networking.k8s.io/v1
 kind: IngressClass
 metadata:
   name: istio-test
 spec:
-  controller: istio.io/ingress-controller`, apiVersion)
+  controller: istio.io/ingress-controller`
 
 			ingressConfigTemplate := `
-apiVersion: networking.k8s.io/v1beta1
-kind: Ingress
-metadata:
-  name: %s
-spec:
-  ingressClassName: %s
-  tls:
-  - hosts: ["foo.example.com"]
-    secretName: k8s-ingress-secret-foo
-  - hosts: ["bar.example.com"]
-    secretName: k8s-ingress-secret-bar
-  rules:
-    - http:
-        paths:
-          - path: %s/namedport
-            backend:
-              serviceName: b
-              servicePort: http
-          - path: %s
-            backend:
-              serviceName: b
-              servicePort: 80
-          - path: %s
-            pathType: Prefix
-            backend:
-              serviceName: b
-              servicePort: http`
-			if apiVersion == "v1" {
-				ingressConfigTemplate = `
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -377,7 +110,6 @@ spec:
         path: %s
         pathType: Prefix
 `
-			}
 
 			successChecker := check.And(check.OK(), check.ReachedClusters(t.AllClusters(), apps.B.Clusters()))
 			failureChecker := check.Status(http.StatusNotFound)
@@ -589,23 +321,6 @@ spec:
 				host, _ := defaultIngress.HTTPAddress()
 				hostIsIP := net.ParseIP(host).String() != "<nil>"
 				retry.UntilSuccessOrFail(t, func() error {
-					if apiVersion == "v1beta1" {
-						ing, err := t.Clusters().Default().Kube().NetworkingV1beta1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
-						if err != nil {
-							return err
-						}
-						if len(ing.Status.LoadBalancer.Ingress) < 1 {
-							return fmt.Errorf("unexpected ingress status, ingress is empty")
-						}
-						got := ing.Status.LoadBalancer.Ingress[0].Hostname
-						if hostIsIP {
-							got = ing.Status.LoadBalancer.Ingress[0].IP
-						}
-						if got != host {
-							return fmt.Errorf("unexpected ingress status, got %+v want %v", got, host)
-						}
-						return nil
-					}
 					ing, err := t.Clusters().Default().Kube().NetworkingV1().Ingresses(apps.Namespace.Name()).Get(context.Background(), "ingress", metav1.GetOptions{})
 					if err != nil {
 						return err
@@ -621,7 +336,7 @@ spec:
 						return fmt.Errorf("unexpected ingress status, got %+v want %v", got, host)
 					}
 					return nil
-				}, retry.Delay(time.Second*5), retry.Timeout(time.Second*90))
+				}, retry.Timeout(time.Second*90))
 			})
 
 			// setup another ingress pointing to a different route; the ingress will have an ingress class that should be targeted at first
@@ -639,6 +354,22 @@ spec:
 				path         string
 				call         echo.CallOptions
 			}{
+				// Ensure we get a 200 initially
+				{
+					name:         "initial state",
+					ingressClass: "istio-test",
+					path:         "/update-test",
+					call: echo.CallOptions{
+						Port: echo.Port{
+							Protocol: protocol.HTTP,
+						},
+						HTTP: echo.HTTP{
+							Path:    "/update-test",
+							Headers: headers.New().WithHost("server").Build(),
+						},
+						Check: check.OK(),
+					},
+				},
 				{
 					name:         "update-class-not-istio",
 					ingressClass: "not-istio",
@@ -710,6 +441,10 @@ func TestCustomGateway(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ingress.custom").
 		Run(func(t framework.TestContext) {
+			inject := false
+			if t.Settings().Compatibility {
+				inject = true
+			}
 			injectLabel := `sidecar.istio.io/inject: "true"`
 			if t.Settings().Revisions.Default() != "" {
 				injectLabel = fmt.Sprintf(`istio.io/rev: "%v"`, t.Settings().Revisions.Default())
@@ -723,7 +458,7 @@ func TestCustomGateway(t *testing.T) {
 			}
 
 			t.NewSubTest("minimal").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal"})
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-minimal", Inject: inject})
 				_ = t.ConfigIstio().Eval(gatewayNs.Name(), templateParams, `apiVersion: v1
 kind: Service
 metadata:
@@ -809,7 +544,7 @@ spec:
 			// TODO we could add istioctl as well, but the framework adds a bunch of stuff beyond just `istioctl install`
 			// that mess with certs, multicluster, etc
 			t.NewSubTest("helm").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm"})
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
 				if t.Settings().Revisions.Default() != "" {
@@ -880,7 +615,7 @@ spec:
 				})
 			})
 			t.NewSubTest("helm-simple").Run(func(t framework.TestContext) {
-				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm"})
+				gatewayNs := namespace.NewOrFail(t, t, namespace.Config{Prefix: "custom-gateway-helm", Inject: inject})
 				d := filepath.Join(t.TempDir(), "gateway-values.yaml")
 				rev := ""
 				if t.Settings().Revisions.Default() != "" {

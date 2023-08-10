@@ -85,8 +85,8 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	stop := make(chan struct{})
 	go w.Run(stop)
 	controller := w.(*configMapWatcher).c
-	kube.WaitForCacheSync(stop, controller.HasSynced)
 	client.RunAndWait(stop)
+	kube.WaitForCacheSync("test", stop, controller.HasSynced)
 
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
 	steps := []struct {

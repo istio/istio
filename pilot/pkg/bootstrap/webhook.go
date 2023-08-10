@@ -18,15 +18,9 @@ import (
 	"crypto/tls"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
-	"time"
 
-	istiolog "istio.io/pkg/log"
-)
-
-const (
-	HTTPSHandlerReadyPath = "/httpsReady"
+	istiolog "istio.io/istio/pkg/log"
 )
 
 type httpServerErrorLogWriter struct{}
@@ -52,7 +46,7 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 	// create the https server for hosting the k8s injectionWebhook handlers.
 	if args.ServerOptions.HTTPSAddr == "" {
 		s.httpsMux = s.httpMux
-		istiolog.Info("HTTPS port is disabled, multiplexing webhooks on the httpAddr ", args.ServerOptions.HTTPAddr)
+		istiolog.Infof("HTTPS port is disabled, multiplexing webhooks on the httpAddr %v", args.ServerOptions.HTTPAddr)
 		return
 	}
 
@@ -69,39 +63,4 @@ func (s *Server) initSecureWebhookServer(args *PilotArgs) {
 			CipherSuites:   args.ServerOptions.TLSOptions.CipherSuits,
 		},
 	}
-
-	// setup our readiness handler and the corresponding client we'll use later to check it with.
-	s.httpsMux.HandleFunc(HTTPSHandlerReadyPath, func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	})
-	// nolint: gosec
-	// This is calling to our own localhost.
-	s.httpsReadyClient = &http.Client{
-		Timeout: time.Second,
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: true,
-			},
-		},
-	}
-	s.addReadinessProbe("Secure Webhook Server", s.webhookReadyHandler)
-}
-
-func (s *Server) webhookReadyHandler() (bool, error) {
-	req := &http.Request{
-		Method: http.MethodGet,
-		URL: &url.URL{
-			Scheme: "https",
-			Host:   s.httpsServer.Addr,
-			Path:   HTTPSHandlerReadyPath,
-		},
-	}
-
-	response, err := s.httpsReadyClient.Do(req)
-	if err != nil {
-		return false, err
-	}
-	defer response.Body.Close()
-
-	return response.StatusCode == http.StatusOK, nil
 }

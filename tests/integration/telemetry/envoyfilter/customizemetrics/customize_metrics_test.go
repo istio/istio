@@ -18,15 +18,14 @@
 package customizemetrics
 
 import (
+	_ "embed"
 	"encoding/base64"
 	"fmt"
-	"net/http"
 	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
@@ -37,7 +36,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/registryredirector"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
 	"istio.io/istio/tests/integration/telemetry/common"
@@ -144,6 +142,10 @@ func TestCustomizeMetrics(t *testing.T) {
 			}
 			util.ValidateMetric(t, cluster, promInst, httpDestinationQuery, 1)
 			util.ValidateMetric(t, cluster, promInst, grpcDestinationQuery, 1)
+			// By default, envoy histogram has 20 buckets, annotation changes it to 10
+			if err := common.ValidateBucket(cluster, promInst, "client", 10); err != nil {
+				t.Errorf("failed to validate bucket: %v", err)
+			}
 		})
 }
 
@@ -158,28 +160,6 @@ func TestMain(m *testing.M) {
 }
 
 func testSetup(ctx resource.Context) (err error) {
-	// enable custom tag in the stats
-	bootstrapPatch := `
-apiVersion: networking.istio.io/v1alpha3
-kind: EnvoyFilter
-metadata:
-  name: bootstrap-tag
-  namespace: istio-system
-spec:
-  configPatches:
-  - applyTo: BOOTSTRAP
-    patch:
-      operation: MERGE
-      value:
-        stats_config:
-          stats_tags:
-          - regex: "(custom_dimension=\\.=(.*?);\\.;)"
-            tag_name: "custom_dimension"
-`
-	if err := ctx.ConfigIstio().YAML("istio-system", bootstrapPatch).Apply(apply.Wait); err != nil {
-		return err
-	}
-
 	registry, err = registryredirector.New(ctx, registryredirector.Config{Cluster: ctx.AllClusters().Default()})
 	if err != nil {
 		return
@@ -195,8 +175,9 @@ spec:
 	}
 	proxyMetadata := fmt.Sprintf(`
 proxyMetadata:
-  BOOTSTRAP_XDS_AGENT: "true"
   WASM_INSECURE_REGISTRIES: %q`, registry.Address())
+
+	customBuckets := `{"istio":[1,5,10,50,100,500,1000,5000,10000]}`
 
 	echos, err := deployment.New(ctx).
 		WithClusters(ctx.Clusters()...).
@@ -210,6 +191,9 @@ proxyMetadata:
 						echo.SidecarProxyConfig: {
 							Value: proxyMetadata,
 						},
+						echo.SidecarStatsHistogramBuckets: {
+							Value: customBuckets,
+						},
 					},
 				},
 			},
@@ -222,6 +206,9 @@ proxyMetadata:
 					Annotations: map[echo.Annotation]*echo.AnnotationValue{
 						echo.SidecarProxyConfig: {
 							Value: proxyMetadata,
+						},
+						echo.SidecarStatsHistogramBuckets: {
+							Value: customBuckets,
 						},
 					},
 				},
@@ -252,66 +239,21 @@ proxyMetadata:
 	return nil
 }
 
+//go:embed testdata/setup_config.yaml
+var cfgValue string
+
 func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
-	cfValue := `
-meshConfig:
-  defaultConfig:
-    proxyStatsMatcher:
-      inclusionPrefixes:
-      - istio_custom_total
-    extraStatTags:
-    - url_path
-    - response_status
-values:
- telemetry:
-   v2:
-     prometheus:
-       configOverride:
-         inboundSidecar:
-           debug: false
-           stat_prefix: istio
-           metrics:
-           - name: requests_total
-             dimensions:
-               response_code: istio_responseClass
-               request_operation: istio_operationId
-               grpc_response_status: istio_grpcResponseStatus
-               custom_dimension: "'test'"
-             tags_to_remove:
-             - %s
-         outboundSidecar:
-           definitions:
-           - name: custom_total
-             type: "COUNTER"
-             value: "1"
-           metrics:
-           - name: custom_total
-             dimensions:
-               url_path: request.url_path
-               response_status: string(response.code)
-`
-	cfg.ControlPlaneValues = fmt.Sprintf(cfValue, removedTag)
+	cfg.ControlPlaneValues = fmt.Sprintf(cfgValue, removedTag)
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 }
 
 func setupWasmExtension(ctx resource.Context) error {
-	proxySHA, err := env.ReadProxySHA()
-	if err != nil {
-		return err
-	}
-	attrGenURL := fmt.Sprintf("https://storage.googleapis.com/istio-build/proxy/attributegen-%v.wasm", proxySHA)
+	proxySHA := "359dcd3a19f109c50e97517fe6b1e2676e870c4d"
 	attrGenImageURL := fmt.Sprintf("oci://%v/istio-testing/wasm/attributegen:%v", registry.Address(), proxySHA)
-	useRemoteWasmModule := false
-	resp, err := http.Get(attrGenURL)
-	if err == nil && resp.StatusCode == http.StatusOK {
-		useRemoteWasmModule = true
-	}
-
 	args := map[string]any{
-		"WasmRemoteLoad":  useRemoteWasmModule,
 		"AttributeGenURL": attrGenImageURL,
 		"DockerConfigJson": base64.StdEncoding.EncodeToString(
 			[]byte(createDockerCredential(registryUser, registryPasswd, registry.Address()))),

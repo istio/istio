@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 	"strings"
 	"time"
@@ -26,11 +27,11 @@ import (
 	"github.com/spf13/viper"
 
 	"istio.io/istio/pkg/backoff"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
-	"istio.io/pkg/log"
 )
 
-func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string) error {
+func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reader, args ...string) error {
 	if r.CNIMode && r.HostNSEnterExec {
 		originalCmd := cmd
 		cmd = constants.NSENTER
@@ -43,6 +44,7 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string
 	stderr := &bytes.Buffer{}
 	externalCommand.Stdout = stdout
 	externalCommand.Stderr = stderr
+	externalCommand.Stdin = stdin
 
 	// Grab all viper config and propagate it as environment variables to the child process
 	repl := strings.NewReplacer("-", "_")
@@ -80,7 +82,7 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, args ...string
 	return err
 }
 
-func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ...string) error {
+func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
 	if r.CNIMode && r.HostNSEnterExec {
 		originalCmd := cmd
 		cmd = constants.NSENTER
@@ -112,6 +114,12 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, args ..
 		stderr = &bytes.Buffer{}
 		externalCommand.Stdout = stdout
 		externalCommand.Stderr = stderr
+		externalCommand.Stdin = stdin
+		if stdin != nil {
+			if _, err := stdin.Seek(0, io.SeekStart); err != nil {
+				return err
+			}
+		}
 		if r.CNIMode && !r.HostNSEnterExec {
 			err = nsContainer.Do(func(ns.NetNS) error {
 				return externalCommand.Run()

@@ -127,13 +127,11 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/namespaces1/.*
                 - filterState:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/namespaces2/.*
       ns[foo]-policy[httpbin-8]-rule[0]:
         permissions:

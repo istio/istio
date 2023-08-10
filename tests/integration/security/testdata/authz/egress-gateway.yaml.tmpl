@@ -1,4 +1,4 @@
-apiVersion: security.istio.io/v1
+apiVersion: security.istio.io/v1beta1
 kind: RequestAuthentication
 metadata:
   name: default
@@ -10,15 +10,15 @@ spec:
     - issuer: "test-issuer-2@istio.io"
       jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 ---
-apiVersion: security.istio.io/v1
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: egressgateway
-  namespace: {{ .SystemNamespace.Name }}
+  name: {{ .EgressGatewayIstioLabel | default "egressgateway" }}
+  namespace: {{ .EgressGatewayServiceNamespace | default .SystemNamespace.Name }}
 spec:
   selector:
     matchLabels:
-      app: istio-egressgateway
+      app: {{ .EgressGatewayServiceName | default "istio-egressgateway" }}
   rules:
     - to: # only allow /allow for company.com
         - operation:
@@ -53,7 +53,7 @@ metadata:
   namespace: {{ .From.NamespaceName }}
 spec:
   selector:
-    istio: egressgateway
+    istio: {{ .EgressGatewayIstioLabel | default "egressgateway" }}
   servers:
     - port:
         number: 80
@@ -89,7 +89,7 @@ spec:
           port: 80
       route:
         - destination:
-            host: "istio-egressgateway.{{ .SystemNamespace.Name }}.svc.cluster.local"
+            host: "{{ .EgressGatewayServiceName | default "istio-egressgateway" }}.{{ .EgressGatewayServiceNamespace | default .SystemNamespace.Name }}.svc.cluster.local"
             port:
               number: 80
           weight: 100
@@ -128,7 +128,7 @@ spec:
           port: 80
       route:
         - destination:
-            host: "istio-egressgateway.{{ .SystemNamespace.Name }}.svc.cluster.local"
+            host: "{{ .EgressGatewayServiceName | default "istio-egressgateway" }}.{{ .EgressGatewayServiceNamespace | default .SystemNamespace.Name }}.svc.cluster.local"
             port:
               number: 443
           weight: 100
@@ -153,7 +153,7 @@ metadata:
   name: test-egress
   namespace: {{ .From.NamespaceName }}
 spec:
-  host: "istio-egressgateway.{{ .SystemNamespace.Name }}.svc.cluster.local"
+  host: "{{ .EgressGatewayServiceName | default "istio-egressgateway" }}.{{ .EgressGatewayServiceNamespace | default .SystemNamespace.Name }}.svc.cluster.local"
   trafficPolicy:
     portLevelSettings:
       - port:
@@ -168,7 +168,7 @@ metadata:
   name: test-egress
   namespace: {{ .SystemNamespace.Name }}
 spec:
-  host: "istio-egressgateway.{{ .SystemNamespace.Name }}.svc.cluster.local"
+  host: "{{ .EgressGatewayServiceName | default "istio-egressgateway" }}.{{ .EgressGatewayServiceNamespace | default .SystemNamespace.Name }}.svc.cluster.local"
   trafficPolicy:
     portLevelSettings:
       - port:

@@ -35,7 +35,7 @@ func TestTcpEchoServer(t *testing.T) {
 	go main()
 
 	// wait for the TCP Echo Server to start
-	time.Sleep(2 * time.Second)
+	time.Sleep(500 * time.Millisecond)
 
 	for _, addr := range []string{":9000", ":9001"} {
 		// connect to the TCP Echo Server

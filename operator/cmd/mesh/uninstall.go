@@ -35,8 +35,9 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	proxyinfo "istio.io/istio/pkg/proxy"
-	"istio.io/pkg/log"
 )
 
 type uninstallArgs struct {
@@ -134,6 +135,15 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 	if err != nil {
 		l.LogAndFatal(err)
 	}
+	var kubeClientWithRev kube.CLIClient
+	if uiArgs.revision != "" && uiArgs.revision != "default" {
+		kubeClientWithRev, err = kube.NewCLIClient(kube.BuildClientCmd(uiArgs.kubeConfigPath, uiArgs.context), uiArgs.revision)
+		if err != nil {
+			return err
+		}
+	} else {
+		kubeClientWithRev = kubeClient
+	}
 
 	if uiArgs.revision != "" {
 		revisions, err := tag.ListRevisionDescriptions(kubeClient)
@@ -170,7 +180,7 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 		if err != nil {
 			return err
 		}
-		preCheckWarnings(cmd, uiArgs, uiArgs.revision, objectsList, nil, l)
+		preCheckWarnings(cmd, kubeClientWithRev, uiArgs, uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
 
 		if err := h.DeleteObjectsList(objectsList, ""); err != nil {
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
@@ -188,7 +198,7 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 	if err != nil {
 		return err
 	}
-	preCheckWarnings(cmd, uiArgs, iop.Spec.Revision, nil, cpObjects, l)
+	preCheckWarnings(cmd, kubeClientWithRev, uiArgs, iop.Spec.Revision, nil, cpObjects, l, rootArgs.DryRun)
 	h, err = helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
@@ -203,10 +213,10 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 // preCheckWarnings checks possible breaking changes and issue warnings to users, it checks the following:
 // 1. checks proxies still pointing to the target control plane revision.
 // 2. lists to be pruned resources if user uninstall by --revision flag.
-func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
-	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger,
+func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uninstallArgs,
+	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger, dryRun bool,
 ) {
-	pids, err := proxyinfo.GetIDsFromProxyInfo(uiArgs.kubeConfigPath, uiArgs.context, rev, uiArgs.istioNamespace)
+	pids, err := proxyinfo.GetIDsFromProxyInfo(kubeClient, uiArgs.istioNamespace)
 	if err != nil {
 		l.LogAndError(err.Error())
 	}
@@ -240,12 +250,12 @@ func preCheckWarnings(cmd *cobra.Command, uiArgs *uninstallArgs,
 			message += fmt.Sprintf(GatewaysRemovedWarning, gwList)
 		}
 	}
-	if uiArgs.skipConfirmation {
+	if dryRun || uiArgs.skipConfirmation {
 		l.LogAndPrint(message)
 		return
 	}
 	message += "Proceed? (y/N)"
-	if needConfirmation && !confirm(message, cmd.OutOrStdout()) {
+	if needConfirmation && !Confirm(message, cmd.OutOrStdout()) {
 		cmd.Print("Cancelled.\n")
 		os.Exit(1)
 	}

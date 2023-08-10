@@ -25,12 +25,13 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // ServiceController is a mock service controller
 type ServiceController struct {
-	svcHandlers []func(*model.Service, model.Event)
+	svcHandlers []model.ServiceHandler
 
 	sync.RWMutex
 }
@@ -41,7 +42,7 @@ var _ model.Controller = &ServiceController{}
 func (c *ServiceController) AppendWorkloadHandler(func(*model.WorkloadInstance, model.Event)) {}
 
 // AppendServiceHandler appends a service handler to the controller
-func (c *ServiceController) AppendServiceHandler(f func(*model.Service, model.Event)) {
+func (c *ServiceController) AppendServiceHandler(f model.ServiceHandler) {
 	c.Lock()
 	c.svcHandlers = append(c.svcHandlers, f)
 	c.Unlock()
@@ -55,6 +56,7 @@ func (c *ServiceController) HasSynced() bool { return true }
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
+	model.NoopAmbientIndexes
 	services map[host.Name]*model.Service
 
 	networkGateways []model.NetworkGateway
@@ -124,25 +126,20 @@ func (sd *ServiceDiscovery) AddHTTPService(name, vip string, port int) {
 	})
 }
 
-// AddService adds an in-memory service.
+// AddService adds an in-memory service and notifies
 func (sd *ServiceDiscovery) AddService(svc *model.Service) {
 	sd.mutex.Lock()
 	svc.Attributes.ServiceRegistry = provider.Mock
 	sd.services[svc.Hostname] = svc
-	sd.mutex.Unlock()
-}
-
-// AddServiceNotify adds an in-memory service and notifies
-func (sd *ServiceDiscovery) AddServiceNotify(svc *model.Service) {
-	sd.AddService(svc)
 	sd.XdsUpdater.SvcUpdate(sd.shardKey(), string(svc.Hostname), svc.Attributes.Namespace, model.EventAdd)
 	pushReq := &model.PushRequest{
 		Full:           true,
 		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace}),
 
-		Reason: []model.TriggerReason{model.ServiceUpdate},
+		Reason: model.NewReasonStats(model.ServiceUpdate),
 	}
 	sd.XdsUpdater.ConfigUpdate(pushReq)
+	sd.mutex.Unlock()
 }
 
 // RemoveService removes an in-memory service.
@@ -155,11 +152,11 @@ func (sd *ServiceDiscovery) RemoveService(name host.Name) {
 	}
 }
 
-// AddInstance adds an in-memory instance.
-func (sd *ServiceDiscovery) AddInstance(service host.Name, instance *model.ServiceInstance) {
-	// WIP: add enough code to allow tests and load tests to work
+// AddInstance adds an in-memory instance and notifies the XDS updater
+func (sd *ServiceDiscovery) AddInstance(instance *model.ServiceInstance) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
+	service := instance.Service.Hostname
 	svc := sd.services[service]
 	if svc == nil {
 		return
@@ -174,27 +171,7 @@ func (sd *ServiceDiscovery) AddInstance(service host.Name, instance *model.Servi
 	key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
 	instanceList = sd.instancesByPortName[key]
 	sd.instancesByPortName[key] = append(instanceList, instance)
-}
-
-// AddInstanceNotify adds an in-memory instance and notifies the XDS updater
-func (sd *ServiceDiscovery) AddInstanceNotify(service host.Name, instance *model.ServiceInstance) {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	svc := sd.services[service]
-	if svc == nil {
-		return
-	}
-	instance.Service = svc
-	sd.ip2instance[instance.Endpoint.Address] = append(sd.ip2instance[instance.Endpoint.Address], instance)
-
-	key := fmt.Sprintf("%s:%d", service, instance.ServicePort.Port)
-	instanceList := sd.instancesByPortNum[key]
-	sd.instancesByPortNum[key] = append(instanceList, instance)
-
-	key = fmt.Sprintf("%s:%s", service, instance.ServicePort.Name)
-	instanceList = sd.instancesByPortName[key]
-	sd.instancesByPortName[key] = append(instanceList, instance)
-	var eps []*model.IstioEndpoint
+	eps := make([]*model.IstioEndpoint, 0, len(sd.instancesByPortName[key]))
 	for _, i := range sd.instancesByPortName[key] {
 		eps = append(eps, i.Endpoint)
 	}
@@ -206,6 +183,7 @@ func (sd *ServiceDiscovery) AddInstanceNotify(service host.Name, instance *model
 // AddEndpoint adds an endpoint to a service.
 func (sd *ServiceDiscovery) AddEndpoint(service host.Name, servicePortName string, servicePort int, address string, port int) *model.ServiceInstance {
 	instance := &model.ServiceInstance{
+		Service: &model.Service{Hostname: service},
 		Endpoint: &model.IstioEndpoint{
 			Address:         address,
 			ServicePortName: servicePortName,
@@ -217,7 +195,7 @@ func (sd *ServiceDiscovery) AddEndpoint(service host.Name, servicePortName strin
 			Protocol: protocol.HTTP,
 		},
 	}
-	sd.AddInstance(service, instance)
+	sd.AddInstance(instance)
 	return instance
 }
 
@@ -230,6 +208,9 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 	if svc == nil {
 		sd.mutex.Unlock()
 		return
+	}
+	if svc.Attributes.Namespace != namespace {
+		log.Errorf("Service namespace %q != namespace %q", svc.Attributes.Namespace, namespace)
 	}
 
 	// remove old entries
@@ -274,10 +255,10 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 		sd.instancesByPortName[key] = append(instanceList, instance)
 
 	}
-	sd.mutex.Unlock()
 	if sd.XdsUpdater != nil {
 		sd.XdsUpdater.EDSUpdate(sd.shardKey(), service, namespace, endpoints)
 	}
+	sd.mutex.Unlock()
 }
 
 // Services implements discovery interface
@@ -302,7 +283,7 @@ func (sd *ServiceDiscovery) GetService(hostname host.Name) *model.Service {
 
 // InstancesByPort filters the service instances by labels. This assumes single port, as is
 // used by EDS/ADS.
-func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int, labels labels.Instance) []*model.ServiceInstance {
+func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int) []*model.ServiceInstance {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if sd.InstancesError != nil {

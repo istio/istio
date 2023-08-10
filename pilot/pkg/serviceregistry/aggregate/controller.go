@@ -15,8 +15,10 @@
 package aggregate
 
 import (
+	"net/netip"
 	"sync"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -24,7 +26,10 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 // The aggregate controller does not implement serviceregistry.Instance since it may be comprised of various
@@ -48,6 +53,70 @@ type Controller struct {
 	handlers          model.ControllerHandlers
 	handlersByCluster map[cluster.ID]*model.ControllerHandlers
 	model.NetworkGatewaysHandler
+}
+
+func (c *Controller) Waypoint(scope model.WaypointScope) []netip.Addr {
+	if !features.EnableAmbientControllers {
+		return nil
+	}
+	var res []netip.Addr
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.Waypoint(scope)...)
+	}
+	return res
+}
+
+func (c *Controller) WorkloadsForWaypoint(scope model.WaypointScope) []*model.WorkloadInfo {
+	if !features.EnableAmbientControllers {
+		return nil
+	}
+	var res []*model.WorkloadInfo
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.WorkloadsForWaypoint(scope)...)
+	}
+	return res
+}
+
+func (c *Controller) AdditionalPodSubscriptions(proxy *model.Proxy, addr, cur sets.String) sets.String {
+	if !features.EnableAmbientControllers {
+		return nil
+	}
+	res := sets.New[string]()
+	for _, p := range c.GetRegistries() {
+		res = res.Merge(p.AdditionalPodSubscriptions(proxy, addr, cur))
+	}
+	return res
+}
+
+func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.Authorization {
+	var res []*security.Authorization
+	if !features.EnableAmbientControllers {
+		return res
+	}
+	for _, p := range c.GetRegistries() {
+		res = append(res, p.Policies(requested)...)
+	}
+	return res
+}
+
+func (c *Controller) AddressInformation(addresses sets.String) ([]*model.AddressInfo, []string) {
+	i := []*model.AddressInfo{}
+	removed := sets.New[string]()
+	if !features.EnableAmbientControllers {
+		return i, []string{}
+	}
+	for _, p := range c.GetRegistries() {
+		wis, r := p.AddressInformation(addresses)
+		i = append(i, wis...)
+		removed.InsertAll(r...)
+	}
+	// We may have 'removed' it in one registry but found it in another
+	for _, wl := range i {
+		if removed.Contains(wl.ResourceName()) {
+			removed.Delete(wl.ResourceName())
+		}
+	}
+	return i, removed.UnsortedList()
 }
 
 type registryEntry struct {
@@ -76,9 +145,9 @@ func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan 
 	// Observe the registry for events.
 	registry.AppendNetworkGatewayHandler(c.NotifyGatewayHandlers)
 	registry.AppendServiceHandler(c.handlers.NotifyServiceHandlers)
-	registry.AppendServiceHandler(func(service *model.Service, event model.Event) {
+	registry.AppendServiceHandler(func(prev, curr *model.Service, event model.Event) {
 		for _, handlers := range c.getClusterHandlers() {
-			handlers.NotifyServiceHandlers(service, event)
+			handlers.NotifyServiceHandlers(prev, curr, event)
 		}
 	})
 }
@@ -86,11 +155,7 @@ func (c *Controller) addRegistry(registry serviceregistry.Instance, stop <-chan 
 func (c *Controller) getClusterHandlers() []*model.ControllerHandlers {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
-	out := make([]*model.ControllerHandlers, 0, len(c.handlersByCluster))
-	for _, handlers := range c.handlersByCluster {
-		out = append(out, handlers)
-	}
-	return out
+	return maps.Values(c.handlersByCluster)
 }
 
 // AddRegistry adds registries into the aggregated controller.
@@ -184,7 +249,7 @@ func (c *Controller) Services() []*model.Service {
 				} else {
 					// We must deepcopy before merge, and after merging, the ClusterVips length will be >= 2.
 					// This is an optimization to prevent deepcopy multi-times
-					if len(services[previous].ClusterVIPs.GetAddresses()) < 2 {
+					if services[previous].ClusterVIPs.Len() < 2 {
 						// Deep copy before merging, otherwise there is a case
 						// a service in remote cluster can be deleted, but the ClusterIP left.
 						services[previous] = services[previous].DeepCopy()
@@ -247,10 +312,10 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 
 // InstancesByPort retrieves instances for a service on a given port that match
 // any of the supplied labels. All instances match an empty label list.
-func (c *Controller) InstancesByPort(svc *model.Service, port int, labels labels.Instance) []*model.ServiceInstance {
+func (c *Controller) InstancesByPort(svc *model.Service, port int) []*model.ServiceInstance {
 	var instances []*model.ServiceInstance
 	for _, r := range c.GetRegistries() {
-		instances = append(instances, r.InstancesByPort(svc, port, labels)...)
+		instances = append(instances, r.InstancesByPort(svc, port)...)
 	}
 	return instances
 }
@@ -345,7 +410,7 @@ func (c *Controller) HasSynced() bool {
 	return true
 }
 
-func (c *Controller) AppendServiceHandler(f func(*model.Service, model.Event)) {
+func (c *Controller) AppendServiceHandler(f model.ServiceHandler) {
 	c.handlers.AppendServiceHandler(f)
 }
 
@@ -355,7 +420,7 @@ func (c *Controller) AppendWorkloadHandler(f func(*model.WorkloadInstance, model
 	// c.handlers.AppendWorkloadHandler(f)
 }
 
-func (c *Controller) AppendServiceHandlerForCluster(id cluster.ID, f func(*model.Service, model.Event)) {
+func (c *Controller) AppendServiceHandlerForCluster(id cluster.ID, f model.ServiceHandler) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 	handler, ok := c.handlersByCluster[id]
@@ -364,17 +429,6 @@ func (c *Controller) AppendServiceHandlerForCluster(id cluster.ID, f func(*model
 		handler = c.handlersByCluster[id]
 	}
 	handler.AppendServiceHandler(f)
-}
-
-func (c *Controller) AppendWorkloadHandlerForCluster(id cluster.ID, f func(*model.WorkloadInstance, model.Event)) {
-	c.storeLock.Lock()
-	defer c.storeLock.Unlock()
-	handler, ok := c.handlersByCluster[id]
-	if !ok {
-		c.handlersByCluster[id] = &model.ControllerHandlers{}
-		handler = c.handlersByCluster[id]
-	}
-	handler.AppendWorkloadHandler(f)
 }
 
 func (c *Controller) UnRegisterHandlersForCluster(id cluster.ID) {

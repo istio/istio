@@ -36,13 +36,11 @@ spec:
     spec:
       containers:
       - name: details
-        image: docker.io/istio/examples-bookinfo-details-v2:1.17.0
+        image: docker.io/istio/examples-bookinfo-details-v2:1.18.0
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 9080
         env:
         - name: DO_NOT_ENCRYPT
           value: "true"
-        securityContext:
-          runAsUser: 1000
 ---

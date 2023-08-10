@@ -31,8 +31,8 @@ import (
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/ledger"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/ledger"
 )
 
 func GenStatusReporterMapKey(conID string, distributionType xds.EventType) string {
@@ -316,22 +316,14 @@ func (r *Reporter) processEvent(conID string, distributionType xds.EventType, no
 	}
 	// touch
 	r.status[key] = version
-	if _, ok := r.reverseStatus[version]; !ok {
-		r.reverseStatus[version] = sets.New[string]()
-	}
-	r.reverseStatus[version].Insert(key)
+	sets.InsertOrNew(r.reverseStatus, version, key)
 }
 
 // This is a helper function for keeping our reverseStatus map in step with status.
 // must have write lock before calling.
 func (r *Reporter) deleteKeyFromReverseMap(key string) {
 	if old, ok := r.status[key]; ok {
-		if keys, ok := r.reverseStatus[old]; ok {
-			keys.Delete(key)
-			if keys.IsEmpty() {
-				delete(r.reverseStatus, old)
-			}
-		}
+		sets.DeleteCleanupLast(r.reverseStatus, old, key)
 	}
 }
 

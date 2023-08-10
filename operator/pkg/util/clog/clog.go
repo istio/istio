@@ -19,7 +19,7 @@ import (
 	"io"
 	"os"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Logger provides optional log taps for console and test buffer outputs.
@@ -46,7 +46,7 @@ type ConsoleLogger struct {
 func NewConsoleLogger(stdOut, stdErr io.Writer, scope *log.Scope) *ConsoleLogger {
 	s := scope
 	if s == nil {
-		s = log.RegisterScope(log.DefaultScopeName, log.DefaultScopeName, 0)
+		s = log.RegisterScope(log.DefaultScopeName, log.DefaultScopeName)
 	}
 	return &ConsoleLogger{
 		stdOut: stdOut,

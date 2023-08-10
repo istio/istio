@@ -58,14 +58,14 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 
 	// add resource to cache
 	xdsCache.Add(&entry, &model.PushRequest{Start: time.Now()}, resource)
-	if got, found := xdsCache.Get(&entry); !found || !reflect.DeepEqual(got, resource) {
+	if got := xdsCache.Get(&entry); got == nil || !reflect.DeepEqual(got, resource) {
 		t.Fatalf("rds cache was not updated")
 	}
 
 	// clear cache when delegate virtual service is updated
 	// this func is called by `dropCacheForRequest` in `initPushContext`
 	xdsCache.Clear(sets.New(delegate))
-	if _, found := xdsCache.Get(&entry); found {
+	if got := xdsCache.Get(&entry); got != nil {
 		t.Fatalf("rds cache was not cleared")
 	}
 
@@ -75,7 +75,7 @@ func TestClearRDSCacheOnDelegateUpdate(t *testing.T) {
 
 	// don't clear cache when irrelevant delegate virtual service is updated
 	xdsCache.Clear(sets.New(irrelevantDelegate))
-	if got, found := xdsCache.Get(&entry); !found || !reflect.DeepEqual(got, resource) {
+	if got := xdsCache.Get(&entry); got == nil || !reflect.DeepEqual(got, resource) {
 		t.Fatalf("rds cache was cleared by irrelevant delegate virtual service update")
 	}
 }
@@ -107,7 +107,7 @@ func TestDependentConfigs(t *testing.T) {
 			},
 		},
 		{
-			name: "singe parent",
+			name: "single parent",
 			r: Cache{
 				VirtualServices: []config.Config{
 					{

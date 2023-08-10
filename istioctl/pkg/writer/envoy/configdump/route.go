@@ -26,7 +26,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"sigs.k8s.io/yaml"
 
-	protio "istio.io/istio/istioctl/pkg/util/proto"
+	"istio.io/istio/istioctl/pkg/util/proto"
 	pilot_util "istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/util/sets"
@@ -53,26 +53,31 @@ func (c *ConfigWriter) PrintRouteSummary(filter RouteFilter) error {
 		return err
 	}
 	if filter.Verbose {
-		fmt.Fprintln(w, "NAME\tDOMAINS\tMATCH\tVIRTUAL SERVICE")
+		fmt.Fprintln(w, "NAME\tVHOST NAME\tDOMAINS\tMATCH\tVIRTUAL SERVICE")
 	} else {
 		fmt.Fprintln(w, "NAME\tVIRTUAL HOSTS")
 	}
 	for _, route := range routes {
 		if filter.Verify(route) {
+			if includeConfigType {
+				route.Name = fmt.Sprintf("route/%s", route.Name)
+			}
 			if filter.Verbose {
 				for _, vhosts := range route.GetVirtualHosts() {
 					for _, r := range vhosts.Routes {
 						if !isPassthrough(r.GetAction()) {
-							fmt.Fprintf(w, "%v\t%s\t%s\t%s\n",
+							fmt.Fprintf(w, "%v\t%s\t%s\t%s\t%s\n",
 								route.Name,
+								vhosts.Name,
 								describeRouteDomains(vhosts.GetDomains()),
 								describeMatch(r.GetMatch()),
 								describeManagement(r.GetMetadata()))
 						}
 					}
 					if len(vhosts.Routes) == 0 {
-						fmt.Fprintf(w, "%v\t%s\t%s\t%s\n",
+						fmt.Fprintf(w, "%v\t%s\t%s\t%s\t%s\n",
 							route.Name,
+							vhosts.Name,
 							describeRouteDomains(vhosts.GetDomains()),
 							"/*",
 							"404")
@@ -121,18 +126,18 @@ func unexpandDomains(domains []string) []string {
 	shouldDelete := sets.New[string]()
 	for _, h := range domains {
 		stripFull := strings.TrimSuffix(h, ".svc.cluster.local")
-		if _, f := unique[stripFull]; f && stripFull != h {
+		if unique.Contains(stripFull) && stripFull != h {
 			shouldDelete.Insert(h)
 		}
 		stripPartial := strings.TrimSuffix(h, ".svc")
-		if _, f := unique[stripPartial]; f && stripPartial != h {
+		if unique.Contains(stripPartial) && stripPartial != h {
 			shouldDelete.Insert(h)
 		}
 	}
 	// Filter from original list to keep original order
 	ret := make([]string, 0, len(domains))
 	for _, h := range domains {
-		if _, f := shouldDelete[h]; !f {
+		if !shouldDelete.Contains(h) {
 			ret = append(ret, h)
 		}
 	}
@@ -171,7 +176,7 @@ func (c *ConfigWriter) PrintRouteDump(filter RouteFilter, outputFormat string) e
 	if err != nil {
 		return err
 	}
-	filteredRoutes := make(protio.MessageSlice, 0, len(routes))
+	filteredRoutes := make(proto.MessageSlice, 0, len(routes))
 	for _, route := range routes {
 		if filter.Verify(route) {
 			filteredRoutes = append(filteredRoutes, route)

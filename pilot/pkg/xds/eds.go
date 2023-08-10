@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -45,44 +44,6 @@ const (
 	// FullPush triggers full push - typically used for new services.
 	FullPush
 )
-
-// UpdateServiceShards will list the endpoints and create the shards.
-// This is used to reconcile and to support non-k8s registries (until they migrate).
-// Note that aggregated list is expensive (for large numbers) - we want to replace
-// it with a model where DiscoveryServer keeps track of all endpoint registries
-// directly, and calls them one by one.
-func (s *DiscoveryServer) UpdateServiceShards(push *model.PushContext) error {
-	registries := s.getNonK8sRegistries()
-	// Short circuit now to avoid the call to Services
-	if len(registries) == 0 {
-		return nil
-	}
-	// Each registry acts as a shard - we don't want to combine them because some
-	// may individually update their endpoints incrementally
-	for _, svc := range push.GetAllServices() {
-		for _, registry := range registries {
-			// skip the service in case this svc does not belong to the registry.
-			if svc.Attributes.ServiceRegistry != registry.Provider() {
-				continue
-			}
-			endpoints := make([]*model.IstioEndpoint, 0)
-			for _, port := range svc.Ports {
-				if port.Protocol == protocol.UDP {
-					continue
-				}
-
-				// This loses track of grouping (shards)
-				for _, inst := range registry.InstancesByPort(svc, port.Port, nil) {
-					endpoints = append(endpoints, inst.Endpoint)
-				}
-			}
-			shard := model.ShardKeyFromRegistry(registry)
-			s.edsCacheUpdate(shard, string(svc.Hostname), svc.Attributes.Namespace, endpoints)
-		}
-	}
-
-	return nil
-}
 
 // SvcUpdate is a callback from service discovery when service info changes.
 func (s *DiscoveryServer) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {
@@ -112,7 +73,7 @@ func (s *DiscoveryServer) EDSUpdate(shard model.ShardKey, serviceName string, na
 		s.ConfigUpdate(&model.PushRequest{
 			Full:           pushType == FullPush,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: serviceName, Namespace: namespace}),
-			Reason:         []model.TriggerReason{model.EndpointUpdate},
+			Reason:         model.NewReasonStats(model.EndpointUpdate),
 		})
 	}
 }
@@ -450,21 +411,27 @@ func shouldUseDeltaEds(req *model.PushRequest) bool {
 	if !req.Full {
 		return false
 	}
-	return onlyEndpointsChanged(req)
+	return canSendPartialFullPushes(req)
 }
 
-// onlyEndpointsChanged checks if a request contains *only* endpoints updates. This allows us to perform more efficient pushes
-// where we only update the endpoints that did change.
-func onlyEndpointsChanged(req *model.PushRequest) bool {
-	if len(req.ConfigsUpdated) > 0 {
-		for k := range req.ConfigsUpdated {
-			if k.Kind != kind.ServiceEntry {
-				return false
-			}
-		}
-		return true
+// canSendPartialFullPushes checks if a request contains *only* endpoints updates except `skippedEdsConfigs`.
+// This allows us to perform more efficient pushes where we only update the endpoints that did change.
+func canSendPartialFullPushes(req *model.PushRequest) bool {
+	// If we don't know what configs are updated, just send a full push
+	if len(req.ConfigsUpdated) == 0 {
+		return false
 	}
-	return false
+	for cfg := range req.ConfigsUpdated {
+		if _, f := skippedEdsConfigs[cfg.Kind]; f {
+			// the updated config does not impact EDS, skip it
+			// this happens when push requests are merged due to debounce
+			continue
+		}
+		if cfg.Kind != kind.ServiceEntry {
+			return false
+		}
+	}
+	return true
 }
 
 func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
@@ -478,7 +445,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	// ConfigsUpdated=ALL, so in this case we would not enable a partial push.
 	// Despite this code existing on the SotW code path, sending these partial pushes is still allowed;
 	// see https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#grouping-resources-into-responses
-	if !req.Full || (features.PartialFullPushes && onlyEndpointsChanged(req)) {
+	if !req.Full || canSendPartialFullPushes(req) {
 		edsUpdatedServices = model.ConfigNamesOfKind(req.ConfigsUpdated, kind.ServiceEntry)
 	}
 	var resources model.Resources
@@ -495,11 +462,19 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 			}
 		}
 		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
-		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
-			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
-			resources = append(resources, marshalledEndpoint)
-			cached++
-		} else {
+
+		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
+		if !features.EnableUnsafeAssertions {
+			cachedEndpoint := eds.Server.Cache.Get(&builder)
+			if cachedEndpoint != nil {
+				resources = append(resources, cachedEndpoint)
+				cached++
+				continue
+			}
+		}
+
+		// generate eds from beginning
+		{
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
 				continue
@@ -514,7 +489,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, req, resource)
+			eds.Server.Cache.Add(&builder, req, resource)
 		}
 	}
 	return resources, model.XdsLogDetails{
@@ -548,11 +523,18 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 			removed = append(removed, clusterName)
 			continue
 		}
-		if marshalledEndpoint, f := eds.Server.Cache.Get(builder); f && !features.EnableUnsafeAssertions {
-			// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
-			resources = append(resources, marshalledEndpoint)
-			cached++
-		} else {
+
+		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
+		if !features.EnableUnsafeAssertions {
+			cachedEndpoint := eds.Server.Cache.Get(&builder)
+			if cachedEndpoint != nil {
+				resources = append(resources, cachedEndpoint)
+				cached++
+				continue
+			}
+		}
+		// generate new eds cache
+		{
 			l := eds.Server.generateEndpoints(builder)
 			if l == nil {
 				removed = append(removed, clusterName)
@@ -567,7 +549,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(builder, req, resource)
+			eds.Server.Cache.Add(&builder, req, resource)
 		}
 	}
 	return resources, removed, model.XdsLogDetails{

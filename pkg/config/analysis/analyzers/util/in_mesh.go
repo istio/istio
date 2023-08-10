@@ -20,11 +20,13 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 )
 
-// DeploymentinMesh returns true if deployment is in the service mesh (has sidecar)
+// DeploymentInMesh returns true if deployment is in the service mesh (has sidecar)
 func DeploymentInMesh(r *resource.Instance, c analysis.Context) bool {
 	d := r.Message.(*appsv1.DeploymentSpec)
 	return inMesh(d.Template.Annotations, d.Template.Labels,
@@ -35,7 +37,12 @@ func DeploymentInMesh(r *resource.Instance, c analysis.Context) bool {
 func PodInMesh(r *resource.Instance, c analysis.Context) bool {
 	p := r.Message.(*v1.PodSpec)
 	return inMesh(r.Metadata.Annotations, r.Metadata.Labels,
-		r.Metadata.FullName.Namespace, p.Containers, c)
+		r.Metadata.FullName.Namespace, append(slices.Clone(p.Containers), p.InitContainers...), c)
+}
+
+// PodInAmbientMode returns true if a Pod is in the service mesh with the ambient mode
+func PodInAmbientMode(r *resource.Instance) bool {
+	return r.Metadata.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 }
 
 func inMesh(annos, labels map[string]string, namespace resource.Namespace, containers []v1.Container, c analysis.Context) bool {
@@ -77,7 +84,7 @@ func getPodSidecarInjectionStatus(metadata map[string]string) (enabled bool, ok 
 func getNamesSidecarInjectionStatus(ns resource.Namespace, c analysis.Context) (enabled bool, ok bool) {
 	enabled, ok = false, false
 
-	namespace := c.Find(collections.K8SCoreV1Namespaces.Name(), resource.NewFullName("", resource.LocalName(ns)))
+	namespace := c.Find(gvk.Namespace, resource.NewFullName("", resource.LocalName(ns)))
 	if namespace != nil {
 		enabled, ok = namespace.Metadata.Labels[InjectionLabelName] == InjectionLabelEnableValue, true
 	}

@@ -26,11 +26,11 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/security/pkg/k8s/tokenreview"
-	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -154,14 +154,16 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate the JWT from cluster %q: %v", clusterID, err)
 	}
-	if len(id) != 2 {
-		return nil, fmt.Errorf("failed to parse the JWT. Validation result length is not 2, but %d", len(id))
+	if id.PodServiceAccount == "" {
+		return nil, fmt.Errorf("failed to parse the JWT; service account required")
 	}
-	callerNamespace := id[0]
-	callerServiceAccount := id[1]
+	if id.PodNamespace == "" {
+		return nil, fmt.Errorf("failed to parse the JWT; namespace required")
+	}
 	return &security.Caller{
-		AuthSource: security.AuthSourceIDToken,
-		Identities: []string{fmt.Sprintf(authenticate.IdentityTemplate, a.meshHolder.Mesh().GetTrustDomain(), callerNamespace, callerServiceAccount)},
+		AuthSource:     security.AuthSourceIDToken,
+		Identities:     []string{spiffe.MustGenSpiffeURI(id.PodNamespace, id.PodServiceAccount)},
+		KubernetesInfo: id,
 	}, nil
 }
 

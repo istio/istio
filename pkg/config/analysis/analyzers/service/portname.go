@@ -19,13 +19,14 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	"istio.io/istio/pkg/config/constants"
 	configKube "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // PortNameAnalyzer checks the port name of the service
@@ -38,15 +39,15 @@ func (s *PortNameAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "service.PortNameAnalyzer",
 		Description: "Checks the port names associated with each service",
-		Inputs: collection.Names{
-			collections.K8SCoreV1Services.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Service,
 		},
 	}
 }
 
 // Analyze implements Analyzer
 func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
-	c.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.Service, func(r *resource.Instance) bool {
 		svcNs := r.Metadata.FullName.Namespace
 
 		// Skip system namespaces entirely
@@ -66,6 +67,12 @@ func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 
 func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Context) {
 	svc := r.Message.(*v1.ServiceSpec)
+	// Skip gateway managed services, which are not created by users
+	if v, ok := r.Metadata.Labels[constants.ManagedGatewayLabel]; ok &&
+		v == constants.ManagedGatewayControllerLabel ||
+		v == constants.ManagedGatewayMeshControllerLabel {
+		return
+	}
 	for i, port := range svc.Ports {
 		instance := configKube.ConvertProtocol(port.Port, port.Name, port.Protocol, port.AppProtocol)
 		if instance.IsUnsupported() || port.Name == "tcp" && svc.Type == "ExternalName" {
@@ -80,7 +87,7 @@ func (s *PortNameAnalyzer) analyzeService(r *resource.Instance, c analysis.Conte
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.PortInPorts, i)); ok {
 				m.Line = line
 			}
-			c.Report(collections.K8SCoreV1Services.Name(), m)
+			c.Report(gvk.Service, m)
 		}
 	}
 }

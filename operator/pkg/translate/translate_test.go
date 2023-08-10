@@ -20,6 +20,7 @@ import (
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/test/util/assert"
@@ -206,6 +207,90 @@ components:
 				assert.Equal(t, val, false)
 			} else {
 				assert.Equal(t, found, false)
+			}
+		})
+	}
+}
+
+func Test_fixMergedObjectWithCustomServicePortOverlay_withAppProtocol(t *testing.T) {
+	const serviceString = `
+apiVersion: v1
+kind: Service
+metadata:
+  name: istio-ingressgateway
+  namespace: istio-system
+spec:
+  type: LoadBalancer
+`
+	const iopString = `
+components:
+  ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        service:
+          ports:
+          - name: http2
+            port: 80
+            targetPort: 8080
+`
+	const iopString2 = `
+components:
+  ingressGateways:
+    - name: istio-ingressgateway
+      enabled: true
+      k8s:
+        service:
+          ports:
+          - name: http2
+            port: 80
+            targetPort: 8080
+            appProtocol: HTTP
+`
+	cases := []struct {
+		name        string
+		iopString   string
+		expectValue string
+		expectExist bool
+	}{
+		{
+			name:        "without appProtocol",
+			iopString:   iopString,
+			expectExist: false,
+		},
+		{
+			name:        "with appProtocol",
+			iopString:   iopString2,
+			expectExist: true,
+			expectValue: "HTTP",
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			var iop *v1alpha1.IstioOperatorSpec
+			if tt.iopString != "" {
+				iop = &v1alpha1.IstioOperatorSpec{}
+				if err := util.UnmarshalWithJSONPB(tt.iopString, iop, true); err != nil {
+					t.Fatal(err)
+				}
+			}
+			translator := NewTranslator()
+			serviceObj, err := object.ParseYAMLToK8sObject([]byte(serviceString))
+			assert.NoError(t, err)
+			obj, err := translator.fixMergedObjectWithCustomServicePortOverlay(serviceObj,
+				iop.Components.IngressGateways[0].GetK8S().GetService(), serviceObj)
+			assert.NoError(t, err)
+			val := obj.UnstructuredObject().Object["spec"].(map[string]interface{})["ports"].([]interface{})[0]
+			apVal, found, _ := tpath.GetFromStructPath(val, "appProtocol")
+			if !tt.expectExist {
+				assert.Equal(t, found, false)
+			} else {
+				if apVal != nil {
+					assert.Equal(t, apVal.(string), tt.expectValue)
+				} else {
+					assert.Equal(t, "", tt.expectValue)
+				}
 			}
 		})
 	}

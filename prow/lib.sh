@@ -14,6 +14,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+WD=$(dirname "$0")
+WD=$(cd "$WD" || exit; pwd)
+ROOT=$(dirname "$WD")
+
+# shellcheck source=common/scripts/tracing.sh
+source "${ROOT}/common/scripts/tracing.sh"
+
 function date_cmd() {
   case "$(uname)" in
     "Darwin")
@@ -42,7 +49,7 @@ function trace() {
   start="$(date_cmd -u +%s.%N)"
   { set -x; } 2>/dev/null
 
-  "${@:2}"
+  tracing::run "$1" "${@:2}"
 
   { set +x; } 2>/dev/null
   elapsed=$(date_cmd +%s.%N --date="$start seconds ago" )
@@ -54,9 +61,9 @@ function trace() {
 
 function setup_gcloud_credentials() {
   if [[ $(command -v gcloud) ]]; then
-    gcloud auth configure-docker -q
+    gcloud auth configure-docker us-docker.pkg.dev -q
   elif [[ $(command -v docker-credential-gcr) ]]; then
-    docker-credential-gcr configure-docker
+    docker-credential-gcr configure-docker --registries=-us-docker.pkg.dev
   else
     echo "No credential helpers found, push to docker may not function properly"
   fi
@@ -98,13 +105,10 @@ function download_untar_istio_release() {
 }
 
 function buildx-create() {
-  export DOCKER_CLI_EXPERIMENTAL=enabled
-  if ! docker buildx ls | grep -q container-builder; then
-    docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.10.3 --name container-builder --buildkitd-flags="--debug"
-    # Pre-warm the builder. If it fails, fetch logs, but continue
-    docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
-  fi
-  docker buildx use container-builder
+  WD=$(dirname "$0")
+  WD=$(cd "$WD" || exit; pwd)
+  ROOT=$(dirname "$WD")
+  "$ROOT/prow/buildx-create"
 }
 
 function build_images() {
@@ -117,12 +121,15 @@ function build_images() {
   nonDistrolessTargets="docker.app docker.app_sidecar_ubuntu_jammy docker.ext-authz "
   if [[ "${JOB_TYPE:-presubmit}" == "postsubmit" ]]; then
     # We run tests across all VM types only in postsubmit
-    nonDistrolessTargets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_debian_11  docker.app_sidecar_centos_7 "
+    nonDistrolessTargets+="docker.app_sidecar_ubuntu_xenial docker.app_sidecar_debian_11 "
     # TODO(https://github.com/istio/istio/issues/38224)
 #    nonDistrolessTargets+="docker.app_sidecar_rockylinux_8 "
   fi
   if [[ "${SELECT_TEST}" == "test.integration.operator.kube" || "${SELECT_TEST}" == "test.integration.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
     targets+="docker.operator "
+  fi
+  if [[ "${SELECT_TEST}" == "test.integration.ambient.kube" || "${SELECT_TEST}" == "test.integration.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
+    targets+="docker.ztunnel "
   fi
   targets+="docker.install-cni "
   # Integration tests are always running on local architecture (no cross compiling), so find out what that is.

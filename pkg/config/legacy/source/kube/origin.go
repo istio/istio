@@ -21,19 +21,18 @@ import (
 	"path/filepath"
 	"strings"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // Origin is a K8s specific implementation of resource.Origin
 type Origin struct {
-	Collection collection.Name
-	Kind       string
-	FullName   resource.FullName
-	Version    resource.Version
-	Ref        resource.Reference
-	FieldsMap  map[string]int
+	Type            config.GroupVersionKind
+	FullName        resource.FullName
+	ResourceVersion resource.Version
+	Ref             resource.Reference
+	FieldsMap       map[string]int
 }
 
 var (
@@ -47,19 +46,19 @@ func (o *Origin) FriendlyName() string {
 	if len(parts) == 2 {
 		// The istioctl convention is <type> [<namespace>/]<name>.
 		// This code has no notion of a default and always shows the namespace.
-		return fmt.Sprintf("%s %s/%s", o.Kind, parts[0], parts[1])
+		return fmt.Sprintf("%s %s/%s", o.Type.Kind, parts[0], parts[1])
 	}
-	return fmt.Sprintf("%s %s", o.Kind, o.FullName.String())
+	return fmt.Sprintf("%s %s", o.Type.Kind, o.FullName.String())
 }
 
 func (o *Origin) Comparator() string {
-	return o.Kind + "/" + o.FullName.Name.String() + "/" + o.FullName.Namespace.String()
+	return o.Type.Kind + "/" + o.FullName.Name.String() + "/" + o.FullName.Namespace.String()
 }
 
 // Namespace implements resource.Origin
 func (o *Origin) Namespace() resource.Namespace {
 	// Special case: the namespace of a namespace resource is its own name
-	if o.Collection == collections.K8SCoreV1Namespaces.Name() {
+	if o.Type == gvk.Namespace {
 		return resource.Namespace(o.FullName.Name)
 	}
 

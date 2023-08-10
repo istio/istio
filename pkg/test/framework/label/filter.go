@@ -19,7 +19,7 @@ import (
 	"regexp"
 	"strings"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // Selector is a Set of label filter expressions that get applied together to decide whether tests should be selected

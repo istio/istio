@@ -126,7 +126,7 @@ proxyStatsMatcher:
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			proxyConfigEnv := tt.environment
-			got, err := getMeshConfig(tt.file, tt.annotation, proxyConfigEnv, true)
+			got, err := getMeshConfig(tt.file, tt.annotation, proxyConfigEnv)
 			if err != nil {
 				t.Fatal(err)
 			}

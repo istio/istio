@@ -16,9 +16,6 @@ package xds
 import (
 	"net"
 
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/reflection"
-
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
@@ -66,10 +63,9 @@ type SimpleServer struct {
 func NewXDS(stop chan struct{}) *SimpleServer {
 	// Prepare a working XDS server, with aggregate config and registry stores and a memory store for each.
 	// TODO: refactor bootstrap code to use this server, and add more registries.
-
 	env := model.NewEnvironment()
 	env.Watcher = mesh.NewFixedWatcher(mesh.DefaultMeshConfig())
-	env.PushContext.Mesh = env.Watcher.Mesh()
+	env.PushContext().Mesh = env.Watcher.Mesh()
 	env.Init()
 
 	ds := NewDiscoveryServer(env, "istiod", "", map[string]string{})
@@ -100,7 +96,6 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 
 	sd := controllermemory.NewServiceDiscovery()
 	sd.XdsUpdater = ds
-	ds.MemRegistry = sd
 	serviceControllers.AddRegistry(serviceregistry.Simple{
 		ProviderID:       "Mem",
 		ServiceDiscovery: sd,
@@ -123,22 +118,4 @@ func NewXDS(stop chan struct{}) *SimpleServer {
 	env.ConfigStore = aggregateConfigController
 
 	return s
-}
-
-func (s *SimpleServer) StartGRPC(addr string) (string, error) {
-	lis, err := net.Listen("tcp", addr)
-	if err != nil {
-		return "", err
-	}
-	gs := grpc.NewServer()
-	s.DiscoveryServer.Register(gs)
-	reflection.Register(gs)
-	s.GRPCListener = lis
-	go func() {
-		err = gs.Serve(lis)
-		if err != nil {
-			log.Infof("Serve done with %v", err)
-		}
-	}()
-	return lis.Addr().String(), nil
 }

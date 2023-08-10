@@ -24,6 +24,8 @@ import (
 	"net/http"
 	"strings"
 
+	proxyproto "github.com/pires/go-proxyproto"
+
 	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
@@ -52,6 +54,22 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID in
 	defer func() { _ = conn.Close() }()
 
 	msgBuilder := strings.Builder{}
+	// If we have been asked to do TCP comms with a PROXY protocol header,
+	// determine which version, and send the header.
+	// https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
+	//
+	// PROXY protocol is only for L4 TCP traffic, and the magic string/bytes MUST
+	// be written at the BEGINNING of the TCP connection if communicating with a PROXY-protocol enabled server.
+	if cfg.proxyProtocolVersion != 0 {
+		fwLog.Infof("TCP forwarder using PROXY protocol version %d", cfg.proxyProtocolVersion)
+		header := proxyproto.HeaderProxyFromAddrs(byte(cfg.proxyProtocolVersion), conn.LocalAddr(), conn.RemoteAddr())
+		// After the connection is created, write the proxy headers first
+		if _, err := header.WriteTo(conn); err != nil {
+			fwLog.Warnf("TCP Proxy protocol header write failed: %v", err)
+			return msgBuilder.String(), err
+		}
+	}
+
 	echo.ForwarderURLField.WriteForRequest(&msgBuilder, requestID, cfg.Request.Url)
 
 	if cfg.Request.Message != "" {
@@ -79,7 +97,7 @@ func (c *tcpProtocol) makeRequest(ctx context.Context, cfg *Config, requestID in
 			return "", err
 		}
 		if string(readBytes) != common.ServerFirstMagicString {
-			return "", fmt.Errorf("did not receive magic sting. Want %q, got %q", common.ServerFirstMagicString, string(readBytes))
+			return "", fmt.Errorf("did not receive magic string. Want %q, got %q", common.ServerFirstMagicString, string(readBytes))
 		}
 	}
 
@@ -139,5 +157,6 @@ func newTCPConnection(cfg *Config) (net.Conn, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), common.ConnectionTimeout)
 	defer cancel()
+
 	return newDialer(cfg).DialContext(ctx, "tcp", address)
 }

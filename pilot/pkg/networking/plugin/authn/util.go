@@ -26,6 +26,9 @@ func TrustDomainsForValidation(meshConfig *meshconfig.MeshConfig) []string {
 	}
 
 	tds := append([]string{meshConfig.TrustDomain}, meshConfig.TrustDomainAliases...)
+	for _, cacert := range meshConfig.GetCaCertificates() {
+		tds = append(tds, cacert.GetTrustDomains()...)
+	}
 	return dedupTrustDomains(tds)
 }
 

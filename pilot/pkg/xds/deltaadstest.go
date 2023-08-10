@@ -149,6 +149,26 @@ func (a *DeltaAdsTest) ExpectResponse() *discovery.DeltaDiscoveryResponse {
 	return nil
 }
 
+// ExpectResponse waits until a response is received and returns it
+func (a *DeltaAdsTest) ExpectEmptyResponse() *discovery.DeltaDiscoveryResponse {
+	a.t.Helper()
+	select {
+	case <-time.After(a.timeout):
+		a.t.Fatalf("did not get response in time")
+	case resp := <-a.responses:
+		if resp == nil {
+			a.t.Fatalf("expected response")
+		}
+		if resp != nil && (len(resp.RemovedResources) > 0 || len(resp.Resources) > 0) {
+			a.t.Fatalf("expected empty response. received %v", resp)
+		}
+		return resp
+	case err := <-a.error:
+		a.t.Fatalf("got error: %v", err)
+	}
+	return nil
+}
+
 // ExpectError waits until an error is received and returns it
 func (a *DeltaAdsTest) ExpectError() error {
 	a.t.Helper()
@@ -244,5 +264,10 @@ func (a *DeltaAdsTest) WithMetadata(m model.NodeMetadata) *DeltaAdsTest {
 
 func (a *DeltaAdsTest) WithTimeout(t time.Duration) *DeltaAdsTest {
 	a.timeout = t
+	return a
+}
+
+func (a *DeltaAdsTest) WithNodeType(t model.NodeType) *DeltaAdsTest {
+	a.ID = string(t) + "~1.1.1.1~test.default~default.svc.cluster.local"
 	return a
 }

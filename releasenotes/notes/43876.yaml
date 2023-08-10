@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 43655
+releaseNotes:
+  - |
+    **Added** make inbound port configurable.

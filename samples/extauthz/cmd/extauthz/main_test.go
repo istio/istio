@@ -34,7 +34,7 @@ func TestExtAuthz(t *testing.T) {
 
 	// Prepare the HTTP request.
 	httpClient := &http.Client{}
-	httpReq, err := http.NewRequest("GET", fmt.Sprintf("http://localhost:%d/check", <-server.httpPort), nil)
+	httpReq, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%d/check", <-server.httpPort), nil)
 	if err != nil {
 		t.Fatalf(err.Error())
 	}
@@ -134,6 +134,7 @@ func TestExtAuthz(t *testing.T) {
 					t.Errorf(err.Error())
 				} else {
 					got = resp.StatusCode
+					resp.Body.Close()
 				}
 			}
 			if got != tc.want {

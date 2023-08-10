@@ -19,7 +19,7 @@ spec:
   {{- if $.StatefulSet }}
   serviceName: {{ $.Service }}
   {{- end }}
-  replicas: 1
+  replicas: {{$subset.Replicas | default 1 }}
   selector:
     matchLabels:
       app: {{ $.Service }}
@@ -39,6 +39,9 @@ spec:
 {{- if ne $.Locality "" }}
         istio-locality: {{ $.Locality }}
 {{- end }}
+{{- range $name, $value := $subset.Labels }}
+        {{$name}}: "{{$value}}"
+{{- end }}
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
@@ -49,6 +52,15 @@ spec:
         proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
 {{- end }}
     spec:
+{{- if $.Ambient }}
+      topologySpreadConstraints:
+      - topologyKey: "kubernetes.io/hostname"
+        whenUnsatisfiable: "ScheduleAnyway"
+        maxSkew: 1
+        labelSelector:
+          matchLabels:
+            app: {{ $.Service }}
+{{- end }}
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
@@ -145,6 +157,10 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: status.podIP
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
 {{- if $.ProxylessGRPC }}
         - name: EXPOSE_GRPC_ADMIN
           value: "true"

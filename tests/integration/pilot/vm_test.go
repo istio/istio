@@ -9,7 +9,7 @@
 //
 //     http://www.apache.org/licenses/LICENSE-2.0
 //
-// Unless required by applicable law or agreed to in writing, software
+// Unless required by applicable law or agreed to in writ59ing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
@@ -27,8 +27,8 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/api/annotation"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -156,7 +156,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 				initialWLE := entries[0]
 
 				// keep force-disconnecting until we observe a reconnect to a different istiod instance
-				initialPilot := initialWLE.Annotations[autoregistration.WorkloadControllerAnnotation]
+				initialPilot := initialWLE.Annotations[annotation.IoIstioWorkloadController.Name]
 				disconnectProxy(t, initialPilot, autoVM)
 				retry.UntilSuccessOrFail(t, func() error {
 					entries := getWorkloadEntriesOrFail(t, autoVM)
@@ -164,7 +164,7 @@ func TestVMRegistrationLifecycle(t *testing.T) {
 						t.Fatalf("WorkloadEntry was cleaned up unexpectedly")
 					}
 
-					currentPilot := entries[0].Annotations[autoregistration.WorkloadControllerAnnotation]
+					currentPilot := entries[0].Annotations[annotation.IoIstioWorkloadController.Name]
 					if currentPilot == initialPilot || !strings.HasPrefix(currentPilot, "istiod-") {
 						disconnectProxy(t, currentPilot, autoVM)
 						return errors.New("expected WorkloadEntry to be updated by other pilot")

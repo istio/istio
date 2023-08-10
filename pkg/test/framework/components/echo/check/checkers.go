@@ -127,7 +127,7 @@ func NotOK() echo.Checker {
 	return ErrorOrNotStatus(http.StatusOK)
 }
 
-// NoErrorAndStatus is checks that no error occurred and htat the returned status code matches the expected
+// NoErrorAndStatus is checks that no error occurred and that the returned status code matches the expected
 // value.
 func NoErrorAndStatus(expected int) echo.Checker {
 	return And(NoError(), Status(expected))
@@ -232,6 +232,16 @@ func Host(expected string) echo.Checker {
 	return Each(func(r echoClient.Response) error {
 		if r.Host != expected {
 			return fmt.Errorf("expected host %s, received %s", expected, r.Host)
+		}
+		return nil
+	})
+}
+
+// Hostname checks the hostname the request landed on. This differs from Host which is the request we called.
+func Hostname(expected string) echo.Checker {
+	return Each(func(r echoClient.Response) error {
+		if r.Hostname != expected {
+			return fmt.Errorf("expected hostname %s, received %s", expected, r.Hostname)
 		}
 		return nil
 	})

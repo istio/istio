@@ -21,19 +21,20 @@ import (
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/istioctl/pkg/verifier"
-	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/ptr"
 )
 
 // NewVerifyCommand creates a new command for verifying Istio Installation Status
 func NewVerifyCommand() *cobra.Command {
 	var (
 		kubeConfigFlags = &genericclioptions.ConfigFlags{
-			Context:    strPtr(""),
-			Namespace:  strPtr(""),
-			KubeConfig: strPtr(""),
+			Context:    ptr.Of(""),
+			Namespace:  ptr.Of(""),
+			KubeConfig: ptr.Of(""),
 		}
 
 		filenames      = []string{}
@@ -92,11 +93,7 @@ istioctl experimental precheck.
 		"Istio system namespace")
 	kubeConfigFlags.AddFlags(flags)
 	flags.StringSliceVarP(&filenames, "filename", "f", filenames, "Istio YAML installation file.")
-	verifyInstallCmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", mesh.ManifestsFlagHelpStr)
+	verifyInstallCmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", util.ManifestsFlagHelpStr)
 	opts.AttachControlPlaneFlags(verifyInstallCmd)
 	return verifyInstallCmd
-}
-
-func strPtr(val string) *string {
-	return &val
 }

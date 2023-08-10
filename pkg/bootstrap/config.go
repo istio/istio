@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -36,12 +37,13 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/version"
 )
 
 const (
@@ -86,6 +88,13 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		xdsType = "DELTA_GRPC"
 	}
 
+	// Waypoint overrides
+	metadataDiscovery := false
+	if strings.HasPrefix(cfg.ID, "waypoint~") {
+		xdsType = "DELTA_GRPC"
+		metadataDiscovery = true
+	}
+
 	opts = append(opts,
 		option.NodeID(cfg.ID),
 		option.NodeType(cfg.ID),
@@ -93,7 +102,8 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.OutlierLogPath(cfg.Metadata.OutlierLogPath),
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
-		option.XdsType(xdsType))
+		option.XdsType(xdsType),
+		option.MetadataDiscovery(metadataDiscovery))
 
 	// Add GCPProjectNumber to access in bootstrap template.
 	md := cfg.Metadata.PlatformMetadata
@@ -118,16 +128,45 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	opts = append(opts, getNodeMetadataOptions(cfg.Node)...)
 
 	// Check if nodeIP carries IPv4 or IPv6 and set up proxy accordingly
-	if network.AllIPv6(cfg.Metadata.InstanceIPs) {
+	if network.AllIPv4(cfg.Metadata.InstanceIPs) {
+		// IPv4 only
+		opts = append(opts,
+			option.Localhost(option.LocalhostIPv4),
+			option.Wildcard(option.WildcardIPv4),
+			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+	} else if network.AllIPv6(cfg.Metadata.InstanceIPs) {
+		// IPv6 only
 		opts = append(opts,
 			option.Localhost(option.LocalhostIPv6),
 			option.Wildcard(option.WildcardIPv6),
 			option.DNSLookupFamily(option.DNSLookupFamilyIPv6))
 	} else {
-		opts = append(opts,
-			option.Localhost(option.LocalhostIPv4),
-			option.Wildcard(option.WildcardIPv4),
-			option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+		// Dual Stack
+		if features.EnableDualStack {
+			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
+			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
+			ipFamily, err := network.CheckIPFamilyTypeForFirstIPs(cfg.Metadata.InstanceIPs)
+			if err != nil {
+				return nil, err
+			}
+			if ipFamily == network.IPv6 {
+				opts = append(opts,
+					option.Localhost(option.LocalhostIPv6),
+					option.Wildcard(option.WildcardIPv6),
+					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
+			} else {
+				opts = append(opts,
+					option.Localhost(option.LocalhostIPv4),
+					option.Wildcard(option.WildcardIPv4),
+					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
+			}
+		} else {
+			// keep the original logic if Dual Stack is disable
+			opts = append(opts,
+				option.Localhost(option.LocalhostIPv4),
+				option.Wildcard(option.WildcardIPv4),
+				option.DNSLookupFamily(option.DNSLookupFamilyIPv4))
+		}
 	}
 
 	proxyOpts, err := getProxyConfigOptions(cfg.Metadata)
@@ -135,6 +174,9 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		return nil, err
 	}
 	opts = append(opts, proxyOpts...)
+
+	// Append LRS related options.
+	opts = append(opts, option.LoadStatsConfigJSONStr(cfg.Node))
 
 	// TODO: allow reading a file with additional metadata (for example if created with
 	// 'envref'. This will allow Istio to generate the right config even if the pod info
@@ -157,39 +199,6 @@ func substituteValues(patterns []string, varName string, values []string) []stri
 		}
 	}
 	return ret
-}
-
-// DefaultStatTags for telemetry v2 tag extraction.
-var DefaultStatTags = []string{
-	"reporter",
-	"source_namespace",
-	"source_workload",
-	"source_workload_namespace",
-	"source_principal",
-	"source_app",
-	"source_version",
-	"source_cluster",
-	"destination_namespace",
-	"destination_workload",
-	"destination_workload_namespace",
-	"destination_principal",
-	"destination_app",
-	"destination_version",
-	"destination_service",
-	"destination_service_name",
-	"destination_service_namespace",
-	"destination_port",
-	"destination_cluster",
-	"request_protocol",
-	"request_operation",
-	"request_host",
-	"response_flags",
-	"grpc_response_status",
-	"connection_security_policy",
-	"source_canonical_service",
-	"destination_canonical_service",
-	"source_canonical_revision",
-	"destination_canonical_revision",
 }
 
 func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
@@ -222,9 +231,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		return substituteValues(inclusionOption, "{pod_ip}", nodeIPs)
 	}
 
-	extraStatTags := make([]string, 0, len(DefaultStatTags))
-	extraStatTags = append(extraStatTags,
-		DefaultStatTags...)
+	extraStatTags := make([]string, 0, len(config.ExtraStatTags))
 	for _, tag := range config.ExtraStatTags {
 		if tag != "" {
 			extraStatTags = append(extraStatTags, tag)
@@ -248,6 +255,22 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		inclusionSuffixes = requiredEnvoyStatsMatcherInclusionSuffixes
 	}
 
+	var buckets []option.HistogramBucket
+	if bucketsAnno, ok := meta.Annotations[annotation.SidecarStatsHistogramBuckets.Name]; ok {
+		js := map[string][]float64{}
+		err := json.Unmarshal([]byte(bucketsAnno), &js)
+		if err == nil {
+			for prefix, value := range js {
+				buckets = append(buckets, option.HistogramBucket{Match: option.HistogramMatch{Prefix: prefix}, Buckets: value})
+			}
+			sort.Slice(buckets, func(i, j int) bool {
+				return buckets[i].Match.Prefix < buckets[j].Match.Prefix
+			})
+		} else {
+			log.Warnf("Failed to unmarshal histogram buckets: %v", bucketsAnno, err)
+		}
+	}
+
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
@@ -255,6 +278,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 			inclusionSuffixes, proxyConfigSuffixes)),
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
+		option.EnvoyHistogramBuckets(buckets),
 	}
 }
 
@@ -278,14 +302,13 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
-func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
+func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
 	// Setup defaults
-	runtimeFlags := map[string]string{
-		"overload.global_downstream_max_connections":                                                           "2147483647",
-		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": "true",
-		"re2.max_program_size.error_level":                                                                     "32768",
-		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
-		"envoy.reloadable_features.no_extension_lookup_by_name":                                                "false",
+	runtimeFlags := map[string]any{
+		"overload.global_downstream_max_connections": "2147483647",
+		"re2.max_program_size.error_level":           "32768",
+		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted
@@ -297,7 +320,17 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 			delete(runtimeFlags, k)
 			continue
 		}
-		runtimeFlags[k] = v
+		// Envoy used to allow everything as string but stopped in https://github.com/envoyproxy/envoy/issues/27434
+		// However, our API always takes in strings.
+		// Convert strings to bools for backwards compat.
+		switch v {
+		case "false":
+			runtimeFlags[k] = false
+		case "true":
+			runtimeFlags[k] = true
+		default:
+			runtimeFlags[k] = v
+		}
 	}
 	return runtimeFlags
 }
@@ -377,6 +410,7 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 			isH2 = true
 			// Write the token file.
 			lightstepAccessTokenPath := lightstepAccessTokenFile(config.ConfigPath)
+			//nolint: staticcheck  // Lightstep deprecated
 			err := os.WriteFile(lightstepAccessTokenPath, []byte(tracer.Lightstep.AccessToken), 0o666)
 			if err != nil {
 				return nil, err
@@ -556,6 +590,8 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		return nil, err
 	}
 
+	meta = SetIstioVersion(meta)
+
 	// Support multiple network interfaces, removing duplicates.
 	meta.InstanceIPs = removeDuplicates(options.InstanceIPs)
 
@@ -641,6 +677,13 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		RawMetadata: untypedMeta,
 		Locality:    l,
 	}, nil
+}
+
+func SetIstioVersion(meta *model.BootstrapNodeMetadata) *model.BootstrapNodeMetadata {
+	if meta.IstioVersion == "" {
+		meta.IstioVersion = version.Info.Version
+	}
+	return meta
 }
 
 // ConvertNodeToXDSNode creates an Envoy node descriptor from Istio node descriptor.

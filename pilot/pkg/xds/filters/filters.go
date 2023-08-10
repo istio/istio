@@ -24,10 +24,12 @@ import (
 	grpcstats "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_stats/v3"
 	grpcweb "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/grpc_web/v3"
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	httpinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/http_inspector/v3"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
+	proxy_proto "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/proxy_protocol/v3"
 	tlsinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/tls_inspector/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
@@ -39,17 +41,23 @@ import (
 	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
 	"istio.io/api/envoy/config/filter/network/metadata_exchange"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
 
 const (
-	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
-	AlpnFilterName = "istio.alpn"
-
 	TLSTransportProtocol       = "tls"
 	RawBufferTransportProtocol = "raw_buffer"
 
+	// Alpn HTTP filter name which will override the ALPN for upstream TLS connection.
+	AlpnFilterName = "istio.alpn"
+
 	MxFilterName = "istio.metadata_exchange"
+
+	// AuthnFilterName is the name for the Istio AuthN filter. This should be the same
+	// as the name defined in
+	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
+	AuthnFilterName = "istio_authn"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
@@ -128,6 +136,18 @@ var (
 			}),
 		},
 	}
+	ProxyProtocol = &listener.ListenerFilter{
+		Name: wellknown.ProxyProtocol,
+		ConfigType: &listener.ListenerFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&proxy_proto.ProxyProtocol{}),
+		},
+	}
+	EmptySessionFilter = &hcm.HttpFilter{
+		Name: util.StatefulSessionFilter,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.MessageToAny(&statefulsession.StatefulSession{}),
+		},
+	}
 	Alpn = &hcm.HttpFilter{
 		Name: AlpnFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -165,43 +185,80 @@ var (
 	HTTPMx = buildHTTPMxFilter()
 
 	IstioNetworkAuthenticationFilter = &listener.Filter{
-		Name: "istio_authn",
+		Name: AuthnFilterName,
 		ConfigType: &listener.Filter_TypedConfig{
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.network.authn.Config"),
 		},
 	}
 
-	CaptureTLS = &listener.Filter{
-		Name: "capture_tls",
+	IstioNetworkAuthenticationFilterShared = &listener.Filter{
+		Name: AuthnFilterName,
 		ConfigType: &listener.Filter_TypedConfig{
-			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.tls_passthrough.v1.CaptureTLS"),
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.network.authn.Config",
+				map[string]interface{}{
+					"shared": true,
+				}),
 		},
 	}
-
-	RestoreTLS = &listener.Filter{
-		Name: "restore_tls",
-		ConfigType: &listener.Filter_TypedConfig{
-			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.tls_passthrough.v1.RestoreTLS"),
-		},
-	}
-
-	Baggage = &hcm.HttpFilter{
-		Name: "istio.filters.http.baggage_handler",
+	ConnectBaggageFilter = &hcm.HttpFilter{
+		Name: "connect_baggage",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.baggagehandler.v1.Config"),
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"downstream_discovery": []any{
+						map[string]any{
+							"baggage": map[string]any{},
+						},
+					},
+					"shared_with_upstream": true,
+				}),
 		},
 	}
+
+	WaypointUpstreamMetadataFilter = &hcm.HttpFilter{
+		Name: "waypoint_upstream_peer_metadata",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+				}),
+		},
+	}
+
+	ConnectAuthorityFilter = &hcm.HttpFilter{
+		Name: "connect_authority",
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.http.connect_authority.Config"),
+		},
+	}
+
+	ConnectAuthorityNetworkFilter = &listener.Filter{
+		Name: "connect_authority",
+		ConfigType: &listener.Filter_TypedConfig{
+			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.http.connect_authority.Config"),
+		},
+	}
+
+	ConnectAuthorityEnabled = protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.connect_authority.Config",
+		map[string]interface{}{
+			"enabled": true,
+			"port":    15008,
+		})
+
+	ConnectAuthorityEnabledSidecar = protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.connect_authority.Config",
+		map[string]interface{}{
+			"enabled": true,
+		})
 
 	SetDstAddress = &listener.ListenerFilter{
 		Name: "set_dst_address",
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.set_internal_dst_address.v1.Config"),
 		},
-	}
-
-	MetadataToPeerNode = &listener.ListenerFilter{
-		Name:       "envoy.filters.listener.metadata_to_peer_node",
-		ConfigType: &listener.ListenerFilter_TypedConfig{TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.telemetry.metadatatopeernode.v1.Config")},
 	}
 )
 
@@ -235,7 +292,7 @@ var (
 func buildHTTPMxFilter() *hcm.HttpFilter {
 	httpMxConfigProto := &httpwasm.Wasm{
 		Config: &wasm.PluginConfig{
-			Vm:            model.ConstructVMConfig("/etc/istio/extensions/metadata-exchange-filter.compiled.wasm", "envoy.wasm.metadata_exchange"),
+			Vm:            model.ConstructVMConfig("envoy.wasm.metadata_exchange"),
 			Configuration: protoconv.MessageToAny(&metadata_exchange.MetadataExchange{}),
 		},
 	}

@@ -36,8 +36,8 @@ import (
 	"google.golang.org/grpc/test/bufconn"
 	"google.golang.org/protobuf/proto"
 
-	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
+	wasmcache "istio.io/istio/pkg/wasm"
 )
 
 // TestXdsLeak is a regression test for https://github.com/istio/istio/issues/34097
@@ -59,7 +60,7 @@ func TestXdsLeak(t *testing.T) {
 	proxy := setupXdsProxyWithDownstreamOptions(t, []grpc.ServerOption{grpc.StreamInterceptor(xdstest.SlowServerInterceptor(time.Second, time.Second))})
 	f := xdstest.NewMockServer(t)
 	setDialOptions(proxy, f.Listener)
-	proxy.istiodDialOptions = append(proxy.istiodDialOptions, grpc.WithStreamInterceptor(xdstest.SlowClientInterceptor(0, time.Second*10)))
+	proxy.dialOptions = append(proxy.dialOptions, grpc.WithStreamInterceptor(xdstest.SlowClientInterceptor(0, time.Second*10)))
 	conn := setupDownstreamConnection(t, proxy)
 	downstream := stream(t, conn)
 	sendDownstreamWithoutResponse(t, downstream)
@@ -99,6 +100,8 @@ func TestXdsProxyBasicFlow(t *testing.T) {
 
 // Validates the proxy health checking updates
 func TestXdsProxyHealthCheck(t *testing.T) {
+	// TODO: allow fake XDS to be "authenticated"
+	test.SetForTest(t, &features.ValidateWorkloadEntryIdentity, false)
 	healthy := &discovery.DiscoveryRequest{TypeUrl: v3.HealthInfoType}
 	unhealthy := &discovery.DiscoveryRequest{
 		TypeUrl: v3.HealthInfoType,
@@ -284,8 +287,8 @@ func setupXdsProxyWithDownstreamOptions(t *testing.T, opts []grpc.ServerOption) 
 }
 
 func setDialOptions(p *XdsProxy, l *bufconn.Listener) {
-	// Override istiodDialOptions so that the test can connect with plain text and with buffcon listener.
-	p.istiodDialOptions = []grpc.DialOption{
+	// Override dialOptions so that the test can connect with plain text and with buffcon listener.
+	p.dialOptions = []grpc.DialOption{
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithContextDialer(func(context.Context, string) (net.Conn, error) {
@@ -404,7 +407,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 			t.Fatal(err)
 		}
 		proxy.istiodAddress = listener.Addr().String()
-		proxy.istiodDialOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials())}
+		proxy.dialOptions = []grpc.DialOption{grpc.WithBlock(), grpc.WithTransportCredentials(insecure.NewCredentials())}
 
 		// Setup gRPC server
 		grpcServer := grpc.NewServer()
@@ -444,14 +447,14 @@ func TestXdsProxyReconnects(t *testing.T) {
 
 type fakeAckCache struct{}
 
-func (f *fakeAckCache) Get(string, string, string, string, time.Duration, []byte, extensions.PullPolicy) (string, error) {
+func (f *fakeAckCache) Get(string, wasmcache.GetOptions) (string, error) {
 	return "test", nil
 }
 func (f *fakeAckCache) Cleanup() {}
 
 type fakeNackCache struct{}
 
-func (f *fakeNackCache) Get(string, string, string, string, time.Duration, []byte, extensions.PullPolicy) (string, error) {
+func (f *fakeNackCache) Get(string, wasmcache.GetOptions) (string, error) {
 	return "", errors.New("errror")
 }
 func (f *fakeNackCache) Cleanup() {}

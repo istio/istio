@@ -29,6 +29,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -38,20 +39,22 @@ import (
 	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/pkg/log"
 )
 
 const (
-	IstioNamespace     = "istio-system"
-	ReleasePrefix      = "istio-"
-	BaseChart          = "base"
-	CRDsFolder         = "crds"
-	DiscoveryChart     = "istio-discovery"
-	BaseReleaseName    = ReleasePrefix + BaseChart
-	IstiodReleaseName  = "istiod"
-	IngressReleaseName = "istio-ingress"
-	ControlChartsDir   = "istio-control"
-	GatewayChartsDir   = "gateway"
+	IstioNamespace         = "istio-system"
+	ReleasePrefix          = "istio-"
+	BaseChart              = "base"
+	CRDsFolder             = "crds"
+	DiscoveryChartsDir     = "istio-discovery"
+	BaseReleaseName        = ReleasePrefix + BaseChart
+	RepoBaseChartPath      = BaseChart
+	RepoDiscoveryChartPath = "istiod"
+	RepoGatewayChartPath   = "gateway"
+	IstiodReleaseName      = "istiod"
+	IngressReleaseName     = "istio-ingress"
+	ControlChartsDir       = "istio-control"
+	GatewayChartsDir       = "gateway"
 
 	RetryDelay   = 2 * time.Second
 	RetryTimeOut = 5 * time.Minute
@@ -61,46 +64,60 @@ const (
 // ManifestsChartPath is path of local Helm charts used for testing.
 var ManifestsChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
-// TestDataChartPath is path of local Helm charts used for testing.
-var TestDataChartPath = filepath.Join(env.IstioSrc, "tests/integration/helm/testdata")
-
 // InstallIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func InstallIstio(t test.Failer, cs cluster.Cluster,
-	h *helm.Helm, suffix, overrideValuesFile, relPath, version string, installGateway bool,
+func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, overrideValuesFile, version string, installGateway bool,
 ) {
 	CreateNamespace(t, cs, IstioNamespace)
 
+	versionArgs := ""
+	baseChartPath := RepoBaseChartPath
+	discoveryChartPath := RepoDiscoveryChartPath
+	gatewayChartPath := RepoGatewayChartPath
+
+	if version != "" {
+		versionArgs = fmt.Sprintf("--repo %s --version %s", t.Settings().HelmRepo, version)
+	} else {
+		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
+		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
+		gatewayChartPath = filepath.Join(ManifestsChartPath, version, GatewayChartsDir)
+
+	}
 	// Install base chart
-	err := h.InstallChart(BaseReleaseName, filepath.Join(relPath, version, BaseChart+suffix),
-		IstioNamespace, overrideValuesFile, Timeout)
+	err := h.InstallChart(BaseReleaseName, baseChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart: %v", BaseChart, err)
 	}
 
 	// Install discovery chart
-	err = h.InstallChart(IstiodReleaseName, filepath.Join(relPath, version, ControlChartsDir, DiscoveryChart)+suffix,
-		IstioNamespace, overrideValuesFile, Timeout)
+	err = h.InstallChart(IstiodReleaseName, discoveryChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 	if err != nil {
-		t.Fatalf("failed to install istio %s chart: %v", DiscoveryChart, err)
+		t.Fatalf("failed to install istio %s chart: %v", DiscoveryChartsDir, err)
 	}
 
 	if installGateway {
-		err = h.InstallChart(IngressReleaseName, filepath.Join(relPath, version, GatewayChartsDir)+suffix,
-			IstioNamespace, overrideValuesFile, Timeout)
+		err = h.InstallChart(IngressReleaseName, gatewayChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart: %v", IngressReleaseName, err)
+			t.Fatalf("failed to install istio %s chart: %v", GatewayChartsDir, err)
 		}
 	}
 }
 
 // InstallIstioWithRevision install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
-	h *helm.Helm, fileSuffix, version, revision, overrideValuesFile string, upgradeBaseChart, useTestData bool,
+func InstallIstioWithRevision(t framework.TestContext, cs cluster.Cluster,
+	h *helm.Helm, version, revision, overrideValuesFile string, upgradeBaseChart, useTestData bool,
 ) {
 	CreateNamespace(t, cs, IstioNamespace)
-
+	versionArgs := ""
+	baseChartPath := RepoBaseChartPath
+	discoveryChartPath := RepoDiscoveryChartPath
+	if version != "" {
+		versionArgs = fmt.Sprintf("--repo %s --version %s", t.Settings().HelmRepo, version)
+	} else {
+		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
+		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
+	}
 	// base chart may already be installed if the Istio was previously already installed
 	if upgradeBaseChart {
 		// upgrade is always done with ../manifests/charts/base
@@ -110,8 +127,7 @@ func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
 			t.Fatalf("failed to upgrade istio %s chart", BaseChart)
 		}
 	} else {
-		err := h.InstallChart(BaseReleaseName, filepath.Join(TestDataChartPath, version, BaseChart+fileSuffix),
-			IstioNamespace, overrideValuesFile, Timeout)
+		err := h.InstallChart(BaseReleaseName, baseChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
 			t.Fatalf("failed to upgrade istio %s chart", BaseChart)
 		}
@@ -119,16 +135,15 @@ func InstallIstioWithRevision(t test.Failer, cs cluster.Cluster,
 
 	// install discovery chart with --set revision=NAME
 	if useTestData {
-		err := h.InstallChart(IstiodReleaseName+"-"+revision, filepath.Join(TestDataChartPath, version, ControlChartsDir, DiscoveryChart+fileSuffix),
-			IstioNamespace, overrideValuesFile, Timeout)
+		err := h.InstallChart(IstiodReleaseName+"-"+revision, discoveryChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart", DiscoveryChart)
+			t.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
 		}
 	} else {
-		err := h.InstallChart(IstiodReleaseName+"-"+revision, filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChart),
+		err := h.InstallChart(IstiodReleaseName+"-"+revision, filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir),
 			IstioNamespace, overrideValuesFile, Timeout)
 		if err != nil {
-			t.Fatalf("failed to install istio %s chart", DiscoveryChart)
+			t.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
 		}
 
 	}
@@ -191,13 +206,30 @@ func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGat
 	scopes.Framework.Infof("=== succeeded ===")
 }
 
+func SetRevisionTagWithVersion(ctx framework.TestContext, h *helm.Helm, revision, revisionTag, version string) {
+	scopes.Framework.Infof("=== setting revision tag with version === ")
+	template, err := h.Template(IstiodReleaseName+"-"+revision, RepoDiscoveryChartPath,
+		IstioNamespace, "templates/revision-tags.yaml", Timeout, "--version", version, "--repo", ctx.Settings().HelmRepo, "--set",
+		fmt.Sprintf("revision=%s", revision), "--set", fmt.Sprintf("revisionTags={%s}", revisionTag))
+	if err != nil {
+		ctx.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
+	}
+
+	err = ctx.ConfigIstio().YAML(IstioNamespace, template).Apply()
+	if err != nil {
+		ctx.Fatalf("failed to apply templated revision tags yaml: %v", err)
+	}
+
+	scopes.Framework.Infof("=== succeeded === ")
+}
+
 func SetRevisionTag(ctx framework.TestContext, h *helm.Helm, fileSuffix, revision, revisionTag, relPath, version string) {
 	scopes.Framework.Infof("=== setting revision tag === ")
-	template, err := h.Template(IstiodReleaseName+"-"+revision, filepath.Join(relPath, version, ControlChartsDir, DiscoveryChart)+fileSuffix,
+	template, err := h.Template(IstiodReleaseName+"-"+revision, filepath.Join(relPath, version, ControlChartsDir, DiscoveryChartsDir)+fileSuffix,
 		IstioNamespace, "templates/revision-tags.yaml", Timeout, "--set",
 		fmt.Sprintf("revision=%s", revision), "--set", fmt.Sprintf("revisionTags={%s}", revisionTag))
 	if err != nil {
-		ctx.Fatalf("failed to install istio %s chart", DiscoveryChart)
+		ctx.Fatalf("failed to install istio %s chart", DiscoveryChartsDir)
 	}
 
 	err = ctx.ConfigIstio().YAML(IstioNamespace, template).Apply()

@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ServiceAccount
+  {{- with .Values.imagePullSecrets }}
+imagePullSecrets:
+  {{- range . }}
+  - name: {{ . }}
+  {{- end }}
+  {{- end }}
+metadata:
+  name: ztunnel
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- .Values.labels | toYaml | nindent 4}}
+  annotations:
+    {{- .Values.annotations | toYaml | nindent 4 }}
+---

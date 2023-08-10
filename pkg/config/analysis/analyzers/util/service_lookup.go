@@ -23,13 +23,13 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.ServiceEntry {
 	result := make(map[ScopedFqdn]*v1alpha3.ServiceEntry)
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Serviceentries.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.ServiceEntry, func(r *resource.Instance) bool {
 		s := r.Message.(*v1alpha3.ServiceEntry)
 		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
 		if IsExportToAllNamespaces(s.ExportTo) {
@@ -43,12 +43,12 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 
 	// converts k8s service to serviceEntry since destinationHost
 	// validation is performed against serviceEntry
-	ctx.ForEach(collections.K8SCoreV1Services.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.Service, func(r *resource.Instance) bool {
 		s := r.Message.(*corev1.ServiceSpec)
 		var se *v1alpha3.ServiceEntry
-		var ports []*v1alpha3.Port
+		var ports []*v1alpha3.ServicePort
 		for _, p := range s.Ports {
-			ports = append(ports, &v1alpha3.Port{
+			ports = append(ports, &v1alpha3.ServicePort{
 				Number:   uint32(p.Port),
 				Name:     p.Name,
 				Protocol: string(p.Protocol),

@@ -27,7 +27,7 @@ func StartServer() *atomic.Value {
 	isReady := initRouter(router)
 
 	go func() {
-		_ = http.ListenAndServe(":"+constants.Port, router)
+		_ = http.ListenAndServe(":"+constants.ReadinessPort, router)
 	}()
 
 	return isReady

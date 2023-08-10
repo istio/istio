@@ -416,7 +416,7 @@ func newMockLayer(mediaType types.MediaType, contents map[string][]byte) (v1.Lay
 		if err := tw.WriteHeader(&tar.Header{
 			Name:     filename,
 			Size:     int64(len(content)),
-			Typeflag: tar.TypeRegA,
+			Typeflag: tar.TypeReg,
 		}); err != nil {
 			return nil, err
 		}

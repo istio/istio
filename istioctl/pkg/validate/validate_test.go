@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -26,6 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -158,7 +160,7 @@ metadata:
 spec:
   ports:
   - protocol: TCP`
-	validVirtualService = `
+	validVirtualServiceYAML = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -176,7 +178,39 @@ spec:
           host: c
           subset: v2
         weight: 25`
-	validVirtualService1 = `
+	validVirtualServiceJSON = `{
+"apiVersion": "networking.istio.io/v1alpha3",
+"kind": "VirtualService",
+"metadata": {
+	"name": "valid-virtual-service"
+},
+"spec": {
+	"hosts": [
+	"c"
+	],
+	"http": [
+	{
+		"route": [
+		{
+			"destination": {
+			"host": "c",
+			"subset": "v1"
+			},
+			"weight": 75
+		},
+		{
+			"destination": {
+			"host": "c",
+			"subset": "v2"
+			},
+			"weight": 25
+		}
+		]
+	}
+	]
+}
+}`
+	validVirtualService1YAML = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -194,7 +228,39 @@ spec:
           host: c
           subset: v2
         weight: 25`
-	validVirtualService2 = `
+	validVirtualService1JSON = `{
+"apiVersion": "networking.istio.io/v1alpha3",
+"kind": "VirtualService",
+"metadata": {
+	"name": "valid-virtual-service1"
+},
+"spec": {
+	"hosts": [
+	"d"
+	],
+	"http": [
+	{
+		"route": [
+		{
+			"destination": {
+			"host": "c",
+			"subset": "v1"
+			},
+			"weight": 75
+		},
+		{
+			"destination": {
+			"host": "c",
+			"subset": "v2"
+			},
+			"weight": 25
+		}
+		]
+	}
+	]
+}
+}`
+	validVirtualService2YAML = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -209,7 +275,34 @@ spec:
     - destination:
         host: c
         subset: v1`
-	invalidVirtualService = `
+	validVirtualService2JSON = `{
+"apiVersion": "networking.istio.io/v1alpha3",
+"kind": "VirtualService",
+"metadata": {
+	"name": "valid-virtual-service2"
+},
+"spec": {
+	"exportTo": [
+	"."
+	],
+	"hosts": [
+	"d"
+	],
+	"http": [
+	{
+		"route": [
+		{
+			"destination": {
+			"host": "c",
+			"subset": "v1"
+			}
+		}
+		]
+	}
+	]
+}
+}`
+	invalidVirtualServiceYAML = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -225,6 +318,36 @@ spec:
           host: c
           subset: v2
         weight: -15`
+	invalidVirtualServiceJSON = `{
+"apiVersion": "networking.istio.io/v1alpha3",
+"kind": "VirtualService",
+"metadata": {
+	"name": "invalid-virtual-service"
+},
+"spec": {
+	"http": [
+	{
+		"route": [
+		{
+			"destination": {
+			"host": "c",
+			"subset": "v1"
+			},
+			"weight": 75
+		},
+		{
+			"destination": {
+			"host": "c",
+			"subset": "v2"
+			},
+			"weight": -15
+		}
+		]
+	}
+	]
+}
+}
+`
 	invalidVirtualServiceV1Beta1 = `
 apiVersion: networking.istio.io/v1beta1
 kind: VirtualService
@@ -249,7 +372,15 @@ spec:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: istio-system`
+  name: istio-system
+`
+	validKubernetesJSON = `{
+"apiVersion": "v1",
+"kind": "Namespace",
+"metadata": {
+	"name": "istio-system"
+}
+}`
 	invalidUnsupportedKey = `
 apiVersion: networking.istio.io/v1alpha3
 kind: DestinationRule
@@ -366,6 +497,28 @@ spec:
   ports:
     - appProtocol: fake
       port: 9080`
+	validK8sRecommendedLabels = `
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: helloworld-v1
+  labels:
+    app.kubernetes.io/name: helloworld
+    app.kubernetes.io/version: v1
+spec:
+  replicas: 1
+`
+	validIstioCanonical = `
+apiVersion: v1
+kind: Deployment
+metadata:
+  name: helloworld-v1
+  labels:
+    service.istio.io/canonical-name: helloworld
+    service.istio.io/canonical-revision: v1
+spec:
+  replicas: 1
+`
 )
 
 func fromYAML(in string) *unstructured.Unstructured {
@@ -385,12 +538,12 @@ func TestValidateResource(t *testing.T) {
 	}{
 		{
 			name:  "valid pilot configuration",
-			in:    validVirtualService,
+			in:    validVirtualServiceYAML,
 			valid: true,
 		},
 		{
 			name:  "invalid pilot configuration",
-			in:    invalidVirtualService,
+			in:    invalidVirtualServiceYAML,
 			valid: false,
 		},
 		{
@@ -466,7 +619,7 @@ func TestValidateResource(t *testing.T) {
 		},
 		{
 			name:  "exportTo=.",
-			in:    validVirtualService2,
+			in:    validVirtualService2YAML,
 			valid: true,
 		},
 		{
@@ -483,6 +636,16 @@ func TestValidateResource(t *testing.T) {
 			name:  "appProtocol=fake",
 			in:    inValidPortNamingSvcWithAppProtocol,
 			valid: false,
+		},
+		{
+			name:  "metric labels k8s recommended",
+			in:    validK8sRecommendedLabels,
+			valid: true,
+		},
+		{
+			name:  "metric labels istio canonical",
+			in:    validIstioCanonical,
+			valid: true,
 		},
 	}
 
@@ -502,7 +665,7 @@ func TestValidateResource(t *testing.T) {
 	}
 }
 
-func buildMultiDocYAML(docs []string) string {
+func buildMultiDocConfig(docs []string) string {
 	var b strings.Builder
 	for _, r := range docs {
 		if r != "" {
@@ -525,18 +688,42 @@ func createTestFile(t *testing.T, data string) (string, io.Closer) {
 	return validFile.Name(), validFile
 }
 
+func createTestDirectory(t *testing.T, files map[string]string) string {
+	t.Helper()
+	tempDir, err := os.MkdirTemp("", "TestValidateCommand")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	for name, content := range files {
+		filePath := filepath.Join(tempDir, name)
+		if err := os.WriteFile(filePath, []byte(content), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	return tempDir
+}
+
 func TestValidateCommand(t *testing.T) {
-	valid := buildMultiDocYAML([]string{validVirtualService, validVirtualService1})
-	invalid := buildMultiDocYAML([]string{invalidVirtualService, validVirtualService1})
-	warnings := buildMultiDocYAML([]string{invalidVirtualService, validVirtualService1, warnDestinationRule})
+	validYAML := buildMultiDocConfig([]string{validVirtualServiceYAML, validVirtualService1YAML})
+	invalidYAML := buildMultiDocConfig([]string{invalidVirtualServiceYAML, validVirtualService1YAML})
+	warningsYAML := buildMultiDocConfig([]string{invalidVirtualServiceYAML, validVirtualService1YAML, warnDestinationRule})
 
-	validFilename, closeValidFile := createTestFile(t, valid)
-	defer closeValidFile.Close()
+	validJSON := buildMultiDocConfig([]string{validVirtualServiceJSON, validVirtualService1JSON})
+	invalidJSON := buildMultiDocConfig([]string{invalidVirtualServiceJSON, validVirtualService1JSON})
+	warningsJSON := buildMultiDocConfig([]string{invalidVirtualServiceYAML, validVirtualService1YAML, warnDestinationRule})
 
-	invalidFilename, closeInvalidFile := createTestFile(t, invalid)
-	defer closeInvalidFile.Close()
+	validFilenameYAML, closeValidYAMLFile := createTestFile(t, validYAML)
+	defer closeValidYAMLFile.Close()
 
-	warningFilename, closeWarningFile := createTestFile(t, warnings)
+	validFilenameJSON, closeValidJSONFile := createTestFile(t, validJSON)
+	defer closeValidJSONFile.Close()
+
+	invalidFilenameYAML, closeInvalidYAMLFile := createTestFile(t, invalidYAML)
+	defer closeInvalidYAMLFile.Close()
+
+	warningFilename, closeWarningFile := createTestFile(t, warningsYAML)
 	defer closeWarningFile.Close()
 
 	invalidYAMLFile, closeInvalidYAMLFile := createTestFile(t, invalidYAML)
@@ -544,6 +731,9 @@ func TestValidateCommand(t *testing.T) {
 
 	validKubernetesYAMLFile, closeKubernetesYAMLFile := createTestFile(t, validKubernetesYAML)
 	defer closeKubernetesYAMLFile.Close()
+
+	validKubernetesJSONFile, closeKubernetesJSONFile := createTestFile(t, validKubernetesYAML)
+	defer closeKubernetesJSONFile.Close()
 
 	versionLabelMissingDeploymentFile, closeVersionLabelMissingDeploymentFile := createTestFile(t, versionLabelMissingDeployment)
 	defer closeVersionLabelMissingDeploymentFile.Close()
@@ -565,6 +755,33 @@ func TestValidateCommand(t *testing.T) {
 
 	invalidPortNamingSvcFile, closeInvalidPortNamingSvcFile := createTestFile(t, invalidPortNamingSvc)
 	defer closeInvalidPortNamingSvcFile.Close()
+
+	tempDirYAML := createTestDirectory(t, map[string]string{
+		"valid.yaml":       validYAML,
+		"invalid.yaml":     invalidYAML,
+		"warning.yaml":     warningsYAML,
+		"invalidYAML.yaml": invalidYAML,
+	})
+	validTempDirYAML := createTestDirectory(t, map[string]string{
+		"valid.yaml": validYAML,
+	})
+
+	tempDirJSON := createTestDirectory(t, map[string]string{
+		"valid.json":       validJSON,
+		"invalid.json":     invalidJSON,
+		"warning.json":     warningsJSON,
+		"invalidYAML.json": invalidJSON,
+	})
+	validTempDirJSON := createTestDirectory(t, map[string]string{
+		"valid.json": validJSON,
+	})
+
+	t.Cleanup(func() {
+		os.RemoveAll(tempDirYAML)
+		os.RemoveAll(validTempDirYAML)
+		os.RemoveAll(tempDirJSON)
+		os.RemoveAll(validTempDirJSON)
+	})
 
 	cases := []struct {
 		name           string
@@ -593,16 +810,16 @@ func TestValidateCommand(t *testing.T) {
 		},
 		{
 			name: "valid resources from file",
-			args: []string{"--filename", validFilename},
+			args: []string{"--filename", validFilenameYAML},
 		},
 		{
 			name:      "extra args",
-			args:      []string{"--filename", validFilename, "extra-arg"},
+			args:      []string{"--filename", validFilenameYAML, "extra-arg"},
 			wantError: true,
 		},
 		{
 			name:      "invalid resources from file",
-			args:      []string{"--filename", invalidFilename},
+			args:      []string{"--filename", invalidFilenameYAML},
 			wantError: true,
 		},
 		{
@@ -618,6 +835,13 @@ func TestValidateCommand(t *testing.T) {
 		{
 			name: "valid Kubernetes YAML",
 			args: []string{"--filename", validKubernetesYAMLFile},
+			expectedRegexp: regexp.MustCompile(`^".*" is valid
+$`),
+			wantError: false,
+		},
+		{
+			name: "valid Kubernetes JSON",
+			args: []string{"--filename", validKubernetesJSONFile},
 			expectedRegexp: regexp.MustCompile(`^".*" is valid
 $`),
 			wantError: false,
@@ -654,12 +878,63 @@ Error: 1 error occurred:
 	\* VirtualService//invalid-virtual-service: weight -15 < 0`),
 			wantError: true,
 		},
+		{
+			name:      "validate all yaml files in a directory",
+			args:      []string{"--filename", tempDirYAML},
+			wantError: true, // Since the directory has invalid files
+		},
+		{
+			name:      "validate valid yaml files in a directory",
+			args:      []string{"--filename", validTempDirYAML},
+			wantError: false,
+		},
+		{
+			name:      "validate combination of yaml files and directories with valid files",
+			args:      []string{"--filename", validFilenameYAML, "--filename", validTempDirYAML},
+			wantError: false,
+		},
+		{
+			name:      "validate combination of yaml files and directories with valid files and invalid files",
+			args:      []string{"--filename", validFilenameYAML, "--filename", tempDirYAML, "--filename", validTempDirYAML},
+			wantError: true, // Since the directory has invalid files
+		},
+		{
+			name:      "validate all json files in a directory",
+			args:      []string{"--filename", tempDirJSON},
+			wantError: true, // Since the directory has invalid files
+		},
+		{
+			name:      "validate valid json files in a directory",
+			args:      []string{"--filename", validTempDirJSON},
+			wantError: false,
+		},
+		{
+			name:      "validate combination of json files and directories with valid files",
+			args:      []string{"--filename", validFilenameJSON, "--filename", validTempDirJSON},
+			wantError: false,
+		},
+		{
+			name:      "validate combination of json files and directories with valid files and invalid files",
+			args:      []string{"--filename", validFilenameJSON, "--filename", tempDirJSON, "--filename", validTempDirJSON},
+			wantError: true, // Since the directory has invalid files
+		},
+		{
+			name:      "validate mix of yaml and json directories with valid files",
+			args:      []string{"--filename", validTempDirYAML, "--filename", validTempDirJSON},
+			wantError: false,
+		},
+		{
+			name:      "validate combination of yaml and json and yaml directories with invalid files",
+			args:      []string{"--filename", tempDirYAML, "--filename", tempDirJSON},
+			wantError: true, // Since the directory has invalid files
+		},
 	}
-	istioNamespace := "istio-system"
-	defaultNamespace := ""
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%v] %v", i, c.name), func(t *testing.T) {
-			validateCmd := NewValidateCommand(&istioNamespace, &defaultNamespace)
+			ctx := cli.NewFakeContext(&cli.NewFakeContextOption{
+				IstioNamespace: "istio-system",
+			})
+			validateCmd := NewValidateCommand(ctx)
 			validateCmd.SilenceUsage = true
 			validateCmd.SetArgs(c.args)
 

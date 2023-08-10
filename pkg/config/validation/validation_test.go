@@ -15,6 +15,7 @@
 package validation
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -35,10 +36,8 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	api "istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -414,9 +413,15 @@ func TestValidateMeshConfig(t *testing.T) {
 				},
 			},
 		},
+		MeshMTLS: &meshconfig.MeshConfig_TLSConfig{
+			EcdhCurves: []string{"P-256"},
+		},
+		TlsDefaults: &meshconfig.MeshConfig_TLSConfig{
+			EcdhCurves: []string{"P-256", "P-256", "invalid"},
+		},
 	}
 
-	_, err := ValidateMeshConfig(invalid)
+	warning, err := ValidateMeshConfig(invalid)
 	if err == nil {
 		t.Errorf("expected an error on invalid proxy mesh config: %v", invalid)
 	} else {
@@ -434,6 +439,7 @@ func TestValidateMeshConfig(t *testing.T) {
 			"trustDomainAliases[0]",
 			"trustDomainAliases[1]",
 			"trustDomainAliases[2]",
+			"mesh TLS does not support ECDH curves configuration",
 		}
 		switch err := err.(type) {
 		case *multierror.Error:
@@ -444,6 +450,29 @@ func TestValidateMeshConfig(t *testing.T) {
 				for i := 0; i < len(wantErrors); i++ {
 					if !strings.HasPrefix(err.Errors[i].Error(), wantErrors[i]) {
 						t.Errorf("expected error %q at index %d but found %q", wantErrors[i], i, err.Errors[i])
+					}
+				}
+			}
+		default:
+			t.Errorf("expected a multi error as output")
+		}
+	}
+	if warning == nil {
+		t.Errorf("expected a warning on invalid proxy mesh config: %v", invalid)
+	} else {
+		wantWarnings := []string{
+			"detected unrecognized ECDH curves",
+			"detected duplicate ECDH curves",
+		}
+		switch warn := warning.(type) {
+		case *multierror.Error:
+			// each field must cause an error in the field
+			if len(warn.Errors) != len(wantWarnings) {
+				t.Errorf("expected %d warnings but found %v", len(wantWarnings), warn)
+			} else {
+				for i := 0; i < len(wantWarnings); i++ {
+					if !strings.HasPrefix(warn.Errors[i].Error(), wantWarnings[i]) {
+						t.Errorf("expected warning %q at index %d but found %q", wantWarnings[i], i, warn.Errors[i])
 					}
 				}
 			}
@@ -1443,6 +1472,36 @@ func TestValidateTlsOptions(t *testing.T) {
 			"client CA bundle", "",
 		},
 		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"server certificate", "",
+		},
+		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"private key", "",
+		},
+		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"client CA bundle", "",
+		},
+		{
 			"pass through sds no certs",
 			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_PASSTHROUGH,
@@ -2048,7 +2107,39 @@ func TestValidateHTTPRewrite(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:  "no uri or authority",
+			name: "uriRegexRewrite",
+			in: &networking.HTTPRewrite{
+				UriRegexRewrite: &networking.RegexRewrite{
+					Match:   "^/service/([^/]+)(/.*)$",
+					Rewrite: `\2/instance/\1`,
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "uriRegexRewrite and authority",
+			in: &networking.HTTPRewrite{
+				Authority: "foobar.org",
+				UriRegexRewrite: &networking.RegexRewrite{
+					Match:   "^/service/([^/]+)(/.*)$",
+					Rewrite: `\2/instance/\1`,
+				},
+			},
+			valid: true,
+		},
+		{
+			name: "uriRegexRewrite and uri",
+			in: &networking.HTTPRewrite{
+				Uri: "/path/to/resource",
+				UriRegexRewrite: &networking.RegexRewrite{
+					Match:   "^/service/([^/]+)(/.*)$",
+					Rewrite: `\2/instance/\1`,
+				},
+			},
+			valid: false,
+		},
+		{
+			name:  "no uri, uriRegexRewrite, or authority",
 			in:    &networking.HTTPRewrite{},
 			valid: false,
 		},
@@ -2057,6 +2148,59 @@ func TestValidateHTTPRewrite(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := validateHTTPRewrite(tc.in); (got == nil) != tc.valid {
+				t.Errorf("got valid=%v, want valid=%v: %v",
+					got == nil, tc.valid, got)
+			}
+		})
+	}
+}
+
+func TestValidateUriRegexRewrite(t *testing.T) {
+	testCases := []struct {
+		name  string
+		in    *networking.RegexRewrite
+		valid bool
+	}{
+		{
+			name:  "uriRegexRewrite nil",
+			in:    nil,
+			valid: true,
+		},
+		{
+			name: "uriRegexRewrite happy path",
+			in: &networking.RegexRewrite{
+				Match:   "^/service/([^/]+)(/.*)$",
+				Rewrite: `\2/instance/\1`,
+			},
+			valid: true,
+		},
+		{
+			name: "uriRegexRewrite missing match",
+			in: &networking.RegexRewrite{
+				Rewrite: `\2/instance/\1`,
+			},
+			valid: false,
+		},
+		{
+			name: "uriRegexRewrite missing rewrite",
+			in: &networking.RegexRewrite{
+				Match: "^/service/([^/]+)(/.*)$",
+			},
+			valid: false,
+		},
+		{
+			name: "uriRegexRewrite invalid regex patterns",
+			in: &networking.RegexRewrite{
+				Match:   "[",
+				Rewrite: "[",
+			},
+			valid: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := validateURIRegexRewrite(tc.in); (got == nil) != tc.valid {
 				t.Errorf("got valid=%v, want valid=%v: %v",
 					got == nil, tc.valid, got)
 			}
@@ -2284,248 +2428,6 @@ func TestValidateHTTPDirectResponse(t *testing.T) {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err.Warning != nil, tc.warning, err)
 			}
 		})
-	}
-}
-
-func TestValidateDestinationWithInheritance(t *testing.T) {
-	test.SetForTest(t, &features.EnableDestinationRuleInheritance, true)
-	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
-	}{
-		{name: "simple destination rule", in: &networking.DestinationRule{
-			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
-			},
-		}, valid: true},
-		{name: "simple global destination rule", in: &networking.DestinationRule{
-			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings without protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with POST protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "POST",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings without protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "reviews-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "reviews-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "CONNECT",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings with POST protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "example-com-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "POST",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with IPv4 target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "192.168.1.2",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with IPv6 target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "2001:db8:1234::",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "masque",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "subset tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "example-com-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "masque",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: false},
-		{name: "global rule with subsets", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
-			},
-		}, valid: false},
-		{name: "global rule with exportTo", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			ExportTo: []string{"ns1", "ns2"},
-		}, valid: false},
-		{name: "empty host with workloadSelector", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			WorkloadSelector: &api.WorkloadSelector{
-				MatchLabels: map[string]string{"app": "app1"},
-			},
-		}, valid: false},
-		{name: "global rule with portLevelSettings", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
-					{
-						Port: &networking.PortSelector{Number: 8000},
-						OutlierDetection: &networking.OutlierDetection{
-							MinHealthPercent: 20,
-						},
-					},
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings for wildcard target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "*.example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings for with invalid port", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-					TargetPort: 0,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings without required target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings without required target port", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-				},
-			},
-		}, valid: false},
-	}
-	for _, c := range cases {
-		if _, got := ValidateDestinationRule(config.Config{
-			Meta: config.Meta{
-				Name:      someName,
-				Namespace: someNamespace,
-			},
-			Spec: c.in,
-		}); (got == nil) != c.valid {
-			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
-		}
 	}
 }
 
@@ -2823,6 +2725,16 @@ func TestValidateHTTPRoute(t *testing.T) {
 			Match: []*networking.HTTPMatchRequest{{
 				Headers: map[string]*networking.StringMatch{
 					"header": nil,
+				},
+			}},
+		}, valid: false},
+		{name: "empty prefix header match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"emptyprefix": {MatchType: &networking.StringMatch_Prefix{Prefix: ""}},
 				},
 			}},
 		}, valid: false},
@@ -3272,6 +3184,12 @@ func TestValidateWorkloadEntry(t *testing.T) {
 			valid: false,
 		},
 		{
+			name:    "missing address with network",
+			in:      &networking.WorkloadEntry{Network: "network-2"},
+			valid:   true,
+			warning: true,
+		},
+		{
 			name:  "valid unix endpoint",
 			in:    &networking.WorkloadEntry{Address: "unix:///lon/google/com"},
 			valid: true,
@@ -3465,9 +3383,10 @@ func checkValidationMessage(t *testing.T, gotWarning Warning, gotError error, wa
 
 func TestValidateDestinationRule(t *testing.T) {
 	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
+		name    string
+		in      proto.Message
+		valid   bool
+		warning bool
 	}{
 		{name: "simple destination rule", in: &networking.DestinationRule{
 			Host: "reviews",
@@ -3476,6 +3395,15 @@ func TestValidateDestinationRule(t *testing.T) {
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: true},
+
+		{name: "simple destination rule with empty selector labels", in: &networking.DestinationRule{
+			Host: "reviews",
+			Subsets: []*networking.Subset{
+				{Name: "v1", Labels: map[string]string{"version": "v1"}},
+				{Name: "v2", Labels: map[string]string{"version": "v2"}},
+			},
+			WorkloadSelector: &api.WorkloadSelector{},
+		}, valid: true, warning: true},
 
 		{name: "missing destination name", in: &networking.DestinationRule{
 			Host: "",
@@ -3616,18 +3544,225 @@ func TestValidateDestinationRule(t *testing.T) {
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CaCertificates:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CaCertificates:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_SIMPLE,
+					CredentialName: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_SIMPLE,
+					CaCertificates: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the san is specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is not specified with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode mutual, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_MUTUAL,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode mutual, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_MUTUAL,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_MUTUAL,
+					CredentialName: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is not specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the san is specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
 	}
 	for _, c := range cases {
-		if _, got := ValidateDestinationRule(config.Config{
-			Meta: config.Meta{
-				Name:      someName,
-				Namespace: someNamespace,
-			},
-			Spec: c.in,
-		}); (got == nil) != c.valid {
-			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
-		}
+		t.Run(c.name, func(t *testing.T) {
+			warn, got := ValidateDestinationRule(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: c.in,
+			})
+			if (got == nil) != c.valid {
+				t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
+					c.name, got == nil, c.valid, got)
+			}
+			if (warn == nil) == c.warning {
+				t.Errorf("ValidateDestinationRule failed on %v: got warn=%v but wanted warn=%v: %v",
+					c.name, warn == nil, c.warning, warn)
+			}
+		})
 	}
 }
 
@@ -4355,7 +4490,7 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "", warning: "using deprecated type_url"},
+		}, error: "referenced type unknown (hint: try using the v3 XDS API)"},
 		{name: "deprecated type", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{
@@ -4423,7 +4558,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4438,7 +4573,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS Round Robin", in: &networking.ServiceEntry{
 				Hosts: []string{"*.istio.io"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4452,7 +4587,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, label tlsMode: istio", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4470,7 +4605,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			in: &networking.ServiceEntry{
 				Hosts:     []string{"httpbin.org"},
 				Addresses: []string{"10.10.10.10"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 					{Number: 443, Protocol: "https", Name: "https"},
@@ -4486,7 +4621,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			in: &networking.ServiceEntry{
 				Hosts:     []string{"httpbin.org", "wikipedia.org"},
 				Addresses: []string{"10.10.10.10"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 					{Number: 443, Protocol: "https", Name: "https"},
@@ -4502,7 +4637,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			in: &networking.ServiceEntry{
 				Hosts:     []string{"*.google.com"},
 				Addresses: []string{"10.10.10.10"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4519,7 +4654,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, IP in endpoints", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4534,7 +4669,7 @@ func TestValidateServiceEntries(t *testing.T) {
 
 		{
 			name: "empty hosts", in: &networking.ServiceEntry{
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4547,7 +4682,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "bad hosts", in: &networking.ServiceEntry{
 				Hosts: []string{"-"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4560,7 +4695,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "full wildcard host", in: &networking.ServiceEntry{
 				Hosts: []string{"foo.com", "*"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4573,7 +4708,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "short name host", in: &networking.ServiceEntry{
 				Hosts: []string{"foo", "bar.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4586,7 +4721,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "undefined endpoint port", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 80, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4602,7 +4737,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, non-FQDN endpoint", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4618,7 +4753,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, non-FQDN host", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4631,7 +4766,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, no endpoints", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4644,7 +4779,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type DNS, unix endpoint", in: &networking.ServiceEntry{
 				Hosts: []string{"*.google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4658,7 +4793,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type none", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4670,7 +4805,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type none, endpoints provided", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4686,7 +4821,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type none, cidr addresses", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16/16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4699,7 +4834,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type static, cidr addresses with endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16/16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4716,7 +4851,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type static", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4733,7 +4868,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type static, FQDN in endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4750,7 +4885,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type static, missing endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4763,7 +4898,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "discovery type static, bad endpoint port name", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4779,7 +4914,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type none, conflicting port names", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-conflict"},
 					{Number: 8080, Protocol: "http", Name: "http-conflict"},
 				},
@@ -4791,7 +4926,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "discovery type none, conflicting port numbers", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-conflict1"},
 					{Number: 80, Protocol: "http", Name: "http-conflict2"},
 				},
@@ -4803,7 +4938,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "unix socket", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 				},
 				Resolution: networking.ServiceEntry_STATIC,
@@ -4817,7 +4952,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "unix socket, relative path", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 				},
 				Resolution: networking.ServiceEntry_STATIC,
@@ -4831,7 +4966,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "unix socket, endpoint ports", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 				},
 				Resolution: networking.ServiceEntry_STATIC,
@@ -4844,7 +4979,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "unix socket, multiple service ports", in: &networking.ServiceEntry{
 				Hosts: []string{"uds.cluster.local"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 6553, Protocol: "grpc", Name: "grpc-service1"},
 					{Number: 80, Protocol: "http", Name: "http-service2"},
 				},
@@ -4859,7 +4994,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "empty protocol", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{"172.1.2.16/16"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Name: "http-valid2"},
 				},
@@ -4871,7 +5006,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "selector", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 			},
@@ -4881,7 +5016,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "workload selector without labels",
 			in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Protocol: "http", Name: "http-valid2"},
 				},
@@ -4894,7 +5029,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "selector and endpoints", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"foo": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -4907,7 +5042,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "bad selector key", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 				},
 			},
@@ -4917,7 +5052,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "repeat target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 80},
 					{Number: 81, Protocol: "http", Name: "http-valid2", TargetPort: 80},
 				},
@@ -4928,7 +5063,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "valid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
 				},
 			},
@@ -4938,7 +5073,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "invalid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 65536},
 				},
 			},
@@ -4947,7 +5082,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "valid endpoint port", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
 				},
 				Resolution: networking.ServiceEntry_STATIC,
@@ -4965,7 +5100,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "invalid endpoint port", in: &networking.ServiceEntry{
 				Hosts: []string{"google.com"},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
 				},
 				Resolution: networking.ServiceEntry_STATIC,
@@ -4984,7 +5119,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "protocol unset for addresses empty", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 8080, Name: "http-valid2"},
 				},
@@ -4997,7 +5132,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "protocol is TCP for addresses empty", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1"},
 					{Number: 81, Protocol: "TCP", Name: "tcp-valid1"},
 				},
@@ -5010,7 +5145,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "dns round robin with more than one endpoint", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 8081, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
@@ -5036,7 +5171,7 @@ func TestValidateServiceEntries(t *testing.T) {
 			name: "dns round robin with 0 endpoints", in: &networking.ServiceEntry{
 				Hosts:     []string{"google.com"},
 				Addresses: []string{},
-				Ports: []*networking.Port{
+				Ports: []*networking.ServicePort{
 					{Number: 8081, Protocol: "http", Name: "http-valid1"},
 				},
 				Endpoints:  []*networking.WorkloadEntry{},
@@ -5044,6 +5179,19 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid:   true,
 			warning: false,
+		},
+		{
+			name: "partial wildcard hosts", in: &networking.ServiceEntry{
+				Hosts:     []string{"*.nytimes.com", "*washingtonpost.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 443, Protocol: "HTTPS", Name: "https-nytimes"},
+				},
+				Endpoints:  []*networking.WorkloadEntry{},
+				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
 		},
 	}
 
@@ -5296,6 +5444,14 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 				},
 			},
 			valid: false,
+		},
+		{
+			name: "selector-empty-labels",
+			in: &security_beta.AuthorizationPolicy{
+				Selector: &api.WorkloadSelector{},
+			},
+			valid:   true,
+			Warning: true,
 		},
 		{
 			name: "selector-wildcard-value",
@@ -6008,9 +6164,10 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			Spec: c.in,
 		})
 		if (got == nil) != c.valid {
-			t.Errorf("error: got: %v\nwant: %v", got, c.valid)
-		} else if (war != nil) != c.Warning {
-			t.Errorf("warning: got: %v\nwant: %v", war, c.valid)
+			t.Errorf("test: %q error: got: %v\nwant: %v", c.name, got, c.valid)
+		}
+		if (war != nil) != c.Warning {
+			t.Errorf("test: %q warning: got: %v\nwant: %v", c.name, war, c.valid)
 		}
 	}
 }
@@ -7211,6 +7368,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 		annotations map[string]string
 		in          proto.Message
 		valid       bool
+		warning     bool
 	}{
 		{
 			name:       "empty spec",
@@ -7224,7 +7382,8 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{},
 			},
-			valid: true,
+			valid:   true,
+			warning: true,
 		},
 		{
 			name:       "empty spec with non default name",
@@ -7502,15 +7661,19 @@ func TestValidateRequestAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if _, got := ValidateRequestAuthentication(config.Config{
+			warn, got := ValidateRequestAuthentication(config.Config{
 				Meta: config.Meta{
 					Name:        c.configName,
 					Namespace:   someNamespace,
 					Annotations: c.annotations,
 				},
 				Spec: c.in,
-			}); (got == nil) != c.valid {
-				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
+			})
+			if (got == nil) != c.valid {
+				t.Errorf("test: %q got(%v) != want(%v)\n", c.name, got, c.valid)
+			}
+			if (warn == nil) == c.warning {
+				t.Errorf("test: %q warn(%v) != want(%v)\n", c.name, warn, c.warning)
 			}
 		})
 	}
@@ -7522,6 +7685,7 @@ func TestValidatePeerAuthentication(t *testing.T) {
 		configName string
 		in         proto.Message
 		valid      bool
+		warning    bool
 	}{
 		{
 			name:       "empty spec",
@@ -7530,12 +7694,13 @@ func TestValidatePeerAuthentication(t *testing.T) {
 			valid:      true,
 		},
 		{
-			name:       "empty mtls",
+			name:       "empty mtls with selector of empty labels",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.PeerAuthentication{
 				Selector: &api.WorkloadSelector{},
 			},
-			valid: true,
+			valid:   true,
+			warning: true,
 		},
 		{
 			name:       "empty spec with non default name",
@@ -7623,14 +7788,18 @@ func TestValidatePeerAuthentication(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if _, got := ValidatePeerAuthentication(config.Config{
+			warn, got := ValidatePeerAuthentication(config.Config{
 				Meta: config.Meta{
 					Name:      c.configName,
 					Namespace: someNamespace,
 				},
 				Spec: c.in,
-			}); (got == nil) != c.valid {
+			})
+			if (got == nil) != c.valid {
 				t.Errorf("got(%v) != want(%v)\n", got, c.valid)
+			}
+			if (warn == nil) == c.warning {
+				t.Errorf("warn(%v) != want(%v)\n", warn, c.warning)
 			}
 		})
 	}
@@ -8006,7 +8175,7 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 			},
-			"must be set set when operation is UPSERT", "",
+			"must be set when operation is UPSERT", "",
 		},
 		{
 			"good metrics operation",
@@ -8287,4 +8456,54 @@ func TestRecurseMissingTypedConfig(t *testing.T) {
 	assert.Equal(t, recurseMissingTypedConfig(good.ProtoReflect()), []string{}, "typed config set")
 	assert.Equal(t, recurseMissingTypedConfig(ecds.ProtoReflect()), []string{}, "config discovery set")
 	assert.Equal(t, recurseMissingTypedConfig(bad.ProtoReflect()), []string{wellknown.TCPProxy}, "typed config not set")
+}
+
+func TestValidateHTTPHeaderValue(t *testing.T) {
+	cases := []struct {
+		input    string
+		expected error
+	}{
+		{
+			input:    "foo",
+			expected: nil,
+		},
+		{
+			input:    "%HOSTNAME%",
+			expected: nil,
+		},
+		{
+			input:    "100%%",
+			expected: nil,
+		},
+		{
+			input:    "prefix %HOSTNAME% suffix",
+			expected: nil,
+		},
+		{
+			input:    "%DOWNSTREAM_PEER_CERT_V_END(%b %d %H:%M:%S %Y %Z)%",
+			expected: nil,
+		},
+		{
+			input: "%DYNAMIC_METADATA(com.test.my_filter)%",
+		},
+		{
+			input:    "%START_TIME%%",
+			expected: errors.New("header value configuration %START_TIME%% is invalid"),
+		},
+		{
+			input:    "abc%123",
+			expected: errors.New("header value configuration abc%123 is invalid"),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			got := ValidateHTTPHeaderValue(tc.input)
+			if tc.expected == nil {
+				assert.NoError(t, got)
+			} else {
+				assert.Error(t, got)
+			}
+		})
+	}
 }

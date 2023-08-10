@@ -24,12 +24,13 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -43,11 +44,12 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/proto"
 	secconst "istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
-	"istio.io/pkg/log"
-	"istio.io/pkg/monitoring"
 )
 
 const (
@@ -103,16 +105,23 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	switch node.Type {
 	case model.SidecarProxy:
 		builder = configgen.buildSidecarListeners(builder)
+	case model.Waypoint:
+		builder = configgen.buildWaypointListeners(builder)
 	case model.Router:
 		builder = configgen.buildGatewayListeners(builder)
 	}
 
 	builder.patchListeners()
-	return builder.getListeners()
+	l := builder.getListeners()
+	if builder.node.EnableHBONE() && !builder.node.IsAmbient() {
+		l = append(l, outboundTunnelListener(builder.node))
+	}
+
+	return l
 }
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
-	proxy *model.Proxy, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
+	proxy *model.Proxy, mesh *meshconfig.MeshConfig, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
 ) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
@@ -142,59 +151,72 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	if proxy.Metadata != nil && proxy.Metadata.Raw[secconst.CredentialMetaDataName] == "true" {
 		credentialSocketExist = true
 	}
-	if features.EnableLegacyIstioMutualCredentialName {
-		// Legacy code path. Can be removed after a couple releases.
-		switch {
-		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
-		case serverTLSSettings.CredentialName != "":
-			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
-		case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
-		default:
-			certProxy := &model.Proxy{}
-			certProxy.IstioVersion = proxy.IstioVersion
-			// If certificate files are specified in gateway configuration, use file based SDS.
-			certProxy.Metadata = &model.NodeMetadata{
-				TLSServerCertChain: serverTLSSettings.ServerCertificate,
-				TLSServerKey:       serverTLSSettings.PrivateKey,
-				TLSServerRootCert:  serverTLSSettings.CaCertificates,
-			}
+	validateClient := ctx.RequireClientCertificate.Value || serverTLSSettings.Mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL
 
-			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
+	switch {
+	case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, validateClient)
+	// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
+	case serverTLSSettings.CredentialName != "":
+		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
+	default:
+		certProxy := &model.Proxy{}
+		certProxy.IstioVersion = proxy.IstioVersion
+		// If certificate files are specified in gateway configuration, use file based SDS.
+		certProxy.Metadata = &model.NodeMetadata{
+			TLSServerCertChain: serverTLSSettings.ServerCertificate,
+			TLSServerKey:       serverTLSSettings.PrivateKey,
+			TLSServerRootCert:  serverTLSSettings.CaCertificates,
 		}
-	} else {
-		switch {
-		case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
-		// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
-		case serverTLSSettings.CredentialName != "":
-			authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
-		default:
-			certProxy := &model.Proxy{}
-			certProxy.IstioVersion = proxy.IstioVersion
-			// If certificate files are specified in gateway configuration, use file based SDS.
-			certProxy.Metadata = &model.NodeMetadata{
-				TLSServerCertChain: serverTLSSettings.ServerCertificate,
-				TLSServerKey:       serverTLSSettings.PrivateKey,
-				TLSServerRootCert:  serverTLSSettings.CaCertificates,
-			}
 
-			authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, ctx.RequireClientCertificate.Value)
-		}
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, validateClient)
 	}
 
-	// Set TLS parameters if they are non-default
-	if len(serverTLSSettings.CipherSuites) > 0 ||
-		serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO ||
-		serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
-		ctx.CommonTlsContext.TlsParams = &auth.TlsParameters{
-			TlsMinimumProtocolVersion: convertTLSProtocol(serverTLSSettings.MinProtocolVersion),
-			TlsMaximumProtocolVersion: convertTLSProtocol(serverTLSSettings.MaxProtocolVersion),
-			CipherSuites:              serverTLSSettings.CipherSuites,
-		}
+	if isSimpleOrMutual(serverTLSSettings.Mode) {
+		// If Mesh TLSDefaults are set, use them.
+		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
+		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
 	}
-
 	return ctx
+}
+
+func applyDownstreamTLSDefaults(tlsDefaults *meshconfig.MeshConfig_TLSConfig, ctx *auth.CommonTlsContext) {
+	if tlsDefaults == nil {
+		return
+	}
+
+	if len(tlsDefaults.EcdhCurves) > 0 {
+		tlsParamsOrNew(ctx).EcdhCurves = tlsDefaults.EcdhCurves
+	}
+	if len(tlsDefaults.CipherSuites) > 0 {
+		tlsParamsOrNew(ctx).CipherSuites = tlsDefaults.CipherSuites
+	}
+	if tlsDefaults.MinProtocolVersion != meshconfig.MeshConfig_TLSConfig_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = auth.TlsParameters_TlsProtocol(tlsDefaults.MinProtocolVersion)
+	}
+}
+
+func applyServerTLSSettings(serverTLSSettings *networking.ServerTLSSettings, ctx *auth.CommonTlsContext) {
+	if serverTLSSettings.MinProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMinimumProtocolVersion = convertTLSProtocol(serverTLSSettings.MinProtocolVersion)
+	}
+	if len(serverTLSSettings.CipherSuites) > 0 {
+		tlsParamsOrNew(ctx).CipherSuites = serverTLSSettings.CipherSuites
+	}
+	if serverTLSSettings.MaxProtocolVersion != networking.ServerTLSSettings_TLS_AUTO {
+		tlsParamsOrNew(ctx).TlsMaximumProtocolVersion = convertTLSProtocol(serverTLSSettings.MaxProtocolVersion)
+	}
+}
+
+func isSimpleOrMutual(mode networking.ServerTLSSettings_TLSmode) bool {
+	return mode == networking.ServerTLSSettings_SIMPLE || mode == networking.ServerTLSSettings_MUTUAL || mode == networking.ServerTLSSettings_OPTIONAL_MUTUAL
+}
+
+func tlsParamsOrNew(tlsContext *auth.CommonTlsContext) *auth.TlsParameters {
+	if tlsContext.TlsParams == nil {
+		tlsContext.TlsParams = &auth.TlsParameters{}
+	}
+	return tlsContext.TlsParams
 }
 
 // buildSidecarListeners produces a list of listeners for sidecar proxies
@@ -206,6 +228,12 @@ func (configgen *ConfigGeneratorImpl) buildSidecarListeners(builder *ListenerBui
 			buildHTTPProxyListener().
 			buildVirtualOutboundListener()
 	}
+	return builder
+}
+
+// buildWaypointListeners produces a list of listeners for waypoint
+func (configgen *ConfigGeneratorImpl) buildWaypointListeners(builder *ListenerBuilder) *ListenerBuilder {
+	builder.inboundListeners = builder.buildWaypointInbound()
 	return builder
 }
 
@@ -224,7 +252,7 @@ type outboundListenerEntry struct {
 }
 
 func protocolName(p protocol.Instance) string {
-	switch istionetworking.ModelProtocolToListenerProtocol(p, core.TrafficDirection_OUTBOUND) {
+	switch istionetworking.ModelProtocolToListenerProtocol(p) {
 	case istionetworking.ListenerProtocolHTTP:
 		return "HTTP"
 	case istionetworking.ListenerProtocolTCP:
@@ -359,6 +387,12 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				Name:     egressListener.IstioListener.Port.Name,
 			}
 
+			if conflictWithStaticListener(node, bind, listenPort.Port, listenPort.Protocol) {
+				log.Warnf("buildSidecarOutboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+					egressListener.IstioListener.Port.Number, node.ID)
+				continue
+			}
+
 			var extraBind []string
 			if egressListener.IstioListener.Bind == "" {
 				if bindToPort {
@@ -431,8 +465,14 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					if !node.CanBindToPort(bindToPort, uint32(servicePort.Port)) {
 						// here, we log at DEBUG level instead of WARN to avoid noise
 						// when the catch all egress listener hits ports 80 and 443
-						log.Debugf("buildSidecarOutboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
-							servicePort.Port, node.ID)
+						log.Debugf("buildSidecarOutboundListeners: skipping privileged service port %s:%d for node %s as it is an unprivileged proxy",
+							service.Hostname, servicePort.Port, node.ID)
+						continue
+					}
+
+					if conflictWithStaticListener(node, bind, servicePort.Port, servicePort.Protocol) {
+						log.Debugf("buildSidecarOutboundListeners: skipping service port %s:%d for node %s as it conflicts with static listener",
+							service.Hostname, servicePort.Port, node.ID)
 						continue
 					}
 
@@ -571,7 +611,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 		},
 	}
 	if err := mutable.build(lb, opts); err != nil {
-		log.Warn("buildHTTPProxy filter chain error  ", err.Error())
+		log.Warnf("buildHTTPProxy filter chain: %v", err)
 		return nil
 	}
 	return l
@@ -594,7 +634,6 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	*listenerMapKey = listenerOpts.bind + ":" + strconv.Itoa(listenerOpts.port.Port)
 
 	var exists bool
-	sniffingEnabled := features.EnableProtocolSniffingForOutbound
 
 	// Have we already generated a listener for this Port based on user
 	// specified listener ports? if so, we should not add any more HTTP
@@ -622,26 +661,6 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 		if (*currentListenerEntry).locked {
 			return false, nil
 		}
-
-		if !sniffingEnabled {
-			if listenerOpts.service != nil {
-				if !(*currentListenerEntry).servicePort.Protocol.IsHTTP() {
-					outboundListenerConflict{
-						metric:          model.ProxyStatusConflictOutboundListenerTCPOverHTTP,
-						node:            listenerOpts.proxy,
-						listenerName:    *listenerMapKey,
-						currentServices: (*currentListenerEntry).services,
-						currentProtocol: (*currentListenerEntry).servicePort.Protocol,
-						newHostname:     listenerOpts.service.Hostname,
-						newProtocol:     listenerOpts.port.Protocol,
-					}.addMetric(listenerOpts.push)
-				}
-
-				// Skip building listener for the same http port
-				(*currentListenerEntry).services = append((*currentListenerEntry).services, listenerOpts.service)
-			}
-			return false, nil
-		}
 	}
 
 	// No conflicts. Add a http filter chain option to the listenerOpts
@@ -649,8 +668,7 @@ func buildSidecarOutboundHTTPListenerOptsForPortOrUDS(listenerMapKey *string,
 	if listenerOpts.port.Port == 0 {
 		rdsName = listenerOpts.bind // use the UDS as a rds name
 	} else {
-		if listenerProtocol == istionetworking.ListenerProtocolAuto &&
-			sniffingEnabled && listenerOpts.bind != actualWildcard && listenerOpts.service != nil {
+		if listenerProtocol == istionetworking.ListenerProtocolAuto && listenerOpts.bind != actualWildcard && listenerOpts.service != nil {
 			rdsName = string(listenerOpts.service.Hostname) + ":" + strconv.Itoa(listenerOpts.port.Port)
 		} else {
 			rdsName = strconv.Itoa(listenerOpts.port.Port)
@@ -697,7 +715,14 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 	var destinationCIDR string
 	if len(listenerOpts.bind) == 0 {
 		svcListenAddress := listenerOpts.service.GetAddressForProxy(listenerOpts.proxy)
-		svcExtraListenAddress := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
+		svcExtraListenAddresses := listenerOpts.service.GetExtraAddressesForProxy(listenerOpts.proxy)
+		// Override the svcListenAddress, using the proxy ipFamily, for cases where the ipFamily cannot be detected easily.
+		// For example: due to the possibility of using hostnames instead of ips in ServiceEntry,
+		// it is hard to detect ipFamily for such services.
+		if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsIPv6() &&
+			svcListenAddress == constants.UnspecifiedIP {
+			svcListenAddress = constants.UnspecifiedIPv6
+		}
 		// We should never get an empty address.
 		// This is a safety guard, in case some platform adapter isn't doing things
 		// properly
@@ -710,7 +735,9 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 				destinationCIDR = svcListenAddress
 				listenerOpts.bind = actualWildcard
 			}
-			listenerOpts.extraBind = svcExtraListenAddress
+			if len(svcExtraListenAddresses) > 0 {
+				listenerOpts.extraBind = svcExtraListenAddresses
+			}
 		}
 	}
 
@@ -739,46 +766,6 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 		if (*currentListenerEntry).locked {
 			return false, nil
 		}
-
-		if !features.EnableProtocolSniffingForOutbound {
-			// Check for port collisions between TCP/TLS and HTTP (or unknown). If
-			// configured correctly, TCP/TLS ports may not collide. We'll
-			// need to do additional work to find out if there is a
-			// collision within TCP/TLS.
-			// If the service port was defined as unknown. It will conflict with all other
-			// protocols.
-			if !(*currentListenerEntry).servicePort.Protocol.IsTCP() {
-				// NOTE: While pluginParams.Service can be nil,
-				// this code cannot be reached if Service is nil because a pluginParams.Service can be nil only
-				// for user defined Egress listeners with ports. And these should occur in the API before
-				// the wildcard egress listener. the check for the "locked" bit will eliminate the collision.
-				// User is also not allowed to add duplicate ports in the egress listener
-				var newHostname host.Name
-				if listenerOpts.service != nil {
-					newHostname = listenerOpts.service.Hostname
-				} else {
-					// user defined outbound listener via sidecar API
-					newHostname = "sidecar-config-egress-http-listener"
-				}
-
-				// We have a collision with another TCP port. This can happen
-				// for headless services, or non-k8s services that do not have
-				// a VIP, or when we have two binds on a unix domain socket or
-				// on same IP.  Unfortunately we won't know if this is a real
-				// conflict or not until we process the VirtualServices, etc.
-				// The conflict resolution is done later in this code
-				outboundListenerConflict{
-					metric:          model.ProxyStatusConflictOutboundListenerHTTPOverTCP,
-					node:            listenerOpts.proxy,
-					listenerName:    *listenerMapKey,
-					currentServices: (*currentListenerEntry).services,
-					currentProtocol: (*currentListenerEntry).servicePort.Protocol,
-					newHostname:     newHostname,
-					newProtocol:     listenerOpts.port.Protocol,
-				}.addMetric(listenerOpts.push)
-				return false, nil
-			}
-		}
 	}
 
 	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
@@ -805,9 +792,8 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 
 	conflictType := NoConflict
 
-	outboundSniffingEnabled := features.EnableProtocolSniffingForOutbound
 	listenerPortProtocol := listenerOpts.port.Protocol
-	listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(listenerOpts.port.Protocol, core.TrafficDirection_OUTBOUND)
+	listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(listenerOpts.port.Protocol)
 
 	// For HTTP_PROXY protocol defined by sidecars, just create the HTTP listener right away.
 	if listenerPortProtocol == protocol.HTTP_PROXY {
@@ -825,7 +811,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 			}
 
 			// Check if conflict happens
-			if outboundSniffingEnabled && currentListenerEntry != nil {
+			if currentListenerEntry != nil {
 				// Build HTTP listener. If current listener entry is using HTTP or protocol sniffing,
 				// append the service. Otherwise (TCP), change current listener to use protocol sniffing.
 				if currentListenerEntry.protocol.IsHTTP() {
@@ -846,25 +832,23 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 			// Since application protocol filter chain match has been added to the http filter chain, a fall through filter chain will be
 			// appended to the listener later to allow arbitrary egress TCP traffic pass through when its port is conflicted with existing
 			// HTTP services, which can happen when a pod accesses a non registry service.
-			if outboundSniffingEnabled {
-				if listenerOpts.bind == actualWildcard {
-					for _, opt := range opts {
-						if opt.match == nil {
-							opt.match = &listener.FilterChainMatch{}
-						}
-
-						// Support HTTP/1.0, HTTP/1.1 and HTTP/2
-						opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
-						opt.match.TransportProtocol = xdsfilters.RawBufferTransportProtocol
+			if listenerOpts.bind == actualWildcard {
+				for _, opt := range opts {
+					if opt.match == nil {
+						opt.match = &listener.FilterChainMatch{}
 					}
 
-					listenerOpts.needHTTPInspector = true
-
-					// if we have a tcp fallthrough filter chain, this is no longer an HTTP listener - it
-					// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
-					// inspection to route between them
-					listenerPortProtocol = protocol.Unsupported
+					// Support HTTP/1.0, HTTP/1.1 and HTTP/2
+					opt.match.ApplicationProtocols = append(opt.match.ApplicationProtocols, plaintextHTTPALPNs...)
+					opt.match.TransportProtocol = xdsfilters.RawBufferTransportProtocol
 				}
+
+				listenerOpts.needHTTPInspector = true
+
+				// if we have a tcp fallthrough filter chain, this is no longer an HTTP listener - it
+				// is instead "unsupported" (auto detected), as we have a TCP and HTTP filter chain with
+				// inspection to route between them
+				listenerPortProtocol = protocol.Unsupported
 			}
 			listenerOpts.filterChainOpts = opts
 
@@ -875,7 +859,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 			}
 
 			// Check if conflict happens
-			if outboundSniffingEnabled && currentListenerEntry != nil {
+			if currentListenerEntry != nil {
 				// Build TCP listener. If current listener entry is using HTTP, add a new TCP filter chain
 				// If current listener is using protocol sniffing, merge the TCP filter chains.
 				if currentListenerEntry.protocol.IsHTTP() {
@@ -949,7 +933,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListenerForPortOrUDS(listenerOpts
 
 	// Filters are serialized one time into an opaque struct once we have the complete list.
 	if err := mutable.build(lb, listenerOpts); err != nil {
-		log.Warn("buildSidecarOutboundListeners: ", err.Error())
+		log.Warnf("buildSidecarOutboundListeners: %v", err)
 		return
 	}
 
@@ -1074,6 +1058,9 @@ type httpListenerOpts struct {
 	class istionetworking.ListenerClass
 	port  int
 	hbone bool
+
+	// Waypoint-specific modifications in HCM
+	isWaypoint bool
 }
 
 // filterChainOpts describes a filter chain: a set of filters with the same TLS context
@@ -1102,6 +1089,7 @@ type buildListenerOpts struct {
 	bindToPort        bool
 	skipUserFilters   bool
 	needHTTPInspector bool
+	needPROXYProtocol bool
 	class             istionetworking.ListenerClass
 	service           *model.Service
 	transport         istionetworking.TransportProtocol
@@ -1114,6 +1102,11 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 	filterChains := make([]*listener.FilterChain, 0, len(opts.filterChainOpts))
 	listenerFiltersMap := make(map[string]bool)
 	var listenerFilters []*listener.ListenerFilter
+
+	// Strip PROXY header first for non-QUIC traffic if requested.
+	if opts.needPROXYProtocol {
+		listenerFilters = append(listenerFilters, xdsfilters.ProxyProtocol)
+	}
 
 	// add a TLS inspector if we need to detect ServerName or ALPN
 	// (this is not applicable for QUIC listeners)
@@ -1229,13 +1222,14 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
-			Name:                    getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
-			Address:                 util.BuildAddress(opts.bind, uint32(opts.port.Port)),
-			TrafficDirection:        trafficDirection,
-			ListenerFilters:         listenerFilters,
-			FilterChains:            filterChains,
-			BindToPort:              bindToPort,
-			ConnectionBalanceConfig: connectionBalance,
+			Name:                             getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
+			Address:                          util.BuildAddress(opts.bind, uint32(opts.port.Port)),
+			TrafficDirection:                 trafficDirection,
+			ListenerFilters:                  listenerFilters,
+			FilterChains:                     filterChains,
+			BindToPort:                       bindToPort,
+			ConnectionBalanceConfig:          connectionBalance,
+			ContinueOnListenerFiltersTimeout: true,
 		}
 		// add extra addresses for the listener
 		if features.EnableDualStack && len(opts.extraBind) > 0 {
@@ -1244,9 +1238,6 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 
 		if opts.proxy.Type != model.Router {
 			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
-			if res.ListenerFiltersTimeout != nil {
-				res.ContinueOnListenerFiltersTimeout = true
-			}
 		}
 	case istionetworking.TransportProtocolQUIC:
 		// TODO: switch on TransportProtocolQUIC is in too many places now. Once this is a bit
@@ -1266,7 +1257,7 @@ func buildListener(opts buildListenerOpts, trafficDirection core.TrafficDirectio
 				QuicOptions:            &listener.QuicProtocolOptions{},
 				DownstreamSocketConfig: &core.UdpSocketConfig{},
 			},
-			EnableReusePort: proto.BoolTrue,
+			ContinueOnListenerFiltersTimeout: true,
 		}
 		// add extra addresses for the listener
 		if features.EnableDualStack && len(opts.extraBind) > 0 {
@@ -1462,7 +1453,7 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 	if first.TransportProtocol != second.TransportProtocol {
 		return false
 	}
-	if !util.StringSliceEqual(first.ApplicationProtocols, second.ApplicationProtocols) {
+	if !slices.Equal(first.ApplicationProtocols, second.ApplicationProtocols) {
 		return false
 	}
 	if first.DestinationPort.GetValue() != second.DestinationPort.GetValue() {
@@ -1486,10 +1477,10 @@ func filterChainMatchEqual(first *listener.FilterChainMatch, second *listener.Fi
 	if first.SourceType != second.SourceType {
 		return false
 	}
-	if !util.UInt32SliceEqual(first.SourcePorts, second.SourcePorts) {
+	if !slices.Equal(first.SourcePorts, second.SourcePorts) {
 		return false
 	}
-	if !util.StringSliceEqual(first.ServerNames, second.ServerNames) {
+	if !slices.Equal(first.ServerNames, second.ServerNames) {
 		return false
 	}
 	return true
@@ -1504,7 +1495,7 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 
 		var missingHTTPALPNs []string
 		for _, p := range plaintextHTTPALPNs {
-			if !contains(fc.FilterChainMatch.ApplicationProtocols, p) {
+			if !slices.Contains(fc.FilterChainMatch.ApplicationProtocols, p) {
 				missingHTTPALPNs = append(missingHTTPALPNs, p)
 			}
 		}
@@ -1513,16 +1504,6 @@ func mergeFilterChains(httpFilterChain, tcpFilterChain []*listener.FilterChain) 
 		newFilterChan = append(newFilterChan, fc)
 	}
 	return append(tcpFilterChain, newFilterChan...)
-}
-
-// It's fine to use this naive implementation for searching in a very short list like ApplicationProtocols
-func contains(s []string, e string) bool {
-	for _, a := range s {
-		if a == e {
-			return true
-		}
-	}
-	return false
 }
 
 func getPluginFilterChain(opts buildListenerOpts) []istionetworking.FilterChain {
@@ -1627,8 +1608,7 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 		}
 
 		if !hasHTTPInspector && l.TrafficDirection == core.TrafficDirection_OUTBOUND {
-			l.ListenerFiltersTimeout = nil
-			l.ContinueOnListenerFiltersTimeout = false
+			l.ListenerFiltersTimeout = durationpb.New(0)
 		}
 	}
 }
@@ -1641,37 +1621,34 @@ func listenerKey(bind string, port int) string {
 const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
 
 // outboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
-func outboundTunnelListener(push *model.PushContext, proxy *model.Proxy) *listener.Listener {
-	name := util.OutboundTunnel
+func outboundTunnelListener(proxy *model.Proxy) *listener.Listener {
 	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
 	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
-	p := &tcp.TcpProxy{
-		StatPrefix:       name,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: name},
-		TunnelingConfig: &tcp.TcpProxy_TunnelingConfig{
-			Hostname: "%DYNAMIC_METADATA(tunnel:destination)%",
-			HeadersToAdd: []*core.HeaderValueOption{
-				{Header: &core.HeaderValue{
-					Key: "baggage",
-					Value: fmt.Sprintf(baggageFormat,
-						proxy.Metadata.ClusterID, proxy.ConfigNamespace,
-						// TODO do not hardcode deployment. But I think we ignore it anyways?
-						"deployment", proxy.Metadata.WorkloadName,
-						canonicalName, canonicalRevision,
-					),
-				}},
-			},
-		},
+	baggage := fmt.Sprintf(baggageFormat,
+		proxy.Metadata.ClusterID, proxy.ConfigNamespace,
+		// TODO do not hardcode deployment. But I think we ignore it anyways?
+		"deployment", proxy.Metadata.WorkloadName,
+		canonicalName, canonicalRevision,
+	)
+	return buildConnectOriginateListener(baggage)
+}
+
+// conflictWithStaticListener checks whether the listener address bind:port conflicts with static listener port
+// default is 15021 and 15090
+func conflictWithStaticListener(proxy *model.Proxy, bind string, port int, protocol protocol.Instance) bool {
+	if bind != "" {
+		if bind != wildCards[proxy.GetIPMode()][0] {
+			return false
+		}
+	} else if !protocol.IsHTTP() {
+		// if the protocol is HTTP and bind == "", the listener address will be 0.0.0.0:port
+		return false
 	}
 
-	l := &listener.Listener{
-		Name:              name,
-		UseOriginalDst:    wrappers.Bool(false),
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		ListenerFilters:   []*listener.ListenerFilter{xdsfilters.SetDstAddress},
-		FilterChains: []*listener.FilterChain{{
-			Filters: []*listener.Filter{setAccessLogAndBuildTCPFilter(push, proxy, p, istionetworking.ListenerClassSidecarOutbound)},
-		}},
+	// bind == wildcard
+	// or bind unspecified, but protocol is HTTP
+	if proxy.Metadata == nil {
+		return false
 	}
-	return l
+	return proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port
 }

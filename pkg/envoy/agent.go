@@ -18,13 +18,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
 
 	"istio.io/istio/pkg/http"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 var errAbort = errors.New("proxy aborted")
@@ -138,6 +139,7 @@ func (a *Agent) terminate() {
 		time.Sleep(a.minDrainDuration)
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
+		defer ticker.Stop()
 		for range ticker.C {
 			ac, err := a.activeProxyConnections()
 			if err != nil {
@@ -168,7 +170,8 @@ func (a *Agent) terminate() {
 }
 
 func (a *Agent) activeProxyConnections() (int, error) {
-	activeConnectionsURL := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=downstream_cx_active$", a.localhost, a.adminPort)
+	adminHost := net.JoinHostPort(a.localhost, strconv.Itoa(a.adminPort))
+	activeConnectionsURL := fmt.Sprintf("http://%s/stats?usedonly&filter=downstream_cx_active$", adminHost)
 	stats, err := http.DoHTTPGet(activeConnectionsURL)
 	if err != nil {
 		return -1, fmt.Errorf("unable to get listener stats from Envoy : %v", err)

@@ -24,21 +24,12 @@ type MultiValueMap map[string]sets.String
 
 // Insert adds given (key, value) pair into the map.
 func (m MultiValueMap) Insert(key, value string) MultiValueMap {
-	if values, exists := m[key]; exists {
-		values.Insert(value)
-		return m
-	}
-	m[key] = sets.New(value)
+	sets.InsertOrNew(m, key, value)
 	return m
 }
 
 // Delete removes given (key, value) pair out of the map.
 func (m MultiValueMap) Delete(key, value string) MultiValueMap {
-	if values, exists := m[key]; exists {
-		values.Delete(value)
-		if values.IsEmpty() {
-			delete(m, key)
-		}
-	}
+	sets.DeleteCleanupLast(m, key, value)
 	return m
 }

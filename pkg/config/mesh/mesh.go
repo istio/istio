@@ -29,9 +29,10 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // DefaultProxyConfig for individual proxies
@@ -44,7 +45,6 @@ func DefaultProxyConfig() *meshconfig.ProxyConfig {
 		DrainDuration:            durationpb.New(45 * time.Second),
 		TerminationDrainDuration: durationpb.New(5 * time.Second),
 		ProxyAdminPort:           15000,
-		Concurrency:              &wrappers.Int32Value{Value: 2},
 		ControlPlaneAuthPolicy:   meshconfig.AuthenticationPolicy_MUTUAL_TLS,
 		DiscoveryAddress:         "istiod.istio-system.svc:15012",
 		Tracing: &meshconfig.Tracing{
@@ -65,8 +65,7 @@ func DefaultProxyConfig() *meshconfig.ProxyConfig {
 // DefaultMeshNetworks returns a default meshnetworks configuration.
 // By default, it is empty.
 func DefaultMeshNetworks() *meshconfig.MeshNetworks {
-	mn := EmptyMeshNetworks()
-	return &mn
+	return ptr.Of(EmptyMeshNetworks())
 }
 
 // DefaultMeshConfig returns the default mesh config.
@@ -88,16 +87,17 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		IngressClass:                "istio",
 		TrustDomain:                 constants.DefaultClusterLocalDomain,
 		TrustDomainAliases:          []string{},
-		EnableAutoMtls:              &wrappers.BoolValue{Value: true},
+		EnableAutoMtls:              wrappers.Bool(true),
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
 		LocalityLbSetting: &v1alpha3.LocalityLoadBalancerSetting{
-			Enabled: &wrappers.BoolValue{Value: true},
+			Enabled: wrappers.Bool(true),
 		},
 		Certificates:  []*meshconfig.Certificate{},
 		DefaultConfig: proxyConfig,
 
 		RootNamespace:                  constants.IstioSystemNamespace,
 		ProxyListenPort:                15001,
+		ProxyInboundListenPort:         15006,
 		ConnectTimeout:                 durationpb.New(10 * time.Second),
 		DefaultServiceExportTo:         []string{"*"},
 		DefaultVirtualServiceExportTo:  []string{"*"},
@@ -110,7 +110,8 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		DnsRefreshRate:  durationpb.New(60 * time.Second),
 		ServiceSettings: make([]*meshconfig.MeshConfig_ServiceSettings, 0),
 
-		DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{},
+		EnablePrometheusMerge: wrappers.Bool(true),
+		DefaultProviders:      &meshconfig.MeshConfig_DefaultProviders{},
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
 				Name: "prometheus",
@@ -140,7 +141,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 // will not be modified.
 func ApplyProxyConfig(yaml string, meshConfig *meshconfig.MeshConfig) (*meshconfig.MeshConfig, error) {
 	mc := proto.Clone(meshConfig).(*meshconfig.MeshConfig)
-	pc, err := applyProxyConfig(yaml, mc.DefaultConfig)
+	pc, err := MergeProxyConfig(yaml, mc.DefaultConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +149,8 @@ func ApplyProxyConfig(yaml string, meshConfig *meshconfig.MeshConfig) (*meshconf
 	return mc, nil
 }
 
-func applyProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshconfig.ProxyConfig, error) {
+// MergeProxyConfig merges the given proxy config yaml with the given proxy config object.
+func MergeProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshconfig.ProxyConfig, error) {
 	origMetadata := proxyConfig.ProxyMetadata
 	if err := protomarshal.ApplyYAML(yaml, proxyConfig); err != nil {
 		return nil, fmt.Errorf("could not parse proxy config: %v", err)
@@ -207,7 +209,7 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 		return nil, multierror.Prefix(err, "failed to extract proxy config")
 	}
 	if pc != "" {
-		pc, err := applyProxyConfig(pc, defaultConfig.DefaultConfig)
+		pc, err := MergeProxyConfig(pc, defaultConfig.DefaultConfig)
 		if err != nil {
 			return nil, err
 		}

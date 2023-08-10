@@ -19,104 +19,10 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/kube/informer"
-	"istio.io/istio/pkg/util/sets"
 )
-
-// Pilot can get EDS information from Kubernetes from two mutually exclusive sources, Endpoints and
-// EndpointSlices. The kubeEndpointsController abstracts these details and provides a common interface
-// that both sources implement.
-type kubeEndpointsController interface {
-	HasSynced() bool
-	Run(stopCh <-chan struct{})
-	getInformer() informer.FilteredSharedIndexInformer
-	onEvent(curr any, event model.Event) error
-	InstancesByPort(c *Controller, svc *model.Service, reqSvcPort int, labelsList labels.Instance) []*model.ServiceInstance
-	GetProxyServiceInstances(c *Controller, proxy *model.Proxy) []*model.ServiceInstance
-	buildIstioEndpoints(ep any, host host.Name) []*model.IstioEndpoint
-	buildIstioEndpointsWithService(name, namespace string, host host.Name, clearCache bool) []*model.IstioEndpoint
-	// forgetEndpoint does internal bookkeeping on a deleted endpoint
-	forgetEndpoint(endpoint any) map[host.Name][]*model.IstioEndpoint
-	getServiceNamespacedName(ep any) types.NamespacedName
-}
-
-// kubeEndpoints abstracts the common behavior across endpoint and endpoint slices.
-type kubeEndpoints struct {
-	c        *Controller
-	informer informer.FilteredSharedIndexInformer
-}
-
-func (e *kubeEndpoints) HasSynced() bool {
-	return e.informer.HasSynced()
-}
-
-func (e *kubeEndpoints) Run(stopCh <-chan struct{}) {
-	e.informer.Run(stopCh)
-}
-
-// processEndpointEvent triggers the config update.
-func processEndpointEvent(c *Controller, epc kubeEndpointsController, name string, namespace string, event model.Event, ep any) error {
-	// Update internal endpoint cache no matter what kind of service, even headless service.
-	// As for gateways, the cluster discovery type is `EDS` for headless service.
-	updateEDS(c, epc, ep, event)
-	if svc, _ := c.serviceLister.Services(namespace).Get(name); svc != nil {
-		// if the service is headless service, trigger a full push if EnableHeadlessService is true,
-		// otherwise push endpoint updates - needed for NDS output.
-		if svc.Spec.ClusterIP == v1.ClusterIPNone {
-			for _, modelSvc := range c.servicesForNamespacedName(kube.NamespacedNameForK8sObject(svc)) {
-				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full: features.EnableHeadlessService,
-					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
-
-					Reason: []model.TriggerReason{model.HeadlessEndpointUpdate},
-				})
-				return nil
-			}
-		}
-	}
-
-	return nil
-}
-
-func updateEDS(c *Controller, epc kubeEndpointsController, ep any, event model.Event) {
-	namespacedName := epc.getServiceNamespacedName(ep)
-	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
-	var forgottenEndpointsByHost map[host.Name][]*model.IstioEndpoint
-	if event == model.EventDelete {
-		forgottenEndpointsByHost = epc.forgetEndpoint(ep)
-	}
-
-	shard := model.ShardKeyFromRegistry(c)
-
-	for _, hostName := range c.hostNamesForNamespacedName(namespacedName) {
-		var endpoints []*model.IstioEndpoint
-		if forgottenEndpointsByHost != nil {
-			endpoints = forgottenEndpointsByHost[hostName]
-		} else {
-			endpoints = epc.buildIstioEndpoints(ep, hostName)
-		}
-
-		if features.EnableK8SServiceSelectWorkloadEntries {
-			svc := c.GetService(hostName)
-			if svc != nil {
-				fep := c.collectWorkloadInstanceEndpoints(svc)
-				endpoints = append(endpoints, fep...)
-			} else {
-				log.Debugf("Handle EDS endpoint: skip collecting workload entry endpoints, service %s/%s has not been populated",
-					namespacedName.Namespace, namespacedName.Name)
-			}
-		}
-
-		c.opts.XDSUpdater.EDSUpdate(shard, string(hostName), namespacedName.Namespace, endpoints)
-	}
-}
 
 // getPod fetches a pod by name or IP address.
 // A pod may be missing (nil) for two reasons:
@@ -149,8 +55,7 @@ func (c *Controller) registerEndpointResync(ep *metav1.ObjectMeta, ip string, ho
 		c.opts.Metrics.AddMetric(model.EndpointNoPod, string(host), "", ip)
 	}
 	// Tell pod cache we want to queue the endpoint event when this pod arrives.
-	epkey := kube.KeyFunc(ep.Name, ep.Namespace)
-	c.pods.queueEndpointEventOnPodArrival(epkey, ip)
+	c.pods.queueEndpointEventOnPodArrival(config.NamespacedName(ep), ip)
 }
 
 // getPod fetches a pod by name or IP address.
@@ -159,7 +64,7 @@ func (c *Controller) registerEndpointResync(ep *metav1.ObjectMeta, ip string, ho
 // * It is an endpoint with an associate Pod, but its not found.
 func (c *Controller) getPod(ip string, namespace string, targetRef *v1.ObjectReference) *v1.Pod {
 	if targetRef != nil && targetRef.Kind == "Pod" {
-		key := kube.KeyFunc(targetRef.Name, targetRef.Namespace)
+		key := types.NamespacedName{Name: targetRef.Name, Namespace: targetRef.Namespace}
 		pod := c.pods.getPodByKey(key)
 		return pod
 	}

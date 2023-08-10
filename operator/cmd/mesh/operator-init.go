@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
-	buildversion "istio.io/pkg/version"
+	buildversion "istio.io/istio/pkg/version"
 )
 
 type operatorInitArgs struct {
@@ -90,6 +90,9 @@ func operatorInit(args *RootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	kubeClient, client, err := kubeClients(oiArgs.kubeConfigPath, oiArgs.context, l)
 	if err != nil {
 		l.LogAndFatal(err)
+	}
+	if oiArgs.common.revision == "default" {
+		oiArgs.common.revision = ""
 	}
 	// Error here likely indicates Deployment is missing. If some other K8s error, we will hit it again later.
 	already, _ := isControllerInstalled(kubeClient.Kube(), oiArgs.common.operatorNamespace, oiArgs.common.revision)

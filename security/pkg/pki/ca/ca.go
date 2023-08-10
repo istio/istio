@@ -16,23 +16,24 @@ package ca
 
 import (
 	"context"
+	"crypto/elliptic"
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
 	"os"
 	"time"
 
+	v1 "k8s.io/api/core/v1"
 	apierror "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 
 	"istio.io/istio/pkg/backoff"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/cmd"
-	k8ssecret "istio.io/istio/security/pkg/k8s/secret"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
 	certutil "istio.io/istio/security/pkg/util"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -71,7 +72,7 @@ type SigningCAFileBundle struct {
 	SigningKeyFile  string
 }
 
-var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log", 0)
+var pkiCaLog = log.RegisterScope("pkica", "Citadel CA log")
 
 // caTypes is the enum for the CA type.
 type caTypes int
@@ -179,9 +180,8 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
 				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 			}
-
-			// Write the key/cert back to secret so they will be persistent when CA restarts.
-			secret := k8ssecret.BuildSecret(CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
+			// Write the key/cert back to secret, so they will be persistent when CA restarts.
+			secret := BuildSecret(CASecret, namespace, nil, nil, nil, pemCert, pemKey, istioCASecretType)
 			if _, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{}); err != nil {
 				pkiCaLog.Errorf("Failed to write secret to CA (error: %s). Abort.", err)
 				return fmt.Errorf("failed to create CA due to secret write error")
@@ -270,6 +270,24 @@ func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 	return caOpts, nil
 }
 
+// BuildSecret returns a secret struct, contents of which are filled with parameters passed in.
+func BuildSecret(scrtName, namespace string, certChain, privateKey, rootCert, caCert, caPrivateKey []byte, secretType v1.SecretType) *v1.Secret {
+	return &v1.Secret{
+		Data: map[string][]byte{
+			CertChainFile:    certChain,
+			PrivateKeyFile:   privateKey,
+			RootCertFile:     rootCert,
+			CACertFile:       caCert,
+			CAPrivateKeyFile: caPrivateKey,
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      scrtName,
+			Namespace: namespace,
+		},
+		Type: secretType,
+	}
+}
+
 // IstioCA generates keys and certificates for Istio identities.
 type IstioCA struct {
 	defaultCertTTL time.Duration
@@ -347,8 +365,15 @@ func (ca *IstioCA) GenKeyCert(hostnames []string, certTTL time.Duration, checkLi
 	// use the type of private key the CA uses to generate an intermediate CA of that type (e.g. CA cert using RSA will
 	// cause intermediate CAs using RSA to be generated)
 	_, signingKey, _, _ := ca.keyCertBundle.GetAll()
-	if util.IsSupportedECPrivateKey(signingKey) {
+	curve, err := util.GetEllipticCurve(signingKey)
+	if err == nil {
 		opts.ECSigAlg = util.EcdsaSigAlg
+		switch curve {
+		case elliptic.P384():
+			opts.ECCCurve = util.P384Curve
+		default:
+			opts.ECCCurve = util.P256Curve
+		}
 	}
 
 	csrPEM, privPEM, err := util.GenCSR(opts)

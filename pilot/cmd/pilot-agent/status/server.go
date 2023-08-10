@@ -33,11 +33,9 @@ import (
 	"syscall"
 	"time"
 
-	ocprom "contrib.go.opencensus.io/exporter/prometheus"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/common/expfmt"
-	"go.opencensus.io/stats/view"
 	"golang.org/x/net/http2"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -52,9 +50,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	dnsProto "istio.io/istio/pkg/dns/proto"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/kube/apimirror"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -82,8 +82,6 @@ var PrometheusScrapingConfig = env.Register("ISTIO_PROMETHEUS_ANNOTATIONS", "", 
 
 var (
 	appProberPattern = regexp.MustCompile(`^/app-health/[^/]+/(livez|readyz|startupz)$`)
-
-	promRegistry *prometheus.Registry
 
 	EnableHTTP2Probing = env.Register("ISTIO_ENABLE_HTTP2_PROBING", true,
 		"If enabled, HTTP2 probes will be enabled for HTTPS probes, following Kubernetes").Get()
@@ -127,6 +125,9 @@ type Options struct {
 	FetchDNS            func() *dnsProto.NameTable
 	NoEnvoy             bool
 	GRPCBootstrap       string
+	EnableProfiling     bool
+	// PrometheusRegistry to use. Just for testing.
+	PrometheusRegistry prometheus.Gatherer
 }
 
 // Server provides an endpoint for handling status probes.
@@ -144,21 +145,21 @@ type Server struct {
 	upstreamLocalAddress  *net.TCPAddr
 	config                Options
 	http                  *http.Client
+	enableProfiling       bool
+	registry              prometheus.Gatherer
 }
 
-func init() {
+func initializeMonitoring() (prometheus.Gatherer, error) {
 	registry := prometheus.NewRegistry()
-	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", prometheus.Registerer(registry))
+	wrapped := prometheus.WrapRegistererWithPrefix("istio_agent_", registry)
 	wrapped.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
 	wrapped.MustRegister(collectors.NewGoCollector())
 
-	promRegistry = registry
-	// go collector metrics collide with other metrics.
-	exporter, err := ocprom.NewExporter(ocprom.Options{Registry: registry, Registerer: wrapped})
+	_, err := monitoring.RegisterPrometheusExporter(wrapped, registry)
 	if err != nil {
-		log.Fatalf("could not setup exporter: %v", err)
+		return nil, fmt.Errorf("could not setup exporter: %v", err)
 	}
-	view.RegisterExporter(exporter)
+	return registry, nil
 }
 
 // NewServer creates a new status server.
@@ -192,6 +193,14 @@ func NewServer(config Options) (*Server, error) {
 	}
 
 	probes = append(probes, config.Probes...)
+	registry := config.PrometheusRegistry
+	if registry == nil {
+		var err error
+		registry, err = initializeMonitoring()
+		if err != nil {
+			return nil, err
+		}
+	}
 	s := &Server{
 		statusPort:            config.StatusPort,
 		ready:                 probes,
@@ -201,6 +210,8 @@ func NewServer(config Options) (*Server, error) {
 		fetchDNS:              config.FetchDNS,
 		upstreamLocalAddress:  upstreamLocalAddress,
 		config:                config,
+		enableProfiling:       config.EnableProfiling,
+		registry:              registry,
 	}
 	if LegacyLocalhostProbeDestination.Get() {
 		s.appProbersDestination = "localhost"
@@ -248,9 +259,8 @@ func NewServer(config Options) (*Server, error) {
 			return nil, err
 		}
 		if prober.HTTPGet != nil {
-			d := &net.Dialer{
-				LocalAddr: s.upstreamLocalAddress,
-			}
+			d := ProbeDialer()
+			d.LocalAddr = s.upstreamLocalAddress
 			// nolint: gosec
 			// This is matching Kubernetes. It is a reasonable usage of this, as it is just a health check over localhost.
 			transport, err := setTransportDefaults(&http.Transport{
@@ -350,12 +360,14 @@ func (s *Server) Run(ctx context.Context) {
 	mux.HandleFunc(quitPath, s.handleQuit)
 	mux.HandleFunc("/app-health/", s.handleAppProbe)
 
-	// Add the handler for pprof.
-	mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
-	mux.HandleFunc("/debug/pprof/cmdline", s.handlePprofCmdline)
-	mux.HandleFunc("/debug/pprof/profile", s.handlePprofProfile)
-	mux.HandleFunc("/debug/pprof/symbol", s.handlePprofSymbol)
-	mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
+	if s.enableProfiling {
+		// Add the handler for pprof.
+		mux.HandleFunc("/debug/pprof/", s.handlePprofIndex)
+		mux.HandleFunc("/debug/pprof/cmdline", s.handlePprofCmdline)
+		mux.HandleFunc("/debug/pprof/profile", s.handlePprofProfile)
+		mux.HandleFunc("/debug/pprof/symbol", s.handlePprofSymbol)
+		mux.HandleFunc("/debug/pprof/trace", s.handlePprofTrace)
+	}
 	mux.HandleFunc("/debug/ndsz", s.handleNdsz)
 
 	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.statusPort))
@@ -541,7 +553,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", string(format))
 
 	// Write out the metrics
-	if err = scrapeAndWriteAgentMetrics(io.Writer(w)); err != nil {
+	if err = scrapeAndWriteAgentMetrics(s.registry, io.Writer(w)); err != nil {
 		log.Errorf("failed scraping and writing agent metrics: %v", err)
 		metrics.AgentScrapeErrors.Increment()
 	}
@@ -566,15 +578,20 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func negotiateMetricsFormat(contentType string) expfmt.Format {
-	mediaType, _, err := mime.ParseMediaType(contentType)
+	mediaType, params, err := mime.ParseMediaType(contentType)
 	if err == nil && mediaType == expfmt.OpenMetricsType {
-		return expfmt.FmtOpenMetrics
+		switch params["version"] {
+		case expfmt.OpenMetricsVersion_1_0_0:
+			return expfmt.FmtOpenMetrics_1_0_0
+		case expfmt.OpenMetricsVersion_0_0_1, "":
+			return expfmt.FmtOpenMetrics_0_0_1
+		}
 	}
 	return expfmt.FmtText
 }
 
-func scrapeAndWriteAgentMetrics(w io.Writer) error {
-	mfs, err := promRegistry.Gather()
+func scrapeAndWriteAgentMetrics(registry prometheus.Gatherer, w io.Writer) error {
+	mfs, err := registry.Gather()
 	enc := expfmt.NewEncoder(w, expfmt.FmtText)
 	if err != nil {
 		return err
@@ -701,26 +718,21 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 		return
 	}
 
+	appReq.Host = req.Host
+	if host, port, err := net.SplitHostPort(req.Host); err == nil {
+		port, _ := strconv.Atoi(port)
+		// the port is same as the status port, then we need to replace the port in the host with the real one
+		if port == int(s.statusPort) {
+			realPort := strconv.Itoa(prober.HTTPGet.Port.IntValue())
+			appReq.Host = net.JoinHostPort(host, realPort)
+		}
+	}
 	// Forward incoming headers to the application.
 	for name, values := range req.Header {
-		newValues := make([]string, len(values))
-		copy(newValues, values)
-		appReq.Header[name] = newValues
-	}
-
-	// If there are custom HTTPHeaders, it will override the forwarding header
-	if headers := prober.HTTPGet.HTTPHeaders; len(headers) != 0 {
-		for _, h := range headers {
-			delete(appReq.Header, h.Name)
-		}
-		for _, h := range headers {
-			if h.Name == "Host" || h.Name == ":authority" {
-				// Probe has specific host header override; honor it
-				appReq.Host = h.Value
-				appReq.Header.Set(h.Name, h.Value)
-			} else {
-				appReq.Header.Add(h.Name, h.Value)
-			}
+		appReq.Header[name] = slices.Clone(values)
+		if len(values) > 0 && (name == "Host") {
+			// Probe has specific host header override; honor it
+			appReq.Host = values[0]
 		}
 	}
 
@@ -753,10 +765,9 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
 	timeout := time.Duration(prober.TimeoutSeconds) * time.Second
 
-	d := &net.Dialer{
-		LocalAddr: s.upstreamLocalAddress,
-		Timeout:   timeout,
-	}
+	d := ProbeDialer()
+	d.LocalAddr = s.upstreamLocalAddress
+	d.Timeout = timeout
 
 	conn, err := d.Dial("tcp", net.JoinHostPort(s.appProbersDestination, strconv.Itoa(prober.TCPSocket.Port.IntValue())))
 	if err != nil {
@@ -777,10 +788,9 @@ func (s *Server) handleAppProbeGRPC(w http.ResponseWriter, req *http.Request, pr
 		grpc.WithBlock(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()), // credentials are currently not supported
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
-			d := net.Dialer{
-				LocalAddr: s.upstreamLocalAddress,
-				Timeout:   timeout,
-			}
+			d := ProbeDialer()
+			d.LocalAddr = s.upstreamLocalAddress
+			d.Timeout = timeout
 			return d.DialContext(ctx, "tcp", addr)
 		}),
 	}

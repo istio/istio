@@ -24,7 +24,7 @@
 #
 
 # Determines the operating system.
-OS="$(uname)"
+OS="${TARGET_OS:-$(uname)}"
 if [ "${OS}" = "Darwin" ] ; then
   OSEXT="osx"
 else
@@ -74,7 +74,6 @@ download_failed () {
 tmp=$(mktemp -d /tmp/istioctl.XXXXXX)
 NAME="istioctl-${ISTIO_VERSION}"
 
-cd "$tmp" || exit
 URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
 ARCH_URL="https://github.com/istio/istio/releases/download/${ISTIO_VERSION}/istioctl-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
 
@@ -84,9 +83,9 @@ with_arch() {
     printf "\n%s is not found, please specify a valid ISTIO_VERSION and TARGET_ARCH\n" "$ARCH_URL"
     exit 1
   fi
-  curl -fsLO "$ARCH_URL"
   filename="istioctl-${ISTIO_VERSION}-${OSEXT}-${ISTIO_ARCH}.tar.gz"
-  tar -xzf "${filename}"
+  curl -fsL -o "${tmp}/${filename}" "$ARCH_URL"
+  tar -xzf "${tmp}/${filename}" -C "${tmp}"
 }
 
 without_arch() {
@@ -95,9 +94,9 @@ without_arch() {
     printf "\n%s is not found, please specify a valid ISTIO_VERSION\n" "$URL"
     exit 1
   fi
-  curl -fsLO "$URL"
   filename="istioctl-${ISTIO_VERSION}-${OSEXT}.tar.gz"
-  tar -xzf "${filename}"
+  curl -fsL -o "${tmp}/${filename}" "$URL"
+  tar -xzf "${tmp}/${filename}" -C "${tmp}"
 }
 
 # Istio 1.6 and above support arch
@@ -127,10 +126,9 @@ fi
 printf "%s download complete!\n" "${filename}"
 
 # setup istioctl
-cd "$HOME" || exit
-mkdir -p ".istioctl/bin"
-mv "${tmp}/istioctl" ".istioctl/bin/istioctl"
-chmod +x ".istioctl/bin/istioctl"
+mkdir -p "$HOME/.istioctl/bin"
+mv "${tmp}/istioctl" "$HOME/.istioctl/bin/istioctl"
+chmod +x "$HOME/.istioctl/bin/istioctl"
 rm -r "${tmp}"
 
 # Print message

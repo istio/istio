@@ -144,7 +144,8 @@ spec:
   - matches:
     - path:
         type: PathPrefix
-        value: /original
+        value: /prefix-original
+    name: prefix-path-rewrite
     filters:
     - type: URLRewrite
       urlRewrite:
@@ -155,11 +156,17 @@ spec:
     backendRefs:
     - name: httpbin
       port: 80
-  - filters:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /full-original
+    name: full-path-rewrite
+    filters:
     - type: URLRewrite
       urlRewrite:
+        hostname: "new.example.com"
         path:
-          type: ReplaceFullPath # Not currently supported
+          type: ReplaceFullPath
           replaceFullPath: "/replacement"
     backendRefs:
     - name: httpbin

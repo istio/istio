@@ -23,11 +23,12 @@ import (
 	"sync"
 
 	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/uds"
-	"istio.io/pkg/log"
 )
 
-var pluginLog = log.RegisterScope("cni", "CNI network plugin", 0)
+var pluginLog = log.RegisterScope("cni", "CNI network plugin")
 
 type UDSLogger struct {
 	mu            sync.Mutex
@@ -50,7 +51,7 @@ func NewUDSLogger() *UDSLogger {
 	return l
 }
 
-// StartUDSServer starts up a UDS server which receives log reported from CNI network plugin.
+// StartUDSLogServer starts up a UDS server which receives log reported from CNI network plugin.
 func (l *UDSLogger) StartUDSLogServer(sockAddress string, stop <-chan struct{}) error {
 	if sockAddress == "" {
 		return nil
@@ -61,8 +62,7 @@ func (l *UDSLogger) StartUDSLogServer(sockAddress string, stop <-chan struct{}) 
 		return fmt.Errorf("failed to create UDS listener: %v", err)
 	}
 	go func() {
-		if err := l.loggingServer.Serve(unixListener); err != nil &&
-			err != http.ErrServerClosed {
+		if err := l.loggingServer.Serve(unixListener); network.IsUnexpectedListenerError(err) {
 			log.Errorf("Error running UDS log server: %v", err)
 		}
 	}()

@@ -17,6 +17,7 @@
     "metadata": {
       "GENERATOR": "grpc",
       "INSTANCE_IPS": "127.0.0.1",
+      "ISTIO_VERSION": "version",
       "PILOT_SAN": [
         "istiod.istio-system.svc"
       ]

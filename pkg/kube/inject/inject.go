@@ -20,7 +20,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -32,7 +31,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	batch "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -45,8 +43,9 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	proxyConfig "istio.io/api/networking/v1beta1"
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // InjectionPolicy determines the policy for injecting the
@@ -96,16 +95,15 @@ const (
 // SidecarTemplateData is the data object to which the templated
 // version of `SidecarInjectionSpec` is applied.
 type SidecarTemplateData struct {
-	TypeMeta             metav1.TypeMeta
-	DeploymentMeta       metav1.ObjectMeta
-	ObjectMeta           metav1.ObjectMeta
-	Spec                 corev1.PodSpec
-	ProxyConfig          *meshconfig.ProxyConfig
-	MeshConfig           *meshconfig.MeshConfig
-	Values               map[string]any
-	Revision             string
-	EstimatedConcurrency int
-	ProxyImage           string
+	TypeMeta       metav1.TypeMeta
+	DeploymentMeta metav1.ObjectMeta
+	ObjectMeta     metav1.ObjectMeta
+	Spec           corev1.PodSpec
+	ProxyConfig    *meshconfig.ProxyConfig
+	MeshConfig     *meshconfig.MeshConfig
+	Values         map[string]any
+	Revision       string
+	ProxyImage     string
 }
 
 type (
@@ -397,16 +395,15 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 	}
 
 	data := SidecarTemplateData{
-		TypeMeta:             params.typeMeta,
-		DeploymentMeta:       params.deployMeta,
-		ObjectMeta:           strippedPod.ObjectMeta,
-		Spec:                 strippedPod.Spec,
-		ProxyConfig:          params.proxyConfig,
-		MeshConfig:           meshConfig,
-		Values:               params.valuesConfig.asMap,
-		Revision:             params.revision,
-		EstimatedConcurrency: estimateConcurrency(params.proxyConfig, metadata.Annotations, params.valuesConfig.asStruct),
-		ProxyImage:           ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
+		TypeMeta:       params.typeMeta,
+		DeploymentMeta: params.deployMeta,
+		ObjectMeta:     strippedPod.ObjectMeta,
+		Spec:           strippedPod.Spec,
+		ProxyConfig:    params.proxyConfig,
+		MeshConfig:     meshConfig,
+		Values:         params.valuesConfig.asMap,
+		Revision:       params.revision,
+		ProxyImage:     ProxyImage(params.valuesConfig.asStruct, params.proxyConfig.Image, strippedPod.Annotations),
 	}
 
 	mergedPod = params.pod
@@ -422,13 +419,24 @@ func RunTemplate(params InjectionParameters) (mergedPod *corev1.Pod, templatePod
 			return nil, nil, err
 		}
 
-		mergedPod, err = applyOverlayYAML(mergedPod, bbuf.Bytes())
-		if err != nil {
-			return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
-		}
 		templatePod, err = applyOverlayYAML(templatePod, bbuf.Bytes())
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed applying injection overlay: %v", err)
+		}
+		// This is a bit of a weird hack. With NativeSidecars, the container will be under initContainers in the template pod.
+		// But we may have injection customizations (https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#customizing-injection);
+		// these will be in the `containers` field.
+		// So if we see the proxy container in `containers` in the original pod, and in `initContainers` in the template pod,
+		// move the container.
+		if features.EnableNativeSidecars.Get() &&
+			FindContainer(ProxyContainerName, templatePod.Spec.InitContainers) != nil &&
+			FindContainer(ProxyContainerName, mergedPod.Spec.Containers) != nil {
+			mergedPod = mergedPod.DeepCopy()
+			mergedPod.Spec.Containers, mergedPod.Spec.InitContainers = moveContainer(mergedPod.Spec.Containers, mergedPod.Spec.InitContainers, ProxyContainerName)
+		}
+		mergedPod, err = applyOverlayYAML(mergedPod, bbuf.Bytes())
+		if err != nil {
+			return nil, nil, fmt.Errorf("failed parsing generated injected YAML (check Istio sidecar injector configuration): %v", err)
 		}
 	}
 
@@ -819,15 +827,14 @@ func potentialPodName(metadata metav1.ObjectMeta) string {
 
 // overwriteClusterInfo updates cluster name and network from url path
 // This is needed when webconfig config runs on a different cluster than webhook
-func overwriteClusterInfo(containers []corev1.Container, params InjectionParameters) {
+func overwriteClusterInfo(pod *corev1.Pod, params InjectionParameters) {
+	c := FindSidecar(pod)
+	if c == nil {
+		return
+	}
 	if len(params.proxyEnvs) > 0 {
 		log.Debugf("Updating cluster envs based on inject url: %s\n", params.proxyEnvs)
-		for i, c := range containers {
-			if c.Name == ProxyContainerName {
-				updateClusterEnvs(&containers[i], params.proxyEnvs)
-				break
-			}
-		}
+		updateClusterEnvs(c, params.proxyEnvs)
 	}
 }
 
@@ -850,55 +857,4 @@ func updateClusterEnvs(container *corev1.Container, newKVs map[string]string) {
 		envVars = append(envVars, corev1.EnvVar{Name: key, Value: val, ValueFrom: nil})
 	}
 	container.Env = envVars
-}
-
-// Uses the default concurrency 2, unless either overridden by proxy config to a positive number,
-// or special value 0, in which case the value is computed from CPU limits/requests.
-func estimateConcurrency(cfg *meshconfig.ProxyConfig, annotations map[string]string, valuesStruct *opconfig.Values) int {
-	if cfg != nil && cfg.Concurrency != nil {
-		concurrency := int(cfg.Concurrency.Value)
-		if concurrency > 0 {
-			return concurrency
-		}
-		if limit, ok := annotations[annotation.SidecarProxyCPULimit.Name]; ok {
-			out, err := quantityToConcurrency(limit)
-			if err == nil {
-				return out
-			}
-		} else if request, ok := annotations[annotation.SidecarProxyCPU.Name]; ok {
-			out, err := quantityToConcurrency(request)
-			if err == nil {
-				return out
-			}
-		} else if resources := valuesStruct.GetGlobal().GetProxy().GetResources(); resources != nil { // nolint: staticcheck
-			if resources.Limits != nil {
-				if limit, ok := resources.Limits["cpu"]; ok {
-					out, err := quantityToConcurrency(limit)
-					if err == nil {
-						return out
-					}
-				}
-			}
-			if resources.Requests != nil {
-				if request, ok := resources.Requests["cpu"]; ok {
-					out, err := quantityToConcurrency(request)
-					if err == nil {
-						return out
-					}
-				}
-			}
-		}
-	}
-	return 2
-}
-
-// Convert k8s quantity to its milli value (e.g. ceil(quantity * 1000)) and then to concurrency.
-// With the resource setting, we round up to single integer number; for example, if we have a 500m limit
-// the pod will get concurrency=1. With 6500m, it will get concurrency=7.
-func quantityToConcurrency(quantity string) (int, error) {
-	q, err := resource.ParseQuantity(quantity)
-	if err != nil {
-		return 0, err
-	}
-	return int(math.Ceil(float64(q.MilliValue()) / 1000)), nil
 }

@@ -25,7 +25,7 @@ import (
 
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
-	pkgVersion "istio.io/pkg/version"
+	pkgVersion "istio.io/istio/pkg/version"
 )
 
 var (
@@ -58,6 +58,21 @@ var (
 		Major:      "1",
 		Minor:      "22",
 		GitVersion: "v1.22",
+	}
+	version1_23 = &version.Info{
+		Major:      "1",
+		Minor:      "23",
+		GitVersion: "v1.23",
+	}
+	version1_24 = &version.Info{
+		Major:      "1",
+		Minor:      "24",
+		GitVersion: "v1.24",
+	}
+	version1_25 = &version.Info{
+		Major:      "1",
+		Minor:      "25",
+		GitVersion: "v1.25",
 	}
 	version1_19RC = &version.Info{
 		Major:      "1",
@@ -204,6 +219,21 @@ func TestIsK8VersionSupported(t *testing.T) {
 		},
 		{
 			version: version1_22,
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_22.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			isValid: false,
+		},
+		{
+			version: version1_23,
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_23.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			isValid: false,
+		},
+		{
+			version: version1_24,
+			logMsg:  fmt.Sprintf(UnSupportedK8SVersionLogMsg, version1_24.GitVersion, pkgVersion.Info.Version, MinK8SVersion),
+			isValid: false,
+		},
+		{
+			version: version1_25,
 			isValid: true,
 		},
 	}

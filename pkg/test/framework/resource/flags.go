@@ -20,10 +20,10 @@ import (
 	"os"
 	"strings"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/config"
 	"istio.io/istio/pkg/test/framework/label"
-	"istio.io/pkg/log"
 )
 
 var settingsFromCommandLine = DefaultSettings()
@@ -57,7 +57,7 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "tproxy")
 	}
 	if s.SkipDelta {
-		// TODO we may also want to trigger this if we have an old verion
+		// TODO we may also want to trigger this if we have an old version
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "delta")
 	}
 	// Allow passing a single CSV flag as well
@@ -85,6 +85,10 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 
 	if s.CustomGRPCEchoImage == "" {
 		s.CustomGRPCEchoImage = env.GRPC_ECHO_IMAGE.ValueOrDefault("")
+	}
+
+	if s.HelmRepo == "" {
+		s.HelmRepo = "https://istio-release.storage.googleapis.com/charts"
 	}
 
 	if err = validate(s); err != nil {
@@ -174,6 +178,12 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.SkipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.SkipTProxy,
 		"Skip TProxy related parts in all tests.")
 
+	flag.BoolVar(&settingsFromCommandLine.Ambient, "istio.test.ambient", settingsFromCommandLine.Ambient,
+		"Indicate the use of ambient mesh.")
+
+	flag.BoolVar(&settingsFromCommandLine.AmbientEverywhere, "istio.test.ambient.everywhere", settingsFromCommandLine.AmbientEverywhere,
+		"Make Waypoint proxies the default instead of sidecar proxies for all echo apps. Must be used with istio.test.ambient")
+
 	flag.BoolVar(&settingsFromCommandLine.Compatibility, "istio.test.compatibility", settingsFromCommandLine.Compatibility,
 		"Transparently deploy echo instances pointing to each revision set in `Revisions`")
 
@@ -194,4 +204,6 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.EnableDualStack, "istio.test.enableDualStack", settingsFromCommandLine.EnableDualStack,
 		"Deploy Istio with Dual Stack enabled.")
+
+	flag.StringVar(&settingsFromCommandLine.HelmRepo, "istio.test.helmRepo", settingsFromCommandLine.HelmRepo, "Helm repo to use to pull the charts.")
 }

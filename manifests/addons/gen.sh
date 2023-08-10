@@ -26,12 +26,15 @@ ADDONS="${WD}/../../samples/addons"
 DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
 TMP=$(mktemp -d)
+LOKI_VERSION=${LOKI_VERSION:-"4.8.0"}
+GRAFANA_VERSION=${GRAFANA_VERSION:-"6.57.4"}
+
 # Set up kiali
 {
 helm3 template kiali-server \
   --namespace istio-system \
-  --version 1.60.0 \
-  --set deployment.image_version=v1.60 \
+  --version 1.67.0 \
+  --set deployment.image_version=v1.67 \
   --include-crds \
   --set nameOverride=kiali \
   --set fullnameOverride=kiali \
@@ -43,7 +46,7 @@ helm3 template kiali-server \
 # Set up prometheus
 helm3 template prometheus prometheus \
   --namespace istio-system \
-  --version 15.9.0 \
+  --version 19.6.1 \
   --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"
@@ -56,7 +59,7 @@ function compressDashboard() {
 {
   helm3 template grafana grafana \
     --namespace istio-system \
-    --version 6.31.1 \
+    --version "${GRAFANA_VERSION}" \
     --repo https://grafana.github.io/helm-charts \
     -f "${WD}/values-grafana.yaml"
 
@@ -81,3 +84,12 @@ function compressDashboard() {
     --from-file=istio-mesh-dashboard.json="${TMP}/istio-mesh-dashboard.json" \
     --from-file=istio-extension-dashboard.json="${TMP}/istio-extension-dashboard.json"
 } > "${ADDONS}/grafana.yaml"
+
+# Set up loki
+{
+  helm3 template loki loki \
+    --namespace istio-system \
+    --version "${LOKI_VERSION}" \
+    --repo https://grafana.github.io/helm-charts \
+    -f "${WD}/values-loki.yaml"
+} > "${ADDONS}/loki.yaml"

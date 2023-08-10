@@ -32,7 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -73,7 +73,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 
 	cgt := &configGenTest{T: t}
 	wg := sync.WaitGroup{}
-	cfgs := []config.Config{}
+	var cfgs []config.Config
 
 	discoveryOpts.ListenerBuilder = func() (net.Listener, error) {
 		return net.Listen("tcp", "127.0.0.1:0")
@@ -139,7 +139,7 @@ func makeWE(s echoCfg, host string, port int) config.Config {
 		Meta: config.Meta{
 			Name:             fmt.Sprintf("echo-%d-%s", port, s.version),
 			Namespace:        ns,
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Workloadentries.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.WorkloadEntry,
 			Labels: map[string]string{
 				"app":     "echo",
 				"version": s.version,

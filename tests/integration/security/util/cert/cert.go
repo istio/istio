@@ -27,14 +27,15 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/security/pkg/pki/ca"
-	"istio.io/pkg/log"
 )
 
 // DumpCertFromSidecar gets the certificates served by the destination.
@@ -49,6 +50,7 @@ func DumpCertFromSidecar(t test.Failer, from echo.Instance, to echo.Target, port
 		TLS: echo.TLS{
 			Alpn: []string{"istio"},
 		},
+		Check: check.NoError(),
 	})
 	if result.Responses.Len() != 1 {
 		t.Fatalf("dump cert failed, no responses")

@@ -15,296 +15,108 @@
 package codegen
 
 import (
+	"bytes"
+	_ "embed"
 	"fmt"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
+	"github.com/stoewer/go-strcase"
+
 	"istio.io/istio/pkg/config/schema/ast"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
 )
 
-const staticResourceTemplate = `
-// GENERATED FILE -- DO NOT EDIT
-//
+//go:embed templates/gvk.go.tmpl
+var gvkTemplate string
 
-package {{.PackageName}}
+//go:embed templates/gvr.go.tmpl
+var gvrTemplate string
 
-import (
-	"istio.io/istio/pkg/config"
-)
+//go:embed templates/crdclient.go.tmpl
+var crdclientTemplate string
 
-var (
-{{- range .Entries }}
-	{{.Type}} = config.GroupVersionKind{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Kind: "{{.Resource.Kind}}"}
-{{- end }}
-)
-`
+//go:embed templates/types.go.tmpl
+var typesTemplate string
 
-const staticKindTemplate = `
-// GENERATED FILE -- DO NOT EDIT
-//
+//go:embed templates/clients.go.tmpl
+var clientsTemplate string
 
-package {{.PackageName}}
+//go:embed templates/kind.go.tmpl
+var kindTemplate string
 
-import (
-	"istio.io/istio/pkg/config"
-)
-
-const (
-{{- range $index, $element := .Entries }}
-	{{- if (eq $index 0) }}
-	{{.Type}} Kind = iota
-	{{- else }}
-	{{.Type}}
-	{{- end }}
-{{- end }}
-)
-
-func (k Kind) String() string {
-	switch k {
-{{- range .Entries }}
-	case {{.Type}}:
-		return "{{.Resource.Kind}}"
-{{- end }}
-	default:
-		return "Unknown"
-	}
-}
-
-func FromGvk(gvk config.GroupVersionKind) Kind {
-{{- range .Entries }}
-	if gvk.Kind == "{{.Resource.Kind}}" && gvk.Group == "{{.Resource.Group}}" && gvk.Version == "{{.Resource.Version}}" {
-		return {{.Type}}
-	}
-{{- end }}
-
-	panic("unknown kind: " + gvk.String())
-}
-`
-
-const staticCollectionsTemplate = `
-{{- .FilePrefix}}
-// GENERATED FILE -- DO NOT EDIT
-//
-
-package {{.PackageName}}
-
-import (
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/istio/pkg/config/validation"
-    "reflect"
-{{- range .Packages}}
-	{{.ImportName}} "{{.PackageName}}"
-{{- end}}
-)
-
-var (
-{{ range .Entries }}
-	{{ commentBlock (wordWrap (printf "%s %s" .Collection.VariableName .Collection.Description) 70) 1 }}
-	{{ .Collection.VariableName }} = collection.Builder {
-		Name: "{{ .Collection.Name }}",
-		VariableName: "{{ .Collection.VariableName }}",
-		Resource: resource.Builder {
-			Group: "{{ .Resource.Group }}",
-			Kind: "{{ .Resource.Kind }}",
-			Plural: "{{ .Resource.Plural }}",
-			Version: "{{ .Resource.Version }}",
-			{{- if .Resource.VersionAliases }}
-            VersionAliases: []string{
-				{{- range $alias := .Resource.VersionAliases}}
-			        "{{$alias}}",
-		 	    {{- end}}
-			},
-			{{- end}}
-			Proto: "{{ .Resource.Proto }}",
-			{{- if ne .Resource.StatusProto "" }}StatusProto: "{{ .Resource.StatusProto }}",{{end}}
-			ReflectType: {{ .Type }},
-			{{- if ne .StatusType "" }}StatusType: {{ .StatusType }}, {{end}}
-			ProtoPackage: "{{ .Resource.ProtoPackage }}",
-			{{- if ne "" .Resource.StatusProtoPackage}}StatusPackage: "{{ .Resource.StatusProtoPackage }}", {{end}}
-			ClusterScoped: {{ .Resource.ClusterScoped }},
-			ValidateProto: validation.{{ .Resource.Validate }},
-		}.MustBuild(),
-	}.MustBuild()
-{{ end }}
-
-	// All contains all collections in the system.
-	All = collection.NewSchemasBuilder().
-	{{- range .Entries }}
-		MustAdd({{ .Collection.VariableName }}).
-	{{- end }}
-		Build()
-
-	// Istio contains only Istio collections.
-	Istio = collection.NewSchemasBuilder().
-	{{- range .Entries }}
-		{{- if (hasPrefix .Collection.Name "istio/") }}
-		MustAdd({{ .Collection.VariableName }}).
-		{{- end}}
-	{{- end }}
-		Build()
-
-	// Kube contains only kubernetes collections.
-	Kube = collection.NewSchemasBuilder().
-	{{- range .Entries }}
-		{{- if (hasPrefix .Collection.Name "k8s/") }}
-		MustAdd({{ .Collection.VariableName }}).
-		{{- end }}
-	{{- end }}
-		Build()
-
-	// Builtin contains only native Kubernetes collections. This differs from Kube, which has
-  // Kubernetes controlled CRDs
-	Builtin = collection.NewSchemasBuilder().
-	{{- range .Entries }}
-		{{- if .Collection.Builtin }}
-		MustAdd({{ .Collection.VariableName }}).
-		{{- end }}
-	{{- end }}
-		Build()
-
-	// Pilot contains only collections used by Pilot.
-	Pilot = collection.NewSchemasBuilder().
-	{{- range .Entries }}
-		{{- if .Collection.Pilot }}
-		MustAdd({{ .Collection.VariableName }}).
-		{{- end}}
-	{{- end }}
-		Build()
-
-	// PilotGatewayAPI contains only collections used by Pilot, including experimental Service Api.
-	PilotGatewayAPI = collection.NewSchemasBuilder().
-	{{- range .Entries }}
-		{{- if or (.Collection.Pilot) (hasPrefix .Collection.Name "k8s/gateway_api") }}
-		MustAdd({{ .Collection.VariableName }}).
-		{{- end}}
-	{{- end }}
-		Build()
-
-	// Deprecated contains only collections used by that will soon be used by nothing.
-	Deprecated = collection.NewSchemasBuilder().
-	{{- range .Entries }}
-		{{- if .Collection.Deprecated }}
-		MustAdd({{ .Collection.VariableName }}).
-		{{- end}}
-	{{- end }}
-		Build()
-)
-`
+//go:embed templates/collections.go.tmpl
+var collectionsTemplate string
 
 type colEntry struct {
-	Collection *ast.Collection
-	Resource   *ast.Resource
-	Type       string
+	Resource *ast.Resource
+
+	// ClientImport represents the import alias for the client. Example: clientnetworkingv1alpha3.
+	ClientImport string
+	// ClientImport represents the import alias for the status. Example: clientnetworkingv1alpha3.
+	StatusImport string
+	// IstioAwareClientImport represents the import alias for the API, taking into account Istio storing its API (spec)
+	// separate from its client import
+	// Example: apiclientnetworkingv1alpha3.
+	IstioAwareClientImport string
+	// ClientGroupPath represents the group in the client. Example: NetworkingV1alpha3.
+	ClientGroupPath string
+	// ClientGetter returns the path to get the client from a kube.Client. Example: Istio.
+	ClientGetter string
+	// ClientTypePath returns the kind name. Basically upper cased "plural". Example: Gateways
+	ClientTypePath string
+	// SpecType returns the type of the Spec field. Example: HTTPRouteSpec.
+	SpecType   string
 	StatusType string
 }
 
-func WriteGvk(packageName string, m *ast.Metadata) (string, error) {
-	entries := make([]colEntry, 0, len(m.Collections))
-	customNames := map[string]string{
-		"k8s/gateway_api/v1beta1/gateways": "KubernetesGateway",
-	}
-	for _, c := range m.Collections {
-		r := m.FindResourceForGroupKind(c.Group, c.Kind)
-		if r == nil {
-			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
-		}
-
-		name := r.Kind
-		if cn, f := customNames[c.Name]; f {
-			name = cn
-		}
-		entries = append(entries, colEntry{
-			Type:     name,
-			Resource: r,
-		})
-	}
-
-	sort.Slice(entries, func(i, j int) bool {
-		return strings.Compare(entries[i].Type, entries[j].Type) < 0
-	})
-
-	context := struct {
-		Entries     []colEntry
-		PackageName string
-	}{
-		Entries:     entries,
-		PackageName: packageName,
-	}
-
-	// Calculate the Go packages that needs to be imported for the proto types to be registered.
-	return applyTemplate(staticResourceTemplate, context)
+type inputs struct {
+	Entries  []colEntry
+	Packages []packageImport
 }
 
-func WriteKind(packageName string, m *ast.Metadata) (string, error) {
-	entries := make([]colEntry, 0, len(m.Collections))
-	customNames := map[string]string{
-		"k8s/gateway_api/v1beta1/gateways": "KubernetesGateway",
-	}
-	for _, c := range m.Collections {
-		r := m.FindResourceForGroupKind(c.Group, c.Kind)
-		if r == nil {
-			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
-		}
-
-		name := r.Kind
-		if cn, f := customNames[c.Name]; f {
-			name = cn
-		}
-		entries = append(entries, colEntry{
-			Type:     name,
-			Resource: r,
-		})
+func buildInputs() (inputs, error) {
+	b, err := os.ReadFile(filepath.Join(env.IstioSrc, "pkg/config/schema/metadata.yaml"))
+	if err != nil {
+		fmt.Printf("unable to read input file: %v", err)
+		return inputs{}, err
 	}
 
-	sort.Slice(entries, func(i, j int) bool {
-		return strings.Compare(entries[i].Type, entries[j].Type) < 0
-	})
-
-	context := struct {
-		Entries     []colEntry
-		PackageName string
-	}{
-		Entries:     entries,
-		PackageName: packageName,
+	// Parse the file.
+	m, err := ast.Parse(string(b))
+	if err != nil {
+		fmt.Printf("failed parsing input file: %v", err)
+		return inputs{}, err
 	}
-
-	// Calculate the Go packages that needs to be imported for the proto types to be registered.
-	return applyTemplate(staticKindTemplate, context)
-}
-
-type packageImport struct {
-	PackageName string
-	ImportName  string
-}
-
-// StaticCollections generates a Go file for static-importing Proto packages, so that they get registered statically.
-func StaticCollections(packageName string, m *ast.Metadata, filter func(name string) bool, prefix string) (string, error) {
-	entries := make([]colEntry, 0, len(m.Collections))
-	for _, c := range m.Collections {
-		if !filter(c.Name) {
-			continue
-		}
-		r := m.FindResourceForGroupKind(c.Group, c.Kind)
-		if r == nil {
-			return "", fmt.Errorf("failed to find resource (%s/%s) for collection %s", c.Group, c.Kind, c.Name)
-		}
-
+	entries := make([]colEntry, 0, len(m.Resources))
+	for _, r := range m.Resources {
 		spl := strings.Split(r.Proto, ".")
 		tname := spl[len(spl)-1]
 		stat := strings.Split(r.StatusProto, ".")
 		statName := stat[len(stat)-1]
 		e := colEntry{
-			Collection: c,
-			Resource:   r,
-			Type:       fmt.Sprintf("reflect.TypeOf(&%s.%s{}).Elem()", toImport(r.ProtoPackage), tname),
+			Resource:               r,
+			ClientImport:           toImport(r.ProtoPackage),
+			StatusImport:           toImport(r.StatusProtoPackage),
+			IstioAwareClientImport: toIstioAwareImport(r.ProtoPackage),
+			ClientGroupPath:        toGroup(r.ProtoPackage),
+			ClientGetter:           toGetter(r.ProtoPackage),
+			ClientTypePath:         toTypePath(r),
+			SpecType:               tname,
 		}
 		if r.StatusProtoPackage != "" {
-			e.StatusType = fmt.Sprintf("reflect.TypeOf(&%s.%s{}).Elem()", toImport(r.StatusProtoPackage), statName)
+			e.StatusType = statName
 		}
 		entries = append(entries, e)
 	}
+
+	sort.Slice(entries, func(i, j int) bool {
+		return strings.Compare(entries[i].Resource.Identifier, entries[j].Resource.Identifier) < 0
+	})
+
 	// Single instance and sort names
 	names := sets.New[string]()
 
@@ -325,26 +137,66 @@ func StaticCollections(packageName string, m *ast.Metadata, filter func(name str
 		return strings.Compare(packages[i].PackageName, packages[j].PackageName) < 0
 	})
 
-	sort.Slice(entries, func(i, j int) bool {
-		return strings.Compare(entries[i].Collection.Name, entries[j].Collection.Name) < 0
-	})
+	return inputs{
+		Entries:  entries,
+		Packages: packages,
+	}, nil
+}
 
-	context := struct {
-		Entries     []colEntry
-		PackageName string
-		FilePrefix  string
-		Packages    []packageImport
-	}{
-		Entries:     entries,
-		PackageName: packageName,
-		Packages:    packages,
-		FilePrefix:  prefix,
+func toTypePath(r *ast.Resource) string {
+	k := r.Kind
+	g := r.Plural
+	res := strings.Builder{}
+	for i, c := range g {
+		if i >= len(k) {
+			res.WriteByte(byte(c))
+		} else {
+			if k[i] == bytes.ToUpper([]byte{byte(c)})[0] {
+				res.WriteByte(k[i])
+			} else {
+				res.WriteByte(byte(c))
+			}
+		}
 	}
+	return res.String()
+}
 
-	// Calculate the Go packages that needs to be imported for the proto types to be registered.
-	return applyTemplate(staticCollectionsTemplate, context)
+func toGetter(protoPackage string) string {
+	if strings.Contains(protoPackage, "istio.io") {
+		return "Istio"
+	} else if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
+		return "GatewayAPI"
+	} else if strings.Contains(protoPackage, "k8s.io/apiextensions-apiserver") {
+		return "Ext"
+	} else {
+		return "Kube"
+	}
+}
+
+func toGroup(protoPackage string) string {
+	p := strings.Split(protoPackage, "/")
+	e := len(p) - 1
+	if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
+		// Gateway has one level of nesting with custom name
+		return "Gateway" + strcase.UpperCamelCase(p[e])
+	}
+	// rest have two levels of nesting
+	return strcase.UpperCamelCase(p[e-1]) + strcase.UpperCamelCase(p[e])
+}
+
+type packageImport struct {
+	PackageName string
+	ImportName  string
 }
 
 func toImport(p string) string {
 	return strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(p, "/", ""), ".", ""), "-", "")
+}
+
+func toIstioAwareImport(p string) string {
+	imp := strings.ReplaceAll(strings.ReplaceAll(strings.ReplaceAll(p, "/", ""), ".", ""), "-", "")
+	if strings.Contains(p, "istio.io") {
+		return "api" + imp
+	}
+	return imp
 }

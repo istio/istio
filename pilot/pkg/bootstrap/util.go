@@ -17,7 +17,7 @@ package bootstrap
 import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
-	"istio.io/pkg/ledger"
+	"istio.io/istio/pkg/ledger"
 )
 
 func hasKubeRegistry(registries []string) bool {

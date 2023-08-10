@@ -26,8 +26,8 @@ import (
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/monitoring"
 )
 
 // ServerPort defines port for the gateway server.
@@ -98,19 +98,14 @@ type MergedGateway struct {
 }
 
 var (
-	typeTag = monitoring.MustCreateLabel("type")
-	nameTag = monitoring.MustCreateLabel("name")
+	typeTag = monitoring.CreateLabel("type")
+	nameTag = monitoring.CreateLabel("name")
 
 	totalRejectedConfigs = monitoring.NewSum(
 		"pilot_total_rejected_configs",
 		"Total number of configs that Pilot had to reject or ignore.",
-		monitoring.WithLabels(typeTag, nameTag),
 	)
 )
-
-func init() {
-	monitoring.MustRegister(totalRejectedConfigs)
-}
 
 func RecordRejectedConfig(gatewayName string) {
 	totalRejectedConfigs.With(typeTag.Value("gateway"), nameTag.Value(gatewayName)).Increment()
@@ -132,6 +127,7 @@ const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gatewa
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
 func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
 	gatewayPorts := make(map[uint32]bool)
+	nonPlainTextGatewayPortsBindMap := map[uint32]sets.String{}
 	mergedServers := make(map[ServerPort]*MergedServers)
 	mergedQUICServers := make(map[ServerPort]*MergedServers)
 	serverPorts := make([]ServerPort, 0)
@@ -197,7 +193,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						tlsHostsByPort[resolvedPort] = map[string]string{}
 					}
 					if duplicateHosts := CheckDuplicates(s.Hosts, s.Bind, tlsHostsByPort[resolvedPort]); len(duplicateHosts) != 0 {
-						log.Debugf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
+						log.Warnf("skipping server on gateway %s, duplicate host names: %v", gatewayName, duplicateHosts)
 						RecordRejectedConfig(gatewayName)
 						continue
 					}
@@ -216,13 +212,15 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					//    for each server (as each server ends up as a separate http connection manager due to filter chain match)
 					// 3. No for everything else.
 					if current, exists := plainTextServers[resolvedPort]; exists {
-						if !canMergeProtocols(serverProtocol, protocol.Parse(current.Protocol)) {
+						if !canMergeProtocols(serverProtocol, protocol.Parse(current.Protocol)) && current.Bind == serverPort.Bind {
 							log.Infof("skipping server on gateway %s port %s.%d.%s: conflict with existing server %d.%s",
 								gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol, serverPort.Number, serverPort.Protocol)
 							RecordRejectedConfig(gatewayName)
 							continue
 						}
-						if routeName == "" {
+						// For TCP gateway/route the route name is empty but if they are different binds, should continue to generate the listener
+						// i.e gateway 10.0.0.1:8000:TCP should not conflict with 10.0.0.2:8000:TCP
+						if routeName == "" && current.Bind == serverPort.Bind {
 							log.Debugf("skipping server on gateway %s port %s.%d.%s: could not build RDS name from server",
 								gatewayConfig.Name, s.Port.Name, resolvedPort, s.Port.Protocol)
 							RecordRejectedConfig(gatewayName)
@@ -268,9 +266,19 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							}
 							serversByRouteName[routeName] = []*networking.Server{s}
 						}
-
+						// build the port bind map for none plain text protocol, thus can avoid protocol conflict if it's different bind
+						if bindsPortMap, ok := nonPlainTextGatewayPortsBindMap[resolvedPort]; ok && !bindsPortMap.Contains(serverPort.Bind) {
+							bindsPortMap.Insert(serverPort.Bind)
+						} else {
+							bindsPortMap := sets.String{}
+							bindsPortMap.Insert(serverPort.Bind)
+							nonPlainTextGatewayPortsBindMap[resolvedPort] = bindsPortMap
+						}
+						// If the bind/port combination is not being used as non-plaintext, they are different
+						// listeners and won't get conflicted even with same port different protocol
+						// i.e 0.0.0.0:443:GRPC/1.0.0.1:443:GRPC/1.0.0.2:443:HTTPS they are not conflicted, otherwise
 						// We have another TLS server on the same port. Can differentiate servers using SNI
-						if s.Tls == nil {
+						if s.Tls == nil && !nonPlainTextGatewayPortsBindMap[resolvedPort].Contains(serverPort.Bind) {
 							log.Warnf("TLS server without TLS options %s %s", gatewayName, s.String())
 							continue
 						}
@@ -291,7 +299,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 								mergedQUICServers[serverPort] = &MergedServers{Servers: []*networking.Server{}}
 							}
 							mergedQUICServers[serverPort].Servers = append(mergedQUICServers[serverPort].Servers, s)
-							http3AdvertisingRoutes[routeName] = struct{}{}
+							http3AdvertisingRoutes.Insert(routeName)
 						}
 					}
 				} else {
@@ -306,7 +314,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 						if features.EnableQUICListeners && gateway.IsEligibleForHTTP3Upgrade(s) &&
 							udpSupportedPort(s.GetPort().GetNumber(), gwAndInstance.instances) {
 							log.Debugf("Server at port %d eligible for HTTP3 upgrade. So QUIC listener will be added", serverPort.Number)
-							http3AdvertisingRoutes[routeName] = struct{}{}
+							http3AdvertisingRoutes.Insert(routeName)
 
 							if mergedQUICServers[serverPort] == nil {
 								// This should be treated like non-passthrough HTTPS case. There will be multiple filter
@@ -355,7 +363,7 @@ func udpSupportedPort(number uint32, instances []*ServiceInstance) bool {
 // port and translating to the targetPort in addition to just directly referencing a port. In this
 // case, we just make a best effort guess by picking the first match.
 func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySelector bool) []uint32 {
-	ports := map[uint32]struct{}{}
+	ports := sets.New[uint32]()
 	for _, w := range instances {
 		if _, disablePortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]; disablePortTranslation && legacyGatewaySelector {
 			// Skip this Service, they opted out of port translation
@@ -371,13 +379,10 @@ func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySele
 				// picking the first one here preserves backwards compatibility.
 				return []uint32{w.Endpoint.EndpointPort}
 			}
-			ports[w.Endpoint.EndpointPort] = struct{}{}
+			ports.Insert(w.Endpoint.EndpointPort)
 		}
 	}
-	ret := make([]uint32, 0, len(ports))
-	for p := range ports {
-		ret = append(ret, p)
-	}
+	ret := ports.UnsortedList()
 	if len(ret) == 0 && legacyGatewaySelector {
 		// When we are using legacy gateway label selection, we should bind to the port as-is if there is
 		// no matching ServiceInstance.
@@ -513,20 +518,20 @@ func sanitizeServerHostNamespace(server *networking.Server, namespace string) {
 	}
 }
 
-type GatewayPortMap map[int]map[int]struct{}
+type GatewayPortMap map[int]sets.Set[int]
 
 func getTargetPortMap(serversByRouteName map[string][]*networking.Server) GatewayPortMap {
 	pm := GatewayPortMap{}
 	for r, s := range serversByRouteName {
 		portNumber, _, _ := ParseGatewayRDSRouteName(r)
 		if _, f := pm[portNumber]; !f {
-			pm[portNumber] = map[int]struct{}{}
+			pm[portNumber] = sets.New[int]()
 		}
 		for _, se := range s {
 			if se.Port == nil {
 				continue
 			}
-			pm[portNumber][int(se.Port.Number)] = struct{}{}
+			pm[portNumber].Insert(int(se.Port.Number))
 		}
 	}
 	return pm

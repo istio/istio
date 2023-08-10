@@ -17,7 +17,7 @@ package memory
 import (
 	"istio.io/istio/pilot/pkg/model"
 	config2 "istio.io/istio/pkg/config"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -65,7 +65,7 @@ func newBufferedMonitor(store model.ConfigStore, bufferSize int, sync bool) Moni
 	handlers := make(map[config2.GroupVersionKind][]Handler)
 
 	for _, s := range store.Schemas().All() {
-		handlers[s.Resource().GroupVersionKind()] = make([]Handler, 0)
+		handlers[s.GroupVersionKind()] = make([]Handler, 0)
 	}
 
 	return &configStoreMonitor{

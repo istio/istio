@@ -39,7 +39,7 @@ func TestPassThroughFilterChain(t *testing.T) {
 		Features("security.filterchain").
 		Run(func(t framework.TestContext) {
 			type expect struct {
-				port string
+				port echo.Port
 				// Plaintext will be sent from Naked pods.
 				plaintextSucceeds bool
 				// MTLS will be sent from all pods other than Naked.
@@ -86,7 +86,7 @@ spec:
   mtls:
     mode: DISABLE
 ---
-apiVersion: security.istio.io/v1
+apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
   name: authz
@@ -396,7 +396,8 @@ spec:
 						ConditionallyTo(echotest.SameNetwork).
 						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 							for _, expect := range tc.expected {
-								p := to.PortForName(expect.port)
+								expect := expect
+								p := expect.port
 								opts := echo.CallOptions{
 									// Do not set To, otherwise fillInCallOptions() will
 									// complain with port does not match.
@@ -428,7 +429,7 @@ spec:
 									mtlsString = "plaintext"
 								}
 								testName := fmt.Sprintf("%s/%s(%s)", mtlsString, p.Name, allow)
-								t.NewSubTest(testName).RunParallel(func(t framework.TestContext) {
+								t.NewSubTest(testName).Run(func(t framework.TestContext) {
 									from.CallOrFail(t, opts)
 								})
 							}

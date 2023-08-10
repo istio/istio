@@ -24,10 +24,10 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/monitoring"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -35,7 +35,7 @@ var (
 	GKEClusterURL = env.Register("GKE_CLUSTER_URL", "", "The url of GKE cluster").Get()
 	// SecureTokenEndpoint is the Endpoint the STS client calls to.
 	SecureTokenEndpoint = "https://sts.googleapis.com/v1/token"
-	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging", 0)
+	stsClientLog        = log.RegisterScope("stsclient", "STS client debugging")
 )
 
 const (
@@ -89,7 +89,7 @@ func (p *SecureTokenServiceExchanger) requestWithRetry(reqBytes []byte) ([]byte,
 	var lastError error
 	for attempts < 5 {
 		attempts++
-		req, err := http.NewRequest("POST", SecureTokenEndpoint, bytes.NewBuffer(reqBytes))
+		req, err := http.NewRequest(http.MethodPost, SecureTokenEndpoint, bytes.NewBuffer(reqBytes))
 		if err != nil {
 			return nil, err
 		}

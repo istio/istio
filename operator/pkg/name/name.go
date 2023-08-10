@@ -94,7 +94,8 @@ const (
 	IstioBaseComponentName ComponentName = "Base"
 	PilotComponentName     ComponentName = "Pilot"
 
-	CNIComponentName ComponentName = "Cni"
+	CNIComponentName     ComponentName = "Cni"
+	ZtunnelComponentName ComponentName = "Ztunnel"
 
 	// istiod remote component
 	IstiodRemoteComponentName ComponentName = "IstiodRemote"
@@ -119,13 +120,12 @@ var (
 		PilotComponentName,
 		CNIComponentName,
 		IstiodRemoteComponentName,
+		ZtunnelComponentName,
 	}
 
 	// AllComponentNames is a list of all Istio components.
 	AllComponentNames = append(AllCoreComponentNames, IngressComponentName, EgressComponentName,
 		IstioOperatorComponentName, IstioOperatorCustomResourceName)
-
-	allCoreComponentNamesMap = map[ComponentName]bool{}
 
 	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
 	// paths in IstioOperator.
@@ -140,6 +140,7 @@ var (
 		IstioBaseComponentName:          "Istio core",
 		PilotComponentName:              "Istiod",
 		CNIComponentName:                "CNI",
+		ZtunnelComponentName:            "Ztunnel",
 		IngressComponentName:            "Ingress gateways",
 		EgressComponentName:             "Egress gateways",
 		IstioOperatorComponentName:      "Istio operator",
@@ -156,12 +157,6 @@ type Manifest struct {
 
 // ManifestMap is a map of ComponentName to its manifest string.
 type ManifestMap map[ComponentName][]string
-
-func init() {
-	for _, c := range AllCoreComponentNames {
-		allCoreComponentNamesMap[c] = true
-	}
-}
 
 // Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
 // manifest.

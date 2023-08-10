@@ -25,11 +25,11 @@ import (
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
-	"istio.io/pkg/env"
-	istiolog "istio.io/pkg/log"
+	"istio.io/istio/pkg/env"
+	istiolog "istio.io/istio/pkg/log"
 )
 
-var securityLog = istiolog.RegisterScope("security", "security debugging", 0)
+var securityLog = istiolog.RegisterScope("security", "security debugging")
 
 const (
 	// etc/certs files are used with external CA managing the certs,
@@ -140,7 +140,14 @@ const (
 
 	// CertSigner info
 	CertSigner = "CertSigner"
+
+	// ImpersonatedIdentity declares the identity we are requesting a certificate on behalf of.
+	// This is constrained to only allow identities in CATrustedNodeAccounts, and only to impersonate identities
+	// on their node.
+	ImpersonatedIdentity = "ImpersonatedIdentity"
 )
+
+type ImpersonatedIdentityContextKey struct{}
 
 // Options provides all of the configuration parameters for secret discovery service
 // and CA configuration. Used in both Istiod and Agent.
@@ -183,6 +190,9 @@ type Options struct {
 	// The type of Elliptical Signature algorithm to use
 	// when generating private keys. Currently only ECDSA is supported.
 	ECCSigAlg string
+
+	// The type of curve to use when generating private keys with ECC. Currently only ECDSA is supported.
+	ECCCurve string
 
 	// FileMountedCerts indicates whether the proxy is using file
 	// mounted certs created by a foreign CA. Refresh is managed by the external
@@ -393,6 +403,21 @@ func (ac *AuthContext) Header(header string) []string {
 type Caller struct {
 	AuthSource AuthSource
 	Identities []string
+
+	KubernetesInfo KubernetesInfo
+}
+
+// KubernetesInfo defines Kubernetes specific information extracted from the caller.
+// This involves additional metadata about the caller beyond just its SPIFFE identity.
+type KubernetesInfo struct {
+	PodName           string
+	PodNamespace      string
+	PodUID            string
+	PodServiceAccount string
+}
+
+func (k KubernetesInfo) String() string {
+	return fmt.Sprintf("Pod{Name: %s, Namespace: %s, UID: %s, ServiceAccount: %s}", k.PodName, k.PodNamespace, k.PodUID, k.PodServiceAccount)
 }
 
 // Authenticator determines the caller identity based on request context.
@@ -401,15 +426,15 @@ type Authenticator interface {
 	AuthenticatorType() string
 }
 
-// AuthenticationManager orchestrates all authenticators to perform authentication.
-type AuthenticationManager struct {
+// authenticationManager orchestrates all authenticators to perform authentication.
+type authenticationManager struct {
 	Authenticators []Authenticator
 	// authFailMsgs contains list of messages that authenticator wants to record - mainly used for logging.
 	authFailMsgs []string
 }
 
 // Authenticate loops through all the configured Authenticators and returns if one of the authenticator succeeds.
-func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
+func (am *authenticationManager) authenticate(ctx context.Context) *Caller {
 	req := AuthContext{GrpcContext: ctx}
 	for _, authn := range am.Authenticators {
 		u, err := authn.Authenticate(req)
@@ -431,7 +456,7 @@ func GetConnectionAddress(ctx context.Context) string {
 	return peerAddr
 }
 
-func (am *AuthenticationManager) FailedMessages() string {
+func (am *authenticationManager) FailedMessages() string {
 	return strings.Join(am.authFailMsgs, "; ")
 }
 

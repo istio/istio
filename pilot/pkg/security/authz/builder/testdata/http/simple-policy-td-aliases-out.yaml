@@ -53,7 +53,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/rule[0]-from[1]-ns[0]/.*
       ns[foo]-policy[httpbin]-rule[1]:
         permissions:

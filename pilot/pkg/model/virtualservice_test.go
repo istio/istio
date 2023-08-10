@@ -30,7 +30,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test/util/assert"
@@ -41,7 +41,7 @@ const wildcardIP = "0.0.0.0"
 func TestMergeVirtualServices(t *testing.T) {
 	independentVs := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "virtual-service",
 			Namespace:        "default",
 		},
@@ -67,7 +67,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	rootVs := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "root-vs",
 			Namespace:        "istio-system",
 		},
@@ -111,7 +111,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	defaultVs := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "default-vs",
 			Namespace:        "default",
 		},
@@ -154,7 +154,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	oneRoot := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "root-vs",
 			Namespace:        "istio-system",
 		},
@@ -181,7 +181,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	createDelegateVs := func(name, namespace string, exportTo []string) config.Config {
 		return config.Config{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.VirtualService,
 				Name:             name,
 				Namespace:        namespace,
 			},
@@ -253,7 +253,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	delegateVsNotExported := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "productpage-vs",
 			Namespace:        "default2",
 		},
@@ -266,7 +266,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	mergedVs := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "root-vs",
 			Namespace:        "istio-system",
 		},
@@ -362,7 +362,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	// invalid delegate, match condition conflicts with root
 	delegateVs2 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "productpage-vs",
 			Namespace:        "default",
 		},
@@ -439,7 +439,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	mergedVs2 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "root-vs",
 			Namespace:        "istio-system",
 		},
@@ -506,7 +506,7 @@ func TestMergeVirtualServices(t *testing.T) {
 	// multiple routes delegate to one single sub VS
 	multiRoutes := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "root-vs",
 			Namespace:        "istio-system",
 		},
@@ -549,7 +549,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	singleDelegate := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "productpage-vs",
 			Namespace:        "default",
 		},
@@ -576,7 +576,7 @@ func TestMergeVirtualServices(t *testing.T) {
 
 	mergedVs3 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "root-vs",
 			Namespace:        "istio-system",
 		},
@@ -1249,7 +1249,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			},
 		},
 		{
-			name: "headers",
+			name: "headers conflict",
 			root: []*networking.HTTPMatchRequest{
 				{
 					Headers: map[string]*networking.StringMatch{
@@ -1484,6 +1484,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			tc.delegate = config.DeepCopy(tc.delegate).([]*networking.HTTPMatchRequest)
 			got, _ := mergeHTTPMatchRequests(tc.root, tc.delegate)
 			assert.Equal(t, got, tc.expected)
 		})
@@ -1808,6 +1809,7 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 			r.Route = nil
 			r.Redirect = nil
 			r.Delegate = nil
+			r.Mirrors = []*networking.HTTPMirrorPolicy{{}}
 		},
 		func(r *networking.HTTPMatchRequest, c fuzz.Continue) {
 			*r = networking.HTTPMatchRequest{}
@@ -1852,6 +1854,9 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 		},
 		func(r *networking.Headers, c fuzz.Continue) {
 			*r = networking.Headers{}
+		},
+		func(r *networking.HTTPMirrorPolicy, c fuzz.Continue) {
+			*r = networking.HTTPMirrorPolicy{}
 		})
 
 	root := &networking.HTTPRoute{}
@@ -1957,6 +1962,8 @@ func TestSelectVirtualService(t *testing.T) {
 		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
 		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
 		buildHTTPService("test-headless-someother.com", visibility.Public, wildcardIP, "some-other-ns", 8888),
+		buildHTTPService("a.test1.wildcard.com", visibility.Public, wildcardIP, "default", 8888),
+		buildHTTPService("*.test2.wildcard.com", visibility.Public, wildcardIP, "default", 8888),
 	}
 
 	hostsByNamespace := make(map[string][]host.Name)
@@ -2092,9 +2099,47 @@ func TestSelectVirtualService(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceSpec8 := &networking.VirtualService{
+		Hosts:    []string{"*.test1.wildcard.com"}, // match: a.test1.wildcard.com
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 64,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec9 := &networking.VirtualService{
+		Hosts:    []string{"foo.test2.wildcard.com"}, // match: *.test2.wildcard.com
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 64,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
 	virtualService1 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme2-v1",
 			Namespace:        "not-default",
 		},
@@ -2102,7 +2147,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService2 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v2",
 			Namespace:        "not-default",
 		},
@@ -2110,7 +2155,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService3 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
 			Namespace:        "not-default",
 		},
@@ -2118,7 +2163,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService4 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v4",
 			Namespace:        "not-default",
 		},
@@ -2126,7 +2171,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService5 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
 			Namespace:        "not-default",
 		},
@@ -2134,7 +2179,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService6 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme-v3",
 			Namespace:        "not-default",
 		},
@@ -2142,11 +2187,27 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 	virtualService7 := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioNetworkingV1Alpha3Virtualservices.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.VirtualService,
 			Name:             "acme2-v1",
 			Namespace:        "some-other-ns",
 		},
 		Spec: virtualServiceSpec7,
+	}
+	virtualService8 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "vs-wildcard-v1",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceSpec8,
+	}
+	virtualService9 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "service-wildcard-v1",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceSpec9,
 	}
 
 	index := virtualServiceIndex{
@@ -2159,18 +2220,23 @@ func TestSelectVirtualService(t *testing.T) {
 				virtualService5,
 				virtualService6,
 				virtualService7,
+				virtualService8,
+				virtualService9,
 			},
 		},
 	}
 
 	configs := SelectVirtualServices(index, "some-ns", hostsByNamespace)
-	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name}
+	expectedVS := []string{
+		virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name,
+		virtualService8.Name, virtualService9.Name,
+	}
 	if len(expectedVS) != len(configs) {
-		t.Fatalf("Unexpected virtualService, got %d, epxected %d", len(configs), len(expectedVS))
+		t.Fatalf("Unexpected virtualService, got %d, expected %d", len(configs), len(expectedVS))
 	}
 	for i, config := range configs {
 		if config.Name != expectedVS[i] {
-			t.Fatalf("Unexpected virtualService, got %s, epxected %s", config.Name, expectedVS[i])
+			t.Fatalf("Unexpected virtualService, got %s, expected %s", config.Name, expectedVS[i])
 		}
 	}
 }

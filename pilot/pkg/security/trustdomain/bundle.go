@@ -19,10 +19,10 @@ import (
 	"strings"
 
 	"istio.io/istio/pkg/config/constants"
-	istiolog "istio.io/pkg/log"
+	istiolog "istio.io/istio/pkg/log"
 )
 
-var authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy", 0)
+var authzLog = istiolog.RegisterScope("authorization", "Istio Authorization Policy")
 
 type Bundle struct {
 	// Contain the local trust domain and its aliases.

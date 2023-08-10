@@ -20,11 +20,12 @@ import (
 	"regexp"
 	"strings"
 
-	v1 "k8s.io/api/apps/v1"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/istio/operator/pkg/name"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/tools/bug-report/pkg/common"
@@ -44,15 +45,10 @@ func ParsePath(path string) (namespace string, deployment, pod string, container
 }
 
 // shouldSkip means that current pod should be skip or not based on given --include and --exclude
-func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.Pod) bool {
+func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 	for _, eld := range config.Exclude {
 		if len(eld.Namespaces) > 0 {
 			if isIncludeOrExcludeEntriesMatched(eld.Namespaces, pod.Namespace) {
-				return true
-			}
-		}
-		if len(eld.Deployments) > 0 {
-			if isIncludeOrExcludeEntriesMatched(eld.Deployments, deployment) {
 				return true
 			}
 		}
@@ -91,17 +87,12 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 	for _, ild := range config.Include {
 		if len(ild.Namespaces) > 0 {
 			if !isIncludeOrExcludeEntriesMatched(ild.Namespaces, pod.Namespace) {
-				return true
-			}
-		}
-		if len(ild.Deployments) > 0 {
-			if !isIncludeOrExcludeEntriesMatched(ild.Deployments, deployment) {
-				return true
+				continue
 			}
 		}
 		if len(ild.Pods) > 0 {
 			if !isIncludeOrExcludeEntriesMatched(ild.Pods, pod.Name) {
-				return true
+				continue
 			}
 		}
 
@@ -113,7 +104,7 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 				}
 			}
 			if !isContainerMatch {
-				return true
+				continue
 			}
 		}
 
@@ -128,7 +119,7 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 				}
 			}
 			if !isLabelsMatch {
-				return true
+				continue
 			}
 		}
 
@@ -143,11 +134,52 @@ func shouldSkip(deployment string, config *config2.BugReportConfig, pod *corev1.
 				}
 			}
 			if !isAnnotationMatch {
+				continue
+			}
+		}
+		// If we reach here, it means that all include entries are matched.
+		return false
+	}
+	// If we reach here, it means that no include entries are matched.
+	return true
+}
+
+func shouldSkipDeployment(deployment string, config *config2.BugReportConfig) bool {
+	for _, eld := range config.Exclude {
+		if len(eld.Deployments) > 0 {
+			if isIncludeOrExcludeEntriesMatched(eld.Deployments, deployment) {
 				return true
 			}
 		}
 	}
 
+	for _, ild := range config.Include {
+		if len(ild.Deployments) > 0 {
+			if !isIncludeOrExcludeEntriesMatched(ild.Deployments, deployment) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func shouldSkipDaemonSet(daemonSet string, config *config2.BugReportConfig) bool {
+	for _, eld := range config.Exclude {
+		if len(eld.Daemonsets) > 0 {
+			if isIncludeOrExcludeEntriesMatched(eld.Daemonsets, daemonSet) {
+				return true
+			}
+		}
+	}
+
+	for _, ild := range config.Include {
+		if len(ild.Daemonsets) > 0 {
+			if !isIncludeOrExcludeEntriesMatched(ild.Daemonsets, daemonSet) {
+				return true
+			}
+		}
+	}
 	return false
 }
 
@@ -182,6 +214,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 		Labels:      make(map[string]map[string]string),
 		Annotations: make(map[string]map[string]string),
 		Pod:         make(map[string]*corev1.Pod),
+		CniPod:      make(map[string]*corev1.Pod),
 	}
 
 	pods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
@@ -194,19 +227,42 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 		return nil, err
 	}
 
+	daemonsets, err := clientset.AppsV1().DaemonSets("").List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
 	for i, p := range pods.Items {
+		if p.Labels["k8s-app"] == "istio-cni-node" {
+			out.CniPod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
+		}
+
 		if analyzer_util.IsSystemNamespace(resource.Namespace(p.Namespace)) {
+			continue
+		}
+		if skip := shouldSkipPod(&p, config); skip {
 			continue
 		}
 
 		deployment := getOwnerDeployment(&p, replicasets.Items)
-		if skip := shouldSkip(deployment, config, &p); skip {
+		if skip := shouldSkipDeployment(deployment, config); skip {
+			continue
+		}
+		daemonset := getOwnerDaemonSet(&p, daemonsets.Items)
+		if skip := shouldSkipDaemonSet(daemonset, config); skip {
 			continue
 		}
 
-		for _, c := range p.Spec.Containers {
-			out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
+		if deployment != "" {
+			for _, c := range p.Spec.Containers {
+				out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
+			}
+		} else if daemonset != "" {
+			for _, c := range p.Spec.Containers {
+				out.insertContainer(p.Namespace, daemonset, p.Name, c.Name)
+			}
 		}
+
 		out.Labels[PodKey(p.Namespace, p.Name)] = p.Labels
 		out.Annotations[PodKey(p.Namespace, p.Name)] = p.Annotations
 		out.Pod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
@@ -227,6 +283,8 @@ type Resources struct {
 	Annotations map[string]map[string]string
 	// Pod maps a pod name to its Pod info. The key is namespace/pod-name.
 	Pod map[string]*corev1.Pod
+	// CniPod
+	CniPod map[string]*corev1.Pod
 }
 
 func (r *Resources) insertContainer(namespace, deployment, pod, container string) {
@@ -249,8 +307,14 @@ func (r *Resources) insertContainer(namespace, deployment, pod, container string
 }
 
 // ContainerRestarts returns the number of container restarts for the given container.
-func (r *Resources) ContainerRestarts(namespace, pod, container string) int {
-	for _, cs := range r.Pod[PodKey(namespace, pod)].Status.ContainerStatuses {
+func (r *Resources) ContainerRestarts(namespace, pod, container string, isCniPod bool) int {
+	var podItem *corev1.Pod
+	if isCniPod {
+		podItem = r.CniPod[PodKey(namespace, pod)]
+	} else {
+		podItem = r.Pod[PodKey(namespace, pod)]
+	}
+	for _, cs := range podItem.Status.ContainerStatuses {
 		if cs.Name == container {
 			return int(cs.RestartCount)
 		}
@@ -303,16 +367,29 @@ func PodKey(namespace, pod string) string {
 	return path.Path{namespace, pod}.String()
 }
 
-func getOwnerDeployment(pod *corev1.Pod, replicasets []v1.ReplicaSet) string {
+func getOwnerDeployment(pod *corev1.Pod, replicasets []appsv1.ReplicaSet) string {
 	for _, o := range pod.OwnerReferences {
-		if o.Kind == "ReplicaSet" {
+		if o.Kind == name.ReplicaSetStr {
 			for _, rs := range replicasets {
 				if rs.Name == o.Name {
 					for _, oo := range rs.OwnerReferences {
-						if oo.Kind == "Deployment" {
+						if oo.Kind == name.DeploymentStr {
 							return oo.Name
 						}
 					}
+				}
+			}
+		}
+	}
+	return ""
+}
+
+func getOwnerDaemonSet(pod *corev1.Pod, daemonsets []appsv1.DaemonSet) string {
+	for _, o := range pod.OwnerReferences {
+		if o.Kind == name.DaemonSetStr {
+			for _, ds := range daemonsets {
+				if ds.Name == o.Name {
+					return ds.Name
 				}
 			}
 		}

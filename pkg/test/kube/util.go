@@ -35,6 +35,8 @@ import (
 var (
 	defaultRetryTimeout = retry.Timeout(time.Minute * 10)
 	defaultRetryDelay   = retry.BackoffDelay(time.Millisecond * 200)
+
+	ErrNoPodsFetched = fmt.Errorf("no pods fetched")
 )
 
 // PodFetchFunc fetches pods from a k8s Client.
@@ -98,7 +100,7 @@ func CheckPodsAreReady(fetchFunc PodFetchFunc) ([]corev1.Pod, error) {
 
 	if len(fetched) == 0 {
 		scopes.Framework.Infof("No pods found...")
-		return nil, fmt.Errorf("no pods fetched")
+		return nil, ErrNoPodsFetched
 	}
 
 	for i, p := range fetched {
@@ -283,7 +285,8 @@ func ValidatingWebhookConfigurationsExists(a kubernetes.Interface, names []strin
 		return false
 	}
 
-	if len(cfgs.Items) != len(names) {
+	// Target cluster could have other validating webhook configurations
+	if len(cfgs.Items) < len(names) {
 		return false
 	}
 

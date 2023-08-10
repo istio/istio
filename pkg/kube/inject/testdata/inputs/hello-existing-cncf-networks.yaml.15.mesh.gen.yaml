@@ -4,6 +4,9 @@ defaultConfig:
   tracing:
     zipkin:
       address: zipkin.istio-system:9411
+defaultProviders:
+  metrics:
+  - prometheus
 enablePrometheusMerge: true
 rootNamespace: istio-system
 trustDomain: cluster.local

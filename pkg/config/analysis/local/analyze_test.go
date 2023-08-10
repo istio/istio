@@ -19,30 +19,29 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
 type testAnalyzer struct {
 	fn     func(analysis.Context)
-	inputs collection.Names
+	inputs []config.GroupVersionKind
 }
 
 var blankTestAnalyzer = &testAnalyzer{
 	fn:     func(_ analysis.Context) {},
-	inputs: []collection.Name{},
+	inputs: []config.GroupVersionKind{},
 }
 
 var (
@@ -57,7 +56,6 @@ spec:
   n1_i1: v1
 `
 	blankCombinedAnalyzer = analysis.Combine("testCombined", blankTestAnalyzer)
-	timeout               = 1 * time.Second
 )
 
 // Metadata implements Analyzer
@@ -78,7 +76,7 @@ func TestAbortWithNoSources(t *testing.T) {
 
 	cancel := make(chan struct{})
 
-	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 	_, err := sa.Analyze(cancel)
 	g.Expect(err).To(Not(BeNil()))
 }
@@ -92,24 +90,24 @@ func TestAnalyzersRun(t *testing.T) {
 	m := msg.NewInternalError(r, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Exists(K8SCollection1.Name(), resource.NewFullName("", ""))
-			ctx.Report(K8SCollection1.Name(), m)
+			ctx.Exists(K8SCollection1.GroupVersionKind(), resource.NewFullName("", ""))
+			ctx.Report(K8SCollection1.GroupVersionKind(), m)
 		},
 	}
 
-	var collectionAccessed collection.Name
-	cr := func(col collection.Name) {
+	var collectionAccessed config.GroupVersionKind
+	cr := func(col config.GroupVersionKind) {
 		collectionAccessed = col
 	}
 
-	sa := NewSourceAnalyzer(analysis.Combine("a", a), "", "", cr, false, timeout)
+	sa := NewSourceAnalyzer(analysis.Combine("a", a), "", "", cr)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
 	result, err := sa.Analyze(cancel)
 	g.Expect(err).To(BeNil())
 	g.Expect(result.Messages).To(ConsistOf(m))
-	g.Expect(collectionAccessed).To(Equal(K8SCollection1.Name()))
+	g.Expect(collectionAccessed).To(Equal(K8SCollection1.GroupVersionKind()))
 	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
 }
 
@@ -124,12 +122,12 @@ func TestFilterOutputByNamespace(t *testing.T) {
 	msg2 := msg.NewInternalError(r2, "msg")
 	a := &testAnalyzer{
 		fn: func(ctx analysis.Context) {
-			ctx.Report(K8SCollection1.Name(), msg1)
-			ctx.Report(K8SCollection1.Name(), msg2)
+			ctx.Report(K8SCollection1.GroupVersionKind(), msg1)
+			ctx.Report(K8SCollection1.GroupVersionKind(), msg2)
 		},
 	}
 
-	sa := NewSourceAnalyzer(analysis.Combine("a", a), "ns1", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(analysis.Combine("a", a), "ns1", "", nil)
 	err := sa.AddReaderKubeSource(nil)
 	g.Expect(err).To(BeNil())
 
@@ -141,7 +139,7 @@ func TestFilterOutputByNamespace(t *testing.T) {
 func TestAddInMemorySource(t *testing.T) {
 	g := NewWithT(t)
 
-	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
 	src := model.NewFakeStore()
 	sa.AddSource(dfCache{ConfigStore: src})
@@ -155,12 +153,13 @@ func TestAddRunningKubeSource(t *testing.T) {
 
 	mk := kube.NewFakeClient()
 
-	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
 	sa.AddRunningKubeSource(mk)
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
-	g.Expect(sa.stores).To(HaveLen(1))
+	// We have a store for Istio configs and one for service discovery K8S resources.
+	g.Expect(sa.stores).To(HaveLen(2))
 }
 
 func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
@@ -185,18 +184,19 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 		t.Fatalf("Error creating mesh config configmap: %v", err)
 	}
 
-	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", istioNamespace, nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", istioNamespace, nil)
 
 	sa.AddRunningKubeSource(mk)
 	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
 	g.Expect(sa.meshNetworks.Networks).To(HaveLen(2))
-	g.Expect(sa.stores).To(HaveLen(1))
+	// We have a store for Istio configs and one for service discovery K8S resources.
+	g.Expect(sa.stores).To(HaveLen(2))
 }
 
 func TestAddReaderKubeSource(t *testing.T) {
 	g := NewWithT(t)
 
-	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
 	tmpfile := tempFileFromString(t, YamlN1I1V1)
 	defer os.Remove(tmpfile.Name())
@@ -219,7 +219,7 @@ func TestAddReaderKubeSource(t *testing.T) {
 func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 	g := NewWithT(t)
 
-	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
 	tmpfile := tempFileFromString(t, JoinString(YamlN1I1V1, "bogus resource entry\n"))
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
@@ -257,7 +257,7 @@ func JoinString(parts ...string) string {
 func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	g := NewWithT(t)
 
-	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil, false, timeout)
+	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
 	// With ingress off, we shouldn't generate any default resources
 	ingressOffMeshCfg := tempFileFromString(t, "ingressControllerMode: 'OFF'")

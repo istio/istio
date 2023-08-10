@@ -19,12 +19,14 @@ import (
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func Test_virtualHostMatch(t *testing.T) {
@@ -221,7 +223,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 					},
 				},
 				rc: &route.RouteConfiguration{Name: "http.8080"},
-				portMap: map[int]map[int]struct{}{
+				portMap: map[int]sets.Set[int]{
 					8080: {80: {}, 81: {}},
 				},
 			},
@@ -241,7 +243,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 					},
 				},
 				rc: &route.RouteConfiguration{Name: "http.9090"},
-				portMap: map[int]map[int]struct{}{
+				portMap: map[int]sets.Set[int]{
 					8080: {80: {}, 81: {}},
 				},
 			},
@@ -261,7 +263,7 @@ func Test_routeConfigurationMatch(t *testing.T) {
 					},
 				},
 				rc: &route.RouteConfiguration{Name: "http.8443"},
-				portMap: map[int]map[int]struct{}{
+				portMap: map[int]sets.Set[int]{
 					8443: {443: {}},
 				},
 			},
@@ -950,6 +952,16 @@ func Test_routeMatch(t *testing.T) {
 }
 
 func TestPatchHTTPRoute(t *testing.T) {
+	sharedVHostRoutes := []*route.Route{
+		{
+			Name: "shared",
+			Action: &route.Route_Route{
+				Route: &route.RouteAction{
+					PrefixRewrite: "/shared",
+				},
+			},
+		},
+	}
 	type args struct {
 		patchContext       networking.EnvoyFilter_PatchContext
 		patches            map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper
@@ -958,6 +970,8 @@ func TestPatchHTTPRoute(t *testing.T) {
 		routeIndex         int
 		routesRemoved      *bool
 		portMap            model.GatewayPortMap
+		clonedVhostRoutes  bool
+		sharedRoutesVHost  *route.VirtualHost
 	}
 	obj := &route.Route{}
 	if err := xds.StructToMessage(buildPatchStruct(`{"route": { "prefix_rewrite": "/foo"}}`), obj, false); err != nil {
@@ -1009,9 +1023,10 @@ func TestPatchHTTPRoute(t *testing.T) {
 					},
 				},
 				routeIndex: 0,
-				portMap: map[int]map[int]struct{}{
+				portMap: map[int]sets.Set[int]{
 					8080: {},
 				},
+				clonedVhostRoutes: false,
 			},
 			want: &route.VirtualHost{
 				Name:    "normal",
@@ -1028,14 +1043,75 @@ func TestPatchHTTPRoute(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "shared",
+			args: args{
+				patchContext: networking.EnvoyFilter_GATEWAY,
+				patches: map[networking.EnvoyFilter_ApplyTo][]*model.EnvoyFilterConfigPatchWrapper{
+					networking.EnvoyFilter_HTTP_ROUTE: {
+						{
+							ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+							Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+								ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_RouteConfiguration{
+									RouteConfiguration: &networking.EnvoyFilter_RouteConfigurationMatch{
+										Vhost: &networking.EnvoyFilter_RouteConfigurationMatch_VirtualHostMatch{
+											Name: "shared",
+											Route: &networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch{
+												Action: networking.EnvoyFilter_RouteConfigurationMatch_RouteMatch_ROUTE,
+											},
+										},
+									},
+								},
+							},
+							Operation: networking.EnvoyFilter_Patch_MERGE,
+							Value:     obj,
+						},
+					},
+				},
+				routeConfiguration: &route.RouteConfiguration{Name: "normal"},
+				virtualHost: &route.VirtualHost{
+					Name:    "shared",
+					Domains: []string{"*"},
+					Routes:  sharedVHostRoutes,
+				},
+				routeIndex: 0,
+				portMap: map[int]sets.Set[int]{
+					8080: {},
+				},
+				clonedVhostRoutes: false,
+				sharedRoutesVHost: &route.VirtualHost{
+					Name:    "foo",
+					Domains: []string{"bar"},
+					Routes:  sharedVHostRoutes,
+				},
+			},
+			want: &route.VirtualHost{
+				Name:    "shared",
+				Domains: []string{"*"},
+				Routes: []*route.Route{
+					{
+						Name: "shared",
+						Action: &route.Route_Route{
+							Route: &route.RouteAction{
+								PrefixRewrite: "/foo",
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			savedSharedVHost := proto.Clone(tt.args.sharedRoutesVHost).(*route.VirtualHost)
 			patchHTTPRoute(tt.args.patchContext, tt.args.patches, tt.args.routeConfiguration,
-				tt.args.virtualHost, tt.args.routeIndex, tt.args.routesRemoved, tt.args.portMap)
+				tt.args.virtualHost, tt.args.routeIndex, tt.args.routesRemoved, tt.args.portMap, &tt.args.clonedVhostRoutes)
 			if diff := cmp.Diff(tt.want, tt.args.virtualHost, protocmp.Transform()); diff != "" {
 				t.Errorf("PatchHTTPRoute(): %s mismatch (-want +got):\n%s", tt.name, diff)
+			}
+			if diff := cmp.Diff(savedSharedVHost, tt.args.sharedRoutesVHost, protocmp.Transform()); diff != "" {
+				t.Errorf("PatchHTTPRoute(): %s affect other virtualhosts (-want +got):\n%s", tt.name, diff)
 			}
 		})
 	}

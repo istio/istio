@@ -3,6 +3,7 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: spire
+
 ---
 apiVersion: storage.k8s.io/v1
 kind: CSIDriver
@@ -24,204 +25,178 @@ spec:
   # Declare support for ephemeral volumes only.
   volumeLifecycleModes:
     - Ephemeral
----
-apiVersion: apiextensions.k8s.io/v1
-kind: CustomResourceDefinition
-metadata:
-  annotations:
-    controller-gen.kubebuilder.io/version: v0.2.4
-  name: spiffeids.spiffeid.spiffe.io
-spec:
-  group: spiffeid.spiffe.io
-  names:
-    kind: SpiffeID
-    listKind: SpiffeIDList
-    plural: spiffeids
-    singular: spiffeid
-  scope: Namespaced
-  versions:
-  - name: v1beta1
-    served: true
-    storage: true
-    subresources:
-      status: {}
-    schema:
-      openAPIV3Schema:
-        description: SpiffeID is the Schema for the spiffeid API
-        properties:
-          apiVersion:
-            description: 'APIVersion defines the versioned schema of this representation
-              of an object. Servers should convert recognized schemas to the latest
-              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-            type: string
-          kind:
-            description: 'Kind is a string value representing the REST resource this
-              object represents. Servers may infer this from the endpoint the client
-              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-            type: string
-          metadata:
-            type: object
-          spec:
-            description: SpiffeIDSpec defines the desired state of SpiffeID
-            properties:
-              dnsNames:
-                items:
-                  type: string
-                type: array
-              federatesWith:
-                items:
-                  type: string
-                type: array
-              parentId:
-                type: string
-              downstream:
-                type: boolean
-              selector:
-                properties:
-                  arbitrary:
-                    description: Arbitrary selectors
-                    items:
-                      type: string
-                    type: array
-                  containerImage:
-                    description: Container image to match for this spiffe ID
-                    type: string
-                  containerName:
-                    description: Container name to match for this spiffe ID
-                    type: string
-                  namespace:
-                    description: Namespace to match for this spiffe ID
-                    type: string
-                  nodeName:
-                    description: Node name to match for this spiffe ID
-                    type: string
-                  podLabel:
-                    additionalProperties:
-                      type: string
-                    description: Pod label name/value to match for this spiffe ID
-                    type: object
-                  podName:
-                    description: Pod name to match for this spiffe ID
-                    type: string
-                  podUid:
-                    description: Pod UID to match for this spiffe ID
-                    type: string
-                  serviceAccount:
-                    description: ServiceAccount to match for this spiffe ID
-                    type: string
-                  cluster:
-                    description: The k8s_psat cluster name
-                    type: string
-                  agent_node_uid:
-                    description: UID of the node
-                    type: string
-                type: object
-              spiffeId:
-                type: string
-            required:
-            - parentId
-            - selector
-            - spiffeId
-            type: object
-          status:
-            description: SpiffeIDStatus defines the observed state of SpiffeID
-            properties:
-              entryId:
-                description: 'INSERT ADDITIONAL STATUS FIELD - define observed state
-                  of cluster Important: Run "make" to regenerate code after modifying
-                  this file'
-                type: string
-            type: object
-        type: object
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: k8s-workload-registrar-role-binding
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: k8s-workload-registrar-role
-subjects:
-- kind: ServiceAccount
-  name: spire-server
-  namespace: spire
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: k8s-workload-registrar-role
-rules:
-- apiGroups: ["authentication.k8s.io"]
-  resources: ["tokenreviews"]
-  verbs: ["get", "create"]
-- apiGroups: [""]
-  resources: ["endpoints", "nodes", "pods"]
-  verbs: ["get", "list", "watch"]
-- apiGroups: ["spiffeid.spiffe.io"]
-  resources: ["spiffeids"]
-  verbs: ["create", "delete", "get", "list", "patch", "update", "watch"]
-- apiGroups: ["spiffeid.spiffe.io"]
-  resources: ["spiffeids/status"]
-  verbs: ["get", "patch", "update"]
-- apiGroups: ["admissionregistration.k8s.io"]
-  resources: ["validatingwebhookconfigurations"]
-  verbs: ["get", "list", "update", "watch"]
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: k8s-workload-registrar
-  namespace: spire
-data:
-  k8s-workload-registrar.conf: |
-    trust_domain = "example.org"
-    server_socket_path = "/run/spire/sockets/server.sock"
-    cluster = "demo-cluster"
-    mode = "crd"
-    metrics_bind_addr = "0"
+
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: spire-server
   namespace: spire
+
 ---
+# ConfigMap for spire-agent bootstrapping.
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: trust-bundle
+  name: spire-bundle
   namespace: spire
+
 ---
-# ClusterRole to allow spire-server node attestor to query Token Review API
-# and to be able to push certificate bundles to a configmap
+# ClusterRole to allow spire-server to query k8s API server.
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: spire-server-trust-role
+  name: spire-server-cluster-role
 rules:
+  # allow TokenReview requests (to verify service account tokens for PSAT
+  # attestation)
 - apiGroups: ["authentication.k8s.io"]
   resources: ["tokenreviews"]
-  verbs: ["create"]
+  verbs: ["get", "create"]
 - apiGroups: [""]
-  resources: ["configmaps"]
-  verbs: ["patch", "get", "list"]
+  resources: ["nodes"]
+  verbs: ["get"]
 
 ---
-# Binds above cluster role to spire-server service account
+# Binds above cluster role to spire-server service account.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: spire-server-trust-role-binding
+  name: spire-server-cluster-role-binding
 subjects:
 - kind: ServiceAccount
   name: spire-server
   namespace: spire
 roleRef:
   kind: ClusterRole
-  name: spire-server-trust-role
+  name: spire-server-cluster-role
   apiGroup: rbac.authorization.k8s.io
+
 ---
+# Role for the SPIRE server.
+kind: Role
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  namespace: spire
+  name: spire-server-role
+rules:
+  # allow "get" access to pods (to resolve selectors for PSAT attestation)
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get"]
+  # allow access to "get" and "patch" the spire-bundle ConfigMap (for SPIRE
+  # agent bootstrapping, see the spire-bundle ConfigMap)
+- apiGroups: [""]
+  resources: ["configmaps"]
+  resourceNames: ["spire-bundle"]
+  verbs: ["get", "patch"]
+
+---
+# RoleBinding granting the spire-server-role to the SPIRE server
+# service account.
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: spire-server-role-binding
+  namespace: spire
+subjects:
+- kind: ServiceAccount
+  name: spire-server
+  namespace: spire
+roleRef:
+  kind: Role
+  name: spire-server-role
+  apiGroup: rbac.authorization.k8s.io
+
+---
+# ClusterRules for the SPIRE Controller Manager.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["validatingwebhookconfigurations"]
+    verbs: ["get", "list", "patch", "watch"]
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  - apiGroups: ["spire.spiffe.io"]
+    resources: ["clusterfederatedtrustdomains"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["spire.spiffe.io"]
+    resources: ["clusterfederatedtrustdomains/finalizers"]
+    verbs: ["update"]
+  - apiGroups: ["spire.spiffe.io"]
+    resources: ["clusterfederatedtrustdomains/status"]
+    verbs: ["get", "patch", "update"]
+  - apiGroups: ["spire.spiffe.io"]
+    resources: ["clusterspiffeids"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["spire.spiffe.io"]
+    resources: ["clusterspiffeids/finalizers"]
+    verbs: ["update"]
+  - apiGroups: ["spire.spiffe.io"]
+    resources: ["clusterspiffeids/status"]
+    verbs: ["get", "patch", "update"]
+
+---
+# Binds manager-role cluster role to spire-server service account.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: manager-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: manager-role
+subjects:
+- kind: ServiceAccount
+  name: spire-server
+  namespace: spire
+
+---
+# Permissions for the SPIRE server to do leader election.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: leader-election-role
+  namespace: spire
+rules:
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+
+---
+# Binds leader-election-role to spire-server service account.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: leader-election-role-binding
+  namespace: spire
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: spire-server
+  namespace: spire
+
+---
+# ConfigMap containing the SPIRE server configuration.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -232,49 +207,49 @@ data:
     server {
       bind_address = "0.0.0.0"
       bind_port = "8081"
-      socket_path = "/run/spire/sockets/server.sock"
       trust_domain = "example.org"
-      data_dir = "/run/spire/data"
+      data_dir = "/run/spire/server/data"
       log_level = "DEBUG"
-      ca_key_type = "rsa-2048"
-      default_svid_ttl = "1h"
-      ca_subject = {
-        country = ["US"],
-        organization = ["SPIFFE"],
-        common_name = "",
+      federation {
+        bundle_endpoint {
+          address = "0.0.0.0"
+          port = 8443
+        }
       }
     }
+
     plugins {
       DataStore "sql" {
         plugin_data {
           database_type = "sqlite3"
-          connection_string = "/run/spire/data/datastore.sqlite3"
+          connection_string = "/run/spire/server/data/datastore.sqlite3"
         }
       }
+
       NodeAttestor "k8s_psat" {
         plugin_data {
           clusters = {
             # NOTE: Change this to your cluster name
             "demo-cluster" = {
-              use_token_review_api_validation = true
               service_account_allow_list = ["spire:spire-agent"]
             }
           }
         }
       }
+
       KeyManager "disk" {
         plugin_data {
-          keys_path = "/run/spire/data/keys.json"
+          keys_path = "/run/spire/server/data/keys.json"
         }
       }
+
       Notifier "k8sbundle" {
         plugin_data {
           namespace = "spire"
-          config_map = "trust-bundle"
-          config_map_key = "root-cert.pem"
         }
       }
     }
+
     health_checks {
       listener_enabled = true
       bind_address = "0.0.0.0"
@@ -282,9 +257,38 @@ data:
       live_path = "/live"
       ready_path = "/ready"
     }
+
 ---
+# Configuration for the SPIRE Controller Manager.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-controller-manager-config
+  namespace: spire
+data:
+  spire-controller-manager-config.yaml: |
+    apiVersion: spire.spiffe.io/v1alpha1
+    kind: ControllerManagerConfig
+    metrics:
+      bindAddress: 127.0.0.1:8082
+    healthProbe:
+      bindAddress: 127.0.0.1:8083
+    leaderElection:
+      leaderElect: true
+      resourceName: 98c9c988.spiffe.io
+      resourceNamespace: spire
+    clusterName: demo-cluster
+    trustDomain: example.org
+    ignoreNamespaces:
+      - kube-system
+      - kube-public
+      - spire
+      - local-path-storage
+
+---
+# SPIRE Server Deployment.
 apiVersion: apps/v1
-kind: StatefulSet
+kind: Deployment
 metadata:
   name: spire-server
   namespace: spire
@@ -295,7 +299,6 @@ spec:
   selector:
     matchLabels:
       app: spire-server
-  serviceName: spire-server
   template:
     metadata:
       namespace: spire
@@ -306,10 +309,11 @@ spec:
       shareProcessNamespace: true
       containers:
         - name: spire-server
-          image: gcr.io/spiffe-io/spire-server:1.2.0
+          image: ghcr.io/spiffe/spire-server:1.5.4
+          imagePullPolicy: IfNotPresent
           args:
             - -config
-            - /run/spire/config/server.conf
+            - /run/spire/server/config/server.conf
           livenessProbe:
             httpGet:
               path: /live
@@ -328,52 +332,37 @@ spec:
             - containerPort: 8081
           volumeMounts:
             - name: spire-config
-              mountPath: /run/spire/config
+              mountPath: /run/spire/server/config
               readOnly: true
-            - name: spire-data
-              mountPath: /run/spire/data
+            - name: spire-server-socket
+              mountPath: /tmp/spire-server/private
               readOnly: false
-            - name: spire-registration-socket
-              mountPath: /run/spire/sockets
-              readOnly: false
-        - name: k8s-workload-registrar
-          image: gcr.io/spiffe-io/k8s-workload-registrar:1.2.0
+        - name: spire-controller-manager
+          image: ghcr.io/spiffe/spire-controller-manager:0.2.3
+          imagePullPolicy: IfNotPresent
           args:
-            - -config
-            - /run/spire/config/k8s-workload-registrar.conf
+          - "--config=spire-controller-manager-config.yaml"
           ports:
             - containerPort: 9443
-              name: webhook
-              protocol: TCP
           volumeMounts:
-            - mountPath: /run/spire/config
-              name: k8s-workload-registrar-config
+            - name: spire-server-socket
+              mountPath: /spire-server
               readOnly: true
-            - name: spire-registration-socket
-              mountPath: /run/spire/sockets
-              readOnly: true
+            - name: spire-controller-manager-config
+              mountPath: /spire-controller-manager-config.yaml
+              subPath: spire-controller-manager-config.yaml
       volumes:
         - name: spire-config
           configMap:
             name: spire-server
-        - name: k8s-workload-registrar-config
+        - name: spire-server-socket
+          emptyDir: {}
+        - name: spire-controller-manager-config
           configMap:
-            name: k8s-workload-registrar
-        - name: spire-registration-socket
-          hostPath:
-            path: /run/spire/server-sockets
-            type: DirectoryOrCreate
-  volumeClaimTemplates:
-    - metadata:
-        name: spire-data
-        namespace: spire
-      spec:
-        accessModes:
-          - ReadWriteOnce
-        resources:
-          requests:
-            storage: 1Gi
+            name: spire-controller-manager-config
+
 ---
+# Service definition for SPIRE server defining the gRPC port.
 apiVersion: v1
 kind: Service
 metadata:
@@ -388,14 +377,409 @@ spec:
       protocol: TCP
   selector:
     app: spire-server
+
+---
+# Service definition for SPIRE server bundle endpoint.
+apiVersion: v1
+kind: Service
+metadata:
+  name: spire-server-bundle-endpoint
+  namespace: spire
+spec:
+  type: NodePort
+  ports:
+    - name: tcp-api
+      port: 8443
+      protocol: TCP
+  selector:
+    app: spire-server
+
+---
+# Service definition for SPIRE controller manager webhook.
+apiVersion: v1
+kind: Service
+metadata:
+  name: spire-controller-manager-webhook-service
+  namespace: spire
+spec:
+  ports:
+    - name: tcp
+      port: 443
+      protocol: TCP
+      targetPort: 9443
+  selector:
+    app: spire-server
+
+---
+# ClusterFederatedTrustDomains CRD.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: clusterfederatedtrustdomains.spire.spiffe.io
+spec:
+  group: spire.spiffe.io
+  names:
+    kind: ClusterFederatedTrustDomain
+    listKind: ClusterFederatedTrustDomainList
+    plural: clusterfederatedtrustdomains
+    singular: clusterfederatedtrustdomain
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.trustDomain
+      name: Trust Domain
+      type: string
+    - jsonPath: .spec.bundleEndpointURL
+      name: Endpoint URL
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClusterFederatedTrustDomain is the Schema for the clusterfederatedtrustdomains
+          API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClusterFederatedTrustDomainSpec defines the desired state
+              of ClusterFederatedTrustDomain
+            properties:
+              bundleEndpointProfile:
+                description: BundleEndpointProfile is the profile for the bundle endpoint.
+                properties:
+                  endpointSPIFFEID:
+                    description: EndpointSPIFFEID is the SPIFFE ID of the bundle endpoint.
+                      It is required for the "https_spiffe" profile.
+                    type: string
+                  type:
+                    description: Type is the type of the bundle endpoint profile.
+                    enum:
+                    - https_spiffe
+                    - https_web
+                    type: string
+                required:
+                - type
+                type: object
+              bundleEndpointURL:
+                description: BundleEndpointURL is the URL of the bundle endpoint.
+                  It must be an HTTPS URL and cannot contain userinfo (i.e. username/password).
+                type: string
+              trustDomain:
+                description: TrustDomain is the name of the trust domain to federate
+                  with (e.g. example.org)
+                pattern: '[a-z0-9._-]{1,255}'
+                type: string
+              trustDomainBundle:
+                description: TrustDomainBundle is the contents of the bundle for the
+                  referenced trust domain. This field is optional when the resource
+                  is created.
+                type: string
+            required:
+            - bundleEndpointProfile
+            - bundleEndpointURL
+            - trustDomain
+            type: object
+          status:
+            description: ClusterFederatedTrustDomainStatus defines the observed state
+              of ClusterFederatedTrustDomain
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+# ClusterSPIFFEID CRD.
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.8.0
+  creationTimestamp: null
+  name: clusterspiffeids.spire.spiffe.io
+spec:
+  group: spire.spiffe.io
+  names:
+    kind: ClusterSPIFFEID
+    listKind: ClusterSPIFFEIDList
+    plural: clusterspiffeids
+    singular: clusterspiffeid
+  scope: Cluster
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ClusterSPIFFEID is the Schema for the clusterspiffeids API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: ClusterSPIFFEIDSpec defines the desired state of ClusterSPIFFEID
+            properties:
+              admin:
+                description: Admin indicates whether or not the SVID can be used to
+                  access the SPIRE administrative APIs. Extra care should be taken
+                  to only apply this SPIFFE ID to admin workloads.
+                type: boolean
+              dnsNameTemplates:
+                description: DNSNameTemplate represents templates for extra DNS names
+                  that are applicable to SVIDs minted for this ClusterSPIFFEID. The
+                  node and pod spec are made available to the template under .NodeSpec,
+                  .PodSpec respectively.
+                items:
+                  type: string
+                type: array
+              downstream:
+                description: Downstream indicates that the entry describes a downstream SPIRE server.
+                type: boolean
+              federatesWith:
+                description: FederatesWith is a list of trust domain names that workloads
+                  that obtain this SPIFFE ID will federate with.
+                items:
+                  type: string
+                type: array
+              namespaceSelector:
+                description: NamespaceSelector selects the namespaces that are targeted
+                  by this CRD.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: A label selector requirement is a selector that
+                        contains values, a key, and an operator that relates the key
+                        and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: operator represents a key's relationship to
+                            a set of values. Valid operators are In, NotIn, Exists
+                            and DoesNotExist.
+                          type: string
+                        values:
+                          description: values is an array of string values. If the
+                            operator is In or NotIn, the values array must be non-empty.
+                            If the operator is Exists or DoesNotExist, the values
+                            array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: matchLabels is a map of {key,value} pairs. A single
+                      {key,value} in the matchLabels map is equivalent to an element
+                      of matchExpressions, whose key field is "key", the operator
+                      is "In", and the values array contains only "value". The requirements
+                      are ANDed.
+                    type: object
+                type: object
+              podSelector:
+                description: PodSelector selects the pods that are targeted by this
+                  CRD.
+                properties:
+                  matchExpressions:
+                    description: matchExpressions is a list of label selector requirements.
+                      The requirements are ANDed.
+                    items:
+                      description: A label selector requirement is a selector that
+                        contains values, a key, and an operator that relates the key
+                        and values.
+                      properties:
+                        key:
+                          description: key is the label key that the selector applies
+                            to.
+                          type: string
+                        operator:
+                          description: operator represents a key's relationship to
+                            a set of values. Valid operators are In, NotIn, Exists
+                            and DoesNotExist.
+                          type: string
+                        values:
+                          description: values is an array of string values. If the
+                            operator is In or NotIn, the values array must be non-empty.
+                            If the operator is Exists or DoesNotExist, the values
+                            array must be empty. This array is replaced during a strategic
+                            merge patch.
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - key
+                      - operator
+                      type: object
+                    type: array
+                  matchLabels:
+                    additionalProperties:
+                      type: string
+                    description: matchLabels is a map of {key,value} pairs. A single
+                      {key,value} in the matchLabels map is equivalent to an element
+                      of matchExpressions, whose key field is "key", the operator
+                      is "In", and the values array contains only "value". The requirements
+                      are ANDed.
+                    type: object
+                type: object
+              spiffeIDTemplate:
+                description: SPIFFEID is the SPIFFE ID template. The node and pod
+                  spec are made available to the template under .NodeSpec, .PodSpec
+                  respectively.
+                type: string
+              ttl:
+                description: TTL indicates an upper-bound time-to-live for SVIDs minted
+                  for this ClusterSPIFFEID. If unset, a default will be chosen.
+                type: string
+              workloadSelectorTemplates:
+                description: WorkloadSelectorTemplates are templates to produce arbitrary
+                  workload selectors that apply to a given workload before it will
+                  receive this SPIFFE ID. The rendered value is interpreted by SPIRE
+                  and are of the form type:value, where the value may, and often does,
+                  contain semicolons, .e.g., k8s:container-image:docker/hello-world
+                  The node and pod spec are made available to the template under .NodeSpec,
+                  .PodSpec respectively.
+                items:
+                  type: string
+                type: array
+            required:
+            - spiffeIDTemplate
+            type: object
+          status:
+            description: ClusterSPIFFEIDStatus defines the observed state of ClusterSPIFFEID
+            properties:
+              stats:
+                description: Stats produced by the last entry reconciliation run
+                properties:
+                  entriesMasked:
+                    description: How many entries were masked by entries for other
+                      ClusterSPIFFEIDs. This happens when one or more ClusterSPIFFEIDs
+                      produce an entry for the same pod with the same set of workload
+                      selectors.
+                    type: integer
+                  entriesToSet:
+                    description: How many entries are to be set for this ClusterSPIFFEID.
+                      In nominal conditions, this should reflect the number of pods
+                      selected, but not always if there were problems encountered
+                      rendering an entry for the pod (RenderFailures) or entries are
+                      masked (EntriesMasked).
+                    type: integer
+                  entryFailures:
+                    description: How many entries were unable to be set due to failures
+                      to create or update the entries via the SPIRE Server API.
+                    type: integer
+                  namespacesIgnored:
+                    description: How many (selected) namespaces were ignored (based
+                      on configuration).
+                    type: integer
+                  namespacesSelected:
+                    description: How many namespaces were selected.
+                    type: integer
+                  podEntryRenderFailures:
+                    description: How many failures were encountered rendering an entry
+                      selected pods. This could be due to either a bad template in
+                      the ClusterSPIFFEID or Pod metadata that when applied to the
+                      template did not produce valid entry values.
+                    type: integer
+                  podsSelected:
+                    description: How many pods were selected out of the namespaces.
+                    type: integer
+                type: object
+            type: object
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+status:
+  acceptedNames:
+    kind: ""
+    plural: ""
+  conditions: []
+  storedVersions: []
+
+---
+# ValidatingWebhookConfiguration for validating ClusterSPIFFEID and
+# ClusterFederatedTrustDomain custom resources.
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: spire-controller-manager-webhook
+webhooks:
+  - admissionReviewVersions: ["v1"]
+    clientConfig:
+      service:
+        name: spire-controller-manager-webhook-service
+        namespace: spire
+        path: /validate-spire-spiffe-io-v1alpha1-clusterfederatedtrustdomain
+    failurePolicy: Fail
+    name: vclusterfederatedtrustdomain.kb.io
+    rules:
+      - apiGroups: ["spire.spiffe.io"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["clusterfederatedtrustdomains"]
+    sideEffects: None
+  - admissionReviewVersions: ["v1"]
+    clientConfig:
+      service:
+        name: spire-controller-manager-webhook-service
+        namespace: spire
+        path: /validate-spire-spiffe-io-v1alpha1-clusterspiffeid
+    failurePolicy: Fail
+    name: vclusterspiffeid.kb.io
+    rules:
+      - apiGroups: ["spire.spiffe.io"]
+        apiVersions: ["v1alpha1"]
+        operations: ["CREATE", "UPDATE"]
+        resources: ["clusterspiffeids"]
+    sideEffects: None
+
 ---
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: spire-agent
   namespace: spire
+
 ---
-# Required cluster role to allow spire-agent to query k8s API server
+# Required cluster role to allow spire-agent to query k8s API server.
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -406,7 +790,7 @@ rules:
   verbs: ["get"]
 
 ---
-# Binds above cluster role to spire-agent service account
+# Binds above cluster role to spire-agent service account.
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
@@ -419,7 +803,11 @@ roleRef:
   kind: ClusterRole
   name: spire-agent-cluster-role
   apiGroup: rbac.authorization.k8s.io
+
 ---
+# ConfigMap for the SPIRE agent featuring:
+# 1) PSAT node attestation
+# 2) K8S Workload Attestation over the secure kubelet port
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -433,9 +821,10 @@ data:
       server_address = "spire-server"
       server_port = "8081"
       socket_path = "/run/secrets/workload-spiffe-uds/socket"
-      trust_bundle_path = "/run/spire/bundle/root-cert.pem"
+      trust_bundle_path = "/run/spire/bundle/bundle.crt"
       trust_domain = "example.org"
     }
+
     plugins {
       NodeAttestor "k8s_psat" {
         plugin_data {
@@ -443,31 +832,37 @@ data:
           cluster = "demo-cluster"
         }
       }
+
       KeyManager "memory" {
         plugin_data {
         }
       }
+
       WorkloadAttestor "k8s" {
         plugin_data {
           # Defaults to the secure kubelet port by default.
           # Minikube does not have a cert in the cluster CA bundle that
           # can authenticate the kubelet cert, so skip validation.
           skip_kubelet_verification = true
+
+          # We need to set disable_container_selectors = true if we make holdApplicationUntilProxyStarts = true in istio
+          # see https://istio.io/latest/docs/reference/config/istio.mesh.v1alpha1/#ProxyConfig
+          # If true, container selectors are not produced.
+          # This can be used to produce pod selectors when the workload pod is known
+          # but the workload container is not ready at the time of attestation.
+          # disable_container_selectors = true
         }
       }
+
       WorkloadAttestor "unix" {
           plugin_data {
           }
       }
+
     }
-    health_checks {
-      listener_enabled = true
-      bind_address = "0.0.0.0"
-      bind_port = "8080"
-      live_path = "/live"
-      ready_path = "/ready"
-    }
+
 ---
+# SPIRE Agent DaemonSet.
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -489,16 +884,10 @@ spec:
       hostNetwork: true
       dnsPolicy: ClusterFirstWithHostNet
       serviceAccountName: spire-agent
-      initContainers:
-        - name: init
-          # This is a small image with wait-for-it, choose whatever image
-          # you prefer that waits for a service to be up. This image is built
-          # from https://github.com/lqhl/wait-for-it
-          image: gcr.io/spiffe-io/wait-for-it
-          args: ["-t", "30", "spire-server:8081"]
       containers:
         - name: spire-agent
-          image: gcr.io/spiffe-io/spire-agent:1.2.0
+          image: ghcr.io/spiffe/spire-agent:1.2.3
+          imagePullPolicy: IfNotPresent
           args: ["-config", "/run/spire/config/agent.conf"]
           volumeMounts:
             - name: spire-config
@@ -506,33 +895,26 @@ spec:
               readOnly: true
             - name: spire-bundle
               mountPath: /run/spire/bundle
+              readOnly: true
             - name: spire-agent-socket-dir
               mountPath: /run/secrets/workload-spiffe-uds
             - name: spire-token
               mountPath: /var/run/secrets/tokens
-          livenessProbe:
-            httpGet:
-              path: /live
-              port: 8080
-            failureThreshold: 2
-            initialDelaySeconds: 15
-            periodSeconds: 60
-            timeoutSeconds: 3
-          readinessProbe:
-            httpGet:
-              path: /ready
-              port: 8080
-            initialDelaySeconds: 5
-            periodSeconds: 5
         # This is the container which runs the SPIFFE CSI driver.
         - name: spiffe-csi-driver
           image: ghcr.io/spiffe/spiffe-csi-driver:0.2.0
           imagePullPolicy: IfNotPresent
           args: [
-              "-node-id", "CSI_NODE",
               "-workload-api-socket-dir", "/spire-agent-socket",
               "-csi-socket-path", "/spiffe-csi/csi.sock",
           ]
+          env:
+            # The CSI driver needs a unique node ID. The node name can be
+            # used for this purpose.
+            - name: MY_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           volumeMounts:
             # The volume containing the SPIRE agent socket. The SPIFFE CSI
             # driver will mount this directory into containers.
@@ -573,7 +955,7 @@ spec:
             name: spire-agent
         - name: spire-bundle
           configMap:
-            name: trust-bundle
+            name: spire-bundle
         - name: spire-token
           projected:
             sources:
@@ -584,9 +966,7 @@ spec:
         # This volume is used to share the workload api socket between the
         # CSI driver and SPIRE agent
         - name: spire-agent-socket-dir
-          hostPath:
-            path: /run/spire/socket-dir
-            type: DirectoryOrCreate
+          emptyDir: {}
         # This volume is where the socket for kubelet->driver communication lives
         - name: spiffe-csi-socket-dir
           hostPath:

@@ -20,19 +20,14 @@ import (
 	"net"
 	"strconv"
 	"strings"
-	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	anypb "github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -43,25 +38,24 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-	"istio.io/istio/pilot/pkg/networking/plugin/authn"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
-var deltaConfigTypes = sets.New(kind.ServiceEntry.String())
+var deltaConfigTypes = sets.New(kind.ServiceEntry.String(), kind.DestinationRule.String())
 
 const TransportSocketInternalUpstream = "envoy.transport_sockets.internal_upstream"
 
@@ -109,51 +103,121 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 
 	var deletedClusters []string
 	var services []*model.Service
-	// holds clusters per service, keyed by hostname.
+	// Holds clusters per service, keyed by hostname.
 	serviceClusters := make(map[string]sets.String)
-	// holds service ports, keyed by hostname.
-	// inner map holds port and its cluster name.
-	servicePorts := make(map[string]map[int]string)
+	// Holds service ports, keyed by hostname.Inner map port and its cluster name.
+	// This is mainly used when service is updated and a port has been removed.
+	servicePortClusters := make(map[string]map[int]string)
+	// Holds subset clusters per service, keyed by hostname.
+	subsetClusters := make(map[string]sets.String)
 
 	for _, cluster := range watched.ResourceNames {
 		// WatchedResources.ResourceNames will contain the names of the clusters it is subscribed to. We can
-		// check with the name of our service (cluster names are in the format outbound|<port>||<hostname>).
-		_, _, svcHost, port := model.ParseSubsetKey(cluster)
-		if serviceClusters[string(svcHost)] == nil {
-			serviceClusters[string(svcHost)] = sets.New[string]()
+		// check with the name of our service (cluster names are in the format outbound|<port>|<subset>|<hostname>).
+		_, subset, svcHost, port := model.ParseSubsetKey(cluster)
+		if subset == "" {
+			sets.InsertOrNew(serviceClusters, string(svcHost), cluster)
+		} else {
+			sets.InsertOrNew(subsetClusters, string(svcHost), cluster)
 		}
-		serviceClusters[string(svcHost)].Insert(cluster)
-		if servicePorts[string(svcHost)] == nil {
-			servicePorts[string(svcHost)] = make(map[int]string)
+		if servicePortClusters[string(svcHost)] == nil {
+			servicePortClusters[string(svcHost)] = make(map[int]string)
 		}
-		servicePorts[string(svcHost)][port] = cluster
+		servicePortClusters[string(svcHost)][port] = cluster
 	}
 
-	// In delta, we only care about the services that have changed.
 	for key := range updates.ConfigsUpdated {
-		// get the service that has changed.
-		service := updates.Push.ServiceForHostname(proxy, host.Name(key.Name))
-		// if this service removed, we can conclude that it is a removed cluster.
-		if service == nil {
-			for cluster := range serviceClusters[key.Name] {
+		// deleted clusters for this config.
+		var deleted []string
+		var svcs []*model.Service
+		switch key.Kind {
+		case kind.ServiceEntry:
+			svcs, deleted = configgen.deltaFromServices(key, proxy, updates.Push, serviceClusters,
+				servicePortClusters, subsetClusters)
+		case kind.DestinationRule:
+			svcs, deleted = configgen.deltaFromDestinationRules(key, proxy, subsetClusters)
+		}
+		services = append(services, svcs...)
+		deletedClusters = append(deletedClusters, deleted...)
+	}
+	clusters, log := configgen.buildClusters(proxy, updates, services)
+	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
+	// When clusters are rebuilt, it rebuilts the subset clusters as well. So, we know what
+	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
+	builtClusters := sets.New[string]()
+	for _, c := range clusters {
+		builtClusters.Insert(c.Name)
+	}
+	finalDeletedClusters := slices.FilterInPlace(deletedClusters, func(cluster string) bool {
+		return !builtClusters.Contains(cluster)
+	})
+	return clusters, finalDeletedClusters, log, true
+}
+
+// deltaFromServices computes the delta clusters from the updated services.
+func (configgen *ConfigGeneratorImpl) deltaFromServices(key model.ConfigKey, proxy *model.Proxy, push *model.PushContext,
+	serviceClusters map[string]sets.String, servicePortClusters map[string]map[int]string, subsetClusters map[string]sets.String,
+) ([]*model.Service, []string) {
+	var deletedClusters []string
+	var services []*model.Service
+	service := push.ServiceForHostname(proxy, host.Name(key.Name))
+	// push.ServiceForHostname will return nil if the proxy doesn't care about the service OR it was deleted.
+	// we can cross-reference with WatchedResources to figure out which services were deleted.
+	if service == nil {
+		// We assume a service was deleted and delete all clusters for that service.
+		deletedClusters = append(deletedClusters, serviceClusters[key.Name].UnsortedList()...)
+		deletedClusters = append(deletedClusters, subsetClusters[key.Name].UnsortedList()...)
+	} else {
+		// Service exists. If the service update has port change, we need to the corresponding port clusters.
+		services = append(services, service)
+		for port, cluster := range servicePortClusters[service.Hostname.String()] {
+			// if this service port is removed, we can conclude that it is a removed cluster.
+			if _, exists := service.Ports.GetByPort(port); !exists {
 				deletedClusters = append(deletedClusters, cluster)
-			}
-		} else {
-			services = append(services, service)
-			// If servicePorts has this service, that means it is old service.
-			if servicePorts[service.Hostname.String()] != nil {
-				oldPorts := servicePorts[service.Hostname.String()]
-				for port, cluster := range oldPorts {
-					// if this service port is removed, we can conclude that it is a removed cluster.
-					if _, exists := service.Ports.GetByPort(port); !exists {
-						deletedClusters = append(deletedClusters, cluster)
-					}
-				}
 			}
 		}
 	}
-	clusters, log := configgen.buildClusters(proxy, updates, services)
-	return clusters, deletedClusters, log, true
+	return services, deletedClusters
+}
+
+// deltaFromDestinationRules computes the delta clusters from the updated destination rules.
+func (configgen *ConfigGeneratorImpl) deltaFromDestinationRules(updatedDr model.ConfigKey, proxy *model.Proxy,
+	subsetClusters map[string]sets.String,
+) ([]*model.Service, []string) {
+	var deletedClusters []string
+	var services []*model.Service
+	cfg := proxy.SidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
+	if cfg == nil {
+		// Destinationrule was deleted. Find matching services from previous destinationrule.
+		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
+		if prevCfg == nil {
+			log.Debugf("Prev DestinationRule form PrevSidecarScope is missing for %s/%s", updatedDr.Namespace, updatedDr.Name)
+			return nil, nil
+		}
+		dr := prevCfg.Spec.(*networking.DestinationRule)
+		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
+	} else {
+		dr := cfg.Spec.(*networking.DestinationRule)
+		// Destinationrule was updated. Find matching services from updated destinationrule.
+		services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(dr.Host))...)
+		// Check if destination rule host is changed, if yes, then we need to add previous host matching services.
+		prevCfg := proxy.PrevSidecarScope.DestinationRuleByName(updatedDr.Name, updatedDr.Namespace)
+		if prevCfg != nil {
+			prevDr := prevCfg.Spec.(*networking.DestinationRule)
+			if dr.Host != prevDr.Host {
+				services = append(services, proxy.SidecarScope.ServicesForHostname(host.Name(prevDr.Host))...)
+			}
+		}
+	}
+
+	// Remove all matched service subsets. When we rebuild clusters, we will rebuild the subset clusters as well.
+	// We can reconcile the actual subsets that are needed when we rebuild the clusters.
+	for _, matchedSvc := range services {
+		if subsetClusters[matchedSvc.Hostname.String()] != nil {
+			deletedClusters = append(deletedClusters, subsetClusters[matchedSvc.Hostname.String()].UnsortedList()...)
+		}
+	}
+	return services, deletedClusters
 }
 
 // buildClusters builds clusters for the proxy with the services passed.
@@ -176,16 +240,26 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		// Add a blackhole and passthrough cluster for catching traffic to unresolved routes
 		clusters = outboundPatcher.conditionallyAppend(clusters, nil, cb.buildBlackHoleCluster(), cb.buildDefaultPassthroughCluster())
 		clusters = append(clusters, outboundPatcher.insertedClusters()...)
-
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
 		clusters = append(clusters, configgen.buildInboundClusters(cb, proxy, instances, inboundPatcher)...)
+		if proxy.EnableHBONE() {
+			clusters = append(clusters, configgen.buildInboundHBONEClusters())
+		}
 		// Pass through clusters for inbound traffic. These cluster bind loopback-ish src address to access node local service.
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
-		if proxy.EnableHBONE() {
-			clusters = append(clusters, configgen.buildInboundHBONEClusters(cb, instances)...)
-		}
+	case model.Waypoint:
+		_, svcs := findWaypointResources(proxy, req.Push)
+		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
+		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(req.Push.ServicesAttachedToMesh(), svcs, services))
+		cacheStats = cacheStats.merge(cs)
+		resources = append(resources, ob...)
+		// Setup inbound clusters
+		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
+		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, svcs)...)
+		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
 		ob, cs := configgen.buildOutboundClusters(cb, proxy, patcher, services)
@@ -201,14 +275,13 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 
 	// OutboundTunnel cluster is needed for sidecar and gateway.
 	if proxy.EnableHBONE() {
-		clusters = append(clusters, outboundTunnelCluster(proxy, req.Push))
+		clusters = append(clusters, cb.buildConnectOriginate(proxy, req.Push, nil))
 	}
 
 	// if credential socket exists, create a cluster for it
 	if proxy.Metadata != nil && proxy.Metadata.Raw[security.CredentialMetaDataName] == "true" {
 		clusters = append(clusters, cb.buildExternalSDSCluster(security.CredentialNameSocketPath))
 	}
-
 	for _, c := range clusters {
 		resources = append(resources, &discovery.Resource{Name: c.Name, Resource: protoconv.MessageToAny(c)})
 	}
@@ -264,10 +337,28 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			if defaultCluster == nil {
 				continue
 			}
+
+			// if the service uses persistent sessions, override status allows
+			// DRAINING endpoints to be kept as 'UNHEALTHY' coarse status in envoy.
+			// Will not be used for normal traffic, only when explicit override.
+			if service.Attributes.Labels[features.PersistentSessionLabel] != "" {
+				// Default is UNKNOWN, HEALTHY, DEGRADED. Without this change, Envoy will drop endpoints with any other
+				// status received in EDS. With this setting, the DRAINING and UNHEALTHY endpoints are kept - both marked
+				// as UNHEALTHY ('coarse state'), which is what will show in config dumps.
+				// DRAINING/UNHEALTHY will not be used normally for new requests. They will be used if cookie/header
+				// selects them.
+				defaultCluster.cluster.CommonLbConfig.OverrideHostStatus = &core.HealthStatusSet{
+					Statuses: []core.HealthStatus{
+						core.HealthStatus_HEALTHY,
+						core.HealthStatus_DRAINING, core.HealthStatus_UNKNOWN, core.HealthStatus_DEGRADED,
+					},
+				}
+			}
+
 			// If stat name is configured, build the alternate stats name.
 			if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
 				defaultCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-					string(service.Hostname), "", port, &service.Attributes)
+					string(service.Hostname), "", port, 0, &service.Attributes)
 			}
 
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
@@ -400,7 +491,7 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 	enableSidecarServiceInboundListenerMerge bool,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
+	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
 	clustersToBuild := make(map[int][]*model.ServiceInstance)
 
 	ingressPortListSet := sets.New[int]()
@@ -417,7 +508,7 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 		clustersToBuild[ep] = append(clustersToBuild[ep], instance)
 	}
 
-	bind := actualLocalHost
+	bind := actualLocalHosts[0]
 	if features.EnableInboundPassthrough {
 		bind = ""
 	}
@@ -431,8 +522,16 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 			// port present in sidecarIngress listener so let sidecar take precedence
 			continue
 		}
-		// The inbound cluster port equals to endpoint port.
-		localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, proxy, instances[0], instances)
+		services := slices.Map(instances, func(e *model.ServiceInstance) ServiceTarget {
+			return ServiceTarget{
+				Service: e.Service,
+				Port: ServiceInstancePort{
+					ServicePort: e.ServicePort,
+					TargetPort:  e.Endpoint.EndpointPort,
+				},
+			}
+		})
+		localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, proxy, services[0], services)
 		// If inbound cluster match has service, we should see if it matches with any host name across all instances.
 		hosts := make([]host.Name, 0, len(instances))
 		for _, si := range instances {
@@ -456,8 +555,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 	sidecarScope := proxy.SidecarScope
 	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
 
-	_, actualLocalHost := getActualWildcardAndLocalHost(proxy)
-
+	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners
 	if !sidecarScope.HasIngressListener() {
 		// We should not create inbound listeners in NONE mode based on the service instances
@@ -526,46 +624,42 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 					endpointAddress = model.LocalhostIPv6AddressPrefix
 				}
 			} else if hostIP == model.LocalhostAddressPrefix || hostIP == model.LocalhostIPv6AddressPrefix {
-				endpointAddress = actualLocalHost
+				endpointAddress = actualLocalHosts[0]
 			}
 		}
 		// Find the service instance that corresponds to this ingress listener by looking
 		// for a service instance that matches this ingress port as this will allow us
 		// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
-		instance := findOrCreateServiceInstance(instances, ingressListener, sidecarScope.Name, sidecarScope.Namespace)
-		instance.Endpoint.Address = endpointAddress
-		instance.ServicePort = listenPort
-		instance.Endpoint.ServicePortName = listenPort.Name
-		instance.Endpoint.EndpointPort = uint32(port)
-
-		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, proxy, instance, nil)
-		clusters = cp.conditionallyAppend(clusters, []host.Name{instance.Service.Hostname}, localCluster.build())
+		svc := findOrCreateService(instances, ingressListener, sidecarScope.Name, sidecarScope.Namespace)
+		endpoint := ServiceTarget{
+			Service: svc,
+			Port: ServiceInstancePort{
+				ServicePort: listenPort,
+				TargetPort:  uint32(port),
+			},
+		}
+		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, proxy, endpoint, nil)
+		clusters = cp.conditionallyAppend(clusters, []host.Name{endpoint.Service.Hostname}, localCluster.build())
 	}
 	return clusters
 }
 
-func findOrCreateServiceInstance(instances []*model.ServiceInstance,
+func findOrCreateService(instances []*model.ServiceInstance,
 	ingressListener *networking.IstioIngressListener, sidecar string, sidecarns string,
-) *model.ServiceInstance {
+) *model.Service {
 	for _, realInstance := range instances {
 		if realInstance.Endpoint.EndpointPort == ingressListener.Port.Number {
-			// We need to create a copy of the instance, as it is modified later while building clusters/listeners.
-			return realInstance.DeepCopy()
+			return realInstance.Service
 		}
 	}
 	// We didn't find a matching instance. Create a dummy one because we need the right
 	// params to generate the right cluster name i.e. inbound|portNumber|portName|SidecarScopeID - which is uniformly generated by LDS/CDS.
-	return &model.ServiceInstance{
-		Service: &model.Service{
-			Hostname: host.Name(sidecar + "." + sidecarns),
-			Attributes: model.ServiceAttributes{
-				Name: sidecar,
-				// This will ensure that the right AuthN policies are selected
-				Namespace: sidecarns,
-			},
-		},
-		Endpoint: &model.IstioEndpoint{
-			EndpointPort: ingressListener.Port.Number,
+	return &model.Service{
+		Hostname: host.Name(sidecar + "." + sidecarns),
+		Attributes: model.ServiceAttributes{
+			Name: sidecar,
+			// This will ensure that the right AuthN policies are selected
+			Namespace: sidecarns,
 		},
 	}
 }
@@ -624,7 +718,7 @@ const (
 
 type buildClusterOpts struct {
 	mesh             *meshconfig.MeshConfig
-	mutable          *MutableCluster
+	mutable          *clusterWrapper
 	policy           *networking.TrafficPolicy
 	port             *model.Port
 	serviceAccounts  []string
@@ -736,7 +830,7 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 	// FIXME: we can't distinguish between it being unset or being explicitly set to 0
 	minHealthPercent := outlier.MinHealthPercent
 	if minHealthPercent >= 0 {
-		// When we are sending unhealthy endpoints, we should disble Panic Threshold. Otherwise
+		// When we are sending unhealthy endpoints, we should disable Panic Threshold. Otherwise
 		// Envoy will send traffic to "Unready" pods when the percentage of healthy hosts fall
 		// below minimum health percentage.
 		if features.SendUnhealthyEndpoints.Load() {
@@ -747,9 +841,6 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 }
 
 func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
-	if features.EnableLegacyLBAlgorithmDefault {
-		return cluster.Cluster_ROUND_ROBIN
-	}
 	return cluster.Cluster_LEAST_REQUEST
 }
 
@@ -903,15 +994,14 @@ func applyLocalityLBSetting(locality *core.Locality, proxyLabels map[string]stri
 	}
 }
 
-func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, instances []*model.ServiceInstance) {
+func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, inboundServices []ServiceTarget) {
 	if !features.EnableTelemetryLabel {
 		return
 	}
 	if opts.mutable.cluster == nil {
 		return
 	}
-	if direction == model.TrafficDirectionInbound && (opts.serviceInstances == nil ||
-		len(opts.serviceInstances) == 0 || opts.port == nil) {
+	if direction == model.TrafficDirectionInbound && (len(inboundServices) == 0 || opts.port == nil) {
 		// At inbound, port and local service instance has to be provided
 		return
 	}
@@ -937,8 +1027,8 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	if direction == model.TrafficDirectionInbound {
 		// For inbound cluster, add all services on the cluster port
 		have := make(map[host.Name]bool)
-		for _, svc := range instances {
-			if svc.ServicePort.Port != opts.port.Port {
+		for _, svc := range inboundServices {
+			if svc.Port.Port != opts.port.Port {
 				// If the service port is different from the port of the cluster that is being built,
 				// skip adding telemetry metadata for the service to the cluster.
 				continue
@@ -954,30 +1044,6 @@ func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, directi
 	} else if direction == model.TrafficDirectionOutbound {
 		// For outbound cluster, add telemetry metadata based on the service that the cluster is built for.
 		svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(service))
-	}
-}
-
-// Insert the original port into the istio metadata. The port is used in BTS delivered from client sidecar to server sidecar.
-// Server side car uses this port after de-multiplexed from tunnel.
-func addNetworkingMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection) {
-	if opts.mutable == nil || direction == model.TrafficDirectionInbound {
-		return
-	}
-	if service == nil {
-		// At outbound, the service corresponding to the cluster has to be provided.
-		return
-	}
-
-	if port, ok := service.Ports.GetByPort(opts.port.Port); ok {
-		im := getOrCreateIstioMetadata(opts.mutable.cluster)
-
-		// Add original_port field into istio metadata
-		// Endpoint could override this port but the chance should be small.
-		im.Fields["default_original_port"] = &structpb.Value{
-			Kind: &structpb.Value_NumberValue{
-				NumberValue: float64(port.Port),
-			},
-		}
 	}
 }
 
@@ -1026,36 +1092,8 @@ func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
 	return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundHBONEClusters(cb *ClusterBuilder, instances []*model.ServiceInstance) []*cluster.Cluster {
-	clusters := make([]*cluster.Cluster, 0)
-	names := sets.New[string]()
-	for _, i := range instances {
-		p := i.Endpoint.EndpointPort
-		name := "inbound-hbone" + "|" + strconv.Itoa(int(p))
-		if !names.InsertContains(name) {
-			clusters = append(clusters, cb.buildInternalListenerCluster(name, name).build())
-		}
-	}
-	return clusters
-}
-
-func (cb *ClusterBuilder) buildInternalListenerCluster(clusterName string, listenerName string) *MutableCluster {
-	clusterType := cluster.Cluster_STATIC
-	port := &model.Port{}
-	localCluster := cb.buildDefaultCluster(clusterName, clusterType, util.BuildInternalEndpoint(listenerName, nil),
-		model.TrafficDirectionInbound, port, nil, nil)
-	// no TLS
-	localCluster.cluster.TransportSocketMatches = nil
-	localCluster.cluster.TransportSocket = InternalUpstreamSocket
-	return localCluster
-}
-
 var HboneOrPlaintextSocket = []*cluster.Cluster_TransportSocketMatch{
-	{
-		Name:            "hbone",
-		Match:           hboneTransportSocketMatch,
-		TransportSocket: InternalUpstreamSocket,
-	},
+	hboneTransportSocket,
 	defaultTransportSocketMatch(),
 }
 
@@ -1082,45 +1120,4 @@ var InternalUpstreamSocket = &core.TransportSocket{
 		},
 		TransportSocket: xdsfilters.RawBufferTransportSocket,
 	})},
-}
-
-func outboundTunnelCluster(proxy *model.Proxy, push *model.PushContext) *cluster.Cluster {
-	return &cluster.Cluster{
-		Name:                 util.OutboundTunnel,
-		ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST},
-		LbPolicy:             cluster.Cluster_CLUSTER_PROVIDED,
-		ConnectTimeout:       push.Mesh.ConnectTimeout,
-		CleanupInterval:      durationpb.New(60 * time.Second),
-		TypedExtensionProtocolOptions: map[string]*anypb.Any{
-			v3.HttpProtocolOptionsType: protoconv.MessageToAny(&http.HttpProtocolOptions{
-				UpstreamProtocolOptions: &http.HttpProtocolOptions_ExplicitHttpConfig_{ExplicitHttpConfig: &http.HttpProtocolOptions_ExplicitHttpConfig{
-					ProtocolConfig: &http.HttpProtocolOptions_ExplicitHttpConfig_Http2ProtocolOptions{
-						Http2ProtocolOptions: &core.Http2ProtocolOptions{
-							AllowConnect: true,
-						},
-					},
-				}},
-			}),
-		},
-		TransportSocket: &core.TransportSocket{
-			Name: wellknown.TransportSocketTls,
-			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{
-				CommonTlsContext: buildHBONECommonTLSContext(proxy, push),
-			})},
-		},
-	}
-}
-
-func buildHBONECommonTLSContext(proxy *model.Proxy, push *model.PushContext) *tls.CommonTlsContext {
-	ctx := &tls.CommonTlsContext{}
-	authnmodel.ApplyToCommonTLSContext(ctx, proxy, nil, authn.TrustDomainsForValidation(push.Mesh), false)
-
-	ctx.AlpnProtocols = util.ALPNH2Only
-
-	ctx.TlsParams = &tls.TlsParameters{
-		// Ensure TLS 1.3 is used everywhere for HBONE
-		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
-		TlsMinimumProtocolVersion: tls.TlsParameters_TLSv1_3,
-	}
-	return ctx
 }

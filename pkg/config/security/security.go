@@ -25,8 +25,8 @@ import (
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // JwksInfo provides values resulting from parsing a jwks URI.
@@ -205,6 +205,18 @@ var ValidCipherSuites = sets.New(
 	"DES-CBC3-SHA",
 )
 
+// ValidECDHCurves contains a list of all ecdh curves supported in MeshConfig.TlsDefaults.ecdhCurves
+// Source:
+// https://github.com/google/boringssl/blob/3743aafdacff2f7b083615a043a37101f740fa53/ssl/ssl_key_share.cc#L302-L309
+var ValidECDHCurves = sets.New(
+	"P-224",
+	"P-256",
+	"P-521",
+	"P-384",
+	"X25519",
+	"CECPQ2",
+)
+
 func IsValidCipherSuite(cs string) bool {
 	if cs == "" || cs == "ALL" {
 		return true
@@ -215,6 +227,13 @@ func IsValidCipherSuite(cs string) bool {
 		return true
 	}
 	return ValidCipherSuites.Contains(cs)
+}
+
+func IsValidECDHCurve(cs string) bool {
+	if cs == "" {
+		return true
+	}
+	return ValidECDHCurves.Contains(cs)
 }
 
 // FilterCipherSuites filters out invalid cipher suites which would lead Envoy to NACKing.

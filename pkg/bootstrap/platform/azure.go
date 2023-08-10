@@ -24,7 +24,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -108,7 +108,7 @@ func (e *azureEnv) parseMetadata(metadata string) {
 // Uses the default timeout for the HTTP get request
 func metadataRequest(query string) string {
 	client := http.Client{Timeout: defaultTimeout}
-	req, err := http.NewRequest("GET", fmt.Sprintf("%s?%s", AzureInstanceURL, query), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s?%s", AzureInstanceURL, query), nil)
 	if err != nil {
 		log.Warnf("Failed to create HTTP request: %v", err)
 		return ""

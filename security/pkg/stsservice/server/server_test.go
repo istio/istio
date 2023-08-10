@@ -29,9 +29,9 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/mock"
-	"istio.io/pkg/log"
 )
 
 type stsReqType int
@@ -293,15 +293,15 @@ func genStsRequest(reqType stsReqType, serverAddr string) (req *http.Request) {
 	}
 
 	if reqType == incorrectRequestMethod {
-		req, _ = http.NewRequest("GET", serverAddr, strings.NewReader(stsQuery.Encode()))
+		req, _ = http.NewRequest(http.MethodGet, serverAddr, strings.NewReader(stsQuery.Encode()))
 		req.Header.Set("Content-Type", URLEncodedForm)
 	} else if reqType == incorrectContentType {
-		req, _ = http.NewRequest("POST", serverAddr, strings.NewReader(stsQuery.Encode()))
+		req, _ = http.NewRequest(http.MethodPost, serverAddr, strings.NewReader(stsQuery.Encode()))
 		req.Header.Set("Content-Type", "application/json")
 	} else if reqType == tokenStatusDump {
-		req, _ = http.NewRequest("GET", serverAddr, nil)
+		req, _ = http.NewRequest(http.MethodGet, serverAddr, nil)
 	} else {
-		req, _ = http.NewRequest("POST", serverAddr, strings.NewReader(stsQuery.Encode()))
+		req, _ = http.NewRequest(http.MethodPost, serverAddr, strings.NewReader(stsQuery.Encode()))
 		req.Header.Set("Content-Type", URLEncodedForm)
 	}
 	reqDump, _ := httputil.DumpRequest(req, true)

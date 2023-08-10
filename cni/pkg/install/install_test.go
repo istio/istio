@@ -26,6 +26,7 @@ import (
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestCheckInstall(t *testing.T) {
@@ -35,7 +36,6 @@ func TestCheckInstall(t *testing.T) {
 		cniConfigFilename string
 		cniConfName       string
 		chainedCNIPlugin  bool
-		skipInstall       bool
 		existingConfFiles map[string]string // {srcFilename: targetFilename, ...}
 	}{
 		{
@@ -63,12 +63,6 @@ func TestCheckInstall(t *testing.T) {
 		{
 			name:              "CNI config file removed",
 			expectedFailure:   true,
-			cniConfigFilename: "file-removed.conflist",
-		},
-		{
-			name:              "CNI config file non-existent but install skipped",
-			expectedFailure:   false,
-			skipInstall:       true,
 			cniConfigFilename: "file-removed.conflist",
 		},
 		{
@@ -113,7 +107,6 @@ func TestCheckInstall(t *testing.T) {
 				MountedCNINetDir: tempDir,
 				CNIConfName:      c.cniConfName,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
-				CNIEnableInstall: !c.skipInstall,
 			}
 			err := checkInstall(cfg, filepath.Join(tempDir, c.cniConfigFilename))
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
@@ -161,7 +154,6 @@ func TestSleepCheckInstall(t *testing.T) {
 			cfg := &config.InstallConfig{
 				MountedCNINetDir: tempDir,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
-				CNIEnableInstall: true,
 			}
 			cniConfigFilepath := filepath.Join(tempDir, c.cniConfigFilename)
 			isReady := &atomic.Value{}
@@ -169,8 +161,6 @@ func TestSleepCheckInstall(t *testing.T) {
 			in := NewInstaller(cfg, isReady)
 			in.cniConfigFilepath = cniConfigFilepath
 
-			in.saToken = "foo"
-			in.saTokenFilepath = filepath.Join(tempDir, c.saFilename)
 			if err := file.AtomicCopy(filepath.Join("testdata", c.saFilename), tempDir, c.saFilename); err != nil {
 				t.Fatal(err)
 			}
@@ -183,7 +173,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			}
 
 			t.Log("Expecting an invalid configuration log:")
-			if err := in.sleepCheckInstall(ctx); err != nil {
+			if err := in.sleepCheckInstall(ctx, sets.Set[string]{}); err != nil {
 				t.Fatalf("error should be nil due to invalid config, got: %v", err)
 			}
 			assert.Equal(t, isReady.Load(), false)
@@ -220,7 +210,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			// Should detect a valid configuration and wait indefinitely for a file modification
 			errChan := make(chan error)
 			go func(ctx context.Context) {
-				errChan <- in.sleepCheckInstall(ctx)
+				errChan <- in.sleepCheckInstall(ctx, sets.Set[string]{})
 			}(ctx)
 
 			select {
@@ -260,7 +250,7 @@ func TestSleepCheckInstall(t *testing.T) {
 
 				// Run sleepCheckInstall
 				go func(ctx context.Context, in *Installer) {
-					errChan <- in.sleepCheckInstall(ctx)
+					errChan <- in.sleepCheckInstall(ctx, sets.Set[string]{})
 				}(ctx, in)
 			}
 

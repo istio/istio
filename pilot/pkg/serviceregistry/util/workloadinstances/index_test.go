@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -40,7 +41,7 @@ var selector = &config.Config{
 	},
 	Spec: &networking.ServiceEntry{
 		Hosts: []string{"selector.com"},
-		Ports: []*networking.Port{
+		Ports: []*networking.ServicePort{
 			{Number: 444, Name: "tcp-444", Protocol: "tcp"},
 			{Number: 445, Name: "http-445", Protocol: "http"},
 		},
@@ -96,12 +97,12 @@ func TestIndex(t *testing.T) {
 	verifyGetByIP := func(ip string, expected []*model.WorkloadInstance) {
 		actual := index.GetByIP(ip)
 
-		if diff := cmp.Diff(len(expected), len(actual)); diff != "" {
+		if diff := cmp.Diff(len(expected), len(actual), cmpopts.IgnoreUnexported(model.IstioEndpoint{})); diff != "" {
 			t.Errorf("GetByIP() returned unexpected number of workload instances (--want/++got): %v", diff)
 		}
 
 		for i := range expected {
-			if diff := cmp.Diff(expected[i], actual[i]); diff != "" {
+			if diff := cmp.Diff(expected[i], actual[i], cmpopts.IgnoreUnexported(model.IstioEndpoint{})); diff != "" {
 				t.Errorf("GetByIP() returned unexpected workload instance %d (--want/++got): %v", i, diff)
 			}
 		}
@@ -114,7 +115,7 @@ func TestIndex(t *testing.T) {
 	// Delete should return previously inserted value
 
 	deleted := index.Delete(wi1)
-	if diff := cmp.Diff(wi1, deleted); diff != "" {
+	if diff := cmp.Diff(wi1, deleted, cmpopts.IgnoreUnexported(model.IstioEndpoint{})); diff != "" {
 		t.Errorf("1st Delete() returned unexpected value (--want/++got): %v", diff)
 	}
 
@@ -194,7 +195,7 @@ func TestIndex_FindAll(t *testing.T) {
 	}
 
 	for _, expected := range want {
-		if diff := cmp.Diff(expected, got[expected.Name]); diff != "" {
+		if diff := cmp.Diff(expected, got[expected.Name], cmpopts.IgnoreUnexported(model.IstioEndpoint{})); diff != "" {
 			t.Fatalf("FindAllInIndex() returned unexpected workload instance %q (--want/++got): %v", expected.Name, diff)
 		}
 	}

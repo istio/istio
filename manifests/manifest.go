@@ -22,9 +22,7 @@ import (
 
 // FS embeds the manifests
 //
-//go:embed charts/* profiles/*
-//go:embed charts/gateways/istio-egress/templates/_affinity.tpl
-//go:embed charts/gateways/istio-ingress/templates/_affinity.tpl
+//go:embed all:charts/* profiles/*
 var FS embed.FS
 
 // BuiltinOrDir returns a FS for the provided directory. If no directory is passed, the compiled in

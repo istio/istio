@@ -28,10 +28,10 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/util"
 	authzmatcher "istio.io/istio/pilot/pkg/security/authz/matcher"
 	authz "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestIsCatchAllMatch(t *testing.T) {
@@ -163,8 +163,7 @@ func TestIsCatchAllRoute(t *testing.T) {
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
-							EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}},
-							Regex:      "*",
+							Regex: "*",
 						},
 					},
 				},
@@ -199,8 +198,7 @@ func TestIsCatchAllRoute(t *testing.T) {
 					PathSpecifier: &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
 							// nolint: staticcheck
-							EngineType: &matcher.RegexMatcher_GoogleRe2{},
-							Regex:      "*",
+							Regex: "*",
 						},
 					},
 					Headers: []*route.HeaderMatcher{
@@ -210,8 +208,7 @@ func TestIsCatchAllRoute(t *testing.T) {
 								StringMatch: &matcher.StringMatcher{
 									MatchPattern: &matcher.StringMatcher_SafeRegex{
 										SafeRegex: &matcher.RegexMatcher{
-											EngineType: util.RegexEngine,
-											Regex:      "*",
+											Regex: "*",
 										},
 									},
 								},
@@ -230,8 +227,7 @@ func TestIsCatchAllRoute(t *testing.T) {
 					PathSpecifier: &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
 							// nolint: staticcheck
-							EngineType: &matcher.RegexMatcher_GoogleRe2{},
-							Regex:      "*",
+							Regex: "*",
 						},
 					},
 					QueryParameters: []*route.QueryParameterMatcher{
@@ -334,8 +330,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			{
 				MatchPattern: &matcher.StringMatcher_SafeRegex{
 					SafeRegex: &matcher.RegexMatcher{
-						EngineType: util.RegexEngine,
-						Regex:      "regex",
+						Regex: "regex",
 					},
 				},
 			},
@@ -349,8 +344,8 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			},
 		},
 	}
-	if got := translateCORSPolicy(corsPolicy); !reflect.DeepEqual(got, expectedCorsPolicy) {
-		t.Errorf("translateCORSPolicy() = \n%v, want \n%v", got, expectedCorsPolicy)
+	if got := TranslateCORSPolicy(corsPolicy); !reflect.DeepEqual(got, expectedCorsPolicy) {
+		t.Errorf("TranslateCORSPolicy() = \n%v, want \n%v", got, expectedCorsPolicy)
 	}
 }
 
@@ -432,9 +427,9 @@ func TestMirrorPercent(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			mp := mirrorPercent(tt.route)
+			mp := MirrorPercent(tt.route)
 			if !reflect.DeepEqual(mp, tt.want) {
-				t.Errorf("Unexpected mirro percent want %v, got %v", tt.want, mp)
+				t.Errorf("Unexpected mirror percent want %v, got %v", tt.want, mp)
 			}
 		})
 	}
@@ -444,7 +439,7 @@ func TestSourceMatchHTTP(t *testing.T) {
 	type args struct {
 		match          *networking.HTTPMatchRequest
 		proxyLabels    labels.Instance
-		gatewayNames   map[string]bool
+		gatewayNames   sets.String
 		proxyNamespace string
 	}
 	tests := []struct {
@@ -516,7 +511,7 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			name: "request.auth.claims.",
 		},
 		{
-			name: "@request.auth.claims-",
+			name: "@request.auth.claims.",
 		},
 		{
 			name: "@request.auth.claims-abc",
@@ -548,6 +543,45 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			name: "@request.auth.claims.regex",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Regex{Regex: ".+?\\..+?\\..+?"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"regex"}, authzmatcher.StringMatcherRegex(".+?\\..+?\\..+?")),
+		},
+		{
+			name: "@request.auth.claims[key1",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+		},
+		{
+			name: "@request.auth.claims]key1",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+		},
+		{
+			// have `@request.auth.claims` prefix, but no separator
+			name: "@request.auth.claimskey1",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+		},
+		{
+			// if `.` exists, use `.` as separator
+			name: "@request.auth.claims.[key1]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"[key1]"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims[key1]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims[key1][key2]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1", "key2"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims[test-issuer-2@istio.io]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io"}, authzmatcher.StringMatcher("exact")),
+		},
+		{
+			name: "@request.auth.claims[test-issuer-2@istio.io][key1]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io", "key1"}, authzmatcher.StringMatcher("exact")),
 		},
 	}
 	for _, tc := range cases {
@@ -667,7 +701,7 @@ func TestTranslateFault(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			tf := translateFault(tt.fault)
+			tf := TranslateFault(tt.fault)
 			if !reflect.DeepEqual(tf, tt.want) {
 				t.Errorf("Unexpected translate fault want %v, got %v", tt.want, tf)
 			}

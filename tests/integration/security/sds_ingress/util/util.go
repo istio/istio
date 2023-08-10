@@ -52,14 +52,18 @@ const (
 	tlsScrtKey = "tls.key"
 	// The ID/name for the CA certificate in kubernetes tls secret
 	tlsScrtCaCert = "ca.crt"
+	// The ID/name for the CRL in kubernetes tls secret
+	tlsScrtCaCrl = "ca.crl"
 	// The ID/name for the certificate chain in kubernetes generic secret.
 	genericScrtCert = "cert"
 	// The ID/name for the private key in kubernetes generic secret.
 	genericScrtKey = "key"
 	// The ID/name for the CA certificate in kubernetes generic secret.
 	genericScrtCaCert = "cacert"
-	ASvc              = "a"
-	VMSvc             = "vm"
+	// The ID/name for the CRL in kubernetes generic secret.
+	genericScrtCaCrl = "crl"
+	ASvc             = "a"
+	VMSvc            = "vm"
 )
 
 type EchoDeployments struct {
@@ -71,6 +75,7 @@ type IngressCredential struct {
 	PrivateKey  string
 	Certificate string
 	CaCert      string
+	Crl         string
 }
 
 var IngressCredentialA = IngressCredential{
@@ -210,6 +215,7 @@ func createSecret(ingressType CallType, cn, ns string, ic IngressCredential, isC
 					tlsScrtCert:   []byte(ic.Certificate),
 					tlsScrtKey:    []byte(ic.PrivateKey),
 					tlsScrtCaCert: []byte(ic.CaCert),
+					tlsScrtCaCrl:  []byte(ic.Crl),
 				},
 			}
 		}
@@ -226,6 +232,7 @@ func createSecret(ingressType CallType, cn, ns string, ic IngressCredential, isC
 				genericScrtCert:   []byte(ic.Certificate),
 				genericScrtKey:    []byte(ic.PrivateKey),
 				genericScrtCaCert: []byte(ic.CaCert),
+				genericScrtCaCrl:  []byte(ic.Crl),
 			},
 		}
 	}
@@ -325,6 +332,9 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 				}
 				return nil
 			}
+			if callType == Mtls {
+				return check.And(check.Status(exRsp.StatusCode), check.MTLSForHTTP()).Check(result, nil)
+			}
 
 			return check.Status(exRsp.StatusCode).Check(result, nil)
 		},
@@ -374,10 +384,12 @@ func updateSecret(ingressType CallType, scrt *v1.Secret, ic IngressCredential, i
 			scrt.Data[tlsScrtCert] = []byte(ic.Certificate)
 			scrt.Data[tlsScrtKey] = []byte(ic.PrivateKey)
 			scrt.Data[tlsScrtCaCert] = []byte(ic.CaCert)
+			scrt.Data[tlsScrtCaCrl] = []byte(ic.Crl)
 		} else {
 			scrt.Data[genericScrtCert] = []byte(ic.Certificate)
 			scrt.Data[genericScrtKey] = []byte(ic.PrivateKey)
 			scrt.Data[genericScrtCaCert] = []byte(ic.CaCert)
+			scrt.Data[genericScrtCaCrl] = []byte(ic.Crl)
 		}
 	} else {
 		scrt.Data[tlsScrtCert] = []byte(ic.Certificate)
@@ -417,6 +429,7 @@ type TestConfig struct {
 	CredentialName string
 	Host           string
 	ServiceName    string
+	GatewayLabel   string
 }
 
 const vsTemplate = `
@@ -447,7 +460,7 @@ metadata:
   name: {{.CredentialName}}
 spec:
   selector:
-    istio: ingressgateway # use istio default ingress gateway
+    istio: {{.GatewayLabel | default "ingressgateway"}}
   servers:
   - port:
       number: 443
@@ -484,6 +497,7 @@ func RunTestMultiMtlsGateways(ctx framework.TestContext, inst istio.Instance, ns
 					CredentialName: cred,
 					Host:           fmt.Sprintf("runtestmultimtlsgateways%d.example.com", i),
 					ServiceName:    to.Config().Service,
+					GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
 				})
 				credNames = append(credNames, cred)
 			}
@@ -531,6 +545,7 @@ func RunTestMultiTLSGateways(t framework.TestContext, inst istio.Instance, ns na
 					CredentialName: cred,
 					Host:           fmt.Sprintf("runtestmultitlsgateways%d.example.com", i),
 					ServiceName:    to.Config().Service,
+					GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
 				})
 				credNames = append(credNames, cred)
 			}
@@ -582,6 +597,7 @@ func RunTestMultiQUICGateways(t framework.TestContext, inst istio.Instance, call
 						CredentialName: cred,
 						Host:           fmt.Sprintf("runtestmultitlsgateways%d.example.com", i),
 						ServiceName:    to.Config().Service,
+						GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
 					})
 					credNames = append(credNames, cred)
 				}

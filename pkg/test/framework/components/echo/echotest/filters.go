@@ -80,6 +80,7 @@ func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 func (t *T) WithDefaultFilters(minimumFrom, minimumTo int) *T {
 	return t.
 		From(FilterMatch(match.NotExternal)).
+		From(FilterMatch(match.NotWaypoint)).
 		From(SimplePodServiceAndAllSpecial(minimumFrom)).
 		ConditionallyTo(ReachableDestinations).
 		To(SimplePodServiceAndAllSpecial(minimumTo, t.sources...))
@@ -167,6 +168,18 @@ var NoSelfCalls CombinationFilter = func(from echo.Instance, to echo.Instances) 
 	return match.Not(match.ServiceName(from.NamespacedName())).GetMatches(to)
 }
 
+// HasL7 only allows traffic where there is some L7 processing occurring on the path
+var HasL7 CombinationFilter = func(from echo.Instance, to echo.Instances) echo.Instances {
+	if from.Config().HasSidecar() || from.Config().IsProxylessGRPC() {
+		// client has l7
+		return to
+	}
+	// otherwise give only serverside l7 endpoints
+	return match.Matcher(func(instance echo.Instance) bool {
+		return instance.Config().HasWaypointProxy()
+	}).GetMatches(to)
+}
+
 // ReachableDestinations filters out known-unreachable destinations given a source.
 // - from a naked pod, we can't reach cross-network endpoints or VMs
 // - we can't reach cross-cluster headless endpoints
@@ -220,7 +233,9 @@ func reachableFromProxylessGRPC(from echo.Instance) match.Matcher {
 	}
 	return match.And(
 		match.NotExternal,
-		match.NotHeadless)
+		match.NotHeadless,
+		match.NotWaypoint,
+	)
 }
 
 // reachableFromNaked filters out all virtual machines and any instance that isn't on the same network

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 43659
+releaseNotes:
+  - |
+    **Fixed** `istioctl operator remove` cannot remove the operator controller due to a `no Deployment detected` error.

@@ -308,6 +308,12 @@ func TestExternalServiceConversion(t *testing.T) {
 		t.Fatalf("service hostname incorrect => %q, want %q",
 			service.Hostname, ServiceHostname(serviceName, namespace, domainSuffix))
 	}
+
+	if service.Attributes.Type != string(extSvc.Spec.Type) ||
+		service.Attributes.ExternalName != extSvc.Spec.ExternalName {
+		t.Fatalf("service attributes incorrect => %v/%v, want %v/%v",
+			service.Attributes.Type, service.Attributes.ExternalName, extSvc.Spec.Type, extSvc.Spec.ExternalName)
+	}
 }
 
 func TestExternalClusterLocalServiceConversion(t *testing.T) {
@@ -416,6 +422,38 @@ func TestLBServiceConversion(t *testing.T) {
 		if got != want {
 			t.Fatalf("Expected address %s but got %s", want, got)
 		}
+	}
+}
+
+func TestInternalTrafficPolicyServiceConversion(t *testing.T) {
+	serviceName := "service1"
+	namespace := "default"
+	local := corev1.ServiceInternalTrafficPolicyLocal
+
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      serviceName,
+			Namespace: namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name:     "http",
+					Port:     80,
+					Protocol: corev1.ProtocolTCP,
+				},
+			},
+			InternalTrafficPolicy: &local,
+		},
+	}
+
+	service := ConvertService(svc, domainSuffix, clusterID)
+	if service == nil {
+		t.Fatalf("could not convert service")
+	}
+
+	if !service.Attributes.NodeLocal {
+		t.Fatal("not node local")
 	}
 }
 

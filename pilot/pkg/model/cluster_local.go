@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -29,8 +30,8 @@ var (
 // ClusterLocalHosts is a map of host names or wildcard patterns which should only
 // be made accessible from within the same cluster.
 type ClusterLocalHosts struct {
-	specific map[host.Name]struct{}
-	wildcard map[host.Name]struct{}
+	specific sets.Set[host.Name]
+	wildcard sets.Set[host.Name]
 }
 
 // IsClusterLocal indicates whether the given host should be treated as a
@@ -64,14 +65,14 @@ func NewClusterLocalProvider(e *Environment) ClusterLocalProvider {
 var _ ClusterLocalProvider = &clusterLocalProvider{}
 
 type clusterLocalProvider struct {
-	mutex sync.Mutex
+	mutex sync.RWMutex
 	hosts ClusterLocalHosts
 }
 
 func (c *clusterLocalProvider) GetClusterLocalHosts() ClusterLocalHosts {
-	c.mutex.Lock()
+	c.mutex.RLock()
 	out := c.hosts
-	c.mutex.Unlock()
+	c.mutex.RUnlock()
 	return out
 }
 
@@ -105,9 +106,9 @@ func (c *clusterLocalProvider) onMeshUpdated(e *Environment) {
 			for _, h := range serviceSettings.GetHosts() {
 				hostname := host.Name(h)
 				if hostname.IsWildCarded() {
-					hosts.wildcard[hostname] = struct{}{}
+					hosts.wildcard.Insert(hostname)
 				} else {
-					hosts.specific[hostname] = struct{}{}
+					hosts.specific.Insert(hostname)
 				}
 			}
 		} else {
@@ -131,9 +132,9 @@ func (c *clusterLocalProvider) onMeshUpdated(e *Environment) {
 	for _, defaultClusterLocalHost := range defaultClusterLocalHosts {
 		if len(defaultClusterLocalHost) > 0 {
 			if defaultClusterLocalHost.IsWildCarded() {
-				hosts.wildcard[defaultClusterLocalHost] = struct{}{}
+				hosts.wildcard.Insert(defaultClusterLocalHost)
 			} else {
-				hosts.specific[defaultClusterLocalHost] = struct{}{}
+				hosts.specific.Insert(defaultClusterLocalHost)
 			}
 		}
 	}

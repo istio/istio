@@ -12,174 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-#
-# This is the main metadata file for Galley processing.
-# ####  KEEP ENTRIES ALPHASORTED! ####
-#
-
-# The total set of collections, both Istio (i.e. MCP) and K8s (API Server/K8s).
-collections:
-  ## Istio collections
-  - name: "istio/extensions/v1alpha1/wasmplugins"
-    kind: "WasmPlugin"
-    group: "extensions.istio.io"
-    pilot: true
-
-  - name: "istio/mesh/v1alpha1/MeshConfig"
-    kind: "MeshConfig"
-    group: ""
-
-  - name: "istio/mesh/v1alpha1/MeshNetworks"
-    kind: "MeshNetworks"
-    group: ""
-
-  - name: "istio/networking/v1alpha3/destinationrules"
-    kind: DestinationRule
-    group: "networking.istio.io"
-    pilot: true
-
-  - name: "istio/networking/v1alpha3/envoyfilters"
-    kind: "EnvoyFilter"
-    group: "networking.istio.io"
-    pilot: true
-
-  - name: "istio/networking/v1alpha3/gateways"
-    kind: "Gateway"
-    group: "networking.istio.io"
-    pilot: true
-
-  - name: "istio/networking/v1alpha3/serviceentries"
-    kind: "ServiceEntry"
-    group: "networking.istio.io"
-    pilot: true
-
-  - name: "istio/networking/v1alpha3/workloadentries"
-    kind: "WorkloadEntry"
-    group: "networking.istio.io"
-    pilot: true
-
-  - name: "istio/networking/v1alpha3/workloadgroups"
-    kind: "WorkloadGroup"
-    group: "networking.istio.io"
-    pilot: true
-
-  - name: "istio/networking/v1alpha3/sidecars"
-    kind: "Sidecar"
-    group: "networking.istio.io"
-    pilot: true
-
-  - name: "istio/networking/v1alpha3/virtualservices"
-    kind: "VirtualService"
-    group: "networking.istio.io"
-    pilot: true
-
-  - name: "istio/networking/v1beta1/proxyconfigs"
-    kind: "ProxyConfig"
-    group: "networking.istio.io"
-    pilot: true
-
-  - name: "istio/security/v1beta1/authorizationpolicies"
-    kind: AuthorizationPolicy
-    group: "security.istio.io"
-    pilot: true
-
-  - name: "istio/security/v1beta1/requestauthentications"
-    kind: RequestAuthentication
-    group: "security.istio.io"
-    pilot: true
-
-  - name: "istio/security/v1beta1/peerauthentications"
-    kind: PeerAuthentication
-    group: "security.istio.io"
-    pilot: true
-
-  - name: "istio/telemetry/v1alpha1/telemetries"
-    kind: "Telemetry"
-    group: "telemetry.istio.io"
-    pilot: true
-
-  ### K8s collections ###
-
-  # Built-in K8s collections
-  - name: "k8s/apiextensions.k8s.io/v1/customresourcedefinitions"
-    kind: "CustomResourceDefinition"
-    group: "apiextensions.k8s.io"
-    builtin: true
-
-  - name: "k8s/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations"
-    kind: "MutatingWebhookConfiguration"
-    group: "admissionregistration.k8s.io"
-    builtin: true
-
-  - name: "k8s/apps/v1/deployments"
-    kind: "Deployment"
-    group: "apps"
-    builtin: true
-
-  - name: "k8s/core/v1/endpoints"
-    kind: "Endpoints"
-    group: ""
-    builtin: true
-
-  - name: "k8s/core/v1/namespaces"
-    kind: "Namespace"
-    group: ""
-    builtin: true
-
-  - name: "k8s/core/v1/nodes"
-    kind: "Node"
-    group: ""
-    builtin: true
-
-  - name: "k8s/core/v1/pods"
-    kind: "Pod"
-    group: ""
-    builtin: true
-
-  - name: "k8s/core/v1/secrets"
-    kind: "Secret"
-    group: ""
-    builtin: true
-
-  - name: "k8s/core/v1/services"
-    kind: "Service"
-    group: ""
-    builtin: true
-
-  - name: "k8s/core/v1/configmaps"
-    kind: "ConfigMap"
-    group: ""
-    builtin: true
-
-  - name: "k8s/extensions/v1beta1/ingresses"
-    kind: "Ingress"
-    group: "extensions"
-    builtin: true
-
-  - kind: "GatewayClass"
-    name: "k8s/gateway_api/v1beta1/gatewayclasses"
-    group: "gateway.networking.k8s.io"
-
-  - kind: "Gateway"
-    name: "k8s/gateway_api/v1beta1/gateways"
-    group: "gateway.networking.k8s.io"
-
-  - kind: "HTTPRoute"
-    name: "k8s/gateway_api/v1beta1/httproutes"
-    group: "gateway.networking.k8s.io"
-
-  - kind: "TCPRoute"
-    name: "k8s/gateway_api/v1alpha2/tcproutes"
-    group: "gateway.networking.k8s.io"
-
-  - kind: "TLSRoute"
-    name: "k8s/gateway_api/v1alpha2/tlsroutes"
-    group: "gateway.networking.k8s.io"
-
-  - kind: "ReferenceGrant"
-    name: "k8s/gateway_api/v1alpha2/referencegrants"
-    group: "gateway.networking.k8s.io"
-
 # Configuration for resource types.
 resources:
   # Kubernetes specific configuration.
@@ -188,6 +20,7 @@ resources:
     group: "apiextensions.k8s.io"
     version: "v1"
     clusterScoped: true
+    builtin: true
     proto: "k8s.io.apiextensions_apiserver.pkg.apis.apiextensions.v1.CustomResourceDefinition"
     protoPackage: "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 
@@ -196,26 +29,50 @@ resources:
     group: "admissionregistration.k8s.io"
     version: "v1"
     clusterScoped: true
+    builtin: true
+    specless: true
     proto: "k8s.io.api.admissionregistration.v1.MutatingWebhookConfiguration"
+    protoPackage: "k8s.io/api/admissionregistration/v1"
+
+  - kind: "ValidatingWebhookConfiguration"
+    plural: "validatingwebhookconfigurations"
+    group: "admissionregistration.k8s.io"
+    version: "v1"
+    clusterScoped: true
+    builtin: true
+    specless: true
+    proto: "k8s.io.api.admissionregistration.v1.ValidatingWebhookConfiguration"
     protoPackage: "k8s.io/api/admissionregistration/v1"
 
   - kind: "Deployment"
     plural: "deployments"
     group: "apps"
     version: "v1"
+    builtin: true
     proto: "k8s.io.api.apps.v1.DeploymentSpec"
     protoPackage: "k8s.io/api/apps/v1"
 
   - kind: "Endpoints"
     plural: "endpoints"
     version: "v1"
+    builtin: true
+    specless: true
     proto: "k8s.io.api.core.v1.Endpoints"
     protoPackage: "k8s.io/api/core/v1"
+
+  - kind: "EndpointSlice"
+    plural: "endpointslices"
+    version: "v1"
+    builtin: true
+    specless: true
+    proto: "k8s.io.api.discovery.v1.EndpointSlice"
+    protoPackage: "k8s.io/api/discovery/v1"
 
   - kind: "Namespace"
     plural: "namespaces"
     version: "v1"
     clusterScoped: true
+    builtin: true
     proto: "k8s.io.api.core.v1.NamespaceSpec"
     protoPackage: "k8s.io/api/core/v1"
 
@@ -223,41 +80,77 @@ resources:
     plural: "nodes"
     version: "v1"
     clusterScoped: true
+    builtin: true
     proto: "k8s.io.api.core.v1.NodeSpec"
     protoPackage: "k8s.io/api/core/v1"
 
   - kind: "Pod"
     plural: "pods"
     version: "v1"
+    builtin: true
     proto: "k8s.io.api.core.v1.PodSpec"
     protoPackage: "k8s.io/api/core/v1"
 
   - kind: "Secret"
     plural: "secrets"
     version: "v1"
+    builtin: true
+    specless: true
     proto: "k8s.io.api.core.v1.Secret"
     protoPackage: "k8s.io/api/core/v1"
 
   - kind: "Service"
     plural: "services"
     version: "v1"
+    builtin: true
     proto: "k8s.io.api.core.v1.ServiceSpec"
     protoPackage: "k8s.io/api/core/v1"
 
   - kind: "ConfigMap"
     plural: "configmaps"
     version: "v1"
+    builtin: true
+    specless: true
     proto: "k8s.io.api.core.v1.ConfigMap"
     protoPackage: "k8s.io/api/core/v1"
 
+  - kind: "ServiceAccount"
+    plural: "serviceaccounts"
+    version: "v1"
+    builtin: true
+    specless: true
+    proto: "k8s.io.api.core.v1.ServiceAccount"
+    protoPackage: "k8s.io/api/core/v1"
+
+  - kind: "CertificateSigningRequest"
+    plural: "certificatesigningrequests"
+    group: "certificates.k8s.io"
+    version: "v1"
+    builtin: true
+    clusterScoped: true
+    proto: "k8s.io.api.certificates.v1.CertificateSigningRequestSpec"
+    protoPackage: "k8s.io/api/certificates/v1"
+    statusProto: "k8s.io.api.certificates.v1.CertificateSigningRequestStatus"
+    statusProtoPackage: "k8s.io/api/certificates/v1"
+
   - kind: "Ingress"
     plural: "ingresses"
-    group: "extensions"
-    version: "v1beta1"
-    proto: "k8s.io.api.extensions.v1beta1.IngressSpec"
-    protoPackage: "k8s.io/api/extensions/v1beta1"
-    statusProto: "k8s.io.gateway_api.api.v1alpha1.IngressStatus"
-    statusProtoPackage: "k8s.io/api/extensions/v1beta1"
+    group: "networking.k8s.io"
+    version: "v1"
+    builtin: true
+    proto: "k8s.io.api.networking.v1.IngressSpec"
+    protoPackage: "k8s.io/api/networking/v1"
+    statusProto: "k8s.io.api.networking.v1.IngressStatus"
+    statusProtoPackage: "k8s.io/api/networking/v1"
+
+  - kind: "IngressClass"
+    plural: "ingressclasses"
+    group: "networking.k8s.io"
+    version: "v1"
+    builtin: true
+    clusterScoped: true
+    proto: "k8s.io.api.networking.v1.IngressClassSpec"
+    protoPackage: "k8s.io/api/networking/v1"
 
   - kind: "GatewayClass"
     plural: "gatewayclasses"
@@ -272,6 +165,7 @@ resources:
     statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
 
   - kind: "Gateway"
+    identifier: KubernetesGateway
     plural: "gateways"
     group: "gateway.networking.k8s.io"
     version: "v1beta1"
@@ -328,13 +222,15 @@ resources:
     protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
     proto: "k8s.io.gateway_api.api.v1alpha1.UDPRouteSpec"
     statusProtoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
-    statusProto: "k8s.io.gateway_api.api.v1alpha1.UDORouteStatus"
+    statusProto: "k8s.io.gateway_api.api.v1alpha1.UDPRouteStatus"
 
   - kind: "ReferenceGrant"
     plural: "referencegrants"
     group: "gateway.networking.k8s.io"
-    version: "v1alpha2"
-    protoPackage: "sigs.k8s.io/gateway-api/apis/v1alpha2"
+    version: "v1beta1"
+    versionAliases:
+    - "v1alpha2"
+    protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.ReferenceGrantSpec"
 
   ## Istio resources
@@ -346,7 +242,6 @@ resources:
       - "v1beta1"
     proto: "istio.networking.v1alpha3.VirtualService"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes v1alpha3 route rules"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -358,7 +253,6 @@ resources:
       - "v1beta1"
     proto: "istio.networking.v1alpha3.Gateway"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes a gateway (how a proxy is exposed on the network)"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -370,7 +264,6 @@ resources:
       - "v1beta1"
     proto: "istio.networking.v1alpha3.ServiceEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes service entries"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -382,7 +275,6 @@ resources:
       - "v1beta1"
     proto: "istio.networking.v1alpha3.WorkloadEntry"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes workload entries"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -394,7 +286,6 @@ resources:
       - "v1beta1"
     proto: "istio.networking.v1alpha3.WorkloadGroup"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes workload groups"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -406,7 +297,6 @@ resources:
       - "v1beta1"
     proto: "istio.networking.v1alpha3.DestinationRule"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes destination rules"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -416,7 +306,6 @@ resources:
     version: "v1alpha3"
     proto: "istio.networking.v1alpha3.EnvoyFilter"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes additional envoy filters to be inserted by Pilot"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -428,7 +317,6 @@ resources:
       - "v1beta1"
     proto: "istio.networking.v1alpha3.Sidecar"
     protoPackage: "istio.io/api/networking/v1alpha3"
-    description: "describes the listeners associated with sidecars in a namespace"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -438,7 +326,6 @@ resources:
     version: "v1beta1"
     proto: "istio.networking.v1beta1.ProxyConfig"
     protoPackage: "istio.io/api/networking/v1beta1"
-    description: "defines configuration for individual workloads"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -448,7 +335,7 @@ resources:
     version: "v1alpha1"
     proto: "istio.mesh.v1alpha1.MeshConfig"
     protoPackage: "istio.io/api/mesh/v1alpha1"
-    description: "describes the configuration for the Istio mesh."
+    synthetic: true
 
   - kind: "MeshNetworks"
     plural: "meshnetworks"
@@ -456,7 +343,7 @@ resources:
     version: "v1alpha1"
     proto: "istio.mesh.v1alpha1.MeshNetworks"
     protoPackage: "istio.io/api/mesh/v1alpha1"
-    description: "describes the networks for the Istio mesh."
+    synthetic: true
 
   - kind: AuthorizationPolicy
     plural: "authorizationpolicies"
@@ -466,7 +353,6 @@ resources:
       - "v1"
     proto: "istio.security.v1beta1.AuthorizationPolicy"
     protoPackage: "istio.io/api/security/v1beta1"
-    description: "describes the authorization policy."
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -478,7 +364,6 @@ resources:
       - "v1"
     proto: "istio.security.v1beta1.RequestAuthentication"
     protoPackage: "istio.io/api/security/v1beta1"
-    description: "describes the request authentication."
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -488,7 +373,6 @@ resources:
     version: "v1beta1"
     proto: "istio.security.v1beta1.PeerAuthentication"
     protoPackage: "istio.io/api/security/v1beta1"
-    description: "describes the peer authentication."
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -498,7 +382,6 @@ resources:
     version: "v1alpha1"
     proto: "istio.telemetry.v1alpha1.Telemetry"
     protoPackage: "istio.io/api/telemetry/v1alpha1"
-    description: "describes telemetry configuration for workloads"
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"
 
@@ -508,6 +391,5 @@ resources:
     version: "v1alpha1"
     proto: "istio.extensions.v1alpha1.WasmPlugin"
     protoPackage: "istio.io/api/extensions/v1alpha1"
-    description: ""
     statusProto: "istio.meta.v1alpha1.IstioStatus"
     statusProtoPackage: "istio.io/api/meta/v1alpha1"

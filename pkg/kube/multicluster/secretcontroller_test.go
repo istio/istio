@@ -16,7 +16,6 @@ package multicluster
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -27,7 +26,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd/api"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
@@ -72,25 +70,22 @@ var _ ClusterHandler = &handler{}
 
 type handler struct{}
 
-func (h handler) ClusterAdded(cluster *Cluster, stop <-chan struct{}) error {
+func (h handler) ClusterAdded(cluster *Cluster, stop <-chan struct{}) {
 	mu.Lock()
 	defer mu.Unlock()
 	added = cluster.ID
-	return nil
 }
 
-func (h handler) ClusterUpdated(cluster *Cluster, stop <-chan struct{}) error {
+func (h handler) ClusterUpdated(cluster *Cluster, stop <-chan struct{}) {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = cluster.ID
-	return nil
 }
 
-func (h handler) ClusterDeleted(id cluster.ID) error {
+func (h handler) ClusterDeleted(id cluster.ID) {
 	mu.Lock()
 	defer mu.Unlock()
 	deleted = id
-	return nil
 }
 
 func resetCallbackData() {
@@ -100,10 +95,10 @@ func resetCallbackData() {
 }
 
 func Test_SecretController(t *testing.T) {
-	BuildClientsFromConfig = func(kubeConfig []byte) (kube.Client, error) {
+	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
-	test.SetForTest(t, &features.RemoteClusterTimeout, 10*time.Nanosecond)
+
 	clientset := kube.NewFakeClient()
 
 	var (
@@ -112,11 +107,14 @@ func Test_SecretController(t *testing.T) {
 		secret0UpdateKubeconfigSame    = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")})
 		secret0AddCluster              = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
 		secret0DeleteCluster           = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
+		secret0ReAddCluster            = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
+		secret0ReDeleteCluster         = secret0UpdateKubeconfigChanged // "c0-1" cluster re-deleted
 		secret1                        = makeSecret("s1", clusterCredential{"c1", []byte("kubeconfig1-0")})
 	)
 	secret0UpdateKubeconfigSame.Annotations = map[string]string{"foo": "bar"}
 
 	steps := []struct {
+		name string
 		// only set one of these per step. The others should be nil.
 		add    *v1.Secret
 		update *v1.Secret
@@ -127,31 +125,77 @@ func Test_SecretController(t *testing.T) {
 		wantUpdated cluster.ID
 		wantDeleted cluster.ID
 	}{
-		{add: secret0, wantAdded: "c0"},                             // 0
-		{update: secret0UpdateKubeconfigChanged, wantUpdated: "c0"}, // 1
-		{update: secret0UpdateKubeconfigSame},                       // 2
-		{update: secret0AddCluster, wantAdded: "c0-1"},              // 3
-		{update: secret0DeleteCluster, wantDeleted: "c0-1"},         // 4
-		{add: secret1, wantAdded: "c1"},                             // 5
-		{delete: secret0, wantDeleted: "c0"},                        // 6
-		{delete: secret1, wantDeleted: "c1"},                        // 7
+		{
+			name:      "Create secret s0 and add kubeconfig for cluster c0, which will add remote cluster c0",
+			add:       secret0,
+			wantAdded: "c0",
+		},
+		{
+			name:        "Update secret s0 and update the kubeconfig of cluster c0, which will update remote cluster c0",
+			update:      secret0UpdateKubeconfigChanged,
+			wantUpdated: "c0",
+		},
+		{
+			name:   "Update secret s0 but keep the kubeconfig of cluster c0 unchanged, which will not update remote cluster c0",
+			update: secret0UpdateKubeconfigSame,
+		},
+		{
+			name: "Update secret s0 and add kubeconfig for cluster c0-1 but keep the kubeconfig of cluster c0 unchanged, " +
+				"which will add remote cluster c0-1 but will not update remote cluster c0",
+			update:    secret0AddCluster,
+			wantAdded: "c0-1",
+		},
+		{
+			name: "Update secret s0 and delete cluster c0-1 but keep the kubeconfig of cluster c0 unchanged, " +
+				"which will delete remote cluster c0-1 but will not update remote cluster c0",
+			update:      secret0DeleteCluster,
+			wantDeleted: "c0-1",
+		},
+		{
+			name: "Update secret s0 and re-add kubeconfig for cluster c0-1 but keep the kubeconfig of cluster c0 unchanged, " +
+				"which will add remote cluster c0-1 but will not update remote cluster c0",
+			update:    secret0ReAddCluster,
+			wantAdded: "c0-1",
+		},
+		{
+			name: "Update secret s0 and re-delete cluster c0-1 but keep the kubeconfig of cluster c0 unchanged, " +
+				"which will delete remote cluster c0-1 but will not update remote cluster c0",
+			update:      secret0ReDeleteCluster,
+			wantDeleted: "c0-1",
+		},
+		{
+			name:      "Create secret s1 and add kubeconfig for cluster c1, which will add remote cluster c1",
+			add:       secret1,
+			wantAdded: "c1",
+		},
+		{
+			name:        "Delete secret s0, which will delete remote cluster c0",
+			delete:      secret0,
+			wantDeleted: "c0",
+		},
+		{
+			name:        "Delete secret s1, which will delete remote cluster c1",
+			delete:      secret1,
+			wantDeleted: "c1",
+		},
 	}
 
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
 	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil))
+	clientset.RunAndWait(stopCh)
 	c.AddHandler(&handler{})
+	clientset.RunAndWait(stopCh)
 	_ = c.Run(stopCh)
 	t.Run("sync timeout", func(t *testing.T) {
 		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	})
-	kube.WaitForCacheSync(stopCh, c.informer.HasSynced)
-	clientset.RunAndWait(stopCh)
+	kube.WaitForCacheSync("test", stopCh, c.HasSynced)
 
-	for i, step := range steps {
+	for _, step := range steps {
 		resetCallbackData()
 
-		t.Run(fmt.Sprintf("[%v]", i), func(t *testing.T) {
+		t.Run(step.name, func(t *testing.T) {
 			g := NewWithT(t)
 
 			switch {

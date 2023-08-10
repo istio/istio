@@ -24,14 +24,18 @@ package model
 
 import (
 	"fmt"
+	"net/netip"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/mitchellh/copystructure"
+	"google.golang.org/protobuf/proto"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
@@ -39,8 +43,12 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 // Service describes an Istio service (e.g., catalog.mystore.com:8080)
@@ -148,9 +156,6 @@ func (resolution Resolution) String() string {
 }
 
 const (
-	// IstioDefaultConfigNamespace constant for default namespace
-	IstioDefaultConfigNamespace = "default"
-
 	// LocalityLabel indicates the region/zone/subzone of an instance. It is used to override the native
 	// registry's value.
 	//
@@ -196,6 +201,10 @@ const (
 	IstioCanonicalServiceRevisionLabelName = "service.istio.io/canonical-revision"
 )
 
+func SupportsTunnel(labels map[string]string, tunnelType string) bool {
+	return sets.New(strings.Split(labels[TunnelLabel], ",")...).Contains(tunnelType)
+}
+
 // Port represents a network port where a service is listening for
 // connections. The port should be annotated with the type of protocol
 // used by the port.
@@ -213,6 +222,10 @@ type Port struct {
 	Protocol protocol.Instance `json:"protocol,omitempty"`
 }
 
+func (p Port) String() string {
+	return fmt.Sprintf("Name:%s Port:%d Protocol:%v", p.Name, p.Port, p.Protocol)
+}
+
 // PortList is a set of ports
 type PortList []*Port
 
@@ -222,6 +235,8 @@ type TrafficDirection string
 const (
 	// TrafficDirectionInbound indicates inbound traffic
 	TrafficDirectionInbound TrafficDirection = "inbound"
+	// TrafficDirectionInboundVIP indicates inbound traffic for vip
+	TrafficDirectionInboundVIP TrafficDirection = "inbound-vip"
 	// TrafficDirectionOutbound indicates outbound traffic
 	TrafficDirectionOutbound TrafficDirection = "outbound"
 
@@ -315,8 +330,8 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	}
 }
 
-// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need
-// i.e. excluding the ports. Returns true if equal, false otherwise.
+// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need.
+// Returns true if equal, false otherwise.
 func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint == nil || second.Endpoint == nil {
 		return first.Endpoint == second.Endpoint
@@ -351,20 +366,8 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Kind != second.Kind {
 		return false
 	}
-	if !portMapEquals(first.PortMap, second.PortMap) {
+	if !maps.Equal(first.PortMap, second.PortMap) {
 		return false
-	}
-	return true
-}
-
-func portMapEquals(a, b map[string]uint32) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, v := range a {
-		if b[k] != v {
-			return false
-		}
 	}
 	return true
 }
@@ -384,19 +387,6 @@ func GetLocalityLabelOrDefault(label, defaultLabel string) string {
 	return defaultLabel
 }
 
-// SplitLocalityLabel splits a locality label into region, zone and subzone strings.
-func SplitLocalityLabel(locality string) (region, zone, subzone string) {
-	items := strings.Split(locality, "/")
-	switch len(items) {
-	case 1:
-		return items[0], "", ""
-	case 2:
-		return items[0], items[1], ""
-	default:
-		return items[0], items[1], items[2]
-	}
-}
-
 // Locality information for an IstioEndpoint
 type Locality struct {
 	// Label for locality on the endpoint. This is a "/" separated string.
@@ -410,17 +400,12 @@ type Locality struct {
 type HealthStatus int32
 
 const (
-	// TODO: change the value to 1,2 to match HealthStatus proto
-
 	// Healthy.
-	Healthy HealthStatus = 0
+	Healthy HealthStatus = 1
 	// Unhealthy.
-	UnHealthy HealthStatus = 1
+	UnHealthy HealthStatus = 2
 	// Draining - the constant matches envoy
 	Draining HealthStatus = 3
-	// Not used in Istio
-	Timeout  HealthStatus = 4
-	Degraded HealthStatus = 5
 )
 
 // IstioEndpoint defines a network address (IP:port) associated with an instance of the
@@ -452,10 +437,6 @@ type IstioEndpoint struct {
 
 	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
 	ServicePortName string
-
-	// EnvoyEndpoint is a cached LbEndpoint, converted from the data, to
-	// avoid recomputation
-	EnvoyEndpoint *endpoint.LbEndpoint
 
 	// ServiceAccount holds the associated service account.
 	ServiceAccount string
@@ -491,12 +472,27 @@ type IstioEndpoint struct {
 	// Determines the discoverability of this endpoint throughout the mesh.
 	DiscoverabilityPolicy EndpointDiscoverabilityPolicy `json:"-"`
 
-	// Indicatesthe endpoint health status.
+	// Indicates the endpoint health status.
 	HealthStatus HealthStatus
+
+	// If in k8s, the node where the pod resides
+	NodeName string
+
+	// precomputedEnvoyEndpoint is a cached LbEndpoint, converted from the data, to
+	// avoid recomputation
+	precomputedEnvoyEndpoint atomic.Pointer[endpoint.LbEndpoint]
+}
+
+func (ep *IstioEndpoint) EnvoyEndpoint() *endpoint.LbEndpoint {
+	return ep.precomputedEnvoyEndpoint.Load()
+}
+
+func (ep *IstioEndpoint) ComputeEnvoyEndpoint(now *endpoint.LbEndpoint) {
+	ep.precomputedEnvoyEndpoint.Store(now)
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
-	return sets.New(strings.Split(ep.Labels[TunnelLabel], ",")...).Contains(tunnelType)
+	return SupportsTunnel(ep.Labels, tunnelType)
 }
 
 // GetLoadBalancingWeight returns the weight for this endpoint, normalized to always be > 0.
@@ -515,6 +511,52 @@ func (ep *IstioEndpoint) IsDiscoverableFromProxy(p *Proxy) bool {
 		return true
 	}
 	return ep.DiscoverabilityPolicy.IsDiscoverableFromProxy(ep, p)
+}
+
+// MetadataClone returns the cloned endpoint metadata used for telemetry purposes.
+// This should be used when the endpoint labels should be updated.
+func (ep *IstioEndpoint) MetadataClone() *EndpointMetadata {
+	return &EndpointMetadata{
+		Network:      ep.Network,
+		TLSMode:      ep.TLSMode,
+		WorkloadName: ep.WorkloadName,
+		Namespace:    ep.Namespace,
+		Labels:       maps.Clone(ep.Labels),
+		ClusterID:    ep.Locality.ClusterID,
+	}
+}
+
+// Metadata returns the endpoint metadata used for telemetry purposes.
+func (ep *IstioEndpoint) Metadata() *EndpointMetadata {
+	return &EndpointMetadata{
+		Network:      ep.Network,
+		TLSMode:      ep.TLSMode,
+		WorkloadName: ep.WorkloadName,
+		Namespace:    ep.Namespace,
+		Labels:       ep.Labels,
+		ClusterID:    ep.Locality.ClusterID,
+	}
+}
+
+// EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.
+type EndpointMetadata struct {
+	// Network holds the network where this endpoint is present
+	Network network.ID
+
+	// TLSMode endpoint is injected with istio sidecar and ready to configure Istio mTLS
+	TLSMode string
+
+	// Name of the workload that this endpoint belongs to. This is for telemetry purpose.
+	WorkloadName string
+
+	// Namespace that this endpoint belongs to. This is for telemetry purpose.
+	Namespace string
+
+	// Labels points to the workload or deployment labels.
+	Labels labels.Instance
+
+	// ClusterID where the endpoint is located
+	ClusterID cluster.ID
 }
 
 // EndpointDiscoverabilityPolicy determines the discoverability of an endpoint throughout the mesh.
@@ -582,7 +624,7 @@ type ServiceAttributes struct {
 	// address(es) to access the service from outside the cluster.
 	// Used by the aggregator to aggregate the Attributes.ClusterExternalAddresses
 	// for clusters where the service resides
-	ClusterExternalAddresses AddressMap
+	ClusterExternalAddresses *AddressMap
 
 	// ClusterExternalPorts is a mapping between a cluster name and the service port
 	// to node port mappings for a given service. When accessing the service via
@@ -591,8 +633,20 @@ type ServiceAttributes struct {
 	// We translate that to the appropriate node port here.
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
 
+	K8sAttributes
+}
+
+type K8sAttributes struct {
 	// Type holds the value of the corev1.Type of the Kubernetes service
+	// spec.Type
 	Type string
+
+	// spec.ExternalName
+	ExternalName string
+
+	// NodeLocal means the proxy will only forward traffic to node local endpoints
+	// spec.InternalTrafficPolicy == Local
+	NodeLocal bool
 }
 
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
@@ -644,6 +698,50 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	return out
 }
 
+// Equals checks whether the attributes are equal from the passed in service.
+func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
+	if s == nil {
+		return other == nil
+	}
+	if other == nil {
+		return s == nil
+	}
+
+	if !maps.Equal(s.Labels, other.Labels) {
+		return false
+	}
+
+	if !maps.Equal(s.LabelSelectors, other.LabelSelectors) {
+		return false
+	}
+
+	if !maps.Equal(s.ExportTo, other.ExportTo) {
+		return false
+	}
+
+	if s.ClusterExternalAddresses.Len() != other.ClusterExternalAddresses.Len() {
+		return false
+	}
+
+	for k, v1 := range s.ClusterExternalAddresses.GetAddresses() {
+		if v2, ok := other.ClusterExternalAddresses.Addresses[k]; !ok || !slices.Equal(v1, v2) {
+			return false
+		}
+	}
+
+	if len(s.ClusterExternalPorts) != len(other.ClusterExternalPorts) {
+		return false
+	}
+
+	for k, v1 := range s.ClusterExternalPorts {
+		if v2, ok := s.ClusterExternalPorts[k]; !ok || !maps.Equal(v1, v2) {
+			return false
+		}
+	}
+	return s.Name == other.Name && s.Namespace == other.Namespace &&
+		s.ServiceRegistry == other.ServiceRegistry && s.K8sAttributes == other.K8sAttributes
+}
+
 // ServiceDiscovery enumerates Istio service instances.
 // nolint: lll
 type ServiceDiscovery interface {
@@ -677,7 +775,7 @@ type ServiceDiscovery interface {
 	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
 	// EDS calls it for building the endpoints result.
 	// Consult istio-dev before using this for anything else (except debugging/tools)
-	InstancesByPort(svc *Service, servicePort int, labels labels.Instance) []*ServiceInstance
+	InstancesByPort(svc *Service, servicePort int) []*ServiceInstance
 
 	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
 	//
@@ -703,6 +801,148 @@ type ServiceDiscovery interface {
 	// Kubernetes Multi-Cluster Services (MCS) ServiceExport API. Only applies to services in
 	// Kubernetes clusters.
 	MCSServices() []MCSServiceInfo
+	AmbientIndexes
+}
+
+type AmbientIndexes interface {
+	AddressInformation(addresses sets.String) ([]*AddressInfo, []string)
+	AdditionalPodSubscriptions(
+		proxy *Proxy,
+		allAddresses sets.String,
+		currentSubs sets.String,
+	) sets.Set[string]
+	Policies(requested sets.Set[ConfigKey]) []*security.Authorization
+	Waypoint(scope WaypointScope) []netip.Addr
+	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
+}
+
+// NoopAmbientIndexes provides an implementation of AmbientIndexes that always returns nil, to easily "skip" it.
+type NoopAmbientIndexes struct{}
+
+func (u NoopAmbientIndexes) AddressInformation(sets.String) ([]*AddressInfo, []string) {
+	return nil, nil
+}
+
+func (u NoopAmbientIndexes) AdditionalPodSubscriptions(
+	*Proxy,
+	sets.String,
+	sets.String,
+) sets.String {
+	return nil
+}
+
+func (u NoopAmbientIndexes) Policies(sets.Set[ConfigKey]) []*security.Authorization {
+	return nil
+}
+
+func (u NoopAmbientIndexes) Waypoint(WaypointScope) []netip.Addr {
+	return nil
+}
+
+func (u NoopAmbientIndexes) WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo {
+	return nil
+}
+
+var _ AmbientIndexes = NoopAmbientIndexes{}
+
+type AddressInfo struct {
+	*workloadapi.Address
+}
+
+func (i AddressInfo) Aliases() []string {
+	switch addr := i.Type.(type) {
+	case *workloadapi.Address_Workload:
+		aliases := make([]string, 0, len(addr.Workload.Addresses))
+		network := addr.Workload.Network
+		for _, workloadAddr := range addr.Workload.Addresses {
+			ip, _ := netip.AddrFromSlice(workloadAddr)
+			aliases = append(aliases, network+"/"+ip.String())
+		}
+		return aliases
+	case *workloadapi.Address_Service:
+		aliases := make([]string, 0, len(addr.Service.Addresses))
+		for _, networkAddr := range addr.Service.Addresses {
+			ip, _ := netip.AddrFromSlice(networkAddr.Address)
+			aliases = append(aliases, networkAddr.Network+"/"+ip.String())
+		}
+		return aliases
+	}
+	return nil
+}
+
+func (i AddressInfo) ResourceName() string {
+	var name string
+	switch addr := i.Type.(type) {
+	case *workloadapi.Address_Workload:
+		name = workloadResourceName(addr.Workload)
+	case *workloadapi.Address_Service:
+		name = serviceResourceName(addr.Service)
+	}
+	return name
+}
+
+type ServiceInfo struct {
+	*workloadapi.Service
+}
+
+func (i ServiceInfo) ResourceName() string {
+	return serviceResourceName(i.Service)
+}
+
+func serviceResourceName(s *workloadapi.Service) string {
+	return s.Namespace + "/" + s.Hostname
+}
+
+type WorkloadInfo struct {
+	*workloadapi.Workload
+	// Labels for the workload. Note these are only used internally, not sent over XDS
+	Labels map[string]string
+}
+
+func workloadResourceName(w *workloadapi.Workload) string {
+	return w.Uid
+}
+
+func (i *WorkloadInfo) Clone() *WorkloadInfo {
+	return &WorkloadInfo{
+		Workload: proto.Clone(i).(*workloadapi.Workload),
+		Labels:   maps.Clone(i.Labels),
+	}
+}
+
+func (i *WorkloadInfo) ResourceName() string {
+	return workloadResourceName(i.Workload)
+}
+
+func ExtractWorkloadsFromAddresses(addrs []*AddressInfo) []WorkloadInfo {
+	return slices.MapFilter(addrs, func(a *AddressInfo) *WorkloadInfo {
+		switch addr := a.Type.(type) {
+		case *workloadapi.Address_Workload:
+			return &WorkloadInfo{Workload: addr.Workload}
+		default:
+			return nil
+		}
+	})
+}
+
+func WorkloadToAddressInfo(w *workloadapi.Workload) *AddressInfo {
+	return &AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Workload{
+				Workload: w,
+			},
+		},
+	}
+}
+
+func ServiceToAddressInfo(s *workloadapi.Service) *AddressInfo {
+	return &AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Service{
+				Service: s,
+			},
+		},
+	}
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
@@ -744,6 +984,30 @@ func (ports PortList) GetByPort(num int) (*Port, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (p *Port) Equals(other *Port) bool {
+	if p == nil {
+		return other == nil
+	}
+	if other == nil {
+		return p == nil
+	}
+	return p.Name == other.Name && p.Port == other.Port && p.Protocol == other.Protocol
+}
+
+func (ports PortList) Equals(other PortList) bool {
+	return slices.EqualFunc(ports, other, func(a, b *Port) bool {
+		return a.Equals(b)
+	})
+}
+
+func (ports PortList) String() string {
+	sp := make([]string, 0, len(ports))
+	for _, p := range ports {
+		sp = append(sp, p.String())
+	}
+	return strings.Join(sp, ", ")
 }
 
 // External predicate checks whether the service is external
@@ -852,7 +1116,7 @@ func (s *Service) GetAddressForProxy(node *Proxy) string {
 // GetExtraAddressesForProxy returns a k8s service's extra addresses to the cluster where the node resides.
 // Especially for dual stack k8s service to get other IP family addresses.
 func (s *Service) GetExtraAddressesForProxy(node *Proxy) []string {
-	if node.Metadata != nil {
+	if features.EnableDualStack && node.Metadata != nil {
 		if node.Metadata.ClusterID != "" {
 			addresses := s.ClusterVIPs.GetAddressesFor(node.Metadata.ClusterID)
 			if len(addresses) > 1 {
@@ -911,13 +1175,53 @@ func (s *Service) DeepCopy() *Service {
 		out.ServiceAccounts = make([]string, len(s.ServiceAccounts))
 		copy(out.ServiceAccounts, s.ServiceAccounts)
 	}
-	out.ClusterVIPs = s.ClusterVIPs.DeepCopy()
+	out.ClusterVIPs = *s.ClusterVIPs.DeepCopy()
 	return &out
+}
+
+// Equals compares two service objects.
+func (s *Service) Equals(other *Service) bool {
+	if s == nil {
+		return other == nil
+	}
+	if other == nil {
+		return s == nil
+	}
+
+	if !s.Attributes.Equals(&other.Attributes) {
+		return false
+	}
+
+	if !s.Ports.Equals(other.Ports) {
+		return false
+	}
+	if !slices.Equal(s.ServiceAccounts, other.ServiceAccounts) {
+		return false
+	}
+
+	if len(s.ClusterVIPs.Addresses) != len(other.ClusterVIPs.Addresses) {
+		return false
+	}
+	for k, v1 := range s.ClusterVIPs.Addresses {
+		if v2, ok := other.ClusterVIPs.Addresses[k]; !ok || !slices.Equal(v1, v2) {
+			return false
+		}
+	}
+
+	return s.DefaultAddress == other.DefaultAddress && s.AutoAllocatedIPv4Address == other.AutoAllocatedIPv4Address &&
+		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname && s.MeshExternal == other.MeshExternal
 }
 
 // DeepCopy creates a clone of IstioEndpoint.
 func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 	return copyInternal(ep).(*IstioEndpoint)
+}
+
+// ShallowCopy creates a shallow clone of IstioEndpoint.
+func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
+	// nolint: govet
+	cpy := *ep
+	return &cpy
 }
 
 func copyInternal(v any) any {

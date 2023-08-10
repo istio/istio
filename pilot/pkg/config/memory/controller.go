@@ -15,16 +15,14 @@
 package memory
 
 import (
-	"errors"
 	"fmt"
-	"sync/atomic"
 
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/slices"
 )
 
 // Controller is an implementation of ConfigStoreController.
@@ -33,7 +31,6 @@ type Controller struct {
 	configStore model.ConfigStore
 	hasSynced   func() bool
 
-	started atomic.Bool
 	// If meshConfig.DiscoverySelectors are specified, the namespacesFilter tracks the namespaces this controller watches.
 	namespacesFilter func(obj interface{}) bool
 }
@@ -67,14 +64,6 @@ func (c *Controller) RegisterEventHandler(kind config.GroupVersionKind, f model.
 	c.monitor.AppendEventHandler(kind, f)
 }
 
-func (c *Controller) SetWatchErrorHandler(handler func(r *cache.Reflector, err error)) error {
-	return nil
-}
-
-func (c *Controller) HasStarted() bool {
-	return c.started.Load()
-}
-
 // HasSynced return whether store has synced
 // It can be controlled externally (such as by the data source),
 // otherwise it'll always consider synced.
@@ -86,7 +75,6 @@ func (c *Controller) HasSynced() bool {
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	c.started.Store(true)
 	c.monitor.Run(stop)
 }
 
@@ -153,32 +141,26 @@ func (c *Controller) Patch(orig config.Config, patchFn config.PatchFunc) (newRev
 	return
 }
 
-func (c *Controller) Delete(kind config.GroupVersionKind, key, namespace string, resourceVersion *string) (err error) {
+func (c *Controller) Delete(kind config.GroupVersionKind, key, namespace string, resourceVersion *string) error {
 	if config := c.Get(kind, key, namespace); config != nil {
-		if err = c.configStore.Delete(kind, key, namespace, resourceVersion); err == nil {
-			c.monitor.ScheduleProcessEvent(ConfigEvent{
-				config: *config,
-				event:  model.EventDelete,
-			})
-			return
+		if err := c.configStore.Delete(kind, key, namespace, resourceVersion); err != nil {
+			return err
 		}
+		c.monitor.ScheduleProcessEvent(ConfigEvent{
+			config: *config,
+			event:  model.EventDelete,
+		})
+		return nil
 	}
-	return errors.New("Delete failure: config" + key + "does not exist")
+	return fmt.Errorf("delete: config %v/%v/%v does not exist", kind, namespace, key)
 }
 
-func (c *Controller) List(kind config.GroupVersionKind, namespace string) ([]config.Config, error) {
-	configs, err := c.configStore.List(kind, namespace)
-	if err != nil {
-		return nil, err
-	}
+func (c *Controller) List(kind config.GroupVersionKind, namespace string) []config.Config {
+	configs := c.configStore.List(kind, namespace)
 	if c.namespacesFilter != nil {
-		var out []config.Config
-		for _, config := range configs {
-			if c.namespacesFilter(config) {
-				out = append(out, config)
-			}
-		}
-		return out, err
+		return slices.Filter(configs, func(config config.Config) bool {
+			return c.namespacesFilter(config)
+		})
 	}
-	return configs, nil
+	return configs
 }

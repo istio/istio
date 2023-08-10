@@ -62,6 +62,10 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 			// IP allocation logic for service entry was unable to allocate an IP.
 			if svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range cfg.Push.ServiceInstancesByPort(svc, svc.Ports[0].Port, nil) {
+					// empty addresses are possible here
+					if !netutil.IsValidIPAddress(instance.Endpoint.Address) {
+						continue
+					}
 					// TODO(stevenctl): headless across-networks https://github.com/istio/istio/issues/38327
 					sameNetwork := cfg.Node.InNetwork(instance.Endpoint.Network)
 					sameCluster := cfg.Node.InCluster(instance.Endpoint.Locality.ClusterID)
@@ -114,21 +118,37 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 			}
 		}
 
-		nameInfo := &dnsProto.NameTable_NameInfo{
-			Ips:      addressList,
-			Registry: string(svc.Attributes.ServiceRegistry),
+		if ni, f := out.Table[hostName.String()]; !f {
+			nameInfo := &dnsProto.NameTable_NameInfo{
+				Ips:      addressList,
+				Registry: string(svc.Attributes.ServiceRegistry),
+			}
+			if svc.Attributes.ServiceRegistry == provider.Kubernetes &&
+				!strings.HasSuffix(hostName.String(), "."+constants.DefaultClusterSetLocalDomain) {
+				// The agent will take care of resolving a, a.ns, a.ns.svc, etc.
+				// No need to provide a DNS entry for each variant.
+				//
+				// NOTE: This is not done for Kubernetes Multi-Cluster Services (MCS) hosts, in order
+				// to avoid conflicting with the entries for the regular (cluster.local) service.
+				nameInfo.Namespace = svc.Attributes.Namespace
+				nameInfo.Shortname = svc.Attributes.Name
+			}
+			out.Table[hostName.String()] = nameInfo
+		} else if provider.ID(ni.Registry) != provider.Kubernetes {
+			// 2 possible cases:
+			// 1. If the SE has multiple addresses(vips) specified, merge the ips
+			// 2. If the previous SE is a decorator of the k8s service, give precedence to the k8s service
+			if svc.Attributes.ServiceRegistry == provider.Kubernetes {
+				ni.Ips = addressList
+				ni.Registry = string(provider.Kubernetes)
+				if !strings.HasSuffix(hostName.String(), "."+constants.DefaultClusterSetLocalDomain) {
+					ni.Namespace = svc.Attributes.Namespace
+					ni.Shortname = svc.Attributes.Name
+				}
+			} else {
+				ni.Ips = append(ni.Ips, addressList...)
+			}
 		}
-		if svc.Attributes.ServiceRegistry == provider.Kubernetes &&
-			!strings.HasSuffix(hostName.String(), "."+constants.DefaultClusterSetLocalDomain) {
-			// The agent will take care of resolving a, a.ns, a.ns.svc, etc.
-			// No need to provide a DNS entry for each variant.
-			//
-			// NOTE: This is not done for Kubernetes Multi-Cluster Services (MCS) hosts, in order
-			// to avoid conflicting with the entries for the regular (cluster.local) service.
-			nameInfo.Namespace = svc.Attributes.Namespace
-			nameInfo.Shortname = svc.Attributes.Name
-		}
-		out.Table[hostName.String()] = nameInfo
 	}
 	return out
 }

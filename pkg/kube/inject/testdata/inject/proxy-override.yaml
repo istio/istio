@@ -26,6 +26,8 @@ spec:
           resources:
             requests:
               cpu: 123m
+            limits:
+              cpu: 3000m
           livenessProbe:
             failureThreshold: 30
             httpGet:

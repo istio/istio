@@ -4,13 +4,13 @@
     "cluster": "istio-proxy",
     "locality": {
     },
-    "metadata": {"ENVOY_PROMETHEUS_PORT":15090,"ENVOY_STATUS_PORT":15021,"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"PLATFORM_METADATA":{"gcp_project":"my-sd-project"},"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_stackdriver","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","statusPort":15020,"tracing":{"stackdriver":{"debug":true,"maxNumberOfAnnotations":"201","maxNumberOfMessageEvents":"201"}}},"STS_PORT":"15463"}
+    "metadata": {"ENVOY_PROMETHEUS_PORT":15090,"ENVOY_STATUS_PORT":15021,"INSTANCE_IPS":"10.3.3.3,10.4.4.4,10.5.5.5,10.6.6.6","ISTIO_VERSION":"binary-1.0","OUTLIER_LOG_PATH":"/dev/stdout","PILOT_SAN":["spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account"],"PLATFORM_METADATA":{"gcp_project":"my-sd-project"},"PROXY_CONFIG":{"binaryPath":"/usr/local/bin/envoy","configPath":"/tmp/bootstrap/tracing_stackdriver","customConfigFile":"envoy_bootstrap.json","discoveryAddress":"istio-pilot:15010","drainDuration":"2s","proxyAdminPort":15000,"serviceCluster":"istio-proxy","statusPort":15020,"tracing":{"stackdriver":{"debug":true,"maxNumberOfAnnotations":"201","maxNumberOfMessageEvents":"201"}}},"STS_PORT":"15463"}
   },
   "layered_runtime": {
       "layers": [
           {
             "name": "global config",
-            "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":"true","envoy.reloadable_features.http_reject_path_with_fragment":"false","envoy.reloadable_features.no_extension_lookup_by_name":"false","overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
+            "static_layer": {"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst":true,"envoy.reloadable_features.http_reject_path_with_fragment":false,"overload.global_downstream_max_connections":"2147483647","re2.max_program_size.error_level":"32768"}
           },
           {
               "name": "admin",
@@ -23,7 +23,10 @@
       "name": "envoy.bootstrap.internal_listener",
       "typed_config": {
         "@type":"type.googleapis.com/udpa.type.v1.TypedStruct",
-        "type_url": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener"
+        "type_url": "type.googleapis.com/envoy.extensions.bootstrap.internal_listener.v3.InternalListener",
+        "value": {
+          "buffer_size_kb": 64
+        }
       }
     }
   ],
@@ -37,10 +40,6 @@
       {
         "tag_name": "tcp_prefix",
         "regex": "^tcp\\.((.*?)\\.)\\w+?$"
-      },
-      {
-        "regex": "(response_code=\\.=(.+?);\\.;)",
-        "tag_name": "response_code"
       },
       {
         "regex": "_rq(_(\\d{3}))$",
@@ -65,122 +64,6 @@
       {
         "tag_name": "mongo_prefix",
         "regex": "^mongo\\.(.+?)\\.(collection|cmd|cx_|op_|delays_|decoding_)(.*?)$"
-      },
-      {
-        "regex": "(reporter=\\.=(.*?);\\.;)",
-        "tag_name": "reporter"
-      },
-      {
-        "regex": "(source_namespace=\\.=(.*?);\\.;)",
-        "tag_name": "source_namespace"
-      },
-      {
-        "regex": "(source_workload=\\.=(.*?);\\.;)",
-        "tag_name": "source_workload"
-      },
-      {
-        "regex": "(source_workload_namespace=\\.=(.*?);\\.;)",
-        "tag_name": "source_workload_namespace"
-      },
-      {
-        "regex": "(source_principal=\\.=(.*?);\\.;)",
-        "tag_name": "source_principal"
-      },
-      {
-        "regex": "(source_app=\\.=(.*?);\\.;)",
-        "tag_name": "source_app"
-      },
-      {
-        "regex": "(source_version=\\.=(.*?);\\.;)",
-        "tag_name": "source_version"
-      },
-      {
-        "regex": "(source_cluster=\\.=(.*?);\\.;)",
-        "tag_name": "source_cluster"
-      },
-      {
-        "regex": "(destination_namespace=\\.=(.*?);\\.;)",
-        "tag_name": "destination_namespace"
-      },
-      {
-        "regex": "(destination_workload=\\.=(.*?);\\.;)",
-        "tag_name": "destination_workload"
-      },
-      {
-        "regex": "(destination_workload_namespace=\\.=(.*?);\\.;)",
-        "tag_name": "destination_workload_namespace"
-      },
-      {
-        "regex": "(destination_principal=\\.=(.*?);\\.;)",
-        "tag_name": "destination_principal"
-      },
-      {
-        "regex": "(destination_app=\\.=(.*?);\\.;)",
-        "tag_name": "destination_app"
-      },
-      {
-        "regex": "(destination_version=\\.=(.*?);\\.;)",
-        "tag_name": "destination_version"
-      },
-      {
-        "regex": "(destination_service=\\.=(.*?);\\.;)",
-        "tag_name": "destination_service"
-      },
-      {
-        "regex": "(destination_service_name=\\.=(.*?);\\.;)",
-        "tag_name": "destination_service_name"
-      },
-      {
-        "regex": "(destination_service_namespace=\\.=(.*?);\\.;)",
-        "tag_name": "destination_service_namespace"
-      },
-      {
-        "regex": "(destination_port=\\.=(.*?);\\.;)",
-        "tag_name": "destination_port"
-      },
-      {
-        "regex": "(destination_cluster=\\.=(.*?);\\.;)",
-        "tag_name": "destination_cluster"
-      },
-      {
-        "regex": "(request_protocol=\\.=(.*?);\\.;)",
-        "tag_name": "request_protocol"
-      },
-      {
-        "regex": "(request_operation=\\.=(.*?);\\.;)",
-        "tag_name": "request_operation"
-      },
-      {
-        "regex": "(request_host=\\.=(.*?);\\.;)",
-        "tag_name": "request_host"
-      },
-      {
-        "regex": "(response_flags=\\.=(.*?);\\.;)",
-        "tag_name": "response_flags"
-      },
-      {
-        "regex": "(grpc_response_status=\\.=(.*?);\\.;)",
-        "tag_name": "grpc_response_status"
-      },
-      {
-        "regex": "(connection_security_policy=\\.=(.*?);\\.;)",
-        "tag_name": "connection_security_policy"
-      },
-      {
-        "regex": "(source_canonical_service=\\.=(.*?);\\.;)",
-        "tag_name": "source_canonical_service"
-      },
-      {
-        "regex": "(destination_canonical_service=\\.=(.*?);\\.;)",
-        "tag_name": "destination_canonical_service"
-      },
-      {
-        "regex": "(source_canonical_revision=\\.=(.*?);\\.;)",
-        "tag_name": "source_canonical_revision"
-      },
-      {
-        "regex": "(destination_canonical_revision=\\.=(.*?);\\.;)",
-        "tag_name": "destination_canonical_revision"
       },
       {
         "regex": "(cache\\.(.+?)\\.)",
@@ -245,7 +128,7 @@
           "suffix": "shadow_denied"
           },
           {
-          "safe_regex": {"google_re2":{}, "regex":"vhost\\.*\\.route\\.*"}
+          "safe_regex": {"regex":"vhost\\.*\\.route\\.*"}
           },
           {
           "prefix": "component"

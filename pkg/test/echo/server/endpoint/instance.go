@@ -40,6 +40,7 @@ type Config struct {
 	Port          *common.Port
 	ListenerIP    string
 	IstioVersion  string
+	Namespace     string
 	DisableALPN   bool
 }
 

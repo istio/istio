@@ -17,7 +17,7 @@ package echotest
 import (
 	"strings"
 
-	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -53,6 +53,13 @@ func (t *T) Run(testFn oneToOneTest) {
 	t.rootCtx.Logf("Running tests with: sources %v -> destinations %v",
 		t.sources.Services().NamespacedNames().NamesWithNamespacePrefix(),
 		t.destinations.Services().NamespacedNames().NamesWithNamespacePrefix())
+
+	if t.sources.Len() == 0 {
+		t.rootCtx.Error("Sources are empty")
+	}
+	if t.destinations.Len() == 0 {
+		t.rootCtx.Error("Destinations are empty")
+	}
 
 	// Build and apply any completed configuration that does not require to/from params.
 	t.cfg.BuildCompleteSources().Apply()
@@ -243,7 +250,7 @@ func (t *T) toNDeployments(ctx framework.TestContext, n int, from echo.Instances
 		targetNames := filteredForSource.Services().FQDNs()
 		if len(commonTargets) == 0 {
 			commonTargets = targetNames
-		} else if !util.StringSliceEqual(targetNames, commonTargets) {
+		} else if !slices.Equal(targetNames, commonTargets) {
 			ctx.Fatalf("%s in each cluster each cluster would not target the same set of deploments", fromInstance.Config().Service)
 		}
 	}

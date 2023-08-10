@@ -53,8 +53,8 @@ func NewFileSnapshot(root string, schemas collection.Schemas, domainSuffix strin
 	}
 
 	for _, k := range ss {
-		if _, ok := collections.Pilot.FindByGroupVersionKind(k.Resource().GroupVersionKind()); ok {
-			snapshot.configTypeFilter[k.Resource().GroupVersionKind()] = true
+		if _, ok := collections.Pilot.FindByGroupVersionKind(k.GroupVersionKind()); ok {
+			snapshot.configTypeFilter[k.GroupVersionKind()] = true
 		}
 	}
 

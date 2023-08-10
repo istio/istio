@@ -16,11 +16,12 @@ package controllers
 
 import (
 	"testing"
+	"time"
 
 	"go.uber.org/atomic"
 	"k8s.io/apimachinery/pkg/types"
 
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -31,9 +32,13 @@ func TestQueue(t *testing.T) {
 		return nil
 	}))
 	q.Add(types.NamespacedName{Name: "something"})
-	go q.Run(test.NewStop(t))
-	retry.UntilOrFail(t, q.HasSynced)
-	if got := handles.Load(); got != 1 {
-		t.Fatalf("expected 1 handle, got %v", got)
-	}
+	stop := make(chan struct{})
+	go q.Run(stop)
+	retry.UntilOrFail(t, q.HasSynced, retry.Delay(time.Microsecond))
+	assert.Equal(t, handles.Load(), 1)
+	q.Add(types.NamespacedName{Name: "something else"})
+	close(stop)
+	assert.NoError(t, q.WaitForClose(time.Second))
+	// event 2 is guaranteed to happen from WaitForClose
+	assert.Equal(t, handles.Load(), 2)
 }

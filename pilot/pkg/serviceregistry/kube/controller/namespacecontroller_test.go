@@ -24,7 +24,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	listerv1 "k8s.io/client-go/listers/core/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/kclient"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -47,11 +47,10 @@ func TestNamespaceController(t *testing.T) {
 	watcher.SetAndNotify(nil, nil, caBundle)
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
-		client.KubeInformer().Core().V1().Namespaces().Lister(),
+		kclient.New[*v1.Namespace](client),
 		meshWatcher.MeshConfig.DiscoverySelectors,
 	)
 	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
-	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
 	stop := test.NewStop(t)
 	client.RunAndWait(stop)
 	go nc.Run(stop)
@@ -61,28 +60,28 @@ func TestNamespaceController(t *testing.T) {
 		constants.CACertNamespaceConfigMapDataName: string(caBundle),
 	}
 	createNamespace(t, client.Kube(), "foo", nil)
-	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, "foo", expectedData)
+	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "foo", expectedData)
 
 	// Make sure random configmap does not get updated
 	cmData := createConfigMap(t, client.Kube(), "not-root", "foo", "k")
-	expectConfigMap(t, nc.configmapLister, "not-root", "foo", cmData)
+	expectConfigMap(t, nc.configmaps, "not-root", "foo", cmData)
 
 	newCaBundle := []byte("caBundle-new")
 	watcher.SetAndNotify(nil, nil, newCaBundle)
 	newData := map[string]string{
 		constants.CACertNamespaceConfigMapDataName: string(newCaBundle),
 	}
-	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, "foo", newData)
+	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "foo", newData)
 
 	deleteConfigMap(t, client.Kube(), "foo")
-	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, "foo", newData)
+	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "foo", newData)
 
 	for _, namespace := range inject.IgnoredNamespaces.UnsortedList() {
 		// Create namespace in ignored list, make sure its not created
 		createNamespace(t, client.Kube(), namespace, newData)
 		// Configmap in that namespace should not do anything either
 		createConfigMap(t, client.Kube(), "not-root", namespace, "k")
-		expectConfigMapNotExist(t, nc.configmapLister, namespace)
+		expectConfigMapNotExist(t, nc.configmaps, namespace)
 	}
 }
 
@@ -103,11 +102,10 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 		},
 	})
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
-		client.KubeInformer().Core().V1().Namespaces().Lister(),
+		kclient.New[*v1.Namespace](client),
 		meshWatcher.Mesh().DiscoverySelectors,
 	)
 	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
-	nc.configmapLister = client.KubeInformer().Core().V1().ConfigMaps().Lister()
 	stop := test.NewStop(t)
 	client.RunAndWait(stop)
 	go nc.Run(stop)
@@ -124,14 +122,47 @@ func TestNamespaceControllerWithDiscoverySelectors(t *testing.T) {
 	createNamespace(t, client.Kube(), nsA, map[string]string{"discovery-selectors": "enabled"})
 	// Create a namespace without discovery selector enabled
 	createNamespace(t, client.Kube(), nsB, map[string]string{})
-	ns1, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsA, metav1.GetOptions{})
-	ns2, _ := client.Kube().CoreV1().Namespaces().Get(context.TODO(), nsB, metav1.GetOptions{})
-	discoveryNamespacesFilter.NamespaceCreated(ns1.ObjectMeta)
-	discoveryNamespacesFilter.NamespaceCreated(ns2.ObjectMeta)
-	// config map should be created for discovery selector enabled namespace
-	expectConfigMap(t, nc.configmapLister, CACertNamespaceConfigMap, nsA, expectedData)
+	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, nsA, expectedData)
 	// config map should not be created for discovery selector disabled namespace
-	expectConfigMapNotExist(t, nc.configmapLister, nsB)
+	expectConfigMapNotExist(t, nc.configmaps, nsB)
+}
+
+func TestNamespaceControllerDiscovery(t *testing.T) {
+	test.SetForTest(t, &features.EnableEnhancedResourceScoping, true)
+	client := kube.NewFakeClient()
+	t.Cleanup(client.Shutdown)
+	watcher := keycertbundle.NewWatcher()
+	caBundle := []byte("caBundle")
+	watcher.SetAndNotify(nil, nil, caBundle)
+	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{
+		DiscoverySelectors: []*metav1.LabelSelector{{
+			MatchLabels: map[string]string{"kubernetes.io/metadata.name": "selected"},
+		}},
+	})
+	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
+		kclient.New[*v1.Namespace](client),
+		meshWatcher.MeshConfig.DiscoverySelectors,
+	)
+	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
+	stop := test.NewStop(t)
+	client.RunAndWait(stop)
+	go nc.Run(stop)
+	retry.UntilOrFail(t, nc.queue.HasSynced)
+
+	expectedData := map[string]string{
+		constants.CACertNamespaceConfigMapDataName: string(caBundle),
+	}
+	createNamespace(t, client.Kube(), "not-selected", map[string]string{"kubernetes.io/metadata.name": "not-selected"})
+	createNamespace(t, client.Kube(), "selected", map[string]string{"kubernetes.io/metadata.name": "selected"})
+
+	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "selected", expectedData)
+	expectConfigMapNotExist(t, nc.configmaps, "not-selected")
+
+	discoveryNamespacesFilter.SelectorsChanged([]*metav1.LabelSelector{{
+		MatchLabels: map[string]string{"kubernetes.io/metadata.name": "not-selected"},
+	}})
+	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "not-selected", expectedData)
+	expectConfigMapNotExist(t, nc.configmaps, "selected")
 }
 
 func deleteConfigMap(t *testing.T, client kubernetes.Interface, ns string) {
@@ -180,12 +211,12 @@ func updateNamespace(t *testing.T, client kubernetes.Interface, ns string, label
 }
 
 // nolint:unparam
-func expectConfigMap(t *testing.T, client listerv1.ConfigMapLister, name, ns string, data map[string]string) {
+func expectConfigMap(t *testing.T, configmaps kclient.Client[*v1.ConfigMap], name, ns string, data map[string]string) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {
-		cm, err := client.ConfigMaps(ns).Get(name)
-		if err != nil {
-			return err
+		cm := configmaps.Get(name, ns)
+		if cm == nil {
+			return fmt.Errorf("not found")
 		}
 		if !reflect.DeepEqual(cm.Data, data) {
 			return fmt.Errorf("data mismatch, expected %+v got %+v", data, cm.Data)
@@ -194,11 +225,11 @@ func expectConfigMap(t *testing.T, client listerv1.ConfigMapLister, name, ns str
 	}, retry.Timeout(time.Second*10))
 }
 
-func expectConfigMapNotExist(t *testing.T, client listerv1.ConfigMapLister, ns string) {
+func expectConfigMapNotExist(t *testing.T, configmaps kclient.Client[*v1.ConfigMap], ns string) {
 	t.Helper()
 	err := retry.Until(func() bool {
-		_, err := client.ConfigMaps(ns).Get(CACertNamespaceConfigMap)
-		return err == nil
+		cm := configmaps.Get(CACertNamespaceConfigMap, ns)
+		return cm != nil
 	}, retry.Timeout(time.Millisecond*25))
 
 	if err == nil {

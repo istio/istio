@@ -80,8 +80,6 @@ func TestSplitHorizonEds(t *testing.T) {
 	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true})
 	time.Sleep(time.Millisecond * 200) // give time for cache to clear
 
-	fmt.Println("gateways", s.Env().NetworkManager.AllGateways())
-
 	tests := []struct {
 		network   string
 		sidecarID string
@@ -261,13 +259,15 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 	networkID := network.ID(fmt.Sprintf("network%d", networkNum))
 	memRegistry := memory.NewServiceDiscovery()
 	memRegistry.XdsUpdater = server.Discovery
+	memRegistry.ClusterID = clusterID
 
-	server.Env().ServiceDiscovery.(*aggregate.Controller).AddRegistry(serviceregistry.Simple{
+	reg := serviceregistry.Simple{
 		ClusterID:        clusterID,
 		ProviderID:       provider.Mock,
 		ServiceDiscovery: memRegistry,
 		Controller:       &memory.ServiceController{},
-	})
+	}
+	server.Env().ServiceDiscovery.(*aggregate.Controller).AddRegistry(reg)
 
 	gws := make([]*meshconfig.Network_IstioNetworkGateway, 0)
 	for _, gatewayIP := range gatewaysIP {
@@ -304,6 +304,7 @@ func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []
 				Protocol: protocol.HTTP,
 			},
 		},
+		Attributes: model.ServiceAttributes{Namespace: "default"},
 	})
 	istioEndpoints := make([]*model.IstioEndpoint, numOfEndpoints)
 	for i := 0; i < numOfEndpoints; i++ {

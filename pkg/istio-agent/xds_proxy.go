@@ -16,15 +16,12 @@ package istioagent
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"math"
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -35,9 +32,6 @@ import (
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/grpc/keepalive"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/reflection"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -55,18 +49,17 @@ import (
 	"istio.io/istio/pkg/istio-agent/health"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	istiokeepalive "istio.io/istio/pkg/keepalive"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/uds"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/caclient"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/log"
 )
 
 const (
 	defaultClientMaxReceiveMessageSize = math.MaxInt32
-	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
-	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
 
 var connectionNumber = atomic.NewUint32(0)
@@ -89,8 +82,8 @@ type XdsProxy struct {
 	downstreamListener   net.Listener
 	downstreamGrpcServer *grpc.Server
 	istiodAddress        string
-	istiodDialOptions    []grpc.DialOption
 	optsMutex            sync.RWMutex
+	dialOptions          []grpc.DialOption
 	handlers             map[string]ResponseHandler
 	healthChecker        *health.WorkloadHealthChecker
 	xdsHeaders           map[string]string
@@ -123,7 +116,7 @@ type XdsProxy struct {
 	istiodSAN             string
 }
 
-var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent", 0)
+var proxyLog = log.RegisterScope("xdsproxy", "XDS Proxy in Istio Agent")
 
 const (
 	localHostIPv4 = "127.0.0.1"
@@ -360,10 +353,8 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 
 func (p *XdsProxy) buildUpstreamConn(ctx context.Context) (*grpc.ClientConn, error) {
 	p.optsMutex.RLock()
-	opts := make([]grpc.DialOption, 0, len(p.istiodDialOptions))
-	opts = append(opts, p.istiodDialOptions...)
+	opts := p.dialOptions
 	p.optsMutex.RUnlock()
-
 	return grpc.DialContext(ctx, p.istiodAddress, opts...)
 }
 
@@ -567,16 +558,14 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 }
 
 func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.DiscoveryResponse, forward func(resp *discovery.DiscoveryResponse)) {
-	sendNack := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache)
-	if sendNack {
+	if err := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache); err != nil {
 		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
 		con.sendRequest(&discovery.DiscoveryRequest{
 			VersionInfo:   p.ecdsLastAckVersion.Load(),
 			TypeUrl:       v3.ExtensionConfigurationType,
 			ResponseNonce: resp.Nonce,
 			ErrorDetail: &google_rpc.Status{
-				// TODO(bianpengyuan): make error message more informative.
-				Message: "failed to fetch wasm module",
+				Message: err.Error(),
 			},
 		})
 		return
@@ -658,119 +647,43 @@ func (p *XdsProxy) initIstiodDialOptions(agent *Agent) error {
 	}
 
 	p.optsMutex.Lock()
-	p.istiodDialOptions = opts
+	p.dialOptions = opts
 	p.optsMutex.Unlock()
 	return nil
 }
 
 func (p *XdsProxy) buildUpstreamClientDialOpts(sa *Agent) ([]grpc.DialOption, error) {
-	tlsOpts, err := p.getTLSDialOption(sa)
+	tlsOpts, err := p.getTLSOptions(sa)
 	if err != nil {
-		return nil, fmt.Errorf("failed to build TLS dial option to talk to upstream: %v", err)
+		return nil, fmt.Errorf("failed to get TLS options to talk to upstream: %v", err)
 	}
-
-	keepaliveOption := grpc.WithKeepaliveParams(keepalive.ClientParameters{
-		Time:    30 * time.Second,
-		Timeout: 10 * time.Second,
-	})
-
-	initialWindowSizeOption := grpc.WithInitialWindowSize(int32(defaultInitialWindowSize))
-	initialConnWindowSizeOption := grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize))
-	msgSizeOption := grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize))
-	dialOptions := []grpc.DialOption{
-		tlsOpts,
-		keepaliveOption, initialWindowSizeOption, initialConnWindowSizeOption, msgSizeOption,
-	}
-
-	if sa.secOpts.CredFetcher != nil {
-		dialOptions = append(dialOptions, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
-	}
-	return dialOptions, nil
-}
-
-// Returns the TLS option to use when talking to Istiod
-// If provisioned cert is set, it will return a mTLS related config
-// Else it will return a one-way TLS related config with the assumption
-// that the consumer code will use tokens to authenticate the upstream.
-func (p *XdsProxy) getTLSDialOption(agent *Agent) (grpc.DialOption, error) {
-	if agent.proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_NONE {
-		return grpc.WithTransportCredentials(insecure.NewCredentials()), nil
-	}
-	rootCert, err := p.getRootCertificate(agent)
+	options, err := istiogrpc.ClientOptions(nil, tlsOpts)
 	if err != nil {
 		return nil, err
 	}
-
-	config := tls.Config{
-		GetClientCertificate: func(*tls.CertificateRequestInfo) (*tls.Certificate, error) {
-			var certificate tls.Certificate
-			key, cert := agent.GetKeyCertsForXDS()
-			if key != "" && cert != "" {
-				var isExpired bool
-				isExpired, err = util.IsCertExpired(cert)
-				if err != nil {
-					log.Warnf("cannot parse the cert chain, using token instead: %v", err)
-					return &certificate, nil
-				}
-				if isExpired {
-					log.Warnf("cert expired, using token instead")
-					return &certificate, nil
-				}
-				// Load the certificate from disk
-				certificate, err = tls.LoadX509KeyPair(cert, key)
-				if err != nil {
-					return nil, err
-				}
-			}
-			return &certificate, nil
-		},
-		RootCAs:    rootCert,
-		MinVersion: tls.VersionTLS12,
+	if sa.secOpts.CredFetcher != nil {
+		options = append(options, grpc.WithPerRPCCredentials(caclient.NewXDSTokenProvider(sa.secOpts)))
 	}
-
-	if host, _, err := net.SplitHostPort(agent.proxyConfig.DiscoveryAddress); err == nil {
-		config.ServerName = host
-	}
-	// For debugging on localhost (with port forward)
-	// This matches the logic for the CA; this code should eventually be shared
-	if strings.Contains(config.ServerName, "localhost") {
-		config.ServerName = "istiod.istio-system.svc"
-	}
-
-	if p.istiodSAN != "" {
-		config.ServerName = p.istiodSAN
-	}
-	transportCreds := credentials.NewTLS(&config)
-	return grpc.WithTransportCredentials(transportCreds), nil
+	return options, nil
 }
 
-func (p *XdsProxy) getRootCertificate(agent *Agent) (*x509.CertPool, error) {
-	var certPool *x509.CertPool
-	var rootCert []byte
-
+// Returns the TLS option to use when talking to Istiod
+func (p *XdsProxy) getTLSOptions(agent *Agent) (*istiogrpc.TLSOptions, error) {
+	if agent.proxyConfig.ControlPlaneAuthPolicy == meshconfig.AuthenticationPolicy_NONE {
+		return nil, nil
+	}
 	xdsCACertPath, err := agent.FindRootCAForXDS()
 	if err != nil {
 		return nil, fmt.Errorf("failed to find root CA cert for XDS: %v", err)
 	}
-
-	if xdsCACertPath != "" {
-		rootCert, err = os.ReadFile(xdsCACertPath)
-		if err != nil {
-			return nil, err
-		}
-
-		certPool = x509.NewCertPool()
-		ok := certPool.AppendCertsFromPEM(rootCert)
-		if !ok {
-			return nil, fmt.Errorf("failed to create TLS dial option with root certificates")
-		}
-	} else {
-		certPool, err = x509.SystemCertPool()
-		if err != nil {
-			return nil, err
-		}
-	}
-	return certPool, nil
+	key, cert := agent.GetKeyCertsForXDS()
+	return &istiogrpc.TLSOptions{
+		RootCert:      xdsCACertPath,
+		Key:           key,
+		Cert:          cert,
+		ServerAddress: agent.proxyConfig.DiscoveryAddress,
+		SAN:           p.istiodSAN,
+	}, nil
 }
 
 // sendUpstream sends discovery request.
@@ -786,7 +699,10 @@ func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse)
 // tapRequest() sends "req" to Istiod, and returns a matching response, or `nil` on timeout.
 // Requests are serialized -- only one may be in-flight at a time.
 func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Duration) (*discovery.DiscoveryResponse, error) {
-	if p.connected == nil {
+	p.connectedMutex.Lock()
+	connection := p.connected
+	p.connectedMutex.Unlock()
+	if connection == nil {
 		return nil, fmt.Errorf("proxy not connected to Istiod")
 	}
 
@@ -795,7 +711,10 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 	defer p.tapMutex.Unlock()
 
 	// Send to Istiod
-	p.connected.sendRequest(req)
+	connection.sendRequest(req)
+
+	delay := time.NewTimer(timeout)
+	defer delay.Stop()
 
 	// Wait for expected response or timeout
 	for {
@@ -804,7 +723,7 @@ func (p *XdsProxy) tapRequest(req *discovery.DiscoveryRequest, timeout time.Dura
 			if res.TypeUrl == req.TypeUrl {
 				return res, nil
 			}
-		case <-time.After(timeout):
+		case <-delay.C:
 			return nil, nil
 		}
 	}
@@ -906,7 +825,7 @@ func (p *XdsProxy) initDebugInterface(port int) error {
 
 	go func() {
 		log.Infof("starting Http service at %s", listener.Addr())
-		if err := p.httpTapServer.Serve(listener); err != nil {
+		if err := p.httpTapServer.Serve(listener); network.IsUnexpectedListenerError(err) {
 			log.Errorf("error serving tap http server: %v", err)
 		}
 	}()

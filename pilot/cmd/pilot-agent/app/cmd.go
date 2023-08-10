@@ -17,6 +17,7 @@ package app
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/netip"
 	"os/exec"
 	"strings"
@@ -24,26 +25,29 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 
+	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/options"
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/network"
+	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/cmd"
+	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/envoy"
 	istio_agent "istio.io/istio/pkg/istio-agent"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/version"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
 	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
-	"istio.io/pkg/collateral"
-	"istio.io/pkg/log"
-	"istio.io/pkg/version"
 )
 
 const (
@@ -110,7 +114,7 @@ func newProxyCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			proxyConfig, err := config.ConstructProxyConfig(proxyArgs.MeshConfigFile, proxyArgs.ServiceCluster, options.ProxyConfigEnv, proxyArgs.Concurrency, proxy)
+			proxyConfig, err := config.ConstructProxyConfig(proxyArgs.MeshConfigFile, proxyArgs.ServiceCluster, options.ProxyConfigEnv, proxyArgs.Concurrency)
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
@@ -158,7 +162,8 @@ func newProxyCommand() *cobra.Command {
 
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
-				if err := initStatusServer(ctx, proxy, proxyConfig, agentOptions.EnvoyPrometheusPort, agent); err != nil {
+				if err := initStatusServer(ctx, proxy, proxyConfig,
+					agentOptions.EnvoyPrometheusPort, proxyArgs.EnableProfiling, agent); err != nil {
 					return err
 				}
 			}
@@ -205,13 +210,16 @@ func addFlags(proxyCmd *cobra.Command) {
 		"Go template bootstrap config")
 	proxyCmd.PersistentFlags().StringVar(&proxyArgs.OutlierLogPath, "outlierLogPath", "",
 		"The log path for outlier detection")
+	proxyCmd.PersistentFlags().BoolVar(&proxyArgs.EnableProfiling, "profiling", true,
+		"Enable profiling via web interface host:port/debug/pprof/.")
 }
 
 func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
-	envoyPrometheusPort int, agent *istio_agent.Agent,
+	envoyPrometheusPort int, enableProfiling bool, agent *istio_agent.Agent,
 ) error {
 	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
 	o.EnvoyPrometheusPort = envoyPrometheusPort
+	o.EnableProfiling = enableProfiling
 	o.Context = ctx
 	statusServer, err := status.NewServer(*o)
 	if err != nil {
@@ -293,6 +301,9 @@ func initProxy(args []string) (*model.Proxy, error) {
 		proxy.IPAddresses = append(proxy.IPAddresses, localHostIPv4, localHostIPv6)
 	}
 
+	// Apply exclusions from traffic.sidecar.istio.io/excludeInterfaces
+	proxy.IPAddresses = applyExcludeInterfaces(proxy.IPAddresses)
+
 	// After IP addresses are set, let us discover IPMode.
 	proxy.DiscoverIPMode()
 
@@ -305,6 +316,75 @@ func initProxy(args []string) (*model.Proxy, error) {
 	log.WithLabels("ips", proxy.IPAddresses, "type", proxy.Type, "id", proxy.ID, "domain", proxy.DNSDomain).Info("Proxy role")
 
 	return proxy, nil
+}
+
+func applyExcludeInterfaces(ifaces []string) []string {
+	// Get list of excluded interfaces from pod annotation
+	// TODO: Discuss other input methods such as env, flag (ssuvasanth)
+	annotations, err := bootstrap.ReadPodAnnotations("")
+	if err != nil {
+		log.Debugf("Reading podInfoAnnotations file to get excludeInterfaces was unsuccessful. Continuing without exclusions. msg: %v", err)
+		return ifaces
+	}
+	value, ok := annotations[annotation.SidecarTrafficExcludeInterfaces.Name]
+	if !ok {
+		log.Debugf("ExcludeInterfaces annotation is not present. Proxy IPAddresses: %v", ifaces)
+		return ifaces
+	}
+	exclusions := strings.Split(value, ",")
+
+	// Find IP addr of excluded interfaces and add to a map for instant lookup
+	exclusionMap := sets.New[string]()
+	for _, ifaceName := range exclusions {
+		iface, err := net.InterfaceByName(ifaceName)
+		if err != nil {
+			log.Warnf("Unable to get interface %s: %v", ifaceName, err)
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			log.Warnf("Unable to get IP addr(s) of interface %s: %v", ifaceName, err)
+			continue
+		}
+
+		for _, addr := range addrs {
+			// Get IP only
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			default:
+				continue
+			}
+
+			// handling ipv4 wrapping in ipv6
+			ipAddr, okay := netip.AddrFromSlice(ip)
+			if !okay {
+				continue
+			}
+			unwrapAddr := ipAddr.Unmap()
+			if !unwrapAddr.IsValid() || unwrapAddr.IsLoopback() || unwrapAddr.IsLinkLocalUnicast() || unwrapAddr.IsLinkLocalMulticast() || unwrapAddr.IsUnspecified() {
+				continue
+			}
+
+			// Add to map
+			exclusionMap.Insert(unwrapAddr.String())
+		}
+	}
+
+	// Remove excluded IP addresses from the input IP addresses list.
+	var selectedInterfaces []string
+	for _, ip := range ifaces {
+		if exclusionMap.Contains(ip) {
+			log.Infof("Excluding ip %s from proxy IPaddresses list", ip)
+			continue
+		}
+		selectedInterfaces = append(selectedInterfaces, ip)
+	}
+
+	return selectedInterfaces
 }
 
 func logLimits() {

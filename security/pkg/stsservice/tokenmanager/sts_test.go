@@ -101,7 +101,7 @@ func TestStsCache(t *testing.T) {
 
 func genDumpReq(t *testing.T) (req *http.Request) {
 	dumpURL := "http://" + stsServerAddress + stsServer.StsStatusPath
-	req, _ = http.NewRequest("GET", dumpURL, nil)
+	req, _ = http.NewRequest(http.MethodGet, dumpURL, nil)
 
 	reqDump, _ := httputil.DumpRequest(req, true)
 	t.Logf("status dump request:\n%s", string(reqDump))
@@ -179,7 +179,7 @@ func genStsReq(t *testing.T) (req *http.Request) {
 	stsQuery.Set("actor_token", "")
 	stsQuery.Set("actor_token_type", "")
 	stsURL := "http://" + stsServerAddress + stsServer.TokenPath
-	req, _ = http.NewRequest("POST", stsURL, strings.NewReader(stsQuery.Encode()))
+	req, _ = http.NewRequest(http.MethodPost, stsURL, strings.NewReader(stsQuery.Encode()))
 	req.Header.Set("Content-Type", stsServer.URLEncodedForm)
 	reqDump, _ := httputil.DumpRequest(req, true)
 	t.Logf("STS request:\n%s", string(reqDump))

@@ -19,7 +19,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -32,11 +31,11 @@ import (
 	"github.com/google/go-containerregistry/pkg/name"
 
 	extensions "istio.io/api/extensions/v1alpha1"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
-var wasmLog = log.RegisterScope("wasm", "", 0)
+var wasmLog = log.RegisterScope("wasm", "")
 
 const (
 	// oci URL prefix
@@ -48,7 +47,7 @@ const (
 
 // Cache models a Wasm module cache.
 type Cache interface {
-	Get(url, checksum, resourceName, resourceVersion string, timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy) (string, error)
+	Get(url string, opts GetOptions) (string, error)
 	Cleanup()
 }
 
@@ -58,7 +57,6 @@ type LocalFileCache struct {
 	modules map[moduleKey]*cacheEntry
 	// Map from tagged URL to checksum
 	checksums map[string]*checksumEntry
-
 	// http fetcher fetches Wasm module with HTTP get.
 	httpFetcher *HTTPFetcher
 
@@ -164,7 +162,7 @@ func NewLocalFileCache(dir string, options Options) *LocalFileCache {
 	return cache
 }
 
-func urlAsResourceName(fullURLStr string) string {
+func moduleNameFromURL(fullURLStr string) string {
 	if strings.HasPrefix(fullURLStr, ociURLPrefix) {
 		if tag, err := name.ParseReference(fullURLStr[len(ociURLPrefix):]); err == nil {
 			// remove tag or sha
@@ -192,58 +190,60 @@ func getModulePath(baseDir string, mkey moduleKey) (string, error) {
 	sha := sha256.Sum256([]byte(mkey.name))
 	hashedName := hex.EncodeToString(sha[:])
 	moduleDir := filepath.Join(baseDir, hashedName)
-	if _, err := os.Stat(moduleDir); errors.Is(err, os.ErrNotExist) {
-		err := os.Mkdir(moduleDir, 0o755)
-		if err != nil {
-			return "", err
-		}
+	if err := os.Mkdir(moduleDir, 0o755); err != nil && !os.IsExist(err) {
+		return "", err
 	}
 	return filepath.Join(moduleDir, fmt.Sprintf("%s.wasm", mkey.checksum)), nil
 }
 
 // Get returns path the local Wasm module file.
-func (c *LocalFileCache) Get(
-	downloadURL, checksum, resourceName, resourceVersion string,
-	timeout time.Duration, pullSecret []byte, pullPolicy extensions.PullPolicy,
-) (string, error) {
+func (c *LocalFileCache) Get(downloadURL string, opts GetOptions) (string, error) {
 	// Construct Wasm cache key with downloading URL and provided checksum of the module.
 	key := cacheKey{
 		downloadURL: downloadURL,
 		moduleKey: moduleKey{
-			name:     urlAsResourceName(downloadURL),
-			checksum: checksum,
+			name:     moduleNameFromURL(downloadURL),
+			checksum: opts.Checksum,
 		},
-		resourceName:    resourceName,
-		resourceVersion: resourceVersion,
+		resourceName:    opts.ResourceName,
+		resourceVersion: opts.ResourceVersion,
 	}
 
-	u, err := url.Parse(downloadURL)
+	entry, err := c.getOrFetch(key, opts)
 	if err != nil {
-		return "", fmt.Errorf("fail to parse Wasm module fetch url: %s, error: %v", downloadURL, err)
+		return "", err
+	}
+
+	return entry.modulePath, err
+}
+
+func (c *LocalFileCache) getOrFetch(key cacheKey, opts GetOptions) (*cacheEntry, error) {
+	u, err := url.Parse(key.downloadURL)
+	if err != nil {
+		return nil, fmt.Errorf("fail to parse Wasm module fetch url: %s, error: %v", key.downloadURL, err)
 	}
 
 	// First check if the cache entry is already downloaded and policy does not require to pull always.
-	var modulePath string
-	modulePath, key.checksum = c.getEntry(key, shouldIgnoreResourceVersion(pullPolicy, u))
-	if modulePath != "" {
-		c.touchEntry(key)
-		return modulePath, nil
+	ce, checksum := c.getEntry(key, shouldIgnoreResourceVersion(opts.PullPolicy, u))
+	if ce != nil {
+		return ce, nil
 	}
+	key.checksum = checksum
 	// Fetch the image now as it is not available in cache.
 	var b []byte         // Byte array of Wasm binary.
 	var dChecksum string // Hex-Encoded sha256 checksum of binary.
 	var binaryFetcher func() ([]byte, error)
 	insecure := c.allowInsecure(u.Host)
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), opts.RequestTimeout)
 	defer cancel()
 	switch u.Scheme {
 	case "http", "https":
 		// Download the Wasm module with http fetcher.
-		b, err = c.httpFetcher.Fetch(ctx, downloadURL, insecure)
+		b, err = c.httpFetcher.Fetch(ctx, key.downloadURL, insecure)
 		if err != nil {
 			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
-			return "", err
+			return nil, err
 		}
 
 		// Get sha256 checksum and check if it is the same as provided one.
@@ -253,58 +253,48 @@ func (c *LocalFileCache) Get(
 		imgFetcherOps := ImageFetcherOption{
 			Insecure: insecure,
 		}
-		if pullSecret != nil {
-			imgFetcherOps.PullSecret = pullSecret
+		if opts.PullSecret != nil {
+			imgFetcherOps.PullSecret = opts.PullSecret
 		}
-		wasmLog.Debugf("fetching oci image from %s with options: %v", downloadURL, imgFetcherOps)
+		wasmLog.Debugf("fetching oci image from %s with options: %v", key.downloadURL, imgFetcherOps)
 		fetcher := NewImageFetcher(ctx, imgFetcherOps)
 		binaryFetcher, dChecksum, err = fetcher.PrepareFetch(u.Host + u.Path)
 		if err != nil {
 			wasmRemoteFetchCount.With(resultTag.Value(manifestFailure)).Increment()
-			return "", fmt.Errorf("could not fetch Wasm OCI image: %v", err)
+			return nil, fmt.Errorf("could not fetch Wasm OCI image: %v", err)
 		}
 	default:
-		return "", fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", u.Scheme)
+		return nil, fmt.Errorf("unsupported Wasm module downloading URL scheme: %v", u.Scheme)
 	}
 
 	if key.checksum == "" {
 		key.checksum = dChecksum
 		// check again if the cache is having the checksum.
-		if modulePath, _ := c.getEntry(key, true); modulePath != "" {
-			c.touchEntry(key)
-			return modulePath, nil
+		if ce, _ := c.getEntry(key, true); ce != nil {
+			return ce, nil
 		}
 	} else if dChecksum != key.checksum {
 		wasmRemoteFetchCount.With(resultTag.Value(checksumMismatch)).Increment()
-		return "", fmt.Errorf("module downloaded from %v has checksum %v, which does not match: %v", downloadURL, dChecksum, key.checksum)
+		return nil, fmt.Errorf("module downloaded from %v has checksum %v, which does not match: %v", key.downloadURL, dChecksum, key.checksum)
 	}
 
 	if binaryFetcher != nil {
 		b, err = binaryFetcher()
 		if err != nil {
 			wasmRemoteFetchCount.With(resultTag.Value(downloadFailure)).Increment()
-			return "", fmt.Errorf("could not fetch Wasm binary: %v", err)
+			return nil, fmt.Errorf("could not fetch Wasm binary: %v", err)
 		}
 	}
 
 	if !isValidWasmBinary(b) {
 		wasmRemoteFetchCount.With(resultTag.Value(fetchFailure)).Increment()
-		return "", fmt.Errorf("fetched Wasm binary from %s is invalid", downloadURL)
+		return nil, fmt.Errorf("fetched Wasm binary from %s is invalid", key.downloadURL)
 	}
 
 	wasmRemoteFetchCount.With(resultTag.Value(fetchSuccess)).Increment()
 
 	key.checksum = dChecksum
-
-	modulePath, err = getModulePath(c.dir, key.moduleKey)
-	if err != nil {
-		return "", err
-	}
-
-	if err := c.addEntry(key, b, modulePath); err != nil {
-		return "", err
-	}
-	return modulePath, nil
+	return c.addEntry(key, b)
 }
 
 // Cleanup closes background Wasm module purge routine.
@@ -328,13 +318,9 @@ func (c *LocalFileCache) updateChecksum(key cacheKey) bool {
 	return needChecksumUpdate
 }
 
-func (c *LocalFileCache) touchEntry(key cacheKey) {
-	c.mux.Lock()
-	defer c.mux.Unlock()
-	c.updateChecksum(key)
-}
-
-func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) error {
+// addEntry adds a wasmModule to cache with cacheKey, writes the module to the local file system,
+// and returns the created entry.
+func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte) (*cacheEntry, error) {
 	c.mux.Lock()
 	defer c.mux.Unlock()
 	needChecksumUpdate := c.updateChecksum(key)
@@ -346,16 +332,20 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 		if needChecksumUpdate {
 			ce.referencingURLs.Insert(key.downloadURL)
 		}
-		return nil
+		return ce, nil
 	}
 
+	modulePath, err := getModulePath(c.dir, key.moduleKey)
+	if err != nil {
+		return nil, err
+	}
 	// Materialize the Wasm module into a local file. Use checksum as name of the module.
-	if err := os.WriteFile(f, wasmModule, 0o644); err != nil {
-		return err
+	if err := os.WriteFile(modulePath, wasmModule, 0o644); err != nil {
+		return nil, err
 	}
 
 	ce := cacheEntry{
-		modulePath:      f,
+		modulePath:      modulePath,
 		last:            time.Now(),
 		referencingURLs: sets.New[string](),
 	}
@@ -364,16 +354,18 @@ func (c *LocalFileCache) addEntry(key cacheKey, wasmModule []byte, f string) err
 	}
 	c.modules[key.moduleKey] = &ce
 	wasmCacheEntries.Record(float64(len(c.modules)))
-	return nil
+	return &ce, nil
 }
 
-// getEntry finds a cached module, and returns the path of the module and its checksum.
-func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (string, string) {
-	modulePath := ""
+// getEntry finds a cached module, and returns the found cache entry and its checksum.
+func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (*cacheEntry, string) {
 	cacheHit := false
 
 	c.mux.Lock()
-	defer c.mux.Unlock()
+	defer func() {
+		c.mux.Unlock()
+		wasmCacheLookupCount.With(hitTag.Value(strconv.FormatBool(cacheHit))).Increment()
+	}()
 
 	if len(key.checksum) == 0 && strings.HasPrefix(key.downloadURL, ociURLPrefix) {
 		if d, err := name.NewDigest(key.downloadURL[len(ociURLPrefix):]); err == nil {
@@ -402,11 +394,11 @@ func (c *LocalFileCache) getEntry(key cacheKey, ignoreResourceVersion bool) (str
 	if ce, ok := c.modules[key.moduleKey]; ok {
 		// Update last touched time.
 		ce.last = time.Now()
-		modulePath = ce.modulePath
 		cacheHit = true
+		c.updateChecksum(key)
+		return ce, key.checksum
 	}
-	wasmCacheLookupCount.With(hitTag.Value(strconv.FormatBool(cacheHit))).Increment()
-	return modulePath, key.checksum
+	return nil, key.checksum
 }
 
 // Purge periodically clean up the stale Wasm modules local file and the cache map.

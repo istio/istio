@@ -123,3 +123,6 @@ allowlisted_modules:
 # MIT: https://github.com/invopop/yaml/blob/v0.1.0/LICENSE
 - github.com/invopop/yaml
 
+# Simplified BSD (BSD-2-Clause): https://github.com/russross/blackfriday/blob/master/LICENSE.txt
+- github.com/russross/blackfriday
+- github.com/russross/blackfriday/v2

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -35,24 +36,14 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	"istio.io/istio/pilot/pkg/networking/grpcgen"
-	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
-	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/security"
 )
 
-var (
-	versionMutex sync.RWMutex
-	// version is the timestamp of the last registry event.
-	version = "0"
-	// versionNum counts versions
-	versionNum = atomic.NewUint64(0)
-
-	periodicRefreshMetrics = 10 * time.Second
-)
+var periodicRefreshMetrics = 10 * time.Second
 
 type debounceOptions struct {
 	// debounceAfter is the delay added to events to wait
@@ -76,9 +67,6 @@ type debounceOptions struct {
 type DiscoveryServer struct {
 	// Env is the model environment.
 	Env *model.Environment
-
-	// MemRegistry is used for debug and load testing, allow adding services. Visible for testing.
-	MemRegistry *memory.ServiceDiscovery
 
 	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
 	// APIs and service registry info
@@ -112,9 +100,6 @@ type DiscoveryServer struct {
 	// pushChannel is the buffer used for debouncing.
 	// after debouncing the pushRequest will be sent to pushQueue
 	pushChannel chan *model.PushRequest
-
-	// mutex used for protecting Environment.PushContext
-	updateMutex sync.RWMutex
 
 	// pushQueue is the buffer that used after debounce and before the real xds push.
 	pushQueue *PushQueue
@@ -153,9 +138,15 @@ type DiscoveryServer struct {
 	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
 	ListRemoteClusters func() []cluster.DebugInfo
 
-	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// ClusterAliases are alias names for cluster. When a proxy connects with a cluster ID
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[cluster.ID]cluster.ID
+
+	// pushVersion stores the numeric push version. This should be accessed via NextVersion()
+	pushVersion atomic.Uint64
+
+	// discoveryStartTime is the time since the binary started
+	discoveryStartTime time.Time
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -177,9 +168,10 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
-		Cache:      model.DisabledCache{},
-		instanceID: instanceID,
-		clusterID:  clusterID,
+		Cache:              env.Cache,
+		instanceID:         instanceID,
+		clusterID:          clusterID,
+		discoveryStartTime: processStartTime,
 	}
 
 	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
@@ -188,14 +180,7 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 	}
 
 	out.initJwksResolver()
-
-	if features.EnableXDSCaching {
-		out.Cache = model.NewXdsCache()
-		// clear the cache as endpoint shards are modified to avoid cache write race
-		out.Env.EndpointIndex.SetCache(out.Cache)
-	}
-
-	out.ConfigGenerator = core.NewConfigGenerator(out.Cache)
+	out.ConfigGenerator = core.NewConfigGenerator(env.Cache)
 
 	return out
 }
@@ -211,7 +196,7 @@ func (s *DiscoveryServer) initJwksResolver() {
 
 	// Flush cached discovery responses when detecting jwt public key change.
 	s.JwtKeyResolver.PushFunc = func() {
-		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.UnknownTrigger}})
+		s.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.UnknownTrigger)})
 	}
 }
 
@@ -233,7 +218,7 @@ var processStartTime = time.Now()
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
-	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
+	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(s.discoveryStartTime))
 	s.serverReady.Store(true)
 }
 
@@ -246,28 +231,7 @@ func (s *DiscoveryServer) Start(stopCh <-chan struct{}) {
 	go s.handleUpdates(stopCh)
 	go s.periodicRefreshMetrics(stopCh)
 	go s.sendPushes(stopCh)
-}
-
-func (s *DiscoveryServer) getNonK8sRegistries() []serviceregistry.Instance {
-	var registries []serviceregistry.Instance
-	var nonK8sRegistries []serviceregistry.Instance
-
-	if agg, ok := s.Env.ServiceDiscovery.(*aggregate.Controller); ok {
-		registries = agg.GetRegistries()
-	} else {
-		registries = []serviceregistry.Instance{
-			serviceregistry.Simple{
-				ServiceDiscovery: s.Env.ServiceDiscovery,
-			},
-		}
-	}
-
-	for _, registry := range registries {
-		if registry.Provider() != provider.Kubernetes && registry.Provider() != provider.External {
-			nonK8sRegistries = append(nonK8sRegistries, registry)
-		}
-	}
-	return nonK8sRegistries
+	go s.Cache.Run(stopCh)
 }
 
 // Push metrics are updated periodically (10s default)
@@ -310,7 +274,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	if !req.Full {
 		req.Push = s.globalPushContext()
 		s.dropCacheForRequest(req)
-		s.AdsPushAll(versionInfo(), req)
+		s.AdsPushAll(req)
 		return
 	}
 	// Reset the status during the push.
@@ -323,8 +287,7 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	// PushContext is reset after a config change. Previous status is
 	// saved.
 	t0 := time.Now()
-
-	versionLocal := time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(versionNum.Inc(), 10)
+	versionLocal := s.NextVersion()
 	push, err := s.initPushContext(req, oldPushContext, versionLocal)
 	if err != nil {
 		return
@@ -333,35 +296,29 @@ func (s *DiscoveryServer) Push(req *model.PushRequest) {
 	log.Debugf("InitContext %v for push took %s", versionLocal, initContextTime)
 	pushContextInitTime.Record(initContextTime.Seconds())
 
-	versionMutex.Lock()
-	version = versionLocal
-	versionMutex.Unlock()
-
 	req.Push = push
-	s.AdsPushAll(versionLocal, req)
+	s.AdsPushAll(req)
 }
 
 func nonce(noncePrefix string) string {
 	return noncePrefix + uuid.New().String()
 }
 
-func versionInfo() string {
-	versionMutex.RLock()
-	defer versionMutex.RUnlock()
-	return version
-}
-
 // Returns the global push context. This should be used with caution; generally the proxy-specific
 // PushContext should be used to get the current state in the context of a single proxy. This should
 // only be used for "global" lookups, such as initiating a new push to all proxies.
 func (s *DiscoveryServer) globalPushContext() *model.PushContext {
-	s.updateMutex.RLock()
-	defer s.updateMutex.RUnlock()
-	return s.Env.PushContext
+	return s.Env.PushContext()
 }
 
 // ConfigUpdate implements ConfigUpdater interface, used to request pushes.
 func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
+	if len(model.ConfigsOfKind(req.ConfigsUpdated, kind.Address)) > 0 {
+		// This is a bit like clearing EDS cache on EndpointShard update. Because Address
+		// types are fetched dynamically, they are not part of the same protections, so we need to clear
+		// the cache.
+		s.Cache.ClearAll()
+	}
 	inboundConfigUpdates.Increment()
 	s.InboundUpdates.Inc()
 	s.pushChannel <- req
@@ -432,7 +389,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 		case r := <-ch:
 			// If reason is not set, record it as an unknown reason
 			if len(r.Reason) == 0 {
-				r.Reason = []model.TriggerReason{model.UnknownTrigger}
+				r.Reason = model.NewReasonStats(model.UnknownTrigger)
 			}
 			if !opts.enableEDSDebounce && !r.Full {
 				// trigger push now, just for EDS
@@ -475,13 +432,31 @@ func configsUpdated(req *model.PushRequest) string {
 }
 
 func reasonsUpdated(req *model.PushRequest) string {
+	var (
+		reason0, reason1            model.TriggerReason
+		reason0Cnt, reason1Cnt, idx int
+	)
+	for r, cnt := range req.Reason {
+		if idx == 0 {
+			reason0, reason0Cnt = r, cnt
+		} else if idx == 1 {
+			reason1, reason1Cnt = r, cnt
+		} else {
+			break
+		}
+		idx++
+	}
+
 	switch len(req.Reason) {
 	case 0:
 		return "unknown"
 	case 1:
-		return string(req.Reason[0])
+		return fmt.Sprintf("%s:%d", reason0, reason0Cnt)
+	case 2:
+		return fmt.Sprintf("%s:%d and %s:%d", reason0, reason0Cnt, reason1, reason1Cnt)
 	default:
-		return fmt.Sprintf("%s and %d more reasons", req.Reason[0], len(req.Reason)-1)
+		return fmt.Sprintf("%s:%d and %d(%d) more reasons", reason0, reason0Cnt, len(req.Reason)-1,
+			req.Reason.Count()-reason0Cnt)
 	}
 }
 
@@ -500,7 +475,7 @@ func doSendPushes(stopCh <-chan struct{}, semaphore chan struct{}, queue *PushQu
 			if shuttingdown {
 				return
 			}
-			recordPushTriggers(push.Reason...)
+			recordPushTriggers(push.Reason)
 			// Signals that a push is done by reading from the semaphore, allowing another send on it.
 			doneFunc := func() {
 				queue.MarkDone(client)
@@ -547,15 +522,8 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 		return nil, err
 	}
 
-	if err := s.UpdateServiceShards(push); err != nil {
-		return nil, err
-	}
-
-	s.updateMutex.Lock()
-	s.Env.PushContext = push
-	// Ensure we drop the cache in the lock to avoid races, where we drop the cache, fill it back up, then update push context
 	s.dropCacheForRequest(req)
-	s.updateMutex.Unlock()
+	s.Env.SetPushContext(push)
 
 	return push, nil
 }
@@ -580,6 +548,12 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.ExtensionConfigurationType] = ecdsGen
 	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
 	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
+
+	workloadGen := &WorkloadGenerator{s: s}
+	s.Generators[v3.AddressType] = workloadGen
+	s.Generators[v3.WorkloadType] = workloadGen
+	s.Generators[v3.ServiceType] = workloadGen
+	s.Generators[v3.WorkloadAuthorizationType] = &WorkloadRBACGenerator{s: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
 	s.Generators["grpc/"+v3.EndpointType] = edsGen
@@ -622,16 +596,28 @@ func (s *DiscoveryServer) Clients() []*Connection {
 	return clients
 }
 
-// AllClients returns all connected clients, per Clients, but additionally includes unintialized connections
+// SortedClients returns all currently connected clients in an ordered manner.
+// Sorting order priority is as follows: ClusterID, Namespace, ID.
+func (s *DiscoveryServer) SortedClients() []*Connection {
+	clients := s.Clients()
+	sort.Slice(clients, func(i, j int) bool {
+		if clients[i].proxy.GetClusterID().String() < clients[j].proxy.GetClusterID().String() {
+			return true
+		}
+		if clients[i].proxy.GetNamespace() < clients[j].proxy.GetNamespace() {
+			return true
+		}
+		return clients[i].proxy.GetID() < clients[j].proxy.GetID()
+	})
+	return clients
+}
+
+// AllClients returns all connected clients, per Clients, but additionally includes uninitialized connections
 // Warning: callers must take care not to rely on the con.proxy field being set
 func (s *DiscoveryServer) AllClients() []*Connection {
 	s.adsClientsMutex.RLock()
 	defer s.adsClientsMutex.RUnlock()
-	clients := make([]*Connection, 0, len(s.adsClients))
-	for _, con := range s.adsClients {
-		clients = append(clients, con)
-	}
-	return clients
+	return maps.Values(s.adsClients)
 }
 
 // SendResponse will immediately send the response to all connections.
@@ -676,4 +662,8 @@ func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
 	wait, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	return s.RequestRateLimit.Wait(wait)
+}
+
+func (s *DiscoveryServer) NextVersion() string {
+	return time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(s.pushVersion.Inc(), 10)
 }

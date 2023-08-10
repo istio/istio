@@ -106,6 +106,13 @@ func isProxy(con *Connection) bool {
 		con.proxy.Metadata.ProxyConfig != nil
 }
 
+func isZtunnel(con *Connection) bool {
+	return con != nil &&
+		con.proxy != nil &&
+		con.proxy.Metadata != nil &&
+		con.proxy.Type == model.Ztunnel
+}
+
 func (sg *StatusGen) debugSyncz() model.Resources {
 	res := model.Resources{}
 
@@ -119,13 +126,15 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 
 	for _, con := range sg.Server.Clients() {
 		con.proxy.RLock()
-		// Skip "nodes" without metdata (they are probably istioctl queries!)
-		if isProxy(con) {
+		// Skip "nodes" without metadata (they are probably istioctl queries!)
+		if isProxy(con) || isZtunnel(con) {
 			xdsConfigs := make([]*status.ClientConfig_GenericXdsConfig, 0)
 			for _, stype := range stypes {
 				pxc := &status.ClientConfig_GenericXdsConfig{}
 				if watchedResource, ok := con.proxy.WatchedResources[stype]; ok {
 					pxc.ConfigStatus = debugSyncStatus(watchedResource)
+				} else if isZtunnel(con) {
+					pxc.ConfigStatus = status.ConfigStatus_UNKNOWN
 				} else {
 					pxc.ConfigStatus = status.ConfigStatus_NOT_SENT
 				}
@@ -138,7 +147,9 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 				Node: &core.Node{
 					Id: con.proxy.ID,
 					Metadata: model.NodeMetadata{
-						ClusterID: con.proxy.Metadata.ClusterID,
+						ClusterID:    con.proxy.Metadata.ClusterID,
+						Namespace:    con.proxy.Metadata.Namespace,
+						IstioVersion: con.proxy.Metadata.IstioVersion,
 					}.ToStruct(),
 				},
 				GenericXdsConfigs: xdsConfigs,
@@ -172,7 +183,7 @@ func (sg *StatusGen) debugConfigDump(proxyID string) (model.Resources, error) {
 		return nil, fmt.Errorf("config dump could not find connection for proxyID %q", proxyID)
 	}
 
-	dump, err := sg.Server.configDump(conn, false)
+	dump, err := sg.Server.connectionConfigDump(conn, false)
 	if err != nil {
 		return nil, err
 	}

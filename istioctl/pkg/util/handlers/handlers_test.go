@@ -15,8 +15,23 @@
 package handlers
 
 import (
+	"fmt"
+	"net/http"
+	"sort"
 	"strings"
 	"testing"
+	"time"
+
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
+	"k8s.io/client-go/rest/fake"
+	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
+	"k8s.io/kubectl/pkg/scheme"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestInferPodInfo(t *testing.T) {
@@ -103,37 +118,105 @@ func TestInferPodInfo(t *testing.T) {
 	}
 }
 
-func TestHandleNamespace(t *testing.T) {
-	ns := HandleNamespace("test", "default")
-	if ns != "test" {
-		t.Fatalf("Get the incorrect namespace: %q back", ns)
-	}
-
+func TestInferPodInfoFromTypedResource(t *testing.T) {
 	tests := []struct {
-		description      string
-		namespace        string
-		defaultNamespace string
-		wantNamespace    string
+		name          string
+		wantPodName   string
+		wantNamespace string
 	}{
 		{
-			description:      "return test namespace",
-			namespace:        "test",
-			defaultNamespace: "default",
-			wantNamespace:    "test",
+			name:          "foo-abc.istio-system",
+			wantPodName:   "foo-abc",
+			wantNamespace: "istio-system",
 		},
 		{
-			description:      "return default namespace",
-			namespace:        "",
-			defaultNamespace: "default",
-			wantNamespace:    "default",
+			name:          "foo-abc",
+			wantPodName:   "foo-abc",
+			wantNamespace: "test",
+		},
+		{
+			name:          "Deployment/foo.istio-system",
+			wantPodName:   "foo-abc",
+			wantNamespace: "istio-system",
+		},
+		{
+			name:          "Deployment/foo",
+			wantPodName:   "foo-abc",
+			wantNamespace: "test",
 		},
 	}
+	factory := cmdtesting.NewTestFactory().WithNamespace("test")
+	ns := scheme.Codecs.WithoutConversion()
+	codec := scheme.Codecs.LegacyCodec(scheme.Scheme.PrioritizedVersionsAllGroups()...)
+	factory.Client = &fake.RESTClient{
+		GroupVersion:         schema.GroupVersion{Group: "", Version: "v1"},
+		NegotiatedSerializer: ns,
+		Client: fake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
+			switch p, m := req.URL.Path, req.Method; {
+			case p == "/namespaces/istio-system/deployments/foo" && m == "GET":
+				body := cmdtesting.ObjBody(codec, attachDeploy("istio-system"))
+				return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
+			case p == "/namespaces/test/deployments/foo" && m == "GET":
+				body := cmdtesting.ObjBody(codec, attachDeploy("test"))
+				return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
+			default:
+				t.Errorf("%s: unexpected request: %s %#v\n%#v", p, req.Method, req.URL, req)
+				return nil, fmt.Errorf("unexpected request")
+			}
+		}),
+	}
+	getFirstPodFunc = func(client corev1client.PodsGetter, namespace string, selector string, timeout time.Duration, sortBy func([]*corev1.Pod) sort.Interface) (
+		*corev1.Pod, int, error,
+	) {
+		return attachPod(namespace), 1, nil
+	}
 	for _, tt := range tests {
-		t.Run(tt.description, func(t *testing.T) {
-			gotNs := HandleNamespace(tt.namespace, tt.defaultNamespace)
-			if gotNs != tt.wantNamespace {
-				t.Fatalf("unexpected namespace: wanted %v got %v", tt.wantNamespace, gotNs)
+		t.Run(strings.Split(tt.name, ".")[0], func(t *testing.T) {
+			gotPodName, gotNamespace, err := InferPodInfoFromTypedResource(tt.name, "test", factory)
+			assert.NoError(t, err)
+			if gotPodName != tt.wantPodName || gotNamespace != tt.wantNamespace {
+				t.Errorf("unexpected podName and namespace: wanted %v %v got %v %v", tt.wantPodName, tt.wantNamespace, gotPodName, gotNamespace)
 			}
 		})
+	}
+}
+
+func attachPod(ns string) *corev1.Pod {
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{Name: "foo-abc", Namespace: ns, ResourceVersion: "10"},
+		Spec: corev1.PodSpec{
+			RestartPolicy: corev1.RestartPolicyAlways,
+			DNSPolicy:     corev1.DNSClusterFirst,
+			Containers: []corev1.Container{
+				{
+					Name: "bar",
+				},
+			},
+			InitContainers: []corev1.Container{
+				{
+					Name: "initfoo",
+				},
+			},
+			EphemeralContainers: []corev1.EphemeralContainer{
+				{
+					EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+						Name: "debugger",
+					},
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+		},
+	}
+}
+
+func attachDeploy(ns string) *appsv1.Deployment {
+	return &appsv1.Deployment{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: ns,
+		},
+		Spec: appsv1.DeploymentSpec{},
 	}
 }

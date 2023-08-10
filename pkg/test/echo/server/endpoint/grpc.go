@@ -39,9 +39,8 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/xds"
-	"k8s.io/utils/env"
 
-	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -132,7 +131,7 @@ func (s *grpcInstance) Start(onReady OnReadyFunc) error {
 		Forwarder: s.f,
 	})
 	reflection.Register(s.server)
-	if val, _ := env.GetBool("EXPOSE_GRPC_ADMIN", false); val {
+	if val := env.Register("EXPOSE_GRPC_ADMIN", false, "").Get(); val {
 		cleanup, err := admin.Register(s.server)
 		if err != nil {
 			return err
@@ -202,7 +201,7 @@ func (s *grpcInstance) certsFromBootstrapForReady() (cert string, key string, ca
 	} else if data := os.Getenv("GRPC_XDS_BOOTSTRAP_CONFIG"); len(data) > 0 {
 		bootstrapData = []byte(data)
 	}
-	var bootstrap grpcxds.Bootstrap
+	var bootstrap Bootstrap
 	if uerr := json.Unmarshal(bootstrapData, &bootstrap); uerr != nil {
 		err = uerr
 		return
@@ -278,9 +277,10 @@ func (h *EchoGrpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*pr
 	echo.StatusCodeField.Write(&body, strconv.Itoa(http.StatusOK))
 	echo.ServiceVersionField.Write(&body, h.Version)
 	echo.ServicePortField.Write(&body, strconv.Itoa(portNumber))
-	echo.ClusterField.Write(&body, h.Cluster)
+	echo.ClusterField.WriteNonEmpty(&body, h.Cluster)
+	echo.NamespaceField.WriteNonEmpty(&body, h.Namespace)
 	echo.IPField.Write(&body, ip)
-	echo.IstioVersionField.Write(&body, h.IstioVersion)
+	echo.IstioVersionField.WriteNonEmpty(&body, h.IstioVersion)
 	echo.ProtocolField.Write(&body, "GRPC")
 	echo.Field("Echo").Write(&body, req.GetMessage())
 

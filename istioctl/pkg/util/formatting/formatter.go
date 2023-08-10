@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/analysis/diag"
-	"istio.io/pkg/env"
+	"istio.io/istio/pkg/env"
 )
 
 // Formatting options for Messages
@@ -62,7 +62,7 @@ func Print(ms diag.Messages, format string, colorize bool) (string, error) {
 }
 
 func printLog(ms diag.Messages, colorize bool) string {
-	var logOutput []string
+	logOutput := make([]string, 0, len(ms))
 	for _, m := range ms {
 		logOutput = append(logOutput, render(m, colorize))
 	}

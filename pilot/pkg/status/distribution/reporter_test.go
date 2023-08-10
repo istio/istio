@@ -25,8 +25,8 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/ledger"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/ledger"
 )
 
 func TestStatusMaps(t *testing.T) {
@@ -89,7 +89,7 @@ func TestBuildReport(t *testing.T) {
 	}
 	// cast our model.Configs to Resource because these types aren't compatible
 	var myResources []status.Resource
-	col := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
+	col := collections.VirtualService
 	for _, res := range resources {
 		// Set Group Version and GroupVersionKind to real world values from VS
 		res.GroupVersionKind = col.GroupVersionKind()

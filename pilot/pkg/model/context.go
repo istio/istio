@@ -28,7 +28,6 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	"github.com/golang/protobuf/jsonpb"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -36,28 +35,36 @@ import (
 	"istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/features"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pilot/pkg/trustbundle"
 	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/ledger"
+	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/identifier"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/ledger"
-	"istio.io/pkg/monitoring"
 )
 
 var _ mesh.Holder = &Environment{}
 
 func NewEnvironment() *Environment {
+	var cache XdsCache
+	if features.EnableXDSCaching {
+		cache = NewXdsCache()
+	} else {
+		cache = DisabledCache{}
+	}
 	return &Environment{
-		PushContext:   NewPushContext(),
-		EndpointIndex: NewEndpointIndex(),
+		pushContext:   NewPushContext(),
+		Cache:         cache,
+		EndpointIndex: NewEndpointIndex(cache),
 	}
 }
 
@@ -81,13 +88,15 @@ type Environment struct {
 
 	NetworkManager *NetworkManager
 
-	// PushContext holds information during push generation. It is reset on config change, at the beginning
+	// mutex used for protecting Environment.pushContext
+	mutex sync.RWMutex
+	// pushContext holds information during push generation. It is reset on config change, at the beginning
 	// of the pushAll. It will hold all errors and stats and possibly caches needed during the entire cache computation.
 	// DO NOT USE EXCEPT FOR TESTS AND HANDLING OF NEW CONNECTIONS.
 	// ALL USE DURING A PUSH SHOULD USE THE ONE CREATED AT THE
 	// START OF THE PUSH, THE GLOBAL ONE MAY CHANGE AND REFLECT A DIFFERENT
 	// CONFIG AND PUSH
-	PushContext *PushContext
+	pushContext *PushContext
 
 	// DomainSuffix provides a default domain for the Istio server.
 	DomainSuffix string
@@ -106,6 +115,9 @@ type Environment struct {
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates. This is keyed by service and namespace
 	EndpointIndex *EndpointIndex
+
+	// Cache for XDS resources.
+	Cache XdsCache
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -120,6 +132,20 @@ func (e *Environment) MeshNetworks() *meshconfig.MeshNetworks {
 		return e.NetworksWatcher.Networks()
 	}
 	return nil
+}
+
+// SetPushContext sets the push context with lock protected
+func (e *Environment) SetPushContext(pc *PushContext) {
+	e.mutex.Lock()
+	defer e.mutex.Unlock()
+	e.pushContext = pc
+}
+
+// PushContext returns the push context with lock protected
+func (e *Environment) PushContext() *PushContext {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+	return e.pushContext
 }
 
 // GetDiscoveryAddress parses the DiscoveryAddress specified via MeshConfig.
@@ -151,8 +177,8 @@ func (e *Environment) AddNetworksHandler(h func()) {
 }
 
 func (e *Environment) AddMetric(metric monitoring.Metric, key string, proxyID, msg string) {
-	if e != nil && e.PushContext != nil {
-		e.PushContext.AddMetric(metric, key, proxyID, msg)
+	if e != nil {
+		e.PushContext().AddMetric(metric, key, proxyID, msg)
 	}
 }
 
@@ -189,6 +215,21 @@ func (e *Environment) GetLedger() ledger.Ledger {
 
 func (e *Environment) SetLedger(l ledger.Ledger) {
 	e.ledger = l
+}
+
+func (e *Environment) GetProxyConfigOrDefault(ns string, labels, annotations map[string]string, meshConfig *meshconfig.MeshConfig) *meshconfig.ProxyConfig {
+	push := e.PushContext()
+	if push != nil && push.ProxyConfigs != nil {
+		if generatedProxyConfig := push.ProxyConfigs.EffectiveProxyConfig(
+			&NodeMetadata{
+				Namespace:   ns,
+				Labels:      labels,
+				Annotations: annotations,
+			}, meshConfig); generatedProxyConfig != nil {
+			return generatedProxyConfig
+		}
+	}
+	return mesh.DefaultProxyConfig()
 }
 
 // Resources is an alias for array of marshaled resources.
@@ -327,7 +368,8 @@ type Proxy struct {
 	// XdsNode is the xDS node identifier
 	XdsNode *core.Node
 
-	AutoregisteredWorkloadEntryName string
+	WorkloadEntryName        string
+	WorkloadEntryAutoCreated bool
 
 	// LastPushContext stores the most recent push context for this proxy. This will be monotonically
 	// increasing in version. Requests should send config based on this context; not the global latest.
@@ -351,6 +393,10 @@ type WatchedResource struct {
 	// For endpoints the resource names will have list of clusters and for clusters it is empty.
 	// For Delta Xds, all resources of the TypeUrl that a client has subscribed to.
 	ResourceNames []string
+
+	// Wildcard indicates the subscription is a wildcard subscription. This only applies to types that
+	// allow both wildcard and non-wildcard subscriptions.
+	Wildcard bool
 
 	// NonceSent is the nonce sent in the last sent response. If it is equal with NonceAcked, the
 	// last message has been processed. If empty: we never sent a message of this type.
@@ -463,17 +509,13 @@ func (s *StringBool) UnmarshalJSON(data []byte) error {
 type NodeMetaProxyConfig meshconfig.ProxyConfig
 
 func (s *NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
 	pc := (*meshconfig.ProxyConfig)(s)
-	if err := (&jsonpb.Marshaler{}).Marshal(&buf, pc); err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
+	return protomarshal.Marshal(pc)
 }
 
 func (s *NodeMetaProxyConfig) UnmarshalJSON(data []byte) error {
 	pc := (*meshconfig.ProxyConfig)(s)
-	return jsonpb.Unmarshal(bytes.NewReader(data), pc)
+	return protomarshal.UnmarshalAllowUnknown(data, pc)
 }
 
 // Node is a typed version of Envoy node with metadata.
@@ -555,6 +597,9 @@ type NodeMetadata struct {
 	// Namespace is the namespace in which the workload instance is running.
 	Namespace string `json:"NAMESPACE,omitempty"`
 
+	// NodeName is the name of the kubernetes node on which the workload instance is running.
+	NodeName string `json:"NODE_NAME,omitempty"`
+
 	// WorkloadName specifies the name of the workload represented by this node.
 	WorkloadName string `json:"WORKLOAD_NAME,omitempty"`
 
@@ -622,10 +667,22 @@ type NodeMetadata struct {
 	DNSAutoAllocate StringBool `json:"DNS_AUTO_ALLOCATE,omitempty"`
 
 	// EnableHBONE, if set, will enable generation of HBONE config.
+	// Note: this only impacts sidecars; ztunnel and waypoint proxy unconditionally use HBONE.
 	EnableHBONE StringBool `json:"ENABLE_HBONE,omitempty"`
 
 	// AutoRegister will enable auto registration of the connected endpoint to the service registry using the given WorkloadGroup name
 	AutoRegisterGroup string `json:"AUTO_REGISTER_GROUP,omitempty"`
+
+	// WorkloadEntry specifies the name of the WorkloadEntry this proxy corresponds to.
+	//
+	// This field is intended for use in those scenarios where a user needs to
+	// onboard a workload from a VM without relying on auto-registration.
+	//
+	// At runtime, when a proxy establishes an ADS connection to the istiod,
+	// istiod will treat a non-empty value of this field as an indicator
+	// that proxy corresponds to a VM and must be represented by a WorkloadEntry
+	// with a given name.
+	WorkloadEntry string `json:"WORKLOAD_ENTRY,omitempty"`
 
 	// UnprivilegedPod is used to determine whether a Gateway Pod can open ports < 1024
 	UnprivilegedPod string `json:"UNPRIVILEGED_POD,omitempty"`
@@ -689,6 +746,21 @@ func (node *Proxy) InNetwork(network network.ID) bool {
 // the proxy's cluster id or the given cluster id is unspecified ("").
 func (node *Proxy) InCluster(cluster cluster.ID) bool {
 	return node == nil || identifier.IsSameOrEmpty(cluster.String(), node.Metadata.ClusterID.String())
+}
+
+// IsWaypointProxy returns true if the proxy is acting as a waypoint proxy in an ambient mesh.
+func (node *Proxy) IsWaypointProxy() bool {
+	return node.Type == Waypoint
+}
+
+// IsZTunnel returns true if the proxy is acting as a ztunnel in an ambient mesh.
+func (node *Proxy) IsZTunnel() bool {
+	return node.Type == Ztunnel
+}
+
+// IsAmbient returns true if the proxy is acting as either a ztunnel or a waypoint proxy in an ambient mesh.
+func (node *Proxy) IsAmbient() bool {
+	return node.IsWaypointProxy() || node.IsZTunnel()
 }
 
 func (m *BootstrapNodeMetadata) UnmarshalJSON(data []byte) error {
@@ -778,9 +850,15 @@ const (
 
 	// Router type is used for standalone proxies acting as L7/L4 routers
 	Router NodeType = "router"
+
+	// Waypoint type is used for waypoint proxies
+	Waypoint NodeType = "waypoint"
+
+	// Ztunnel type is used for node proxies (ztunnel)
+	Ztunnel NodeType = "ztunnel"
 )
 
-var NodeTypes = [...]NodeType{SidecarProxy, Router}
+var NodeTypes = [...]NodeType{SidecarProxy, Router, Waypoint, Ztunnel}
 
 // IPMode represents the IP mode of proxy.
 type IPMode int
@@ -795,7 +873,7 @@ const (
 // IsApplicationNodeType verifies that the NodeType is one of the declared constants in the model
 func IsApplicationNodeType(nType NodeType) bool {
 	switch nType {
-	case SidecarProxy, Router:
+	case SidecarProxy, Router, Waypoint, Ztunnel:
 		return true
 	default:
 		return false
@@ -826,9 +904,10 @@ func (node *Proxy) ServiceNode() string {
 func (node *Proxy) SetSidecarScope(ps *PushContext) {
 	sidecarScope := node.SidecarScope
 
-	if node.Type == SidecarProxy {
+	switch node.Type {
+	case SidecarProxy:
 		node.SidecarScope = ps.getSidecarScope(node, node.Labels)
-	} else {
+	case Router, Waypoint:
 		// Gateways should just have a default scope with egress: */*
 		node.SidecarScope = ps.getSidecarScope(node, nil)
 	}
@@ -1004,7 +1083,7 @@ func ParseIstioVersion(ver string) *IstioVersion {
 	}
 
 	parts := strings.Split(ver, ".")
-	// we are guaranteed to have atleast major and minor based on the regex
+	// we are guaranteed to have at least major and minor based on the regex
 	major, _ := strconv.Atoi(parts[0])
 	minor, _ := strconv.Atoi(parts[1])
 	// Assume very large patch release if not set
@@ -1130,8 +1209,15 @@ func (node *Proxy) IsUnprivileged() bool {
 
 // CanBindToPort returns true if the proxy can bind to a given port.
 func (node *Proxy) CanBindToPort(bindTo bool, port uint32) bool {
-	if bindTo && IsPrivilegedPort(port) && node.IsUnprivileged() {
-		return false
+	if bindTo {
+		if IsPrivilegedPort(port) && node.IsUnprivileged() {
+			return false
+		}
+		if node.Metadata != nil &&
+			(node.Metadata.EnvoyPrometheusPort == int(port) || node.Metadata.EnvoyStatusPort == int(port)) {
+			// can not bind to port that already bound by proxy static listener
+			return false
+		}
 	}
 	return true
 }
@@ -1145,12 +1231,50 @@ func IsPrivilegedPort(port uint32) bool {
 }
 
 func (node *Proxy) IsVM() bool {
-	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
+	// TODO use node metadata to indicate that this is a VM instead of the TestVMLabel
 	return node.Metadata.Labels[constants.TestVMLabel] != ""
 }
 
 func (node *Proxy) IsProxylessGrpc() bool {
 	return node.Metadata != nil && node.Metadata.Generator == "grpc"
+}
+
+func (node *Proxy) GetNodeName() string {
+	if node.Metadata != nil && len(node.Metadata.NodeName) > 0 {
+		return node.Metadata.NodeName
+	}
+	// fall back to get the node name from labels
+	// this can happen for an "old" proxy with no `Metadata.NodeName` set
+	// TODO: remove this when 1.16 is EOL?
+	return node.Labels[label.LabelHostname]
+}
+
+func (node *Proxy) GetClusterID() cluster.ID {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.ClusterID
+}
+
+func (node *Proxy) GetNamespace() string {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.Namespace
+}
+
+func (node *Proxy) GetIstioVersion() string {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.IstioVersion
+}
+
+func (node *Proxy) GetID() string {
+	if node == nil {
+		return ""
+	}
+	return node.ID
 }
 
 func (node *Proxy) FuzzValidate() bool {
@@ -1171,7 +1295,23 @@ func (node *Proxy) FuzzValidate() bool {
 }
 
 func (node *Proxy) EnableHBONE() bool {
-	return features.EnableHBONE && bool(node.Metadata.EnableHBONE)
+	return node.IsAmbient() || (features.EnableHBONE && bool(node.Metadata.EnableHBONE))
+}
+
+// WaypointScope is either an entire namespace or an individual service account
+// in the namespace. This setting dictates the upstream TLS verification
+// strategy, depending on the binding of the waypoints to its backend
+// workloads.
+type WaypointScope struct {
+	Namespace      string
+	ServiceAccount string // optional
+}
+
+func (node *Proxy) WaypointScope() WaypointScope {
+	return WaypointScope{
+		Namespace:      node.ConfigNamespace,
+		ServiceAccount: node.Metadata.Annotations[constants.WaypointServiceAccount],
+	}
 }
 
 type GatewayController interface {

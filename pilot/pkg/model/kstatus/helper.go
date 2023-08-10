@@ -20,6 +20,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -83,26 +84,25 @@ func GetCondition(conditions []metav1.Condition, condition string) metav1.Condit
 
 // UpdateConditionIfChanged updates a condition if it has been changed.
 func UpdateConditionIfChanged(conditions []metav1.Condition, condition metav1.Condition) []metav1.Condition {
-	ret := append([]metav1.Condition(nil), conditions...)
-	idx := -1
-	for i, cond := range ret {
-		if cond.Type == condition.Type {
-			idx = i
-			break
-		}
-	}
-
-	if idx == -1 {
+	ret := slices.Clone(conditions)
+	existing := slices.FindFunc(ret, func(cond metav1.Condition) bool {
+		return cond.Type == condition.Type
+	})
+	if existing == nil {
 		ret = append(ret, condition)
 		return ret
 	}
-	if ret[idx].Message == condition.Message &&
-		ret[idx].ObservedGeneration == condition.ObservedGeneration &&
-		ret[idx].Status == condition.Status {
-		// Skip update, no changes
-		return conditions
+
+	if existing.Status == condition.Status {
+		if existing.Message == condition.Message &&
+			existing.ObservedGeneration == condition.ObservedGeneration {
+			// Skip update, no changes
+			return conditions
+		}
+		// retain LastTransitionTime if status is not changed
+		condition.LastTransitionTime = existing.LastTransitionTime
 	}
-	ret[idx] = condition
+	*existing = condition
 
 	return ret
 }

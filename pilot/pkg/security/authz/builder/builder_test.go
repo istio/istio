@@ -422,12 +422,9 @@ func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.Authorizat
 		}
 	}
 
-	authzPolicies, err := model.GetAuthorizationPolicies(&model.Environment{
+	authzPolicies := model.GetAuthorizationPolicies(&model.Environment{
 		ConfigStore: store,
 	})
-	if err != nil {
-		t.Fatalf("newAuthzPolicies: %v", err)
-	}
 	return authzPolicies
 }
 

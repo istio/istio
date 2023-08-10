@@ -19,12 +19,12 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // SelectorAnalyzer validates, per namespace, that:
@@ -40,9 +40,9 @@ func (a *SelectorAnalyzer) Metadata() analysis.Metadata {
 		Name: "sidecar.SelectorAnalyzer",
 		Description: "Validates that sidecars that define a workload selector " +
 			"match at least one pod, and that there aren't multiple sidecar resources that select overlapping pods",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Sidecars.Name(),
-			collections.K8SCoreV1Pods.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.Sidecar,
+			gvk.Pod,
 		},
 	}
 }
@@ -54,7 +54,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 	// This is using an unindexed approach for matching selectors.
 	// Using an index for selectoes is problematic because selector != label
 	// We can match a label to a selector, but we can't generate a selector from a label.
-	c.ForEach(collections.IstioNetworkingV1Alpha3Sidecars.Name(), func(rs *resource.Instance) bool {
+	c.ForEach(gvk.Sidecar, func(rs *resource.Instance) bool {
 		s := rs.Message.(*v1alpha3.Sidecar)
 
 		// For this analysis, ignore Sidecars with no workload selectors specified at all.
@@ -66,7 +66,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		sel := labels.SelectorFromSet(s.WorkloadSelector.Labels)
 
 		foundPod := false
-		c.ForEach(collections.K8SCoreV1Pods.Name(), func(rp *resource.Instance) bool {
+		c.ForEach(gvk.Pod, func(rp *resource.Instance) bool {
 			pNs := rp.Metadata.FullName.Namespace
 			podLabels := labels.Set(rp.Metadata.Labels)
 
@@ -91,7 +91,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 				m.Line = line
 			}
 
-			c.Report(collections.IstioNetworkingV1Alpha3Sidecars.Name(), m)
+			c.Report(gvk.Sidecar, m)
 		}
 
 		return true
@@ -113,7 +113,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 				m.Line = line
 			}
 
-			c.Report(collections.IstioNetworkingV1Alpha3Sidecars.Name(), m)
+			c.Report(gvk.Sidecar, m)
 		}
 	}
 }

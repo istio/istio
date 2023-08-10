@@ -19,7 +19,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -37,13 +36,13 @@ import (
 	"istio.io/istio/pilot/pkg/server"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/pki/util"
-	"istio.io/pkg/filewatcher"
 )
 
 func loadCertFilesAtPaths(t TLSFSLoadPaths) error {
@@ -249,7 +248,7 @@ func TestNewServerCertInit(t *testing.T) {
 			} else {
 				if len(c.expCert) != 0 {
 					if !checkCert(t, s, c.expCert, c.expKey) {
-						t.Errorf("Istiod certifiate does not match the expectation")
+						t.Errorf("Istiod certificate does not match the expectation")
 					}
 				} else {
 					if _, err := s.getIstiodCertificate(nil); err == nil {
@@ -318,7 +317,7 @@ func TestReloadIstiodCert(t *testing.T) {
 
 	// Validate that the certs are loaded.
 	if !checkCert(t, s, testcerts.ServerCert, testcerts.ServerKey) {
-		t.Errorf("Istiod certifiate does not match the expectation")
+		t.Errorf("Istiod certificate does not match the expectation")
 	}
 
 	// Update cert/key files.
@@ -565,41 +564,6 @@ func TestIstiodCipherSuites(t *testing.T) {
 				close(stop)
 				s.WaitUntilCompletion()
 			}()
-
-			// nolint: gosec // test only code
-			httpsReadyClient := &http.Client{
-				Timeout: time.Second,
-				Transport: &http.Transport{
-					TLSClientConfig: &tls.Config{
-						InsecureSkipVerify: true,
-						CipherSuites:       c.clientCipherSuites,
-						MinVersion:         tls.VersionTLS12,
-						MaxVersion:         tls.VersionTLS12,
-					},
-				},
-			}
-
-			retry.UntilSuccessOrFail(t, func() error {
-				req := &http.Request{
-					Method: http.MethodGet,
-					URL: &url.URL{
-						Scheme: "https",
-						Host:   s.httpsServer.Addr,
-						Path:   HTTPSHandlerReadyPath,
-					},
-				}
-				response, err := httpsReadyClient.Do(req)
-				if c.expectSuccess && err != nil {
-					return fmt.Errorf("expect success but got err %v", err)
-				}
-				if !c.expectSuccess && err == nil {
-					return fmt.Errorf("expect failure but succeeded")
-				}
-				if response != nil {
-					response.Body.Close()
-				}
-				return nil
-			})
 		})
 	}
 }
@@ -632,7 +596,7 @@ func TestInitOIDC(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			args := &PilotArgs{JwtRule: tt.jwtRule}
 
-			_, err := initOIDC(args, "domain-foo")
+			_, err := initOIDC(args)
 			gotErr := err != nil
 			if gotErr != tt.expectErr {
 				t.Errorf("expect error is %v while actual error is %v", tt.expectErr, gotErr)
@@ -684,7 +648,6 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 			var certRotated bool
 			var rotatedCertBytes []byte
 			err := retry.Until(func() bool {
-				time.Sleep(time.Second)
 				rotatedCertBytes = s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem
 				st := string(rotatedCertBytes)
 				certRotated = st != string(tt.certToWatch)

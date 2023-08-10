@@ -18,7 +18,7 @@ import (
 	"strconv"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 const (
@@ -31,48 +31,40 @@ const (
 
 var (
 	// GroupTag holds the resource group for the context.
-	GroupTag = monitoring.MustCreateLabel(group)
+	GroupTag = monitoring.CreateLabel(group)
 
 	// VersionTag holds the resource version for the context.
-	VersionTag = monitoring.MustCreateLabel(version)
+	VersionTag = monitoring.CreateLabel(version)
 
 	// ResourceTag holds the resource name for the context.
-	ResourceTag = monitoring.MustCreateLabel(resourceTag)
+	ResourceTag = monitoring.CreateLabel(resourceTag)
 
 	// ReasonTag holds the error reason for the context.
-	ReasonTag = monitoring.MustCreateLabel(reason)
+	ReasonTag = monitoring.CreateLabel(reason)
 
 	// StatusTag holds the error code for the context.
-	StatusTag = monitoring.MustCreateLabel(status)
+	StatusTag = monitoring.CreateLabel(status)
 )
 
 var (
 	metricValidationPassed = monitoring.NewSum(
 		"galley/validation/passed",
 		"Resource is valid",
-		monitoring.WithLabels(GroupTag, VersionTag, ResourceTag),
 	)
 	metricValidationFailed = monitoring.NewSum(
 		"galley/validation/failed",
 		"Resource validation failed",
-		monitoring.WithLabels(GroupTag, VersionTag, ResourceTag, ReasonTag),
 	)
 	metricValidationHTTPError = monitoring.NewSum(
 		"galley/validation/http_error",
 		"Resource validation http serve errors",
-		monitoring.WithLabels(StatusTag),
 	)
 )
 
-func init() {
-	monitoring.MustRegister(
-		metricValidationPassed,
-		metricValidationFailed,
-		metricValidationHTTPError,
-	)
-}
-
-func reportValidationFailed(request *kube.AdmissionRequest, reason string) {
+func reportValidationFailed(request *kube.AdmissionRequest, reason string, dryRun bool) {
+	if dryRun {
+		return
+	}
 	metricValidationFailed.
 		With(GroupTag.Value(request.Resource.Group)).
 		With(VersionTag.Value(request.Resource.Version)).

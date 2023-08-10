@@ -20,10 +20,10 @@ import (
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/wasm"
-	"istio.io/pkg/env"
 )
 
 var (
@@ -81,6 +81,7 @@ var (
 	pkcs8KeysEnv = env.Register("PKCS8_KEY", false,
 		"Whether to generate PKCS#8 private keys").Get()
 	eccSigAlgEnv        = env.Register("ECC_SIGNATURE_ALGORITHM", "", "The type of ECC signature algorithm to use when generating private keys").Get()
+	eccCurvEnv          = env.Register("ECC_CURVE", "P256", "The elliptic curve to use when ECC_SIGNATURE_ALGORITHM is set to ECDSA").Get()
 	fileMountedCertsEnv = env.Register("FILE_MOUNTED_CERTS", false, "").Get()
 	credFetcherTypeEnv  = env.Register("CREDENTIAL_FETCHER_TYPE", security.JWT,
 		"The type of the credential fetcher. Currently supported types include GoogleComputeEngine").Get()
@@ -152,4 +153,7 @@ var (
 	exitOnZeroActiveConnectionsEnv = env.Register("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",
 		false,
 		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
+
+	useExternalWorkloadSDSEnv = env.Register("USE_EXTERNAL_WORKLOAD_SDS", false,
+		"When set to true, the istio-agent will require an external SDS and will throw an error if the workload SDS socket is not found").Get()
 )

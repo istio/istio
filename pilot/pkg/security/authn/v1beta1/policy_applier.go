@@ -16,8 +16,6 @@ package v1beta1
 
 import (
 	"fmt"
-	"sort"
-	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -30,7 +28,6 @@ import (
 	authn_filter "istio.io/api/envoy/config/filter/http/authn/v2alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/extensionproviders"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -38,28 +35,55 @@ import (
 	authn_utils "istio.io/istio/pilot/pkg/security/authn/utils"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/security"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/jwt"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
-var authnLog = log.RegisterScope("authn", "authn debugging", 0)
+var authnLog = log.RegisterScope("authn", "authn debugging")
 
 // Implementation of authn.PolicyApplier with v1beta1 API.
 type v1beta1PolicyApplier struct {
-	jwtPolicies []*config.Config
-
-	peerPolices []*config.Config
-
 	// processedJwtRules is the consolidate JWT rules from all jwtPolicies.
 	processedJwtRules []*v1beta1.JWTRule
 
-	consolidatedPeerPolicy *v1beta1.PeerAuthentication
+	consolidatedPeerPolicy MergedPeerAuthentication
 
 	push *model.PushContext
 }
 
-func (a *v1beta1PolicyApplier) JwtFilter() *hcm.HttpFilter {
+// NewPolicyApplier returns new applier for v1beta1 authentication policies.
+func NewPolicyApplier(rootNamespace string,
+	jwtPolicies []*config.Config,
+	peerPolicies []*config.Config,
+	push *model.PushContext,
+) authn.PolicyApplier {
+	processedJwtRules := []*v1beta1.JWTRule{}
+
+	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
+	// https://github.com/istio/istio/issues/19245
+	for idx := range jwtPolicies {
+		spec := jwtPolicies[idx].Spec.(*v1beta1.RequestAuthentication)
+		processedJwtRules = append(processedJwtRules, spec.JwtRules...)
+	}
+
+	// Sort the jwt rules by the issuer alphabetically to make the later-on generated filter
+	// config deterministic.
+	slices.SortFunc(processedJwtRules, func(a, b *v1beta1.JWTRule) bool {
+		return a.GetIssuer() < b.GetIssuer()
+	})
+
+	return v1beta1PolicyApplier{
+		processedJwtRules:      processedJwtRules,
+		consolidatedPeerPolicy: ComposePeerAuthentication(rootNamespace, peerPolicies),
+		push:                   push,
+	}
+}
+
+func (a v1beta1PolicyApplier) JwtFilter() *hcm.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
 		return nil
 	}
@@ -83,7 +107,7 @@ func defaultAuthnFilter() *authn_filter.FilterConfig {
 	}
 }
 
-func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
+func (a v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filter.FilterConfig) *authn_filter.FilterConfig {
 	if len(a.processedJwtRules) == 0 {
 		// (beta) RequestAuthentication is not set for workload, do nothing.
 		authnLog.Debug("AuthnFilter: RequestAuthentication (beta policy) not found, keep settings with alpha API")
@@ -124,7 +148,7 @@ func (a *v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filte
 // AuthNFilter returns the Istio authn filter config:
 // - If RequestAuthentication is used, it overwrite the settings for request principal validation and extraction based on the new API.
 // - If RequestAuthentication is used, principal binding is always set to ORIGIN.
-func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *hcm.HttpFilter {
+func (a v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *hcm.HttpFilter {
 	var filterConfigProto *authn_filter.FilterConfig
 
 	// Override the config with request authentication, if applicable.
@@ -140,12 +164,12 @@ func (a *v1beta1PolicyApplier) AuthNFilter(forSidecar bool) *hcm.HttpFilter {
 	// This has been modified to rely on the TCP filter
 
 	return &hcm.HttpFilter{
-		Name:       authn_model.AuthnFilterName,
+		Name:       filters.AuthnFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(filterConfigProto)},
 	}
 }
 
-func (a *v1beta1PolicyApplier) InboundMTLSSettings(
+func (a v1beta1PolicyApplier) InboundMTLSSettings(
 	endpointPort uint32,
 	node *model.Proxy,
 	trustDomainAliases []string,
@@ -161,45 +185,17 @@ func (a *v1beta1PolicyApplier) InboundMTLSSettings(
 		mc = a.push.Mesh
 	}
 	// Configure TLS version based on meshconfig TLS API.
+	// This is used to configure TLS version for inbound filter chain of ISTIO MUTUAL cases.
+	// For MUTUAL and SIMPLE TLS modes specified via ServerTLSSettings in Sidecar or Gateway,
+	// TLS version is configured in the BuildListenerContext.
 	minTLSVersion := authn_utils.GetMinTLSVersion(mc.GetMeshMTLS().GetMinProtocolVersion())
 	return authn.MTLSSettings{
 		Port: endpointPort,
 		Mode: effectiveMTLSMode,
 		TCP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolTCP,
-			trustDomainAliases, minTLSVersion),
+			trustDomainAliases, minTLSVersion, mc),
 		HTTP: authn_utils.BuildInboundTLS(effectiveMTLSMode, node, networking.ListenerProtocolHTTP,
-			trustDomainAliases, minTLSVersion),
-	}
-}
-
-// NewPolicyApplier returns new applier for v1beta1 authentication policies.
-func NewPolicyApplier(rootNamespace string,
-	jwtPolicies []*config.Config,
-	peerPolicies []*config.Config,
-	push *model.PushContext,
-) authn.PolicyApplier {
-	processedJwtRules := []*v1beta1.JWTRule{}
-
-	// TODO(diemtvu) should we need to deduplicate JWT with the same issuer.
-	// https://github.com/istio/istio/issues/19245
-	for idx := range jwtPolicies {
-		spec := jwtPolicies[idx].Spec.(*v1beta1.RequestAuthentication)
-		processedJwtRules = append(processedJwtRules, spec.JwtRules...)
-	}
-
-	// Sort the jwt rules by the issuer alphabetically to make the later-on generated filter
-	// config deterministic.
-	sort.Slice(processedJwtRules, func(i, j int) bool {
-		return strings.Compare(
-			processedJwtRules[i].GetIssuer(), processedJwtRules[j].GetIssuer()) < 0
-	})
-
-	return &v1beta1PolicyApplier{
-		jwtPolicies:            jwtPolicies,
-		peerPolices:            peerPolicies,
-		processedJwtRules:      processedJwtRules,
-		consolidatedPeerPolicy: ComposePeerAuthentication(rootNamespace, peerPolicies),
-		push:                   push,
+			trustDomainAliases, minTLSVersion, mc),
 	}
 }
 
@@ -246,17 +242,19 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 		}
 		provider.FromParams = jwtRule.FromParams
 
-		if features.EnableRemoteJwks && jwtRule.JwksUri != "" {
-			// Use remote jwks if jwksUri is non empty. Parse the jwksUri to get the cluster name,
-			// generate the jwt filter config using remoteJwks.
-			// If failed to parse the cluster name, fallback to let istiod to fetch the jwksUri.
-			// TODO: Implement the logic to auto-generate the cluster so that when the flag is enabled,
-			// it will always let envoy to fetch the jwks for consistent behavior.
+		authnLog.Debugf("JwksFetchMode is set to: %v", features.JwksFetchMode)
+
+		// Use Envoy remote jwks if jwksUri is not empty and JwksFetchMode not Istiod. Parse the jwksUri to get the
+		// cluster name, generate the jwt filter config using remote Jwks.
+		// If failed to parse the cluster name, only fallback to let istiod to fetch the jwksUri when
+		// remoteJwksMode is Hybrid.
+		if features.JwksFetchMode != jwt.Istiod && jwtRule.JwksUri != "" {
 			jwksInfo, err := security.ParseJwksURI(jwtRule.JwksUri)
 			if err != nil {
 				authnLog.Errorf("Failed to parse jwt rule jwks uri %v", err)
 			}
-			_, cluster, err := extensionproviders.LookupCluster(push, jwksInfo.Hostname.String(), jwksInfo.Port)
+			_, cluster, err := model.LookupCluster(push, jwksInfo.Hostname.String(), jwksInfo.Port)
+			authnLog.Debugf("Look up cluster result: %v", cluster)
 
 			if err == nil && len(cluster) > 0 {
 				// This is a case of URI pointing to mesh cluster. Setup Remote Jwks and let Envoy fetch the key.
@@ -272,11 +270,29 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
 					},
 				}
-			} else {
+			} else if features.JwksFetchMode == jwt.Hybrid {
 				provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, "")
+			} else {
+				model.IncLookupClusterFailures("jwks")
+				// Log error and create remote JWKs with fake cluster
+				authnLog.Errorf("Failed to look up Envoy cluster %v. "+
+					"Please create ServiceEntry to register external JWKs server or "+
+					"set PILOT_JWT_ENABLE_REMOTE_JWKS to hybrid/istiod mode.", err)
+				provider.JwksSourceSpecifier = &envoy_jwt.JwtProvider_RemoteJwks{
+					RemoteJwks: &envoy_jwt.RemoteJwks{
+						HttpUri: &core.HttpUri{
+							Uri: jwtRule.JwksUri,
+							HttpUpstreamType: &core.HttpUri_Cluster{
+								Cluster: model.BuildSubsetKey(model.TrafficDirectionOutbound, "", jwksInfo.Hostname, jwksInfo.Port),
+							},
+							Timeout: &durationpb.Duration{Seconds: 5},
+						},
+						CacheDuration: &durationpb.Duration{Seconds: 5 * 60},
+					},
+				}
 			}
 		} else {
-			// Use inline jwks as existing flow, either jwtRule.jwks is non empty or let istiod to fetch the jwtRule.jwksUri
+			// Use inline jwks as existing flow, either jwtRule.jwks is empty or let istiod to fetch the jwtRule.jwksUri
 			provider.JwksSourceSpecifier = push.JwtKeyResolver.BuildLocalJwks(jwtRule.JwksUri, jwtRule.Issuer, jwtRule.Jwks)
 		}
 
@@ -364,24 +380,23 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 	}
 }
 
-func (a *v1beta1PolicyApplier) PortLevelSetting() map[uint32]*v1beta1.PeerAuthentication_MutualTLS {
-	return a.consolidatedPeerPolicy.PortLevelMtls
+func (a v1beta1PolicyApplier) PortLevelSetting() map[uint32]model.MutualTLSMode {
+	return a.consolidatedPeerPolicy.PerPort
 }
 
-func (a *v1beta1PolicyApplier) GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
-	if a.consolidatedPeerPolicy.PortLevelMtls != nil {
-		if portMtls, ok := a.consolidatedPeerPolicy.PortLevelMtls[endpointPort]; ok {
-			return getMutualTLSMode(portMtls)
-		}
+func (a v1beta1PolicyApplier) GetMutualTLSModeForPort(endpointPort uint32) model.MutualTLSMode {
+	if portMtls, ok := a.consolidatedPeerPolicy.PerPort[endpointPort]; ok {
+		return portMtls
 	}
 
-	return getMutualTLSMode(a.consolidatedPeerPolicy.Mtls)
+	return a.consolidatedPeerPolicy.Mode
 }
 
-// getMutualTLSMode returns the MutualTLSMode enum corresponding peer MutualTLS settings.
-// Input cannot be nil.
-func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTLSMode {
-	return model.ConvertToMutualTLSMode(mtls.Mode)
+type MergedPeerAuthentication struct {
+	// Mode is the overall mode of policy. May be overridden by PerPort
+	Mode model.MutualTLSMode
+	// PerPort is the per-port policy
+	PerPort map[uint32]model.MutualTLSMode
 }
 
 // ComposePeerAuthentication returns the effective PeerAuthentication given the list of applicable
@@ -397,14 +412,12 @@ func getMutualTLSMode(mtls *v1beta1.PeerAuthentication_MutualTLS) model.MutualTL
 // - UNSET will be replaced with the setting from the parent. I.e UNSET port-level config will be
 // replaced with config from workload-level, UNSET in workload-level config will be replaced with
 // one in namespace-level and so on.
-func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) *v1beta1.PeerAuthentication {
+func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) MergedPeerAuthentication {
 	var meshCfg, namespaceCfg, workloadCfg *config.Config
 
 	// Initial outputPolicy is set to a PERMISSIVE.
-	outputPolicy := v1beta1.PeerAuthentication{
-		Mtls: &v1beta1.PeerAuthentication_MutualTLS{
-			Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
-		},
+	outputPolicy := MergedPeerAuthentication{
+		Mode: model.MTLSPermissive,
 	}
 
 	for _, cfg := range configs {
@@ -435,13 +448,13 @@ func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) *
 
 	if meshCfg != nil && !isMtlsModeUnset(meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls) {
 		// If mesh policy is defined, update parent policy to mesh policy.
-		outputPolicy.Mtls = meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls
+		outputPolicy.Mode = model.ConvertToMutualTLSMode(meshCfg.Spec.(*v1beta1.PeerAuthentication).Mtls.Mode)
 	}
 
 	if namespaceCfg != nil && !isMtlsModeUnset(namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls) {
 		// If namespace policy is defined, update output policy to namespace policy. This means namespace
 		// policy overwrite mesh policy.
-		outputPolicy.Mtls = namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls
+		outputPolicy.Mode = model.ConvertToMutualTLSMode(namespaceCfg.Spec.(*v1beta1.PeerAuthentication).Mtls.Mode)
 	}
 
 	var workloadPolicy *v1beta1.PeerAuthentication
@@ -451,22 +464,22 @@ func ComposePeerAuthentication(rootNamespace string, configs []*config.Config) *
 
 	if workloadPolicy != nil && !isMtlsModeUnset(workloadPolicy.Mtls) {
 		// If workload policy is defined, update parent policy to workload policy.
-		outputPolicy.Mtls = workloadPolicy.Mtls
+		outputPolicy.Mode = model.ConvertToMutualTLSMode(workloadPolicy.Mtls.Mode)
 	}
 
 	if workloadPolicy != nil && workloadPolicy.PortLevelMtls != nil {
-		outputPolicy.PortLevelMtls = make(map[uint32]*v1beta1.PeerAuthentication_MutualTLS, len(workloadPolicy.PortLevelMtls))
+		outputPolicy.PerPort = make(map[uint32]model.MutualTLSMode, len(workloadPolicy.PortLevelMtls))
 		for port, mtls := range workloadPolicy.PortLevelMtls {
 			if isMtlsModeUnset(mtls) {
 				// Inherit from workload level.
-				outputPolicy.PortLevelMtls[port] = outputPolicy.Mtls
+				outputPolicy.PerPort[port] = outputPolicy.Mode
 			} else {
-				outputPolicy.PortLevelMtls[port] = mtls
+				outputPolicy.PerPort[port] = model.ConvertToMutualTLSMode(mtls.Mode)
 			}
 		}
 	}
 
-	return &outputPolicy
+	return outputPolicy
 }
 
 func isMtlsModeUnset(mtls *v1beta1.PeerAuthentication_MutualTLS) bool {

@@ -34,7 +34,6 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/istio/operator/pkg/compare"
-	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -44,13 +43,12 @@ import (
 	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/version"
+	"istio.io/istio/pkg/version"
 )
 
 const (
-	istioTestVersion            = "istio-1.7.0"
-	testTGZFilename             = istioTestVersion + "-linux.tar.gz"
 	testIstioDiscoveryChartPath = "charts/istio-control/istio-discovery/templates"
+	operatorSubdirFilePath      = "manifests"
 )
 
 // chartSourceType defines where charts used in the test come from.
@@ -81,7 +79,7 @@ var (
 	compiledInCharts chartSourceType = "COMPILED"
 	_                                = compiledInCharts
 	// Live charts come from manifests/
-	liveCharts = chartSourceType(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath))
+	liveCharts = chartSourceType(filepath.Join(env.IstioSrc, operatorSubdirFilePath))
 )
 
 type testGroup []struct {
@@ -282,13 +280,13 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	err = writeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
+	err = writeFile(filepath.Join(env.IstioSrc, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	t.Cleanup(func() {
-		removeFile(filepath.Join(env.IstioSrc, helm.OperatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"))
+		removeFile(filepath.Join(env.IstioSrc, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"))
 	})
 
 	for _, tc := range testCases {
@@ -317,14 +315,9 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 		g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(BeNil())
 		g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
 
-		g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istiod-istio-system")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.ClusterRoleStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istiod-istio-system")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.ClusterRoleBindingStr).nameEquals("istio-reader-istio-system")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
 		g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.SAStr).nameEquals("istiod-service-account")).Should(Not(BeNil()))
 
 		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
 		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
@@ -508,6 +501,15 @@ func TestManifestGenerateGateway(t *testing.T) {
 		{
 			desc:       "ingressgateway_k8s_settings",
 			diffSelect: "Deployment:*:istio-ingressgateway, Service:*:istio-ingressgateway",
+		},
+	})
+}
+
+func TestManifestGenerateZtunnel(t *testing.T) {
+	runTestGroup(t, testGroup{
+		{
+			desc:       "ztunnel",
+			diffSelect: "DaemonSet:*:ztunnel",
 		},
 	})
 }
@@ -764,7 +766,7 @@ func TestConfigSelectors(t *testing.T) {
 }
 
 // TestLDFlags checks whether building mesh command with
-// -ldflags "-X istio.io/pkg/version.buildHub=myhub -X istio.io/pkg/version.buildVersion=mytag"
+// -ldflags "-X istio.io/istio/pkg/version.buildHub=myhub -X istio.io/istio/pkg/version.buildVersion=mytag"
 // results in these values showing up in a generated manifest.
 func TestLDFlags(t *testing.T) {
 	tmpHub, tmpTag := version.DockerInfo.Hub, version.DockerInfo.Tag

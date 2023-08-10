@@ -36,11 +36,11 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/status"
 	"istio.io/istio/pkg/config"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var scope = log.RegisterScope("status",
-	"CRD distribution status debugging", 0)
+	"CRD distribution status debugging")
 
 type Progress struct {
 	AckedInstances int
@@ -232,7 +232,7 @@ type DistroReportHandler struct {
 	dc *Controller
 }
 
-func (drh *DistroReportHandler) OnAdd(obj any) {
+func (drh *DistroReportHandler) OnAdd(obj any, _ bool) {
 	drh.HandleNew(obj)
 }
 

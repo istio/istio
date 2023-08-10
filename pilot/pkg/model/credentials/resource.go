@@ -39,8 +39,8 @@ const (
 
 // SecretResource defines a reference to a secret
 type SecretResource struct {
-	// Type is the type of secret. One of KubernetesSecretType or KubernetesGatewaySecretType
-	Type string
+	// ResourceType is the type of secret. One of KubernetesSecretType or KubernetesGatewaySecretType
+	ResourceType string
 	// Name is the name of the secret
 	Name string
 	// Namespace is the namespace the secret resides in. For implicit namespace references (such as in KubernetesSecretType),
@@ -53,11 +53,11 @@ type SecretResource struct {
 }
 
 func (sr SecretResource) Key() string {
-	return "sds://" + sr.Type + "/" + sr.Name + "/" + sr.Namespace + "/" + string(sr.Cluster)
+	return sr.ResourceType + "/" + sr.Name + "/" + sr.Namespace + "/" + string(sr.Cluster)
 }
 
 func (sr SecretResource) KubernetesResourceName() string {
-	return fmt.Sprintf("%s://%s/%s", sr.Type, sr.Namespace, sr.Name)
+	return fmt.Sprintf("%s://%s/%s", sr.ResourceType, sr.Namespace, sr.Name)
 }
 
 func ToKubernetesGatewayResource(namespace, name string) string {
@@ -97,7 +97,7 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 			namespace = split[0]
 			name = split[1]
 		}
-		return SecretResource{Type: KubernetesSecretType, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: proxyCluster}, nil
+		return SecretResource{ResourceType: KubernetesSecretType, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: proxyCluster}, nil
 	} else if strings.HasPrefix(resourceName, kubernetesGatewaySecretTypeURI) {
 		// Valid formats:
 		// * kubernetes-gateway://secret-namespace/secret-name
@@ -115,7 +115,7 @@ func ParseResourceName(resourceName string, proxyNamespace string, proxyCluster 
 		if len(name) == 0 {
 			return SecretResource{}, fmt.Errorf("invalid resource name %q. Expected name", resourceName)
 		}
-		return SecretResource{Type: KubernetesGatewaySecretType, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: configCluster}, nil
+		return SecretResource{ResourceType: KubernetesGatewaySecretType, Name: name, Namespace: namespace, ResourceName: resourceName, Cluster: configCluster}, nil
 	}
 	return SecretResource{}, fmt.Errorf("unknown resource type: %v", resourceName)
 }

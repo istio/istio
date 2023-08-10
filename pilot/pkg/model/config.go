@@ -18,14 +18,14 @@ import (
 	"sort"
 	"strings"
 
-	xxhashv2 "github.com/cespare/xxhash/v2"
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
-	"k8s.io/client-go/tools/cache"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/hash"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -34,19 +34,6 @@ import (
 var _ = udpa.TypedStruct{}
 
 type ConfigHash uint64
-
-// NamespacedName defines a name and namespace of a resource, with the type elided. This can be used in
-// places where the type is implied.
-// This is preferred to a ConfigKey with empty Kind, especially in performance sensitive code - hashing this struct
-// is 2x faster than ConfigKey.
-type NamespacedName struct {
-	Name      string
-	Namespace string
-}
-
-func (key NamespacedName) String() string {
-	return key.Namespace + "/" + key.Name
-}
 
 // ConfigKey describe a specific config item.
 // In most cases, the name is the config's name. However, for ServiceEntry it is service's FQDN.
@@ -57,15 +44,14 @@ type ConfigKey struct {
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
-	hash := xxhashv2.New()
-	// the error will always return nil
-	_, _ = hash.Write([]byte{byte(key.Kind)})
+	h := hash.New()
+	h.Write([]byte{byte(key.Kind)})
 	// Add separator / to avoid collision.
-	_, _ = hash.Write([]byte("/"))
-	_, _ = hash.Write([]byte(key.Namespace))
-	_, _ = hash.Write([]byte("/"))
-	_, _ = hash.Write([]byte(key.Name))
-	return ConfigHash(hash.Sum64())
+	h.Write([]byte("/"))
+	h.Write([]byte(key.Namespace))
+	h.Write([]byte("/"))
+	h.Write([]byte(key.Name))
+	return ConfigHash(h.Sum64())
 }
 
 func (key ConfigKey) String() string {
@@ -78,15 +64,54 @@ func ConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.Set[ConfigK
 
 	for conf := range configs {
 		if conf.Kind == kind {
-			ret[conf] = struct{}{}
+			ret.Insert(conf)
 		}
 	}
 
 	return ret
 }
 
+// HasConfigsOfKind returns true if configs has changes of type kind
+func HasConfigsOfKind(configs sets.Set[ConfigKey], kind kind.Kind) bool {
+	for c := range configs {
+		if c.Kind == kind {
+			return true
+		}
+	}
+	return false
+}
+
 // ConfigNamesOfKind extracts config names of the specified kind.
 func ConfigNamesOfKind(configs sets.Set[ConfigKey], kind kind.Kind) sets.String {
+	ret := sets.New[string]()
+
+	for conf := range configs {
+		if conf.Kind == kind {
+			ret.Insert(conf.Name)
+		}
+	}
+
+	return ret
+}
+
+// ConfigNamespacedNameOfKind extracts config names of the specified kind.
+func ConfigNamespacedNameOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) sets.Set[types.NamespacedName] {
+	ret := sets.New[types.NamespacedName]()
+
+	for conf := range configs {
+		if conf.Kind == kind {
+			ret.Insert(types.NamespacedName{
+				Namespace: conf.Namespace,
+				Name:      conf.Name,
+			})
+		}
+	}
+
+	return ret
+}
+
+// ConfigNameOfKind extracts config names of the specified kind.
+func ConfigNameOfKind(configs map[ConfigKey]struct{}, kind kind.Kind) sets.String {
 	ret := sets.New[string]()
 
 	for conf := range configs {
@@ -136,7 +161,7 @@ type ConfigStore interface {
 
 	// List returns objects by type and namespace.
 	// Use "" for the namespace to list across namespaces.
-	List(typ config.GroupVersionKind, namespace string) ([]config.Config, error)
+	List(typ config.GroupVersionKind, namespace string) []config.Config
 
 	// Create adds a new configuration object to the store. If an object with the
 	// same name and namespace for the type already exists, the operation fails
@@ -183,14 +208,9 @@ type ConfigStoreController interface {
 	// configuration type
 	RegisterEventHandler(kind config.GroupVersionKind, handler EventHandler)
 
-	// Run until a signal is received
+	// Run until a signal is received.
+	// Run *should* block, so callers should typically call `go controller.Run(stop)`
 	Run(stop <-chan struct{})
-
-	// SetWatchErrorHandler should be call if store has started
-	SetWatchErrorHandler(func(r *cache.Reflector, err error)) error
-
-	// HasStarted return ture after store started.
-	HasStarted() bool
 
 	// HasSynced returns true after initial cache synchronization is complete
 	HasSynced() bool
@@ -312,7 +332,7 @@ func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]
 }
 
 // sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available).
-func sortConfigByCreationTime(configs []config.Config) {
+func sortConfigByCreationTime(configs []config.Config) []config.Config {
 	sort.Slice(configs, func(i, j int) bool {
 		// If creation time is the same, then behavior is nondeterministic. In this case, we can
 		// pick an arbitrary but consistent ordering based on name and namespace, which is unique.
@@ -324,6 +344,7 @@ func sortConfigByCreationTime(configs []config.Config) {
 		}
 		return configs[i].CreationTimestamp.Before(configs[j].CreationTimestamp)
 	})
+	return configs
 }
 
 // key creates a key from a reference's name and namespace.

@@ -83,7 +83,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns/.*
             - notId:
                 orIds:
@@ -92,7 +91,6 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns/.*
             - orIds:
                 ids:
@@ -144,7 +142,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .*/ns/ns/.*
             - notId:
                 orIds:
@@ -153,7 +150,6 @@ typedConfig:
                       key: io.istio.peer_principal
                       stringMatch:
                         safeRegex:
-                          googleRe2: {}
                           regex: .*/ns/not-ns/.*
             - orIds:
                 ids:

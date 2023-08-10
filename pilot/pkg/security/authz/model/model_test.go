@@ -15,11 +15,13 @@
 package model
 
 import (
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/davecgh/go-spew/spew"
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	matcherv3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 
 	authzpb "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
@@ -278,6 +280,148 @@ when:
 				if strings.Contains(gotYaml, notWant) {
 					t.Errorf("got:\n%s but not want %s", gotYaml, notWant)
 				}
+			}
+		})
+	}
+}
+
+func TestRule_Principal(t *testing.T) {
+	tests := []struct {
+		name             string
+		r                rule
+		forTCP           bool
+		useAuthenticated bool
+		action           rbacpb.RBAC_Action
+		want             []*rbacpb.Principal
+	}{
+		{
+			name: "useAuthenticated:true",
+			r: rule{
+				key:       "foo",
+				values:    []string{"value"},
+				notValues: []string{"notValue"},
+				g:         srcPrincipalGenerator{},
+			},
+			forTCP:           true,
+			useAuthenticated: true,
+			action:           rbacpb.RBAC_ALLOW,
+			want: []*rbacpb.Principal{
+				{
+					Identifier: &rbacpb.Principal_OrIds{
+						OrIds: &rbacpb.Principal_Set{
+							Ids: []*rbacpb.Principal{
+								{
+									Identifier: &rbacpb.Principal_Authenticated_{
+										Authenticated: &rbacpb.Principal_Authenticated{
+											PrincipalName: &matcherv3.StringMatcher{
+												MatchPattern: &matcherv3.StringMatcher_Exact{
+													Exact: "spiffe://value",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Identifier: &rbacpb.Principal_NotId{
+						NotId: &rbacpb.Principal{
+							Identifier: &rbacpb.Principal_OrIds{
+								OrIds: &rbacpb.Principal_Set{
+									Ids: []*rbacpb.Principal{
+										{
+											Identifier: &rbacpb.Principal_Authenticated_{
+												Authenticated: &rbacpb.Principal_Authenticated{
+													PrincipalName: &matcherv3.StringMatcher{
+														MatchPattern: &matcherv3.StringMatcher_Exact{
+															Exact: "spiffe://notValue",
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "useAuthenticated:false",
+			r: rule{
+				key:       "foo",
+				values:    []string{"value"},
+				notValues: []string{"notValue"},
+				g:         srcNamespaceGenerator{},
+			},
+			forTCP:           false,
+			useAuthenticated: false,
+			action:           rbacpb.RBAC_ALLOW,
+			want: []*rbacpb.Principal{
+				{
+					Identifier: &rbacpb.Principal_OrIds{
+						OrIds: &rbacpb.Principal_Set{
+							Ids: []*rbacpb.Principal{
+								{
+									Identifier: &rbacpb.Principal_FilterState{
+										FilterState: &matcherv3.FilterStateMatcher{
+											Key: "io.istio.peer_principal",
+											Matcher: &matcherv3.FilterStateMatcher_StringMatch{
+												StringMatch: &matcherv3.StringMatcher{
+													MatchPattern: &matcherv3.StringMatcher_SafeRegex{
+														SafeRegex: &matcherv3.RegexMatcher{
+															Regex: ".*/ns/value/.*",
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Identifier: &rbacpb.Principal_NotId{
+						NotId: &rbacpb.Principal{
+							Identifier: &rbacpb.Principal_OrIds{
+								OrIds: &rbacpb.Principal_Set{
+									Ids: []*rbacpb.Principal{
+										{
+											Identifier: &rbacpb.Principal_FilterState{
+												FilterState: &matcherv3.FilterStateMatcher{
+													Key: "io.istio.peer_principal",
+													Matcher: &matcherv3.FilterStateMatcher_StringMatch{
+														StringMatch: &matcherv3.StringMatcher{
+															MatchPattern: &matcherv3.StringMatcher_SafeRegex{
+																SafeRegex: &matcherv3.RegexMatcher{
+																	Regex: ".*/ns/notValue/.*",
+																},
+															},
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, _ := tt.r.principal(tt.forTCP, tt.useAuthenticated, tt.action)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("rule.principal got %v, want %v", got, tt.want)
 			}
 		})
 	}

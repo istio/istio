@@ -257,6 +257,9 @@ func validateGateways(gw []*v1alpha1.GatewaySpec, name string) util.Errors {
 	for _, gw := range gw {
 		for _, p := range gw.GetK8S().GetService().GetPorts() {
 			tp := 0
+			if p == nil {
+				continue
+			}
 			if p.TargetPort != nil && p.TargetPort.Type == int64(intstr.String) {
 				// Do not validate named ports
 				continue

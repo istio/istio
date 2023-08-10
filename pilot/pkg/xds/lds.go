@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type LdsGenerator struct {
@@ -29,37 +30,59 @@ type LdsGenerator struct {
 var _ model.XdsResourceGenerator = &LdsGenerator{}
 
 // Map of all configs that do not impact LDS
-var skippedLdsConfigs = map[model.NodeType]map[kind.Kind]struct{}{
-	model.Router: {
+var skippedLdsConfigs = map[model.NodeType]sets.Set[kind.Kind]{
+	model.Router: sets.New[kind.Kind](
 		// for autopassthrough gateways, we build filterchains per-dr subset
-		kind.WorkloadGroup: {},
-		kind.WorkloadEntry: {},
-		kind.Secret:        {},
-		kind.ProxyConfig:   {},
-	},
-	model.SidecarProxy: {
-		kind.Gateway:       {},
-		kind.WorkloadGroup: {},
-		kind.WorkloadEntry: {},
-		kind.Secret:        {},
-		kind.ProxyConfig:   {},
-	},
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+	),
+	model.SidecarProxy: sets.New[kind.Kind](
+		kind.Gateway,
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+	),
+	model.Waypoint: sets.New[kind.Kind](
+		kind.Gateway,
+		kind.WorkloadGroup,
+		kind.WorkloadEntry,
+		kind.Secret,
+		kind.ProxyConfig,
+	),
 }
 
 func ldsNeedsPush(proxy *model.Proxy, req *model.PushRequest) bool {
 	if req == nil {
 		return true
 	}
-	if !req.Full {
-		// LDS only handles full push
-		return false
+	switch proxy.Type {
+	case model.Waypoint:
+		if model.HasConfigsOfKind(req.ConfigsUpdated, kind.Address) {
+			// Waypoint proxies have a matcher against pod IPs in them. Historically, any LDS change would do a full
+			// push, recomputing push context. Doing that on every IP change doesn't scale, so we need these to remain
+			// incremental pushes.
+			// This allows waypoints only to push LDS on incremental pushes to Address type which would otherwise be skipped.
+			return true
+		}
+		// Otherwise, only handle full pushes (skip endpoint-only updates)
+		if !req.Full {
+			return false
+		}
+	default:
+		if !req.Full {
+			// LDS only handles full push
+			return false
+		}
 	}
 	// If none set, we will always push
 	if len(req.ConfigsUpdated) == 0 {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
-		if _, f := skippedLdsConfigs[proxy.Type][config.Kind]; !f {
+		if !skippedLdsConfigs[proxy.Type].Contains(config.Kind) {
 			return true
 		}
 	}

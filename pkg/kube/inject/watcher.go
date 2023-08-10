@@ -21,12 +21,14 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/hashicorp/go-multierror"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/configmapwatcher"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/kube/watcher/configmapwatcher"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/istiomultierror"
 )
 
 // Watcher watches for and reacts to injection config updates.
@@ -187,4 +189,33 @@ func readConfigMap(cm *v1.ConfigMap, configKey, valuesKey string) (*Config, stri
 		return nil, "", fmt.Errorf("missing ConfigMap values key %q", valuesKey)
 	}
 	return c, valuesConfig, nil
+}
+
+// WatcherMulticast allows multiple event handlers to register for the same watcher,
+// simplifying injector based controllers.
+type WatcherMulticast struct {
+	handlers []func(*Config, string) error
+	impl     Watcher
+	Get      func() WebhookConfig
+}
+
+func NewMulticast(impl Watcher, getter func() WebhookConfig) *WatcherMulticast {
+	res := &WatcherMulticast{
+		impl: impl,
+		Get:  getter,
+	}
+	impl.SetHandler(func(c *Config, s string) error {
+		err := istiomultierror.New()
+		for _, h := range res.handlers {
+			err = multierror.Append(err, h(c, s))
+		}
+		return err.ErrorOrNil()
+	})
+	return res
+}
+
+// SetHandler sets the handler that is run when the config changes.
+// Must call this before Run.
+func (wm *WatcherMulticast) AddHandler(handler func(*Config, string) error) {
+	wm.handlers = append(wm.handlers, handler)
 }

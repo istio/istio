@@ -27,15 +27,14 @@ import (
 	kubeyaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // FromJSON converts a canonical JSON to a proto message
-func FromJSON(s collection.Schema, js string) (config.Spec, error) {
-	c, err := s.Resource().NewInstance()
+func FromJSON(s resource.Schema, js string) (config.Spec, error) {
+	c, err := s.NewInstance()
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +44,7 @@ func FromJSON(s collection.Schema, js string) (config.Spec, error) {
 	return c, nil
 }
 
-func StatusJSONFromMap(schema collection.Schema, jsonMap map[string]any) (config.Status, error) {
+func StatusJSONFromMap(schema resource.Schema, jsonMap map[string]any) (config.Status, error) {
 	if jsonMap == nil {
 		return nil, nil
 	}
@@ -53,7 +52,7 @@ func StatusJSONFromMap(schema collection.Schema, jsonMap map[string]any) (config
 	if err != nil {
 		return nil, err
 	}
-	status, err := schema.Resource().Status()
+	status, err := schema.Status()
 	if err != nil {
 		return nil, err
 	}
@@ -65,8 +64,8 @@ func StatusJSONFromMap(schema collection.Schema, jsonMap map[string]any) (config
 }
 
 // FromYAML converts a canonical YAML to a proto message
-func FromYAML(s collection.Schema, yml string) (config.Spec, error) {
-	c, err := s.Resource().NewInstance()
+func FromYAML(s resource.Schema, yml string) (config.Spec, error) {
+	c, err := s.NewInstance()
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +77,7 @@ func FromYAML(s collection.Schema, yml string) (config.Spec, error) {
 
 // FromJSONMap converts from a generic map to a proto message using canonical JSON encoding
 // JSON encoding is specified here: https://developers.google.com/protocol-buffers/docs/proto3#json
-func FromJSONMap(s collection.Schema, data any) (config.Spec, error) {
+func FromJSONMap(s resource.Schema, data any) (config.Spec, error) {
 	// Marshal to YAML bytes
 	str, err := yaml.Marshal(data)
 	if err != nil {
@@ -92,7 +91,7 @@ func FromJSONMap(s collection.Schema, data any) (config.Spec, error) {
 }
 
 // ConvertObject converts an IstioObject k8s-style object to the internal configuration model.
-func ConvertObject(schema collection.Schema, object IstioObject, domain string) (*config.Config, error) {
+func ConvertObject(schema resource.Schema, object IstioObject, domain string) (*config.Config, error) {
 	js, err := json.Marshal(object.GetSpec())
 	if err != nil {
 		return nil, err
@@ -109,7 +108,7 @@ func ConvertObject(schema collection.Schema, object IstioObject, domain string) 
 
 	return &config.Config{
 		Meta: config.Meta{
-			GroupVersionKind:  schema.Resource().GroupVersionKind(),
+			GroupVersionKind:  schema.GroupVersionKind(),
 			Name:              meta.Name,
 			Namespace:         meta.Namespace,
 			Domain:            domain,
@@ -182,7 +181,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]config.Config, []Istio
 		}
 
 		gvk := obj.GroupVersionKind()
-		s, exists := collections.PilotGatewayAPI.FindByGroupVersionAliasesKind(resource.FromKubernetesGVK(&gvk))
+		s, exists := collections.PilotGatewayAPI().FindByGroupVersionAliasesKind(resource.FromKubernetesGVK(&gvk))
 		if !exists {
 			log.Debugf("unrecognized type %v", obj.Kind)
 			others = append(others, obj)
@@ -195,7 +194,7 @@ func parseInputsImpl(inputs string, withValidate bool) ([]config.Config, []Istio
 		}
 
 		if withValidate {
-			if _, err := s.Resource().ValidateConfig(*cfg); err != nil {
+			if _, err := s.ValidateConfig(*cfg); err != nil {
 				return nil, nil, fmt.Errorf("configuration is invalid: %v", err)
 			}
 		}

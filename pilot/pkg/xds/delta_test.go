@@ -66,13 +66,14 @@ func TestDeltaAdsClusterUpdate(t *testing.T) {
 func TestDeltaEDS(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml"),
-		DiscoveryServerModifier: func(s *xds.DiscoveryServer) {
-			addTestClientEndpoints(s)
-			s.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
-			s.MemRegistry.SetEndpoints(edsIncSvc, "",
-				newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
-		},
 	})
+	addTestClientEndpoints(s.MemRegistry)
+	s.MemRegistry.AddHTTPService(edsIncSvc, edsIncVip, 8080)
+	s.MemRegistry.SetEndpoints(edsIncSvc, "",
+		newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
+
+	// Wait until the above debounce, to ensure we can precisely check XDS responses without spurious pushes
+	s.EnsureSynced(t)
 
 	ads := s.ConnectDeltaADS().WithType(v3.EndpointType)
 	ads.Request(&discovery.DeltaDiscoveryRequest{
@@ -109,7 +110,7 @@ func TestDeltaEDS(t *testing.T) {
 	}
 
 	// update svc, only send the eds for this service
-	s.Discovery.MemRegistry.AddHTTPService(edsIncSvc, "10.10.1.3", 8080)
+	s.MemRegistry.AddHTTPService(edsIncSvc, "10.10.1.3", 8080)
 	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: edsIncSvc, Namespace: ""})})
 
 	resp = ads.ExpectResponse()
@@ -120,8 +121,8 @@ func TestDeltaEDS(t *testing.T) {
 		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
 	}
 
-	// delete svc, only send eds fot this service
-	s.Discovery.MemRegistry.RemoveService(edsIncSvc)
+	// delete svc, only send eds for this service
+	s.MemRegistry.RemoveService(edsIncSvc)
 	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: edsIncSvc, Namespace: ""})})
 
 	resp = ads.ExpectResponse()

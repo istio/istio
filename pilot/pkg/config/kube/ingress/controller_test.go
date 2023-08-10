@@ -15,13 +15,12 @@
 package ingress
 
 import (
-	"context"
 	"testing"
 	"time"
 
-	"k8s.io/api/networking/v1beta1"
+	corev1 "k8s.io/api/core/v1"
+	net "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -30,6 +29,8 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func newFakeController() (model.ConfigStoreController, kube.Client) {
@@ -41,23 +42,27 @@ func newFakeController() (model.ConfigStoreController, kube.Client) {
 }
 
 func TestIngressController(t *testing.T) {
-	ingress1 := v1beta1.Ingress{
+	ingress1 := net.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock", // goes into backend full name
 			Name:      "test",
 		},
-		Spec: v1beta1.IngressSpec{
-			Rules: []v1beta1.IngressRule{
+		Spec: net.IngressSpec{
+			Rules: []net.IngressRule{
 				{
 					Host: "my.host.com",
-					IngressRuleValue: v1beta1.IngressRuleValue{
-						HTTP: &v1beta1.HTTPIngressRuleValue{
-							Paths: []v1beta1.HTTPIngressPath{
+					IngressRuleValue: net.IngressRuleValue{
+						HTTP: &net.HTTPIngressRuleValue{
+							Paths: []net.HTTPIngressPath{
 								{
 									Path: "/test",
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "foo",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+									Backend: net.IngressBackend{
+										Service: &net.IngressServiceBackend{
+											Name: "foo",
+											Port: net.ServiceBackendPort{
+												Number: 8000,
+											},
+										},
 									},
 								},
 							},
@@ -66,14 +71,18 @@ func TestIngressController(t *testing.T) {
 				},
 				{
 					Host: "my2.host.com",
-					IngressRuleValue: v1beta1.IngressRuleValue{
-						HTTP: &v1beta1.HTTPIngressRuleValue{
-							Paths: []v1beta1.HTTPIngressPath{
+					IngressRuleValue: net.IngressRuleValue{
+						HTTP: &net.HTTPIngressRuleValue{
+							Paths: []net.HTTPIngressPath{
 								{
 									Path: "/test1.*",
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "bar",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+									Backend: net.IngressBackend{
+										Service: &net.IngressServiceBackend{
+											Name: "bar",
+											Port: net.ServiceBackendPort{
+												Number: 8000,
+											},
+										},
 									},
 								},
 							},
@@ -82,14 +91,18 @@ func TestIngressController(t *testing.T) {
 				},
 				{
 					Host: "my3.host.com",
-					IngressRuleValue: v1beta1.IngressRuleValue{
-						HTTP: &v1beta1.HTTPIngressRuleValue{
-							Paths: []v1beta1.HTTPIngressPath{
+					IngressRuleValue: net.IngressRuleValue{
+						HTTP: &net.HTTPIngressRuleValue{
+							Paths: []net.HTTPIngressPath{
 								{
 									Path: "/test/*",
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "bar",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+									Backend: net.IngressBackend{
+										Service: &net.IngressServiceBackend{
+											Name: "bar",
+											Port: net.ServiceBackendPort{
+												Number: 8000,
+											},
+										},
 									},
 								},
 							},
@@ -100,23 +113,27 @@ func TestIngressController(t *testing.T) {
 		},
 	}
 
-	ingress2 := v1beta1.Ingress{
+	ingress2 := net.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: "mock",
 			Name:      "test",
 		},
-		Spec: v1beta1.IngressSpec{
-			Rules: []v1beta1.IngressRule{
+		Spec: net.IngressSpec{
+			Rules: []net.IngressRule{
 				{
 					Host: "my.host.com",
-					IngressRuleValue: v1beta1.IngressRuleValue{
-						HTTP: &v1beta1.HTTPIngressRuleValue{
-							Paths: []v1beta1.HTTPIngressPath{
+					IngressRuleValue: net.IngressRuleValue{
+						HTTP: &net.HTTPIngressRuleValue{
+							Paths: []net.HTTPIngressPath{
 								{
 									Path: "/test2",
-									Backend: v1beta1.IngressBackend{
-										ServiceName: "foo",
-										ServicePort: intstr.IntOrString{IntVal: 8000},
+									Backend: net.IngressBackend{
+										Service: &net.IngressServiceBackend{
+											Name: "foo",
+											Port: net.ServiceBackendPort{
+												Number: 8000,
+											},
+										},
 									},
 								},
 							},
@@ -128,6 +145,7 @@ func TestIngressController(t *testing.T) {
 	}
 
 	controller, client := newFakeController()
+	ingress := clienttest.NewWriter[*net.Ingress](t, client)
 	configCh := make(chan config.Config)
 
 	configHandler := func(_, curr config.Config, event model.Event) {
@@ -151,15 +169,263 @@ func TestIngressController(t *testing.T) {
 
 	client.RunAndWait(stopCh)
 
-	client.Kube().NetworkingV1beta1().Ingresses(ingress1.Namespace).Create(context.TODO(), &ingress1, metav1.CreateOptions{})
-
+	ingress.Create(&ingress1)
 	vs := wait()
 	if vs.Name != ingress1.Name+"-"+"virtualservice" || vs.Namespace != ingress1.Namespace {
 		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
 	}
-	client.Kube().NetworkingV1beta1().Ingresses(ingress2.Namespace).Update(context.TODO(), &ingress2, metav1.UpdateOptions{})
+	ingress.Update(&ingress2)
 	vs = wait()
 	if vs.Name != ingress1.Name+"-"+"virtualservice" || vs.Namespace != ingress1.Namespace {
 		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
+	}
+}
+
+func TestIngressControllerWithPortName(t *testing.T) {
+	ingressConfig := net.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "mock",
+			Name:      "test",
+		},
+		Spec: net.IngressSpec{
+			Rules: []net.IngressRule{
+				{
+					Host: "my.host.com",
+					IngressRuleValue: net.IngressRuleValue{
+						HTTP: &net.HTTPIngressRuleValue{
+							Paths: []net.HTTPIngressPath{
+								{
+									Path: "/foo",
+									Backend: net.IngressBackend{
+										Service: &net.IngressServiceBackend{
+											Name: "foo",
+											Port: net.ServiceBackendPort{
+												Number: 8000,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Host: "my2.host.com",
+					IngressRuleValue: net.IngressRuleValue{
+						HTTP: &net.HTTPIngressRuleValue{
+							Paths: []net.HTTPIngressPath{
+								{
+									Path: "/bar",
+									Backend: net.IngressBackend{
+										Service: &net.IngressServiceBackend{
+											Name: "bar",
+											Port: net.ServiceBackendPort{
+												Name: "http",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	serviceConfig := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "mock",
+			Name:      "bar",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{
+				{
+					Name: "http",
+					Port: 8080,
+				},
+			},
+		},
+	}
+
+	controller, client := newFakeController()
+	ingress := clienttest.NewWriter[*net.Ingress](t, client)
+	service := clienttest.NewWriter[*corev1.Service](t, client)
+	configCh := make(chan config.Config)
+
+	configHandler := func(_, curr config.Config, event model.Event) {
+		configCh <- curr
+	}
+
+	wait := func() config.Config {
+		select {
+		case x := <-configCh:
+			return x
+		case <-time.After(time.Second * 10):
+			t.Fatalf("timed out waiting for config")
+		}
+		return config.Config{}
+	}
+
+	controller.RegisterEventHandler(gvk.VirtualService, configHandler)
+	stopCh := make(chan struct{})
+	go controller.Run(stopCh)
+	defer close(stopCh)
+
+	client.RunAndWait(stopCh)
+
+	// First create ingress.
+	ingress.Create(&ingressConfig)
+	vs := wait()
+	if vs.Name != ingressConfig.Name+"-"+"virtualservice" || vs.Namespace != ingressConfig.Namespace {
+		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
+	}
+
+	// Then we create service.
+	service.Create(&serviceConfig)
+	vs = wait()
+	if vs.Name != ingressConfig.Name+"-"+"virtualservice" || vs.Namespace != ingressConfig.Namespace {
+		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
+	}
+
+	// We change service port number.
+	serviceConfig.Spec.Ports[0].Port = 8090
+	service.Update(&serviceConfig)
+	vs = wait()
+	if vs.Name != ingressConfig.Name+"-"+"virtualservice" || vs.Namespace != ingressConfig.Namespace {
+		t.Errorf("received unecpected config %v/%v", vs.Namespace, vs.Name)
+	}
+}
+
+func TestExtractServicesByPortNameType(t *testing.T) {
+	testCases := []struct {
+		name   string
+		input  net.Ingress
+		expect sets.String
+	}{
+		{
+			name: "has no port name",
+			input: net.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ingress",
+					Name:      "test",
+				},
+				Spec: net.IngressSpec{
+					Rules: []net.IngressRule{
+						{
+							Host: "my.host.com",
+							IngressRuleValue: net.IngressRuleValue{
+								HTTP: &net.HTTPIngressRuleValue{
+									Paths: []net.HTTPIngressPath{
+										{
+											Path: "/test",
+											Backend: net.IngressBackend{
+												Service: &net.IngressServiceBackend{
+													Name: "foo",
+													Port: net.ServiceBackendPort{
+														Number: 8000,
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expect: nil,
+		},
+		{
+			name: "has no port name",
+			input: net.Ingress{
+				ObjectMeta: metav1.ObjectMeta{
+					Namespace: "ingress",
+					Name:      "test",
+				},
+				Spec: net.IngressSpec{
+					Rules: []net.IngressRule{
+						{
+							Host: "my.host.com",
+							IngressRuleValue: net.IngressRuleValue{
+								HTTP: &net.HTTPIngressRuleValue{
+									Paths: []net.HTTPIngressPath{
+										{
+											Path: "/test",
+											Backend: net.IngressBackend{
+												Service: &net.IngressServiceBackend{
+													Name: "foo",
+													Port: net.ServiceBackendPort{
+														Number: 8000,
+													},
+												},
+											},
+										},
+										{
+											Path: "/bar",
+											Backend: net.IngressBackend{
+												Service: &net.IngressServiceBackend{
+													Name: "bar",
+													Port: net.ServiceBackendPort{
+														Name: "http",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						{
+							Host: "my1.host.com",
+							IngressRuleValue: net.IngressRuleValue{
+								HTTP: &net.HTTPIngressRuleValue{
+									Paths: []net.HTTPIngressPath{
+										{
+											Path: "/mock",
+											Backend: net.IngressBackend{
+												Service: &net.IngressServiceBackend{
+													Name: "mock",
+													Port: net.ServiceBackendPort{
+														Name: "grpc",
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			expect: sets.String{}.InsertAll("ingress/bar", "ingress/mock"),
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			if !testCase.expect.Equals(extractServicesByPortNameType(&testCase.input)) {
+				t.Fatal("should be equal.")
+			}
+		})
+	}
+}
+
+func TestExtractPorts(t *testing.T) {
+	ports := []corev1.ServicePort{
+		{
+			Port: 80,
+		},
+		{
+			Name: "http",
+			Port: 8080,
+		},
+	}
+
+	expect := sets.New("80|", "8080|http")
+	if !expect.Equals(extractPorts(ports)) {
+		t.Fatal("should be equal")
 	}
 }

@@ -32,6 +32,9 @@ type ProxyArgs struct {
 
 	PodName      string
 	PodNamespace string
+
+	// enableProfiling enables profiling via web interface host:port/debug/pprof/
+	EnableProfiling bool
 }
 
 // NewProxyArgs constructs proxyArgs with default values.

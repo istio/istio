@@ -37,7 +37,7 @@ import (
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 const (
@@ -152,10 +152,6 @@ type JwksResolver struct {
 	jwksUribackgroundChannel bool
 }
 
-func init() {
-	monitoring.MustRegister(networkFetchSuccessCounter, networkFetchFailCounter)
-}
-
 // NewJwksResolver creates new instance of JwksResolver.
 func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration) *JwksResolver {
 	return newJwksResolverWithCABundlePaths(
@@ -212,8 +208,10 @@ func newJwksResolverWithCABundlePaths(
 				Proxy:             http.ProxyFromEnvironment,
 				DisableKeepAlives: true,
 				TLSClientConfig: &tls.Config{
-					RootCAs:    caCertPool,
-					MinVersion: tls.VersionTLS12,
+					// nolint: gosec // user explicitly opted into insecure
+					InsecureSkipVerify: features.JwksResolverInsecureSkipVerify,
+					RootCAs:            caCertPool,
+					MinVersion:         tls.VersionTLS12,
 				},
 			},
 		}
@@ -309,6 +307,7 @@ func CreateFakeJwks(jwksURI string) string {
 // Resolve jwks_uri through openID discovery.
 func (r *JwksResolver) resolveJwksURIUsingOpenID(issuer string) (string, error) {
 	// Try to get jwks_uri through OpenID Discovery.
+	issuer = strings.TrimSuffix(issuer, "/")
 	body, err := r.getRemoteContentWithRetry(issuer+openIDDiscoveryCfgURLSuffix, networkFetchRetryCountOnMainFlow)
 	if err != nil {
 		log.Errorf("Failed to fetch jwks_uri from %q: %v", issuer+openIDDiscoveryCfgURLSuffix, err)

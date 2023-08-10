@@ -15,7 +15,7 @@
 package client
 
 import (
-	"istio.io/pkg/monitoring"
+	"istio.io/istio/pkg/monitoring"
 )
 
 var (
@@ -37,13 +37,6 @@ var (
 	requestDuration = monitoring.NewDistribution(
 		"dns_upstream_request_duration_seconds",
 		"Total time in seconds Istio takes to get DNS response from upstream.",
-		[]float64{.005, .001, 0.01, 0.1, 1, 5},
+		[]float64{.001, .005, 0.01, 0.1, 1, 5},
 	)
 )
-
-func registerStats() {
-	monitoring.MustRegister(requests)
-	monitoring.MustRegister(upstreamRequests)
-	monitoring.MustRegister(failures)
-	monitoring.MustRegister(requestDuration)
-}

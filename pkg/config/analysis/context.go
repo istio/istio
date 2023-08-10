@@ -15,9 +15,9 @@
 package analysis
 
 import (
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
 )
 
 // IteratorFn is used to iterate over a set of collection entries. It must return true to keep iterating.
@@ -26,16 +26,16 @@ type IteratorFn func(r *resource.Instance) bool
 // Context is an analysis context that is passed to individual analyzers.
 type Context interface {
 	// Report a diagnostic message
-	Report(c collection.Name, t diag.Message)
+	Report(c config.GroupVersionKind, t diag.Message)
 
 	// Find a resource in the collection. If not found, nil is returned
-	Find(c collection.Name, name resource.FullName) *resource.Instance
+	Find(c config.GroupVersionKind, name resource.FullName) *resource.Instance
 
 	// Exists returns true if the specified resource exists in the context, false otherwise
-	Exists(c collection.Name, name resource.FullName) bool
+	Exists(c config.GroupVersionKind, name resource.FullName) bool
 
 	// ForEach iterates over all the entries of a given collection.
-	ForEach(c collection.Name, fn IteratorFn)
+	ForEach(c config.GroupVersionKind, fn IteratorFn)
 
 	// Canceled indicates that the context has been canceled. The analyzer should stop executing as soon as possible.
 	Canceled() bool

@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Removed** support for looking up Envoy extensions in `EnvoyFilter` configuration by name without the typed config URL.
+
+upgradeNotes:
+  - title: EnvoyFilter must specify the type URL for an Envoy extension injection.
+    content: |
+      Previously, Istio permitted a lookup of the extension in `EnvoyFilter` by its internal Envoy name alone. To see if you are affected,
+      run `istioctl analyze` and check for a deprecation warning `using deprecated types by name without typed_config`. Additionally, make
+      sure any nested extension lists inside `EnvoyFilter` include both `name:` and `typed_config:` fields.

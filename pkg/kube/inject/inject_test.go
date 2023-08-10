@@ -17,7 +17,6 @@ package inject
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -29,6 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/api/annotation"
@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -253,14 +254,6 @@ func TestInjection(t *testing.T) {
 			expectedError: "excludeoutboundports",
 		},
 		{
-			in:   "hello.yaml",
-			want: "hello-no-seccontext.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.EnableLegacyFSGroupInjection, false)
-				test.SetEnvForTest(t, "ENABLE_LEGACY_FSGROUP_INJECTION", "false")
-			},
-		},
-		{
 			in:   "traffic-annotations.yaml",
 			want: "traffic-annotations.yaml.injected",
 			mesh: func(m *meshapi.MeshConfig) {
@@ -287,6 +280,31 @@ func TestInjection(t *testing.T) {
 			want: "proxy-override-args.yaml.injected",
 		},
 		{
+			in:   "proxy-override-args.yaml",
+			want: "proxy-override-args-native.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+			},
+		},
+		{
+			in:   "gateway.yaml",
+			want: "gateway.yaml.injected",
+		},
+		{
+			in:   "gateway.yaml",
+			want: "gateway.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+			},
+		},
+		{
+			in:   "native-sidecar.yaml",
+			want: "native-sidecar.yaml.injected",
+			setup: func(t test.Failer) {
+				test.SetEnvForTest(t, features.EnableNativeSidecars.Name, "true")
+			},
+		},
+		{
 			in:         "custom-template.yaml",
 			want:       "custom-template.yaml.injected",
 			inFilePath: "custom-template.iop.yaml",
@@ -294,13 +312,6 @@ func TestInjection(t *testing.T) {
 		{
 			in:   "tcp-probes.yaml",
 			want: "tcp-probes.yaml.injected",
-		},
-		{
-			in:   "tcp-probes.yaml",
-			want: "tcp-probes-disabled.yaml.injected",
-			setup: func(t test.Failer) {
-				test.SetForTest(t, &features.RewriteTCPProbes, false)
-			},
 		},
 		{
 			in:          "hello-host-network-with-ns.yaml",
@@ -313,6 +324,13 @@ func TestInjection(t *testing.T) {
 			want: "merge-probers.yaml.injected",
 			setFlags: []string{
 				`values.global.proxy.holdApplicationUntilProxyStarts=true`,
+			},
+		},
+		{
+			in:   "hello-tracing-disabled.yaml",
+			want: "hello-tracing-disabled.yaml.injected",
+			mesh: func(m *meshapi.MeshConfig) {
+				m.DefaultConfig.Tracing = &meshapi.Tracing{}
 			},
 		},
 	}
@@ -357,6 +375,7 @@ func TestInjection(t *testing.T) {
 	// Precompute injection settings. This may seem like a premature optimization, but due to the size of
 	// YAMLs, with -race this was taking >10min in some cases to generate!
 	if util.Refresh() {
+		cleanupOldFiles(t)
 		writeInjectionSettings(t, "default", nil, "")
 		for i, c := range cases {
 			if c.setFlags != nil || c.inFilePath != "" {
@@ -453,14 +472,14 @@ func TestInjection(t *testing.T) {
 			// overwrite golden files, as we do not have identical textual output as
 			// kube-inject. Instead, we just compare the desired/actual pod specs.
 			t.Run("webhook", func(t *testing.T) {
+				env := &model.Environment{}
+				env.SetPushContext(&model.PushContext{
+					ProxyConfigs: &model.ProxyConfigs{},
+				})
 				webhook := &Webhook{
-					Config:     sidecarTemplate,
-					meshConfig: mc,
-					env: &model.Environment{
-						PushContext: &model.PushContext{
-							ProxyConfigs: &model.ProxyConfigs{},
-						},
-					},
+					Config:       sidecarTemplate,
+					meshConfig:   mc,
+					env:          env,
 					valuesConfig: valuesConfig,
 					revision:     "default",
 				}
@@ -491,17 +510,17 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	env := &model.Environment{}
+	env.SetPushContext(&model.PushContext{
+		ProxyConfigs: &model.ProxyConfigs{},
+	})
 	webhook := &Webhook{
 		Config: &Config{
 			Templates:        tmpl,
 			Policy:           InjectionPolicyEnabled,
 			DefaultTemplates: []string{SidecarTemplateName},
 		},
-		env: &model.Environment{
-			PushContext: &model.PushContext{
-				ProxyConfigs: &model.ProxyConfigs{},
-			},
-		},
+		env: env,
 	}
 	runWebhook(t, webhook, []byte(input), []byte(expected), false)
 }
@@ -524,17 +543,17 @@ spec:
 	if err != nil {
 		t.Fatal(err)
 	}
+	env := &model.Environment{}
+	env.SetPushContext(&model.PushContext{
+		ProxyConfigs: &model.ProxyConfigs{},
+	})
 	webhook := &Webhook{
 		Config: &Config{
 			Templates: p,
 			Aliases:   map[string][]string{"both": {"sidecar", "init"}},
 			Policy:    InjectionPolicyEnabled,
 		},
-		env: &model.Environment{
-			PushContext: &model.PushContext{
-				ProxyConfigs: &model.ProxyConfigs{},
-			},
-		},
+		env: env,
 	}
 
 	input := `
@@ -886,6 +905,7 @@ func TestAppendMultusNetwork(t *testing.T) {
 	}
 
 	for _, tc := range cases {
+		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			actual := appendMultusNetwork(tc.in, "istio-cni")
@@ -936,40 +956,6 @@ func Test_updateClusterEnvs(t *testing.T) {
 			updateClusterEnvs(tt.args.container, tt.args.newKVs)
 			if !cmp.Equal(tt.args.container.Env, tt.want.Env) {
 				t.Fatalf("updateClusterEnvs got \n%+v, expected \n%+v", tt.args.container.Env, tt.want.Env)
-			}
-		})
-	}
-}
-
-func TestQuantityConversion(t *testing.T) {
-	for _, tt := range []struct {
-		in  string
-		out int
-		err error
-	}{
-		{
-			in:  "4000m",
-			out: 4,
-		},
-		{
-			in:  "6500m",
-			out: 7,
-		},
-		{
-			in:  "200mi",
-			err: errors.New("unable to parse"),
-		},
-	} {
-		t.Run(tt.in, func(t *testing.T) {
-			got, err := quantityToConcurrency(tt.in)
-			if err != nil {
-				if tt.err == nil {
-					t.Errorf("expected no error, got %v", err)
-				}
-			} else {
-				if tt.out != got {
-					t.Errorf("got %v, want %v", got, tt.out)
-				}
 			}
 		})
 	}
@@ -1084,6 +1070,74 @@ func TestProxyImage(t *testing.T) {
 			got := ProxyImage(tt.v, tt.pc, tt.ann)
 			if got != tt.want {
 				t.Errorf("got: <%s>, want <%s> <== value(%v) proxyConfig(%v) ann(%v)", got, tt.want, tt.v, tt.pc, tt.ann)
+			}
+		})
+	}
+}
+
+func podWithEnv(envCount int) *corev1.Pod {
+	envs := []corev1.EnvVar{}
+	for i := 0; i < envCount; i++ {
+		envs = append(envs, corev1.EnvVar{
+			Name:  fmt.Sprintf("something-%d", i),
+			Value: "blah",
+		})
+	}
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{{
+				Name:  "app",
+				Image: "fake",
+				Env:   envs,
+			}},
+		},
+	}
+}
+
+// TestInjection tests both the mutating webhook and kube-inject. It does this by sharing the same input and output
+// test files and running through the two different code paths.
+func BenchmarkInjection(b *testing.B) {
+	istiolog.FindScope("default").SetOutputLevel(istiolog.ErrorLevel)
+	cases := []struct {
+		name string
+		in   *corev1.Pod
+	}{
+		{
+			name: "many env vars",
+			in:   podWithEnv(2000),
+		},
+	}
+
+	for _, tt := range cases {
+		b.Run(tt.name, func(b *testing.B) {
+			// Preload default settings. Computation here is expensive, so this speeds the tests up substantially
+			sidecarTemplate, valuesConfig, mc := readInjectionSettings(b, "default")
+			env := &model.Environment{}
+			env.SetPushContext(&model.PushContext{
+				ProxyConfigs: &model.ProxyConfigs{},
+			})
+			webhook := &Webhook{
+				Config:       sidecarTemplate,
+				meshConfig:   mc,
+				env:          env,
+				valuesConfig: valuesConfig,
+				revision:     "default",
+			}
+			templateJSON := convertToJSON(tt.in, b)
+			b.ResetTimer()
+			for n := 0; n < b.N; n++ {
+				webhook.inject(&kube.AdmissionReview{
+					Request: &kube.AdmissionRequest{
+						Object: runtime.RawExtension{
+							Raw: templateJSON,
+						},
+						Namespace: tt.in.Namespace,
+					},
+				}, "")
 			}
 		})
 	}

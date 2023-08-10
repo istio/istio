@@ -46,25 +46,26 @@ import (
 	security "istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/istio-agent/grpcxds"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common"
 	echoproto "istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/echo/server/endpoint"
 	"istio.io/istio/pkg/test/env"
-	"istio.io/pkg/log"
 )
 
-// Address of the Istiod gRPC service, used in tests.
-var istiodSvcHost = "istiod.istio-system.svc.cluster.local"
+// Address of the test gRPC service, used in tests.
+// Avoid using "istiod" as it is implicitly considered clusterLocal
+var testSvcHost = "test.istio-system.svc.cluster.local"
 
 // Local integration tests for proxyless gRPC.
 // The tests will start an in-process Istiod, using the memory store, and use
@@ -133,39 +134,29 @@ func init() {
 
 func TestGRPC(t *testing.T) {
 	// Init Istiod in-process server.
-	ds := xds.NewXDS(make(chan struct{}))
-	sd := ds.DiscoveryServer.MemRegistry
-	sd.ClusterID = "Kubernetes"
+	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		ListenerBuilder: func() (net.Listener, error) {
+			return net.Listen("tcp", "127.0.0.1:0")
+		},
+	})
+	sd := ds.MemRegistry
 
 	lis, err := net.Listen("tcp", ":0")
 	if err != nil {
 		t.Fatalf("net.Listen failed: %v", err)
 	}
-	lis.Addr()
 	_, ports, _ := net.SplitHostPort(lis.Addr().String())
 	port, _ := strconv.Atoi(ports)
+
 	// Echo service
 	// initRBACTests(sd, store, "echo-rbac-plain", 14058, false)
-	initRBACTests(sd, ds.ConfigStoreCache, "echo-rbac-mtls", port, true)
+	initRBACTests(sd, ds.Store(), "echo-rbac-mtls", port, true)
 	initPersistent(sd)
 
-	xdsAddr, err := ds.StartGRPC("127.0.0.1:0")
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer ds.GRPCListener.Close()
-
-	_, xdsPorts, _ := net.SplitHostPort(xdsAddr)
+	_, xdsPorts, _ := net.SplitHostPort(ds.Listener.Addr().String())
 	xdsPort, _ := strconv.Atoi(xdsPorts)
 
 	addIstiod(sd, xdsPort)
-
-	env := ds.DiscoveryServer.Env
-	env.Init()
-	if err := env.PushContext.InitContext(env, env.PushContext, nil); err != nil {
-		t.Fatal(err)
-	}
-	ds.DiscoveryServer.UpdateServiceShards(env.PushContext)
 
 	// Client bootstrap - will show as "foo.clientns"
 	xdsresolver := resolverForTest(t, xdsPort, "clientns")
@@ -180,7 +171,7 @@ func TestGRPC(t *testing.T) {
 		errorCh := make(chan error, 1)
 		_, err := rb.Build(resolver.Target{URL: url.URL{
 			Scheme: "xds",
-			Path:   "/" + net.JoinHostPort(istiodSvcHost, xdsPorts),
+			Path:   "/" + net.JoinHostPort(testSvcHost, xdsPorts),
 		}},
 			&testClientConn{stateCh: stateCh, errorCh: errorCh}, resolver.BuildOptions{})
 		if err != nil {
@@ -220,26 +211,14 @@ func TestGRPC(t *testing.T) {
 	})
 
 	t.Run("persistent", func(t *testing.T) {
-		adscConn, err := adsc.New(xdsAddr, &adsc.Config{
-			IP: "1.2.3.4",
-			Meta: model.NodeMetadata{
-				Generator: "grpc",
-			}.ToStruct(),
-		})
-		if err != nil {
-			t.Fatal("Error connecting ", err)
-		}
-
-		err = adscConn.Run()
-		if err != nil {
-			t.Fatal("Error connecting ", err)
-		}
+		proxy := ds.SetupProxy(&model.Proxy{Metadata: &model.NodeMetadata{
+			Generator: "grpc",
+		}})
+		adscConn := ds.Connect(proxy, []string{}, []string{})
 
 		adscConn.Send(&discovery.DiscoveryRequest{
 			TypeUrl: v3.ListenerType,
 		})
-
-		adscConn.WatchConfig()
 
 		msg, err := adscConn.WaitVersion(5*time.Second, v3.ListenerType, "")
 		if err != nil {
@@ -249,15 +228,17 @@ func TestGRPC(t *testing.T) {
 		hcm := &hcm.HttpConnectionManager{}
 		ss := &statefulsession.StatefulSession{}
 		sc := &cookiev3.CookieBasedSessionState{}
+		filterIndex := -1
 		for _, rsc := range msg.Resources {
 			valBytes := rsc.Value
 			ll := &listener.Listener{}
 			_ = proto.Unmarshal(valBytes, ll)
 			if strings.HasPrefix(ll.Name, "echo-persistent.test.svc.cluster.local:") {
 				proto.Unmarshal(ll.ApiListener.ApiListener.Value, hcm)
-				for _, f := range hcm.HttpFilters {
-					if f.Name == "envoy.filters.http.stateful_session" {
+				for index, f := range hcm.HttpFilters {
+					if f.Name == util.StatefulSessionFilter {
 						proto.Unmarshal(f.GetTypedConfig().Value, ss)
+						filterIndex = index
 						if ss.GetSessionState().Name == "envoy.http.stateful_session.cookie" {
 							proto.Unmarshal(ss.GetSessionState().TypedConfig.Value, sc)
 						}
@@ -267,6 +248,9 @@ func TestGRPC(t *testing.T) {
 		}
 		if sc.Cookie == nil {
 			t.Fatal("Failed to find session cookie")
+		}
+		if filterIndex == (len(hcm.HttpFilters) - 1) {
+			t.Fatal("session-cookie-filter cannot be the last filter!")
 		}
 		if sc.Cookie.Name != "test-cookie" {
 			t.Fatal("Missing expected cookie name", sc.Cookie)
@@ -298,13 +282,13 @@ func TestGRPC(t *testing.T) {
 
 	t.Run("gRPC-dial", func(t *testing.T) {
 		for _, host := range []string{
-			"istiod.istio-system.svc.cluster.local",
+			testSvcHost,
 			//"istiod.istio-system.svc",
 			//"istiod.istio-system",
 			//"istiod",
 		} {
 			t.Run(host, func(t *testing.T) {
-				ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 				defer cancel()
 				conn, err := grpc.DialContext(ctx, "xds:///"+host+":"+xdsPorts, grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock(),
 					grpc.WithResolvers(xdsresolver))
@@ -328,7 +312,7 @@ func addIstiod(sd *memory.ServiceDiscovery, xdsPort int) {
 			Name:      "istiod",
 			Namespace: "istio-system",
 		},
-		Hostname:       host.Name(istiodSvcHost),
+		Hostname:       host.Name(testSvcHost),
 		DefaultAddress: "127.0.1.12",
 		Ports: model.PortList{
 			{
@@ -338,7 +322,7 @@ func addIstiod(sd *memory.ServiceDiscovery, xdsPort int) {
 			},
 		},
 	})
-	sd.SetEndpoints(istiodSvcHost, "istio-system", []*model.IstioEndpoint{
+	sd.SetEndpoints(testSvcHost, "istio-system", []*model.IstioEndpoint{
 		{
 			Address:         "127.0.0.1",
 			EndpointPort:    uint32(xdsPort),
@@ -412,7 +396,7 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname
 
 	store.Create(config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.AuthorizationPolicy,
 			Name:             svcname,
 			Namespace:        ns,
 		},
@@ -435,7 +419,7 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname
 
 	store.Create(config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+			GroupVersionKind: gvk.AuthorizationPolicy,
 			Name:             svcname + "-allow",
 			Namespace:        ns,
 		},
@@ -459,7 +443,7 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname
 		// Client side.
 		_, _ = store.Create(config.Config{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioNetworkingV1Alpha3Destinationrules.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.DestinationRule,
 				Name:             svcname,
 				Namespace:        "test",
 			},
@@ -474,7 +458,7 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname
 		// Server side.
 		_, _ = store.Create(config.Config{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioSecurityV1Beta1Peerauthentications.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.PeerAuthentication,
 				Name:             svcname,
 				Namespace:        "test",
 			},
@@ -485,7 +469,7 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname
 
 		_, _ = store.Create(config.Config{
 			Meta: config.Meta{
-				GroupVersionKind: collections.IstioSecurityV1Beta1Authorizationpolicies.Resource().GroupVersionKind(),
+				GroupVersionKind: gvk.AuthorizationPolicy,
 				Name:             svcname,
 				Namespace:        "test",
 			},
@@ -517,7 +501,6 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 			log.Error(err)
 		}
 	}()
-	time.Sleep(3 * time.Second)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*30)
 	defer cancel()
 
@@ -547,7 +530,7 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 }
 
 // From xds_resolver_test
-// testClientConn is a fake implemetation of resolver.ClientConn. All is does
+// testClientConn is a fake implementation of resolver.ClientConn. All is does
 // is to store the state received from the resolver locally and signal that
 // event through a channel.
 type testClientConn struct {

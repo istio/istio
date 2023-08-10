@@ -72,6 +72,23 @@ type TLS struct {
 	ServerName string
 }
 
+type HBONE struct {
+	Address string
+	Headers http.Header
+	// If non-empty, make the request with the corresponding cert and key.
+	Cert string
+	Key  string
+	// If non-empty, verify the server CA
+	CaCert string
+	// If non-empty, make the request with the corresponding cert and key file.
+	CertFile string
+	KeyFile  string
+	// If non-empty, verify the server CA with the ca cert file.
+	CaCertFile string
+	// Skip verifying peer's certificate.
+	InsecureSkipVerify bool
+}
+
 // Retry settings
 type Retry struct {
 	// NoRetry if true, no retry will be attempted.
@@ -151,12 +168,20 @@ type CallOptions struct {
 	// TLS settings.
 	TLS TLS
 
+	// HBONE settings.
+	HBONE HBONE
+
 	// Message to be sent.
 	Message string
 
 	// Check the server responses. If none is provided, only the number of responses received
 	// will be checked.
 	Check Checker
+
+	// If we have been asked to do TCP comms with a PROXY protocol header,
+	// determine which version (1 or 2), and send the header.
+	// https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
+	ProxyProtocolVersion int
 }
 
 // GetHost returns the best default host for the call. Returns the first host defined from the following
@@ -227,10 +252,14 @@ func (o *CallOptions) FillDefaults() error {
 	// Fill in default retry options, if not specified.
 	o.fillRetryOptions()
 
-	// If no Check was specified, assume no error.
+	// check must be specified
 	if o.Check == nil {
-		o.Check = NoChecker()
+		panic("o.Check not set")
 	}
+
+	// If ProxyProtoVersion is not 0, 1, or 2, default to 0 (disabled)
+	o.fillProxyProtoVersion()
+
 	return nil
 }
 
@@ -255,6 +284,14 @@ func (o *CallOptions) fillCallCount() {
 	if newCount > o.Count {
 		o.Count = newCount
 	}
+}
+
+func (o *CallOptions) fillProxyProtoVersion() int {
+	if o.ProxyProtocolVersion > 0 && o.ProxyProtocolVersion < 3 {
+		// Nothing to do.
+		return o.ProxyProtocolVersion
+	}
+	return 0
 }
 
 func (o *CallOptions) numWorkloads() int {

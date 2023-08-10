@@ -20,9 +20,9 @@ import (
 	"sync"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/filewatcher"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/pkg/filewatcher"
-	"istio.io/pkg/log"
 )
 
 // NetworksHolder is a holder of a mesh networks configuration.
@@ -129,7 +129,5 @@ func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetwor
 func (w *internalNetworkWatcher) AddNetworksHandler(h func()) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-
-	// hack: prepend handlers; the last to be added will be run first and block other handlers
-	w.handlers = append([]func(){h}, w.handlers...)
+	w.handlers = append(w.handlers, h)
 }

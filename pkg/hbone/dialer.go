@@ -28,11 +28,11 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/proxy"
 
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
-	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("hbone", "", 0)
+var log = istiolog.RegisterScope("hbone", "")
 
 // Config defines the configuration for a given dialer. All fields other than ProxyAddress are optional
 type Config struct {
@@ -40,6 +40,7 @@ type Config struct {
 	ProxyAddress string
 	Headers      http.Header
 	TLS          *tls.Config
+	Timeout      *time.Duration
 }
 
 type Dialer interface {
@@ -50,6 +51,7 @@ type Dialer interface {
 // NewDialer creates a Dialer that proxies connections over HBONE to the configured proxy.
 func NewDialer(cfg Config) Dialer {
 	var transport *http2.Transport
+
 	if cfg.TLS != nil {
 		transport = &http2.Transport{
 			TLSClientConfig: cfg.TLS,
@@ -58,8 +60,12 @@ func NewDialer(cfg Config) Dialer {
 		transport = &http2.Transport{
 			// For h2c
 			AllowHTTP: true,
-			DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
-				return net.Dial(network, addr)
+			DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
+				d := net.Dialer{}
+				if cfg.Timeout != nil {
+					d.Timeout = *cfg.Timeout
+				}
+				return d.Dial(network, addr)
 			},
 		}
 	}
@@ -123,6 +129,9 @@ func (d *dialer) proxyTo(conn io.ReadWriteCloser, req Config, address string) er
 			remoteID = ids[0]
 		}
 	}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("round trip failed: %v", resp.Status)
+	}
 	log.WithLabels("host", r.Host, "remote", remoteID).Info("CONNECT established")
 	go func() {
 		defer conn.Close()
@@ -140,7 +149,7 @@ func (d *dialer) proxyTo(conn io.ReadWriteCloser, req Config, address string) er
 		copyBuffered(pw, conn, log.WithLabels("name", "conn to pipe"))
 
 		wg.Wait()
-		log.Info("stream closed in ", time.Since(t0))
+		log.Infof("stream closed in %v", time.Since(t0))
 	}()
 
 	return nil

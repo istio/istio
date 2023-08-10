@@ -15,17 +15,14 @@
 package crdclient
 
 import (
-	"context"
 	"fmt"
 	"reflect"
 	"testing"
 	"time"
 
-	"golang.org/x/exp/slices"
-	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"go.uber.org/atomic"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	metadatafake "k8s.io/client-go/metadata/fake"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -35,35 +32,38 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-func makeClient(t *testing.T, schemas collection.Schemas) (model.ConfigStoreController, kube.CLIClient) {
+func makeClient(t *testing.T, schemas collection.Schemas, f ...func(o Option) Option) (model.ConfigStoreController, kube.CLIClient) {
 	fake := kube.NewFakeClient()
 	for _, s := range schemas.All() {
-		createCRD(t, fake, s.Resource())
+		clienttest.MakeCRD(t, fake, s.GroupVersionResource())
 	}
 	stop := test.NewStop(t)
-	config, err := New(fake, Option{})
-	if err != nil {
-		t.Fatal(err)
+	var o Option
+	for _, fn := range f {
+		o = fn(o)
 	}
+	config := New(fake, o)
 	go config.Run(stop)
 	fake.RunAndWait(stop)
-	kube.WaitForCacheSync(stop, config.HasSynced)
+	kube.WaitForCacheSync("test", stop, config.HasSynced)
 	return config, fake
 }
 
 // Ensure that the client can run without CRDs present
 func TestClientNoCRDs(t *testing.T) {
-	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
+	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
 	store, _ := makeClient(t, schema)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
-	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
+	r := collections.VirtualService
 	configMeta := config.Meta{
 		Name:             "name",
 		Namespace:        "ns",
@@ -81,14 +81,9 @@ func TestClientNoCRDs(t *testing.T) {
 		t.Fatalf("Create => got %v", err)
 	}
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-		// List should actually not return an error in this case; this allows running with missing CRDs
-		// Instead, we just return an empty list.
-		if err != nil {
-			return fmt.Errorf("expected no error, but got %v", err)
-		}
+		l := store.List(r.GroupVersionKind(), configMeta.Namespace)
 		if len(l) != 0 {
-			return fmt.Errorf("expected no items returned for unknown CRD")
+			return fmt.Errorf("expected no items returned for unknown CRD, got %v", l)
 		}
 		return nil
 	}, retry.Timeout(time.Second*5), retry.Converge(5))
@@ -99,15 +94,28 @@ func TestClientNoCRDs(t *testing.T) {
 
 // Ensure that the client can run without CRDs present, but then added later
 func TestClientDelayedCRDs(t *testing.T) {
-	schema := collection.NewSchemasBuilder().MustAdd(collections.IstioNetworkingV1Alpha3Sidecars).Build()
-	store, fake := makeClient(t, schema)
+	// ns1 is allowed, ns2 is not
+	applyFilter := func(o Option) Option {
+		o.NamespacesFilter = func(obj interface{}) bool {
+			// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
+			object := controllers.ExtractObject(obj)
+			if object == nil {
+				return false
+			}
+			ns := object.GetNamespace()
+			return ns == "ns1"
+		}
+		return o
+	}
+	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
+	store, fake := makeClient(t, schema, applyFilter)
 	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
-	r := collections.IstioNetworkingV1Alpha3Virtualservices.Resource()
+	r := collections.VirtualService
 
 	// Create a virtual service
-	configMeta := config.Meta{
-		Name:             "name",
-		Namespace:        "ns",
+	configMeta1 := config.Meta{
+		Name:             "name1",
+		Namespace:        "ns1",
 		GroupVersionKind: r.GroupVersionKind(),
 	}
 	pb, err := r.NewInstance()
@@ -115,36 +123,40 @@ func TestClientDelayedCRDs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := store.Create(config.Config{
-		Meta: configMeta,
+		Meta: configMeta1,
+		Spec: pb,
+	}); err != nil {
+		t.Fatalf("Create => got %v", err)
+	}
+	configMeta2 := config.Meta{
+		Name:             "name2",
+		Namespace:        "ns2",
+		GroupVersionKind: r.GroupVersionKind(),
+	}
+	if _, err := store.Create(config.Config{
+		Meta: configMeta2,
 		Spec: pb,
 	}); err != nil {
 		t.Fatalf("Create => got %v", err)
 	}
 
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-		// List should actually not return an error in this case; this allows running with missing CRDs
-		// Instead, we just return an empty list.
-		if err != nil {
-			return fmt.Errorf("expected no error, but got %v", err)
-		}
+		l := store.List(r.GroupVersionKind(), "")
 		if len(l) != 0 {
 			return fmt.Errorf("expected no items returned for unknown CRD")
 		}
 		return nil
 	}, retry.Timeout(time.Second*5), retry.Converge(5))
 
-	createCRD(t, fake, r)
+	clienttest.MakeCRD(t, fake, r.GroupVersionResource())
 
 	retry.UntilSuccessOrFail(t, func() error {
-		l, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-		// List should actually not return an error in this case; this allows running with missing CRDs
-		// Instead, we just return an empty list.
-		if err != nil {
-			return fmt.Errorf("expected no error, but got %v", err)
-		}
+		l := store.List(r.GroupVersionKind(), "")
 		if len(l) != 1 {
 			return fmt.Errorf("expected items returned")
+		}
+		if l[0].Name != configMeta1.Name {
+			return fmt.Errorf("expected `name1` returned")
 		}
 		return nil
 	}, retry.Timeout(time.Second*10), retry.Converge(5))
@@ -152,14 +164,13 @@ func TestClientDelayedCRDs(t *testing.T) {
 
 // CheckIstioConfigTypes validates that an empty store can do CRUD operators on all given types
 func TestClient(t *testing.T) {
-	store, _ := makeClient(t, collections.PilotGatewayAPI.Union(collections.Kube))
+	store, _ := makeClient(t, collections.PilotGatewayAPI().Union(collections.Kube))
 	configName := "test"
 	configNamespace := "test-ns"
 	timeout := retry.Timeout(time.Millisecond * 200)
-	for _, c := range collections.PilotGatewayAPI.All() {
-		name := c.Resource().Kind()
+	for _, r := range collections.PilotGatewayAPI().All() {
+		name := r.Kind()
 		t.Run(name, func(t *testing.T) {
-			r := c.Resource()
 			configMeta := config.Meta{
 				GroupVersionKind: r.GroupVersionKind(),
 				Name:             configName,
@@ -190,10 +201,7 @@ func TestClient(t *testing.T) {
 
 			// Validate it shows up in List
 			retry.UntilSuccessOrFail(t, func() error {
-				cfgs, err := store.List(r.GroupVersionKind(), configMeta.Namespace)
-				if err != nil {
-					return err
-				}
+				cfgs := store.List(r.GroupVersionKind(), configMeta.Namespace)
 				if len(cfgs) != 1 {
 					return fmt.Errorf("expected 1 config, got %v", len(cfgs))
 				}
@@ -271,8 +279,7 @@ func TestClient(t *testing.T) {
 	}
 
 	t.Run("update status", func(t *testing.T) {
-		c := collections.IstioNetworkingV1Alpha3Workloadgroups
-		r := c.Resource()
+		r := collections.WorkloadGroup
 		name := "name1"
 		namespace := "bar"
 		cfgMeta := config.Meta{
@@ -293,7 +300,7 @@ func TestClient(t *testing.T) {
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
 			if cfg == nil {
-				return fmt.Errorf("cfg shouldnt be nil :(")
+				return fmt.Errorf("cfg shouldn't be nil :(")
 			}
 			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
 				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
@@ -321,7 +328,7 @@ func TestClient(t *testing.T) {
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
 			if cfg == nil {
-				return fmt.Errorf("cfg cant be nil")
+				return fmt.Errorf("cfg can't be nil")
 			}
 			if !reflect.DeepEqual(cfg.Status, stat) {
 				return fmt.Errorf("status %v does not match %v", cfg.Status, stat)
@@ -336,7 +343,7 @@ func TestClient(t *testing.T) {
 func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 	fake := kube.NewFakeClient()
 	for _, s := range collections.Istio.All() {
-		createCRD(t, fake, s.Resource())
+		clienttest.MakeCRD(t, fake, s.GroupVersionResource())
 	}
 
 	// Populate the client with some ServiceEntrys such that 1/3 are in the default revision and
@@ -346,7 +353,9 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 		{"istio.io/rev": "canary"},
 		{"istio.io/rev": "prod"},
 	}
-	var expectedCfgs []config.Config
+	var expectedNoRevision []config.Config
+	var expectedCanary []config.Config
+	var expectedProd []config.Config
 	for i := 0; i < 9; i++ {
 		selectedLabels := labels[i%len(labels)]
 		obj := &clientnetworkingv1alpha3.ServiceEntry{
@@ -357,73 +366,81 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 			},
 			Spec: v1alpha3.ServiceEntry{},
 		}
-		_, err := fake.Istio().NetworkingV1alpha3().ServiceEntries(obj.Namespace).Create(
-			context.TODO(), obj, metav1.CreateOptions{})
-		assert.NoError(t, err)
-		// Only SEs from the default revision should generate events.
-		if selectedLabels == nil {
-			expectedCfgs = append(expectedCfgs, TranslateObject(obj, gvk.ServiceEntry, ""))
+
+		clienttest.NewWriter[*clientnetworkingv1alpha3.ServiceEntry](t, fake).Create(obj)
+		// canary revision should receive only global objects and objects with the canary revision
+		if selectedLabels == nil || reflect.DeepEqual(selectedLabels, labels[1]) {
+			expectedCanary = append(expectedCanary, TranslateObject(obj, gvk.ServiceEntry, ""))
 		}
+		// prod revision should receive only global objects and objects with the prod revision
+		if selectedLabels == nil || reflect.DeepEqual(selectedLabels, labels[2]) {
+			expectedProd = append(expectedProd, TranslateObject(obj, gvk.ServiceEntry, ""))
+		}
+		// no revision should receive all objects
+		expectedNoRevision = append(expectedNoRevision, TranslateObject(obj, gvk.ServiceEntry, ""))
 	}
 
-	// Create a config store with a handler that records add events
-	store, err := New(fake, Option{})
-	assert.NoError(t, err)
-
-	var cfgsAdded []config.Config
-	store.RegisterEventHandler(
-		gvk.ServiceEntry,
-		func(old config.Config, curr config.Config, event model.Event) {
-			if event != model.EventAdd {
-				t.Fatalf("unexpected event: %v", event)
-			}
-			cfgsAdded = append(cfgsAdded, curr)
-		},
-	)
-
-	stop := test.NewStop(t)
-	fake.RunAndWait(stop)
-
-	// We don't call Run() and immediately close the stop channel as it occasionally leads to
-	// duplicate add events from the informer that cause test flakes. Instead, just call SyncAll()
-	// to only trigger the initial bootstrap sync.
-	store.SyncAll()
-
-	// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
-	sortFunc := func(a, b config.Config) bool {
-		return a.Key() < b.Key()
+	storeCases := map[string][]config.Config{
+		"":       expectedNoRevision, // No revision specified, should receive all events.
+		"canary": expectedCanary,     // Only SEs from the canary revision should be received.
+		"prod":   expectedProd,       // Only SEs from the prod revision should be received.
 	}
-	slices.SortFunc(cfgsAdded, sortFunc)
-	slices.SortFunc(expectedCfgs, sortFunc)
+	for rev, expected := range storeCases {
+		store := New(fake, Option{
+			Revision: rev,
+		})
 
-	assert.Equal(t, expectedCfgs, cfgsAdded)
+		var cfgsAdded []config.Config
+		store.RegisterEventHandler(
+			gvk.ServiceEntry,
+			func(old config.Config, curr config.Config, event model.Event) {
+				if event != model.EventAdd {
+					t.Fatalf("unexpected event: %v", event)
+				}
+				cfgsAdded = append(cfgsAdded, curr)
+			},
+		)
+
+		stop := test.NewStop(t)
+		fake.RunAndWait(stop)
+		go store.Run(stop)
+
+		kube.WaitForCacheSync("test", stop, store.HasSynced)
+
+		// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
+		sortFunc := func(a, b config.Config) bool {
+			return a.Key() < b.Key()
+		}
+		slices.SortFunc(cfgsAdded, sortFunc)
+		slices.SortFunc(expected, sortFunc)
+
+		assert.Equal(t, expected, cfgsAdded)
+	}
 }
 
-func createCRD(t test.Failer, client kube.Client, r resource.Schema) {
-	t.Helper()
-	crd := &v1.CustomResourceDefinition{
+func TestClientSync(t *testing.T) {
+	obj := &clientnetworkingv1alpha3.ServiceEntry{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: fmt.Sprintf("%s.%s", r.Plural(), r.Group()),
+			Name:      "test-service-entry",
+			Namespace: "test",
 		},
+		Spec: v1alpha3.ServiceEntry{},
 	}
-	if _, err := client.Ext().ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{}); err != nil {
-		t.Fatal(err)
+	fake := kube.NewFakeClient()
+	clienttest.NewWriter[*clientnetworkingv1alpha3.ServiceEntry](t, fake).Create(obj)
+	for _, s := range collections.Pilot.All() {
+		clienttest.MakeCRD(t, fake, s.GroupVersionResource())
 	}
+	stop := test.NewStop(t)
+	c := New(fake, Option{})
 
-	// Metadata client fake is not kept in sync, so if using a fake client update that as well
-	fmc, ok := client.Metadata().(*metadatafake.FakeMetadataClient)
-	if !ok {
-		return
-	}
-	fmg := fmc.Resource(collections.K8SApiextensionsK8SIoV1Customresourcedefinitions.Resource().GroupVersionResource())
-	fmd, ok := fmg.(metadatafake.MetadataClient)
-	if !ok {
-		return
-	}
-	if _, err := fmd.CreateFake(&metav1.PartialObjectMetadata{
-		TypeMeta:   crd.TypeMeta,
-		ObjectMeta: crd.ObjectMeta,
-	}, metav1.CreateOptions{}); err != nil {
-		t.Fatal(err)
-	}
+	events := atomic.NewInt64(0)
+	c.RegisterEventHandler(gvk.ServiceEntry, func(c config.Config, c2 config.Config, event model.Event) {
+		events.Inc()
+	})
+	go c.Run(stop)
+	fake.RunAndWait(stop)
+	kube.WaitForCacheSync("test", stop, c.HasSynced)
+	// This MUST have been called by the time HasSynced returns true
+	assert.Equal(t, events.Load(), 1)
 }

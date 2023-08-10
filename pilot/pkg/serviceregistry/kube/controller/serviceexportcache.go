@@ -15,21 +15,22 @@
 package controller
 
 import (
-	"fmt"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	kubesr "istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
 )
 
@@ -46,6 +47,7 @@ type serviceExportCache interface {
 
 	// ExportedServices returns the list of services that are exported in this cluster. Used for debugging.
 	ExportedServices() []exportedService
+	Run(stop <-chan struct{})
 
 	// HasSynced indicates whether the kube createClient has synced for the watched resources.
 	HasSynced() bool
@@ -54,16 +56,15 @@ type serviceExportCache interface {
 // newServiceExportCache creates a new serviceExportCache that observes the given cluster.
 func newServiceExportCache(c *Controller) serviceExportCache {
 	if features.EnableMCSServiceDiscovery {
-		dInformer := c.client.DynamicInformer().ForResource(mcs.ServiceExportGVR)
-		_ = dInformer.Informer().SetTransform(kube.StripUnusedFields)
 		ec := &serviceExportCacheImpl{
 			Controller: c,
 		}
-		if c.opts.DiscoveryNamespacesFilter != nil {
-			ec.filteredInformer = informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, dInformer.Informer())
-		} else {
-			ec.filteredInformer = informer.NewFilteredSharedIndexInformer(nil, dInformer.Informer())
-		}
+
+		ec.serviceExports = kclient.NewDelayedInformer(ec.client, mcs.ServiceExportGVR, kubetypes.DynamicInformer, kclient.Filter{
+			ObjectFilter: ec.opts.GetFilter(),
+		})
+		// Register callbacks for events.
+		registerHandlers(ec.Controller, ec.serviceExports, "ServiceExports", ec.onServiceExportEvent, nil)
 
 		// Set the discoverability policy for the clusterset.local host.
 		ec.clusterSetLocalPolicySelector = func(svc *model.Service) (policy model.EndpointDiscoverabilityPolicy) {
@@ -90,8 +91,6 @@ func newServiceExportCache(c *Controller) serviceExportCache {
 			ec.clusterLocalPolicySelector = ec.clusterSetLocalPolicySelector
 		}
 
-		// Register callbacks for events.
-		c.registerHandlers(ec.filteredInformer, "ServiceExports", ec.onServiceExportEvent, nil)
 		return ec
 	}
 
@@ -105,7 +104,7 @@ type discoverabilityPolicySelector func(*model.Service) model.EndpointDiscoverab
 type serviceExportCacheImpl struct {
 	*Controller
 
-	filteredInformer informer.FilteredSharedIndexInformer
+	serviceExports kclient.Untyped
 
 	// clusterLocalPolicySelector selects an appropriate EndpointDiscoverabilityPolicy for the cluster.local host.
 	clusterLocalPolicySelector discoverabilityPolicySelector
@@ -114,17 +113,10 @@ type serviceExportCacheImpl struct {
 	clusterSetLocalPolicySelector discoverabilityPolicySelector
 }
 
-func (ec *serviceExportCacheImpl) onServiceExportEvent(obj any, event model.Event) error {
-	se, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %#v", obj)
-		}
-		se, ok = tombstone.Obj.(*unstructured.Unstructured)
-		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a ServiceExport %#v", obj)
-		}
+func (ec *serviceExportCacheImpl) onServiceExportEvent(_, obj controllers.Object, event model.Event) error {
+	se := controllers.Extract[*unstructured.Unstructured](obj)
+	if se == nil {
+		return nil
 	}
 
 	switch event {
@@ -137,7 +129,7 @@ func (ec *serviceExportCacheImpl) onServiceExportEvent(obj any, event model.Even
 }
 
 func (ec *serviceExportCacheImpl) updateXDS(se metav1.Object) {
-	for _, svc := range ec.servicesForNamespacedName(kubesr.NamespacedNameForK8sObject(se)) {
+	for _, svc := range ec.servicesForNamespacedName(config.NamespacedName(se)) {
 		// Re-build the endpoints for this service with a new discoverability policy.
 		// Also update any internal caching.
 		endpoints := ec.buildEndpointsForService(svc, true)
@@ -160,16 +152,12 @@ func (ec *serviceExportCacheImpl) EndpointDiscoverabilityPolicy(svc *model.Servi
 }
 
 func (ec *serviceExportCacheImpl) isExported(name types.NamespacedName) bool {
-	item, _, _ := ec.filteredInformer.GetIndexer().GetByKey(name.String())
-	return item != nil
+	return ec.serviceExports.Get(name.Name, name.Namespace) != nil
 }
 
 func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 	// List all exports in this cluster.
-	exports, err := ec.filteredInformer.List("")
-	if err != nil {
-		return make([]exportedService, 0)
-	}
+	exports := ec.serviceExports.List(metav1.NamespaceAll, klabels.Everything())
 
 	ec.RLock()
 
@@ -177,7 +165,7 @@ func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 	for _, export := range exports {
 		uExport := export.(*unstructured.Unstructured)
 		es := exportedService{
-			namespacedName:  kubesr.NamespacedNameForK8sObject(uExport),
+			namespacedName:  config.NamespacedName(uExport),
 			discoverability: make(map[host.Name]string),
 		}
 
@@ -198,8 +186,11 @@ func (ec *serviceExportCacheImpl) ExportedServices() []exportedService {
 	return out
 }
 
+func (ec *serviceExportCacheImpl) Run(stop <-chan struct{}) {
+}
+
 func (ec *serviceExportCacheImpl) HasSynced() bool {
-	return ec.filteredInformer.HasSynced()
+	return ec.serviceExports.HasSynced()
 }
 
 type disabledServiceExportCache struct{}
@@ -210,6 +201,8 @@ func (c disabledServiceExportCache) EndpointDiscoverabilityPolicy(*model.Service
 	return model.AlwaysDiscoverable
 }
 
+func (c disabledServiceExportCache) Run(stop <-chan struct{}) {}
+
 func (c disabledServiceExportCache) HasSynced() bool {
 	return true
 }
@@ -217,4 +210,8 @@ func (c disabledServiceExportCache) HasSynced() bool {
 func (c disabledServiceExportCache) ExportedServices() []exportedService {
 	// MCS is disabled - returning `nil`, which is semantically different here than an empty list.
 	return nil
+}
+
+func (c disabledServiceExportCache) HasCRDInstalled() bool {
+	return false
 }

@@ -21,7 +21,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // Manager allows multiple controllers to provide input into configuration
@@ -49,13 +49,13 @@ func NewManager(store model.ConfigStore) *Manager {
 	}
 	retrieveFunc := func(resource Resource) *config.Config {
 		scope.Debugf("retrieving config for status update: %s/%s", resource.Namespace, resource.Name)
-		schema, _ := collections.All.FindByGroupVersionResource(resource.GroupVersionResource)
-		if schema == nil {
-			scope.Warnf("schema %v could not be identified", schema)
+		k, ok := gvk.FromGVR(resource.GroupVersionResource)
+		if !ok {
+			scope.Warnf("GVR %v could not be identified", resource.GroupVersionResource)
 			return nil
 		}
 
-		current := store.Get(schema.Resource().GroupVersionKind(), resource.Name, resource.Namespace)
+		current := store.Get(k, resource.Name, resource.Namespace)
 		return current
 	}
 	return &Manager{
@@ -74,7 +74,7 @@ func (m *Manager) Start(stop <-chan struct{}) {
 // CreateGenericController provides an interface for a status update function to be
 // called in series with other controllers, minimizing the number of actual
 // api server writes sent from various status controllers.  The UpdateFunc
-// must take the target resrouce status and arbitrary context information as
+// must take the target resource status and arbitrary context information as
 // parameters, and return the updated status value.  Multiple controllers
 // will be called in series, so the input status may not have been written
 // to the API server yet, and the output status may be modified by other

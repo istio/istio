@@ -18,12 +18,12 @@ import (
 	"fmt"
 
 	"istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // DestinationHostAnalyzer checks the destination hosts associated with each virtual service
@@ -41,10 +41,10 @@ func (a *DestinationHostAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "virtualservice.DestinationHostAnalyzer",
 		Description: "Checks the destination hosts associated with each virtual service",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Serviceentries.Name(),
-			collections.IstioNetworkingV1Alpha3Virtualservices.Name(),
-			collections.K8SCoreV1Services.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.ServiceEntry,
+			gvk.VirtualService,
+			gvk.Service,
 		},
 	}
 }
@@ -55,7 +55,7 @@ func (a *DestinationHostAnalyzer) Analyze(ctx analysis.Context) {
 	serviceEntryHosts := util.InitServiceEntryHostMap(ctx)
 	virtualServiceDestinations := initVirtualServiceDestinations(ctx)
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
 		a.analyzeVirtualService(r, ctx, serviceEntryHosts)
 		a.analyzeSubset(r, ctx, virtualServiceDestinations)
 		return true
@@ -83,7 +83,7 @@ func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analys
 								m.Line = line
 							}
 
-							ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+							ctx.Report(gvk.VirtualService, m)
 						}
 					}
 				}
@@ -96,7 +96,7 @@ func (a *DestinationHostAnalyzer) analyzeSubset(r *resource.Instance, ctx analys
 func initVirtualServiceDestinations(ctx analysis.Context) map[resource.FullName][]*v1alpha3.Destination {
 	virtualservices := make(map[resource.FullName][]*v1alpha3.Destination)
 
-	ctx.ForEach(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), func(r *resource.Instance) bool {
+	ctx.ForEach(gvk.VirtualService, func(r *resource.Instance) bool {
 		virtualservice := r.Message.(*v1alpha3.VirtualService)
 		for _, routes := range virtualservice.Http {
 			for _, destinations := range routes.Route {
@@ -133,7 +133,7 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 				m.Line = line
 			}
 
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+			ctx.Report(gvk.VirtualService, m)
 			continue
 		}
 		checkServiceEntryPorts(ctx, r, d, s)
@@ -150,7 +150,7 @@ func (a *DestinationHostAnalyzer) analyzeVirtualService(r *resource.Instance, ct
 				m.Line = line
 			}
 
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+			ctx.Report(gvk.VirtualService, m)
 			continue
 		}
 		checkServiceEntryPorts(ctx, r, d, s)
@@ -180,7 +180,7 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Annot
 				}
 			}
 
-			ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+			ctx.Report(gvk.VirtualService, m)
 			return
 		}
 
@@ -212,6 +212,6 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Annot
 			}
 		}
 
-		ctx.Report(collections.IstioNetworkingV1Alpha3Virtualservices.Name(), m)
+		ctx.Report(gvk.VirtualService, m)
 	}
 }

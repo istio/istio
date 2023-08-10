@@ -33,24 +33,6 @@ spec:
   - a.domain.example
   http:
   - match:
-    - uri:
-        regex: /foo((\/).*)?
-    name: allowed-1.http.1
-    route:
-    - destination:
-        host: svc2.allowed-1.svc.domain.suffix
-        port:
-          number: 80
-  - match:
-    - uri:
-        prefix: /foo/bar
-    name: allowed-2.http.0
-    route:
-    - destination:
-        host: svc2.allowed-2.svc.domain.suffix
-        port:
-          number: 80
-  - match:
     - headers:
         my-header:
           exact: some-value
@@ -60,6 +42,15 @@ spec:
       uri:
         exact: /baz
     name: allowed-2.http.1
+    route:
+    - destination:
+        host: svc2.allowed-2.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - uri:
+        prefix: /foo/bar
+    name: allowed-2.http.0
     route:
     - destination:
         host: svc2.allowed-2.svc.domain.suffix
@@ -87,12 +78,32 @@ spec:
         port:
           number: 80
   - match:
+    - method:
+        exact: PATCH
+      uri:
+        prefix: /
+    name: allowed-2.http.3
+    route:
+    - destination:
+        host: svc2.allowed-2.svc.domain.suffix
+        port:
+          number: 80
+  - match:
     - uri:
         prefix: /
     name: allowed-2.http.2
     route:
     - destination:
         host: svc3.allowed-2.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - uri:
+        regex: /foo((\/).*)?
+    name: allowed-1.http.1
+    route:
+    - destination:
+        host: svc2.allowed-1.svc.domain.suffix
         port:
           number: 80
 ---
@@ -112,15 +123,6 @@ spec:
   - b.domain.example
   http:
   - match:
-    - uri:
-        regex: /foo((\/).*)?
-    name: allowed-1.http.1
-    route:
-    - destination:
-        host: svc2.allowed-1.svc.domain.suffix
-        port:
-          number: 80
-  - match:
     - headers:
         my-header:
           exact: some-value
@@ -130,6 +132,15 @@ spec:
     route:
     - destination:
         host: svc1.allowed-1.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - uri:
+        regex: /foo((\/).*)?
+    name: allowed-1.http.1
+    route:
+    - destination:
+        host: svc2.allowed-1.svc.domain.suffix
         port:
           number: 80
 ---
@@ -149,15 +160,6 @@ spec:
   - a-example.allowed-1.svc.domain.suffix
   http:
   - match:
-    - uri:
-        regex: /foo((\/).*)?
-    name: allowed-1.http.1
-    route:
-    - destination:
-        host: svc2.allowed-1.svc.domain.suffix
-        port:
-          number: 80
-  - match:
     - headers:
         my-header:
           exact: some-value
@@ -167,6 +169,15 @@ spec:
     route:
     - destination:
         host: svc1.allowed-1.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - uri:
+        regex: /foo((\/).*)?
+    name: allowed-1.http.1
+    route:
+    - destination:
+        host: svc2.allowed-1.svc.domain.suffix
         port:
           number: 80
 ---
@@ -186,15 +197,6 @@ spec:
   - b-example.allowed-1.svc.domain.suffix
   http:
   - match:
-    - uri:
-        regex: /foo((\/).*)?
-    name: allowed-1.http.1
-    route:
-    - destination:
-        host: svc2.allowed-1.svc.domain.suffix
-        port:
-          number: 80
-  - match:
     - headers:
         my-header:
           exact: some-value
@@ -204,6 +206,15 @@ spec:
     route:
     - destination:
         host: svc1.allowed-1.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - uri:
+        regex: /foo((\/).*)?
+    name: allowed-1.http.1
+    route:
+    - destination:
+        host: svc2.allowed-1.svc.domain.suffix
         port:
           number: 80
 ---
@@ -223,15 +234,6 @@ spec:
   - a-example.allowed-2.svc.domain.suffix
   http:
   - match:
-    - uri:
-        prefix: /foo/bar
-    name: allowed-2.http.0
-    route:
-    - destination:
-        host: svc2.allowed-2.svc.domain.suffix
-        port:
-          number: 80
-  - match:
     - headers:
         my-header:
           exact: some-value
@@ -248,8 +250,28 @@ spec:
           number: 80
   - match:
     - uri:
+        prefix: /foo/bar
+    name: allowed-2.http.0
+    route:
+    - destination:
+        host: svc2.allowed-2.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - uri:
         prefix: /bar
     name: allowed-2.http.0
+    route:
+    - destination:
+        host: svc2.allowed-2.svc.domain.suffix
+        port:
+          number: 80
+  - match:
+    - method:
+        exact: PATCH
+      uri:
+        prefix: /
+    name: allowed-2.http.3
     route:
     - destination:
         host: svc2.allowed-2.svc.domain.suffix

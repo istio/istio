@@ -26,8 +26,8 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
-	"istio.io/pkg/log"
 )
 
 // ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.
@@ -35,7 +35,7 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 	c *cluster.Cluster, hosts []host.Name,
 ) (out *cluster.Cluster) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
-		log.Errorf("clusters patch caused panic, so the patches did not take effect")
+		log.Errorf("clusters patch %s/%s caused panic, so the patches did not take effect", efw.Namespace, efw.Name)
 		IncrementEnvoyFilterErrorMetric(Cluster)
 	})
 	// In case the patches cause panic, use the clusters generated before to reduce the influence.

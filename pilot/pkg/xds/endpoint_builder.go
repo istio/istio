@@ -15,11 +15,11 @@
 package xds
 
 import (
-	"crypto/md5"
-	"encoding/hex"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
+	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
@@ -29,15 +29,16 @@ import (
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/util/hash"
 )
 
 var (
@@ -55,6 +56,7 @@ type EndpointBuilder struct {
 	destinationRule        *model.ConsolidatedDestRule
 	service                *model.Service
 	clusterLocal           bool
+	nodeType               model.NodeType
 	failoverPriorityLabels []byte
 
 	// These fields are provided for convenience only
@@ -63,12 +65,17 @@ type EndpointBuilder struct {
 	port       int
 	push       *model.PushContext
 	proxy      *model.Proxy
+	dir        model.TrafficDirection
 
 	mtlsChecker *mtlsChecker
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
-	_, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+	dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
+	if dir == model.TrafficDirectionInboundVIP {
+		subsetName = strings.TrimPrefix(subsetName, "http/")
+		subsetName = strings.TrimPrefix(subsetName, "tcp/")
+	}
 	svc := push.ServiceForHostname(proxy, hostname)
 
 	var dr *model.ConsolidatedDestRule
@@ -84,91 +91,98 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		service:         svc,
 		clusterLocal:    push.IsClusterLocal(svc),
 		destinationRule: dr,
+		nodeType:        proxy.Type,
 
-		push:       push,
-		proxy:      proxy,
-		subsetName: subsetName,
-		hostname:   hostname,
-		port:       port,
+		mtlsChecker: newMtlsChecker(push, port, dr.GetRule(), subsetName),
+		push:        push,
+		proxy:       proxy,
+		subsetName:  subsetName,
+		hostname:    hostname,
+		port:        port,
+		dir:         dir,
 	}
 
 	b.populateFailoverPriorityLabels()
 
-	// We need this for multi-network, or for clusters meant for use with AUTO_PASSTHROUGH.
-	if features.EnableAutomTLSCheckPolicies ||
-		b.push.NetworkManager().IsMultiNetworkEnabled() || model.IsDNSSrvSubsetKey(clusterName) {
-		b.mtlsChecker = newMtlsChecker(push, port, dr.GetRule())
-	}
 	return b
 }
 
-func (b EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
+func (b *EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
 	if dr := b.destinationRule.GetRule(); dr != nil {
 		return dr.Spec.(*networkingapi.DestinationRule)
 	}
 	return nil
 }
 
+func (b *EndpointBuilder) Type() string {
+	return model.EDSType
+}
+
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
-func (b EndpointBuilder) Key() string {
+func (b *EndpointBuilder) Key() any {
 	// nolint: gosec
 	// Not security sensitive code
-	hash := md5.New()
-	hash.Write([]byte(b.clusterName))
-	hash.Write(Separator)
-	hash.Write([]byte(b.network))
-	hash.Write(Separator)
-	hash.Write([]byte(b.clusterID))
-	hash.Write(Separator)
-	hash.Write([]byte(strconv.FormatBool(b.clusterLocal)))
-	hash.Write(Separator)
-	if features.EnableHBONE {
-		hash.Write([]byte(strconv.FormatBool(b.proxy.IsProxylessGrpc())))
-		hash.Write(Separator)
+	h := hash.New()
+	h.Write([]byte(b.clusterName))
+	h.Write(Separator)
+	h.Write([]byte(b.network))
+	h.Write(Separator)
+	h.Write([]byte(b.clusterID))
+	h.Write(Separator)
+	h.Write([]byte(b.nodeType))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(b.clusterLocal)))
+	h.Write(Separator)
+	if features.EnableHBONE && b.proxy != nil {
+		h.Write([]byte(strconv.FormatBool(b.proxy.IsProxylessGrpc())))
+		h.Write(Separator)
 	}
-	hash.Write([]byte(util.LocalityToString(b.locality)))
-	hash.Write(Separator)
+	h.Write([]byte(util.LocalityToString(b.locality)))
+	h.Write(Separator)
 	if len(b.failoverPriorityLabels) > 0 {
-		hash.Write(b.failoverPriorityLabels)
-		hash.Write(Separator)
+		h.Write(b.failoverPriorityLabels)
+		h.Write(Separator)
+	}
+	if b.service.Attributes.NodeLocal {
+		h.Write([]byte(b.proxy.GetNodeName()))
+		h.Write(Separator)
 	}
 
 	if b.push != nil && b.push.AuthnPolicies != nil {
-		hash.Write([]byte(b.push.AuthnPolicies.GetVersion()))
+		h.Write([]byte(b.push.AuthnPolicies.GetVersion()))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	for _, dr := range b.destinationRule.GetFrom() {
-		hash.Write([]byte(dr.Name))
-		hash.Write(Slash)
-		hash.Write([]byte(dr.Namespace))
+		h.Write([]byte(dr.Name))
+		h.Write(Slash)
+		h.Write([]byte(dr.Namespace))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	if b.service != nil {
-		hash.Write([]byte(b.service.Hostname))
-		hash.Write(Slash)
-		hash.Write([]byte(b.service.Attributes.Namespace))
+		h.Write([]byte(b.service.Hostname))
+		h.Write(Slash)
+		h.Write([]byte(b.service.Attributes.Namespace))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
 	if b.proxyView != nil {
-		hash.Write([]byte(b.proxyView.String()))
+		h.Write([]byte(b.proxyView.String()))
 	}
-	hash.Write(Separator)
+	h.Write(Separator)
 
-	sum := hash.Sum(nil)
-	return hex.EncodeToString(sum)
+	return h.Sum64()
 }
 
-func (b EndpointBuilder) Cacheable() bool {
+func (b *EndpointBuilder) Cacheable() bool {
 	// If service is not defined, we cannot do any caching as we will not have a way to
 	// invalidate the results.
 	// Service being nil means the EDS will be empty anyways, so not much lost here.
 	return b.service != nil
 }
 
-func (b EndpointBuilder) DependentConfigs() []model.ConfigHash {
+func (b *EndpointBuilder) DependentConfigs() []model.ConfigHash {
 	drs := b.destinationRule.GetFrom()
 	configs := make([]model.ConfigHash, 0, len(drs)+1)
 	if b.destinationRule != nil {
@@ -186,12 +200,6 @@ func (b EndpointBuilder) DependentConfigs() []model.ConfigHash {
 		}.HashCode())
 	}
 	return configs
-}
-
-var edsDependentTypes = []kind.Kind{kind.PeerAuthentication}
-
-func (b EndpointBuilder) DependentTypes() []kind.Kind {
-	return edsDependentTypes
 }
 
 type LocalityEndpoints struct {
@@ -248,18 +256,26 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	// and should, therefore, not be accessed from outside the cluster.
 	isClusterLocal := b.clusterLocal
 
-	shards.Lock()
+	// To avoid lock contention, grab endpoints list before we process anything
+	eps := []*model.IstioEndpoint{}
+	shards.RLock()
 	// Extract shard keys so we can iterate in order. This ensures a stable EDS output.
 	keys := shards.Keys()
 	// The shards are updated independently, now need to filter and merge for this cluster
 	for _, shardKey := range keys {
-		endpoints := shards.Shards[shardKey]
-		// If the downstream service is configured as cluster-local, only include endpoints that
-		// reside in the same cluster.
-		if isClusterLocal && (shardKey.Cluster != b.clusterID) {
-			continue
+		if shardKey.Cluster != b.clusterID {
+			// If the downstream service is configured as cluster-local, only include endpoints that
+			// reside in the same cluster.
+			if isClusterLocal || b.service.Attributes.NodeLocal {
+				continue
+			}
 		}
+		endpoints := shards.Shards[shardKey]
 		for _, ep := range endpoints {
+			// for ServiceInternalTrafficPolicy
+			if b.service.Attributes.NodeLocal && ep.NodeName != b.proxy.GetNodeName() {
+				continue
+			}
 			// TODO(nmittler): Consider merging discoverability policy with cluster-local
 			if !ep.IsDiscoverableFromProxy(b.proxy) {
 				continue
@@ -271,6 +287,10 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if !subsetLabels.SubsetOf(ep.Labels) {
 				continue
 			}
+			// If we don't know the address we must eventually use a gateway address
+			if ep.Address == "" && ep.Network == b.network {
+				continue
+			}
 			// Draining endpoints are only sent to 'persistent session' clusters.
 			draining := ep.HealthStatus == model.Draining ||
 				features.DrainingLabel != "" && ep.Labels[features.DrainingLabel] != ""
@@ -280,41 +300,45 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 					continue
 				}
 			}
+			eps = append(eps, ep)
+		}
+	}
+	shards.RUnlock()
 
-			locLbEps, found := localityEpMap[ep.Locality.Label]
-			if !found {
-				locLbEps = &LocalityEndpoints{
-					llbEndpoints: endpoint.LocalityLbEndpoints{
-						Locality:    util.ConvertLocality(ep.Locality.Label),
-						LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(endpoints)),
-					},
-				}
-				localityEpMap[ep.Locality.Label] = locLbEps
-			}
+	for _, ep := range eps {
+		eep := ep.EnvoyEndpoint()
+		mtlsEnabled := b.mtlsChecker.checkMtlsEnabled(ep)
+		// Determine if we need to build the endpoint. We try to cache it for performance reasons
+		needToCompute := eep == nil
+		if features.EnableHBONE {
 			// Currently the HBONE implementation leads to different endpoint generation depending on if the
 			// client proxy supports HBONE or not. This breaks the cache.
 			// For now, just disable caching if the global HBONE flag is enabled.
-			if ep.EnvoyEndpoint == nil || features.EnableHBONE {
-				ep.EnvoyEndpoint = buildEnvoyLbEndpoint(b.proxy.IsProxylessGrpc(), ep)
-			}
-			// detect if mTLS is possible for this endpoint, used later during ep filtering
-			// this must be done while converting IstioEndpoints because we still have workload labels
-			if b.mtlsChecker != nil {
-				b.mtlsChecker.computeForEndpoint(ep)
-				if features.EnableAutomTLSCheckPolicies {
-					tlsMode := ep.TLSMode
-					if b.mtlsChecker.isMtlsDisabled(ep.EnvoyEndpoint) {
-						tlsMode = ""
-					}
-					if nep, modified := util.MaybeApplyTLSModeLabel(ep.EnvoyEndpoint, tlsMode); modified {
-						ep.EnvoyEndpoint = nep
-					}
-				}
-			}
-			locLbEps.append(ep, ep.EnvoyEndpoint)
+			needToCompute = true
 		}
+		if eep != nil && mtlsEnabled != isMtlsEnabled(eep) {
+			// The mTLS settings may have changed, invalidating the cache endpoint. Rebuild it
+			needToCompute = true
+		}
+		if needToCompute {
+			eep = buildEnvoyLbEndpoint(b, ep, mtlsEnabled)
+			if eep == nil {
+				continue
+			}
+			ep.ComputeEnvoyEndpoint(eep)
+		}
+		locLbEps, found := localityEpMap[ep.Locality.Label]
+		if !found {
+			locLbEps = &LocalityEndpoints{
+				llbEndpoints: endpoint.LocalityLbEndpoints{
+					Locality:    util.ConvertLocality(ep.Locality.Label),
+					LbEndpoints: make([]*endpoint.LbEndpoint, 0, len(eps)),
+				},
+			}
+			localityEpMap[ep.Locality.Label] = locLbEps
+		}
+		locLbEps.append(ep, eep)
 	}
-	shards.Unlock()
 
 	locEps := make([]*LocalityEndpoints, 0, len(localityEpMap))
 	locs := make([]string, 0, len(localityEpMap))
@@ -355,23 +379,27 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 	}
 }
 
+func (b *EndpointBuilder) IsDNSCluster() bool {
+	return b.service != nil && (b.service.Resolution == model.DNSLB || b.service.Resolution == model.DNSRoundRobinLB)
+}
+
+func (b *EndpointBuilder) gateways() *model.NetworkGateways {
+	if b.IsDNSCluster() {
+		return b.push.NetworkManager().Unresolved
+	}
+	return b.push.NetworkManager().NetworkGateways
+}
+
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
-func buildEnvoyLbEndpoint(proxyless bool, e *model.IstioEndpoint) *endpoint.LbEndpoint {
+func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnabled bool) *endpoint.LbEndpoint {
 	addr := util.BuildAddress(e.Address, e.EndpointPort)
-	healthStatus := core.HealthStatus_HEALTHY
-	// This is enabled by features.SendUnhealthyEndpoints - otherwise they are not tracked.
-	if e.HealthStatus == model.UnHealthy {
-		healthStatus = core.HealthStatus_UNHEALTHY
-	}
-	if e.HealthStatus == model.Draining {
-		healthStatus = core.HealthStatus_DRAINING
-	}
+	healthStatus := e.HealthStatus
 	if features.DrainingLabel != "" && e.Labels[features.DrainingLabel] != "" {
-		healthStatus = core.HealthStatus_DRAINING
+		healthStatus = model.Draining
 	}
 
 	ep := &endpoint.LbEndpoint{
-		HealthStatus: healthStatus,
+		HealthStatus: core.HealthStatus(healthStatus),
 		LoadBalancingWeight: &wrappers.UInt32Value{
 			Value: e.GetLoadBalancingWeight(),
 		},
@@ -380,35 +408,83 @@ func buildEnvoyLbEndpoint(proxyless bool, e *model.IstioEndpoint) *endpoint.LbEn
 				Address: addr,
 			},
 		},
+		Metadata: &core.Metadata{},
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
-	// Do not remove pilot/pkg/xds/fake.go
-	ep.Metadata = util.BuildLbEndpointMetadata(e.Network, e.TLSMode, e.WorkloadName, e.Namespace, e.Locality.ClusterID, e.Labels)
+	// Do not remove
+	meta := e.Metadata()
+
+	// detect if mTLS is possible for this endpoint, used later during ep filtering
+	// this must be done while converting IstioEndpoints because we still have workload labels
+	if !mtlsEnabled {
+		meta.TLSMode = ""
+	}
+	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
 	address, port := e.Address, e.EndpointPort
 	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
 
 	supportsTunnel := false
+	// Other side is a waypoint proxy.
+	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
+		supportsTunnel = true
+	}
+
+	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
+	if b.push.SupportsTunnel(e.Network, e.Address) {
+		supportsTunnel = true
+	}
 	// Otherwise supports tunnel
 	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
 	// need to pick the right one based on our support overlap.
 	if e.SupportsTunnel(model.TunnelHTTP) {
 		supportsTunnel = true
 	}
-	if proxyless {
+	if b.proxy.IsProxylessGrpc() {
 		// Proxyless client cannot handle tunneling, even if the server can
 		supportsTunnel = false
 	}
-	if !features.EnableHBONE {
+
+	if !b.proxy.EnableHBONE() {
 		supportsTunnel = false
 	}
 
-	// For outbound case, we selectively add tunnel info if the other side supports the tunnel
-	if supportsTunnel {
+	// Setup tunnel information, if needed
+	if b.dir == model.TrafficDirectionInboundVIP {
+		// This is only used in waypoint proxy
+		inScope := waypointInScope(b.proxy, e)
+		if !inScope {
+			// A waypoint can *partially* select a Service in edge cases. In this case, some % of requests will
+			// go through the waypoint, and the rest direct. Since these have already been load balanced across,
+			// we want to make sure we only send to workloads behind our waypoint
+			return nil
+		}
+		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
+		if supportsTunnel {
+			address := e.Address
+			tunnelPort := 15008
+			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
+			// and add some detunnel metadata that had the original port.
+			ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, address, int(e.EndpointPort), tunnelPort)
+			ep = util.BuildInternalLbEndpoint(networking.ConnectOriginate, ep.Metadata)
+			ep.LoadBalancingWeight = &wrappers.UInt32Value{
+				Value: e.GetLoadBalancingWeight(),
+			}
+		}
+	} else if supportsTunnel {
+		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
+		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
+			workloads := findWaypoints(b.push, e)
+			if len(workloads) > 0 {
+				// TODO: load balance
+				tunnelAddress = workloads[0].String()
+			}
+		}
+		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(util.OutboundTunnel, net.JoinHostPort(address, strconv.Itoa(int(port)))),
+			Address: util.BuildInternalAddressWithIdentifier(networking.ConnectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}
 		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
@@ -421,150 +497,24 @@ func buildEnvoyLbEndpoint(proxyless bool, e *model.IstioEndpoint) *endpoint.LbEn
 	return ep
 }
 
-// TODO this logic is probably done elsewhere in XDS, possible code-reuse + perf improvements
-type mtlsChecker struct {
-	push            *model.PushContext
-	svcPort         int
-	destinationRule *networkingapi.DestinationRule
-
-	// cache of host identifiers that have mTLS disabled
-	mtlsDisabledHosts map[string]struct{}
-
-	// cache of labels/port that have mTLS disabled by peerAuthn
-	peerAuthDisabledMTLS map[string]bool
-	// cache of labels that have mTLS modes set for subset policies
-	subsetPolicyMode map[string]*networkingapi.ClientTLSSettings_TLSmode
-	// the tlsMode of the root traffic policy if it's set
-	rootPolicyMode *networkingapi.ClientTLSSettings_TLSmode
-}
-
-func newMtlsChecker(push *model.PushContext, svcPort int, dr *config.Config) *mtlsChecker {
-	var drSpec *networkingapi.DestinationRule
-	if dr != nil {
-		drSpec = dr.Spec.(*networkingapi.DestinationRule)
-	}
-	return &mtlsChecker{
-		push:                 push,
-		svcPort:              svcPort,
-		destinationRule:      drSpec,
-		mtlsDisabledHosts:    map[string]struct{}{},
-		peerAuthDisabledMTLS: map[string]bool{},
-		subsetPolicyMode:     map[string]*networkingapi.ClientTLSSettings_TLSmode{},
-		rootPolicyMode:       mtlsModeForDefaultTrafficPolicy(dr, svcPort),
-	}
-}
-
-// mTLSDisabled returns true if the given lbEp has mTLS disabled due to any of:
-// - disabled tlsMode
-// - DestinationRule disabling mTLS on the entire host or the port
-// - PeerAuthentication disabling mTLS at any applicable level (mesh, ns, workload, port)
-func (c *mtlsChecker) isMtlsDisabled(lbEp *endpoint.LbEndpoint) bool {
-	if c == nil {
+// waypointInScope computes whether the endpoint is owned by the waypoint
+func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
+	scope := waypoint.WaypointScope()
+	if scope.Namespace != e.Namespace {
 		return false
 	}
-	_, ok := c.mtlsDisabledHosts[lbEpKey(lbEp)]
-	return ok
+	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
+	if scope.ServiceAccount != "" && (scope.ServiceAccount != ident.ServiceAccount) {
+		return false
+	}
+	return true
 }
 
-// computeForEndpoint checks destination rule, peer authentication and tls mode labels to determine if mTLS was turned off.
-func (c *mtlsChecker) computeForEndpoint(ep *model.IstioEndpoint) {
-	if drMode := c.mtlsModeForDestinationRule(ep); drMode != nil {
-		switch *drMode {
-		case networkingapi.ClientTLSSettings_DISABLE:
-			c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
-			return
-		case networkingapi.ClientTLSSettings_ISTIO_MUTUAL:
-			// don't mark this EP disabled, even if PA or tlsMode meta mark disabled
-			return
-		}
-	}
-
-	// if endpoint has no sidecar or explicitly tls disabled by "security.istio.io/tlsMode" label.
-	if ep.TLSMode != model.IstioMutualTLSModeLabel {
-		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
-		return
-	}
-
-	mtlsDisabledByPeerAuthentication := func(ep *model.IstioEndpoint) bool {
-		// apply any matching peer authentications
-		peerAuthnKey := ep.Labels.String() + ":" + strconv.Itoa(int(ep.EndpointPort))
-		if value, ok := c.peerAuthDisabledMTLS[peerAuthnKey]; ok {
-			// avoid recomputing since most EPs will have the same labels/port
-			return value
-		}
-		c.peerAuthDisabledMTLS[peerAuthnKey] = factory.
-			NewPolicyApplier(c.push, ep.Namespace, ep.Labels).
-			GetMutualTLSModeForPort(ep.EndpointPort) == model.MTLSDisable
-		return c.peerAuthDisabledMTLS[peerAuthnKey]
-	}
-
-	//  mtls disabled by PeerAuthentication
-	if mtlsDisabledByPeerAuthentication(ep) {
-		c.mtlsDisabledHosts[lbEpKey(ep.EnvoyEndpoint)] = struct{}{}
-	}
-}
-
-func (c *mtlsChecker) mtlsModeForDestinationRule(ep *model.IstioEndpoint) *networkingapi.ClientTLSSettings_TLSmode {
-	if c.destinationRule == nil || len(c.destinationRule.Subsets) == 0 {
-		return c.rootPolicyMode
-	}
-
-	drSubsetKey := ep.Labels.String()
-	if value, ok := c.subsetPolicyMode[drSubsetKey]; ok {
-		// avoid recomputing since most EPs will have the same labels/port
-		return value
-	}
-
-	subsetValue := c.rootPolicyMode
-	for _, subset := range c.destinationRule.Subsets {
-		if labels.Instance(subset.Labels).SubsetOf(ep.Labels) {
-			mode := trafficPolicyTLSModeForPort(subset.TrafficPolicy, c.svcPort)
-			if mode != nil {
-				subsetValue = mode
-			}
-			break
-		}
-	}
-	c.subsetPolicyMode[drSubsetKey] = subsetValue
-	return subsetValue
-}
-
-// mtlsModeForDefaultTrafficPolicy returns true if the default traffic policy on a given dr disables mTLS
-func mtlsModeForDefaultTrafficPolicy(destinationRule *config.Config, port int) *networkingapi.ClientTLSSettings_TLSmode {
-	if destinationRule == nil {
-		return nil
-	}
-	dr, ok := destinationRule.Spec.(*networkingapi.DestinationRule)
-	if !ok || dr == nil {
-		return nil
-	}
-	return trafficPolicyTLSModeForPort(dr.GetTrafficPolicy(), port)
-}
-
-func trafficPolicyTLSModeForPort(tp *networkingapi.TrafficPolicy, port int) *networkingapi.ClientTLSSettings_TLSmode {
-	if tp == nil {
-		return nil
-	}
-	var mode *networkingapi.ClientTLSSettings_TLSmode
-	if tp.Tls != nil {
-		mode = &tp.Tls.Mode
-	}
-	// if there is a port-level setting matching this cluster
-	for _, portSettings := range tp.GetPortLevelSettings() {
-		if int(portSettings.GetPort().GetNumber()) == port && portSettings.Tls != nil {
-			mode = &portSettings.Tls.Mode
-			break
-		}
-	}
-	return mode
-}
-
-func lbEpKey(b *endpoint.LbEndpoint) string {
-	if addr := b.GetEndpoint().GetAddress().GetSocketAddress(); addr != nil {
-		return addr.Address + ":" + strconv.Itoa(int(addr.GetPortValue()))
-	}
-	if addr := b.GetEndpoint().GetAddress().GetPipe(); addr != nil {
-		return addr.GetPath() + ":" + strconv.Itoa(int(addr.GetMode()))
-	}
-	return ""
+func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {
+	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
+	ips := push.WaypointsFor(model.WaypointScope{
+		Namespace:      e.Namespace,
+		ServiceAccount: ident.ServiceAccount,
+	})
+	return ips
 }

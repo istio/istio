@@ -18,7 +18,6 @@
 package operator
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -27,7 +26,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/golang/protobuf/jsonpb"
 	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,7 +34,9 @@ import (
 	api "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/config/schema/gvr"
 	istioKube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -45,8 +45,8 @@ import (
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/util/sanitycheck"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -209,8 +209,7 @@ func checkInstallStatus(cs istioKube.CLIClient, revision string) error {
 			return fmt.Errorf("failed to marshal istioOperator status: %v", err)
 		}
 		status := &api.InstallStatus{}
-		jspb := jsonpb.Unmarshaler{AllowUnknownFields: true}
-		if err := jspb.Unmarshal(bytes.NewReader(iopStatusString), status); err != nil {
+		if err := protomarshal.UnmarshalAllowUnknown(iopStatusString, status); err != nil {
 			return fmt.Errorf("failed to unmarshal istioOperator status: %v", err)
 		}
 		errs := util.Errors{}
@@ -368,12 +367,6 @@ func compareInClusterAndGeneratedResources(t framework.TestContext, cs cluster.C
 		t.Fatalf("expected K8sObjects is nil")
 	}
 
-	efgvr := schema.GroupVersionResource{
-		Group:    "networking.istio.io",
-		Version:  "v1alpha3",
-		Resource: "envoyfilters",
-	}
-
 	// nolint:staticcheck
 	for _, genK8SObject := range k8sObjects {
 		kind := genK8SObject.Kind
@@ -402,7 +395,7 @@ func compareInClusterAndGeneratedResources(t framework.TestContext, cs cluster.C
 				_, err = cs.Ext().ApiextensionsV1().CustomResourceDefinitions().Get(context.TODO(), name,
 					metav1.GetOptions{})
 			case "EnvoyFilter":
-				_, err = cs.Dynamic().Resource(efgvr).Namespace(ns).Get(context.TODO(), name,
+				_, err = cs.Dynamic().Resource(gvr.EnvoyFilter).Namespace(ns).Get(context.TODO(), name,
 					metav1.GetOptions{})
 			case "PodDisruptionBudget":
 				// policy/v1 is available on >=1.21

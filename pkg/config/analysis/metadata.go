@@ -14,9 +14,7 @@
 
 package analysis
 
-import (
-	"istio.io/istio/pkg/config/schema/collection"
-)
+import "istio.io/istio/pkg/config"
 
 // Metadata represents metadata for an analyzer
 type Metadata struct {
@@ -24,5 +22,5 @@ type Metadata struct {
 	// Description is a short explanation of what the analyzer checks. This
 	// field is displayed to users when --list-analyzers is called.
 	Description string
-	Inputs      collection.Names
+	Inputs      []config.GroupVersionKind
 }

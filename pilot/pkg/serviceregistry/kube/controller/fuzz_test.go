@@ -30,19 +30,16 @@ func FuzzKubeController(f *testing.F) {
 		networkID := network.ID("fakeNetwork")
 		fco := fuzz.Struct[FakeControllerOptions](fg)
 		fco.SkipRun = true
+		// Overlapping CRDs would fail, just remove them
+		fco.CRDs = nil
 		controller, _ := NewFakeControllerWithOptions(fg.T(), fco)
 		controller.network = networkID
 
 		p := fuzz.Struct[*corev1.Pod](fg)
-		controller.pods.onEvent(p, model.EventAdd)
+		controller.pods.onEvent(nil, p, model.EventAdd)
 		s := fuzz.Struct[*corev1.Service](fg)
-		controller.onServiceEvent(s, model.EventAdd)
-		if fco.Mode == EndpointsOnly {
-			e := fuzz.Struct[*corev1.Endpoints](fg)
-			controller.endpoints.onEvent(e, model.EventAdd)
-		} else {
-			e := fuzz.Struct[*v1.EndpointSlice](fg)
-			controller.endpoints.onEvent(e, model.EventAdd)
-		}
+		controller.onServiceEvent(nil, s, model.EventAdd)
+		e := fuzz.Struct[*v1.EndpointSlice](fg)
+		controller.endpoints.onEvent(nil, e, model.EventAdd)
 	})
 }

@@ -23,7 +23,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 )
 
-// GetSecretsConfigDump retrieves a secret dump from a config dump wrapper
+// GetSecretConfigDump retrieves a secret dump from a config dump wrapper
 func (w *Wrapper) GetSecretConfigDump() (*admin.SecretsConfigDump, error) {
 	secretDumpAny, err := w.getSection(secrets)
 	if err != nil {

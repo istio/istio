@@ -27,11 +27,11 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/util"
-	"istio.io/pkg/env"
-	"istio.io/pkg/log"
 )
 
 const (
@@ -47,7 +47,7 @@ const (
 )
 
 var (
-	pluginLog              = log.RegisterScope("token", "token manager plugin debugging", 0)
+	pluginLog              = log.RegisterScope("token", "token manager plugin debugging")
 	federatedTokenEndpoint = "https://sts.googleapis.com/v1/token"
 	accessTokenEndpoint    = "https://iamcredentials.googleapis.com/v1/projects/-/" +
 		"serviceAccounts/service-%s@gcp-sa-meshdataplane.iam.gserviceaccount.com:generateAccessToken"
@@ -224,7 +224,7 @@ func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestPa
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal query for get federated token request: %+v", err)
 	}
-	req, err := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(jsonQuery))
+	req, err := http.NewRequest(http.MethodPost, federatedTokenEndpoint, bytes.NewBuffer(jsonQuery))
 	if err != nil {
 		return req, fmt.Errorf("failed to create get federated token request: %+v", err)
 	}
@@ -239,7 +239,7 @@ func (p *Plugin) constructFederatedTokenRequest(parameters security.StsRequestPa
 			"scope":              reqScope,
 		}
 		dJSONQuery, _ := json.Marshal(dQuery)
-		dReq, _ := http.NewRequest("POST", federatedTokenEndpoint, bytes.NewBuffer(dJSONQuery))
+		dReq, _ := http.NewRequest(http.MethodPost, federatedTokenEndpoint, bytes.NewBuffer(dJSONQuery))
 		dReq.Header.Set("Content-Type", contentType)
 
 		reqDump, _ := httputil.DumpRequest(dReq, true)
@@ -290,8 +290,8 @@ func (p *Plugin) fetchFederatedToken(parameters security.StsRequestParameters) (
 		return respData, fmt.Errorf("failed to unmarshal federated token response data: %v", err)
 	}
 	if respData.AccessToken == "" {
-		pluginLog.Error("federated token response does not have access token", string(body))
-		return respData, errors.New("federated token response does not have access token. " + string(body))
+		pluginLog.Error("federated token response does not have access token")
+		return respData, errors.New("federated token response does not have access token")
 	}
 	pluginLog.WithLabels("latency", timeElapsed.String(), "ttl", respData.ExpiresIn).Infof("fetched federated token")
 	tokenReceivedTime := time.Now()
@@ -372,7 +372,7 @@ func (p *Plugin) constructGenerateAccessTokenRequest(fResp *federatedTokenRespon
 		return nil, fmt.Errorf("failed to marshal query for get access token request: %+v", err)
 	}
 	endpoint := fmt.Sprintf(accessTokenEndpoint, p.gcpProjectNumber)
-	req, err := http.NewRequest("POST", endpoint, bytes.NewBuffer(jsonQuery))
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(jsonQuery))
 	if err != nil {
 		return nil, fmt.Errorf("failed to create get access token request: %+v", err)
 	}
@@ -421,8 +421,7 @@ func (p *Plugin) fetchAccessToken(federatedToken *federatedTokenResponse) (*acce
 		return respData, fmt.Errorf("failed to unmarshal access token response data: %v", err)
 	}
 	if respData.AccessToken == "" {
-		pluginLog.Error("access token response does not have access token", string(body))
-		return respData, errors.New("access token response does not have access token. " + string(body))
+		return respData, errors.New("access token response does not have access token")
 	}
 	pluginLog.Debug("successfully exchanged an access token")
 	// Store access token

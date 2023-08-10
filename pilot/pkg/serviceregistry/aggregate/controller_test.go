@@ -49,8 +49,8 @@ func buildMockController() *Controller {
 		mock.ExtHTTPService.DeepCopy(),
 	)
 	for _, port := range mock.HelloService.Ports {
-		discovery1.AddInstance(mock.HelloService.Hostname, mock.MakeServiceInstance(mock.HelloService, port, 0, model.Locality{}))
-		discovery1.AddInstance(mock.HelloService.Hostname, mock.MakeServiceInstance(mock.HelloService, port, 1, model.Locality{}))
+		discovery1.AddInstance(mock.MakeServiceInstance(mock.HelloService, port, 0, model.Locality{}))
+		discovery1.AddInstance(mock.MakeServiceInstance(mock.HelloService, port, 1, model.Locality{}))
 	}
 
 	discovery2 := memory.NewServiceDiscovery(mock.ReplicatedFooServiceV2.DeepCopy(),
@@ -58,8 +58,8 @@ func buildMockController() *Controller {
 		mock.ExtHTTPSService.DeepCopy(),
 	)
 	for _, port := range mock.WorldService.Ports {
-		discovery2.AddInstance(mock.WorldService.Hostname, mock.MakeServiceInstance(mock.WorldService, port, 0, model.Locality{}))
-		discovery2.AddInstance(mock.WorldService.Hostname, mock.MakeServiceInstance(mock.WorldService, port, 1, model.Locality{}))
+		discovery2.AddInstance(mock.MakeServiceInstance(mock.WorldService, port, 0, model.Locality{}))
+		discovery2.AddInstance(mock.MakeServiceInstance(mock.WorldService, port, 1, model.Locality{}))
 	}
 	registry1 := serviceregistry.Simple{
 		ProviderID:       provider.ID("mockAdapter1"),
@@ -269,7 +269,7 @@ func TestInstances(t *testing.T) {
 	aggregateCtl := buildMockController()
 
 	// Get Instances from mockAdapter1
-	instances := aggregateCtl.InstancesByPort(mock.HelloService, 80, nil)
+	instances := aggregateCtl.InstancesByPort(mock.HelloService, 80)
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
@@ -283,7 +283,7 @@ func TestInstances(t *testing.T) {
 	}
 
 	// Get Instances from mockAdapter2
-	instances = aggregateCtl.InstancesByPort(mock.WorldService, 80, nil)
+	instances = aggregateCtl.InstancesByPort(mock.WorldService, 80)
 	if len(instances) != 2 {
 		t.Fatal("Returned wrong number of instances from controller")
 	}
@@ -323,7 +323,7 @@ func TestAddRegistry(t *testing.T) {
 		if clusterID == "cluster2" {
 			counter = registry2Counter
 		}
-		ctrl.AppendServiceHandlerForCluster(clusterID, func(service *model.Service, event model.Event) {
+		ctrl.AppendServiceHandlerForCluster(clusterID, func(_, curr *model.Service, event model.Event) {
 			counter.Add(1)
 		})
 		ctrl.AddRegistry(r)
@@ -332,12 +332,12 @@ func TestAddRegistry(t *testing.T) {
 		t.Fatalf("Expected length of the registries slice should be 2, got %d", l)
 	}
 
-	registries[0].Controller.(*mock.Controller).OnServiceEvent(mock.HelloService, model.EventAdd)
-	registries[1].Controller.(*mock.Controller).OnServiceEvent(mock.WorldService, model.EventAdd)
+	registries[0].Controller.(*mock.Controller).OnServiceEvent(nil, mock.HelloService, model.EventAdd)
+	registries[1].Controller.(*mock.Controller).OnServiceEvent(nil, mock.WorldService, model.EventAdd)
 
 	ctrl.DeleteRegistry(registries[1].Cluster(), registries[1].Provider())
 	ctrl.UnRegisterHandlersForCluster(registries[1].Cluster())
-	registries[0].Controller.(*mock.Controller).OnServiceEvent(mock.HelloService, model.EventAdd)
+	registries[0].Controller.(*mock.Controller).OnServiceEvent(nil, mock.HelloService, model.EventAdd)
 
 	if registry1Counter.Load() != 3 {
 		t.Errorf("cluster1 expected 3 event, but got %d", registry1Counter.Load())

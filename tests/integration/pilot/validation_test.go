@@ -164,9 +164,9 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 
 			// TODO(jasonwzm) remove this after multi-version APIs are supported.
 			for _, r := range collections.Pilot.All() {
-				s := strings.Join([]string{r.Resource().Group(), r.Resource().Version(), r.Resource().Kind()}, "/")
+				s := strings.Join([]string{r.Group(), r.Version(), r.Kind()}, "/")
 				recognized.Insert(s)
-				for _, alias := range r.Resource().GroupVersionAliasKinds() {
+				for _, alias := range r.GroupVersionAliasKinds() {
 					s = strings.Join([]string{alias.Group, alias.Version, alias.Kind}, "/")
 					recognized.Insert(s)
 				}

@@ -1,11 +1,11 @@
 # To simplify the deployment, disable non-essential components
 alertmanager:
   enabled: false
-pushgateway:
+prometheus-pushgateway:
   enabled: false
-kubeStateMetrics:
+kube-state-metrics:
   enabled: false
-nodeExporter:
+prometheus-node-exporter:
   enabled: false
 server:
   podLabels:

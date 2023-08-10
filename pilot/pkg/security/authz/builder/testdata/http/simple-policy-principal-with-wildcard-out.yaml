@@ -17,7 +17,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: .+
         - andIds:
             ids:
@@ -27,7 +26,6 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: spiffe://.*/ns/foo/sa/rule[0]-from[1]-principal[0]
                 - filterState:
                     key: io.istio.peer_principal
@@ -37,6 +35,5 @@ typedConfig:
                     key: io.istio.peer_principal
                     stringMatch:
                       safeRegex:
-                        googleRe2: {}
                         regex: spiffe://.*bar/ns/foo/sa/rule[0]-from[1]-principal[1]
   shadowRulesStatPrefix: istio_dry_run_allow_

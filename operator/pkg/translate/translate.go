@@ -39,7 +39,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/version"
 	oversion "istio.io/istio/operator/version"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -57,7 +57,7 @@ const (
 	defaultEgressGWName = "istio-egressgateway"
 )
 
-var scope = log.RegisterScope("translator", "API translator", 0)
+var scope = log.RegisterScope("translator", "API translator")
 
 // Translator is a set of mappings to translate between API paths, charts, values.yaml and k8s paths.
 type Translator struct {
@@ -92,6 +92,9 @@ type ComponentMaps struct {
 	ToHelmValuesTreeRoot string
 	// SkipReverseTranslate defines whether reverse translate of this component need to be skipped.
 	SkipReverseTranslate bool
+	// FlattenValues, if true, means the component expects values not prefixed with ToHelmValuesTreeRoot
+	// For example `.name=foo` instead of `.component.name=foo`.
+	FlattenValues bool
 }
 
 // TranslationFunc maps a yamlStr API path into a YAML values tree.
@@ -155,6 +158,14 @@ func NewTranslator() *Translator {
 				HelmSubdir:           "istiod-remote",
 				ToHelmValuesTreeRoot: "global",
 				SkipReverseTranslate: true,
+			},
+			name.ZtunnelComponentName: {
+				ResourceType:         "DaemonSet",
+				ResourceName:         "ztunnel",
+				HelmSubdir:           "ztunnel",
+				ToHelmValuesTreeRoot: "ztunnel",
+				ContainerName:        "istio-proxy",
+				FlattenValues:        true,
 			},
 		},
 		// nolint: lll
@@ -408,6 +419,10 @@ func (t *Translator) fixMergedObjectWithCustomServicePortOverlay(oo *object.K8sO
 			Port:     p.GetPort(),
 			NodePort: p.GetNodePort(),
 		}
+		if p.GetAppProtocol() != "" {
+			ap := p.AppProtocol
+			port.AppProtocol = &ap
+		}
 		if p.TargetPort != nil {
 			port.TargetPort = p.TargetPort.ToKubernetes()
 		}
@@ -576,6 +591,25 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 	mergedVals, err = util.OverlayTrees(mergedVals, globalUnvalidatedVals)
 	if err != nil {
 		return "", err
+	}
+	c, f := t.ComponentMaps[componentName]
+	if f && c.FlattenValues {
+		globals, ok := mergedVals["global"].(map[string]any)
+		if !ok {
+			return "", fmt.Errorf("global value isn't a map")
+		}
+		components, ok := mergedVals[c.ToHelmValuesTreeRoot].(map[string]any)
+		if !ok {
+			return "", fmt.Errorf("component value isn't a map")
+		}
+		finalVals := map[string]any{}
+		for k, v := range globals {
+			finalVals[k] = v
+		}
+		for k, v := range components {
+			finalVals[k] = v
+		}
+		mergedVals = finalVals
 	}
 
 	mergedYAML, err := yaml.Marshal(mergedVals)

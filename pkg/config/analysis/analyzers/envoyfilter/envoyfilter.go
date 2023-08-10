@@ -18,12 +18,12 @@ import (
 	"fmt"
 
 	network "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/config/schema/collection"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // EnvoyPatchAnalyzer checks envoyFilters to see if the patch section is okay
@@ -37,8 +37,8 @@ func (*EnvoyPatchAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "envoyfilter.EnvoyPatchAnalyzer",
 		Description: "Checks an envoyFilters ",
-		Inputs: collection.Names{
-			collections.IstioNetworkingV1Alpha3Envoyfilters.Name(),
+		Inputs: []config.GroupVersionKind{
+			gvk.EnvoyFilter,
 		},
 	}
 }
@@ -47,7 +47,7 @@ func (*EnvoyPatchAnalyzer) Metadata() analysis.Metadata {
 func (s *EnvoyPatchAnalyzer) Analyze(c analysis.Context) {
 	// hold the filter names that have a proxyVersion set
 	patchFilterNames := make([]string, 0)
-	c.ForEach(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), func(r *resource.Instance) bool {
+	c.ForEach(gvk.EnvoyFilter, func(r *resource.Instance) bool {
 		names := s.analyzeEnvoyFilterPatch(r, c, patchFilterNames)
 		patchFilterNames = names
 		return true
@@ -80,7 +80,7 @@ func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, p
 		if line, ok := util.ErrorLine(r, fmt.Sprintf(util.EnvoyFilterConfigPath, index)); ok {
 			message.Line = line
 		}
-		c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
+		c.Report(gvk.EnvoyFilter, message)
 
 	}
 }
@@ -105,7 +105,7 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 				} else if patch.GetMatch() != nil {
 					if patch.Match.GetListener() != nil {
 						if patch.Match.GetListener().GetFilterChain() != nil {
-							instanceName = patch.Match.GetListener().FilterChain.Filter.Name
+							instanceName = patch.Match.GetListener().GetFilterChain().GetFilter().GetName()
 						}
 					}
 				}
@@ -125,7 +125,7 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 					message.Line = line
 				}
 
-				c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
+				c.Report(gvk.EnvoyFilter, message)
 			}
 		} else if patch.Patch.Operation == network.EnvoyFilter_Patch_REMOVE {
 			// the REMOVE operation is ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE.
@@ -137,7 +137,7 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 					message.Line = line
 				}
 
-				c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
+				c.Report(gvk.EnvoyFilter, message)
 			} else {
 				// A relative operation (REMOVE) was used so check if priority is set and if not set provide a warning
 				relativeOperationMsg(r, c, index, ef.Priority, patchFilterNames, instanceName)
@@ -152,7 +152,7 @@ func (*EnvoyPatchAnalyzer) analyzeEnvoyFilterPatch(r *resource.Instance, c analy
 					message.Line = line
 				}
 
-				c.Report(collections.IstioNetworkingV1Alpha3Envoyfilters.Name(), message)
+				c.Report(gvk.EnvoyFilter, message)
 			} else {
 				// A relative operation (REPLACE) was used so check if priority is set and if not set provide a warning
 				relativeOperationMsg(r, c, index, ef.Priority, patchFilterNames, instanceName)

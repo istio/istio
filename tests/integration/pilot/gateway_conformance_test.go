@@ -1,17 +1,3 @@
-// Copyright Istio Authors
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-
 //go:build integ
 // +build integ
 
@@ -32,23 +18,18 @@
 package pilot
 
 import (
-	"context"
-	"fmt"
-	"strings"
 	"testing"
 
-	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 // GatewayConformanceInputs defines inputs to the gateway conformance test.
@@ -68,16 +49,18 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-web-backend",
 }
 
-var skippedTests = map[string]string{}
+var skippedTests = map[string]string{
+	"MeshFrontendHostname":          "https://github.com/istio/istio/issues/44702",
+	"GatewayObservedGenerationBump": "https://github.com/istio/istio/issues/44850",
+}
 
 func TestGatewayConformance(t *testing.T) {
-	// nolint: staticcheck
 	framework.
 		NewTest(t).
-		RequiresSingleCluster().
 		Features("traffic.gateway").
+		Label(label.IPv4). // Need https://github.com/kubernetes-sigs/gateway-api/pull/2024 in 0.7.1
 		Run(func(ctx framework.TestContext) {
-			DeployGatewayAPICRD(ctx)
+			crd.DeployGatewayAPIOrSkip(ctx)
 
 			// Precreate the GatewayConformance namespaces, and apply the Image Pull Secret to them.
 			if ctx.Settings().Image.PullSecret != "" {
@@ -90,6 +73,7 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
+			rc, _ := gatewayConformanceInputs.Client.UtilFactory().RESTClient()
 			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
 				Scheme: kube.IstioScheme,
 				Mapper: mapper,
@@ -99,21 +83,22 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			opts := suite.Options{
-				Client:           c,
-				GatewayClassName: "istio",
-				Debug:            scopes.Framework.DebugEnabled(),
-				// CleanupBaseResources: gatewayConformanceInputs.Cleanup,
-				SupportedFeatures: map[suite.SupportedFeature]bool{
-					suite.SupportReferenceGrant:                 true,
-					suite.SupportTLSRoute:                       true,
-					suite.SupportHTTPRouteQueryParamMatching:    true,
-					suite.SupportHTTPRouteMethodMatching:        true,
-					suite.SupportHTTPResponseHeaderModification: true,
-				},
+				Client:               c,
+				Clientset:            gatewayConformanceInputs.Client.Kube(),
+				RestConfig:           gatewayConformanceInputs.Client.RESTConfig(),
+				RESTClient:           rc,
+				GatewayClassName:     "istio",
+				Debug:                scopes.Framework.DebugEnabled(),
+				CleanupBaseResources: gatewayConformanceInputs.Cleanup,
+				SupportedFeatures:    suite.AllFeatures,
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{
 					"istio.io/rev": rev,
+				}
+			} else {
+				opts.NamespaceLabels = map[string]string{
+					"istio-injection": "enabled",
 				}
 			}
 			ctx.Cleanup(func() {
@@ -138,43 +123,4 @@ func TestGatewayConformance(t *testing.T) {
 				})
 			}
 		})
-}
-
-func DeployGatewayAPICRD(ctx framework.TestContext) {
-	if !supportsGatewayAPI(ctx) {
-		ctx.Skip("Not supported; requires CRDv1 support.")
-	}
-	if err := ctx.ConfigIstio().
-		File("", "testdata/gateway-api-crd.yaml").
-		Apply(apply.NoCleanup); err != nil {
-		ctx.Fatal(err)
-	}
-	// Wait until our GatewayClass is ready
-	retry.UntilSuccessOrFail(ctx, func() error {
-		for _, c := range ctx.Clusters().Configs() {
-			_, err := c.GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
-			if err != nil {
-				return err
-			}
-			crdl, err := c.Ext().ApiextensionsV1().CustomResourceDefinitions().List(context.Background(), metav1.ListOptions{})
-			if err != nil {
-				return err
-			}
-			for _, crd := range crdl.Items {
-				if !strings.HasSuffix(crd.Name, "gateway.networking.k8s.io") {
-					continue
-				}
-				found := false
-				for _, c := range crd.Status.Conditions {
-					if c.Type == apiextensions.Established && c.Status == apiextensions.ConditionTrue {
-						found = true
-					}
-				}
-				if !found {
-					return fmt.Errorf("crd %v not ready: %+v", crd.Name, crd.Status)
-				}
-			}
-		}
-		return nil
-	})
 }

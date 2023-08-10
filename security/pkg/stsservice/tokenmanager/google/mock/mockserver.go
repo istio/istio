@@ -25,7 +25,7 @@ import (
 	"testing"
 	"time"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -181,7 +181,7 @@ func (ms *AuthorizationServer) SetAccessToken(token string) {
 	ms.accessToken = token
 }
 
-// SetAccessToken sets the issued access token to token
+// EnableDynamicAccessToken sets the issued access token to token
 func (ms *AuthorizationServer) EnableDynamicAccessToken(enable bool) {
 	ms.mutex.Lock()
 	defer ms.mutex.Unlock()
@@ -227,9 +227,6 @@ func (ms *AuthorizationServer) Start(port int) error {
 			log.Errorf("Server failed to serve in %q: %v", ms.URL, err)
 		}
 	}()
-
-	// sleep a while for mock server to start.
-	time.Sleep(time.Second)
 
 	return nil
 }

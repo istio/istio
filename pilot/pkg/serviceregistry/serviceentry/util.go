@@ -26,8 +26,8 @@ func getWorkloadServiceEntries(ses []config.Config, wle *networking.WorkloadEntr
 	out := make(map[types.NamespacedName]*config.Config)
 	for i, cfg := range ses {
 		se := cfg.Spec.(*networking.ServiceEntry)
-		if se.WorkloadSelector != nil && labels.Instance(se.WorkloadSelector.Labels).SubsetOf(wle.Labels) {
-			out[types.NamespacedName{Name: cfg.Name, Namespace: cfg.Namespace}] = &ses[i]
+		if se.WorkloadSelector != nil && labels.Instance(se.WorkloadSelector.Labels).Match(wle.Labels) {
+			out[config.NamespacedName(cfg)] = &ses[i]
 		}
 	}
 

@@ -18,8 +18,8 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/config"
 )
@@ -32,7 +32,6 @@ func TestBuild(t *testing.T) {
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-primary", Network: "network-0"},
 			cluster: cluster.FakeCluster{
-				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName: "auto-fill-primary",
 					ClusterKind: cluster.Fake,
@@ -47,7 +46,6 @@ func TestBuild(t *testing.T) {
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "auto-fill-remote", PrimaryClusterName: "auto-fill-primary"},
 			cluster: cluster.FakeCluster{
-				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName:        "auto-fill-remote",
 					ClusterKind:        cluster.Fake,
@@ -62,7 +60,6 @@ func TestBuild(t *testing.T) {
 		{
 			config: cluster.Config{Kind: cluster.Fake, Name: "external-istiod", ConfigClusterName: "remote-config"},
 			cluster: cluster.FakeCluster{
-				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName:        "external-istiod",
 					ClusterKind:        cluster.Fake,
@@ -81,7 +78,6 @@ func TestBuild(t *testing.T) {
 				ConfigClusterName:  "remote-config",
 			},
 			cluster: cluster.FakeCluster{
-				CLIClient: kube.MockClient{},
 				Topology: cluster.Topology{
 					ClusterName: "remote-config",
 					ClusterKind: cluster.Fake,
@@ -106,7 +102,7 @@ func TestBuild(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(clusters) != len(tests) {
-			t.Errorf("expcted %d clusters but built %d", len(tests), len(clusters))
+			t.Errorf("expected %d clusters but built %d", len(tests), len(clusters))
 		}
 	})
 	for _, tc := range tests {
@@ -115,7 +111,8 @@ func TestBuild(t *testing.T) {
 			// don't compare these
 			built.AllClusters = nil
 			built.Version = nil
-			if diff := cmp.Diff(built, tc.cluster); diff != "" {
+			built.CLIClient = nil
+			if diff := cmp.Diff(built, tc.cluster, cmpopts.IgnoreUnexported(cluster.FakeCluster{})); diff != "" {
 				t.Fatal(diff)
 			}
 		})

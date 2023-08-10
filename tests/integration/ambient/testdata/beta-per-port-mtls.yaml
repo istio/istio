@@ -1,0 +1,28 @@
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: "per-port"
+  annotations:
+    test-suite: "beta-per-port-mtls"
+spec:
+  selector:
+    matchLabels:
+      app: b
+  mtls:
+    mode: DISABLE
+  portLevelMtls:
+    # 8090 is the targetPort for service http(80)
+    8090:
+      mode: STRICT
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "default"
+  annotations:
+    test-suite: "beta-per-port-mtls"
+spec:
+  host: "*.local"
+  trafficPolicy:
+    tls:
+      mode: DISABLE

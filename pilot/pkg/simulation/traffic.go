@@ -38,12 +38,12 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
-	istiolog "istio.io/pkg/log"
 )
 
-var log = istiolog.RegisterScope("simulation", "", 0)
+var log = istiolog.RegisterScope("simulation", "")
 
 type Protocol string
 
@@ -417,6 +417,10 @@ func (sim *Simulation) matchRoute(vh *route.VirtualHost, input Call) *route.Rout
 			if !strings.HasPrefix(input.Path, pt.Prefix) {
 				continue
 			}
+		case *route.RouteMatch_PathSeparatedPrefix:
+			if !strings.HasPrefix(input.Path, pt.PathSeparatedPrefix) {
+				continue
+			}
 		case *route.RouteMatch_Path:
 			if input.Path != pt.Path {
 				continue
@@ -430,7 +434,7 @@ func (sim *Simulation) matchRoute(vh *route.VirtualHost, input Call) *route.Rout
 				continue
 			}
 		default:
-			sim.t.Fatalf("unknown route path type")
+			sim.t.Fatalf("unknown route path type %T", pt)
 		}
 
 		// TODO this only handles path - we need to add headers, query params, etc to be complete.

@@ -19,6 +19,8 @@ spec:
       env:
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
+        PILOT_ENABLE_ALPHA_GATEWAY_API: "true"
+        PILOT_MULTI_NETWORK_DISCOVER_GATEWAY_API: "true"
     global:
       proxy:
         resources:

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: 
+  - 44820
+releaseNotes:
+  - |
+    **Fixed** the bug where patching http_route affects other virtualhosts.

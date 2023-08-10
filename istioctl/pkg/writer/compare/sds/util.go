@@ -24,7 +24,7 @@ import (
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // SecretItemDiff represents a secret that has been diffed between nodeagent and proxy
@@ -132,7 +132,7 @@ func (s *secretItemBuilder) Build() (SecretItem, error) {
 			return result, nil
 		}
 		result.SecretMeta = meta
-		result.Valid = true
+		result.Valid = meta.Valid
 		return result, nil
 	}
 	result.Valid = false
@@ -222,10 +222,12 @@ func secretMetaFromCert(rawCert []byte) (SecretMeta, error) {
 		certType = "Cert Chain"
 	}
 
+	today := time.Now()
 	return SecretMeta{
-		SerialNumber: fmt.Sprintf("%d", cert.SerialNumber),
+		SerialNumber: fmt.Sprintf("%x", cert.SerialNumber),
 		NotAfter:     cert.NotAfter.Format(time.RFC3339),
 		NotBefore:    cert.NotBefore.Format(time.RFC3339),
 		Type:         certType,
+		Valid:        today.After(cert.NotBefore) && today.Before(cert.NotAfter),
 	}, nil
 }

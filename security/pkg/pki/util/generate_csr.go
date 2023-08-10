@@ -31,7 +31,7 @@ import (
 	"os"
 	"strings"
 
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // minimumRsaKeySize is the minimum RSA key size to generate certificates
@@ -45,7 +45,14 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 	if options.ECSigAlg != "" {
 		switch options.ECSigAlg {
 		case EcdsaSigAlg:
-			priv, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+			var curve elliptic.Curve
+			switch options.ECCCurve {
+			case P384Curve:
+				curve = elliptic.P384()
+			default:
+				curve = elliptic.P256()
+			}
+			priv, err = ecdsa.GenerateKey(curve, rand.Reader)
 			if err != nil {
 				return nil, nil, fmt.Errorf("EC key generation failed (%v)", err)
 			}
@@ -54,7 +61,7 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 		}
 	} else {
 		if options.RSAKeySize < minimumRsaKeySize {
-			return nil, nil, fmt.Errorf("requested key size does not meet the minimum requied size of %d (requested: %d)", minimumRsaKeySize, options.RSAKeySize)
+			return nil, nil, fmt.Errorf("requested key size does not meet the minimum required size of %d (requested: %d)", minimumRsaKeySize, options.RSAKeySize)
 		}
 
 		priv, err = rsa.GenerateKey(rand.Reader, options.RSAKeySize)

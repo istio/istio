@@ -17,14 +17,13 @@ package revisions
 import (
 	"sync"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	admitv1 "k8s.io/api/admissionregistration/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/kube/kclient"
 )
 
 const (
@@ -48,9 +47,9 @@ type defaultWatcher struct {
 	defaultRevision string
 	handlers        []DefaultHandler
 
-	queue           controllers.Queue
-	webhookInformer cache.SharedIndexInformer
-	mu              sync.RWMutex
+	queue    controllers.Queue
+	webhooks kclient.Client[*admitv1.MutatingWebhookConfiguration]
+	mu       sync.RWMutex
 }
 
 func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
@@ -59,18 +58,14 @@ func NewDefaultWatcher(client kube.Client, revision string) DefaultWatcher {
 		mu:       sync.RWMutex{},
 	}
 	p.queue = controllers.NewQueue("default revision", controllers.WithReconciler(p.setDefault))
-	p.webhookInformer = client.KubeInformer().Admissionregistration().V1().MutatingWebhookConfigurations().Informer()
-	_ = p.webhookInformer.SetTransform(kube.StripUnusedFields)
-	_, _ = p.webhookInformer.AddEventHandler(controllers.FilteredObjectHandler(p.queue.AddObject, isDefaultTagWebhook))
+	p.webhooks = kclient.New[*admitv1.MutatingWebhookConfiguration](client)
+	p.webhooks.AddEventHandler(controllers.FilteredObjectHandler(p.queue.AddObject, isDefaultTagWebhook))
 
 	return p
 }
 
 func (p *defaultWatcher) Run(stopCh <-chan struct{}) {
-	if !kube.WaitForCacheSync(stopCh, p.webhookInformer.HasSynced) {
-		log.Errorf("failed to sync default watcher")
-		return
-	}
+	kube.WaitForCacheSync("default revision", stopCh, p.webhooks.HasSynced)
 	p.queue.Run(stopCh)
 }
 
@@ -102,9 +97,9 @@ func (p *defaultWatcher) notifyHandlers() {
 
 func (p *defaultWatcher) setDefault(key types.NamespacedName) error {
 	revision := ""
-	wh, _, _ := p.webhookInformer.GetIndexer().GetByKey(key.Name)
+	wh := p.webhooks.Get(key.Name, "")
 	if wh != nil {
-		revision = wh.(metav1.Object).GetLabels()[label.IoIstioRev.Name]
+		revision = wh.GetLabels()[label.IoIstioRev.Name]
 	}
 	p.mu.Lock()
 	defer p.mu.Unlock()

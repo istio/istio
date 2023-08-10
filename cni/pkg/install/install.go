@@ -20,88 +20,76 @@ import (
 	"os"
 	"path/filepath"
 	"sync/atomic"
-	"time"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/file"
-	"istio.io/istio/pkg/sleep"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
-var installLog = log.RegisterScope("install", "CNI install", 0)
+var installLog = log.RegisterScope("install", "CNI install")
 
 type Installer struct {
 	cfg                *config.InstallConfig
 	isReady            *atomic.Value
-	saToken            string
 	kubeconfigFilepath string
 	cniConfigFilepath  string
-	saTokenFilepath    string
 }
 
 // NewInstaller returns an instance of Installer with the given config
 func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	return &Installer{
-		cfg:             cfg,
-		isReady:         isReady,
-		saTokenFilepath: constants.ServiceAccountPath + "/token",
+		cfg:                cfg,
+		kubeconfigFilepath: filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename),
+		isReady:            isReady,
 	}
 }
 
-func (in *Installer) install(ctx context.Context) (err error) {
-	if err = copyBinaries(
-		in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs,
-		in.cfg.UpdateCNIBinaries, in.cfg.SkipCNIBinaries); err != nil {
+func (in *Installer) install(ctx context.Context) (sets.Set[string], error) {
+	copiedFiles, err := copyBinaries(in.cfg.CNIBinSourceDir, in.cfg.CNIBinTargetDirs)
+	if err != nil {
 		cniInstalls.With(resultLabel.Value(resultCopyBinariesFailure)).Increment()
-		return
+		return copiedFiles, fmt.Errorf("copy binaries: %v", err)
 	}
 
-	if in.saToken, err = readServiceAccountToken(in.saTokenFilepath); err != nil {
-		cniInstalls.With(resultLabel.Value(resultReadSAFailure)).Increment()
-		return
-	}
-
-	if in.kubeconfigFilepath, err = createKubeconfigFile(in.cfg, in.saToken); err != nil {
+	if err := writeKubeConfigFile(in.cfg); err != nil {
 		cniInstalls.With(resultLabel.Value(resultCreateKubeConfigFailure)).Increment()
-		return
+		return copiedFiles, fmt.Errorf("write kubeconfig: %v", err)
 	}
 
-	if in.cniConfigFilepath, err = createCNIConfigFile(ctx, in.cfg, in.saToken); err != nil {
+	cfgPath, err := createCNIConfigFile(ctx, in.cfg)
+	if err != nil {
 		cniInstalls.With(resultLabel.Value(resultCreateCNIConfigFailure)).Increment()
-		return
+		return copiedFiles, fmt.Errorf("create CNI config file: %v", err)
 	}
+	in.cniConfigFilepath = cfgPath
 
-	return
+	return copiedFiles, nil
 }
 
 // Run starts the installation process, verifies the configuration, then sleeps.
 // If an invalid configuration is detected, the installation process will restart to restore a valid state.
-func (in *Installer) Run(ctx context.Context) (err error) {
-	if in.cfg.CNIEnableInstall {
-		if err = in.install(ctx); err != nil {
-			return
-		}
-		installLog.Info("Installation succeed, start watching for re-installation.")
-	} else {
-		installLog.Info("Skip installing CNI configuration and binaries.")
+func (in *Installer) Run(ctx context.Context) error {
+	installedBins, err := in.install(ctx)
+	if err != nil {
+		return err
 	}
+	installLog.Info("Installation succeed, start watching for re-installation.")
 
 	for {
-		if err = in.sleepCheckInstall(ctx); err != nil {
-			return
+		if err := in.sleepCheckInstall(ctx, installedBins); err != nil {
+			return err
 		}
 
 		installLog.Info("Detect changes to the CNI configuration and binaries, attempt reinstalling...")
-		if in.cfg.CNIEnableInstall && in.cfg.CNIEnableReinstall {
-			if err = in.install(ctx); err != nil {
-				return
-			}
-			installLog.Info("CNI configuration and binaries reinstalled.")
-		} else {
-			installLog.Info("Skip reinstalling CNI configuration and binaries.")
+		// We don't support (or want) to silently (re)deploy any binaries that were not in the initial "snapshot"
+		// so we intentionally discard/do not update the list of installedBins on redeploys.
+		if _, err := in.install(ctx); err != nil {
+			return err
 		}
+		installLog.Info("CNI configuration and binaries reinstalled.")
 	}
 }
 
@@ -166,48 +154,51 @@ func (in *Installer) Cleanup() error {
 	return nil
 }
 
-func readServiceAccountToken(saToken string) (string, error) {
-	if !file.Exists(saToken) {
-		return "", fmt.Errorf("service account token file %s does not exist. Is this not running within a pod?", saToken)
-	}
-
-	token, err := os.ReadFile(saToken)
-	if err != nil {
-		return "", err
-	}
-
-	return string(token), nil
-}
-
 // sleepCheckInstall verifies the configuration then blocks until an invalid configuration is detected, and return nil.
 // If an error occurs or context is canceled, the function will return the error.
 // Returning from this function will set the pod to "NotReady".
-func (in *Installer) sleepCheckInstall(ctx context.Context) error {
+func (in *Installer) sleepCheckInstall(ctx context.Context, installedBinFiles sets.Set[string]) error {
+	// Watch our specific binaries, in each configured binary dir.
+	// We may or may not be the only CNI plugin in play, and if we are not
+	// we shouldn't fire events for binaries that are not ours.
+	var binPaths []string
+	for _, bindir := range in.cfg.CNIBinTargetDirs {
+		for _, binary := range installedBinFiles.UnsortedList() {
+			binPaths = append(binPaths, filepath.Join(bindir, binary))
+		}
+	}
+	targets := append(
+		binPaths,
+		in.cfg.MountedCNINetDir,
+		constants.ServiceAccountPath,
+	)
 	// Create file watcher before checking for installation
 	// so that no file modifications are missed while and after checking
-	watcher, fileModified, errChan, err := util.CreateFileWatcher(append(in.cfg.CNIBinTargetDirs, in.cfg.MountedCNINetDir)...)
+	// note: we create a file watcher for each invocation, otherwise when we write to the directories
+	// we would get infinite looping of events
+	//
+	// Additionally, fsnotify will lose existing watches on atomic copies (due to overwrite/rename),
+	// so we have to re-watch after re-copy to make sure we always have fresh watches.
+	watcher, err := util.CreateFileWatcher(targets...)
 	if err != nil {
 		return err
 	}
 	defer func() {
 		SetNotReady(in.isReady)
-		_ = watcher.Close()
+		watcher.Close()
 	}()
 
-	// Watch for service account token changes in background
-	in.watchSAToken(ctx, fileModified, errChan)
-
 	for {
-		if checkErr := checkInstall(in.cfg, in.cniConfigFilepath); checkErr != nil {
+		if err := checkInstall(in.cfg, in.cniConfigFilepath); err != nil {
 			// Pod set to "NotReady" due to invalid configuration
-			installLog.Infof("Invalid configuration. %v", checkErr)
+			installLog.Infof("Invalid configuration. %v", err)
 			return nil
 		}
 		// Check if file has been modified or if an error has occurred during checkInstall before setting isReady to true
 		select {
-		case <-fileModified:
+		case <-watcher.Events:
 			return nil
-		case err := <-errChan:
+		case err := <-watcher.Errors:
 			return err
 		case <-ctx.Done():
 			return ctx.Err()
@@ -216,17 +207,13 @@ func (in *Installer) sleepCheckInstall(ctx context.Context) error {
 			SetReady(in.isReady)
 			cniInstalls.With(resultLabel.Value(resultSuccess)).Increment()
 			// Pod set to "NotReady" before termination
-			return util.WaitForFileMod(ctx, fileModified, errChan)
+			return watcher.Wait(ctx)
 		}
 	}
 }
 
 // checkInstall returns an error if an invalid CNI configuration is detected
 func checkInstall(cfg *config.InstallConfig, cniConfigFilepath string) error {
-	// If the installation is skipped, don't check for invalid configurations.
-	if !cfg.CNIEnableInstall {
-		return nil
-	}
 	defaultCNIConfigFilename, err := getDefaultCNINetwork(cfg.MountedCNINetDir)
 	if err != nil {
 		return err
@@ -278,28 +265,4 @@ func checkInstall(cfg *config.InstallConfig, cniConfigFilepath string) error {
 		return fmt.Errorf("istio-cni CNI config file modified: %s", cniConfigFilepath)
 	}
 	return nil
-}
-
-// watchSAToken periodically reads SA token file and compares its content with the token stored in the Installer.
-// Sends true into fileModified in case of mismatch.
-// Allows to detect changes in the Bound Service Account Token Volume.
-func (in *Installer) watchSAToken(ctx context.Context, fileModified chan bool, errChan chan error) {
-	curToken := in.saToken
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				token, err := readServiceAccountToken(in.saTokenFilepath)
-				if err != nil {
-					errChan <- err
-				}
-				if curToken != token {
-					fileModified <- true
-				}
-				sleep.UntilContext(ctx, 1*time.Minute)
-			}
-		}
-	}()
 }

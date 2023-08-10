@@ -15,6 +15,7 @@
 package analysis
 
 import (
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/scope"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/util/sets"
@@ -68,9 +69,9 @@ func (c *CombinedAnalyzer) Analyze(ctx Context) {
 // should be disabled. Any analyzers that require those output collections will be removed.
 // 2. The analyzer requires a collection not available in the current snapshot(s)
 func (c *CombinedAnalyzer) RemoveSkipped(schemas collection.Schemas) []string {
-	s := sets.New[string]()
+	s := sets.New[config.GroupVersionKind]()
 	for _, sc := range schemas.All() {
-		s.Insert(sc.Name().String())
+		s.Insert(sc.GroupVersionKind())
 	}
 
 	var enabled []Analyzer
@@ -78,7 +79,7 @@ func (c *CombinedAnalyzer) RemoveSkipped(schemas collection.Schemas) []string {
 mainloop:
 	for _, a := range c.analyzers {
 		for _, in := range a.Metadata().Inputs {
-			if !s.Contains(in.String()) {
+			if !s.Contains(in) {
 				scope.Analysis.Infof("Skipping analyzer %q because collection %s is not in the snapshot(s).", a.Metadata().Name, in)
 				removedNames = append(removedNames, a.Metadata().Name)
 				continue mainloop
@@ -101,11 +102,10 @@ func (c *CombinedAnalyzer) AnalyzerNames() []string {
 	return result
 }
 
-func combineInputs(analyzers []Analyzer) collection.Names {
-	result := make([]collection.Name, 0)
+func combineInputs(analyzers []Analyzer) []config.GroupVersionKind {
+	result := sets.New[config.GroupVersionKind]()
 	for _, a := range analyzers {
-		result = append(result, a.Metadata().Inputs...)
+		result.InsertAll(a.Metadata().Inputs...)
 	}
-
-	return result
+	return result.UnsortedList()
 }

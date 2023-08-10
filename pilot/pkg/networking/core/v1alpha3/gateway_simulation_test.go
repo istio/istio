@@ -21,8 +21,8 @@ import (
 	"istio.io/istio/pilot/pkg/simulation"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/test/util/tmpl"
-	"istio.io/pkg/env"
 )
 
 func TestDisablePortTranslation(t *testing.T) {
@@ -864,7 +864,7 @@ spec:
 
 func TestIngress(t *testing.T) {
 	cfg := `
-apiVersion: networking.k8s.io/v1beta1
+apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{.Name}}
@@ -877,9 +877,12 @@ spec:
   - host: example.com
     http:
       paths:
-      - backend:
-          serviceName: {{.Name}}
-          servicePort: 80
+      - pathType: Prefix
+        backend:
+          service:
+            name: {{.Name}}
+            port:
+              number: 80
         path: /{{.Name}}
   tls:
   - hosts:

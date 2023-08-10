@@ -16,29 +16,24 @@ package webhooks
 
 import (
 	"bytes"
-	"context"
 	"errors"
-	"fmt"
 	"math"
 	"strings"
 	"time"
 
 	v1 "k8s.io/api/admissionregistration/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	admissioninformer "k8s.io/client-go/informers/admissionregistration/v1"
-	"k8s.io/client-go/kubernetes"
-	admissionregistrationv1client "k8s.io/client-go/kubernetes/typed/admissionregistration/v1"
-	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
 	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/webhooks/util"
-	"istio.io/pkg/log"
 )
 
 var (
@@ -49,8 +44,6 @@ var (
 
 // WebhookCertPatcher listens for webhooks on specified revision and patches their CA bundles
 type WebhookCertPatcher struct {
-	client kubernetes.Interface
-
 	// revision to patch webhooks for
 	revision    string
 	webhookName string
@@ -61,7 +54,7 @@ type WebhookCertPatcher struct {
 	// and patched into the webhook config.
 	CABundleWatcher *keycertbundle.Watcher
 
-	informer cache.SharedIndexInformer
+	webhooks kclient.Client[*v1.MutatingWebhookConfiguration]
 }
 
 // NewWebhookCertPatcher creates a WebhookCertPatcher
@@ -70,17 +63,14 @@ func NewWebhookCertPatcher(
 	revision, webhookName string, caBundleWatcher *keycertbundle.Watcher,
 ) (*WebhookCertPatcher, error) {
 	p := &WebhookCertPatcher{
-		client:          client.Kube(),
 		revision:        revision,
 		webhookName:     webhookName,
 		CABundleWatcher: caBundleWatcher,
 	}
 	p.queue = newWebhookPatcherQueue(p.webhookPatchTask)
-	informer := admissioninformer.NewFilteredMutatingWebhookConfigurationInformer(client.Kube(), 0, cache.Indexers{}, func(options *metav1.ListOptions) {
-		options.LabelSelector = fmt.Sprintf("%s=%s", label.IoIstioRev.Name, revision)
-	})
-	p.informer = informer
-	_, _ = informer.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
+
+	p.webhooks = kclient.New[*v1.MutatingWebhookConfiguration](client)
+	p.webhooks.AddEventHandler(controllers.ObjectHandler(p.queue.AddObject))
 
 	return p, nil
 }
@@ -98,21 +88,18 @@ func newWebhookPatcherQueue(reconciler controllers.ReconcilerFn) controllers.Que
 
 // Run runs the WebhookCertPatcher
 func (w *WebhookCertPatcher) Run(stopChan <-chan struct{}) {
-	go w.informer.Run(stopChan)
 	go w.startCaBundleWatcher(stopChan)
+	kubelib.WaitForCacheSync("webhook patcher", stopChan, w.webhooks.HasSynced)
 	w.queue.Run(stopChan)
 }
 
 func (w *WebhookCertPatcher) HasSynced() bool {
-	return w.informer.HasSynced() && w.queue.HasSynced()
+	return w.queue.HasSynced()
 }
 
 // webhookPatchTask takes the result of patchMutatingWebhookConfig and modifies the result for use in task queue
 func (w *WebhookCertPatcher) webhookPatchTask(o types.NamespacedName) error {
-	reportWebhookPatchAttempts(o.Name)
-	err := w.patchMutatingWebhookConfig(
-		w.client.AdmissionregistrationV1().MutatingWebhookConfigurations(),
-		o.Name)
+	err := w.patchMutatingWebhookConfig(o.Name)
 
 	// do not want to retry the task if these errors occur, they indicate that
 	// we should no longer be patching the given webhook
@@ -129,19 +116,19 @@ func (w *WebhookCertPatcher) webhookPatchTask(o types.NamespacedName) error {
 }
 
 // patchMutatingWebhookConfig takes a webhookConfigName and patches the CA bundle for that webhook configuration
-func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
-	client admissionregistrationv1client.MutatingWebhookConfigurationInterface,
-	webhookConfigName string,
-) error {
-	raw, _, err := w.informer.GetIndexer().GetByKey(webhookConfigName)
-	if raw == nil || err != nil {
+func (w *WebhookCertPatcher) patchMutatingWebhookConfig(webhookConfigName string) error {
+	config := w.webhooks.Get(webhookConfigName, "")
+	if config == nil {
 		reportWebhookPatchFailure(webhookConfigName, reasonWebhookConfigNotFound)
 		return errNotFound
 	}
-	config := raw.(*v1.MutatingWebhookConfiguration)
 	// prevents a race condition between multiple istiods when the revision is changed or modified
 	v, ok := config.Labels[label.IoIstioRev.Name]
-	if v != w.revision || !ok {
+	if !ok {
+		log.Debugf("webhook config %q does not have revision label. It is not a Istio webhook. Skipping patching", webhookConfigName)
+		return nil
+	}
+	if v != w.revision {
 		reportWebhookPatchFailure(webhookConfigName, reasonWrongRevision)
 		return errWrongRevision
 	}
@@ -169,7 +156,8 @@ func (w *WebhookCertPatcher) patchMutatingWebhookConfig(
 	}
 
 	if updated {
-		_, err := client.Update(context.Background(), config, metav1.UpdateOptions{})
+		reportWebhookPatchAttempts(w.webhookName)
+		_, err := w.webhooks.Update(config)
 		if err != nil {
 			reportWebhookPatchFailure(webhookConfigName, reasonWebhookUpdateFailure)
 		}
@@ -185,14 +173,9 @@ func (w *WebhookCertPatcher) startCaBundleWatcher(stop <-chan struct{}) {
 	for {
 		select {
 		case <-watchCh:
-			lists := w.informer.GetStore().List()
-			for _, list := range lists {
-				mutatingWebhookConfig := list.(*v1.MutatingWebhookConfiguration)
-				if mutatingWebhookConfig == nil {
-					continue
-				}
-				log.Debugf("updating caBundle for webhook %q", mutatingWebhookConfig.Name)
-				w.queue.Add(types.NamespacedName{Name: mutatingWebhookConfig.Name})
+			for _, whc := range w.webhooks.List("", klabels.Everything()) {
+				log.Debugf("updating caBundle for webhook %q", whc.Name)
+				w.queue.AddObject(whc)
 			}
 		case <-stop:
 			return

@@ -18,7 +18,6 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/api/label"
@@ -26,6 +25,7 @@ import (
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
@@ -86,6 +86,18 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 			},
 		},
 		{
+			name: "network priority",
+			ctl: testController{
+				network: "ns-network",
+			},
+			podLabels: labels.Instance{
+				label.TopologyNetwork.Name: "pod-network",
+			},
+			expected: labels.Instance{
+				label.TopologyNetwork.Name: "pod-network",
+			},
+		},
+		{
 			name: "all values",
 			ctl: testController{
 				locality: "myregion/myzone/mysubzone",
@@ -108,7 +120,6 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			pod := v1.Pod{}
 			pod.Name = "testpod"
@@ -118,8 +129,7 @@ func TestNewEndpointBuilderTopologyLabels(t *testing.T) {
 
 			eb := NewEndpointBuilder(c.ctl, &pod)
 
-			g := NewGomegaWithT(t)
-			g.Expect(eb.labels).Should(Equal(c.expected))
+			assert.Equal(t, eb.labels, c.expected)
 		})
 	}
 }
@@ -223,12 +233,10 @@ func TestNewEndpointBuilderFromMetadataTopologyLabels(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			eb := NewEndpointBuilderFromMetadata(c.ctl, c.proxy)
 
-			g := NewGomegaWithT(t)
-			g.Expect(eb.labels).Should(Equal(c.expected))
+			assert.Equal(t, eb.labels, c.expected)
 		})
 	}
 }
@@ -246,6 +254,9 @@ func (c testController) getPodLocality(*v1.Pod) string {
 }
 
 func (c testController) Network(ip string, instance labels.Instance) network.ID {
+	if n := instance[label.TopologyNetwork.Name]; n != "" {
+		return network.ID(n)
+	}
 	return c.network
 }
 

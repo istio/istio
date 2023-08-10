@@ -16,6 +16,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -28,9 +29,11 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/ptr"
 	testenv "istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/util/image"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/pkg/log"
 )
 
 // RunDocker builds docker images using the `docker buildx bake` commands. Buildx is the
@@ -79,7 +82,7 @@ func runDocker(args Args) error {
 
 	makeStart := time.Now()
 	for _, arch := range args.Architectures {
-		if err := RunMake(args, arch, args.PlanFor(arch).Targets()...); err != nil {
+		if err := RunMake(context.Background(), args, arch, args.PlanFor(arch).Targets()...); err != nil {
 			return err
 		}
 	}
@@ -172,18 +175,18 @@ func createBuildxBuilderIfNeeded(a Args) error {
 		if err != nil {
 			return fmt.Errorf("command failed: %v", err)
 		}
-		matches := regexp.MustCompile(`Driver: (.*)`).FindStringSubmatch(out.String())
+		matches := regexp.MustCompile(`Driver:\s+(.*)`).FindStringSubmatch(out.String())
 		if len(matches) == 0 || matches[1] != "docker-container" {
 			return fmt.Errorf("the docker buildx builder is not using the docker-container driver needed for .save.\n" +
-				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.10.3" +
-				" --name istio-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
+				"Create a new builder (ex: docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0" +
+				" --name container-builder --driver docker-container --buildkitd-flags=\"--debug\" --use)")
 		}
 		return nil
 	}
 	return exec.Command("sh", "-c", `
 export DOCKER_CLI_EXPERIMENTAL=enabled
 if ! docker buildx ls | grep -q container-builder; then
-  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.10.3 --name container-builder --buildkitd-flags="--debug"
+  docker buildx create --driver-opt network=host,image=gcr.io/istio-testing/buildkit:v0.11.0 --name container-builder --buildkitd-flags="--debug"
   # Pre-warm the builder. If it fails, fetch logs, but continue
   docker buildx inspect --bootstrap container-builder || docker logs buildx_buildkit_container-builder0 || true
 fi
@@ -229,8 +232,8 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			}
 			p := filepath.Join(testenv.LocalOut, "dockerx_build", fmt.Sprintf("build.docker.%s", target))
 			t := Target{
-				Context:    sp(p),
-				Dockerfile: sp(filepath.Base(bp.Dockerfile)),
+				Context:    ptr.Of(p),
+				Dockerfile: ptr.Of(filepath.Base(bp.Dockerfile)),
 				Args:       createArgs(a, target, variant, ""),
 				Platforms:  a.Architectures,
 			}
@@ -290,7 +293,14 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 			}
 			i := i
 			e.Go(func() error {
-				return assertImageNonExisting(i)
+				exists, err := image.Exists(i)
+				if err != nil {
+					return fmt.Errorf("failed to check image existence: %v", err)
+				}
+				if exists {
+					return fmt.Errorf("image %q already exists", i)
+				}
+				return nil
 			})
 		}
 		if err := e.Wait(); err != nil {
@@ -299,20 +309,6 @@ func ConstructBakeFile(a Args) (map[string]string, error) {
 	}
 
 	return tarFiles, os.WriteFile(out, j, 0o644)
-}
-
-func assertImageNonExisting(i string) error {
-	c := exec.Command("crane", "manifest", i)
-	b := &bytes.Buffer{}
-	c.Stderr = b
-	err := c.Run()
-	if err != nil {
-		if strings.Contains(b.String(), "MANIFEST_UNKNOWN") {
-			return nil
-		}
-		return fmt.Errorf("failed to check image existence: %v, %v", err, b.String())
-	}
-	return fmt.Errorf("image %q already exists", i)
 }
 
 func Copy(srcFile, dstFile string) error {

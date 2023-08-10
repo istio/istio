@@ -15,26 +15,27 @@
 package controller
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
-	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/informer"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/kube/mcs"
+	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -63,6 +64,7 @@ type importedService struct {
 // The real k8s Service can live anywhere in the mesh and does not have to reside in the same
 // cluster as the ServiceImport.
 type serviceImportCache interface {
+	Run(stop <-chan struct{})
 	HasSynced() bool
 	ImportedServices() []importedService
 }
@@ -70,21 +72,17 @@ type serviceImportCache interface {
 // newServiceImportCache creates a new cache of ServiceImport resources in the cluster.
 func newServiceImportCache(c *Controller) serviceImportCache {
 	if features.EnableMCSHost {
-		dInformer := c.client.DynamicInformer().ForResource(mcs.ServiceImportGVR)
-		_ = dInformer.Informer().SetTransform(kubelib.StripUnusedFields)
 		sic := &serviceImportCacheImpl{
 			Controller: c,
 		}
-		if c.opts.DiscoveryNamespacesFilter != nil {
-			sic.filteredInformer = informer.NewFilteredSharedIndexInformer(c.opts.DiscoveryNamespacesFilter.Filter, dInformer.Informer())
-		} else {
-			sic.filteredInformer = informer.NewFilteredSharedIndexInformer(nil, dInformer.Informer())
-		}
-		// Register callbacks for Service events anywhere in the mesh.
-		c.opts.MeshServiceController.AppendServiceHandlerForCluster(c.Cluster(), sic.onServiceEvent)
 
-		// Register callbacks for ServiceImport events in this cluster only.
-		c.registerHandlers(sic.filteredInformer, "ServiceImports", sic.onServiceImportEvent, nil)
+		sic.serviceImports = kclient.NewDelayedInformer(sic.client, mcs.ServiceImportGVR, kubetypes.DynamicInformer, kclient.Filter{
+			ObjectFilter: sic.opts.GetFilter(),
+		})
+		// Register callbacks for events.
+		registerHandlers(sic.Controller, sic.serviceImports, "ServiceImports", sic.onServiceImportEvent, nil)
+		sic.opts.MeshServiceController.AppendServiceHandlerForCluster(sic.Cluster(), sic.onServiceEvent)
+
 		return sic
 	}
 
@@ -95,13 +93,14 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 // serviceImportCacheImpl reads ServiceImport resources for a single cluster.
 type serviceImportCacheImpl struct {
 	*Controller
-	filteredInformer informer.FilteredSharedIndexInformer
+
+	serviceImports kclient.Untyped
 }
 
 // onServiceEvent is called when the controller receives an event for the kube Service (i.e. cluster.local).
 // When this happens, we need to update the state of the associated synthetic MCS service.
-func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model.Event) {
-	if strings.HasSuffix(svc.Hostname.String(), mcsDomainSuffix) {
+func (ic *serviceImportCacheImpl) onServiceEvent(_, curr *model.Service, event model.Event) {
+	if strings.HasSuffix(curr.Hostname.String(), mcsDomainSuffix) {
 		// Ignore events for MCS services that were triggered by this controller.
 		return
 	}
@@ -109,7 +108,7 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 	// This method is called concurrently from each cluster's queue. Process it in `this` cluster's queue
 	// in order to synchronize event processing.
 	ic.queue.Push(func() error {
-		namespacedName := namespacedNameForService(svc)
+		namespacedName := namespacedNameForService(curr)
 
 		// Lookup the previous MCS service if there was one.
 		mcsHost := serviceClusterSetLocalHostname(namespacedName)
@@ -136,23 +135,16 @@ func (ic *serviceImportCacheImpl) onServiceEvent(svc *model.Service, event model
 			event = model.EventAdd
 		}
 
-		mcsService := ic.genMCSService(svc, mcsHost, vips)
+		mcsService := ic.genMCSService(curr, mcsHost, vips)
 		ic.addOrUpdateService(nil, mcsService, event, false)
 		return nil
 	})
 }
 
-func (ic *serviceImportCacheImpl) onServiceImportEvent(obj any, event model.Event) error {
-	si, ok := obj.(*unstructured.Unstructured)
-	if !ok {
-		tombstone, ok := obj.(cache.DeletedFinalStateUnknown)
-		if !ok {
-			return fmt.Errorf("couldn't get object from tombstone %#v", obj)
-		}
-		si, ok = tombstone.Obj.(*unstructured.Unstructured)
-		if !ok {
-			return fmt.Errorf("tombstone contained object that is not a ServiceImport %#v", obj)
-		}
+func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object, event model.Event) error {
+	si := controllers.Extract[*unstructured.Unstructured](obj)
+	if si == nil {
+		return nil
 	}
 
 	// We need a full push if the cluster VIP changes.
@@ -210,7 +202,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(obj any, event model.Even
 
 func (ic *serviceImportCacheImpl) updateIPs(mcsService *model.Service, ips []string) (updated bool) {
 	prevIPs := mcsService.ClusterVIPs.GetAddressesFor(ic.Cluster())
-	if !util.StringSliceEqual(prevIPs, ips) {
+	if !slices.Equal(prevIPs, ips) {
 		// Update the VIPs
 		mcsService.ClusterVIPs.SetAddressesFor(ic.Cluster(), ips)
 		updated = true
@@ -223,7 +215,7 @@ func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
 		Full:           true,
 		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: mcsHost.String(), Namespace: ns}),
 
-		Reason: []model.TriggerReason{model.ServiceUpdate},
+		Reason: model.NewReasonStats(model.ServiceUpdate),
 	}
 	ic.opts.XDSUpdater.ConfigUpdate(pushReq)
 }
@@ -259,7 +251,7 @@ func (ic *serviceImportCacheImpl) genMCSService(realService *model.Service, mcsH
 }
 
 func (ic *serviceImportCacheImpl) getClusterSetIPs(name types.NamespacedName) []string {
-	si, _, _ := ic.filteredInformer.GetIndexer().GetByKey(name.String())
+	si := ic.serviceImports.Get(name.Name, name.Namespace)
 	if si != nil {
 		return GetServiceImportIPs(si.(*unstructured.Unstructured))
 	}
@@ -267,10 +259,7 @@ func (ic *serviceImportCacheImpl) getClusterSetIPs(name types.NamespacedName) []
 }
 
 func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
-	sis, err := ic.filteredInformer.List(metav1.NamespaceAll)
-	if err != nil {
-		return make([]importedService, 0)
-	}
+	sis := ic.serviceImports.List(metav1.NamespaceAll, klabels.Everything())
 
 	// Iterate over the ServiceImport resources in this cluster.
 	out := make([]importedService, 0, len(sis))
@@ -279,7 +268,7 @@ func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
 	for _, si := range sis {
 		usi := si.(*unstructured.Unstructured)
 		info := importedService{
-			namespacedName: kube.NamespacedNameForK8sObject(usi),
+			namespacedName: config.NamespacedName(usi),
 		}
 
 		// Lookup the synthetic MCS service.
@@ -298,13 +287,18 @@ func (ic *serviceImportCacheImpl) ImportedServices() []importedService {
 	return out
 }
 
+func (ic *serviceImportCacheImpl) Run(stop <-chan struct{}) {
+}
+
 func (ic *serviceImportCacheImpl) HasSynced() bool {
-	return ic.filteredInformer.HasSynced()
+	return ic.serviceImports.HasSynced()
 }
 
 type disabledServiceImportCache struct{}
 
 var _ serviceImportCache = disabledServiceImportCache{}
+
+func (c disabledServiceImportCache) Run(stop <-chan struct{}) {}
 
 func (c disabledServiceImportCache) HasSynced() bool {
 	return true
@@ -313,4 +307,8 @@ func (c disabledServiceImportCache) HasSynced() bool {
 func (c disabledServiceImportCache) ImportedServices() []importedService {
 	// MCS is disabled - returning `nil`, which is semantically different here than an empty list.
 	return nil
+}
+
+func (c disabledServiceImportCache) HasCRDInstalled() bool {
+	return false
 }

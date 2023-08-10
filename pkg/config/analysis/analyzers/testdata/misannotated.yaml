@@ -80,12 +80,57 @@ metadata:
     helm.sh/hook: test-success
     # invalid here
     kubernetes.io/ingress.class: "istio"
+    gateway.istio.io/controller-version: "5"
 spec:
   containers:
     - name: "grafana-test"
       command: ['curl']
       args: ['http://grafana:{{ .Values.grafana.service.externalPort }}']
   restartPolicy: Never
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: annotation-set-by-default
+  labels:
+    app: annotation-set-by-default
+  annotations:
+    # annotations are set by default by istio-cni, will be ignored to avoid validation errors
+    sidecar.istio.io/interceptionMode: REDIRECT
+    traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+    traffic.sidecar.istio.io/includeInboundPorts: '*'
+    traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+    gateway.istio.io/controller-version: "5"
+spec:
+  containers:
+    - name: "grafana-test"
+      command: ['curl']
+      args: ['http://grafana:{{ .Values.grafana.service.externalPort }}']
+      restartPolicy: Never
+  initContainers:
+    - name: istio-validation
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: anno-not-set-by-default
+  labels:
+    app: anno-not-set-by-default
+  annotations:
+    # annotations are not set by default, will not ignore
+    sidecar.istio.io/interceptionMode: REDIRECT
+    traffic.sidecar.istio.io/excludeInboundPorts: "15020"
+    traffic.sidecar.istio.io/includeInboundPorts: '*'
+    traffic.sidecar.istio.io/includeOutboundIPRanges: '*'
+    gateway.istio.io/controller-version: "5"
+spec:
+  containers:
+    - name: "grafana-test"
+      command: ['curl']
+      args: ['http://grafana:{{ .Values.grafana.service.externalPort }}']
+  restartPolicy: Never
+  initContainers:
+    - name: istio-init
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -117,3 +162,17 @@ metadata:
     # Annotation does not belong to Namespace
     kubernetes.io/ingress.class: "foo"
 spec: {}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: ignore-istio-annotations
+  annotations:
+    # annotations not set by user, should not warn
+    istio.io/rev: rev
+    istio.io/for-service-account: sa
+    ambient.istio.io/redirection: enabled
+spec:
+  containers:
+  - name: "foo"
+    command: ['curl']

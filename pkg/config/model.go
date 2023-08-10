@@ -24,7 +24,6 @@ import (
 	gogojsonpb "github.com/gogo/protobuf/jsonpb" // nolint: depguard
 	gogoproto "github.com/gogo/protobuf/proto"   // nolint: depguard
 	gogotypes "github.com/gogo/protobuf/types"   // nolint: depguard
-	"github.com/golang/protobuf/jsonpb"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -107,14 +106,23 @@ type Config struct {
 	Status Status
 }
 
-func ObjectInRevision(o *Config, rev string) bool {
-	configEnv, f := o.Labels[label.IoIstioRev.Name]
+func LabelsInRevision(lbls map[string]string, rev string) bool {
+	configEnv, f := lbls[label.IoIstioRev.Name]
 	if !f {
 		// This is a global object, and always included
 		return true
 	}
+	// If the revision is empty, this means we don't specify a revision, and
+	// we should always include it
+	if rev == "" {
+		return true
+	}
 	// Otherwise, only return true if revisions equal
 	return configEnv == rev
+}
+
+func ObjectInRevision(o *Config, rev string) bool {
+	return LabelsInRevision(o.Labels, rev)
 }
 
 // Spec defines the spec for the config. In order to use below helper methods,
@@ -149,7 +157,7 @@ func ToProto(s Spec) (*anypb.Any, error) {
 		return nil, err
 	}
 	pbs := &structpb.Struct{}
-	if err := jsonpb.Unmarshal(bytes.NewReader(js), pbs); err != nil {
+	if err := protomarshal.Unmarshal(js, pbs); err != nil {
 		return nil, err
 	}
 	return protoconv.MessageToAnyWithError(pbs)
@@ -331,13 +339,13 @@ func (c Config) DeepCopy() Config {
 	var clone Config
 	clone.Meta = c.Meta
 	if c.Labels != nil {
-		clone.Labels = make(map[string]string)
+		clone.Labels = make(map[string]string, len(c.Labels))
 		for k, v := range c.Labels {
 			clone.Labels[k] = v
 		}
 	}
 	if c.Annotations != nil {
-		clone.Annotations = make(map[string]string)
+		clone.Annotations = make(map[string]string, len(c.Annotations))
 		for k, v := range c.Annotations {
 			clone.Annotations[k] = v
 		}
@@ -347,6 +355,14 @@ func (c Config) DeepCopy() Config {
 		clone.Status = DeepCopy(c.Status)
 	}
 	return clone
+}
+
+func (c Config) GetName() string {
+	return c.Name
+}
+
+func (c Config) GetNamespace() string {
+	return c.Namespace
 }
 
 var _ fmt.Stringer = GroupVersionKind{}
@@ -390,3 +406,15 @@ func (g GroupVersionKind) CanonicalGroup() string {
 // PatchFunc provides the cached config as a base for modification. Only diff the between the cfg
 // parameter and the returned Config will be applied.
 type PatchFunc func(cfg Config) (Config, kubetypes.PatchType)
+
+type Namer interface {
+	GetName() string
+	GetNamespace() string
+}
+
+func NamespacedName(n Namer) kubetypes.NamespacedName {
+	return kubetypes.NamespacedName{
+		Namespace: n.GetNamespace(),
+		Name:      n.GetName(),
+	}
+}

@@ -31,29 +31,27 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // getByMessageName finds a schema by message name if it is available
 // In test setup, we do not have more than one descriptor with the same message type, so this
 // function is ok for testing purpose.
-func getByMessageName(schemas collection.Schemas, name string) (collection.Schema, bool) {
+func getByMessageName(schemas collection.Schemas, name string) (resource.Schema, bool) {
 	for _, s := range schemas.All() {
-		if s.Resource().Proto() == name {
+		if s.Proto() == name {
 			return s, true
 		}
 	}
 	return nil, false
 }
 
-func schemaFor(kind, proto string) collection.Schema {
-	return collection.Builder{
-		Name: kind,
-		Resource: resource.Builder{
-			Kind:   kind,
-			Plural: kind + "s",
-			Proto:  proto,
-		}.BuildNoValidate(),
-	}.MustBuild()
+func schemaFor(kind, proto string) resource.Schema {
+	return resource.Builder{
+		Kind:   kind,
+		Plural: kind + "s",
+		Proto:  proto,
+	}.BuildNoValidate()
 }
 
 func TestConfigDescriptor(t *testing.T) {
@@ -68,7 +66,7 @@ func TestConfigDescriptor(t *testing.T) {
 		t.Errorf("descriptor.Types() => got %+vwant %+v", spew.Sdump(got), spew.Sdump(want))
 	}
 
-	aType, aExists := schemas.FindByGroupVersionKind(a.Resource().GroupVersionKind())
+	aType, aExists := schemas.FindByGroupVersionKind(a.GroupVersionKind())
 	if !aExists || !reflect.DeepEqual(aType, a) {
 		t.Errorf("descriptor.GetByType(a) => got %+v, want %+v", aType, a)
 	}
@@ -76,7 +74,7 @@ func TestConfigDescriptor(t *testing.T) {
 		t.Error("descriptor.GetByType(missing) => got true, want false")
 	}
 
-	aSchema, aSchemaExists := getByMessageName(schemas, a.Resource().Proto())
+	aSchema, aSchemaExists := getByMessageName(schemas, a.Proto())
 	if !aSchemaExists || !reflect.DeepEqual(aSchema, a) {
 		t.Errorf("descriptor.GetByMessageName(a) => got %+v, want %+v", aType, a)
 	}
@@ -298,13 +296,13 @@ func TestMostSpecificHostMatch(t *testing.T) {
 	}
 
 	for idx, tt := range tests {
-		specific := make(map[host.Name]struct{})
-		wildcard := make(map[host.Name]struct{})
+		specific := sets.New[host.Name]()
+		wildcard := sets.New[host.Name]()
 		for _, h := range tt.in {
 			if h.IsWildCarded() {
-				wildcard[h] = struct{}{}
+				wildcard.Insert(h)
 			} else {
-				specific[h] = struct{}{}
+				specific.Insert(h)
 			}
 		}
 
@@ -333,8 +331,8 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 		needle           host.Name
 		baseHost         string
 		hosts            []host.Name
-		specificHostsMap map[host.Name]struct{}
-		wildcardHostsMap map[host.Name]struct{}
+		specificHostsMap sets.Set[host.Name]
+		wildcardHostsMap sets.Set[host.Name]
 		time             int
 		matches          bool
 	}{
@@ -376,15 +374,15 @@ func BenchmarkMostSpecificHostMatch(b *testing.B) {
 	}
 
 	for _, bm := range benchmarks {
-		bm.specificHostsMap = make(map[host.Name]struct{}, bm.time)
-		bm.wildcardHostsMap = make(map[host.Name]struct{}, bm.time)
+		bm.specificHostsMap = sets.NewWithLength[host.Name](bm.time)
+		bm.wildcardHostsMap = sets.NewWithLength[host.Name](bm.time)
 
 		for i := 1; i <= bm.time; i++ {
 			h := host.Name(bm.baseHost + "." + strconv.Itoa(i))
 			if h.IsWildCarded() {
-				bm.wildcardHostsMap[h] = struct{}{}
+				bm.wildcardHostsMap.Insert(h)
 			} else {
-				bm.specificHostsMap[h] = struct{}{}
+				bm.specificHostsMap.Insert(h)
 			}
 		}
 
@@ -405,8 +403,8 @@ func BenchmarkMostSpecificHostMatchMixed(b *testing.B) {
 		needle           host.Name
 		baseHost         string
 		hosts            []host.Name
-		specificHostsMap map[host.Name]struct{}
-		wildcardHostsMap map[host.Name]struct{}
+		specificHostsMap sets.Set[host.Name]
+		wildcardHostsMap sets.Set[host.Name]
 		time             int
 		matches          bool
 	}{
@@ -475,8 +473,8 @@ func BenchmarkMostSpecificHostMatchMultiMatch(b *testing.B) {
 	}
 
 	for _, bm := range benchmarks {
-		bm.specificHostsMap = make(map[host.Name]struct{}, 0)
-		bm.wildcardHostsMap = make(map[host.Name]struct{}, len(bm.hosts))
+		bm.specificHostsMap = sets.New[host.Name]()
+		bm.wildcardHostsMap = sets.NewWithLength[host.Name](len(bm.hosts))
 
 		for _, h := range bm.hosts {
 			if h.IsWildCarded() {

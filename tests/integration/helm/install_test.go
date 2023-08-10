@@ -70,7 +70,6 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 		}
 		cs := t.Clusters().Default().(*kubecluster.Cluster)
 		h := helm.New(cs.Filename())
-
 		s := t.Settings()
 		overrideValues := fmt.Sprintf(overrideValuesStr, s.Image.Hub, s.Image.Tag)
 		overrideValuesFile := filepath.Join(workDir, "values.yaml")
@@ -85,7 +84,7 @@ func setupInstallation(overrideValuesStr string) func(t framework.TestContext) {
 				namespace.Dump(t, IstioNamespace)
 			}
 		})
-		InstallIstio(t, cs, h, "", overrideValuesFile, ManifestsChartPath, "", true)
+		InstallIstio(t, cs, h, overrideValuesFile, "", true)
 
 		VerifyInstallation(t, cs, true)
 		verifyValidation(t)

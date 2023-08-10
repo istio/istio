@@ -29,7 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	xdsresource "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // StatusWriter enables printing of sync status using multiple []byte Istiod responses
@@ -45,6 +45,7 @@ type writerStatus struct {
 // XdsStatusWriter enables printing of sync status using multiple xdsapi.DiscoveryResponse Istiod responses
 type XdsStatusWriter struct {
 	Writer                 io.Writer
+	Namespace              string
 	InternalDebugAllIstiod bool
 }
 
@@ -115,11 +116,11 @@ func (s *StatusWriter) setupStatusPrint(statuses map[string][]byte) (*tabwriter.
 }
 
 func statusPrintln(w io.Writer, status *writerStatus) error {
-	clusterSynced := xdsStatus(status.ClusterSent, status.ClusterAcked)
-	listenerSynced := xdsStatus(status.ListenerSent, status.ListenerAcked)
-	routeSynced := xdsStatus(status.RouteSent, status.RouteAcked)
-	endpointSynced := xdsStatus(status.EndpointSent, status.EndpointAcked)
-	extensionconfigSynced := xdsStatus(status.ExtensionConfigSent, status.ExtensionConfigAcked)
+	clusterSynced := xdsStatus(status.ClusterSent, status.ClusterAcked, status.ProxyType)
+	listenerSynced := xdsStatus(status.ListenerSent, status.ListenerAcked, status.ProxyType)
+	routeSynced := xdsStatus(status.RouteSent, status.RouteAcked, status.ProxyType)
+	endpointSynced := xdsStatus(status.EndpointSent, status.EndpointAcked, status.ProxyType)
+	extensionconfigSynced := xdsStatus(status.ExtensionConfigSent, status.ExtensionConfigAcked, status.ProxyType)
 	version := status.IstioVersion
 	if version == "" {
 		// If we can't find an Istio version (talking to a 1.1 pilot), fallback to the proxy version
@@ -134,8 +135,13 @@ func statusPrintln(w io.Writer, status *writerStatus) error {
 	return nil
 }
 
-func xdsStatus(sent, acked string) string {
+const ignoredStatus = "IGNORED"
+
+func xdsStatus(sent, acked string, typ model.NodeType) string {
 	if sent == "" {
+		if typ == model.Ztunnel {
+			return ignoredStatus
+		}
 		return "NOT SENT"
 	}
 	if sent == acked {
@@ -180,17 +186,20 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 				if err != nil {
 					return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 				}
-				cds, lds, eds, rds, ecds := getSyncStatus(&clientConfig)
-				cp := multixds.CpInfo(dr)
 				meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
 				if err != nil {
 					return nil, nil, fmt.Errorf("could not parse node metadata: %w", err)
 				}
+				if s.Namespace != "" && meta.Namespace != s.Namespace {
+					continue
+				}
+				cds, lds, eds, rds, ecds := getSyncStatus(&clientConfig)
+				cp := multixds.CpInfo(dr)
 				fullStatus = append(fullStatus, &xdsWriterStatus{
 					proxyID:              clientConfig.GetNode().GetId(),
 					clusterID:            meta.ClusterID.String(),
 					istiodID:             cp.ID,
-					istiodVersion:        cp.Info.Version,
+					istiodVersion:        meta.IstioVersion,
 					clusterStatus:        cds,
 					listenerStatus:       lds,
 					routeStatus:          rds,
@@ -245,17 +254,38 @@ func getSyncStatus(clientConfig *xdsstatus.ClientConfig) (cds, lds, eds, rds, ec
 	configs := handleAndGetXdsConfigs(clientConfig)
 	for _, config := range configs {
 		cfgType := config.GetTypeUrl()
+		status := config.GetConfigStatus()
 		switch cfgType {
 		case xdsresource.ListenerType:
-			lds = config.GetConfigStatus().String()
+			if status == xdsstatus.ConfigStatus_UNKNOWN {
+				lds = ignoredStatus
+			} else {
+				lds = config.GetConfigStatus().String()
+			}
 		case xdsresource.ClusterType:
-			cds = config.GetConfigStatus().String()
+			if status == xdsstatus.ConfigStatus_UNKNOWN {
+				cds = ignoredStatus
+			} else {
+				cds = config.GetConfigStatus().String()
+			}
 		case xdsresource.RouteType:
-			rds = config.GetConfigStatus().String()
+			if status == xdsstatus.ConfigStatus_UNKNOWN {
+				rds = ignoredStatus
+			} else {
+				rds = config.GetConfigStatus().String()
+			}
 		case xdsresource.EndpointType:
-			eds = config.GetConfigStatus().String()
+			if status == xdsstatus.ConfigStatus_UNKNOWN {
+				eds = ignoredStatus
+			} else {
+				eds = config.GetConfigStatus().String()
+			}
 		case xdsresource.ExtensionConfigurationType:
-			ecds = config.GetConfigStatus().String()
+			if status == xdsstatus.ConfigStatus_UNKNOWN {
+				ecds = ignoredStatus
+			} else {
+				ecds = config.GetConfigStatus().String()
+			}
 		default:
 			log.Infof("GenericXdsConfig unexpected type %s\n", xdsresource.GetShortType(cfgType))
 		}

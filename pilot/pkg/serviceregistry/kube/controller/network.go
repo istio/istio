@@ -17,43 +17,114 @@ package controller
 import (
 	"net"
 	"strconv"
+	"sync"
 
 	"github.com/yl2chen/cidranger"
+	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 )
 
-type multinetwork struct {
+type networkManager struct {
+	sync.RWMutex
 	// CIDR ranger based on path-compressed prefix trie
-	ranger cidranger.Ranger
+	ranger    cidranger.Ranger
+	clusterID cluster.ID
+
+	gatewayResourceClient kclient.Untyped
+	meshNetworksWatcher   mesh.NetworksWatcher
 
 	// Network name for to be used when the meshNetworks fromRegistry nor network label on pod is specified
 	// This is defined by a topology.istio.io/network label on the system namespace.
 	network network.ID
 	// Network name for the registry as specified by the MeshNetworks configmap
-	networkForRegistry network.ID
+	networkFromMeshConfig network.ID
 	// map of svc fqdn to partially built network gateways; the actual gateways will be built from these into networkGatewaysBySvc
 	// this map just enumerates which networks/ports each Service is a gateway for
 	registryServiceNameGateways map[host.Name][]model.NetworkGateway
 	// gateways for each service
 	networkGatewaysBySvc map[host.Name]model.NetworkGatewaySet
+	// gateways from kubernetes Gateway resources
+	gatewaysFromResource map[types.UID]model.NetworkGatewaySet
+	// we don't want to discover gateways with class "istio-remote" from outside cluster's API servers.
+	discoverRemoteGatewayResources bool
+
 	// implements NetworkGatewaysWatcher; we need to call c.NotifyGatewayHandlers when our gateways change
 	model.NetworkGatewaysHandler
 }
 
-func initMultinetwork() multinetwork {
-	return multinetwork{
+func initNetworkManager(options Options) networkManager {
+	return networkManager{
+		clusterID:           options.ClusterID,
+		meshNetworksWatcher: options.MeshNetworksWatcher,
 		// zero values are a workaround structcheck issue: https://github.com/golangci/golangci-lint/issues/826
-		ranger:                      nil,
-		network:                     "",
-		networkForRegistry:          "",
-		registryServiceNameGateways: make(map[host.Name][]model.NetworkGateway),
-		networkGatewaysBySvc:        make(map[host.Name]model.NetworkGatewaySet),
+		ranger:                         nil,
+		network:                        "",
+		networkFromMeshConfig:          "",
+		registryServiceNameGateways:    make(map[host.Name][]model.NetworkGateway),
+		networkGatewaysBySvc:           make(map[host.Name]model.NetworkGatewaySet),
+		gatewaysFromResource:           make(map[types.UID]model.NetworkGatewaySet),
+		discoverRemoteGatewayResources: options.ConfigCluster,
 	}
+}
+
+// setNetworkFromNamespace sets network got from system namespace, returns whether it has changed
+func (n *networkManager) setNetworkFromNamespace(ns *v1.Namespace) bool {
+	nw := ns.Labels[label.TopologyNetwork.Name]
+	n.Lock()
+	defer n.Unlock()
+	oldDefaultNetwork := n.network
+	n.network = network.ID(nw)
+	return oldDefaultNetwork != n.network
+}
+
+func (n *networkManager) networkFromSystemNamespace() network.ID {
+	n.RLock()
+	defer n.RUnlock()
+	return n.network
+}
+
+func (n *networkManager) networkFromMeshNetworks(endpointIP string) network.ID {
+	n.RLock()
+	defer n.RUnlock()
+	if n.networkFromMeshConfig != "" {
+		return n.networkFromMeshConfig
+	}
+
+	if n.ranger != nil {
+		ip := net.ParseIP(endpointIP)
+		if ip == nil {
+			return ""
+		}
+		entries, err := n.ranger.ContainingNetworks(ip)
+		if err != nil {
+			log.Errorf("error getting cidr ranger entry from endpoint ip %s", endpointIP)
+			return ""
+		}
+		if len(entries) > 1 {
+			log.Warnf("Found multiple networks CIDRs matching the endpoint IP: %s. Using the first match.", endpointIP)
+		}
+		if len(entries) > 0 {
+			return (entries[0].(namedRangerEntry)).name
+		}
+	}
+	return ""
 }
 
 // namedRangerEntry for holding network's CIDR and name
@@ -67,58 +138,51 @@ func (n namedRangerEntry) Network() net.IPNet {
 	return n.network
 }
 
-// onDefaultNetworkChange is fired if the default network is changed either via the namespace label or mesh-networks
-func (c *Controller) onDefaultNetworkChange() {
+// onNetworkChange is fired if the default network is changed either via the namespace label or mesh-networks
+func (c *Controller) onNetworkChange() {
 	// the network for endpoints are computed when we process the events; this will fix the cache
 	// NOTE: this must run before the other network watcher handler that creates a force push
 	if err := c.syncPods(); err != nil {
 		log.Errorf("one or more errors force-syncing pods: %v", err)
 	}
-	if err := c.syncEndpoints(); err != nil {
+	if err := c.endpoints.sync("", metav1.NamespaceAll, model.EventAdd, true); err != nil {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
 	c.reloadNetworkGateways()
 }
 
-// reloadNetworkLookup refreshes the meshNetworks configuration, network for each endpoint, and
-// recomputes network gateways.
-func (c *Controller) reloadNetworkLookup() {
-	c.reloadMeshNetworks()
-	c.onDefaultNetworkChange()
-}
-
 // reloadMeshNetworks will read the mesh networks configuration to setup
 // fromRegistry and cidr based network lookups for this registry
-func (c *Controller) reloadMeshNetworks() {
-	c.Lock()
-	defer c.Unlock()
-	c.networkForRegistry = ""
+func (n *networkManager) reloadMeshNetworks() {
+	n.Lock()
+	defer n.Unlock()
+	n.networkFromMeshConfig = ""
 	ranger := cidranger.NewPCTrieRanger()
 
-	c.networkForRegistry = ""
-	c.registryServiceNameGateways = make(map[host.Name][]model.NetworkGateway)
+	n.networkFromMeshConfig = ""
+	n.registryServiceNameGateways = make(map[host.Name][]model.NetworkGateway)
 
-	meshNetworks := c.opts.NetworksWatcher.Networks()
+	meshNetworks := n.meshNetworksWatcher.Networks()
 	if meshNetworks == nil || len(meshNetworks.Networks) == 0 {
 		return
 	}
-	for n, v := range meshNetworks.Networks {
+	for id, v := range meshNetworks.Networks {
 		// track endpoints items from this registry are a part of this network
 		fromRegistry := false
 		for _, ep := range v.Endpoints {
 			if ep.GetFromCidr() != "" {
 				_, nw, err := net.ParseCIDR(ep.GetFromCidr())
 				if err != nil {
-					log.Warnf("unable to parse CIDR %q for network %s", ep.GetFromCidr(), n)
+					log.Warnf("unable to parse CIDR %q for network %s", ep.GetFromCidr(), id)
 					continue
 				}
 				rangerEntry := namedRangerEntry{
-					name:    network.ID(n),
+					name:    network.ID(id),
 					network: *nw,
 				}
 				_ = ranger.Insert(rangerEntry)
 			}
-			if ep.GetFromRegistry() != "" && cluster.ID(ep.GetFromRegistry()) == c.Cluster() {
+			if ep.GetFromRegistry() != "" && cluster.ID(ep.GetFromRegistry()) == n.clusterID {
 				fromRegistry = true
 			}
 		}
@@ -126,20 +190,20 @@ func (c *Controller) reloadMeshNetworks() {
 		// fromRegistry field specified this cluster
 		if fromRegistry {
 			// treat endpoints in this cluster as part of this network
-			if c.networkForRegistry != "" {
+			if n.networkFromMeshConfig != "" {
 				log.Warnf("multiple networks specify %s in fromRegistry; endpoints from %s will continue to be treated as part of %s",
-					c.Cluster(), c.Cluster(), c.networkForRegistry)
+					n.clusterID, n.clusterID, n.networkFromMeshConfig)
 			} else {
-				c.networkForRegistry = network.ID(n)
+				n.networkFromMeshConfig = network.ID(id)
 			}
 
 			// services in this registry matching the registryServiceName and port are part of this network
 			for _, gw := range v.Gateways {
 				if gwSvcName := gw.GetRegistryServiceName(); gwSvcName != "" {
 					svc := host.Name(gwSvcName)
-					c.registryServiceNameGateways[svc] = append(c.registryServiceNameGateways[svc], model.NetworkGateway{
-						Network: network.ID(n),
-						Cluster: c.Cluster(),
+					n.registryServiceNameGateways[svc] = append(n.registryServiceNameGateways[svc], model.NetworkGateway{
+						Network: network.ID(id),
+						Cluster: n.clusterID,
 						Port:    gw.GetPort(),
 					})
 				}
@@ -147,12 +211,12 @@ func (c *Controller) reloadMeshNetworks() {
 		}
 
 	}
-	c.ranger = ranger
+	n.ranger = ranger
 }
 
 func (c *Controller) NetworkGateways() []model.NetworkGateway {
-	c.RLock()
-	defer c.RUnlock()
+	c.networkManager.RLock()
+	defer c.networkManager.RUnlock()
 
 	if len(c.networkGatewaysBySvc) == 0 {
 		return nil
@@ -161,18 +225,20 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 	// Merge all the gateways into a single set to eliminate duplicates.
 	out := make(model.NetworkGatewaySet)
 	for _, gateways := range c.networkGatewaysBySvc {
-		out.AddAll(gateways)
+		out.Merge(gateways)
+	}
+	for _, gateways := range c.gatewaysFromResource {
+		out.Merge(gateways)
 	}
 
-	return out.ToArray()
+	unsorted := out.UnsortedList()
+	return model.SortGateways(unsorted)
 }
 
 // extractGatewaysFromService checks if the service is a cross-network gateway
 // and if it is, updates the controller's gateways.
 func (c *Controller) extractGatewaysFromService(svc *model.Service) bool {
-	c.Lock()
 	changed := c.extractGatewaysInner(svc)
-	c.Unlock()
 	if changed {
 		c.NotifyGatewayHandlers()
 	}
@@ -180,6 +246,8 @@ func (c *Controller) extractGatewaysFromService(svc *model.Service) bool {
 }
 
 // reloadNetworkGateways performs extractGatewaysFromService for all services registered with the controller.
+// It is called only by `onNetworkChange`.
+// It iterates over all services, because mesh networks can be set with a service name.
 func (c *Controller) reloadNetworkGateways() {
 	c.Lock()
 	gwsChanged := false
@@ -193,26 +261,32 @@ func (c *Controller) reloadNetworkGateways() {
 	if gwsChanged {
 		c.NotifyGatewayHandlers()
 		// TODO ConfigUpdate via gateway handler
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: []model.TriggerReason{model.NetworksTrigger}})
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
 	}
 }
 
 // extractGatewaysInner performs the logic for extractGatewaysFromService without locking the controller.
 // Returns true if any gateways changed.
-func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
-	newGateways := make(model.NetworkGatewaySet)
+func (n *networkManager) extractGatewaysInner(svc *model.Service) bool {
+	n.Lock()
+	defer n.Unlock()
+	previousGateways := n.networkGatewaysBySvc[svc.Hostname]
+	gateways := n.getGatewayDetails(svc)
+	// short circuit for most services.
+	if len(previousGateways) == 0 && len(gateways) == 0 {
+		return false
+	}
 
+	newGateways := make(model.NetworkGatewaySet)
 	// check if we have node port mappings
 	nodePortMap := make(map[uint32]uint32)
 	if svc.Attributes.ClusterExternalPorts != nil {
-		if npm, exists := svc.Attributes.ClusterExternalPorts[c.Cluster()]; exists {
+		if npm, exists := svc.Attributes.ClusterExternalPorts[n.clusterID]; exists {
 			nodePortMap = npm
 		}
 	}
 
-	gateways := c.getGatewayDetails(svc)
-
-	for _, addr := range svc.Attributes.ClusterExternalAddresses.GetAddressesFor(c.Cluster()) {
+	for _, addr := range svc.Attributes.ClusterExternalAddresses.GetAddressesFor(n.clusterID) {
 		for _, gw := range gateways {
 			// what we now have is a service port. If there is a mapping for cluster external ports,
 			// look it up and get the node port for the remote port
@@ -220,26 +294,24 @@ func (c *Controller) extractGatewaysInner(svc *model.Service) bool {
 				gw.Port = nodePort
 			}
 
-			gw.Cluster = c.Cluster()
+			gw.Cluster = n.clusterID
 			gw.Addr = addr
-			newGateways.Add(gw)
+			newGateways.Insert(gw)
 		}
 	}
 
-	previousGateways := c.networkGatewaysBySvc[svc.Hostname]
 	gatewaysChanged := !newGateways.Equals(previousGateways)
-
 	if len(newGateways) > 0 {
-		c.networkGatewaysBySvc[svc.Hostname] = newGateways
+		n.networkGatewaysBySvc[svc.Hostname] = newGateways
 	} else {
-		delete(c.networkGatewaysBySvc, svc.Hostname)
+		delete(n.networkGatewaysBySvc, svc.Hostname)
 	}
 
 	return gatewaysChanged
 }
 
 // getGatewayDetails returns gateways without the address populated, only the network and (unmapped) port for a given service.
-func (c *Controller) getGatewayDetails(svc *model.Service) []model.NetworkGateway {
+func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGateway {
 	// TODO should we start checking if svc's Ports contain the gateway port?
 
 	// label based gateways
@@ -256,12 +328,105 @@ func (c *Controller) getGatewayDetails(svc *model.Service) []model.NetworkGatewa
 	}
 
 	// meshNetworks registryServiceName+fromRegistry
-	if gws, ok := c.registryServiceNameGateways[svc.Hostname]; ok {
+	if gws, ok := n.registryServiceNameGateways[svc.Hostname]; ok {
 		out := append(make([]model.NetworkGateway, 0, len(gws)), gws...)
 		return out
 	}
 
 	return nil
+}
+
+func (n *networkManager) watchGatewayResources(c *Controller, stop <-chan struct{}) {
+	if !features.MultiNetworkGatewayAPI {
+		return
+	}
+	n.gatewayResourceClient = kclient.NewDelayedInformer(c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
+	registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
+	go n.gatewayResourceClient.Start(stop)
+}
+
+// handleGateway resource adds a NetworkGateway for each combination of address and auto-passthrough listener
+// discovering duplicates from the generated Service is not a huge concern as we de-duplicate in NetworkGateways
+// which returns a set, although it's not totally efficient.
+func (n *networkManager) handleGatewayResource(_ controllers.Object, obj controllers.Object, event model.Event) error {
+	gw, ok := obj.(*v1beta1.Gateway)
+	if !ok {
+		return nil
+	}
+
+	if nw := gw.GetLabels()[label.TopologyNetwork.Name]; nw == "" {
+		return nil
+	}
+
+	// Gateway with istio-remote: only discover this from the config cluster
+	// this is a way to reference a gateway that lives in a place that this control plane
+	// won't have API server access. Nothing will be deployed for these Gateway resources.
+	if !n.discoverRemoteGatewayResources && gw.Spec.GatewayClassName == constants.RemoteGatewayClassName {
+		return nil
+	}
+
+	gatewaysChanged := false
+	n.Lock()
+	defer func() {
+		n.Unlock()
+		if gatewaysChanged {
+			n.NotifyGatewayHandlers()
+		}
+	}()
+
+	previousGateways := n.gatewaysFromResource[gw.UID]
+
+	if event == model.EventDelete {
+		gatewaysChanged = len(previousGateways) > 0
+		delete(n.gatewaysFromResource, gw.UID)
+		return nil
+	}
+
+	autoPassthrough := func(l v1beta1.Listener) bool {
+		return kube.IsAutoPassthrough(gw.GetLabels(), l)
+	}
+
+	base := model.NetworkGateway{
+		Network: network.ID(gw.GetLabels()[label.TopologyNetwork.Name]),
+		Cluster: n.clusterID,
+	}
+	newGateways := model.NetworkGatewaySet{}
+	for _, addr := range gw.Spec.Addresses {
+		if addr.Type == nil {
+			continue
+		}
+		if addrType := *addr.Type; addrType != v1beta1.IPAddressType && addrType != v1beta1.HostnameAddressType {
+			continue
+		}
+		for _, l := range slices.Filter(gw.Spec.Listeners, autoPassthrough) {
+			networkGateway := base
+			networkGateway.Addr = addr.Value
+			networkGateway.Port = uint32(l.Port)
+			newGateways.Insert(networkGateway)
+		}
+	}
+	n.gatewaysFromResource[gw.UID] = newGateways
+
+	if len(previousGateways) != len(newGateways) {
+		gatewaysChanged = true
+		return nil
+	}
+
+	gatewaysChanged = !newGateways.Equals(previousGateways)
+	if len(newGateways) > 0 {
+		n.gatewaysFromResource[gw.UID] = newGateways
+	} else {
+		delete(n.gatewaysFromResource, gw.UID)
+	}
+
+	return nil
+}
+
+func (n *networkManager) HasSynced() bool {
+	if n.gatewayResourceClient == nil {
+		return true
+	}
+	return n.gatewayResourceClient.HasSynced()
 }
 
 // updateServiceNodePortAddresses updates ClusterExternalAddresses for Services of nodePort type
@@ -284,6 +449,9 @@ func (c *Controller) updateServiceNodePortAddresses(svcs ...*model.Service) bool
 			if nodeSelector.SubsetOf(n.labels) {
 				nodeAddresses = append(nodeAddresses, n.address)
 			}
+		}
+		if svc.Attributes.ClusterExternalAddresses == nil {
+			svc.Attributes.ClusterExternalAddresses = &model.AddressMap{}
 		}
 		svc.Attributes.ClusterExternalAddresses.SetAddressesFor(c.Cluster(), nodeAddresses)
 		// update gateways that use the service

@@ -26,7 +26,8 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
@@ -74,13 +75,16 @@ func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Instance, ga
 }
 
 // Select the config pertaining to the service being processed.
-func getConfigsForHost(hostname host.Name, configs []config.Config) []config.Config {
+func getConfigsForHost(filterNamespace string, hostname host.Name, configs []config.Config) []config.Config {
 	svcConfigs := make([]config.Config, 0)
-	for index := range configs {
-		virtualService := configs[index].Spec.(*v1alpha3.VirtualService)
+	for _, cfg := range configs {
+		virtualService := cfg.Spec.(*v1alpha3.VirtualService)
 		for _, vsHost := range virtualService.Hosts {
+			if filterNamespace != "" && filterNamespace != cfg.Namespace {
+				continue
+			}
 			if host.Name(vsHost).Matches(hostname) {
-				svcConfigs = append(svcConfigs, configs[index])
+				svcConfigs = append(svcConfigs, cfg)
 				break
 			}
 		}
@@ -178,7 +182,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 		statPrefix := clusterName
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
-			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, &service.Attributes)
+			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, 0, &service.Attributes)
 		}
 		// Use the hostname as the SNI value if and only:
 		// 1) if the destination is a CIDR;
@@ -289,7 +293,7 @@ TcpLoop:
 				// and will reject the config.
 				sort.Strings(virtualServiceDestinationSubnets)
 				sort.Strings(destinationCIDRs)
-				if util.StringSliceEqual(virtualServiceDestinationSubnets, destinationCIDRs) {
+				if slices.Equal(virtualServiceDestinationSubnets, destinationCIDRs) {
 					log.Warnf("Existing filter chain with same matching CIDR: %v.", destinationCIDRs)
 					defaultRouteAdded = true
 				}
@@ -313,7 +317,7 @@ TcpLoop:
 			model.TrafficDirectionOutbound, node, service.Hostname).GetRule())
 		// If stat name is configured, use it to build the stat prefix.
 		if len(push.Mesh.OutboundClusterStatName) != 0 {
-			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, &service.Attributes)
+			statPrefix = telemetry.BuildStatPrefix(push.Mesh.OutboundClusterStatName, string(service.Hostname), "", &model.Port{Port: port}, 0, &service.Attributes)
 		}
 		var destinationCIDRs []string
 		if destinationCIDR != "" {
@@ -340,7 +344,9 @@ func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.Pu
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []config.Config
 	if service != nil {
-		svcConfigs = getConfigsForHost(service.Hostname, configs)
+		// Do not filter namespace for now.
+		// TODO(https://github.com/istio/istio/issues/46146) we may need to, or something more sophisticated
+		svcConfigs = getConfigsForHost("", service.Hostname, configs)
 	} else {
 		svcConfigs = configs
 	}

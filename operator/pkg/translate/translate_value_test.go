@@ -17,12 +17,12 @@ package translate
 import (
 	"testing"
 
-	"github.com/golang/protobuf/jsonpb"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 func TestValueToProto(t *testing.T) {
@@ -189,14 +189,13 @@ values:
 				t.Errorf("ValuesToProto(%s)(%v): gotErr:%s, wantErr:%s", tt.desc, tt.valueYAML, gotErr, wantErr)
 			}
 			if tt.wantErr == "" {
-				ms := jsonpb.Marshaler{}
-				gotString, err := ms.MarshalToString(gotSpec)
+				byteArray, err := protomarshal.Marshal(gotSpec)
 				if err != nil {
 					t.Errorf("failed to marshal translated IstioOperatorSpec: %s", err)
 				}
-				cpYaml, _ := yaml.JSONToYAML([]byte(gotString))
-				if want := tt.want; !util.IsYAMLEqual(gotString, want) {
-					t.Errorf("ValuesToProto(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, string(cpYaml), want, util.YAMLDiff(gotString, want))
+				cpYaml, _ := yaml.JSONToYAML(byteArray)
+				if want := tt.want; !util.IsYAMLEqual(string(byteArray), want) {
+					t.Errorf("ValuesToProto(%s): got:\n%s\n\nwant:\n%s\nDiff:\n%s\n", tt.desc, string(cpYaml), want, util.YAMLDiff(string(byteArray), want))
 				}
 
 			}

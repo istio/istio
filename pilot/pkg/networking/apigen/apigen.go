@@ -24,9 +24,8 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/pkg/log"
+	"istio.io/istio/pkg/log"
 )
 
 // APIGenerator supports generation of high-level API resources, similar with the MCP
@@ -83,30 +82,21 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 		Version: kind[1],
 		Kind:    kind[2],
 	}
-	if w.TypeUrl == collections.IstioMeshV1Alpha1MeshConfig.Resource().GroupVersionKind().String() {
+	if w.TypeUrl == gvk.MeshConfig.String() {
 		resp = append(resp, &discovery.Resource{
 			Resource: protoconv.MessageToAny(req.Push.Mesh),
 		})
 		return resp, model.DefaultXdsLogDetails, nil
 	}
 
-	// TODO: what is the proper way to handle errors ?
-	// Normally once istio is 'ready' List can't return errors on a valid config -
-	// even if k8s is disconnected, we still cache all previous results.
-	// This needs further consideration - I don't think XDS or MCP transports
-	// have a clear recommendation.
-	cfg, err := g.store.List(rgvk, "")
-	if err != nil {
-		log.Warnf("ADS: Error reading resource %s %v", w.TypeUrl, err)
-		return resp, model.DefaultXdsLogDetails, nil
-	}
+	cfg := g.store.List(rgvk, "")
 	for _, c := range cfg {
 		// Right now model.Config is not a proto - until we change it, mcp.Resource.
 		// This also helps migrating MCP users.
 
 		b, err := config.PilotConfigToResource(&c)
 		if err != nil {
-			log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
+			log.WithLabels("resource", config.NamespacedName(c)).Warnf("resource error: %v", err)
 			continue
 		}
 		resp = append(resp, &discovery.Resource{
@@ -129,7 +119,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 			c := serviceentry.ServiceToServiceEntry(s, proxy)
 			b, err := config.PilotConfigToResource(c)
 			if err != nil {
-				log.Warn("Resource error ", err, " ", c.Namespace, "/", c.Name)
+				log.WithLabels("resource", config.NamespacedName(c)).Warnf("resource error: %v", err)
 				continue
 			}
 			resp = append(resp, &discovery.Resource{
