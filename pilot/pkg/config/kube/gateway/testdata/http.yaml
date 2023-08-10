@@ -188,6 +188,11 @@ spec:
         backendRef:
           name: httpbin-mirror
           port: 80
+    - type: RequestMirror
+      requestMirror:
+        backendRef:
+          name: httpbin-second
+          port: 80
     backendRefs:
     - name: httpbin
       port: 80
