@@ -1618,19 +1618,9 @@ func listenerKey(bind string, port int) string {
 	return bind + ":" + strconv.Itoa(port)
 }
 
-const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
-
 // outboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
 func outboundTunnelListener(proxy *model.Proxy) *listener.Listener {
-	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
-	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
-	baggage := fmt.Sprintf(baggageFormat,
-		proxy.Metadata.ClusterID, proxy.ConfigNamespace,
-		// TODO do not hardcode deployment. But I think we ignore it anyways?
-		"deployment", proxy.Metadata.WorkloadName,
-		canonicalName, canonicalRevision,
-	)
-	return buildConnectOriginateListener(baggage)
+	return buildConnectOriginateListener()
 }
 
 // conflictWithStaticListener checks whether the listener address bind:port conflicts with static listener port
