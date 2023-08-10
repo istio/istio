@@ -110,7 +110,7 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 
 	// Filters needed to propagate the tunnel metadata to the inner streams.
 	h.HttpFilters = []*hcm.HttpFilter{
-		xdsfilters.ConnectBaggageFilter,
+		xdsfilters.WaypointDownstreamMetadataFilter,
 		xdsfilters.ConnectAuthorityFilter,
 		xdsfilters.Router,
 	}
@@ -305,17 +305,11 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 }
 
 func buildWaypointConnectOriginateListener() *listener.Listener {
-	return buildConnectOriginateListener("")
+	return buildConnectOriginateListener()
 }
 
-func buildConnectOriginateListener(baggage string) *listener.Listener {
+func buildConnectOriginateListener() *listener.Listener {
 	var headers []*core.HeaderValueOption
-	if baggage != "" {
-		headers = append(headers, &core.HeaderValueOption{Header: &core.HeaderValue{
-			Key:   "baggage",
-			Value: baggage,
-		}})
-	}
 	l := &listener.Listener{
 		Name:              ConnectOriginate,
 		UseOriginalDst:    wrappers.Bool(false),
