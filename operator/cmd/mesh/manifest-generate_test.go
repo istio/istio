@@ -161,11 +161,10 @@ func copyDir(src string, dest string) error {
 		if info.IsDir() {
 			os.MkdirAll(outpath, info.Mode())
 			return nil
-		} else {
-			cpErr := file.AtomicCopy(path, filepath.Dir(outpath), filepath.Base(outpath))
-			if cpErr != nil {
-				return cpErr
-			}
+		}
+		cpErr := file.AtomicCopy(path, filepath.Dir(outpath), filepath.Base(outpath))
+		if cpErr != nil {
+			return cpErr
 		}
 
 		return nil
