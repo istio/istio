@@ -24,12 +24,10 @@ typedConfig:
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: rule[0]-to[0]-method[1]
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: rule[0]-to[0]-method[2]
             - orRules:
                 rules:
@@ -70,12 +68,10 @@ typedConfig:
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: rule[0]-to[1]-method[1]
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: rule[0]-to[1]-method[2]
             - orRules:
                 rules:
@@ -156,17 +152,14 @@ typedConfig:
                 - header:
                     name: X-header
                     stringMatch:
-                      ignoreCase: false
                       exact: header
                 - header:
                     name: X-header
                     stringMatch:
-                      ignoreCase: false
                       prefix: header-prefix-
                 - header:
                     name: X-header
                     stringMatch:
-                      ignoreCase: false
                       suffix: -suffix-header
                 - header:
                     name: X-header
@@ -240,17 +233,14 @@ typedConfig:
                 - header:
                     name: X-header
                     stringMatch:
-                      ignoreCase: false
                       exact: header
                 - header:
                     name: X-header
                     stringMatch:
-                      ignoreCase: false
                       prefix: header-prefix-
                 - header:
                     name: X-header
                     stringMatch:
-                      ignoreCase: false
                       suffix: -suffix-header
                 - header:
                     name: X-header
@@ -284,12 +274,10 @@ typedConfig:
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: rule[1]-to[0]-method[1]
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: rule[1]-to[0]-method[2]
             - orRules:
                 rules:
@@ -322,12 +310,10 @@ typedConfig:
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: rule[1]-to[1]-method[1]
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: rule[1]-to[1]-method[2]
             - orRules:
                 rules:

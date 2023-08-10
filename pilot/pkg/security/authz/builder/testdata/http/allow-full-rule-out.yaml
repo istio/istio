@@ -53,17 +53,14 @@ typedConfig:
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: method
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       prefix: method-prefix-
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       suffix: -suffix-method
                 - header:
                     name: :method
@@ -74,17 +71,14 @@ typedConfig:
                   - header:
                       name: :method
                       stringMatch:
-                        ignoreCase: false
                         exact: not-method
                   - header:
                       name: :method
                       stringMatch:
-                        ignoreCase: false
                         prefix: not-method-prefix-
                   - header:
                       name: :method
                       stringMatch:
-                        ignoreCase: false
                         suffix: -not-suffix-method
                   - header:
                       name: :method
@@ -432,17 +426,14 @@ typedConfig:
                 - header:
                     name: X-header
                     stringMatch:
-                      ignoreCase: false
                       exact: header
                 - header:
                     name: X-header
                     stringMatch:
-                      ignoreCase: false
                       prefix: header-prefix-
                 - header:
                     name: X-header
                     stringMatch:
-                      ignoreCase: false
                       suffix: -suffix-header
                 - header:
                     name: X-header
@@ -453,17 +444,14 @@ typedConfig:
                   - header:
                       name: X-header
                       stringMatch:
-                        ignoreCase: false
                         exact: not-header
                   - header:
                       name: X-header
                       stringMatch:
-                        ignoreCase: false
                         prefix: not-header-prefix-
                   - header:
                       name: X-header
                       stringMatch:
-                        ignoreCase: false
                         suffix: -not-suffix-header
                   - header:
                       name: X-header

@@ -12,12 +12,10 @@ typedConfig:
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: GET
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: POST
         principals:
         - andIds:
@@ -162,11 +160,9 @@ typedConfig:
                 - header:
                     name: X-abc
                     stringMatch:
-                      ignoreCase: false
                       exact: abc1
                 - header:
                     name: X-abc
                     stringMatch:
-                      ignoreCase: false
                       exact: abc2
   shadowRulesStatPrefix: istio_dry_run_allow_

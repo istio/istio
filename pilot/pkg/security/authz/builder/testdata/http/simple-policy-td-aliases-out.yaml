@@ -12,7 +12,6 @@ typedConfig:
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: rule[0]-to[0]-method[0]
         principals:
         - andIds:
@@ -63,7 +62,6 @@ typedConfig:
                 - header:
                     name: :method
                     stringMatch:
-                      ignoreCase: false
                       exact: rule[1]-to[0]-method[0]
         principals:
         - andIds:
