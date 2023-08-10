@@ -36,6 +36,7 @@ type SelfSignedCARootCertRotatorConfig struct {
 	caStorageNamespace string
 	org                string
 	rootCertFile       string
+	secretName         string
 	client             corev1.CoreV1Interface
 	CheckInterval      time.Duration
 	caCertTTL          time.Duration
@@ -113,12 +114,12 @@ func (rotator *SelfSignedCARootCertRotator) Run(stopCh chan struct{}) {
 // checkAndRotateRootCert decides whether root cert should be refreshed, and rotates
 // root cert for self-signed Citadel.
 func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCert() {
-	caSecret, scrtErr := rotator.caSecretController.LoadCASecretWithRetry(CASecret,
+	caSecret, scrtErr := rotator.caSecretController.LoadCASecretWithRetry(rotator.config.secretName,
 		rotator.config.caStorageNamespace, rotator.config.retryInterval, rotator.config.retryMax)
 
 	if scrtErr != nil {
 		rootCertRotatorLog.Errorf("Fail to load CA secret %s:%s (error: %s), skip cert rotation job",
-			rotator.config.caStorageNamespace, CASecret, scrtErr.Error())
+			rotator.config.caStorageNamespace, rotator.config.secretName, scrtErr.Error())
 	} else {
 		rotator.checkAndRotateRootCertForSigningCertCitadel(caSecret)
 	}
@@ -132,7 +133,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 ) {
 	if caSecret == nil {
 		rootCertRotatorLog.Errorf("root cert secret %s is nil, skip cert rotation job",
-			CASecret)
+			rotator.config.secretName)
 		return
 	}
 	// Check root certificate expiration time in CA secret
@@ -141,11 +142,11 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		rootCertRotatorLog.Info("Root cert is not about to expire, skipping root cert rotation.")
 		caCertInMem, _, _, _ := rotator.ca.GetCAKeyCertBundle().GetAllPem()
 		// If CA certificate is different from the CA certificate in local key
-		// cert bundle, it implies that other Citadels have updated istio-ca-secret.
+		// cert bundle, it implies that other Citadels have updated istio-ca-secret or cacerts.
 		// Reload root certificate into key cert bundle.
 		if !bytes.Equal(caCertInMem, caSecret.Data[CACertFile]) {
-			rootCertRotatorLog.Warn("CA cert in KeyCertBundle does not match CA cert in " +
-				"istio-ca-secret. Start to reload root cert into KeyCertBundle")
+			rootCertRotatorLog.Warnf("CA cert in KeyCertBundle does not match CA cert in "+
+				"%s. Start to reload root cert into KeyCertBundle", rotator.config.secretName)
 			rootCerts, err := util.AppendRootCerts(caSecret.Data[CACertFile], rotator.config.rootCertFile)
 			if err != nil {
 				rootCertRotatorLog.Errorf("failed to append root certificates from file: %s", err.Error())
@@ -220,10 +221,10 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.Secret, rollForward bool, cert, key, rootCert []byte) (bool, error) {
 	var err error
 	if caSecret == nil {
-		caSecret, err = rotator.caSecretController.LoadCASecretWithRetry(CASecret,
+		caSecret, err = rotator.caSecretController.LoadCASecretWithRetry(rotator.config.secretName,
 			rotator.config.caStorageNamespace, rotator.config.retryInterval, rotator.config.retryMax)
 		if err != nil {
-			return false, fmt.Errorf("failed to load CA secret %s:%s (error: %s)", rotator.config.caStorageNamespace, CASecret,
+			return false, fmt.Errorf("failed to load CA secret %s:%s (error: %s)", rotator.config.caStorageNamespace, rotator.config.secretName,
 				err.Error())
 		}
 	}

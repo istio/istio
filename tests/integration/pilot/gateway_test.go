@@ -362,6 +362,30 @@ spec:
       port: 80
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: GRPCRoute
+metadata:
+  name: grpc
+spec:
+  parentRefs:
+  - kind: Service
+    name: c
+  - name: gateway
+    namespace: istio-system
+  rules:
+  - matches:
+    - method:
+        method: Echo
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: my-added-header
+          value: added-grpc-value
+    backendRefs:
+    - name: c
+      port: 7070
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: HTTPRoute
 metadata:
   name: tls-same
@@ -447,6 +471,18 @@ spec:
 					Check: check.And(
 						check.OK(),
 						check.RequestHeader("My-Added-Header", "added-value")),
+				})
+			})
+			t.NewSubTest("mesh-grpc").Run(func(t framework.TestContext) {
+				_ = apps.A[0].CallOrFail(t, echo.CallOptions{
+					To:    apps.C,
+					Count: 1,
+					Port: echo.Port{
+						Name: "grpc",
+					},
+					Check: check.And(
+						check.OK(),
+						check.RequestHeader("My-Added-Header", "added-grpc-value")),
 				})
 			})
 			t.NewSubTest("status").Run(func(t framework.TestContext) {

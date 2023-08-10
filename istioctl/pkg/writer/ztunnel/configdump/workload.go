@@ -38,8 +38,18 @@ func (wf *WorkloadFilter) Verify(workload *ztunnelDump.ZtunnelWorkload) bool {
 	if wf.Address == "" && wf.Node == "" {
 		return true
 	}
-	if wf.Address != "" && !strings.EqualFold(workload.WorkloadIP, wf.Address) {
-		return false
+
+	if wf.Address != "" {
+		var find bool
+		for _, ip := range workload.WorkloadIPs {
+			if strings.EqualFold(ip, wf.Address) {
+				find = true
+				break
+			}
+		}
+		if !find {
+			return false
+		}
 	}
 	if wf.Node != "" && !strings.EqualFold(workload.Node, wf.Node) {
 		return false
@@ -80,11 +90,15 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 	}
 
 	for _, wl := range verifiedWorkloads {
+		var ip string
+		if len(wl.WorkloadIPs) > 0 {
+			ip = wl.WorkloadIPs[0]
+		}
 		if filter.Verbose {
 			waypoint := waypointName(wl, zDump.Services)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, wl.WorkloadIP, wl.Node, waypoint, wl.Protocol)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, ip, wl.Node, waypoint, wl.Protocol)
 		} else {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, wl.WorkloadIP, wl.Node)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, ip, wl.Node)
 		}
 	}
 	return w.Flush()
@@ -144,7 +158,7 @@ func waypointName(wl *ztunnelDump.ZtunnelWorkload, services map[string]*ztunnelD
 		return "None"
 	}
 
-	if svc, ok := services[wl.Waypoint.Destination.Content]; ok {
+	if svc, ok := services[wl.Waypoint.Destination]; ok {
 		return svc.Name
 	}
 

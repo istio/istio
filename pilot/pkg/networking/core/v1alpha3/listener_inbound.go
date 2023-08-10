@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -27,7 +26,6 @@ import (
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -56,7 +54,7 @@ type inboundChainConfig struct {
 	// port defines the port configuration for this chain. Note that there is a Port and TargetPort;
 	// most usages should just use TargetPort. Port is mostly used for legacy compatibility and
 	// telemetry.
-	port ServiceInstancePort
+	port model.ServiceInstancePort
 	// bind determines where (IP) this filter chain should bind. Note: typically we just end up using
 	// 'virtual' listener and do not literally bind to port; in these cases this just impacts naming
 	// and telemetry.
@@ -131,15 +129,6 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 		match.DestinationPort = &wrappers.UInt32Value{Value: cc.port.TargetPort}
 	}
 	return match
-}
-
-type ServicePort = *model.Port
-
-// ServiceInstancePort defines a port that has both a port and targetPort (which distinguishes it from model.Port)
-// Note: ServiceInstancePort only makes sense in the context of a specific ServiceInstance, because TargetPort depends on a specific instance.
-type ServiceInstancePort struct {
-	ServicePort
-	TargetPort uint32 `json:"targetPort"`
 }
 
 func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
@@ -279,7 +268,7 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	}
 	if features.EnableDualStack && len(addresses) > 1 {
 		// add extra addresses for the listener
-		l.AdditionalAddresses = util.BuildAdditionalAddresses(addresses[1:], tPort, lb.node)
+		l.AdditionalAddresses = util.BuildAdditionalAddresses(addresses[1:], tPort)
 	}
 	if lb.node.Metadata.InboundListenerExactBalance {
 		l.ConnectionBalanceConfig = &listener.Listener_ConnectionBalanceConfig{
@@ -341,18 +330,15 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 	if sidecarScope.HasIngressListener() {
 		ingressPortListSet = getSidecarIngressPortList(lb.node)
 	}
-	for _, i := range lb.node.ServiceInstances {
+	for _, i := range lb.node.ServiceTargets {
 		bindToPort := getBindToPort(networking.CaptureMode_DEFAULT, lb.node)
 		// Skip ports we cannot bind to
-		if !lb.node.CanBindToPort(bindToPort, i.Endpoint.EndpointPort) {
+		if !lb.node.CanBindToPort(bindToPort, i.Port.TargetPort) {
 			log.Debugf("buildInboundListeners: skipping privileged service port %d for node %s as it is an unprivileged proxy",
-				i.Endpoint.EndpointPort, lb.node.ID)
+				i.Port.TargetPort, lb.node.ID)
 			continue
 		}
-		port := ServiceInstancePort{
-			ServicePort: i.ServicePort,
-			TargetPort:  i.Endpoint.EndpointPort,
-		}
+		port := i.Port
 		actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
 			// ingress listener port means the target port, may not equal to service port
@@ -372,9 +358,9 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 			hbone:             lb.node.IsWaypointProxy(),
 		}
 		// for inbound only generate a standalone listener when bindToPort=true
-		if bindToPort && conflictWithStaticListener(lb.node, cc.bind, int(i.Endpoint.EndpointPort), port.Protocol) {
+		if bindToPort && conflictWithStaticListener(lb.node, cc.bind, int(port.TargetPort), port.Protocol) {
 			log.Debugf("buildInboundListeners: skipping service port %d for node %s as it conflicts with static listener",
-				i.Endpoint.EndpointPort, lb.node.ID)
+				port.TargetPort, lb.node.ID)
 			continue
 		}
 
@@ -418,7 +404,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 		}
 
 		for _, i := range lb.node.SidecarScope.Sidecar.Ingress {
-			port := ServiceInstancePort{
+			port := model.ServiceInstancePort{
 				ServicePort: &model.Port{
 					Name:     i.Port.Name,
 					Port:     int(i.Port.Number),
@@ -715,7 +701,7 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 		mtlsOptions := lb.authnBuilder.ForPassthrough()
 		for _, mtls := range mtlsOptions {
 			cc := inboundChainConfig{
-				port: ServiceInstancePort{
+				port: model.ServiceInstancePort{
 					ServicePort: &model.Port{
 						Name: model.VirtualInboundListenerName,
 						// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
@@ -828,10 +814,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: fcc.clusterName},
-	}
-	idleTimeout, err := time.ParseDuration(lb.node.Metadata.IdleTimeout)
-	if err == nil {
-		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
+		IdleTimeout:      parseDuration(lb.node.Metadata.IdleTimeout),
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound)
 

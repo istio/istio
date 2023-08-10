@@ -562,7 +562,6 @@ func TestApplyDestinationRule(t *testing.T) {
 				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
-			cg.MemRegistry.WantGetProxyServiceInstances = instances
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
@@ -1152,7 +1151,7 @@ func TestBuildDefaultCluster(t *testing.T) {
 				MeshExternal: false,
 				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
 			}
-			defaultCluster := cb.buildDefaultCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
+			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
 			if defaultCluster != nil {
 				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.proxyView, nil, nil)
 			}
@@ -2059,7 +2058,7 @@ func TestApplyUpstreamTLSSettings(t *testing.T) {
 				mesh: push.Mesh,
 			}
 			if test.h2 {
-				cb.setH2Options(opts.mutable)
+				setH2Options(opts.mutable)
 			}
 			cb.applyUpstreamTLSSettings(opts, test.tls, test.mtlsCtx)
 
@@ -3208,7 +3207,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 			}
 			cb := NewClusterBuilder(proxy, nil, model.DisabledCache{})
 			if tc.h2 {
-				cb.setH2Options(tc.opts.mutable)
+				setH2Options(tc.opts.mutable)
 			}
 			ret, err := cb.buildUpstreamClusterTLSContext(tc.opts, tc.tls)
 			if err != nil && tc.result.err == nil || err == nil && tc.result.err != nil {
@@ -3235,11 +3234,10 @@ func newTestCluster() *clusterWrapper {
 }
 
 func newH2TestCluster() *clusterWrapper {
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
 	mc := newClusterWrapper(&cluster.Cluster{
 		Name: "test-cluster",
 	})
-	cb.setH2Options(mc)
+	setH2Options(mc)
 	return mc
 }
 
@@ -3358,11 +3356,9 @@ func TestShouldH2Upgrade(t *testing.T) {
 		},
 	}
 
-	cb := NewClusterBuilder(newSidecarProxy(), nil, model.DisabledCache{})
-
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			upgrade := cb.shouldH2Upgrade(test.clusterName, test.port, test.mesh, test.connectionPool)
+			upgrade := shouldH2Upgrade(test.clusterName, test.port, test.mesh, test.connectionPool)
 
 			if upgrade != test.upgrade {
 				t.Fatalf("got: %t, want: %t (%v, %v)", upgrade, test.upgrade, test.mesh.H2UpgradePolicy, test.connectionPool.Http.H2UpgradePolicy)
@@ -3574,7 +3570,7 @@ func TestBuildAutoMtlsSettings(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cb := NewClusterBuilder(tt.proxy, nil, nil)
-			gotTLS, gotCtxType := cb.buildAutoMtlsSettings(tt.tls, tt.sans, tt.sni, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
+			gotTLS, gotCtxType := cb.buildUpstreamTLSSettings(tt.tls, tt.sans, tt.sni, tt.autoMTLSEnabled, tt.meshExternal, tt.serviceMTLSMode)
 			if !reflect.DeepEqual(gotTLS, tt.want) {
 				t.Errorf("cluster TLS does not match expected result want %#v, got %#v", tt.want, gotTLS)
 			}
@@ -3746,21 +3742,6 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			test.SetForTest(t, &features.VerifyCertAtClient, tt.enableVerifyCertAtClient)
-			instances := []*model.ServiceInstance{
-				{
-					Service:     tt.service,
-					ServicePort: tt.port,
-					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.1",
-						EndpointPort: 10001,
-						Locality: model.Locality{
-							ClusterID: "",
-							Label:     "region1/zone1/subzone1",
-						},
-						TLSMode: model.IstioMutualTLSModeLabel,
-					},
-				},
-			}
 
 			var cfg *config.Config
 			if tt.destRule != nil {
@@ -3777,7 +3758,6 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 				ConfigPointers: []*config.Config{cfg},
 				Services:       []*model.Service{tt.service},
 			})
-			cg.MemRegistry.WantGetProxyServiceInstances = instances
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 
@@ -4682,18 +4662,12 @@ func TestInsecureSkipVerify(t *testing.T) {
 			test.SetForTest(t, &features.EnableAutoSni, tc.enableAutoSni)
 			test.SetForTest(t, &features.VerifyCertAtClient, tc.enableVerifyCertAtClient)
 
-			instances := []*model.ServiceInstance{
+			targets := []model.ServiceTarget{
 				{
-					Service:     tc.service,
-					ServicePort: tc.port,
-					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.1",
-						EndpointPort: 10001,
-						Locality: model.Locality{
-							ClusterID: "",
-							Label:     "region1/zone1/subzone1",
-						},
-						TLSMode: model.IstioMutualTLSModeLabel,
+					Service: tc.service,
+					Port: model.ServiceInstancePort{
+						ServicePort: tc.port,
+						TargetPort:  10001,
 					},
 				},
 			}
@@ -4715,7 +4689,7 @@ func TestInsecureSkipVerify(t *testing.T) {
 				Services:       []*model.Service{tc.service},
 			})
 
-			cg.MemRegistry.WantGetProxyServiceInstances = instances
+			cg.MemRegistry.WantGetProxyServiceTargets = targets
 			proxy := cg.SetupProxy(nil)
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 			ec := newClusterWrapper(tc.cluster)

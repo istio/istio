@@ -15,8 +15,6 @@
 package util
 
 import (
-	"strings"
-
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube/inject"
 )
@@ -33,15 +31,6 @@ func IsIstioControlPlane(r *resource.Instance) bool {
 	}
 	if r.Metadata.Labels["release"] == "istio" {
 		return true
-	}
-	return false
-}
-
-// IsMatched check if the term can be matched in a slice of string
-func IsMatched(slice []string, term string) bool {
-	for _, val := range slice {
-		matched := strings.Contains(term, val)
-		return matched
 	}
 	return false
 }

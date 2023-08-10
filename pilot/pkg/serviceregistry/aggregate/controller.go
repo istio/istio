@@ -339,18 +339,18 @@ func skipSearchingRegistryForProxy(nodeClusterID cluster.ID, r serviceregistry.I
 	return !r.Cluster().Equals(nodeClusterID)
 }
 
-// GetProxyServiceInstances lists service instances co-located with a given proxy
-func (c *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+// GetProxyServiceTargets lists service instances co-located with a given proxy
+func (c *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTarget {
+	out := make([]model.ServiceTarget, 0)
 	nodeClusterID := nodeClusterID(node)
 	for _, r := range c.GetRegistries() {
 		if skipSearchingRegistryForProxy(nodeClusterID, r) {
-			log.Debugf("GetProxyServiceInstances(): not searching registry %v: proxy %v CLUSTER_ID is %v",
+			log.Debugf("GetProxyServiceTargets(): not searching registry %v: proxy %v CLUSTER_ID is %v",
 				r.Cluster(), node.ID, nodeClusterID)
 			continue
 		}
 
-		instances := r.GetProxyServiceInstances(node)
+		instances := r.GetProxyServiceTargets(node)
 		if len(instances) > 0 {
 			out = append(out, instances...)
 		}
@@ -364,13 +364,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 	for _, r := range c.GetRegistries() {
 		// If proxy clusterID unset, we may find incorrect workload label.
 		// This can not happen in k8s env.
-		if clusterID == "" {
-			lbls := r.GetProxyWorkloadLabels(proxy)
-			if lbls != nil {
-				return lbls
-			}
-		} else if clusterID == r.Cluster() {
-			// find proxy in the specified cluster
+		if clusterID == "" || clusterID == r.Cluster() {
 			lbls := r.GetProxyWorkloadLabels(proxy)
 			if lbls != nil {
 				return lbls

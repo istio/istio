@@ -389,7 +389,7 @@ func ValidateHTTPHeaderValue(value string) error {
 		return fmt.Errorf("header value configuration: %w", err)
 	}
 
-	// TODO: find a better way to validate fileds supported in custom header, e.g %ENVIRONMENT(X):Z%
+	// TODO: find a better way to validate fields supported in custom header, e.g %ENVIRONMENT(X):Z%
 
 	return nil
 }
@@ -2254,11 +2254,11 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
 			}
 			if len(virtualService.Tls) != 0 {
-				// meaningless to specify tls in delegate, we donot support tls delegate
+				// meaningless to specify tls in delegate, we do not support tls delegate
 				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no tls route specified"))
 			}
 			if len(virtualService.Tcp) != 0 {
-				// meaningless to specify tls in delegate, we donot support tcp delegate
+				// meaningless to specify tls in delegate, we do not support tcp delegate
 				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
 			}
 		}
@@ -3165,6 +3165,32 @@ func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) (
 
 	errs = appendValidation(errs, WrapError(validateHTTPStatus(int32(directResponse.Status))))
 	return
+}
+
+func validateHTTPMirrors(mirrors []*networking.HTTPMirrorPolicy) error {
+	errs := Validation{}
+	for _, mirror := range mirrors {
+		if mirror == nil {
+			errs = appendValidation(errs, errors.New("mirror cannot be null"))
+			continue
+		}
+		if mirror.Destination == nil {
+			errs = appendValidation(errs, errors.New("destination is required for mirrors"))
+			continue
+		}
+		errs = appendValidation(errs, validateDestination(mirror.Destination))
+
+		if mirror.Percentage != nil {
+			value := mirror.Percentage.GetValue()
+			if value > 100 {
+				errs = appendValidation(errs, fmt.Errorf("mirror percentage must have a max value of 100 (it has %f)", value))
+			}
+			if value < 0 {
+				errs = appendValidation(errs, fmt.Errorf("mirror percentage must have a min value of 0 (it has %f)", value))
+			}
+		}
+	}
+	return errs
 }
 
 func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {

@@ -4739,6 +4739,8 @@ spec:
                       items:
                         properties:
                           destination:
+                            description: Destination specifies the target of the mirror
+                              operation.
                             properties:
                               host:
                                 description: The name of a service from the service
@@ -4756,6 +4758,8 @@ spec:
                                 type: string
                             type: object
                           percentage:
+                            description: Percentage of the traffic to be mirrored
+                              by the `destination` field.
                             properties:
                               value:
                                 format: double
@@ -5562,6 +5566,8 @@ spec:
                       items:
                         properties:
                           destination:
+                            description: Destination specifies the target of the mirror
+                              operation.
                             properties:
                               host:
                                 description: The name of a service from the service
@@ -5579,6 +5585,8 @@ spec:
                                 type: string
                             type: object
                           percentage:
+                            description: Percentage of the traffic to be mirrored
+                              by the `destination` field.
                             properties:
                               value:
                                 format: double

@@ -30,7 +30,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/cli v24.0.4+incompatible
-	github.com/envoyproxy/go-control-plane v0.11.2-0.20230801145535-8e72b69e4265
+	github.com/envoyproxy/go-control-plane v0.11.2-0.20230803133611-dabe08521596
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.15.0
 	github.com/felixge/fgprof v0.9.3
@@ -70,7 +70,7 @@ require (
 	github.com/prometheus/client_model v0.4.0
 	github.com/prometheus/common v0.44.0
 	github.com/prometheus/prometheus v0.45.0
-	github.com/quic-go/quic-go v0.37.0
+	github.com/quic-go/quic-go v0.37.4
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spaolacci/murmur3 v1.1.0
 	github.com/spf13/cobra v1.7.0
@@ -109,8 +109,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.12.2
-	istio.io/api v1.19.0-alpha.1.0.20230804162712-3dbbc82d7a3f
-	istio.io/client-go v1.19.0-alpha.1.0.20230804163108-0b4e862b9cd9
+	istio.io/api v1.19.0-alpha.1.0.20230810203008-3cdd517bf131
+	istio.io/client-go v1.19.0-alpha.1.0.20230810203904-45e85278e0fc
 	k8s.io/api v0.28.0-beta.0
 	k8s.io/apiextensions-apiserver v0.28.0-beta.0
 	k8s.io/apimachinery v0.28.0-beta.0
@@ -229,7 +229,7 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/procfs v0.11.0 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
-	github.com/quic-go/qtls-go1-20 v0.3.0 // indirect
+	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
 	github.com/rogpeppe/go-internal v1.10.0 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect

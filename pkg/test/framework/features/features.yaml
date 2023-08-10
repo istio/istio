@@ -176,7 +176,7 @@ features:
       firstpartyjwt:
         install:
     upgrade:
-  # describes internal build and testing infrastrcuture
+  # describes internal build and testing infrastructure
   infrastructure:
     # the testing framework
     framework:

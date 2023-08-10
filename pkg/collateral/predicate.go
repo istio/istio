@@ -36,7 +36,7 @@ func DefaultSelectEnvFn(_ env.Var) bool {
 	return true
 }
 
-// DefaultSelectMetricFn is used to seelct all metrics.
+// DefaultSelectMetricFn is used to select all metrics.
 func DefaultSelectMetricFn(_ monitoring.MetricDefinition) bool {
 	return true
 }

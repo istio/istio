@@ -56,7 +56,7 @@ const (
 	CannotFetchProfileError MergeErrorType = "cannot_fetch_profile"
 
 	// OverlayError overlaying YAMLs to combine profile, user
-	// defined settings in CR, Hub-tag etc fails.
+	// defined settings in CR, Hub-tag etc. fails.
 	OverlayError MergeErrorType = "overlay"
 
 	// IOPFormatError occurs when supplied CR cannot be marshaled

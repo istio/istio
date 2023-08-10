@@ -125,8 +125,8 @@ func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {
 	}
 
 	// If there is no Sidecar, check if the port is appearing in any service.
-	for _, si := range node.ServiceInstances {
-		if port == si.Endpoint.EndpointPort {
+	for _, si := range node.ServiceTargets {
+		if port == si.Port.TargetPort {
 			return false
 		}
 	}

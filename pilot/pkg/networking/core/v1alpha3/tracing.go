@@ -464,13 +464,11 @@ func dryRunPolicyTraceTag(name, key string) *tracing.CustomTag {
 	}
 }
 
-func buildOptionalPolicyTags() []*tracing.CustomTag {
-	return []*tracing.CustomTag{
-		dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.name", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEffectivePolicyID),
-		dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.result", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEngineResult),
-		dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.name", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEffectivePolicyID),
-		dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.result", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEngineResult),
-	}
+var optionalPolicyTags = []*tracing.CustomTag{
+	dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.name", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEffectivePolicyID),
+	dryRunPolicyTraceTag("istio.authorization.dry_run.allow_policy.result", authz_model.RBACShadowRulesAllowStatPrefix+authz_model.RBACShadowEngineResult),
+	dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.name", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEffectivePolicyID),
+	dryRunPolicyTraceTag("istio.authorization.dry_run.deny_policy.result", authz_model.RBACShadowRulesDenyStatPrefix+authz_model.RBACShadowEngineResult),
 }
 
 func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []*tracing.CustomTag {
@@ -558,8 +556,7 @@ func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 func configureCustomTags(hcmTracing *hcm.HttpConnectionManager_Tracing,
 	providerTags map[string]*telemetrypb.Tracing_CustomTag, proxyCfg *meshconfig.ProxyConfig, node *model.Proxy,
 ) {
-	tags := buildOptionalPolicyTags()
-	tags = append(tags, buildServiceTags(node.Metadata, node.Labels)...)
+	tags := append(buildServiceTags(node.Metadata, node.Labels), optionalPolicyTags...)
 
 	if len(providerTags) == 0 {
 		tags = append(tags, buildCustomTagsFromProxyConfig(proxyCfg.GetTracing().GetCustomTags())...)

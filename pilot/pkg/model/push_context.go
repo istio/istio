@@ -601,14 +601,14 @@ var (
 	// This can be normal - for workloads that act only as client, or are not covered by a Service.
 	// It can also be an error, for example in cases the Endpoint list of a service was not updated by the time
 	// the sidecar calls.
-	// Updated by GetProxyServiceInstances
+	// Updated by GetProxyServiceTargets
 	ProxyStatusNoService = monitoring.NewGauge(
 		"pilot_no_ip",
 		"Pods not found in the endpoint table, possibly invalid.",
 	)
 
 	// ProxyStatusEndpointNotReady represents proxies found not be ready.
-	// Updated by GetProxyServiceInstances. Normal condition when starting
+	// Updated by GetProxyServiceTargets. Normal condition when starting
 	// an app with readiness, error if it doesn't change to 0.
 	ProxyStatusEndpointNotReady = monitoring.NewGauge(
 		"pilot_endpoint_not_ready",
@@ -773,6 +773,11 @@ func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Se
 		}
 		if h.Mirror != nil {
 			addDestination(h.Mirror.Host, h.Mirror.GetPort())
+		}
+		for _, m := range h.Mirrors {
+			if m.Destination != nil {
+				addDestination(m.Destination.Host, m.Destination.GetPort())
+			}
 		}
 	}
 	for _, t := range v.Tcp {
@@ -1992,7 +1997,7 @@ type gatewayWithInstances struct {
 	// If true, ports that are not present in any instance will be used directly (without targetPort translation)
 	// This supports the legacy behavior of selecting gateways by pod label selector
 	legacyGatewaySelector bool
-	instances             []*ServiceInstance
+	instances             []ServiceTarget
 }
 
 func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
@@ -2014,8 +2019,8 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
 			gwsvcs := strings.Split(gwsvcstr, ",")
 			known := sets.New[string](gwsvcs...)
-			matchingInstances := make([]*ServiceInstance, 0, len(proxy.ServiceInstances))
-			for _, si := range proxy.ServiceInstances {
+			matchingInstances := make([]ServiceTarget, 0, len(proxy.ServiceTargets))
+			for _, si := range proxy.ServiceTargets {
 				if _, f := known[string(si.Service.Hostname)]; f && si.Service.Attributes.Namespace == cfg.Namespace {
 					matchingInstances = append(matchingInstances, si)
 				}
@@ -2026,11 +2031,11 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			}
 		} else if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
+			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceTargets})
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			if gatewaySelector.SubsetOf(proxy.Labels) {
-				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
+				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceTargets})
 			}
 		}
 	}

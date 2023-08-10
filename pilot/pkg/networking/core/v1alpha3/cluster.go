@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -24,11 +23,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	internalupstream "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/internal_upstream/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
-	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -37,12 +32,9 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -56,24 +48,6 @@ import (
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
 var deltaConfigTypes = sets.New(kind.ServiceEntry.String(), kind.DestinationRule.String())
-
-const TransportSocketInternalUpstream = "envoy.transport_sockets.internal_upstream"
-
-// getDefaultCircuitBreakerThresholds returns a copy of the default circuit breaker thresholds for the given traffic direction.
-func getDefaultCircuitBreakerThresholds() *cluster.CircuitBreakers_Thresholds {
-	return &cluster.CircuitBreakers_Thresholds{
-		// DefaultMaxRetries specifies the default for the Envoy circuit breaker parameter max_retries. This
-		// defines the maximum number of parallel retries a given Envoy will allow to the upstream cluster. Envoy defaults
-		// this value to 3, however that has shown to be insufficient during periods of pod churn (e.g. rolling updates),
-		// where multiple endpoints in a cluster are terminated. In these scenarios the circuit breaker can kick
-		// in before Pilot is able to deliver an updated endpoint list to Envoy, leading to client-facing 503s.
-		MaxRetries:         &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxRequests:        &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxConnections:     &wrappers.UInt32Value{Value: math.MaxUint32},
-		MaxPendingRequests: &wrappers.UInt32Value{Value: math.MaxUint32},
-		TrackRemaining:     true,
-	}
-}
 
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
@@ -228,7 +202,7 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 	resources := model.Resources{}
 	envoyFilterPatches := req.Push.EnvoyFilters(proxy)
 	cb := NewClusterBuilder(proxy, req, configgen.Cache)
-	instances := proxy.ServiceInstances
+	instances := proxy.ServiceTargets
 	cacheStats := cacheStats{}
 	switch proxy.Type {
 	case model.SidecarProxy:
@@ -320,7 +294,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 				continue
 			}
 			clusterKey := buildClusterKey(service, port, cb, proxy, efKeys)
-			cached, allFound := cb.getAllCachedSubsetClusters(*clusterKey)
+			cached, allFound := cb.getAllCachedSubsetClusters(clusterKey)
 			if allFound && !features.EnableUnsafeAssertions {
 				hit += len(cached)
 				resources = append(resources, cached...)
@@ -333,7 +307,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxyType, service)
-			defaultCluster := cb.buildDefaultCluster(clusterKey.clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
+			defaultCluster := cb.buildCluster(clusterKey.clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
@@ -355,26 +329,20 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 				}
 			}
 
-			// If stat name is configured, build the alternate stats name.
-			if len(cb.req.Push.Mesh.OutboundClusterStatName) != 0 {
-				defaultCluster.cluster.AltStatName = telemetry.BuildStatPrefix(cb.req.Push.Mesh.OutboundClusterStatName,
-					string(service.Hostname), "", port, 0, &service.Attributes)
-			}
-
 			subsetClusters := cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, port,
 				clusterKey.proxyView, clusterKey.destinationRule.GetRule(), clusterKey.serviceAccounts)
 
 			if patched := cp.patch(nil, defaultCluster.build()); patched != nil {
 				resources = append(resources, patched)
 				if features.EnableCDSCaching {
-					cb.cache.Add(clusterKey, cb.req, patched)
+					cb.cache.Add(&clusterKey, cb.req, patched)
 				}
 			}
 			for _, ss := range subsetClusters {
 				if patched := cp.patch(nil, ss); patched != nil {
 					resources = append(resources, patched)
 					if features.EnableCDSCaching {
-						nk := *clusterKey
+						nk := clusterKey
 						nk.clusterName = ss.Name
 						cb.cache.Add(&nk, cb.req, patched)
 					}
@@ -454,7 +422,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 
 			clusterName := model.BuildDNSSrvSubsetKey(model.TrafficDirectionOutbound, "",
 				service.Hostname, port.Port)
-			defaultCluster := cb.buildDefaultCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
+			defaultCluster := cb.buildCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
 				continue
 			}
@@ -486,17 +454,17 @@ func buildInboundLocalityLbEndpoints(bind string, port uint32) []*endpoint.Local
 	}
 }
 
-func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.Proxy,
-	instances []*model.ServiceInstance, cp clusterPatcher,
+func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.Proxy,
+	instances []model.ServiceTarget, cp clusterPatcher,
 	enableSidecarServiceInboundListenerMerge bool,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
 	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
-	clustersToBuild := make(map[int][]*model.ServiceInstance)
+	clustersToBuild := make(map[int][]model.ServiceTarget)
 
 	ingressPortListSet := sets.New[int]()
 	sidecarScope := proxy.SidecarScope
-	if sidecarScope.HasIngressListener() {
+	if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() {
 		ingressPortListSet = getSidecarIngressPortList(proxy)
 	}
 	for _, instance := range instances {
@@ -504,8 +472,8 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 		// we still need to capture all the instances on this port, as its required to populate telemetry metadata
 		// The first instance will be used as the "primary" instance; this means if we have an conflicts between
 		// Services the first one wins
-		ep := int(instance.Endpoint.EndpointPort)
-		clustersToBuild[ep] = append(clustersToBuild[ep], instance)
+		port := int(instance.Port.TargetPort)
+		clustersToBuild[port] = append(clustersToBuild[port], instance)
 	}
 
 	bind := actualLocalHosts[0]
@@ -514,24 +482,14 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 	}
 	// For each workload port, we will construct a cluster
 	for epPort, instances := range clustersToBuild {
-		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
-			ingressPortListSet.Contains(int(instances[0].Endpoint.EndpointPort)) {
+		if ingressPortListSet.Contains(int(instances[0].Port.TargetPort)) {
 			// here if port is declared in service and sidecar ingress both, we continue to take the one on sidecar + other service ports
 			// e.g. 1,2, 3 in service and 3,4 in sidecar ingress,
 			// this will still generate listeners for 1,2,3,4 where 3 is picked from sidecar ingress
 			// port present in sidecarIngress listener so let sidecar take precedence
 			continue
 		}
-		services := slices.Map(instances, func(e *model.ServiceInstance) ServiceTarget {
-			return ServiceTarget{
-				Service: e.Service,
-				Port: ServiceInstancePort{
-					ServicePort: e.ServicePort,
-					TargetPort:  e.Endpoint.EndpointPort,
-				},
-			}
-		})
-		localCluster := cb.buildInboundClusterForPortOrUDS(epPort, bind, proxy, services[0], services)
+		localCluster := cb.buildInboundCluster(epPort, bind, proxy, instances[0], instances)
 		// If inbound cluster match has service, we should see if it matches with any host name across all instances.
 		hosts := make([]host.Name, 0, len(instances))
 		for _, si := range instances {
@@ -542,7 +500,7 @@ func (configgen *ConfigGeneratorImpl) buildClustersFromServiceInstances(cb *Clus
 	return clusters
 }
 
-func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []*model.ServiceInstance,
+func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, proxy *model.Proxy, instances []model.ServiceTarget,
 	cp clusterPatcher,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
@@ -554,8 +512,6 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 	// clusters, because there would be no corresponding inbound listeners
 	sidecarScope := proxy.SidecarScope
 	noneMode := proxy.GetInterceptionMode() == model.InterceptionNone
-
-	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners
 	if !sidecarScope.HasIngressListener() {
 		// We should not create inbound listeners in NONE mode based on the service instances
@@ -564,14 +520,24 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 		if noneMode {
 			return nil
 		}
-		clusters = configgen.buildClustersFromServiceInstances(cb, proxy, instances, cp, false)
+		clusters = buildInboundClustersFromServiceInstances(cb, proxy, instances, cp, false)
 		return clusters
 	}
 
 	if features.EnableSidecarServiceInboundListenerMerge {
 		// only allow to merge inbound listeners if sidecar has ingress listener and pilot has env EnableSidecarServiceInboundListenerMerge set
-		clusters = configgen.buildClustersFromServiceInstances(cb, proxy, instances, cp, true)
+		clusters = buildInboundClustersFromServiceInstances(cb, proxy, instances, cp, true)
 	}
+	clusters = append(clusters, buildInboundClustersFromSidecar(cb, proxy, instances, cp)...)
+	return clusters
+}
+
+func buildInboundClustersFromSidecar(cb *ClusterBuilder, proxy *model.Proxy,
+	instances []model.ServiceTarget, cp clusterPatcher,
+) []*cluster.Cluster {
+	clusters := make([]*cluster.Cluster, 0)
+	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
+	sidecarScope := proxy.SidecarScope
 	for _, ingressListener := range sidecarScope.Sidecar.Ingress {
 		// LDS would have setup the inbound clusters
 		// as inbound|portNumber|portName|Hostname[or]SidecarScopeID
@@ -631,24 +597,24 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 		// for a service instance that matches this ingress port as this will allow us
 		// to generate the right cluster name that LDS expects inbound|portNumber|portName|Hostname
 		svc := findOrCreateService(instances, ingressListener, sidecarScope.Name, sidecarScope.Namespace)
-		endpoint := ServiceTarget{
+		endpoint := model.ServiceTarget{
 			Service: svc,
-			Port: ServiceInstancePort{
+			Port: model.ServiceInstancePort{
 				ServicePort: listenPort,
 				TargetPort:  uint32(port),
 			},
 		}
-		localCluster := cb.buildInboundClusterForPortOrUDS(int(ingressListener.Port.Number), endpointAddress, proxy, endpoint, nil)
+		localCluster := cb.buildInboundCluster(int(ingressListener.Port.Number), endpointAddress, proxy, endpoint, nil)
 		clusters = cp.conditionallyAppend(clusters, []host.Name{endpoint.Service.Hostname}, localCluster.build())
 	}
 	return clusters
 }
 
-func findOrCreateService(instances []*model.ServiceInstance,
+func findOrCreateService(instances []model.ServiceTarget,
 	ingressListener *networking.IstioIngressListener, sidecar string, sidecarns string,
 ) *model.Service {
 	for _, realInstance := range instances {
-		if realInstance.Endpoint.EndpointPort == ingressListener.Port.Number {
+		if realInstance.Port.TargetPort == ingressListener.Port.Number {
 			return realInstance.Service
 		}
 	}
@@ -686,26 +652,6 @@ func convertResolution(proxyType model.NodeType, service *model.Service) cluster
 	}
 }
 
-// SelectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
-func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
-	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.ClientTLSSettings,
-) {
-	if policy == nil {
-		return nil, nil, nil, nil
-	}
-	connectionPool := policy.ConnectionPool
-	outlierDetection := policy.OutlierDetection
-	loadBalancer := policy.LoadBalancer
-	tls := policy.Tls
-
-	// Check if CA Certificate should be System CA Certificate
-	if features.VerifyCertAtClient && tls != nil && tls.CaCertificates == "" {
-		tls.CaCertificates = "system"
-	}
-
-	return connectionPool, outlierDetection, loadBalancer, tls
-}
-
 // ClusterMode defines whether the cluster is being built for SNI-DNATing (sni passthrough) or not
 type ClusterMode string
 
@@ -717,12 +663,12 @@ const (
 )
 
 type buildClusterOpts struct {
-	mesh             *meshconfig.MeshConfig
-	mutable          *clusterWrapper
-	policy           *networking.TrafficPolicy
-	port             *model.Port
-	serviceAccounts  []string
-	serviceInstances []*model.ServiceInstance
+	mesh            *meshconfig.MeshConfig
+	mutable         *clusterWrapper
+	policy          *networking.TrafficPolicy
+	port            *model.Port
+	serviceAccounts []string
+	serviceTargets  []model.ServiceTarget
 	// Used for traffic across multiple network clusters
 	// the east-west gateway in a remote cluster will use this value to route
 	// traffic to the appropriate service
@@ -770,283 +716,6 @@ func setKeepAliveSettings(c *cluster.Cluster, keepalive *networking.ConnectionPo
 	}
 }
 
-// FIXME: there isn't a way to distinguish between unset values and zero values
-func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetection) {
-	if outlier == nil {
-		return
-	}
-
-	out := &cluster.OutlierDetection{}
-
-	// SuccessRate based outlier detection should be disabled.
-	out.EnforcingSuccessRate = &wrappers.UInt32Value{Value: 0}
-
-	if e := outlier.Consecutive_5XxErrors; e != nil {
-		v := e.GetValue()
-
-		out.Consecutive_5Xx = &wrappers.UInt32Value{Value: v}
-
-		if v > 0 {
-			v = 100
-		}
-		out.EnforcingConsecutive_5Xx = &wrappers.UInt32Value{Value: v}
-	}
-	if e := outlier.ConsecutiveGatewayErrors; e != nil {
-		v := e.GetValue()
-
-		out.ConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: v}
-
-		if v > 0 {
-			v = 100
-		}
-		out.EnforcingConsecutiveGatewayFailure = &wrappers.UInt32Value{Value: v}
-	}
-
-	if outlier.Interval != nil {
-		out.Interval = outlier.Interval
-	}
-	if outlier.BaseEjectionTime != nil {
-		out.BaseEjectionTime = outlier.BaseEjectionTime
-	}
-	if outlier.MaxEjectionPercent > 0 {
-		out.MaxEjectionPercent = &wrappers.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
-	}
-
-	if outlier.SplitExternalLocalOriginErrors {
-		out.SplitExternalLocalOriginErrors = true
-		if outlier.ConsecutiveLocalOriginFailures.GetValue() > 0 {
-			out.ConsecutiveLocalOriginFailure = &wrappers.UInt32Value{Value: outlier.ConsecutiveLocalOriginFailures.Value}
-			out.EnforcingConsecutiveLocalOriginFailure = &wrappers.UInt32Value{Value: 100}
-		}
-		// SuccessRate based outlier detection should be disabled.
-		out.EnforcingLocalOriginSuccessRate = &wrappers.UInt32Value{Value: 0}
-	}
-
-	c.OutlierDetection = out
-
-	// Disable panic threshold by default as its not typically applicable in k8s environments
-	// with few pods per service.
-	// To do so, set the healthy_panic_threshold field even if its value is 0 (defaults to 50 in Envoy).
-	// FIXME: we can't distinguish between it being unset or being explicitly set to 0
-	minHealthPercent := outlier.MinHealthPercent
-	if minHealthPercent >= 0 {
-		// When we are sending unhealthy endpoints, we should disable Panic Threshold. Otherwise
-		// Envoy will send traffic to "Unready" pods when the percentage of healthy hosts fall
-		// below minimum health percentage.
-		if features.SendUnhealthyEndpoints.Load() {
-			minHealthPercent = 0
-		}
-		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: float64(minHealthPercent)}
-	}
-}
-
-func defaultLBAlgorithm() cluster.Cluster_LbPolicy {
-	return cluster.Cluster_LEAST_REQUEST
-}
-
-func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, port *model.Port,
-	locality *core.Locality, proxyLabels map[string]string, meshConfig *meshconfig.MeshConfig,
-) {
-	// Disable panic threshold when SendUnhealthyEndpoints is enabled as enabling it "may" send traffic to unready
-	// end points when load balancer is in panic mode.
-	if features.SendUnhealthyEndpoints.Load() {
-		c.CommonLbConfig.HealthyPanicThreshold = &xdstype.Percent{Value: 0}
-	}
-	localityLbSetting := loadbalancer.GetLocalityLbSetting(meshConfig.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-	if localityLbSetting != nil {
-		c.CommonLbConfig.LocalityConfigSpecifier = &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig_{
-			LocalityWeightedLbConfig: &cluster.Cluster_CommonLbConfig_LocalityWeightedLbConfig{},
-		}
-	}
-	// Use locality lb settings from load balancer settings if present, else use mesh wide locality lb settings
-	applyLocalityLBSetting(locality, proxyLabels, c, localityLbSetting)
-
-	if c.GetType() == cluster.Cluster_ORIGINAL_DST {
-		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
-		return
-	}
-
-	// Redis protocol must be defaulted with MAGLEV to benefit from client side sharding.
-	if features.EnableRedisFilter && port != nil && port.Protocol == protocol.Redis {
-		c.LbPolicy = cluster.Cluster_MAGLEV
-		return
-	}
-
-	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
-	switch lb.GetSimple() {
-	// nolint: staticcheck
-	case networking.LoadBalancerSettings_LEAST_CONN, networking.LoadBalancerSettings_LEAST_REQUEST:
-		applyLeastRequestLoadBalancer(c, lb)
-	case networking.LoadBalancerSettings_RANDOM:
-		c.LbPolicy = cluster.Cluster_RANDOM
-	case networking.LoadBalancerSettings_ROUND_ROBIN:
-		applyRoundRobinLoadBalancer(c, lb)
-	case networking.LoadBalancerSettings_PASSTHROUGH:
-		c.LbPolicy = cluster.Cluster_CLUSTER_PROVIDED
-		c.ClusterDiscoveryType = &cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}
-		// Wipe out any LoadAssignment, if set. This can occur when we have a STATIC Service but PASSTHROUGH traffic policy
-		c.LoadAssignment = nil
-	default:
-		applySimpleDefaultLoadBalancer(c, lb)
-	}
-
-	ApplyRingHashLoadBalancer(c, lb)
-}
-
-// applySimpleDefaultLoadBalancer will set the DefaultLBPolicy and create an LbConfig if used in LoadBalancerSettings
-func applySimpleDefaultLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
-	c.LbPolicy = defaultLBAlgorithm()
-	switch c.LbPolicy {
-	case cluster.Cluster_ROUND_ROBIN:
-		applyRoundRobinLoadBalancer(c, loadbalancer)
-	case cluster.Cluster_LEAST_REQUEST:
-		applyLeastRequestLoadBalancer(c, loadbalancer)
-	}
-}
-
-// applyRoundRobinLoadBalancer will set the LbPolicy and create an LbConfig for ROUND_ROBIN if used in LoadBalancerSettings
-func applyRoundRobinLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
-	c.LbPolicy = cluster.Cluster_ROUND_ROBIN
-
-	if loadbalancer.GetWarmupDurationSecs() != nil {
-		c.LbConfig = &cluster.Cluster_RoundRobinLbConfig_{
-			RoundRobinLbConfig: &cluster.Cluster_RoundRobinLbConfig{
-				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
-			},
-		}
-	}
-}
-
-// applyLeastRequestLoadBalancer will set the LbPolicy and create an LbConfig for LEAST_REQUEST if used in LoadBalancerSettings
-func applyLeastRequestLoadBalancer(c *cluster.Cluster, loadbalancer *networking.LoadBalancerSettings) {
-	c.LbPolicy = cluster.Cluster_LEAST_REQUEST
-
-	if loadbalancer.GetWarmupDurationSecs() != nil {
-		c.LbConfig = &cluster.Cluster_LeastRequestLbConfig_{
-			LeastRequestLbConfig: &cluster.Cluster_LeastRequestLbConfig{
-				SlowStartConfig: setSlowStartConfig(loadbalancer.GetWarmupDurationSecs()),
-			},
-		}
-	}
-}
-
-// setSlowStartConfig will set the warmupDurationSecs for LEAST_REQUEST and ROUND_ROBIN if provided in DestinationRule
-func setSlowStartConfig(dur *durationpb.Duration) *cluster.Cluster_SlowStartConfig {
-	return &cluster.Cluster_SlowStartConfig{
-		SlowStartWindow: dur,
-	}
-}
-
-// ApplyRingHashLoadBalancer will set the LbPolicy and create an LbConfig for RING_HASH if  used in LoadBalancerSettings
-func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings) {
-	consistentHash := lb.GetConsistentHash()
-	if consistentHash == nil {
-		return
-	}
-
-	switch {
-	case consistentHash.GetMaglev() != nil:
-		c.LbPolicy = cluster.Cluster_MAGLEV
-		if consistentHash.GetMaglev().TableSize != 0 {
-			c.LbConfig = &cluster.Cluster_MaglevLbConfig_{
-				MaglevLbConfig: &cluster.Cluster_MaglevLbConfig{
-					TableSize: &wrappers.UInt64Value{Value: consistentHash.GetMaglev().TableSize},
-				},
-			}
-		}
-	case consistentHash.GetRingHash() != nil:
-		c.LbPolicy = cluster.Cluster_RING_HASH
-		if consistentHash.GetRingHash().MinimumRingSize != 0 {
-			c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
-				RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
-					MinimumRingSize: &wrappers.UInt64Value{Value: consistentHash.GetRingHash().MinimumRingSize},
-				},
-			}
-		}
-	default:
-		// Check the deprecated MinimumRingSize.
-		// TODO: MinimumRingSize is an int, and zero could potentially
-		// be a valid value unable to distinguish between set and unset
-		// case currently.
-		// 1024 is the default value for envoy.
-		minRingSize := &wrappers.UInt64Value{Value: 1024}
-
-		if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
-			minRingSize = &wrappers.UInt64Value{Value: consistentHash.GetMinimumRingSize()} // nolint: staticcheck
-		}
-		c.LbPolicy = cluster.Cluster_RING_HASH
-		c.LbConfig = &cluster.Cluster_RingHashLbConfig_{
-			RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
-				MinimumRingSize: minRingSize,
-			},
-		}
-	}
-}
-
-func applyLocalityLBSetting(locality *core.Locality, proxyLabels map[string]string, cluster *cluster.Cluster,
-	localityLB *networking.LocalityLoadBalancerSetting,
-) {
-	// Failover should only be applied with outlier detection, or traffic will never failover.
-	enabledFailover := cluster.OutlierDetection != nil
-	if cluster.LoadAssignment != nil {
-		// TODO: enable failoverPriority for `STRICT_DNS` cluster type
-		loadbalancer.ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, proxyLabels, localityLB, enabledFailover)
-	}
-}
-
-func addTelemetryMetadata(opts buildClusterOpts, service *model.Service, direction model.TrafficDirection, inboundServices []ServiceTarget) {
-	if !features.EnableTelemetryLabel {
-		return
-	}
-	if opts.mutable.cluster == nil {
-		return
-	}
-	if direction == model.TrafficDirectionInbound && (len(inboundServices) == 0 || opts.port == nil) {
-		// At inbound, port and local service instance has to be provided
-		return
-	}
-	if direction == model.TrafficDirectionOutbound && service == nil {
-		// At outbound, the service corresponding to the cluster has to be provided.
-		return
-	}
-
-	im := getOrCreateIstioMetadata(opts.mutable.cluster)
-
-	// Add services field into istio metadata
-	im.Fields["services"] = &structpb.Value{
-		Kind: &structpb.Value_ListValue{
-			ListValue: &structpb.ListValue{
-				Values: []*structpb.Value{},
-			},
-		},
-	}
-
-	svcMetaList := im.Fields["services"].GetListValue()
-
-	// Add service related metadata. This will be consumed by telemetry v2 filter for metric labels.
-	if direction == model.TrafficDirectionInbound {
-		// For inbound cluster, add all services on the cluster port
-		have := make(map[host.Name]bool)
-		for _, svc := range inboundServices {
-			if svc.Port.Port != opts.port.Port {
-				// If the service port is different from the port of the cluster that is being built,
-				// skip adding telemetry metadata for the service to the cluster.
-				continue
-			}
-			if _, ok := have[svc.Service.Hostname]; ok {
-				// Skip adding metadata for instance with the same host name.
-				// This could happen when a service has multiple IPs.
-				continue
-			}
-			svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc.Service))
-			have[svc.Service.Hostname] = true
-		}
-	} else if direction == model.TrafficDirectionOutbound {
-		// For outbound cluster, add telemetry metadata based on the service that the cluster is built for.
-		svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(service))
-	}
-}
-
 // Build a struct which contains service metadata and will be added into cluster label.
 func buildServiceMetadata(svc *model.Service) *structpb.Value {
 	return &structpb.Value{
@@ -1090,34 +759,4 @@ func getOrCreateIstioMetadata(cluster *cluster.Cluster) *structpb.Struct {
 		}
 	}
 	return cluster.Metadata.FilterMetadata[util.IstioMetadataKey]
-}
-
-var HboneOrPlaintextSocket = []*cluster.Cluster_TransportSocketMatch{
-	hboneTransportSocket,
-	defaultTransportSocketMatch(),
-}
-
-var InternalUpstreamSocket = &core.TransportSocket{
-	Name: TransportSocketInternalUpstream,
-	ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&internalupstream.InternalUpstreamTransport{
-		PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
-			{
-				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
-				Name: "tunnel",
-			},
-			{
-				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
-					Cluster: &metadata.MetadataKind_Cluster{},
-				}},
-				Name: "istio",
-			},
-			{
-				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{
-					Host: &metadata.MetadataKind_Host{},
-				}},
-				Name: "istio",
-			},
-		},
-		TransportSocket: xdsfilters.RawBufferTransportSocket,
-	})},
 }

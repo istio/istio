@@ -23,6 +23,7 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	v1 "k8s.io/api/core/v1"
 	discovery "k8s.io/api/discovery/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
@@ -30,6 +31,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/kubernetes"
 
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/meta/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -43,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pilot/pkg/xds"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
@@ -53,6 +56,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubeclient "istio.io/istio/pkg/kube"
 	istiotest "istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -1376,5 +1380,193 @@ func createEndpointSliceWithType(t *testing.T, c kubernetes.Interface, name, ser
 		if err != nil {
 			t.Fatalf("failed to create endpoint slice %s in namespace %s (error %v)", name, namespace, err)
 		}
+	}
+}
+
+func TestLocality(t *testing.T) {
+	namespace := "default"
+	basePod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod",
+			Namespace: namespace,
+			Labels:    map[string]string{},
+		},
+		Spec: v1.PodSpec{NodeName: "node"},
+		Status: v1.PodStatus{
+			PodIP: "1.2.3.4",
+			Phase: v1.PodRunning,
+		},
+	}
+	setPodReady(basePod)
+	baseNode := &v1.Node{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "node",
+			Labels: map[string]string{},
+		},
+	}
+	cases := []struct {
+		name     string
+		pod      *v1.Pod
+		node     *v1.Node
+		obj      config.Config
+		expected *core.Locality
+	}{
+		{
+			name:     "no locality",
+			pod:      basePod,
+			node:     baseNode,
+			expected: &core.Locality{},
+		},
+		{
+			name: "pod specific label",
+			pod: func() *v1.Pod {
+				p := basePod.DeepCopy()
+				p.Labels[model.LocalityLabel] = "r.z.s"
+				return p
+			}(),
+			node: baseNode,
+			expected: &core.Locality{
+				Region:  "r",
+				Zone:    "z",
+				SubZone: "s",
+			},
+		},
+		{
+			name: "node specific label",
+			pod:  basePod,
+			node: func() *v1.Node {
+				p := baseNode.DeepCopy()
+				p.Labels[kubecontroller.NodeRegionLabelGA] = "r"
+				p.Labels[kubecontroller.NodeZoneLabelGA] = "z"
+				p.Labels[label.TopologySubzone.Name] = "s"
+				return p
+			}(),
+			expected: &core.Locality{
+				Region:  "r",
+				Zone:    "z",
+				SubZone: "s",
+			},
+		},
+		{
+			name: "pod and node labels",
+			pod: func() *v1.Pod {
+				p := basePod.DeepCopy()
+				p.Labels[model.LocalityLabel] = "r.z.s"
+				return p
+			}(),
+			node: func() *v1.Node {
+				p := baseNode.DeepCopy()
+				p.Labels[kubecontroller.NodeRegionLabelGA] = "nr"
+				p.Labels[kubecontroller.NodeZoneLabelGA] = "nz"
+				p.Labels[label.TopologySubzone.Name] = "ns"
+				return p
+			}(),
+			expected: &core.Locality{
+				Region:  "r",
+				Zone:    "z",
+				SubZone: "s",
+			},
+		},
+		{
+			name: "ServiceEntry with explicit locality",
+			obj: config.Config{
+				Meta: config.Meta{
+					Name:             "service-entry",
+					Namespace:        namespace,
+					GroupVersionKind: gvk.ServiceEntry,
+				},
+				Spec: &networking.ServiceEntry{
+					Hosts: []string{"service.namespace.svc.cluster.local"},
+					Ports: []*networking.ServicePort{{Name: "http", Number: 80, Protocol: "http"}},
+					Endpoints: []*networking.WorkloadEntry{{
+						Address:  "1.2.3.4",
+						Locality: "r/z/s",
+					}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			expected: &core.Locality{
+				Region:  "r",
+				Zone:    "z",
+				SubZone: "s",
+			},
+		},
+		{
+			name: "ServiceEntry with label locality",
+			obj: config.Config{
+				Meta: config.Meta{
+					Name:             "service-entry",
+					Namespace:        namespace,
+					GroupVersionKind: gvk.ServiceEntry,
+				},
+				Spec: &networking.ServiceEntry{
+					Hosts: []string{"service.namespace.svc.cluster.local"},
+					Ports: []*networking.ServicePort{{Name: "http", Number: 80, Protocol: "http"}},
+					Endpoints: []*networking.WorkloadEntry{{
+						Address: "1.2.3.4",
+						Labels: map[string]string{
+							model.LocalityLabel: "r.z.s",
+						},
+					}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			expected: &core.Locality{
+				Region:  "r",
+				Zone:    "z",
+				SubZone: "s",
+			},
+		},
+		{
+			name: "ServiceEntry with both locality",
+			obj: config.Config{
+				Meta: config.Meta{
+					Name:             "service-entry",
+					Namespace:        namespace,
+					GroupVersionKind: gvk.ServiceEntry,
+				},
+				Spec: &networking.ServiceEntry{
+					Hosts: []string{"service.namespace.svc.cluster.local"},
+					Ports: []*networking.ServicePort{{Name: "http", Number: 80, Protocol: "http"}},
+					Endpoints: []*networking.WorkloadEntry{{
+						Address:  "1.2.3.4",
+						Locality: "r/z/s",
+						Labels: map[string]string{
+							model.LocalityLabel: "lr.lz.ls",
+						},
+					}},
+					Resolution: networking.ServiceEntry_STATIC,
+				},
+			},
+			expected: &core.Locality{
+				Region:  "r",
+				Zone:    "z",
+				SubZone: "s",
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			opts := xds.FakeOptions{}
+			if tt.pod != nil {
+				opts.KubernetesObjects = append(opts.KubernetesObjects, tt.pod)
+			}
+			if tt.node != nil {
+				opts.KubernetesObjects = append(opts.KubernetesObjects, tt.node)
+			}
+			if tt.obj.Name != "" {
+				opts.Configs = append(opts.Configs, tt.obj)
+			}
+			s := xds.NewFakeDiscoveryServer(t, opts)
+			s.Connect(s.SetupProxy(&model.Proxy{IPAddresses: []string{"1.2.3.4"}}), nil, []string{v3.ClusterType})
+			retry.UntilSuccessOrFail(t, func() error {
+				clients := s.Discovery.AllClients()
+				if len(clients) != 1 {
+					return fmt.Errorf("got %d clients", len(clients))
+				}
+				locality := clients[0].Proxy().Locality
+				return assert.Compare(tt.expected, locality)
+			}, retry.Timeout(time.Second*2))
+		})
 	}
 }

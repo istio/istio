@@ -30,6 +30,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/maps"
@@ -452,6 +453,7 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
+		DisableBuiltinLabels: !features.EnableOTELBuiltinResourceLables,
 	}
 
 	if format != "" {

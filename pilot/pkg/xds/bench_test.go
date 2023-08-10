@@ -379,7 +379,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.19.0",
+			IstioVersion: "1.20.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
@@ -487,7 +487,7 @@ func initPushContext(env *model.Environment, proxy *model.Proxy) {
 	pushContext.InitContext(env, nil, nil)
 	proxy.SetSidecarScope(pushContext)
 	proxy.SetGatewaysForProxy(pushContext)
-	proxy.SetServiceInstances(env.ServiceDiscovery)
+	proxy.SetServiceTargets(env.ServiceDiscovery)
 }
 
 var debugGeneration = env.Register("DEBUG_CONFIG_DUMP", false, "if enabled, print a full config dump of the generated config")

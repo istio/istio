@@ -564,7 +564,7 @@ func resolvePDBConflict(o *K8sObject) *K8sObject {
 	if spec["maxUnavailable"] != nil && spec["minAvailable"] != nil {
 		// When both maxUnavailable and minAvailable present and
 		// neither has value 0, this is considered a conflict,
-		// then maxUnavailale will take precedence.
+		// then maxUnavailable will take precedence.
 		if !isDefault(spec["maxUnavailable"]) && !isDefault(spec["minAvailable"]) {
 			delete(spec, "minAvailable")
 			// Make sure that the json and yaml representation of the object

@@ -656,7 +656,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		l = options.Platform.Locality()
 	} else {
 		// replace "." with "/"
-		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
+		localityString := model.GetLocalityLabel(meta.Labels[model.LocalityLabel])
 		if localityString != "" {
 			// override the label with the sanitized value
 			meta.Labels[model.LocalityLabel] = localityString

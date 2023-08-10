@@ -347,9 +347,9 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	}
 }
 
-func udpSupportedPort(number uint32, instances []*ServiceInstance) bool {
+func udpSupportedPort(number uint32, instances []ServiceTarget) bool {
 	for _, w := range instances {
-		if int(number) == w.ServicePort.Port && w.ServicePort.Protocol == protocol.UDP {
+		if int(number) == w.Port.Port && w.Port.Protocol == protocol.UDP {
 			return true
 		}
 	}
@@ -362,7 +362,7 @@ func udpSupportedPort(number uint32, instances []*ServiceInstance) bool {
 // When legacyGatewaySelector=true things are a bit more complex, as we support referencing a Service
 // port and translating to the targetPort in addition to just directly referencing a port. In this
 // case, we just make a best effort guess by picking the first match.
-func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySelector bool) []uint32 {
+func resolvePorts(number uint32, instances []ServiceTarget, legacyGatewaySelector bool) []uint32 {
 	ports := sets.New[uint32]()
 	for _, w := range instances {
 		if _, disablePortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]; disablePortTranslation && legacyGatewaySelector {
@@ -371,15 +371,15 @@ func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySele
 			// referencing the Service port, and references are un-ambiguous.
 			continue
 		}
-		if w.ServicePort.Port == int(number) && w.Endpoint != nil {
+		if w.Port.Port == int(number) {
 			if legacyGatewaySelector {
 				// When we are using legacy gateway label selection, we only resolve to a single port
 				// This has pros and cons; we don't allow merging of routes when it would be desirable, but
 				// we also avoid accidentally merging routes when we didn't intend to. While neither option is great,
 				// picking the first one here preserves backwards compatibility.
-				return []uint32{w.Endpoint.EndpointPort}
+				return []uint32{w.Port.TargetPort}
 			}
-			ports.Insert(w.Endpoint.EndpointPort)
+			ports.Insert(w.Port.TargetPort)
 		}
 	}
 	ret := ports.UnsortedList()

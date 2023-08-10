@@ -312,7 +312,7 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 			}
 			icpTags = append(icpTags, tagVer)
 		}
-		// sort different versions of control plane revsions
+		// sort different versions of control plane revisions
 		sort.Strings(icpTags)
 		// capture latest revision installed for comparison
 		for _, val := range icpTags {
