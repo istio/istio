@@ -369,10 +369,14 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
 		if features.MetadataExchange && !httpOpts.hbone && !lb.node.IsAmbient() {
-			if httpOpts.class == istionetworking.ListenerClassSidecarInbound {
-				filters = append(filters, xdsfilters.SidecarInboundMetadataFilter)
+			if util.IsIstioVersionGE119(lb.node.IstioVersion) {
+				if httpOpts.class == istionetworking.ListenerClassSidecarInbound {
+					filters = append(filters, xdsfilters.SidecarInboundMetadataFilter)
+				} else {
+					filters = append(filters, xdsfilters.SidecarOutboundMetadataFilter)
+				}
 			} else {
-				filters = append(filters, xdsfilters.SidecarOutboundMetadataFilter)
+				filters = append(filters, xdsfilters.HTTPMx)
 			}
 		}
 		// TODO: how to deal with ext-authz? It will be in the ordering twice

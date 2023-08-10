@@ -230,13 +230,14 @@ var (
 	}
 
 	SidecarInboundMetadataFilter = &hcm.HttpFilter{
-		Name: "inbound_peer_metadata",
+		Name: MxFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
 				map[string]any{
 					"downstream_discovery": []any{
 						map[string]any{
-							"istio_headers": map[string]any{},
+							"istio_headers":      map[string]any{},
+							"workload_discovery": map[string]any{},
 						},
 					},
 					"downstream_propagation": []any{
@@ -249,13 +250,14 @@ var (
 	}
 
 	SidecarOutboundMetadataFilter = &hcm.HttpFilter{
-		Name: "outbound_peer_metadata",
+		Name: MxFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
 				map[string]any{
 					"upstream_discovery": []any{
 						map[string]any{
-							"istio_headers": map[string]any{},
+							"istio_headers":      map[string]any{},
+							"workload_discovery": map[string]any{},
 						},
 					},
 					"upstream_propagation": []any{
