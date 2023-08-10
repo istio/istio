@@ -90,6 +90,7 @@ type Redirect struct {
 	dnsRedirect          bool
 	invalidDrop          bool
 	hostNSEnterExec      bool
+	disableIPEarlyDemux  bool
 }
 
 type annotationValidationFunc func(value string) error

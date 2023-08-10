@@ -18,6 +18,7 @@ package plugin
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spf13/viper"
@@ -30,6 +31,10 @@ import (
 
 // getNs is a unit test override variable for interface create.
 var getNs = ns.GetNS
+
+// sysNetIPv4IPEarlyDemuxPath is the path to the net/ipv4/ip_early_demux file in /proc/sys/.
+// This variable is overridden for unit tests.
+var sysNetIPv4IPEarlyDemuxPath = "/proc/sys/net/ipv4/ip_early_demux"
 
 // Program defines a method which programs iptables based on the parameters
 // provided in Redirect.
@@ -68,10 +73,31 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 		if err := iptablesCmd.Execute(); err != nil {
 			return err
 		}
+
+		if rdrct.disableIPEarlyDemux {
+			if err := ipt.disableIPEarlyDemux(); err != nil {
+				return err
+			}
+		}
 		return nil
 	}); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+// disableIPEarlyDemux sets net.ipv4.ip_early_demux to 0 to fix https://github.com/istio/istio/issues/38982
+func (ipt *iptables) disableIPEarlyDemux() error {
+	log.Infof("Setting %s to 0", sysNetIPv4IPEarlyDemuxPath)
+
+	f, err := os.OpenFile(sysNetIPv4IPEarlyDemuxPath, os.O_WRONLY, 0)
+	if err != nil {
+		return err
+	}
+	_, err = f.Write([]byte{'0'})
+	if err2 := f.Close(); err2 != nil && err == nil {
+		return err2
+	}
+	return err
 }

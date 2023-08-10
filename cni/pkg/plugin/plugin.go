@@ -38,8 +38,9 @@ import (
 )
 
 var (
-	injectAnnotationKey = annotation.SidecarInject.Name
-	sidecarStatusKey    = annotation.SidecarStatus.Name
+	injectAnnotationKey              = annotation.SidecarInject.Name
+	sidecarStatusKey                 = annotation.SidecarStatus.Name
+	disableIPEarlyDemuxAnnotationKey = annotation.SidecarDisableIPEarlyDemux.Name
 
 	podRetrievalMaxRetries = 30
 	podRetrievalInterval   = 1 * time.Second
@@ -324,6 +325,7 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 	}
 
 	redirect.hostNSEnterExec = conf.HostNSEnterExec
+	redirect.disableIPEarlyDemux = pi.Annotations[disableIPEarlyDemuxAnnotationKey] == "true"
 	rulesMgr := interceptMgrCtor()
 	if err := rulesMgr.Program(podName, args.Netns, redirect); err != nil {
 		return err
