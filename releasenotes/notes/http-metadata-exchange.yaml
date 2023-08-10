@@ -4,4 +4,4 @@ area: telemetry
 issue: []
 releaseNotes:
   - |
-    **Changed** HTTP metadata exchange filter to support a fallback to xDS workload metadata discovery in addition to the metadata HTTP headers. The discovery method is off by default.
+    **Added** HTTP metadata exchange filter to support a fallback to xDS workload metadata discovery in addition to the metadata HTTP headers. The discovery method is off by default.
