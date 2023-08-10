@@ -997,14 +997,14 @@ func MergeK8sObject(base *object.K8sObject, overlayNode any, path util.Path) (*o
 }
 
 // createPatchObjectFromPath constructs patch object for node with path, returns nil object and error if the path is invalid.
-// eg. node:
+// e.g. node:
 //   - name: NEW_VAR
 //     value: new_value
 //
 // and path:
 //
 //	  spec.template.spec.containers.[name:discovery].env
-//	will constructs the following patch object:
+//	will construct the following patch object:
 //	  spec:
 //	    template:
 //	      spec:

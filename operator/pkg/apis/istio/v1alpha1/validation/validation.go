@@ -169,7 +169,7 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 
 type FeatureValidator func(*valuesv1alpha1.Values, *v1alpha1.IstioOperatorSpec) (util.Errors, []string)
 
-// validateFeatures check whether the config sematically make sense. For example, feature X and feature Y can't be enabled together.
+// validateFeatures check whether the config semantically make sense. For example, feature X and feature Y can't be enabled together.
 func validateFeatures(values *valuesv1alpha1.Values, spec *v1alpha1.IstioOperatorSpec) (errs util.Errors, warnings []string) {
 	validators := []FeatureValidator{
 		CheckServicePorts,
@@ -311,7 +311,7 @@ func ValidateSubTypes(e reflect.Value, failOnMissingValidation bool, values *val
 		return validationErrors
 	}
 	for i := 0; i < e.NumField(); i++ {
-		// Corner case of a slice of something, if something is defined type, then process it recursiveley.
+		// Corner case of a slice of something, if something is defined type, then process it recursively.
 		if e.Field(i).Kind() == reflect.Slice {
 			validationErrors = append(validationErrors, processSlice(e.Field(i), failOnMissingValidation, values, iopls)...)
 			continue

@@ -441,7 +441,7 @@ func toMap(s string) map[string]any {
 	return out
 }
 
-// endpointSubsetAddressVal returns a map having subset address type for an endpint.
+// endpointSubsetAddressVal returns a map having subset address type for an endpoint.
 func endpointSubsetAddressVal(hostname, ip, nodeName string) map[string]any {
 	out := make(map[string]any)
 	if hostname != "" {

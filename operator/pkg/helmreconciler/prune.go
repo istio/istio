@@ -144,7 +144,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 			fmt.Errorf("failed to get enabled components: %v", err)
 	}
 	pilotEnabled := false
-	// check wherther the istiod is enabled
+	// check whether the istiod is enabled
 	for _, c := range enabledComponents {
 		if c == string(name.PilotComponentName) {
 			pilotEnabled = true
