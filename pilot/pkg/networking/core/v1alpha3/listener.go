@@ -114,7 +114,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	builder.patchListeners()
 	l := builder.getListeners()
 	if builder.node.EnableHBONE() && !builder.node.IsAmbient() {
-		l = append(l, outboundTunnelListener(builder.node))
+		l = append(l, buildConnectOriginateListener())
 	}
 
 	return l
@@ -1616,11 +1616,6 @@ func removeListenerFilterTimeout(listeners []*listener.Listener) {
 // listenerKey builds the key for a given bind and port
 func listenerKey(bind string, port int) string {
 	return bind + ":" + strconv.Itoa(port)
-}
-
-// outboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
-func outboundTunnelListener(proxy *model.Proxy) *listener.Listener {
-	return buildConnectOriginateListener()
 }
 
 // conflictWithStaticListener checks whether the listener address bind:port conflicts with static listener port
