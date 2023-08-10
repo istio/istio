@@ -1561,8 +1561,7 @@ spec:
 				// Gateway doesn't implicitly use downstream
 				check.Protocol("HTTP/1.1"),
 				// Regression test; if this is set it means the inbound sidecar is treating it as TCP
-				// check.RequestHeader("X-Envoy-Peer-Metadata", ""),
-			),
+				check.RequestHeader("X-Envoy-Peer-Metadata", "")),
 		},
 		setupOpts: fqdnHostHeader,
 		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
@@ -1704,8 +1703,7 @@ spec:
 						// We did configure to use client protocol
 						check.Protocol(expectedProto),
 						// Regression test; if this is set it means the inbound sidecar is treating it as TCP
-						// check.RequestHeader("X-Envoy-Peer-Metadata", ""),
-					),
+						check.RequestHeader("X-Envoy-Peer-Metadata", "")),
 				},
 				setupOpts: fqdnHostHeader,
 				templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
