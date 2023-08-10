@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path"
 	"path/filepath"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	tutil "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/version"
@@ -146,6 +148,28 @@ func extract(gzipStream io.Reader, destination string) error {
 		}
 	}
 	return nil
+}
+
+func copyDir(src string, dest string) error {
+	return filepath.Walk(src, func(path string, info fs.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		outpath := filepath.Join(dest, strings.TrimPrefix(path, src))
+
+		if info.IsDir() {
+			os.MkdirAll(outpath, info.Mode())
+			return nil
+		} else {
+			cpErr := file.AtomicCopy(path, filepath.Dir(outpath), filepath.Base(outpath))
+			if cpErr != nil {
+				return cpErr
+			}
+		}
+
+		return nil
+	})
 }
 
 func TestMain(m *testing.M) {
@@ -275,24 +299,27 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 
 	recreateSimpleTestEnv()
 
+	tmpDir := t.TempDir()
+	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
+	err := copyDir(string(liveCharts), string(tmpCharts))
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", testResourceFile+".yaml"))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	err = writeFile(filepath.Join(env.IstioSrc, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
+	err = writeFile(filepath.Join(tmpDir, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	t.Cleanup(func() {
-		removeFile(filepath.Join(env.IstioSrc, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"))
-	})
-
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			g := NewWithT(t)
-			objs, err := fakeControllerReconcile(testResourceFile, liveCharts, &helmreconciler.Options{Force: tc.force, SkipPrune: true})
+			objs, err := fakeControllerReconcile(testResourceFile, tmpCharts, &helmreconciler.Options{Force: tc.force, SkipPrune: true})
 			tc.assertFunc(g, objs, err)
 		})
 	}
