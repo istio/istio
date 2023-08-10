@@ -3170,6 +3170,10 @@ func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) (
 func validateHTTPMirrors(mirrors []*networking.HTTPMirrorPolicy) error {
 	errs := Validation{}
 	for _, mirror := range mirrors {
+		if mirror == nil {
+			errs = appendValidation(errs, errors.New("mirror cannot be null"))
+			continue
+		}
 		if mirror.Destination == nil {
 			errs = appendValidation(errs, errors.New("destination is required for mirrors"))
 			continue
