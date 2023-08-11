@@ -268,6 +268,9 @@ func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (s
 	}
 
 	defaultExcludedNamespaces := ""
+	if len(opts.DefaultExcludeNamespaces) > 0 {
+		defaultExcludedNamespaces = "  defaultExcludedNamespaces:\n"
+	}
 	for _, namespace := range opts.DefaultExcludeNamespaces {
 		defaultExcludedNamespaces += fmt.Sprintf("    - %s\n", namespace)
 	}
@@ -281,7 +284,6 @@ sidecarInjectorWebhook:
   objectSelector:
     enabled: true
     autoInject: true
-  defaultExcludedNamespaces:
 %s
   
 istiodRemote:

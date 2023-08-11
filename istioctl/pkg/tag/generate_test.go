@@ -17,6 +17,7 @@ package tag
 import (
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
@@ -236,31 +237,34 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 
 func TestGenerateMutatingWebhook(t *testing.T) {
 	tcs := []struct {
-		name        string
-		webhook     admitv1.MutatingWebhookConfiguration
-		tagName     string
-		whURL       string
-		whSVC       string
-		whCA        string
-		numWebhooks int
+		name               string
+		webhook            admitv1.MutatingWebhookConfiguration
+		tagName            string
+		whURL              string
+		whSVC              string
+		whCA               string
+		numWebhooks        int
+		excludedNamespaces []string
 	}{
 		{
-			name:        "webhook-pointing-to-service",
-			webhook:     revisionCanonicalWebhook,
-			tagName:     "canary",
-			whURL:       "",
-			whSVC:       "istiod-revision",
-			whCA:        "ca",
-			numWebhooks: 2,
+			name:               "webhook-pointing-to-service",
+			webhook:            revisionCanonicalWebhook,
+			tagName:            "canary",
+			whURL:              "",
+			whSVC:              "istiod-revision",
+			whCA:               "ca",
+			numWebhooks:        2,
+			excludedNamespaces: []string{"test"},
 		},
 		{
-			name:        "webhook-pointing-to-url",
-			webhook:     revisionCanonicalWebhookRemote,
-			tagName:     "canary",
-			whURL:       remoteInjectionURL,
-			whSVC:       "",
-			whCA:        "ca",
-			numWebhooks: 2,
+			name:               "webhook-pointing-to-url",
+			webhook:            revisionCanonicalWebhookRemote,
+			tagName:            "canary",
+			whURL:              remoteInjectionURL,
+			whSVC:              "",
+			whCA:               "ca",
+			numWebhooks:        2,
+			excludedNamespaces: []string{"test", "test2"},
 		},
 		{
 			name:        "webhook-pointing-to-default-revision",
@@ -291,14 +295,11 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 			t.Fatalf("webhook parsing failed with error: %v", err)
 		}
 		webhookYAML, err := generateMutatingWebhook(webhookConfig, &GenerateOptions{
-			WebhookName:          "",
-			ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
-			AutoInjectNamespaces: false,
-			CustomLabels:         nil,
-			DefaultExcludeNamespaces: []string{
-				"kube-system",
-				"kube-public",
-			},
+			WebhookName:              "",
+			ManifestsPath:            filepath.Join(env.IstioSrc, "manifests"),
+			AutoInjectNamespaces:     false,
+			CustomLabels:             nil,
+			DefaultExcludeNamespaces: tc.excludedNamespaces,
 		})
 		if err != nil {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
@@ -332,6 +333,16 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 				}
 				if injectionWhConf.Service.Name != tc.whSVC {
 					t.Fatalf("expected injection service %s, got %s", tc.whSVC, injectionWhConf.Service.Name)
+				}
+			}
+			if tc.excludedNamespaces != nil {
+				for _, expr := range webhook.NamespaceSelector.MatchExpressions {
+					if expr.Key != "kubernetes.io/metadata.name" {
+						continue
+					}
+					if !reflect.DeepEqual(expr.Values, tc.excludedNamespaces) {
+						t.Fatalf("expected excluded namespaces %v, got %v", tc.excludedNamespaces, expr.Values)
+					}
 				}
 			}
 			if tc.whURL != "" {
