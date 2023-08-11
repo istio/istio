@@ -224,13 +224,11 @@ messages:
   - name: "NamespaceMultipleInjectionLabels"
     code: IST0123
     level: Warning
-    description: "A namespace has both new and legacy injection labels"
-    template: "The namespace has both new and legacy injection labels. Run 'kubectl label namespace %s istio.io/rev-' or 'kubectl label namespace %s istio-injection-'"
+    description: "A namespace has more than one type of injection labels"
+    template: "The namespace has more than one type of injection labels %v, which may lead to undefined behavior. Make sure only one injection label exists."
     args:
-      - name: namespace
-        type: string
-      - name: namespace2
-        type: string
+      - name: labels
+        type: "[]string"
 
   - name: "InvalidAnnotation"
     code: IST0125

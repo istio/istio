@@ -86,8 +86,8 @@ var (
 	InvalidRegexp = diag.NewMessageType(diag.Warning, "IST0122", "Field %q regular expression invalid: %q (%s)")
 
 	// NamespaceMultipleInjectionLabels defines a diag.MessageType for message "NamespaceMultipleInjectionLabels".
-	// Description: A namespace has both new and legacy injection labels
-	NamespaceMultipleInjectionLabels = diag.NewMessageType(diag.Warning, "IST0123", "The namespace has both new and legacy injection labels. Run 'kubectl label namespace %s istio.io/rev-' or 'kubectl label namespace %s istio-injection-'")
+	// Description: A namespace has more than one type of injection labels
+	NamespaceMultipleInjectionLabels = diag.NewMessageType(diag.Warning, "IST0123", "The namespace has more than one type of injection labels %v, which may lead to undefined behavior. Make sure only one injection label exists.")
 
 	// InvalidAnnotation defines a diag.MessageType for message "InvalidAnnotation".
 	// Description: An Istio annotation that is not valid
@@ -494,12 +494,11 @@ func NewInvalidRegexp(r *resource.Instance, where string, re string, problem str
 }
 
 // NewNamespaceMultipleInjectionLabels returns a new diag.Message based on NamespaceMultipleInjectionLabels.
-func NewNamespaceMultipleInjectionLabels(r *resource.Instance, namespace string, namespace2 string) diag.Message {
+func NewNamespaceMultipleInjectionLabels(r *resource.Instance, labels []string) diag.Message {
 	return diag.NewMessage(
 		NamespaceMultipleInjectionLabels,
 		r,
-		namespace,
-		namespace2,
+		labels,
 	)
 }
 
