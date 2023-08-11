@@ -26,9 +26,6 @@ import (
 type Config struct {
 	// Cluster to be used in a multicluster environment
 	Cluster cluster.Cluster
-
-	// HTTP Address of ingress gateway of the cluster to be used to install open telemetry collector in.
-	IngressAddr string
 }
 
 // Instance represents a opencensus collector deployment on kubernetes.

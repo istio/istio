@@ -33,9 +33,6 @@ type Instance interface {
 type Config struct {
 	// Cluster to be used in a multicluster environment
 	Cluster cluster.Cluster
-
-	// HTTP Address of ingress gateway of the cluster to be used to install zipkin in.
-	IngressAddr string
 }
 
 // Span represents a single span, which includes span attributes for verification

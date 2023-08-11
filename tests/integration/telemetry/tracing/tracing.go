@@ -114,9 +114,7 @@ func TestSetup(ctx resource.Context) (err error) {
 	}
 	client = servicePrefix("client").GetMatches(echos)
 	server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: appNsInst}).GetMatches(echos)
-	ingInst = ist.IngressFor(ctx.Clusters().Default())
-	addr, _ := ingInst.HTTPAddress()
-	zipkinInst, err = zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default(), IngressAddr: addr})
+	zipkinInst, err = zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default()})
 	if err != nil {
 		return
 	}
@@ -226,6 +224,7 @@ func SendTraffic(t framework.TestContext, headers map[string][]string, cl cluste
 			HTTP: echo.HTTP{
 				Headers: headers,
 			},
+			Count: 25, // Send many requests so traces get exported faster
 			Retry: echo.Retry{
 				NoRetry: true,
 			},
