@@ -369,7 +369,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
 		if features.MetadataExchange && !httpOpts.hbone && !lb.node.IsAmbient() {
-			if util.IsIstioVersionGE119(lb.node.IstioVersion) {
+			if features.NativeMetadataExchange && util.IsIstioVersionGE119(lb.node.IstioVersion) {
 				if httpOpts.class == istionetworking.ListenerClassSidecarInbound {
 					filters = append(filters, xdsfilters.SidecarInboundMetadataFilter)
 				} else {
