@@ -267,6 +267,10 @@ func generateMutatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (s
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
 	}
 
+	defaultExcludedNamespaces := ""
+	for _, namespace := range opts.DefaultExcludeNamespaces {
+		defaultExcludedNamespaces += fmt.Sprintf("    - %s\n", namespace)
+	}
 	values := fmt.Sprintf(`
 revision: %q
 revisionTags:
@@ -277,11 +281,12 @@ sidecarInjectorWebhook:
   objectSelector:
     enabled: true
     autoInject: true
-  defaultExcludedNamespaces: %v
+  defaultExcludedNamespaces:
+%s
   
 istiodRemote:
   injectionURL: %s
-`, config.Revision, config.Tag, opts.AutoInjectNamespaces, opts.DefaultExcludeNamespaces, config.URL)
+`, config.Revision, config.Tag, opts.AutoInjectNamespaces, defaultExcludedNamespaces, config.URL)
 
 	tagWebhookYaml, err := r.RenderManifestFiltered(values, func(tmplName string) bool {
 		return strings.Contains(tmplName, revisionTagTemplateName)
