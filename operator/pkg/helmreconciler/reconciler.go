@@ -174,7 +174,7 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 	status := h.processRecursive(manifestMap)
 
 	var pruneErr error
-	if !h.opts.SkipPrune {
+	if !h.opts.SkipPrune && !h.opts.DryRun {
 		h.opts.ProgressLog.SetState(progress.StatePruning)
 		pruneErr = h.Prune(manifestMap, false)
 		h.reportPrunedObjectKind()
