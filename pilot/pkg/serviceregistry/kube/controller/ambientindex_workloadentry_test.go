@@ -19,12 +19,10 @@ import (
 	"net/netip"
 	"testing"
 
-	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -130,28 +128,18 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	assert.Equal(t, len(s.controller.ambientIndex.(*AmbientIndexImpl).byService), 0)
 
 	// Add a waypoint proxy pod for namespace
-	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
-		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "namespace-wide",
-		}, nil, true, corev1.PodRunning)
+	s.addWaypointPod(t, "waypoint-ns", "waypoint-ns-pod", "127.0.0.200", "waypoint-ns", true)
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns-pod")
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
 	// create the waypoint service
-	s.addService(t, "waypoint-ns",
-		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel}, // labels
-		map[string]string{}, // annotations
-		[]int32{80},
-		map[string]string{constants.GatewayNameLabel: "namespace-wide"}, // selector
-		"10.0.0.2",
-	)
-	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns", "waypoint-ns-pod")
+	s.addWaypoint(t, "waypoint-ns", "10.0.0.2", "", true)
+	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns-istio-waypoint", "waypoint-ns-pod")
 	// All these workloads updated, so push them
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
 		s.wleXdsName("name1"),
 		s.wleXdsName("name2"),
 		s.wleXdsName("name3"),
-		s.svcXdsName("waypoint-ns"),
+		s.svcXdsName("waypoint-ns-istio-waypoint"),
 	)
 	// We should now see the waypoint service IP
 	assert.Equal(t,
@@ -159,14 +147,10 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		netip.MustParseAddr("10.0.0.2").AsSlice())
 
 	// Add another one, expect the same result
-	s.addPods(t, "127.0.0.201", "waypoint2-ns-pod", "namespace-wide",
-		map[string]string{
-			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
-			constants.GatewayNameLabel:    "namespace-wide",
-		}, nil, true, corev1.PodRunning)
-	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns", "waypoint-ns-pod", "waypoint2-ns-pod")
+	s.addWaypointPod(t, "waypoint-ns", "waypoint-ns-pod2", "127.0.0.201", "waypoint-ns", true)
+	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns-istio-waypoint", "waypoint-ns-pod", "waypoint-ns-pod2")
 	// all these workloads already have a waypoint, only expect the new waypoint pod
-	s.assertEvent(t, s.podXdsName("waypoint2-ns-pod"))
+	s.assertEvent(t, s.podXdsName("waypoint-ns-pod2"))
 
 	// Waypoints do not have waypoints
 	assert.Equal(t,
@@ -188,8 +172,8 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		s.svcXdsName("svc1"))
 
 	// Delete a waypoint pod
-	s.deletePod(t, "waypoint2-ns-pod")
-	s.assertEvent(t, s.podXdsName("waypoint2-ns-pod")) // only expect event on the single waypoint pod
+	s.deletePod(t, "waypoint-ns-pod2")
+	s.assertEvent(t, s.podXdsName("waypoint-ns-pod2")) // only expect event on the single waypoint pod
 
 	// Adding a new WorkloadEntry should also see the waypoint
 	s.addWorkloadEntries(t, "127.0.0.6", "name6", "sa6", map[string]string{"app": "a"})
@@ -201,13 +185,13 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.deleteWorkloadEntry(t, "name6")
 	s.assertEvent(t, s.wleXdsName("name6"))
 
-	s.deleteService(t, "waypoint-ns")
+	s.deleteWaypoint(t, "waypoint-ns")
 	// all affected addresses with the waypoint should be updated
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
 		s.wleXdsName("name1"),
 		s.wleXdsName("name2"),
 		s.wleXdsName("name3"),
-		s.svcXdsName("waypoint-ns"))
+		s.svcXdsName("waypoint-ns-istio-waypoint"))
 
 	s.deleteWorkloadEntry(t, "name3")
 	s.assertEvent(t, s.wleXdsName("name3"))
