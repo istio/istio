@@ -15,10 +15,12 @@
 package extension
 
 import (
+	"strings"
+
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"google.golang.org/protobuf/proto"
+	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -52,15 +54,39 @@ func PopAppend(list []*hcm.HttpFilter,
 	return list
 }
 
+func BuildNetworkWasmFilters(filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper) []*listener.Filter {
+	filters := make([]*listener.Filter, 0)
+	for _, extensions := range filterMap {
+		for _, ext := range extensions {
+			filters = append(filters, toEnvoyNetworkFilter(ext))
+		}
+	}
+	return filters
+}
+
 func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm.HttpFilter {
 	return &hcm.HttpFilter{
-		Name: wasmPlugin.ResourceName,
+		Name: "http" + "." + wasmPlugin.ResourceName,
 		ConfigType: &hcm.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &core.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
 				TypeUrls: []string{
 					xds.WasmHTTPFilterType,
 					xds.RBACHTTPFilterType,
+				},
+			},
+		},
+	}
+}
+
+func toEnvoyNetworkFilter(wasmPlugin *model.WasmPluginWrapper) *listener.Filter {
+	return &listener.Filter{
+		Name: "network" + "." + wasmPlugin.ResourceName,
+		ConfigType: &listener.Filter_ConfigDiscovery{
+			ConfigDiscovery: &core.ExtensionConfigSource{
+				ConfigSource: defaultConfigSource,
+				TypeUrls: []string{
+					xds.WasmNetworkFilterType,
 				},
 			},
 		},
@@ -82,29 +108,46 @@ func InsertedExtensionConfigurations(
 			if !hasName.Contains(p.ResourceName) {
 				continue
 			}
-			wasmExtensionConfig := proto.Clone(p.WasmExtensionConfig).(*wasm.Wasm)
-			// Find the pull secret resource name from wasm vm env variables.
-			// The Wasm extension config should already have a `ISTIO_META_WASM_IMAGE_PULL_SECRET` env variable
-			// at in the VM env variables, with value being the secret resource name. We try to find the actual
-			// secret, and replace the env variable value with it. When ECDS config update reaches the proxy,
-			// agent will extract out the secret from env variable, use it for image pulling, and strip the
-			// env variable from VM config before forwarding it to envoy.
-			envs := wasmExtensionConfig.GetConfig().GetVmConfig().GetEnvironmentVariables().GetKeyValues()
-			secretName := envs[model.WasmSecretEnv]
-			if secretName != "" {
-				if sec, found := pullSecrets[secretName]; found {
-					envs[model.WasmSecretEnv] = string(sec)
-				} else {
-					envs[model.WasmSecretEnv] = ""
+			switch {
+			case strings.HasPrefix(p.ResourceName, "network."):
+				wasmExtensionConfig := p.BuildNetworkWasmFilter()
+				updatePluginConfig(wasmExtensionConfig.GetConfig(), pullSecrets)
+				typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
+				ec := &core.TypedExtensionConfig{
+					Name:        p.ResourceName,
+					TypedConfig: typedConfig,
 				}
+				result = append(result, ec)
+			default:
+				wasmExtensionConfig := p.BuildHTTPWasmFilter()
+				updatePluginConfig(wasmExtensionConfig.GetConfig(), pullSecrets)
+				typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
+				ec := &core.TypedExtensionConfig{
+					Name:        p.ResourceName,
+					TypedConfig: typedConfig,
+				}
+				result = append(result, ec)
 			}
-			typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
-			ec := &core.TypedExtensionConfig{
-				Name:        p.ResourceName,
-				TypedConfig: typedConfig,
-			}
-			result = append(result, ec)
+
 		}
 	}
 	return result
+}
+
+func updatePluginConfig(pluginConfig *wasmextensions.PluginConfig, pullSecrets map[string][]byte) {
+	// Find the pull secret resource name from wasm vm env variables.
+	// The Wasm extension config should already have a `ISTIO_META_WASM_IMAGE_PULL_SECRET` env variable
+	// at in the VM env variables, with value being the secret resource name. We try to find the actual
+	// secret, and replace the env variable value with it. When ECDS config update reaches the proxy,
+	// agent will extract out the secret from env variable, use it for image pulling, and strip the
+	// env variable from VM config before forwarding it to envoy.
+	envs := pluginConfig.GetVmConfig().GetEnvironmentVariables().GetKeyValues()
+	secretName := envs[model.WasmSecretEnv]
+	if secretName != "" {
+		if sec, found := pullSecrets[secretName]; found {
+			envs[model.WasmSecretEnv] = string(sec)
+		} else {
+			envs[model.WasmSecretEnv] = ""
+		}
+	}
 }

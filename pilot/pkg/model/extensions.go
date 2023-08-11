@@ -20,9 +20,10 @@ import (
 	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	envoyWasmFilterV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
-	envoyExtensionsWasmV3 "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"google.golang.org/protobuf/types/known/anypb"
+	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
+	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -67,16 +68,62 @@ func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.W
 type WasmPluginWrapper struct {
 	*extensions.WasmPlugin
 
-	Name         string
-	Namespace    string
-	ResourceName string
-
-	WasmExtensionConfig *envoyWasmFilterV3.Wasm
+	Name            string
+	Namespace       string
+	ResourceName    string
+	ResourceVersion string
 }
 
 func (p *WasmPluginWrapper) MatchListener(proxyLabels map[string]string, li WasmPluginListenerInfo) bool {
 	workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(proxyLabels))
 	return workloadMatch && matchTrafficSelectors(p.Match, li)
+}
+
+func (p *WasmPluginWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
+	return &httpwasm.Wasm{
+		Config: p.buildPluginConfig(),
+	}
+}
+
+func (p *WasmPluginWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
+	return &networkwasm.Wasm{
+		Config: p.buildPluginConfig(),
+	}
+}
+
+func (p *WasmPluginWrapper) buildPluginConfig() *wasmextensions.PluginConfig {
+	cfg := &anypb.Any{}
+	plugin := p.WasmPlugin
+	if plugin.PluginConfig != nil && len(plugin.PluginConfig.Fields) > 0 {
+		cfgJSON, err := protomarshal.ToJSON(plugin.PluginConfig)
+		if err != nil {
+			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", p.Namespace, p.Name, err)
+			return nil
+		}
+		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
+			Value: cfgJSON,
+		})
+	}
+
+	u, err := url.Parse(plugin.Url)
+	if err != nil {
+		log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", p.Namespace, p.Name, err)
+		return nil
+	}
+	// when no scheme is given, default to oci://
+	if u.Scheme == "" {
+		u.Scheme = ociScheme
+	}
+
+	datasource := buildDataSource(u, plugin)
+	resourceName := p.Namespace + "." + p.Name
+	return &wasmextensions.PluginConfig{
+		Name:          resourceName,
+		RootId:        plugin.PluginName,
+		Configuration: cfg,
+		Vm:            buildVMConfig(datasource, p.ResourceVersion, plugin),
+		FailOpen:      plugin.FailStrategy == extensions.FailStrategy_FAIL_OPEN,
+	}
 }
 
 type WasmPluginListenerInfo struct {
@@ -135,51 +182,14 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 	if wasmPlugin, ok = plugin.Spec.(*extensions.WasmPlugin); !ok {
 		return nil
 	}
-
-	cfg := &anypb.Any{}
-	if wasmPlugin.PluginConfig != nil && len(wasmPlugin.PluginConfig.Fields) > 0 {
-		cfgJSON, err := protomarshal.ToJSON(wasmPlugin.PluginConfig)
-		if err != nil {
-			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
-			return nil
-		}
-		cfg = protoconv.MessageToAny(&wrapperspb.StringValue{
-			Value: cfgJSON,
-		})
-	}
-
-	u, err := url.Parse(wasmPlugin.Url)
-	if err != nil {
-		log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", plugin.Namespace, plugin.Name, err)
-		return nil
-	}
-	// when no scheme is given, default to oci://
-	if u.Scheme == "" {
-		u.Scheme = ociScheme
-	}
 	// Normalize the image pull secret to the full resource name.
 	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace)
-	datasource := buildDataSource(u, wasmPlugin)
-	resourceName := plugin.Namespace + "." + plugin.Name
-	wasmExtensionConfig := &envoyWasmFilterV3.Wasm{
-		Config: &envoyExtensionsWasmV3.PluginConfig{
-			Name:          resourceName,
-			RootId:        wasmPlugin.PluginName,
-			Configuration: cfg,
-			Vm:            buildVMConfig(datasource, plugin.ResourceVersion, wasmPlugin),
-			FailOpen:      wasmPlugin.FailStrategy == extensions.FailStrategy_FAIL_OPEN,
-		},
-	}
-	if err != nil {
-		log.Warnf("WasmPlugin %s/%s failed to marshal to TypedExtensionConfig: %s", plugin.Namespace, plugin.Name, err)
-		return nil
-	}
 	return &WasmPluginWrapper{
-		Name:                plugin.Name,
-		Namespace:           plugin.Namespace,
-		ResourceName:        resourceName,
-		WasmPlugin:          wasmPlugin,
-		WasmExtensionConfig: wasmExtensionConfig,
+		Name:            plugin.Name,
+		Namespace:       plugin.Namespace,
+		ResourceName:    plugin.Namespace + "." + plugin.Name,
+		ResourceVersion: plugin.ResourceVersion,
+		WasmPlugin:      wasmPlugin,
 	}
 }
 
@@ -239,12 +249,12 @@ func buildVMConfig(
 	datasource *core.AsyncDataSource,
 	resourceVersion string,
 	wasmPlugin *extensions.WasmPlugin,
-) *envoyExtensionsWasmV3.PluginConfig_VmConfig {
-	cfg := &envoyExtensionsWasmV3.PluginConfig_VmConfig{
-		VmConfig: &envoyExtensionsWasmV3.VmConfig{
+) *wasmextensions.PluginConfig_VmConfig {
+	cfg := &wasmextensions.PluginConfig_VmConfig{
+		VmConfig: &wasmextensions.VmConfig{
 			Runtime: defaultRuntime,
 			Code:    datasource,
-			EnvironmentVariables: &envoyExtensionsWasmV3.EnvironmentVariables{
+			EnvironmentVariables: &wasmextensions.EnvironmentVariables{
 				KeyValues: map[string]string{},
 			},
 		},

@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
@@ -826,9 +827,14 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 		}
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
+	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+		Port:  fcc.port.Port,
+		Class: istionetworking.ListenerClassSidecarInbound,
+	})
 	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
 	filters = append(filters, lb.authzBuilder.BuildTCP()...)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
+	filters = append(filters, extension.BuildNetworkWasmFilters(wasm)...)
 	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
 
 	return filters

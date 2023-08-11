@@ -19,9 +19,12 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	wasmextension "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -48,7 +51,37 @@ var (
 )
 
 func TestInsertedExtensionConfigurations(t *testing.T) {
-	wasm := protoconv.MessageToAny(&wasm.Wasm{})
+	wasm := protoconv.MessageToAny(&wasm.Wasm{
+		Config: &wasmextension.PluginConfig{
+			Name:          "istio-system.someAuthNFilter",
+			Configuration: &anypb.Any{},
+			Vm: &wasmextension.PluginConfig_VmConfig{
+				VmConfig: &wasmextension.VmConfig{
+					Runtime: "envoy.wasm.runtime.v8",
+					Code: &core.AsyncDataSource{
+						Specifier: &core.AsyncDataSource_Remote{
+							Remote: &core.RemoteDataSource{
+								HttpUri: &core.HttpUri{
+									Uri: "oci:",
+									HttpUpstreamType: &core.HttpUri_Cluster{
+										Cluster: "_",
+									},
+									Timeout: &durationpb.Duration{
+										Seconds: 30,
+									},
+								},
+							},
+						},
+					},
+					EnvironmentVariables: &wasmextension.EnvironmentVariables{
+						KeyValues: map[string]string{
+							"ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION": "",
+						},
+					},
+				},
+			},
+		},
+	})
 	testCases := []struct {
 		name        string
 		wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper
