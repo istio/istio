@@ -49,8 +49,8 @@ overwrite existing revision tags.`
 	tagCreatedStr   = `Revision tag %q created, referencing control plane revision %q. To enable injection using this
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
-	webhookNameHelpStr               = "Name to use for a revision tag's mutating webhook configuration."
-	autoInjectNamespacesHelpStr      = "If set to true, the sidecars should be automatically injected into all namespaces by default"
+	webhookNameHelpStr                = "Name to use for a revision tag's mutating webhook configuration."
+	autoInjectNamespacesHelpStr       = "If set to true, the sidecars should be automatically injected into all namespaces by default"
 	defaultExcludedNamespacessHelpStr = `Namespaces to exclude from automatic injection.
 Defaults are kube-system, kube-public, kube-node-lease, and local-path-storage`
 )
@@ -58,13 +58,13 @@ Defaults are kube-system, kube-public, kube-node-lease, and local-path-storage`
 // options for CLI
 var (
 	// revision to point tag webhook at
-	revision                  = ""
-	manifestsPath             = ""
-	overwrite                 = false
-	skipConfirmation          = false
-	webhookName               = ""
-	autoInjectNamespaces      = false
-	outputFormat              = util.TableFormat
+	revision                   = ""
+	manifestsPath              = ""
+	overwrite                  = false
+	skipConfirmation           = false
+	webhookName                = ""
+	autoInjectNamespaces       = false
+	outputFormat               = util.TableFormat
 	defaultExcludedNamespacess []string
 )
 

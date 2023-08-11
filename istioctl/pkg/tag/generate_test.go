@@ -295,6 +295,10 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 			ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
 			AutoInjectNamespaces: false,
 			CustomLabels:         nil,
+			DefaultExcludeNamespaces: []string{
+				"kube-system",
+				"kube-public",
+			},
 		})
 		if err != nil {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)

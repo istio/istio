@@ -155,7 +155,7 @@ webhooks:
     - key: "kubernetes.io/metadata.name"
       operator: NotIn
       values:
- {{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
+{{- $whv.defaultExcludedNamespaces | toYaml | nindent 6 }}
     - key: istio-injection
       operator: DoesNotExist
     - key: istio.io/rev
