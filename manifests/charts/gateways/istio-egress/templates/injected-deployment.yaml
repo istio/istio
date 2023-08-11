@@ -28,7 +28,6 @@ spec:
     rollingUpdate:
       maxSurge: {{ $gateway.rollingMaxSurge }}
       maxUnavailable: {{ $gateway.rollingMaxUnavailable }}
-    type: RollingUpdate
   template:
     metadata:
       labels:
