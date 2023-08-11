@@ -397,7 +397,7 @@ var testGrid = []testCase{
 		name:       "serviceWithNoSelector",
 		inputFiles: []string{"testdata/deployment-service-no-selector.yaml"},
 		analyzer:   &deployment.ServiceAssociationAnalyzer{},
-		expected: []message{},
+		expected:   []message{},
 	},
 	{
 		name: "regexes",
