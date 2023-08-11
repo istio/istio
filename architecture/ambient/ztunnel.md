@@ -72,6 +72,12 @@ The address type has the following goals:
 
 See the [XDS Evolution](https://docs.google.com/document/d/1V5wkeBHbLSLMzAMbwFlFZNHdZPyUEspG4lHbnB0UaCg/edit) document for more history and details.
 
+The `Workload` aims to represent everything about a workload (generally a `Pod` or `WorkloadEntry`).
+This includes things like it's IP address, identity, metadata (name, namespace, app, version, etc), and whether it has a waypoint proxy associated.
+
+The `Service` aims to represent everything about a service (generally a `Service` or `ServiceEntry`).
+This includes things like its IP Addresses and ports.
+
 ### Authorization Type
 
 A secondary configuration consumed by Ztunnel is the [`Authorization` resource](../../pkg/workloadapi/security/authorization.proto).
@@ -158,28 +164,29 @@ Additionally, `splice` will be used to make this proxying more efficient when po
 
 For traffic in the mesh, things are a bit more complex:
 
-* If the destination has a waypoint proxy, we must send to it to the waypoint (using HBONE).
-When we do this, we will want to preserve the original destination Service IP, as the waypoint can do a better job picking a backend pod than we can.
-* If the destination is on our node, we "fast path" the request and convert this into an inbound request.
-    * This has the same semantics as if we had sent a request back to ourselves, but is more efficient and reduces complexity in the Ztunnel.
-* Otherwise, we forward the request to the destination using HBONE. If the destination is a Service, we resolve this to a specific pod IP.
+1. If the destination has a waypoint proxy, we must send to it to the waypoint (using HBONE).
+   When we do this, we will want to preserve the original destination Service IP, as the waypoint can do a better job picking a backend pod than we can.
+   Note: the application itself may have already resolved the Service IP to a specific pod if it has Kubernetes native routing built in; since we don't have the Service information in this case we will use the destination IP we received (a pod). Most notably, sidecar proxies behave this way.
+1. If the destination is on our node, we "fast path" the request and convert this into an inbound request.
+   This has the same semantics as if we had sent a request back to ourselves, but is more efficient and reduces complexity in the Ztunnel.
+1. Otherwise, we forward the request to the destination using HBONE. If the destination is a Service, we resolve this to a specific pod IP.
 
 In all cases, we spoof the original source IP.
 
 ### Inbound Passthrough
 
-Traffic entering a pod that is not transmitted over HBONE is handled by the "inbound passthrough" code path, on port 15006.
+Traffic entering a pod that is not transmitted over HBONE  (i.e. with a destination port != 15008) is handled by the "inbound passthrough" code path, on ztunnel's port 15006.
 
 This is fairly straightforward.
 
 First, we need to check that this traffic is allowed.
 Traffic may be denied by RBAC policies (especially from a `STRICT` mode enforcement, which denies plaintext traffic).
 
-If it is, we will forward to the target destination.
+If it is allowed, we will forward to the target destination.
 
 #### Hairpin
 
-In the case that the destination has a waypoint, it must have been bypassed to reach this path.
+In the case that the destination has a waypoint, that waypoint must have been bypassed to reach the inbound passthrough codepath.
 How we handle this is [under discussion](https://docs.google.com/document/d/1uM1c3zzoehiijh1ZpZuJ1-SzuVVupenv8r5yuCaFshs/edit#heading=h.dwbqvwmg6ud3).
 
 ### Inbound
@@ -189,7 +196,7 @@ Traffic entering a pod over HBONE will be handled by the "inbound" code path, on
 Incoming requests have multiple "layers": TLS wrapping HTTP CONNECT wrapping the users connection.
 
 To unwrap the first layer, we terminate TLS.
-As part of this, we need to pick the correct certificate to serve.
+As part of this, we need to pick the correct certificate to serve on behalf of the destination workload.
 As discussed in [HBONE](#hbone), this is based on the destination IP.
 Additionally, we enforce the peer has a valid mesh identity (but do not assert _which_ identity, yet).
 
@@ -212,6 +219,8 @@ When fetching certificates, ztunnel will authenticate to the CA with its own ide
 Critically, the CA must enforce that the ztunnel has access to request that identity.
 Requests for identities not running on the node are rejected.
 This is critical to ensure that a compromised node does not compromise the entire mesh.
+
+This CA enforcement is done by Istio's CA, and is a requirement for any alternative CAs integrating with Ztunnel.
 
 Note: ztunnel authenticates to the CA with a Kubernetes Service Account JWT token, which encodes the pod information, which is what enables this.
 
