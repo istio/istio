@@ -524,13 +524,6 @@ func TestIstiodCipherSuites(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			configDir := t.TempDir()
-
-			port, err := findFreePort()
-			if err != nil {
-				t.Errorf("unable to find a free port: %v", err)
-				return
-			}
-
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{
@@ -538,7 +531,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 					HTTPAddr:       ":0",
 					MonitoringAddr: ":0",
 					GRPCAddr:       ":0",
-					HTTPSAddr:      fmt.Sprintf(":%d", port),
+					HTTPSAddr:      ":0",
 					TLSOptions: TLSOptions{
 						CipherSuits: c.serverCipherSuites,
 					},
