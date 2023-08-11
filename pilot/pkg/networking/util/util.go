@@ -395,8 +395,8 @@ func AddSubsetToMetadata(md *core.Metadata, subset string) {
 	}
 }
 
-// AddALPNOverrideToMetadata adds whether the ALPN prefix should be added to the header
-// to the given core.Metadata struct, if metadata is not initialized, build a new metadata.
+// AddALPNOverrideToMetadata sets filter metadata `istio.alpn_override: "false"` in the given core.Metadata struct,
+// when TLS mode is SIMPLE or MUTUAL. If metadata is not initialized, builds a new metadata.
 func AddALPNOverrideToMetadata(metadata *core.Metadata, tlsMode networking.ClientTLSSettings_TLSmode) *core.Metadata {
 	if tlsMode != networking.ClientTLSSettings_SIMPLE && tlsMode != networking.ClientTLSSettings_MUTUAL {
 		return metadata
