@@ -395,9 +395,13 @@ func AddSubsetToMetadata(md *core.Metadata, subset string) {
 	}
 }
 
-// AddALPNOverrideToMetadata adds whether the the ALPN prefix should be added to the header
+// AddALPNOverrideToMetadata adds whether the ALPN prefix should be added to the header
 // to the given core.Metadata struct, if metadata is not initialized, build a new metadata.
-func AddALPNOverrideToMetadata(metadata *core.Metadata, alpnOverride bool) *core.Metadata {
+func AddALPNOverrideToMetadata(metadata *core.Metadata, tlsMode networking.ClientTLSSettings_TLSmode) *core.Metadata {
+	if tlsMode != networking.ClientTLSSettings_SIMPLE && tlsMode != networking.ClientTLSSettings_MUTUAL {
+		return metadata
+	}
+
 	if metadata == nil {
 		metadata = &core.Metadata{
 			FilterMetadata: map[string]*structpb.Struct{},
@@ -412,7 +416,7 @@ func AddALPNOverrideToMetadata(metadata *core.Metadata, alpnOverride bool) *core
 
 	metadata.FilterMetadata[IstioMetadataKey].Fields["alpn_override"] = &structpb.Value{
 		Kind: &structpb.Value_StringValue{
-			StringValue: strconv.FormatBool(alpnOverride),
+			StringValue: "false",
 		},
 	}
 
