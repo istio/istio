@@ -1907,7 +1907,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 		gatewayServices, err := extractGatewayServices(r.GatewayResources, kgw, obj)
 		if len(gatewayServices) == 0 && err != nil {
 			// Short circuit if its a hard failure
-			reportGatewayStatus(r, obj, gatewayServices, servers, err)
+			reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
 			continue
 		}
 		for i, l := range kgw.Listeners {
@@ -1982,7 +1982,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 			gwMap[ref] = gwMap[alias]
 		}
 
-		reportGatewayStatus(r, obj, gatewayServices, servers, err)
+		reportGatewayStatus(r, obj, classInfo, gatewayServices, servers, err)
 	}
 	// Insert a parent for Mesh references.
 	gwMap[meshParentKey] = []*parentInfo{
@@ -2025,12 +2025,13 @@ func getListenerNames(obj config.Config) sets.Set[k8s.SectionName] {
 func reportGatewayStatus(
 	r configContext,
 	obj config.Config,
+	classInfo classInfo,
 	gatewayServices []string,
 	servers []*istio.Server,
 	gatewayErr *ConfigError,
 ) {
 	// TODO: we lose address if servers is empty due to an error
-	internal, external, pending, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
+	internal, internalIP, external, pending, warnings := r.Context.ResolveGatewayInstances(obj.Namespace, gatewayServices, servers)
 
 	// Setup initial conditions to the success state. If we encounter errors, we will update this.
 	// We have two status
@@ -2085,20 +2086,27 @@ func reportGatewayStatus(
 		if len(addressesToReport) == 0 {
 			// There are no external addresses, so report the internal ones
 			// TODO: should we always report both?
-			addrType = k8s.HostnameAddressType
-			for _, hostport := range internal {
-				svchost, _, _ := net.SplitHostPort(hostport)
-				if !slices.Contains(pending, svchost) && !slices.Contains(addressesToReport, svchost) {
-					addressesToReport = append(addressesToReport, svchost)
+			if classInfo.addressType == k8s.IPAddressType {
+				addressesToReport = internalIP
+			} else {
+				addrType = k8s.HostnameAddressType
+				for _, hostport := range internal {
+					svchost, _, _ := net.SplitHostPort(hostport)
+					if !slices.Contains(pending, svchost) && !slices.Contains(addressesToReport, svchost) {
+						addressesToReport = append(addressesToReport, svchost)
+					}
 				}
 			}
 		}
-		gs.Addresses = make([]k8sbeta.GatewayStatusAddress, 0, len(addressesToReport))
-		for _, addr := range addressesToReport {
-			gs.Addresses = append(gs.Addresses, k8sbeta.GatewayStatusAddress{
-				Value: addr,
-				Type:  &addrType,
-			})
+		// Do not report an address until we are ready. But once we are ready, never remove the address.
+		if len(addressesToReport) > 0 {
+			gs.Addresses = make([]k8sbeta.GatewayStatusAddress, 0, len(addressesToReport))
+			for _, addr := range addressesToReport {
+				gs.Addresses = append(gs.Addresses, k8sbeta.GatewayStatusAddress{
+					Value: addr,
+					Type:  &addrType,
+				})
+			}
 		}
 		// Prune listeners that have been removed
 		haveListeners := getListenerNames(obj)
