@@ -5,6 +5,7 @@
 {{- $whv := dict
   "revision" .Values.revision
   "injectionURL" .Values.istiodRemote.injectionURL
+  "defaultExcludedNamespaces" .Values.sidecarInjectorWebhook.defaultExcludedNamespaces
   "namespace" .Release.Namespace }}
 {{- define "core" }}
 - name: {{.Prefix}}sidecar-injector.istio.io

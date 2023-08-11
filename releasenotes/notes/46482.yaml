@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** support for configuring injection ignored namespaces via `.Values.sidecarInjectorWebhook.defaultExcludedNamespaces`.
