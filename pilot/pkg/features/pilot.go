@@ -653,6 +653,9 @@ var (
 	MetricGracefulDeletionInterval = env.Register("METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute,
 		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disabled.").Get()
 
+	NativeMetadataExchange = env.Register("NATIVE_METADATA_EXCHANGE", true,
+		"If set, uses a native implementation of the HTTP metadata exchange filter").Get()
+
 	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
 		"If enabled, pilot will only rebuild config for resources that have changed").Get()
 
