@@ -218,6 +218,9 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts,
 	// basis in buildCluster, so we can just insert without a copy.
 	subsetCluster.cluster.Metadata = util.AddConfigInfoMetadata(subsetCluster.cluster.Metadata, destRule.Meta)
 	util.AddSubsetToMetadata(subsetCluster.cluster.Metadata, subset.Name)
+	if opts.policy.GetTls() != nil {
+		subsetCluster.cluster.Metadata = configureALPNOverride(opts.policy.Tls.Mode, subsetCluster.cluster.Metadata)
+	}
 	return subsetCluster.build()
 }
 
