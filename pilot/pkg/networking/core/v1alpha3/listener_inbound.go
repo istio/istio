@@ -749,25 +749,29 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 
 // buildSidecarInboundHTTPOpts sets up HTTP options for a given chain.
 func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *httpListenerOpts {
+	ph := GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	httpOpts := &httpListenerOpts{
 		routeConfig:      buildSidecarInboundHTTPRouteConfig(lb, cc),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
-			// Append and forward client cert to backend.
-			ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+			// Append and forward client cert to backend, if configured
+			ForwardClientCertDetails: ph.ForwardedClientCert,
 			SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 				Subject: proto.BoolTrue,
 				Uri:     true,
 				Dns:     true,
 			},
-			ServerName: EnvoyServerName,
+			ServerName:                 ph.ServerName,
+			ServerHeaderTransformation: ph.ServerHeaderTransformation,
+			GenerateRequestId:          ph.GenerateRequestID,
 		},
-		protocol:   cc.port.Protocol,
-		class:      istionetworking.ListenerClassSidecarInbound,
-		port:       int(cc.port.TargetPort),
-		statPrefix: cc.StatPrefix(),
-		hbone:      cc.hbone,
+		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+		protocol:                  cc.port.Protocol,
+		class:                     istionetworking.ListenerClassSidecarInbound,
+		port:                      int(cc.port.TargetPort),
+		statPrefix:                cc.StatPrefix(),
+		hbone:                     cc.hbone,
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {

@@ -29,12 +29,12 @@ import (
 func TestBuildRouterFilter(t *testing.T) {
 	tests := []struct {
 		name     string
-		ctx      *RouterFilterContext
+		ctx      RouterFilterContext
 		expected *hcm.HttpFilter
 	}{
 		{
 			name: "test for build router filter",
-			ctx:  &RouterFilterContext{StartChildSpan: true},
+			ctx:  RouterFilterContext{StartChildSpan: true},
 			expected: &hcm.HttpFilter{
 				Name: wellknown.Router,
 				ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -45,24 +45,30 @@ func TestBuildRouterFilter(t *testing.T) {
 			},
 		},
 		{
+			name: "both true",
+			ctx: RouterFilterContext{
+				StartChildSpan:       true,
+				SuppressDebugHeaders: true,
+			},
+			expected: &hcm.HttpFilter{
+				Name: wellknown.Router,
+				ConfigType: &hcm.HttpFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&router.Router{
+						StartChildSpan:       true,
+						SuppressEnvoyHeaders: true,
+					}),
+				},
+			},
+		},
+		{
 			name: "test for build router filter with start child span false",
-			ctx:  &RouterFilterContext{StartChildSpan: false},
+			ctx:  RouterFilterContext{StartChildSpan: false},
 			expected: &hcm.HttpFilter{
 				Name: wellknown.Router,
 				ConfigType: &hcm.HttpFilter_TypedConfig{
 					TypedConfig: protoconv.MessageToAny(&router.Router{
 						StartChildSpan: false,
 					}),
-				},
-			},
-		},
-		{
-			name: "test for build router filter with empty context",
-			ctx:  nil,
-			expected: &hcm.HttpFilter{
-				Name: wellknown.Router,
-				ConfigType: &hcm.HttpFilter_TypedConfig{
-					TypedConfig: protoconv.MessageToAny(&router.Router{}),
 				},
 			},
 		},

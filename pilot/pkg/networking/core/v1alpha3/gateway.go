@@ -389,6 +389,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 		}
 	}
 
+	ph := GetProxyHeaders(node, push, istionetworking.ListenerClassGateway)
 	merged := node.MergedGateway
 	log.Debugf("buildGatewayRoutes: gateways after merging: %v", merged)
 
@@ -498,7 +499,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						Domains:                    []string{hostname.String()},
 						Routes:                     routes,
 						TypedPerFilterConfig:       perRouteFilters,
-						IncludeRequestAttemptCount: true,
+						IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
 					}
 					if server.Tls != nil && server.Tls.HttpsRedirect {
 						newVHost.RequireTls = route.VirtualHost_ALL
@@ -521,7 +522,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			newVHost := &route.VirtualHost{
 				Name:                       util.DomainName(hostname, port),
 				Domains:                    []string{hostname},
-				IncludeRequestAttemptCount: true,
+				IncludeRequestAttemptCount: ph.IncludeRequestAttemptCount,
 				RequireTls:                 route.VirtualHost_ALL,
 			}
 			vHostDedupMap[host.Name(hostname)] = newVHost
@@ -650,7 +651,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 	push *model.PushContext,
 ) *filterChainOpts {
 	serverProto := protocol.Parse(port.Protocol)
-
+	ph := GetProxyHeadersFromProxyConfig(proxyConfig, istionetworking.ListenerClassGateway)
 	if serverProto.IsHTTP() {
 		return &filterChainOpts{
 			// This works because we validate that only HTTPS servers can have same port but still different port names
@@ -659,11 +660,12 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 			sniHosts:   nil,
 			tlsContext: nil,
 			httpOpts: &httpListenerOpts{
-				rds:               routeName,
-				useRemoteAddress:  true,
-				connectionManager: buildGatewayConnectionManager(proxyConfig, node, false /* http3SupportEnabled */, push),
-				protocol:          serverProto,
-				class:             istionetworking.ListenerClassGateway,
+				rds:                       routeName,
+				useRemoteAddress:          true,
+				connectionManager:         buildGatewayConnectionManager(proxyConfig, node, false /* http3SupportEnabled */, push),
+				suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+				protocol:                  serverProto,
+				class:                     istionetworking.ListenerClassGateway,
 			},
 		}
 	}
@@ -679,13 +681,14 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 		sniHosts:   node.MergedGateway.TLSServerInfo[server].SNIHosts,
 		tlsContext: buildGatewayListenerTLSContext(push.Mesh, server, node, transportProtocol),
 		httpOpts: &httpListenerOpts{
-			rds:               routeName,
-			useRemoteAddress:  true,
-			connectionManager: buildGatewayConnectionManager(proxyConfig, node, http3Enabled, push),
-			protocol:          serverProto,
-			statPrefix:        server.Name,
-			http3Only:         http3Enabled,
-			class:             istionetworking.ListenerClassGateway,
+			rds:                       routeName,
+			useRemoteAddress:          true,
+			connectionManager:         buildGatewayConnectionManager(proxyConfig, node, http3Enabled, push),
+			suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+			protocol:                  serverProto,
+			statPrefix:                server.Name,
+			http3Only:                 http3Enabled,
+			class:                     istionetworking.ListenerClassGateway,
 		},
 	}
 }
@@ -693,13 +696,15 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *model.Proxy, http3SupportEnabled bool,
 	push *model.PushContext,
 ) *hcm.HttpConnectionManager {
+	ph := GetProxyHeadersFromProxyConfig(proxyConfig, istionetworking.ListenerClassGateway)
 	httpProtoOpts := &core.Http1ProtocolOptions{}
 	if features.HTTP10 || enableHTTP10(node.Metadata.HTTP10) {
 		httpProtoOpts.AcceptHttp_10 = true
 	}
 	xffNumTrustedHops := uint32(0)
-	forwardClientCertDetails := util.MeshConfigToEnvoyForwardClientCertDetails(meshconfig.ForwardClientCertDetails_SANITIZE_SET)
 
+	// Gateways do not use ProxyHeaders for XFCC as there is an existing field in gateway topology that is used instead.
+	forwardClientCertDetails := util.MeshConfigToEnvoyForwardClientCertDetails(meshconfig.ForwardClientCertDetails_SANITIZE_SET)
 	if proxyConfig != nil && proxyConfig.GatewayTopology != nil {
 		xffNumTrustedHops = proxyConfig.GatewayTopology.NumTrustedProxies
 		if proxyConfig.GatewayTopology.ForwardClientCertDetails != meshconfig.ForwardClientCertDetails_UNDEFINED {
@@ -717,8 +722,10 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 			Uri:     true,
 			Dns:     true,
 		},
-		ServerName:          EnvoyServerName,
-		HttpProtocolOptions: httpProtoOpts,
+		ServerName:                 ph.ServerName,
+		ServerHeaderTransformation: ph.ServerHeaderTransformation,
+		GenerateRequestId:          ph.GenerateRequestID,
+		HttpProtocolOptions:        httpProtoOpts,
 	}
 	if http3SupportEnabled {
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
