@@ -117,6 +117,7 @@ var dashboards = []struct {
 		},
 		true,
 	},
+	/* No longer using Wasm by default.
 	{
 		"istio-services-grafana-dashboards",
 		"istio-extension-dashboard.json",
@@ -128,6 +129,7 @@ var dashboards = []struct {
 		},
 		false,
 	},
+	*/
 }
 
 func TestDashboard(t *testing.T) {
