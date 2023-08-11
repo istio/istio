@@ -803,14 +803,11 @@ func verifyALPNOverride(t *testing.T, md *core.Metadata, tlsMode networking.Clie
 		} else {
 			t.Errorf("alpn_override metadata should be written for either TLS mode SIMPLE or MUTUAL")
 		}
-	} else {
-		// If TLS settings are not found, alpn_override metadata should not be written
-		if ok {
-			alpnOverride, found := istio.Fields[util.AlpnOverrideMetadataKey]
-			if found {
-				t.Errorf("alpn_override:%s tlsMode:%s, alpn_override metadata should not be written if TLS mode is neither SIMPLE nor MUTUAL",
-					alpnOverride.GetStringValue(), tlsMode)
-			}
+	} else if ok {
+		alpnOverride, found := istio.Fields[util.AlpnOverrideMetadataKey]
+		if found {
+			t.Errorf("alpn_override:%s tlsMode:%s, alpn_override metadata should not be written if TLS mode is neither SIMPLE nor MUTUAL",
+				alpnOverride.GetStringValue(), tlsMode)
 		}
 	}
 }
