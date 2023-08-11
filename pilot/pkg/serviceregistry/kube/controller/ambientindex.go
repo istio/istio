@@ -854,7 +854,10 @@ func getVIPs(svc *v1.Service) []string {
 		res = append(res, svc.Spec.ClusterIP)
 	}
 	for _, ing := range svc.Status.LoadBalancer.Ingress {
-		res = append(res, ing.IP)
+		// IPs are strictly optional for loadbalancers - they may just have a hostname.
+		if ing.IP != "" {
+			res = append(res, ing.IP)
+		}
 	}
 	return res
 }
