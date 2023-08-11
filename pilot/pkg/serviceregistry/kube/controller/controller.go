@@ -214,7 +214,7 @@ type Controller struct {
 	// index over workload instances from workload entries
 	workloadInstancesIndex workloadinstances.Index
 
-	networkManager
+	*networkManager
 
 	// initialSyncTimedout is set to true after performing an initial processing timed out.
 	initialSyncTimedout *atomic.Bool
@@ -240,9 +240,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		externalNameSvcInstanceMap: make(map[host.Name][]*model.ServiceInstance),
 		workloadInstancesIndex:     workloadinstances.NewIndex(),
 		initialSyncTimedout:        atomic.NewBool(false),
-		networkManager:             initNetworkManager(options),
 		configCluster:              options.ConfigCluster,
 	}
+	c.networkManager = initNetworkManager(c, options)
 
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
@@ -613,8 +613,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
-
-	c.networkManager.watchGatewayResources(c, stop)
 
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))

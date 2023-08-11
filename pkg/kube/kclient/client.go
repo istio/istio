@@ -206,7 +206,7 @@ func NewFiltered[T controllers.ComparableObject](c kube.Client, filter Filter) C
 // begin returning results.
 // HasSynced will only return true if the CRD was not present upon creation OR the watch is fully synced. This ensures the creation
 // is fully consistent if the CRD was present during creation; otherwise it is eventually consistent.
-func NewDelayedInformer(c kube.Client, gvr schema.GroupVersionResource, informerType kubetypes.InformerType, filter Filter) Untyped {
+func NewDelayedInformer[T controllers.ComparableObject](c kube.Client, gvr schema.GroupVersionResource, informerType kubetypes.InformerType, filter Filter) Informer[T] {
 	watcher := c.CrdWatcher()
 	if watcher == nil {
 		log.Fatalf("NewDelayedInformer called without a CrdWatcher enabled")
@@ -217,7 +217,7 @@ func NewDelayedInformer(c kube.Client, gvr schema.GroupVersionResource, informer
 		opts.InformerType = informerType
 		return kubeclient.GetInformerFilteredFromGVR(c, opts, gvr)
 	}
-	return newDelayedInformer[controllers.Object](gvr, inf, delay, filter)
+	return newDelayedInformer[T](gvr, inf, delay, filter)
 }
 
 // NewUntypedInformer returns an untyped client for a given GVR. This is read-only.
