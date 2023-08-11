@@ -129,3 +129,8 @@ imagePullSecrets: []
 podDisruptionBudget: {}
 
 terminationGracePeriodSeconds: 30
+
+# Use RollingUpdate deployment strategy to reduce disruption
+rollingUpdate:
+  maxSurge: 50%
+  maxUnavailable: 25%
