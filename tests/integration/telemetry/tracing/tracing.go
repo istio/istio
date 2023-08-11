@@ -226,6 +226,7 @@ func SendTraffic(t framework.TestContext, headers map[string][]string, cl cluste
 			HTTP: echo.HTTP{
 				Headers: headers,
 			},
+			Count: 25, // Send many requests so traces get exported faster
 			Retry: echo.Retry{
 				NoRetry: true,
 			},
