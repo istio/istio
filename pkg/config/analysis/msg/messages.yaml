@@ -171,11 +171,7 @@ messages:
       - name: services
         type: "[]string"
 
-  - name: "DeploymentRequiresServiceAssociated"
-    code: IST0117
-    level: Warning
-    description: "The resulting pods of a service mesh deployment must be associated with at least one service."
-    template: "No service associated with this deployment. Service mesh deployments must be associated with a service."
+  # IST0117 RETIRED
 
   - name: "PortNameIsNotUnderNamingConvention"
     code: IST0118

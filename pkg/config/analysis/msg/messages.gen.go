@@ -69,10 +69,6 @@ var (
 	// Description: The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols.
 	DeploymentAssociatedToMultipleServices = diag.NewMessageType(diag.Warning, "IST0116", "This deployment %s is associated with multiple services using port %d but different protocols: %v")
 
-	// DeploymentRequiresServiceAssociated defines a diag.MessageType for message "DeploymentRequiresServiceAssociated".
-	// Description: The resulting pods of a service mesh deployment must be associated with at least one service.
-	DeploymentRequiresServiceAssociated = diag.NewMessageType(diag.Warning, "IST0117", "No service associated with this deployment. Service mesh deployments must be associated with a service.")
-
 	// PortNameIsNotUnderNamingConvention defines a diag.MessageType for message "PortNameIsNotUnderNamingConvention".
 	// Description: Port name is not under naming convention. Protocol detection is applied to the port.
 	PortNameIsNotUnderNamingConvention = diag.NewMessageType(diag.Info, "IST0118", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port.")
@@ -256,7 +252,6 @@ func All() []*diag.MessageType {
 		VirtualServiceDestinationPortSelectorRequired,
 		MTLSPolicyConflict,
 		DeploymentAssociatedToMultipleServices,
-		DeploymentRequiresServiceAssociated,
 		PortNameIsNotUnderNamingConvention,
 		JwtFailureDueToInvalidServicePortPrefix,
 		InvalidRegexp,
@@ -448,14 +443,6 @@ func NewDeploymentAssociatedToMultipleServices(r *resource.Instance, deployment 
 		deployment,
 		port,
 		services,
-	)
-}
-
-// NewDeploymentRequiresServiceAssociated returns a new diag.Message based on DeploymentRequiresServiceAssociated.
-func NewDeploymentRequiresServiceAssociated(r *resource.Instance) diag.Message {
-	return diag.NewMessage(
-		DeploymentRequiresServiceAssociated,
-		r,
 	)
 }
 
