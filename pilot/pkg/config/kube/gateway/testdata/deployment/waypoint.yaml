@@ -231,4 +231,5 @@ spec:
     protocol: TCP
   selector:
     istio.io/gateway-name: namespace
+  type: ClusterIP
 ---
