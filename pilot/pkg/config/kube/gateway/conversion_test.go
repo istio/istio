@@ -350,9 +350,15 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 	}
 )
 
-func TestConvertResources(t *testing.T) {
+func init() {
 	features.EnableAlphaGatewayAPI = true
 	features.EnableAmbientControllers = true
+	// Recompute with ambient enabled
+	classInfos = getClassInfos()
+	builtinClasses = getBuiltinClasses()
+}
+
+func TestConvertResources(t *testing.T) {
 	validator := crdvalidation.NewIstioValidator(t)
 	cases := []struct {
 		name string
@@ -832,12 +838,12 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 
 func TestExtractGatewayServices(t *testing.T) {
 	tests := []struct {
-		name             string
-		r                GatewayResources
-		kgw              *k8s.GatewaySpec
-		obj              config.Config
-		gatewayServices  []string
-		skippedAddresses []string
+		name            string
+		r               GatewayResources
+		kgw             *k8s.GatewaySpec
+		obj             config.Config
+		gatewayServices []string
+		err             *ConfigError
 	}{
 		{
 			name: "managed gateway",
@@ -901,19 +907,18 @@ func TestExtractGatewayServices(t *testing.T) {
 					Namespace: "default",
 				},
 			},
-			gatewayServices:  []string{"abc.default.svc.domain", "example.com"},
-			skippedAddresses: []string{"1.2.3.4"},
+			gatewayServices: []string{"abc.default.svc.domain", "example.com"},
+			err: &ConfigError{
+				Reason:  InvalidAddress,
+				Message: "only Hostname is supported, ignoring [1.2.3.4]",
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gatewayServices, skippedAddresses := extractGatewayServices(tt.r, tt.kgw, tt.obj)
-			if !reflect.DeepEqual(gatewayServices, tt.gatewayServices) {
-				t.Errorf("gatewayServices: got %v, want %v", gatewayServices, tt.gatewayServices)
-			}
-			if !reflect.DeepEqual(skippedAddresses, tt.skippedAddresses) {
-				t.Errorf("skippedAddresses: got %v, want %v", skippedAddresses, tt.skippedAddresses)
-			}
+			gatewayServices, err := extractGatewayServices(tt.r, tt.kgw, tt.obj)
+			assert.Equal(t, gatewayServices, tt.gatewayServices)
+			assert.Equal(t, err, tt.err)
 		})
 	}
 }

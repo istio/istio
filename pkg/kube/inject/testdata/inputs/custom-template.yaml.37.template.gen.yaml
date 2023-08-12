@@ -1414,6 +1414,10 @@ templates:
       {{- end }}
       selector:
         istio.io/gateway-name: "{{.Name}}"
+      {{- if and (.Spec.Addresses) (eq .ServiceType "LoadBalancer") }}
+      loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
+      {{- end }}
+      type: {{ .ServiceType | quote }}
     ---
   kube-gateway: |
     apiVersion: v1
@@ -1735,10 +1739,10 @@ templates:
       {{- end }}
       selector:
         istio.io/gateway-name: {{.Name}}
-      {{- if .Spec.Addresses }}
+      {{- if and (.Spec.Addresses) (eq .ServiceType "LoadBalancer") }}
       loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
       {{- end }}
-      type: {{ index .Annotations "networking.istio.io/service-type" | default "LoadBalancer" | quote }}
+      type: {{ .ServiceType | quote }}
     ---
   custom: |
     metadata:

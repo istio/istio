@@ -15,8 +15,6 @@
 package gateway
 
 import (
-	"fmt"
-
 	"github.com/hashicorp/go-multierror"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -90,8 +88,7 @@ func (c *ClassController) reconcileClass(class gateway.ObjectName) error {
 			Description:    &classInfo.description,
 		},
 	}
-	var err error
-	gc, err = c.classes.Create(gc)
+	_, err := c.classes.Create(gc)
 	if err != nil && !kerrors.IsConflict(err) {
 		return err
 	} else if err != nil && kerrors.IsConflict(err) {
@@ -101,14 +98,8 @@ func (c *ClassController) reconcileClass(class gateway.ObjectName) error {
 	if err != nil {
 		return err
 	}
-	if !classInfo.reportGatewayClassStatus {
-		return nil
-	}
-	gc.Status = GetClassStatus(&gc.Status, gc.Generation)
-	if _, err := c.classes.UpdateStatus(gc); err != nil {
-		return fmt.Errorf("failed to update status: %v", err)
-	}
-	return err
+
+	return nil
 }
 
 func GetClassStatus(existing *k8s.GatewayClassStatus, gen int64) k8s.GatewayClassStatus {
