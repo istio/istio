@@ -525,6 +525,138 @@ func TestApplyDestinationRule(t *testing.T) {
 			},
 			expectedSubsetClusters: []*cluster.Cluster{},
 		},
+		{
+			name:        "port level destination rule with tls mode SIMPLE",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{Number: uint32(servicePort[0].Port)},
+							Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
+			name:        "port level destination rule with tls mode MUTUAL",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{Number: uint32(servicePort[0].Port)},
+							Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_MUTUAL},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
+			name:        "port level destination rule with tls mode ISTIO_MUTUAL",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
+						{
+							Port: &networking.PortSelector{Number: uint32(servicePort[0].Port)},
+							Tls:  &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
+			name:        "subset destination rule with tls mode SIMPLE",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name: "v1",
+						TrafficPolicy: &networking.TrafficPolicy{
+							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_SIMPLE},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.default.svc.cluster.local",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+				EdsClusterConfig:     &cluster.Cluster_EdsClusterConfig{ServiceName: "outbound|8080|v1|foo.default.svc.cluster.local"},
+			}},
+		},
+		{
+			name:        "subset destination rule with tls mode MUTUAL",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name: "v1",
+						TrafficPolicy: &networking.TrafficPolicy{
+							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_MUTUAL},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.default.svc.cluster.local",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+				EdsClusterConfig:     &cluster.Cluster_EdsClusterConfig{ServiceName: "outbound|8080|v1|foo.default.svc.cluster.local"},
+			}},
+		},
+		{
+			name:        "subset destination rule with tls mode MUTUAL",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     service,
+			port:        servicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				Subsets: []*networking.Subset{
+					{
+						Name: "v1",
+						TrafficPolicy: &networking.TrafficPolicy{
+							Tls: &networking.ClientTLSSettings{Mode: networking.ClientTLSSettings_ISTIO_MUTUAL},
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{{
+				Name:                 "outbound|8080|v1|foo.default.svc.cluster.local",
+				ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS},
+				EdsClusterConfig:     &cluster.Cluster_EdsClusterConfig{ServiceName: "outbound|8080|v1|foo.default.svc.cluster.local"},
+			}},
+		},
 	}
 
 	for _, tt := range cases {
@@ -604,37 +736,25 @@ func TestApplyDestinationRule(t *testing.T) {
 			}
 
 			// Validate that alpn_override is correctly configured on cluster given a TLS mode.
-			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.Tls != nil {
-				tlsMode := tt.destRule.TrafficPolicy.Tls.Mode
-				if tlsMode == networking.ClientTLSSettings_SIMPLE || tlsMode == networking.ClientTLSSettings_MUTUAL {
-					md := tt.cluster.Metadata
-					istio, ok := md.FilterMetadata[util.IstioMetadataKey]
-					if !ok {
-						t.Errorf("Istio metadata not found")
-					}
-					alpnOverride, found := istio.Fields[util.AlpnOverrideMetadataKey]
-
-					if found {
-						if alpnOverride.GetStringValue() != "false" {
-							t.Errorf("alpn_override:%s tlsMode:%s, should be false for either TLS mode SIMPLE or MUTUAL", alpnOverride, tlsMode)
-						}
+			if tt.destRule.GetTrafficPolicy().GetTls() != nil {
+				verifyALPNOverride(t, tt.cluster.Metadata, tt.destRule.TrafficPolicy.Tls.Mode)
+			}
+			if len(tt.destRule.GetSubsets()) > 0 {
+				for _, c := range subsetClusters {
+					var subsetName string
+					if tt.clusterMode == DefaultClusterMode {
+						subsetName = strings.Split(c.Name, "|")[2]
 					} else {
-						t.Errorf("alpn_override metadata should be written for either TLS mode SIMPLE or MUTUAL")
+						subsetName = strings.Split(c.Name, ".")[2]
 					}
-				} else {
-					// If TLS settings are not found, alpn_override metadata should not be written
-					md := tt.cluster.Metadata
-					istio, ok := md.FilterMetadata[util.IstioMetadataKey]
-					if ok {
-						alpnOverride, found := istio.Fields[util.AlpnOverrideMetadataKey]
-						if found {
-							// nolint: lll
-							t.Errorf("alpn_override:%s tlsMode:%s, alpn_override metadata should not be written if TLS mode is neither SIMPLE nor MUTUAL", alpnOverride.GetStringValue(), tlsMode)
+					for _, subset := range tt.destRule.Subsets {
+						if subset.Name == subsetName {
+							if subset.GetTrafficPolicy().GetTls() != nil {
+								verifyALPNOverride(t, c.Metadata, subset.TrafficPolicy.Tls.Mode)
+							}
 						}
-
 					}
 				}
-
 			}
 
 			// Validate that ORIGINAL_DST cluster does not have load assignments
@@ -665,6 +785,29 @@ func compareClusters(t *testing.T, ec *cluster.Cluster, gc *cluster.Cluster) {
 	if ec.CircuitBreakers != nil {
 		if ec.CircuitBreakers.Thresholds[0].MaxRetries.Value != gc.CircuitBreakers.Thresholds[0].MaxRetries.Value {
 			t.Errorf("Unexpected circuit breaker thresholds want %v, got %v", ec.CircuitBreakers.Thresholds[0].MaxRetries, gc.CircuitBreakers.Thresholds[0].MaxRetries)
+		}
+	}
+}
+
+func verifyALPNOverride(t *testing.T, md *core.Metadata, tlsMode networking.ClientTLSSettings_TLSmode) {
+	istio, ok := md.FilterMetadata[util.IstioMetadataKey]
+	if tlsMode == networking.ClientTLSSettings_SIMPLE || tlsMode == networking.ClientTLSSettings_MUTUAL {
+		if !ok {
+			t.Errorf("Istio metadata not found")
+		}
+		alpnOverride, found := istio.Fields[util.AlpnOverrideMetadataKey]
+		if found {
+			if alpnOverride.GetStringValue() != "false" {
+				t.Errorf("alpn_override:%s tlsMode:%s, should be false for either TLS mode SIMPLE or MUTUAL", alpnOverride, tlsMode)
+			}
+		} else {
+			t.Errorf("alpn_override metadata should be written for either TLS mode SIMPLE or MUTUAL")
+		}
+	} else if ok {
+		alpnOverride, found := istio.Fields[util.AlpnOverrideMetadataKey]
+		if found {
+			t.Errorf("alpn_override:%s tlsMode:%s, alpn_override metadata should not be written if TLS mode is neither SIMPLE nor MUTUAL",
+				alpnOverride.GetStringValue(), tlsMode)
 		}
 	}
 }
@@ -4712,113 +4855,6 @@ func TestInsecureSkipVerify(t *testing.T) {
 				} else if tc.enableVerifyCertAtClient && len(tc.destRule.GetTrafficPolicy().GetTls().SubjectAltNames) == 0 {
 					assert.Equal(t, ec.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, true)
 				}
-			}
-		})
-	}
-}
-
-func TestConfigureALPNOverride(t *testing.T) {
-	cases := []struct {
-		name     string
-		tlsMode  networking.ClientTLSSettings_TLSmode
-		metadata *core.Metadata
-		want     *core.Metadata
-	}{
-		{
-			name:     "tlsMode SIMPLE, metadata nil",
-			tlsMode:  networking.ClientTLSSettings_SIMPLE,
-			metadata: nil,
-			want: &core.Metadata{
-				FilterMetadata: map[string]*structpb.Struct{
-					util.IstioMetadataKey: {
-						Fields: map[string]*structpb.Value{
-							util.AlpnOverrideMetadataKey: {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "false",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:    "tlsMode MUTUAL, metadata not nil",
-			tlsMode: networking.ClientTLSSettings_MUTUAL,
-			metadata: &core.Metadata{
-				FilterMetadata: map[string]*structpb.Struct{
-					util.IstioMetadataKey: {
-						Fields: map[string]*structpb.Value{
-							"other-config": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "other-config",
-								},
-							},
-						},
-					},
-				},
-			},
-			want: &core.Metadata{
-				FilterMetadata: map[string]*structpb.Struct{
-					util.IstioMetadataKey: {
-						Fields: map[string]*structpb.Value{
-							"other-config": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "other-config",
-								},
-							},
-							util.AlpnOverrideMetadataKey: {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "false",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-		{
-			name:     "tlsMode ISTIO_MUTUAL, metadata nil",
-			tlsMode:  networking.ClientTLSSettings_ISTIO_MUTUAL,
-			metadata: nil,
-			want:     nil,
-		},
-		{
-			name:    "tlsMode ISTIO_MUTUAL, metadata not nil",
-			tlsMode: networking.ClientTLSSettings_ISTIO_MUTUAL,
-			metadata: &core.Metadata{
-				FilterMetadata: map[string]*structpb.Struct{
-					util.IstioMetadataKey: {
-						Fields: map[string]*structpb.Value{
-							"other-config": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "other-config",
-								},
-							},
-						},
-					},
-				},
-			},
-			want: &core.Metadata{
-				FilterMetadata: map[string]*structpb.Struct{
-					util.IstioMetadataKey: {
-						Fields: map[string]*structpb.Value{
-							"other-config": {
-								Kind: &structpb.Value_StringValue{
-									StringValue: "other-config",
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			newMetadata := configureALPNOverride(tt.tlsMode, tt.metadata)
-			if diff := cmp.Diff(newMetadata, tt.want, protocmp.Transform()); diff != "" {
-				t.Errorf("configureALPNOverride(%s, %v) produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", tt.tlsMode, tt.metadata, newMetadata, tt.want, diff)
 			}
 		})
 	}
