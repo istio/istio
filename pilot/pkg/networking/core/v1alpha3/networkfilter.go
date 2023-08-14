@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	istioroute "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -65,6 +66,14 @@ func buildMetadataExchangeNetworkFiltersForTCPIstioMTLSGateway() []*listener.Fil
 
 func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, class istionetworking.ListenerClass) []*listener.Filter {
 	return push.Telemetry.TCPFilters(proxy, class)
+}
+
+func buildWasmNetworkFilters(push *model.PushContext, proxy *model.Proxy, port *model.Port, class istionetworking.ListenerClass) []*listener.Filter {
+	wasm := push.WasmPluginsByListenerInfo(proxy, model.WasmPluginListenerInfo{
+		Port:  port.Port,
+		Class: class,
+	})
+	return extension.BuildNetworkWasmFilters(wasm)
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
@@ -103,6 +112,7 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 		filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
 	}
 	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
+	filters = append(filters, buildWasmNetworkFilters(push, node, port, class)...)
 	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	return filters
 }
@@ -156,6 +166,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 		filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
 	}
 	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
+	filters = append(filters, buildWasmNetworkFilters(push, node, port, class)...)
 	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	return filters
 }

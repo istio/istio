@@ -87,6 +87,7 @@ func toEnvoyNetworkFilter(wasmPlugin *model.WasmPluginWrapper) *listener.Filter 
 				ConfigSource: defaultConfigSource,
 				TypeUrls: []string{
 					xds.WasmNetworkFilterType,
+					xds.RBACNetworkFilterType,
 				},
 			},
 		},
