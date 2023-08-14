@@ -351,7 +351,7 @@ func (cl *Client) addCRD(name string) {
 	if s.IsBuiltin() {
 		kc = kclient.NewUntypedInformer(cl.client, gvr, filter)
 	} else {
-		kc = kclient.NewDelayedInformer(
+		kc = kclient.NewDelayedInformer[controllers.Object](
 			cl.client,
 			gvr,
 			kubetypes.StandardInformer,
