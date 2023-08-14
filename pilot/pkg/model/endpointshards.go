@@ -240,8 +240,11 @@ const (
 // UpdateServiceEndpoints updates EndpointShards data by clusterID, hostname, IstioEndpoints.
 // It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
 // it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
-func (e *EndpointIndex) UpdateServiceEndpoints(shard ShardKey, hostname string, namespace string, istioEndpoints []*IstioEndpoint,
-	clearCache func(set sets.Set[ConfigKey]),
+func (e *EndpointIndex) UpdateServiceEndpoints(
+	shard ShardKey,
+	hostname string,
+	namespace string,
+	istioEndpoints []*IstioEndpoint,
 ) PushType {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
@@ -334,9 +337,7 @@ func (e *EndpointIndex) UpdateServiceEndpoints(shard ShardKey, hostname string, 
 	// moving forward in version. In practice, this is pretty rare and self corrects nearly
 	// immediately. However, clearing the cache here has almost no impact on cache performance as we
 	// would clear it shortly after anyways.
-	if clearCache != nil {
-		clearCache(sets.New(ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: namespace}))
-	}
+	e.clearCacheForService(hostname, namespace)
 
 	return pushType
 }
