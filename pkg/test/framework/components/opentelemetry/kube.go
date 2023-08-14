@@ -16,6 +16,7 @@ package opentelemetry
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strings"
 
@@ -23,7 +24,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	testKube "istio.io/istio/pkg/test/kube"
 )
 
@@ -49,7 +49,7 @@ spec:
       name: http-tracing-span
       protocol: HTTP
     hosts:
-    - "{INGRESS_DOMAIN}"
+    - "opentelemetry-collector.{INGRESS_DOMAIN}"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -58,7 +58,7 @@ metadata:
   namespace: istio-system
 spec:
   hosts:
-  - "{INGRESS_DOMAIN}"
+  - "opentelemetry-collector.{INGRESS_DOMAIN}"
   gateways:
   - otel-gateway
   http:
@@ -128,7 +128,7 @@ func install(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	return ctx.ConfigKube().YAML(ns, y).Apply(apply.CleanupConditionally)
+	return ctx.ConfigKube().YAML(ns, y).Apply()
 }
 
 func installServiceEntry(ctx resource.Context, ns, ingressAddr string) error {
@@ -168,7 +168,11 @@ func newCollector(ctx resource.Context, c Config) (*otel, error) {
 		return nil, err
 	}
 
+	isIP := net.ParseIP(c.IngressAddr).String() != "<nil>"
 	ingressDomain := c.IngressAddr
+	if isIP {
+		ingressDomain = fmt.Sprintf("%s.sslip.io", strings.ReplaceAll(c.IngressAddr, ":", "-"))
+	}
 
 	err = installServiceEntry(ctx, istioCfg.TelemetryNamespace, ingressDomain)
 	if err != nil {

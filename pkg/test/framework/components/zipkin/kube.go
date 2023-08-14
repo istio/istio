@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -31,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	testKube "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -56,13 +56,13 @@ spec:
       name: http-tracing
       protocol: HTTP
     hosts:
-    - "{INGRESS_DOMAIN}"
+    - "tracing.{INGRESS_DOMAIN}"
   - port:
       number: 9411
       name: http-tracing-span
       protocol: HTTP
     hosts:
-    - "{INGRESS_DOMAIN}"
+    - "tracing.{INGRESS_DOMAIN}"
 ---
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -71,7 +71,7 @@ metadata:
   namespace: istio-system
 spec:
   hosts:
-  - "{INGRESS_DOMAIN}"
+  - "tracing.{INGRESS_DOMAIN}"
   gateways:
   - tracing-gateway
   http:
@@ -161,7 +161,7 @@ func installZipkin(ctx resource.Context, ns string) error {
 	if err != nil {
 		return err
 	}
-	return ctx.ConfigKube().YAML(ns, yaml).Apply(apply.CleanupConditionally)
+	return ctx.ConfigKube().YAML(ns, yaml).Apply()
 }
 
 func installServiceEntry(ctx resource.Context, ns, ingressAddr string) error {
@@ -213,9 +213,13 @@ func newKube(ctx resource.Context, cfgIn Config) (Instance, error) {
 	c.forwarder = forwarder
 	scopes.Framework.Debugf("initialized zipkin port forwarder: %v", forwarder.Address())
 
+	isIP := net.ParseIP(cfgIn.IngressAddr).String() != "<nil>"
 	ingressDomain := cfgIn.IngressAddr
+	if isIP {
+		ingressDomain = fmt.Sprintf("%s.sslip.io", strings.ReplaceAll(cfgIn.IngressAddr, ":", "-"))
+	}
 
-	c.address = fmt.Sprintf("http://%s", ingressDomain)
+	c.address = fmt.Sprintf("http://tracing.%s", ingressDomain)
 	scopes.Framework.Debugf("Zipkin address: %s ", c.address)
 	err = installServiceEntry(ctx, cfg.TelemetryNamespace, ingressDomain)
 	if err != nil {
