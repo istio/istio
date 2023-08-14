@@ -14,6 +14,12 @@ labels: {}
 # Annotations to apply to all top level resources
 annotations: {}
 
+# Additional volumeMounts to the ztunnel container
+volumeMounts: []
+
+# Additional volumes to the ztunnel pod
+volumes: []
+
 # Annotations added to each pod. The default annotations are required for scraping prometheus (in most environments).
 podAnnotations:
   prometheus.io/port: "15020"
