@@ -619,6 +619,11 @@ func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator,
 		}
 		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
 
+		excludedIgnoredNamespaces := validateDefaultExcludedNamespaces(iop)
+		if len(excludedIgnoredNamespaces) == 0 {
+			excludedIgnoredNamespaces = inject.IgnoredNamespaces.UnsortedList()
+		}
+
 		ignorePruneLabel := map[string]string{
 			OwningResourceNotPruned: "true",
 		}
@@ -629,7 +634,7 @@ func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator,
 			Overwrite:                true,
 			AutoInjectNamespaces:     autoInjectNamespaces,
 			CustomLabels:             ignorePruneLabel,
-			DefaultExcludeNamespaces: inject.IgnoredNamespaces.UnsortedList(),
+			DefaultExcludeNamespaces: excludedIgnoredNamespaces,
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)
@@ -709,4 +714,32 @@ func validateEnableNamespacesByDefault(iop *istioV1Alpha1.IstioOperator) bool {
 	}
 
 	return autoInjectNamespaces
+}
+
+// validateDefaultExcludedNamespaces checks whether there is .Values.sidecarInjectorWebhook.defaultExcludedNamespaces set in the Istio Operator.
+// Should be used in installer when deciding whether to enable excluding automatic sidecar injection in specified namespaces.
+func validateDefaultExcludedNamespaces(iop *istioV1Alpha1.IstioOperator) []string {
+	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
+		return nil
+	}
+	sidecarValues := iop.Spec.Values.AsMap()["sidecarInjectorWebhook"]
+	sidecarMap, ok := sidecarValues.(map[string]any)
+	if !ok {
+		return nil
+	}
+	defaultExcludedNamespaces, ok := sidecarMap["defaultExcludedNamespaces"]
+	if !ok {
+		return nil
+	}
+	excludedNamespacesInterface, ok := defaultExcludedNamespaces.([]interface{})
+	if !ok {
+		return nil
+	}
+	var result []string
+	for _, namespace := range excludedNamespacesInterface {
+		if nsStr, ok := namespace.(string); ok {
+			result = append(result, nsStr)
+		}
+	}
+	return result
 }
