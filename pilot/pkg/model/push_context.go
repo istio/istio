@@ -16,6 +16,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/netip"
 	"sort"
@@ -854,6 +855,36 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) b
 	return false
 }
 
+// wellknownProviders is a lsit of all known providers.
+// This exists
+var wellknownProviders = sets.New(
+	"envoy_ext_authz_http",
+	"envoy_ext_authz_grpc",
+	"zipkin",
+	"lightstep",
+	"datadog",
+	"opencensus",
+	"stackdriver",
+	"prometheus",
+	"skywalking",
+	"envoy_http_als",
+	"envoy_tcp_als",
+	"envoy_otel_als",
+	"opentelemetry",
+	"envoy_file_access_log",
+)
+
+func AssertProvidersHandled(expected int) {
+	if expected != len(wellknownProviders) {
+		panic(fmt.Sprintf("Not all providers handled; This function handles %v but there are %v known providers", expected, len(wellknownProviders)))
+	}
+}
+
+// addHostsFromMeshConfigProvidersHandled contains the number of providers we handle below.
+// This is to ensure this stays in sync as new handlers are added
+// STOP. DO NOT UPDATE THIS WITHOUT UPDATING addHostsFromMeshConfig.
+const addHostsFromMeshConfigProvidersHandled = 14
+
 // add services from MeshConfig.ExtensionProviders
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
 func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
@@ -870,16 +901,21 @@ func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
 			hosts.Insert(p.Lightstep.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 			hosts.Insert(p.Datadog.Service)
-		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-			hosts.Insert(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 			hosts.Insert(p.Skywalking.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
+			hosts.Insert(p.Opencensus.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
+			hosts.Insert(p.Opentelemetry.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
 			hosts.Insert(p.EnvoyHttpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
 			hosts.Insert(p.EnvoyTcpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
 			hosts.Insert(p.EnvoyOtelAls.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog: // No services
+		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus: // No services
+		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver: // No services
 		}
 	}
 }
