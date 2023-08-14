@@ -192,6 +192,7 @@ func (m *workloadManager) onPodAddOrUpdate(pod *corev1.Pod) error {
 		cluster:    m.cfg.Cluster,
 		grpcPort:   m.grpcPort,
 		tls:        m.tls,
+		stop:       m.stopCh,
 	}, m.ctx)
 	if err != nil {
 		return err
