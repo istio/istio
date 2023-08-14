@@ -520,10 +520,22 @@ type TelemetryDebug struct {
 }
 
 func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
-	info := TelemetryDebug{
-		Telemetries: s.globalPushContext().Telemetry,
+	proxyID, con := s.getDebugConnection(req)
+	if proxyID != "" && con == nil {
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance.\n"))
+		return
 	}
-	writeJSON(w, info, req)
+	if con == nil {
+		info := TelemetryDebug{
+			Telemetries: s.globalPushContext().Telemetry,
+		}
+		writeJSON(w, info, req)
+		return
+	}
+	writeJSON(w, s.globalPushContext().Telemetry.Debug(con.proxy), req)
 }
 
 // connectionsHandler implements interface for displaying current connections.
