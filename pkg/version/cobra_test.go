@@ -110,15 +110,39 @@ func TestOpts(t *testing.T) {
 var meshEmptyVersion = MeshInfo{}
 
 var meshInfoSingleVersion = MeshInfo{
-	{"Pilot", BuildInfo{"1.2.0", "gitSHA123", "go1.10", "Clean", "tag"}},
-	{"Injector", BuildInfo{"1.2.0", "gitSHAabc", "go1.10.1", "Modified", "tag"}},
-	{"Citadel", BuildInfo{"1.2.0", "gitSHA321", "go1.11.0", "Clean", "tag"}},
+	{
+		Component: "Pilot",
+		Revision:  "default",
+		Info:      BuildInfo{"1.2.0", "gitSHA123", "go1.10", "Clean", "tag"},
+	},
+	{
+		Component: "Injector",
+		Revision:  "default",
+		Info:      BuildInfo{"1.2.0", "gitSHAabc", "go1.10.1", "Modified", "tag"},
+	},
+	{
+		Component: "Citadel",
+		Revision:  "default",
+		Info:      BuildInfo{"1.2.0", "gitSHA321", "go1.11.0", "Clean", "tag"},
+	},
 }
 
 var meshInfoMultiVersion = MeshInfo{
-	{"Pilot", BuildInfo{"1.0.0", "gitSHA123", "go1.10", "Clean", "1.0.0"}},
-	{"Injector", BuildInfo{"1.0.1", "gitSHAabc", "go1.10.1", "Modified", "1.0.1"}},
-	{"Citadel", BuildInfo{"1.2", "gitSHA321", "go1.11.0", "Clean", "1.2"}},
+	{
+		Component: "Pilot",
+		Revision:  "default",
+		Info:      BuildInfo{"1.0.0", "gitSHA123", "go1.10", "Clean", "1.0.0"},
+	},
+	{
+		Component: "Injector",
+		Revision:  "default",
+		Info:      BuildInfo{"1.0.1", "gitSHAabc", "go1.10.1", "Modified", "1.0.1"},
+	},
+	{
+		Component: "Citadel",
+		Revision:  "default",
+		Info:      BuildInfo{"1.2", "gitSHA321", "go1.11.0", "Clean", "1.2"},
+	},
 }
 
 func mockRemoteMesh(meshInfo *MeshInfo, err error) GetRemoteVersionFunc {
