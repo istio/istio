@@ -220,7 +220,7 @@ func (ic *serviceImportCacheImpl) createKubeService(t *testing.T, c *FakeControl
 		}
 
 		if len(expectedHosts) > 0 {
-			return fmt.Errorf("failed to find proxy ServiceInstances for hosts: %v", expectedHosts)
+			return fmt.Errorf("failed to find proxy ServiceEndpoints for hosts: %v", expectedHosts)
 		}
 
 		return nil

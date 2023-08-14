@@ -305,7 +305,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 	}
 }
 
-// convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
+// convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceEndpoints. This logic is largely the
 // same as the ServiceEntry convertServiceEntryToInstances.
 func (s *Controller) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
 	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID,

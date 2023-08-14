@@ -814,30 +814,6 @@ type ServiceDiscovery interface {
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname host.Name) *Service
 
-	// InstancesByPort retrieves instances for a service on the given ports with labels that match
-	// any of the supplied labels. All instances match an empty tag list.
-	//
-	// For example, consider an example of catalog.mystore.com:
-	// Instances(catalog.myservice.com, 80) ->
-	//      --> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> IstioEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//      --> IstioEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//
-	// Calling Instances with specific labels returns a trimmed list.
-	// e.g., Instances(catalog.myservice.com, 80, foo=bar) ->
-	//      --> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//
-	// Similar concepts apply for calling this function with a specific
-	// port, hostname and labels.
-	//
-	// Introduced in Istio 0.8. It is only called with 1 port.
-	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
-	// EDS calls it for building the endpoints result.
-	// Consult istio-dev before using this for anything else (except debugging/tools)
-	InstancesByPort(svc *Service, servicePort int) []*ServiceInstance
-
 	// GetProxyServiceTargets returns the service instances that co-located with a given Proxy
 	//
 	// Co-located generally means running in the same network namespace and security context.
@@ -845,10 +821,10 @@ type ServiceDiscovery interface {
 	// A Proxy operating as a Sidecar will return a non-empty slice.  A stand-alone Proxy
 	// will return an empty slice.
 	//
-	// There are two reasons why this returns multiple ServiceInstances instead of one:
-	// - A ServiceInstance has a single IstioEndpoint which has a single Port.  But a Service
+	// There are two reasons why this returns multiple ServiceTargets instead of one:
+	// - A ServiceTargets has a single IstioEndpoint which has a single Port.  But a Service
 	//   may have many ports.  So a workload implementing such a Service would need
-	//   multiple ServiceInstances, one for each port.
+	//   multiple ServiceEndpoints, one for each port.
 	// - A single workload may implement multiple logical Services.
 	//
 	// In the second case, multiple services may be implemented by the same physical port number,

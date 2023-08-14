@@ -138,7 +138,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 
 	xdsUpdater := opts.XDSUpdater
 	if xdsUpdater == nil {
-		xdsUpdater = &FakeXdsUpdater{ei: env.EndpointIndex}
+		xdsUpdater = model.NewEndpointIndexUpdater(env.EndpointIndex)
 	}
 
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
@@ -187,7 +187,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 	if !opts.SkipRun {
 		fake.Run()
-		if err := env.InitNetworksManager(&FakeXdsUpdater{}); err != nil {
+		if err := env.InitNetworksManager(xdsUpdater); err != nil {
 			t.Fatal(err)
 		}
 		if err := env.PushContext().InitContext(env, nil, nil); err != nil {
@@ -323,8 +323,6 @@ func (f *ConfigGenTest) Store() model.ConfigStoreController {
 	return f.store
 }
 
-var _ model.XDSUpdater = &FakeXdsUpdater{}
-
 func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 	for _, p := range opts.ConfigPointers {
 		if p != nil {
@@ -361,30 +359,4 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 		}
 	}
 	return cfgs
-}
-
-type FakeXdsUpdater struct {
-	ei *model.EndpointIndex
-}
-
-func (f *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {}
-
-func (f *FakeXdsUpdater) EDSUpdate(shard model.ShardKey, serviceName string, namespace string, eps []*model.IstioEndpoint) {
-	f.ei.UpdateServiceEndpoints(shard, serviceName, namespace, eps)
-}
-
-func (f *FakeXdsUpdater) EDSCacheUpdate(shard model.ShardKey, serviceName string, namespace string, eps []*model.IstioEndpoint) {
-	f.ei.UpdateServiceEndpoints(shard, serviceName, namespace, eps)
-}
-
-func (f *FakeXdsUpdater) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {
-	if event == model.EventDelete {
-		f.ei.DeleteServiceShard(shard, hostname, namespace, false)
-	}
-}
-
-func (f *FakeXdsUpdater) ProxyUpdate(_ cluster2.ID, _ string) {}
-
-func (f *FakeXdsUpdater) RemoveShard(shardKey model.ShardKey) {
-	f.ei.DeleteShard(shardKey)
 }
