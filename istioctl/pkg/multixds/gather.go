@@ -128,8 +128,8 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 		if err != nil {
 			return nil, err
 		}
-		defer fw.Close()
 		xdsOpts.Xds = fw.Address()
+		fw.Close()
 		response, err := xds.GetXdsResponse(dr, istioNamespace, tokenServiceAccount, xdsOpts, dialOpts)
 		if err != nil {
 			return nil, fmt.Errorf("could not get XDS from discovery pod %q: %v", pod.Name, err)
