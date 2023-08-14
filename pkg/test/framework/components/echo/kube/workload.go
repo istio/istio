@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 
 	istioKube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
@@ -48,6 +49,7 @@ type workloadConfig struct {
 	grpcPort   uint16
 	cluster    cluster.Cluster
 	tls        *common.TLSSettings
+	stop       chan struct{}
 }
 
 type workload struct {
@@ -72,7 +74,46 @@ func newWorkload(cfg workloadConfig, ctx resource.Context) (*workload, error) {
 		return nil, err
 	}
 
+	go watchPortForward(cfg, w)
+
 	return w, nil
+}
+
+// watchPortForward wait watch the health of a port-forward connection. If a disconnect is detected, the workload is reconnected.
+// TODO: this isn't structured very nicely. We have a port forwarder that can notify us when it fails (ErrChan) and we are competing with
+// the pod informer which is sequenced via mutex. This could probably be cleaned up to be more event driven, but would require larger refactoring.
+func watchPortForward(cfg workloadConfig, w *workload) {
+	t := time.NewTicker(time.Millisecond * 500)
+	handler := func() {
+		w.mutex.Lock()
+		defer w.mutex.Unlock()
+		if w.forwarder == nil {
+			// We only want to do reconnects here, if we never connected let the main flow handle it.
+			return
+		}
+		// Only reconnect if the pod is ready
+		if !isPodReady(w.pod) {
+			return
+		}
+		con := !w.isConnected()
+		if con {
+			log.Warnf("pod: %s/%s port forward terminated", w.pod.Namespace, w.pod.Name)
+			err := w.connect(w.pod)
+			if err != nil {
+				log.Warnf("pod: %s/%s port forward reconnect failed: %v", w.pod.Namespace, w.pod.Name, err)
+			} else {
+				log.Warnf("pod: %s/%s port forward reconnect success", w.pod.Namespace, w.pod.Name)
+			}
+		}
+	}
+	for {
+		select {
+		case <-cfg.stop:
+			return
+		case <-t.C:
+			handler()
+		}
+	}
 }
 
 func (w *workload) IsReady() bool {
@@ -180,7 +221,17 @@ func isPodReady(pod corev1.Pod) bool {
 }
 
 func (w *workload) isConnected() bool {
-	return w.forwarder != nil
+	if w.forwarder == nil {
+		return false
+	}
+	select {
+	case <-w.forwarder.ErrChan():
+		// If an error is available, we got disconnected
+		return false
+	default:
+		// Otherwise we are connected
+		return true
+	}
 }
 
 func (w *workload) connect(pod corev1.Pod) (err error) {
