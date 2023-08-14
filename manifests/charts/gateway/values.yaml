@@ -129,3 +129,11 @@ imagePullSecrets: []
 podDisruptionBudget: {}
 
 terminationGracePeriodSeconds: 30
+
+# A list of `Volumes` added into the Gateway Pods. See
+# https://kubernetes.io/docs/concepts/storage/volumes/.
+volumes: []
+
+# A list of `VolumeMounts` added into the Gateway Pods. See
+# https://kubernetes.io/docs/concepts/storage/volumes/.
+volumeMounts: []
