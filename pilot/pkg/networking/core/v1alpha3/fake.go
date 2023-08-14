@@ -370,11 +370,11 @@ type FakeXdsUpdater struct {
 func (f *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {}
 
 func (f *FakeXdsUpdater) EDSUpdate(shard model.ShardKey, serviceName string, namespace string, eps []*model.IstioEndpoint) {
-	f.ei.UpdateServiceEndpoints(shard, serviceName, namespace, eps, nil)
+	f.ei.UpdateServiceEndpoints(shard, serviceName, namespace, eps)
 }
 
 func (f *FakeXdsUpdater) EDSCacheUpdate(shard model.ShardKey, serviceName string, namespace string, eps []*model.IstioEndpoint) {
-	f.ei.UpdateServiceEndpoints(shard, serviceName, namespace, eps, nil)
+	f.ei.UpdateServiceEndpoints(shard, serviceName, namespace, eps)
 }
 
 func (f *FakeXdsUpdater) SvcUpdate(shard model.ShardKey, hostname string, namespace string, event model.Event) {
