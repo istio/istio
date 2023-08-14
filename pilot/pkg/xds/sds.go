@@ -132,7 +132,6 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		pilotSDSCertificateErrors.Increment()
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-
 	// Filter down to resources we can access. We do not return an error if they attempt to access a Secret
 	// they cannot; instead we just exclude it. This ensures that a single bad reference does not break the whole
 	// SDS flow. The pilotSDSCertificateErrors metric and logs handle visibility into invalid references.
@@ -183,9 +182,14 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	if isCAOnlySecret {
 		caCertInfo, err := secretController.GetCaCert(sr.Name, sr.Namespace)
 		if err != nil {
-			pilotSDSCertificateErrors.Increment()
-			log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
-			return nil
+			if features.TlsCustomCaCredential != "" {
+				caCertInfo, err = secretController.GetCaCert(features.TlsCustomCaCredential, sr.Namespace)
+			}
+			if err != nil {
+				pilotSDSCertificateErrors.Increment()
+				log.Warnf("failed to fetch ca certificate for %s: %v", sr.ResourceName, err)
+				return nil
+			}
 		}
 		if features.VerifySDSCertificate {
 			if err := ValidateCertificate(caCertInfo.Cert); err != nil {
@@ -448,7 +452,7 @@ func containsAny(mp sets.Set[model.ConfigKey], keys []model.ConfigKey) bool {
 }
 
 // relatedConfigs maps a single resource to a list of relevant resources. This is used for cache invalidation
-// and push skipping. This is because an secret potentially has a dependency on the same secret with or without
+// and push skipping. This is because a secret potentially has a dependency on the same secret with or without
 // the -cacert suffix. By including this dependency we ensure we do not miss any updates.
 // This is important for cases where we have a compound secret. In this case, the `foo` secret may update,
 // but we need to push both the `foo` and `foo-cacert` resource name, or they will fall out of sync.
