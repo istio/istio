@@ -1010,6 +1010,10 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 	}
 }
 
+func TestTelemetryAccessLogExhaustiveness(t *testing.T) {
+	AssertProvidersHandled(telemetryAccessLogHandled)
+}
+
 func TestTelemetryAccessLog(t *testing.T) {
 	stdoutFormat := &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "stdout",

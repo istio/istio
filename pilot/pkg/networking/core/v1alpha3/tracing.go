@@ -135,6 +135,11 @@ func configureTracingFromTelemetry(
 	return routerFilterCtx, reqIDExtension
 }
 
+// configureFromProviderConfigHandled contains the number of providers we handle below.
+// This is to ensure this stays in sync as new handlers are added
+// STOP. DO NOT UPDATE THIS WITHOUT UPDATING configureFromProviderConfig.
+const configureFromProviderConfigHandled = 14
+
 func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	providerCfg *meshconfig.MeshConfig_ExtensionProvider,
 ) (*hcm.HttpConnectionManager_Tracing, *xdsfilters.RouterFilterContext, error) {
@@ -221,7 +226,19 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 			}
 			return otelConfig(serviceCluster, hostname, clusterName)
 		}
-
+		// Providers without any tracing support
+		// Explicitly list to be clear what does and does not support tracing
+	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp,
+		*meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc,
+		*meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls,
+		*meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls,
+		*meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls,
+		*meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog,
+		*meshconfig.MeshConfig_ExtensionProvider_Prometheus:
+		return nil, nil, fmt.Errorf("provider %T does not support tracing", provider)
+		// Should enver happen, but just in case we forget to add one
+	default:
+		return nil, nil, fmt.Errorf("provider %T does not support tracing", provider)
 	}
 	tracing, err := buildHCMTracing(providerName, maxTagLength, providerConfig)
 	return tracing, rfCtx, err
