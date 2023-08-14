@@ -297,6 +297,7 @@ func savedIOPName(iop *v1alpha12.IstioOperator) string {
 // nolint: interfacer
 func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CLIClient, setFlags []string) error {
 	warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
+	revision := manifest.GetValueForSetFlag(setFlags, "revision")
 	icps, err := kubeClient.GetIstioVersions(context.TODO(), ns)
 	if err != nil {
 		return err
@@ -306,6 +307,9 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 		var icpTag string
 		// create normalized tags for multiple control plane revisions
 		for _, icp := range *icps {
+			if icp.Revision != revision {
+				continue
+			}
 			tagVer, err := GetTagVersion(icp.Info.GitTag)
 			if err != nil {
 				return err
@@ -320,7 +324,6 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 				icpTag = val
 			}
 		}
-		revision := manifest.GetValueForSetFlag(setFlags, "revision")
 		// when the revision is passed
 		if icpTag != "" && tag != icpTag {
 			check := "         Before upgrading, you may wish to use 'istioctl x precheck' to check for upgrade warnings.\n"
