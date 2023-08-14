@@ -33,6 +33,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/structpb"
+	"istio.io/api/label"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -115,7 +116,7 @@ the configuration objects that affect that pod.`,
 
 			podLabels := klabels.Set(pod.ObjectMeta.Labels)
 			annotations := klabels.Set(pod.ObjectMeta.Annotations)
-			opts.Revision = getRevisionFromPodAnnotation(annotations)
+			opts.Revision = GetRevisionFromPodAnnotation(annotations)
 
 			printPod(writer, pod, opts.Revision)
 
@@ -178,7 +179,10 @@ the configuration objects that affect that pod.`,
 	return cmd
 }
 
-func getRevisionFromPodAnnotation(anno klabels.Set) string {
+func GetRevisionFromPodAnnotation(anno klabels.Set) string {
+	if v, ok := anno[label.IoIstioRev.Name]; ok {
+		return v
+	}
 	statusString := anno.Get(apiannotation.SidecarStatus.Name)
 	var injectionStatus inject.SidecarInjectionStatus
 	if err := json.Unmarshal([]byte(statusString), &injectionStatus); err != nil {
