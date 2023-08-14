@@ -182,8 +182,8 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	if isCAOnlySecret {
 		caCertInfo, err := secretController.GetCaCert(sr.Name, sr.Namespace)
 		if err != nil {
-			if features.TlsCustomCaCredential != "" {
-				caCertInfo, err = secretController.GetCaCert(features.TlsCustomCaCredential, sr.Namespace)
+			if features.TLSCustomCaCredential != "" {
+				caCertInfo, err = secretController.GetCaCert(features.TLSCustomCaCredential, sr.Namespace)
 			}
 			if err != nil {
 				pilotSDSCertificateErrors.Increment()

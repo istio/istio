@@ -678,7 +678,7 @@ var (
 		"If enabled, envoy will send builtin lables(e.g. node_name) via OTel sink.").Get()
 
 	// By default, Istio assumes CA credential name to have the format <credential>-cacert, use TLS_CUSTOM_CA_CREDENTIAL to override.
-	TlsCustomCaCredential = env.Register("TLS_CUSTOM_CA_CREDENTIAL", "", "The Custom CA credential name used in Client/Server TLS Settings").Get()
+	TLSCustomCaCredential = env.Register("TLS_CUSTOM_CA_CREDENTIAL", "", "The Custom CA credential name used in Client/Server TLS Settings").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
