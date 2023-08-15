@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -205,9 +204,6 @@ type CLIClient interface {
 	// UtilFactory returns a kubectl factory
 	UtilFactory() PartialFactory
 
-	// SetPortManager overrides the default port manager to provision local ports
-	SetPortManager(PortManager)
-
 	// InvalidateDiscovery invalidates the discovery client, useful after manually changing CRD's
 	InvalidateDiscovery()
 }
@@ -337,8 +333,6 @@ type client struct {
 
 	version lazy.Lazy[*kubeVersion.Info]
 
-	portManager PortManager
-
 	crdWatcher kubetypes.CrdWatcher
 
 	// http is a client for HTTP requests
@@ -405,7 +399,6 @@ func newClientInternal(clientFactory *clientFactory, revision string, cluster cl
 	if err != nil {
 		return nil, err
 	}
-	c.portManager = defaultAvailablePort
 
 	c.http = &http.Client{
 		Timeout: time.Second * 15,
@@ -1100,10 +1093,6 @@ func (c *client) DeleteYAMLFilesDryRun(namespace string, yamlFiles ...string) (e
 	return multierror.Append(nil, errs...).ErrorOrNil()
 }
 
-func (c *client) SetPortManager(manager PortManager) {
-	c.portManager = manager
-}
-
 func closeQuietly(c io.Closer) {
 	_ = c.Close()
 }
@@ -1219,20 +1208,6 @@ func setServerInfoWithIstiodVersionInfo(serverInfo *version.BuildInfo, istioInfo
 	} else {
 		serverInfo.Version = istioInfo
 	}
-}
-
-func defaultAvailablePort() (uint16, error) {
-	addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort("127.0.0.1", "0"))
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	port := l.Addr().(*net.TCPAddr).Port
-	return uint16(port), l.Close()
 }
 
 func SetRevisionForTest(c CLIClient, rev string) CLIClient {
