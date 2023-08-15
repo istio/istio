@@ -320,7 +320,7 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 	}
 	if req.Form.Get("sizes") != "" {
 		snapshot := s.Cache.Snapshot()
-		res := make(map[string]string, len(snapshot))
+		raw := make(map[string]int, len(snapshot))
 		totalSize := 0
 		for _, resource := range snapshot {
 			if resource == nil {
@@ -328,8 +328,12 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 			}
 			resourceType := resource.Resource.TypeUrl
 			sz := len(resource.Resource.GetValue())
-			res[resourceType] += util.ByteCount(sz)
+			raw[resourceType] += sz
 			totalSize += sz
+		}
+		res := make(map[string]string, len(raw))
+		for k, v := range raw {
+			res[k] = util.ByteCount(v)
 		}
 		res["total"] = util.ByteCount(totalSize)
 		writeJSON(w, res, req)
