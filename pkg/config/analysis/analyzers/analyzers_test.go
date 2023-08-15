@@ -777,6 +777,12 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "Analyze invalid telemetry",
+		inputFiles: []string{"testdata/telemetry-disable-provider.yaml"},
+		analyzer:   &telemetry.ProdiverAnalyzer{},
+		expected:   []message{},
+	},
+	{
 		name:       "telemetrySelector",
 		inputFiles: []string{"testdata/telemetry-selector.yaml"},
 		analyzer:   &telemetry.SelectorAnalyzer{},
