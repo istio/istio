@@ -975,16 +975,11 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 }
 
 func getDNSNames(args *PilotArgs, host string) []string {
-	dnsNames := []string{host}
 	// Append custom hostname if there is any
 	customHost := features.IstiodServiceCustomHost
 	cHosts := strings.Split(customHost, ",")
-	for _, cHost := range cHosts {
-		if cHost != "" && cHost != host {
-			log.Infof("Adding custom hostname %s", cHost)
-			dnsNames = append(dnsNames, cHost)
-		}
-	}
+	sans := sets.New(cHosts...)
+	sans.Insert(host)
 
 	// The first is the recommended one, also used by Apiserver for webhooks.
 	// add a few known hostnames
@@ -994,20 +989,9 @@ func getDNSNames(args *PilotArgs, host string) []string {
 	if args.Revision != "" && args.Revision != "default" {
 		knownHosts = append(knownHosts, "istiod"+"-"+args.Revision)
 	}
-
-	for _, altName := range knownHosts {
-		name := fmt.Sprintf("%v.%v.svc", altName, args.Namespace)
-		exist := false
-		for _, cHost := range cHosts {
-			if name == host || name == cHost {
-				exist = true
-			}
-		}
-		if !exist {
-			dnsNames = append(dnsNames, name)
-		}
-	}
-
+	sans.InsertAll(knownHosts...)
+	dnsNames := sets.SortedList(sans)
+	log.Infof("Discover server subject alt names: %v", dnsNames)
 	return dnsNames
 }
 

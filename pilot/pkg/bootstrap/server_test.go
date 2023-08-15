@@ -663,3 +663,54 @@ func checkCert(t *testing.T, s *Server, cert, key []byte) bool {
 	}
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
 }
+
+func TestGetDNSNames(t *testing.T) {
+	tests := []struct {
+		name             string
+		customHost       string
+		discoveryAddress string
+		revision         string
+		sans             []string
+	}{
+		{
+			name:             "default revision",
+			customHost:       "a.com,b.com,c.com",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "default",
+		},
+		{
+			name:             "empty revision",
+			customHost:       "a.com,b.com,c.com",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "",
+		},
+		{
+			name:             "canary revision",
+			customHost:       "a.com,b.com,c.com",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "canary",
+		},
+		{
+			name:             "customHost has duplicate hosts with inner default",
+			customHost:       "a.com,b.com,c.com,istiod",
+			discoveryAddress: "",
+			revision:         "canary",
+		},
+		{
+			name:             "customHost has duplicate hosts with discovery address",
+			customHost:       "a.com,b.com,c.com,test.com",
+			discoveryAddress: "test.com",
+			revision:         "canary",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			test.SetEnvForTest(t, features.IstiodServiceCustomHost, tc.customHost)
+			var args PilotArgs
+			args.Revision = tc.revision
+			sans := getDNSNames(&args, tc.discoveryAddress)
+			t.Logf("sans = %v", sans)
+		})
+	}
+}
