@@ -50,6 +50,9 @@ func (a *ProdiverAnalyzer) Analyze(c analysis.Context) {
 			telemetry := r.Message.(*telemetryapi.Telemetry)
 
 			for _, l := range telemetry.AccessLogging {
+				if l.Disabled != nil && l.Disabled.Value {
+					continue
+				}
 				if len(l.Providers) == 0 {
 					c.Report(collections.IstioTelemetryV1Alpha1Telemetries.Name(),
 						msg.NewInvalidTelemetryProvider(r, string(r.Metadata.FullName.Name), string(r.Metadata.FullName.Namespace)))

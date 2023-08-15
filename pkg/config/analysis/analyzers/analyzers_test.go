@@ -755,6 +755,12 @@ var testGrid = []testCase{
 			{msg.InvalidTelemetryProvider, "Telemetry istio-system/mesh-default"},
 		},
 	},
+	{
+		name:       "Analyze invalid telemetry",
+		inputFiles: []string{"testdata/telemetry-disable-provider.yaml"},
+		analyzer:   &telemetry.ProdiverAnalyzer{},
+		expected:   []message{},
+	},
 }
 
 // regex patterns for analyzer names that should be explicitly ignored for testing
