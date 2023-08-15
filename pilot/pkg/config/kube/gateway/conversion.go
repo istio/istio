@@ -188,7 +188,7 @@ func convertVirtualService(r configContext) []config.Config {
 func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 	obj config.Config, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *ConfigError) {
-	// TODO: implement rewrite, timeout, mirror, corspolicy, retries
+	// TODO: implement rewrite, timeout, corspolicy, retries
 	vs := &istio.HTTPRoute{}
 	// Auto-name the route. If upstream defines an explicit name, will use it instead
 	// The position within the route is unique
@@ -245,7 +245,7 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 			if err != nil {
 				return nil, err
 			}
-			vs.Mirror = mirror
+			vs.Mirrors = append(vs.Mirrors, mirror)
 		case k8sbeta.HTTPRouteFilterURLRewrite:
 			vs.Rewrite = createRewriteFilter(filter.URLRewrite)
 		default:
@@ -321,7 +321,7 @@ func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 			if err != nil {
 				return nil, err
 			}
-			vs.Mirror = mirror
+			vs.Mirrors = append(vs.Mirrors, mirror)
 		default:
 			return nil, &ConfigError{
 				Reason:  InvalidFilter,
@@ -1486,15 +1486,19 @@ func headerListToMap(hl []k8s.HTTPHeader) map[string]string {
 	return res
 }
 
-func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, ns string, enforceRefGrant bool) (*istio.Destination, *ConfigError) {
+func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, ns string, enforceRefGrant bool) (*istio.HTTPMirrorPolicy, *ConfigError) {
 	if filter == nil {
 		return nil, nil
 	}
 	var weightOne int32 = 1
-	return buildDestination(ctx, k8s.BackendRef{
+	dst, err := buildDestination(ctx, k8s.BackendRef{
 		BackendObjectReference: filter.BackendRef,
 		Weight:                 &weightOne,
 	}, ns, enforceRefGrant)
+	if err != nil {
+		return nil, err
+	}
+	return &istio.HTTPMirrorPolicy{Destination: dst}, nil
 }
 
 func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {

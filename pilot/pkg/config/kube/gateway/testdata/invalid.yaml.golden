@@ -140,9 +140,10 @@ spec:
   http:
   - directResponse:
       status: 500
-    mirror:
-      host: httpbin.default.svc.domain.suffix
-      port:
-        number: 80
+    mirrors:
+    - destination:
+        host: httpbin.default.svc.domain.suffix
+        port:
+          number: 80
     name: default.no-backend.0
 ---
