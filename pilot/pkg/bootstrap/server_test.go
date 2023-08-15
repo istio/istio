@@ -677,40 +677,46 @@ func TestGetDNSNames(t *testing.T) {
 			customHost:       "a.com,b.com,c.com",
 			discoveryAddress: "istiod.istio-system.svc.cluster.local",
 			revision:         "default",
+			sans:             []string{"a.com", "b.com", "c.com", "istio-pilot", "istiod", "istiod-remote", "istiod.istio-system.svc.cluster.local"},
 		},
+
 		{
 			name:             "empty revision",
 			customHost:       "a.com,b.com,c.com",
 			discoveryAddress: "istiod.istio-system.svc.cluster.local",
 			revision:         "",
+			sans:             []string{"a.com", "b.com", "c.com", "istio-pilot", "istiod", "istiod-remote", "istiod.istio-system.svc.cluster.local"},
 		},
 		{
 			name:             "canary revision",
 			customHost:       "a.com,b.com,c.com",
 			discoveryAddress: "istiod.istio-system.svc.cluster.local",
 			revision:         "canary",
+			sans:             []string{"a.com", "b.com", "c.com", "istio-pilot", "istiod", "istiod-canary", "istiod-remote", "istiod.istio-system.svc.cluster.local"},
 		},
 		{
 			name:             "customHost has duplicate hosts with inner default",
 			customHost:       "a.com,b.com,c.com,istiod",
-			discoveryAddress: "",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
 			revision:         "canary",
+			sans:             []string{"a.com", "b.com", "c.com", "istio-pilot", "istiod", "istiod-canary", "istiod-remote", "istiod.istio-system.svc.cluster.local"},
 		},
 		{
 			name:             "customHost has duplicate hosts with discovery address",
 			customHost:       "a.com,b.com,c.com,test.com",
 			discoveryAddress: "test.com",
 			revision:         "canary",
+			sans:             []string{"a.com", "b.com", "c.com", "istio-pilot", "istiod", "istiod-canary", "istiod-remote", "test.com"},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			test.SetEnvForTest(t, features.IstiodServiceCustomHost, tc.customHost)
+			features.IstiodServiceCustomHost = tc.customHost
 			var args PilotArgs
 			args.Revision = tc.revision
 			sans := getDNSNames(&args, tc.discoveryAddress)
-			t.Logf("sans = %v", sans)
+			assert.Equal(t, sans, tc.sans)
 		})
 	}
 }
