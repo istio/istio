@@ -252,6 +252,14 @@ func UnmanagedGatewayTest(t framework.TestContext) {
 		false, t.Clusters().Configs()...)
 
 	t.ConfigIstio().
+		YAML("", `
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: GatewayClass
+metadata:
+  name: custom-istio
+spec:
+  controllerName: istio.io/gateway-controller
+`).
 		YAML("", fmt.Sprintf(`
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -262,7 +270,7 @@ spec:
   addresses:
   - value: istio-ingressgateway
     type: Hostname
-  gatewayClassName: istio
+  gatewayClassName: custom-istio
   listeners:
   - name: http
     hostname: "*.domain.example"
