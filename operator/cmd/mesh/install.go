@@ -31,6 +31,7 @@ import (
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	revtag "istio.io/istio/istioctl/pkg/tag"
+	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -181,7 +182,7 @@ func Install(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOu
 
 	// Ignore the err because we don't want to show
 	// "no running Istio pods in istio-system" for the first time
-	_ = detectIstioVersionDiff(p, tag, ns, kubeClient, setFlags)
+	_ = detectIstioVersionDiff(p, tag, ns, kubeClient, iop)
 
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.DryRun && !iArgs.SkipConfirmation {
@@ -295,9 +296,12 @@ func savedIOPName(iop *v1alpha12.IstioOperator) string {
 
 // detectIstioVersionDiff will show warning if istioctl version and control plane version are different
 // nolint: interfacer
-func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CLIClient, setFlags []string) error {
+func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CLIClient, iop *v1alpha12.IstioOperator) error {
 	warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
-	revision := manifest.GetValueForSetFlag(setFlags, "revision")
+	revision := iop.Spec.Revision
+	if revision == "" {
+		revision = util.DefaultRevisionName
+	}
 	icps, err := kubeClient.GetIstioVersions(context.TODO(), ns)
 	if err != nil {
 		return err
@@ -328,7 +332,7 @@ func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CL
 		if icpTag != "" && tag != icpTag {
 			check := "         Before upgrading, you may wish to use 'istioctl x precheck' to check for upgrade warnings.\n"
 			revisionWarning := "         Running this command will overwrite it; use revisions to upgrade alongside the existing version.\n"
-			if revision != "" {
+			if revision != util.DefaultRevisionName {
 				revisionWarning = ""
 			}
 			if icpTag < tag {
