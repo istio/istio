@@ -288,13 +288,15 @@ func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler m
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	go func() {
-		if c.waitForCRD(gvr.GatewayClass, stop) {
-			gcc := NewClassController(c.client)
-			c.client.RunAndWait(stop)
-			gcc.Run(stop)
-		}
-	}()
+	if features.EnableGatewayAPIGatewayClassController {
+		go func() {
+			if c.waitForCRD(gvr.GatewayClass, stop) {
+				gcc := NewClassController(c.client)
+				c.client.RunAndWait(stop)
+				gcc.Run(stop)
+			}
+		}()
+	}
 }
 
 func (c *Controller) HasSynced() bool {
