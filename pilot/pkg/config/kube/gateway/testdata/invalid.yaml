@@ -216,7 +216,8 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: httpbin
   rules:
   - filters:
