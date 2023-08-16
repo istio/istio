@@ -1255,6 +1255,7 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 	ps.initDestinationRules(env)
 	ps.initAuthnPolicies(env)
 
+	// INFO: gets all authorization policies across all namespaces
 	ps.initAuthorizationPolicies(env)
 	ps.initTelemetry(env)
 	ps.initProxyConfigs(env)
@@ -1344,6 +1345,7 @@ func (ps *PushContext) updateContext(
 	}
 
 	if authnChanged {
+		// INFO: gets all authorization policies across all namespaces
 		ps.initAuthnPolicies(env)
 	} else {
 		ps.AuthnPolicies = oldPushContext.AuthnPolicies

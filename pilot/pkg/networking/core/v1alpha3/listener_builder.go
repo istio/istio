@@ -66,6 +66,7 @@ type ListenerBuilder struct {
 	// authnBuilder provides access to authn (mTLS) configuration for the given proxy.
 	authnBuilder *authn.Builder
 	// authzBuilder provides access to authz configuration for the given proxy.
+	// TODO: update authzBuilder to provide access to authz config for a given waypoint
 	authzBuilder *authz.Builder
 	// authzCustomBuilder provides access to CUSTOM authz configuration for the given proxy.
 	authzCustomBuilder *authz.Builder

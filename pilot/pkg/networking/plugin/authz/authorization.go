@@ -47,6 +47,8 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
 	}
+	// INFO: policies for a given namespace and workload is fetched here
+	// TODO: update policy fetching for waypoint vs workload
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}

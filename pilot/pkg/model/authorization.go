@@ -66,6 +66,7 @@ type AuthorizationPoliciesResult struct {
 }
 
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
+// TODO: update listing policies for waypoint vs workload selector
 func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string, workload labels.Instance) AuthorizationPoliciesResult {
 	ret := AuthorizationPoliciesResult{}
 	if policy == nil {
