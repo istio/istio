@@ -467,7 +467,6 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 		}
 	}()
 
-	defer con.upstream.CloseSend() // nolint
 	for {
 		select {
 		case req := <-con.requestsChan.Get():

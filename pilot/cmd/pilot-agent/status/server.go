@@ -261,7 +261,7 @@ func NewServer(config Options) (*Server, error) {
 		if prober.HTTPGet != nil {
 			d := ProbeDialer()
 			d.LocalAddr = s.upstreamLocalAddress
-			// nolint: gosec
+			//nolint:gosec
 			// This is matching Kubernetes. It is a reasonable usage of this, as it is just a health check over localhost.
 			transport, err := setTransportDefaults(&http.Transport{
 				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},

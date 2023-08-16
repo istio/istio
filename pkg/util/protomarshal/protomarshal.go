@@ -25,9 +25,9 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/golang/protobuf/jsonpb"             // nolint: depguard
-	legacyproto "github.com/golang/protobuf/proto"  // nolint: staticcheck
-	"google.golang.org/protobuf/encoding/protojson" // nolint: depguard
+	"github.com/golang/protobuf/jsonpb"             //nolint:depguard
+	legacyproto "github.com/golang/protobuf/proto"  //nolint:staticcheck
+	"google.golang.org/protobuf/encoding/protojson" //nolint:depguard
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"sigs.k8s.io/yaml"

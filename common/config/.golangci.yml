@@ -52,6 +52,7 @@ linters:
     - unused
     - gci
     - gosec
+    - nolintlint
   fast: false
 linters-settings:
   errcheck:

@@ -633,9 +633,8 @@ func (s *DiscoveryServer) SendResponse(connections []*Connection, res *discovery
 	}
 }
 
-// nolint
 // ClientsOf returns the clients that are watching the given resource.
-func (s *DiscoveryServer) ClientsOf(typeUrl string) []*Connection {
+func (s *DiscoveryServer) ClientsOf(typeUrl string) []*Connection { //nolint:revive,stylecheck
 	pending := []*Connection{}
 	for _, v := range s.Clients() {
 		if v.Watching(typeUrl) {

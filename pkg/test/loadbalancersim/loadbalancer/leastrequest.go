@@ -47,12 +47,10 @@ type unweightedLeastRequest struct {
 	r *rand.Rand
 }
 
-// nolint: gosec
-// Test only code
 func newUnweightedLeastRequest(conn *weightedConnections) network.Connection {
 	return &unweightedLeastRequest{
 		weightedConnections: conn,
-		r:                   rand.New(rand.NewSource(time.Now().UnixNano())),
+		r:                   rand.New(rand.NewSource(time.Now().UnixNano())), //nolint:gosec
 	}
 }
 

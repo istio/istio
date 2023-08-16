@@ -403,7 +403,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		shost = a.cfg.XDSSAN
 	}
 
-	// nolint: gosec
+	//nolint:gosec
 	// it's insecure only when a user explicitly enable insecure mode.
 	return &tls.Config{
 		GetClientCertificate: getClientCertificate,
@@ -650,7 +650,6 @@ func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	return c, nil
 }
 
-// nolint: staticcheck
 func (a *ADSC) handleLDS(ll []*listener.Listener) {
 	lh := map[string]*listener.Listener{}
 	lt := map[string]*listener.Listener{}

@@ -892,11 +892,11 @@ func createWebhook(t testing.TB, cfg *Config, pcResources int) *Webhook {
 		port       = 0
 	)
 
-	if err := os.WriteFile(configFile, configBytes, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(configFile, configBytes, 0o644); err != nil { //nolint:vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", configFile, err)
 	}
 
-	if err := os.WriteFile(valuesFile, []byte(values.raw), 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(valuesFile, []byte(values.raw), 0o644); err != nil { //nolint:vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", valuesFile, err)
 	}
 

@@ -1166,7 +1166,7 @@ func expectServiceEndpointsFromIndex(t *testing.T, ei *model.EndpointIndex, svc 
 	}, retry.Converge(2), retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))
 }
 
-// nolint: unparam
+//nolint:unparam
 func expectServiceEndpoints(t *testing.T, fx *xdsfake.Updater, svc *model.Service, port int, expected []EndpointResponse) {
 	t.Helper()
 	expectServiceEndpointsFromIndex(t, fx.Delegate.(*model.EndpointIndexUpdater).Index, svc, port, expected)
@@ -1254,12 +1254,10 @@ func createEndpoints(t *testing.T, c kubernetes.Interface, name, namespace strin
 	createEndpointSlice(t, c, name, name, namespace, ports, ips)
 }
 
-// nolint: unparam
 func createEndpointSlice(t *testing.T, c kubernetes.Interface, name, serviceName, namespace string, ports []v1.EndpointPort, addrs []string) {
 	createEndpointSliceWithType(t, c, name, serviceName, namespace, ports, addrs, discovery.AddressTypeIPv4)
 }
 
-// nolint: unparam
 func createEndpointSliceWithType(t *testing.T, c kubernetes.Interface, name, serviceName, namespace string,
 	ports []v1.EndpointPort, ips []string, addrType discovery.AddressType,
 ) {

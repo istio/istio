@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/option"
 )
 
-// nolint: lll
+//nolint:lll
 func TestOptions(t *testing.T) {
 	cases := []struct {
 		testName    string

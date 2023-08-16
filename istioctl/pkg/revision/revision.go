@@ -380,7 +380,6 @@ func printGatewaySummaryTableWithType(gT gwType, w io.Writer, revisions map[stri
 	return tw.Flush()
 }
 
-//nolint:errcheck
 func printSummaryTable(writer io.Writer, verbose bool, revisions map[string]*tag.RevisionDescription) error {
 	tw := new(tabwriter.Writer).Init(writer, 0, 8, 1, ' ', 0)
 	if verbose {

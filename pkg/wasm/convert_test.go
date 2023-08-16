@@ -87,7 +87,6 @@ func messageToAnyWithTypeURL(t *testing.T, msg proto.Message, typeURL string) *a
 		t.Fatal(err)
 	}
 	return &anypb.Any{
-		// nolint: staticcheck
 		TypeUrl: typeURL,
 		Value:   b,
 	}

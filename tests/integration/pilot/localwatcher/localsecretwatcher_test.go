@@ -37,7 +37,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.
 		NewSuite(m).
 		RequireExternalControlPlaneTopology().

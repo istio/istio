@@ -32,7 +32,7 @@ import (
 )
 
 func TestPiggyback(t *testing.T) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.
 		NewTest(t).Features("usability.observability.proxy-status"). // TODO create new "agent-piggyback" feature
 		RequiresSingleCluster().

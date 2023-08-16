@@ -222,7 +222,6 @@ func TestAdsClusterUpdate(t *testing.T) {
 	sendEDSReqAndVerify(cluster2)
 }
 
-// nolint: lll
 func TestAdsPushScoping(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 
@@ -297,7 +296,7 @@ func TestAdsPushScoping(t *testing.T) {
 			s.MemRegistry.AddEndpoint(hostname, "http-main", 2080, "192.168.1.10", i)
 		}
 
-		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: testConfigNamespace})})
+		s.Discovery.ConfigUpdate(&model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(hostname), Namespace: testConfigNamespace})}) //nolint:lll
 	}
 
 	addVirtualService := func(i int, hosts []string, dest string) {

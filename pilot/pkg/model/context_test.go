@@ -91,7 +91,7 @@ func TestNodeMetadata(t *testing.T) {
 					}),
 				},
 			},
-			// nolint: lll
+			//nolint:lll
 			`{"PROXY_CONFIG":{"configPath":"foo","drainDuration":"5s","controlPlaneAuthPolicy":"MUTUAL_TLS","envoyAccessLogService":{"address":"address","tlsSettings":{"subjectAltNames":["san"]}}}}`,
 			model.BootstrapNodeMetadata{
 				NodeMetadata: model.NodeMetadata{

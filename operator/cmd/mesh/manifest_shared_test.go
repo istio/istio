@@ -138,7 +138,6 @@ func recreateSimpleTestEnv() {
 
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
 // It returns an ObjectSet for each cmd type.
-// nolint: unparam
 func runManifestCommands(inFile, flags string, chartSource chartSourceType, fileSelect []string) (map[cmdType]*ObjectSet, error) {
 	out := make(map[cmdType]*ObjectSet)
 	for _, cmd := range testedManifestCmds {

@@ -20,7 +20,7 @@ import (
 
 	"golang.org/x/net/http/httpguts"
 	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c" // nolint: depguard
+	"golang.org/x/net/http2/h2c" //nolint:depguard
 )
 
 // NewHandler returns an http.Handler that wraps h, intercepting any h2c

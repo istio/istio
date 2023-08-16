@@ -17,8 +17,8 @@ package gogoprotomarshal
 import (
 	"strings"
 
-	"github.com/gogo/protobuf/jsonpb" // nolint: depguard
-	"github.com/gogo/protobuf/proto"  // nolint: depguard
+	"github.com/gogo/protobuf/jsonpb" //nolint:depguard
+	"github.com/gogo/protobuf/proto"  //nolint:depguard
 
 	"istio.io/istio/pkg/log"
 )

@@ -50,8 +50,8 @@ import (
 )
 
 // passthroughHttpProtocolOptions are http protocol options used for pass through clusters.
-// nolint
-// revive:disable-next-line
+//
+//nolint:revive,stylecheck
 var passthroughHttpProtocolOptions = protoconv.MessageToAny(&http.HttpProtocolOptions{
 	CommonHttpProtocolOptions: &core.HttpProtocolOptions{
 		IdleTimeout: durationpb.New(5 * time.Minute),
@@ -699,8 +699,7 @@ func http2ProtocolOptions() *core.Http2ProtocolOptions {
 	return &core.Http2ProtocolOptions{}
 }
 
-// nolint
-// revive:disable-next-line
+//nolint:revive,stylecheck
 func (cb *ClusterBuilder) isHttp2Cluster(mc *clusterWrapper) bool {
 	options := mc.httpProtocolOptions
 	return options != nil && options.GetExplicitHttpConfig().GetHttp2ProtocolOptions() != nil

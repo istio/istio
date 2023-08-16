@@ -110,7 +110,8 @@ func (s *CredentialsController) clearExpiredCache() {
 }
 
 // cachedAuthorization checks the authorization cache
-// nolint
+//
+//nolint:revive
 func (s *CredentialsController) cachedAuthorization(user string) (error, bool) {
 	key := authorizationKey(user)
 	s.mu.Lock()

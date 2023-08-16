@@ -14,7 +14,6 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// nolint
 package k8sleaderelection
 
 import (
@@ -162,7 +161,7 @@ func testTryAcquireOrRenew(t *testing.T, objectType string) {
 				{
 					verb: "get",
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, objectType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -186,7 +185,7 @@ func testTryAcquireOrRenew(t *testing.T, objectType string) {
 				{
 					verb: "get",
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, objectType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: ""}), nil
 					},
 				},
@@ -209,7 +208,7 @@ func testTryAcquireOrRenew(t *testing.T, objectType string) {
 				{
 					verb: "get",
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, objectType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -263,7 +262,6 @@ func testTryAcquireOrRenew(t *testing.T, objectType string) {
 				{
 					verb: "get",
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
 						return true, createLockObject(t, objectType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(),
 							&rl.LeaderElectionRecord{HolderIdentity: "bing", HolderKey: "aaa"}), nil
 					},
@@ -292,7 +290,6 @@ func testTryAcquireOrRenew(t *testing.T, objectType string) {
 				{
 					verb: "get",
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
 						return true, createLockObject(t, objectType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(),
 							&rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
@@ -314,7 +311,7 @@ func testTryAcquireOrRenew(t *testing.T, objectType string) {
 				{
 					verb: "get",
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, objectType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "baz"}), nil
 					},
 				},
@@ -515,7 +512,6 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: primaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
 						return true, nil, errors.NewNotFound(action.(fakeclient.GetAction).GetResource().GroupResource(), action.(fakeclient.GetAction).GetName())
 					},
 				},
@@ -544,7 +540,6 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: primaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
 						return true, createLockObject(t, primaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{}), nil
 					},
 				},
@@ -552,7 +547,6 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
 						return true, nil, errors.NewNotFound(action.(fakeclient.GetAction).GetResource().GroupResource(), action.(fakeclient.GetAction).GetName())
 					},
 				},
@@ -567,7 +561,6 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
 						return true, nil, errors.NewNotFound(action.(fakeclient.GetAction).GetResource().GroupResource(), action.(fakeclient.GetAction).GetName())
 					},
 				},
@@ -633,7 +626,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: primaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, primaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -641,7 +634,6 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
 						return true, nil, errors.NewNotFound(action.(fakeclient.GetAction).GetResource().GroupResource(), action.(fakeclient.GetAction).GetName())
 					},
 				},
@@ -656,7 +648,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, secondaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -683,7 +675,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: primaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, primaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -691,7 +683,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, secondaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -706,7 +698,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, secondaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -733,7 +725,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: primaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, primaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -741,7 +733,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, secondaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "baz"}), nil
 					},
 				},
@@ -760,7 +752,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: primaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, primaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: rl.UnknownLeader}), nil
 					},
 				},
@@ -768,7 +760,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, secondaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: rl.UnknownLeader}), nil
 					},
 				},
@@ -783,7 +775,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, secondaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: rl.UnknownLeader}), nil
 					},
 				},
@@ -810,7 +802,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: primaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, primaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -836,7 +828,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: primaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, primaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "baz"}), nil
 					},
 				},
@@ -844,7 +836,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, secondaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -863,7 +855,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: primaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, primaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -871,7 +863,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, secondaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "bing"}), nil
 					},
 				},
@@ -890,7 +882,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: primaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, primaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "baz"}), nil
 					},
 				},
@@ -898,7 +890,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, secondaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "baz"}), nil
 					},
 				},
@@ -913,7 +905,7 @@ func testTryAcquireOrRenewMultiLock(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: secondaryType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
+						//nolint:lll
 						return true, createLockObject(t, secondaryType, action.GetNamespace(), action.(fakeclient.GetAction).GetName(), &rl.LeaderElectionRecord{HolderIdentity: "baz"}), nil
 					},
 				},
@@ -1059,7 +1051,6 @@ func testReleaseLease(t *testing.T, objectType string) {
 					verb:       "get",
 					objectType: objectType,
 					reaction: func(action fakeclient.Action) (handled bool, ret runtime.Object, err error) {
-						// nolint: lll
 						return true, nil, errors.NewNotFound(action.(fakeclient.GetAction).GetResource().GroupResource(), action.(fakeclient.GetAction).GetName())
 					},
 				},

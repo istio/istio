@@ -129,7 +129,7 @@ func newCitadelClient(endpoint string, rootCert []byte) (pb.IstioCertificateServ
 	}
 	config := tls.Config{
 		RootCAs:            certPool,
-		InsecureSkipVerify: true, // nolint: gosec // test only code
+		InsecureSkipVerify: true, //nolint:gosec // test only code
 	}
 	transportCreds := credentials.NewTLS(&config)
 

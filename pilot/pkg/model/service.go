@@ -713,7 +713,6 @@ type K8sAttributes struct {
 // DeepCopy creates a deep copy of ServiceAttributes, but skips internal mutexes.
 func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	// AddressMap contains a mutex, which is safe to copy in this case.
-	// nolint: govet
 	out := *s
 
 	if s.Labels != nil {
@@ -755,7 +754,6 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	}
 
 	// AddressMap contains a mutex, which is safe to return a copy in this case.
-	// nolint: govet
 	return out
 }
 
@@ -804,7 +802,6 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 }
 
 // ServiceDiscovery enumerates Istio service instances.
-// nolint: lll
 type ServiceDiscovery interface {
 	NetworkGatewaysWatcher
 
@@ -1190,8 +1187,7 @@ func GetTLSModeFromEndpointLabels(labels map[string]string) string {
 
 // DeepCopy creates a clone of Service.
 func (s *Service) DeepCopy() *Service {
-	// nolint: govet
-	out := *s
+	out := *s //nolint:govet
 	out.Attributes = s.Attributes.DeepCopy()
 	if s.Ports != nil {
 		out.Ports = make(PortList, len(s.Ports))
@@ -1256,7 +1252,7 @@ func (ep *IstioEndpoint) DeepCopy() *IstioEndpoint {
 
 // ShallowCopy creates a shallow clone of IstioEndpoint.
 func (ep *IstioEndpoint) ShallowCopy() *IstioEndpoint {
-	// nolint: govet
+	//nolint:govet
 	cpy := *ep
 	return &cpy
 }

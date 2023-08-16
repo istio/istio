@@ -340,7 +340,7 @@ D2lWusoe2/nEqfDVVWGWlyJ7yOmqaVm/iNUN9B2N2g==
 				Namespace: "istio-system",
 			},
 			Data: map[string][]byte{
-				// nolint: lll
+				//nolint:lll
 				// https://github.com/kubernetes-sigs/gateway-api/blob/d7f71d6b7df7e929ae299948973a693980afc183/conformance/tests/gateway-invalid-tls-certificateref.yaml#L87-L90
 				// this certificate is invalid because contains an invalid pem (base64 of "Hello world"),
 				// and the certificate and the key are identical

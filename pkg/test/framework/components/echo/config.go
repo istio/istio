@@ -79,7 +79,6 @@ const (
 )
 
 // Config defines the options for creating an Echo component.
-// nolint: maligned
 type Config struct {
 	// Namespace of the echo Instance. If not provided, a default namespace "apps" is used.
 	Namespace namespace.Instance

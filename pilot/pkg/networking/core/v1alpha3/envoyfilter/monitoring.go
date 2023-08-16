@@ -35,11 +35,10 @@ const (
 	ListenerFilter PatchType = "listenerfilter"
 	FilterChain    PatchType = "filterchain"
 	NetworkFilter  PatchType = "networkfilter"
-	// nolint
-	HttpFilter  PatchType = "httpfilter"
-	Route       PatchType = "route"
-	VirtualHost PatchType = "vhost"
-	Bootstrap   PatchType = "bootstrap"
+	HttpFilter     PatchType = "httpfilter" //nolint:revive,stylecheck
+	Route          PatchType = "route"
+	VirtualHost    PatchType = "vhost"
+	Bootstrap      PatchType = "bootstrap"
 )
 
 var (

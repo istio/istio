@@ -81,8 +81,7 @@ var DefaultOptions = Options{
 // RequestAndProcessXds merges XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // Deprecated This method makes multiple responses appear to come from a single control plane;
 // consider using AllRequestAndProcessXds or FirstRequestAndProcessXds
-// nolint: lll
-func RequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.CLIClient) (*discovery.DiscoveryResponse, error) {
+func RequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.CLIClient) (*discovery.DiscoveryResponse, error) { //nolint:lll
 	responses, err := MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace,
 		istioNamespace, tokenServiceAccount, kubeClient, DefaultOptions)
 	if err != nil {
@@ -91,8 +90,7 @@ func RequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions
 	return mergeShards(responses)
 }
 
-// nolint: lll
-func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient, centralOpts clioptions.CentralControlPlaneOptions) ([]*discovery.DiscoveryResponse, error) {
+func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient, centralOpts clioptions.CentralControlPlaneOptions) ([]*discovery.DiscoveryResponse, error) { //nolint:lll
 	labelSelector := centralOpts.XdsPodLabel
 	if labelSelector == "" {
 		labelSelector = "app=istiod"
@@ -275,7 +273,6 @@ func makeSan(istioNamespace, revision string) string {
 }
 
 // AllRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers
-// nolint: lll
 func AllRequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
 	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
 ) (map[string]*discovery.DiscoveryResponse, error) {
@@ -284,7 +281,6 @@ func AllRequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts cliopti
 
 // FirstRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers,
 // stopping after the first response that returns any resources.
-// nolint: lll
 func FirstRequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
 	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
 ) (map[string]*discovery.DiscoveryResponse, error) {
@@ -323,7 +319,6 @@ func getXdsAddressFromWebhooks(client kube.CLIClient) (*xdsAddr, error) {
 	return nil, errors.New("xds address not found")
 }
 
-// nolint: lll
 func MultiRequestAndProcessXds(all bool, dr *discovery.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
 	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
 ) (map[string]*discovery.DiscoveryResponse, error) {

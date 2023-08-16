@@ -48,7 +48,6 @@ type CAServer struct {
 }
 
 // CreateServer creates a mocked local Google CA server and runs it in a separate thread.
-// nolint: interfacer
 func CreateServer(addr string, service *CAService) (*CAServer, error) {
 	// create a local grpc server
 	s := &CAServer{

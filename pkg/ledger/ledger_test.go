@@ -128,8 +128,6 @@ func HashCollider(data ...[]byte) []byte {
 	return MyHasher(data...)
 }
 
-// nolint: gosec
-// test only code
 func BenchmarkScale(b *testing.B) {
 	const configSize = 100
 	b.ReportAllocs()
@@ -143,7 +141,7 @@ func BenchmarkScale(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		eg.Go(func() error {
-			_, err := l.Put(ids[rand.Int()%configSize], strconv.Itoa(rand.Int()))
+			_, err := l.Put(ids[rand.Int()%configSize], strconv.Itoa(rand.Int())) //nolint:gosec
 			_ = l.RootHash()
 			return err
 		})
@@ -154,11 +152,9 @@ func BenchmarkScale(b *testing.B) {
 	b.StopTimer()
 }
 
-// nolint: gosec
-// test only code
 func addConfig(ledger Ledger, b *testing.B) string {
 	objectID := strings.Replace(uuid.New().String(), "-", "", -1)
-	_, err := ledger.Put(objectID, fmt.Sprintf("%d", rand.Int()))
+	_, err := ledger.Put(objectID, fmt.Sprintf("%d", rand.Int())) //nolint:gosec
 	assert.NoError(b, err)
 	return objectID
 }

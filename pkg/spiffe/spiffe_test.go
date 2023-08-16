@@ -35,7 +35,7 @@ import (
 )
 
 var (
-	// nolint: lll
+	//nolint:lll
 	validSpiffeX509Bundle = `{
   "keys": [
     {
@@ -51,7 +51,7 @@ var (
   ]
 }`
 
-	// nolint: lll
+	//nolint:lll
 	validSpiffeX509BundleWithMultipleCerts = `{
   "keys": [
     {

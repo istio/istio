@@ -1281,7 +1281,7 @@ func TestMTLS(t *testing.T) {
 						return !opts.To.Config().IsVM()
 					},
 					ExpectSuccess: func(from echo.Instance, opts echo.CallOptions) bool {
-						// nolint: gosimple
+						//nolint:gosimple
 						if from.Config().HasWaypointProxy() {
 							if opts.To.Config().HasWaypointProxy() {
 								return true

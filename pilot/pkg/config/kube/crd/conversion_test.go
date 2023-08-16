@@ -139,7 +139,7 @@ func TestParseInputs(t *testing.T) {
 		t.Error("ParseInput(invalid spec) => got no error")
 	}
 
-	// nolint: lll
+	//nolint:lll
 	validInput := `{"apiVersion": "networking.istio.io/v1alpha3", "kind":"VirtualService", "spec":{"hosts":["foo"],"http":[{"route":[{"destination":{"host":"bar"},"weight":100}]}]}}`
 	varr, _, err := ParseInputs(validInput)
 	if err != nil || len(varr) == 0 {

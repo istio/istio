@@ -165,7 +165,7 @@ spec:
 ---
 `
 
-func httpGateway(host string, port int, portName, protocol string, gatewayIstioLabel string) string { //nolint: unparam
+func httpGateway(host string, port int, portName, protocol string, gatewayIstioLabel string) string {
 	return tmpl.MustEvaluate(gatewayTmpl, struct {
 		GatewayHost       string
 		GatewayPort       int
@@ -856,7 +856,7 @@ spec:
 				}
 			},
 			config: `
-{{ $split := .split }} 
+{{ $split := .split }}
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:

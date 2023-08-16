@@ -120,7 +120,6 @@ func (b *EndpointBuilder) Type() string {
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
 func (b *EndpointBuilder) Key() any {
-	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
 	h.Write([]byte(b.clusterName))

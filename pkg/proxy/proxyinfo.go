@@ -25,7 +25,7 @@ import (
 )
 
 type sidecarSyncStatus struct {
-	// nolint: structcheck, unused
+	//nolint:structcheck,unused
 	pilot string
 	xds.SyncStatus
 }

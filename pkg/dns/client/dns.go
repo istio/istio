@@ -496,7 +496,7 @@ func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, pr
 	out.Insert(nameinfo.Shortname + "." + nameinfo.Namespace + "." + proxyDomainParts[0] + ".")
 
 	// Add any additional alt hostnames.
-	// nolint: staticcheck
+	//nolint:staticcheck
 	for _, altHost := range nameinfo.AltHosts {
 		out.Insert(altHost + ".")
 	}

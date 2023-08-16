@@ -329,7 +329,8 @@ func processLevels(allScopes map[string]*Scope, arg string, setter func(*Scope, 
 //
 // You typically call this once at process startup.
 // Once this call returns, the logging system is ready to accept data.
-// nolint: staticcheck
+//
+//nolint:staticcheck
 func Configure(options *Options) error {
 	core, captureCore, errSink, err := prepZap(options)
 	if err != nil {
@@ -370,7 +371,7 @@ func Configure(options *Options) error {
 		errorSink:   errSink,
 		close: func() error {
 			// best-effort to sync
-			core.Sync() // nolint: errcheck
+			core.Sync() //nolint:errcheck
 			for _, f := range closeFns {
 				if err := f(); err != nil {
 					return err

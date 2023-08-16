@@ -3511,12 +3511,11 @@ func TestShouldH2Upgrade(t *testing.T) {
 	}
 }
 
-// nolint
 func TestIsHttp2Cluster(t *testing.T) {
 	tests := []struct {
 		name           string
 		cluster        *clusterWrapper
-		isHttp2Cluster bool // revive:disable-line
+		isHttp2Cluster bool //nolint:revive,stylecheck
 	}{
 		{
 			name:           "with no h2 options",
@@ -3539,7 +3538,7 @@ func TestIsHttp2Cluster(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			isHttp2Cluster := cb.isHttp2Cluster(test.cluster) // revive:disable-line
+			isHttp2Cluster := cb.isHttp2Cluster(test.cluster) //nolint:revive,stylecheck
 			if isHttp2Cluster != test.isHttp2Cluster {
 				t.Errorf("got: %t, want: %t", isHttp2Cluster, test.isHttp2Cluster)
 			}

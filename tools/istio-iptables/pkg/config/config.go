@@ -25,7 +25,6 @@ import (
 )
 
 // Command line options
-// nolint: maligned
 type Config struct {
 	ProxyPort               string        `json:"PROXY_PORT"`
 	InboundCapturePort      string        `json:"INBOUND_CAPTURE_PORT"`

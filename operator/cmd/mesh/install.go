@@ -112,7 +112,6 @@ func InstallCmdWithArgs(rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Opt
 		Short:   "Applies an Istio manifest, installing or reconfiguring Istio on a cluster.",
 		Long:    "The install command generates an Istio install manifest and applies it to a cluster.",
 		Aliases: []string{"apply"},
-		// nolint: lll
 		Example: `  # Apply a default Istio installation
   istioctl install
 
@@ -294,7 +293,6 @@ func savedIOPName(iop *v1alpha12.IstioOperator) string {
 }
 
 // detectIstioVersionDiff will show warning if istioctl version and control plane version are different
-// nolint: interfacer
 func detectIstioVersionDiff(p Printer, tag string, ns string, kubeClient kube.CLIClient, setFlags []string) error {
 	warnMarker := color.New(color.FgYellow).Add(color.Italic).Sprint("WARNING:")
 	icps, err := kubeClient.GetIstioVersions(context.TODO(), ns)

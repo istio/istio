@@ -22,7 +22,7 @@ import (
 	"reflect"
 	"strings"
 
-	jsonpatch "github.com/evanphx/json-patch/v5" // nolint: staticcheck
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/kylelemons/godebug/diff"
 	"google.golang.org/protobuf/proto"
 	yaml3 "k8s.io/apimachinery/pkg/util/yaml"

@@ -875,7 +875,7 @@ func runTestGroup(t *testing.T, tests testGroup) {
 	}
 }
 
-// nolint: unparam
+//nolint:unparam
 func generateManifest(inFile, flags string, chartSource chartSourceType, fileSelect []string) (string, object.K8sObjects, error) {
 	inPath := filepath.Join(testDataDir, "input", inFile+".yaml")
 	manifest, err := runManifestGenerate([]string{inPath}, flags, chartSource, fileSelect)
@@ -1036,7 +1036,7 @@ func TestWebhookSelector(t *testing.T) {
 	legacyRevWebhook := getWebhooksFromYaml(t, legacyRevisionInjector)
 
 	// predicate is used to filter out "obvious" test cases, to avoid enumerating all cases
-	// nolint: unparam
+	//nolint:unparam
 	predicate := func(ls LabelSet) (string, bool) {
 		if ls.namespace.Get("istio-injection") == "disabled" {
 			return "", true

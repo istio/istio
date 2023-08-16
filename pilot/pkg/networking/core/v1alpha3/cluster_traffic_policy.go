@@ -238,7 +238,7 @@ func applyLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSettings, 
 
 	// DO not do if else here. since lb.GetSimple returns a enum value (not pointer).
 	switch lb.GetSimple() {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	case networking.LoadBalancerSettings_LEAST_CONN, networking.LoadBalancerSettings_LEAST_REQUEST:
 		applyLeastRequestLoadBalancer(c, lb)
 	case networking.LoadBalancerSettings_RANDOM:
@@ -436,8 +436,8 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 		// 1024 is the default value for envoy.
 		minRingSize := &wrapperspb.UInt64Value{Value: 1024}
 
-		if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
-			minRingSize = &wrapperspb.UInt64Value{Value: consistentHash.GetMinimumRingSize()} // nolint: staticcheck
+		if consistentHash.MinimumRingSize != 0 { //nolint:staticcheck
+			minRingSize = &wrapperspb.UInt64Value{Value: consistentHash.GetMinimumRingSize()} //nolint:staticcheck
 		}
 		c.LbPolicy = cluster.Cluster_RING_HASH
 		c.LbConfig = &cluster.Cluster_RingHashLbConfig_{

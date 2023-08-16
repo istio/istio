@@ -61,11 +61,11 @@ func createTestWebhook(t testing.TB) *Webhook {
 	)
 
 	// cert
-	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { //nolint:vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
 	// key
-	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { //nolint:vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 
@@ -83,7 +83,7 @@ func createTestWebhook(t testing.TB) *Webhook {
 	return wh
 }
 
-func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool) []byte { // nolint: unparam
+func makePilotConfig(t *testing.T, i int, validConfig bool, includeBogusKey bool) []byte { //nolint:unparam
 	t.Helper()
 
 	var key string

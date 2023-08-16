@@ -57,7 +57,6 @@ type SelfSignedCARootCertRotator struct {
 
 // NewSelfSignedCARootCertRotator returns a new root cert rotator instance that
 // rotates self-signed root cert periodically.
-// nolint: gosec
 // Not security sensitive code
 func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 	ca *IstioCA,
@@ -70,7 +69,7 @@ func NewSelfSignedCARootCertRotator(config *SelfSignedCARootCertRotatorConfig,
 	if config.enableJitter {
 		// Select a back off time in seconds, which is in the range of [0, rotator.config.CheckInterval).
 		randSource := rand.NewSource(time.Now().UnixNano())
-		randBackOff := rand.New(randSource)
+		randBackOff := rand.New(randSource) //nolint:gosec
 		backOffSeconds := int(time.Duration(randBackOff.Int63n(int64(rotator.config.CheckInterval))).Seconds())
 		rotator.backOffTime = time.Duration(backOffSeconds) * time.Second
 		rootCertRotatorLog.Infof("Set up back off time %s to start rotator.", rotator.backOffTime.String())

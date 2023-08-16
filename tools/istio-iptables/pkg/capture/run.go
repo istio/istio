@@ -356,7 +356,6 @@ func (cfg *IptablesConfigurator) Run() {
 	for _, uid := range split(cfg.cfg.ProxyUID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
-		// nolint: lll
 		if redirectDNS {
 			// When DNS is enabled, we skip this for port 53. This ensures we do not have:
 			// app => istio-agent => Envoy inbound => dns server

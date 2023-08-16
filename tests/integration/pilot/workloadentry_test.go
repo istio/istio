@@ -37,7 +37,7 @@ import (
 // resources inside each config cluster rather than doing cross-cluster discovery via remote secret.
 // Each case tests a different way of using local resources to reach remote destination(s).
 func TestWorkloadEntryGateway(t *testing.T) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.NewTest(t).
 		RequiresMinClusters(2).
 		Features("traffic.reachability").
@@ -94,7 +94,7 @@ metadata:
 spec:
   addresses:
   - 240.240.240.240
-  hosts: 
+  hosts:
   - serviceentry.mesh.global
   ports:
   - number: 80

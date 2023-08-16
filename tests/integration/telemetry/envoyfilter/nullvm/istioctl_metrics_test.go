@@ -45,7 +45,7 @@ func TestIstioctlMetrics(t *testing.T) {
 		})
 }
 
-func validateDefaultOutput(t framework.TestContext, workload string) error { // nolint:interfacer
+func validateDefaultOutput(t framework.TestContext, workload string) error { //nolint:interfacer
 	t.Helper()
 	istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 	args := []string{"experimental", "metrics", workload}

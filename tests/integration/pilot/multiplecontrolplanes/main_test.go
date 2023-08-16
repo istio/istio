@@ -52,7 +52,7 @@ var (
 
 // TestMain defines the entrypoint for multiple controlplane tests using revisions and discoverySelectors.
 func TestMain(m *testing.M) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.
 		NewSuite(m).
 		RequireMultiPrimary().

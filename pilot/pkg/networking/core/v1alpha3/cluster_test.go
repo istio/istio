@@ -641,7 +641,7 @@ func TestApplyRingHashLoadBalancer(t *testing.T) {
 	}
 }
 
-func withClusterLocalHosts(m *meshconfig.MeshConfig, hosts ...string) *meshconfig.MeshConfig { // nolint:interfacer
+func withClusterLocalHosts(m *meshconfig.MeshConfig, hosts ...string) *meshconfig.MeshConfig { //nolint:interfacer
 	m.ServiceSettings = append(append(make([]*meshconfig.MeshConfig_ServiceSettings, 0), m.ServiceSettings...),
 		&meshconfig.MeshConfig_ServiceSettings{
 			Settings: &meshconfig.MeshConfig_ServiceSettings_Settings{

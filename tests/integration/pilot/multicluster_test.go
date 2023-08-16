@@ -41,7 +41,7 @@ var (
 )
 
 func TestClusterLocal(t *testing.T) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.NewTest(t).
 		Features(
 			"installation.multicluster.cluster_local",
@@ -64,7 +64,7 @@ func TestClusterLocal(t *testing.T) {
 					"MeshConfig.serviceSettings",
 					func(t framework.TestContext) {
 						i.PatchMeshConfigOrFail(t, t, fmt.Sprintf(`
-serviceSettings: 
+serviceSettings:
 - settings:
     clusterLocal: true
   hosts:
@@ -163,7 +163,7 @@ spec:
 }
 
 func TestBadRemoteSecret(t *testing.T) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.NewTest(t).
 		RequiresMinClusters(2).
 		Features(

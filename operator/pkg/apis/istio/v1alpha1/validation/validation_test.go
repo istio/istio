@@ -35,7 +35,7 @@ import (
 
 const operatorSubdirFilePath = "manifests"
 
-// nolint: lll
+//nolint:lll
 func TestValidateConfig(t *testing.T) {
 	tests := []struct {
 		name     string

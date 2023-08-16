@@ -100,7 +100,7 @@ func DialOptions(opts clioptions.CentralControlPlaneOptions,
 		return mcpDialOptions(ctx, opts.GCPProject, k8sCreds)
 	}
 	return []grpc.DialOption{
-		// nolint: gosec
+		//nolint:gosec
 		// Only runs over istioctl experimental
 		// TODO: https://github.com/istio/istio/issues/41937
 		grpc.WithTransportCredentials(credentials.NewTLS(

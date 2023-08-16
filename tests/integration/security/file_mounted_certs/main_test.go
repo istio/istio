@@ -67,7 +67,7 @@ const (
 )
 
 func TestMain(m *testing.M) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).

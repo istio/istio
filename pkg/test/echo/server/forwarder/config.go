@@ -186,7 +186,6 @@ func getClientCertificateFunc(r *proto.ForwardEchoRequest) (func(info *tls.Certi
 				fwLog.Debugf("  URI SAN: %s", uri)
 			}
 		}
-		// nolint: unparam
 		return func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			fwLog.Debugf("Peer asking for client certificate")
 			for i, ca := range info.AcceptableCAs {
@@ -240,7 +239,6 @@ func getHBONEClientConfig(r *proto.HBONE) (func(info *tls.CertificateRequestInfo
 				fwLog.Debugf("  URI SAN: %s", uri)
 			}
 		}
-		// nolint: unparam
 		return func(info *tls.CertificateRequestInfo) (*tls.Certificate, error) {
 			fwLog.Debugf("Peer asking for client certificate")
 			for i, ca := range info.AcceptableCAs {

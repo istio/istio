@@ -100,7 +100,7 @@ distribute:
     region: 20`
 
 func TestLocality(t *testing.T) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.
 		NewTest(t).
 		Features("traffic.locality").

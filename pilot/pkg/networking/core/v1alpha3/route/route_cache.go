@@ -120,7 +120,6 @@ func (r *Cache) DependentConfigs() []model.ConfigHash {
 }
 
 func (r *Cache) Key() any {
-	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
 

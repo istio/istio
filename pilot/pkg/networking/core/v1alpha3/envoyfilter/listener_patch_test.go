@@ -107,7 +107,7 @@ func buildPatchStruct(config string) *structpb.Struct {
 	return val
 }
 
-// nolint: unparam
+//nolint:unparam
 func buildGolangPatchStruct(config string) *structpb.Struct {
 	val := &structpb.Struct{}
 	_ = protomarshal.Unmarshal([]byte(config), val)
@@ -679,7 +679,7 @@ func TestApplyListenerPatches(t *testing.T) {
 			Patch: &networking.EnvoyFilter_Patch{
 				Operation: networking.EnvoyFilter_Patch_MERGE,
 				Value: buildPatchStruct(`
-{"name": "envoy.filters.network.http_connection_manager", 
+{"name": "envoy.filters.network.http_connection_manager",
  "typed_config": {
         "@type": "type.googleapis.com/envoy.extensions.filters.network.http_connection_manager.v3.HttpConnectionManager",
          "mergeSlashes": true,

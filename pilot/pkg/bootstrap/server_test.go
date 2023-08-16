@@ -59,13 +59,13 @@ func loadCertFilesAtPaths(t TLSFSLoadPaths) error {
 	}
 
 	// load key and cert files.
-	if err := os.WriteFile(t.testTLSCertFilePath, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(t.testTLSCertFilePath, testcerts.ServerCert, 0o644); err != nil { //nolint:vetshadow
 		return fmt.Errorf("WriteFile(%v) failed: %v", t.testTLSCertFilePath, err)
 	}
-	if err := os.WriteFile(t.testTLSKeyFilePath, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(t.testTLSKeyFilePath, testcerts.ServerKey, 0o644); err != nil { //nolint:vetshadow
 		return fmt.Errorf("WriteFile(%v) failed: %v", t.testTLSKeyFilePath, err)
 	}
-	if err := os.WriteFile(t.testCaCertFilePath, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(t.testCaCertFilePath, testcerts.CACert, 0o644); err != nil { //nolint:vetshadow
 		return fmt.Errorf("WriteFile(%v) failed: %v", t.testCaCertFilePath, err)
 	}
 
@@ -284,14 +284,14 @@ func TestReloadIstiodCert(t *testing.T) {
 	caFile := filepath.Join(dir, "ca-file.yaml")
 
 	// load key and cert files.
-	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(certFile, testcerts.ServerCert, 0o644); err != nil { //nolint:vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", certFile, err)
 	}
-	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(keyFile, testcerts.ServerKey, 0o644); err != nil { //nolint:vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", keyFile, err)
 	}
 
-	if err := os.WriteFile(caFile, testcerts.CACert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(caFile, testcerts.CACert, 0o644); err != nil { //nolint:vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", caFile, err)
 	}
 
@@ -320,10 +320,10 @@ func TestReloadIstiodCert(t *testing.T) {
 	}
 
 	// Update cert/key files.
-	if err := os.WriteFile(tlsOptions.CertFile, testcerts.RotatedCert, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(tlsOptions.CertFile, testcerts.RotatedCert, 0o644); err != nil { //nolint:vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", tlsOptions.CertFile, err)
 	}
-	if err := os.WriteFile(tlsOptions.KeyFile, testcerts.RotatedKey, 0o644); err != nil { // nolint: vetshadow
+	if err := os.WriteFile(tlsOptions.KeyFile, testcerts.RotatedKey, 0o644); err != nil { //nolint:vetshadow
 		t.Fatalf("WriteFile(%v) failed: %v", tlsOptions.KeyFile, err)
 	}
 

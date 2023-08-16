@@ -317,7 +317,7 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	if delegate.Mirror == nil {
 		delegate.Mirror = root.Mirror
 	}
-	// nolint: staticcheck
+	//nolint:staticcheck
 	if delegate.MirrorPercent == nil {
 		delegate.MirrorPercent = root.MirrorPercent
 	}

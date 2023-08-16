@@ -389,8 +389,7 @@ type Proxy struct {
 // WatchedResource tracks an active DiscoveryRequest subscription.
 type WatchedResource struct {
 	// TypeUrl is copied from the DiscoveryRequest.TypeUrl that initiated watching this resource.
-	// nolint
-	TypeUrl string
+	TypeUrl string //nolint:revive,stylecheck
 
 	// ResourceNames tracks the list of resources that are actively watched.
 	// For LDS and CDS, all resources of the TypeUrl type are watched if it is empty.
@@ -569,7 +568,8 @@ type BootstrapNodeMetadata struct {
 // Fields should not be assumed to exist on the proxy, especially newly added fields which will not exist
 // on older versions.
 // The JSON field names should never change, as they are needed for backward compatibility with older proxies
-// nolint: maligned
+//
+//nolint:maligned
 type NodeMetadata struct {
 	// ProxyConfig defines the proxy config specified for a proxy.
 	// Note that this setting may be configured different for each proxy, due user overrides

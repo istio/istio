@@ -1297,7 +1297,7 @@ func isConflictWithWellKnownPort(incoming, existing protocol.Instance, conflict 
 	return true
 }
 
-// nolint: interfacer
+//nolint:interfacer
 func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *core.TransportSocket {
 	if tlsContext == nil {
 		return nil

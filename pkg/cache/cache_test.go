@@ -253,7 +253,7 @@ func testCacheEvicter(c ExpiringCache) {
 }
 
 func testCacheFinalizer(gate *sync.WaitGroup) {
-	runtime.GC() //nolint: revive
+	runtime.GC() //nolint:revive
 	gate.Wait()
 }
 

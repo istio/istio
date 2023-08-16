@@ -105,8 +105,7 @@ func TestXfccAuthenticator(t *testing.T) {
 			authenticateErrMsg: `error in parsing xfcc header: invalid header format: unexpected token "junk xfcc header"`,
 		},
 		{
-			name: "Xfcc Header single hop",
-			// nolint lll
+			name:       "Xfcc Header single hop",
 			xfccHeader: `Hash=meshclient;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
 			caller: &security.Caller{
 				AuthSource: security.AuthSourceClientCertificate,
@@ -117,7 +116,7 @@ func TestXfccAuthenticator(t *testing.T) {
 		},
 		{
 			name: "Xfcc Header multiple hops",
-			// nolint lll
+			//nolint:lll
 			xfccHeader: `Hash=hash;Cert="-----BEGIN%20CERTIFICATE-----%0cert%0A-----END%20CERTIFICATE-----%0A";Subject="CN=hello,OU=hello,O=Acme\, Inc.";URI=spiffe://mesh.example.com/ns/firstns/sa/firstsa;DNS=hello.west.example.com;DNS=hello.east.example.com,By=spiffe://mesh.example.com/ns/hellons/sa/hellosa;Hash=again;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
 			caller: &security.Caller{
 				AuthSource: security.AuthSourceClientCertificate,
@@ -143,8 +142,7 @@ func TestXfccAuthenticator(t *testing.T) {
 			useHttpRequest:     true,
 		},
 		{
-			name: "Xfcc Header single hop with http",
-			// nolint lll
+			name:       "Xfcc Header single hop with http",
 			xfccHeader: `Hash=meshclient;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
 			caller: &security.Caller{
 				AuthSource: security.AuthSourceClientCertificate,
@@ -156,7 +154,7 @@ func TestXfccAuthenticator(t *testing.T) {
 		},
 		{
 			name: "Xfcc Header multiple hops with http",
-			// nolint lll
+			//nolint:lll
 			xfccHeader: `Hash=hash;Cert="-----BEGIN%20CERTIFICATE-----%0cert%0A-----END%20CERTIFICATE-----%0A";Subject="CN=hello,OU=hello,O=Acme\, Inc.";URI=spiffe://mesh.example.com/ns/firstns/sa/firstsa;DNS=hello.west.example.com;DNS=hello.east.example.com,By=spiffe://mesh.example.com/ns/hellons/sa/hellosa;Hash=again;Subject="";URI=spiffe://mesh.example.com/ns/otherns/sa/othersa`,
 			caller: &security.Caller{
 				AuthSource: security.AuthSourceClientCertificate,

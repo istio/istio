@@ -103,7 +103,6 @@ func (s *suiteAnalyzer) RequireMaxClusters(maxClusters int) Suite {
 }
 
 func (s *suiteAnalyzer) RequireSingleCluster() Suite {
-	// nolint: staticcheck
 	return s.RequireMinClusters(1).RequireMaxClusters(1)
 }
 

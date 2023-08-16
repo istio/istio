@@ -197,7 +197,7 @@ func TestSAUpdate(t *testing.T) {
 	}
 	transport := &tls.UpstreamTlsContext{}
 	ads.GetEdsClusters()["outbound|80||test1"].GetTransportSocketMatches()[0].GetTransportSocket().GetTypedConfig().UnmarshalTo(transport)
-	sans := transport.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchSubjectAltNames() //nolint: staticcheck
+	sans := transport.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchSubjectAltNames() //nolint:staticcheck
 	if len(sans) != 1 {
 		t.Fatalf("expected 1 san, got %v", sans)
 	}
@@ -260,7 +260,8 @@ func TestEds(t *testing.T) {
 
 // newEndpointWithAccount is a helper for IstioEndpoint creation. Creates endpoints with
 // port name "http", with the given IP, service account and a 'version' label.
-// nolint: unparam
+//
+//nolint:unparam
 func newEndpointWithAccount(ip, account, version string) []*model.IstioEndpoint {
 	return []*model.IstioEndpoint{
 		{
@@ -1132,7 +1133,7 @@ func addLocalityEndpoints(m *memory.ServiceDiscovery, hostname host.Name) {
 	}
 }
 
-// nolint: unparam
+//nolint:unparam
 func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string, address string, port int) {
 	svc := &model.Service{
 		Hostname: host.Name(hostName),

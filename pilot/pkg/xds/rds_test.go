@@ -66,10 +66,10 @@ const (
 // The tests in this package use an in-process pilot using mock service registry and
 // envoy.
 
-func sidecarID(ip, deployment string) string { // nolint: unparam
+func sidecarID(ip, deployment string) string { //nolint:unparam
 	return fmt.Sprintf("sidecar~%s~%s-644fc65469-96dza.testns~testns.svc.cluster.local", ip, deployment)
 }
 
-func gatewayID(ip string) string { //nolint: unparam
+func gatewayID(ip string) string {
 	return fmt.Sprintf("router~%s~istio-gateway-644fc65469-96dzt.istio-system~istio-system.svc.cluster.local", ip)
 }

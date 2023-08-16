@@ -752,7 +752,7 @@ func MirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
 		}
 		// If zero percent is provided explicitly, we should not mirror.
 		return nil
-	// nolint: staticcheck
+	//nolint:staticcheck
 	case in.MirrorPercent != nil:
 		if in.MirrorPercent.GetValue() > 0 {
 			return &core.RuntimeFractionalPercent{
@@ -1062,7 +1062,7 @@ func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 
 	// CORS filter is enabled by default
 	out := route.CorsPolicy{}
-	// nolint: staticcheck
+	//nolint:staticcheck
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = util.ConvertToEnvoyMatches(in.AllowOrigins)
 	} else if in.AllowOrigin != nil {
@@ -1163,7 +1163,7 @@ func setTimeout(action *route.RouteAction, vsTimeout *duration.Duration, node *m
 		// If not configured at all, the grpc-timeout header is not used and
 		// gRPC requests time out like any other requests using timeout or its default.
 		// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-		// nolint: staticcheck
+		//nolint:staticcheck
 		if action.Timeout.AsDuration().Nanoseconds() == 0 {
 			action.MaxGrpcTimeout = Notimeout
 		} else {
@@ -1211,7 +1211,7 @@ func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 		if in.Delay.Percentage != nil {
 			out.Delay.Percentage = translatePercentToFractionalPercent(in.Delay.Percentage)
 		} else {
-			out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent) // nolint: staticcheck
+			out.Delay.Percentage = translateIntegerToFractionalPercent(in.Delay.Percent) //nolint:staticcheck
 		}
 		switch d := in.Delay.HttpDelayType.(type) {
 		case *networking.HTTPFaultInjection_Delay_FixedDelay:

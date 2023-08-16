@@ -444,7 +444,7 @@ func (cm *configMap) updateConfigMap(c cluster.Cluster, cfgMap *corev1.ConfigMap
 }
 
 func hash(s string) string {
-	// nolint: gosec
+	//nolint:gosec
 	// Test only code
 	h := md5.New()
 	_, _ = io.WriteString(h, s)

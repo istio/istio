@@ -96,7 +96,7 @@ func zoneHandler(writer http.ResponseWriter, _ *http.Request) {
 
 func iamInfoHandler(writer http.ResponseWriter, _ *http.Request) {
 	writer.WriteHeader(http.StatusOK)
-	// nolint: lll
+	//nolint:lll
 	writer.Write([]byte("{\n\"Code\" : \"Success\",\n\"LastUpdated\" : \"2022-03-18T05:04:31Z\",\n\"InstanceProfileArn\" : \"arn:aws:iam::614624372165:instance-profile/sam-processing0000120190916053337315200000004\",\n\"InstanceProfileId\" : \"AIPAY6GTXUXC3LLJY7OG7\"\n\t  }"))
 }
 

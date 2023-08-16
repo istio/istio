@@ -1093,7 +1093,7 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 		}
 	} else {
 		// The field is deprecated, but until it is removed we need to set it.
-		cfg.DisableServerAccessLogging = true // nolint: staticcheck
+		cfg.DisableServerAccessLogging = true //nolint:staticcheck
 	}
 
 	cfg.MetricExpiryDuration = durationpb.New(1 * time.Hour)

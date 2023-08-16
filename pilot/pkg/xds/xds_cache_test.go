@@ -38,8 +38,6 @@ var (
 )
 
 // TestXdsCacheToken is a regression test to ensure that we do not write
-// nolint: gosec
-// Test only code
 func TestXdsCacheToken(t *testing.T) {
 	c := model.NewXdsCache()
 	n := atomic.NewInt32(0)
@@ -51,7 +49,7 @@ func TestXdsCacheToken(t *testing.T) {
 	}}
 	work := func(start time.Time, n int32) {
 		v := mkv(n)
-		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
+		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100))) //nolint:gosec
 		req := &model.PushRequest{Start: start}
 		c.Add(k, req, v)
 	}
@@ -75,7 +73,7 @@ func TestXdsCacheToken(t *testing.T) {
 			if val != nil && val.Resource.TypeUrl != fmt.Sprint(n.Load()) {
 				t.Fatalf("got bad write: %v", val.Resource.TypeUrl)
 			}
-			time.Sleep(time.Millisecond * time.Duration(rand.Intn(20)))
+			time.Sleep(time.Millisecond * time.Duration(rand.Intn(20))) //nolint:gosec
 		}
 	}
 }

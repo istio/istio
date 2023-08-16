@@ -459,7 +459,6 @@ func getJwtTypeOverlay(client kube.Client, l clog.Logger) (string, error) {
 		return "", fmt.Errorf("failed to determine JWT policy support. Use the --force flag to ignore this: %v", err)
 	}
 	if jwtPolicy == util.FirstPartyJWT {
-		// nolint: lll
 		l.LogAndPrint("Detected that your cluster does not support third party JWT authentication. " +
 			"Falling back to less secure first party JWT. See " + url.ConfigureSAToken + " for details.")
 	}

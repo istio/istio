@@ -903,7 +903,7 @@ var (
 			Ports:    port9999,
 			Attributes: ServiceAttributes{
 				Name:      "random",
-				Namespace: "randomns", // nolint
+				Namespace: "randomns", //nolint:misspell
 			},
 		},
 	}
@@ -1549,7 +1549,7 @@ func TestCreateSidecarScope(t *testing.T) {
 					Ports:    port9999,
 					Attributes: ServiceAttributes{
 						Name:      "random",
-						Namespace: "randomns", // nolint
+						Namespace: "randomns", //nolint:misspell
 					},
 				},
 			},
@@ -1984,7 +1984,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 			if tt.virtualServices != nil {
-				// nolint lll
+				//nolint:lll
 				ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], tt.virtualServices...)
 			}
 
@@ -2283,7 +2283,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 				},
 			}
 			ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
-			// nolint lll
+			//nolint:lll
 			ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], virtualServices...)
 			ps.setDestinationRules(destinationRules)
 			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
@@ -2391,7 +2391,7 @@ func TestSidecarOutboundTrafficPolicy(t *testing.T) {
 	}
 
 	meshConfigWithRegistryOnly, err := mesh.ApplyMeshConfigDefaults(`
-outboundTrafficPolicy: 
+outboundTrafficPolicy:
   mode: REGISTRY_ONLY
 `)
 	if err != nil {

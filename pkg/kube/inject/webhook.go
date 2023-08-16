@@ -131,7 +131,6 @@ func (p ParsedContainers) AllContainers() []corev1.Container {
 	return append(slices.Clone(p.Containers), p.InitContainers...)
 }
 
-// nolint directives: interfacer
 func loadConfig(injectFile, valuesFile string) (*Config, string, error) {
 	data, err := os.ReadFile(injectFile)
 	if err != nil {
@@ -682,7 +681,7 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 		}
 	}
 
-	// nolint: staticcheck
+	//nolint:staticcheck
 	holdPod := mc.GetDefaultConfig().GetHoldApplicationUntilProxyStarts().GetValue() ||
 		req.valuesConfig.asStruct.GetGlobal().GetProxy().GetHoldApplicationUntilProxyStarts().GetValue()
 

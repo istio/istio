@@ -184,7 +184,7 @@ func UnmarshalConfig(yml []byte) (Config, error) {
 	return injectConfig, nil
 }
 
-func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata metav1.ObjectMeta) bool { // nolint: lll
+func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, metadata metav1.ObjectMeta) bool {
 	// Skip injection when host networking is enabled. The problem is
 	// that the iptables changes are assumed to be within the pod when,
 	// in fact, they are changing the routing at the host level. This
@@ -545,7 +545,6 @@ func runTemplate(tmpl *template.Template, data SidecarTemplateData) (bytes.Buffe
 
 // IntoResourceFile injects the istio proxy into the specified
 // kubernetes YAML file.
-// nolint: lll
 func IntoResourceFile(injector Injector, sidecarTemplate Templates,
 	valuesConfig ValuesConfig, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string),
 ) error {
@@ -566,7 +565,7 @@ func IntoResourceFile(injector Injector, sidecarTemplate Templates,
 
 		var updated []byte
 		if err == nil {
-			outObject, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
+			outObject, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) //nolint:vetshadow
 			if err != nil {
 				return err
 			}
@@ -607,7 +606,6 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 }
 
 // IntoObject convert the incoming resources into Injected resources
-// nolint: lll
 func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig ValuesConfig,
 	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string),
 ) (any, error) {
@@ -631,7 +629,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 				return nil, err
 			}
 
-			r, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
+			r, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) //nolint:vetshadow
 			if err != nil {
 				return nil, err
 			}

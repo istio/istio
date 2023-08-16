@@ -38,7 +38,6 @@ var (
 func TestMain(m *testing.M) {
 	// Integration test for testing interoperability with external CA's that are integrated with K8s CSR API
 	// Refer to https://kubernetes.io/docs/reference/access-authn-authz/certificate-signing-requests/
-	// nolint: staticcheck
 	var certs []csrctrl.SignerRootCert
 	framework.NewSuite(m).
 		Label(label.CustomSetup).

@@ -197,7 +197,6 @@ func TestIsCatchAllRoute(t *testing.T) {
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
-							// nolint: staticcheck
 							Regex: "*",
 						},
 					},
@@ -226,7 +225,6 @@ func TestIsCatchAllRoute(t *testing.T) {
 				Match: &route.RouteMatch{
 					PathSpecifier: &route.RouteMatch_SafeRegex{
 						SafeRegex: &matcher.RegexMatcher{
-							// nolint: staticcheck
 							Regex: "*",
 						},
 					},

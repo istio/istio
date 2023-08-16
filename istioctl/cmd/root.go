@@ -291,7 +291,7 @@ debug and diagnose their Istio mesh.
 func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
 	orig.SetHelpFunc(func(cmd *cobra.Command, args []string) {
 		for _, hidden := range hidden {
-			_ = cmd.Flags().MarkHidden(hidden) // nolint: errcheck
+			_ = cmd.Flags().MarkHidden(hidden)
 		}
 
 		orig.SetHelpFunc(nil)

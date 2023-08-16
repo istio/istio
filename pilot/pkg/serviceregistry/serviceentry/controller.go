@@ -649,7 +649,7 @@ func (s *Controller) Services() []*model.Service {
 	for _, svc := range allServices {
 		// shallow copy, copy `AutoAllocatedIPv4Address` and `AutoAllocatedIPv6Address`
 		// if return the pointer directly, there will be a race with `BuildNameTable`
-		// nolint: govet
+		//nolint:govet
 		shallowSvc := *svc
 		out = append(out, &shallowSvc)
 	}

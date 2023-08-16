@@ -52,10 +52,10 @@ var (
 		"65xiNg"
 
 	// oneAudString includes one `aud` claim "abc" of type string.
-	oneAudString = "header.eyJhdWQiOiJhYmMiLCJleHAiOjQ3MzI5OTQ4MDEsImlhdCI6MTU3OTM5NDgwMSwiaXNzIjoidGVzdC1pc3N1ZXItMUBpc3Rpby5pbyIsInN1YiI6InN1Yi0xIn0.signature" // nolint: lll
+	oneAudString = "header.eyJhdWQiOiJhYmMiLCJleHAiOjQ3MzI5OTQ4MDEsImlhdCI6MTU3OTM5NDgwMSwiaXNzIjoidGVzdC1pc3N1ZXItMUBpc3Rpby5pbyIsInN1YiI6InN1Yi0xIn0.signature" //nolint:lll
 
 	// twoAudList includes two `aud` claims ["abc", "xyz"] of type []string.
-	twoAudList = "header.eyJhdWQiOlsiYWJjIiwieHl6Il0sImV4cCI6NDczMjk5NDgwMSwiaWF0IjoxNTc5Mzk0ODAxLCJpc3MiOiJ0ZXN0LWlzc3Vlci0xQGlzdGlvLmlvIiwic3ViIjoic3ViLTEifQ.signature" // nolint: lll
+	twoAudList = "header.eyJhdWQiOlsiYWJjIiwieHl6Il0sImV4cCI6NDczMjk5NDgwMSwiaWF0IjoxNTc5Mzk0ODAxLCJpc3MiOiJ0ZXN0LWlzc3Vlci0xQGlzdGlvLmlvIiwic3ViIjoic3ViLTEifQ.signature" //nolint:lll
 
 	// A JWT encoded payload that has the padding stripped and contains an underscore character from the base64url alphabet
 	base64UrlEncodedPaddingStrippedPart = "eyJpc3MiOiJodHRwczovL2V4YW1wbGUuY29tIiwiYXVkIjoiSm9lIEFyZG_DsWV6In0"

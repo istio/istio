@@ -302,7 +302,7 @@ func handleAndGetXdsConfigs(clientConfig *xdsstatus.ClientConfig) []*xdsstatus.C
 
 	// FIXME: currently removing the deprecated code below may result in functions not working
 	// if there is a mismatch of versions between istiod and istioctl
-	// nolint: staticcheck
+	//nolint:staticcheck
 	for _, config := range clientConfig.GetXdsConfig() {
 		var typeURL string
 		switch config.PerXdsConfig.(type) {

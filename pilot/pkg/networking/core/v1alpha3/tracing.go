@@ -173,10 +173,10 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 			return datadogConfig(serviceCluster, hostname, cluster)
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
-		//nolint: staticcheck  // Lightstep deprecated
+		//nolint:staticcheck  // Lightstep deprecated
 		maxTagLength = provider.Lightstep.GetMaxTagLength()
 		providerName = envoyLightstep
-		//nolint: staticcheck  // Lightstep deprecated
+		//nolint:staticcheck  // Lightstep deprecated
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Lightstep.GetService(), int(provider.Lightstep.GetPort()))
 			if err != nil {
@@ -359,15 +359,15 @@ func stackdriverConfig(proxyMetaData *model.NodeMetadata, sdProvider *meshconfig
 	// - max number of message events
 	// The following code block allows control for a single configuration once during the lifecycle of a
 	// mesh.
-	// nolint: staticcheck
+	//nolint:staticcheck
 	if sdProvider.GetMaxNumberOfAnnotations() != nil {
 		sd.TraceConfig.MaxNumberOfAnnotations = sdProvider.GetMaxNumberOfAnnotations().GetValue()
 	}
-	// nolint: staticcheck
+	//nolint:staticcheck
 	if sdProvider.GetMaxNumberOfAttributes() != nil {
 		sd.TraceConfig.MaxNumberOfAttributes = sdProvider.GetMaxNumberOfAttributes().GetValue()
 	}
-	// nolint: staticcheck
+	//nolint:staticcheck
 	if sdProvider.GetMaxNumberOfMessageEvents() != nil {
 		sd.TraceConfig.MaxNumberOfMessageEvents = sdProvider.GetMaxNumberOfMessageEvents().GetValue()
 	}

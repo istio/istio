@@ -73,7 +73,6 @@ calculated over a time interval of 1 minute.
 
   # Retrieve workload metrics for various services in the different namespaces
   istioctl experimental metrics productpage-v1.foo reviews-v1.bar ratings-v1.baz`,
-		// nolint: goimports
 		Aliases: []string{"m"},
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) < 1 {

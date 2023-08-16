@@ -104,8 +104,7 @@ type Interface interface {
 }
 
 // Manufacture will create a lock of a given type according to the input parameters
-// nolint: lll
-func New(lockType string, ns string, name string, coreClient corev1.CoreV1Interface, coordinationClient coordinationv1.CoordinationV1Interface, rlc ResourceLockConfig) (Interface, error) {
+func New(lockType string, ns string, name string, coreClient corev1.CoreV1Interface, coordinationClient coordinationv1.CoordinationV1Interface, rlc ResourceLockConfig) (Interface, error) { //nolint:lll
 	endpointsLock := &EndpointsLock{
 		EndpointsMeta: metav1.ObjectMeta{
 			Namespace: ns,
@@ -156,7 +155,8 @@ func New(lockType string, ns string, name string, coreClient corev1.CoreV1Interf
 // Timeout set for a client used to contact to Kubernetes should be lower than
 // RenewDeadline to keep a single hung request from forcing a leader loss.
 // Setting it to max(time.Second, RenewDeadline/2) as a reasonable heuristic.
-// nolint: lll
+//
+//nolint:lll
 func NewFromKubeconfig(lockType string, ns string, name string, rlc ResourceLockConfig, kubeconfig *restclient.Config, renewDeadline time.Duration) (Interface, error) {
 	// shallow copy, do not modify the kubeconfig
 	config := *kubeconfig

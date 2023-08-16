@@ -362,12 +362,10 @@ func verifyInstallation(t framework.TestContext, ctx resource.Context,
 func compareInClusterAndGeneratedResources(t framework.TestContext, cs cluster.Cluster, k8sObjects object.K8sObjects,
 	expectRemoved bool,
 ) {
-	// nolint:staticcheck
 	if k8sObjects == nil {
 		t.Fatalf("expected K8sObjects is nil")
 	}
 
-	// nolint:staticcheck
 	for _, genK8SObject := range k8sObjects {
 		kind := genK8SObject.Kind
 		ns := genK8SObject.Namespace

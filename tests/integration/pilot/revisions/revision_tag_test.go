@@ -33,7 +33,7 @@ import (
 )
 
 func TestRevisionTags(t *testing.T) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.NewTest(t).
 		Features("installation.istioctl.revision_tags").
 		RequiresSingleCluster().

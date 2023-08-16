@@ -543,7 +543,7 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 		action.Timeout = in.Timeout
 	}
 	// Use deprecated value for now as the replacement MaxStreamDuration has some regressions.
-	// nolint: staticcheck
+	//nolint:staticcheck
 	action.MaxGrpcTimeout = action.Timeout
 
 	out.Action = &route.Route_Route{Route: action}

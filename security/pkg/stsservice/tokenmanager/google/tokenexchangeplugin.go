@@ -336,10 +336,10 @@ type Duration struct {
 }
 
 type accessTokenRequest struct {
-	Name      string   `json:"name"` // nolint: structcheck, unused
+	Name      string   `json:"name"` //nolint:structcheck
 	Delegates []string `json:"delegates"`
 	Scope     []string `json:"scope"`
-	LifeTime  Duration `json:"lifetime"` // nolint: structcheck, unused
+	LifeTime  Duration `json:"lifetime"` //nolint:structcheck
 }
 
 type accessTokenResponse struct {

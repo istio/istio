@@ -101,7 +101,7 @@ where the network configuration doesn't support gRPC to the source pod.'
 				UDS:     uds,
 			})
 			if err != nil {
-				log.Fatalf("Error %s\n", err) // nolint: revive
+				log.Fatalf("Error %s\n", err) //nolint:revive
 				os.Exit(-1)
 			}
 

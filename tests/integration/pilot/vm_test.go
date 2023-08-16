@@ -98,7 +98,7 @@ func TestVmOSPost(t *testing.T) {
 
 func TestVMRegistrationLifecycle(t *testing.T) {
 	t.Skip("https://github.com/istio/istio/issues/33154")
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().

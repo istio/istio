@@ -180,7 +180,7 @@ func TestConvertNodeMetadata(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to marshal: %v", err)
 		}
-		// nolint: lll
+		//nolint:lll
 		want := `{"id":"test","cluster":"cluster","metadata":{"A":1,"B":{"b":1},"OWNER":"real-owner","PROXY_CONFIG":{"serviceCluster":"cluster"},"UNKNOWN":"new-field"}}`
 		test.JSONEquals(t, want, string(b))
 	}
@@ -191,7 +191,6 @@ func TestConvertNodeMetadata(t *testing.T) {
 		if err != nil {
 			t.Fatalf("failed to marshal: %v", err)
 		}
-		// nolint: lll
 		want := `{"ID":"test","Metadata":{"PROXY_CONFIG":{"serviceCluster":"cluster"},"OWNER":"real-owner"},"RawMetadata":null,"Locality":null}`
 		if want != string(got) {
 			t.Fatalf("ConvertXDSNodeToNode: got %q, want %q", string(got), want)

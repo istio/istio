@@ -38,11 +38,10 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
-// nolint: gosec
 // Test only code
 var (
 	idctr int64
-	rnd   = rand.New(rand.NewSource(time.Now().UnixNano()))
+	rnd   = rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec
 	mu    sync.Mutex
 )
 

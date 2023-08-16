@@ -176,7 +176,8 @@ func TestServiceDiscoveryGetService(t *testing.T) {
 }
 
 // TestServiceDiscoveryServiceUpdate test various add/update/delete events for ServiceEntry
-// nolint: lll
+//
+//nolint:lll
 func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 	store, sd, events := initServiceDiscovery(t)
 	// httpStaticOverlayUpdated is the same as httpStaticOverlay but with an extra endpoint added to test updates
@@ -1463,7 +1464,6 @@ func TestNonServiceConfig(t *testing.T) {
 	})
 }
 
-// nolint: lll
 func TestServicesDiff(t *testing.T) {
 	updatedHTTPDNS := &config.Config{
 		Meta: config.Meta{

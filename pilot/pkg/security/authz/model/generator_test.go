@@ -280,7 +280,7 @@ func TestGenerator(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			var got any
 			var err error
-			// nolint: gocritic
+			//nolint:gocritic
 			if _, ok := tc.want.(*rbacpb.Permission); ok {
 				got, err = tc.g.permission(tc.key, tc.value, tc.forTCP)
 				if err != nil {

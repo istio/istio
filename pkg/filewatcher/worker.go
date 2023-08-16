@@ -251,7 +251,6 @@ func (wk *worker) errorChannel(path string) chan error {
 }
 
 // gets the MD5 of the given file, or nil if there's a problem
-// nolint: gosec
 // not security sensitive code
 func getMd5Sum(file string) []byte {
 	f, err := os.Open(file)
@@ -261,7 +260,7 @@ func getMd5Sum(file string) []byte {
 	defer f.Close()
 	r := bufio.NewReader(f)
 
-	h := md5.New()
+	h := md5.New() //nolint:gosec
 	_, _ = io.Copy(h, r)
 	return h.Sum(nil)
 }

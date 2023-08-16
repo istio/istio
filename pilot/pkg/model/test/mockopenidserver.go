@@ -169,7 +169,7 @@ func (ms *MockOpenIDDiscoveryServer) Start() error {
 		}
 	}()
 
-	// nolint: gosec  // test only code
+	//nolint:gosec  // test only code
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},

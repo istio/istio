@@ -17,7 +17,7 @@ package bootstrap
 import (
 	"strings"
 
-	gogoproto "github.com/gogo/protobuf/proto" // nolint: depguard
+	gogoproto "github.com/gogo/protobuf/proto" //nolint:depguard
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pkg/config"

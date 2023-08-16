@@ -125,7 +125,6 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 	return out
 }
 
-// nolint: unparam
 func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si model.ServiceTarget, checker authn.MtlsPolicy) []*listener.FilterChain {
 	mode := checker.GetMutualTLSModeForPort(si.Port.TargetPort)
 
@@ -249,7 +248,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 // For gateways it would make a lot of sense to use this concept, same for moving path prefix at top level ( more scalable, easier for users)
 // This should probably be done for the v2 API.
 //
-// nolint: unparam
+//nolint:unparam
 func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, context *tls.DownstreamTlsContext,
 	a rbacpb.RBAC_Action, policies []model.AuthorizationPolicy,
 ) *rbacpb.RBAC {
@@ -273,7 +272,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 	return rules
 }
 
-// nolint: unparam
+//nolint:unparam
 func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter listenerNames) model.Resources {
 	out := make(model.Resources, 0, len(filter))
 	for _, sv := range node.SidecarScope.Services() {

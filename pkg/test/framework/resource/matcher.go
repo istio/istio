@@ -78,7 +78,8 @@ func matchSingle(filter testFilter, testName string) bool {
 }
 
 // From go/src/testing/match.go
-// nolint
+//
+//nolint:gocritic
 func splitRegexp(s string) []string {
 	a := make([]string, 0, strings.Count(s, "/"))
 	cs := 0

@@ -341,8 +341,7 @@ func analyzeWebhook(name, istioNamespace, wh, revision string, config *rest.Conf
 		if err != nil {
 			return err
 		}
-		// nolint
-		return fmt.Errorf("creating tag would conflict, pass --skip-confirmation to proceed:\n%v\n", o)
+		return fmt.Errorf("creating tag would conflict, pass --skip-confirmation to proceed:\n%v\n", o) //nolint:revive,stylecheck
 	}
 	return nil
 }

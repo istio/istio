@@ -2030,7 +2030,7 @@ func createServiceWithoutClusterIP(controller *FakeController, name, namespace s
 	clienttest.Wrap(t, controller.services).Create(service)
 }
 
-// nolint: unparam
+//nolint:unparam
 func createExternalNameService(controller *FakeController, name, namespace string,
 	ports []int32, externalName string, t *testing.T, xdsEvents *xdsfake.Updater,
 ) *corev1.Service {

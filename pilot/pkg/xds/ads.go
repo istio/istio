@@ -933,7 +933,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 	return err
 }
 
-// nolint
+//nolint:revive,stylecheck
 func (conn *Connection) NonceAcked(typeUrl string) string {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
@@ -943,7 +943,7 @@ func (conn *Connection) NonceAcked(typeUrl string) string {
 	return ""
 }
 
-// nolint
+//nolint:revive,stylecheck
 func (conn *Connection) NonceSent(typeUrl string) string {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
@@ -975,7 +975,7 @@ func (conn *Connection) Routes() []string {
 	return []string{}
 }
 
-// nolint
+//nolint:revive,stylecheck
 func (conn *Connection) Watching(typeUrl string) bool {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
@@ -985,7 +985,7 @@ func (conn *Connection) Watching(typeUrl string) bool {
 	return false
 }
 
-// nolint
+//nolint:revive,stylecheck
 func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
@@ -998,7 +998,6 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 // pushDetails returns the details needed for current push. It returns ordered list of
 // watched resources for the proxy, ordered in accordance with known push order.
 // It also returns the lis of typeUrls.
-// nolint
 func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.String) {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()

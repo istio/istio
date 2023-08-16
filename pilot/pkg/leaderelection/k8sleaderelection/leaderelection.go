@@ -50,7 +50,6 @@ limitations under the License.
 // DISCLAIMER: this is an alpha API. This library will likely change significantly
 // or even be removed entirely in subsequent releases. Depend on this API at
 // your own risk.
-// nolint
 package k8sleaderelection
 
 import (
@@ -289,7 +288,7 @@ func (le *LeaderElector) renew(ctx context.Context) {
 	wait.Until(func() {
 		timeoutCtx, timeoutCancel := context.WithTimeout(ctx, le.config.RenewDeadline)
 		defer timeoutCancel()
-		err := wait.PollImmediateUntil(le.config.RetryPeriod, func() (bool, error) {
+		err := wait.PollImmediateUntil(le.config.RetryPeriod, func() (bool, error) { //nolint:staticcheck
 			return le.tryAcquireOrRenew(timeoutCtx), nil
 		}, timeoutCtx.Done())
 
@@ -374,7 +373,7 @@ func (le *LeaderElector) tryAcquireOrRenew(ctx context.Context) bool {
 		if le.config.KeyComparison != nil && le.config.KeyComparison(oldLeaderElectionRecord.HolderKey) {
 			// Lock is held and not expired, but our key is higher than the existing one.
 			// We will pre-empt the existing leader.
-			// nolint: lll
+			//nolint:lll
 			klog.V(4).Infof("lock is held by %v with key %v, but our key (%v) evicts it", oldLeaderElectionRecord.HolderIdentity, oldLeaderElectionRecord.HolderKey, le.config.Lock.Key())
 		} else {
 			klog.V(4).Infof("lock is held by %v and has not yet expired", oldLeaderElectionRecord.HolderIdentity)

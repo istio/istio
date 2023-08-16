@@ -68,9 +68,8 @@ import (
 
 // Constants for duration fields
 const (
-	// nolint: revive
 	connectTimeoutMax = time.Second * 30
-	// nolint: revive
+	//nolint:revive
 	connectTimeoutMin = time.Millisecond
 
 	drainTimeMax = time.Hour
@@ -764,7 +763,7 @@ func validateAlphaWorkloadSelector(selector *networking.WorkloadSelector) (Warni
 			}
 		}
 		if len(selector.Labels) == 0 {
-			warning = fmt.Errorf("workload selector specified without labels") // nolint: stylecheck
+			warning = fmt.Errorf("workload selector specified without labels")
 		}
 	}
 
@@ -788,35 +787,35 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 		// If workloadSelector is defined and labels are not set, it is most likely
 		// an user error. Marking it as a warning to keep it backwards compatible.
 		if warning != nil {
-			errs = appendValidation(errs, WrapWarning(fmt.Errorf("Envoy filter: %s, will be applied to all services in namespace", warning))) // nolint: stylecheck
+			errs = appendValidation(errs, WrapWarning(fmt.Errorf("Envoy filter: %s, will be applied to all services in namespace", warning))) //nolint:stylecheck
 		}
 
 		for _, cp := range rule.ConfigPatches {
 			if cp == nil {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: null config patch")) // nolint: stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: null config patch")) //nolint:stylecheck
 				continue
 			}
 			if cp.ApplyTo == networking.EnvoyFilter_INVALID {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing applyTo")) // nolint: stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing applyTo")) //nolint:stylecheck
 				continue
 			}
 			if cp.Patch == nil {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch")) // nolint: stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch")) //nolint:stylecheck
 				continue
 			}
 			if cp.Patch.Operation == networking.EnvoyFilter_Patch_INVALID {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch operation")) // nolint: stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch operation")) //nolint:stylecheck
 				continue
 			}
 			if cp.Patch.Operation != networking.EnvoyFilter_Patch_REMOVE && cp.Patch.Value == nil {
-				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) // nolint: stylecheck
+				errs = appendValidation(errs, fmt.Errorf("Envoy filter: missing patch value for non-remove operation")) //nolint:stylecheck
 				continue
 			}
 
 			// ensure that the supplied regex for proxy version compiles
 			if cp.Match != nil && cp.Match.Proxy != nil && cp.Match.Proxy.ProxyVersion != "" {
 				if _, err := regexp.Compile(cp.Match.Proxy.ProxyVersion); err != nil {
-					errs = appendValidation(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) // nolint: stylecheck
+					errs = appendValidation(errs, fmt.Errorf("Envoy filter: invalid regex for proxy version, [%v]", err)) //nolint:stylecheck
 					continue
 				}
 			}
@@ -828,7 +827,7 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				networking.EnvoyFilter_HTTP_FILTER:
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetListener() == nil {
-						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) // nolint: stylecheck
+						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for listener class objects cannot have non listener match")) //nolint:stylecheck
 						continue
 					}
 					listenerMatch := cp.Match.GetListener()
@@ -837,27 +836,27 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 							if cp.ApplyTo == networking.EnvoyFilter_LISTENER || cp.ApplyTo == networking.EnvoyFilter_FILTER_CHAIN {
 								// This would be an error but is a warning for backwards compatibility
 								errs = appendValidation(errs, WrapWarning(
-									fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) // nolint: stylecheck
+									fmt.Errorf("Envoy filter: filter match has no effect when used with %v", cp.ApplyTo))) //nolint:stylecheck
 							}
 							// filter names are required if network filter matches are being made
 							if listenerMatch.FilterChain.Filter.Name == "" {
-								errs = appendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) // nolint: stylecheck
+								errs = appendValidation(errs, fmt.Errorf("Envoy filter: filter match has no name to match on")) //nolint:stylecheck
 								continue
 							} else if listenerMatch.FilterChain.Filter.SubFilter != nil {
 								// sub filter match is supported only for applyTo HTTP_FILTER
 								if cp.ApplyTo != networking.EnvoyFilter_HTTP_FILTER {
-									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) // nolint: stylecheck
+									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match can be used with applyTo HTTP_FILTER only")) //nolint:stylecheck
 									continue
 								}
 								// sub filter match requires the network filter to match to envoy http connection manager
 								if listenerMatch.FilterChain.Filter.Name != wellknown.HTTPConnectionManager &&
 									listenerMatch.FilterChain.Filter.Name != "envoy.http_connection_manager" {
-									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", // nolint: stylecheck
+									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match requires filter match with %s", //nolint:stylecheck
 										wellknown.HTTPConnectionManager))
 									continue
 								}
 								if listenerMatch.FilterChain.Filter.SubFilter.Name == "" {
-									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) // nolint: stylecheck
+									errs = appendValidation(errs, fmt.Errorf("Envoy filter: subfilter match has no name to match on")) //nolint:stylecheck
 									continue
 								}
 							}
@@ -870,14 +869,14 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetRouteConfiguration() == nil {
 						errs = appendValidation(errs,
-							fmt.Errorf("Envoy filter: applyTo for http route class objects cannot have non route configuration match")) // nolint: stylecheck
+							fmt.Errorf("Envoy filter: applyTo for http route class objects cannot have non route configuration match")) //nolint:stylecheck
 					}
 				}
 
 			case networking.EnvoyFilter_CLUSTER:
 				if cp.Match != nil && cp.Match.ObjectTypes != nil {
 					if cp.Match.GetCluster() == nil {
-						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) // nolint: stylecheck
+						errs = appendValidation(errs, fmt.Errorf("Envoy filter: applyTo for cluster class objects cannot have non cluster match")) //nolint:stylecheck
 					}
 				}
 			}
@@ -1103,7 +1102,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 		// an user error. Marking it as a warning to keep it backwards compatible.
 		if warning != nil {
 			errs = appendValidation(errs, WrapWarning(fmt.Errorf("sidecar: %s, will be applied to all services in namespace",
-				warning))) // nolint: stylecheck
+				warning)))
 		}
 
 		if len(rule.Egress) == 0 && len(rule.Ingress) == 0 && rule.OutboundTrafficPolicy == nil {
@@ -1377,7 +1376,7 @@ func validateOutlierDetection(outlier *networking.OutlierDetection) (errs Valida
 	if outlier.BaseEjectionTime != nil {
 		errs = appendValidation(errs, ValidateDuration(outlier.BaseEjectionTime))
 	}
-	// nolint: staticcheck
+	//nolint:staticcheck
 	if outlier.ConsecutiveErrors != 0 {
 		warn := "outlier detection consecutive errors is deprecated, use consecutiveGatewayErrors or consecutive5xxErrors instead"
 		scope.Warnf(warn)
@@ -1456,12 +1455,12 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 				errs = appendValidation(errs, fmt.Errorf("ttl required for HttpCookie"))
 			}
 		}
-		if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
+		if consistentHash.MinimumRingSize != 0 { //nolint:staticcheck
 			warn := "consistent hash MinimumRingSize is deprecated, use ConsistentHashLB's RingHash configuration instead"
 			scope.Warnf(warn)
 			errs = appendValidation(errs, WrapWarning(errors.New(warn)))
 		}
-		// nolint: staticcheck
+		//nolint:staticcheck
 		if consistentHash.MinimumRingSize != 0 && consistentHash.GetHashAlgorithm() != nil {
 			errs = appendValidation(errs, fmt.Errorf("only one of MinimumRingSize or Maglev/Ringhash can be specified"))
 		}
@@ -1887,12 +1886,12 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 		}
 	}
 
-	// nolint: staticcheck
+	//nolint:staticcheck
 	if config.EnvoyMetricsServiceAddress != "" {
 		if err := ValidateProxyAddress(config.EnvoyMetricsServiceAddress); err != nil {
 			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("invalid envoy metrics service address %q:", config.EnvoyMetricsServiceAddress)))
 		} else {
-			scope.Warnf("EnvoyMetricsServiceAddress is deprecated, use EnvoyMetricsService instead.") // nolint: stylecheck
+			scope.Warnf("EnvoyMetricsServiceAddress is deprecated, use EnvoyMetricsService instead.")
 		}
 	}
 
@@ -1950,7 +1949,7 @@ func validateWorkloadSelector(selector *type_beta.WorkloadSelector) Validation {
 			}
 		}
 		if len(selector.MatchLabels) == 0 {
-			warning := fmt.Errorf("workload selector specified without labels") // nolint: stylecheck
+			warning := fmt.Errorf("workload selector specified without labels")
 			validation = appendValidation(validation, WrapWarning(warning))
 		}
 	}
@@ -3366,7 +3365,7 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 		// an user error. Marking it as a warning to keep it backwards compatible.
 		if warning != nil {
 			errs = appendValidation(errs, WrapWarning(fmt.Errorf("service entry: %s, will be applied to all services in namespace",
-				warning))) // nolint: stylecheck
+				warning)))
 		}
 
 		if serviceEntry.WorkloadSelector != nil && serviceEntry.Endpoints != nil {
@@ -3588,13 +3587,11 @@ func appendValidation(v Validation, vs ...error) Validation {
 }
 
 // appendErrorf appends a formatted error string
-// nolint: unparam
 func appendErrorf(v Validation, format string, a ...any) Validation {
 	return appendValidation(v, fmt.Errorf(format, a...))
 }
 
 // appendWarningf appends a formatted warning string
-// nolint: unparam
 func appendWarningf(v Validation, format string, a ...any) Validation {
 	return appendValidation(v, Warningf(format, a...))
 }

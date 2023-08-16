@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
-// nolint: interfacer
 func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *structpb.Struct, strict bool) (proto.Message, error) {
 	if value == nil {
 		// for remove ops
@@ -62,11 +61,11 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *str
 	case networking.EnvoyFilter_LISTENER_FILTER:
 		obj = &listener.ListenerFilter{}
 	default:
-		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) // nolint: stylecheck
+		return nil, fmt.Errorf("Envoy filter: unknown object type for applyTo %s", applyTo.String()) //nolint:stylecheck
 	}
 
 	if err := StructToMessage(value, obj, strict); err != nil {
-		return nil, fmt.Errorf("Envoy filter: %v", err) // nolint: stylecheck
+		return nil, fmt.Errorf("Envoy filter: %v", err) //nolint:stylecheck
 	}
 	return obj, nil
 }

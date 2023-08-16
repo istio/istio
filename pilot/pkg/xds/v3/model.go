@@ -41,8 +41,7 @@ const (
 	ServiceType               = resource.APITypePrefix + "istio.workload.Service"
 	WorkloadAuthorizationType = resource.APITypePrefix + "istio.security.Authorization"
 
-	// nolint
-	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions"
+	HttpProtocolOptionsType = "envoy.extensions.upstreams.http.v3.HttpProtocolOptions" //nolint:revive,stylecheck
 )
 
 // GetShortType returns an abbreviated form of a type, useful for logging or human friendly messages

@@ -43,7 +43,7 @@ func TestStatusExistsByDefault(t *testing.T) {
 }
 
 func TestAnalysisWritesStatus(t *testing.T) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.NewTest(t).
 		Features(features.Usability_Observability_Status).
 		// TODO: make feature labels heirarchical constants like:
@@ -84,7 +84,7 @@ spec:
   - reviews
   http:
   - route:
-    - destination: 
+    - destination:
         host: reviews
 `).ApplyOrFail(t)
 			// Status should report error

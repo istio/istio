@@ -43,7 +43,7 @@ const (
 
 // TestRevisionedUpgrade tests a revision-based upgrade from the specified versions to current master
 func TestRevisionedUpgrade(t *testing.T) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		RequiresLocalControlPlane().
@@ -122,7 +122,7 @@ func testUpgradeFromVersion(t framework.TestContext, fromVersion string) {
 	if err := revisionedInstance.Restart(); err != nil {
 		t.Fatalf("revisioned instance rollout failed with: %v", err)
 	}
-	fetch := kubetest.NewPodMustFetch(t.Clusters().Default(), revisionedInstance.Config().Namespace.Name(), fmt.Sprintf("app=%s", revisionedInstance.Config().Service)) // nolint: lll
+	fetch := kubetest.NewPodMustFetch(t.Clusters().Default(), revisionedInstance.Config().Namespace.Name(), fmt.Sprintf("app=%s", revisionedInstance.Config().Service)) //nolint:lll
 	pods, err := kubetest.CheckPodsAreReady(fetch)
 	if err != nil {
 		t.Fatalf("failed to retrieve upgraded pods: %v", err)

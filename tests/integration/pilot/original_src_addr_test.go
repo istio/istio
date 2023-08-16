@@ -26,7 +26,7 @@ import (
 )
 
 func TestTproxy(t *testing.T) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.
 		NewTest(t).
 		Features("traffic.original-source-ip").

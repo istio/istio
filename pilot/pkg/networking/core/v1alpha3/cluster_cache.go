@@ -63,7 +63,6 @@ func (t *clusterCache) Type() string {
 }
 
 func (t *clusterCache) Key() any {
-	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
 	h.Write([]byte(t.clusterName))

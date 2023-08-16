@@ -176,7 +176,7 @@ func TestGolden(t *testing.T) {
 				}
 			},
 			check: func(got *bootstrap.Bootstrap, t *testing.T) {
-				// nolint: staticcheck
+				//nolint:staticcheck
 				cfg := got.Tracing.Http.GetTypedConfig()
 				sdMsg := &trace.OpenCensusConfig{}
 				if err := cfg.UnmarshalTo(sdMsg); err != nil {
@@ -449,7 +449,6 @@ func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want s
 			pat = pattern.GetSuffix()
 		case "regexp":
 			// Migration tracked in https://github.com/istio/istio/issues/17127
-			//nolint: staticcheck
 			pat = pattern.GetSafeRegex().GetRegex()
 		}
 
@@ -463,7 +462,7 @@ func checkListStringMatcher(t *testing.T, got *matcher.ListStringMatcher, want s
 	}
 }
 
-// nolint: staticcheck
+//nolint:staticcheck
 func checkOpencensusConfig(t *testing.T, got, want *bootstrap.Bootstrap) {
 	if want.Tracing == nil {
 		return

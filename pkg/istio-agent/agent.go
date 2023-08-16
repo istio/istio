@@ -452,7 +452,8 @@ func (a *Agent) initSdsServer() error {
 //
 // TODO: evaluate replacing the STS server with a file data source, to simplify Envoy config
 // TODO: Fix this method with unused return value
-// nolint: unparam
+//
+//nolint:unparam
 func (a *Agent) getWorkloadCerts(st *cache.SecretManagerClient) (sk *security.SecretItem, err error) {
 	b := backoff.NewExponentialBackOff(backoff.DefaultOption())
 	// This will loop forever until success

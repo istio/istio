@@ -93,7 +93,6 @@ values:
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
 func TestMain(m *testing.M) {
-	// nolint: staticcheck
 	framework.
 		NewSuite(m).
 		SkipIf("https://github.com/istio/istio/issues/43243", func(ctx resource.Context) bool {

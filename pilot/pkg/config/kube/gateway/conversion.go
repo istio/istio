@@ -1577,7 +1577,7 @@ func createHeadersFilter(filter *k8s.HTTPHeaderFilter) *istio.Headers_HeaderOper
 	}
 }
 
-// nolint: unparam
+//nolint:unparam
 func createMethodMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError) {
 	if match.Method == nil {
 		return nil, nil

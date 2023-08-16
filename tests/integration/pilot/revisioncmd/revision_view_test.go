@@ -70,7 +70,7 @@ type revisionResource struct {
 }
 
 func TestRevisionCommand(t *testing.T) {
-	// nolint: staticcheck
+	//nolint:staticcheck
 	framework.
 		NewTest(t).
 		RequiresSingleCluster().
@@ -191,12 +191,12 @@ func testRevisionDescription(t framework.TestContext, istioCtl istioctl.Instance
 			podsForRev, err := t.Clusters().Default().Kube().
 				CoreV1().Pods(nsName).
 				List(context.Background(), metav1.ListOptions{LabelSelector: labelSelector.String()})
-			if podsForRev == nil || err != nil { // nolint: staticcheck
+			if podsForRev == nil || err != nil { //nolint:staticcheck
 				t.Fatalf("error while getting pods for revision: %s from namespace: %s: %v", rev, nsName, err)
 			}
 			expectedPodsForRev := map[string]bool{}
 			actualPodsForRev := map[string]bool{}
-			for _, pod := range podsForRev.Items { // nolint: staticcheck
+			for _, pod := range podsForRev.Items { //nolint:staticcheck
 				expectedPodsForRev[fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)] = true
 			}
 			for _, pod := range podsInNamespace {

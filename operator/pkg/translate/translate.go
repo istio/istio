@@ -168,7 +168,7 @@ func NewTranslator() *Translator {
 				FlattenValues:        true,
 			},
 		},
-		// nolint: lll
+		//nolint:lll
 		KubernetesMapping: map[string]*Translation{
 			"Components.{{.ComponentName}}.K8S.Affinity":            {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.affinity"},
 			"Components.{{.ComponentName}}.K8S.Env":                 {OutPath: "[{{.ResourceType}}:{{.ResourceName}}].spec.template.spec.containers.[name:{{.ContainerName}}].env"},
@@ -331,25 +331,25 @@ func checkDeprecatedHPAFields(iop *v1alpha1.IstioOperatorSpec) bool {
 	for _, hpaSpec := range hpaSpecs {
 		if hpaSpec.GetMetrics() != nil {
 			for _, me := range hpaSpec.GetMetrics() {
-				// nolint: staticcheck
+				//nolint:staticcheck
 				if me.GetObject().GetMetricName() != "" || me.GetObject().GetAverageValue() != nil ||
-					// nolint: staticcheck
+					//nolint:staticcheck
 					me.GetObject().GetSelector() != nil || me.GetObject().GetTargetValue() != nil {
 					return true
 				}
-				// nolint: staticcheck
+				//nolint:staticcheck
 				if me.GetPods().GetMetricName() != "" || me.GetPods().GetSelector() != nil ||
-					// nolint: staticcheck
+					//nolint:staticcheck
 					me.GetPods().GetTargetAverageValue() != nil {
 					return true
 				}
-				// nolint: staticcheck
+				//nolint:staticcheck
 				if me.GetResource().GetTargetAverageValue() != nil || me.GetResource().GetTargetAverageUtilization() != 0 {
 					return true
 				}
-				// nolint: staticcheck
+				//nolint:staticcheck
 				if me.GetExternal().GetTargetAverageValue() != nil || me.GetExternal().GetTargetValue() != nil ||
-					// nolint: staticcheck
+					//nolint:staticcheck
 					me.GetExternal().GetMetricName() != "" || me.GetExternal().GetMetricSelector() != nil {
 					return true
 				}
@@ -1101,7 +1101,7 @@ apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
   namespace: {{ .Namespace }}
-  name: {{ .Name }} 
+  name: {{ .Name }}
 `
 	// Passing into template causes reformatting, use simple concatenation instead.
 	tmpl += spec

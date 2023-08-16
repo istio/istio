@@ -136,7 +136,7 @@ the configuration objects that affect that pod.`,
 			// Validate Istio's "Service association" requirement
 			if len(matchingServices) == 0 && !ignoreUnmeshed {
 				fmt.Fprintf(cmd.OutOrStdout(),
-					"Warning: No Kubernetes Services select pod %s (see https://istio.io/docs/setup/kubernetes/additional-setup/requirements/ )\n", // nolint: lll
+					"Warning: No Kubernetes Services select pod %s (see https://istio.io/docs/setup/kubernetes/additional-setup/requirements/ )\n",
 					kname(pod.ObjectMeta))
 			}
 			// TODO look for port collisions between services targeting this pod
@@ -291,7 +291,7 @@ func printDestinationRule(writer io.Writer, dr *clientnetworking.DestinationRule
 }
 
 // httpRouteMatchSvc returns true if it matches and a slice of facts about the match
-func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTPRoute, svc corev1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) (bool, []string) { // nolint: lll
+func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTPRoute, svc corev1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) (bool, []string) { //nolint:lll
 	svcHost := extendFQDN(fmt.Sprintf("%s.%s", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace))
 	facts := []string{}
 	mismatchNotes := []string{}
@@ -660,7 +660,7 @@ func getIstioVirtualServiceNameForSvc(cd *configdump.Wrapper, svc corev1.Service
 	}
 
 	// Starting with recent 1.5.0 builds, the path will include .istio.io.  Handle both.
-	// nolint: gosimple
+	//nolint:gosimple
 	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1alpha3/namespaces/(?P<namespace>[^/]+)/virtual-service/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
@@ -758,7 +758,7 @@ func getIstioDestinationRuleNameForSvc(cd *configdump.Wrapper, svc corev1.Servic
 	}
 
 	// Starting with recent 1.5.0 builds, the path will include .istio.io.  Handle both.
-	// nolint: gosimple
+	//nolint:gosimple
 	re := regexp.MustCompile("/apis/networking(\\.istio\\.io)?/v1alpha3/namespaces/(?P<namespace>[^/]+)/destination-rule/(?P<name>[^/]+)")
 	ss := re.FindStringSubmatch(path)
 	if ss == nil {
@@ -806,7 +806,7 @@ func getIstioDestinationRulePathForSvc(cd *configdump.Wrapper, svc corev1.Servic
 
 // TODO simplify this by showing for each matching Destination the negation of the previous HttpMatchRequest
 // and showing the non-matching Destinations.  (The current code is ad-hoc, and usually shows most of that information.)
-func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, svc corev1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { // nolint: lll
+func printVirtualService(writer io.Writer, vs *clientnetworking.VirtualService, svc corev1.Service, matchingSubsets []string, nonmatchingSubsets []string, dr *clientnetworking.DestinationRule) { //nolint:lll
 	fmt.Fprintf(writer, "VirtualService: %s\n", kname(vs.ObjectMeta))
 
 	// There is no point in checking that 'port' uses HTTP (for HTTP route matches)
@@ -1138,7 +1138,7 @@ the configuration objects that affect that service.`,
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *corev1.Pod, matchingServices []corev1.Service, podsLabels []klabels.Set) error { // nolint: lll
+func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *corev1.Pod, matchingServices []corev1.Service, podsLabels []klabels.Set) error { //nolint:lll
 	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump")
 	if err != nil {
 		if ignoreUnmeshed {

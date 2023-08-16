@@ -395,7 +395,7 @@ func setupKubeInjectParameters(cliContext cli.Context, sidecarTemplate *inject.R
 
 	injector := &ExternalInjector{}
 	if injectConfigFile != "" {
-		injectionConfig, err := os.ReadFile(injectConfigFile) // nolint: vetshadow
+		injectionConfig, err := os.ReadFile(injectConfigFile) //nolint:vetshadow
 		if err != nil {
 			return nil, nil, err
 		}
@@ -421,7 +421,7 @@ func setupKubeInjectParameters(cliContext cli.Context, sidecarTemplate *inject.R
 	}
 	if valuesConfig == nil || *valuesConfig == "" {
 		if valuesFile != "" {
-			valuesConfigBytes, err := os.ReadFile(valuesFile) // nolint: vetshadow
+			valuesConfigBytes, err := os.ReadFile(valuesFile) //nolint:vetshadow
 			if err != nil {
 				return nil, nil, err
 			}

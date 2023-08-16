@@ -161,7 +161,7 @@ func (s *httpInstance) awaitReady(onReady OnReadyFunc, address string) {
 		}
 	} else if s.Port.TLS {
 		url = fmt.Sprintf("https://%s", address)
-		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} // nolint: gosec // test only code
+		client.Transport = &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}} //nolint:gosec // test only code
 	} else {
 		url = fmt.Sprintf("http://%s", address)
 	}
@@ -236,7 +236,6 @@ func (h *httpHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// nolint: interfacer
 func writeError(out *bytes.Buffer, msg string) {
 	epLog.Warn(msg)
 	_, _ = out.WriteString(msg + "\n")
@@ -309,7 +308,6 @@ func (h *httpHandler) webSocketEcho(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// nolint: interfacer
 func (h *httpHandler) addResponsePayload(r *http.Request, body *bytes.Buffer) {
 	port := ""
 	if h.Port != nil {
@@ -402,7 +400,7 @@ func setResponseFromCodes(request *http.Request, response http.ResponseWriter) (
 	for _, flavor := range codes {
 		totalSlices += flavor.slices
 	}
-	// nolint: gosec
+	//nolint:gosec
 	// Test only code
 	slice := rand.Intn(totalSlices)
 

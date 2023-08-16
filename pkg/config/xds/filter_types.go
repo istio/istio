@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// nolint: lll
-//
 //go:generate sh -c "echo '//go:build !agent' > filter_types.gen.go"
 //go:generate sh -c "echo '// +build !agent\n' >> filter_types.gen.go"
 //go:generate sh -c "echo '// Copyright Istio Authors' >> filter_types.gen.go"

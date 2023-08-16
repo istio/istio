@@ -39,7 +39,7 @@ import (
 
 type LbEpInfo struct {
 	address string
-	// nolint: structcheck
+	//nolint:structcheck
 	weight uint32
 }
 

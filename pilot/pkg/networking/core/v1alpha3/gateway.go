@@ -599,7 +599,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 
 // hashRouteList returns a hash of a list of pointers
 func hashRouteList(r []*route.Route) uint64 {
-	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
 	for _, v := range r {

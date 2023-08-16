@@ -580,7 +580,7 @@ spec:
   - name: hello
     image: "fake.docker.io/google-samples/hello-go-gke:1.0"
 `
-	// nolint: lll
+	//nolint:lll
 	expected := `
 apiVersion: v1
 kind: Pod
@@ -634,7 +634,6 @@ spec:
 `,
 
 		// We expect resources to only have limits, since we had the "replace" directive.
-		// nolint: lll
 		`
 apiVersion: v1
 kind: Pod

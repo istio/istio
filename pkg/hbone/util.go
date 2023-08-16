@@ -32,7 +32,7 @@ var bufferPoolCopy = sync.Pool{New: func() any {
 
 func copyBuffered(dst io.Writer, src io.Reader, log *istiolog.Scope) {
 	buf1 := bufferPoolCopy.Get().([]byte)
-	// nolint: staticcheck
+	//nolint:staticcheck
 	defer bufferPoolCopy.Put(buf1)
 	bufCap := cap(buf1)
 	buf := buf1[0:bufCap:bufCap]

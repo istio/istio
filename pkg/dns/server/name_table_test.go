@@ -30,7 +30,6 @@ import (
 	dnsServer "istio.io/istio/pkg/dns/server"
 )
 
-// nolint
 func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, subdomain string) map[int][]*model.IstioEndpoint {
 	instances := make(map[int][]*model.IstioEndpoint)
 	for _, port := range service.Ports {

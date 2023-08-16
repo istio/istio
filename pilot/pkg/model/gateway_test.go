@@ -22,7 +22,7 @@ import (
 	"istio.io/istio/pkg/config"
 )
 
-// nolint lll
+//nolint:lll
 func TestMergeGateways(t *testing.T) {
 	gwHTTPFoo := makeConfig("foo1", "not-default", "foo.bar.com", "name1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE)
 	gwHTTPbar := makeConfig("bar1", "not-default", "bar.foo.com", "bname1", "http", 7, "ingressgateway", "", networking.ServerTLSSettings_SIMPLE)

@@ -181,7 +181,6 @@ func (t *testImpl) RequiresMinClusters(minClusters int) Test {
 
 func (t *testImpl) RequiresSingleCluster() Test {
 	t.requiredMaxClusters = 1
-	// nolint: staticcheck
 	return t.RequiresMinClusters(1)
 }
 

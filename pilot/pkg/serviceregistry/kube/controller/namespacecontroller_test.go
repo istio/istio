@@ -210,7 +210,6 @@ func updateNamespace(t *testing.T, client kubernetes.Interface, ns string, label
 	}
 }
 
-// nolint:unparam
 func expectConfigMap(t *testing.T, configmaps kclient.Client[*v1.ConfigMap], name, ns string, data map[string]string) {
 	t.Helper()
 	retry.UntilSuccessOrFail(t, func() error {

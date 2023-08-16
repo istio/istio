@@ -23,7 +23,6 @@ import (
 )
 
 // Command line options
-// nolint: maligned
 type Config struct {
 	DryRun                  bool     `json:"DRY_RUN"`
 	ProxyUID                string   `json:"PROXY_UID"`

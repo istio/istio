@@ -273,7 +273,7 @@ func isHTTPProtocol(r echoClient.Response) bool {
 
 func isMTLS(r echoClient.Response) bool {
 	_, f1 := r.RequestHeaders["X-Forwarded-Client-Cert"]
-	// nolint: staticcheck
+	//nolint:staticcheck
 	_, f2 := r.RequestHeaders["x-forwarded-client-cert"] // grpc has different casing
 	return f1 || f2
 }
