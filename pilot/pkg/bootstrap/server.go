@@ -989,7 +989,12 @@ func getDNSNames(args *PilotArgs, host string) []string {
 	if args.Revision != "" && args.Revision != "default" {
 		knownHosts = append(knownHosts, "istiod"+"-"+args.Revision)
 	}
-	sans.InsertAll(knownHosts...)
+	knownSans := make([]string, 0, 2*len(knownHosts))
+	for _, altName := range knownHosts {
+		knownSans = append(knownSans, fmt.Sprintf("%s.%s", altName, args.Namespace))
+		knownSans = append(knownSans, fmt.Sprintf("%s.%s.svc", altName, args.Namespace))
+	}
+	sans.InsertAll(knownSans...)
 	dnsNames := sets.SortedList(sans)
 	log.Infof("Discover server subject alt names: %v", dnsNames)
 	return dnsNames

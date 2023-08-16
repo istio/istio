@@ -677,7 +677,13 @@ func TestGetDNSNames(t *testing.T) {
 			customHost:       "a.com,b.com,c.com",
 			discoveryAddress: "istiod.istio-system.svc.cluster.local",
 			revision:         "default",
-			sans:             []string{"a.com", "b.com", "c.com", "istio-pilot", "istiod", "istiod-remote", "istiod.istio-system.svc.cluster.local"},
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system", "istio-pilot.istio-system.svc",
+				"istiod-remote.istio-system", "istiod-remote.istio-system.svc",
+				"istiod.istio-system", "istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
 		},
 
 		{
@@ -685,28 +691,56 @@ func TestGetDNSNames(t *testing.T) {
 			customHost:       "a.com,b.com,c.com",
 			discoveryAddress: "istiod.istio-system.svc.cluster.local",
 			revision:         "",
-			sans:             []string{"a.com", "b.com", "c.com", "istio-pilot", "istiod", "istiod-remote", "istiod.istio-system.svc.cluster.local"},
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system", "istio-pilot.istio-system.svc",
+				"istiod-remote.istio-system", "istiod-remote.istio-system.svc",
+				"istiod.istio-system", "istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
 		},
 		{
 			name:             "canary revision",
 			customHost:       "a.com,b.com,c.com",
 			discoveryAddress: "istiod.istio-system.svc.cluster.local",
 			revision:         "canary",
-			sans:             []string{"a.com", "b.com", "c.com", "istio-pilot", "istiod", "istiod-canary", "istiod-remote", "istiod.istio-system.svc.cluster.local"},
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system", "istio-pilot.istio-system.svc",
+				"istiod-canary.istio-system", "istiod-canary.istio-system.svc",
+				"istiod-remote.istio-system", "istiod-remote.istio-system.svc",
+				"istiod.istio-system", "istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
 		},
 		{
 			name:             "customHost has duplicate hosts with inner default",
 			customHost:       "a.com,b.com,c.com,istiod",
 			discoveryAddress: "istiod.istio-system.svc.cluster.local",
 			revision:         "canary",
-			sans:             []string{"a.com", "b.com", "c.com", "istio-pilot", "istiod", "istiod-canary", "istiod-remote", "istiod.istio-system.svc.cluster.local"},
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system", "istio-pilot.istio-system.svc",
+				"istiod", // from the customHost
+				"istiod-canary.istio-system", "istiod-canary.istio-system.svc",
+				"istiod-remote.istio-system", "istiod-remote.istio-system.svc",
+				"istiod.istio-system", "istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
 		},
 		{
 			name:             "customHost has duplicate hosts with discovery address",
 			customHost:       "a.com,b.com,c.com,test.com",
 			discoveryAddress: "test.com",
 			revision:         "canary",
-			sans:             []string{"a.com", "b.com", "c.com", "istio-pilot", "istiod", "istiod-canary", "istiod-remote", "test.com"},
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system", "istio-pilot.istio-system.svc",
+				"istiod-canary.istio-system", "istiod-canary.istio-system.svc",
+				"istiod-remote.istio-system", "istiod-remote.istio-system.svc",
+				"istiod.istio-system", "istiod.istio-system.svc",
+				"test.com",
+			},
 		},
 	}
 
@@ -715,6 +749,7 @@ func TestGetDNSNames(t *testing.T) {
 			features.IstiodServiceCustomHost = tc.customHost
 			var args PilotArgs
 			args.Revision = tc.revision
+			args.Namespace = "istio-system"
 			sans := getDNSNames(&args, tc.discoveryAddress)
 			assert.Equal(t, sans, tc.sans)
 		})
