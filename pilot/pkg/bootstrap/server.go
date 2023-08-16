@@ -991,8 +991,9 @@ func getDNSNames(args *PilotArgs, host string) []string {
 	}
 	knownSans := make([]string, 0, 2*len(knownHosts))
 	for _, altName := range knownHosts {
-		knownSans = append(knownSans, fmt.Sprintf("%s.%s", altName, args.Namespace))
-		knownSans = append(knownSans, fmt.Sprintf("%s.%s.svc", altName, args.Namespace))
+		knownSans = append(knownSans,
+			fmt.Sprintf("%s.%s", altName, args.Namespace),
+			fmt.Sprintf("%s.%s.svc", altName, args.Namespace))
 	}
 	sans.InsertAll(knownSans...)
 	dnsNames := sets.SortedList(sans)
