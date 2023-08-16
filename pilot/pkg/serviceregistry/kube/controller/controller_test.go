@@ -1644,7 +1644,7 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 	}
 
 	for _, wi := range []*model.WorkloadInstance{wiRatings1, wiRatings2, wiRatings3} {
-		ctl.WorkloadInstanceHandler(wi, model.EventAdd) // simulate adding a workload entry
+		ctl.workloadInstanceHandler(wi, model.EventAdd) // simulate adding a workload entry
 	}
 
 	// get service object
@@ -2433,6 +2433,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 	ctl, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 
 	verifyGetByIP := func(address string, want []*model.WorkloadInstance) {
+		t.Helper()
 		got := ctl.workloadInstancesIndex.GetByIP(address)
 
 		assert.Equal(t, want, got)
@@ -2449,7 +2450,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 	}
 
 	// simulate adding a workload entry
-	ctl.WorkloadInstanceHandler(wi1, model.EventAdd)
+	ctl.workloadInstanceHandler(wi1, model.EventAdd)
 
 	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
 
@@ -2464,7 +2465,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 	}
 
 	// simulate adding a workload entry
-	ctl.WorkloadInstanceHandler(wi2, model.EventAdd)
+	ctl.workloadInstanceHandler(wi2, model.EventAdd)
 
 	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
 	verifyGetByIP("3.3.3.3", []*model.WorkloadInstance{wi2})
@@ -2480,18 +2481,18 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 	}
 
 	// simulate updating a workload entry
-	ctl.WorkloadInstanceHandler(wi3, model.EventUpdate)
+	ctl.workloadInstanceHandler(wi3, model.EventUpdate)
 
 	verifyGetByIP("3.3.3.3", nil)
 	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi3, wi1})
 
 	// simulate deleting a workload entry
-	ctl.WorkloadInstanceHandler(wi3, model.EventDelete)
+	ctl.workloadInstanceHandler(wi3, model.EventDelete)
 
 	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
 
 	// simulate deleting a workload entry
-	ctl.WorkloadInstanceHandler(wi1, model.EventDelete)
+	ctl.workloadInstanceHandler(wi1, model.EventDelete)
 
 	verifyGetByIP("2.2.2.2", nil)
 }
