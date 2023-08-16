@@ -662,6 +662,11 @@ func (t *Telemetries) fetchProvider(m string) *meshconfig.MeshConfig_ExtensionPr
 	return nil
 }
 
+func (t *Telemetries) Debug(proxy *Proxy) any {
+	at := t.applicableTelemetries(proxy)
+	return at
+}
+
 var allMetrics = func() []string {
 	r := make([]string, 0, len(tpb.MetricSelector_IstioMetric_value))
 	for k := range tpb.MetricSelector_IstioMetric_value {
@@ -899,6 +904,11 @@ var waypointStatsConfig = protoconv.MessageToAny(&udpa.TypedStruct{
 		},
 	},
 })
+
+// telemetryFilterHandled contains the number of providers we handle below.
+// This is to ensure this stays in sync as new handlers are added
+// STOP. DO NOT UPDATE THIS WITHOUT UPDATING buildHTTPTelemetryFilter and buildTCPTelemetryFilter.
+const telemetryFilterHandled = 14
 
 func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*hcm.HttpFilter {
 	res := make([]*hcm.HttpFilter, 0, len(metricsCfg))

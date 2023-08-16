@@ -121,6 +121,11 @@ var (
 	}
 )
 
+// configureFromProviderConfigHandled contains the number of providers we handle below.
+// This is to ensure this stays in sync as new handlers are added
+// STOP. DO NOT UPDATE THIS WITHOUT UPDATING telemetryAccessLog.
+const telemetryAccessLogHandled = 14
+
 func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionProvider) *accesslog.AccessLog {
 	var al *accesslog.AccessLog
 	switch prov := fp.Provider.(type) {
@@ -137,6 +142,19 @@ func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionPr
 		al = tcpGrpcAccessLogFromTelemetry(push, prov.EnvoyTcpAls)
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
 		al = openTelemetryLog(push, prov.EnvoyOtelAls)
+	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp,
+		*meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc,
+		*meshconfig.MeshConfig_ExtensionProvider_Zipkin,
+		*meshconfig.MeshConfig_ExtensionProvider_Lightstep,
+		*meshconfig.MeshConfig_ExtensionProvider_Datadog,
+		*meshconfig.MeshConfig_ExtensionProvider_Skywalking,
+		*meshconfig.MeshConfig_ExtensionProvider_Opencensus,
+		*meshconfig.MeshConfig_ExtensionProvider_Opentelemetry,
+		*meshconfig.MeshConfig_ExtensionProvider_Prometheus,
+		*meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
+		// No access logs supported for this provider
+		// Stackdriver is a special case as its handled in the Metrics logic, as it uses a shared filter
+		return nil
 	}
 
 	return al
