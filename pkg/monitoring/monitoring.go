@@ -260,8 +260,14 @@ var knownMetrics = metrics{
 func ExportMetricDefinitions() []MetricDefinition {
 	knownMetrics.mu.Lock()
 	defer knownMetrics.mu.Unlock()
-	return slices.SortFunc(maps.Values(knownMetrics.known), func(a, b MetricDefinition) bool {
-		return a.Name < b.Name
+	return slices.SortFunc(maps.Values(knownMetrics.known), func(a, b MetricDefinition) int {
+		if a.Name < b.Name {
+			return -1
+		}
+		if a.Name == b.Name {
+			return 0
+		}
+		return 1
 	})
 }
 
