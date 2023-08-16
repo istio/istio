@@ -35,6 +35,10 @@ import (
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 )
 
+func TestConfigureTracingExhaustiveness(t *testing.T) {
+	model.AssertProvidersHandled(configureFromProviderConfigHandled)
+}
+
 func TestConfigureTracing(t *testing.T) {
 	clusterName := "testcluster"
 	authority := "testhost"
@@ -167,6 +171,14 @@ func TestConfigureTracing(t *testing.T) {
 			want:            fakeTracingConfig(fakeSkywalkingProvider(clusterName, authority), 99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx:       &xdsfilters.RouterFilterContext{StartChildSpan: true},
 			wantReqIDExtCtx: &requestidextension.UUIDRequestIDExtensionContext{UseRequestIDForTraceSampling: false},
+		},
+		{
+			name:            "invalid provider",
+			inSpec:          fakeTracingSpec(fakePrometheus(), 99.999, false, true),
+			opts:            fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
+			want:            nil,
+			wantRfCtx:       nil,
+			wantReqIDExtCtx: nil,
 		},
 	}
 
@@ -314,6 +326,13 @@ func fakeZipkin() *meshconfig.MeshConfig_ExtensionProvider {
 				MaxTagLength: 256,
 			},
 		},
+	}
+}
+
+func fakePrometheus() *meshconfig.MeshConfig_ExtensionProvider {
+	return &meshconfig.MeshConfig_ExtensionProvider{
+		Name:     "foo",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Prometheus{},
 	}
 }
 
