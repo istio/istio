@@ -2875,29 +2875,32 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, sets.SortedList(got))
 }
 
+func TestWellKnownProvidersCount(t *testing.T) {
+	msg := &meshconfig.MeshConfig_ExtensionProvider{}
+	pb := msg.ProtoReflect()
+	md := pb.Descriptor()
+
+	found := sets.New[string]()
+	for i := 0; i < md.Oneofs().Get(0).Fields().Len(); i++ {
+		found.Insert(string(md.Oneofs().Get(0).Fields().Get(i).Name()))
+	}
+	// If this fails, there is a provider added that we have not handled.
+	// DO NOT JUST
+	assert.Equal(t, found, wellknownProviders)
+}
+
 // TestGetHostsFromMeshConfigExhaustiveness exhaustiveness check of `getHostsFromMeshConfig`
 // Once some one add a new `Provider` in api, we should update `wellknownProviders` and
 // implements of `getHostsFromMeshConfig`
 func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
-	wellknownProviders := map[string]struct{}{
-		"envoy_ext_authz_http": {},
-		"envoy_ext_authz_grpc": {},
-		"zipkin":               {},
-		"lightstep":            {},
-		"datadog":              {},
-		"opencensus":           {},
-		"skywalking":           {},
-		"envoy_http_als":       {},
-		"envoy_tcp_als":        {},
-		"envoy_otel_als":       {},
-		"opentelemetry":        {},
-	}
-
+	AssertProvidersHandled(addHostsFromMeshConfigProvidersHandled)
 	unexpectedProviders := make([]string, 0)
 	msg := &meshconfig.MeshConfig_ExtensionProvider{}
 	pb := msg.ProtoReflect()
 	md := pb.Descriptor()
 
+	// We only consider ones with `service` field
+	wellknownProviders := wellknownProviders.Copy().DeleteAll("prometheus", "stackdriver", "envoy_file_access_log")
 	of := md.Oneofs().Get(0)
 	for i := 0; i < of.Fields().Len(); i++ {
 		o := of.Fields().Get(i)
@@ -2912,7 +2915,7 @@ func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
 	}
 
 	if len(wellknownProviders) != 0 || len(unexpectedProviders) != 0 {
-		t.Errorf("unexpected provider not implemented in getHostsFromMeshConfig")
+		t.Errorf("unexpected provider not implemented in getHostsFromMeshConfig: %v, %v", wellknownProviders, unexpectedProviders)
 		t.Fail()
 	}
 }
