@@ -509,7 +509,7 @@ func writeToTempFile(content string) (string, error) {
 	}
 	defer func() { _ = outFile.Close() }()
 
-	if _, err := outFile.Write([]byte(content)); err != nil {
+	if _, err := outFile.WriteString(content); err != nil {
 		return "", fmt.Errorf("failed writing manifest file: %v", err)
 	}
 	return outFile.Name(), nil
