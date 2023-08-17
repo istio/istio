@@ -92,19 +92,6 @@ type FilterChain struct {
 	TCP []*listener.Filter
 }
 
-// MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
-// Any lists should not be overridden, but rather only appended to.
-// Non-list fields may be mutated; however it's not recommended to do this since it can affect other plugins in the
-// chain in unpredictable ways.
-// TODO: do we need this now?
-type MutableObjects struct {
-	// Listener is the listener being built. Must be initialized before Plugin methods are called.
-	Listener *listener.Listener
-
-	// FilterChains is the set of filter chains that will be attached to Listener.
-	FilterChains []FilterChain
-}
-
 // ListenerClass defines the class of the listener
 type ListenerClass int
 
