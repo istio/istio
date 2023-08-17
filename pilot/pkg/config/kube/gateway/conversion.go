@@ -798,7 +798,7 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (pa
 	// Currently supported types are Gateway and Service
 	if kind == gvk.KubernetesGateway.Kind && nilOrEqual((*string)(p.Group), gvk.KubernetesGateway.Group) {
 		ik = gvk.KubernetesGateway
-	} else if kind == gvk.Service.Kind && *(*string)(p.Group) == gvk.Service.Group {
+	} else if kind == gvk.Service.Kind && p.Group != nil && *(*string)(p.Group) == gvk.Service.Group {
 		ik = gvk.Service
 	} else {
 		return empty, fmt.Errorf("unsupported parentKey: %v/%v", p.Group, kind)
