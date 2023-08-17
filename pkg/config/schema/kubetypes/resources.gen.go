@@ -9,6 +9,7 @@ import (
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
+	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
@@ -75,6 +76,8 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 		return gvk.IngressClass
 	case *sigsk8siogatewayapiapisv1beta1.Gateway:
 		return gvk.KubernetesGateway
+	case *k8sioapicoordinationv1.Lease:
+		return gvk.Lease
 	case *istioioapimeshv1alpha1.MeshConfig:
 		return gvk.MeshConfig
 	case *istioioapimeshv1alpha1.MeshNetworks:

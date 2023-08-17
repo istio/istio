@@ -24,6 +24,7 @@ var (
 	Ingress                        = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingresses"}
 	IngressClass                   = schema.GroupVersionResource{Group: "networking.k8s.io", Version: "v1", Resource: "ingressclasses"}
 	KubernetesGateway              = schema.GroupVersionResource{Group: "gateway.networking.k8s.io", Version: "v1beta1", Resource: "gateways"}
+	Lease                          = schema.GroupVersionResource{Group: "coordination.k8s.io", Version: "v1", Resource: "leases"}
 	MeshConfig                     = schema.GroupVersionResource{Group: "", Version: "v1alpha1", Resource: "meshconfigs"}
 	MeshNetworks                   = schema.GroupVersionResource{Group: "", Version: "v1alpha1", Resource: "meshnetworks"}
 	MutatingWebhookConfiguration   = schema.GroupVersionResource{Group: "admissionregistration.k8s.io", Version: "v1", Resource: "mutatingwebhookconfigurations"}
@@ -87,6 +88,8 @@ func IsClusterScoped(g schema.GroupVersionResource) bool {
 	case IngressClass:
 		return true
 	case KubernetesGateway:
+		return false
+	case Lease:
 		return false
 	case MutatingWebhookConfiguration:
 		return true
