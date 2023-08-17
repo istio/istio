@@ -85,6 +85,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: httpbin-apple
       namespace: apple
@@ -112,6 +113,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: example
   - conditions:
@@ -152,6 +154,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: echo
 ---
@@ -177,6 +180,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: echo-port
       port: 80
@@ -203,6 +207,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: echo
 ---
@@ -228,6 +233,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: echo-2
   - conditions:
@@ -243,6 +249,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: echo-1
       port: 8080
@@ -259,6 +266,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: echo-1
       port: 80
@@ -285,6 +293,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: echo-1
 ---
@@ -310,6 +319,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: echo-1
 ---

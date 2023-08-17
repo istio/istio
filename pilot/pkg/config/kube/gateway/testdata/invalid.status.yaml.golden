@@ -499,6 +499,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: httpbin
 ---

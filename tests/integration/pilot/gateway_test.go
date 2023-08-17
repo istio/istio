@@ -349,7 +349,8 @@ metadata:
   name: b
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: b
   - name: gateway
     namespace: istio-system
