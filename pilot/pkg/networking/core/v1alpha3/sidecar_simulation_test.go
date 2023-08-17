@@ -1647,7 +1647,8 @@ metadata:
 spec:
   parentRefs:
 {{- range $val := .GwMatches }}
-  - kind: Service
+  - group: ""
+    kind: Service
     name: "{{$val.Name}}"
     namespace: "{{$val.Namespace}}"
 {{ with $.PortMatch }}

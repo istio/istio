@@ -31,7 +31,8 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: echo
   rules:
   - backendRefs:
@@ -45,7 +46,8 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: example
   - name: gateway
     namespace: istio-system
@@ -62,7 +64,8 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: echo
   rules:
   - matches:
@@ -86,7 +89,8 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: echo-port
     port: 80
   rules:
@@ -101,13 +105,16 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: echo-1
     port: 80
-  - kind: Service
+  - group: ""
+    kind: Service
     name: echo-1
     port: 8080
-  - kind: Service
+  - group: ""
+    kind: Service
     name: echo-2
   rules:
   - backendRefs:
@@ -121,7 +128,8 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: httpbin-apple
     namespace: apple
     port: 80
@@ -138,7 +146,8 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-    - kind: Service
+    - group: ""
+      kind: Service
       name: echo-1
   rules:
     - backendRefs:
@@ -152,7 +161,8 @@ metadata:
   namespace: default
 spec:
   parentRefs:
-    - kind: Service
+    - group: ""
+      kind: Service
       name: echo-1
   rules:
     - backendRefs:
