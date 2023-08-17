@@ -41,7 +41,7 @@ func EqualFunc[E1, E2 comparable](s1 []E1, s2 []E2, eq func(E1, E2) bool) bool {
 // SortFunc sorts the slice x in ascending order as determined by the less function.
 // This sort is not guaranteed to be stable.
 // The slice is modified in place but returned.
-func SortFunc[E any](x []E, less func(a, b E) int) []E {
+func SortFunc[E any](x []E, less func(a, b E) bool) []E {
 	if len(x) <= 1 {
 		return x
 	}
