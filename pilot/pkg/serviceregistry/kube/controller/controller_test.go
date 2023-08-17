@@ -877,7 +877,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 	}
 
 	for _, wi := range []*model.WorkloadInstance{wiRatings1, wiDetails1, wiReviews1, wiReviews2, wiProduct1} {
-		ctl.WorkloadInstanceHandler(wi, model.EventAdd) // simulate adding a workload entry
+		ctl.workloadInstanceHandler(wi, model.EventAdd) // simulate adding a workload entry
 	}
 
 	cases := []struct {
@@ -2370,7 +2370,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	fx.WaitOrFail(t, "eds")
 
 	// Simulate adding a workload entry (fired through invocation of WorkloadInstanceHandler)
-	controller.WorkloadInstanceHandler(&model.WorkloadInstance{
+	controller.workloadInstanceHandler(&model.WorkloadInstance{
 		Namespace: "nsA",
 		Endpoint: &model.IstioEndpoint{
 			Labels:         labels.Instance{"app": "prod-app"},
