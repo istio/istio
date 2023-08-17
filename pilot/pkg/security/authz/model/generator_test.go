@@ -206,9 +206,10 @@ func TestGenerator(t *testing.T) {
 			key:   "request.headers[x-foo]",
 			value: "foo",
 			want: yamlPrincipal(t, `
-         header:
-          exactMatch: foo
-          name: x-foo`),
+        header:
+          name: x-foo
+          stringMatch:
+            exact: foo`),
 		},
 		{
 			name:  "requestClaimGenerator",
@@ -271,8 +272,9 @@ func TestGenerator(t *testing.T) {
 			value: "GET",
 			want: yamlPermission(t, `
          header:
-          exactMatch: GET
-          name: :method`),
+          name: :method
+          stringMatch:
+            exact: GET`),
 		},
 	}
 
