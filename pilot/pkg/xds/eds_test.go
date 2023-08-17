@@ -220,6 +220,8 @@ func TestEds(t *testing.T) {
 
 	m.AddHTTPService(edsIncSvc, edsIncVip, 8080)
 	m.SetEndpoints(edsIncSvc, "", newEndpointWithAccount("127.0.0.1", "hello-sa", "v1"))
+	// Let initial updates settle
+	s.EnsureSynced(t)
 
 	adscConn := s.Connect(&model.Proxy{Locality: util.ConvertLocality(asdcLocality), IPAddresses: []string{"10.10.10.10"}}, nil, watchAll)
 	adscConn2 := s.Connect(&model.Proxy{Locality: util.ConvertLocality(asdc2Locality), IPAddresses: []string{"10.10.10.11"}}, nil, watchAll)
@@ -815,8 +817,6 @@ func edsUpdates(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	// Old style (non-incremental)
 	s.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.3", "hello-sa", "v1"))
-
-	xds.AdsPushAll(s.Discovery)
 
 	// will trigger recompute and push
 
