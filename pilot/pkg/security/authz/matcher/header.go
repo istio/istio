@@ -37,14 +37,14 @@ func HeaderMatcher(k, v string) *routepb.HeaderMatcher {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: StringMatcherSuffix(strings.TrimPrefix(v, "*"), false),
+				StringMatch: StringMatcherSuffix(v[1:], false),
 			},
 		}
 	} else if strings.HasSuffix(v, "*") {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: StringMatcherPrefix(strings.TrimSuffix(v, "*"), false),
+				StringMatch: StringMatcherPrefix(v[:len(v)-1], false),
 			},
 		}
 	}
@@ -96,14 +96,14 @@ func HostMatcher(k, v string) *routepb.HeaderMatcher {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: StringMatcherSuffix(strings.TrimPrefix(v, "*"), true),
+				StringMatch: StringMatcherSuffix(v[1:], true),
 			},
 		}
 	} else if strings.HasSuffix(v, "*") {
 		return &routepb.HeaderMatcher{
 			Name: k,
 			HeaderMatchSpecifier: &routepb.HeaderMatcher_StringMatch{
-				StringMatch: StringMatcherPrefix(strings.TrimSuffix(v, "*"), true),
+				StringMatch: StringMatcherPrefix(v[:len(v)-1], true),
 			},
 		}
 	}
