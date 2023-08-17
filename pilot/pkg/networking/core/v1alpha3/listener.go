@@ -993,6 +993,8 @@ type filterChainOpts struct {
 	httpOpts *httpListenerOpts
 	// Set if this is for TCP chain. Cannot be set with httpOpts
 	networkFilters []*listener.Filter
+
+	tcpAuthFilters []*listener.Filter
 }
 
 // gatewayListenerOpts are the options required to build a gateway Listener
