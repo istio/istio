@@ -225,14 +225,17 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 	// succeed creating a self-signed cert
 	ctx0, cancel0 := context.WithTimeout(context.Background(), time.Millisecond*50)
 	defer cancel0()
-	_, err := NewSelfSignedIstioCAOptions(ctx0, 0,
-		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
+	caopts, err := NewSelfSignedIstioCAOptions(ctx0, 0,
+		caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
 		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Errorf("Got unexpected error: %v", err)
 	}
+	if caopts.CAType != selfSignedMountedCA {
+		t.Error("Got unexpected CA type. Expected selfSignedMountedCA.")
+	}
 
-	// Using existing CASecret.
+	// Using existing CACertsSecret (cacerts).
 	secret, err := client.CoreV1().Secrets("default").Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
 	if err != nil {
 		t.Errorf("Got unexpected error %v", err)
@@ -241,11 +244,34 @@ func TestCreateSelfSignedIstioCAReadSigningCertOnly(t *testing.T) {
 
 	ctx1, cancel1 := context.WithCancel(context.Background())
 	defer cancel1()
-	caopts, err := NewSelfSignedIstioCAOptions(ctx1, 0,
-		caCertTTL, defaultCertTTL, rootCertCheckInverval, maxCertTTL, org, false,
+	caopts, err = NewSelfSignedIstioCAOptions(ctx1, 0,
+		caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
 		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
+	}
+	if caopts.CAType != selfSignedMountedCA {
+		t.Error("Got unexpected CA type. Expected selfSignedMountedCA.")
+	}
+
+	// Create CASecret (istio-ca-secert) and delete existing CACertsSecert (cacerts)
+	secret.Name = CASecret
+	secret.Data[IstioGenerated] = nil
+	_, err = client.CoreV1().Secrets("default").Create(context.TODO(), secret, metav1.CreateOptions{})
+	if err != nil {
+		t.Errorf("Got unexpected error %v", err)
+	}
+
+	ctx2, cancel2 := context.WithCancel(context.Background())
+	defer cancel2()
+	caopts, err = NewSelfSignedIstioCAOptions(ctx2, 0,
+		caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
+		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
+	if err != nil {
+		t.Errorf("Unexpected error: %v", err)
+	}
+	if caopts.CAType != selfSignedCA {
+		t.Error("Got unexpected CA type. Expected selfSignedCA.")
 	}
 
 	ca, err := NewIstioCA(caopts)
@@ -333,6 +359,69 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 		default:
 			return
 		}
+	}
+}
+
+func TestCreateMountedSelfSignedCertCA(t *testing.T) {
+	rootCertFile := "../testdata/multilevelpki/root-cert.pem"
+	certChainFile := []string{"../testdata/multilevelpki/int2-cert-chain.pem"}
+	signingCertFile := "../testdata/multilevelpki/int2-cert.pem"
+	signingKeyFile := "../testdata/multilevelpki/int2-key.pem"
+	rsaKeySize := 2048
+
+	caCertTTL := time.Hour
+	defaultCertTTL := 99999 * time.Hour
+	maxCertTTL := time.Hour
+	org := "test.ca.Org"
+	caNamespace := "default"
+	rootCertCheckInverval := time.Hour
+
+	client := fake.NewSimpleClientset()
+
+	caopts, err := NewMountedSelfSignedIstioCAOptions(SigningCAFileBundle{rootCertFile, certChainFile, signingCertFile, signingKeyFile}, 0,
+		caCertTTL, rootCertCheckInverval, defaultCertTTL, maxCertTTL, org, false,
+		caNamespace, client.CoreV1(), rootCertFile, false, rsaKeySize)
+	if err != nil {
+		t.Fatalf("Failed to create a plugged-cert CA Options: %v", err)
+	}
+	if caopts.CAType != selfSignedMountedCA {
+		t.Errorf("Got unexpected CAType. Expected selfSignedMountedCA, got %v", caopts.CAType)
+	}
+
+	t0 := time.Now()
+	ca, err := NewIstioCA(caopts)
+	if err != nil {
+		t.Errorf("Got error while creating plugged-cert CA: %v", err)
+	}
+	if ca == nil {
+		t.Fatalf("Failed to create a plugged-cert CA.")
+	}
+
+	signingCertBytes, signingKeyBytes, certChainBytes, rootCertBytes := ca.GetCAKeyCertBundle().GetAllPem()
+	if !comparePem(signingCertBytes, signingCertFile) {
+		t.Errorf("Failed to verify loading of signing cert pem.")
+	}
+	if !comparePem(signingKeyBytes, signingKeyFile) {
+		t.Errorf("Failed to verify loading of signing key pem.")
+	}
+	if !comparePem(certChainBytes, certChainFile[0]) {
+		t.Errorf("Failed to verify loading of cert chain pem.")
+	}
+	if !comparePem(rootCertBytes, rootCertFile) {
+		t.Errorf("Failed to verify loading of root cert pem.")
+	}
+
+	certChain, err := util.ParsePemEncodedCertificate(certChainBytes)
+	if err != nil {
+		t.Fatalf("Failed to parse cert chain pem.")
+	}
+	// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,
+	// however citatel won't rotate if that happens
+	delta := certChain.NotAfter.Sub(t0.Add(ca.defaultCertTTL))
+	if delta >= time.Second*2 {
+		t.Errorf("Invalid default cert TTL, should be the same as cert chain: %v VS (expected) %v",
+			t0.Add(ca.defaultCertTTL),
+			certChain.NotAfter)
 	}
 }
 

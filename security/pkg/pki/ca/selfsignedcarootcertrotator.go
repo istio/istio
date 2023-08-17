@@ -143,8 +143,16 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		caCertInMem, _, _, _ := rotator.ca.GetCAKeyCertBundle().GetAllPem()
 		// If CA certificate is different from the CA certificate in local key
 		// cert bundle, it implies that other Citadels have updated istio-ca-secret or cacerts.
-		// Reload root certificate into key cert bundle.
 		if !bytes.Equal(caCertInMem, caSecret.Data[CACertFile]) {
+			// Only load the CA certificate bundle is the secret is istio-ca-secret. A file watch
+			// will pick up on the secret changes for cacerts and load the new CA bundle.
+			if rotator.config.secretName == CACertsSecret {
+				rootCertRotatorLog.Infof("CA cert in KeyCertBundle does not match CA cert in "+
+					"%s. Skipping reloading root cert into KeyCertBundle. Reload will be handled by "+
+					"file watcher", rotator.config.secretName)
+				return
+			}
+			// Reload root certificate into key cert bundle.
 			rootCertRotatorLog.Warnf("CA cert in KeyCertBundle does not match CA cert in "+
 				"%s. Start to reload root cert into KeyCertBundle", rotator.config.secretName)
 			rootCerts, err := util.AppendRootCerts(caSecret.Data[CACertFile], rotator.config.rootCertFile)
@@ -234,6 +242,11 @@ func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.S
 		return false, fmt.Errorf("failed to update CA secret (error: %s)", err.Error())
 	}
 	rootCertRotatorLog.Infof("Root certificate is written into CA secret: %v", string(cert))
+	if rotator.config.secretName == CACertsSecret {
+		rootCertRotatorLog.Infof("Skipping updating CA bundle for CA secret %s. Updating CA bundle handled by file watcher", rotator.config.secretName)
+		return false, nil
+	}
+
 	if err := rotator.ca.GetCAKeyCertBundle().VerifyAndSetAll(cert, key, nil, rootCert); err != nil {
 		if rollForward {
 			// Rolling forward root certificate fails at keycertbundle update, notify caller to rollback.

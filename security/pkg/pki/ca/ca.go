@@ -99,6 +99,8 @@ const (
 	selfSignedCA caTypes = iota
 	// pluggedCertCA means the Istio CA uses a operator-specified key/cert.
 	pluggedCertCA
+	// selfSignedMountedCA mean the Istio CA uses a self signed certificate that supports a file and secret watcher.
+	selfSignedMountedCA
 )
 
 // IstioCAOptions holds the configurations for creating an Istio CA.
@@ -166,6 +168,11 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 			}
 			caOpts.RotatorConfig.secretName = caCertName
+			if caCertName == CACertsSecret {
+				// Set the ca type to selfSignedMountedCA. The cacerts secret is mounted to istiod.
+				pkiCaLog.Debugf("Cert type for secret %s/%s is selfSignedMountedCA", caSecret.Namespace, caSecret.Name)
+				caOpts.CAType = selfSignedMountedCA
+			}
 			pkiCaLog.Infof("Set secret name for self-signed CA cert rotator to %s", caCertName)
 			pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))
 			return nil
@@ -205,6 +212,11 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 				return fmt.Errorf("failed to create CA due to secret write error")
 			}
 			caOpts.RotatorConfig.secretName = caCertName
+			if caCertName == CACertsSecret {
+				// Set the ca type to selfSignedMountedCA. The cacerts secret is mounted to istiod.
+				pkiCaLog.Debugf("Cert type for secret %s/%s is selfSignedMountedCA", namespace, caCertName)
+				caOpts.CAType = selfSignedMountedCA
+			}
 			pkiCaLog.Infof("Set secret name for self-signed CA cert rotator to %s", caCertName)
 			pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
 			return nil
@@ -253,6 +265,37 @@ func NewSelfSignedDebugIstioCAOptions(rootCertFile string, caCertTTL, defaultCer
 	return caOpts, nil
 }
 
+func NewMountedSelfSignedIstioCAOptions(fileBundle SigningCAFileBundle,
+	rootCertGracePeriodPercentile int, caCertTTL, rootCertCheckInverval, defaultCertTTL,
+	maxCertTTL time.Duration, org string, dualUse bool, namespace string, client corev1.CoreV1Interface,
+	rootCertFile string, enableJitter bool, caRSAKeySize int,
+) (caOpts *IstioCAOptions, err error) {
+	caOpts = &IstioCAOptions{
+		CAType:         selfSignedMountedCA,
+		DefaultCertTTL: defaultCertTTL,
+		MaxCertTTL:     maxCertTTL,
+		CARSAKeySize:   caRSAKeySize,
+		RotatorConfig: &SelfSignedCARootCertRotatorConfig{
+			CheckInterval:      rootCertCheckInverval,
+			caCertTTL:          caCertTTL,
+			retryInterval:      cmd.ReadSigningCertRetryInterval,
+			retryMax:           cmd.ReadSigningCertRetryMax,
+			certInspector:      certutil.NewCertUtil(rootCertGracePeriodPercentile),
+			caStorageNamespace: namespace,
+			dualUse:            dualUse,
+			org:                org,
+			rootCertFile:       rootCertFile,
+			enableJitter:       enableJitter,
+			client:             client,
+		},
+	}
+
+	if caOpts.KeyCertBundle, err = getAndValidateCABundle(fileBundle); err != nil {
+		return nil, err
+	}
+	return caOpts, nil
+}
+
 // NewPluggedCertIstioCAOptions returns a new IstioCAOptions instance using given certificate.
 func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 	defaultCertTTL, maxCertTTL time.Duration, caRSAKeySize int,
@@ -264,8 +307,16 @@ func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 		CARSAKeySize:   caRSAKeySize,
 	}
 
-	if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromFile(
-		fileBundle.SigningCertFile, fileBundle.SigningKeyFile, fileBundle.CertChainFiles, fileBundle.RootCertFile); err != nil {
+	if caOpts.KeyCertBundle, err = getAndValidateCABundle(fileBundle); err != nil {
+		return nil, err
+	}
+	return caOpts, nil
+}
+
+func getAndValidateCABundle(fileBundle SigningCAFileBundle) (*util.KeyCertBundle, error) {
+	keyCertBundle, err := util.NewVerifiedKeyCertBundleFromFile(
+		fileBundle.SigningCertFile, fileBundle.SigningKeyFile, fileBundle.CertChainFiles, fileBundle.RootCertFile)
+	if err != nil {
 		return nil, fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 	}
 
@@ -288,7 +339,7 @@ func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 		return nil, fmt.Errorf("certificate is not authorized to sign other certificates")
 	}
 
-	return caOpts, nil
+	return keyCertBundle, nil
 }
 
 // BuildSecret returns a secret struct, contents of which are filled with parameters passed in.
@@ -333,7 +384,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 		caRSAKeySize:  opts.CARSAKeySize,
 	}
 
-	if opts.CAType == selfSignedCA && opts.RotatorConfig != nil && opts.RotatorConfig.CheckInterval > time.Duration(0) {
+	if (opts.CAType == selfSignedCA || opts.CAType == selfSignedMountedCA) && opts.RotatorConfig != nil && opts.RotatorConfig.CheckInterval > time.Duration(0) {
 		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
 	}
 
@@ -488,4 +539,8 @@ func (ca *IstioCA) signWithCertChain(csrPEM []byte, subjectIDs []string, request
 		cert = append(cert, chainPem...)
 	}
 	return cert, nil
+}
+
+func IsMounted(caType caTypes) bool {
+	return caType == pluggedCertCA || caType == selfSignedMountedCA
 }

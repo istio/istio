@@ -122,7 +122,16 @@ func TestRootCertRotatorForSigningCitadel(t *testing.T) {
 	rotator.config.certInspector = certutil.NewCertUtil(100)
 	rotator.checkAndRotateRootCert()
 	certItem2 := loadCert(rotator)
-	verifyRootCertAndPrivateKey(t, false, certItem1, certItem2)
+	// KeyCertBundle will not have been updated. The file watcher is responsible for
+	// updating the KeyCertBundle.
+	if bytes.Equal(certItem1.caSecret.Data[CACertFile], certItem2.caSecret.Data[CACertFile]) {
+		t.Errorf("Verification of root cert in CA secret failed. Want unmatched got matched")
+	}
+	// Root cert rotation does not change root private key. Root private key should
+	// remain the same.
+	if !bytes.Equal(certItem1.caSecret.Data[CAPrivateKeyFile], certItem2.caSecret.Data[CAPrivateKeyFile]) {
+		t.Errorf("Root private key should not change. Want matched got unmatched")
+	}
 }
 
 // TestRootCertRotatorKeepCertFieldsUnchanged verifies that rotator
@@ -224,9 +233,10 @@ func getPublicKeySizeInBits(keyPem []byte) int {
 }
 
 // TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel verifies that
-// rotator reloads root cert into KeyCertBundle if the root cert in key cert bundle is
-// different from istio-ca-secret.
-func TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel(t *testing.T) {
+// rotator does not reload the root cert into KeyCertBundle when the CA secret is
+// volume mounted to istiod. Updating the KeyCertBundle is the responsibility of
+// the file watcher.
+func TestKeyCertBundleNoReloadInRootCertRotatorForSigningCitadel(t *testing.T) {
 	rotator := getRootCertRotator(getDefaultSelfSignedIstioCAOptions(nil))
 
 	// Mutate the root cert and private key as if they are rotated by other Citadel.
@@ -259,12 +269,13 @@ func TestKeyCertBundleReloadInRootCertRotatorForSigningCitadel(t *testing.T) {
 	if !bytes.Equal(newSecret.Data[CACertFile], certItem1.caSecret.Data[CACertFile]) {
 		t.Error("root cert in istio-ca-secret should be the same.")
 	}
-	// Verifies that after rotation, the rotator should have reloaded root cert into
-	// key cert bundle.
-	if bytes.Equal(oldRootCert, rotator.ca.keyCertBundle.GetRootCertPem()) {
+	// Verifies that after rotation, the rotator should not have reloaded root cert into
+	// key cert bundle. This is the responsibility of the file watch when the ca secret
+	// is mounted to istiod.
+	if !bytes.Equal(oldRootCert, rotator.ca.keyCertBundle.GetRootCertPem()) {
 		t.Error("root cert in key cert bundle should be different after rotation.")
 	}
-	if !bytes.Equal(certItem1.caSecret.Data[CACertFile], rotator.ca.keyCertBundle.GetRootCertPem()) {
+	if bytes.Equal(certItem1.caSecret.Data[CACertFile], rotator.ca.keyCertBundle.GetRootCertPem()) {
 		t.Error("root cert in key cert bundle should be the same as root " +
 			"cert in istio-ca-secret after root cert rotation.")
 	}

@@ -436,22 +436,22 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		}
 	}
 
-	if !detectedSigningCABundle || (detectedSigningCABundle && istioGenerated) {
-		if detectedSigningCABundle && istioGenerated {
-			log.Infof("%s secret found is IstioGenerated, use it as the CA certificate", ca.CACertsSecret)
-
-			// TODO(jaellio): Currently, istiod handles a "cacerts" secret with the "istio-generated" key the same way
-			// it handles the "istio-ca-secret" secret. Even though "cacerts" is file mounted, istiod will only watch the
-			// secret. If an "istio-ca-secret" exists in the control plane ns, it will be used instead of a "cacerts"
-			// secret with the "istio-generated" key.
-			// This will change in the future, and istiod will watch the file mount instead.
-		}
-
-		// Either the secret is not mounted, or it is mounted but the "istio-generated" key is used.
+	if !detectedSigningCABundle {
+		// The secret (istio-ca-secret) is not mounted.
 		caOpts, err = s.createSelfSignedCACertificateOptions(&fileBundle, opts)
 		if err != nil {
 			return nil, err
 		}
+	} else if detectedSigningCABundle && istioGenerated {
+		// The secret (cacerts) is mounted and the "istio-generated" key is used.
+		log.Infof("%s secret found is IstioGenerated, use it as the CA certificate", ca.CACertsSecret)
+
+		caOpts, err = ca.NewMountedSelfSignedIstioCAOptions(fileBundle,
+			selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
+			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
+			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
+			opts.Namespace, s.kubeClient.Kube().CoreV1(), fileBundle.RootCertFile,
+			enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
 	} else {
 		// The secret is mounted and the "istio-generated" key is not used.
 		log.Info("Use local CA certificate")
@@ -460,7 +460,9 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		if err != nil {
 			return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 		}
-
+	}
+	if ca.IsMounted(caOpts.CAType) {
+		log.Info("Initializing file based CA cert watcher")
 		s.initCACertsWatcher()
 	}
 	istioCA, err := ca.NewIstioCA(caOpts)
