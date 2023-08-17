@@ -136,8 +136,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayListeners(builder *ListenerBui
 	mergedGateway := builder.node.MergedGateway
 	log.Debugf("buildGatewayListeners: gateways after merging: %v", mergedGateway)
 
-	var tcpAuthzFilters []*listener.Filter
-
 	actualWildcards, _ := getWildcardsAndLocalHost(builder.node.GetIPMode())
 	errs := istiomultierror.New()
 	// Mutable objects keyed by listener name so that we can build listeners at the end.
