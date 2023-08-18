@@ -91,21 +91,13 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 			// Currently, when transport is QUIC we assume HTTP3. So it should not come here.
 			// When other protocols are used over QUIC, we have to revisit this assumption.
 
-			if len(opt.networkFilters) > 0 {
-				// this is the terminating filter
-				lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
-				filterChain.Filters = append(filterChain.Filters, opt.networkFilters[:len(opt.networkFilters)-1]...)
-				filterChain.Filters = append(filterChain.Filters, opt.tcpAuthFilters...)
-				filterChain.Filters = append(filterChain.Filters, lastNetworkFilter)
-			} else {
-				filterChain.Filters = append(filterChain.Filters, opt.tcpAuthFilters...)
-			}
-			log.Debugf("attached %d network filters to listener %q filter chain %d", len(opt.tcpAuthFilters)+len(opt.networkFilters), ml.Listener.Name, i)
+			filterChain.Filters = opt.networkFilters
+			log.Debugf("attached %d network filters to listener %q filter chain %d", len(filterChain.Filters), ml.Listener.Name, i)
 		} else {
 			// Add the TCP filters first.. and then the HTTP connection manager.
 			// Skip adding this if transport is not TCP (could be QUIC)
-			if len(opt.tcpAuthFilters) > 0 {
-				filterChain.Filters = append(filterChain.Filters, opt.tcpAuthFilters...)
+			if len(opt.networkFilters) > 0 {
+				filterChain.Filters = append(filterChain.Filters, opt.networkFilters...)
 			}
 
 			// If statPrefix has been set before calling this method, respect that.
@@ -256,6 +248,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	mergedGateway *model.MergedGateway,
 	tlsHostsByPort map[uint32]map[string]string,
 ) {
+
 	var tcpAuthFilters []*listener.Filter
 	if util.IsIstioVersionGE117(builder.node.IstioVersion) {
 		tcpAuthFilters = append(tcpAuthFilters, xdsfilters.IstioNetworkAuthenticationFilter)
@@ -266,7 +259,8 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 		port := &networking.Port{Number: port.Number, Protocol: port.Protocol}
 		httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, serversForPort.RouteName,
 			proxyConfig, istionetworking.ListenerProtocolTCP, builder.push)
-		httpFilterChainOpts.tcpAuthFilters = tcpAuthFilters
+		// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
+		httpFilterChainOpts.networkFilters = tcpAuthFilters
 		opts.filterChainOpts = []*filterChainOpts{httpFilterChainOpts}
 	} else {
 		// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
@@ -280,17 +274,33 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				// This is a HTTPS server, where we are doing TLS termination. Build a http connection manager with TLS context
 				httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
 					routeName, proxyConfig, istionetworking.TransportProtocolTCP, builder.push)
-				httpFilterChainOpts.tcpAuthFilters = tcpAuthFilters
+				// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
+				httpFilterChainOpts.networkFilters = tcpAuthFilters
 				opts.filterChainOpts = append(opts.filterChainOpts, httpFilterChainOpts)
 			} else {
-				// TODO(@hzxuzhonghu): make it run once
+				// we are building a network filter chain (no http connection manager) for this filter chain
+				// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
+				// codec is used by RBAC later.
+				var tcpAuthFilters []*listener.Filter
+				if util.IsIstioVersionGE117(builder.node.IstioVersion) {
+					tcpAuthFilters = append(tcpAuthFilters, xdsfilters.IstioNetworkAuthenticationFilter)
+				}
 				tcpAuthFilters = append(tcpAuthFilters, builder.authzCustomBuilder.BuildTCP()...)
 				tcpAuthFilters = append(tcpAuthFilters, builder.authzBuilder.BuildTCP()...)
 				// This is the case of TCP or PASSTHROUGH.
 				tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(builder.node, builder.push,
 					server, port.Number, mergedGateway.GatewayNameForServer[server], tlsHostsByPort)
 				for _, opt := range tcpChainOpts {
-					opt.tcpAuthFilters = tcpAuthFilters
+					if len(opt.networkFilters) > 0 {
+						// this is the terminating filter
+						lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
+						opt.networkFilters = make([]*listener.Filter, 0, len(opt.networkFilters)+len(tcpAuthFilters))
+						opt.networkFilters = append(opt.networkFilters, opt.networkFilters[:len(opt.networkFilters)-1]...)
+						opt.networkFilters = append(opt.networkFilters, tcpAuthFilters...)
+						opt.networkFilters = append(opt.networkFilters, lastNetworkFilter)
+					} else {
+						opt.networkFilters = append(opt.networkFilters, tcpAuthFilters...)
+					}
 				}
 				opts.filterChainOpts = append(opts.filterChainOpts, tcpChainOpts...)
 			}

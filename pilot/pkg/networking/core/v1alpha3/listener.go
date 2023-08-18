@@ -600,6 +600,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 			}
+			chain.Filters = append(chain.Filters, opt.networkFilters...)
 			chain.Filters = append(chain.Filters, filter)
 		}
 
@@ -989,12 +990,10 @@ type filterChainOpts struct {
 	// TLS configuration for the filter
 	tlsContext *auth.DownstreamTlsContext
 
-	// Set if this is for HTTP. Cannot be set with networkFilters
+	// Set if this is for HTTP.
 	httpOpts *httpListenerOpts
-	// Set if this is for TCP chain. Cannot be set with httpOpts
+	// Set if this is for TCP chain.
 	networkFilters []*listener.Filter
-
-	tcpAuthFilters []*listener.Filter
 }
 
 // gatewayListenerOpts are the options required to build a gateway Listener
