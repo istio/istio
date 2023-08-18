@@ -176,6 +176,9 @@
         }
       }
     },
+    "priorityClassName": {
+      "type": "string"
+    },
     "tolerations": {
       "type": "array"
     },
