@@ -68,7 +68,7 @@ type MergedGateway struct {
 
 	// HTTP3AdvertisingRoutes represents the set of HTTP routes which advertise HTTP/3.
 	// This mapping is used to generate alt-svc header that is needed for HTTP/3 server discovery.
-	HTTP3AdvertisingRoutes map[string]struct{}
+	HTTP3AdvertisingRoutes sets.String
 
 	// GatewayNameForServer maps from server to the owning gateway name.
 	// Used for select the set of virtual services that apply to a port.
