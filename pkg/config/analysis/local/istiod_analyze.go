@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -276,6 +277,14 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 	sa.AddRunningKubeSourceWithRevision(c, "default")
 }
 
+func isIstioConfigMap(obj any) bool {
+	cObj, ok := obj.(controllers.Object)
+	if !ok {
+		return false
+	}
+	return strings.HasPrefix(cObj.GetName(), "istio")
+}
+
 func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
 	// This makes the assumption we don't care about Helm secrets or SA token secrets - two common
 	// large secrets in clusters.
@@ -290,6 +299,12 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		Revision:     revision,
 		DomainSuffix: "cluster.local",
 		Identifier:   "analysis-controller",
+		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
+			gvk.ConfigMap: {
+				Namespace:    sa.istioNamespace.String(),
+				ObjectFilter: isIstioConfigMap,
+			},
+		},
 	}, sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...))
 	sa.stores = append(sa.stores, store)
 
