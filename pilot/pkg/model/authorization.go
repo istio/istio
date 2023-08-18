@@ -66,8 +66,8 @@ type AuthorizationPoliciesResult struct {
 }
 
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
-// TODO: update listing policies for waypoint vs workload selector
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string, workload labels.Instance) AuthorizationPoliciesResult {
+// TODO: update the params in all the places this is called
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string, workloadName string, isWaypointProxy bool, workload labels.Instance) AuthorizationPoliciesResult {
 	ret := AuthorizationPoliciesResult{}
 	if policy == nil {
 		return ret
@@ -77,7 +77,9 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string,
 	if policy.RootNamespace != "" {
 		namespaces = append(namespaces, policy.RootNamespace)
 	}
-	// To prevent duplicate policies in case root namespace equals proxy's namespace.
+
+	// Policies can be in root namespace and have workload selectors
+	// This prevent duplicate policies in case root namespace equals proxy's namespace.
 	if namespace != policy.RootNamespace {
 		namespaces = append(namespaces, namespace)
 	}
@@ -85,24 +87,40 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string,
 	for _, ns := range namespaces {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
-			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-			if selector.SubsetOf(workload) {
-				switch config.Spec.GetAction() {
-				case authpb.AuthorizationPolicy_ALLOW:
-					ret.Allow = append(ret.Allow, config)
-				case authpb.AuthorizationPolicy_DENY:
-					ret.Deny = append(ret.Deny, config)
-				case authpb.AuthorizationPolicy_AUDIT:
-					ret.Audit = append(ret.Audit, config)
-				case authpb.AuthorizationPolicy_CUSTOM:
-					ret.Custom = append(ret.Custom, config)
-				default:
-					log.Errorf("ignored authorization policy %s.%s with unsupported action: %s",
-						config.Namespace, config.Name, config.Spec.GetAction())
+			// Assumes if the workload is a waypoint and it doesn't have a targetRef the policy is still valid
+			if !isWaypointProxy || isWaypointProxy && spec.GetTargetRef().GetName() == "" {
+				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
+				if selector.SubsetOf(workload) {
+					ret = updateAuthorizationPoliciesResult(config, ret)
+				}
+			} else {
+				targetRef := spec.GetTargetRef().GetName()
+				if targetRef == workloadName {
+					ret = updateAuthorizationPoliciesResult(config, ret)
 				}
 			}
-		}
-	}
 
+		}
+
+	}
+	return ret
+}
+
+func updateAuthorizationPoliciesResult(config AuthorizationPolicy, ret AuthorizationPoliciesResult) AuthorizationPoliciesResult {
+	log.Infof("applying authorization policy %s.%s",
+		config.Namespace, config.Name)
+	switch config.Spec.GetAction() {
+	case authpb.AuthorizationPolicy_ALLOW:
+		ret.Allow = append(ret.Allow, config)
+	case authpb.AuthorizationPolicy_DENY:
+		ret.Deny = append(ret.Deny, config)
+	case authpb.AuthorizationPolicy_AUDIT:
+		ret.Audit = append(ret.Audit, config)
+	case authpb.AuthorizationPolicy_CUSTOM:
+		ret.Custom = append(ret.Custom, config)
+	default:
+		log.Errorf("ignored authorization policy %s.%s with unsupported action: %s",
+			config.Namespace, config.Name, config.Spec.GetAction())
+	}
 	return ret
 }

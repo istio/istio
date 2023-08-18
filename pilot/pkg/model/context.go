@@ -763,6 +763,7 @@ func (node *Proxy) IsZTunnel() bool {
 }
 
 // IsAmbient returns true if the proxy is acting as either a ztunnel or a waypoint proxy in an ambient mesh.
+// TODO: how to access this in authorization.go?
 func (node *Proxy) IsAmbient() bool {
 	return node.IsWaypointProxy() || node.IsZTunnel()
 }

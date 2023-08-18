@@ -319,6 +319,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs)
 
+			// TODO: fix test by adding IsAmbient and Metadata.WorkloadName params
 			result := authzPolicies.ListAuthorizationPolicies(tc.ns, tc.workloadLabels)
 			if !reflect.DeepEqual(tc.wantAllow, result.Allow) {
 				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, result.Allow)

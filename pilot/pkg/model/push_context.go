@@ -1818,6 +1818,7 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 }
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) {
+	// INFO: returns all AuthorizationPolicies across all namespaces
 	ps.AuthzPolicies = GetAuthorizationPolicies(env)
 }
 
