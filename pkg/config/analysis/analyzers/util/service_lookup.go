@@ -32,11 +32,23 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 	ctx.ForEach(gvk.ServiceEntry, func(r *resource.Instance) bool {
 		s := r.Message.(*v1alpha3.ServiceEntry)
 		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
-		if IsExportToAllNamespaces(s.ExportTo) {
-			hostsNamespaceScope = ExportToAllNamespaces
-		}
+
 		for _, h := range s.GetHosts() {
-			result[NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, h)] = s
+			if len(s.ExportTo) == 0 {
+				result[NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, h)] = s
+			}
+
+			for _, ns := range s.ExportTo {
+				switch ns {
+				case ExportToAllNamespaces:
+					result[NewScopedFqdn(ExportToAllNamespaces, r.Metadata.FullName.Namespace, h)] = s
+				case ExportToNamespaceLocal:
+					result[NewScopedFqdn(r.Metadata.FullName.Namespace.String(), r.Metadata.FullName.Namespace, h)] = s
+				default:
+					result[NewScopedFqdn(ns, r.Metadata.FullName.Namespace, h)] = s
+
+				}
+			}
 		}
 		return true
 	})
