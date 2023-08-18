@@ -354,7 +354,7 @@ func BuildHTTPRoutesForVirtualService(
 					out = append(out, r)
 					// This is a catch all path. Routes are matched in order, so we will never go beyond this match
 					// As an optimization, we can just top sending any more routes here.
-					if isCatchAllRoute(r) && isCatchAllMatch(match) {
+					if isCatchAllMatch(match) {
 						catchall = true
 						break
 					}
