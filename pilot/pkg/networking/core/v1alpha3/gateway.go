@@ -83,14 +83,6 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 		opt := opts.filterChainOpts[i]
 		ml.Listener.FilterChains[i].Metadata = opt.metadata
 		if opt.httpOpts == nil {
-			// we are building a network filter chain (no http connection manager) for this filter chain
-			// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
-			// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
-			// codec is used by RBAC later.
-			//
-			// Currently, when transport is QUIC we assume HTTP3. So it should not come here.
-			// When other protocols are used over QUIC, we have to revisit this assumption.
-
 			filterChain.Filters = opt.networkFilters
 			log.Debugf("attached %d network filters to listener %q filter chain %d", len(filterChain.Filters), ml.Listener.Name, i)
 		} else {
