@@ -72,7 +72,7 @@ func buildWasmNetworkFilters(push *model.PushContext, proxy *model.Proxy, port *
 	wasm := push.WasmPluginsByListenerInfo(proxy, model.WasmPluginListenerInfo{
 		Port:  port.Port,
 		Class: class,
-	})
+	}, model.WasmPluginTypeNetwork)
 	return extension.BuildNetworkWasmFilters(wasm)
 }
 

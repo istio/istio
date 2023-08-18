@@ -50,6 +50,15 @@ const (
 	WasmResourceVersionEnv = "ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION"
 )
 
+// WasmPluginType defines the type of wasm plugin
+type WasmPluginType int
+
+const (
+	WasmPluginTypeHTTP WasmPluginType = iota
+	WasmPluginTypeNetwork
+	WasmPluginTypeAny
+)
+
 func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.WorkloadMode {
 	switch class {
 	case istionetworking.ListenerClassGateway:
@@ -77,6 +86,10 @@ type WasmPluginWrapper struct {
 func (p *WasmPluginWrapper) MatchListener(proxyLabels map[string]string, li WasmPluginListenerInfo) bool {
 	workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(proxyLabels))
 	return workloadMatch && matchTrafficSelectors(p.Match, li)
+}
+
+func (p *WasmPluginWrapper) MatchType(pluginType WasmPluginType) bool {
+	return true
 }
 
 func (p *WasmPluginWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {

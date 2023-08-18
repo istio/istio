@@ -1802,11 +1802,11 @@ func (ps *PushContext) initWasmPlugins(env *Environment) {
 
 // WasmPlugins return the WasmPluginWrappers of a proxy.
 func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*WasmPluginWrapper {
-	return ps.WasmPluginsByListenerInfo(proxy, anyListener)
+	return ps.WasmPluginsByListenerInfo(proxy, anyListener, WasmPluginTypeAny)
 }
 
 // WasmPluginsByListenerInfo return the WasmPluginWrappers which are matched with TrafficSelector in the given proxy.
-func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginListenerInfo) map[extensions.PluginPhase][]*WasmPluginWrapper {
+func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginListenerInfo, pluginType WasmPluginType) map[extensions.PluginPhase][]*WasmPluginWrapper {
 	if proxy == nil {
 		return nil
 	}
@@ -1817,7 +1817,7 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 		// if there is no workload selector, the config applies to all workloads
 		// if there is a workload selector, check for matching workload labels
 		for _, plugin := range ps.wasmPluginsByNamespace[ps.Mesh.RootNamespace] {
-			if plugin.MatchListener(proxy.Labels, info) {
+			if plugin.MatchListener(proxy.Labels, info) && plugin.MatchType(pluginType) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}

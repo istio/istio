@@ -1135,7 +1135,7 @@ func TestWasmPlugins(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := pc.WasmPluginsByListenerInfo(tc.node, tc.listenerInfo)
+			result := pc.WasmPluginsByListenerInfo(tc.node, tc.listenerInfo, WasmPluginTypeHTTP)
 			if !reflect.DeepEqual(tc.expectedExtensions, result) {
 				t.Errorf("WasmPlugins did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
 			}

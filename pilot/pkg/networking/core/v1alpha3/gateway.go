@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -117,6 +118,12 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 			if opts.port != nil {
 				opt.httpOpts.port = opts.port.Port
 			}
+			// Add network level WASM filters if any configured.
+			wasm := builder.push.WasmPluginsByListenerInfo(builder.node, model.WasmPluginListenerInfo{
+				Port:  opt.httpOpts.port,
+				Class: opt.httpOpts.class,
+			}, model.WasmPluginTypeNetwork)
+			ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, extension.BuildNetworkWasmFilters(wasm)...)
 			httpConnectionManagers[i] = builder.buildHTTPConnectionManager(opt.httpOpts)
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,

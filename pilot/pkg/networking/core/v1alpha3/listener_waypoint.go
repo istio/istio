@@ -349,7 +349,7 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, po
 	cls := istionetworking.ListenerClassSidecarInbound
 	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
 		Class: cls,
-	})
+	}, model.WasmPluginTypeHTTP)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	pre = append(pre, lb.authzCustomBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppend(pre, wasm, extensions.PluginPhase_AUTHN)
