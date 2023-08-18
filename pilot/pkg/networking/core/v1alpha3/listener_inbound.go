@@ -789,9 +789,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	var filters []*listener.Filter
 
 	if !cc.hbone {
-		if util.IsIstioVersionGE117(lb.node.IstioVersion) {
-			filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
-		}
+		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
 
@@ -821,9 +819,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	var filters []*listener.Filter
 
 	if !fcc.hbone {
-		if util.IsIstioVersionGE117(lb.node.IstioVersion) {
-			filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
-		}
+		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
 	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
