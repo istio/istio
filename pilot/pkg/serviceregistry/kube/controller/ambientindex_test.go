@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
@@ -392,6 +393,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
 	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
 	s.clearEvents()
+	selectorPolicyName := "selector"
 
 	// Test that PeerAuthentications are added to the ambient index
 	s.addPolicy(t, "global", systemNS, nil, gvk.PeerAuthentication, func(c *config.Config) {
@@ -416,7 +418,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)})
 	s.clearEvents()
 
-	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
 		pol := c.Spec.(*auth.PeerAuthentication)
 		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
@@ -428,7 +430,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)})
 
 	// Change the workload policy to be permissive
-	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
 		pol := c.Spec.(*auth.PeerAuthentication)
 		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
@@ -440,7 +442,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		nil)
 
 	// Add a port-level STRICT exception to the workload policy
-	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
 		pol := c.Spec.(*auth.PeerAuthentication)
 		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
@@ -454,7 +456,11 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	s.assertEvent(t, s.podXdsName("pod1")) // Selector policy should be added back since there is now a STRICT exception
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
-		[]string{fmt.Sprintf("ns1/%sselector", convertedPeerAuthenticationPrefix)})
+		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Kind:      kind.PeerAuthentication,
+			Name:      selectorPolicyName,
+			Namespace: "ns1",
+		}))})
 
 	// Pod not in selector policy, but namespace policy should take effect (hence static policy)
 	s.addPods(t, "127.0.0.2", "pod2", "sa1", map[string]string{"app": "not-a"}, nil, true, corev1.PodRunning)
@@ -468,7 +474,11 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	s.assertEvent(t, s.podXdsName("pod2"))
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.2"))[0].Address.GetWorkload().AuthorizationPolicies,
-		[]string{fmt.Sprintf("ns1/%sselector", convertedPeerAuthenticationPrefix)})
+		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Kind:      kind.PeerAuthentication,
+			Name:      selectorPolicyName,
+			Namespace: "ns1",
+		}))})
 
 	// Add global selector policy; nothing should happen since PeerAuthentication doesn't support global mesh wide selectors
 	s.addPolicy(t, "global-selector", systemNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
@@ -479,13 +489,17 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	})
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
-		[]string{fmt.Sprintf("ns1/%sselector", convertedPeerAuthenticationPrefix)})
+		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Kind:      kind.PeerAuthentication,
+			Name:      selectorPolicyName,
+			Namespace: "ns1",
+		}))})
 
 	// Delete global selector policy
 	_ = s.cfg.Delete(gvk.PeerAuthentication, "global-selector", systemNS, nil)
 
 	// Update workload policy to be PERMISSIVE
-	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
 		pol := c.Spec.(*auth.PeerAuthentication)
 		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
@@ -517,7 +531,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		nil)
 
 	// Change workload policy to be STRICT and remove port-level overrides
-	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
 		pol := c.Spec.(*auth.PeerAuthentication)
 		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
@@ -532,7 +546,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)}) // Effective mode is STRICT so set policy
 
 	// Add a permissive port-level override
-	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
 		pol := c.Spec.(*auth.PeerAuthentication)
 		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
@@ -546,10 +560,14 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2")) // Matching pods receive an event
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
-		[]string{fmt.Sprintf("ns1/%sselector", convertedPeerAuthenticationPrefix)})
+		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Kind:      kind.PeerAuthentication,
+			Name:      selectorPolicyName,
+			Namespace: "ns1",
+		}))})
 
 	// Set workload policy to be UNSET with a STRICT port-level override
-	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
 		pol := c.Spec.(*auth.PeerAuthentication)
 		pol.Mtls = nil // equivalent to UNSET
 		pol.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
@@ -562,7 +580,11 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	// The policy should still be added since the effective policy is PERMISSIVE
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
-		[]string{fmt.Sprintf("ns1/%sselector", convertedPeerAuthenticationPrefix)})
+		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Kind:      kind.PeerAuthentication,
+			Name:      selectorPolicyName,
+			Namespace: "ns1",
+		}))})
 
 	// Change namespace policy back to STRICT
 	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c *config.Config) {
@@ -578,7 +600,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)}) // Effective mode is STRICT so set static policy
 
 	// Set workload policy to be UNSET with a PERMISSIVE port-level override
-	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
 		pol := c.Spec.(*auth.PeerAuthentication)
 		pol.Mtls = nil // equivalent to UNSET
 		pol.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
@@ -591,10 +613,14 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	// The policy should still be added since the effective policy is STRICT
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
-		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName), fmt.Sprintf("ns1/%sselector", convertedPeerAuthenticationPrefix)})
+		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName), fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Kind:      kind.PeerAuthentication,
+			Name:      selectorPolicyName,
+			Namespace: "ns1",
+		}))})
 
 	// Clear PeerAuthentication from workload
-	_ = s.cfg.Delete(gvk.PeerAuthentication, "selector", testNS, nil)
+	_ = s.cfg.Delete(gvk.PeerAuthentication, selectorPolicyName, testNS, nil)
 	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"))
 	// Effective policy is still STRICT so the static policy should still be set
 	assert.Equal(t,
@@ -615,7 +641,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		nil)
 
-	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, nil)
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, nil)
 	s.assertEvent(t, s.podXdsName("pod1"))
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -721,10 +747,14 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	// Workload policy should be added since there's a port level exclusion
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
-		[]string{"ns1/selector", fmt.Sprintf("ns1/%sselector-strict", convertedPeerAuthenticationPrefix)})
+		[]string{"ns1/selector", fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Kind:      kind.PeerAuthentication,
+			Name:      "selector-strict",
+			Namespace: "ns1",
+		}))})
 
 	// Now add a rule allowing a specific source principal to the workload AuthorizationPolicy
-	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, func(c *config.Config) {
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, func(c *config.Config) {
 		pol := c.Spec.(*auth.AuthorizationPolicy)
 		pol.Rules = []*auth.Rule{
 			{
@@ -737,13 +767,21 @@ func TestAmbientIndex_Policy(t *testing.T) {
 	// alongside ALLOW authorization policies
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
-		[]string{"ns1/selector", fmt.Sprintf("ns1/%sselector-strict", convertedPeerAuthenticationPrefix)})
+		[]string{"ns1/selector", fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Kind:      kind.PeerAuthentication,
+			Name:      "selector-strict",
+			Namespace: "ns1",
+		}))})
 
-	_ = s.cfg.Delete(gvk.AuthorizationPolicy, "selector", testNS, nil)
+	_ = s.cfg.Delete(gvk.AuthorizationPolicy, selectorPolicyName, testNS, nil)
 	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"))
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
-		[]string{fmt.Sprintf("ns1/%sselector-strict", convertedPeerAuthenticationPrefix)})
+		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Kind:      kind.PeerAuthentication,
+			Name:      "selector-strict",
+			Namespace: "ns1",
+		}))})
 
 	// Delete selector policy
 	_ = s.cfg.Delete(gvk.PeerAuthentication, "selector-strict", testNS, nil)

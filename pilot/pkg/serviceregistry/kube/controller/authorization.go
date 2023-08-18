@@ -38,8 +38,7 @@ import (
 )
 
 const (
-	convertedPeerAuthenticationPrefix = "converted_peer_authentication_" // use '_' character since those are illegal in k8s names
-	staticStrictPolicyName            = "istio_converted_static_strict"  // use '_' character since those are illegal in k8s names
+	staticStrictPolicyName = "istio_converted_static_strict" // use '_' character since those are illegal in k8s names
 )
 
 func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.Authorization {
@@ -64,10 +63,13 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 			Name:      cfg.Name,
 			Namespace: cfg.Namespace,
 		}
+
+		// All PeerAuthentications are synthetic, so we need to prepend our special prefix to the name
 		if k.Kind == kind.PeerAuthentication {
 			// PeerAuthentications are synthetic so prepend our special prefix
-			k.Name = fmt.Sprintf("%s%s", convertedPeerAuthenticationPrefix, k.Name)
+			k.Name = model.GetAmbientPolicyConfigName(k)
 		}
+
 		if len(requested) > 0 && !requested.Contains(k) {
 			continue
 		}
@@ -229,7 +231,11 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 			if foundPermissive {
 				// If we found a non-strict policy, we need to reference this workload policy to see the port level exceptions
-				effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+				effectivePortLevelPolicyKey = workloadCfg.Namespace + "/" + model.GetAmbientPolicyConfigName(model.ConfigKey{
+					Name:      workloadCfg.Name,
+					Kind:      kind.MustFromGVK(workloadCfg.GroupVersionKind),
+					Namespace: workloadCfg.Namespace,
+				})
 				isEffectiveStrictPolicy = false // don't send our static STRICT policy since the converted form of this policy will include the default STRICT mode
 			}
 		case v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE, v1beta1.PeerAuthentication_MutualTLS_DISABLE:
@@ -243,7 +249,11 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 			// There's a STRICT port mode, so we need to reference this policy in the workload
 			if foundStrict {
-				effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+				effectivePortLevelPolicyKey = workloadCfg.Namespace + "/" + model.GetAmbientPolicyConfigName(model.ConfigKey{
+					Name:      workloadCfg.Name,
+					Kind:      kind.MustFromGVK(workloadCfg.GroupVersionKind),
+					Namespace: workloadCfg.Namespace,
+				})
 			}
 		default: // Unset
 			if isEffectiveStrictPolicy {
@@ -258,7 +268,11 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 				if foundPermissive {
 					// If we found a non-strict policy, we need to reference this workload policy to see the port level exceptions
-					effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+					effectivePortLevelPolicyKey = workloadCfg.Namespace + "/" + model.GetAmbientPolicyConfigName(model.ConfigKey{
+						Name:      workloadCfg.Name,
+						Kind:      kind.MustFromGVK(workloadCfg.GroupVersionKind),
+						Namespace: workloadCfg.Namespace,
+					})
 				}
 			} else {
 				// Permissive mesh or namespace policy
@@ -273,7 +287,11 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 				// There's a STRICT port mode, so we need to reference this policy in the workload
 				if foundStrict {
-					effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+					effectivePortLevelPolicyKey = workloadCfg.Namespace + "/" + model.GetAmbientPolicyConfigName(model.ConfigKey{
+						Name:      workloadCfg.Name,
+						Kind:      kind.MustFromGVK(workloadCfg.GroupVersionKind),
+						Namespace: workloadCfg.Namespace,
+					})
 				}
 			}
 		}
@@ -541,6 +559,7 @@ func (c *Controller) getPodsInPolicy(ns string, sel map[string]string, meshWideS
 // 2. The PeerAuthentication is NOT in the root namespace
 // 3. There is a portLevelMtls policy (technically implied by 1)
 // 4. If the top-level mode is PERMISSIVE or DISABLE, there is at least one portLevelMtls policy with mode STRICT
+//
 // STRICT policies that don't have portLevelMtls will be
 // handled when the Workload xDS resource is pushed (a static STRICT-equivalent policy will always be pushed)
 func convertPeerAuthentication(rootNamespace string, cfg config.Config) *security.Authorization {
@@ -665,7 +684,11 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 	}
 
 	opol := &security.Authorization{
-		Name:      convertedPeerAuthenticationPrefix + cfg.Name,
+		Name: model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Name:      cfg.Name,
+			Kind:      kind.PeerAuthentication,
+			Namespace: cfg.Namespace,
+		}),
 		Namespace: cfg.Namespace,
 		Scope:     scope,
 		Action:    action,
