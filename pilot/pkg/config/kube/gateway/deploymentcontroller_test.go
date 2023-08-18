@@ -245,7 +245,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					return err
 				}
 				buf.Write(b)
-				buf.Write([]byte("---\n"))
+				buf.WriteString("---\n")
 				return nil
 			}
 			client.RunAndWait(stop)

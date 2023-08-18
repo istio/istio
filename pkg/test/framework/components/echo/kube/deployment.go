@@ -707,7 +707,7 @@ func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv st
 	if cfg.VMEnvironment != nil {
 		for k, v := range cfg.VMEnvironment {
 			addition := fmt.Sprintf("%s=%s\n", k, v)
-			_, err = f.Write([]byte(addition))
+			_, err = f.WriteString(addition)
 			if err != nil {
 				return fmt.Errorf("failed writing %q to %s: %v", addition, clusterEnv, err)
 			}
@@ -715,7 +715,7 @@ func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv st
 	}
 	if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 		// customize cluster.env with NodePort mapping
-		_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port())))
+		_, err = f.WriteString(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port()))
 		if err != nil {
 			return err
 		}
