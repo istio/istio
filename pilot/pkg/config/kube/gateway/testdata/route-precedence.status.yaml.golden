@@ -85,6 +85,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: b-example
   - conditions:
@@ -100,6 +101,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: a-example
   - conditions:
@@ -140,6 +142,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: a-example
   - conditions:

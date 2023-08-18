@@ -578,13 +578,13 @@ func hostnameToStringList(h []k8s.Hostname) []string {
 func toInternalParentReference(p k8s.ParentReference, localNamespace string) (parentKey, error) {
 	empty := parentKey{}
 	kind := ptr.OrDefault((*string)(p.Kind), gvk.KubernetesGateway.Kind)
+	group := ptr.OrDefault((*string)(p.Group), gvk.KubernetesGateway.Group)
 	var ik config.GroupVersionKind
 	var ns string
 	// Currently supported types are Gateway and Service
-	if kind == gvk.KubernetesGateway.Kind && nilOrEqual((*string)(p.Group), gvk.KubernetesGateway.Group) {
+	if kind == gvk.KubernetesGateway.Kind && group == gvk.KubernetesGateway.Group {
 		ik = gvk.KubernetesGateway
-	} else if kind == gvk.Service.Kind && (nilOrEqual((*string)(p.Group), gvk.Service.Group) ||
-		*(*string)(p.Group) == gvk.KubernetesGateway.Group) { // TODO: gateway group is default?
+	} else if kind == gvk.Service.Kind && group == gvk.Service.Group {
 		ik = gvk.Service
 	} else {
 		return empty, fmt.Errorf("unsupported parentKey: %v/%v", p.Group, kind)
