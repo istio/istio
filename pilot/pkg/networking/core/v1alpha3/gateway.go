@@ -240,7 +240,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	mergedGateway *model.MergedGateway,
 	tlsHostsByPort map[uint32]map[string]string,
 ) {
-
 	var tcpAuthFilters []*listener.Filter
 	if util.IsIstioVersionGE117(builder.node.IstioVersion) {
 		tcpAuthFilters = append(tcpAuthFilters, xdsfilters.IstioNetworkAuthenticationFilter)
@@ -286,9 +285,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 					if len(opt.networkFilters) > 0 {
 						// this is the terminating filter
 						lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
-						opt.networkFilters = make([]*listener.Filter, 0, len(opt.networkFilters)+len(tcpAuthFilters))
-						opt.networkFilters = append(opt.networkFilters, opt.networkFilters[:len(opt.networkFilters)-1]...)
-						opt.networkFilters = append(opt.networkFilters, tcpAuthFilters...)
+						opt.networkFilters = append(opt.networkFilters[:len(opt.networkFilters)-1], tcpAuthFilters...)
 						opt.networkFilters = append(opt.networkFilters, lastNetworkFilter)
 					} else {
 						opt.networkFilters = append(opt.networkFilters, tcpAuthFilters...)
