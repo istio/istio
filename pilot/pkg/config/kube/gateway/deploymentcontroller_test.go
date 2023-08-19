@@ -59,6 +59,10 @@ func TestConfigureIstioGateway(t *testing.T) {
 	customClass := &v1beta1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "custom",
+			Annotations: map[string]string{
+				gatewayTemplatesKey: "custom",
+				serviceTypeOverride: string(corev1.ServiceTypeClusterIP),
+			},
 		},
 		Spec: v1beta1.GatewayClassSpec{
 			ControllerName: constants.ManagedGatewayController,
@@ -367,6 +371,7 @@ global:
 	tmpl, err := inject.ParseTemplates(map[string]string{
 		"kube-gateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/kube-gateway.yaml")),
 		"waypoint":     file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/waypoint.yaml")),
+		"custom":       file.AsStringOrFail(t, filepath.Join("testdata", "templates", "custom.yaml")),
 	})
 	if err != nil {
 		t.Fatal(err)

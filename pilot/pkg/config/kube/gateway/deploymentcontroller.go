@@ -261,17 +261,27 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 		return nil
 	}
 
-	var controller gateway.GatewayController
+	var ci classInfo
 	if gc := d.gatewayClasses.Get(string(gw.Spec.GatewayClassName), ""); gc != nil {
-		controller = gc.Spec.ControllerName
-	} else {
-		if builtin, f := builtinClasses[gw.Spec.GatewayClassName]; f {
-			controller = builtin
+		controller := gc.Spec.ControllerName
+
+		var known bool
+		ci, known = classInfos[controller]
+		if !known {
+			log.Debugf("skipping unknown controller %q", controller)
+			return nil
 		}
-	}
-	ci, f := classInfos[controller]
-	if !f {
-		log.Debugf("skipping unknown controller %q", controller)
+
+		if templates := gc.Annotations[gatewayTemplatesKey]; templates != "" {
+			ci.templates = templates
+		}
+		if st := gc.Annotations[serviceTypeOverride]; st != "" {
+			ci.defaultServiceType = corev1.ServiceType(st)
+		}
+	} else if controller, known := builtinClasses[gw.Spec.GatewayClassName]; known {
+		ci = classInfos[controller]
+	} else {
+		log.Debugf("skipping unknown gateway class %q", gw.Spec.GatewayClassName)
 		return nil
 	}
 
