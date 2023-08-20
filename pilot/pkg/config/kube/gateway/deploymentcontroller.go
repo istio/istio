@@ -31,6 +31,7 @@ import (
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshapi "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
@@ -272,7 +273,7 @@ func (d *DeploymentController) Reconcile(req types.NamespacedName) error {
 			return nil
 		}
 
-		if templates := gc.Annotations[gatewayTemplatesKey]; templates != "" {
+		if templates := gc.Annotations[annotation.InjectTemplates.Name]; templates != "" {
 			ci.templates = templates
 		}
 		if st := gc.Annotations[serviceTypeOverride]; st != "" {

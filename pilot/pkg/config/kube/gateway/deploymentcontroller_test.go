@@ -30,6 +30,7 @@ import (
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/api/annotation"
 	istioio_networking_v1beta1 "istio.io/api/networking/v1beta1"
 	istio_type_v1beta1 "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
@@ -60,8 +61,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "custom",
 			Annotations: map[string]string{
-				gatewayTemplatesKey: "custom",
-				serviceTypeOverride: string(corev1.ServiceTypeClusterIP),
+				annotation.InjectTemplates.Name: "custom",
+				serviceTypeOverride:             string(corev1.ServiceTypeClusterIP),
 			},
 		},
 		Spec: v1beta1.GatewayClassSpec{

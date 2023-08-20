@@ -32,7 +32,6 @@ const (
 	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
 	gatewayNameOverride          = "gateway.istio.io/name-override"
 	gatewaySAOverride            = "gateway.istio.io/service-account"
-	gatewayTemplatesKey          = "gateway.istio.io/templates"
 	serviceTypeOverride          = "networking.istio.io/service-type"
 )
 
