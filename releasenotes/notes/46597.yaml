@@ -5,4 +5,4 @@ issue:
 - 46597
 releaseNotes:
 - |
-  **Fixed** istioctl analyze incorrectly showing an error when ServiceEntry hosts are used in a VirtualService destination across namespace boundary.
+  **Fixed** `istioctl analyze` incorrectly showing an error when ServiceEntry hosts are used in a VirtualService destination across namespace boundary.
