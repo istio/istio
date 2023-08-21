@@ -58,7 +58,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		s := rs.Message.(*v1alpha1.Telemetry)
 
 		// For this analysis, ignore Telemetries with no selectors specified at all.
-		if s.TypeSelector == nil || len(s.GetSelector().MatchLabels) == 0 {
+		if s.Selector == nil || len(s.GetSelector().MatchLabels) == 0 {
 			return true
 		}
 

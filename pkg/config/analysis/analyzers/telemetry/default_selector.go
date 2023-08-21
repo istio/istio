@@ -50,7 +50,7 @@ func (a *DefaultSelectorAnalyzer) Analyze(c analysis.Context) {
 
 		ns := r.Metadata.FullName.Namespace
 
-		if s.TypeSelector == nil {
+		if s.Selector == nil {
 			nsToTelemetries[ns] = append(nsToTelemetries[ns], r)
 		}
 		return true

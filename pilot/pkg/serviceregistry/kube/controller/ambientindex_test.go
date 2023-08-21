@@ -1244,7 +1244,7 @@ func (s *ambientTestServer) addPolicy(t *testing.T, name, ns string, selector ma
 	switch kind {
 	case gvk.AuthorizationPolicy:
 		p.Spec = &auth.AuthorizationPolicy{
-			TypeSelector: &auth.AuthorizationPolicy_Selector{Selector: sel},
+			Selector: sel,
 		}
 	case gvk.PeerAuthentication:
 		p.Spec = &auth.PeerAuthentication{

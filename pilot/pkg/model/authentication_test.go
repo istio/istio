@@ -189,12 +189,10 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 						Namespace:        "foo",
 					},
 					Spec: &securityBeta.RequestAuthentication{
-						TypeSelector: &securityBeta.RequestAuthentication_Selector{
-							Selector: &selectorpb.WorkloadSelector{
-								MatchLabels: map[string]string{
-									"app":     "httpbin",
-									"version": "v1",
-								},
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app":     "httpbin",
+								"version": "v1",
 							},
 						},
 					},
@@ -214,11 +212,9 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{
-						TypeSelector: &securityBeta.RequestAuthentication_Selector{
-							Selector: &selectorpb.WorkloadSelector{
-								MatchLabels: map[string]string{
-									"app": "httpbin",
-								},
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
 							},
 						},
 					},
@@ -300,11 +296,9 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{
-						TypeSelector: &securityBeta.RequestAuthentication_Selector{
-							Selector: &selectorpb.WorkloadSelector{
-								MatchLabels: map[string]string{
-									"app": "httpbin",
-								},
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
 							},
 						},
 					},
@@ -355,11 +349,9 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 						Namespace:        "istio-config",
 					},
 					Spec: &securityBeta.RequestAuthentication{
-						TypeSelector: &securityBeta.RequestAuthentication_Selector{
-							Selector: &selectorpb.WorkloadSelector{
-								MatchLabels: map[string]string{
-									"app": "httpbin",
-								},
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
 							},
 						},
 					},
@@ -600,11 +592,9 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 						Namespace:        rootNamespace,
 					},
 					Spec: &securityBeta.RequestAuthentication{
-						TypeSelector: &securityBeta.RequestAuthentication_Selector{
-							Selector: &selectorpb.WorkloadSelector{
-								MatchLabels: map[string]string{
-									"app": "httpbin",
-								},
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
 							},
 						},
 						JwtRules: []*securityBeta.JWTRule{
@@ -631,12 +621,10 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 						Namespace:        "foo",
 					},
 					Spec: &securityBeta.RequestAuthentication{
-						TypeSelector: &securityBeta.RequestAuthentication_Selector{
-							Selector: &selectorpb.WorkloadSelector{
-								MatchLabels: map[string]string{
-									"app":     "httpbin",
-									"version": "v1",
-								},
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app":     "httpbin",
+								"version": "v1",
 							},
 						},
 						JwtRules: []*securityBeta.JWTRule{
@@ -672,11 +660,9 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 						Namespace:        rootNamespace,
 					},
 					Spec: &securityBeta.RequestAuthentication{
-						TypeSelector: &securityBeta.RequestAuthentication_Selector{
-							Selector: &selectorpb.WorkloadSelector{
-								MatchLabels: map[string]string{
-									"app": "httpbin",
-								},
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
 							},
 						},
 						JwtRules: []*securityBeta.JWTRule{
@@ -726,7 +712,7 @@ func createTestRequestAuthenticationResource(name string, namespace string, sele
 			Namespace:        namespace,
 		},
 		Spec: &securityBeta.RequestAuthentication{
-			TypeSelector: &securityBeta.RequestAuthentication_Selector{Selector: selector},
+			Selector: selector,
 		},
 	}
 }

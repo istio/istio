@@ -5294,12 +5294,10 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		{
 			name: "good",
 			in: &security_beta.AuthorizationPolicy{
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app":     "httpbin",
-							"version": "v1",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "httpbin",
+						"version": "v1",
 					},
 				},
 				Rules: []*security_beta.Rule{
@@ -5493,12 +5491,10 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		{
 			name: "selector-empty-value",
 			in: &security_beta.AuthorizationPolicy{
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app":     "",
-							"version": "v1",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "",
+						"version": "v1",
 					},
 				},
 			},
@@ -5507,12 +5503,10 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		{
 			name: "selector-empty-key",
 			in: &security_beta.AuthorizationPolicy{
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin",
-							"":    "v1",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+						"":    "v1",
 					},
 				},
 			},
@@ -5521,9 +5515,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		{
 			name: "selector-empty-labels",
 			in: &security_beta.AuthorizationPolicy{
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{},
-				},
+				Selector: &api.WorkloadSelector{},
 			},
 			valid:   true,
 			Warning: true,
@@ -5531,11 +5523,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		{
 			name: "selector-wildcard-value",
 			in: &security_beta.AuthorizationPolicy{
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin-*",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin-*",
 					},
 				},
 			},
@@ -5544,11 +5534,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		{
 			name: "selector-wildcard-key",
 			in: &security_beta.AuthorizationPolicy{
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app-*": "httpbin",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app-*": "httpbin",
 					},
 				},
 			},
@@ -5558,12 +5546,10 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			name: "target-ref-empty-namespace",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
-				TypeSelector: &security_beta.AuthorizationPolicy_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group: defaultGatewayGroup,
-						Kind:  defaultGatewayKind,
-						Name:  "foo",
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group: defaultGatewayGroup,
+					Kind:  defaultGatewayKind,
+					Name:  "foo",
 				},
 				Rules: []*security_beta.Rule{
 					{
@@ -5592,12 +5578,10 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			name: "target-ref-empty-name",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
-				TypeSelector: &security_beta.AuthorizationPolicy_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     defaultGatewayGroup,
-						Kind:      defaultGatewayKind,
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      defaultGatewayKind,
+					Namespace: proto.String("bar"),
 				},
 				Rules: []*security_beta.Rule{
 					{
@@ -5626,13 +5610,11 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			name: "target-ref-wrong-group",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
-				TypeSelector: &security_beta.AuthorizationPolicy_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     "wrong-group",
-						Kind:      defaultGatewayKind,
-						Name:      "foo",
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     "wrong-group",
+					Kind:      defaultGatewayKind,
+					Name:      "foo",
+					Namespace: proto.String("bar"),
 				},
 				Rules: []*security_beta.Rule{
 					{
@@ -5661,13 +5643,11 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			name: "target-ref-wrong-kind",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
-				TypeSelector: &security_beta.AuthorizationPolicy_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     defaultGatewayGroup,
-						Kind:      "wrong-kind",
-						Name:      "foo",
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      "wrong-kind",
+					Name:      "foo",
+					Namespace: proto.String("bar"),
 				},
 				Rules: []*security_beta.Rule{
 					{
@@ -6147,11 +6127,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		{
 			name: "condition-key-missing",
 			in: &security_beta.AuthorizationPolicy{
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 				Rules: []*security_beta.Rule{
@@ -6169,11 +6147,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		{
 			name: "condition-key-empty",
 			in: &security_beta.AuthorizationPolicy{
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 				Rules: []*security_beta.Rule{
@@ -6192,11 +6168,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		{
 			name: "condition-value-missing",
 			in: &security_beta.AuthorizationPolicy{
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 				Rules: []*security_beta.Rule{
@@ -6246,11 +6220,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 		{
 			name: "condition-unknown",
 			in: &security_beta.AuthorizationPolicy{
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 				Rules: []*security_beta.Rule{
@@ -6270,11 +6242,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			name: "L7DenyWithFrom",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 				Rules: []*security_beta.Rule{
@@ -6296,11 +6266,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			name: "L7DenyWithTo",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 				Rules: []*security_beta.Rule{
@@ -6322,11 +6290,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			name: "L7DenyWithFromAndTo",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 				Rules: []*security_beta.Rule{
@@ -6355,11 +6321,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			name: "L7DenyWithFromAndToWithPort",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
-				TypeSelector: &security_beta.AuthorizationPolicy_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 				Rules: []*security_beta.Rule{
@@ -7613,9 +7577,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "another empty spec",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
-				TypeSelector: &security_beta.RequestAuthentication_Selector{
-					Selector: &api.WorkloadSelector{},
-				},
+				Selector: &api.WorkloadSelector{},
 			},
 			valid:   true,
 			warning: true,
@@ -7637,11 +7599,9 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "default name with non empty selector",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
-				TypeSelector: &security_beta.RequestAuthentication_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 			},
@@ -7699,12 +7659,10 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "empty value",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
-				TypeSelector: &security_beta.RequestAuthentication_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app":     "httpbin",
-							"version": "",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app":     "httpbin",
+						"version": "",
 					},
 				},
 				JwtRules: []*security_beta.JWTRule{
@@ -7720,12 +7678,10 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "bad workload selector - empty key",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
-				TypeSelector: &security_beta.RequestAuthentication_Selector{
-					Selector: &api.WorkloadSelector{
-						MatchLabels: map[string]string{
-							"app": "httpbin",
-							"":    "v1",
-						},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+						"":    "v1",
 					},
 				},
 				JwtRules: []*security_beta.JWTRule{
@@ -7741,12 +7697,10 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "bad targetRef selector - empty name",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
-				TypeSelector: &security_beta.RequestAuthentication_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     defaultGatewayGroup,
-						Kind:      defaultGatewayKind,
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      defaultGatewayKind,
+					Namespace: proto.String("bar"),
 				},
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -7761,12 +7715,10 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "bad targetRef selector - empty namespace",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
-				TypeSelector: &security_beta.RequestAuthentication_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group: defaultGatewayGroup,
-						Kind:  defaultGatewayKind,
-						Name:  "foo",
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group: defaultGatewayGroup,
+					Kind:  defaultGatewayKind,
+					Name:  "foo",
 				},
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -7781,13 +7733,11 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "bad targetRef selector - wrong group",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
-				TypeSelector: &security_beta.RequestAuthentication_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     "wrong-group",
-						Kind:      defaultGatewayKind,
-						Name:      "foo",
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     "wrong-group",
+					Kind:      defaultGatewayKind,
+					Name:      "foo",
+					Namespace: proto.String("bar"),
 				},
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -7802,13 +7752,11 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			name:       "bad targetRef selector - wrong kind",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
-				TypeSelector: &security_beta.RequestAuthentication_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     defaultGatewayGroup,
-						Kind:      "wrong-kind",
-						Name:      "foo",
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      "wrong-kind",
+					Name:      "foo",
+					Namespace: proto.String("bar"),
 				},
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -8572,12 +8520,10 @@ func TestValidateTelemetry(t *testing.T) {
 						},
 					},
 				}},
-				TypeSelector: &telemetry.Telemetry_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     defaultGatewayGroup,
-						Kind:      defaultGatewayKind,
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      defaultGatewayKind,
+					Namespace: proto.String("bar"),
 				},
 			},
 			"policyTargetReference.name must be set", "",
@@ -8596,12 +8542,10 @@ func TestValidateTelemetry(t *testing.T) {
 						},
 					},
 				}},
-				TypeSelector: &telemetry.Telemetry_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group: defaultGatewayGroup,
-						Kind:  defaultGatewayKind,
-						Name:  "foo",
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group: defaultGatewayGroup,
+					Kind:  defaultGatewayKind,
+					Name:  "foo",
 				},
 			},
 			"policyTargetReference.namespace must be set", "",
@@ -8620,13 +8564,11 @@ func TestValidateTelemetry(t *testing.T) {
 						},
 					},
 				}},
-				TypeSelector: &telemetry.Telemetry_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     "wrong-group",
-						Kind:      defaultGatewayKind,
-						Name:      "foo",
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     "wrong-group",
+					Kind:      defaultGatewayKind,
+					Name:      "foo",
+					Namespace: proto.String("bar"),
 				},
 			},
 			"policyTargetReference.group is incorrect", "",
@@ -8645,13 +8587,11 @@ func TestValidateTelemetry(t *testing.T) {
 						},
 					},
 				}},
-				TypeSelector: &telemetry.Telemetry_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     defaultGatewayGroup,
-						Kind:      "wrong-kind",
-						Name:      "foo",
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      "wrong-kind",
+					Name:      "foo",
+					Namespace: proto.String("bar"),
 				},
 			},
 			"policyTargetReference.kind is incorrect", "",
@@ -8859,12 +8799,10 @@ func TestValidateWasmPlugin(t *testing.T) {
 						},
 					},
 				},
-				TypeSelector: &extensions.WasmPlugin_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group: defaultGatewayGroup,
-						Kind:  defaultGatewayKind,
-						Name:  "foo",
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group: defaultGatewayGroup,
+					Kind:  defaultGatewayKind,
+					Name:  "foo",
 				},
 			},
 			"spec.vmConfig.env invalid", "",
@@ -8873,12 +8811,10 @@ func TestValidateWasmPlugin(t *testing.T) {
 			"target-ref-empty-name",
 			&extensions.WasmPlugin{
 				Url: "test.com/test",
-				TypeSelector: &extensions.WasmPlugin_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     defaultGatewayGroup,
-						Kind:      defaultGatewayKind,
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      defaultGatewayKind,
+					Namespace: proto.String("bar"),
 				},
 			},
 			"policyTargetReference.name must be set", "",
@@ -8887,13 +8823,11 @@ func TestValidateWasmPlugin(t *testing.T) {
 			"target-ref-wrong-group",
 			&extensions.WasmPlugin{
 				Url: "test.com/test",
-				TypeSelector: &extensions.WasmPlugin_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     "wrong-group",
-						Kind:      defaultGatewayKind,
-						Name:      "foo",
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     "wrong-group",
+					Kind:      defaultGatewayKind,
+					Name:      "foo",
+					Namespace: proto.String("bar"),
 				},
 			},
 			"policyTargetReference.group is incorrect", "",
@@ -8902,13 +8836,11 @@ func TestValidateWasmPlugin(t *testing.T) {
 			"target-ref-wrong-kind",
 			&extensions.WasmPlugin{
 				Url: "test.com/test",
-				TypeSelector: &extensions.WasmPlugin_TargetRef{
-					TargetRef: &api.PolicyTargetReference{
-						Group:     defaultGatewayGroup,
-						Kind:      "wrong-kind",
-						Name:      "foo",
-						Namespace: proto.String("bar"),
-					},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      "wrong-kind",
+					Name:      "foo",
+					Namespace: proto.String("bar"),
 				},
 			},
 			"policyTargetReference.kind is incorrect", "",

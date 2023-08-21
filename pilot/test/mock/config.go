@@ -83,12 +83,10 @@ var (
 
 	// ExampleAuthorizationPolicy is an example AuthorizationPolicy
 	ExampleAuthorizationPolicy = &authz.AuthorizationPolicy{
-		TypeSelector: &authz.AuthorizationPolicy_Selector{
-			Selector: &api.WorkloadSelector{
-				MatchLabels: map[string]string{
-					"app":     "httpbin",
-					"version": "v1",
-				},
+		Selector: &api.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
 			},
 		},
 	}

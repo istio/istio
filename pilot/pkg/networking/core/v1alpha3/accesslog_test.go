@@ -261,11 +261,9 @@ func newTestEnviroment() *model.Environment {
 			GroupVersionKind: gvk.Telemetry,
 		},
 		Spec: &tpb.Telemetry{
-			TypeSelector: &tpb.Telemetry_Selector{
-				Selector: &v1beta1.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "test",
-					},
+			Selector: &v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"app": "test",
 				},
 			},
 			AccessLogging: []*tpb.AccessLogging{
@@ -286,11 +284,9 @@ func newTestEnviroment() *model.Environment {
 			GroupVersionKind: gvk.Telemetry,
 		},
 		Spec: &tpb.Telemetry{
-			TypeSelector: &tpb.Telemetry_Selector{
-				Selector: &v1beta1.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "test-with-server-accesslog-filter",
-					},
+			Selector: &v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"app": "test-with-server-accesslog-filter",
 				},
 			},
 			AccessLogging: []*tpb.AccessLogging{
@@ -314,11 +310,9 @@ func newTestEnviroment() *model.Environment {
 			GroupVersionKind: gvk.Telemetry,
 		},
 		Spec: &tpb.Telemetry{
-			TypeSelector: &tpb.Telemetry_Selector{
-				Selector: &v1beta1.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "test-disable-accesslog",
-					},
+			Selector: &v1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"app": "test-disable-accesslog",
 				},
 			},
 			AccessLogging: []*tpb.AccessLogging{
