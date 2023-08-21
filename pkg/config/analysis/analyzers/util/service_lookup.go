@@ -33,20 +33,28 @@ func InitServiceEntryHostMap(ctx analysis.Context) map[ScopedFqdn]*v1alpha3.Serv
 		s := r.Message.(*v1alpha3.ServiceEntry)
 		hostsNamespaceScope := string(r.Metadata.FullName.Namespace)
 
+		exportsToAll := false
 		for _, h := range s.GetHosts() {
-			if len(s.ExportTo) == 0 {
-				result[NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, h)] = s
+			// ExportToAll scenario
+			if len(s.ExportTo) == 0 || exportsToAll {
+				result[NewScopedFqdn(ExportToAllNamespaces, r.Metadata.FullName.Namespace, h)] = s
+				continue // If exports to all, we can skip adding to each namespace
 			}
 
 			for _, ns := range s.ExportTo {
 				switch ns {
 				case ExportToAllNamespaces:
 					result[NewScopedFqdn(ExportToAllNamespaces, r.Metadata.FullName.Namespace, h)] = s
+					exportsToAll = true
 				case ExportToNamespaceLocal:
-					result[NewScopedFqdn(r.Metadata.FullName.Namespace.String(), r.Metadata.FullName.Namespace, h)] = s
+					result[NewScopedFqdn(hostsNamespaceScope, r.Metadata.FullName.Namespace, h)] = s
 				default:
 					result[NewScopedFqdn(ns, r.Metadata.FullName.Namespace, h)] = s
+				}
 
+				// If exports to all, we don't need to check other namespaces
+				if exportsToAll {
+					break
 				}
 			}
 		}
