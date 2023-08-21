@@ -296,7 +296,7 @@ func (gws *NetworkGateways) GatewaysForNetwork(nw network.ID) []NetworkGateway {
 func (gws *NetworkGateways) GatewaysForNetworkAndCluster(nw network.ID, c cluster.ID) []NetworkGateway {
 	gws.mu.RLock()
 	defer gws.mu.RUnlock()
-	if gws.byNetwork == nil {
+	if gws.byNetworkAndCluster == nil {
 		return nil
 	}
 	return gws.byNetworkAndCluster[networkAndClusterFor(nw, c)]
