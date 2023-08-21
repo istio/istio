@@ -95,22 +95,6 @@ func (e WorkloadGenerator) GenerateDeltas(
 		n := addr.ResourceName()
 		have.Insert(n)
 		switch w.TypeUrl {
-		case v3.WorkloadType:
-			if addr.GetWorkload() != nil {
-				resources = append(resources, &discovery.Resource{
-					Name:     n,
-					Aliases:  aliases,
-					Resource: protoconv.MessageToAny(addr.GetWorkload()), // TODO: pre-marshal
-				})
-			}
-		case v3.ServiceType:
-			if addr.GetService() != nil {
-				resources = append(resources, &discovery.Resource{
-					Name:     n,
-					Aliases:  aliases,
-					Resource: protoconv.MessageToAny(addr.GetService()), // TODO: pre-marshal
-				})
-			}
 		case v3.AddressType:
 			resources = append(resources, &discovery.Resource{
 				Name:     n,
