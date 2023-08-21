@@ -2,9 +2,10 @@ package xdstest
 
 import (
 	"fmt"
-	"github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"sort"
 	"testing"
+
+	endpointv3 "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 )
 
 type LbEpInfo struct {

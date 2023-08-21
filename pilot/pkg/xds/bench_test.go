@@ -17,7 +17,6 @@ package xds
 import (
 	"bytes"
 	"fmt"
-	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"os"
 	"path"
 	"strconv"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"

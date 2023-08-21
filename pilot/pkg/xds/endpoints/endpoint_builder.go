@@ -21,7 +21,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
@@ -133,6 +133,7 @@ func (b *EndpointBuilder) DestinationRule() *v1alpha3.DestinationRule {
 func (b *EndpointBuilder) Type() string {
 	return model.EDSType
 }
+
 func (b *EndpointBuilder) ServiceFound() bool {
 	return b.service != nil
 }

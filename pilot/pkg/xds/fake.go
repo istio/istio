@@ -20,7 +20,6 @@ package xds
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"net"
 	"strings"
 	"time"
@@ -50,6 +49,7 @@ import (
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
