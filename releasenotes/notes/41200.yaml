@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+- 41200
+releaseNotes:
+- |
+  **Added** Priority Class support to gateway chart
