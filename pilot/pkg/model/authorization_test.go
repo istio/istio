@@ -52,10 +52,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 	}
 	policyWithSelector := proto.Clone(policy).(*authpb.AuthorizationPolicy)
-	policyWithSelector.Selector = &selectorpb.WorkloadSelector{
-		MatchLabels: map[string]string{
-			"app":     "httpbin",
-			"version": "v1",
+	policyWithSelector.TypeSelector = &authpb.AuthorizationPolicy_Selector{
+		Selector: &selectorpb.WorkloadSelector{
+			MatchLabels: map[string]string{
+				"app":     "httpbin",
+				"version": "v1",
+			},
 		},
 	}
 	denyPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)

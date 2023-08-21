@@ -957,9 +957,11 @@ func TestWasmPlugins(t *testing.T) {
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
 				Priority: &wrappers.Int32Value{Value: 5},
-				Selector: &selectorpb.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"istio": "ingressgateway",
+				TypeSelector: &extensions.WasmPlugin_Selector{
+					Selector: &selectorpb.WorkloadSelector{
+						MatchLabels: map[string]string{
+							"istio": "ingressgateway",
+						},
 					},
 				},
 			},
@@ -976,9 +978,11 @@ func TestWasmPlugins(t *testing.T) {
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHN,
 				Priority: &wrappers.Int32Value{Value: 1000},
-				Selector: &selectorpb.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "productpage",
+				TypeSelector: &extensions.WasmPlugin_Selector{
+					Selector: &selectorpb.WorkloadSelector{
+						MatchLabels: map[string]string{
+							"app": "productpage",
+						},
 					},
 				},
 				Match: []*extensions.WasmPlugin_TrafficSelector{
@@ -994,9 +998,11 @@ func TestWasmPlugins(t *testing.T) {
 			Spec: &extensions.WasmPlugin{
 				Phase:    extensions.PluginPhase_AUTHZ,
 				Priority: &wrappers.Int32Value{Value: 50},
-				Selector: &selectorpb.WorkloadSelector{
-					MatchLabels: map[string]string{
-						"app": "productpage",
+				TypeSelector: &extensions.WasmPlugin_Selector{
+					Selector: &selectorpb.WorkloadSelector{
+						MatchLabels: map[string]string{
+							"app": "productpage",
+						},
 					},
 				},
 				Match: []*extensions.WasmPlugin_TrafficSelector{

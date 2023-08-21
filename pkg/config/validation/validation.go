@@ -81,6 +81,9 @@ const (
 
 	matchExact  = "exact:"
 	matchPrefix = "prefix:"
+
+	defaultGatewayGroup = "gateway.networking.k8s.io"
+	defaultGatewayKind  = "Gateway"
 )
 
 const (
@@ -1936,6 +1939,30 @@ func ValidateControlPlaneAuthPolicy(policy meshconfig.AuthenticationPolicy) erro
 	return fmt.Errorf("unrecognized control plane auth policy %q", policy)
 }
 
+func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
+	if targetRef == nil {
+		return
+	}
+	if targetRef.Name == "" {
+		v = appendErrorf(v, "policyTargetReference.name must be set")
+	}
+	// TODO: we should also validate that the namespace is not a root namespace
+	if targetRef.Namespace == nil {
+		v = appendErrorf(v, "policyTargetReference.namespace must be set")
+	}
+	// Currently, gateway.networking.k8s.io is the only valid Group for this field.
+	if targetRef.Group != defaultGatewayGroup {
+		v = appendErrorf(v, "policyTargetReference.group is incorrect; expected: %v, got: %v", defaultGatewayGroup, targetRef.Group)
+	}
+	// Currently, gateway.networking.k8s.io/Gateway is the only valid Kind for this field.
+	if targetRef.Kind != defaultGatewayKind {
+		v = appendErrorf(v, "policyTargetReference.kind is incorrect; expected: %v, got: %v", defaultGatewayKind, targetRef.Kind)
+	}
+	return
+}
+
+// if you have a layer7 policy with no targetRef then it will always be invalid
+
 func validateWorkloadSelector(selector *type_beta.WorkloadSelector) Validation {
 	validation := Validation{}
 	if selector != nil {
@@ -1968,9 +1995,10 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 
 		var errs error
 		var warnings Warning
-		validation := validateWorkloadSelector(in.Selector)
-		errs = appendErrors(errs, validation)
-		warnings = appendErrors(warnings, validation.Warning)
+		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
+		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef())
+		errs = appendErrors(errs, workloadSelectorValidation, targetRefValidation)
+		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
 
 		if in.Action == security_beta.AuthorizationPolicy_CUSTOM {
 			if in.Rules == nil {
@@ -2139,8 +2167,10 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 		}
 
 		errs := Validation{}
-		validation := validateWorkloadSelector(in.Selector)
-		errs = appendValidation(errs, validation)
+		errs = appendValidation(errs,
+			validateWorkloadSelector(in.GetSelector()),
+			validatePolicyTargetReference(in.GetTargetRef()),
+		)
 
 		for _, rule := range in.JwtRules {
 			errs = appendValidation(errs, validateJwtRule(rule))
@@ -3828,7 +3858,8 @@ var ValidateTelemetry = registerValidateFunc("ValidateTelemetry",
 		errs := Validation{}
 
 		errs = appendValidation(errs,
-			validateWorkloadSelector(spec.Selector),
+			validateWorkloadSelector(spec.GetSelector()),
+			validatePolicyTargetReference(spec.GetTargetRef()),
 			validateTelemetryMetrics(spec.Metrics),
 			validateTelemetryTracing(spec.Tracing),
 			validateTelemetryAccessLogging(spec.AccessLogging),
@@ -3953,7 +3984,8 @@ var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
 
 		errs := Validation{}
 		errs = appendValidation(errs,
-			validateWorkloadSelector(spec.Selector),
+			validateWorkloadSelector(spec.GetSelector()),
+			validatePolicyTargetReference(spec.GetTargetRef()),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
 			validateWasmPluginVMConfig(spec.VmConfig),

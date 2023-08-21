@@ -292,7 +292,7 @@ func TestMatchListener(t *testing.T) {
 	}{
 		{
 			desc:        "match and selector are nil",
-			wasmPlugin:  &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{Selector: nil, Match: nil}},
+			wasmPlugin:  &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{TypeSelector: nil, Match: nil}},
 			proxyLabels: map[string]string{"a": "b", "c": "d"},
 			listenerInfo: WasmPluginListenerInfo{
 				Port:  1234,
@@ -303,8 +303,10 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "only the workload selector is given",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: &v1beta1.WorkloadSelector{
-					MatchLabels: map[string]string{"a": "b"},
+				TypeSelector: &extensions.WasmPlugin_Selector{
+					Selector: &v1beta1.WorkloadSelector{
+						MatchLabels: map[string]string{"a": "b"},
+					},
 				},
 				Match: nil,
 			}},
@@ -318,8 +320,10 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "mismatched selector",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: &v1beta1.WorkloadSelector{
-					MatchLabels: map[string]string{"e": "f"},
+				TypeSelector: &extensions.WasmPlugin_Selector{
+					Selector: &v1beta1.WorkloadSelector{
+						MatchLabels: map[string]string{"e": "f"},
+					},
 				},
 				Match: nil,
 			}},
@@ -333,7 +337,7 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "default traffic selector value is matched with all the traffics",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: nil,
+				TypeSelector: nil,
 				Match: []*extensions.WasmPlugin_TrafficSelector{
 					{},
 				},
@@ -348,7 +352,7 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "only workloadMode of the traffic selector is given",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: nil,
+				TypeSelector: nil,
 				Match: []*extensions.WasmPlugin_TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_SERVER,
@@ -366,7 +370,7 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "workloadMode of the traffic selector and empty list of ports are given",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: nil,
+				TypeSelector: nil,
 				Match: []*extensions.WasmPlugin_TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_SERVER,
@@ -384,7 +388,7 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "workloadMode of the traffic selector and numbered port are given",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: nil,
+				TypeSelector: nil,
 				Match: []*extensions.WasmPlugin_TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_SERVER,
@@ -402,7 +406,7 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "workloadMode of the traffic selector and mismatched ports are given",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: nil,
+				TypeSelector: nil,
 				Match: []*extensions.WasmPlugin_TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_SERVER,
@@ -420,8 +424,10 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "traffic selector is matched, but workload selector is not matched",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: &v1beta1.WorkloadSelector{
-					MatchLabels: map[string]string{"e": "f"},
+				TypeSelector: &extensions.WasmPlugin_Selector{
+					Selector: &v1beta1.WorkloadSelector{
+						MatchLabels: map[string]string{"e": "f"},
+					},
 				},
 				Match: []*extensions.WasmPlugin_TrafficSelector{
 					{
@@ -440,7 +446,7 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "outbound traffic is matched with workloadMode CLIENT",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: nil,
+				TypeSelector: nil,
 				Match: []*extensions.WasmPlugin_TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_CLIENT,
@@ -458,7 +464,7 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "any traffic is matched with workloadMode CLIENT_AND_SERVER",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: nil,
+				TypeSelector: nil,
 				Match: []*extensions.WasmPlugin_TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_CLIENT_AND_SERVER,
@@ -476,7 +482,7 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "gateway is matched with workloadMode CLIENT",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: nil,
+				TypeSelector: nil,
 				Match: []*extensions.WasmPlugin_TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_CLIENT,
@@ -494,7 +500,7 @@ func TestMatchListener(t *testing.T) {
 		{
 			desc: "gateway is not matched with workloadMode SERVER",
 			wasmPlugin: &WasmPluginWrapper{WasmPlugin: &extensions.WasmPlugin{
-				Selector: nil,
+				TypeSelector: nil,
 				Match: []*extensions.WasmPlugin_TrafficSelector{
 					{
 						Mode:  v1beta1.WorkloadMode_SERVER,

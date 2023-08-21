@@ -132,8 +132,10 @@ func TestAccessLogging(t *testing.T) {
 		},
 	}
 	sidecarClient := &tpb.Telemetry{
-		Selector: &v1beta1.WorkloadSelector{
-			MatchLabels: labels,
+		TypeSelector: &tpb.Telemetry_Selector{
+			Selector: &v1beta1.WorkloadSelector{
+				MatchLabels: labels,
+			},
 		},
 		AccessLogging: []*tpb.AccessLogging{
 			{
@@ -406,8 +408,10 @@ func TestAccessLogging(t *testing.T) {
 		{
 			"prometheus-workload",
 			[]config.Config{newTelemetry("default", &tpb.Telemetry{
-				Selector: &v1beta1.WorkloadSelector{
-					MatchLabels: labels,
+				TypeSelector: &tpb.Telemetry_Selector{
+					Selector: &v1beta1.WorkloadSelector{
+						MatchLabels: labels,
+					},
 				},
 				Metrics: []*tpb.Metrics{
 					{
