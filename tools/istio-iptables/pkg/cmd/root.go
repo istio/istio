@@ -44,8 +44,8 @@ var (
 	// InvalidDropByIptables is the flag to enable invalid drop iptables rule to drop the out of window packets
 	InvalidDropByIptables = env.Register("INVALID_DROP", false,
 		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
-	DualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
-		"If true, Istio will enable the Dual Stack feature.").Get()
+	DualStack = env.Register("ISTIO_DUAL_STACK", false,
+		"If true, Istio will enable the Dual Stack feature.")
 )
 
 // mock net.InterfaceAddrs to make its unit test become available
@@ -74,6 +74,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		iptConfigurator := capture.NewIptablesConfigurator(cfg, ext)
+
 		if !cfg.SkipRuleApply {
 			iptConfigurator.Run()
 			if err := capture.ConfigureRoutes(cfg, ext); err != nil {
@@ -82,7 +83,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		if cfg.RunValidation {
-			hostIP, _, err := getLocalIP()
+			hostIP, _, err := getLocalIP(DualStack.Get() || cfg.DualStack)
 			if err != nil {
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
@@ -135,6 +136,7 @@ func constructConfig() *config.Config {
 		CaptureAllDNS:           viper.GetBool(constants.CaptureAllDNS),
 		NetworkNamespace:        viper.GetString(constants.NetworkNamespace),
 		CNIMode:                 viper.GetBool(constants.CNIMode),
+		DualStack:               viper.GetBool(constants.DualStack),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -155,7 +157,7 @@ func constructConfig() *config.Config {
 	}
 
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
-	_, isIPv6, err := getLocalIP()
+	_, isIPv6, err := getLocalIP(DualStack.Get() || cfg.DualStack)
 	if err != nil {
 		panic(err)
 	}
@@ -177,7 +179,7 @@ func constructConfig() *config.Config {
 }
 
 // getLocalIP returns one of the local IP address and it should support IPv6 or not
-func getLocalIP() (netip.Addr, bool, error) {
+func getLocalIP(dualStack bool) (netip.Addr, bool, error) {
 	var isIPv6 bool
 	var ipAddrs []netip.Addr
 	addrs, err := LocalIPAddrs()
@@ -197,7 +199,7 @@ func getLocalIP() (netip.Addr, bool, error) {
 			if !unwrapAddr.IsLoopback() && !unwrapAddr.IsLinkLocalUnicast() && !unwrapAddr.IsLinkLocalMulticast() {
 				isIPv6 = unwrapAddr.Is6()
 				ipAddrs = append(ipAddrs, unwrapAddr)
-				if !DualStack {
+				if !dualStack {
 					return unwrapAddr, isIPv6, nil
 				}
 				if isIPv6 {

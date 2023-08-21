@@ -60,6 +60,7 @@ type Config struct {
 	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`
 	CNIMode                 bool          `json:"CNI_MODE"`
 	TraceLogging            bool          `json:"IPTABLES_TRACE_LOGGING"`
+	DualStack               bool          `json:"DUAL_STACK"`
 }
 
 func (c *Config) String() string {
