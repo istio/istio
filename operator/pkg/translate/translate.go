@@ -603,16 +603,19 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 			return "", fmt.Errorf("component value isn't a map")
 		}
 		finalVals := map[string]any{}
+		// strip out anything from the original apiVals which are a map[string]any but populate other top-level fields
+		for k, v := range apiVals {
+			_, isMap := v.(map[string]any)
+			if !isMap {
+				finalVals[k] = v
+			}
+		}
 		for k, v := range globals {
 			finalVals[k] = v
 		}
 		for k, v := range components {
 			finalVals[k] = v
 		}
-		// this seems hacky to me but if we want to have even basic support for revisions
-		//    I think we need to do something to pass the value down to components which use
-		//    FlattenValues
-		finalVals["revision"] = mergedVals["revision"]
 		mergedVals = finalVals
 	}
 
