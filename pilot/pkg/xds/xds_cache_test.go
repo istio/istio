@@ -26,6 +26,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/retry"
@@ -46,14 +47,14 @@ func TestXdsCacheToken(t *testing.T) {
 	mkv := func(n int32) *discovery.Resource {
 		return &discovery.Resource{Resource: &anypb.Any{TypeUrl: fmt.Sprint(n)}}
 	}
-	k := &EndpointBuilder{clusterName: "key", service: &model.Service{
+	k := endpoints.NewTestEndpointBuilder("key", &model.Service{
 		Hostname: "foo.com",
-	}}
+	}, nil)
 	work := func(start time.Time, n int32) {
 		v := mkv(n)
 		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
 		req := &model.PushRequest{Start: start}
-		c.Add(k, req, v)
+		c.Add(&k, req, v)
 	}
 	// 5 round of xds push
 	for vals := 0; vals < 5; vals++ {
@@ -64,11 +65,11 @@ func TestXdsCacheToken(t *testing.T) {
 			go work(start, n.Load())
 		}
 		retry.UntilOrFail(t, func() bool {
-			val := c.Get(k)
+			val := c.Get(&k)
 			return val != nil && val.Resource.TypeUrl == fmt.Sprint(n.Load())
 		})
 		for i := 0; i < 5; i++ {
-			val := c.Get(k)
+			val := c.Get(&k)
 			if val == nil {
 				t.Fatalf("no cache found")
 			}
@@ -81,18 +82,14 @@ func TestXdsCacheToken(t *testing.T) {
 }
 
 func TestXdsCache(t *testing.T) {
-	ep1 := &EndpointBuilder{
-		clusterName: "outbound|1||foo.com",
-		service: &model.Service{
-			Hostname: "foo.com",
-		},
+	makeEp := func(subset string, dr *model.ConsolidatedDestRule) *endpoints.EndpointBuilder {
+		svc := &model.Service{Hostname: "foo.com"}
+		b := endpoints.NewTestEndpointBuilder(fmt.Sprintf("outbound|%s}|foo.com", subset), svc, dr)
+		return &b
 	}
-	ep2 := &EndpointBuilder{
-		clusterName: "outbound|2||foo.com",
-		service: &model.Service{
-			Hostname: "foo.com",
-		},
-	}
+	ep1 := makeEp("1", nil)
+	ep2 := makeEp("2", nil)
+
 	t.Run("simple", func(t *testing.T) {
 		c := model.NewXdsCache()
 		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any1)
@@ -137,10 +134,9 @@ func TestXdsCache(t *testing.T) {
 	t.Run("multiple destinationRules", func(t *testing.T) {
 		c := model.NewXdsCache()
 
-		ep1 := ep1
-		ep1.destinationRule = model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}})
-		ep2 := ep2
-		ep2.destinationRule = model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}})
+		ep1 := makeEp("1", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}}))
+		ep2 := makeEp("2", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}}))
+
 		start := time.Now()
 		c.Add(ep1, &model.PushRequest{Start: start}, any1)
 		c.Add(ep2, &model.PushRequest{Start: start}, any2)
