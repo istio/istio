@@ -443,15 +443,15 @@ spec:
 			expectations: map[string][]xdstest.LocLbEpInfo{
 				"": {xdstest.LocLbEpInfo{
 					LbEps: []xdstest.LbEpInfo{
-						{"1.2.3.4", 1},
-						{"2.2.2.2", 2},
+						{Address: "1.2.3.4", Weight: 1},
+						{Address: "2.2.2.2", Weight: 2},
 					},
 					Weight: 3,
 				}},
 				"v1": {xdstest.LocLbEpInfo{
 					LbEps: []xdstest.LbEpInfo{
-						{"1.2.3.4", 1},
-						{"2.2.2.2", 2},
+						{Address: "1.2.3.4", Weight: 1},
+						{Address: "2.2.2.2", Weight: 2},
 					},
 					Weight: 3,
 				}},
@@ -468,21 +468,21 @@ spec:
 			expectations: map[string][]xdstest.LocLbEpInfo{
 				"": {xdstest.LocLbEpInfo{
 					LbEps: []xdstest.LbEpInfo{
-						{"1.2.3.4", 1},
-						{"2.2.2.2", 2},
+						{Address: "1.2.3.4", Weight: 1},
+						{Address: "2.2.2.2", Weight: 2},
 					},
 					Weight: 3,
 				}},
 				"v1": {xdstest.LocLbEpInfo{
 					LbEps: []xdstest.LbEpInfo{
-						{"1.2.3.4", 1},
-						{"2.2.2.2", 1},
+						{Address: "1.2.3.4", Weight: 1},
+						{Address: "2.2.2.2", Weight: 1},
 					},
 					Weight: 2,
 				}},
 				"v2": {xdstest.LocLbEpInfo{
 					LbEps: []xdstest.LbEpInfo{
-						{"2.2.2.2", 1},
+						{Address: "2.2.2.2", Weight: 1},
 					},
 					Weight: 1,
 				}},
@@ -504,7 +504,12 @@ spec:
 						metaNetwork: "network-1",
 					}
 					// expect self
-					client.ExpectWithWeight(client, "", xdstest.LocLbEpInfo{Weight: 1, LbEps: []xdstest.LbEpInfo{{"10.0.0.1", 1}}})
+					client.ExpectWithWeight(client, "", xdstest.LocLbEpInfo{
+						Weight: 1,
+						LbEps: []xdstest.LbEpInfo{
+							{Address: "10.0.0.1", Weight: 1},
+						},
+					})
 					for subset, eps := range tc.expectations {
 						client.ExpectWithWeight(&workload{kind: sc.expectKind, name: name, namespace: "test", port: port}, subset, eps...)
 					}
