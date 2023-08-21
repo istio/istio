@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"html/template"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"net"
 	"net/http"
 	"net/http/pprof"
@@ -1006,7 +1007,8 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 	clusters := con.Clusters()
 	eps := make([]jsonMarshalProto, 0, len(clusters))
 	for _, clusterName := range clusters {
-		eps = append(eps, jsonMarshalProto{s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, con.proxy.LastPushContext))})
+		builder := endpoints.NewEndpointBuilder(clusterName, con.proxy, con.proxy.LastPushContext)
+		eps = append(eps, jsonMarshalProto{builder.BuildClusterLoadAssignment(s.Env.EndpointIndex)})
 	}
 	writeJSON(w, eps, req)
 }

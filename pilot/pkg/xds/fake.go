@@ -20,6 +20,7 @@ package xds
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"net"
 	"strings"
 	"time"
@@ -443,7 +444,8 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadAssignment {
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 	for _, c := range xdstest.ExtractEdsClusterNames(f.Clusters(p)) {
-		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(NewEndpointBuilder(c, p, f.PushContext())))
+		builder := endpoints.NewEndpointBuilder(c, p, f.PushContext())
+		loadAssignments = append(loadAssignments, builder.BuildClusterLoadAssignment(f.Discovery.Env.EndpointIndex))
 	}
 	return loadAssignments
 }

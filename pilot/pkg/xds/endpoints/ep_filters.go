@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package endpoints
 
 import (
 	"math"
@@ -66,7 +66,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 		// Create a map to keep track of the gateways used and their aggregate weights.
 		gatewayWeights := make(map[model.NetworkGateway]uint32)
 
-		// Process all of the endpoints.
+		// Process all the endpoints.
 		for i, lbEp := range ep.llbEndpoints.LbEndpoints {
 			istioEndpoint := ep.istioEndpoints[i]
 

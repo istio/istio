@@ -17,6 +17,7 @@ package xds
 import (
 	"bytes"
 	"fmt"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"os"
 	"path"
 	"strconv"
@@ -283,7 +284,8 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			for n := 0; n < b.N; n++ {
 				loadAssignments := make([]*anypb.Any, 0)
 				for svc := 0; svc < tt.services; svc++ {
-					l := s.Discovery.generateEndpoints(NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push))
+					builder := endpoints.NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push)
+					l := builder.BuildClusterLoadAssignment(s.Discovery.Env.EndpointIndex)
 					loadAssignments = append(loadAssignments, protoconv.MessageToAny(l))
 				}
 				response = endpointDiscoveryResponse(loadAssignments, push.PushVersion, push.LedgerVersion)

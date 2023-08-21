@@ -16,17 +16,13 @@ package xds
 
 import (
 	"fmt"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
-	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -85,81 +81,6 @@ func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
 	s.Env.EndpointIndex.DeleteShard(shardKey)
 }
 
-// localityEndpointsForCluster returns the endpoints for a cluster
-func (s *DiscoveryServer) localityEndpointsForCluster(b EndpointBuilder) ([]*LocalityEndpoints, error) {
-	if b.service == nil {
-		// Shouldn't happen here
-		log.Debugf("can not find the service for cluster %s", b.clusterName)
-		return nil, nil
-	}
-
-	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "Connection.Clusters".
-	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
-	// EDS to STRICT_DNS or LOGICAL_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
-	// will update "Connection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check guards
-	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
-	// automatically.
-	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
-	if b.service.Resolution == model.DNSLB || b.service.Resolution == model.DNSRoundRobinLB {
-		log.Infof("cluster %s in eds cluster, but its resolution now is updated to %v, skipping it.", b.clusterName, b.service.Resolution)
-		return nil, fmt.Errorf("cluster %s in eds cluster", b.clusterName)
-	}
-
-	svcPort, f := b.service.Ports.GetByPort(b.port)
-	if !f {
-		// Shouldn't happen here
-		log.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
-		return nil, nil
-	}
-
-	epShards, f := s.Env.EndpointIndex.ShardsForService(string(b.hostname), b.service.Attributes.Namespace)
-	if !f {
-		// Shouldn't happen here
-		log.Debugf("can not find the endpointShards for cluster %s", b.clusterName)
-		return nil, nil
-	}
-
-	return b.buildLocalityLbEndpointsFromShards(epShards, svcPort), nil
-}
-
-func (s *DiscoveryServer) generateEndpoints(b EndpointBuilder) *endpoint.ClusterLoadAssignment {
-	localityLbEndpoints, err := s.localityEndpointsForCluster(b)
-	if err != nil {
-		return buildEmptyClusterLoadAssignment(b.clusterName)
-	}
-
-	// Apply the Split Horizon EDS filter, if applicable.
-	localityLbEndpoints = b.EndpointsByNetworkFilter(localityLbEndpoints)
-
-	if model.IsDNSSrvSubsetKey(b.clusterName) {
-		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
-		// to passthrough mTLS requests. However, at the gateway we do not actually have any way to tell if the
-		// request is a valid mTLS request or not, since its passthrough TLS.
-		// To ensure we allow traffic only to mTLS endpoints, we filter out non-mTLS endpoints for these cluster types.
-		localityLbEndpoints = b.EndpointsWithMTLSFilter(localityLbEndpoints)
-	}
-	l := b.createClusterLoadAssignment(localityLbEndpoints)
-
-	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
-	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
-	// will never detect the hosts are unhealthy and redirect traffic.
-	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
-	lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-	if lbSetting != nil {
-		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
-		l = util.CloneClusterLoadAssignment(l)
-		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(localityLbEndpoints))
-		for i := range localityLbEndpoints {
-			wrappedLocalityLbEndpoints[i] = &loadbalancer.WrappedLocalityLbEndpoints{
-				IstioEndpoints:      localityLbEndpoints[i].istioEndpoints,
-				LocalityLbEndpoints: l.Endpoints[i],
-			}
-		}
-		loadbalancer.ApplyLocalityLBSetting(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, lbSetting, enableFailover)
-	}
-	return l
-}
-
 // EdsGenerator implements the new Generate method for EDS, using the in-memory, optimized endpoint
 // storage in DiscoveryServer.
 type EdsGenerator struct {
@@ -202,37 +123,6 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, 
 	return resources, logDetails, nil
 }
 
-func getOutlierDetectionAndLoadBalancerSettings(
-	destinationRule *networkingapi.DestinationRule,
-	portNumber int,
-	subsetName string,
-) (bool, *networkingapi.LoadBalancerSettings) {
-	if destinationRule == nil {
-		return false, nil
-	}
-	outlierDetectionEnabled := false
-	var lbSettings *networkingapi.LoadBalancerSettings
-
-	port := &model.Port{Port: portNumber}
-	policy := networking.MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
-
-	for _, subset := range destinationRule.Subsets {
-		if subset.Name == subsetName {
-			policy = networking.MergeTrafficPolicy(policy, subset.TrafficPolicy, port)
-			break
-		}
-	}
-
-	if policy != nil {
-		lbSettings = policy.LoadBalancer
-		if policy.OutlierDetection != nil {
-			outlierDetectionEnabled = true
-		}
-	}
-
-	return outlierDetectionEnabled, lbSettings
-}
-
 func endpointDiscoveryResponse(loadAssignments []*anypb.Any, version, noncePrefix string) *discovery.DiscoveryResponse {
 	out := &discovery.DiscoveryResponse{
 		TypeUrl: v3.EndpointType,
@@ -246,13 +136,6 @@ func endpointDiscoveryResponse(loadAssignments []*anypb.Any, version, noncePrefi
 	}
 
 	return out
-}
-
-// cluster with no endpoints
-func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAssignment {
-	return &endpoint.ClusterLoadAssignment{
-		ClusterName: clusterName,
-	}
 }
 
 func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
@@ -324,7 +207,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 				continue
 			}
 		}
-		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
+		builder := endpoints.NewEndpointBuilder(clusterName, proxy, req.Push)
 
 		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 		if !features.EnableUnsafeAssertions {
@@ -338,7 +221,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 		// generate eds from beginning
 		{
-			l := eds.Server.generateEndpoints(builder)
+			l := builder.BuildClusterLoadAssignment(eds.Server.Env.EndpointIndex)
 			if l == nil {
 				continue
 			}
@@ -380,9 +263,9 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 			continue
 		}
 
-		builder := NewEndpointBuilder(clusterName, proxy, req.Push)
+		builder := endpoints.NewEndpointBuilder(clusterName, proxy, req.Push)
 		// if a service is not found, it means the cluster is removed
-		if builder.service == nil {
+		if !builder.ServiceFound() {
 			removed = append(removed, clusterName)
 			continue
 		}
@@ -398,7 +281,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 		}
 		// generate new eds cache
 		{
-			l := eds.Server.generateEndpoints(builder)
+			l := builder.BuildClusterLoadAssignment(eds.Server.Env.EndpointIndex)
 			if l == nil {
 				removed = append(removed, clusterName)
 				continue
