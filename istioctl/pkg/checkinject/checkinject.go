@@ -30,6 +30,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/writer/table"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -103,6 +104,9 @@ Checks associated resources of the given resource, and running webhooks to exami
 			}
 			checkResults := analyzeRunningWebhooks(whs.Items, podLabels, nsLabels)
 			return printCheckInjectorResults(cmd.OutOrStdout(), checkResults)
+		},
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 	cmd.PersistentFlags().StringVarP(&labelPairs, "labels", "l", "",
