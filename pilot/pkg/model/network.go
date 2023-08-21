@@ -128,6 +128,8 @@ func (mgr *NetworkManager) reloadGateways() {
 }
 
 func (mgr *NetworkManager) reload() bool {
+	mgr.mu.Lock()
+	defer mgr.mu.Unlock()
 	log.Infof("reloading network gateways")
 
 	// Generate a snapshot of the state of gateways by merging the contents of
@@ -161,8 +163,6 @@ func (mgr *NetworkManager) reload() bool {
 	gatewaySet.InsertAll(mgr.env.NetworkGateways()...)
 	resolvedGatewaySet := mgr.resolveHostnameGateways(gatewaySet)
 
-	mgr.mu.Lock()
-	defer mgr.mu.Unlock()
 	return mgr.NetworkGateways.update(resolvedGatewaySet) || mgr.Unresolved.update(gatewaySet)
 }
 
