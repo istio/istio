@@ -86,3 +86,4 @@ spec:
                     max_tokens: 10
                     tokens_per_fill: 10
                     fill_interval: 60s
+                    
