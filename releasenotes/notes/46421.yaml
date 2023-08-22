@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 46421
+releaseNotes:
+  - |
+    **Added** basic ztunnel support for revisions when installing with istioctl.

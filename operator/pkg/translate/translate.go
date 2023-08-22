@@ -603,6 +603,13 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 			return "", fmt.Errorf("component value isn't a map")
 		}
 		finalVals := map[string]any{}
+		// strip out anything from the original apiVals which are a map[string]any but populate other top-level fields
+		for k, v := range apiVals {
+			_, isMap := v.(map[string]any)
+			if !isMap {
+				finalVals[k] = v
+			}
+		}
 		for k, v := range globals {
 			finalVals[k] = v
 		}
