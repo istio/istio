@@ -15,6 +15,7 @@
 package endpoints
 
 import (
+	"math"
 	"net"
 	"net/netip"
 	"sort"
@@ -308,12 +309,13 @@ func (e *LocalityEndpoints) AssertInvarianceInTest() {
 
 func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints {
 	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
-	return ExtractEnvoyEndpoints(b.generate(svcEps))
+	// don't use the pre-computed endpoints for CDS to preserve previous behavior
+	return ExtractEnvoyEndpoints(b.generate(svcEps, true))
 }
 
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
 	svcEps := b.snapshotShards(endpointIndex)
-	localityLbEndpoints := b.generate(svcEps)
+	localityLbEndpoints := b.generate(svcEps, false)
 	if len(localityLbEndpoints) == 0 {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
@@ -341,7 +343,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 }
 
 // generate endpoints with applies weights, multi-network mapping and other filtering
-func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint) []*LocalityEndpoints {
+func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, noCache bool) []*LocalityEndpoints {
 	// shouldn't happen here
 	if !b.ServiceFound() {
 		return nil
@@ -371,12 +373,14 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint) []*LocalityEndpoi
 			// The mTLS settings may have changed, invalidating the cache endpoint. Rebuild it
 			needToCompute = true
 		}
-		if needToCompute {
+		if needToCompute || noCache {
 			eep = buildEnvoyLbEndpoint(b, ep, mtlsEnabled)
 			if eep == nil {
 				continue
 			}
-			ep.ComputeEnvoyEndpoint(eep)
+			if noCache {
+				ep.ComputeEnvoyEndpoint(eep)
+			}
 		}
 		locLbEps, found := localityEpMap[ep.Locality.Label]
 		if !found {
@@ -399,14 +403,19 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint) []*LocalityEndpoi
 	if len(locs) >= 2 {
 		sort.Strings(locs)
 	}
-	for _, k := range locs {
-		locLbEps := localityEpMap[k]
+	for _, locality := range locs {
+		locLbEps := localityEpMap[locality]
 		var weight uint32
+		var overflowStatus bool
 		for _, ep := range locLbEps.llbEndpoints.LbEndpoints {
-			weight += ep.LoadBalancingWeight.GetValue()
+			weight, overflowStatus = addUint32(weight, ep.LoadBalancingWeight.GetValue())
 		}
 		locLbEps.llbEndpoints.LoadBalancingWeight = &wrapperspb.UInt32Value{
 			Value: weight,
+		}
+		if overflowStatus {
+			log.Warnf("Sum of localityLbEndpoints weight is overflow: service:%s, port: %d, locality:%s",
+				b.service.Hostname, b.port, locality)
 		}
 		locEps = append(locEps, locLbEps)
 	}
@@ -429,9 +438,29 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint) []*LocalityEndpoi
 	return locEps
 }
 
+// addUint32AvoidOverflow returns sum of two uint32 and status. If sum overflows,
+// and returns MaxUint32 and status.
+func addUint32(left, right uint32) (uint32, bool) {
+	if math.MaxUint32-right < left {
+		return math.MaxUint32, true
+	}
+	return left + right, false
+}
+
 func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *model.Port) bool {
 	// for ServiceInternalTrafficPolicy
 	if b.service.Attributes.NodeLocal && ep.NodeName != b.proxy.GetNodeName() {
+		return false
+	}
+	// Only send endpoints from the networks in the network view requested by the proxy.
+	// The default network view assigned to the Proxy is nil, in that case match any network.
+	if !b.proxyView.IsVisible(ep) {
+		// Endpoint's network doesn't match the set of networks that the proxy wants to see.
+		return false
+	}
+	// If the downstream service is configured as cluster-local, only include endpoints that
+	// reside in the same cluster.
+	if b.clusterLocal && (b.clusterID != ep.Locality.ClusterID) {
 		return false
 	}
 	// TODO(nmittler): Consider merging discoverability policy with cluster-local
@@ -577,7 +606,23 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
 	// Istio endpoint level tls transport socket configuration depends on this logic
 	// Do not remove
-	meta := e.Metadata()
+	var meta *model.EndpointMetadata
+	if features.CanonicalServiceForMeshExternalServiceEntry && b.service.MeshExternal {
+		svcLabels := b.service.Attributes.Labels
+		if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
+			meta = e.MetadataClone()
+			if meta.Labels == nil {
+				meta.Labels = make(map[string]string)
+			}
+			meta.Labels[model.IstioCanonicalServiceLabelName] = svcLabels[model.IstioCanonicalServiceLabelName]
+			meta.Labels[model.IstioCanonicalServiceRevisionLabelName] = svcLabels[model.IstioCanonicalServiceRevisionLabelName]
+		} else {
+			meta = e.Metadata()
+		}
+		meta.Namespace = b.service.Attributes.Namespace
+	} else {
+		meta = e.Metadata()
+	}
 
 	// detect if mTLS is possible for this endpoint, used later during ep filtering
 	// this must be done while converting IstioEndpoints because we still have workload labels

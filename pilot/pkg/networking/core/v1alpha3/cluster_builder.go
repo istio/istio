@@ -16,8 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"math"
-	"sort"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -29,7 +27,6 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -41,10 +38,8 @@ import (
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	istio_cluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
@@ -423,121 +418,6 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		}
 	}
 	return localCluster
-}
-
-func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, service *model.Service,
-	port int, labels labels.Instance,
-) []*endpoint.LocalityLbEndpoints {
-	if !(service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB) {
-		return nil
-	}
-
-	instances := cb.req.Push.ServiceEndpointsByPort(service, port, labels)
-
-	// Determine whether or not the target service is considered local to the cluster
-	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := cb.req.Push.IsClusterLocal(service)
-
-	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
-	for _, instance := range instances {
-		// Only send endpoints from the networks in the network view requested by the proxy.
-		// The default network view assigned to the Proxy is nil, in that case match any network.
-		if !proxyView.IsVisible(instance) {
-			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
-			continue
-		}
-		// If the downstream service is configured as cluster-local, only include endpoints that
-		// reside in the same cluster.
-		if isClusterLocal && (cb.clusterID != string(instance.Locality.ClusterID)) {
-			continue
-		}
-		// TODO(nmittler): Consider merging discoverability policy with cluster-local
-		// TODO(ramaraochavali): Find a better way here so that we do not have build proxy.
-		// Currently it works because we only determine discoverability only by cluster.
-		if !instance.IsDiscoverableFromProxy(&model.Proxy{Metadata: &model.NodeMetadata{ClusterID: istio_cluster.ID(cb.clusterID)}}) {
-			continue
-		}
-
-		// TODO(stevenctl) share code with EDS to filter this and do multi-network mapping
-		if instance.Address == "" {
-			continue
-		}
-
-		addr := util.BuildAddress(instance.Address, instance.EndpointPort)
-		ep := &endpoint.LbEndpoint{
-			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-				Endpoint: &endpoint.Endpoint{
-					Address: addr,
-				},
-			},
-			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: instance.GetLoadBalancingWeight(),
-			},
-			Metadata: &core.Metadata{},
-		}
-		var metadata *model.EndpointMetadata
-
-		if features.CanonicalServiceForMeshExternalServiceEntry && service.MeshExternal {
-			svcLabels := service.Attributes.Labels
-			if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
-				metadata = instance.MetadataClone()
-				if metadata.Labels == nil {
-					metadata.Labels = make(map[string]string)
-				}
-				metadata.Labels[model.IstioCanonicalServiceLabelName] = svcLabels[model.IstioCanonicalServiceLabelName]
-				metadata.Labels[model.IstioCanonicalServiceRevisionLabelName] = svcLabels[model.IstioCanonicalServiceRevisionLabelName]
-			} else {
-				metadata = instance.Metadata()
-			}
-			metadata.Namespace = service.Attributes.Namespace
-		} else {
-			metadata = instance.Metadata()
-		}
-
-		util.AppendLbEndpointMetadata(metadata, ep.Metadata)
-
-		locality := instance.Locality.Label
-		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
-	}
-
-	localityLbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
-	locs := make([]string, 0, len(lbEndpoints))
-	for k := range lbEndpoints {
-		locs = append(locs, k)
-	}
-	if len(locs) >= 2 {
-		sort.Strings(locs)
-	}
-	for _, locality := range locs {
-		eps := lbEndpoints[locality]
-		var weight uint32
-		var overflowStatus bool
-		for _, ep := range eps {
-			weight, overflowStatus = addUint32(weight, ep.LoadBalancingWeight.GetValue())
-		}
-		if overflowStatus {
-			log.Warnf("Sum of localityLbEndpoints weight is overflow: service:%s, port: %d, locality:%s",
-				service.Hostname, port, locality)
-		}
-		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
-			Locality:    util.ConvertLocality(locality),
-			LbEndpoints: eps,
-			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: weight,
-			},
-		})
-	}
-
-	return localityLbEndpoints
-}
-
-// addUint32AvoidOverflow returns sum of two uint32 and status. If sum overflows,
-// and returns MaxUint32 and status.
-func addUint32(left, right uint32) (uint32, bool) {
-	if math.MaxUint32-right < left {
-		return math.MaxUint32, true
-	}
-	return left + right, false
 }
 
 // buildInboundPassthroughClusters builds passthrough clusters for inbound.

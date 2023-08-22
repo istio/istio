@@ -1051,7 +1051,8 @@ func TestBuildDefaultCluster(t *testing.T) {
 func TestBuildLocalityLbEndpoints(t *testing.T) {
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{
-			ClusterID: "cluster-1",
+			ClusterID:            "cluster-1",
+			RequestedNetworkView: []string{"nw-0", "nw-1"},
 		},
 	}
 	servicePort := &model.Port{
@@ -1461,12 +1462,13 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				})
 
 				cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
-				view := (&model.Proxy{
-					Metadata: &model.NodeMetadata{
-						RequestedNetworkView: []string{"nw-0", "nw-1"},
-					},
-				}).GetView()
-				actual := cb.buildLocalityLbEndpoints(view, service, 8080, tt.labels)
+				eb := endpoints.NewCDSEndpointBuilder(
+					proxy, cb.req.Push,
+					"outbound|8080|v1|foo.com",
+					model.TrafficDirectionOutbound, "v1", "foo.com", 8080,
+					service, drWithLabels(tt.labels),
+				)
+				actual := eb.FromServiceEndpoints()
 				sortEndpoints(actual)
 				if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
 					t.Fatalf("Expected (-) != actual (+):\n%s", v)
@@ -1476,11 +1478,24 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 }
 
+func drWithLabels(lbls labels.Instance) *model.ConsolidatedDestRule {
+	return model.ConvertConsolidatedDestRule(&config.Config{
+		Meta: config.Meta{},
+		Spec: &networking.DestinationRule{
+			Subsets: []*networking.Subset{{
+				Name:   "v1",
+				Labels: lbls,
+			}},
+		},
+	})
+}
+
 func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{
-			ClusterID: "cluster-1",
+			ClusterID:            "cluster-1",
+			RequestedNetworkView: []string{"nw-0", "nw-1"},
 		},
 	}
 	servicePort := &model.Port{
@@ -1499,6 +1514,7 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 		MeshExternal: true,
 		Resolution:   model.DNSLB,
 	}
+	dr := drWithLabels(labels.Instance{"version": "v1"})
 
 	buildMetadata := func(networkID network.ID, tlsMode, workloadname, namespace string,
 		clusterID istiocluster.ID, lbls labels.Instance,
@@ -1514,8 +1530,6 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 		}, newmeta)
 		return newmeta
 	}
-
-	lbls := labels.Instance{"version": "v1"}
 
 	instances := []*model.ServiceInstance{
 		{
@@ -1658,18 +1672,19 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 	})
 
 	cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
-	view := (&model.Proxy{
-		Metadata: &model.NodeMetadata{
-			RequestedNetworkView: []string{"nw-0", "nw-1"},
-		},
-	}).GetView()
 	wg := sync.WaitGroup{}
 	wg.Add(5)
 	var actual []*endpoint.LocalityLbEndpoints
 	mu := sync.Mutex{}
 	for i := 0; i < 5; i++ {
 		go func() {
-			eps := cb.buildLocalityLbEndpoints(view, service, 8080, lbls)
+			eb := endpoints.NewCDSEndpointBuilder(
+				proxy, cb.req.Push,
+				"outbound|8080|v1|foo.com",
+				model.TrafficDirectionOutbound, "v1", "foo.com", 8080,
+				service, dr,
+			)
+			eps := eb.FromServiceEndpoints()
 			mu.Lock()
 			actual = eps
 			mu.Unlock()
