@@ -81,12 +81,10 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 // Run is blocking
 func (c *Controller) Run(stop <-chan struct{}) {
 	db := concurrent.Debouncer[config.GroupVersionKind]{}
-
 	chKind := make(chan config.GroupVersionKind, 10)
-	// TODO: get the real controller
-	var x model.ConfigStoreController
-	for _, k := range x.Schemas().All() {
-		x.RegisterEventHandler(k.GroupVersionKind(), func(oldcfg config.Config, newcfg config.Config, ev model.Event) {
+
+	for _, k := range c.analyzer.Schemas().All() {
+		c.analyzer.RegisterEventHandler(k.GroupVersionKind(), func(oldcfg config.Config, newcfg config.Config, ev model.Event) {
 			chKind <- oldcfg.GroupVersionKind
 		})
 	}

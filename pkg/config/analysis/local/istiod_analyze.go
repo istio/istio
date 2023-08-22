@@ -407,6 +407,22 @@ func (sa *IstiodAnalyzer) AddDefaultResources() error {
 	return sa.AddReaderKubeSource(readers)
 }
 
+func (sa *IstiodAnalyzer) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
+	for _, store := range sa.stores {
+		store.RegisterEventHandler(kind, handler)
+	}
+}
+
+func (sa *IstiodAnalyzer) Schemas() collection.Schemas {
+	result := collection.SchemasBuilder{}
+	for _, store := range sa.stores {
+		for _, schema := range store.Schemas().All() {
+			result.MustAdd(schema)
+		}
+	}
+	return result.Build()
+}
+
 func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Client) error {
 	meshConfigMap, err := client.Kube().CoreV1().ConfigMaps(string(sa.istioNamespace)).Get(context.TODO(), meshConfigMapName, metav1.GetOptions{})
 	if err != nil {
