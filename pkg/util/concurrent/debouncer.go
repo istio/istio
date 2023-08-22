@@ -31,7 +31,7 @@ func (d *Debouncer[T]) Run(ch chan T, stopCh <-chan struct{}, debounceMinInterva
 	debouncedEvents := 0
 
 	// Keeps track of the push requests. If updates are debounce they will be merged.
-	var combinedEvents sets.Set[T]
+	combinedEvents := sets.New[T]()
 
 	free := true
 	freeCh := make(chan struct{}, 1)
