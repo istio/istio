@@ -120,26 +120,40 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 	return sa
 }
 
+func (sa *IstiodAnalyzer) ReAnalyzeSubset(kinds sets.Set[config.GroupVersionKind], cancel <-chan struct{}) (AnalysisResult, error) {
+	subset := sa.analyzer.RelevantSubset(kinds)
+	return sa.internalAnalyze(subset, cancel)
+}
+
 // ReAnalyze loads the sources and executes the analysis, assuming init is already called
 func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, error) {
+	return sa.internalAnalyze(sa.analyzer, cancel)
+}
+
+func (sa *IstiodAnalyzer) internalAnalyze(a *analysis.CombinedAnalyzer, cancel <-chan struct{}) (AnalysisResult, error) {
 	var result AnalysisResult
 	store := sa.initializedStore
-	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
-	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(store.Schemas())
+	result.ExecutedAnalyzers = a.AnalyzerNames()
+	result.SkippedAnalyzers = a.RemoveSkipped(store.Schemas())
 
 	kubelib.WaitForCacheSync("istiod analyzer", cancel, store.HasSynced)
 
 	ctx := NewContext(store, cancel, sa.collectionReporter)
 
-	sa.analyzer.Analyze(ctx)
+	a.Analyze(ctx)
 
 	// TODO(hzxuzhonghu): we do not need set here
 	namespaces := sets.New[resource.Namespace]()
 	if sa.namespace != "" {
 		namespaces.Insert(sa.namespace)
 	}
-	// TODO: analysis is run for all namespaces, even if they are requested to be filtered.
-	msgs := filterMessages(ctx.(*istiodContext).messages, namespaces, sa.suppressions)
+	for _, analyzerName := range result.ExecutedAnalyzers {
+
+		// TODO: analysis is run for all namespaces, even if they are requested to be filtered.
+		msgs := filterMessages(ctx.(*istiodContext).GetMessages(analyzerName), namespaces, sa.suppressions)
+		result.MappedMessages[analyzerName] = msgs.SortedDedupedCopy()
+	}
+	msgs := filterMessages(ctx.(*istiodContext).GetMessages(), namespaces, sa.suppressions)
 	result.Messages = msgs.SortedDedupedCopy()
 
 	return result, nil

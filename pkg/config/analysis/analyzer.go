@@ -42,6 +42,19 @@ func Combine(name string, analyzers ...Analyzer) *CombinedAnalyzer {
 	}
 }
 
+func (c *CombinedAnalyzer) RelevantSubset(kinds sets.Set[config.GroupVersionKind]) *CombinedAnalyzer {
+	var selected []Analyzer
+	for _, a := range c.analyzers {
+		for _, inputKind := range a.Metadata().Inputs {
+			if kinds.Contains(inputKind) {
+				selected = append(selected, a)
+				break
+			}
+		}
+	}
+	return Combine("somename", selected...)
+}
+
 // Metadata implements Analyzer
 func (c *CombinedAnalyzer) Metadata() Metadata {
 	return Metadata{
@@ -58,6 +71,7 @@ func (c *CombinedAnalyzer) Analyze(ctx Context) {
 			scope.Analysis.Debugf("Analyzer %q has been cancelled...", c.Metadata().Name)
 			return
 		}
+		ctx.SetAnalyzer(a.Metadata().Name)
 		a.Analyze(ctx)
 		scope.Analysis.Debugf("Completed analyzer %q...", a.Metadata().Name)
 	}
