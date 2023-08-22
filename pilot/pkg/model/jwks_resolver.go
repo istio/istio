@@ -433,8 +433,7 @@ func (r *JwksResolver) refreshCache(lastHasError bool) bool {
 
 func (r *JwksResolver) refresh() bool {
 	var wg sync.WaitGroup
-	hasChange := false
-	hasErrors := false
+	var hasChange, hasErrors atomic.Bool
 	r.keyEntries.Range(func(key any, value any) bool {
 		now := time.Now()
 		k := key.(jwtKey)
@@ -467,7 +466,7 @@ func (r *JwksResolver) refresh() bool {
 				var err error
 				jwksURI, err = r.resolveJwksURIUsingOpenID(k.issuer)
 				if err != nil {
-					hasErrors = true
+					hasErrors.Store(true)
 					log.Errorf("Failed to resolve Jwks from issuer %q: %v", k.issuer, err)
 					atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
 					return
@@ -477,7 +476,7 @@ func (r *JwksResolver) refresh() bool {
 			}
 			resp, err := r.getRemoteContentWithRetry(jwksURI, networkFetchRetryCountOnRefreshFlow)
 			if err != nil {
-				hasErrors = true
+				hasErrors.Store(true)
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
 				atomic.AddUint64(&r.refreshJobFetchFailedCount, 1)
 				if oldPubKey == "" {
@@ -493,12 +492,12 @@ func (r *JwksResolver) refresh() bool {
 			})
 			isNewKey, err := compareJWKSResponse(oldPubKey, newPubKey)
 			if err != nil {
-				hasErrors = true
+				hasErrors.Store(true)
 				log.Errorf("Failed to refresh JWT public key from %q: %v", jwksURI, err)
 				return
 			}
 			if isNewKey {
-				hasChange = true
+				hasChange.Store(true)
 				log.Infof("Updated cached JWT public key from %q", jwksURI)
 			}
 		}()
@@ -509,14 +508,14 @@ func (r *JwksResolver) refresh() bool {
 	// Wait for all go routine to complete.
 	wg.Wait()
 
-	if hasChange {
+	if hasChange.Load() {
 		atomic.AddUint64(&r.refreshJobKeyChangedCount, 1)
 		// Push public key changes to sidecars.
 		if r.PushFunc != nil {
 			r.PushFunc()
 		}
 	}
-	return hasErrors
+	return hasErrors.Load()
 }
 
 // Close will shut down the refresher job.
