@@ -414,7 +414,7 @@ func (sa *IstiodAnalyzer) RegisterEventHandler(kind config.GroupVersionKind, han
 }
 
 func (sa *IstiodAnalyzer) Schemas() collection.Schemas {
-	result := collection.SchemasBuilder{}
+	result := collection.NewSchemasBuilder()
 	for _, store := range sa.stores {
 		for _, schema := range store.Schemas().All() {
 			result.MustAdd(schema)
