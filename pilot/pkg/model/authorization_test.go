@@ -58,6 +58,12 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			"version": "v1",
 		},
 	}
+	policyWithTargetRef := proto.Clone(policy).(*authpb.AuthorizationPolicy)
+	policyWithTargetRef.TargetRef = &selectorpb.PolicyTargetReference{
+		// TODO(whitneygriffith): add other struct fields if needed
+		Name: "waypoint",
+	}
+
 	denyPolicy := proto.Clone(policy).(*authpb.AuthorizationPolicy)
 	denyPolicy.Action = authpb.AuthorizationPolicy_DENY
 
@@ -68,15 +74,43 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	customPolicy.Action = authpb.AuthorizationPolicy_CUSTOM
 
 	cases := []struct {
-		name           string
-		ns             string
-		workloadLabels map[string]string
-		configs        []config.Config
-		wantDeny       []AuthorizationPolicy
-		wantAllow      []AuthorizationPolicy
-		wantAudit      []AuthorizationPolicy
-		wantCustom     []AuthorizationPolicy
+		name            string
+		ns              string
+		workloadLabels  map[string]string
+		workloadName    string
+		isWaypointProxy bool
+		configs         []config.Config
+		wantDeny        []AuthorizationPolicy
+		wantAllow       []AuthorizationPolicy
+		wantAudit       []AuthorizationPolicy
+		wantCustom      []AuthorizationPolicy
 	}{
+		{
+			name:            "targetRef is an exact match",
+			ns:              "bar",
+			workloadName:    "waypoint",
+			isWaypointProxy: true,
+			configs: []config.Config{
+				newConfig("authz-1", "bar", policyWithTargetRef),
+			},
+			wantAllow: []AuthorizationPolicy{
+				{
+					Name:      "authz-1",
+					Namespace: "bar",
+					Spec:      policyWithTargetRef,
+				},
+			},
+		},
+		{
+			name:            "targetRef not match",
+			ns:              "bar",
+			workloadName:    "waypoint2",
+			isWaypointProxy: true,
+			configs: []config.Config{
+				newConfig("authz-1", "bar", policyWithTargetRef),
+			},
+			wantAllow: nil,
+		},
 		{
 			name:      "no policies",
 			ns:        "foo",
@@ -88,6 +122,17 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policy),
 				newConfig("authz-2", "bar", policy),
+			},
+			wantAllow: nil,
+		},
+		{
+			// TODO(whitneygriffith): not sure if this is needed
+			name:            "no policies in ns bar when it is a waypoint",
+			ns:              "bar",
+			workloadName:    "waypoint",
+			isWaypointProxy: true,
+			configs: []config.Config{
+				newConfig("authz-1", "foo", policyWithTargetRef),
 			},
 			wantAllow: nil,
 		},
@@ -320,7 +365,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs)
 
 			// TODO: fix test by adding IsAmbient and Metadata.WorkloadName params
-			result := authzPolicies.ListAuthorizationPolicies(tc.ns, tc.workloadLabels)
+			result := authzPolicies.ListAuthorizationPolicies(tc.ns, tc.workloadName, tc.isWaypointProxy, tc.workloadLabels)
 			if !reflect.DeepEqual(tc.wantAllow, result.Allow) {
 				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, result.Allow)
 			}
