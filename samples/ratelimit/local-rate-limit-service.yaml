@@ -45,7 +45,6 @@ spec:
                   - remote_address: {}
               - actions:
                   - header_value_match:
-                      #descriptor_key: path_ip
                       descriptor_value: "productpage"
                       expect_match: true
                       headers:
