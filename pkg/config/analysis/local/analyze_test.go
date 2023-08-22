@@ -284,10 +284,10 @@ func TestEmptyContext(t *testing.T) {
 
 	ctx := istiodContext{
 		messages: map[string]*diag.Messages{
-			"full": &diag.Messages{
+			"full": {
 				diag.NewMessage(fakeType, nil),
 			},
-			"empty": &diag.Messages{},
+			"empty": {},
 		},
 	}
 	ctx.GetMessages()

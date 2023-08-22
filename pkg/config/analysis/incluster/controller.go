@@ -80,7 +80,6 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 
 // Run is blocking
 func (c *Controller) Run(stop <-chan struct{}) {
-	// var analyzerIndex map[config.GroupVersionKind]string
 	db := concurrent.Debouncer[config.GroupVersionKind]{}
 
 	chKind := make(chan config.GroupVersionKind, 10)

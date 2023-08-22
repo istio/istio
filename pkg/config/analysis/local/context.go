@@ -54,11 +54,6 @@ type istiodContext struct {
 	currentAnalyzer    string
 }
 
-type singleContext struct {
-	istiodContext
-	AnalyzerName string
-}
-
 type key struct {
 	collectionName config.GroupVersionKind
 	name           resource.FullName

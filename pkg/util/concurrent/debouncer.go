@@ -20,8 +20,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-type Debouncer[T comparable] struct {
-}
+type Debouncer[T comparable] struct{}
 
 func (d *Debouncer[T]) Run(ch chan T, stopCh <-chan struct{}, debounceMinInterval, debounceMaxInterval time.Duration, pushFn func(sets.Set[T])) {
 	var timeChan <-chan time.Time
