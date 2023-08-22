@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	istio_cluster "istio.io/istio/pkg/cluster"
@@ -158,9 +159,9 @@ func (cb *ClusterBuilder) sidecarProxy() bool {
 	return cb.proxyType == model.SidecarProxy
 }
 
-func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts,
-	destRule *config.Config, subset *networking.Subset, service *model.Service,
-	proxyView model.ProxyView,
+func (cb *ClusterBuilder) buildSubsetCluster(
+	opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
+	endpointBuilder endpoints.EndpointBuilder,
 ) *cluster.Cluster {
 	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
@@ -181,11 +182,8 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts,
 		clusterType = cluster.Cluster_ORIGINAL_DST
 	}
 	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
-		if len(subset.Labels) != 0 {
-			lbEndpoints = cb.buildLocalityLbEndpoints(proxyView, service, opts.port.Port, subset.Labels)
-		} else {
-			lbEndpoints = cb.buildLocalityLbEndpoints(proxyView, service, opts.port.Port, nil)
-		}
+		subsetBuilder := endpointBuilder.WithSubset(subset.Name)
+		lbEndpoints = subsetBuilder.FromServiceEndpoints()
 		if len(lbEndpoints) == 0 {
 			log.Debugf("locality endpoints missing for cluster %s", subsetClusterName)
 		}
@@ -201,7 +199,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts,
 	opts.istioMtlsSni = defaultSni
 
 	// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
-	opts.policy = MergeTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
+	opts.policy = util.MergeTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
 
 	if destRule != nil {
 		destinationRule := CastDestinationRule(destRule)
@@ -225,11 +223,11 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts,
 // applyDestinationRule applies the destination rule if it exists for the Service.
 // It returns the subset clusters if any created as it applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode ClusterMode, service *model.Service,
-	port *model.Port, proxyView model.ProxyView, destRule *config.Config, serviceAccounts []string,
+	port *model.Port, eb endpoints.EndpointBuilder, destRule *config.Config, serviceAccounts []string,
 ) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
-	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
+	trafficPolicy := util.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
 		mesh:           cb.req.Push.Mesh,
 		serviceTargets: cb.serviceTargets,
@@ -266,7 +264,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.GetSubsets() {
-		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, proxyView)
+		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, eb)
 		if subsetCluster != nil {
 			subsetClusters = append(subsetClusters, subsetCluster)
 		}
@@ -383,7 +381,7 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		destinationRule := CastDestinationRule(cfg)
 		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
 		if destinationRule.TrafficPolicy != nil {
-			opts.policy = MergeTrafficPolicy(opts.policy, destinationRule.TrafficPolicy, instance.Port.ServicePort)
+			opts.policy = util.MergeTrafficPolicy(opts.policy, destinationRule.TrafficPolicy, instance.Port.ServicePort)
 			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg.Meta)
 		}
 	}

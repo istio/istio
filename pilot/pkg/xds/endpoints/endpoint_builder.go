@@ -29,7 +29,6 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	v1alpha32 "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/cluster"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/hash"
 )
@@ -50,6 +50,10 @@ var (
 	// same as the above "xds" package
 	log = istiolog.RegisterScope("ads", "ads debugging")
 )
+
+// ConnectOriginate is the name for the resources associated with the origination of HTTP CONNECT.
+// Duplicated from v1alpha3/waypoint.go to avoid import cycle
+const connectOriginate = "connect_originate"
 
 type EndpointBuilder struct {
 	// These fields define the primary key for an endpoint, and can be used as a cache key
@@ -65,67 +69,107 @@ type EndpointBuilder struct {
 	failoverPriorityLabels []byte
 
 	// These fields are provided for convenience only
-	subsetName string
-	hostname   host.Name
-	port       int
-	push       *model.PushContext
-	proxy      *model.Proxy
-	dir        model.TrafficDirection
+	subsetName   string
+	subsetLabels labels.Instance
+	hostname     host.Name
+	port         int
+	push         *model.PushContext
+	proxy        *model.Proxy
+	dir          model.TrafficDirection
 
 	mtlsChecker *mtlsChecker
 }
 
 func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.PushContext) EndpointBuilder {
 	dir, subsetName, hostname, port := model.ParseSubsetKey(clusterName)
-	if dir == model.TrafficDirectionInboundVIP {
-		subsetName = strings.TrimPrefix(subsetName, "http/")
-		subsetName = strings.TrimPrefix(subsetName, "tcp/")
-	}
-	svc := push.ServiceForHostname(proxy, hostname)
 
+	svc := push.ServiceForHostname(proxy, hostname)
 	var dr *model.ConsolidatedDestRule
 	if svc != nil {
 		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 	}
+
+	return NewCDSEndpointBuilder(
+		proxy, push, clusterName,
+		dir, subsetName, hostname, port,
+		svc, dr,
+	)
+}
+
+// NewCDSEndpointBuilder allows setting some fields directly when we already
+// have the Service and DestinationRule.
+func NewCDSEndpointBuilder(
+	proxy *model.Proxy, push *model.PushContext, clusterName string,
+	dir model.TrafficDirection, subsetName string, hostname host.Name, port int,
+	service *model.Service, dr *model.ConsolidatedDestRule,
+) EndpointBuilder {
 	b := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
 		proxyView:       proxy.GetView(),
 		clusterID:       proxy.Metadata.ClusterID,
 		locality:        proxy.Locality,
-		service:         svc,
-		clusterLocal:    push.IsClusterLocal(svc),
 		destinationRule: dr,
+		service:         service,
+		clusterLocal:    push.IsClusterLocal(service),
 		nodeType:        proxy.Type,
 
-		mtlsChecker: newMtlsChecker(push, port, dr.GetRule(), subsetName),
-		push:        push,
-		proxy:       proxy,
-		subsetName:  subsetName,
-		hostname:    hostname,
-		port:        port,
-		dir:         dir,
+		subsetName: subsetName,
+		hostname:   hostname,
+		port:       port,
+		push:       push,
+		proxy:      proxy,
+		dir:        dir,
 	}
-
+	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
-
 	return b
 }
 
-// NewTestEndpointBuilder allows setting some fields directly without needing push context.
-// For now, this is for tests. We can expand this to be an all-field constructor for cases
-// like CDS where we already have the service and destination rule.
-func NewTestEndpointBuilder(clusterName string, service *model.Service, dr *model.ConsolidatedDestRule) EndpointBuilder {
-	return EndpointBuilder{
-		clusterName:     clusterName,
-		service:         service,
-		destinationRule: dr,
+func (b *EndpointBuilder) servicePort(port int) *model.Port {
+	if !b.ServiceFound() {
+		log.Debugf("can not find the service %s for cluster %s", b.hostname, b.clusterName)
+		return nil
+	}
+	svcPort, f := b.service.Ports.GetByPort(port)
+	if !f {
+		log.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
+		return nil
+	}
+	return svcPort
+}
+
+func (b *EndpointBuilder) WithSubset(subset string) EndpointBuilder {
+	subsetBuilder := *b
+	subsetBuilder.subsetName = subset
+	subsetBuilder.populateSubsetInfo()
+	return subsetBuilder
+}
+
+func (b *EndpointBuilder) populateSubsetInfo() {
+	if b.dir == model.TrafficDirectionInboundVIP {
+		b.subsetName = strings.TrimPrefix(b.subsetName, "http/")
+		b.subsetName = strings.TrimPrefix(b.subsetName, "tcp/")
+	}
+	b.mtlsChecker = newMtlsChecker(b.push, b.port, b.destinationRule.GetRule(), b.subsetName)
+	b.subsetLabels = getSubSetLabels(b.DestinationRule(), b.subsetName)
+}
+
+func (b *EndpointBuilder) populateFailoverPriorityLabels() {
+	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
+	if enableFailover {
+		lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+		if lbSetting != nil && lbSetting.Distribute == nil &&
+			len(lbSetting.FailoverPriority) > 0 && (lbSetting.Enabled == nil || lbSetting.Enabled.Value) {
+			b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, lbSetting.FailoverPriority)
+		}
 	}
 }
 
 func (b *EndpointBuilder) DestinationRule() *v1alpha3.DestinationRule {
 	if dr := b.destinationRule.GetRule(); dr != nil {
-		return dr.Spec.(*v1alpha3.DestinationRule)
+		dr, _ := dr.Spec.(*v1alpha3.DestinationRule)
+		return dr
 	}
 	return nil
 }
@@ -147,6 +191,11 @@ func (b *EndpointBuilder) Key() any {
 	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
+	b.WriteHash(h)
+	return h.Sum64()
+}
+
+func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	h.Write([]byte(b.clusterName))
 	h.Write(Separator)
 	h.Write([]byte(b.network))
@@ -195,8 +244,6 @@ func (b *EndpointBuilder) Key() any {
 		h.Write([]byte(b.proxyView.String()))
 	}
 	h.Write(Separator)
-
-	return h.Sum64()
 }
 
 func (b *EndpointBuilder) Cacheable() bool {
@@ -223,6 +270,9 @@ func (b *EndpointBuilder) DependentConfigs() []model.ConfigHash {
 			Name: string(b.service.Hostname), Namespace: b.service.Attributes.Namespace,
 		}.HashCode())
 	}
+
+	// For now, this matches clusterCache's DependentConfigs. If adding anything here, we may need to add them there.
+
 	return configs
 }
 
@@ -256,43 +306,18 @@ func (e *LocalityEndpoints) AssertInvarianceInTest() {
 	}
 }
 
-func (b *EndpointBuilder) populateFailoverPriorityLabels() {
-	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
-	if enableFailover {
-		lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
-		if lbSetting != nil && lbSetting.Distribute == nil &&
-			len(lbSetting.FailoverPriority) > 0 && (lbSetting.Enabled == nil || lbSetting.Enabled.Value) {
-			b.failoverPriorityLabels = util.GetFailoverPriorityLabels(b.proxy.Labels, lbSetting.FailoverPriority)
-		}
-	}
+func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints {
+	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
+	return ExtractEnvoyEndpoints(b.generate(svcEps))
 }
 
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
-	if !b.ServiceFound() {
+	svcEps := b.snapshotShards(endpointIndex)
+	localityLbEndpoints := b.generate(svcEps)
+	if len(localityLbEndpoints) == 0 {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
-	svcPort, f := b.service.Ports.GetByPort(b.port)
-	if !f {
-		// Shouldn't happen here
-		log.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
-		return buildEmptyClusterLoadAssignment(b.clusterName)
-	}
-	epShards := b.findShards(endpointIndex)
-	if epShards == nil {
-		return buildEmptyClusterLoadAssignment(b.clusterName)
-	}
-	localityLbEndpoints := b.BuildLocalityLbEndpointsFromShards(epShards, svcPort)
 
-	// Apply the Split Horizon EDS filter, if applicable.
-	localityLbEndpoints = b.EndpointsByNetworkFilter(localityLbEndpoints)
-
-	if model.IsDNSSrvSubsetKey(b.clusterName) {
-		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
-		// to passthrough mTLS requests. However, at the gateway we do not actually have any way to tell if the
-		// request is a valid mTLS request or not, since its passthrough TLS.
-		// To ensure we allow traffic only to mTLS endpoints, we filter out non-mTLS endpoints for these cluster types.
-		localityLbEndpoints = b.EndpointsWithMTLSFilter(localityLbEndpoints)
-	}
 	l := b.createClusterLoadAssignment(localityLbEndpoints)
 
 	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
@@ -315,75 +340,22 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	return l
 }
 
-// cluster with no endpoints
-func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAssignment {
-	return &endpoint.ClusterLoadAssignment{
-		ClusterName: clusterName,
+// generate endpoints with applies weights, multi-network mapping and other filtering
+func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint) []*LocalityEndpoints {
+	// shouldn't happen here
+	if !b.ServiceFound() {
+		return nil
 	}
-}
+	svcPort := b.servicePort(b.port)
+	if svcPort == nil {
+		return nil
+	}
 
-// build LocalityLbEndpoints for a cluster from existing EndpointShards.
-func (b *EndpointBuilder) BuildLocalityLbEndpointsFromShards(
-	shards *model.EndpointShards,
-	svcPort *model.Port,
-) []*LocalityEndpoints {
+	eps = slices.FilterInPlace(eps, func(ep *model.IstioEndpoint) bool {
+		return b.filterIstioEndpoint(ep, svcPort)
+	})
+
 	localityEpMap := make(map[string]*LocalityEndpoints)
-	// get the subset labels
-	subsetLabels := getSubSetLabels(b.DestinationRule(), b.subsetName)
-
-	// Determine whether or not the target service is considered local to the cluster
-	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := b.clusterLocal
-
-	// To avoid lock contention, grab endpoints list before we process anything
-	var eps []*model.IstioEndpoint
-	shards.RLock()
-	// Extract shard keys so we can iterate in order. This ensures a stable EDS output.
-	keys := shards.Keys()
-	// The shards are updated independently, now need to filter and merge for this cluster
-	for _, shardKey := range keys {
-		if shardKey.Cluster != b.clusterID {
-			// If the downstream service is configured as cluster-local, only include endpoints that
-			// reside in the same cluster.
-			if isClusterLocal || b.service.Attributes.NodeLocal {
-				continue
-			}
-		}
-		endpoints := shards.Shards[shardKey]
-		for _, ep := range endpoints {
-			// for ServiceInternalTrafficPolicy
-			if b.service.Attributes.NodeLocal && ep.NodeName != b.proxy.GetNodeName() {
-				continue
-			}
-			// TODO(nmittler): Consider merging discoverability policy with cluster-local
-			if !ep.IsDiscoverableFromProxy(b.proxy) {
-				continue
-			}
-			if svcPort.Name != ep.ServicePortName {
-				continue
-			}
-			// Port labels
-			if !subsetLabels.SubsetOf(ep.Labels) {
-				continue
-			}
-			// If we don't know the address we must eventually use a gateway address
-			if ep.Address == "" && ep.Network == b.network {
-				continue
-			}
-			// Draining endpoints are only sent to 'persistent session' clusters.
-			draining := ep.HealthStatus == model.Draining ||
-				features.DrainingLabel != "" && ep.Labels[features.DrainingLabel] != ""
-			if draining {
-				persistentSession := b.service.Attributes.Labels[features.PersistentSessionLabel] != ""
-				if !persistentSession {
-					continue
-				}
-			}
-			eps = append(eps, ep)
-		}
-	}
-	shards.RUnlock()
-
 	for _, ep := range eps {
 		eep := ep.EnvoyEndpoint()
 		mtlsEnabled := b.mtlsChecker.checkMtlsEnabled(ep)
@@ -443,7 +415,83 @@ func (b *EndpointBuilder) BuildLocalityLbEndpointsFromShards(
 		b.push.AddMetric(model.ProxyStatusClusterNoInstances, b.clusterName, "", "")
 	}
 
+	// Apply the Split Horizon EDS filter, if applicable.
+	locEps = b.EndpointsByNetworkFilter(locEps)
+
+	if model.IsDNSSrvSubsetKey(b.clusterName) {
+		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
+		// to passthrough mTLS requests. However, at the gateway we do not actually have any way to tell if the
+		// request is a valid mTLS request or not, since its passthrough TLS.
+		// To ensure we allow traffic only to mTLS endpoints, we filter out non-mTLS endpoints for these cluster types.
+		locEps = b.EndpointsWithMTLSFilter(locEps)
+	}
+
 	return locEps
+}
+
+func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *model.Port) bool {
+	// for ServiceInternalTrafficPolicy
+	if b.service.Attributes.NodeLocal && ep.NodeName != b.proxy.GetNodeName() {
+		return false
+	}
+	// TODO(nmittler): Consider merging discoverability policy with cluster-local
+	if !ep.IsDiscoverableFromProxy(b.proxy) {
+		return false
+	}
+	if svcPort.Name != ep.ServicePortName {
+		return false
+	}
+	// Port labels
+	if !b.subsetLabels.SubsetOf(ep.Labels) {
+		return false
+	}
+	// If we don't know the address we must eventually use a gateway address
+	if ep.Address == "" && ep.Network == b.network {
+		return false
+	}
+	// Draining endpoints are only sent to 'persistent session' clusters.
+	draining := ep.HealthStatus == model.Draining ||
+		features.DrainingLabel != "" && ep.Labels[features.DrainingLabel] != ""
+	if draining {
+		persistentSession := b.service.Attributes.Labels[features.PersistentSessionLabel] != ""
+		if !persistentSession {
+			return false
+		}
+	}
+	return true
+}
+
+// snapshotShards into a local slice to avoid lock contention
+func (b *EndpointBuilder) snapshotShards(endpointIndex *model.EndpointIndex) []*model.IstioEndpoint {
+	shards := b.findShards(endpointIndex)
+	if shards == nil {
+		return nil
+	}
+
+	// Determine whether or not the target service is considered local to the cluster
+	// and should, therefore, not be accessed from outside the cluster.
+	isClusterLocal := b.clusterLocal
+
+	var eps []*model.IstioEndpoint
+	shards.RLock()
+	// Extract shard keys so we can iterate in order. This ensures a stable EDS output.
+	keys := shards.Keys()
+	// The shards are updated independently, now need to filter and merge for this cluster
+	for _, shardKey := range keys {
+		if shardKey.Cluster != b.clusterID {
+			// If the downstream service is configured as cluster-local, only include endpoints that
+			// reside in the same cluster.
+			if isClusterLocal || b.service.Attributes.NodeLocal {
+				continue
+			}
+		}
+		endpoints := shards.Shards[shardKey]
+		for _, ep := range endpoints {
+			eps = append(eps, ep)
+		}
+	}
+	shards.RUnlock()
+	return eps
 }
 
 // findShards returns the endpoints for a cluster
@@ -483,6 +531,13 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 	return &endpoint.ClusterLoadAssignment{
 		ClusterName: b.clusterName,
 		Endpoints:   llbEndpoints,
+	}
+}
+
+// cluster with no endpoints
+func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAssignment {
+	return &endpoint.ClusterLoadAssignment{
+		ClusterName: clusterName,
 	}
 }
 
@@ -579,7 +634,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
 			ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, address, int(e.EndpointPort), tunnelPort)
-			ep = util.BuildInternalLbEndpoint(v1alpha32.ConnectOriginate, ep.Metadata)
+			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
 			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
 				Value: e.GetLoadBalancingWeight(),
 			}
@@ -595,7 +650,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		}
 		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(v1alpha32.ConnectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
+			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}
 		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
@@ -642,11 +697,11 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	var lbSettings *v1alpha3.LoadBalancerSettings
 
 	port := &model.Port{Port: portNumber}
-	policy := v1alpha32.MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
+	policy := util.MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
 
 	for _, subset := range destinationRule.Subsets {
 		if subset.Name == subsetName {
-			policy = v1alpha32.MergeTrafficPolicy(policy, subset.TrafficPolicy, port)
+			policy = util.MergeTrafficPolicy(policy, subset.TrafficPolicy, port)
 			break
 		}
 	}

@@ -34,8 +34,9 @@ import (
 )
 
 var (
-	any1 = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "foo"}}
-	any2 = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "bar"}}
+	proxy = &model.Proxy{Metadata: &model.NodeMetadata{}}
+	any1  = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "foo"}}
+	any2  = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "bar"}}
 )
 
 // TestXdsCacheToken is a regression test to ensure that we do not write
@@ -47,9 +48,11 @@ func TestXdsCacheToken(t *testing.T) {
 	mkv := func(n int32) *discovery.Resource {
 		return &discovery.Resource{Resource: &anypb.Any{TypeUrl: fmt.Sprint(n)}}
 	}
-	k := endpoints.NewTestEndpointBuilder("key", &model.Service{
-		Hostname: "foo.com",
-	}, nil)
+	k := endpoints.NewCDSEndpointBuilder(
+		proxy, nil,
+		"outbound||foo.com",
+		model.TrafficDirectionOutbound, "", "foo.com", 80,
+		&model.Service{Hostname: "foo.com"}, nil)
 	work := func(start time.Time, n int32) {
 		v := mkv(n)
 		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
@@ -84,7 +87,11 @@ func TestXdsCacheToken(t *testing.T) {
 func TestXdsCache(t *testing.T) {
 	makeEp := func(subset string, dr *model.ConsolidatedDestRule) *endpoints.EndpointBuilder {
 		svc := &model.Service{Hostname: "foo.com"}
-		b := endpoints.NewTestEndpointBuilder(fmt.Sprintf("outbound|%s}|foo.com", subset), svc, dr)
+		b := endpoints.NewCDSEndpointBuilder(
+			proxy, nil,
+			fmt.Sprintf("outbound|%s|foo.com", subset),
+			model.TrafficDirectionOutbound, subset, "foo.com", 80,
+			svc, dr)
 		return &b
 	}
 	ep1 := makeEp("1", nil)
