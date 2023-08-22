@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
@@ -689,6 +690,7 @@ func environment(t test.Failer, c ...config.Config) *xds.FakeDiscoveryServer {
 		Services: []*model.Service{{
 			Hostname:   "example.ns.svc.cluster.local",
 			Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+			Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
 		}},
 		Gateways: []model.NetworkGateway{
 			// network1 has only 1 gateway in cluster1a, which will be used for the endpoints

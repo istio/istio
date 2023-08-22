@@ -351,7 +351,7 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint) []*LocalityEndpoi
 		return nil
 	}
 
-	eps = slices.FilterInPlace(eps, func(ep *model.IstioEndpoint) bool {
+	eps = slices.Filter(eps, func(ep *model.IstioEndpoint) bool {
 		return b.filterIstioEndpoint(ep, svcPort)
 	})
 
@@ -485,10 +485,7 @@ func (b *EndpointBuilder) snapshotShards(endpointIndex *model.EndpointIndex) []*
 				continue
 			}
 		}
-		endpoints := shards.Shards[shardKey]
-		for _, ep := range endpoints {
-			eps = append(eps, ep)
-		}
+		eps = append(eps, shards.Shards[shardKey]...)
 	}
 	shards.RUnlock()
 	return eps
