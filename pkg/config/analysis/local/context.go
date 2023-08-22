@@ -86,8 +86,9 @@ func (i *istiodContext) GetMessages(analyzerNames ...string) diag.Messages {
 		}
 	} else {
 		for _, name := range analyzerNames {
-			msgs := i.messages[name]
-			result.Add(*msgs...)
+			if msgs, ok := i.messages[name]; ok {
+				result.Add(*msgs...)
+			}
 		}
 	}
 	return result
