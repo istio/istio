@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/spf13/viper"
+
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
