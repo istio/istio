@@ -50,7 +50,7 @@ func (d *Debouncer[T]) Run(ch chan T, stopCh <-chan struct{}, debounceMinInterva
 				pushCounter++
 				free = false
 				go push(combinedEvents, debouncedEvents, startDebounce)
-				combinedEvents = nil
+				combinedEvents = sets.New[T]()
 				debouncedEvents = 0
 			}
 		} else {
