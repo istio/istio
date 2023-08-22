@@ -15,12 +15,15 @@
 package controller
 
 import (
+	"context"
+	"fmt"
 	"net/netip"
 	"strings"
 	"sync"
 
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -641,6 +644,21 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 				waypointPort = uint32(p.Port)
 			}
 		}
+
+		useSvc := true
+		gatewayClient := c.client.GatewayAPI().GatewayV1beta1().Gateways(svc.Namespace)
+		// TODO: handle error
+		gateway, _ := gatewayClient.Get(context.TODO(), strings.TrimSuffix(svc.Name, "-istio-waypoint"), metav1.GetOptions{})
+		if gateway != nil {
+			gatewayAddresses := gateway.Status.Addresses
+			if len(gatewayAddresses) == 0 {
+				// in order to ensure adding waypoints isn't disruptive we're only going to configure them once they have reported being ready
+				// gateway controller will add address only once one pod has become ready
+				log.Info(fmt.Sprintf("waypoint %s has not reported being ready", gateway.Name))
+				useSvc = false
+			}
+		}
+
 		svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
 		addr := &workloadapi.GatewayAddress{
 			Destination: &workloadapi.GatewayAddress_Address{
@@ -658,7 +676,7 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 				updates.Merge(a.updateWaypoint(scope, addr, true))
 			}
 		} else {
-			if !proto.Equal(a.waypoints[scope], addr) {
+			if !proto.Equal(a.waypoints[scope], addr) && useSvc {
 				a.waypoints[scope] = addr
 				updates.Merge(a.updateWaypoint(scope, addr, false))
 			}
