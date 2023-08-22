@@ -476,8 +476,9 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 						continue
 					}
 
-					// bind might have been modified by below code, so reset it for every Service.
+					// bind and extraBind might have been modified by below code, so reset it for every Service.
 					listenerOpts.bind = bind
+					listenerOpts.extraBind = nil
 					// listenerOpts.extraBind should be specified at the same time for dual stack env
 					if len(actualLocalHosts) > 1 {
 						if bind == actualLocalHosts[0] {
