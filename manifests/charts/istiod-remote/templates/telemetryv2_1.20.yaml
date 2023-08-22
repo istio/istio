@@ -1,14 +1,14 @@
 {{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
 {{ $prom := not (include "prometheus" . | eq "true") }}
 {{ $sdMetrics := not (include "sd-metrics" . | eq "true") }}
-{{ $sdLogs := not (include "sd-logs" .  | eq "true") }}
+{{ $sdLogs := not (include "sd-logs" . | eq "true") }}
 ---
 # Note: http stats filter is wasm enabled only in sidecars.
 {{- if and .Values.telemetry.v2.prometheus.enabled $prom }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stats-filter-1.16{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: stats-filter-1.20{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
@@ -23,7 +23,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.16.*'
+          proxyVersion: '^1\.20.*'
         listener:
           filterChain:
             filter:
@@ -36,40 +36,18 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio"
-                    }
-                    {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
-                    {{- end }}
-                vm_config:
-                  vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  allow_precompiled: true
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
-                  {{- end }}
+              {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
+              {}
+              {{- else }}
+              {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
+              {{- end }}
     - applyTo: HTTP_FILTER
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.16.*'
+          proxyVersion: '^1\.20.*'
         listener:
           filterChain:
             filter:
@@ -82,41 +60,20 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_inbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio",
-                      "disable_host_header_fallback": true
-                    }
-                    {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
-                    {{- end }}
-                vm_config:
-                  vm_id: stats_inbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  allow_precompiled: true
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
-                  {{- end }}
+              {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
+              {
+                "disable_host_header_fallback": true
+              }
+              {{- else }}
+              {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
+              {{- end }}
     - applyTo: HTTP_FILTER
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.16.*'
+          proxyVersion: '^1\.20.*'
         listener:
           filterChain:
             filter:
@@ -129,42 +86,21 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio",
-                      "disable_host_header_fallback": true
-                    }
-                    {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
-                    {{- end }}
-                vm_config:
-                  vm_id: stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  allow_precompiled: true
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: envoy.wasm.stats
-                  {{- end }}
+              {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
+              {
+                "disable_host_header_fallback": true
+              }
+              {{- else }}
+              {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
+              {{- end }}
 ---
 # Note: tcp stats filter is wasm enabled only in sidecars.
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stats-filter-1.16{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: tcp-stats-filter-1.20{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
@@ -179,7 +115,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.16.*'
+          proxyVersion: '^1\.20.*'
         listener:
           filterChain:
             filter:
@@ -190,40 +126,18 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_inbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio"
-                    }
-                    {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
-                    {{- end }}
-                vm_config:
-                  vm_id: tcp_stats_inbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  allow_precompiled: true
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
-                  {{- end }}
+              {{- if not .Values.telemetry.v2.prometheus.configOverride.inboundSidecar }}
+              {}
+              {{- else }}
+              {{ toJson .Values.telemetry.v2.prometheus.configOverride.inboundSidecar | indent 18 }}
+              {{- end }}
     - applyTo: NETWORK_FILTER
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.16.*'
+          proxyVersion: '^1\.20.*'
         listener:
           filterChain:
             filter:
@@ -234,40 +148,18 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio"
-                    }
-                    {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
-                    {{- end }}
-                vm_config:
-                  vm_id: tcp_stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  allow_precompiled: true
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
-                  {{- end }}
+              {{- if not .Values.telemetry.v2.prometheus.configOverride.outboundSidecar }}
+              {}
+              {{- else }}
+              {{ toJson .Values.telemetry.v2.prometheus.configOverride.outboundSidecar | indent 18 }}
+              {{- end }}
     - applyTo: NETWORK_FILTER
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.16.*'
+          proxyVersion: '^1\.20.*'
         listener:
           filterChain:
             filter:
@@ -278,35 +170,13 @@ spec:
           name: istio.stats
           typed_config:
             "@type": type.googleapis.com/udpa.type.v1.TypedStruct
-            type_url: type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm
+            type_url: type.googleapis.com/stats.PluginConfig
             value:
-              config:
-                root_id: stats_outbound
-                configuration:
-                  "@type": "type.googleapis.com/google.protobuf.StringValue"
-                  value: |
-                    {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
-                    {
-                      "debug": "false",
-                      "stat_prefix": "istio"
-                    }
-                    {{- else }}
-                    {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
-                    {{- end }}
-                vm_config:
-                  vm_id: tcp_stats_outbound
-                  {{- if .Values.telemetry.v2.prometheus.wasmEnabled }}
-                  runtime: envoy.wasm.runtime.v8
-                  allow_precompiled: true
-                  code:
-                    local:
-                      filename: /etc/istio/extensions/stats-filter.compiled.wasm
-                  {{- else }}
-                  runtime: envoy.wasm.runtime.null
-                  code:
-                    local:
-                      inline_string: "envoy.wasm.stats"
-                  {{- end }}
+              {{- if not .Values.telemetry.v2.prometheus.configOverride.gateway }}
+              {}
+              {{- else }}
+              {{ toJson .Values.telemetry.v2.prometheus.configOverride.gateway | indent 18 }}
+              {{- end }}
 ---
 {{- end }}
 {{/*TODO: this is broken, we do not handle the split quite right! */}}
@@ -314,7 +184,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-filter-1.16{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: stackdriver-filter-1.20{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
@@ -330,7 +200,7 @@ spec:
       match:
         context: SIDECAR_OUTBOUND
         proxy:
-          proxyVersion: '^1\.16.*'
+          proxyVersion: '^1\.20.*'
         listener:
           filterChain:
             filter:
@@ -368,7 +238,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '^1\.16.*'
+          proxyVersion: '^1\.20.*'
         listener:
           filterChain:
             filter:
@@ -407,7 +277,7 @@ spec:
       match:
         context: GATEWAY
         proxy:
-          proxyVersion: '^1\.16.*'
+          proxyVersion: '^1\.20.*'
         listener:
           filterChain:
             filter:
@@ -445,7 +315,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: tcp-stackdriver-filter-1.16{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: tcp-stackdriver-filter-1.20{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
@@ -461,7 +331,7 @@ spec:
     match:
       context: SIDECAR_OUTBOUND
       proxy:
-        proxyVersion: '^1\.16.*'
+        proxyVersion: '^1\.20.*'
       listener:
         filterChain:
           filter:
@@ -497,7 +367,7 @@ spec:
     match:
       context: SIDECAR_INBOUND
       proxy:
-        proxyVersion: '^1\.16.*'
+        proxyVersion: '^1\.20.*'
       listener:
         filterChain:
           filter:
@@ -533,7 +403,7 @@ spec:
     match:
       context: GATEWAY
       proxy:
-        proxyVersion: '^1\.16.*'
+        proxyVersion: '^1\.20.*'
       listener:
         filterChain:
           filter:
@@ -569,7 +439,7 @@ spec:
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
-  name: stackdriver-sampling-accesslog-filter-1.16{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+  name: stackdriver-sampling-accesslog-filter-1.20{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   {{- if .Values.meshConfig.rootNamespace }}
   namespace: {{ .Values.meshConfig.rootNamespace }}
   {{- else }}
@@ -584,7 +454,7 @@ spec:
       match:
         context: SIDECAR_INBOUND
         proxy:
-          proxyVersion: '1\.16.*'
+          proxyVersion: '1\.20.*'
         listener:
           filterChain:
             filter:

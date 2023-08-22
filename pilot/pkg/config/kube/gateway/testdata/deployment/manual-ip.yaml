@@ -92,6 +92,14 @@ spec:
           value: '[]'
         - name: ISTIO_META_APP_CONTAINERS
           value: ""
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_NODE_NAME

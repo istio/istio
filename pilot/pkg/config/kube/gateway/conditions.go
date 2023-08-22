@@ -189,6 +189,7 @@ const (
 	InvalidRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestination indicates an issue with the destination
 	InvalidDestination ConfigErrorReason = "InvalidDestination"
+	InvalidAddress     ConfigErrorReason = ConfigErrorReason(k8sbeta.GatewayReasonUnsupportedAddress)
 	// InvalidDestinationPermit indicates a destination was not permitted
 	InvalidDestinationPermit ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestinationKind indicates an issue with the destination kind
@@ -206,6 +207,7 @@ const (
 	// InvalidConfiguration indicates a generic error for all other invalid configurations
 	InvalidConfiguration ConfigErrorReason = "InvalidConfiguration"
 	InvalidResources     ConfigErrorReason = ConfigErrorReason(k8sbeta.GatewayReasonNoResources)
+	DeprecateFieldUsage                    = "DeprecatedField"
 )
 
 // ParentError represents that a parent could not be referenced
@@ -323,7 +325,10 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 	switch l.Protocol {
 	case k8sbeta.HTTPProtocolType, k8sbeta.HTTPSProtocolType:
 		// Only terminate allowed, so its always HTTP
-		supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)}}
+		supported = []k8s.RouteGroupKind{
+			{Group: (*k8s.Group)(ptr.Of(gvk.HTTPRoute.Group)), Kind: k8s.Kind(gvk.HTTPRoute.Kind)},
+			{Group: (*k8s.Group)(ptr.Of(gvk.GRPCRoute.Group)), Kind: k8s.Kind(gvk.GRPCRoute.Kind)},
+		}
 	case k8sbeta.TCPProtocolType:
 		supported = []k8s.RouteGroupKind{{Group: (*k8s.Group)(ptr.Of(gvk.TCPRoute.Group)), Kind: k8s.Kind(gvk.TCPRoute.Kind)}}
 	case k8sbeta.TLSProtocolType:

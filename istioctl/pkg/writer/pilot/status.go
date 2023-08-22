@@ -45,6 +45,7 @@ type writerStatus struct {
 // XdsStatusWriter enables printing of sync status using multiple xdsapi.DiscoveryResponse Istiod responses
 type XdsStatusWriter struct {
 	Writer                 io.Writer
+	Namespace              string
 	InternalDebugAllIstiod bool
 }
 
@@ -185,12 +186,15 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 				if err != nil {
 					return nil, nil, fmt.Errorf("could not unmarshal ClientConfig: %w", err)
 				}
-				cds, lds, eds, rds, ecds := getSyncStatus(&clientConfig)
-				cp := multixds.CpInfo(dr)
 				meta, err := model.ParseMetadata(clientConfig.GetNode().GetMetadata())
 				if err != nil {
 					return nil, nil, fmt.Errorf("could not parse node metadata: %w", err)
 				}
+				if s.Namespace != "" && meta.Namespace != s.Namespace {
+					continue
+				}
+				cds, lds, eds, rds, ecds := getSyncStatus(&clientConfig)
+				cp := multixds.CpInfo(dr)
 				fullStatus = append(fullStatus, &xdsWriterStatus{
 					proxyID:              clientConfig.GetNode().GetId(),
 					clusterID:            meta.ClusterID.String(),

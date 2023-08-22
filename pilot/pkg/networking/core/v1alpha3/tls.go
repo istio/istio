@@ -332,28 +332,3 @@ TcpLoop:
 
 	return out
 }
-
-// This function can be called for namespaces with the auto generated sidecar, i.e. once per service and per port.
-// OR, it could be called in the context of an egress listener with specific TCP port on a sidecar config.
-// In the latter case, there is no service associated with this listen port. So we have to account for this
-// missing service throughout this file
-func buildSidecarOutboundTCPTLSFilterChainOpts(node *model.Proxy, push *model.PushContext,
-	configs []config.Config, destinationCIDR string, service *model.Service, bind string, listenPort *model.Port,
-	gateways map[string]bool,
-) []*filterChainOpts {
-	out := make([]*filterChainOpts, 0)
-	var svcConfigs []config.Config
-	if service != nil {
-		// Do not filter namespace for now.
-		// TODO(https://github.com/istio/istio/issues/46146) we may need to, or something more sophisticated
-		svcConfigs = getConfigsForHost("", service.Hostname, configs)
-	} else {
-		svcConfigs = configs
-	}
-
-	out = append(out, buildSidecarOutboundTLSFilterChainOpts(node, push, destinationCIDR, service,
-		bind, listenPort, gateways, svcConfigs)...)
-	out = append(out, buildSidecarOutboundTCPFilterChainOpts(node, push, destinationCIDR, service,
-		listenPort, gateways, svcConfigs)...)
-	return out
-}

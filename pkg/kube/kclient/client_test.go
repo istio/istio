@@ -48,7 +48,7 @@ func TestSwappingClient(t *testing.T) {
 	t.Run("CRD partially ready", func(t *testing.T) {
 		stop := test.NewStop(t)
 		c := kube.NewFakeClient()
-		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
 		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
 		tracker := assert.NewTracker[string](t)
 		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
@@ -75,7 +75,7 @@ func TestSwappingClient(t *testing.T) {
 		c.RunAndWait(stop)
 
 		// Now that CRD is synced, we create the client
-		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
 		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
 		tracker := assert.NewTracker[string](t)
 		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
@@ -96,7 +96,7 @@ func TestSwappingClient(t *testing.T) {
 		c := kube.NewFakeClient()
 
 		// Client created before CRDs are ready
-		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
 		tracker := assert.NewTracker[string](t)
 		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
 		go constantlyAccessForRaceDetection(stop, wasm)
@@ -134,7 +134,7 @@ func TestSwappingClient(t *testing.T) {
 		c := kube.NewFakeClient()
 
 		// Client created before CRDs are ready
-		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
 		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
 		tracker := assert.NewTracker[string](t)
 		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))

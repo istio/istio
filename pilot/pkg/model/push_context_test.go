@@ -1823,285 +1823,6 @@ func scopeToSidecar(scope *SidecarScope) string {
 	return scope.Namespace + "/" + scope.Name
 }
 
-func TestSetDestinationRuleInheritance(t *testing.T) {
-	test.SetForTest(t, &features.EnableDestinationRuleInheritance, true)
-	ps := NewPushContext()
-	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
-	testhost := "httpbin.org"
-	meshDestinationRule := config.Config{
-		Meta: config.Meta{
-			Name:      "meshRule",
-			Namespace: ps.Mesh.RootNamespace,
-		},
-		Spec: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 1},
-						MaxConnections: 111,
-					},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode:              networking.ClientTLSSettings_MUTUAL,
-					ClientCertificate: "/etc/certs/myclientcert.pem",
-					PrivateKey:        "/etc/certs/client_private_key.pem",
-					CaCertificates:    "/etc/certs/rootcacerts.pem",
-				},
-			},
-		},
-	}
-	nsDestinationRule := config.Config{
-		Meta: config.Meta{
-			Name:      "nsRule",
-			Namespace: "test",
-		},
-		Spec: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
-					Interval:                 &durationpb.Duration{Seconds: 22},
-				},
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 2,
-					},
-				},
-			},
-		},
-	}
-	svcDestinationRule := config.Config{
-		Meta: config.Meta{
-			Name:      "svcRule",
-			Namespace: "test",
-		},
-		Spec: &networking.DestinationRule{
-			Host: testhost,
-			TrafficPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 33,
-					},
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 33},
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-		},
-	}
-	destinationRuleNamespace2 := config.Config{
-		Meta: config.Meta{
-			Name:      "svcRule2",
-			Namespace: "test2",
-		},
-		Spec: &networking.DestinationRule{
-			Host: testhost,
-			Subsets: []*networking.Subset{
-				{
-					Name: "subset1",
-				},
-				{
-					Name: "subset2",
-				},
-			},
-		},
-	}
-	workloadSpecificDrNamespace2 := config.Config{
-		Meta: config.Meta{
-			Name:      "drRule2",
-			Namespace: "test2",
-		},
-		Spec: &networking.DestinationRule{
-			Host: testhost,
-			WorkloadSelector: &selectorpb.WorkloadSelector{
-				MatchLabels: map[string]string{"app": "app1"},
-			},
-			TrafficPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 33,
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
-				},
-			},
-		},
-	}
-	testCases := []struct {
-		name               string
-		proxyNs            string
-		serviceNs          string
-		serviceHostname    string
-		expectedConfig     string
-		expectedSourceRule []types.NamespacedName
-		expectedPolicy     *networking.TrafficPolicy
-	}{
-		{
-			name:            "merge mesh+namespace+service DR",
-			proxyNs:         "test",
-			serviceNs:       "test",
-			serviceHostname: testhost,
-			expectedConfig:  "svcRule",
-			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
-				{Namespace: "test", Name: "nsRule"},
-				{Namespace: "test", Name: "svcRule"},
-			},
-			expectedPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 33,
-					},
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 33},
-						MaxConnections: 111,
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors:    &wrappers.UInt32Value{Value: 3},
-					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
-					Interval:                 &durationpb.Duration{Seconds: 22},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-		},
-		{
-			name:            "merge mesh+service DR",
-			proxyNs:         "test2",
-			serviceNs:       "test2",
-			serviceHostname: testhost,
-			expectedConfig:  "svcRule2",
-			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
-				{Namespace: "test2", Name: "svcRule2"},
-			},
-			expectedPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 1},
-						MaxConnections: 111,
-					},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode:              networking.ClientTLSSettings_MUTUAL,
-					ClientCertificate: "/etc/certs/myclientcert.pem",
-					PrivateKey:        "/etc/certs/client_private_key.pem",
-					CaCertificates:    "/etc/certs/rootcacerts.pem",
-				},
-			},
-		},
-		{
-			name:            "merge mesh+workloadselector DR",
-			proxyNs:         "test2",
-			serviceNs:       "test2",
-			serviceHostname: testhost,
-			expectedConfig:  "drRule2",
-			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
-				{Namespace: "test2", Name: "drRule2"},
-				{Namespace: "test2", Name: "svcRule2"},
-			},
-			expectedPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 33,
-					},
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 1},
-						MaxConnections: 111,
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode:              networking.ClientTLSSettings_MUTUAL,
-					ClientCertificate: "/etc/certs/myclientcert.pem",
-					PrivateKey:        "/etc/certs/client_private_key.pem",
-					CaCertificates:    "/etc/certs/rootcacerts.pem",
-				},
-			},
-		},
-		{
-			name:            "unknown host returns merged mesh+namespace",
-			proxyNs:         "test",
-			serviceNs:       "test",
-			serviceHostname: "unknown.host",
-			expectedConfig:  "nsRule",
-			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
-				{Namespace: "test", Name: "nsRule"},
-			},
-			expectedPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 2,
-					},
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 1},
-						MaxConnections: 111,
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
-					Interval:                 &durationpb.Duration{Seconds: 22},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode:              networking.ClientTLSSettings_MUTUAL,
-					ClientCertificate: "/etc/certs/myclientcert.pem",
-					PrivateKey:        "/etc/certs/client_private_key.pem",
-					CaCertificates:    "/etc/certs/rootcacerts.pem",
-				},
-			},
-		},
-		{
-			name:            "unknown namespace+host returns mesh",
-			proxyNs:         "unknown",
-			serviceNs:       "unknown",
-			serviceHostname: "unknown.host",
-			expectedConfig:  "meshRule",
-			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
-			},
-			expectedPolicy: meshDestinationRule.Spec.(*networking.DestinationRule).TrafficPolicy,
-		},
-	}
-
-	ps.setDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2, workloadSpecificDrNamespace2})
-
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			mergedConfigList := ps.destinationRule(tt.proxyNs,
-				&Service{
-					Hostname: host.Name(tt.serviceHostname),
-					Attributes: ServiceAttributes{
-						Namespace: tt.serviceNs,
-					},
-				})
-			expectedConfigPresent := false
-			for _, mergedConfig := range mergedConfigList {
-				if mergedConfig.rule.Name == tt.expectedConfig {
-					expectedConfigPresent = true
-					mergedPolicy := mergedConfig.rule.Spec.(*networking.DestinationRule).TrafficPolicy
-					assert.Equal(t, mergedPolicy, tt.expectedPolicy)
-					assert.Equal(t, mergedConfig.from, tt.expectedSourceRule)
-				}
-			}
-			if !expectedConfigPresent {
-				t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v but missing", tt.name, tt.expectedConfig)
-			}
-		})
-	}
-}
-
 func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
@@ -2990,7 +2711,8 @@ func TestInitVirtualService(t *testing.T) {
 
 func TestServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
+	env := NewEnvironment()
+	env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
 	ps.Mesh = env.Mesh()
 
 	svc1 := &Service{
@@ -3153,29 +2875,32 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, sets.SortedList(got))
 }
 
+func TestWellKnownProvidersCount(t *testing.T) {
+	msg := &meshconfig.MeshConfig_ExtensionProvider{}
+	pb := msg.ProtoReflect()
+	md := pb.Descriptor()
+
+	found := sets.New[string]()
+	for i := 0; i < md.Oneofs().Get(0).Fields().Len(); i++ {
+		found.Insert(string(md.Oneofs().Get(0).Fields().Get(i).Name()))
+	}
+	// If this fails, there is a provider added that we have not handled.
+	// DO NOT JUST
+	assert.Equal(t, found, wellknownProviders)
+}
+
 // TestGetHostsFromMeshConfigExhaustiveness exhaustiveness check of `getHostsFromMeshConfig`
 // Once some one add a new `Provider` in api, we should update `wellknownProviders` and
 // implements of `getHostsFromMeshConfig`
 func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
-	wellknownProviders := map[string]struct{}{
-		"envoy_ext_authz_http": {},
-		"envoy_ext_authz_grpc": {},
-		"zipkin":               {},
-		"lightstep":            {},
-		"datadog":              {},
-		"opencensus":           {},
-		"skywalking":           {},
-		"envoy_http_als":       {},
-		"envoy_tcp_als":        {},
-		"envoy_otel_als":       {},
-		"opentelemetry":        {},
-	}
-
+	AssertProvidersHandled(addHostsFromMeshConfigProvidersHandled)
 	unexpectedProviders := make([]string, 0)
 	msg := &meshconfig.MeshConfig_ExtensionProvider{}
 	pb := msg.ProtoReflect()
 	md := pb.Descriptor()
 
+	// We only consider ones with `service` field
+	wellknownProviders := wellknownProviders.Copy().DeleteAll("prometheus", "stackdriver", "envoy_file_access_log")
 	of := md.Oneofs().Get(0)
 	for i := 0; i < of.Fields().Len(); i++ {
 		o := of.Fields().Get(i)
@@ -3190,7 +2915,7 @@ func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
 	}
 
 	if len(wellknownProviders) != 0 || len(unexpectedProviders) != 0 {
-		t.Errorf("unexpected provider not implemented in getHostsFromMeshConfig")
+		t.Errorf("unexpected provider not implemented in getHostsFromMeshConfig: %v, %v", wellknownProviders, unexpectedProviders)
 		t.Fail()
 	}
 }
@@ -3216,11 +2941,7 @@ func (l *localServiceDiscovery) GetService(host.Name) *Service {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) InstancesByPort(*Service, int) []*ServiceInstance {
-	return l.serviceInstances
-}
-
-func (l *localServiceDiscovery) GetProxyServiceInstances(*Proxy) []*ServiceInstance {
+func (l *localServiceDiscovery) GetProxyServiceTargets(*Proxy) []ServiceTarget {
 	panic("implement me")
 }
 

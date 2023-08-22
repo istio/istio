@@ -83,6 +83,9 @@ type TestOptions struct {
 
 	// Used to set the serviceentry registry's cluster id
 	ClusterID cluster2.ID
+
+	// XDSUpdater to use. Otherwise, our own will be used
+	XDSUpdater model.XDSUpdater
 }
 
 func (to TestOptions) FuzzValidate() bool {
@@ -131,30 +134,36 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 		m = mesh.DefaultMeshConfig()
 	}
 
+	env := model.NewEnvironment()
+
+	xdsUpdater := opts.XDSUpdater
+	if xdsUpdater == nil {
+		xdsUpdater = model.NewEndpointIndexUpdater(env.EndpointIndex)
+	}
+
 	serviceDiscovery := aggregate.NewController(aggregate.Options{})
 	se := serviceentry.NewController(
 		configController,
-		&FakeXdsUpdater{}, serviceentry.WithClusterID(opts.ClusterID))
+		xdsUpdater,
+		serviceentry.WithClusterID(opts.ClusterID))
 	// TODO allow passing in registry, for k8s, mem reigstry
 	serviceDiscovery.AddRegistry(se)
 	msd := memregistry.NewServiceDiscovery(opts.Services...)
+	msd.XdsUpdater = xdsUpdater
 	for _, instance := range opts.Instances {
-		msd.AddInstance(instance.Service.Hostname, instance)
+		msd.AddInstance(instance)
 	}
 	msd.AddGateways(opts.Gateways...)
 	msd.ClusterID = cluster2.ID(provider.Mock)
 	memserviceRegistry := serviceregistry.Simple{
-		ClusterID:        cluster2.ID(provider.Mock),
-		ProviderID:       provider.Mock,
-		ServiceDiscovery: msd,
-		Controller:       msd.Controller,
+		ClusterID:           cluster2.ID(provider.Mock),
+		ProviderID:          provider.Mock,
+		DiscoveryController: msd,
 	}
 	serviceDiscovery.AddRegistry(memserviceRegistry)
 	for _, reg := range opts.ServiceRegistries {
 		serviceDiscovery.AddRegistry(reg)
 	}
-
-	env := model.NewEnvironment()
 	env.Watcher = mesh.NewFixedWatcher(m)
 	if opts.NetworksWatcher == nil {
 		opts.NetworksWatcher = mesh.NewFixedNetworksWatcher(nil)
@@ -178,7 +187,7 @@ func NewConfigGenTest(t test.Failer, opts TestOptions) *ConfigGenTest {
 	}
 	if !opts.SkipRun {
 		fake.Run()
-		if err := env.InitNetworksManager(&FakeXdsUpdater{}); err != nil {
+		if err := env.InitNetworksManager(xdsUpdater); err != nil {
 			t.Fatal(err)
 		}
 		if err := env.PushContext().InitContext(env, nil, nil); err != nil {
@@ -217,7 +226,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 		p.Metadata = &model.NodeMetadata{}
 	}
 	if p.Metadata.IstioVersion == "" {
-		p.Metadata.IstioVersion = "1.19.0"
+		p.Metadata.IstioVersion = "1.20.0"
 	}
 	if p.IstioVersion == nil {
 		p.IstioVersion = model.ParseIstioVersion(p.Metadata.IstioVersion)
@@ -244,7 +253,7 @@ func (f *ConfigGenTest) SetupProxy(p *model.Proxy) *model.Proxy {
 	// Initialize data structures
 	pc := f.PushContext()
 	p.SetSidecarScope(pc)
-	p.SetServiceInstances(f.env.ServiceDiscovery)
+	p.SetServiceTargets(f.env.ServiceDiscovery)
 	p.SetGatewaysForProxy(pc)
 	p.DiscoverIPMode()
 	return p
@@ -314,8 +323,6 @@ func (f *ConfigGenTest) Store() model.ConfigStoreController {
 	return f.store
 }
 
-var _ model.XDSUpdater = &FakeXdsUpdater{}
-
 func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 	for _, p := range opts.ConfigPointers {
 		if p != nil {
@@ -353,17 +360,3 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 	}
 	return cfgs
 }
-
-type FakeXdsUpdater struct{}
-
-func (f *FakeXdsUpdater) ConfigUpdate(*model.PushRequest) {}
-
-func (f *FakeXdsUpdater) EDSUpdate(_ model.ShardKey, _, _ string, _ []*model.IstioEndpoint) {}
-
-func (f *FakeXdsUpdater) EDSCacheUpdate(_ model.ShardKey, _, _ string, _ []*model.IstioEndpoint) {}
-
-func (f *FakeXdsUpdater) SvcUpdate(_ model.ShardKey, _, _ string, _ model.Event) {}
-
-func (f *FakeXdsUpdater) ProxyUpdate(_ cluster2.ID, _ string) {}
-
-func (f *FakeXdsUpdater) RemoveShard(_ model.ShardKey) {}

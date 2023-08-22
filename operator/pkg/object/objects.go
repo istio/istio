@@ -334,7 +334,7 @@ func (os K8sObjects) YAMLManifest() (string, error) {
 		if _, err := b.Write(ym); err != nil {
 			return "", err
 		}
-		if _, err := b.Write([]byte(YAMLSeparator)); err != nil {
+		if _, err := b.WriteString(YAMLSeparator); err != nil {
 			return "", err
 		}
 
@@ -547,13 +547,13 @@ func resolvePDBConflict(o *K8sObject) *K8sObject {
 		var ii intstr.IntOrString
 		switch item := item.(type) {
 		case int:
-			ii = intstr.FromInt(item)
+			ii = intstr.FromInt32(int32(item))
 		case int64:
-			ii = intstr.FromInt(int(item))
+			ii = intstr.FromInt32(int32(item))
 		case string:
 			ii = intstr.FromString(item)
 		default:
-			ii = intstr.FromInt(0)
+			ii = intstr.FromInt32(0)
 		}
 		intVal, err := intstr.GetScaledValueFromIntOrPercent(&ii, 100, false)
 		if err != nil || intVal == 0 {
@@ -564,7 +564,7 @@ func resolvePDBConflict(o *K8sObject) *K8sObject {
 	if spec["maxUnavailable"] != nil && spec["minAvailable"] != nil {
 		// When both maxUnavailable and minAvailable present and
 		// neither has value 0, this is considered a conflict,
-		// then maxUnavailale will take precedence.
+		// then maxUnavailable will take precedence.
 		if !isDefault(spec["maxUnavailable"]) && !isDefault(spec["minAvailable"]) {
 			delete(spec, "minAvailable")
 			// Make sure that the json and yaml representation of the object

@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvr"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/network"
@@ -47,7 +46,7 @@ type networkManager struct {
 	ranger    cidranger.Ranger
 	clusterID cluster.ID
 
-	gatewayResourceClient kclient.Untyped
+	gatewayResourceClient kclient.Informer[*v1beta1.Gateway]
 	meshNetworksWatcher   mesh.NetworksWatcher
 
 	// Network name for to be used when the meshNetworks fromRegistry nor network label on pod is specified
@@ -69,8 +68,8 @@ type networkManager struct {
 	model.NetworkGatewaysHandler
 }
 
-func initNetworkManager(options Options) networkManager {
-	return networkManager{
+func initNetworkManager(c *Controller, options Options) *networkManager {
+	n := &networkManager{
 		clusterID:           options.ClusterID,
 		meshNetworksWatcher: options.MeshNetworksWatcher,
 		// zero values are a workaround structcheck issue: https://github.com/golangci/golangci-lint/issues/826
@@ -82,6 +81,11 @@ func initNetworkManager(options Options) networkManager {
 		gatewaysFromResource:           make(map[types.UID]model.NetworkGatewaySet),
 		discoverRemoteGatewayResources: options.ConfigCluster,
 	}
+	if features.MultiNetworkGatewayAPI {
+		n.gatewayResourceClient = kclient.NewDelayedInformer[*v1beta1.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
+		registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
+	}
+	return n
 }
 
 // setNetworkFromNamespace sets network got from system namespace, returns whether it has changed
@@ -218,10 +222,6 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 	c.networkManager.RLock()
 	defer c.networkManager.RUnlock()
 
-	if len(c.networkGatewaysBySvc) == 0 {
-		return nil
-	}
-
 	// Merge all the gateways into a single set to eliminate duplicates.
 	out := make(model.NetworkGatewaySet)
 	for _, gateways := range c.networkGatewaysBySvc {
@@ -336,24 +336,10 @@ func (n *networkManager) getGatewayDetails(svc *model.Service) []model.NetworkGa
 	return nil
 }
 
-func (n *networkManager) watchGatewayResources(c *Controller, stop <-chan struct{}) {
-	if !features.MultiNetworkGatewayAPI {
-		return
-	}
-	n.gatewayResourceClient = kclient.NewDelayedInformer(c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
-	registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
-	go n.gatewayResourceClient.Start(stop)
-}
-
 // handleGateway resource adds a NetworkGateway for each combination of address and auto-passthrough listener
 // discovering duplicates from the generated Service is not a huge concern as we de-duplicate in NetworkGateways
 // which returns a set, although it's not totally efficient.
-func (n *networkManager) handleGatewayResource(_ controllers.Object, obj controllers.Object, event model.Event) error {
-	gw, ok := obj.(*v1beta1.Gateway)
-	if !ok {
-		return nil
-	}
-
+func (n *networkManager) handleGatewayResource(_ *v1beta1.Gateway, gw *v1beta1.Gateway, event model.Event) error {
 	if nw := gw.GetLabels()[label.TopologyNetwork.Name]; nw == "" {
 		return nil
 	}

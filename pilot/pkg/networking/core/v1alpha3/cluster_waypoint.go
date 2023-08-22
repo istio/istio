@@ -87,11 +87,11 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 }
 
 // `inbound-vip||hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, port model.Port, subset string) *MutableCluster {
+func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, port model.Port, subset string) *clusterWrapper {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
 	clusterType := cluster.Cluster_EDS
-	localCluster := cb.buildDefaultCluster(clusterName, clusterType, nil,
+	localCluster := cb.buildCluster(clusterName, clusterType, nil,
 		model.TrafficDirectionInbound, &port, nil, nil)
 
 	// Ensure VIP cluster has services metadata for stats filter usage

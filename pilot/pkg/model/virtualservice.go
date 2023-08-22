@@ -129,6 +129,11 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 		if d.Mirror != nil {
 			d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, meta))
 		}
+		for _, m := range d.Mirrors {
+			if m.Destination != nil {
+				m.Destination.Host = string(ResolveShortnameToFQDN(m.Destination.Host, meta))
+			}
+		}
 	}
 	// resolve host in tcp route.destination
 	for _, d := range rule.Tcp {
@@ -321,6 +326,9 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	}
 	if delegate.CorsPolicy == nil {
 		delegate.CorsPolicy = root.CorsPolicy
+	}
+	if delegate.Mirrors == nil {
+		delegate.Mirrors = root.Mirrors
 	}
 	if delegate.Headers == nil {
 		delegate.Headers = root.Headers

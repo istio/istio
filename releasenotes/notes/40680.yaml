@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 40680
+releaseNotes:
+  - |
+    **Fixed** configuring istio.alpn filter for non-Istio mTLS.

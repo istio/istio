@@ -150,6 +150,14 @@ spec:
               value: "true"
             {{- end }}
             {{- end }}
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir

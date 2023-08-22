@@ -352,11 +352,6 @@ func writeFile(path string, data []byte) error {
 	return os.WriteFile(path, data, 0o644)
 }
 
-// removeFile removes given file from provided path.
-func removeFile(path string) error {
-	return os.Remove(path)
-}
-
 // inFileAbsolutePath returns the absolute path for an input file like "gateways".
 func inFileAbsolutePath(inFile string) string {
 	return filepath.Join(testDataDir, "input", inFile+".yaml")

@@ -21,11 +21,14 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+
+	"istio.io/istio/pkg/log"
 )
 
 // PortForwarder manages the forwarding of a single port.
@@ -38,6 +41,11 @@ type PortForwarder interface {
 
 	// Close this forwarder and release an resources.
 	Close()
+
+	// ErrChan returns a channel that returns an error when one is encountered. While Start() may return an initial error,
+	// the port-forward connection may be lost at anytime. The ErrChan can be read to determine if/when the port-forwarding terminates.
+	// This can return nil if the port forwarding stops gracefully.
+	ErrChan() <-chan error
 
 	// WaitForStop blocks until connection closed (e.g. control-C interrupt)
 	WaitForStop()
@@ -53,12 +61,14 @@ type forwarder struct {
 	localAddress string
 	localPort    int
 	podPort      int
-	address      string
+	errCh        chan error
 }
 
 func (f *forwarder) Start() error {
-	errCh := make(chan error, 1)
+	f.errCh = make(chan error, 1)
 	readyCh := make(chan struct{}, 1)
+
+	var fw *portforward.PortForwarder
 	go func() {
 		for {
 			select {
@@ -66,16 +76,20 @@ func (f *forwarder) Start() error {
 				return
 			default:
 			}
+			var err error
 			// Build a new port forwarder.
-			fw, err := f.buildK8sPortForwarder(readyCh)
+			fw, err = f.buildK8sPortForwarder(readyCh)
 			if err != nil {
-				errCh <- err
+				f.errCh <- fmt.Errorf("building port forwarded: %v", err)
 				return
 			}
 			if err = fw.ForwardPorts(); err != nil {
-				errCh <- err
+				log.Errorf("port forward failed: %v", err)
+				f.errCh <- fmt.Errorf("port forward: %v", err)
 				return
 			}
+			log.Infof("port forward completed without error")
+			f.errCh <- nil
 			// At this point, either the stopCh has been closed, or port forwarder connection is broken.
 			// the port forwarder should have already been ready before.
 			// No need to notify the ready channel anymore when forwarding again.
@@ -83,23 +97,39 @@ func (f *forwarder) Start() error {
 		}
 	}()
 
+	// We want to block Start() until we have either gotten an error or have started
+	// We may later get an error, but that is handled async.
 	select {
-	case err := <-errCh:
+	case err := <-f.errCh:
 		return fmt.Errorf("failure running port forward process: %v", err)
 	case <-readyCh:
+		p, err := fw.GetPorts()
+		if err != nil {
+			return fmt.Errorf("failed to get ports: %v", err)
+		}
+		if len(p) == 0 {
+			return fmt.Errorf("got no ports")
+		}
+		// Set local port now, as it may have been 0 as input
+		f.localPort = int(p[0].Local)
+		log.Debugf("Port forward established %v -> %v.%v:%v", f.Address(), f.podName, f.podName, f.podPort)
 		// The forwarder is now ready.
 		return nil
 	}
 }
 
 func (f *forwarder) Address() string {
-	return f.address
+	return net.JoinHostPort(f.localAddress, strconv.Itoa(f.localPort))
 }
 
 func (f *forwarder) Close() {
 	close(f.stopCh)
 	// Closing the stop channel should close anything
 	// opened by f.forwarder.ForwardPorts()
+}
+
+func (f *forwarder) ErrChan() <-chan error {
+	return f.errCh
 }
 
 func (f *forwarder) WaitForStop() {
@@ -119,17 +149,7 @@ func newPortForwarder(c *client, podName, ns, localAddress string, localPort, po
 		localPort:    localPort,
 		podPort:      podPort,
 	}
-	if f.localPort == 0 {
-		var err error
-		reserved, err := c.portManager()
-		if err != nil {
-			return nil, fmt.Errorf("failure allocating port: %v", err)
-		}
-		f.localPort = int(reserved)
-	}
 
-	sLocalPort := fmt.Sprintf("%d", f.localPort)
-	f.address = net.JoinHostPort(localAddress, sLocalPort)
 	return f, nil
 }
 

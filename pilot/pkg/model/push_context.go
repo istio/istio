@@ -16,6 +16,7 @@ package model
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"net/netip"
 	"sort"
@@ -71,7 +72,7 @@ type serviceIndex struct {
 	// instancesByPort contains a map of service key and instances by port. It is stored here
 	// to avoid recomputations during push. This caches instanceByPort calls with empty labels.
 	// Call InstancesByPort directly when instances need to be filtered by actual labels.
-	instancesByPort map[string]map[int][]*ServiceInstance
+	instancesByPort map[string]map[int][]*IstioEndpoint
 }
 
 func newServiceIndex() serviceIndex {
@@ -80,7 +81,7 @@ func newServiceIndex() serviceIndex {
 		privateByNamespace:   map[string][]*Service{},
 		exportedToNamespace:  map[string][]*Service{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
-		instancesByPort:      map[string]map[int][]*ServiceInstance{},
+		instancesByPort:      map[string]map[int][]*IstioEndpoint{},
 	}
 }
 
@@ -130,15 +131,12 @@ type destinationRuleIndex struct {
 	//  exportedByNamespace contains all dest rules pertaining to a service exported by a namespace.
 	exportedByNamespace map[string]*consolidatedDestRules
 	rootNamespaceLocal  *consolidatedDestRules
-	// mesh/namespace dest rules to be inherited
-	inheritedByNamespace map[string]*ConsolidatedDestRule
 }
 
 func newDestinationRuleIndex() destinationRuleIndex {
 	return destinationRuleIndex{
-		namespaceLocal:       map[string]*consolidatedDestRules{},
-		exportedByNamespace:  map[string]*consolidatedDestRules{},
-		inheritedByNamespace: map[string]*ConsolidatedDestRule{},
+		namespaceLocal:      map[string]*consolidatedDestRules{},
+		exportedByNamespace: map[string]*consolidatedDestRules{},
 	}
 }
 
@@ -604,14 +602,14 @@ var (
 	// This can be normal - for workloads that act only as client, or are not covered by a Service.
 	// It can also be an error, for example in cases the Endpoint list of a service was not updated by the time
 	// the sidecar calls.
-	// Updated by GetProxyServiceInstances
+	// Updated by GetProxyServiceTargets
 	ProxyStatusNoService = monitoring.NewGauge(
 		"pilot_no_ip",
 		"Pods not found in the endpoint table, possibly invalid.",
 	)
 
 	// ProxyStatusEndpointNotReady represents proxies found not be ready.
-	// Updated by GetProxyServiceInstances. Normal condition when starting
+	// Updated by GetProxyServiceTargets. Normal condition when starting
 	// an app with readiness, error if it doesn't change to 0.
 	ProxyStatusEndpointNotReady = monitoring.NewGauge(
 		"pilot_endpoint_not_ready",
@@ -710,11 +708,11 @@ func (ps *PushContext) AddPublicServices(services []*Service) {
 }
 
 // AddServiceInstances adds instances to the context service instances - mainly used in tests.
-func (ps *PushContext) AddServiceInstances(service *Service, instances map[int][]*ServiceInstance) {
+func (ps *PushContext) AddServiceInstances(service *Service, instances map[int][]*IstioEndpoint) {
 	svcKey := service.Key()
 	for port, inst := range instances {
 		if _, exists := ps.ServiceIndex.instancesByPort[svcKey]; !exists {
-			ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
+			ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*IstioEndpoint)
 		}
 		ps.ServiceIndex.instancesByPort[svcKey][port] = append(ps.ServiceIndex.instancesByPort[svcKey][port], inst...)
 	}
@@ -776,6 +774,11 @@ func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Se
 		}
 		if h.Mirror != nil {
 			addDestination(h.Mirror.Host, h.Mirror.GetPort())
+		}
+		for _, m := range h.Mirrors {
+			if m.Destination != nil {
+				addDestination(m.Destination.Host, m.Destination.GetPort())
+			}
 		}
 	}
 	for _, t := range v.Tcp {
@@ -852,6 +855,36 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) b
 	return false
 }
 
+// wellknownProviders is a lsit of all known providers.
+// This exists
+var wellknownProviders = sets.New(
+	"envoy_ext_authz_http",
+	"envoy_ext_authz_grpc",
+	"zipkin",
+	"lightstep",
+	"datadog",
+	"opencensus",
+	"stackdriver",
+	"prometheus",
+	"skywalking",
+	"envoy_http_als",
+	"envoy_tcp_als",
+	"envoy_otel_als",
+	"opentelemetry",
+	"envoy_file_access_log",
+)
+
+func AssertProvidersHandled(expected int) {
+	if expected != len(wellknownProviders) {
+		panic(fmt.Sprintf("Not all providers handled; This function handles %v but there are %v known providers", expected, len(wellknownProviders)))
+	}
+}
+
+// addHostsFromMeshConfigProvidersHandled contains the number of providers we handle below.
+// This is to ensure this stays in sync as new handlers are added
+// STOP. DO NOT UPDATE THIS WITHOUT UPDATING addHostsFromMeshConfig.
+const addHostsFromMeshConfigProvidersHandled = 14
+
 // add services from MeshConfig.ExtensionProviders
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
 func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
@@ -868,16 +901,21 @@ func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
 			hosts.Insert(p.Lightstep.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 			hosts.Insert(p.Datadog.Service)
-		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
-			hosts.Insert(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 			hosts.Insert(p.Skywalking.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
+			hosts.Insert(p.Opencensus.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
+			hosts.Insert(p.Opentelemetry.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyHttpAls:
 			hosts.Insert(p.EnvoyHttpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyTcpAls:
 			hosts.Insert(p.EnvoyTcpAls.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
 			hosts.Insert(p.EnvoyOtelAls.Service)
+		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog: // No services
+		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus: // No services
+		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver: // No services
 		}
 	}
 }
@@ -1137,18 +1175,6 @@ func (ps *PushContext) destinationRule(proxyNameSpace string, service *Service) 
 		return out
 	}
 
-	// 5. service DestinationRules were merged in SetDestinationRules, return mesh/namespace rules if present
-	if features.EnableDestinationRuleInheritance {
-		// return namespace rule if present
-		if out := ps.destinationRuleIndex.inheritedByNamespace[proxyNameSpace]; out != nil {
-			return []*ConsolidatedDestRule{out}
-		}
-		// return mesh rule
-		if out := ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]; out != nil {
-			return []*ConsolidatedDestRule{out}
-		}
-	}
-
 	return nil
 }
 
@@ -1161,23 +1187,6 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 			// Check if the dest rule for this host is actually exported to the proxy's (client) namespace
 			exportToMap := ps.destinationRuleIndex.exportedByNamespace[owningNamespace].exportTo[specificHostname]
 			if len(exportToMap) == 0 || exportToMap[visibility.Public] || exportToMap[visibility.Instance(clientNamespace)] {
-				if features.EnableDestinationRuleInheritance {
-					var parent *ConsolidatedDestRule
-					// client inherits global DR from its own namespace, not from the exported DR's owning namespace
-					// grab the client namespace DR or mesh if none exists
-					if parent = ps.destinationRuleIndex.inheritedByNamespace[clientNamespace]; parent == nil {
-						parent = ps.destinationRuleIndex.inheritedByNamespace[ps.Mesh.RootNamespace]
-					}
-					var inheritedDrList []*ConsolidatedDestRule
-					for _, child := range drs {
-						inheritedDr := ps.inheritDestinationRule(parent, child)
-						if inheritedDr != nil {
-							inheritedDrList = append(inheritedDrList, inheritedDr)
-						}
-
-					}
-					return inheritedDrList
-				}
 				return drs
 			}
 		}
@@ -1397,17 +1406,19 @@ func (ps *PushContext) initServiceRegistry(env *Environment) {
 	// Sort the services in order of creation.
 	allServices := SortServicesByCreationTime(env.Services())
 	for _, s := range allServices {
-		svcKey := s.Key()
-		// Precache instances
+		portMap := map[string]int{}
 		for _, port := range s.Ports {
-			if _, ok := ps.ServiceIndex.instancesByPort[svcKey]; !ok {
-				ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*ServiceInstance)
-			}
-			instances := make([]*ServiceInstance, 0)
-			instances = append(instances, env.InstancesByPort(s, port.Port)...)
-			ps.ServiceIndex.instancesByPort[svcKey][port.Port] = instances
+			portMap[port.Name] = port.Port
 		}
 
+		svcKey := s.Key()
+		if _, ok := ps.ServiceIndex.instancesByPort[svcKey]; !ok {
+			ps.ServiceIndex.instancesByPort[svcKey] = make(map[int][]*IstioEndpoint)
+		}
+		shards, ok := env.EndpointIndex.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
+		if ok {
+			ps.ServiceIndex.instancesByPort[svcKey] = shards.CopyEndpoints(portMap)
+		}
 		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
 		}
@@ -1744,20 +1755,9 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	namespaceLocalDestRules := make(map[string]*consolidatedDestRules)
 	exportedDestRulesByNamespace := make(map[string]*consolidatedDestRules)
 	rootNamespaceLocalDestRules := newConsolidatedDestRules()
-	inheritedConfigs := make(map[string]*ConsolidatedDestRule)
 
 	for i := range configs {
 		rule := configs[i].Spec.(*networking.DestinationRule)
-
-		if features.EnableDestinationRuleInheritance && rule.Host == "" {
-			if t, ok := inheritedConfigs[configs[i].Namespace]; ok {
-				log.Warnf("Namespace/mesh-level DestinationRule is already defined for %q at time %v."+
-					" Ignore %q which was created at time %v",
-					configs[i].Namespace, t.rule.CreationTimestamp, configs[i].Name, configs[i].CreationTimestamp)
-				continue
-			}
-			inheritedConfigs[configs[i].Namespace] = ConvertConsolidatedDestRule(&configs[i])
-		}
 
 		rule.Host = string(ResolveShortnameToFQDN(rule.Host, configs[i].Meta))
 		exportToMap := make(map[visibility.Instance]bool)
@@ -1808,33 +1808,9 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 		}
 	}
 
-	// precompute DestinationRules with inherited fields
-	if features.EnableDestinationRuleInheritance {
-		globalRule := inheritedConfigs[ps.Mesh.RootNamespace]
-		for ns := range namespaceLocalDestRules {
-			nsRule := inheritedConfigs[ns]
-			inheritedRule := ps.inheritDestinationRule(globalRule, nsRule)
-			for hostname, cfgList := range namespaceLocalDestRules[ns].specificDestRules {
-				for i, cfg := range cfgList {
-					namespaceLocalDestRules[ns].specificDestRules[hostname][i] = ps.inheritDestinationRule(inheritedRule, cfg)
-				}
-			}
-			for hostname, cfgList := range namespaceLocalDestRules[ns].wildcardDestRules {
-				for i, cfg := range cfgList {
-					namespaceLocalDestRules[ns].wildcardDestRules[hostname][i] = ps.inheritDestinationRule(inheritedRule, cfg)
-				}
-			}
-			// update namespace rule after it has been merged with mesh rule
-			inheritedConfigs[ns] = inheritedRule
-		}
-		// can't precalculate exportedDestRulesByNamespace since we don't know all the client namespaces in advance
-		// inheritance is performed in getExportedDestinationRuleFromNamespace
-	}
-
 	ps.destinationRuleIndex.namespaceLocal = namespaceLocalDestRules
 	ps.destinationRuleIndex.exportedByNamespace = exportedDestRulesByNamespace
 	ps.destinationRuleIndex.rootNamespaceLocal = rootNamespaceLocalDestRules
-	ps.destinationRuleIndex.inheritedByNamespace = inheritedConfigs
 }
 
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) {
@@ -2059,7 +2035,7 @@ type gatewayWithInstances struct {
 	// If true, ports that are not present in any instance will be used directly (without targetPort translation)
 	// This supports the legacy behavior of selecting gateways by pod label selector
 	legacyGatewaySelector bool
-	instances             []*ServiceInstance
+	instances             []ServiceTarget
 }
 
 func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
@@ -2081,8 +2057,8 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 		if gwsvcstr, f := cfg.Annotations[InternalGatewayServiceAnnotation]; f {
 			gwsvcs := strings.Split(gwsvcstr, ",")
 			known := sets.New[string](gwsvcs...)
-			matchingInstances := make([]*ServiceInstance, 0, len(proxy.ServiceInstances))
-			for _, si := range proxy.ServiceInstances {
+			matchingInstances := make([]ServiceTarget, 0, len(proxy.ServiceTargets))
+			for _, si := range proxy.ServiceTargets {
 				if _, f := known[string(si.Service.Hostname)]; f && si.Service.Attributes.Namespace == cfg.Namespace {
 					matchingInstances = append(matchingInstances, si)
 				}
@@ -2093,11 +2069,11 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			}
 		} else if gw.GetSelector() == nil {
 			// no selector. Applies to all workloads asking for the gateway
-			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
+			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceTargets})
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			if gatewaySelector.SubsetOf(proxy.Labels) {
-				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceInstances})
+				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceTargets})
 			}
 		}
 	}
@@ -2130,13 +2106,13 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 	// TODO(https://github.com/istio/istio/issues/27376) enable mixed deployments
 	// A service with passthrough resolution is always passthrough, regardless of the TrafficPolicy.
 	if service.Resolution == Passthrough || tp.GetLoadBalancer().GetSimple() == networking.LoadBalancerSettings_PASSTHROUGH {
-		instances := ps.ServiceInstancesByPort(service, port.Port, nil)
+		instances := ps.ServiceEndpointsByPort(service, port.Port, nil)
 		if len(instances) == 0 {
 			return MTLSDisable
 		}
 		for _, i := range instances {
 			// Infer mTls disabled if any of the endpoint is with tls disabled
-			if i.Endpoint.TLSMode == DisabledTLSModeLabel {
+			if i.TLSMode == DisabledTLSModeLabel {
 				return MTLSDisable
 			}
 		}
@@ -2152,9 +2128,9 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 	return MTLSPermissive
 }
 
-// ServiceInstancesByPort returns the cached instances by port if it exists.
-func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels labels.Instance) []*ServiceInstance {
-	out := []*ServiceInstance{}
+// ServiceEndpointsByPort returns the cached instances by port if it exists.
+func (ps *PushContext) ServiceEndpointsByPort(svc *Service, port int, labels labels.Instance) []*IstioEndpoint {
+	out := []*IstioEndpoint{}
 	if instances, exists := ps.ServiceIndex.instancesByPort[svc.Key()][port]; exists {
 		// Use cached version of instances by port when labels are empty.
 		if len(labels) == 0 {
@@ -2163,7 +2139,7 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 		// If there are labels,	we will filter instances by pod labels.
 		for _, instance := range instances {
 			// check that one of the input labels is a subset of the labels
-			if labels.SubsetOf(instance.Endpoint.Labels) {
+			if labels.SubsetOf(instance.Labels) {
 				out = append(out, instance)
 			}
 		}
@@ -2172,8 +2148,8 @@ func (ps *PushContext) ServiceInstancesByPort(svc *Service, port int, labels lab
 	return out
 }
 
-// ServiceInstances returns the cached instances by svc if exists.
-func (ps *PushContext) ServiceInstances(svcKey string) map[int][]*ServiceInstance {
+// ServiceEndpoints returns the cached instances by svc if exists.
+func (ps *PushContext) ServiceEndpoints(svcKey string) map[int][]*IstioEndpoint {
 	if instances, exists := ps.ServiceIndex.instancesByPort[svcKey]; exists {
 		return instances
 	}

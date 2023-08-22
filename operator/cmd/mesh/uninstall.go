@@ -180,7 +180,7 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 		if err != nil {
 			return err
 		}
-		preCheckWarnings(cmd, kubeClientWithRev, uiArgs, uiArgs.revision, objectsList, nil, l)
+		preCheckWarnings(cmd, kubeClientWithRev, uiArgs, uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
 
 		if err := h.DeleteObjectsList(objectsList, ""); err != nil {
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
@@ -198,7 +198,7 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 	if err != nil {
 		return err
 	}
-	preCheckWarnings(cmd, kubeClientWithRev, uiArgs, iop.Spec.Revision, nil, cpObjects, l)
+	preCheckWarnings(cmd, kubeClientWithRev, uiArgs, iop.Spec.Revision, nil, cpObjects, l, rootArgs.DryRun)
 	h, err = helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
@@ -214,7 +214,7 @@ func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, lo
 // 1. checks proxies still pointing to the target control plane revision.
 // 2. lists to be pruned resources if user uninstall by --revision flag.
 func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uninstallArgs,
-	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger,
+	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger, dryRun bool,
 ) {
 	pids, err := proxyinfo.GetIDsFromProxyInfo(kubeClient, uiArgs.istioNamespace)
 	if err != nil {
@@ -250,7 +250,7 @@ func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uni
 			message += fmt.Sprintf(GatewaysRemovedWarning, gwList)
 		}
 	}
-	if uiArgs.skipConfirmation {
+	if dryRun || uiArgs.skipConfirmation {
 		l.LogAndPrint(message)
 		return
 	}

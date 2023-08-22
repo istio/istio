@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
@@ -67,11 +68,9 @@ func TestEndpointSliceFromMCSShouldBeIgnored(t *testing.T) {
 	})
 	fx.AssertEmpty(t, time.Millisecond*50)
 
-	// Ensure that getting by port returns no ServiceInstances.
-	instances := controller.InstancesByPort(svc, svc.Ports[0].Port)
-	if len(instances) != 0 {
-		t.Fatalf("should be 0 instances: len(instances) = %v", len(instances))
-	}
+	// Ensure that no endpoint is create
+	endpoints := GetEndpoints(svc, controller.Endpoints)
+	assert.Equal(t, len(endpoints), 0)
 }
 
 func TestEndpointSliceCache(t *testing.T) {

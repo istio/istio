@@ -153,13 +153,22 @@ func Reference[E any](s []E) []*E {
 	return res
 }
 
-// Dereference returns all non-nil references, derefernced
+// Dereference returns all non-nil references, dereferenced
 func Dereference[E any](s []*E) []E {
 	res := make([]E, 0, len(s))
 	for _, v := range s {
 		if v != nil {
 			res = append(res, *v)
 		}
+	}
+	return res
+}
+
+// Flatten merges a slice of slices into a single slice.
+func Flatten[E any](s [][]E) []E {
+	res := make([]E, 0)
+	for _, v := range s {
+		res = append(res, v...)
 	}
 	return res
 }

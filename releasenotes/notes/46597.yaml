@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+- 46597
+releaseNotes:
+- |
+  **Fixed** `istioctl analyze` incorrectly showing an error when ServiceEntry hosts are used in a VirtualService destination across namespace boundary.

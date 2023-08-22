@@ -31,7 +31,7 @@ const (
 	saToken        = "service_account_token_string"
 )
 
-func TestCreateKubeconfigFile(t *testing.T) {
+func TestCreateValidKubeconfigFile(t *testing.T) {
 	tmp := t.TempDir()
 	os.WriteFile(filepath.Join(tmp, "token"), []byte(saToken), 0o644)
 	constants.ServiceAccountPath = tmp
@@ -98,5 +98,92 @@ func TestCreateKubeconfigFile(t *testing.T) {
 
 			testutils.CompareContent(t, []byte(result.Full), goldenFilepath)
 		})
+	}
+}
+
+func TestReplaceInvalidKubeconfigFile(t *testing.T) {
+	tmp := t.TempDir()
+	os.WriteFile(filepath.Join(tmp, "token"), []byte(saToken), 0o644)
+	constants.ServiceAccountPath = tmp
+	tempDir := t.TempDir()
+
+	cfg := &config.InstallConfig{
+		MountedCNINetDir: tempDir,
+		KubeCAFile:       kubeCAFilepath,
+		K8sServiceHost:   k8sServiceHost,
+		K8sServicePort:   k8sServicePort,
+	}
+	// Write out a kubeconfig with one cert
+	result, err := createKubeConfig(cfg)
+	if err != nil {
+		t.Fatalf("did not expect failure: %v", err)
+	}
+	goldenFilepath := "testdata/kubeconfig-tls"
+	testutils.CompareContent(t, []byte(result.Full), goldenFilepath)
+
+	newk8sServiceHost := "50.76.2.1"
+	newCfg := &config.InstallConfig{
+		MountedCNINetDir: tempDir,
+		KubeCAFile:       kubeCAFilepath,
+		K8sServiceHost:   newk8sServiceHost,
+		K8sServicePort:   k8sServicePort,
+	}
+	// Write out a kubeconfig with one cert
+	result, err = createKubeConfig(newCfg)
+	if err != nil {
+		t.Fatalf("did not expect failure: %v", err)
+	}
+	goldenNewFilepath := "testdata/kubeconfig-newhost"
+	testutils.CompareContent(t, []byte(result.Full), goldenNewFilepath)
+}
+
+func TestCheckNoExistingKubeConfig(t *testing.T) {
+	tmp := t.TempDir()
+	os.WriteFile(filepath.Join(tmp, "token"), []byte(saToken), 0o644)
+	constants.ServiceAccountPath = tmp
+	tempDir := t.TempDir()
+
+	cfg := &config.InstallConfig{
+		MountedCNINetDir: tempDir,
+		KubeCAFile:       kubeCAFilepath,
+		K8sServiceHost:   k8sServiceHost,
+		K8sServicePort:   k8sServicePort,
+	}
+
+	expectedKC, err := createKubeConfig(cfg)
+	if err != nil {
+		t.Fatalf("expected no error: %+v", err)
+	}
+	err = checkExistingKubeConfigFile(cfg, expectedKC)
+
+	if err == nil {
+		t.Fatalf("expected error, no kubeconfig present")
+	}
+}
+
+func TestCheckMismatchedExistingKubeConfig(t *testing.T) {
+	tmp := t.TempDir()
+	os.WriteFile(filepath.Join(tmp, "token"), []byte(saToken), 0o644)
+	constants.ServiceAccountPath = tmp
+	tempDir := t.TempDir()
+
+	cfg := &config.InstallConfig{
+		MountedCNINetDir:   tempDir,
+		KubeCAFile:         kubeCAFilepath,
+		K8sServiceHost:     k8sServiceHost,
+		K8sServicePort:     k8sServicePort,
+		KubeconfigFilename: "dork.cfg",
+	}
+
+	expectedKC, err := createKubeConfig(cfg)
+	if err != nil {
+		t.Fatalf("expected no error: %+v", err)
+	}
+	os.WriteFile(filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename), []byte(expectedKC.Full), 0o644)
+
+	err = checkExistingKubeConfigFile(cfg, expectedKC)
+
+	if err != nil {
+		t.Fatalf("expected no error, matching kubeconfig present, got %+v", err)
 	}
 }

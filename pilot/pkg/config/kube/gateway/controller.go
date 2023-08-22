@@ -183,6 +183,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	gatewayClass := c.cache.List(gvk.GatewayClass, metav1.NamespaceAll)
 	gateway := c.cache.List(gvk.KubernetesGateway, metav1.NamespaceAll)
 	httpRoute := c.cache.List(gvk.HTTPRoute, metav1.NamespaceAll)
+	grpcRoute := c.cache.List(gvk.GRPCRoute, metav1.NamespaceAll)
 	tcpRoute := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
 	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
 	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
@@ -191,6 +192,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 		GatewayClass:   deepCopyStatus(gatewayClass),
 		Gateway:        deepCopyStatus(gateway),
 		HTTPRoute:      deepCopyStatus(httpRoute),
+		GRPCRoute:      deepCopyStatus(grpcRoute),
 		TCPRoute:       deepCopyStatus(tcpRoute),
 		TLSRoute:       deepCopyStatus(tlsRoute),
 		ReferenceGrant: referenceGrant,
@@ -237,6 +239,7 @@ func (c *Controller) QueueStatusUpdates(r GatewayResources) {
 	c.handleStatusUpdates(r.GatewayClass)
 	c.handleStatusUpdates(r.Gateway)
 	c.handleStatusUpdates(r.HTTPRoute)
+	c.handleStatusUpdates(r.GRPCRoute)
 	c.handleStatusUpdates(r.TCPRoute)
 	c.handleStatusUpdates(r.TLSRoute)
 }
@@ -285,13 +288,15 @@ func (c *Controller) RegisterEventHandler(typ config.GroupVersionKind, handler m
 }
 
 func (c *Controller) Run(stop <-chan struct{}) {
-	go func() {
-		if c.waitForCRD(gvr.GatewayClass, stop) {
-			gcc := NewClassController(c.client)
-			c.client.RunAndWait(stop)
-			gcc.Run(stop)
-		}
-	}()
+	if features.EnableGatewayAPIGatewayClassController {
+		go func() {
+			if c.waitForCRD(gvr.GatewayClass, stop) {
+				gcc := NewClassController(c.client)
+				c.client.RunAndWait(stop)
+				gcc.Run(stop)
+			}
+		}()
+	}
 }
 
 func (c *Controller) HasSynced() bool {
@@ -391,6 +396,7 @@ func (kr GatewayResources) hasResources() bool {
 	return len(kr.GatewayClass) > 0 ||
 		len(kr.Gateway) > 0 ||
 		len(kr.HTTPRoute) > 0 ||
+		len(kr.GRPCRoute) > 0 ||
 		len(kr.TCPRoute) > 0 ||
 		len(kr.TLSRoute) > 0 ||
 		len(kr.ReferenceGrant) > 0

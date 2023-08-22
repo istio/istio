@@ -447,18 +447,13 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	// When doing a full push, the non DNS added, updated, unchanged services trigger an eds update
 	// so that endpoint shards are updated.
 	allServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs))
-	nonDNSServices := make([]*model.Service, 0, len(addedSvcs)+len(updatedSvcs)+len(unchangedSvcs))
 	allServices = append(allServices, addedSvcs...)
 	allServices = append(allServices, updatedSvcs...)
 	allServices = append(allServices, unchangedSvcs...)
-	for _, svc := range allServices {
-		if !(svc.Resolution == model.DNSLB || svc.Resolution == model.DNSRoundRobinLB) {
-			nonDNSServices = append(nonDNSServices, svc)
-		}
-	}
+
 	// non dns service instances
-	keys := sets.NewWithLength[instancesKey](len(nonDNSServices))
-	for _, svc := range nonDNSServices {
+	keys := sets.NewWithLength[instancesKey](len(allServices))
+	for _, svc := range allServices {
 		keys.Insert(instancesKey{hostname: svc.Hostname, namespace: curr.Namespace})
 	}
 
@@ -678,22 +673,6 @@ func (s *Controller) GetService(hostname host.Name) *model.Service {
 	return nil
 }
 
-// InstancesByPort retrieves instances for a service on the given ports with labels that
-// match any of the supplied labels. All instances match an empty tag list.
-func (s *Controller) InstancesByPort(svc *model.Service, port int) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
-	s.mutex.RLock()
-	instanceLists := s.serviceInstances.getByKey(instancesKey{svc.Hostname, svc.Attributes.Namespace})
-	s.mutex.RUnlock()
-	for _, instance := range instanceLists {
-		if portMatchSingle(instance, port) {
-			out = append(out, instance)
-		}
-	}
-
-	return out
-}
-
 // ResyncEDS will do a full EDS update. This is needed for some tests where we have many configs loaded without calling
 // the config handlers.
 // This should probably not be used in production code.
@@ -806,15 +785,10 @@ func (s *Controller) buildEndpoints(keys map[instancesKey]struct{}) map[instance
 	return endpoints
 }
 
-// returns true if an instance's port matches with any in the provided list
-func portMatchSingle(instance *model.ServiceInstance, port int) bool {
-	return port == 0 || port == instance.ServicePort.Port
-}
-
-// GetProxyServiceInstances lists service instances co-located with a given proxy
+// GetProxyServiceTargets lists service instances co-located with a given proxy
 // NOTE: The service objects in these instances do not have the auto allocated IP set.
-func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+func (s *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTarget {
+	out := make([]model.ServiceTarget, 0)
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	for _, ip := range node.IPAddresses {
@@ -825,7 +799,7 @@ func (s *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.Servic
 			// possibility of other namespaces inserting service instances into namespaces they do not
 			// control.
 			if node.Metadata.Namespace == "" || i.Service.Attributes.Namespace == node.Metadata.Namespace {
-				out = append(out, i)
+				out = append(out, model.ServiceInstanceToTarget(i))
 			}
 		}
 	}

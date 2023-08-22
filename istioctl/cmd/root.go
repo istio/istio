@@ -249,7 +249,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(tagCmd)
 
 	// leave the multicluster commands in x for backwards compat
-	rootCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand())
+	rootCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand(ctx))
 	rootCmd.AddCommand(proxyconfig.ClustersCommand(ctx))
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{

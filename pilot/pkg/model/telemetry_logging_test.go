@@ -955,6 +955,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 					TransportApiVersion:     core.ApiVersion_V3,
 					FilterStateObjectsToLog: envoyWasmStateToLog,
 				},
+				DisableBuiltinLabels: true,
 				Body: &otlpcommon.AnyValue{
 					Value: &otlpcommon.AnyValue_StringValue{
 						StringValue: EnvoyTextLogFormat,
@@ -987,6 +988,7 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 					TransportApiVersion:     core.ApiVersion_V3,
 					FilterStateObjectsToLog: envoyWasmStateToLog,
 				},
+				DisableBuiltinLabels: true,
 				Body: &otlpcommon.AnyValue{
 					Value: &otlpcommon.AnyValue_StringValue{
 						StringValue: EnvoyTextLogFormat,
@@ -1008,6 +1010,10 @@ func TestBuildOpenTelemetryAccessLogConfig(t *testing.T) {
 			assert.Equal(t, tc.expected, got)
 		})
 	}
+}
+
+func TestTelemetryAccessLogExhaustiveness(t *testing.T) {
+	AssertProvidersHandled(telemetryAccessLogHandled)
 }
 
 func TestTelemetryAccessLog(t *testing.T) {
@@ -1156,6 +1162,7 @@ func TestTelemetryAccessLog(t *testing.T) {
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
+		DisableBuiltinLabels: true,
 		Body: &otlpcommon.AnyValue{
 			Value: &otlpcommon.AnyValue_StringValue{
 				StringValue: EnvoyTextLogFormat,

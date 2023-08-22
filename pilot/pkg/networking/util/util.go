@@ -134,38 +134,36 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	return cidr
 }
 
+// AddrStrToCidrRange converts from string to CIDR prefix
+func AddrStrToPrefix(addr string) (netip.Prefix, error) {
+	if len(addr) == 0 {
+		return netip.Prefix{}, fmt.Errorf("empty address")
+	}
+
+	// Already a CIDR, just parse it.
+	if strings.Contains(addr, "/") {
+		return netip.ParsePrefix(addr)
+	}
+
+	// Otherwise it is a raw IP. Make it a /32 or /128 depending on family
+	ipa, err := netip.ParseAddr(addr)
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+
+	return netip.PrefixFrom(ipa, ipa.BitLen()), nil
+}
+
 // AddrStrToCidrRange converts from string to CIDR proto
 func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
-	if len(addr) == 0 {
-		return nil, fmt.Errorf("empty address")
+	prefix, err := AddrStrToPrefix(addr)
+	if err != nil {
+		return nil, err
 	}
-
-	var (
-		ipAddr        netip.Addr
-		maxCidrPrefix int
-	)
-
-	if strings.Contains(addr, "/") {
-		ipp, err := netip.ParsePrefix(addr)
-		if err != nil {
-			return nil, err
-		}
-		ipAddr = ipp.Addr()
-		maxCidrPrefix = ipp.Bits()
-	} else {
-		ipa, err := netip.ParseAddr(addr)
-		if err != nil {
-			return nil, err
-		}
-
-		ipAddr = ipa
-		maxCidrPrefix = ipAddr.BitLen()
-	}
-
 	return &core.CidrRange{
-		AddressPrefix: ipAddr.String(),
+		AddressPrefix: prefix.Addr().String(),
 		PrefixLen: &wrapperspb.UInt32Value{
-			Value: uint32(maxCidrPrefix),
+			Value: uint32(prefix.Bits()),
 		},
 	}, nil
 }
@@ -187,7 +185,7 @@ func BuildAddress(bind string, port uint32) *core.Address {
 }
 
 // BuildAdditionalAddresses can add extra addresses to additional addresses for a listener
-func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *model.Proxy) []*listener.AdditionalAddress {
+func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32) []*listener.AdditionalAddress {
 	var additionalAddresses []*listener.AdditionalAddress
 	if len(extrAddresses) > 0 {
 		for _, exbd := range extrAddresses {
@@ -237,6 +235,12 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 func IsIstioVersionGE117(version *model.IstioVersion) bool {
 	return version == nil ||
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 17, Patch: -1}) >= 0
+}
+
+// IsIstioVersionGE119 checks whether the given Istio version is greater than or equals 1.19.
+func IsIstioVersionGE119(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 19, Patch: -1}) >= 0
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
@@ -397,9 +401,13 @@ func AddSubsetToMetadata(md *core.Metadata, subset string) {
 	}
 }
 
-// AddALPNOverrideToMetadata adds whether the the ALPN prefix should be added to the header
-// to the given core.Metadata struct, if metadata is not initialized, build a new metadata.
-func AddALPNOverrideToMetadata(metadata *core.Metadata, alpnOverride bool) *core.Metadata {
+// AddALPNOverrideToMetadata sets filter metadata `istio.alpn_override: "false"` in the given core.Metadata struct,
+// when TLS mode is SIMPLE or MUTUAL. If metadata is not initialized, builds a new metadata.
+func AddALPNOverrideToMetadata(metadata *core.Metadata, tlsMode networking.ClientTLSSettings_TLSmode) *core.Metadata {
+	if tlsMode != networking.ClientTLSSettings_SIMPLE && tlsMode != networking.ClientTLSSettings_MUTUAL {
+		return metadata
+	}
+
 	if metadata == nil {
 		metadata = &core.Metadata{
 			FilterMetadata: map[string]*structpb.Struct{},
@@ -414,7 +422,7 @@ func AddALPNOverrideToMetadata(metadata *core.Metadata, alpnOverride bool) *core
 
 	metadata.FilterMetadata[IstioMetadataKey].Fields["alpn_override"] = &structpb.Value{
 		Kind: &structpb.Value_StringValue{
-			StringValue: strconv.FormatBool(alpnOverride),
+			StringValue: "false",
 		},
 	}
 
@@ -611,7 +619,7 @@ func toMaskedPrefix(c *core.CidrRange) (netip.Prefix, error) {
 
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
-func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
+func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
 	return hcm.HttpConnectionManager_ForwardClientCertDetails(c - 1)
 }
 

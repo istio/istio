@@ -33,6 +33,8 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
+	telemetry "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	pilot_model "istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
@@ -47,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/test"
 )
@@ -1528,7 +1531,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			proxyConfig: &meshconfig.ProxyConfig{
 				GatewayTopology: &meshconfig.Topology{
 					NumTrustedProxies:        2,
-					ForwardClientCertDetails: meshconfig.Topology_APPEND_FORWARD,
+					ForwardClientCertDetails: meshconfig.ForwardClientCertDetails_APPEND_FORWARD,
 				},
 			},
 			result: &filterChainOpts{
@@ -1570,7 +1573,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			proxyConfig: &meshconfig.ProxyConfig{
 				GatewayTopology: &meshconfig.Topology{
 					NumTrustedProxies:        3,
-					ForwardClientCertDetails: meshconfig.Topology_FORWARD_ONLY,
+					ForwardClientCertDetails: meshconfig.ForwardClientCertDetails_FORWARD_ONLY,
 				},
 			},
 			result: &filterChainOpts{
@@ -1667,7 +1670,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			proxyConfig: &meshconfig.ProxyConfig{
 				GatewayTopology: &meshconfig.Topology{
 					NumTrustedProxies:        3,
-					ForwardClientCertDetails: meshconfig.Topology_FORWARD_ONLY,
+					ForwardClientCertDetails: meshconfig.ForwardClientCertDetails_FORWARD_ONLY,
 				},
 			},
 			result: &filterChainOpts{
@@ -1770,7 +1773,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			proxyConfig: &meshconfig.ProxyConfig{
 				GatewayTopology: &meshconfig.Topology{
 					NumTrustedProxies:        3,
-					ForwardClientCertDetails: meshconfig.Topology_FORWARD_ONLY,
+					ForwardClientCertDetails: meshconfig.ForwardClientCertDetails_FORWARD_ONLY,
 				},
 			},
 			result: &filterChainOpts{
@@ -2343,16 +2346,16 @@ func TestBuildGatewayListeners(t *testing.T) {
 		{
 			"targetPort overrides service port",
 			&pilot_model.Proxy{
-				ServiceInstances: []*pilot_model.ServiceInstance{
+				ServiceTargets: []pilot_model.ServiceTarget{
 					{
 						Service: &pilot_model.Service{
 							Hostname: "test",
 						},
-						ServicePort: &pilot_model.Port{
-							Port: 80,
-						},
-						Endpoint: &pilot_model.IstioEndpoint{
-							EndpointPort: 8080,
+						Port: pilot_model.ServiceInstancePort{
+							ServicePort: &pilot_model.Port{
+								Port: 80,
+							},
+							TargetPort: 8080,
 						},
 					},
 				},
@@ -2983,7 +2986,7 @@ func TestBuildGatewayListeners(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{
 				Configs: Configs,
 			})
-			cg.MemRegistry.WantGetProxyServiceInstances = tt.node.ServiceInstances
+			cg.MemRegistry.WantGetProxyServiceTargets = tt.node.ServiceTargets
 			proxy := cg.SetupProxy(&proxyGateway)
 			if tt.node.Metadata != nil {
 				proxy.Metadata = tt.node.Metadata
@@ -3138,14 +3141,13 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 func TestBuildGatewayListenersFilters(t *testing.T) {
 	cases := []struct {
 		name             string
-		gateways         []config.Config
-		virtualServices  []config.Config
+		configs          []config.Config
 		proxyConfig      *pilot_model.NodeMetaProxyConfig
 		expectedListener listenertest.ListenerTest
 	}{
 		{
 			name: "http server",
-			gateways: []config.Config{
+			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "http-server", Namespace: "testns", GroupVersionKind: gvk.Gateway},
 					Spec: &networking.Gateway{
@@ -3157,10 +3159,12 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 			},
-			virtualServices: nil,
 			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
 				{
-					NetworkFilters: []string{wellknown.HTTPConnectionManager},
+					NetworkFilters: []string{
+						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
+						wellknown.HTTPConnectionManager,
+					},
 					HTTPFilters: []string{
 						xdsfilters.MxFilterName,
 						xdsfilters.Alpn.GetName(),
@@ -3171,7 +3175,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 		},
 		{
 			name: "passthrough server",
-			gateways: []config.Config{
+			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "passthrough-gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
 					Spec: &networking.Gateway{
@@ -3184,8 +3188,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 						},
 					},
 				},
-			},
-			virtualServices: []config.Config{
 				{
 					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
 					Spec: &networking.VirtualService{
@@ -3213,14 +3215,18 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			},
 			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
 				{
-					NetworkFilters: []string{wellknown.TCPProxy},
-					HTTPFilters:    []string{},
+					NetworkFilters: []string{
+						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
+						wellknown.TCPProxy,
+					},
+					HTTPFilters: []string{},
+					TotalMatch:  true,
 				},
 			}},
 		},
 		{
 			name: "terminated-tls server",
-			gateways: []config.Config{
+			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "terminated-tls-gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
 					Spec: &networking.Gateway{
@@ -3233,8 +3239,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 						},
 					},
 				},
-			},
-			virtualServices: []config.Config{
 				{
 					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
 					Spec: &networking.VirtualService{
@@ -3261,14 +3265,18 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			},
 			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
 				{
-					NetworkFilters: []string{wellknown.TCPProxy},
-					HTTPFilters:    []string{},
+					NetworkFilters: []string{
+						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
+						wellknown.TCPProxy,
+					},
+					HTTPFilters: []string{},
+					TotalMatch:  true,
 				},
 			}},
 		},
 		{
 			name: "non-http istio-mtls server",
-			gateways: []config.Config{
+			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "non-http-gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
 					Spec: &networking.Gateway{
@@ -3281,8 +3289,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 						},
 					},
 				},
-			},
-			virtualServices: []config.Config{
 				{
 					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
 					Spec: &networking.VirtualService{
@@ -3309,14 +3315,19 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			},
 			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
 				{
-					NetworkFilters: []string{xdsfilters.TCPListenerMx.GetName(), wellknown.TCPProxy},
-					HTTPFilters:    []string{},
+					NetworkFilters: []string{
+						xdsfilters.TCPListenerMx.GetName(),
+						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
+						wellknown.TCPProxy,
+					},
+					HTTPFilters: []string{},
+					TotalMatch:  true,
 				},
 			}},
 		},
 		{
 			name: "http and tcp istio-mtls server",
-			gateways: []config.Config{
+			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
 					Spec: &networking.Gateway{
@@ -3334,8 +3345,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 						},
 					},
 				},
-			},
-			virtualServices: []config.Config{
 				{
 					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
 					Spec: &networking.VirtualService{
@@ -3387,8 +3396,11 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				TotalMatch: true,
 				FilterChains: []listenertest.FilterChainTest{
 					{
-						TotalMatch:     true, // there must be only 1 `istio_authn` network filter
-						NetworkFilters: []string{xdsfilters.IstioNetworkAuthenticationFilter.GetName(), wellknown.HTTPConnectionManager},
+						TotalMatch: true, // there must be only 1 `istio_authn` network filter
+						NetworkFilters: []string{
+							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
+							wellknown.HTTPConnectionManager,
+						},
 						HTTPFilters: []string{
 							xdsfilters.MxFilterName,
 							xdsfilters.GrpcStats.GetName(),
@@ -3397,16 +3409,20 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 						},
 					},
 					{
-						TotalMatch:     true, // there must be only 1 `istio_authn` network filter
-						NetworkFilters: []string{xdsfilters.TCPListenerMx.GetName(), xdsfilters.IstioNetworkAuthenticationFilter.GetName(), wellknown.TCPProxy},
-						HTTPFilters:    []string{},
+						TotalMatch: true, // there must be only 1 `istio_authn` network filter
+						NetworkFilters: []string{
+							xdsfilters.TCPListenerMx.GetName(),
+							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
+							wellknown.TCPProxy,
+						},
+						HTTPFilters: []string{},
 					},
 				},
 			},
 		},
 		{
 			name: "http server with proxy proto",
-			gateways: []config.Config{
+			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "http-server", Namespace: "testns", GroupVersionKind: gvk.Gateway},
 					Spec: &networking.Gateway{
@@ -3424,12 +3440,17 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			expectedListener: listenertest.ListenerTest{
 				FilterChains: []listenertest.FilterChainTest{
 					{
-						NetworkFilters: []string{wellknown.HTTPConnectionManager},
+						NetworkFilters: []string{
+							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
+							wellknown.HTTPConnectionManager,
+						},
 						HTTPFilters: []string{
 							xdsfilters.MxFilterName,
+							wellknown.HTTPGRPCStats,
 							xdsfilters.Alpn.GetName(),
 							xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
 						},
+						TotalMatch: true,
 					},
 				},
 				Filters: []string{wellknown.ProxyProtocol},
@@ -3437,7 +3458,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 		},
 		{
 			name: "terminated-tls server with proxy proto",
-			gateways: []config.Config{
+			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "terminated-tls-gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
 					Spec: &networking.Gateway{
@@ -3450,11 +3471,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 						},
 					},
 				},
-			},
-			proxyConfig: &pilot_model.NodeMetaProxyConfig{
-				GatewayTopology: &meshconfig.Topology{ProxyProtocol: &meshconfig.Topology_ProxyProtocolConfiguration{}},
-			},
-			virtualServices: []config.Config{
 				{
 					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
 					Spec: &networking.VirtualService{
@@ -3479,32 +3495,160 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					},
 				},
 			},
+			proxyConfig: &pilot_model.NodeMetaProxyConfig{
+				GatewayTopology: &meshconfig.Topology{ProxyProtocol: &meshconfig.Topology_ProxyProtocolConfiguration{}},
+			},
 			expectedListener: listenertest.ListenerTest{
 				FilterChains: []listenertest.FilterChainTest{
 					{
-						NetworkFilters: []string{wellknown.TCPProxy},
-						HTTPFilters:    []string{},
+						NetworkFilters: []string{
+							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
+							wellknown.TCPProxy,
+						},
+						HTTPFilters: []string{},
+						TotalMatch:  true,
 					},
 				},
 				Filters: []string{wellknown.ProxyProtocol},
 			},
 		},
+		{
+			name: "TCP RBAC and Stats",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 100, Protocol: "TCP"},
+								Hosts: []string{"www.example.com"},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway"},
+						Hosts:    []string{"www.example.com"},
+						Tcp: []*networking.TCPRoute{
+							{
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "http.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.AuthorizationPolicy},
+					Spec: &security.AuthorizationPolicy{},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.Telemetry},
+					Spec: &telemetry.Telemetry{
+						Metrics: []*telemetry.Metrics{{Providers: []*telemetry.ProviderRef{{Name: "prometheus"}}}},
+					},
+				},
+			},
+			expectedListener: listenertest.ListenerTest{
+				TotalMatch: true,
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						TotalMatch: true,
+						NetworkFilters: []string{
+							xds.StatsFilterName,
+							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
+							wellknown.RoleBasedAccessControl,
+							wellknown.TCPProxy,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "HTTP RBAC and Stats",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "http", Number: 200, Protocol: "HTTP"},
+								Hosts: []string{"www.example.com"},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway"},
+						Hosts:    []string{"www.example.com"},
+						Http: []*networking.HTTPRoute{
+							{
+								Route: []*networking.HTTPRouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "http.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.AuthorizationPolicy},
+					Spec: &security.AuthorizationPolicy{},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.Telemetry},
+					Spec: &telemetry.Telemetry{
+						Metrics: []*telemetry.Metrics{{Providers: []*telemetry.ProviderRef{{Name: "prometheus"}}}},
+					},
+				},
+			},
+			expectedListener: listenertest.ListenerTest{
+				TotalMatch: true,
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						TotalMatch: true,
+						NetworkFilters: []string{
+							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
+							wellknown.HTTPConnectionManager,
+						},
+						HTTPFilters: []string{
+							xdsfilters.MxFilterName,
+							wellknown.HTTPRoleBasedAccessControl,
+							wellknown.HTTPGRPCStats,
+							xdsfilters.Alpn.GetName(),
+							xdsfilters.Fault.GetName(),
+							xdsfilters.Cors.GetName(),
+							xds.StatsFilterName,
+							xdsfilters.Router.GetName(),
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			Configs := make([]config.Config, 0)
-			Configs = append(Configs, tt.gateways...)
-			Configs = append(Configs, tt.virtualServices...)
 			cg := NewConfigGenTest(t, TestOptions{
-				Configs: Configs,
+				Configs: tt.configs,
 			})
 			proxy := cg.SetupProxy(&proxyGateway)
 			metadata := proxyGatewayMetadata
 			metadata.ProxyConfig = tt.proxyConfig
 			proxy.Metadata = &metadata
-			proxy.IstioVersion = nil // to ensure `util.IsIstioVersionGE117(node.IstioVersion) == true`
 
-			builder := cg.ConfigGen.buildGatewayListeners(&ListenerBuilder{node: proxy, push: cg.PushContext()})
+			lb := NewListenerBuilder(proxy, cg.PushContext())
+			builder := cg.ConfigGen.buildGatewayListeners(lb)
 			listenertest.VerifyListeners(t, builder.gatewayListeners, listenertest.ListenersTest{
 				Listener: tt.expectedListener,
 			})

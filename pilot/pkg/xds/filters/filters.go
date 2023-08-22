@@ -200,14 +200,14 @@ var (
 				}),
 		},
 	}
-	ConnectBaggageFilter = &hcm.HttpFilter{
-		Name: "connect_baggage",
+	WaypointDownstreamMetadataFilter = &hcm.HttpFilter{
+		Name: "waypoint_downstream_peer_metadata",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
 				map[string]any{
 					"downstream_discovery": []any{
 						map[string]any{
-							"baggage": map[string]any{},
+							"workload_discovery": map[string]any{},
 						},
 					},
 					"shared_with_upstream": true,
@@ -223,6 +223,50 @@ var (
 					"upstream_discovery": []any{
 						map[string]any{
 							"workload_discovery": map[string]any{},
+						},
+					},
+				}),
+		},
+	}
+
+	SidecarInboundMetadataFilter = &hcm.HttpFilter{
+		Name: MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"downstream_discovery": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+					"downstream_propagation": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+					},
+				}),
+		},
+	}
+
+	SidecarOutboundMetadataFilter = &hcm.HttpFilter{
+		Name: MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+					"upstream_propagation": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
 						},
 					},
 				}),
