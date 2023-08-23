@@ -106,7 +106,7 @@ func (a *AmbientIndexImpl) handleServiceEntry(svcEntry *apiv1alpha3.ServiceEntry
 			for _, networkAddr := range networkAddressFromWorkload(wl) {
 				a.byWorkloadEntry[networkAddr] = wl
 			}
-			a.byUID[c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), w.Spec.GetAddress())] = wl
+			a.byUID[c.generateWorkloadEntryUID(wl.GetNamespace(), wl.GetName())] = wl
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 			wls[wl.Uid] = wl
 		}

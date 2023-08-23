@@ -1080,6 +1080,18 @@ func (s *ambientTestServer) assertWorkloads(t *testing.T, lookup string, state w
 	}, want, retry.Timeout(time.Second*3))
 }
 
+// Make sure there are no two workloads in the index with similar UIDs
+func (s *ambientTestServer) assertUniqueWorkloads(t *testing.T) {
+	t.Helper()
+	uids := sets.New[string]()
+	workloads := s.lookup("")
+	for _, wl := range workloads {
+		if wl.GetWorkload() != nil && uids.InsertContains(wl.GetWorkload().GetUid()) {
+			t.Fatal("Index has workloads with the same UID")
+		}
+	}
+}
+
 func (s *ambientTestServer) addPolicy(t *testing.T, name, ns string, selector map[string]string,
 	kind config.GroupVersionKind, modify func(*config.Config),
 ) {
