@@ -1965,8 +1965,6 @@ func validatePolicyTargetReference(selector *type_beta.WorkloadSelector, targetR
 	return
 }
 
-// if you have a layer7 policy with no targetRef then it will always be invalid
-
 func validateWorkloadSelector(selector *type_beta.WorkloadSelector) Validation {
 	validation := Validation{}
 	if selector != nil {
