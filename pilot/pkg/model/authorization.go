@@ -65,9 +65,17 @@ type AuthorizationPoliciesResult struct {
 	Audit  []AuthorizationPolicy
 }
 
+type ProxyInfo struct {
+	Namespace       string
+	WorkloadName    string
+	IsWaypointProxy bool
+	Workload        labels.Instance
+}
+
+// namespace string, workloadName string, isWaypointProxy bool, workload labels.Instance
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
 // TODO: update the params in all the places this is called
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string, workloadName string, isWaypointProxy bool, workload labels.Instance) AuthorizationPoliciesResult {
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(proxyInfo ProxyInfo) AuthorizationPoliciesResult {
 	ret := AuthorizationPoliciesResult{}
 	if policy == nil {
 		return ret
@@ -80,22 +88,24 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string,
 
 	// Policies can be in root namespace and have workload selectors
 	// This prevent duplicate policies in case root namespace equals proxy's namespace.
-	if namespace != policy.RootNamespace {
-		namespaces = append(namespaces, namespace)
+	if proxyInfo.Namespace != policy.RootNamespace {
+		namespaces = append(namespaces, proxyInfo.Namespace)
 	}
 
 	for _, ns := range namespaces {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 			targetRef := spec.GetTargetRef()
-			// Assumes if the workload is a waypoint and it doesn't have a targetRef the policy is still valid
-			if !isWaypointProxy || isWaypointProxy && targetRef == nil {
+
+			// At this time, policies without a targetRef will default to workload selectors
+			// TODO: remove this logic when workloadselector for waypoints is disallowed
+			if !proxyInfo.IsWaypointProxy || proxyInfo.IsWaypointProxy && targetRef == nil {
 				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-				if selector.SubsetOf(workload) {
+				if selector.SubsetOf(proxyInfo.Workload) {
 					ret = updateAuthorizationPoliciesResult(config, ret)
 				}
 			} else {
-				if targetRef.GetName() == workloadName {
+				if targetRef.GetName() == proxyInfo.WorkloadName {
 					ret = updateAuthorizationPoliciesResult(config, ret)
 				}
 			}

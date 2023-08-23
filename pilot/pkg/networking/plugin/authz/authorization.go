@@ -47,9 +47,18 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
 	}
-	// INFO: policies for a given namespace and workload is fetched here
-	// TODO: update policy fetching for waypoint vs workload
-	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.WorkloadName, proxy.IsWaypointProxy(), proxy.Labels)
+
+	proxyInfo := model.ProxyInfo{
+		Namespace:       proxy.ConfigNamespace,
+		WorkloadName:    proxy.Metadata.WorkloadName,
+		IsWaypointProxy: proxy.IsWaypointProxy(),
+		Workload:        proxy.Labels,
+	}
+
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxyInfo)
+	if !util.IsIstioVersionGE117(proxy.IstioVersion) {
+		option.UseAuthenticated = true
+	}
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}
 }
