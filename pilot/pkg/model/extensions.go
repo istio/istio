@@ -228,10 +228,11 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 	// Normalize the image pull secret to the full resource name.
 	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace)
 	return &WasmPluginWrapper{
-		Name:         plugin.Name,
-		Namespace:    plugin.Namespace,
-		ResourceName: plugin.Namespace + "." + plugin.Name,
-		WasmPlugin:   wasmPlugin,
+		Name:            plugin.Name,
+		Namespace:       plugin.Namespace,
+		ResourceName:    plugin.Namespace + "." + plugin.Name,
+		WasmPlugin:      wasmPlugin,
+		ResourceVersion: plugin.ResourceVersion,
 	}
 }
 
