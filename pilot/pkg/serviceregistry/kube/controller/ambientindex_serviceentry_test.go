@@ -274,6 +274,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 
 	s.deleteServiceEntry(t, "name1", testNS)
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1", "name2")
+	s.assertUniqueWorkloads(t)
 	// we should see an update for the workloads selected by the service entry
 	s.assertEvent(t, s.podXdsName("pod1"), s.wleXdsName("name0"), s.wleXdsName("name1"), "ns1/se.istio.io")
 	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []*model.AddressInfo{{
