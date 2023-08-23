@@ -37,6 +37,7 @@ const (
 	DebugType                 = "istio.io/debug"
 	BootstrapType             = resource.APITypePrefix + "envoy.config.bootstrap.v3.Bootstrap"
 	AddressType               = resource.APITypePrefix + "istio.workload.Address"
+	WorkloadType              = resource.APITypePrefix + "istio.workload.Workload"
 	WorkloadAuthorizationType = resource.APITypePrefix + "istio.security.Authorization"
 
 	// nolint
@@ -62,7 +63,7 @@ func GetShortType(typeURL string) string {
 		return "PCDS"
 	case ExtensionConfigurationType:
 		return "ECDS"
-	case AddressType:
+	case AddressType, WorkloadType:
 		return "WDS"
 	case WorkloadAuthorizationType:
 		return "WADS"
@@ -92,7 +93,7 @@ func GetMetricType(typeURL string) string {
 		return "ecds"
 	case BootstrapType:
 		return "bds"
-	case AddressType:
+	case AddressType, WorkloadType:
 		return "wds"
 	case WorkloadAuthorizationType:
 		return "wads"
