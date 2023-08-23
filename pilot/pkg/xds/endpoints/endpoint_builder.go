@@ -307,12 +307,16 @@ func (e *LocalityEndpoints) AssertInvarianceInTest() {
 	}
 }
 
+// FromServiceEndpoints builds LocalityLbEndpoints from the PushContext's snapshotted ServiceIndex.
+// Used for CDS (ClusterLoadAssignment constructed elsewhere).
 func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints {
 	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
 	// don't use the pre-computed endpoints for CDS to preserve previous behavior
 	return ExtractEnvoyEndpoints(b.generate(svcEps, true))
 }
 
+// BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
+// into a ClusterLoadAssignment. Used for EDS.
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
 	svcEps := b.snapshotShards(endpointIndex)
 	localityLbEndpoints := b.generate(svcEps, false)
@@ -343,7 +347,8 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 }
 
 // generate endpoints with applies weights, multi-network mapping and other filtering
-func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, noCache bool) []*LocalityEndpoints {
+// noCache means we will not use or update the IstioEndpoint's precomputedEnvoyEndpoint
+func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed bool) []*LocalityEndpoints {
 	// shouldn't happen here
 	if !b.ServiceFound() {
 		return nil
@@ -373,12 +378,12 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, noCache bool) []*
 			// The mTLS settings may have changed, invalidating the cache endpoint. Rebuild it
 			needToCompute = true
 		}
-		if needToCompute || noCache {
+		if needToCompute || !allowPrecomputed {
 			eep = buildEnvoyLbEndpoint(b, ep, mtlsEnabled)
 			if eep == nil {
 				continue
 			}
-			if noCache {
+			if allowPrecomputed {
 				ep.ComputeEnvoyEndpoint(eep)
 			}
 		}
