@@ -306,7 +306,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
 			var lbEndpoints []*endpoint.LocalityLbEndpoints
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
-			if (service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB) {
+			if service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB {
 				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
 			}
 
