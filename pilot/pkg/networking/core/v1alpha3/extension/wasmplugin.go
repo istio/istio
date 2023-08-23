@@ -66,7 +66,7 @@ func BuildNetworkWasmFilters(filterMap map[extensions.PluginPhase][]*model.WasmP
 
 func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm.HttpFilter {
 	return &hcm.HttpFilter{
-		Name: "http" + "." + wasmPlugin.ResourceName,
+		Name: wasmPlugin.ResourceName,
 		ConfigType: &hcm.HttpFilter_ConfigDiscovery{
 			ConfigDiscovery: &core.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,
@@ -81,7 +81,7 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm.HttpFilter {
 
 func toEnvoyNetworkFilter(wasmPlugin *model.WasmPluginWrapper) *listener.Filter {
 	return &listener.Filter{
-		Name: "network" + "." + wasmPlugin.ResourceName,
+		Name: wasmPlugin.ResourceName,
 		ConfigType: &listener.Filter_ConfigDiscovery{
 			ConfigDiscovery: &core.ExtensionConfigSource{
 				ConfigSource: defaultConfigSource,

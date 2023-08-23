@@ -85,7 +85,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 				return
 			}
 
-			if extConfig == nil || wasmHTTPConfig == nil || wasmNetworkConfig == nil {
+			if extConfig == nil || (wasmHTTPConfig == nil && wasmNetworkConfig == nil) {
 				// If there is no config, it is not wasm config.
 				// Let's bypass the ECDS resource.
 				wasmConfigConversionCount.

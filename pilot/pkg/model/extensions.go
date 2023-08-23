@@ -101,7 +101,7 @@ func (p *WasmPluginWrapper) MatchListener(proxyLabels map[string]string, li Wasm
 }
 
 func (p *WasmPluginWrapper) MatchType(pluginType WasmPluginType) bool {
-	return pluginType == fromPluginType(p.WasmPlugin.Type)
+	return pluginType == WasmPluginTypeAny || pluginType == fromPluginType(p.WasmPlugin.Type)
 }
 
 func (p *WasmPluginWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
@@ -207,14 +207,31 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 	if wasmPlugin, ok = plugin.Spec.(*extensions.WasmPlugin); !ok {
 		return nil
 	}
+
+	if wasmPlugin.PluginConfig != nil && len(wasmPlugin.PluginConfig.Fields) > 0 {
+		_, err := protomarshal.ToJSON(wasmPlugin.PluginConfig)
+		if err != nil {
+			log.Warnf("wasmplugin %v/%v discarded due to json marshaling error: %s", plugin.Namespace, plugin.Name, err)
+			return nil
+		}
+	}
+
+	u, err := url.Parse(wasmPlugin.Url)
+	if err != nil {
+		log.Warnf("wasmplugin %v/%v discarded due to failure to parse URL: %s", plugin.Namespace, plugin.Name, err)
+		return nil
+	}
+	// when no scheme is given, default to oci://
+	if u.Scheme == "" {
+		u.Scheme = ociScheme
+	}
 	// Normalize the image pull secret to the full resource name.
 	wasmPlugin.ImagePullSecret = toSecretResourceName(wasmPlugin.ImagePullSecret, plugin.Namespace)
 	return &WasmPluginWrapper{
-		Name:            plugin.Name,
-		Namespace:       plugin.Namespace,
-		ResourceName:    plugin.Namespace + "." + plugin.Name,
-		ResourceVersion: plugin.ResourceVersion,
-		WasmPlugin:      wasmPlugin,
+		Name:         plugin.Name,
+		Namespace:    plugin.Namespace,
+		ResourceName: plugin.Namespace + "." + plugin.Name,
+		WasmPlugin:   wasmPlugin,
 	}
 }
 
