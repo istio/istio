@@ -5673,6 +5673,44 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			Warning: false,
 		},
 		{
+			name: "target-ref-and-selector-cannot-both-be-set",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      defaultGatewayKind,
+					Name:      "foo",
+					Namespace: proto.String("bar"),
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
+		},
+		{
 			name: "from-empty",
 			in: &security_beta.AuthorizationPolicy{
 				Rules: []*security_beta.Rule{
@@ -7694,7 +7732,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "bad targetRef selector - empty name",
+			name:       "bad targetRef - empty name",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
@@ -7712,7 +7750,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "bad targetRef selector - empty namespace",
+			name:       "bad targetRef - empty namespace",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
@@ -7730,7 +7768,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "bad targetRef selector - wrong group",
+			name:       "bad targetRef - wrong group",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
@@ -7749,7 +7787,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "bad targetRef selector - wrong kind",
+			name:       "bad targetRef - wrong kind",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
@@ -7762,6 +7800,30 @@ func TestValidateRequestAuthentication(t *testing.T) {
 					{
 						Issuer:  "foo.com",
 						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "targetRef and selector cannot both be set",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      defaultGatewayKind,
+					Name:      "foo",
+					Namespace: proto.String("bar"),
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 			},
@@ -8507,7 +8569,7 @@ func TestValidateTelemetry(t *testing.T) {
 			"", "",
 		},
 		{
-			"bad targetRef selector - empty name",
+			"bad targetRef - empty name",
 			&telemetry.Telemetry{
 				Tracing: []*telemetry.Tracing{{
 					CustomTags: map[string]*telemetry.Tracing_CustomTag{
@@ -8529,7 +8591,7 @@ func TestValidateTelemetry(t *testing.T) {
 			"policyTargetReference.name must be set", "",
 		},
 		{
-			"bad targetRef selector - empty namespace",
+			"bad targetRef - empty namespace",
 			&telemetry.Telemetry{
 				Tracing: []*telemetry.Tracing{{
 					CustomTags: map[string]*telemetry.Tracing_CustomTag{
@@ -8551,7 +8613,7 @@ func TestValidateTelemetry(t *testing.T) {
 			"policyTargetReference.namespace must be set", "",
 		},
 		{
-			"bad targetRef selector - wrong group",
+			"bad targetRef - wrong group",
 			&telemetry.Telemetry{
 				Tracing: []*telemetry.Tracing{{
 					CustomTags: map[string]*telemetry.Tracing_CustomTag{
@@ -8574,7 +8636,7 @@ func TestValidateTelemetry(t *testing.T) {
 			"policyTargetReference.group is incorrect", "",
 		},
 		{
-			"bad targetRef selector - wrong kind",
+			"bad targetRef - wrong kind",
 			&telemetry.Telemetry{
 				Tracing: []*telemetry.Tracing{{
 					CustomTags: map[string]*telemetry.Tracing_CustomTag{
@@ -8595,6 +8657,34 @@ func TestValidateTelemetry(t *testing.T) {
 				},
 			},
 			"policyTargetReference.kind is incorrect", "",
+		},
+		{
+			"targetRef and selector cannot both be set",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      "wrong-kind",
+					Name:      "foo",
+					Namespace: proto.String("bar"),
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+			},
+			"policyTargetReference and selector cannot both be set", "",
 		},
 	}
 	for _, tt := range tests {
@@ -8844,6 +8934,24 @@ func TestValidateWasmPlugin(t *testing.T) {
 				},
 			},
 			"policyTargetReference.kind is incorrect", "",
+		},
+		{
+			"target-ref-and-selector-cannot-both-be-set",
+			&extensions.WasmPlugin{
+				Url: "test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group:     defaultGatewayGroup,
+					Kind:      defaultGatewayKind,
+					Name:      "foo",
+					Namespace: proto.String("bar"),
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+			},
+			"policyTargetReference and selector cannot both be set", "",
 		},
 	}
 	for _, tt := range tests {

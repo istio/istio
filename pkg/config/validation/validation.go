@@ -1939,14 +1939,16 @@ func ValidateControlPlaneAuthPolicy(policy meshconfig.AuthenticationPolicy) erro
 	return fmt.Errorf("unrecognized control plane auth policy %q", policy)
 }
 
-func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
+func validatePolicyTargetReference(selector *type_beta.WorkloadSelector, targetRef *type_beta.PolicyTargetReference) (v Validation) {
 	if targetRef == nil {
 		return
+	}
+	if selector != nil && targetRef != nil {
+		v = appendErrorf(v, "policyTargetReference and selector cannot both be set")
 	}
 	if targetRef.Name == "" {
 		v = appendErrorf(v, "policyTargetReference.name must be set")
 	}
-	// TODO: we should also validate that the namespace is not a root namespace
 	if targetRef.Namespace == nil {
 		v = appendErrorf(v, "policyTargetReference.namespace must be set")
 	}
@@ -1996,7 +1998,7 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 		var errs error
 		var warnings Warning
 		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
-		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef())
+		targetRefValidation := validatePolicyTargetReference(in.GetSelector(), in.GetTargetRef())
 		errs = appendErrors(errs, workloadSelectorValidation, targetRefValidation)
 		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
 
@@ -2169,7 +2171,7 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 		errs := Validation{}
 		errs = appendValidation(errs,
 			validateWorkloadSelector(in.GetSelector()),
-			validatePolicyTargetReference(in.GetTargetRef()),
+			validatePolicyTargetReference(in.GetSelector(), in.GetTargetRef()),
 		)
 
 		for _, rule := range in.JwtRules {
@@ -3859,7 +3861,7 @@ var ValidateTelemetry = registerValidateFunc("ValidateTelemetry",
 
 		errs = appendValidation(errs,
 			validateWorkloadSelector(spec.GetSelector()),
-			validatePolicyTargetReference(spec.GetTargetRef()),
+			validatePolicyTargetReference(spec.GetSelector(), spec.GetTargetRef()),
 			validateTelemetryMetrics(spec.Metrics),
 			validateTelemetryTracing(spec.Tracing),
 			validateTelemetryAccessLogging(spec.AccessLogging),
@@ -3981,11 +3983,11 @@ var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to wasmplugin")
 		}
-
+		// figure out how to add check for targetRef and workload selector is not nil
 		errs := Validation{}
 		errs = appendValidation(errs,
 			validateWorkloadSelector(spec.GetSelector()),
-			validatePolicyTargetReference(spec.GetTargetRef()),
+			validatePolicyTargetReference(spec.GetSelector(), spec.GetTargetRef()),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
 			validateWasmPluginVMConfig(spec.VmConfig),
