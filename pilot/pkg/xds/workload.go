@@ -103,14 +103,6 @@ func (e WorkloadGenerator) GenerateDeltas(
 					Resource: protoconv.MessageToAny(addr.GetWorkload()), // TODO: pre-marshal
 				})
 			}
-		case v3.ServiceType:
-			if addr.GetService() != nil {
-				resources = append(resources, &discovery.Resource{
-					Name:     n,
-					Aliases:  aliases,
-					Resource: protoconv.MessageToAny(addr.GetService()), // TODO: pre-marshal
-				})
-			}
 		case v3.AddressType:
 			resources = append(resources, &discovery.Resource{
 				Name:     n,
