@@ -85,7 +85,11 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	for _, k := range c.analyzer.Schemas().All() {
 		c.analyzer.RegisterEventHandler(k.GroupVersionKind(), func(oldcfg config.Config, newcfg config.Config, ev model.Event) {
-			chKind <- oldcfg.GroupVersionKind
+			gvk := oldcfg.GroupVersionKind
+			if (gvk == config.GroupVersionKind{}) {
+				gvk = newcfg.GroupVersionKind
+			}
+			chKind <- gvk
 		})
 	}
 	oldmsgs := map[string]diag.Messages{}

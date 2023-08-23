@@ -52,7 +52,7 @@ func (c *CombinedAnalyzer) RelevantSubset(kinds sets.Set[config.GroupVersionKind
 			}
 		}
 	}
-	return Combine("somename", selected...)
+	return Combine("subset", selected...)
 }
 
 // Metadata implements Analyzer
