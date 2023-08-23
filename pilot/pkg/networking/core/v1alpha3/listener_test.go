@@ -46,11 +46,13 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -80,6 +82,15 @@ func getIPv6Proxy() *model.Proxy {
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"2001:1::1"},
 	}
+	return pr
+}
+
+func getDualStackProxy() *model.Proxy {
+	pr := &model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1", "2001:1::1"},
+	}
+	pr.DiscoverIPMode()
 	return pr
 }
 
@@ -740,6 +751,60 @@ func TestOutboundListenerForExternalServices(t *testing.T) {
 					if l.Name != tt.listenersOn {
 						t.Errorf("Expected listeners on %s, got %s", tt.listenersOn, l.Name)
 					}
+				}
+			}
+		})
+	}
+}
+
+func TestOutboundListenerWithExtraAddress(t *testing.T) {
+	// dual stack service
+	svc1 := buildServiceWithPort("a.com", 8888, protocol.TCP, tnow)
+	svc1.ClusterVIPs = model.AddressMap{
+		Addresses: map[cluster.ID][]string{
+			"cluster1": {"0.0.0.0", "fd00:10:244:1::11"},
+		},
+	}
+
+	svc2 := buildServiceWithPort("b.com", 9999, protocol.TCP, tnow)
+
+	tests := []struct {
+		name         string
+		instances    []*model.ServiceInstance
+		services     []*model.Service
+		listeners    []string
+		extraAddress []string
+	}{
+		{
+			name:         "dual stack service with ipv4 & ipv6 endpoints",
+			services:     []*model.Service{svc1, svc2},
+			listeners:    []string{"0.0.0.0_8888", "0.0.0.0_9999"},
+			extraAddress: []string{"fd00:10:244:1::11", ""},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			features.EnableDualStack = true
+			defer func() { features.EnableDualStack = false }()
+			cg := NewConfigGenTest(t, TestOptions{
+				Services: tt.services,
+			})
+
+			proxy := cg.SetupProxy(getDualStackProxy())
+			proxy.Metadata.ClusterID = "cluster1"
+
+			listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(proxy, cg.env.PushContext())
+			listeners = slices.SortFunc(listeners, func(i, j *listener.Listener) bool {
+				return i.Name < j.Name
+			})
+			assert.Equal(t, len(tt.listeners), len(listeners))
+			for i, l := range listeners {
+				assert.Equal(t, tt.listeners[i], l.Name)
+				if tt.extraAddress[i] == "" {
+					assert.Equal(t, 0, len(l.AdditionalAddresses))
+				} else {
+					assert.Equal(t, 1, len(l.AdditionalAddresses))
+					assert.Equal(t, tt.extraAddress[i], l.AdditionalAddresses[0].GetAddress().GetSocketAddress().GetAddress())
 				}
 			}
 		})
