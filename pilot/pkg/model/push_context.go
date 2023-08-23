@@ -1844,7 +1844,9 @@ func (ps *PushContext) WasmPlugins(proxy *Proxy) map[extensions.PluginPhase][]*W
 }
 
 // WasmPluginsByListenerInfo return the WasmPluginWrappers which are matched with TrafficSelector in the given proxy.
-func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginListenerInfo, pluginType WasmPluginType) map[extensions.PluginPhase][]*WasmPluginWrapper {
+func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginListenerInfo,
+	pluginType WasmPluginType,
+) map[extensions.PluginPhase][]*WasmPluginWrapper {
 	if proxy == nil {
 		return nil
 	}
@@ -1864,7 +1866,7 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 	// To prevent duplicate extensions in case root namespace equals proxy's namespace
 	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
 		for _, plugin := range ps.wasmPluginsByNamespace[proxy.ConfigNamespace] {
-			if plugin.MatchListener(proxy.Labels, info) {
+			if plugin.MatchListener(proxy.Labels, info) && plugin.MatchType(pluginType) {
 				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
 			}
 		}
