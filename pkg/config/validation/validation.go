@@ -81,9 +81,6 @@ const (
 
 	matchExact  = "exact:"
 	matchPrefix = "prefix:"
-
-	defaultGatewayGroup = "gateway.networking.k8s.io"
-	defaultGatewayKind  = "Gateway"
 )
 
 const (
@@ -140,6 +137,11 @@ var (
 		})
 
 	validateFuncs = make(map[string]ValidateFunc)
+
+	defaultGatewayGVK = config.GroupVersionKind{
+		Group: "gateway.networking.k8s.io",
+		Kind:  "Gateway",
+	}
 )
 
 type Warning error
@@ -1953,12 +1955,12 @@ func validatePolicyTargetReference(selector *type_beta.WorkloadSelector, targetR
 		v = appendErrorf(v, "policyTargetReference.namespace must be set")
 	}
 	// Currently, gateway.networking.k8s.io is the only valid Group for this field.
-	if targetRef.Group != defaultGatewayGroup {
-		v = appendErrorf(v, "policyTargetReference.group is incorrect; expected: %v, got: %v", defaultGatewayGroup, targetRef.Group)
+	if targetRef.Group != defaultGatewayGVK.Group {
+		v = appendErrorf(v, "policyTargetReference.group is incorrect; expected: %v, got: %v", defaultGatewayGVK.Group, targetRef.Group)
 	}
 	// Currently, gateway.networking.k8s.io/Gateway is the only valid Kind for this field.
-	if targetRef.Kind != defaultGatewayKind {
-		v = appendErrorf(v, "policyTargetReference.kind is incorrect; expected: %v, got: %v", defaultGatewayKind, targetRef.Kind)
+	if targetRef.Kind != defaultGatewayGVK.Kind {
+		v = appendErrorf(v, "policyTargetReference.kind is incorrect; expected: %v, got: %v", defaultGatewayGVK.Kind, targetRef.Kind)
 	}
 	return
 }
