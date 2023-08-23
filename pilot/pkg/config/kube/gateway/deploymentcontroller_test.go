@@ -55,10 +55,6 @@ import (
 )
 
 func TestConfigureIstioGateway(t *testing.T) {
-	test.SetForTest(t, &features.EnableAmbientControllers, true)
-	// Recompute with ambient enabled
-	classInfos = getClassInfos()
-	builtinClasses = getBuiltinClasses()
 	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
 	customClass := &v1beta1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
@@ -249,7 +245,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					return err
 				}
 				buf.Write(b)
-				buf.Write([]byte("---\n"))
+				buf.WriteString("---\n")
 				return nil
 			}
 			client.RunAndWait(stop)

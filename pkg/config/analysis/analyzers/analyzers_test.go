@@ -384,8 +384,6 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.DeploymentAssociatedToMultipleServices, "Deployment bookinfo/multiple-svc-multiple-prot"},
 			{msg.DeploymentAssociatedToMultipleServices, "Deployment bookinfo/multiple-without-port"},
-			{msg.DeploymentRequiresServiceAssociated, "Deployment bookinfo/no-services"},
-			{msg.DeploymentRequiresServiceAssociated, "Deployment injection-disabled-ns/ann-enabled-ns-disabled"},
 			{msg.DeploymentConflictingPorts, "Deployment bookinfo/conflicting-ports"},
 		},
 	},
@@ -399,9 +397,7 @@ var testGrid = []testCase{
 		name:       "serviceWithNoSelector",
 		inputFiles: []string{"testdata/deployment-service-no-selector.yaml"},
 		analyzer:   &deployment.ServiceAssociationAnalyzer{},
-		expected: []message{
-			{msg.DeploymentRequiresServiceAssociated, "Deployment default/helloworld-v2"},
-		},
+		expected:   []message{},
 	},
 	{
 		name: "regexes",
@@ -790,6 +786,12 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.InvalidTelemetryProvider, "Telemetry istio-system/mesh-default"},
 		},
+	},
+	{
+		name:       "Analyze invalid telemetry",
+		inputFiles: []string{"testdata/telemetry-disable-provider.yaml"},
+		analyzer:   &telemetry.ProdiverAnalyzer{},
+		expected:   []message{},
 	},
 	{
 		name:       "telemetrySelector",

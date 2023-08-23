@@ -110,7 +110,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 	builder.patchListeners()
 	l := builder.getListeners()
 	if builder.node.EnableHBONE() && !builder.node.IsAmbient() {
-		l = append(l, outboundTunnelListener(builder.node))
+		l = append(l, buildConnectOriginateListener())
 	}
 
 	return l
@@ -473,7 +473,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 					// wildcard route match to get to the appropriate IP through original dst clusters.
 					if features.EnableHeadlessService && bind.Primary() == "" && service.Resolution == model.Passthrough &&
 						saddress == constants.UnspecifiedIP && (servicePort.Protocol.IsTCP() || servicePort.Protocol.IsUnsupported()) {
-						instances := push.ServiceInstancesByPort(service, servicePort.Port, nil)
+						instances := push.ServiceEndpointsByPort(service, servicePort.Port, nil)
 						if service.Attributes.ServiceRegistry != provider.Kubernetes && len(instances) == 0 && service.Attributes.LabelSelectors == nil {
 							// A Kubernetes service with no endpoints means there are no endpoints at
 							// all, so don't bother sending, as traffic will never work. If we did
@@ -490,16 +490,16 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// Make sure each endpoint address is a valid address
 							// as service entries could have NONE resolution with label selectors for workload
 							// entries (which could technically have hostnames).
-							if !netutil.IsValidIPAddress(instance.Endpoint.Address) {
+							if !netutil.IsValidIPAddress(instance.Address) {
 								continue
 							}
 							// Skip build outbound listener to the node itself,
 							// as when app access itself by pod ip will not flow through this listener.
 							// Simultaneously, it will be duplicate with inbound listener.
-							if instance.Endpoint.Address == node.IPAddresses[0] {
+							if instance.Address == node.IPAddresses[0] {
 								continue
 							}
-							listenerOpts.bind.binds = []string{instance.Endpoint.Address}
+							listenerOpts.bind.binds = []string{instance.Address}
 							lb.buildSidecarOutboundListener(listenerOpts, listenerMap, virtualServices, actualWildcards)
 						}
 					} else {
@@ -607,6 +607,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 			}
+			chain.Filters = append(chain.Filters, opt.networkFilters...)
 			chain.Filters = append(chain.Filters, filter)
 		}
 
@@ -996,9 +997,9 @@ type filterChainOpts struct {
 	// TLS configuration for the filter
 	tlsContext *auth.DownstreamTlsContext
 
-	// Set if this is for HTTP. Cannot be set with networkFilters
+	// Set if this is for HTTP.
 	httpOpts *httpListenerOpts
-	// Set if this is for TCP chain. Cannot be set with httpOpts
+	// Set if this is for TCP chain.
 	networkFilters []*listener.Filter
 }
 
@@ -1011,7 +1012,7 @@ type gatewayListenerOpts struct {
 	bind       string
 	extraBind  []string
 
-	port              *model.Port
+	port              int
 	filterChainOpts   []*filterChainOpts
 	needPROXYProtocol bool
 }
@@ -1083,8 +1084,8 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 
 		res = &listener.Listener{
 			// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
-			Name:                             getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolTCP),
-			Address:                          util.BuildAddress(opts.bind, uint32(opts.port.Port)),
+			Name:                             getListenerName(opts.bind, opts.port, istionetworking.TransportProtocolTCP),
+			Address:                          util.BuildAddress(opts.bind, uint32(opts.port)),
 			TrafficDirection:                 core.TrafficDirection_OUTBOUND,
 			ListenerFilters:                  listenerFilters,
 			FilterChains:                     filterChains,
@@ -1093,7 +1094,7 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		}
 		// add extra addresses for the listener
 		if features.EnableDualStack && len(opts.extraBind) > 0 {
-			res.AdditionalAddresses = util.BuildAdditionalAddresses(opts.extraBind, uint32(opts.port.Port))
+			res.AdditionalAddresses = util.BuildAdditionalAddresses(opts.extraBind, uint32(opts.port))
 		}
 
 		if opts.proxy.Type != model.Router {
@@ -1103,11 +1104,11 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		// TODO: switch on TransportProtocolQUIC is in too many places now. Once this is a bit
 		//       mature, refactor some of these to an interface so that they kick off the process
 		//       of building listener, filter chains, serializing etc based on transport protocol
-		listenerName := getListenerName(opts.bind, opts.port.Port, istionetworking.TransportProtocolQUIC)
+		listenerName := getListenerName(opts.bind, opts.port, istionetworking.TransportProtocolQUIC)
 		log.Debugf("buildGatewayListener: building UDP/QUIC listener %s", listenerName)
 		res = &listener.Listener{
 			Name:             listenerName,
-			Address:          util.BuildNetworkAddress(opts.bind, uint32(opts.port.Port), istionetworking.TransportProtocolQUIC),
+			Address:          util.BuildNetworkAddress(opts.bind, uint32(opts.port), istionetworking.TransportProtocolQUIC),
 			TrafficDirection: core.TrafficDirection_OUTBOUND,
 			FilterChains:     filterChains,
 			UdpListenerConfig: &listener.UdpListenerConfig{
@@ -1121,7 +1122,7 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		}
 		// add extra addresses for the listener
 		if features.EnableDualStack && len(opts.extraBind) > 0 {
-			res.AdditionalAddresses = util.BuildAdditionalAddresses(opts.extraBind, uint32(opts.port.Port))
+			res.AdditionalAddresses = util.BuildAdditionalAddresses(opts.extraBind, uint32(opts.port))
 		}
 	}
 
@@ -1332,21 +1333,6 @@ func buildDownstreamQUICTransportSocket(tlsContext *auth.DownstreamTlsContext) *
 // listenerKey builds the key for a given bind and port
 func listenerKey(bind string, port int) string {
 	return bind + ":" + strconv.Itoa(port)
-}
-
-const baggageFormat = "k8s.cluster.name=%s,k8s.namespace.name=%s,k8s.%s.name=%s,service.name=%s,service.version=%s"
-
-// outboundTunnelListener builds a listener that originates an HBONE tunnel. The original dst is passed through
-func outboundTunnelListener(proxy *model.Proxy) *listener.Listener {
-	canonicalName := proxy.Labels[model.IstioCanonicalServiceLabelName]
-	canonicalRevision := proxy.Labels[model.IstioCanonicalServiceRevisionLabelName]
-	baggage := fmt.Sprintf(baggageFormat,
-		proxy.Metadata.ClusterID, proxy.ConfigNamespace,
-		// TODO do not hardcode deployment. But I think we ignore it anyways?
-		"deployment", proxy.Metadata.WorkloadName,
-		canonicalName, canonicalRevision,
-	)
-	return buildConnectOriginateListener(baggage)
 }
 
 // conflictWithStaticListener checks whether the listener address bind:port conflicts with static listener port

@@ -311,8 +311,9 @@ func (l *lruCache[K]) Clear(configs sets.Set[ConfigKey]) {
 		l.evictedOnClear = false
 	}()
 	for ckey := range configs {
-		referenced := l.configIndex[ckey.HashCode()]
-		delete(l.configIndex, ckey.HashCode())
+		hc := ckey.HashCode()
+		referenced := l.configIndex[hc]
+		delete(l.configIndex, hc)
 		for key := range referenced {
 			l.store.Remove(key)
 		}

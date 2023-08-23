@@ -35,7 +35,9 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "name1", testNS, nil)
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "name1")
 	s.assertEvent(t, s.seIPXdsName("name1", "127.0.0.1"), "ns1/se.istio.io")
+	s.controller.ambientIndex.(*AmbientIndexImpl).mu.RLock()
 	assert.Equal(t, len(s.controller.ambientIndex.(*AmbientIndexImpl).byWorkloadEntry), 1)
+	s.controller.ambientIndex.(*AmbientIndexImpl).mu.RUnlock()
 	assert.Equal(t, s.lookup(s.addrXdsName("127.0.0.1")), []*model.AddressInfo{{
 		Address: &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
@@ -66,7 +68,9 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	}})
 
 	s.deleteServiceEntry(t, "name1", testNS)
+	s.controller.ambientIndex.(*AmbientIndexImpl).mu.RLock()
 	assert.Equal(t, len(s.controller.ambientIndex.(*AmbientIndexImpl).byWorkloadEntry), 0)
+	s.controller.ambientIndex.(*AmbientIndexImpl).mu.RUnlock()
 	assert.Equal(t, s.lookup(s.addrXdsName("127.0.0.1")), nil)
 	s.clearEvents()
 

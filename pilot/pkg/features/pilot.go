@@ -345,6 +345,9 @@ var (
 	EnableGatewayAPIDeploymentController = env.Register("PILOT_ENABLE_GATEWAY_API_DEPLOYMENT_CONTROLLER", true,
 		"If this is set to true, gateway-api resources will automatically provision in cluster deployment, services, etc").Get()
 
+	EnableGatewayAPIGatewayClassController = env.Register("PILOT_ENABLE_GATEWAY_API_GATEWAYCLASS_CONTROLLER", true,
+		"If this is set to true, istiod will create and manage its default GatewayClasses").Get()
+
 	ClusterName = env.Register("CLUSTER_ID", "Kubernetes",
 		"Defines the cluster and service registry that this Istiod instance belongs to").Get()
 
@@ -652,6 +655,9 @@ var (
 		"Metric scope rotation interval, set to 0 to disable the metric scope rotation").Get()
 	MetricGracefulDeletionInterval = env.Register("METRIC_GRACEFUL_DELETION_INTERVAL", 5*time.Minute,
 		"Metric expiry graceful deletion interval. No-op if METRIC_ROTATION_INTERVAL is disabled.").Get()
+
+	NativeMetadataExchange = env.Register("NATIVE_METADATA_EXCHANGE", true,
+		"If set, uses a native implementation of the HTTP metadata exchange filter").Get()
 
 	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
 		"If enabled, pilot will only rebuild config for resources that have changed").Get()

@@ -319,7 +319,7 @@ func TestGolden(t *testing.T) {
 			}
 			defer os.Remove(annoFile.Name())
 			for k, v := range c.annotations {
-				annoFile.Write([]byte(fmt.Sprintf("%s=%q\n", k, v)))
+				annoFile.WriteString(fmt.Sprintf("%s=%q\n", k, v))
 			}
 
 			node, err := GetNodeMetaData(MetadataOptions{

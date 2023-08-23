@@ -310,16 +310,6 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 	return out
 }
 
-// InstancesByPort retrieves instances for a service on a given port that match
-// any of the supplied labels. All instances match an empty label list.
-func (c *Controller) InstancesByPort(svc *model.Service, port int) []*model.ServiceInstance {
-	var instances []*model.ServiceInstance
-	for _, r := range c.GetRegistries() {
-		instances = append(instances, r.InstancesByPort(svc, port)...)
-	}
-	return instances
-}
-
 func nodeClusterID(node *model.Proxy) cluster.ID {
 	if node.Metadata == nil || node.Metadata.ClusterID == "" {
 		return ""

@@ -92,6 +92,24 @@ func (es *EndpointShards) Keys() []ShardKey {
 	return keys
 }
 
+// CopyEndpoints takes a snapshot of all endpoints. As input, it takes a map of port name to number, to allow it to group
+// the results by service port number. This is a bit weird, but lets us efficiently construct the format the caller needs.
+func (es *EndpointShards) CopyEndpoints(portMap map[string]int) map[int][]*IstioEndpoint {
+	es.RLock()
+	defer es.RUnlock()
+	res := map[int][]*IstioEndpoint{}
+	for _, v := range es.Shards {
+		for _, ep := range v {
+			portNum, f := portMap[ep.ServicePortName]
+			if !f {
+				continue
+			}
+			res[portNum] = append(res[portNum], ep)
+		}
+	}
+	return res
+}
+
 func (es *EndpointShards) DeepCopy() *EndpointShards {
 	es.RLock()
 	defer es.RUnlock()
@@ -240,8 +258,11 @@ const (
 // UpdateServiceEndpoints updates EndpointShards data by clusterID, hostname, IstioEndpoints.
 // It also tracks the changes to ServiceAccounts. It returns whether endpoints need to be pushed and
 // it also returns if they need to be pushed whether a full push is needed or incremental push is sufficient.
-func (e *EndpointIndex) UpdateServiceEndpoints(shard ShardKey, hostname string, namespace string, istioEndpoints []*IstioEndpoint,
-	clearCache func(set sets.Set[ConfigKey]),
+func (e *EndpointIndex) UpdateServiceEndpoints(
+	shard ShardKey,
+	hostname string,
+	namespace string,
+	istioEndpoints []*IstioEndpoint,
 ) PushType {
 	if len(istioEndpoints) == 0 {
 		// Should delete the service EndpointShards when endpoints become zero to prevent memory leak,
@@ -334,9 +355,7 @@ func (e *EndpointIndex) UpdateServiceEndpoints(shard ShardKey, hostname string, 
 	// moving forward in version. In practice, this is pretty rare and self corrects nearly
 	// immediately. However, clearing the cache here has almost no impact on cache performance as we
 	// would clear it shortly after anyways.
-	if clearCache != nil {
-		clearCache(sets.New(ConfigKey{Kind: kind.ServiceEntry, Name: hostname, Namespace: namespace}))
-	}
+	e.clearCacheForService(hostname, namespace)
 
 	return pushType
 }
@@ -362,4 +381,37 @@ func updateShardServiceAccount(shards *EndpointShards, serviceName string) bool 
 	}
 
 	return false
+}
+
+// EndpointIndexUpdater is an updater that will keep an EndpointIndex in sync. This is intended for tests only.
+type EndpointIndexUpdater struct {
+	Index *EndpointIndex
+}
+
+var _ XDSUpdater = &EndpointIndexUpdater{}
+
+func NewEndpointIndexUpdater(ei *EndpointIndex) *EndpointIndexUpdater {
+	return &EndpointIndexUpdater{Index: ei}
+}
+
+func (f *EndpointIndexUpdater) ConfigUpdate(*PushRequest) {}
+
+func (f *EndpointIndexUpdater) EDSUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
+	f.Index.UpdateServiceEndpoints(shard, serviceName, namespace, eps)
+}
+
+func (f *EndpointIndexUpdater) EDSCacheUpdate(shard ShardKey, serviceName string, namespace string, eps []*IstioEndpoint) {
+	f.Index.UpdateServiceEndpoints(shard, serviceName, namespace, eps)
+}
+
+func (f *EndpointIndexUpdater) SvcUpdate(shard ShardKey, hostname string, namespace string, event Event) {
+	if event == EventDelete {
+		f.Index.DeleteServiceShard(shard, hostname, namespace, false)
+	}
+}
+
+func (f *EndpointIndexUpdater) ProxyUpdate(_ cluster.ID, _ string) {}
+
+func (f *EndpointIndexUpdater) RemoveShard(shardKey ShardKey) {
+	f.Index.DeleteShard(shardKey)
 }

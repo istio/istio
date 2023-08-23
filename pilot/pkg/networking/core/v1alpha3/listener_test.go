@@ -2572,7 +2572,8 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 func buildServiceInstance(service *model.Service, instanceIP string) *model.ServiceInstance {
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address: instanceIP,
+			Address:         instanceIP,
+			ServicePortName: service.Ports[0].Name,
 		},
 		ServicePort: service.Ports[0],
 		Service:     service,

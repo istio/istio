@@ -25,6 +25,10 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
+func TestTelemetryMetricsExhaustiveness(t *testing.T) {
+	AssertProvidersHandled(telemetryFilterHandled)
+}
+
 func TestMergeMetrics(t *testing.T) {
 	withoutMetricsProviders := mesh.DefaultMeshConfig()
 	withMetricsProviders := mesh.DefaultMeshConfig()

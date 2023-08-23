@@ -218,6 +218,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts,
 	// basis in buildCluster, so we can just insert without a copy.
 	subsetCluster.cluster.Metadata = util.AddConfigInfoMetadata(subsetCluster.cluster.Metadata, destRule.Meta)
 	util.AddSubsetToMetadata(subsetCluster.cluster.Metadata, subset.Name)
+	subsetCluster.cluster.Metadata = util.AddALPNOverrideToMetadata(subsetCluster.cluster.Metadata, opts.policy.GetTls().GetMode())
 	return subsetCluster.build()
 }
 
@@ -261,11 +262,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 
 	if destRule != nil {
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
-
-		// ALPN header rewrite starts Istio-managed mTLS. Skip if TLS mode is SIMPLE or MUTUAL
-		if trafficPolicy.GetTls() != nil {
-			mc.cluster.Metadata = configureALPNOverride(trafficPolicy.Tls.Mode, mc.cluster.Metadata)
-		}
+		mc.cluster.Metadata = util.AddALPNOverrideToMetadata(mc.cluster.Metadata, opts.policy.GetTls().GetMode())
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.GetSubsets() {
@@ -281,55 +278,6 @@ func (cb *ClusterBuilder) applyMetadataExchange(c *cluster.Cluster) {
 	if features.MetadataExchange {
 		c.Filters = append(c.Filters, xdsfilters.TCPClusterMx)
 	}
-}
-
-// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
-func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
-	if subsetPolicy == nil {
-		return original
-	}
-
-	// Sanity check that top-level port level settings have already been merged for the given port
-	if original != nil && len(original.PortLevelSettings) != 0 {
-		original = MergeTrafficPolicy(nil, original, port)
-	}
-
-	mergedPolicy := &networking.TrafficPolicy{}
-	if original != nil {
-		mergedPolicy.ConnectionPool = original.ConnectionPool
-		mergedPolicy.LoadBalancer = original.LoadBalancer
-		mergedPolicy.OutlierDetection = original.OutlierDetection
-		mergedPolicy.Tls = original.Tls
-	}
-
-	// Override with subset values.
-	if subsetPolicy.ConnectionPool != nil {
-		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
-	}
-	if subsetPolicy.OutlierDetection != nil {
-		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
-	}
-	if subsetPolicy.LoadBalancer != nil {
-		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
-	}
-	if subsetPolicy.Tls != nil {
-		mergedPolicy.Tls = subsetPolicy.Tls
-	}
-
-	// Check if port level overrides exist, if yes override with them.
-	if port != nil {
-		for _, p := range subsetPolicy.PortLevelSettings {
-			if p.Port != nil && uint32(port.Port) == p.Port.Number {
-				// per the docs, port level policies do not inherit and instead to defaults if not provided
-				mergedPolicy.ConnectionPool = p.ConnectionPool
-				mergedPolicy.OutlierDetection = p.OutlierDetection
-				mergedPolicy.LoadBalancer = p.LoadBalancer
-				mergedPolicy.Tls = p.Tls
-				break
-			}
-		}
-	}
-	return mergedPolicy
 }
 
 // buildCluster builds the default cluster and also applies global options.
@@ -486,7 +434,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 		return nil
 	}
 
-	instances := cb.req.Push.ServiceInstancesByPort(service, port, labels)
+	instances := cb.req.Push.ServiceEndpointsByPort(service, port, labels)
 
 	// Determine whether or not the target service is considered local to the cluster
 	// and should, therefore, not be accessed from outside the cluster.
@@ -496,28 +444,28 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 	for _, instance := range instances {
 		// Only send endpoints from the networks in the network view requested by the proxy.
 		// The default network view assigned to the Proxy is nil, in that case match any network.
-		if !proxyView.IsVisible(instance.Endpoint) {
+		if !proxyView.IsVisible(instance) {
 			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 			continue
 		}
 		// If the downstream service is configured as cluster-local, only include endpoints that
 		// reside in the same cluster.
-		if isClusterLocal && (cb.clusterID != string(instance.Endpoint.Locality.ClusterID)) {
+		if isClusterLocal && (cb.clusterID != string(instance.Locality.ClusterID)) {
 			continue
 		}
 		// TODO(nmittler): Consider merging discoverability policy with cluster-local
 		// TODO(ramaraochavali): Find a better way here so that we do not have build proxy.
 		// Currently it works because we only determine discoverability only by cluster.
-		if !instance.Endpoint.IsDiscoverableFromProxy(&model.Proxy{Metadata: &model.NodeMetadata{ClusterID: istio_cluster.ID(cb.clusterID)}}) {
+		if !instance.IsDiscoverableFromProxy(&model.Proxy{Metadata: &model.NodeMetadata{ClusterID: istio_cluster.ID(cb.clusterID)}}) {
 			continue
 		}
 
 		// TODO(stevenctl) share code with EDS to filter this and do multi-network mapping
-		if instance.Endpoint.Address == "" {
+		if instance.Address == "" {
 			continue
 		}
 
-		addr := util.BuildAddress(instance.Endpoint.Address, instance.Endpoint.EndpointPort)
+		addr := util.BuildAddress(instance.Address, instance.EndpointPort)
 		ep := &endpoint.LbEndpoint{
 			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 				Endpoint: &endpoint.Endpoint{
@@ -525,7 +473,7 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 				},
 			},
 			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: instance.Endpoint.GetLoadBalancingWeight(),
+				Value: instance.GetLoadBalancingWeight(),
 			},
 			Metadata: &core.Metadata{},
 		}
@@ -534,23 +482,23 @@ func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, se
 		if features.CanonicalServiceForMeshExternalServiceEntry && service.MeshExternal {
 			svcLabels := service.Attributes.Labels
 			if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
-				metadata = instance.Endpoint.MetadataClone()
+				metadata = instance.MetadataClone()
 				if metadata.Labels == nil {
 					metadata.Labels = make(map[string]string)
 				}
 				metadata.Labels[model.IstioCanonicalServiceLabelName] = svcLabels[model.IstioCanonicalServiceLabelName]
 				metadata.Labels[model.IstioCanonicalServiceRevisionLabelName] = svcLabels[model.IstioCanonicalServiceRevisionLabelName]
 			} else {
-				metadata = instance.Endpoint.Metadata()
+				metadata = instance.Metadata()
 			}
 			metadata.Namespace = service.Attributes.Namespace
 		} else {
-			metadata = instance.Endpoint.Metadata()
+			metadata = instance.Metadata()
 		}
 
 		util.AppendLbEndpointMetadata(metadata, ep.Metadata)
 
-		locality := instance.Endpoint.Locality.Label
+		locality := instance.Locality.Label
 		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
 	}
 
@@ -867,16 +815,6 @@ func (cb *ClusterBuilder) buildExternalSDSCluster(addr string) *cluster.Cluster 
 		},
 	}
 	return c
-}
-
-// configureALPNOverride determines whether alpn_override should be added to metadata
-func configureALPNOverride(tlsMode networking.ClientTLSSettings_TLSmode, md *core.Metadata) *core.Metadata {
-	alpnOverride := (tlsMode != networking.ClientTLSSettings_SIMPLE) && (tlsMode != networking.ClientTLSSettings_MUTUAL)
-	// Only write to metadata if alpnOverride is false
-	if !alpnOverride {
-		return util.AddALPNOverrideToMetadata(md, alpnOverride)
-	}
-	return md
 }
 
 func addTelemetryMetadata(cluster *cluster.Cluster,

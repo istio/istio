@@ -334,7 +334,7 @@ func (os K8sObjects) YAMLManifest() (string, error) {
 		if _, err := b.Write(ym); err != nil {
 			return "", err
 		}
-		if _, err := b.Write([]byte(YAMLSeparator)); err != nil {
+		if _, err := b.WriteString(YAMLSeparator); err != nil {
 			return "", err
 		}
 

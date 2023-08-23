@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/resource"
@@ -184,7 +185,7 @@ func (s *DiscoveryServer) AddDebugHandlers(mux, internalMux *http.ServeMux, enab
 	s.addDebugHandler(mux, internalMux, "/debug/config_distribution", "Version status of all Envoys connected to this Pilot instance", s.distributedVersions)
 
 	s.addDebugHandler(mux, internalMux, "/debug/registryz", "Debug support for registry", s.registryz)
-	s.addDebugHandler(mux, internalMux, "/debug/endpointz", "Debug support for endpoints", s.endpointz)
+	s.addDebugHandler(mux, internalMux, "/debug/endpointz", "Obsolete, use endpointShardz", s.endpointShardz)
 	s.addDebugHandler(mux, internalMux, "/debug/endpointShardz", "Info about the endpoint shards", s.endpointShardz)
 	s.addDebugHandler(mux, internalMux, "/debug/cachez", "Info about the internal XDS caches", s.cachez)
 	s.addDebugHandler(mux, internalMux, "/debug/cachez?sizes=true", "Info about the size of the internal XDS caches", s.cachez)
@@ -320,7 +321,7 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 	}
 	if req.Form.Get("sizes") != "" {
 		snapshot := s.Cache.Snapshot()
-		res := make(map[string]string, len(snapshot))
+		raw := make(map[string]int, len(snapshot))
 		totalSize := 0
 		for _, resource := range snapshot {
 			if resource == nil {
@@ -328,8 +329,12 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 			}
 			resourceType := resource.Resource.TypeUrl
 			sz := len(resource.Resource.GetValue())
-			res[resourceType] += util.ByteCount(sz)
+			raw[resourceType] += sz
 			totalSize += sz
+		}
+		res := make(map[string]string, len(raw))
+		for k, v := range raw {
+			res[k] = util.ByteCount(v)
 		}
 		res["total"] = util.ByteCount(totalSize)
 		writeJSON(w, res, req)
@@ -345,42 +350,6 @@ func (s *DiscoveryServer) cachez(w http.ResponseWriter, req *http.Request) {
 		resources[resourceType] = append(resources[resourceType], resource.Name)
 	}
 	writeJSON(w, resources, req)
-}
-
-type endpointzResponse struct {
-	Service   string                   `json:"svc"`
-	Endpoints []*model.ServiceInstance `json:"ep"`
-}
-
-// Endpoint debugging
-func (s *DiscoveryServer) endpointz(w http.ResponseWriter, req *http.Request) {
-	if _, f := req.URL.Query()["brief"]; f {
-		svc := s.Env.ServiceDiscovery.Services()
-		for _, ss := range svc {
-			for _, p := range ss.Ports {
-				all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port)
-				for _, svc := range all {
-					_, _ = fmt.Fprintf(w, "%s:%s %s:%d %v %s\n", ss.Hostname,
-						p.Name, svc.Endpoint.Address, svc.Endpoint.EndpointPort, svc.Endpoint.Labels,
-						svc.Endpoint.ServiceAccount)
-				}
-			}
-		}
-		return
-	}
-
-	svc := s.Env.ServiceDiscovery.Services()
-	resp := make([]endpointzResponse, 0)
-	for _, ss := range svc {
-		for _, p := range ss.Ports {
-			all := s.Env.ServiceDiscovery.InstancesByPort(ss, p.Port)
-			resp = append(resp, endpointzResponse{
-				Service:   fmt.Sprintf("%s:%s", ss.Hostname, p.Name),
-				Endpoints: all,
-			})
-		}
-	}
-	writeJSON(w, resp, req)
 }
 
 const DistributionTrackingDisabledMessage = "Pilot Version tracking is disabled. It may be enabled by setting the " +
@@ -520,10 +489,22 @@ type TelemetryDebug struct {
 }
 
 func (s *DiscoveryServer) telemetryz(w http.ResponseWriter, req *http.Request) {
-	info := TelemetryDebug{
-		Telemetries: s.globalPushContext().Telemetry,
+	proxyID, con := s.getDebugConnection(req)
+	if proxyID != "" && con == nil {
+		// We can't guarantee the Pilot we are connected to has a connection to the proxy we requested
+		// There isn't a great way around this, but for debugging purposes its suitable to have the caller retry.
+		w.WriteHeader(http.StatusNotFound)
+		_, _ = w.Write([]byte("Proxy not connected to this Pilot instance. It may be connected to another instance.\n"))
+		return
 	}
-	writeJSON(w, info, req)
+	if con == nil {
+		info := TelemetryDebug{
+			Telemetries: s.globalPushContext().Telemetry,
+		}
+		writeJSON(w, info, req)
+		return
+	}
+	writeJSON(w, s.globalPushContext().Telemetry.Debug(con.proxy), req)
 }
 
 // connectionsHandler implements interface for displaying current connections.
@@ -1026,7 +1007,8 @@ func (s *DiscoveryServer) Edsz(w http.ResponseWriter, req *http.Request) {
 	clusters := con.Clusters()
 	eps := make([]jsonMarshalProto, 0, len(clusters))
 	for _, clusterName := range clusters {
-		eps = append(eps, jsonMarshalProto{s.generateEndpoints(NewEndpointBuilder(clusterName, con.proxy, con.proxy.LastPushContext))})
+		builder := endpoints.NewEndpointBuilder(clusterName, con.proxy, con.proxy.LastPushContext)
+		eps = append(eps, jsonMarshalProto{builder.BuildClusterLoadAssignment(s.Env.EndpointIndex)})
 	}
 	writeJSON(w, eps, req)
 }

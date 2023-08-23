@@ -237,6 +237,12 @@ func IsIstioVersionGE117(version *model.IstioVersion) bool {
 		version.Compare(&model.IstioVersion{Major: 1, Minor: 17, Patch: -1}) >= 0
 }
 
+// IsIstioVersionGE119 checks whether the given Istio version is greater than or equals 1.19.
+func IsIstioVersionGE119(version *model.IstioVersion) bool {
+	return version == nil ||
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 19, Patch: -1}) >= 0
+}
+
 // ConvertLocality converts '/' separated locality string to Locality struct.
 func ConvertLocality(locality string) *core.Locality {
 	if locality == "" {
@@ -395,9 +401,13 @@ func AddSubsetToMetadata(md *core.Metadata, subset string) {
 	}
 }
 
-// AddALPNOverrideToMetadata adds whether the the ALPN prefix should be added to the header
-// to the given core.Metadata struct, if metadata is not initialized, build a new metadata.
-func AddALPNOverrideToMetadata(metadata *core.Metadata, alpnOverride bool) *core.Metadata {
+// AddALPNOverrideToMetadata sets filter metadata `istio.alpn_override: "false"` in the given core.Metadata struct,
+// when TLS mode is SIMPLE or MUTUAL. If metadata is not initialized, builds a new metadata.
+func AddALPNOverrideToMetadata(metadata *core.Metadata, tlsMode networking.ClientTLSSettings_TLSmode) *core.Metadata {
+	if tlsMode != networking.ClientTLSSettings_SIMPLE && tlsMode != networking.ClientTLSSettings_MUTUAL {
+		return metadata
+	}
+
 	if metadata == nil {
 		metadata = &core.Metadata{
 			FilterMetadata: map[string]*structpb.Struct{},
@@ -412,7 +422,7 @@ func AddALPNOverrideToMetadata(metadata *core.Metadata, alpnOverride bool) *core
 
 	metadata.FilterMetadata[IstioMetadataKey].Fields["alpn_override"] = &structpb.Value{
 		Kind: &structpb.Value_StringValue{
-			StringValue: strconv.FormatBool(alpnOverride),
+			StringValue: "false",
 		},
 	}
 
@@ -609,7 +619,7 @@ func toMaskedPrefix(c *core.CidrRange) (netip.Prefix, error) {
 
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
-func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
+func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
 	return hcm.HttpConnectionManager_ForwardClientCertDetails(c - 1)
 }
 

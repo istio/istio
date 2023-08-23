@@ -16,7 +16,6 @@ package networking
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -77,32 +76,6 @@ func (tp TransportProtocol) ToEnvoySocketProtocol() core.SocketAddress_Protocol 
 		return core.SocketAddress_UDP
 	}
 	return core.SocketAddress_TCP
-}
-
-// FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
-type FilterChain struct {
-	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
-	// Note that HTTP filter chains can also have network filters
-	ListenerProtocol ListenerProtocol
-	// TransportProtocol indicates the type of transport used - TCP, UDP, QUIC
-	// This would be TCP by default
-	TransportProtocol TransportProtocol
-
-	// TCP is the set of network (TCP) filters for this filter chain.
-	TCP []*listener.Filter
-}
-
-// MutableObjects is a set of objects passed to On*Listener callbacks. Fields may be nil or empty.
-// Any lists should not be overridden, but rather only appended to.
-// Non-list fields may be mutated; however it's not recommended to do this since it can affect other plugins in the
-// chain in unpredictable ways.
-// TODO: do we need this now?
-type MutableObjects struct {
-	// Listener is the listener being built. Must be initialized before Plugin methods are called.
-	Listener *listener.Listener
-
-	// FilterChains is the set of filter chains that will be attached to Listener.
-	FilterChains []FilterChain
 }
 
 // ListenerClass defines the class of the listener

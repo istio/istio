@@ -448,80 +448,51 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 	}
 }
 
-// buildUpstreamTLSSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
-// If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
-// creates and populates the config as if they are set as ISTIO_MUTUAL.
-func (cb *ClusterBuilder) buildUpstreamTLSSettings(
-	tls *networking.ClientTLSSettings,
-	serviceAccounts []string,
-	sni string,
-	autoMTLSEnabled bool,
-	meshExternal bool,
-	serviceMTLSMode model.MutualTLSMode,
-) (*networking.ClientTLSSettings, mtlsContextType) {
-	if tls != nil {
-		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_SIMPLE {
-			return tls, userSupplied
-		}
-		// For backward compatibility, use metadata certs if provided.
-		if cb.hasMetadataCerts() {
-			// When building Mutual TLS settings, we should always use user supplied SubjectAltNames and SNI
-			// in destination rule. The Service Accounts and auto computed SNI should only be used for
-			// ISTIO_MUTUAL.
-			return cb.buildMutualTLS(tls.SubjectAltNames, tls.Sni), userSupplied
-		}
-		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
-			return tls, userSupplied
-		}
-		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
-		// overwrite with the auto generated SNI. User specified SNIs in the istio mtls settings
-		// are useful when routing via gateways. Use Service Accounts if Subject Alt names
-		// are not specified in TLS settings.
-		sniToUse := tls.Sni
-		if len(sniToUse) == 0 {
-			sniToUse = sni
-		}
-		subjectAltNamesToUse := tls.SubjectAltNames
-		if subjectAltNamesToUse == nil {
-			subjectAltNamesToUse = serviceAccounts
-		}
-		return cb.buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
+// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
+func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	if subsetPolicy == nil {
+		return original
 	}
 
-	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
-		return nil, userSupplied
+	// Sanity check that top-level port level settings have already been merged for the given port
+	if original != nil && len(original.PortLevelSettings) != 0 {
+		original = MergeTrafficPolicy(nil, original, port)
 	}
 
-	// For backward compatibility, use metadata certs if provided.
-	if cb.hasMetadataCerts() {
-		return cb.buildMutualTLS(serviceAccounts, sni), autoDetected
+	mergedPolicy := &networking.TrafficPolicy{}
+	if original != nil {
+		mergedPolicy.ConnectionPool = original.ConnectionPool
+		mergedPolicy.LoadBalancer = original.LoadBalancer
+		mergedPolicy.OutlierDetection = original.OutlierDetection
+		mergedPolicy.Tls = original.Tls
 	}
 
-	// Build settings for auto MTLS.
-	return cb.buildIstioMutualTLS(serviceAccounts, sni), autoDetected
-}
-
-func (cb *ClusterBuilder) hasMetadataCerts() bool {
-	return cb.metadataCerts != nil
-}
-
-// buildMutualTLS returns a `TLSSettings` for MUTUAL mode with proxy metadata certificates.
-func (cb *ClusterBuilder) buildMutualTLS(serviceAccounts []string, sni string) *networking.ClientTLSSettings {
-	return &networking.ClientTLSSettings{
-		Mode:              networking.ClientTLSSettings_MUTUAL,
-		CaCertificates:    cb.metadataCerts.tlsClientRootCert,
-		ClientCertificate: cb.metadataCerts.tlsClientCertChain,
-		PrivateKey:        cb.metadataCerts.tlsClientKey,
-		SubjectAltNames:   serviceAccounts,
-		Sni:               sni,
+	// Override with subset values.
+	if subsetPolicy.ConnectionPool != nil {
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
 	}
-}
-
-// buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
-func (cb *ClusterBuilder) buildIstioMutualTLS(san []string, sni string) *networking.ClientTLSSettings {
-	return &networking.ClientTLSSettings{
-		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
-		SubjectAltNames: san,
-		Sni:             sni,
+	if subsetPolicy.OutlierDetection != nil {
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
 	}
+	if subsetPolicy.LoadBalancer != nil {
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
+	}
+	if subsetPolicy.Tls != nil {
+		mergedPolicy.Tls = subsetPolicy.Tls
+	}
+
+	// Check if port level overrides exist, if yes override with them.
+	if port != nil {
+		for _, p := range subsetPolicy.PortLevelSettings {
+			if p.Port != nil && uint32(port.Port) == p.Port.Number {
+				// per the docs, port level policies do not inherit and instead to defaults if not provided
+				mergedPolicy.ConnectionPool = p.ConnectionPool
+				mergedPolicy.OutlierDetection = p.OutlierDetection
+				mergedPolicy.LoadBalancer = p.LoadBalancer
+				mergedPolicy.Tls = p.Tls
+				break
+			}
+		}
+	}
+	return mergedPolicy
 }

@@ -21,7 +21,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 	"time"
 
@@ -374,14 +373,9 @@ func TestNewServer(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			configDir := t.TempDir()
 
-			var secureGRPCPort int
-			var err error
+			secureGRPCPort := ""
 			if c.enableSecureGRPC {
-				secureGRPCPort, err = findFreePort()
-				if err != nil {
-					t.Errorf("unable to find a free port: %v", err)
-					return
-				}
+				secureGRPCPort = ":0"
 			}
 
 			args := NewPilotArgs(func(p *PilotArgs) {
@@ -391,7 +385,7 @@ func TestNewServer(t *testing.T) {
 					HTTPAddr:       ":0",
 					MonitoringAddr: ":0",
 					GRPCAddr:       ":0",
-					SecureGRPCAddr: fmt.Sprintf(":%d", secureGRPCPort),
+					SecureGRPCAddr: secureGRPCPort,
 				}
 				p.RegistryOptions = RegistryOptions{
 					KubeOptions: kubecontroller.Options{
@@ -419,14 +413,7 @@ func TestNewServer(t *testing.T) {
 
 			g.Expect(s.environment.DomainSuffix).To(Equal(c.expectedDomain))
 
-			if c.enableSecureGRPC {
-				tcpAddr := s.secureGrpcAddress
-				_, port, err := net.SplitHostPort(tcpAddr)
-				if err != nil {
-					t.Errorf("invalid SecureGrpcListener addr %v", err)
-				}
-				g.Expect(port).To(Equal(strconv.Itoa(secureGRPCPort)))
-			}
+			assert.Equal(t, s.secureGrpcServer != nil, c.enableSecureGRPC)
 		})
 	}
 }
@@ -524,13 +511,6 @@ func TestIstiodCipherSuites(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			configDir := t.TempDir()
-
-			port, err := findFreePort()
-			if err != nil {
-				t.Errorf("unable to find a free port: %v", err)
-				return
-			}
-
 			args := NewPilotArgs(func(p *PilotArgs) {
 				p.Namespace = "istio-system"
 				p.ServerOptions = DiscoveryServerOptions{
@@ -538,7 +518,7 @@ func TestIstiodCipherSuites(t *testing.T) {
 					HTTPAddr:       ":0",
 					MonitoringAddr: ":0",
 					GRPCAddr:       ":0",
-					HTTPSAddr:      fmt.Sprintf(":%d", port),
+					HTTPSAddr:      ":0",
 					TLSOptions: TLSOptions{
 						CipherSuits: c.serverCipherSuites,
 					},
@@ -684,15 +664,94 @@ func checkCert(t *testing.T, s *Server, cert, key []byte) bool {
 	return bytes.Equal(actual.Certificate[0], expected.Certificate[0])
 }
 
-func findFreePort() (int, error) {
-	ln, err := net.Listen("tcp", ":0")
-	if err != nil {
-		return 0, err
+func TestGetDNSNames(t *testing.T) {
+	tests := []struct {
+		name             string
+		customHost       string
+		discoveryAddress string
+		revision         string
+		sans             []string
+	}{
+		{
+			name:             "default revision",
+			customHost:       "a.com,b.com,c.com",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "default",
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
+		},
+
+		{
+			name:             "empty revision",
+			customHost:       "a.com,b.com,c.com",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "",
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
+		},
+		{
+			name:             "canary revision",
+			customHost:       "a.com,b.com,c.com",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "canary",
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system.svc",
+				"istiod-canary.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
+		},
+		{
+			name:             "customHost has duplicate hosts with inner default",
+			customHost:       "a.com,b.com,c.com,istiod",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "canary",
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system.svc",
+				"istiod", // from the customHost
+				"istiod-canary.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
+		},
+		{
+			name:             "customHost has duplicate hosts with discovery address",
+			customHost:       "a.com,b.com,c.com,test.com",
+			discoveryAddress: "test.com",
+			revision:         "canary",
+			sans: []string{
+				"a.com", "b.com", "c.com",
+				"istio-pilot.istio-system.svc",
+				"istiod-canary.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"test.com",
+			},
+		},
 	}
-	defer ln.Close()
-	tcpAddr, ok := ln.Addr().(*net.TCPAddr)
-	if !ok {
-		return 0, fmt.Errorf("invalid listen address: %q", ln.Addr().String())
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			features.IstiodServiceCustomHost = tc.customHost
+			var args PilotArgs
+			args.Revision = tc.revision
+			args.Namespace = "istio-system"
+			sans := getDNSNames(&args, tc.discoveryAddress)
+			assert.Equal(t, sans, tc.sans)
+		})
 	}
-	return tcpAddr.Port, nil
 }

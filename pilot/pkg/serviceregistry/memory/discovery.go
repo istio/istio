@@ -145,6 +145,9 @@ func (sd *ServiceDiscovery) AddInstance(instance *model.ServiceInstance) {
 	if svc == nil {
 		return
 	}
+	if instance.Endpoint.ServicePortName == "" {
+		instance.Endpoint.ServicePortName = instance.ServicePort.Name
+	}
 	instance.Service = svc
 	sd.ip2instance[instance.Endpoint.Address] = append(sd.ip2instance[instance.Endpoint.Address], instance)
 
@@ -156,8 +159,11 @@ func (sd *ServiceDiscovery) AddInstance(instance *model.ServiceInstance) {
 	instanceList = sd.instancesByPortName[key]
 	sd.instancesByPortName[key] = append(instanceList, instance)
 	eps := make([]*model.IstioEndpoint, 0, len(sd.instancesByPortName[key]))
-	for _, i := range sd.instancesByPortName[key] {
-		eps = append(eps, i.Endpoint)
+	for _, port := range svc.Ports {
+		key := fmt.Sprintf("%s:%s", service, port.Name)
+		for _, i := range sd.instancesByPortName[key] {
+			eps = append(eps, i.Endpoint)
+		}
 	}
 	if sd.XdsUpdater != nil {
 		sd.XdsUpdater.EDSUpdate(sd.shardKey(), string(service), svc.Attributes.Namespace, eps)
@@ -263,22 +269,6 @@ func (sd *ServiceDiscovery) GetService(hostname host.Name) *model.Service {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	return sd.services[hostname]
-}
-
-// InstancesByPort filters the service instances by labels. This assumes single port, as is
-// used by EDS/ADS.
-func (sd *ServiceDiscovery) InstancesByPort(svc *model.Service, port int) []*model.ServiceInstance {
-	sd.mutex.Lock()
-	defer sd.mutex.Unlock()
-	if sd.InstancesError != nil {
-		return nil
-	}
-	key := fmt.Sprintf("%s:%d", string(svc.Hostname), port)
-	instances, ok := sd.instancesByPortNum[key]
-	if !ok {
-		return nil
-	}
-	return instances
 }
 
 // GetProxyServiceTargets returns service instances associated with a node, resulting in

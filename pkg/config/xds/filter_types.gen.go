@@ -131,6 +131,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/header_to_metadata/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/health_check/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ip_tagging/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/json_to_metadata/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/kill_request/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/local_ratelimit/v3"

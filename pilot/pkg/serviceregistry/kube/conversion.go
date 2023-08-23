@@ -163,11 +163,11 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	return istioService
 }
 
-func ExternalNameServiceInstances(k8sSvc *corev1.Service, svc *model.Service) []*model.ServiceInstance {
-	if k8sSvc == nil || k8sSvc.Spec.Type != corev1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
+func ExternalNameEndpoints(svc *model.Service) []*model.IstioEndpoint {
+	if svc.Attributes.ExternalName == "" {
 		return nil
 	}
-	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
+	out := make([]*model.IstioEndpoint, 0, len(svc.Ports))
 
 	discoverabilityPolicy := model.AlwaysDiscoverable
 	if features.EnableMCSServiceDiscovery {
@@ -176,16 +176,12 @@ func ExternalNameServiceInstances(k8sSvc *corev1.Service, svc *model.Service) []
 		discoverabilityPolicy = model.DiscoverableFromSameCluster
 	}
 	for _, portEntry := range svc.Ports {
-		out = append(out, &model.ServiceInstance{
-			Service:     svc,
-			ServicePort: portEntry,
-			Endpoint: &model.IstioEndpoint{
-				Address:               k8sSvc.Spec.ExternalName,
-				EndpointPort:          uint32(portEntry.Port),
-				ServicePortName:       portEntry.Name,
-				Labels:                k8sSvc.Labels,
-				DiscoverabilityPolicy: discoverabilityPolicy,
-			},
+		out = append(out, &model.IstioEndpoint{
+			Address:               svc.Attributes.ExternalName,
+			EndpointPort:          uint32(portEntry.Port),
+			ServicePortName:       portEntry.Name,
+			Labels:                svc.Attributes.Labels,
+			DiscoverabilityPolicy: discoverabilityPolicy,
 		})
 	}
 	return out

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package endpoints
 
 import (
 	"net"
@@ -21,21 +21,23 @@ import (
 	"strconv"
 	"strings"
 
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	corev3 "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"google.golang.org/protobuf/types/known/structpb"
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
-	networkingapi "istio.io/api/networking/v1alpha3"
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	networking "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
+	v1alpha32 "istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/kind"
+	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/hash"
@@ -44,6 +46,9 @@ import (
 var (
 	Separator = []byte{'~'}
 	Slash     = []byte{'/'}
+
+	// same as the above "xds" package
+	log = istiolog.RegisterScope("ads", "ads debugging")
 )
 
 type EndpointBuilder struct {
@@ -52,7 +57,7 @@ type EndpointBuilder struct {
 	network                network.ID
 	proxyView              model.ProxyView
 	clusterID              cluster.ID
-	locality               *core.Locality
+	locality               *corev3.Locality
 	destinationRule        *model.ConsolidatedDestRule
 	service                *model.Service
 	clusterLocal           bool
@@ -107,15 +112,34 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 	return b
 }
 
-func (b *EndpointBuilder) DestinationRule() *networkingapi.DestinationRule {
+// NewTestEndpointBuilder allows setting some fields directly without needing push context.
+// For now, this is for tests. We can expand this to be an all-field constructor for cases
+// like CDS where we already have the service and destination rule.
+func NewTestEndpointBuilder(clusterName string, service *model.Service, dr *model.ConsolidatedDestRule) EndpointBuilder {
+	return EndpointBuilder{
+		clusterName:     clusterName,
+		service:         service,
+		destinationRule: dr,
+	}
+}
+
+func (b *EndpointBuilder) DestinationRule() *v1alpha3.DestinationRule {
 	if dr := b.destinationRule.GetRule(); dr != nil {
-		return dr.Spec.(*networkingapi.DestinationRule)
+		return dr.Spec.(*v1alpha3.DestinationRule)
 	}
 	return nil
 }
 
 func (b *EndpointBuilder) Type() string {
 	return model.EDSType
+}
+
+func (b *EndpointBuilder) ServiceFound() bool {
+	return b.service != nil
+}
+
+func (b *EndpointBuilder) IsDNSCluster() bool {
+	return b.service != nil && (b.service.Resolution == model.DNSLB || b.service.Resolution == model.DNSRoundRobinLB)
 }
 
 // Key provides the eds cache key and should include any information that could change the way endpoints are generated.
@@ -214,11 +238,11 @@ func (e *LocalityEndpoints) append(ep *model.IstioEndpoint, le *endpoint.LbEndpo
 }
 
 func (e *LocalityEndpoints) refreshWeight() {
-	var weight *wrappers.UInt32Value
+	var weight *wrapperspb.UInt32Value
 	if len(e.llbEndpoints.LbEndpoints) == 0 {
 		weight = nil
 	} else {
-		weight = &wrappers.UInt32Value{}
+		weight = &wrapperspb.UInt32Value{}
 		for _, lbEp := range e.llbEndpoints.LbEndpoints {
 			weight.Value += lbEp.GetLoadBalancingWeight().Value
 		}
@@ -243,8 +267,63 @@ func (b *EndpointBuilder) populateFailoverPriorityLabels() {
 	}
 }
 
+func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
+	if !b.ServiceFound() {
+		return buildEmptyClusterLoadAssignment(b.clusterName)
+	}
+	svcPort, f := b.service.Ports.GetByPort(b.port)
+	if !f {
+		// Shouldn't happen here
+		log.Debugf("can not find the service port %d for cluster %s", b.port, b.clusterName)
+		return buildEmptyClusterLoadAssignment(b.clusterName)
+	}
+	epShards := b.findShards(endpointIndex)
+	if epShards == nil {
+		return buildEmptyClusterLoadAssignment(b.clusterName)
+	}
+	localityLbEndpoints := b.BuildLocalityLbEndpointsFromShards(epShards, svcPort)
+
+	// Apply the Split Horizon EDS filter, if applicable.
+	localityLbEndpoints = b.EndpointsByNetworkFilter(localityLbEndpoints)
+
+	if model.IsDNSSrvSubsetKey(b.clusterName) {
+		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended
+		// to passthrough mTLS requests. However, at the gateway we do not actually have any way to tell if the
+		// request is a valid mTLS request or not, since its passthrough TLS.
+		// To ensure we allow traffic only to mTLS endpoints, we filter out non-mTLS endpoints for these cluster types.
+		localityLbEndpoints = b.EndpointsWithMTLSFilter(localityLbEndpoints)
+	}
+	l := b.createClusterLoadAssignment(localityLbEndpoints)
+
+	// If locality aware routing is enabled, prioritize endpoints or set their lb weight.
+	// Failover should only be enabled when there is an outlier detection, otherwise Envoy
+	// will never detect the hosts are unhealthy and redirect traffic.
+	enableFailover, lb := getOutlierDetectionAndLoadBalancerSettings(b.DestinationRule(), b.port, b.subsetName)
+	lbSetting := loadbalancer.GetLocalityLbSetting(b.push.Mesh.GetLocalityLbSetting(), lb.GetLocalityLbSetting())
+	if lbSetting != nil {
+		// Make a shallow copy of the cla as we are mutating the endpoints with priorities/weights relative to the calling proxy
+		l = util.CloneClusterLoadAssignment(l)
+		wrappedLocalityLbEndpoints := make([]*loadbalancer.WrappedLocalityLbEndpoints, len(localityLbEndpoints))
+		for i := range localityLbEndpoints {
+			wrappedLocalityLbEndpoints[i] = &loadbalancer.WrappedLocalityLbEndpoints{
+				IstioEndpoints:      localityLbEndpoints[i].istioEndpoints,
+				LocalityLbEndpoints: l.Endpoints[i],
+			}
+		}
+		loadbalancer.ApplyLocalityLBSetting(l, wrappedLocalityLbEndpoints, b.locality, b.proxy.Labels, lbSetting, enableFailover)
+	}
+	return l
+}
+
+// cluster with no endpoints
+func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAssignment {
+	return &endpoint.ClusterLoadAssignment{
+		ClusterName: clusterName,
+	}
+}
+
 // build LocalityLbEndpoints for a cluster from existing EndpointShards.
-func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
+func (b *EndpointBuilder) BuildLocalityLbEndpointsFromShards(
 	shards *model.EndpointShards,
 	svcPort *model.Port,
 ) []*LocalityEndpoints {
@@ -257,7 +336,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	isClusterLocal := b.clusterLocal
 
 	// To avoid lock contention, grab endpoints list before we process anything
-	eps := []*model.IstioEndpoint{}
+	var eps []*model.IstioEndpoint
 	shards.RLock()
 	// Extract shard keys so we can iterate in order. This ensures a stable EDS output.
 	keys := shards.Keys()
@@ -354,7 +433,7 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 		for _, ep := range locLbEps.llbEndpoints.LbEndpoints {
 			weight += ep.LoadBalancingWeight.GetValue()
 		}
-		locLbEps.llbEndpoints.LoadBalancingWeight = &wrappers.UInt32Value{
+		locLbEps.llbEndpoints.LoadBalancingWeight = &wrapperspb.UInt32Value{
 			Value: weight,
 		}
 		locEps = append(locEps, locLbEps)
@@ -365,6 +444,34 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 	}
 
 	return locEps
+}
+
+// findShards returns the endpoints for a cluster
+func (b *EndpointBuilder) findShards(endpointIndex *model.EndpointIndex) *model.EndpointShards {
+	if b.service == nil {
+		log.Debugf("can not find the service for cluster %s", b.clusterName)
+		return nil
+	}
+
+	// Service resolution type might have changed and Cluster may be still in the EDS cluster list of "Connection.Clusters".
+	// This can happen if a ServiceEntry's resolution is changed from STATIC to DNS which changes the Envoy cluster type from
+	// EDS to STRICT_DNS or LOGICAL_DNS. When pushEds is called before Envoy sends the updated cluster list via Endpoint request which in turn
+	// will update "Connection.Clusters", we might accidentally send EDS updates for STRICT_DNS cluster. This check guards
+	// against such behavior and returns nil. When the updated cluster warms up in Envoy, it would update with new endpoints
+	// automatically.
+	// Gateways use EDS for Passthrough cluster. So we should allow Passthrough here.
+	if b.IsDNSCluster() {
+		log.Infof("cluster %s in eds cluster, but its resolution now is updated to %v, skipping it.", b.clusterName, b.service.Resolution)
+		return nil
+	}
+
+	epShards, f := endpointIndex.ShardsForService(string(b.hostname), b.service.Attributes.Namespace)
+	if !f {
+		// Shouldn't happen here
+		log.Debugf("can not find the endpointShards for cluster %s", b.clusterName)
+		return nil
+	}
+	return epShards
 }
 
 // Create the CLusterLoadAssignment. At this moment the options must have been applied to the locality lb endpoints.
@@ -379,15 +486,19 @@ func (b *EndpointBuilder) createClusterLoadAssignment(llbOpts []*LocalityEndpoin
 	}
 }
 
-func (b *EndpointBuilder) IsDNSCluster() bool {
-	return b.service != nil && (b.service.Resolution == model.DNSLB || b.service.Resolution == model.DNSRoundRobinLB)
-}
-
 func (b *EndpointBuilder) gateways() *model.NetworkGateways {
 	if b.IsDNSCluster() {
 		return b.push.NetworkManager().Unresolved
 	}
 	return b.push.NetworkManager().NetworkGateways
+}
+
+func ExtractEnvoyEndpoints(locEps []*LocalityEndpoints) []*endpoint.LocalityLbEndpoints {
+	var locLbEps []*endpoint.LocalityLbEndpoints
+	for _, eps := range locEps {
+		locLbEps = append(locLbEps, &eps.llbEndpoints)
+	}
+	return locLbEps
 }
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
@@ -399,8 +510,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 
 	ep := &endpoint.LbEndpoint{
-		HealthStatus: core.HealthStatus(healthStatus),
-		LoadBalancingWeight: &wrappers.UInt32Value{
+		HealthStatus: corev3.HealthStatus(healthStatus),
+		LoadBalancingWeight: &wrapperspb.UInt32Value{
 			Value: e.GetLoadBalancingWeight(),
 		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
@@ -408,7 +519,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 				Address: addr,
 			},
 		},
-		Metadata: &core.Metadata{},
+		Metadata: &corev3.Metadata{},
 	}
 
 	// Istio telemetry depends on the metadata value being set for endpoints in the mesh.
@@ -468,8 +579,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
 			ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, address, int(e.EndpointPort), tunnelPort)
-			ep = util.BuildInternalLbEndpoint(networking.ConnectOriginate, ep.Metadata)
-			ep.LoadBalancingWeight = &wrappers.UInt32Value{
+			ep = util.BuildInternalLbEndpoint(v1alpha32.ConnectOriginate, ep.Metadata)
+			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
 				Value: e.GetLoadBalancingWeight(),
 			}
 		}
@@ -484,7 +595,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		}
 		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(networking.ConnectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
+			Address: util.BuildInternalAddressWithIdentifier(v1alpha32.ConnectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}
 		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
@@ -517,4 +628,58 @@ func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr
 		ServiceAccount: ident.ServiceAccount,
 	})
 	return ips
+}
+
+func getOutlierDetectionAndLoadBalancerSettings(
+	destinationRule *v1alpha3.DestinationRule,
+	portNumber int,
+	subsetName string,
+) (bool, *v1alpha3.LoadBalancerSettings) {
+	if destinationRule == nil {
+		return false, nil
+	}
+	outlierDetectionEnabled := false
+	var lbSettings *v1alpha3.LoadBalancerSettings
+
+	port := &model.Port{Port: portNumber}
+	policy := v1alpha32.MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
+
+	for _, subset := range destinationRule.Subsets {
+		if subset.Name == subsetName {
+			policy = v1alpha32.MergeTrafficPolicy(policy, subset.TrafficPolicy, port)
+			break
+		}
+	}
+
+	if policy != nil {
+		lbSettings = policy.LoadBalancer
+		if policy.OutlierDetection != nil {
+			outlierDetectionEnabled = true
+		}
+	}
+
+	return outlierDetectionEnabled, lbSettings
+}
+
+// getSubSetLabels returns the labels associated with a subset of a given service.
+func getSubSetLabels(dr *v1alpha3.DestinationRule, subsetName string) labels.Instance {
+	// empty subset
+	if subsetName == "" {
+		return nil
+	}
+
+	if dr == nil {
+		return nil
+	}
+
+	for _, subset := range dr.Subsets {
+		if subset.Name == subsetName {
+			if len(subset.Labels) == 0 {
+				return nil
+			}
+			return subset.Labels
+		}
+	}
+
+	return nil
 }

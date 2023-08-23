@@ -189,6 +189,7 @@ const (
 	InvalidRefNotPermitted ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestination indicates an issue with the destination
 	InvalidDestination ConfigErrorReason = "InvalidDestination"
+	InvalidAddress     ConfigErrorReason = ConfigErrorReason(k8sbeta.GatewayReasonUnsupportedAddress)
 	// InvalidDestinationPermit indicates a destination was not permitted
 	InvalidDestinationPermit ConfigErrorReason = ConfigErrorReason(k8s.RouteReasonRefNotPermitted)
 	// InvalidDestinationKind indicates an issue with the destination kind
@@ -206,6 +207,7 @@ const (
 	// InvalidConfiguration indicates a generic error for all other invalid configurations
 	InvalidConfiguration ConfigErrorReason = "InvalidConfiguration"
 	InvalidResources     ConfigErrorReason = ConfigErrorReason(k8sbeta.GatewayReasonNoResources)
+	DeprecateFieldUsage                    = "DeprecatedField"
 )
 
 // ParentError represents that a parent could not be referenced

@@ -116,6 +116,15 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 		removeLabeledServiceGateway(t, c)
 		expectGateways(t, 2)
 	})
+	// gateways are created even with out service
+	t.Run("add kubernetes gateway", func(t *testing.T) {
+		addOrUpdateGatewayResource(t, c, 35443)
+		expectGateways(t, 6)
+	})
+	t.Run("remove kubernetes gateway", func(t *testing.T) {
+		removeGatewayResource(t, c)
+		expectGateways(t, 2)
+	})
 	t.Run("remove meshnetworks", func(t *testing.T) {
 		meshNetworks.SetNetworks(nil)
 		expectGateways(t, 0)

@@ -1287,7 +1287,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 	}
 }
 
-func compare(t testing.TB, actual, expected any) error {
+func compare[T any](t testing.TB, actual, expected T) error {
 	return util.Compare(jsonBytes(t, actual), jsonBytes(t, expected))
 }
 

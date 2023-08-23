@@ -217,6 +217,18 @@
     },
     "terminationGracePeriodSeconds": {
       "type": "number"
+    },
+    "volumes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "volumeMounts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
     }
   }
 }

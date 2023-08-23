@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package endpoints_test
 
 import (
 	"fmt"
-	"sort"
 	"testing"
 
-	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -29,6 +27,9 @@ import (
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/xds"
+	. "istio.io/istio/pilot/pkg/xds/endpoints"
+	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
@@ -37,143 +38,124 @@ import (
 	"istio.io/istio/pkg/test"
 )
 
-type LbEpInfo struct {
-	address string
-	// nolint: structcheck
-	weight uint32
-}
-
-type LocLbEpInfo struct {
-	lbEps  []LbEpInfo
-	weight uint32
-}
-
-func (i LocLbEpInfo) getAddrs() []string {
-	addrs := make([]string, 0)
-	for _, ep := range i.lbEps {
-		addrs = append(addrs, ep.address)
-	}
-	return addrs
-}
-
 var networkFiltered = []networkFilterCase{
 	{
-		name: "from_network1_cluster1a",
-		conn: xdsConnection("network1", "cluster1a"),
-		want: []LocLbEpInfo{
+		name:  "from_network1_cluster1a",
+		proxy: makeProxy("network1", "cluster1a"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps: []LbEpInfo{
+				LbEps: []xdstest.LbEpInfo{
 					// 2 local endpoints on network1
-					{address: "10.0.0.1", weight: 6},
-					{address: "10.0.0.2", weight: 6},
+					{Address: "10.0.0.1", Weight: 6},
+					{Address: "10.0.0.2", Weight: 6},
 					// 1 endpoint on network2, cluster2a
-					{address: "2.2.2.2", weight: 6},
+					{Address: "2.2.2.2", Weight: 6},
 					// 2 endpoints on network2, cluster2b
-					{address: "2.2.2.20", weight: 6},
-					{address: "2.2.2.21", weight: 6},
+					{Address: "2.2.2.20", Weight: 6},
+					{Address: "2.2.2.21", Weight: 6},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 6},
+					{Address: "40.0.0.1", Weight: 6},
 				},
-				weight: 36,
+				Weight: 36,
 			},
 		},
 	},
 	{
-		name: "from_network1_cluster1b",
-		conn: xdsConnection("network1", "cluster1b"),
-		want: []LocLbEpInfo{
+		name:  "from_network1_cluster1b",
+		proxy: makeProxy("network1", "cluster1b"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps: []LbEpInfo{
+				LbEps: []xdstest.LbEpInfo{
 					// 2 local endpoints on network1
-					{address: "10.0.0.1", weight: 6},
-					{address: "10.0.0.2", weight: 6},
+					{Address: "10.0.0.1", Weight: 6},
+					{Address: "10.0.0.2", Weight: 6},
 					// 1 endpoint on network2, cluster2a
-					{address: "2.2.2.2", weight: 6},
+					{Address: "2.2.2.2", Weight: 6},
 					// 2 endpoints on network2, cluster2b
-					{address: "2.2.2.20", weight: 6},
-					{address: "2.2.2.21", weight: 6},
+					{Address: "2.2.2.20", Weight: 6},
+					{Address: "2.2.2.21", Weight: 6},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 6},
+					{Address: "40.0.0.1", Weight: 6},
 				},
-				weight: 36,
+				Weight: 36,
 			},
 		},
 	},
 	{
-		name: "from_network2_cluster2a",
-		conn: xdsConnection("network2", "cluster2a"),
-		want: []LocLbEpInfo{
+		name:  "from_network2_cluster2a",
+		proxy: makeProxy("network2", "cluster2a"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps: []LbEpInfo{
+				LbEps: []xdstest.LbEpInfo{
 					// 3 local endpoints in network2
-					{address: "20.0.0.1", weight: 6},
-					{address: "20.0.0.2", weight: 6},
-					{address: "20.0.0.3", weight: 6},
+					{Address: "20.0.0.1", Weight: 6},
+					{Address: "20.0.0.2", Weight: 6},
+					{Address: "20.0.0.3", Weight: 6},
 					// 2 endpoint on network1 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 12},
+					{Address: "1.1.1.1", Weight: 12},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 6},
+					{Address: "40.0.0.1", Weight: 6},
 				},
-				weight: 36,
+				Weight: 36,
 			},
 		},
 	},
 	{
-		name: "from_network2_cluster2b",
-		conn: xdsConnection("network2", "cluster2b"),
-		want: []LocLbEpInfo{
+		name:  "from_network2_cluster2b",
+		proxy: makeProxy("network2", "cluster2b"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps: []LbEpInfo{
+				LbEps: []xdstest.LbEpInfo{
 					// 3 local endpoints in network2
-					{address: "20.0.0.1", weight: 6},
-					{address: "20.0.0.2", weight: 6},
-					{address: "20.0.0.3", weight: 6},
+					{Address: "20.0.0.1", Weight: 6},
+					{Address: "20.0.0.2", Weight: 6},
+					{Address: "20.0.0.3", Weight: 6},
 					// 2 endpoint on network1 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 12},
+					{Address: "1.1.1.1", Weight: 12},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 6},
+					{Address: "40.0.0.1", Weight: 6},
 				},
-				weight: 36,
+				Weight: 36,
 			},
 		},
 	},
 	{
-		name: "from_network3_cluster3",
-		conn: xdsConnection("network3", "cluster3"),
-		want: []LocLbEpInfo{
+		name:  "from_network3_cluster3",
+		proxy: makeProxy("network3", "cluster3"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps: []LbEpInfo{
+				LbEps: []xdstest.LbEpInfo{
 					// 2 endpoint on network2 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 12},
+					{Address: "1.1.1.1", Weight: 12},
 					// 1 endpoint on network2, cluster2a
-					{address: "2.2.2.2", weight: 6},
+					{Address: "2.2.2.2", Weight: 6},
 					// 2 endpoints on network2, cluster2b
-					{address: "2.2.2.20", weight: 6},
-					{address: "2.2.2.21", weight: 6},
+					{Address: "2.2.2.20", Weight: 6},
+					{Address: "2.2.2.21", Weight: 6},
 					// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-					{address: "40.0.0.1", weight: 6},
+					{Address: "40.0.0.1", Weight: 6},
 				},
-				weight: 36,
+				Weight: 36,
 			},
 		},
 	},
 	{
-		name: "from_network4_cluster4",
-		conn: xdsConnection("network4", "cluster4"),
-		want: []LocLbEpInfo{
+		name:  "from_network4_cluster4",
+		proxy: makeProxy("network4", "cluster4"),
+		want: []xdstest.LocLbEpInfo{
 			{
-				lbEps: []LbEpInfo{
+				LbEps: []xdstest.LbEpInfo{
 					// 1 local endpoint on network4
-					{address: "40.0.0.1", weight: 6},
+					{Address: "40.0.0.1", Weight: 6},
 					// 2 endpoint on network2 with weight aggregated at the gateway
-					{address: "1.1.1.1", weight: 12},
+					{Address: "1.1.1.1", Weight: 12},
 					// 1 endpoint on network2, cluster2a
-					{address: "2.2.2.2", weight: 6},
+					{Address: "2.2.2.2", Weight: 6},
 					// 2 endpoints on network2, cluster2b
-					{address: "2.2.2.20", weight: 6},
-					{address: "2.2.2.21", weight: 6},
+					{Address: "2.2.2.20", Weight: 6},
+					{Address: "2.2.2.21", Weight: 6},
 				},
-				weight: 36,
+				Weight: 36,
 			},
 		},
 	},
@@ -458,94 +440,94 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	noCrossNetwork := []networkFilterCase{
 		{
-			name: "from_network1_cluster1a",
-			conn: xdsConnection("network1", "cluster1a"),
-			want: []LocLbEpInfo{
+			name:  "from_network1_cluster1a",
+			proxy: makeProxy("network1", "cluster1a"),
+			want: []xdstest.LocLbEpInfo{
 				{
-					lbEps: []LbEpInfo{
+					LbEps: []xdstest.LbEpInfo{
 						// 2 local endpoints on network1
-						{address: "10.0.0.1", weight: 6},
-						{address: "10.0.0.2", weight: 6},
+						{Address: "10.0.0.1", Weight: 6},
+						{Address: "10.0.0.2", Weight: 6},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 6},
+						{Address: "40.0.0.1", Weight: 6},
 					},
-					weight: 18,
+					Weight: 18,
 				},
 			},
 		},
 		{
-			name: "from_network1_cluster1b",
-			conn: xdsConnection("network1", "cluster1b"),
-			want: []LocLbEpInfo{
+			name:  "from_network1_cluster1b",
+			proxy: makeProxy("network1", "cluster1b"),
+			want: []xdstest.LocLbEpInfo{
 				{
-					lbEps: []LbEpInfo{
+					LbEps: []xdstest.LbEpInfo{
 						// 2 local endpoints on network1
-						{address: "10.0.0.1", weight: 6},
-						{address: "10.0.0.2", weight: 6},
+						{Address: "10.0.0.1", Weight: 6},
+						{Address: "10.0.0.2", Weight: 6},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 6},
+						{Address: "40.0.0.1", Weight: 6},
 					},
-					weight: 18,
+					Weight: 18,
 				},
 			},
 		},
 		{
-			name: "from_network2_cluster2a",
-			conn: xdsConnection("network2", "cluster2a"),
-			want: []LocLbEpInfo{
+			name:  "from_network2_cluster2a",
+			proxy: makeProxy("network2", "cluster2a"),
+			want: []xdstest.LocLbEpInfo{
 				{
-					lbEps: []LbEpInfo{
+					LbEps: []xdstest.LbEpInfo{
 						// 1 local endpoint on network2
-						{address: "20.0.0.1", weight: 6},
-						{address: "20.0.0.2", weight: 6},
-						{address: "20.0.0.3", weight: 6},
+						{Address: "20.0.0.1", Weight: 6},
+						{Address: "20.0.0.2", Weight: 6},
+						{Address: "20.0.0.3", Weight: 6},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 6},
+						{Address: "40.0.0.1", Weight: 6},
 					},
-					weight: 24,
+					Weight: 24,
 				},
 			},
 		},
 		{
-			name: "from_network2_cluster2b",
-			conn: xdsConnection("network2", "cluster2b"),
-			want: []LocLbEpInfo{
+			name:  "from_network2_cluster2b",
+			proxy: makeProxy("network2", "cluster2b"),
+			want: []xdstest.LocLbEpInfo{
 				{
-					lbEps: []LbEpInfo{
+					LbEps: []xdstest.LbEpInfo{
 						// 1 local endpoint on network2
-						{address: "20.0.0.1", weight: 6},
-						{address: "20.0.0.2", weight: 6},
-						{address: "20.0.0.3", weight: 6},
+						{Address: "20.0.0.1", Weight: 6},
+						{Address: "20.0.0.2", Weight: 6},
+						{Address: "20.0.0.3", Weight: 6},
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 6},
+						{Address: "40.0.0.1", Weight: 6},
 					},
-					weight: 24,
+					Weight: 24,
 				},
 			},
 		},
 		{
-			name: "from_network3_cluster3",
-			conn: xdsConnection("network3", "cluster3"),
-			want: []LocLbEpInfo{
+			name:  "from_network3_cluster3",
+			proxy: makeProxy("network3", "cluster3"),
+			want: []xdstest.LocLbEpInfo{
 				{
-					lbEps: []LbEpInfo{
+					LbEps: []xdstest.LbEpInfo{
 						// 1 endpoint on network4 with no gateway (i.e. directly accessible)
-						{address: "40.0.0.1", weight: 6},
+						{Address: "40.0.0.1", Weight: 6},
 					},
-					weight: 6,
+					Weight: 6,
 				},
 			},
 		},
 		{
-			name: "from_network4_cluster4",
-			conn: xdsConnection("network4", "cluster4"),
-			want: []LocLbEpInfo{
+			name:  "from_network4_cluster4",
+			proxy: makeProxy("network4", "cluster4"),
+			want: []xdstest.LocLbEpInfo{
 				{
-					lbEps: []LbEpInfo{
+					LbEps: []xdstest.LbEpInfo{
 						// 1 local endpoint on network4
-						{address: "40.0.0.1", weight: 6},
+						{Address: "40.0.0.1", Weight: 6},
 					},
-					weight: 6,
+					Weight: 6,
 				},
 			},
 		},
@@ -609,28 +591,28 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 }
 
 type networkFilterCase struct {
-	name string
-	conn *Connection
-	want []LocLbEpInfo
+	name  string
+	proxy *model.Proxy
+	want  []xdstest.LocLbEpInfo
 }
 
 // runNetworkFilterTest calls the endpoints filter from each one of the
 // networks and examines the returned filtered endpoints
-func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase, subset string) {
+func runNetworkFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networkFilterCase, subset string) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cn := fmt.Sprintf("outbound|80|%s|example.ns.svc.cluster.local", subset)
-			proxy := ds.SetupProxy(tt.conn.proxy)
+			proxy := ds.SetupProxy(tt.proxy)
 			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
-			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
+			testEndpoints := b.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
 			}
-			compareEndpointsOrFail(t, cn, extractEnvoyEndpoints(filtered), tt.want)
+			xdstest.CompareEndpointsOrFail(t, cn, ExtractEnvoyEndpoints(filtered), tt.want)
 
 			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
-			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
+			testEndpoints2 := b2.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
 			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
@@ -639,73 +621,15 @@ func runNetworkFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []network
 	}
 }
 
-func extractEnvoyEndpoints(locEps []*LocalityEndpoints) []*endpoint.LocalityLbEndpoints {
-	var locLbEps []*endpoint.LocalityLbEndpoints
-	for _, eps := range locEps {
-		locLbEps = append(locLbEps, &eps.llbEndpoints)
-	}
-	return locLbEps
-}
-
-func compareEndpointsOrFail(t *testing.T, cluster string, got []*endpoint.LocalityLbEndpoints, want []LocLbEpInfo) {
-	if err := compareEndpoints(cluster, got, want); err != nil {
-		t.Error(err)
-	}
-}
-
-func compareEndpoints(cluster string, got []*endpoint.LocalityLbEndpoints, want []LocLbEpInfo) error {
-	if len(got) != len(want) {
-		return fmt.Errorf("unexpected number of filtered endpoints for %s: got %v, want %v", cluster, len(got), len(want))
-	}
-
-	sort.Slice(got, func(i, j int) bool {
-		addrI := got[i].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-		addrJ := got[j].LbEndpoints[0].GetEndpoint().Address.GetSocketAddress().Address
-		return addrI < addrJ
-	})
-
-	for i, ep := range got {
-		if len(ep.LbEndpoints) != len(want[i].lbEps) {
-			return fmt.Errorf("unexpected number of LB endpoints within endpoint %d: %v, want %v",
-				i, getLbEndpointAddrs(ep), want[i].getAddrs())
-		}
-
-		if ep.LoadBalancingWeight.GetValue() != want[i].weight {
-			return fmt.Errorf("unexpected weight for endpoint %d: got %v, want %v", i, ep.LoadBalancingWeight.GetValue(), want[i].weight)
-		}
-
-		for _, lbEp := range ep.LbEndpoints {
-			addr := lbEp.GetEndpoint().Address.GetSocketAddress().Address
-			found := false
-			for _, wantLbEp := range want[i].lbEps {
-				if addr == wantLbEp.address {
-					found = true
-
-					// Now compare the weight.
-					if lbEp.GetLoadBalancingWeight().Value != wantLbEp.weight {
-						return fmt.Errorf("unexpected weight for endpoint %s: got %v, want %v",
-							addr, lbEp.GetLoadBalancingWeight().Value, wantLbEp.weight)
-					}
-					break
-				}
-			}
-			if !found {
-				return fmt.Errorf("unexpected address for endpoint %d: %v", i, addr)
-			}
-		}
-	}
-	return nil
-}
-
 func TestEndpointsWithMTLSFilter(t *testing.T) {
 	casesMtlsDisabled := []networkFilterCase{
 		{
-			name: "from_network1_cluster1a",
-			conn: xdsConnection("network1", "cluster1a"),
-			want: []LocLbEpInfo{
+			name:  "from_network1_cluster1a",
+			proxy: makeProxy("network1", "cluster1a"),
+			want: []xdstest.LocLbEpInfo{
 				{
-					lbEps:  []LbEpInfo{},
-					weight: 0,
+					LbEps:  []xdstest.LbEpInfo{},
+					Weight: 0,
 				},
 			},
 		},
@@ -733,22 +657,22 @@ func TestEndpointsWithMTLSFilter(t *testing.T) {
 	}
 }
 
-func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFilterCase, subset string) {
+func runMTLSFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networkFilterCase, subset string) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			proxy := ds.SetupProxy(tt.conn.proxy)
+			proxy := ds.SetupProxy(tt.proxy)
 			cn := fmt.Sprintf("outbound_.80_.%s_.example.ns.svc.cluster.local", subset)
 			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
-			testEndpoints := b.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
+			testEndpoints := b.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered := b.EndpointsByNetworkFilter(testEndpoints)
 			filtered = b.EndpointsWithMTLSFilter(filtered)
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
 			}
-			compareEndpointsOrFail(t, cn, extractEnvoyEndpoints(filtered), tt.want)
+			xdstest.CompareEndpointsOrFail(t, cn, ExtractEnvoyEndpoints(filtered), tt.want)
 
 			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
-			testEndpoints2 := b2.buildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
+			testEndpoints2 := b2.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
 			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
 			filtered2 = b2.EndpointsWithMTLSFilter(filtered2)
 			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
@@ -758,13 +682,11 @@ func runMTLSFilterTest(t *testing.T, ds *FakeDiscoveryServer, tests []networkFil
 	}
 }
 
-func xdsConnection(nw network.ID, c cluster.ID) *Connection {
-	return &Connection{
-		proxy: &model.Proxy{
-			Metadata: &model.NodeMetadata{
-				Network:   nw,
-				ClusterID: c,
-			},
+func makeProxy(nw network.ID, c cluster.ID) *model.Proxy {
+	return &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			Network:   nw,
+			ClusterID: c,
 		},
 	}
 }
@@ -774,8 +696,8 @@ func xdsConnection(nw network.ID, c cluster.ID) *Connection {
 //   - 3 gateway for network2
 //   - 1 gateway for network3
 //   - 0 gateways for network4
-func environment(t test.Failer, c ...config.Config) *FakeDiscoveryServer {
-	ds := NewFakeDiscoveryServer(t, FakeOptions{
+func environment(t test.Failer, c ...config.Config) *xds.FakeDiscoveryServer {
+	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		Configs: c,
 		Services: []*model.Service{{
 			Hostname:   "example.ns.svc.cluster.local",
@@ -873,12 +795,4 @@ func testShards() *model.EndpointShards {
 		}
 	}
 	return shards
-}
-
-func getLbEndpointAddrs(ep *endpoint.LocalityLbEndpoints) []string {
-	addrs := make([]string, 0)
-	for _, lbEp := range ep.LbEndpoints {
-		addrs = append(addrs, lbEp.GetEndpoint().Address.GetSocketAddress().Address)
-	}
-	return addrs
 }

@@ -26,6 +26,7 @@ const (
 	Ingress
 	IngressClass
 	KubernetesGateway
+	Lease
 	MeshConfig
 	MeshNetworks
 	MutatingWebhookConfiguration
@@ -88,6 +89,8 @@ func (k Kind) String() string {
 		return "IngressClass"
 	case KubernetesGateway:
 		return "Gateway"
+	case Lease:
+		return "Lease"
 	case MeshConfig:
 		return "MeshConfig"
 	case MeshNetworks:
@@ -175,6 +178,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return IngressClass
 	case gvk.KubernetesGateway:
 		return KubernetesGateway
+	case gvk.Lease:
+		return Lease
 	case gvk.MeshConfig:
 		return MeshConfig
 	case gvk.MeshNetworks:

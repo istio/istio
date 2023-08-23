@@ -389,3 +389,81 @@ func defaultTransportSocketMatch() *cluster.Cluster_TransportSocketMatch {
 		TransportSocket: xdsfilters.RawBufferTransportSocket,
 	}
 }
+
+// buildUpstreamTLSSettings fills key cert fields for all TLSSettings when the mode is `ISTIO_MUTUAL`.
+// If the (input) TLS setting is nil (i.e not set), *and* the service mTLS mode is STRICT, it also
+// creates and populates the config as if they are set as ISTIO_MUTUAL.
+func (cb *ClusterBuilder) buildUpstreamTLSSettings(
+	tls *networking.ClientTLSSettings,
+	serviceAccounts []string,
+	sni string,
+	autoMTLSEnabled bool,
+	meshExternal bool,
+	serviceMTLSMode model.MutualTLSMode,
+) (*networking.ClientTLSSettings, mtlsContextType) {
+	if tls != nil {
+		if tls.Mode == networking.ClientTLSSettings_DISABLE || tls.Mode == networking.ClientTLSSettings_SIMPLE {
+			return tls, userSupplied
+		}
+		// For backward compatibility, use metadata certs if provided.
+		if cb.hasMetadataCerts() {
+			// When building Mutual TLS settings, we should always use user supplied SubjectAltNames and SNI
+			// in destination rule. The Service Accounts and auto computed SNI should only be used for
+			// ISTIO_MUTUAL.
+			return cb.buildMutualTLS(tls.SubjectAltNames, tls.Sni), userSupplied
+		}
+		if tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL {
+			return tls, userSupplied
+		}
+		// Update TLS settings for ISTIO_MUTUAL. Use client provided SNI if set. Otherwise,
+		// overwrite with the auto generated SNI. User specified SNIs in the istio mtls settings
+		// are useful when routing via gateways. Use Service Accounts if Subject Alt names
+		// are not specified in TLS settings.
+		sniToUse := tls.Sni
+		if len(sniToUse) == 0 {
+			sniToUse = sni
+		}
+		subjectAltNamesToUse := tls.SubjectAltNames
+		if subjectAltNamesToUse == nil {
+			subjectAltNamesToUse = serviceAccounts
+		}
+		return cb.buildIstioMutualTLS(subjectAltNamesToUse, sniToUse), userSupplied
+	}
+
+	if meshExternal || !autoMTLSEnabled || serviceMTLSMode == model.MTLSUnknown || serviceMTLSMode == model.MTLSDisable {
+		return nil, userSupplied
+	}
+
+	// For backward compatibility, use metadata certs if provided.
+	if cb.hasMetadataCerts() {
+		return cb.buildMutualTLS(serviceAccounts, sni), autoDetected
+	}
+
+	// Build settings for auto MTLS.
+	return cb.buildIstioMutualTLS(serviceAccounts, sni), autoDetected
+}
+
+func (cb *ClusterBuilder) hasMetadataCerts() bool {
+	return cb.metadataCerts != nil
+}
+
+// buildMutualTLS returns a `TLSSettings` for MUTUAL mode with proxy metadata certificates.
+func (cb *ClusterBuilder) buildMutualTLS(serviceAccounts []string, sni string) *networking.ClientTLSSettings {
+	return &networking.ClientTLSSettings{
+		Mode:              networking.ClientTLSSettings_MUTUAL,
+		CaCertificates:    cb.metadataCerts.tlsClientRootCert,
+		ClientCertificate: cb.metadataCerts.tlsClientCertChain,
+		PrivateKey:        cb.metadataCerts.tlsClientKey,
+		SubjectAltNames:   serviceAccounts,
+		Sni:               sni,
+	}
+}
+
+// buildIstioMutualTLS returns a `TLSSettings` for ISTIO_MUTUAL mode.
+func (cb *ClusterBuilder) buildIstioMutualTLS(san []string, sni string) *networking.ClientTLSSettings {
+	return &networking.ClientTLSSettings{
+		Mode:            networking.ClientTLSSettings_ISTIO_MUTUAL,
+		SubjectAltNames: san,
+		Sni:             sni,
+	}
+}

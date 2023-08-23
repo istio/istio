@@ -109,6 +109,13 @@ spec:
                 description: SHA256 checksum that will be used to verify Wasm module
                   or OCI container.
                 type: string
+              type:
+                description: Specifies the type of Wasm Extension to be used.
+                enum:
+                - UNSPECIFIED_PLUGIN_TYPE
+                - HTTP
+                - NETWORK
+                type: string
               url:
                 description: URL of a Wasm module or OCI container.
                 type: string
