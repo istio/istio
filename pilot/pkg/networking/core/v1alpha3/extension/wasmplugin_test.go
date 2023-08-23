@@ -18,7 +18,8 @@ import (
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	wasmextension "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
@@ -48,12 +49,52 @@ var (
 			Priority: &wrappers.Int32Value{Value: 1000},
 		},
 	}
+	someNetworkFilter = &model.WasmPluginWrapper{
+		Name:         "someNetworkFilter",
+		Namespace:    "istio-system",
+		ResourceName: "istio-system.someNetworkFilter",
+		WasmPlugin: &extensions.WasmPlugin{
+			Priority: &wrappers.Int32Value{Value: 1000},
+			Type:     extensions.PluginType_NETWORK,
+		},
+	}
 )
 
 func TestInsertedExtensionConfigurations(t *testing.T) {
-	wasm := protoconv.MessageToAny(&wasm.Wasm{
+	httpFilter := protoconv.MessageToAny(&httpwasm.Wasm{
 		Config: &wasmextension.PluginConfig{
 			Name:          "istio-system.someAuthNFilter",
+			Configuration: &anypb.Any{},
+			Vm: &wasmextension.PluginConfig_VmConfig{
+				VmConfig: &wasmextension.VmConfig{
+					Runtime: "envoy.wasm.runtime.v8",
+					Code: &core.AsyncDataSource{
+						Specifier: &core.AsyncDataSource_Remote{
+							Remote: &core.RemoteDataSource{
+								HttpUri: &core.HttpUri{
+									Uri: "oci:",
+									HttpUpstreamType: &core.HttpUri_Cluster{
+										Cluster: "_",
+									},
+									Timeout: &durationpb.Duration{
+										Seconds: 30,
+									},
+								},
+							},
+						},
+					},
+					EnvironmentVariables: &wasmextension.EnvironmentVariables{
+						KeyValues: map[string]string{
+							"ISTIO_META_WASM_PLUGIN_RESOURCE_VERSION": "",
+						},
+					},
+				},
+			},
+		},
+	})
+	networkFilter := protoconv.MessageToAny(&networkwasm.Wasm{
+		Config: &wasmextension.PluginConfig{
+			Name:          "istio-system.someNetworkFilter",
 			Configuration: &anypb.Any{},
 			Vm: &wasmextension.PluginConfig_VmConfig{
 				VmConfig: &wasmextension.VmConfig{
@@ -106,7 +147,47 @@ func TestInsertedExtensionConfigurations(t *testing.T) {
 			expectedECs: []*core.TypedExtensionConfig{
 				{
 					Name:        "istio-system.someAuthNFilter",
-					TypedConfig: wasm,
+					TypedConfig: httpFilter,
+				},
+			},
+		},
+		{
+			name: "network",
+			wasmPlugins: map[extensions.PluginPhase][]*model.WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					someNetworkFilter,
+				},
+			},
+			names: []string{
+				someNetworkFilter.Namespace + "." + someNetworkFilter.Name,
+			},
+			expectedECs: []*core.TypedExtensionConfig{
+				{
+					Name:        "istio-system.someNetworkFilter",
+					TypedConfig: networkFilter,
+				},
+			},
+		},
+		{
+			name: "combination of http and network",
+			wasmPlugins: map[extensions.PluginPhase][]*model.WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					someAuthNFilter,
+					someNetworkFilter,
+				},
+			},
+			names: []string{
+				someAuthNFilter.Namespace + "." + someAuthNFilter.Name,
+				someNetworkFilter.Namespace + "." + someNetworkFilter.Name,
+			},
+			expectedECs: []*core.TypedExtensionConfig{
+				{
+					Name:        "istio-system.someAuthNFilter",
+					TypedConfig: httpFilter,
+				},
+				{
+					Name:        "istio-system.someNetworkFilter",
+					TypedConfig: networkFilter,
 				},
 			},
 		},

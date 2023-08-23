@@ -15,8 +15,6 @@
 package extension
 
 import (
-	"strings"
-
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -110,7 +108,7 @@ func InsertedExtensionConfigurations(
 				continue
 			}
 			switch {
-			case strings.HasPrefix(p.ResourceName, "network."):
+			case p.Type == extensions.PluginType_NETWORK:
 				wasmExtensionConfig := p.BuildNetworkWasmFilter()
 				updatePluginConfig(wasmExtensionConfig.GetConfig(), pullSecrets)
 				typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
