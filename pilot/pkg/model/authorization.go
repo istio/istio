@@ -87,15 +87,15 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string,
 	for _, ns := range namespaces {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
+			targetRef := spec.GetTargetRef()
 			// Assumes if the workload is a waypoint and it doesn't have a targetRef the policy is still valid
-			if !isWaypointProxy || isWaypointProxy && spec.GetTargetRef().GetName() == "" {
+			if !isWaypointProxy || isWaypointProxy && targetRef == nil {
 				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
 				if selector.SubsetOf(workload) {
 					ret = updateAuthorizationPoliciesResult(config, ret)
 				}
 			} else {
-				targetRef := spec.GetTargetRef().GetName()
-				if targetRef == workloadName {
+				if targetRef.GetName() == workloadName {
 					ret = updateAuthorizationPoliciesResult(config, ret)
 				}
 			}
