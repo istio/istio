@@ -112,7 +112,8 @@ func TestGenerateForTLSCustomCaCredential(t *testing.T) {
 		CaCrl  string
 	}
 	test.SetForTest(t, &features.TLSCustomCaCredential, "global-custom-ca")
-	allResources := []string{"kubernetes://generic-mtls-split-custom-a", "kubernetes://generic-mtls-split-custom-a-cacert",
+	allResources := []string{
+		"kubernetes://generic-mtls-split-custom-a", "kubernetes://generic-mtls-split-custom-a-cacert",
 		"kubernetes://generic-mtls-split-custom-b", "kubernetes://generic-mtls-split-custom-b-cacert",
 	}
 	cases := []struct {
@@ -243,7 +244,10 @@ func TestGenerateForTLSCustomCaCredential(t *testing.T) {
 			}
 			tt.proxy.Metadata.ClusterID = "Kubernetes"
 			s := NewFakeDiscoveryServer(t, FakeOptions{
-				KubernetesObjects: []runtime.Object{genericMtlsCertSplitCustomCaA, genericMtlsCertSplitCustomCaB, genericMtlsCertSplitCustomCaCertB, genericMtlsGlobalCustomCa},
+				KubernetesObjects: []runtime.Object{
+					genericMtlsCertSplitCustomCaA, genericMtlsCertSplitCustomCaB,
+					genericMtlsCertSplitCustomCaCertB, genericMtlsGlobalCustomCa,
+				},
 			})
 			cc := s.KubeClient().Kube().(*fake.Clientset)
 
