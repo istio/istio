@@ -59,6 +59,18 @@ const (
 	WasmPluginTypeAny
 )
 
+func fromPluginType(pluginType extensions.PluginType) WasmPluginType {
+	switch pluginType {
+	case extensions.PluginType_HTTP:
+		return WasmPluginTypeHTTP
+	case extensions.PluginType_NETWORK:
+		return WasmPluginTypeNetwork
+	case extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE:
+		return WasmPluginTypeHTTP // Return HTTP as default for backward compatibility.
+	}
+	return WasmPluginTypeAny
+}
+
 func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.WorkloadMode {
 	switch class {
 	case istionetworking.ListenerClassGateway:
@@ -89,7 +101,7 @@ func (p *WasmPluginWrapper) MatchListener(proxyLabels map[string]string, li Wasm
 }
 
 func (p *WasmPluginWrapper) MatchType(pluginType WasmPluginType) bool {
-	return true
+	return pluginType == fromPluginType(p.WasmPlugin.Type)
 }
 
 func (p *WasmPluginWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
