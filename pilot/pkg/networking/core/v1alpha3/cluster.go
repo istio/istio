@@ -304,7 +304,11 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			miss += len(cached)
 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
-			lbEndpoints := clusterKey.endpointBuilder.FromServiceEndpoints()
+			var lbEndpoints []*endpoint.LocalityLbEndpoints
+			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
+			if (service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB) {
+				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
+			}
 
 			// create default cluster
 			discoveryType := convertResolution(cb.proxyType, service)
