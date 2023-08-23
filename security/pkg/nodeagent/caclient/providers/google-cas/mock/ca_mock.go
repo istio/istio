@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	privatecapb "cloud.google.com/go/security/privateca/apiv1/privatecapb"
+	"cloud.google.com/go/security/privateca/apiv1/privatecapb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -92,7 +92,7 @@ func (ca CASService) certEncode(cert *certificate) *privatecapb.Certificate {
 }
 
 // CreateCertificate is a mocked function for the Google CAS CA API.
-func (ca CASService) CreateCertificate(ctx context.Context, req *privatecapb.CreateCertificateRequest) (*privatecapb.Certificate, error) {
+func (ca CASService) CreateCertificate(_ context.Context, req *privatecapb.CreateCertificateRequest) (*privatecapb.Certificate, error) {
 	_, _, _, err := parseCertificateAuthorityPath(req.Parent)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "malformed ca path")
@@ -111,7 +111,7 @@ func (ca CASService) CreateCertificate(ctx context.Context, req *privatecapb.Cre
 	return ca.certEncode(certObj), nil
 }
 
-func (ca CASService) FetchCaCerts(ctx context.Context, req *privatecapb.FetchCaCertsRequest) (*privatecapb.FetchCaCertsResponse, error) {
+func (ca CASService) FetchCaCerts(_ context.Context, req *privatecapb.FetchCaCertsRequest) (*privatecapb.FetchCaCertsResponse, error) {
 	_, _, _, err := parseCertificateAuthorityPath(req.GetCaPool())
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "malformed ca path")

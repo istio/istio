@@ -61,7 +61,7 @@ func inMesh(annos, labels map[string]string, namespace resource.Namespace, conta
 		return piv
 	}
 
-	// In case the annotation is not present but there is a auto-injection label on the namespace,
+	// In case the annotation is not present but there is an auto-injection label on the namespace,
 	// return the auto-injection label status
 	if niv, nivok := getNamesSidecarInjectionStatus(namespace, c); nivok {
 		return niv

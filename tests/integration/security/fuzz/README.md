@@ -39,10 +39,10 @@ The fuzz test is configured to run every day at 07:00AM UTC, check the results i
       --istio.test.pullpolicy=IfNotPresent --istio.test.kube.loadbalancer=false --log_output_level=tf:debug
     ```
 
-1. Wait for the test to complete and check the results, the test usually takes about 5 minutes.
+2. Wait for the test to complete and check the results, the test usually takes about 5 minutes.
 
 ## Next Steps
 
 1. Support authorization ALLOW policy in addition to the DENY policy.
 
-1. Cover more fields in the authorization policy.
+2. Cover more fields in the authorization policy.

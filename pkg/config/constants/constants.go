@@ -91,10 +91,10 @@ const (
 	// policy with this name in the cluster-scoped will be considered.
 	DefaultAuthenticationPolicyName = "default"
 
-	// IstioMeshGateway is the built in gateway for all sidecars
+	// IstioMeshGateway is the built-in gateway for all sidecars
 	IstioMeshGateway = "mesh"
 
-	// The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
+	// CACertNamespaceConfigMapDataName The data name in the ConfigMap of each namespace storing the root cert of non-Kube CA.
 	CACertNamespaceConfigMapDataName = "root-cert.pem"
 
 	// PodInfoLabelsPath is the filepath that pod labels will be stored

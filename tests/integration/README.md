@@ -6,30 +6,30 @@ This folder contains Istio integration tests that use the test framework checked
 ## Table of Contents
 
 1. [Overview](#overview)
-1. [Writing Tests](#writing-tests)
+2. [Writing Tests](#writing-tests)
     1. [Adding a Test Suite](#adding-a-test-suite)
-    1. [Sub-Tests](#sub-tests)
-    1. [Parallel Tests](#parallel-tests)
-    1. [Using Components](#using-components)
-    1. [Writing Components](#writing-components)
-1. [Running Tests](#running-tests)
+    2. [Sub-Tests](#sub-tests)
+    3. [Parallel Tests](#parallel-tests)
+    4. [Using Components](#using-components)
+    5. [Writing Components](#writing-components)
+3. [Running Tests](#running-tests)
     1. [Test Parallelism and Kubernetes](#test-parellelism-and-kubernetes)
-    1. [Test Selection](#test-selection)
-    1. [Running Tests on CI](#running-tests-on-ci)
+    2. [Test Selection](#test-selection)
+    3. [Running Tests on CI](#running-tests-on-ci)
         1. [Step 1: Add a Test Script](#step-1-add-a-test-script)
-        1. [Step 2: Add a Prow Job](#step-2-add-a-prow-job)
-        1. [Step 3: Update TestGrid](#step-3-update-testgrid)
-1. [Environments](#environments)
-1. [Diagnosing Failures](#diagnosing-failures)
+        2. [Step 2: Add a Prow Job](#step-2-add-a-prow-job)
+        3. [Step 3: Update TestGrid](#step-3-update-testgrid)
+4. [Environments](#environments)
+5. [Diagnosing Failures](#diagnosing-failures)
     1. [Working Directory](#working-directory)
-    1. [Enabling CI Mode](#enabling-ci-mode)
-    1. [Preserving State (No Cleanup)](#preserving-state-no-cleanup)
-    1. [Additional Logging](#additional-logging)
-    1. [Running Tests Under Debugger](#running-tests-under-debugger-goland)
-1. [Reference](#reference)
+    2. [Enabling CI Mode](#enabling-ci-mode)
+    3. [Preserving State (No Cleanup)](#preserving-state-no-cleanup)
+    4. [Additional Logging](#additional-logging)
+    5. [Running Tests Under Debugger](#running-tests-under-debugger-goland)
+6. [Reference](#reference)
     1. [Helm Values Overrides](#helm-values-overrides)
-    1. [Commandline Flags](#command-line-flags)
-1. [Notes](#notes)
+    2. [Commandline Flags](#command-line-flags)
+7. [Notes](#notes)
     1. [Running on a Mac](#running-on-a-mac)
 
 ## Overview
@@ -272,7 +272,7 @@ type Instance interface {
 ```
 
 | NOTE: A common pattern is to provide two versions of many methods: one that returns an error as well as an `OrFail` version that fails the test upon encountering an error. This provides options to the calling test and helps to simplify the calling logic. |
-| --- |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 
 Next you need to implement your component for one or more environments. If possible, create both a native and Kubernetes version.
 
@@ -369,7 +369,7 @@ as it stands is a singleton per cluster. If multiple suites attempt to deploy/co
 they can corrupt each other and/or simply fail.  To avoid this issue, you have a couple of options:
 
 1. Run one suite per command (e.g. `go test ./tests/integration/mysuite/...`)
-1. Disable parallelism with `-p 1` (e.g. `go test -p 1 ./...`). A major disadvantage to doing this is that it will also disable
+2. Disable parallelism with `-p 1` (e.g. `go test -p 1 ./...`). A major disadvantage to doing this is that it will also disable
 parallelism within the suite, even when explicitly specified via [RunParallel](#parallel-tests).
 
 ### Test Selection
@@ -378,7 +378,7 @@ When no flags are specified, the test framework will run all applicable tests. I
 tests using 2 mechanisms:
 
 1. The standard ```-run <regexp>``` flag, as exposed by Go's own test framework.
-1. ```--istio.test.select <filter-expr>``` flag to select/skip framework-aware tests that use labels.
+2. ```--istio.test.select <filter-expr>``` flag to select/skip framework-aware tests that use labels.
 
 For example, if a test, or test suite uses labels in this fashion:
 
@@ -417,10 +417,10 @@ and ```label.Postsubmit```.
 
 Istio's CI/CD system is composed of 2 parts:
 
-Tool | Description |
----|---
-[Prow](https://github.com/kubernetes/test-infra/tree/master/prow) | Kubernetes-based CI/CD system developed by the Kubernetes community and is deployed in Google Kubernetes Engine (GKE).
-[TestGrid](https://k8s-testgrid.appspot.com/istio-release) | A Kubernetes dashboard used for visualizing the status of the Prow jobs.
+| Tool                                                              | Description                                                                                                            |
+|-------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
+| [Prow](https://github.com/kubernetes/test-infra/tree/master/prow) | Kubernetes-based CI/CD system developed by the Kubernetes community and is deployed in Google Kubernetes Engine (GKE). |
+| [TestGrid](https://k8s-testgrid.appspot.com/istio-release)        | A Kubernetes dashboard used for visualizing the status of the Prow jobs.                                               |
 
 Test suites are defined for each toplevel directory (such as `pilot` and `telemetry`), so any tests added to these directories will automatically be run in CI.
 
@@ -435,7 +435,7 @@ $ go test ./... -p 1
 ```
 
 | WARNING: ```-p 1``` is required when running directly in the ```tests/integration/``` folder. |
-| --- |
+|-----------------------------------------------------------------------------------------------|
 
 You will need to provide a K8s cluster to run the tests against.
 (See [here](https://github.com/istio/istio/blob/master/tests/integration/GKE.md)

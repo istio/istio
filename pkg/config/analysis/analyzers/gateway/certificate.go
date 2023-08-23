@@ -138,7 +138,7 @@ func selectorSubset(selectorX, selectorY map[string]string) bool {
 	for keyX, valueX := range selectorX {
 		for keyY, valueY := range selectorY {
 			if keyX == keyY {
-				// if have same key but different value
+				// if there is same keys but different value
 				// mean selectorX is not subset of selectorY
 				if valueX != valueY {
 					return false

@@ -32,12 +32,12 @@ A single SDS request from Envoy goes through a few different layers in istio-age
 1. First, the request is handled by the SDS server. This is mostly just an intermediate translation layer exposing
    the `SecretManager` to Envoy, without much business logic. For each resource requested by Envoy, the SDS server
    will call `SecretManager.GenerateSecret(resourceName)`
-1. When `GenerateSecret` is called, the `SecretManager` is expected to return a new certificate. This can occur in a few ways.
+2. When `GenerateSecret` is called, the `SecretManager` is expected to return a new certificate. This can occur in a few ways.
    1. The most common method (pictured above) is to sign a new certificate by calling the configured CA. Typically, this is Istiod.
-   1. If the certificate is not yet expired, the `SecretManager` also can return a cache response. In practice, this would
+   2. If the certificate is not yet expired, the `SecretManager` also can return a cache response. In practice, this would
        only happen in cases where Envoy were to re-request a resource, which is fairly rare.
-   1. `SecretManager` can also read certificates from files. When this is configured, no CA client is used.
-1. The `caClient` will be configured to use either JWT or mTLS authentication. For JWT authentication, gRPC's `PerRPCCredentials`
+   3. `SecretManager` can also read certificates from files. When this is configured, no CA client is used.
+3. The `caClient` will be configured to use either JWT or mTLS authentication. For JWT authentication, gRPC's `PerRPCCredentials`
    is configured with a `TokenProvider` which handles the logic of adding the proper JWT to each request. mTLS is configured
    by a tls.Config that points to files on disk.
 

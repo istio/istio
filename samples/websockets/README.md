@@ -25,7 +25,7 @@ Install Istio by following the [Istio Quick Start](https://istio.io/docs/setup/k
     kubectl create -f samples/websockets/app.yaml
     ```
 
-1. Create the Ingress `Gateway` and `VirtualService` that enables the upgrade to Websocket for incoming traffic:
+2. Create the Ingress `Gateway` and `VirtualService` that enables the upgrade to Websocket for incoming traffic:
 
     ```command
     kubectl create -f samples/websockets/route.yaml

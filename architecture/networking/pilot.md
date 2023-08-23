@@ -7,8 +7,8 @@ Istiod is structured as a modular monolith, housing a wide range of functionalit
 
 Istiod's primary role - and most code - is to dynamically configure proxies (Envoy sidecars and ingress, gRPC, ztunnel, and more). This roughly consists of 3 parts:
 1. Config ingestion (inputs to the system)
-1. Config translation
-1. Config serving (XDS)
+2. Config translation
+3. Config serving (XDS)
 
 ### Config Ingestion
 

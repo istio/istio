@@ -119,7 +119,7 @@ func (s *suiteAnalyzer) RequireExternalControlPlaneTopology() Suite {
 	return s
 }
 
-func (s *suiteAnalyzer) RequireMinVersion(minorVersion uint) Suite {
+func (s *suiteAnalyzer) RequireMinVersion(_ uint) Suite {
 	return s
 }
 

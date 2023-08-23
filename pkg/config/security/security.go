@@ -59,7 +59,7 @@ const (
 
 // ParseJwksURI parses the input URI and returns the corresponding hostname, port, and whether SSL is used.
 // URI must start with "http://" or "https://", which corresponding to "http" or "https" scheme.
-// Port number is extracted from URI if available (i.e from postfix :<port>, eg. ":80"), or assigned
+// Port number is extracted from URI if available (i.e. from postfix :<port>, eg. ":80"), or assigned
 // to a default value based on URI scheme (80 for http and 443 for https).
 // Port name is set to URI scheme value.
 func ParseJwksURI(jwksURI string) (JwksInfo, error) {

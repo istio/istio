@@ -13,15 +13,15 @@ compiled to [Go
 structs](https://github.com/istio/api/blob/master/operator/v1alpha1/operator.pb.go).
 `IstioOperatorSpec` has pass-through fields to the Helm values.yaml API, but these are additionally validated through
 a [schema](../operator/pkg/apis/istio/v1alpha1/values_types.proto).
-1. [Controller](#k8s-controller) code. The code comprises the K8s listener, webhook and logic for reconciling the cluster
+2. [Controller](#k8s-controller) code. The code comprises the K8s listener, webhook and logic for reconciling the cluster
 to an `IstioOperatorSpec` CR.
-1. [Manifest creation](#manifest-creation) code. User settings are overlaid on top of the
+3. [Manifest creation](#manifest-creation) code. User settings are overlaid on top of the
 selected profile values and passed to a renderer in the Helm library to create manifests. Further customization on the
 created manifests can be done through overlays.
-1. [CLI](#cli) code. CLI code shares the `IstioOperatorSpec` API with
+4. [CLI](#cli) code. CLI code shares the `IstioOperatorSpec` API with
 the controller, but allows manifests to be generated and optionally applied from the command line without the need to
 run a privileged controller in the cluster.
-1. [Migration tools](#migration-tools). The migration tools are intended to
+5. [Migration tools](#migration-tools). The migration tools are intended to
 automate configuration migration from Helm to the operator.
 
 The operator code uses the new Helm charts in the [istio/manifests/charts](../manifests/charts/istio-operator). It is not
@@ -54,31 +54,31 @@ of Pilot replicas is a component setting, because it refers to a component which
 cluster. Most K8s platform settings are necessarily component settings.
 The available features and the components that comprise each feature are as follows:
 
-| Feature | Components |
-|---------|------------|
-CRDs, and other cluster wide configs | Base
-Traffic Management | Pilot
-Security | Pilot
-Configuration management | Pilot
-AutoInjection | Pilot
-Gateways | Ingress gateway
-Gateways | Egress gateway
-Policy | Policy (deprecated)
-Telemetry | Telemetry (deprecated)
+| Feature                              | Components             |
+|--------------------------------------|------------------------|
+| CRDs, and other cluster wide configs | Base                   |
+| Traffic Management                   | Pilot                  |
+| Security                             | Pilot                  |
+| Configuration management             | Pilot                  |
+| AutoInjection                        | Pilot                  |
+| Gateways                             | Ingress gateway        |
+| Gateways                             | Egress gateway         |
+| Policy                               | Policy (deprecated)    |
+| Telemetry                            | Telemetry (deprecated) |
 
 Features and components are defined in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L44) package.
 
 Note: Besides the features and the components listed in the table above, some addon features and components are as follows:
 
-| Feature | Components |
-|---------|------------|
-Telemetry | Prometheus
-Telemetry | Prometheus Operator
-Telemetry | Grafana
-Telemetry | Kiali
-Telemetry | Tracing
-ThirdParty | CNI
+| Feature    | Components          |
+|------------|---------------------|
+| Telemetry  | Prometheus          |
+| Telemetry  | Prometheus Operator |
+| Telemetry  | Grafana             |
+| Telemetry  | Kiali               |
+| Telemetry  | Tracing             |
+| ThirdParty | CNI                 |
 
 ### Namespaces
 
@@ -108,9 +108,9 @@ spec:
 
 the resulting namespaces will be:
 
-| Component | Namespace |
-| --------- | :-------- |
-ingressGateways | istio-gateways
+| Component       | Namespace      |
+|-----------------|:---------------|
+| ingressGateways | istio-gateways |
 
 These rules are expressed in code in the
 [name](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/name/name.go#L246) package.
@@ -137,21 +137,21 @@ Rather than defining selective mappings from parameters to fields in K8s resourc
 contains a consistent K8s block for each Istio component. The available K8s settings are defined in
 [KubernetesResourcesSpec](https://github.com/istio/api/blob/7791470ecc4c5e123589ff2b781f47b1bcae6ddd/mesh/v1alpha1/component.proto#L103):
 
-| Field name | K8s API reference |
-| :--------- | :---------------- |
-resources | [resources](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container)
-readinessProbe | [readiness probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/)
-replicaCount | [replica count](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)
-hpaSpec | [HorizontalPodAutoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)
-podDisruptionBudget | [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work)
-podAnnotations | [pod annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
-env | [container environment variables](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/)
-imagePullPolicy| [ImagePullPolicy](https://kubernetes.io/docs/concepts/containers/images/)
-priorityClassName | [priority class name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)
-nodeSelector| [node selector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)
-affinity | [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)
-serviceAnnotations | [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)
-securityContext | [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)
+| Field name          | K8s API reference                                                                                                                                    |
+|:--------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| resources           | [resources](https://kubernetes.io/docs/concepts/configuration/manage-compute-resources-container/#resource-requests-and-limits-of-pod-and-container) |
+| readinessProbe      | [readiness probes](https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-probes/)                                    |
+| replicaCount        | [replica count](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/)                                                               |
+| hpaSpec             | [HorizontalPodAutoscaler](https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/)                                                |
+| podDisruptionBudget | [PodDisruptionBudget](https://kubernetes.io/docs/concepts/workloads/pods/disruptions/#how-disruption-budgets-work)                                   |
+| podAnnotations      | [pod annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)                                                    |
+| env                 | [container environment variables](https://kubernetes.io/docs/tasks/inject-data-application/define-environment-variable-container/)                   |
+| imagePullPolicy     | [ImagePullPolicy](https://kubernetes.io/docs/concepts/containers/images/)                                                                            |
+| priorityClassName   | [priority class name](https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass)                                      |
+| nodeSelector        | [node selector](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector)                                                     |
+| affinity            | [affinity and anti-affinity](https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#affinity-and-anti-affinity)                          |
+| serviceAnnotations  | [service annotations](https://kubernetes.io/docs/concepts/overview/working-with-objects/annotations/)                                                |
+| securityContext     | [security context](https://kubernetes.io/docs/tasks/configure-pod-container/security-context/#set-the-security-context-for-a-pod)                    |
 
 These K8s setting are available for each component under the `k8s` field, for example:
 
@@ -177,7 +177,7 @@ The `IstioOperatorSpec` API fields are translated to the output manifest in two 
 [APIMapping](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/translate/translate.go#L112)
 field of the [Translator](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/translate/translate.go#L52)
 struct.
-1. The K8s settings are applied to resources in the output manifest using the
+2. The K8s settings are applied to resources in the output manifest using the
 [KubernetesMapping](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/translate/translate.go#L132)
 field in the [Translator](https://github.com/istio/operator/blob/e9097258cb4fbe59648e7da663cdad6f16927b8f/pkg/translate/translate.go#L52)
 struct.
@@ -218,14 +218,14 @@ as follows:
 set of defaults for `IstioOperatorSpec`, for both the restructured fields (K8s settings, namespaces and enablement)
 and the Helm values (Istio behavior configuration).
 
-1. The fields defined in the user CR override any values defined in the configuration profile CR.  The
+2. The fields defined in the user CR override any values defined in the configuration profile CR.  The
 resulting CR is converted to Helm values.yaml format and passed to the next step.
-1. Part of the configuration profile contains settings in the Helm values.yaml schema format. User overrides of
+3. Part of the configuration profile contains settings in the Helm values.yaml schema format. User overrides of
 these fields are applied and merged with the output of this step. The result of this step is a merge of configuration
 profile defaults and user overlays, all expressed in Helm values.yaml format. This final values.yaml configuration
 is passed to the Helm rendering library and used to render the charts. The rendered manifests are passed to the next
 step.
-1. Overlays in the user CR are applied to the rendered manifests. No values are ever defined in configuration profile
+4. Overlays in the user CR are applied to the rendered manifests. No values are ever defined in configuration profile
 CRs at this layer, so no merge is performed in this step.
 
 ## CLI

@@ -6,7 +6,7 @@ The purpose of analyzers is to examine Istio configuration for potential problem
 
 ### 1. Create the code
 
-Analyzers need to implement the Analyzer interface ( in the `galley/pkg/config/analysis` package). They should be created under the analyzers subdirectory, and given their own appropriate subpackage.
+Analyzers need to implement the Analyzer interface ( in the `galley/pkg/config/analysis` package). They should be created under the analyzers' subdirectory, and given their own appropriate subpackage.
 
 An annotated example:
 
@@ -109,9 +109,9 @@ If your analyzer requires any new message types (meaning a unique template and e
             type: string
     ```
 
-1. Run `BUILD_WITH_CONTAINER=1 make gen`:
+2. Run `BUILD_WITH_CONTAINER=1 make gen`:
 
-1. Use the new type in your analyzer
+3. Use the new type in your analyzer
 
     ```go
     msg := msg.NewSandwichNotFound(resourceEntry, "ham", "rye")
@@ -128,7 +128,7 @@ Also note:
 If your analyzer requires to display the exact error line number, but the path template is not available, you should
 add the template in [galley/pkg/config/analysis/analyzers/util/find_errorline_utils.go](https://github.com/istio/istio/blob/master/pkg/config/analysis/analyzers/util/find_errorline_utils.go)
 
-e.g for the GatewayAnalyzer used as an example above, you would add something like this to `find_errorline_utils.go`:
+e.g. for the GatewayAnalyzer used as an example above, you would add something like this to `find_errorline_utils.go`:
 
 ```go
     // Path for VirtualService gateway.

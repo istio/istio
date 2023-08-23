@@ -53,7 +53,7 @@ import (
 //
 // Another idea to improve scalability is to turn the Get call into a read-only operation and
 // defer updating the LRU ordering to a background goroutine. Done right, this could allow
-// many concurrent readers and could trivially bring some of the effects of the MRU design by
+// many concurrent readers and could trivially bring some effects of the MRU design by
 // 'slowing down' the rate of mutation to the list, eliminating the 'jitter' of frequently used
 // entries. The challenge with this approach is coordinating the code that runs under lock and the
 // async code that doesn't.
@@ -66,7 +66,7 @@ import (
 // method. Given the nature of this code, forgetting to call Close on one of these objects
 // can lead to a substantial permanent memory leak in a process by causing the cache to
 // remain alive forever, along with all the entries the cache points to. The use of the
-// lruWrapper type makes it so we control the exposure of the underlying lruCache pointer.
+// lruWrapper type makes it, so we control the exposure of the underlying lruCache pointer.
 // When the pointer to lruWrapper is finalized, this tells us to go ahead and stop the
 // evicter goroutine, which allows the lruCache instance to be collected and everything
 // ends well.

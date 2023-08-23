@@ -27,7 +27,7 @@ native CNI does not support host interception. This is treated as "sidecar inter
 If Ambient mode is enabled, the CNI plugin currently supports two different mechanisms for Ambient traffic redirection.
 
 1. `iptables` and `geneve` tunnels
-1. `eBPF` programs and maps
+2. `eBPF` programs and maps
 
 These are not mutually compatible, and one or the other will be used, depending on the `CNIAmbientConfig.redirectMode` flag. The current default is `iptables`+`geneve`, though that is expected to change.
 
@@ -47,9 +47,9 @@ A complete set of instructions on how to use and install the Istio CNI is availa
     $ container_id=$(kubectl get pod -n ${ns} ${podnm} -o jsonpath="{.status.containerStatuses[?(@.name=='istio-proxy')].containerID}" | sed -n 's/docker:\/\/\(.*\)/\1/p')
     ```
 
-1. SSH into the Kubernetes worker node that runs your pod.
+2. SSH into the Kubernetes worker node that runs your pod.
 
-1. Use `nsenter` (or `ip netns exec`) to view the iptables.
+3. Use `nsenter` (or `ip netns exec`) to view the iptables.
 
     ```console
     $ cpid=$(docker inspect --format '{{ .State.Pid }}' $container_id)
@@ -165,12 +165,12 @@ run after the main CNI sets up the pod IP and networking.
 1. Check k8s pod namespace against exclusion list (plugin config)
     - Config must exclude namespace that Istio control-plane is installed in (TODO: this may change, exclude at pod level is sufficient and we may want Istiod and other istio components to use ambient too)
     - If excluded, ignore the pod and return prevResult
-1. Setup redirect rules for the pods:
+2. Setup redirect rules for the pods:
     - Get the port list from pods definition, as well as annotations.
     - Setup iptables with required port list: `nsenter --net=<k8s pod netns> /opt/cni/bin/istio-iptables ...`. Following conditions will prevent the redirect rules to be setup in the pods:
         - Pods have annotation `sidecar.istio.io/inject` set to `false` or has no key `sidecar.istio.io/status` in annotations
         - Pod has `istio-init` initContainer - this indicates a pod running its own injection setup.
-1. Return prevResult
+3. Return prevResult
 
 ## Reference
 

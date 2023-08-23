@@ -39,7 +39,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/scope"
-	mesh_const "istio.io/istio/pkg/config/legacy/mesh"
+	meshconst "istio.io/istio/pkg/config/legacy/mesh"
 	"istio.io/istio/pkg/config/legacy/util/kuberesource"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
@@ -164,8 +164,8 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	// Create a store containing mesh config. There should be exactly one.
 	_, err := sa.internalStore.Create(config.Config{
 		Meta: config.Meta{
-			Name:             mesh_const.MeshConfigResourceName.Name.String(),
-			Namespace:        mesh_const.MeshConfigResourceName.Namespace.String(),
+			Name:             meshconst.MeshConfigResourceName.Name.String(),
+			Namespace:        meshconst.MeshConfigResourceName.Namespace.String(),
 			GroupVersionKind: gvk.MeshConfig,
 		},
 		Spec: sa.meshCfg,
@@ -176,8 +176,8 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	// Create a store containing meshnetworks. There should be exactly one.
 	_, err = sa.internalStore.Create(config.Config{
 		Meta: config.Meta{
-			Name:             mesh_const.MeshNetworksResourceName.Name.String(),
-			Namespace:        mesh_const.MeshNetworksResourceName.Namespace.String(),
+			Name:             meshconst.MeshNetworksResourceName.Name.String(),
+			Namespace:        meshconst.MeshNetworksResourceName.Namespace.String(),
 			GroupVersionKind: gvk.MeshNetworks,
 		},
 		Spec: sa.meshNetworks,
@@ -208,7 +208,7 @@ type dfCache struct {
 	model.ConfigStore
 }
 
-func (d dfCache) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
+func (d dfCache) RegisterEventHandler(_ config.GroupVersionKind, _ model.EventHandler) {
 	panic("implement me")
 }
 
@@ -288,7 +288,7 @@ func isIstioConfigMap(obj any) bool {
 func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
 	// This makes the assumption we don't care about Helm secrets or SA token secrets - two common
 	// large secrets in clusters.
-	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
+	// This is the best effort optimization only; the code would behave correctly if we watched all secrets.
 	secretFieldSelector := fields.AndSelectors(
 		fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
 		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
@@ -489,7 +489,7 @@ type AnalysisSuppression struct {
 	ResourceName string
 }
 
-// ReaderSource is a tuple of a io.Reader and filepath.
+// ReaderSource is a tuple of an io.Reader and filepath.
 type ReaderSource struct {
 	// Name is the name of the source (commonly the path to a file, but can be "-" for sources read from stdin or "" if completely synthetic).
 	Name string

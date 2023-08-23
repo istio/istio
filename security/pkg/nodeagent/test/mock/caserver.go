@@ -207,7 +207,7 @@ func (s *CAServer) sign(csrPEM []byte, subjectIDs []string, _ time.Duration, for
 }
 
 // Check handles health check requests.
-func (s *CAServer) Check(ctx context.Context, in *ghc.HealthCheckRequest) (*ghc.HealthCheckResponse, error) {
+func (s *CAServer) Check(_ context.Context, _ *ghc.HealthCheckRequest) (*ghc.HealthCheckResponse, error) {
 	return &ghc.HealthCheckResponse{
 		Status: ghc.HealthCheckResponse_SERVING,
 	}, nil

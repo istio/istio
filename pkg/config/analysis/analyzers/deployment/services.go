@@ -18,7 +18,7 @@ import (
 	"strconv"
 
 	appsv1 "k8s.io/api/apps/v1"
-	core_v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/istio/pkg/config"
@@ -36,11 +36,11 @@ var _ analysis.Analyzer = &ServiceAssociationAnalyzer{}
 
 type (
 	PortMap             map[int32]ProtocolMap
-	ProtocolMap         map[core_v1.Protocol]ServiceNames
+	ProtocolMap         map[corev1.Protocol]ServiceNames
 	ServiceNames        []string
 	ServiceSpecWithName struct {
 		Name string
-		Spec *core_v1.ServiceSpec
+		Spec *corev1.ServiceSpec
 	}
 )
 
@@ -134,14 +134,14 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.In
 	}
 }
 
-// findMatchingServices returns an slice of Services that matches with deployment's pods.
+// findMatchingServices returns a slice of Services that matches with deployment's pods.
 func (s *ServiceAssociationAnalyzer) findMatchingServices(r *resource.Instance, c analysis.Context) []ServiceSpecWithName {
 	matchingSvcs := make([]ServiceSpecWithName, 0)
 	d := r.Message.(*appsv1.DeploymentSpec)
 	deploymentNS := r.Metadata.FullName.Namespace.String()
 
 	c.ForEach(gvk.Service, func(r *resource.Instance) bool {
-		s := r.Message.(*core_v1.ServiceSpec)
+		s := r.Message.(*corev1.ServiceSpec)
 
 		sSelector := klabels.SelectorFromSet(s.Selector)
 		pLabels := klabels.Set(d.Template.Labels)
@@ -170,7 +170,7 @@ func servicePortMap(svcs []ServiceSpecWithName) PortMap {
 			// Default protocol is TCP
 			protocol := sPort.Protocol
 			if protocol == "" {
-				protocol = core_v1.ProtocolTCP
+				protocol = corev1.ProtocolTCP
 			}
 
 			// Appending the service information for the Port/Protocol combination
@@ -189,7 +189,7 @@ func serviceTargetPortsMap(svcs []ServiceSpecWithName) targetPortMap {
 		for _, sPort := range svc.Ports {
 			p := sPort.TargetPort.String()
 			if p == "0" || p == "" {
-				// By default and for convenience, the targetPort is set to the same value as the port field.
+				// By default, and for convenience, the targetPort is set to the same value as the port field.
 				p = strconv.Itoa(int(sPort.Port))
 			}
 			if _, ok := pm[p]; !ok {

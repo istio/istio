@@ -23,7 +23,7 @@ import (
 )
 
 const (
-	// Path templates for different fields with different paths, may edited by future developers if not covered in this list
+	// Path templates for different fields with different paths, may edit by future developers if not covered in this list
 	// Use the path template to find the exact line number for the field
 
 	// Path for host in VirtualService.

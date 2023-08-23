@@ -3,7 +3,7 @@
 This document describes the integration and extension mechanisms to exercise VM related code.
 The primary goals are to:
 1. Test VM-related Istio code so that newly submitted commits won't break VM support
-1. Ensure the code works on a range of supported OS types and versions.
+2. Ensure the code works on a range of supported OS types and versions.
 
 **Note: We currently use mock/simulated VMs for testing purposes. In the future, the testing might switch
 to utilize actual compute instances from different providers.**
@@ -12,8 +12,8 @@ to utilize actual compute instances from different providers.**
 
 Scenarios in which one might want to add a VM test in this doc:
 1. Testing existing core Istio features such as traffic management, security, telemetry, etc. for **VMs**
-1. Supporting new OS images for VMs
-1. Testing onboarding tools (iptables, certs, istio-sidecar, etc.) and workflows (services, DNS, etc.) to enmesh a VM
+2. Supporting new OS images for VMs
+3. Testing onboarding tools (iptables, certs, istio-sidecar, etc.) and workflows (services, DNS, etc.) to enmesh a VM
 
 ## Secenario 1: Testing VM-related Istio Code
 
@@ -24,7 +24,7 @@ refer to this [doc](https://istio.io/latest/docs/setup/install/virtual-machine/)
 
 To deploy an echo instance as a VM
 1. Set the ports for the VMs.
-1. Set `DeployAsVm` to be true in `echo.Config`.
+2. Set `DeployAsVm` to be true in `echo.Config`.
 We used DefaultVMImage in the example.
 
 For example,
@@ -63,9 +63,9 @@ To add additional supported images for testing:
 1. Modify [tools/istio-docker.mk](https://github.com/istio/istio/blob/master/tools/istio-docker.mk) to add more
 build targets. Specify the OS image name and version in the Makefile, and it will be passed to the Dockerfile.
 See other build targets for references.
-1. Modify `prow/lib.sh` by adding images to the targets to build images for CI/CD.
-1. Add the images to `util.go` to be tested in PostSubmit jobs.
-1. (Optional) Modify the `DefaultVMImage` in `util.go` in case the default supported image changes.
+2. Modify `prow/lib.sh` by adding images to the targets to build images for CI/CD.
+3. Add the images to `util.go` to be tested in PostSubmit jobs.
+4. (Optional) Modify the `DefaultVMImage` in `util.go` in case the default supported image changes.
 
 **Note: We will only build default image for pre-submit jobs and build all others for post-submit jobs
 to save time in CI/CD.**

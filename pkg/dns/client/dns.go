@@ -204,8 +204,8 @@ func (h *LocalDNSServer) BuildAlternateHosts(nt *dnsProto.NameTable,
 ) {
 	for hostname, ni := range nt.Table {
 		// Given a host
-		// if its a non-k8s host, store the host+. as the key with the pre-computed DNS RR records
-		// if its a k8s host, store all variants (i.e. shortname+., shortname+namespace+., fqdn+., etc.)
+		// if it's a non-k8s host, store the host+. as the key with the pre-computed DNS RR records
+		// if it's a k8s host, store all variants (i.e. shortname+., shortname+namespace+., fqdn+., etc.)
 		// shortname+. is only for hosts in current namespace
 		var altHosts sets.String
 		if ni.Registry == string(provider.Kubernetes) {
@@ -292,7 +292,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 		response.Answer = answers
 		// Randomize the responses; this ensures for things like headless services we can do DNS-LB
 		// This matches standard kube-dns behavior. We only do this for cached responses as the
-		// upstream DNS server would already round robin if desired.
+		// upstream DNS server would already round-robin if desired.
 		if len(answers) > 0 {
 			roundRobinResponse(response)
 		}
@@ -302,7 +302,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	}
 	// Compress the response - we don't know if the incoming response was compressed or not. If it was,
 	// but we don't compress on the outbound, we will run into issues. For example, if the compressed
-	// size is 450 bytes but uncompressed 1000 bytes now we are outside of the non-eDNS UDP size limits
+	// size is 450 bytes but uncompressed 1000 bytes now we are outside the non-eDNS UDP size limits
 	response.Truncate(size(proxy.protocol, req))
 	_ = w.WriteMsg(response)
 }

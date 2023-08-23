@@ -90,7 +90,7 @@ the Istio control plane into the istio-system namespace by default.
 
 1. Set env $WATCH_NAMESPACE (default value is "istio-system") and $LEADER_ELECTION_NAMESPACE (default value is "istio-operator")
 
-1. Create the `WATCH_NAMESPACE` and `LEADER_ELECTION_NAMESPACE` if they are not created yet.
+2. Create the `WATCH_NAMESPACE` and `LEADER_ELECTION_NAMESPACE` if they are not created yet.
 
 ```bash
 kubectl create ns $WATCH_NAMESPACE --dry-run -o yaml | kubectl apply -f -
@@ -106,9 +106,9 @@ To use Remote debugging with IntelliJ, replace above step 2 with following:
 dlv debug --headless --listen=:2345 --api-version=2 -- server
 `.
 
-1. In IntelliJ, create a new Go Remote debug configuration with default settings.
+2. In IntelliJ, create a new Go Remote debug configuration with default settings.
 
-1. Start debugging process and verify it is working. For example, try adding a breakpoint at Reconcile logic and apply a new CR.
+3. Start debugging process and verify it is working. For example, try adding a breakpoint at Reconcile logic and apply a new CR.
 
 ### Relationship between the CLI and controller
 
@@ -119,7 +119,7 @@ There are two major differences:
 
 1. The controller does not accept any dynamic user config through flags. All user interaction is through the
 IstioOperator CR.
-1. The controller has additional logic that mirrors istioctl commands like upgrade, but is driven from the declarative
+2. The controller has additional logic that mirrors istioctl commands like upgrade, but is driven from the declarative
 API rather than command line.
 
 ### Quick tour of CLI commands

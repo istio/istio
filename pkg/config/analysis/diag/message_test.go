@@ -51,7 +51,7 @@ func TestMessage_Unstructured(t *testing.T) {
 
 	m = NewMessage(mt, &resource.Instance{Origin: testOrigin{name: "toppings/cheese"}}, "Feta")
 
-	g.Expect(m.Unstructured(true)).To((HaveKey("origin")))
+	g.Expect(m.Unstructured(true)).To(HaveKey("origin"))
 	g.Expect(m.Unstructured(false)).To(Not(HaveKey("origin")))
 }
 

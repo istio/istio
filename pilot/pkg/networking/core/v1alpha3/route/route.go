@@ -756,7 +756,7 @@ func MirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
 	case in.MirrorPercent != nil:
 		if in.MirrorPercent.GetValue() > 0 {
 			return &core.RuntimeFractionalPercent{
-				DefaultValue: translateIntegerToFractionalPercent((int32(in.MirrorPercent.GetValue()))),
+				DefaultValue: translateIntegerToFractionalPercent(int32(in.MirrorPercent.GetValue())),
 			}
 		}
 		// If zero percent is provided explicitly, we should not mirror.

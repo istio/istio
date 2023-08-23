@@ -7,13 +7,13 @@ The directory contains two Makefiles for generating new root, intermediate certi
 
 The table below describes the targets supported by both Makefiles.
 
-Make Target | Makefile | Description
------- | -------- | -----------
-`root-ca` | `Makefile.selfsigned.mk` | Generates a self-signed root CA key and certificate.
-`fetch-root-ca` | `Makefile.k8s.mk` | Fetches the Istio CA from the Kubernetes cluster, using the current context in the default `kubeconfig`.
-`$NAME-cacerts` | Both | Generates intermediate certificates signed by the root CA for a cluster or VM with `$NAME` (e.g., `us-east`, `cluster01`, etc.). They are stored under `$NAME` directory. To differentiate between clusters, we include a `Location` (`L`) designation in the certificates `Subject` field, with the cluster's name.
-`$NAMESPACE-certs` | Both | Generates intermediate certificates and sign certificates for a virtual machine connected to the namespace `$NAMESPACE` using serviceAccount `$SERVICE_ACCOUNT` using the root cert and store them under `$NAMESPACE` directory.
-`clean` | Both | Removes any generated root certificates, keys, and intermediate files.
+| Make Target        | Makefile                 | Description                                                                                                                                                                                                                                                                                                          |
+|--------------------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `root-ca`          | `Makefile.selfsigned.mk` | Generates a self-signed root CA key and certificate.                                                                                                                                                                                                                                                                 |
+| `fetch-root-ca`    | `Makefile.k8s.mk`        | Fetches the Istio CA from the Kubernetes cluster, using the current context in the default `kubeconfig`.                                                                                                                                                                                                             |
+| `$NAME-cacerts`    | Both                     | Generates intermediate certificates signed by the root CA for a cluster or VM with `$NAME` (e.g., `us-east`, `cluster01`, etc.). They are stored under `$NAME` directory. To differentiate between clusters, we include a `Location` (`L`) designation in the certificates `Subject` field, with the cluster's name. |
+| `$NAMESPACE-certs` | Both                     | Generates intermediate certificates and sign certificates for a virtual machine connected to the namespace `$NAMESPACE` using serviceAccount `$SERVICE_ACCOUNT` using the root cert and store them under `$NAMESPACE` directory.                                                                                     |
+| `clean`            | Both                     | Removes any generated root certificates, keys, and intermediate files.                                                                                                                                                                                                                                               |
 
 For example:
 

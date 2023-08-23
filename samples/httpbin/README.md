@@ -10,7 +10,7 @@ To use it:
 
 1. Install Istio by following the [istio install instructions](https://istio.io/docs/setup/).
 
-1. Start the httpbin service inside the Istio service mesh:
+2. Start the httpbin service inside the Istio service mesh:
 
     If you have [automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection) enabled:
 

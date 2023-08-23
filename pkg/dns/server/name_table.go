@@ -103,7 +103,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 						// endpoints, cross network routing would break, as we do passthrough LB and
 						// don't go through the network gateway. While we could, hypothetically, send
 						// "network-local" endpoints, this would still make enabling DNS give vastly
-						// different load balancing than without, so its probably best to filter.
+						// different load balancing than without, so it's probably best to filter.
 						// This ends up matching the behavior of Kubernetes DNS.
 						continue
 					}

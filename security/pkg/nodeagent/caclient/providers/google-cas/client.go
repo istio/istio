@@ -20,7 +20,7 @@ import (
 	"time"
 
 	privateca "cloud.google.com/go/security/privateca/apiv1"
-	privatecapb "cloud.google.com/go/security/privateca/apiv1/privatecapb"
+	"cloud.google.com/go/security/privateca/apiv1/privatecapb"
 	"google.golang.org/api/option"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"k8s.io/apimachinery/pkg/util/rand"

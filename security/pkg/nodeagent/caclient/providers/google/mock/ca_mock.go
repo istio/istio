@@ -32,7 +32,7 @@ type CAService struct {
 }
 
 // CreateCertificate is a mocked function for the Google Mesh CA API.
-func (ca *CAService) CreateCertificate(ctx context.Context, in *gcapb.MeshCertificateRequest) (
+func (ca *CAService) CreateCertificate(_ context.Context, _ *gcapb.MeshCertificateRequest) (
 	*gcapb.MeshCertificateResponse, error,
 ) {
 	if ca.Err == nil {

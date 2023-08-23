@@ -62,7 +62,7 @@ var (
 	VirtualServiceDestinationPortSelectorRequired = diag.NewMessageType(diag.Error, "IST0112", "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate.")
 
 	// MTLSPolicyConflict defines a diag.MessageType for message "MTLSPolicyConflict".
-	// Description: A DestinationRule and Policy are in conflict with regards to mTLS.
+	// Description: A DestinationRule and Policy are in conflict in regard to mTLS.
 	MTLSPolicyConflict = diag.NewMessageType(diag.Error, "IST0113", "A DestinationRule and Policy are in conflict with regards to mTLS for host %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s.")
 
 	// DeploymentAssociatedToMultipleServices defines a diag.MessageType for message "DeploymentAssociatedToMultipleServices".

@@ -19,7 +19,7 @@ import (
 	"strings"
 )
 
-// Names is a collection of Name; it exists so it's easy to sort hostnames consistently across Istio.
+// Names is a collection of Name; it exists, so it's easy to sort hostnames consistently across Istio.
 // In a few locations we care about the order hostnames appear in Envoy config: primarily HTTP routes, but also in
 // gateways, and for SNI. In those locations, we sort hostnames longest to shortest with wildcards last.
 type Names []Name
@@ -35,7 +35,7 @@ func (h Names) Less(i, j int) bool {
 	return MoreSpecific(h[i], h[j])
 }
 
-// MoreSpecific returns true if hostname a is more specific than b.
+// MoreSpecific returns true if hostname `a` is more specific than `b`.
 func MoreSpecific(a, b Name) bool {
 	if len(a) == 0 && len(b) == 0 {
 		return true // doesn't matter, they're both the empty string

@@ -100,6 +100,6 @@ type ExpiringCache interface {
 	// requested expiration time.
 	SetWithExpiration(key any, value any, expiration time.Duration)
 
-	// EvictExpired() synchronously evicts all expired entries from the cache
+	// EvictExpired synchronously evicts all expired entries from the cache
 	EvictExpired()
 }

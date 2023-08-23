@@ -21,7 +21,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 )
 
-// only used for testing, exposes a blocking Update method that allows test environments to trigger meshConfig updates
+// TestWatcher only used for testing, exposes a blocking Update method that allows test environments to trigger meshConfig updates
 type TestWatcher struct {
 	internalWatcher
 	doneCh chan struct{} // used to implement a blocking Update method
@@ -38,7 +38,7 @@ func NewTestWatcher(meshConfig *meshconfig.MeshConfig) *TestWatcher {
 	return w
 }
 
-// blocks until watcher handlers trigger
+// Update blocks until watcher handlers trigger
 func (t *TestWatcher) Update(meshConfig *meshconfig.MeshConfig, timeout time.Duration) error {
 	t.HandleMeshConfig(meshConfig)
 	select {

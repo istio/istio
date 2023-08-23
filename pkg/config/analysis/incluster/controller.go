@@ -53,7 +53,7 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 	ia := local.NewIstiodAnalyzer(analyzer, "", resource.Namespace(namespace), func(name config.GroupVersionKind) {})
 	ia.AddSource(rwConfigStore)
 
-	// Filter out configs watched by rwConfigStore so we don't watch multiple times
+	// Filter out configs watched by rwConfigStore, so we don't watch multiple times
 	store := crdclient.NewForSchemas(kubeClient,
 		crdclient.Option{Revision: revision, DomainSuffix: domainSuffix, Identifier: "analysis-controller"},
 		all.Remove(rwConfigStore.Schemas().All()...))

@@ -34,7 +34,7 @@ spec:
 
 1. Run `tar cf 1.x.y-install.yaml.tar 1.x.y-install.yaml`
 
-1. Generate a new CNI Daemonset manifest with the following settings:
+2. Generate a new CNI Daemonset manifest with the following settings:
 
 ```yaml
 apiVersion: install.istio.io/v1alpha1

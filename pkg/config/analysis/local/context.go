@@ -58,7 +58,7 @@ type key struct {
 	name           resource.FullName
 }
 
-func (i *istiodContext) Report(c config.GroupVersionKind, m diag.Message) {
+func (i *istiodContext) Report(_ config.GroupVersionKind, m diag.Message) {
 	i.messages.Add(m)
 }
 

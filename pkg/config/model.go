@@ -292,7 +292,7 @@ func DeepCopy(s any) any {
 		return gogoproto.Clone(pb)
 	}
 
-	// If we don't have a deep copy method, we will have to do some reflection magic. Its not ideal,
+	// If we don't have a deep copy method, we will have to do some reflection magic. It's not ideal,
 	// but all Istio types have an efficient deep copy.
 	js, err := json.Marshal(s)
 	if err != nil {

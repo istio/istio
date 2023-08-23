@@ -189,7 +189,7 @@ func checkServiceEntryPorts(ctx analysis.Context, r *resource.Instance, d *Annot
 			return
 		}
 
-		// Otherwise, it's not needed and we're done here.
+		// Otherwise, it's not needed, and we're done here.
 		return
 	}
 

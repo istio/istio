@@ -29,7 +29,7 @@ import (
 // method. Given the nature of this code, forgetting to call Close on one of these objects
 // can lead to a substantial permanent memory leak in a process by causing the cache to
 // remain alive forever, along with all the entries the cache points to. The use of the
-// ttlWrapper type makes it so we control the exposure of the underlying ttlCache pointer.
+// ttlWrapper type makes it, so we control the exposure of the underlying ttlCache pointer.
 // When the pointer to ttlWrapper is finalized, this tells us to go ahead and stop the
 // evicter goroutine, which allows the lruCache instance to be collected and everything
 // ends well.

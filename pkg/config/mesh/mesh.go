@@ -73,7 +73,7 @@ func DefaultMeshNetworks() *meshconfig.MeshNetworks {
 func DefaultMeshConfig() *meshconfig.MeshConfig {
 	proxyConfig := DefaultProxyConfig()
 
-	// Defaults matching the standard install
+	// Defaults matching the standard installation
 	// order matches the generated mesh config.
 	return &meshconfig.MeshConfig{
 		EnableTracing:               true,
@@ -187,7 +187,7 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 	// decent customization while also not requiring users to redefine the entire proxy config if they want to override
 	// Note: if we want to add more structure in the future, we will likely need to revisit this idea.
 
-	// Store the current set proxy config so we don't wipe it out, we will configure this later
+	// Store the current set proxy config, so we don't wipe it out, we will configure this later
 	prevProxyConfig := defaultConfig.DefaultConfig
 	prevDefaultProvider := defaultConfig.DefaultProviders
 	prevExtensionProviders := defaultConfig.ExtensionProviders

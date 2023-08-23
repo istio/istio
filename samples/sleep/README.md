@@ -8,7 +8,7 @@ To use it:
 
 1. Install Istio by following the [istio install instructions](https://istio.io/docs/setup/).
 
-1. Start the sleep service:
+2. Start the sleep service:
 
     If you have [automatic sidecar injection](https://istio.io/docs/setup/additional-setup/sidecar-injection/#automatic-sidecar-injection) enabled:
 
@@ -22,7 +22,7 @@ To use it:
     kubectl apply -f <(istioctl kube-inject -f sleep.yaml)
     ```
 
-1. Start some other services, for example, the [Bookinfo sample](https://istio.io/docs/examples/bookinfo/).
+3. Start some other services, for example, the [Bookinfo sample](https://istio.io/docs/examples/bookinfo/).
 
     Now you can `kubectl exec` into the sleep service to experiment with Istio networking.
     For example, the following commands can be used to call the Bookinfo `ratings` service:

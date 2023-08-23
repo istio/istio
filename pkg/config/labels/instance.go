@@ -48,7 +48,7 @@ var (
 	wildcardPrefixRegexp = regexp.MustCompile("^" + wildcardPrefix + "$")
 )
 
-// Instance is a non empty map of arbitrary strings. Each version of a service can
+// Instance is a non-empty map of arbitrary strings. Each version of a service can
 // be differentiated by a unique set of labels associated with the version. These
 // labels are assigned to all instances of a particular service version. For
 // example, lets say catalog.mystore.com has 2 versions v1 and v2. v1 instances

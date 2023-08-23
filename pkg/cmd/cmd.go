@@ -49,7 +49,7 @@ func AddFlags(rootCmd *cobra.Command) {
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 }
 
-// PrintFlags logs the flags in the flagset
+// PrintFlags logs the flags in the flagSet
 func PrintFlags(flags *pflag.FlagSet) {
 	flags.VisitAll(func(flag *pflag.Flag) {
 		log.Infof("FLAG: --%s=%q", flag.Name, flag.Value)

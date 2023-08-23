@@ -19,7 +19,7 @@ Note that `a` is just a default value for testing. It can be changed with the fl
 
     Note, you can also deploy the Ext Authz service locally with the application container in the same pod, see the example in `local-ext-authz.yaml`.
 
-1. Verify the Ext Authz server is up and running:
+2. Verify the Ext Authz server is up and running:
 
     Deploy a sleep pod to send the request:
 
@@ -77,7 +77,7 @@ Note that `a` is just a default value for testing. It can be changed with the fl
 
     As you observe, the check request with header `x-ext-authz: bla` is denied by the Ext Authz server.
 
-1. To clean up, execute the following commands:
+3. To clean up, execute the following commands:
 
     ```console
     $ kubectl delete -f ../sleep/sleep.yaml
