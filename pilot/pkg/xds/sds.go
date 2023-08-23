@@ -467,6 +467,11 @@ func relatedConfigs(k model.ConfigKey) []model.ConfigKey {
 		k.Name = strings.TrimSuffix(k.Name, securitymodel.SdsCaSuffix)
 		related = append(related, k)
 	}
+	// If TLSCustomCaCredential is set, add the custom credential name to the related configs
+	if features.TLSCustomCaCredential != "" {
+		k.Name = features.TLSCustomCaCredential
+		related = append(related, k)
+	}
 	return related
 }
 

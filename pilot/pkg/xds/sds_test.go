@@ -33,12 +33,14 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	credentials "istio.io/istio/pilot/pkg/credentials/kube"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -81,11 +83,197 @@ var (
 	genericMtlsCertSplitCa = makeSecret("generic-mtls-split-cacert", map[string]string{
 		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "mountedcerts-client/root-cert.pem")),
 	})
+	genericMtlsCertSplitCustomCaA = makeSecret("generic-mtls-split-custom-a", map[string]string{
+		credentials.GenericScrtCert: readFile(filepath.Join(certDir, "mountedcerts-client/cert-chain.pem")),
+		credentials.GenericScrtKey:  readFile(filepath.Join(certDir, "mountedcerts-client/key.pem")),
+	})
+	genericMtlsCertSplitCustomCaB = makeSecret("generic-mtls-split-custom-b", map[string]string{
+		credentials.GenericScrtCert: readFile(filepath.Join(certDir, "mountedcerts-client/cert-chain.pem")),
+		credentials.GenericScrtKey:  readFile(filepath.Join(certDir, "mountedcerts-client/key.pem")),
+	})
+	genericMtlsCertSplitCustomCaCertB = makeSecret("generic-mtls-split-custom-b-cacert", map[string]string{
+		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "dns/fake-root-cert.pem")),
+	})
+	genericMtlsGlobalCustomCa = makeSecret("global-custom-ca", map[string]string{
+		credentials.GenericScrtCaCert: readFile(filepath.Join(certDir, "mountedcerts-client/root-cert.pem")),
+	})
 )
 
 func readFile(name string) string {
 	cacert, _ := os.ReadFile(name)
 	return string(cacert)
+}
+
+func TestGenerateForTLSCustomCaCredential(t *testing.T) {
+	type Expected struct {
+		Key    string
+		Cert   string
+		CaCert string
+		CaCrl  string
+	}
+	test.SetForTest(t, &features.TLSCustomCaCredential, "global-custom-ca")
+	allResources := []string{"kubernetes://generic-mtls-split-custom-a", "kubernetes://generic-mtls-split-custom-a-cacert",
+		"kubernetes://generic-mtls-split-custom-b", "kubernetes://generic-mtls-split-custom-b-cacert",
+	}
+	cases := []struct {
+		name                 string
+		proxy                *model.Proxy
+		resources            []string
+		request              *model.PushRequest
+		expect               map[string]Expected
+		accessReviewResponse func(action k8stesting.Action) (bool, runtime.Object, error)
+	}{
+		// TC 1: The credential supplied is split, and there is no -cacert credential available for CA.
+		// The logic should fall back to use the custom CA credential name, since the TLSCustomCaCredential feature flag is set.
+		{
+			name:      "incremental push with updates - mtls split - custom ca",
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			resources: []string{"kubernetes://generic-mtls-split-custom-a", "kubernetes://generic-mtls-split-custom-a-cacert"},
+			request: &model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind:      kind.Secret,
+				Name:      "generic-mtls-split-custom-a",
+				Namespace: "istio-system",
+			})},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-split-custom-a": {
+					Key:  string(genericMtlsCertSplitCustomCaA.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertSplitCustomCaA.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls-split-custom-a-cacert": {
+					CaCert: string(genericMtlsGlobalCustomCa.Data[credentials.GenericScrtCaCert]),
+				},
+			},
+		},
+		// TC 2: Custom CA is updated, and -cacert credential is not available.
+		// Both the related credential configs should be pushed.
+		{
+			name:      "incremental push with updates - mtls split custom ca update",
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			resources: []string{"kubernetes://generic-mtls-split-custom-a", "kubernetes://generic-mtls-split-custom-a-cacert"},
+			request: &model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind:      kind.Secret,
+				Name:      "global-custom-ca",
+				Namespace: "istio-system",
+			})},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-split-custom-a": {
+					Key:  string(genericMtlsCertSplitCustomCaA.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertSplitCustomCaA.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls-split-custom-a-cacert": {
+					CaCert: string(genericMtlsGlobalCustomCa.Data[credentials.GenericScrtCaCert]),
+				},
+			},
+		},
+		// TC 3: The credential supplied is split, and -cacert credential is available for CA.
+		// The logic should use -cacert, and ignore the custom CA credential name, even if the TLSCustomCaCredential feature flag is set.
+		{
+			name:      "incremental push with updates - mtls split both custom ca and -cacert secrets present",
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			resources: []string{"kubernetes://generic-mtls-split-custom-b", "kubernetes://generic-mtls-split-custom-b-cacert"},
+			request: &model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind:      kind.Secret,
+				Name:      "generic-mtls-split-custom-b",
+				Namespace: "istio-system",
+			})},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-split-custom-b": {
+					Key:  string(genericMtlsCertSplitCustomCaB.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertSplitCustomCaB.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls-split-custom-b-cacert": {
+					CaCert: string(genericMtlsCertSplitCustomCaCertB.Data[credentials.GenericScrtCaCert]),
+				},
+			},
+		},
+		// TC 4: When multiple authorized resources are present, and only a single leaf credential is updated, only the related configs
+		// for the current leaf credential should be pushed
+		{
+			name:      "custom ca - incremental push with leaf credential update - multiple resources",
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			resources: allResources,
+			request: &model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind:      kind.Secret,
+				Name:      "generic-mtls-split-custom-a",
+				Namespace: "istio-system",
+			})},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-split-custom-a": {
+					Key:  string(genericMtlsCertSplitCustomCaA.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertSplitCustomCaA.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls-split-custom-a-cacert": {
+					CaCert: string(genericMtlsGlobalCustomCa.Data[credentials.GenericScrtCaCert]),
+				},
+			},
+		},
+		// TC 5: When multiple authorized resources are present, and the global custom ca is updated, related configs
+		// for all the resources will be pushed.
+		{
+			name:      "custom ca - incremental push with custom ca update - multiple resources",
+			proxy:     &model.Proxy{VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"}, Type: model.Router},
+			resources: allResources,
+			request: &model.PushRequest{Full: false, ConfigsUpdated: sets.New(model.ConfigKey{
+				Kind:      kind.Secret,
+				Name:      "global-custom-ca",
+				Namespace: "istio-system",
+			})},
+			expect: map[string]Expected{
+				"kubernetes://generic-mtls-split-custom-a": {
+					Key:  string(genericMtlsCertSplitCustomCaA.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertSplitCustomCaA.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls-split-custom-a-cacert": {
+					CaCert: string(genericMtlsGlobalCustomCa.Data[credentials.GenericScrtCaCert]),
+				},
+				"kubernetes://generic-mtls-split-custom-b": {
+					Key:  string(genericMtlsCertSplitCustomCaB.Data[credentials.GenericScrtKey]),
+					Cert: string(genericMtlsCertSplitCustomCaB.Data[credentials.GenericScrtCert]),
+				},
+				"kubernetes://generic-mtls-split-custom-b-cacert": {
+					CaCert: string(genericMtlsCertSplitCustomCaCertB.Data[credentials.GenericScrtCaCert]),
+				},
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.proxy.Metadata == nil {
+				tt.proxy.Metadata = &model.NodeMetadata{}
+			}
+			tt.proxy.Metadata.ClusterID = "Kubernetes"
+			s := NewFakeDiscoveryServer(t, FakeOptions{
+				KubernetesObjects: []runtime.Object{genericMtlsCertSplitCustomCaA, genericMtlsCertSplitCustomCaB, genericMtlsCertSplitCustomCaCertB, genericMtlsGlobalCustomCa},
+			})
+			cc := s.KubeClient().Kube().(*fake.Clientset)
+
+			cc.Fake.Lock()
+			if tt.accessReviewResponse != nil {
+				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
+			} else {
+				disableAuthorizationForSecret(cc)
+			}
+			cc.Fake.Unlock()
+
+			gen := s.Discovery.Generators[v3.SecretType]
+			tt.request.Start = time.Now()
+			secrets, _, _ := gen.Generate(s.SetupProxy(tt.proxy), &model.WatchedResource{ResourceNames: tt.resources}, tt.request)
+			raw := xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
+
+			got := map[string]Expected{}
+			for _, scrt := range raw {
+				got[scrt.Name] = Expected{
+					Key:    string(scrt.GetTlsCertificate().GetPrivateKey().GetInlineBytes()),
+					Cert:   string(scrt.GetTlsCertificate().GetCertificateChain().GetInlineBytes()),
+					CaCert: string(scrt.GetValidationContext().GetTrustedCa().GetInlineBytes()),
+					CaCrl:  string(scrt.GetValidationContext().GetCrl().GetInlineBytes()),
+				}
+			}
+			if diff := cmp.Diff(got, tt.expect); diff != "" {
+				t.Fatal(diff)
+			}
+		})
+	}
 }
 
 func TestGenerate(t *testing.T) {
