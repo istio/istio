@@ -34,7 +34,6 @@ import (
 
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
-	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -69,15 +68,13 @@ var (
 	// By default, tests only run with manifest generate, since it doesn't require any external fake test environment.
 	testedManifestCmds = []cmdType{cmdGenerate}
 	// Only used if kubebuilder is installed.
-	testenv               *envtest.Environment
-	testClient            client.Client
-	testReconcileOperator *istiocontrolplane.ReconcileIstioOperator
+	testenv    *envtest.Environment
+	testClient client.Client
 
 	allNamespacedGVKs = append(helmreconciler.NamespacedResources(&version.Info{Major: "1", Minor: "25"}),
 		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"})
 	// CRDs are not in the prune list, but must be considered for tests.
-	allClusterGVKs = append(helmreconciler.ClusterResources,
-		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"})
+	allClusterGVKs = helmreconciler.ClusterResources
 )
 
 func init() {
@@ -120,8 +117,6 @@ func recreateTestEnv() error {
 	if err != nil {
 		return err
 	}
-
-	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, nil, s)
 	return nil
 }
 
@@ -133,7 +128,6 @@ func recreateSimpleTestEnv() {
 	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
 
 	testClient = fake.NewClientBuilder().WithScheme(s).Build()
-	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, kube.NewFakeClient(), s)
 }
 
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.

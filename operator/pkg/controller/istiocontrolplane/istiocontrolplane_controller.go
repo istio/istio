@@ -98,7 +98,6 @@ func watchedResources(version *kubeversion.Info) []schema.GroupVersionKind {
 		// Endpoints should not be pruned because these are generated and not in the manifest.
 		// {Group: "", Version: "v1", Kind: name.EndpointStr},
 		{Group: "", Version: "v1", Kind: name.CMStr},
-		{Group: "", Version: "v1", Kind: name.PVCStr},
 		{Group: "", Version: "v1", Kind: name.PodStr},
 		{Group: "", Version: "v1", Kind: name.SecretStr},
 		{Group: "", Version: "v1", Kind: name.SAStr},
@@ -217,15 +216,6 @@ var (
 		},
 	}
 )
-
-// NewReconcileIstioOperator creates a new ReconcileIstioOperator and returns a ptr to it.
-func NewReconcileIstioOperator(client client.Client, kubeClient kube.Client, scheme *runtime.Scheme) *ReconcileIstioOperator {
-	return &ReconcileIstioOperator{
-		client:     client,
-		kubeClient: kubeClient,
-		scheme:     scheme,
-	}
-}
 
 // ReconcileIstioOperator reconciles a IstioOperator object
 type ReconcileIstioOperator struct {
