@@ -487,7 +487,7 @@ func TestCmdAddEnableDualStack(t *testing.T) {
 		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"]())
 	}
 	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
-	if r.dualStack != true {
+	if !r.dualStack {
 		t.Fatalf("expect dualStack is true, actual %v", r.dualStack)
 	}
 }
