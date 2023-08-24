@@ -45,7 +45,7 @@ var (
 	InvalidDropByIptables = env.Register("INVALID_DROP", false,
 		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
 	DualStack = env.Register("ISTIO_DUAL_STACK", false,
-		"If true, Istio will enable the Dual Stack feature.")
+		"If true, Istio will enable the Dual Stack feature.").Get()
 )
 
 // mock net.InterfaceAddrs to make its unit test become available
@@ -83,7 +83,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		if cfg.RunValidation {
-			hostIP, _, err := getLocalIP(DualStack.Get() || cfg.DualStack)
+			hostIP, _, err := getLocalIP(DualStack || cfg.DualStack)
 			if err != nil {
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
@@ -157,7 +157,7 @@ func constructConfig() *config.Config {
 	}
 
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
-	_, isIPv6, err := getLocalIP(DualStack.Get() || cfg.DualStack)
+	_, isIPv6, err := getLocalIP(DualStack || cfg.DualStack)
 	if err != nil {
 		panic(err)
 	}

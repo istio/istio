@@ -285,7 +285,7 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 			log.Warnf("cannot parse DNS capture environment variable %v", valErr)
 		}
 	}
-	if v, found := pi.ProxyEnvironments[cmd.DualStack.Name]; found {
+	if v, found := pi.ProxyEnvironments["ISTIO_DUAL_STACK"]; found {
 		// parse and set the bool value of dnsRedirect
 		redir.dualStack, valErr = strconv.ParseBool(v)
 		if valErr != nil {
