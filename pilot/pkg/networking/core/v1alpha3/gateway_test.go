@@ -1528,7 +1528,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			proxyConfig: &meshconfig.ProxyConfig{
 				GatewayTopology: &meshconfig.Topology{
 					NumTrustedProxies:        2,
-					ForwardClientCertDetails: meshconfig.Topology_APPEND_FORWARD,
+					ForwardClientCertDetails: meshconfig.ForwardClientCertDetails_APPEND_FORWARD,
 				},
 			},
 			result: &filterChainOpts{
@@ -1570,7 +1570,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			proxyConfig: &meshconfig.ProxyConfig{
 				GatewayTopology: &meshconfig.Topology{
 					NumTrustedProxies:        3,
-					ForwardClientCertDetails: meshconfig.Topology_FORWARD_ONLY,
+					ForwardClientCertDetails: meshconfig.ForwardClientCertDetails_FORWARD_ONLY,
 				},
 			},
 			result: &filterChainOpts{
@@ -1667,7 +1667,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			proxyConfig: &meshconfig.ProxyConfig{
 				GatewayTopology: &meshconfig.Topology{
 					NumTrustedProxies:        3,
-					ForwardClientCertDetails: meshconfig.Topology_FORWARD_ONLY,
+					ForwardClientCertDetails: meshconfig.ForwardClientCertDetails_FORWARD_ONLY,
 				},
 			},
 			result: &filterChainOpts{
@@ -1770,7 +1770,7 @@ func TestCreateGatewayHTTPFilterChainOpts(t *testing.T) {
 			proxyConfig: &meshconfig.ProxyConfig{
 				GatewayTopology: &meshconfig.Topology{
 					NumTrustedProxies:        3,
-					ForwardClientCertDetails: meshconfig.Topology_FORWARD_ONLY,
+					ForwardClientCertDetails: meshconfig.ForwardClientCertDetails_FORWARD_ONLY,
 				},
 			},
 			result: &filterChainOpts{

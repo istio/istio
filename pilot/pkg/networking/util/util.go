@@ -621,7 +621,7 @@ func toMaskedPrefix(c *core.CidrRange) (netip.Prefix, error) {
 
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
-func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
+func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
 	return hcm.HttpConnectionManager_ForwardClientCertDetails(c - 1)
 }
 
