@@ -19,7 +19,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -37,6 +37,7 @@ import (
 	"istio.io/api/label"
 	mcp "istio.io/api/mcp/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/collections"
@@ -131,7 +132,6 @@ func TestADSC_Run(t *testing.T) {
 				Received:   make(map[string]*discovery.DiscoveryResponse),
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *discovery.DiscoveryResponse),
-				RecvWg:     sync.WaitGroup{},
 				cfg: &Config{
 					InitialDiscoveryRequests: desc.initialRequests,
 				},
@@ -186,7 +186,20 @@ func TestADSC_Run(t *testing.T) {
 				t.Errorf("ADSC: failed running %v", err)
 				return
 			}
-			tt.inAdsc.RecvWg.Wait()
+			assert.Eventually(t, func() bool {
+				if tt.inAdsc.Received == nil && len(tt.inAdsc.Received) != len(tt.expectedADSResources.Received) {
+					return false
+				}
+				for tpe, rsrcs := range tt.expectedADSResources.Received {
+					if _, ok := tt.inAdsc.Received[tpe]; !ok {
+						return false
+					}
+					if len(rsrcs.Resources) != len(tt.inAdsc.Received[tpe].Resources) {
+						return false
+					}
+				}
+				return true
+			}, time.Second, time.Millisecond)
 
 			if tt.validator != nil {
 				if err := tt.validator(tt); err != nil {
