@@ -300,13 +300,26 @@ func isIstioConfigMap(obj any) bool {
 	return strings.HasPrefix(cObj.GetName(), "istio")
 }
 
+var secretFieldSelector = fields.AndSelectors(
+	fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
+	fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
+
+func (sa *IstiodAnalyzer) GetFiltersByGVK() map[config.GroupVersionKind]kubetypes.Filter {
+	return map[config.GroupVersionKind]kubetypes.Filter{
+		gvk.ConfigMap: {
+			Namespace:    sa.istioNamespace.String(),
+			ObjectFilter: isIstioConfigMap,
+		},
+		gvk.Secret: {
+			FieldSelector: secretFieldSelector,
+		},
+	}
+}
+
 func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
 	// This makes the assumption we don't care about Helm secrets or SA token secrets - two common
 	// large secrets in clusters.
 	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
-	secretFieldSelector := fields.AndSelectors(
-		fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
-		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
 
 	// TODO: are either of these string constants intended to vary?
 	// We gets Istio CRD resources with a specific revision.

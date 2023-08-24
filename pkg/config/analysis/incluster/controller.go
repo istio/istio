@@ -57,7 +57,12 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 
 	// Filter out configs watched by rwConfigStore so we don't watch multiple times
 	store := crdclient.NewForSchemas(kubeClient,
-		crdclient.Option{Revision: revision, DomainSuffix: domainSuffix, Identifier: "analysis-controller"},
+		crdclient.Option{
+			Revision:     revision,
+			DomainSuffix: domainSuffix,
+			Identifier:   "analysis-controller",
+			FiltersByGVK: ia.GetFiltersByGVK(),
+		},
 		all.Remove(rwConfigStore.Schemas().All()...))
 
 	ia.AddSource(store)
