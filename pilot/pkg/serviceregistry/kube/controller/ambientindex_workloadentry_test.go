@@ -297,3 +297,23 @@ func TestAmbientIndex_UpdateExistingWorkloadEntry(t *testing.T) {
 	s.assertEvent(t, s.wleXdsName("emptyaddr1"))
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "emptyaddr1")
 }
+
+func TestAmbientIndex_InlinedWorkloadEntries(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, testC, testNW)
+
+	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "name1", testNS, map[string]string{"app": "a"}, true)
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "name1")
+	s.assertEvent(t, s.seIPXdsName("name1", "127.0.0.1"), "ns1/se.istio.io")
+
+	s.addPolicy(t, "selector", "ns1", map[string]string{"app": "a"}, gvk.AuthorizationPolicy, nil)
+	assert.Equal(t,
+		s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),
+		[]string{"ns1/selector"})
+
+	_ = s.cfg.Delete(gvk.AuthorizationPolicy, "selector", "ns1", nil)
+	s.assertEvent(t, s.wleXdsName("name1"))
+	assert.Equal(t,
+		s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),
+		nil)
+}
