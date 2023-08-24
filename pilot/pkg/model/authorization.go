@@ -74,46 +74,54 @@ type ProxyInfo struct {
 
 // namespace string, workloadName string, isWaypointProxy bool, workload labels.Instance
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
-// TODO: update the params in all the places this is called
 func (policy *AuthorizationPolicies) ListAuthorizationPolicies(proxyInfo ProxyInfo) AuthorizationPoliciesResult {
 	ret := AuthorizationPoliciesResult{}
 	if policy == nil {
 		return ret
 	}
 
-	var namespaces []string
-	if policy.RootNamespace != "" {
-		namespaces = append(namespaces, policy.RootNamespace)
-	}
-
-	// Policies can be in root namespace and have workload selectors
-	// This prevent duplicate policies in case root namespace equals proxy's namespace.
-	if proxyInfo.Namespace != policy.RootNamespace {
-		namespaces = append(namespaces, proxyInfo.Namespace)
-	}
-
-	for _, ns := range namespaces {
-		for _, config := range policy.NamespaceToPolicies[ns] {
+	if proxyInfo.IsWaypointProxy {
+		for _, config := range policy.NamespaceToPolicies[proxyInfo.Namespace] {
 			spec := config.Spec
 			targetRef := spec.GetTargetRef()
 
 			// At this time, policies without a targetRef will default to workload selectors
 			// TODO: remove this logic when workloadselector for waypoints is disallowed
-			if !proxyInfo.IsWaypointProxy || proxyInfo.IsWaypointProxy && targetRef == nil {
+			if targetRef == nil {
 				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
 				if selector.SubsetOf(proxyInfo.Workload) {
 					ret = updateAuthorizationPoliciesResult(config, ret)
 				}
-			} else {
-				if targetRef.GetName() == proxyInfo.WorkloadName {
+			} else if targetRef.GetName() == proxyInfo.WorkloadName {
+				ret = updateAuthorizationPoliciesResult(config, ret)
+			}
+		}
+	} else {
+		var namespaces []string
+		if policy.RootNamespace != "" {
+			namespaces = append(namespaces, policy.RootNamespace)
+		}
+
+		// Policies can be in root namespace and have workload selectors
+		// This prevent duplicate policies in case root namespace equals proxy's namespace.
+		if proxyInfo.Namespace != policy.RootNamespace {
+			namespaces = append(namespaces, proxyInfo.Namespace)
+		}
+
+		for _, ns := range namespaces {
+			for _, config := range policy.NamespaceToPolicies[ns] {
+				spec := config.Spec
+				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
+				if selector.SubsetOf(proxyInfo.Workload) {
 					ret = updateAuthorizationPoliciesResult(config, ret)
 				}
 			}
 
 		}
-
 	}
+
 	return ret
+
 }
 
 func updateAuthorizationPoliciesResult(config AuthorizationPolicy, ret AuthorizationPoliciesResult) AuthorizationPoliciesResult {
