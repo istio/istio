@@ -1790,7 +1790,6 @@ spec:
 		},
 		setupOpts: fqdnHostHeader,
 		opts: echo.CallOptions{
-			Count: 5 * t.Clusters().Len(),
 			Port: echo.Port{
 				Protocol: protocol.HTTPS,
 			},
