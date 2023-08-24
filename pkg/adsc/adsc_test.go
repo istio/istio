@@ -187,14 +187,18 @@ func TestADSC_Run(t *testing.T) {
 				return
 			}
 			assert.Eventually(t, func() bool {
-				if tt.inAdsc.Received == nil && len(tt.inAdsc.Received) != len(tt.expectedADSResources.Received) {
+				tt.inAdsc.mutex.Lock()
+				defer tt.inAdsc.mutex.Unlock()
+				rec := tt.inAdsc.Received
+
+				if rec == nil && len(rec) != len(tt.expectedADSResources.Received) {
 					return false
 				}
 				for tpe, rsrcs := range tt.expectedADSResources.Received {
-					if _, ok := tt.inAdsc.Received[tpe]; !ok {
+					if _, ok := rec[tpe]; !ok {
 						return false
 					}
-					if len(rsrcs.Resources) != len(tt.inAdsc.Received[tpe].Resources) {
+					if len(rsrcs.Resources) != len(rec[tpe].Resources) {
 						return false
 					}
 				}
