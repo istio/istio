@@ -53,6 +53,8 @@ func (c *mtlsChecker) checkMtlsEnabled(ep *model.IstioEndpoint) bool {
 		switch *drMode {
 		case networkingapi.ClientTLSSettings_DISABLE:
 			return false
+		case networkingapi.ClientTLSSettings_SIMPLE:
+			return false
 		case networkingapi.ClientTLSSettings_ISTIO_MUTUAL:
 			// don't mark this EP disabled, even if PA or tlsMode meta mark disabled
 			return true
