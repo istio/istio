@@ -74,7 +74,7 @@ var (
 	allNamespacedGVKs = append(helmreconciler.NamespacedResources(&version.Info{Major: "1", Minor: "25"}),
 		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"})
 	// CRDs are not in the prune list, but must be considered for tests.
-	allClusterGVKs = append(helmreconciler.ClusterResources)
+	allClusterGVKs = helmreconciler.ClusterResources
 )
 
 func init() {
