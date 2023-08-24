@@ -279,6 +279,10 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			return reconcile.Result{}, nil
 		}
 	}
+	if iop.Spec.Profile == "ambient" {
+		scope.Infof("Ignoring the IstioOperator CR %s because it is using the unsupported profile 'ambient'.", iopName)
+		return reconcile.Result{}, nil
+	}
 
 	var err error
 	iopMerged := &iopv1alpha1.IstioOperator{}
