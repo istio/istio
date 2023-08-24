@@ -236,9 +236,6 @@ var (
 				map[string]any{
 					"downstream_discovery": []any{
 						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-						map[string]any{
 							"workload_discovery": map[string]any{},
 						},
 					},
@@ -257,9 +254,6 @@ var (
 			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
 				map[string]any{
 					"upstream_discovery": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
 						map[string]any{
 							"workload_discovery": map[string]any{},
 						},
