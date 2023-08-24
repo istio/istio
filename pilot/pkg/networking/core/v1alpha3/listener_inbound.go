@@ -802,7 +802,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 		Port:  httpOpts.port,
 		Class: httpOpts.class,
 	}, model.WasmPluginTypeNetwork)
-	filters = append(filters, extension.BuildNetworkWasmFilters(wasm)...)
+	filters = append(filters, extension.BuildNetworkFilters(wasm)...)
 	h := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
@@ -840,7 +840,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
 	filters = append(filters, lb.authzBuilder.BuildTCP()...)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
-	filters = append(filters, extension.BuildNetworkWasmFilters(wasm)...)
+	filters = append(filters, extension.BuildNetworkFilters(wasm)...)
 	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
 
 	return filters

@@ -39,9 +39,9 @@ var defaultConfigSource = &core.ConfigSource{
 	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
 }
 
-// PopAppend takes a list of filters and a set of WASM plugins, keyed by phase. It will remove all
+// PopAppendHTTP takes a list of filters and a set of WASM plugins, keyed by phase. It will remove all
 // plugins of a provided phase from the WASM plugin set and append them to the list of filters
-func PopAppend(list []*hcm.HttpFilter,
+func PopAppendHTTP(list []*hcm.HttpFilter,
 	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	phase extensions.PluginPhase,
 ) []*hcm.HttpFilter {
@@ -52,13 +52,26 @@ func PopAppend(list []*hcm.HttpFilter,
 	return list
 }
 
-func BuildNetworkWasmFilters(filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper) []*listener.Filter {
-	filters := make([]*listener.Filter, 0)
-	for _, extensions := range filterMap {
-		for _, ext := range extensions {
-			filters = append(filters, toEnvoyNetworkFilter(ext))
-		}
+// popAppendNetwork takes a list of filters and a set of WASM plugins, keyed by phase. It will remove all
+// plugins of a provided phase from the WASM plugin set and append them to the list of filters
+func popAppendNetwork(list []*listener.Filter,
+	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
+	phase extensions.PluginPhase,
+) []*listener.Filter {
+	for _, ext := range filterMap[phase] {
+		list = append(list, toEnvoyNetworkFilter(ext))
 	}
+	delete(filterMap, phase)
+	return list
+}
+
+// BuildNetworkFilters builds network WASM filters from a set of WASM plugins, orderded by phase.
+func BuildNetworkFilters(filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper) []*listener.Filter {
+	filters := make([]*listener.Filter, 0)
+	filters = popAppendNetwork(filters, filterMap, extensions.PluginPhase_AUTHN)
+	filters = popAppendNetwork(filters, filterMap, extensions.PluginPhase_AUTHZ)
+	filters = popAppendNetwork(filters, filterMap, extensions.PluginPhase_STATS)
+	filters = popAppendNetwork(filters, filterMap, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	return filters
 }
 
@@ -92,7 +105,7 @@ func toEnvoyNetworkFilter(wasmPlugin *model.WasmPluginWrapper) *listener.Filter 
 	}
 }
 
-// InsertedExtensionConfigurations returns pre-generated extension configurations added via WasmPlugin.
+// InsertedExtensionConfigurations builds added via WasmPlugin.
 func InsertedExtensionConfigurations(
 	wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	names []string, pullSecrets map[string][]byte,
@@ -110,6 +123,9 @@ func InsertedExtensionConfigurations(
 			switch {
 			case p.Type == extensions.PluginType_NETWORK:
 				wasmExtensionConfig := p.BuildNetworkWasmFilter()
+				if wasmExtensionConfig == nil {
+					continue
+				}
 				updatePluginConfig(wasmExtensionConfig.GetConfig(), pullSecrets)
 				typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
 				ec := &core.TypedExtensionConfig{
@@ -119,6 +135,9 @@ func InsertedExtensionConfigurations(
 				result = append(result, ec)
 			default:
 				wasmExtensionConfig := p.BuildHTTPWasmFilter()
+				if wasmExtensionConfig == nil {
+					continue
+				}
 				updatePluginConfig(wasmExtensionConfig.GetConfig(), pullSecrets)
 				typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
 				ec := &core.TypedExtensionConfig{

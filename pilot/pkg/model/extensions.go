@@ -105,12 +105,18 @@ func (p *WasmPluginWrapper) MatchType(pluginType WasmPluginType) bool {
 }
 
 func (p *WasmPluginWrapper) BuildHTTPWasmFilter() *httpwasm.Wasm {
+	if !(p.Type == extensions.PluginType_HTTP || p.Type == extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE) {
+		return nil
+	}
 	return &httpwasm.Wasm{
 		Config: p.buildPluginConfig(),
 	}
 }
 
 func (p *WasmPluginWrapper) BuildNetworkWasmFilter() *networkwasm.Wasm {
+	if p.Type != extensions.PluginType_NETWORK {
+		return nil
+	}
 	return &networkwasm.Wasm{
 		Config: p.buildPluginConfig(),
 	}

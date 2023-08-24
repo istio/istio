@@ -601,7 +601,7 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				Port:  opt.httpOpts.port,
 				Class: opt.httpOpts.class,
 			}, model.WasmPluginTypeNetwork)
-			chain.Filters = append(chain.Filters, extension.BuildNetworkWasmFilters(wasm)...)
+			chain.Filters = append(chain.Filters, extension.BuildNetworkFilters(wasm)...)
 			hcm := builder.buildHTTPConnectionManager(opt.httpOpts)
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,

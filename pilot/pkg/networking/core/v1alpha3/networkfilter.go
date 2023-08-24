@@ -73,7 +73,7 @@ func buildWasmNetworkFilters(push *model.PushContext, proxy *model.Proxy, port *
 		Port:  port.Port,
 		Class: class,
 	}, model.WasmPluginTypeNetwork)
-	return extension.BuildNetworkWasmFilters(wasm)
+	return extension.BuildNetworkFilters(wasm)
 }
 
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
