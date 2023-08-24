@@ -257,8 +257,13 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(tc.version)
-			// TODO: check tests work
-			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.WorkloadName, proxy.IsWaypointProxy(), proxy.Labels)
+			proxyInfo := model.ProxyInfo{
+				Namespace:       proxy.ConfigNamespace,
+				WorkloadName:    proxy.Metadata.WorkloadName,
+				IsWaypointProxy: proxy.IsWaypointProxy(),
+				Workload:        proxy.Labels,
+			}
+			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxyInfo)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")
@@ -324,8 +329,13 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			}
 			push := push(t, baseDir+tc.input, tc.meshConfig)
 			proxy := node(nil)
-			// TODO: check tests work
-			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Metadata.WorkloadName, proxy.IsWaypointProxy(), proxy.Labels)
+			proxyInfo := model.ProxyInfo{
+				Namespace:       proxy.ConfigNamespace,
+				WorkloadName:    proxy.Metadata.WorkloadName,
+				IsWaypointProxy: proxy.IsWaypointProxy(),
+				Workload:        proxy.Labels,
+			}
+			policies := push.AuthzPolicies.ListAuthorizationPolicies(proxyInfo)
 			g := New(tc.tdBundle, push, policies, option)
 			if g == nil {
 				t.Fatalf("failed to create generator")

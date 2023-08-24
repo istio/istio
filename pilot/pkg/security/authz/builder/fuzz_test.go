@@ -27,8 +27,13 @@ func FuzzBuildHTTP(f *testing.F) {
 		bundle := fuzz.Struct[trustdomain.Bundle](fg)
 		push := fuzz.Struct[*model.PushContext](fg, validatePush)
 		node := fuzz.Struct[*model.Proxy](fg)
-		// TODO: check tests work
-		policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Metadata.WorkloadName, node.IsWaypointProxy(), node.Labels)
+		nodeInfo := model.ProxyInfo{
+			Namespace:       node.ConfigNamespace,
+			WorkloadName:    node.Metadata.WorkloadName,
+			IsWaypointProxy: node.IsWaypointProxy(),
+			Workload:        node.Labels,
+		}
+		policies := push.AuthzPolicies.ListAuthorizationPolicies(nodeInfo)
 		option := fuzz.Struct[Option](fg)
 		New(bundle, push, policies, option).BuildHTTP()
 	})
@@ -39,8 +44,13 @@ func FuzzBuildTCP(f *testing.F) {
 		bundle := fuzz.Struct[trustdomain.Bundle](fg)
 		push := fuzz.Struct[*model.PushContext](fg, validatePush)
 		node := fuzz.Struct[*model.Proxy](fg)
-		// TODO: check tests work
-		policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Metadata.WorkloadName, node.IsWaypointProxy(), node.Labels)
+		nodeInfo := model.ProxyInfo{
+			Namespace:       node.ConfigNamespace,
+			WorkloadName:    node.Metadata.WorkloadName,
+			IsWaypointProxy: node.IsWaypointProxy(),
+			Workload:        node.Labels,
+		}
+		policies := push.AuthzPolicies.ListAuthorizationPolicies(nodeInfo)
 		option := fuzz.Struct[Option](fg)
 		New(bundle, push, policies, option).BuildTCP()
 	})
