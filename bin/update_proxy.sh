@@ -31,10 +31,18 @@ ISTIO_ENVOY_VERSION=${ISTIO_ENVOY_VERSION:-$1}
 ISTIO_ENVOY_LINUX_VERSION=${ISTIO_ENVOY_LINUX_VERSION:-${ISTIO_ENVOY_VERSION}}
 ISTIO_ENVOY_BASE_URL=${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/istio-build/proxy}
 ISTIO_ENVOY_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-alpha-${ISTIO_ENVOY_LINUX_VERSION}.tar.gz}
+ISTIO_ENVOY_ARM_RELEASE_URL=${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-alpha-${ISTIO_ENVOY_LINUX_VERSION}-arm64.tar.gz}
 SLEEP_TIME=60
 
 printf "Verifying %s is available\n" "$ISTIO_ENVOY_RELEASE_URL"
 until curl --output /dev/null --silent --head --fail "$ISTIO_ENVOY_RELEASE_URL"; do
+    printf '.'
+    sleep $SLEEP_TIME
+done
+printf '\n'
+
+printf "Verifying %s is available\n" "$ISTIO_ENVOY_ARM_RELEASE_URL"
+until curl --output /dev/null --silent --head --fail "$ISTIO_ENVOY_ARM_RELEASE_URL"; do
     printf '.'
     sleep $SLEEP_TIME
 done
