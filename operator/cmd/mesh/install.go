@@ -25,11 +25,11 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/cli"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/verifier"

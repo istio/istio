@@ -21,8 +21,8 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/cli"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"

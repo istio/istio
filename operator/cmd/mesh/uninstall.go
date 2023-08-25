@@ -21,10 +21,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/cli"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/tag"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"

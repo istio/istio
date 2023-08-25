@@ -18,8 +18,8 @@ import (
 	"flag"
 
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/cli"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	binversion "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"

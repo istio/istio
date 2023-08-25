@@ -16,8 +16,8 @@ package mesh
 
 import (
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/cli"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/log"
 )
 

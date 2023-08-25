@@ -20,10 +20,9 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/pkg/kube"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/cli"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
@@ -31,6 +30,7 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/kube"
 	buildversion "istio.io/istio/pkg/version"
 )
 
