@@ -5247,17 +5247,17 @@ func TestValidateServiceEntries(t *testing.T) {
 		},
 		{
 			name: "network set with no address on endpoint", in: &networking.ServiceEntry{
-				Hosts: []string{"www.example.com"},
+				Hosts:     []string{"www.example.com"},
 				Addresses: []string{},
 				Ports: []*networking.ServicePort{
 					{Number: 443, Protocol: "HTTPS", Name: "https-example"},
 				},
 				Endpoints: []*networking.WorkloadEntry{
-					{ Network: "cluster-1" },
+					{Network: "cluster-1"},
 				},
 				Resolution: networking.ServiceEntry_STATIC,
 			},
-			valid: true,
+			valid:   true,
 			warning: true,
 		},
 	}
