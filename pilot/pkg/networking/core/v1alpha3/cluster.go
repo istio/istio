@@ -428,7 +428,10 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				clusterName, model.TrafficDirectionOutbound, "", service.Hostname, port.Port,
 				service, destRule,
 			)
-			lbEndpoints := endpointBuilder.FromServiceEndpoints()
+			var lbEndpoints []*endpoint.LocalityLbEndpoints
+			if service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB {
+				lbEndpoints = endpointBuilder.FromServiceEndpoints()
+			}
 
 			defaultCluster := cb.buildCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)
 			if defaultCluster == nil {
