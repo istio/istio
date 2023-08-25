@@ -83,7 +83,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		if cfg.RunValidation {
-			hostIP, _, err := getLocalIP(DualStack || cfg.DualStack)
+			hostIP, _, err := getLocalIP(cfg.DualStack)
 			if err != nil {
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
@@ -157,7 +157,7 @@ func constructConfig() *config.Config {
 	}
 
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
-	_, isIPv6, err := getLocalIP(DualStack || cfg.DualStack)
+	_, isIPv6, err := getLocalIP(cfg.DualStack)
 	if err != nil {
 		panic(err)
 	}
@@ -276,6 +276,7 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	bind(constants.CaptureAllDNS, false)
 	bind(constants.NetworkNamespace, "")
 	bind(constants.CNIMode, false)
+	bind(constants.DualStack, DualStack)
 }
 
 // https://github.com/spf13/viper/issues/233.
@@ -352,6 +353,8 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "Enable capture of dns traffic by istio-agent.")
 
 	rootCmd.Flags().Bool(constants.DropInvalid, InvalidDropByIptables.Get(), "Enable invalid drop in the iptables rules.")
+
+	rootCmd.Flags().Bool(constants.DualStack, DualStack, "Enable ipv4/ipv6 redirects for dual-stack.")
 
 	rootCmd.Flags().Bool(constants.CaptureAllDNS, false,
 		"Instead of only capturing DNS traffic to DNS server IP, capture all DNS traffic at port 53. This setting is only effective when redirect dns is enabled.")
