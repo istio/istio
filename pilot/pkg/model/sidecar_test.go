@@ -2100,10 +2100,6 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 	}
 	allServices := []*Service{serviceA8000, serviceA9000, serviceAalt, serviceB8000, serviceB9000, serviceBalt}
 
-	newSet := func(hosts ...host.Name) sets.Set[host.Name] {
-		return sets.New(hosts...)
-	}
-
 	tests := []struct {
 		name          string
 		listenerHosts map[string]hostClassification
@@ -2114,7 +2110,7 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		{
 			name: "*/* imports only those in a",
 			listenerHosts: map[string]hostClassification{
-				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
 			},
 			services:  allServices,
 			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
@@ -2123,7 +2119,7 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		{
 			name: "*/* will bias towards configNamespace",
 			listenerHosts: map[string]hostClassification{
-				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
 			},
 			services:  []*Service{serviceB8000, serviceB9000, serviceBalt, serviceA8000, serviceA9000, serviceAalt},
 			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
@@ -2132,7 +2128,7 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		{
 			name: "a/* imports only those in a",
 			listenerHosts: map[string]hostClassification{
-				"a": {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
+				"a": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
 			},
 			services:  allServices,
 			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
@@ -2141,7 +2137,7 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		{
 			name: "b/*, b/* imports only those in b",
 			listenerHosts: map[string]hostClassification{
-				"b": {allHosts: []host.Name{wildcardService, wildcardService}, exactHosts: newSet()},
+				"b": {allHosts: []host.Name{wildcardService, wildcardService}, exactHosts: sets.New[host.Name]()},
 			},
 			services:  allServices,
 			expected:  []*Service{serviceB8000, serviceB9000, serviceBalt},
@@ -2150,7 +2146,7 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		{
 			name: "*/alt imports alt in namespace a",
 			listenerHosts: map[string]hostClassification{
-				wildcardNamespace: {allHosts: []host.Name{"alt"}, exactHosts: newSet("alt")},
+				wildcardNamespace: {allHosts: []host.Name{"alt"}, exactHosts: sets.New[host.Name]("alt")},
 			},
 			services:  allServices,
 			expected:  []*Service{serviceAalt},
@@ -2159,7 +2155,7 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		{
 			name: "b/alt imports alt in a namespaces",
 			listenerHosts: map[string]hostClassification{
-				"b": {allHosts: []host.Name{"alt"}, exactHosts: newSet("alt")},
+				"b": {allHosts: []host.Name{"alt"}, exactHosts: sets.New[host.Name]("alt")},
 			},
 			services:  allServices,
 			expected:  []*Service{serviceBalt},
@@ -2168,7 +2164,7 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		{
 			name: "b/* imports doesn't import in namespace a with proxy in a",
 			listenerHosts: map[string]hostClassification{
-				"b": {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
+				"b": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
 			},
 			services:  []*Service{serviceA8000},
 			expected:  []*Service{},
@@ -2177,8 +2173,8 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		{
 			name: "multiple hosts selected same service",
 			listenerHosts: map[string]hostClassification{
-				"a": {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
-				"*": {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
+				"a": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+				"*": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
 			},
 			services:  []*Service{serviceA8000},
 			expected:  []*Service{serviceA8000},
@@ -2187,8 +2183,8 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		{
 			name: "fall back to wildcard namespace",
 			listenerHosts: map[string]hostClassification{
-				wildcardNamespace: {allHosts: []host.Name{"host"}, exactHosts: newSet("host")},
-				"a":               {allHosts: []host.Name{"alt"}, exactHosts: newSet("alt")},
+				wildcardNamespace: {allHosts: []host.Name{"host"}, exactHosts: sets.New[host.Name]("host")},
+				"a":               {allHosts: []host.Name{"alt"}, exactHosts: sets.New[host.Name]("alt")},
 			},
 			services:  allServices,
 			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
@@ -2197,7 +2193,7 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		{
 			name: "service is wildcard, but not listener's subset",
 			listenerHosts: map[string]hostClassification{
-				"b": {allHosts: []host.Name{"wildcard.com"}, exactHosts: newSet("wildcard.com")},
+				"b": {allHosts: []host.Name{"wildcard.com"}, exactHosts: sets.New[host.Name]("wildcard.com")},
 			},
 			services:  []*Service{serviceBWildcard},
 			expected:  []*Service{},
@@ -2206,7 +2202,7 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		{
 			name: "service is wildcard",
 			listenerHosts: map[string]hostClassification{
-				"b": {allHosts: []host.Name{"*.wildcard.com"}, exactHosts: newSet()},
+				"b": {allHosts: []host.Name{"*.wildcard.com"}, exactHosts: sets.New[host.Name]()},
 			},
 			services:  []*Service{serviceBWildcard},
 			expected:  []*Service{serviceBWildcard},
