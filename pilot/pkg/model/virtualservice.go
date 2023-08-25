@@ -54,7 +54,7 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 
 			// exactHosts not found, fallback to loop allHosts
 			for _, ah := range hosts.allHosts {
-				if ah.Matches(host.Name(vh)) {
+				if vsHostMatches(vh, ah, vs) {
 					importedVirtualServices = append(importedVirtualServices, vs)
 					vsset.Insert(vsname)
 					break
