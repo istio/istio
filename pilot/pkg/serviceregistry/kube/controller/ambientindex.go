@@ -27,6 +27,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/networking/v1alpha3"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -482,6 +483,37 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			}
 		})
 	}
+
+	c.configController.RegisterEventHandler(gvk.KubernetesGateway, func(oldCfg config.Config, newCfg config.Config, ev model.Event) {
+		if ev == model.EventUpdate || ev == model.EventAdd {
+			var newAddressCount int
+			var status *k8sbeta.GatewayStatus
+			var networkAddr networkAddress
+			if newStatus, ok := newCfg.Status.(*k8sbeta.GatewayStatus); ok {
+				status = newStatus
+				newAddressCount = len(newStatus.Addresses)
+			}
+			if newAddressCount > 0 {
+				idx.mu.Lock()
+				defer idx.mu.Unlock()
+				ip := status.Addresses[0].Value
+				networkAddr = networkAddress{
+					network: c.Network(ip, make(labels.Instance, 0)).String(),
+					ip:      ip,
+				}
+				svcModel := idx.serviceByAddr[networkAddr]
+				svc := c.services.Get(svcModel.Name, svcModel.Namespace)
+				updates := idx.handleService(svc, false, c)
+				if len(updates) > 0 {
+					log.Debug("Waypoint svc ready: Pushing Updates")
+					c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+						ConfigsUpdated: updates,
+						Reason:         model.NewReasonStats(model.AmbientUpdate),
+					})
+				}
+			}
+		}
+	})
 
 	serviceHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
