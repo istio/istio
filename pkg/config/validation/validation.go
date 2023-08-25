@@ -3447,7 +3447,14 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 						errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 					}
 				} else {
-					errs = appendValidation(errs, ValidateIPAddress(addr))
+					if addr == "" {
+						if endpoint.GetNetwork() == "" {
+							errs = appendValidation(errs, errors.New("address must be set"))
+						}
+						errs = appendWarningf(errs, "address is unset with network %s", endpoint.GetNetwork())
+					} else {
+						errs = appendValidation(errs, ValidateIPAddress(addr))
+					}
 
 					for name, port := range endpoint.Ports {
 						if !servicePorts[name] {
