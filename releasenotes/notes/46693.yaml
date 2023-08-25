@@ -1,9 +1,8 @@
 apiVersion: release-notes/v2
 kind: bug-fix
-area: networking
+area: traffic-management
 issue:
   - 46680
-
 releaseNotes:
   - |
     **Fixed** an issue where istio validation required address to be set on endpoints even if network is set.
