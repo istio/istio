@@ -836,6 +836,9 @@ func (s *Server) cachesSynced() bool {
 	if !s.configController.HasSynced() {
 		return false
 	}
+	if s.webhookInfo.wh != nil && !s.webhookInfo.wh.HasSynced() {
+		return false
+	}
 	return true
 }
 
