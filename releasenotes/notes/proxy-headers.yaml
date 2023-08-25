@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** a new configuration to `ProxyConfig`, `ProxyHeaders`. This allows customization of headers like `server`, `x-forwarded-client-cert`, etc.
+    Most notably, these can now be disable so that they are not modified.
