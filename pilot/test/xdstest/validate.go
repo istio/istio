@@ -23,9 +23,18 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/util/sets"
+)
+
+const (
+	// WildcardAddress binds to all IP addresses
+	WildcardAddress = "0.0.0.0"
+
+	// WildcardIPv6Address binds to all IPv6 addresses
+	WildcardIPv6Address = "::"
 )
 
 func ValidateListeners(t testing.TB, ls []*listener.Listener) {
@@ -49,6 +58,7 @@ func ValidateListener(t testing.TB, l *listener.Listener) {
 	validateFilterChainMatch(t, l)
 	validateInboundListener(t, l)
 	validateListenerFilters(t, l)
+	validateListenerAdditionalAddresses(t, l)
 }
 
 func validateListenerFilters(t testing.TB, l *listener.Listener) {
@@ -57,6 +67,38 @@ func validateListenerFilters(t testing.TB, l *listener.Listener) {
 		if found.InsertContains(lf.GetName()) {
 			// Technically legal in Envoy but should always be a bug when done in Istio based on our usage
 			t.Errorf("listener contains duplicate listener filter: %v", lf.GetName())
+		}
+	}
+}
+
+func validateListenerAdditionalAddresses(t testing.TB, l *listener.Listener) {
+	primary := l.GetAddress().GetSocketAddress()
+	if primary.GetAddress() != WildcardAddress && primary.GetAddress() != WildcardIPv6Address {
+		return
+	}
+
+	// TODO: this should depend on the proxy IP addresses, which we don't have available
+	if len(l.AdditionalAddresses) > 0 {
+		if !features.EnableDualStack {
+			t.Errorf("additional addresses found (%+v), but dual stack disabled", l.AdditionalAddresses)
+		}
+
+		if len(l.AdditionalAddresses) > 1 {
+			t.Errorf("greater than 1 additional addresses found (%+v)", l.AdditionalAddresses)
+		}
+
+		addtl := l.AdditionalAddresses[0].GetAddress().GetSocketAddress()
+		expected := WildcardIPv6Address
+		if primary.GetAddress() == WildcardIPv6Address {
+			expected = WildcardAddress
+		}
+
+		if addtl.GetAddress() != expected {
+			t.Errorf("addtl address expected %s, got %s", expected, addtl.GetAddress())
+		}
+
+		if addtl.GetPortValue() != primary.GetPortValue() {
+			t.Errorf("addtl address port expected %d, got %d", primary.GetPortValue(), addtl.GetPortValue())
 		}
 	}
 }

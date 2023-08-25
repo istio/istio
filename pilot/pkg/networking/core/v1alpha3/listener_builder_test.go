@@ -65,6 +65,14 @@ var (
 	}
 )
 
+func setProxyIPAddresses(p *model.Proxy) *model.Proxy {
+	// add addresses for dual stack, ipv4-only will be handled in SetupProxy
+	if features.EnableDualStack {
+		p.IPAddresses = []string{"1.1.1.1", "2001:1::1"}
+	}
+	return p
+}
+
 func buildListeners(t *testing.T, o TestOptions, p *model.Proxy) []*listener.Listener {
 	cg := NewConfigGenTest(t, o)
 	// Hack up some instances for each Service
@@ -79,7 +87,7 @@ func buildListeners(t *testing.T, o TestOptions, p *model.Proxy) []*listener.Lis
 		}
 		cg.MemRegistry.AddInstance(i)
 	}
-	l := cg.Listeners(cg.SetupProxy(p))
+	l := cg.Listeners(cg.SetupProxy(setProxyIPAddresses(p)))
 	xdstest.ValidateListeners(t, l)
 	return l
 }
@@ -87,56 +95,72 @@ func buildListeners(t *testing.T, o TestOptions, p *model.Proxy) []*listener.Lis
 func TestVirtualInboundListenerBuilder(t *testing.T) {
 	tests := []struct {
 		useExactBalance bool
+		useDualStack    bool
 	}{
 		{
 			useExactBalance: false,
+			useDualStack:    false,
 		},
 		{
 			useExactBalance: true,
+			useDualStack:    true,
 		},
 	}
 
 	for _, tt := range tests {
-		proxy := &model.Proxy{
-			Metadata: &model.NodeMetadata{
-				InboundListenerExactBalance:  model.StringBool(tt.useExactBalance),
-				OutboundListenerExactBalance: model.StringBool(tt.useExactBalance),
-			},
-		}
-		listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
-		if vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners); vo == nil {
-			t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
-		}
-		vi := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
-		if vi == nil {
-			t.Fatalf("expect virtual inbound listener, found %s", listeners[0].Name)
-		}
+		tName := fmt.Sprintf("exactBalance_%t_dualStack_%t", tt.useExactBalance, tt.useDualStack)
+		t.Run(tName, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableDualStack, tt.useDualStack)
 
-		byListenerName := map[string]int{}
+			proxy := &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					InboundListenerExactBalance:  model.StringBool(tt.useExactBalance),
+					OutboundListenerExactBalance: model.StringBool(tt.useExactBalance),
+				},
+			}
+			listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
+			if vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners); vo == nil {
+				t.Fatalf("expect virtual listener, found %s", listeners[0].Name)
+			}
+			vi := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+			if vi == nil {
+				t.Fatalf("expect virtual inbound listener, found %s", listeners[0].Name)
+			}
 
-		for _, fc := range vi.FilterChains {
-			byListenerName[fc.Name]++
-		}
+			byListenerName := map[string]int{}
 
-		for k, v := range byListenerName {
-			if k == model.VirtualInboundListenerName && v != 3 {
-				t.Fatalf("expect virtual listener has 3 passthrough filter chains, found %d", v)
+			for _, fc := range vi.FilterChains {
+				byListenerName[fc.Name]++
 			}
-			if k == model.VirtualInboundCatchAllHTTPFilterChainName && v != 2 {
-				t.Fatalf("expect virtual listener has 2 passthrough filter chains, found %d", v)
-			}
-		}
 
-		if tt.useExactBalance {
-			if vi.ConnectionBalanceConfig == nil || vi.ConnectionBalanceConfig.GetExactBalance() == nil {
-				t.Fatal("expected virtual listener to have connection balance config set to exact_balance")
+			for k, v := range byListenerName {
+				fcScalar := func(n int) int {
+					expected := n
+					if tt.useDualStack {
+						expected *= 2
+					}
+					return expected
+				}
+				if k == model.VirtualInboundListenerName && v != fcScalar(3) {
+					t.Fatalf("expect virtual listener has %d passthrough filter chains, found %d", fcScalar(3), v)
+				}
+				if k == model.VirtualInboundCatchAllHTTPFilterChainName && v != fcScalar(2) {
+					t.Fatalf("expect virtual listener has %d passthrough filter chains, found %d", fcScalar(2), v)
+				}
 			}
-		} else {
-			if vi.ConnectionBalanceConfig != nil {
-				t.Fatal("expected virtual listener to not have connection balance config set")
+
+			if tt.useExactBalance {
+				if vi.ConnectionBalanceConfig == nil || vi.ConnectionBalanceConfig.GetExactBalance() == nil {
+					t.Fatal("expected virtual listener to have connection balance config set to exact_balance")
+				}
+			} else {
+				if vi.ConnectionBalanceConfig != nil {
+					t.Fatal("expected virtual listener to not have connection balance config set")
+				}
 			}
-		}
+		})
 	}
+
 }
 
 func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
@@ -209,16 +233,32 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 }
 
 func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
-	proxy := &model.Proxy{
-		Metadata: &model.NodeMetadata{InterceptionMode: model.InterceptionTproxy},
+	tests := []struct {
+		useDualStack bool
+	}{
+		{
+			useDualStack: false,
+		},
+		{
+			useDualStack: true,
+		},
 	}
-	listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
-	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
-	if l == nil {
-		t.Fatalf("failed to find virtual inbound listener")
-	}
-	if _, f := xdstest.ExtractListenerFilters(l)[wellknown.OriginalSource]; !f {
-		t.Fatalf("missing %v filter", wellknown.OriginalSource)
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("dualStack_%t", tt.useDualStack), func(t *testing.T) {
+			test.SetForTest(t, &features.EnableDualStack, tt.useDualStack)
+			proxy := &model.Proxy{
+				Metadata: &model.NodeMetadata{InterceptionMode: model.InterceptionTproxy},
+			}
+			listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
+			l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+			if l == nil {
+				t.Fatalf("failed to find virtual inbound listener")
+			}
+			if _, f := xdstest.ExtractListenerFilters(l)[wellknown.OriginalSource]; !f {
+				t.Fatalf("missing %v filter", wellknown.OriginalSource)
+			}
+		})
 	}
 }
 
@@ -226,19 +266,35 @@ func TestSidecarInboundListenerWithOriginalSrc(t *testing.T) {
 // exact_balance for the virtualInbound listener as QUIC uses UDP
 // and this works only over TCP
 func TestSidecarInboundListenerWithQUICAndExactBalance(t *testing.T) {
-	proxy := &model.Proxy{
-		Metadata: &model.NodeMetadata{
-			InboundListenerExactBalance:  true,
-			OutboundListenerExactBalance: true,
+	tests := []struct {
+		useDualStack bool
+	}{
+		{
+			useDualStack: false,
+		},
+		{
+			useDualStack: true,
 		},
 	}
-	listeners := buildListeners(t, TestOptions{Services: testServicesWithQUIC}, proxy)
-	l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
-	if l == nil {
-		t.Fatalf("failed to find virtual inbound listener")
-	}
-	if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
-		t.Fatal("expected listener to have exact_balance set, but was empty")
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("dualStack_%t", tt.useDualStack), func(t *testing.T) {
+			test.SetForTest(t, &features.EnableDualStack, tt.useDualStack)
+			proxy := &model.Proxy{
+				Metadata: &model.NodeMetadata{
+					InboundListenerExactBalance:  true,
+					OutboundListenerExactBalance: true,
+				},
+			}
+			listeners := buildListeners(t, TestOptions{Services: testServicesWithQUIC}, proxy)
+			l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+			if l == nil {
+				t.Fatalf("failed to find virtual inbound listener")
+			}
+			if l.ConnectionBalanceConfig == nil || l.ConnectionBalanceConfig.GetExactBalance() == nil {
+				t.Fatal("expected listener to have exact_balance set, but was empty")
+			}
+		})
 	}
 }
 
@@ -646,24 +702,27 @@ func TestInboundListenerFilters(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{
-				Services:     services,
-				Instances:    instances,
-				ConfigString: tt.config,
-			})
-			listeners := cg.Listeners(cg.SetupProxy(nil))
-			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
-			filters := xdstest.ExtractListenerFilters(virtualInbound)
-			evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].GetFilterDisabled(), tt.http)
-			if filters[wellknown.TlsInspector] == nil {
-				if len(tt.tls) > 0 {
-					t.Fatalf("Expected tls inspector, got none")
+		for _, ds := range []bool{false, true} {
+			test.SetForTest(t, &features.EnableDualStack, ds)
+			t.Run(tt.name+fmt.Sprintf("dualStack_%t", ds), func(t *testing.T) {
+				cg := NewConfigGenTest(t, TestOptions{
+					Services:     services,
+					Instances:    instances,
+					ConfigString: tt.config,
+				})
+				listeners := cg.Listeners(cg.SetupProxy(nil))
+				virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
+				filters := xdstest.ExtractListenerFilters(virtualInbound)
+				evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].GetFilterDisabled(), tt.http)
+				if filters[wellknown.TlsInspector] == nil {
+					if len(tt.tls) > 0 {
+						t.Fatalf("Expected tls inspector, got none")
+					}
+				} else {
+					evaluateListenerFilterPredicates(t, filters[wellknown.TlsInspector].FilterDisabled, tt.tls)
 				}
-			} else {
-				evaluateListenerFilterPredicates(t, filters[wellknown.TlsInspector].FilterDisabled, tt.tls)
-			}
-		})
+			})
+		}
 	}
 }
 
@@ -786,22 +845,25 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{
-				Services:     services,
-				Instances:    instances,
-				ConfigString: mtlsMode(tt.mtlsMode.String()),
+		for _, ds := range []bool{false, true} {
+			test.SetForTest(t, &features.EnableDualStack, ds)
+			t.Run(tt.name+fmt.Sprintf("dualStack_%t", ds), func(t *testing.T) {
+				cg := NewConfigGenTest(t, TestOptions{
+					Services:     services,
+					Instances:    instances,
+					ConfigString: mtlsMode(tt.mtlsMode.String()),
+				})
+				proxy := cg.SetupProxy(nil)
+				proxy.Metadata = &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}
+				proxy.Labels = proxy.Metadata.Labels
+				proxy.SidecarScope = tt.sidecarScope
+				test.SetForTest(t, &features.EnableTLSOnSidecarIngress, true)
+				listeners := cg.Listeners(proxy)
+				virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
+				filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
+				tt.expectedResult(t, filterChain)
 			})
-			proxy := cg.SetupProxy(nil)
-			proxy.Metadata = &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}
-			proxy.Labels = proxy.Metadata.Labels
-			proxy.SidecarScope = tt.sidecarScope
-			test.SetForTest(t, &features.EnableTLSOnSidecarIngress, true)
-			listeners := cg.Listeners(proxy)
-			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
-			filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
-			tt.expectedResult(t, filterChain)
-		})
+		}
 	}
 }
 
@@ -871,18 +933,21 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			push.Networks = tt.networks
-			lb := &ListenerBuilder{
-				push:               push,
-				node:               sidecarProxy,
-				authzCustomBuilder: &authz.Builder{},
-				authzBuilder:       &authz.Builder{},
-			}
-			httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{})
-			if !reflect.DeepEqual(tt.expectedconfig, httpConnManager.InternalAddressConfig) {
-				t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, httpConnManager.InternalAddressConfig)
-			}
-		})
+		for _, ds := range []bool{false, true} {
+			test.SetForTest(t, &features.EnableDualStack, ds)
+			t.Run(tt.name+fmt.Sprintf("dualStack_%t", ds), func(t *testing.T) {
+				push.Networks = tt.networks
+				lb := &ListenerBuilder{
+					push:               push,
+					node:               sidecarProxy,
+					authzCustomBuilder: &authz.Builder{},
+					authzBuilder:       &authz.Builder{},
+				}
+				httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{})
+				if !reflect.DeepEqual(tt.expectedconfig, httpConnManager.InternalAddressConfig) {
+					t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, httpConnManager.InternalAddressConfig)
+				}
+			})
+		}
 	}
 }
