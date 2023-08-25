@@ -87,12 +87,6 @@ var (
 			TypedConfig: protoconv.MessageToAny(&fault.HTTPFault{}),
 		},
 	}
-	Router = &hcm.HttpFilter{
-		Name: wellknown.Router,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&router.Router{}),
-		},
-	}
 	GrpcWeb = &hcm.HttpFilter{
 		Name: wellknown.GRPCWeb,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -306,19 +300,31 @@ var (
 	}
 )
 
-func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {
-	if ctx == nil {
-		return Router
+// Router is used a bunch, so its worth precomputing even though we have a few options.
+// Since there are only 4 possible options, just precompute them all
+var routers = func() map[RouterFilterContext]*hcm.HttpFilter {
+	res := map[RouterFilterContext]*hcm.HttpFilter{}
+	for _, startSpan := range []bool{true, false} {
+		for _, supressHeaders := range []bool{true, false} {
+			res[RouterFilterContext{
+				StartChildSpan:       startSpan,
+				SuppressDebugHeaders: supressHeaders,
+			}] = &hcm.HttpFilter{
+				Name: wellknown.Router,
+				ConfigType: &hcm.HttpFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&router.Router{
+						StartChildSpan:       startSpan,
+						SuppressEnvoyHeaders: supressHeaders,
+					}),
+				},
+			}
+		}
 	}
+	return res
+}()
 
-	return &hcm.HttpFilter{
-		Name: wellknown.Router,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&router.Router{
-				StartChildSpan: ctx.StartChildSpan,
-			}),
-		},
-	}
+func BuildRouterFilter(ctx RouterFilterContext) *hcm.HttpFilter {
+	return routers[ctx]
 }
 
 var (

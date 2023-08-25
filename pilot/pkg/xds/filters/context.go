@@ -15,5 +15,6 @@
 package filters
 
 type RouterFilterContext struct {
-	StartChildSpan bool
+	StartChildSpan       bool
+	SuppressDebugHeaders bool
 }

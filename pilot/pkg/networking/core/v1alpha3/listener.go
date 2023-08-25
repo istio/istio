@@ -644,6 +644,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	if httpProxyPort == 0 {
 		return nil
 	}
+	ph := GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound)
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
 	_, actualLocalHosts := getWildcardsAndLocalHost(node.GetIPMode())
@@ -660,10 +661,14 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 			rds:              model.RDSHttpProxy,
 			useRemoteAddress: false,
 			connectionManager: &hcm.HttpConnectionManager{
-				HttpProtocolOptions: httpOpts,
+				HttpProtocolOptions:        httpOpts,
+				ServerName:                 ph.ServerName,
+				ServerHeaderTransformation: ph.ServerHeaderTransformation,
+				GenerateRequestId:          ph.GenerateRequestID,
 			},
-			protocol: protocol.HTTP_PROXY,
-			class:    istionetworking.ListenerClassSidecarOutbound,
+			suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+			protocol:                  protocol.HTTP_PROXY,
+			class:                     istionetworking.ListenerClassSidecarOutbound,
 		},
 	}}
 
@@ -694,6 +699,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 			rdsName = strconv.Itoa(opts.port.Port)
 		}
 	}
+	ph := GetProxyHeaders(opts.proxy, opts.push, istionetworking.ListenerClassSidecarOutbound)
 	httpOpts := &httpListenerOpts{
 		// Set useRemoteAddress to true for sidecar outbound listeners so that it picks up the localhost address of the sender,
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
@@ -701,15 +707,19 @@ func buildSidecarOutboundHTTPListenerOpts(
 		useRemoteAddress: features.UseRemoteAddress,
 		rds:              rdsName,
 
-		protocol: opts.port.Protocol,
-		class:    istionetworking.ListenerClassSidecarOutbound,
+		connectionManager: &hcm.HttpConnectionManager{
+			ServerName:                 ph.ServerName,
+			ServerHeaderTransformation: ph.ServerHeaderTransformation,
+			GenerateRequestId:          ph.GenerateRequestID,
+		},
+		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+		protocol:                  opts.port.Protocol,
+		class:                     istionetworking.ListenerClassSidecarOutbound,
 	}
 
 	if features.HTTP10 || enableHTTP10(opts.proxy.Metadata.HTTP10) {
-		httpOpts.connectionManager = &hcm.HttpConnectionManager{
-			HttpProtocolOptions: &core.Http1ProtocolOptions{
-				AcceptHttp_10: true,
-			},
+		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
+			AcceptHttp_10: true,
 		}
 	}
 
@@ -963,6 +973,8 @@ type httpListenerOpts struct {
 	statPrefix       string
 	protocol         protocol.Instance
 	useRemoteAddress bool
+
+	suppressEnvoyDebugHeaders bool
 
 	// http3Only indicates that the HTTP codec used
 	// is HTTP/3 over QUIC transport (uses UDP)
