@@ -15,15 +15,12 @@
 package controller
 
 import (
-	"context"
-	"fmt"
 	"net/netip"
 	"strings"
 	"sync"
 
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -37,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeutil "istio.io/istio/pkg/kube"
@@ -485,32 +483,57 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 	}
 
 	c.configController.RegisterEventHandler(gvk.KubernetesGateway, func(oldCfg config.Config, newCfg config.Config, ev model.Event) {
-		if ev == model.EventUpdate || ev == model.EventAdd {
-			var newAddressCount int
-			var status *k8sbeta.GatewayStatus
-			var networkAddr networkAddress
-			if newStatus, ok := newCfg.Status.(*k8sbeta.GatewayStatus); ok {
-				status = newStatus
-				newAddressCount = len(newStatus.Addresses)
+		gateway, ok := extractKubernetesGateway(newCfg)
+		if !ok {
+			return
+		}
+
+		// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
+		// ignore Kubernetes Gateways which aren't waypoints
+		// TODO: should this be WaypointGatewayClass or matches a label?
+		if gateway.Spec.GatewayClassName == constants.WaypointGatewayClassName && len(gateway.Status.Addresses) > 0 {
+			scope := model.WaypointScope{Namespace: gateway.Namespace, ServiceAccount: gateway.Annotations[constants.WaypointServiceAccount]}
+
+			waypointPort := uint32(15008)
+			for _, l := range gateway.Spec.Listeners {
+				if l.Protocol == k8sbeta.ProtocolType(protocol.HBONE) {
+					waypointPort = uint32(l.Port)
+				}
 			}
-			if newAddressCount > 0 {
-				idx.mu.Lock()
-				defer idx.mu.Unlock()
-				ip := status.Addresses[0].Value
-				networkAddr = networkAddress{
-					network: c.Network(ip, make(labels.Instance, 0)).String(),
-					ip:      ip,
+
+			// Is MustParseAddr safe? Should we use ParseAddr and handle the error?
+			ip := netip.MustParseAddr(gateway.Status.Addresses[0].Value)
+			addr := &workloadapi.GatewayAddress{
+				Destination: &workloadapi.GatewayAddress_Address{
+					Address: &workloadapi.NetworkAddress{
+						Network: c.Network(ip.String(), make(labels.Instance, 0)).String(),
+						Address: ip.AsSlice(),
+					},
+				},
+				Port: waypointPort,
+			}
+
+			updates := sets.New[model.ConfigKey]()
+			idx.mu.Lock()
+			defer idx.mu.Unlock()
+			if ev == model.EventDelete {
+				if proto.Equal(idx.waypoints[scope], addr) {
+					delete(idx.waypoints, scope)
+					updates.Merge(idx.updateWaypoint(scope, addr, true))
 				}
-				svcModel := idx.serviceByAddr[networkAddr]
-				svc := c.services.Get(svcModel.Name, svcModel.Namespace)
-				updates := idx.handleService(svc, false, c)
-				if len(updates) > 0 {
-					log.Debug("Waypoint svc ready: Pushing Updates")
-					c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-						ConfigsUpdated: updates,
-						Reason:         model.NewReasonStats(model.AmbientUpdate),
-					})
+			} else {
+				if !proto.Equal(idx.waypoints[scope], addr) {
+					idx.waypoints[scope] = addr
+					updates.Merge(idx.updateWaypoint(scope, addr, false))
 				}
+			}
+
+			if len(updates) > 0 {
+				log.Debug("Waypoint svc ready: Pushing Updates")
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					ConfigsUpdated: updates,
+					Reason:         model.NewReasonStats(model.AmbientUpdate),
+				})
 			}
 		}
 	})
@@ -660,60 +683,61 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 	svc := controllers.Extract[*v1.Service](obj)
 	updates := sets.New[model.ConfigKey]()
 
-	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-		scope := model.WaypointScope{Namespace: svc.Namespace, ServiceAccount: svc.Annotations[constants.WaypointServiceAccount]}
+	// TODO: temporarily commented out in case I missed something. This logic has all been moved to the Kubernetes Gateway handler
+	// if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
+	// 	scope := model.WaypointScope{Namespace: svc.Namespace, ServiceAccount: svc.Annotations[constants.WaypointServiceAccount]}
 
-		// TODO get IP+Port from the Gateway CRD
-		// https://github.com/istio/istio/issues/44230
-		if svc.Spec.ClusterIP == v1.ClusterIPNone {
-			// TODO handle headless Service
-			log.Warn("headless service currently not supported as a waypoint")
-			return updates
-		}
-		waypointPort := uint32(15008)
-		for _, p := range svc.Spec.Ports {
-			if strings.Contains(p.Name, "hbone") {
-				waypointPort = uint32(p.Port)
-			}
-		}
+	// 	// TODO get IP+Port from the Gateway CRD
+	// 	// https://github.com/istio/istio/issues/44230
+	// 	if svc.Spec.ClusterIP == v1.ClusterIPNone {
+	// 		// TODO handle headless Service
+	// 		log.Warn("headless service currently not supported as a waypoint")
+	// 		return updates
+	// 	}
+	// 	waypointPort := uint32(15008)
+	// 	for _, p := range svc.Spec.Ports {
+	// 		if strings.Contains(p.Name, "hbone") {
+	// 			waypointPort = uint32(p.Port)
+	// 		}
+	// 	}
 
-		useSvc := true
-		gatewayClient := c.client.GatewayAPI().GatewayV1beta1().Gateways(svc.Namespace)
-		// TODO: handle error
-		gateway, _ := gatewayClient.Get(context.TODO(), strings.TrimSuffix(svc.Name, "-istio-waypoint"), metav1.GetOptions{})
-		if gateway != nil {
-			gatewayAddresses := gateway.Status.Addresses
-			if len(gatewayAddresses) == 0 {
-				// in order to ensure adding waypoints isn't disruptive we're only going to configure them once they have reported being ready
-				// gateway controller will add address only once one pod has become ready
-				log.Info(fmt.Sprintf("waypoint %s has not reported being ready", gateway.Name))
-				useSvc = false
-			}
-		}
+	// 	useSvc := true
+	// 	gatewayClient := c.client.GatewayAPI().GatewayV1beta1().Gateways(svc.Namespace)
+	// 	// TODO: handle error
+	// 	gateway, _ := gatewayClient.Get(context.TODO(), strings.TrimSuffix(svc.Name, "-istio-waypoint"), metav1.GetOptions{})
+	// 	if gateway != nil {
+	// 		gatewayAddresses := gateway.Status.Addresses
+	// 		if len(gatewayAddresses) == 0 {
+	// 			// in order to ensure adding waypoints isn't disruptive we're only going to configure them once they have reported being ready
+	// 			// gateway controller will add address only once one pod has become ready
+	// 			log.Info(fmt.Sprintf("waypoint %s has not reported being ready", gateway.Name))
+	// 			useSvc = false
+	// 		}
+	// 	}
 
-		svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
-		addr := &workloadapi.GatewayAddress{
-			Destination: &workloadapi.GatewayAddress_Address{
-				Address: &workloadapi.NetworkAddress{
-					Network: c.Network(svcIP.String(), make(labels.Instance, 0)).String(),
-					Address: svcIP.AsSlice(),
-				},
-			},
-			Port: waypointPort,
-		}
+	// 	svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
+	// 	addr := &workloadapi.GatewayAddress{
+	// 		Destination: &workloadapi.GatewayAddress_Address{
+	// 			Address: &workloadapi.NetworkAddress{
+	// 				Network: c.Network(svcIP.String(), make(labels.Instance, 0)).String(),
+	// 				Address: svcIP.AsSlice(),
+	// 			},
+	// 		},
+	// 		Port: waypointPort,
+	// 	}
 
-		if isDelete {
-			if proto.Equal(a.waypoints[scope], addr) {
-				delete(a.waypoints, scope)
-				updates.Merge(a.updateWaypoint(scope, addr, true))
-			}
-		} else {
-			if !proto.Equal(a.waypoints[scope], addr) && useSvc {
-				a.waypoints[scope] = addr
-				updates.Merge(a.updateWaypoint(scope, addr, false))
-			}
-		}
-	}
+	// 	if isDelete {
+	// 		if proto.Equal(a.waypoints[scope], addr) {
+	// 			delete(a.waypoints, scope)
+	// 			updates.Merge(a.updateWaypoint(scope, addr, true))
+	// 		}
+	// 	} else {
+	// 		if !proto.Equal(a.waypoints[scope], addr) && useSvc {
+	// 			a.waypoints[scope] = addr
+	// 			updates.Merge(a.updateWaypoint(scope, addr, false))
+	// 		}
+	// 	}
+	// }
 
 	si := c.constructService(svc)
 	networkAddrs := toInternalNetworkAddresses(si.GetAddresses())
@@ -953,6 +977,25 @@ func (c *Controller) AdditionalPodSubscriptions(
 	}
 
 	return shouldSubscribe
+}
+
+// extractKubernetesGateway converts a config.Config into a Kubernetes Gateway
+func extractKubernetesGateway(cfg config.Config) (k8sbeta.Gateway, bool) {
+	gateway := k8sbeta.Gateway{
+		ObjectMeta: cfg.Meta.ToObjectMeta(),
+	}
+	if spec, ok := cfg.Spec.(*k8sbeta.GatewaySpec); ok {
+		gateway.Spec = *spec.DeepCopy()
+	} else {
+		return k8sbeta.Gateway{}, false
+	}
+
+	if status, ok := cfg.Status.(*k8sbeta.GatewayStatus); ok {
+		gateway.Status = *status.DeepCopy()
+	} else {
+		return k8sbeta.Gateway{}, false
+	}
+	return gateway, true
 }
 
 func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
