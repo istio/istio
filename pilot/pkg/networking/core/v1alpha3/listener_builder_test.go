@@ -160,7 +160,6 @@ func TestVirtualInboundListenerBuilder(t *testing.T) {
 			}
 		})
 	}
-
 }
 
 func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
@@ -703,14 +702,14 @@ func TestInboundListenerFilters(t *testing.T) {
 	}
 	for _, tt := range cases {
 		for _, ds := range []bool{false, true} {
-			test.SetForTest(t, &features.EnableDualStack, ds)
 			t.Run(tt.name+fmt.Sprintf("dualStack_%t", ds), func(t *testing.T) {
+				test.SetForTest(t, &features.EnableDualStack, ds)
 				cg := NewConfigGenTest(t, TestOptions{
 					Services:     services,
 					Instances:    instances,
 					ConfigString: tt.config,
 				})
-				listeners := cg.Listeners(cg.SetupProxy(nil))
+				listeners := cg.Listeners(cg.SetupProxy(setProxyIPAddresses(getProxy())))
 				virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
 				filters := xdstest.ExtractListenerFilters(virtualInbound)
 				evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].GetFilterDisabled(), tt.http)
@@ -846,14 +845,14 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 	}
 	for _, tt := range cases {
 		for _, ds := range []bool{false, true} {
-			test.SetForTest(t, &features.EnableDualStack, ds)
 			t.Run(tt.name+fmt.Sprintf("dualStack_%t", ds), func(t *testing.T) {
+				test.SetForTest(t, &features.EnableDualStack, ds)
 				cg := NewConfigGenTest(t, TestOptions{
 					Services:     services,
 					Instances:    instances,
 					ConfigString: mtlsMode(tt.mtlsMode.String()),
 				})
-				proxy := cg.SetupProxy(nil)
+				proxy := cg.SetupProxy(setProxyIPAddresses(getProxy()))
 				proxy.Metadata = &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}
 				proxy.Labels = proxy.Metadata.Labels
 				proxy.SidecarScope = tt.sidecarScope
@@ -933,21 +932,18 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 		},
 	}
 	for _, tt := range cases {
-		for _, ds := range []bool{false, true} {
-			test.SetForTest(t, &features.EnableDualStack, ds)
-			t.Run(tt.name+fmt.Sprintf("dualStack_%t", ds), func(t *testing.T) {
-				push.Networks = tt.networks
-				lb := &ListenerBuilder{
-					push:               push,
-					node:               sidecarProxy,
-					authzCustomBuilder: &authz.Builder{},
-					authzBuilder:       &authz.Builder{},
-				}
-				httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{})
-				if !reflect.DeepEqual(tt.expectedconfig, httpConnManager.InternalAddressConfig) {
-					t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, httpConnManager.InternalAddressConfig)
-				}
-			})
-		}
+		t.Run(tt.name, func(t *testing.T) {
+			push.Networks = tt.networks
+			lb := &ListenerBuilder{
+				push:               push,
+				node:               sidecarProxy,
+				authzCustomBuilder: &authz.Builder{},
+				authzBuilder:       &authz.Builder{},
+			}
+			httpConnManager := lb.buildHTTPConnectionManager(&httpListenerOpts{})
+			if !reflect.DeepEqual(tt.expectedconfig, httpConnManager.InternalAddressConfig) {
+				t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, httpConnManager.InternalAddressConfig)
+			}
+		})
 	}
 }

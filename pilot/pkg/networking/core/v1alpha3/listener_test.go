@@ -74,6 +74,13 @@ func getProxy() *model.Proxy {
 	return pr
 }
 
+func setupDualStackFromProxy(t *testing.T, p *model.Proxy) {
+	if p == &dualStackProxy {
+		test.SetForTest(t, &features.EnableDualStack, true)
+	}
+	p.DiscoverIPMode()
+}
+
 func getIPv6Proxy() *model.Proxy {
 	pr := &model.Proxy{
 		Type:        model.SidecarProxy,
@@ -151,19 +158,23 @@ var (
 func TestInboundListenerConfig(t *testing.T) {
 	for _, p := range []*model.Proxy{getProxy(), &proxyHTTP10, &dualStackProxy} {
 		t.Run("multiple services", func(t *testing.T) {
+			setupDualStackFromProxy(t, p)
 			testInboundListenerConfig(t, p,
 				buildServiceWithPort("test1.com", 15021, protocol.HTTP, tnow.Add(1*time.Second)),
 				buildService("test2.com", wildcardIPv4, "unknown", tnow),
 				buildService("test3.com", wildcardIPv4, protocol.HTTP, tnow.Add(2*time.Second)))
 		})
 		t.Run("no service", func(t *testing.T) {
+			setupDualStackFromProxy(t, p)
 			testInboundListenerConfigWithoutService(t, p)
 		})
 		t.Run("sidecar", func(t *testing.T) {
+			setupDualStackFromProxy(t, p)
 			testInboundListenerConfigWithSidecar(t, p,
 				buildService("test.com", wildcardIPv4, protocol.HTTP, tnow))
 		})
 		t.Run("sidecar with service", func(t *testing.T) {
+			setupDualStackFromProxy(t, p)
 			testInboundListenerConfigWithSidecarWithoutServices(t, p)
 		})
 	}
@@ -386,26 +397,28 @@ func TestOutboundListenerConflictWithStaticListener(t *testing.T) {
 }
 
 func TestOutboundListenerConflict(t *testing.T) {
-	run := func(t *testing.T, s []*model.Service) {
-		for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
-			p.DiscoverIPMode()
-			listeners := buildOutboundListeners(t, p, nil, nil, s...)
-			if len(listeners) != 1 {
-				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-			}
+	run := func(t *testing.T, p *model.Proxy, s []*model.Service) {
+		p.DiscoverIPMode()
+		listeners := buildOutboundListeners(t, p, nil, nil, s...)
+		if len(listeners) != 1 {
+			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 		}
 	}
+
 	// Iterate over all protocol pairs and generate listeners
 	// ValidateListeners will be called on all of them ensuring they are valid
 	protos := []protocol.Instance{protocol.TCP, protocol.TLS, protocol.HTTP, protocol.Unsupported}
 	for _, older := range protos {
 		for _, newer := range protos {
-			t.Run(fmt.Sprintf("%v then %v", older, newer), func(t *testing.T) {
-				run(t, []*model.Service{
-					buildService("test1.com", wildcardIPv4, older, tnow.Add(-1*time.Second)),
-					buildService("test2.com", wildcardIPv4, newer, tnow),
+			for pdx, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+				t.Run(fmt.Sprintf("%v then %v proxy %d", older, newer, pdx), func(t *testing.T) {
+					setupDualStackFromProxy(t, p)
+					run(t, p, []*model.Service{
+						buildService("test1.com", wildcardIPv4, older, tnow.Add(-1*time.Second)),
+						buildService("test2.com", wildcardIPv4, newer, tnow),
+					})
 				})
-			})
+			}
 		}
 	}
 }
@@ -416,26 +429,29 @@ func TestOutboundListenerConflict_TCPWithCurrentTCP(t *testing.T) {
 		buildService("test2.com", "1.2.3.4", protocol.TCP, tnow),
 		buildService("test3.com", "1.2.3.4", protocol.TCP, tnow.Add(2*time.Second)),
 	}
-	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		listeners := buildOutboundListeners(t, p, nil, nil, services...)
-		if len(listeners) != 1 {
-			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-		}
-		// The filter chains should all be merged into one.
-		if len(listeners[0].FilterChains) != 1 {
-			t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
-		}
+	for pdx, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+		t.Run(fmt.Sprintf("proxy %d", pdx), func(t *testing.T) {
+			setupDualStackFromProxy(t, p)
+			listeners := buildOutboundListeners(t, p, nil, nil, services...)
+			if len(listeners) != 1 {
+				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+			}
+			// The filter chains should all be merged into one.
+			if len(listeners[0].FilterChains) != 1 {
+				t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
+			}
 
-		oldestService := getOldestService(services...)
-		oldestProtocol := oldestService.Ports[0].Protocol
-		if oldestProtocol != protocol.HTTP && isHTTPListener(listeners[0]) {
-			t.Fatal("expected TCP listener, found HTTP")
-		} else if oldestProtocol == protocol.HTTP && !isHTTPListener(listeners[0]) {
-			t.Fatal("expected HTTP listener, found TCP")
-		}
+			oldestService := getOldestService(services...)
+			oldestProtocol := oldestService.Ports[0].Protocol
+			if oldestProtocol != protocol.HTTP && isHTTPListener(listeners[0]) {
+				t.Fatal("expected TCP listener, found HTTP")
+			} else if oldestProtocol == protocol.HTTP && !isHTTPListener(listeners[0]) {
+				t.Fatal("expected HTTP listener, found TCP")
+			}
 
-		// Validate that listener conflict preserves the listener of oldest service.
-		verifyOutboundTCPListenerHostname(t, listeners[0], oldestService.Hostname)
+			// Validate that listener conflict preserves the listener of oldest service.
+			verifyOutboundTCPListenerHostname(t, listeners[0], oldestService.Hostname)
+		})
 	}
 }
 
@@ -457,20 +473,22 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			services := []*model.Service{
-				buildService("test.com", tt.CIDR, protocol.TCP, tnow),
-			}
+		for pdx, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+			t.Run(tt.name+fmt.Sprintf("proxy %d", pdx), func(t *testing.T) {
+				setupDualStackFromProxy(t, p)
+				services := []*model.Service{
+					buildService("test.com", tt.CIDR, protocol.TCP, tnow),
+				}
 
-			virtualService := config.Config{
-				Meta: config.Meta{
-					GroupVersionKind: gvk.VirtualService,
-					Name:             "test_vs",
-					Namespace:        "default",
-				},
-				Spec: virtualServiceSpec,
-			}
-			for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+				virtualService := config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.VirtualService,
+						Name:             "test_vs",
+						Namespace:        "default",
+					},
+					Spec: virtualServiceSpec,
+				}
+
 				listeners := buildOutboundListeners(t, p, nil, &virtualService, services...)
 
 				if len(listeners) != 1 {
@@ -499,8 +517,8 @@ func TestOutboundListenerTCPWithVS(t *testing.T) {
 						})
 					}
 				}
-			}
-		})
+			})
+		}
 	}
 }
 
@@ -522,23 +540,25 @@ func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			services := []*model.Service{
-				buildService("test.com", tt.CIDR, protocol.TCP, tnow),
-			}
+		for pdx, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+			t.Run(tt.name+fmt.Sprintf("proxy %d", pdx), func(t *testing.T) {
+				setupDualStackFromProxy(t, p)
+				services := []*model.Service{
+					buildService("test.com", tt.CIDR, protocol.TCP, tnow),
+				}
 
-			virtualService := config.Config{
-				Meta: config.Meta{
-					GroupVersionKind: gvk.VirtualService,
-					Name:             "test_vs",
-					Namespace:        "default",
-				},
-				Spec: virtualServiceSpec,
-			}
-			for _, proxy := range []*model.Proxy{getProxy(), &dualStackProxy} {
-				proxy.Metadata.InboundListenerExactBalance = true
-				proxy.Metadata.OutboundListenerExactBalance = true
-				listeners := buildOutboundListeners(t, proxy, nil, &virtualService, services...)
+				virtualService := config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.VirtualService,
+						Name:             "test_vs",
+						Namespace:        "default",
+					},
+					Spec: virtualServiceSpec,
+				}
+
+				p.Metadata.InboundListenerExactBalance = true
+				p.Metadata.OutboundListenerExactBalance = true
+				listeners := buildOutboundListeners(t, p, nil, &virtualService, services...)
 
 				if len(listeners) != 1 {
 					t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
@@ -557,8 +577,8 @@ func TestOutboundListenerTCPWithVSExactBalance(t *testing.T) {
 				if listeners[0].ConnectionBalanceConfig == nil || listeners[0].ConnectionBalanceConfig.GetExactBalance() == nil {
 					t.Fatalf("expected connection balance config to be set to exact_balance, found %v", listeners[0].ConnectionBalanceConfig)
 				}
-			}
-		})
+			})
+		}
 	}
 }
 
@@ -794,6 +814,7 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 		}
 		for _, tt := range cases {
 			t.Run(tt.name, func(t *testing.T) {
+				setupDualStackFromProxy(t, tt.p)
 				t.Helper()
 				listeners := buildListeners(t, TestOptions{
 					Services: tt.services,
@@ -955,8 +976,11 @@ func TestOutboundTls(t *testing.T) {
 			},
 		},
 	}
-	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		buildOutboundListeners(t, p, &virtualService2, &virtualService, services...)
+	for pdx, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+		t.Run(fmt.Sprintf("proxy %d", pdx), func(t *testing.T) {
+			setupDualStackFromProxy(t, p)
+			buildOutboundListeners(t, p, &virtualService2, &virtualService, services...)
+		})
 	}
 }
 
@@ -984,26 +1008,29 @@ func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 	}
 	services := []*model.Service{buildService("httpbin.com", wildcardIPv4, protocol.HTTP, tnow.Add(1*time.Second))}
 
-	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		listeners := buildOutboundListeners(t, p, sidecarConfig, nil, services...)
+	for pdx, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+		t.Run(fmt.Sprintf("proxy %d", pdx), func(t *testing.T) {
+			setupDualStackFromProxy(t, p)
+			listeners := buildOutboundListeners(t, p, sidecarConfig, nil, services...)
 
-		if expected := 1; len(listeners) != expected {
-			t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
-		}
-		l := findListenerByPort(listeners, 15080)
-		if l == nil {
-			t.Fatalf("expected listener on port %d, but not found", 15080)
-		}
-		if len(l.FilterChains) != 1 {
-			t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
-		} else {
-			if !isHTTPFilterChain(l.FilterChains[0]) {
-				t.Fatalf("expected http filter chain, found %s", l.FilterChains[1].Filters[0].Name)
+			if expected := 1; len(listeners) != expected {
+				t.Fatalf("expected %d listeners, found %d", expected, len(listeners))
 			}
-			if len(l.ListenerFilters) > 0 {
-				t.Fatalf("expected %d listener filter, found %d", 0, len(l.ListenerFilters))
+			l := findListenerByPort(listeners, 15080)
+			if l == nil {
+				t.Fatalf("expected listener on port %d, but not found", 15080)
 			}
-		}
+			if len(l.FilterChains) != 1 {
+				t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+			} else {
+				if !isHTTPFilterChain(l.FilterChains[0]) {
+					t.Fatalf("expected http filter chain, found %s", l.FilterChains[1].Filters[0].Name)
+				}
+				if len(l.ListenerFilters) > 0 {
+					t.Fatalf("expected %d listener filter, found %d", 0, len(l.ListenerFilters))
+				}
+			}
+		})
 	}
 }
 
@@ -1296,8 +1323,9 @@ func testPrivilegedPorts(t *testing.T, buildListeners func(t *testing.T, proxy *
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			for _, port := range tc.ports {
-				t.Run(strconv.Itoa(int(port)), func(t *testing.T) {
-					for _, proxy := range []*model.Proxy{getProxy(), &dualStackProxy} {
+				for pdx, proxy := range []*model.Proxy{getProxy(), &dualStackProxy} {
+					t.Run(fmt.Sprintf("%d proxy %d", port, pdx), func(t *testing.T) {
+						setupDualStackFromProxy(t, proxy)
 						proxy.Metadata.UnprivilegedPod = strconv.FormatBool(tc.unprivileged)
 						proxy.Metadata.InterceptionMode = tc.mode
 
@@ -1312,8 +1340,8 @@ func testPrivilegedPorts(t *testing.T, buildListeners func(t *testing.T, proxy *
 								t.Fatalf("expected no listener on port %d, but found found one", port)
 							}
 						}
-					}
-				})
+					})
+				}
 			}
 		})
 	}
@@ -1321,134 +1349,143 @@ func testPrivilegedPorts(t *testing.T, buildListeners func(t *testing.T, proxy *
 
 func testOutboundListenerRoute(t *testing.T, services ...*model.Service) {
 	t.Helper()
-	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		listeners := buildOutboundListeners(t, p, nil, nil, services...)
-		if len(listeners) != 3 {
-			t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
-		}
+	for pdx, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+		t.Run(fmt.Sprintf("proxy %d", pdx), func(t *testing.T) {
+			setupDualStackFromProxy(t, p)
+			listeners := buildOutboundListeners(t, p, nil, nil, services...)
+			if len(listeners) != 3 {
+				t.Fatalf("expected %d listeners, found %d", 3, len(listeners))
+			}
 
-		l := findListenerByAddress(listeners, wildcardIPv4)
-		if l == nil {
-			t.Fatalf("expect listener %s", "0.0.0.0_8080")
-		}
+			l := findListenerByAddress(listeners, wildcardIPv4)
+			if l == nil {
+				t.Fatalf("expect listener %s", "0.0.0.0_8080")
+			}
 
-		f := l.FilterChains[0].Filters[0]
-		cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
-		rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
-		if rds != "8080" {
-			t.Fatalf("expect routes %s, found %s", "8080", rds)
-		}
+			f := l.FilterChains[0].Filters[0]
+			cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+			rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+			if rds != "8080" {
+				t.Fatalf("expect routes %s, found %s", "8080", rds)
+			}
 
-		l = findListenerByAddress(listeners, "1.2.3.4")
-		if l == nil {
-			t.Fatalf("expect listener %s", "1.2.3.4_8080")
-		}
-		f = l.FilterChains[0].Filters[0]
-		cfg, _ = conversion.MessageToStruct(f.GetTypedConfig())
-		rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
-		if rds != "test1.com:8080" {
-			t.Fatalf("expect routes %s, found %s", "test1.com:8080", rds)
-		}
+			l = findListenerByAddress(listeners, "1.2.3.4")
+			if l == nil {
+				t.Fatalf("expect listener %s", "1.2.3.4_8080")
+			}
+			f = l.FilterChains[0].Filters[0]
+			cfg, _ = conversion.MessageToStruct(f.GetTypedConfig())
+			rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+			if rds != "test1.com:8080" {
+				t.Fatalf("expect routes %s, found %s", "test1.com:8080", rds)
+			}
 
-		l = findListenerByAddress(listeners, "3.4.5.6")
-		if l == nil {
-			t.Fatalf("expect listener %s", "3.4.5.6_8080")
-		}
-		f = l.FilterChains[0].Filters[0]
-		cfg, _ = conversion.MessageToStruct(f.GetTypedConfig())
-		rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
-		if rds != "test3.com:8080" {
-			t.Fatalf("expect routes %s, found %s", "test3.com:8080", rds)
-		}
+			l = findListenerByAddress(listeners, "3.4.5.6")
+			if l == nil {
+				t.Fatalf("expect listener %s", "3.4.5.6_8080")
+			}
+			f = l.FilterChains[0].Filters[0]
+			cfg, _ = conversion.MessageToStruct(f.GetTypedConfig())
+			rds = cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+			if rds != "test3.com:8080" {
+				t.Fatalf("expect routes %s, found %s", "test3.com:8080", rds)
+			}
+		})
 	}
 }
 
 func testOutboundListenerFilterTimeout(t *testing.T, services ...*model.Service) {
-	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		listeners := buildOutboundListeners(t, p, nil, nil, services...)
-		if len(listeners) != 2 {
-			t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
-		}
+	for pdx, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+		t.Run(fmt.Sprintf("proxy %d", pdx), func(t *testing.T) {
+			setupDualStackFromProxy(t, p)
+			listeners := buildOutboundListeners(t, p, nil, nil, services...)
+			if len(listeners) != 2 {
+				t.Fatalf("expected %d listeners, found %d", 2, len(listeners))
+			}
 
-		explicit := xdstest.ExtractListener("0.0.0.0_8080", listeners)
-		if explicit.ListenerFiltersTimeout == nil {
-			t.Fatalf("expected timeout disabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
-				explicit.ContinueOnListenerFiltersTimeout,
-				explicit.ListenerFiltersTimeout)
-		}
+			explicit := xdstest.ExtractListener("0.0.0.0_8080", listeners)
+			if explicit.ListenerFiltersTimeout == nil {
+				t.Fatalf("expected timeout disabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+					explicit.ContinueOnListenerFiltersTimeout,
+					explicit.ListenerFiltersTimeout)
+			}
 
-		auto := xdstest.ExtractListener("0.0.0.0_9090", listeners)
-		if !auto.ContinueOnListenerFiltersTimeout || auto.ListenerFiltersTimeout == nil {
-			t.Fatalf("expected timeout enabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
-				auto.ContinueOnListenerFiltersTimeout,
-				auto.ListenerFiltersTimeout)
-		}
+			auto := xdstest.ExtractListener("0.0.0.0_9090", listeners)
+			if !auto.ContinueOnListenerFiltersTimeout || auto.ListenerFiltersTimeout == nil {
+				t.Fatalf("expected timeout enabled, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+					auto.ContinueOnListenerFiltersTimeout,
+					auto.ListenerFiltersTimeout)
+			}
+		})
 	}
 }
 
 func testOutboundListenerConflict(t *testing.T, services ...*model.Service) {
 	oldestService := getOldestService(services...)
-	for _, proxy := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		proxy.DiscoverIPMode()
-		listeners := buildOutboundListeners(t, proxy, nil, nil, services...)
-		if len(listeners) != 1 {
-			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
-		}
-
-		oldestProtocol := oldestService.Ports[0].Protocol
-		if oldestProtocol == protocol.MySQL {
-			if len(listeners[0].FilterChains) != 1 {
-				t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
-			} else if !isTCPFilterChain(listeners[0].FilterChains[0]) {
-				t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
-			}
-		} else if oldestProtocol != protocol.HTTP && oldestProtocol != protocol.TCP {
-			if len(listeners[0].FilterChains) != 1 {
-				t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
-			}
-			if !isHTTPFilterChain(listeners[0].FilterChains[0]) {
-				t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[0].Filters[0].Name)
+	for pdx, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+		t.Run(fmt.Sprintf("proxy %d", pdx), func(t *testing.T) {
+			setupDualStackFromProxy(t, p)
+			p.DiscoverIPMode()
+			listeners := buildOutboundListeners(t, p, nil, nil, services...)
+			if len(listeners) != 1 {
+				t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 			}
 
-			if !isTCPFilterChain(listeners[0].DefaultFilterChain) {
-				t.Fatalf("expected tcp filter chain, found %s", listeners[0].DefaultFilterChain.Filters[0].Name)
-			}
+			oldestProtocol := oldestService.Ports[0].Protocol
+			if oldestProtocol == protocol.MySQL {
+				if len(listeners[0].FilterChains) != 1 {
+					t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
+				} else if !isTCPFilterChain(listeners[0].FilterChains[0]) {
+					t.Fatalf("expected tcp filter chain, found %s", listeners[0].FilterChains[1].Filters[0].Name)
+				}
+			} else if oldestProtocol != protocol.HTTP && oldestProtocol != protocol.TCP {
+				if len(listeners[0].FilterChains) != 1 {
+					t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
+				}
+				if !isHTTPFilterChain(listeners[0].FilterChains[0]) {
+					t.Fatalf("expected http filter chain, found %s", listeners[0].FilterChains[0].Filters[0].Name)
+				}
 
-			verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
-			verifyListenerFilters(t, listeners[0].ListenerFilters)
+				if !isTCPFilterChain(listeners[0].DefaultFilterChain) {
+					t.Fatalf("expected tcp filter chain, found %s", listeners[0].DefaultFilterChain.Filters[0].Name)
+				}
 
-			if listeners[0].ListenerFiltersTimeout.GetSeconds() != 5 {
-				t.Fatalf("expected timeout 5s, found  ListenerFiltersTimeout %v",
-					listeners[0].ListenerFiltersTimeout)
-			}
+				verifyHTTPFilterChainMatch(t, listeners[0].FilterChains[0])
+				verifyListenerFilters(t, listeners[0].ListenerFilters)
 
-			f := listeners[0].FilterChains[0].Filters[0]
-			cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
-			rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
-			expect := fmt.Sprintf("%d", oldestService.Ports[0].Port)
-			if rds != expect {
-				t.Fatalf("expect routes %s, found %s", expect, rds)
-			}
-		} else {
-			if len(listeners[0].FilterChains) != 1 {
-				t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
-			}
-			if listeners[0].DefaultFilterChain == nil {
-				t.Fatalf("expected default filter chains, found none")
-			}
+				if listeners[0].ListenerFiltersTimeout.GetSeconds() != 5 {
+					t.Fatalf("expected timeout 5s, found  ListenerFiltersTimeout %v",
+						listeners[0].ListenerFiltersTimeout)
+				}
 
-			_ = getTCPFilterChain(t, listeners[0])
-			http := getHTTPFilterChain(t, listeners[0])
+				f := listeners[0].FilterChains[0].Filters[0]
+				cfg, _ := conversion.MessageToStruct(f.GetTypedConfig())
+				rds := cfg.Fields["rds"].GetStructValue().Fields["route_config_name"].GetStringValue()
+				expect := fmt.Sprintf("%d", oldestService.Ports[0].Port)
+				if rds != expect {
+					t.Fatalf("expect routes %s, found %s", expect, rds)
+				}
+			} else {
+				if len(listeners[0].FilterChains) != 1 {
+					t.Fatalf("expected %d filter chains, found %d", 1, len(listeners[0].FilterChains))
+				}
+				if listeners[0].DefaultFilterChain == nil {
+					t.Fatalf("expected default filter chains, found none")
+				}
 
-			verifyHTTPFilterChainMatch(t, http)
-			verifyListenerFilters(t, listeners[0].ListenerFilters)
+				_ = getTCPFilterChain(t, listeners[0])
+				http := getHTTPFilterChain(t, listeners[0])
 
-			if listeners[0].ListenerFiltersTimeout == nil {
-				t.Fatalf("expected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
-					listeners[0].ContinueOnListenerFiltersTimeout,
-					listeners[0].ListenerFiltersTimeout)
+				verifyHTTPFilterChainMatch(t, http)
+				verifyListenerFilters(t, listeners[0].ListenerFilters)
+
+				if listeners[0].ListenerFiltersTimeout == nil {
+					t.Fatalf("expected timeout, found ContinueOnListenerFiltersTimeout %v, ListenerFiltersTimeout %v",
+						listeners[0].ContinueOnListenerFiltersTimeout,
+						listeners[0].ListenerFiltersTimeout)
+				}
 			}
-		}
+		})
 	}
 }
 
@@ -1794,49 +1831,52 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 
 	// enable mysql filter that is used here
 	test.SetForTest(t, &features.EnableMysqlFilter, true)
-	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
-		listeners := buildOutboundListeners(t, p, sidecarConfig, nil, services...)
-		if len(listeners) != 4 {
-			t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
-		}
+	for pdx, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+		t.Run(fmt.Sprintf("proxy %d", pdx), func(t *testing.T) {
+			setupDualStackFromProxy(t, p)
+			listeners := buildOutboundListeners(t, p, sidecarConfig, nil, services...)
+			if len(listeners) != 4 {
+				t.Fatalf("expected %d listeners, found %d", 4, len(listeners))
+			}
 
-		l := findListenerByPort(listeners, 8080)
-		if len(l.FilterChains) != 1 {
-			t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
-		}
-		if !isHTTPFilterChain(l.FilterChains[0]) {
-			t.Fatalf("expected http filter chain, found %s", l.FilterChains[0].Filters[0].Name)
-		}
+			l := findListenerByPort(listeners, 8080)
+			if len(l.FilterChains) != 1 {
+				t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+			}
+			if !isHTTPFilterChain(l.FilterChains[0]) {
+				t.Fatalf("expected http filter chain, found %s", l.FilterChains[0].Filters[0].Name)
+			}
 
-		if !isTCPFilterChain(l.DefaultFilterChain) {
-			t.Fatalf("expected tcp filter chain, found %s", l.DefaultFilterChain.Filters[0].Name)
-		}
+			if !isTCPFilterChain(l.DefaultFilterChain) {
+				t.Fatalf("expected tcp filter chain, found %s", l.DefaultFilterChain.Filters[0].Name)
+			}
 
-		verifyHTTPFilterChainMatch(t, l.FilterChains[0])
-		verifyListenerFilters(t, l.ListenerFilters)
+			verifyHTTPFilterChainMatch(t, l.FilterChains[0])
+			verifyListenerFilters(t, l.ListenerFilters)
 
-		if l := findListenerByPort(listeners, 3306); !isMysqlListener(l) {
-			t.Fatalf("expected MySQL listener on port 3306, found %v", l)
-		}
+			if l := findListenerByPort(listeners, 3306); !isMysqlListener(l) {
+				t.Fatalf("expected MySQL listener on port 3306, found %v", l)
+			}
 
-		if l := findListenerByPort(listeners, 9000); !isHTTPListener(l) {
-			t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
-		}
+			if l := findListenerByPort(listeners, 9000); !isHTTPListener(l) {
+				t.Fatalf("expected HTTP listener on port 9000, found TCP\n%v", l)
+			}
 
-		l = findListenerByPort(listeners, 8888)
-		if len(l.FilterChains) != 1 {
-			t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
-		}
-		if !isHTTPFilterChain(l.FilterChains[0]) {
-			t.Fatalf("expected http filter chain, found %s", l.FilterChains[0].Filters[0].Name)
-		}
+			l = findListenerByPort(listeners, 8888)
+			if len(l.FilterChains) != 1 {
+				t.Fatalf("expected %d filter chains, found %d", 1, len(l.FilterChains))
+			}
+			if !isHTTPFilterChain(l.FilterChains[0]) {
+				t.Fatalf("expected http filter chain, found %s", l.FilterChains[0].Filters[0].Name)
+			}
 
-		if !isTCPFilterChain(l.DefaultFilterChain) {
-			t.Fatalf("expected tcp filter chain, found %s", l.DefaultFilterChain.Filters[0].Name)
-		}
+			if !isTCPFilterChain(l.DefaultFilterChain) {
+				t.Fatalf("expected tcp filter chain, found %s", l.DefaultFilterChain.Filters[0].Name)
+			}
 
-		verifyHTTPFilterChainMatch(t, l.FilterChains[0])
-		verifyListenerFilters(t, l.ListenerFilters)
+			verifyHTTPFilterChainMatch(t, l.FilterChains[0])
+			verifyListenerFilters(t, l.ListenerFilters)
+		})
 	}
 }
 
