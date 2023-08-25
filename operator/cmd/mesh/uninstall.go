@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/pkg/cli"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 
 	"istio.io/api/operator/v1alpha1"
@@ -92,7 +93,7 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 }
 
 // UninstallCmd command uninstalls Istio from a cluster
-func UninstallCmd(logOpts *log.Options) *cobra.Command {
+func UninstallCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 	rootArgs := &RootArgs{}
 	uiArgs := &uninstallArgs{}
 	uicmd := &cobra.Command{
@@ -117,7 +118,11 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return uninstall(cmd, rootArgs, uiArgs, logOpts)
+			client, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
+			return uninstall(cmd, client, rootArgs, uiArgs, logOpts)
 		},
 	}
 	addFlags(uicmd, rootArgs)
@@ -126,12 +131,12 @@ func UninstallCmd(logOpts *log.Options) *cobra.Command {
 }
 
 // uninstall uninstalls control plane by either pruning by target revision or deleting specified manifests.
-func uninstall(cmd *cobra.Command, rootArgs *RootArgs, uiArgs *uninstallArgs, logOpts *log.Options) error {
+func uninstall(cmd *cobra.Command, cliClient kube.CLIClient, rootArgs *RootArgs, uiArgs *uninstallArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
-	kubeClient, client, err := KubernetesClients(uiArgs.kubeConfigPath, uiArgs.context, l)
+	kubeClient, client, err := KubernetesClients(cliClient, l)
 	if err != nil {
 		l.LogAndFatal(err)
 	}

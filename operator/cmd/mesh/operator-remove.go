@@ -19,6 +19,8 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/pkg/kube"
 
 	"istio.io/api/operator/v1alpha1"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -56,24 +58,29 @@ func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
 	cmd.PersistentFlags().BoolVar(&oiArgs.purge, "purge", false, AllOperatorRevFlagHelpStr)
 }
 
-func operatorRemoveCmd(rootArgs *RootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
+func operatorRemoveCmd(ctx cli.Context, rootArgs *RootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove",
 		Short: "Removes the Istio operator controller from the cluster.",
 		Long:  "The remove subcommand removes the Istio operator controller from the cluster.",
 		Args:  cobra.ExactArgs(0),
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), installerScope)
-			operatorRemove(cmd, rootArgs, orArgs, l)
+			operatorRemove(cmd, client, rootArgs, orArgs, l)
+			return nil
 		},
 	}
 }
 
 // operatorRemove removes the Istio operator controller from the cluster.
-func operatorRemove(cmd *cobra.Command, args *RootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
+func operatorRemove(cmd *cobra.Command, cliClient kube.CLIClient, args *RootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
-	kubeClient, client, err := KubernetesClients(orArgs.kubeConfigPath, orArgs.context, l)
+	kubeClient, client, err := KubernetesClients(cliClient, l)
 	if err != nil {
 		l.LogAndFatal(err)
 	}

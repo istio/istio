@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/version"
@@ -299,8 +300,13 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 
 // runCommand runs the given command string.
 func runCommand(command string) (string, error) {
+	kubeClientFunc = func() (kube.CLIClient, error) {
+		return nil, nil
+	}
 	var out bytes.Buffer
-	rootCmd := GetRootCmd(strings.Split(command, " "))
+	rootCmd := GetRootCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
+		Version: "25",
+	}), strings.Split(command, " "))
 	rootCmd.SetOut(&out)
 
 	err := rootCmd.Execute()
