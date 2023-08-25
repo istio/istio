@@ -55,6 +55,8 @@ service:
   loadBalancerSourceRanges: []
   externalTrafficPolicy: ""
   externalIPs: []
+  ipFamilyPolicy: ""
+  ipFamilies: []
 
 resources:
   requests:

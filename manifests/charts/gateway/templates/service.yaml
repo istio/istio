@@ -15,6 +15,13 @@ spec:
 {{- with .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ . }}"
 {{- end }}
+{{- with .Values.service.ipFamilyPolicy }}
+  ipFamilyPolicy: "{{ . }}"
+{{- end }}
+{{- with .Values.service.ipFamilies }}
+  ipFamilies:
+{{ toYaml . | indent 4 }}
+{{- end }}
 {{- with .Values.service.loadBalancerSourceRanges }}
   loadBalancerSourceRanges:
 {{ toYaml . | indent 4 }}
