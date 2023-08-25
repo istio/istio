@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -2099,89 +2100,117 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 	}
 	allServices := []*Service{serviceA8000, serviceA9000, serviceAalt, serviceB8000, serviceB9000, serviceBalt}
 
+	newSet := func(hosts ...host.Name) sets.Set[host.Name] {
+		return sets.New(hosts...)
+	}
+
 	tests := []struct {
 		name          string
-		listenerHosts map[string][]host.Name
+		listenerHosts map[string]hostClassification
 		services      []*Service
 		expected      []*Service
 		namespace     string
 	}{
 		{
-			name:          "*/* imports only those in a",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {wildcardService}},
-			services:      allServices,
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "*/* imports only those in a",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "*/* will bias towards configNamespace",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {wildcardService}},
-			services:      []*Service{serviceB8000, serviceB9000, serviceBalt, serviceA8000, serviceA9000, serviceAalt},
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "*/* will bias towards configNamespace",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
+			},
+			services:  []*Service{serviceB8000, serviceB9000, serviceBalt, serviceA8000, serviceA9000, serviceAalt},
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "a/* imports only those in a",
-			listenerHosts: map[string][]host.Name{"a": {wildcardService}},
-			services:      allServices,
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "a/* imports only those in a",
+			listenerHosts: map[string]hostClassification{
+				"a": {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "b/*, b/* imports only those in b",
-			listenerHosts: map[string][]host.Name{"b": {wildcardService, wildcardService}},
-			services:      allServices,
-			expected:      []*Service{serviceB8000, serviceB9000, serviceBalt},
-			namespace:     "a",
+			name: "b/*, b/* imports only those in b",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{wildcardService, wildcardService}, exactHosts: newSet()},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceB8000, serviceB9000, serviceBalt},
+			namespace: "a",
 		},
 		{
-			name:          "*/alt imports alt in namespace a",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {"alt"}},
-			services:      allServices,
-			expected:      []*Service{serviceAalt},
-			namespace:     "a",
+			name: "*/alt imports alt in namespace a",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{"alt"}, exactHosts: newSet("alt")},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "b/alt imports alt in a namespaces",
-			listenerHosts: map[string][]host.Name{"b": {"alt"}},
-			services:      allServices,
-			expected:      []*Service{serviceBalt},
-			namespace:     "a",
+			name: "b/alt imports alt in a namespaces",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{"alt"}, exactHosts: newSet("alt")},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceBalt},
+			namespace: "a",
 		},
 		{
-			name:          "b/* imports doesn't import in namespace a with proxy in a",
-			listenerHosts: map[string][]host.Name{"b": {wildcardService}},
-			services:      []*Service{serviceA8000},
-			expected:      []*Service{},
-			namespace:     "a",
+			name: "b/* imports doesn't import in namespace a with proxy in a",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
+			},
+			services:  []*Service{serviceA8000},
+			expected:  []*Service{},
+			namespace: "a",
 		},
 		{
-			name:          "multiple hosts selected same service",
-			listenerHosts: map[string][]host.Name{"a": {wildcardService}, "*": {wildcardService}},
-			services:      []*Service{serviceA8000},
-			expected:      []*Service{serviceA8000},
-			namespace:     "a",
+			name: "multiple hosts selected same service",
+			listenerHosts: map[string]hostClassification{
+				"a": {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
+				"*": {allHosts: []host.Name{wildcardService}, exactHosts: newSet()},
+			},
+			services:  []*Service{serviceA8000},
+			expected:  []*Service{serviceA8000},
+			namespace: "a",
 		},
 		{
-			name:          "fall back to wildcard namespace",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {"host"}, "a": {"alt"}},
-			services:      allServices,
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "fall back to wildcard namespace",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{"host"}, exactHosts: newSet("host")},
+				"a":               {allHosts: []host.Name{"alt"}, exactHosts: newSet("alt")},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "service is wildcard, but not listener's subset",
-			listenerHosts: map[string][]host.Name{"b": {"wildcard.com"}},
-			services:      []*Service{serviceBWildcard},
-			expected:      []*Service{},
-			namespace:     "b",
+			name: "service is wildcard, but not listener's subset",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{"wildcard.com"}, exactHosts: newSet("wildcard.com")},
+			},
+			services:  []*Service{serviceBWildcard},
+			expected:  []*Service{},
+			namespace: "b",
 		},
 		{
-			name:          "service is wildcard",
-			listenerHosts: map[string][]host.Name{"b": {"*.wildcard.com"}},
-			services:      []*Service{serviceBWildcard},
-			expected:      []*Service{serviceBWildcard},
-			namespace:     "b",
+			name: "service is wildcard",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{"*.wildcard.com"}, exactHosts: newSet()},
+			},
+			services:  []*Service{serviceBWildcard},
+			expected:  []*Service{serviceBWildcard},
+			namespace: "b",
 		},
 	}
 

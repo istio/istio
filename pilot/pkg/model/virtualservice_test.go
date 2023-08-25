@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const wildcardIP = "0.0.0.0"
@@ -1962,9 +1963,20 @@ func TestSelectVirtualService(t *testing.T) {
 		buildHTTPService("*.test2.wildcard.com", visibility.Public, wildcardIP, "default", 8888),
 	}
 
-	hostsByNamespace := make(map[string][]host.Name)
+	hostsByNamespace := make(map[string]hostClassification)
 	for _, svc := range services {
-		hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
+		ns := svc.Attributes.Namespace
+		if _, exists := hostsByNamespace[ns]; !exists {
+			hostsByNamespace[ns] = hostClassification{exactHosts: sets.New[host.Name](), allHosts: make([]host.Name, 0)}
+		}
+
+		hc := hostsByNamespace[ns]
+		hc.allHosts = append(hc.allHosts, svc.Hostname)
+		hostsByNamespace[ns] = hc
+
+		if !svc.Hostname.IsWildCarded() {
+			hostsByNamespace[ns].exactHosts.Insert(svc.Hostname)
+		}
 	}
 
 	virtualServiceSpec1 := &networking.VirtualService{
