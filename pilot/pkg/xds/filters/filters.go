@@ -245,28 +245,6 @@ var (
 		},
 	}
 
-	SidecarOutboundMetadataFilter = &hcm.HttpFilter{
-		Name: MxFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
-				map[string]any{
-					"upstream_discovery": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
-					"upstream_propagation": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-					},
-				}),
-		},
-	}
-
 	ConnectAuthorityFilter = &hcm.HttpFilter{
 		Name: "connect_authority",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -299,6 +277,32 @@ var (
 		},
 	}
 )
+
+func BuildSidecarOutboundMetadataFilter(skipHeaders bool) *hcm.HttpFilter {
+	return &hcm.HttpFilter{
+		Name: MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+					"upstream_propagation": []any{
+						map[string]any{
+							"istio_headers": map[string]any{
+								"skip_external_clusters": skipHeaders,
+							},
+						},
+					},
+				}),
+		},
+	}
+}
 
 // Router is used a bunch, so its worth precomputing even though we have a few options.
 // Since there are only 4 possible options, just precompute them all

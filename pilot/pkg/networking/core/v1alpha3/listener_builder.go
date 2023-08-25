@@ -379,7 +379,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 				if httpOpts.class == istionetworking.ListenerClassSidecarInbound {
 					filters = append(filters, xdsfilters.SidecarInboundMetadataFilter)
 				} else {
-					filters = append(filters, xdsfilters.SidecarOutboundMetadataFilter)
+					filters = append(filters, xdsfilters.BuildSidecarOutboundMetadataFilter(httpOpts.skipIstioMXHeaders))
 				}
 			} else {
 				filters = append(filters, xdsfilters.HTTPMx)

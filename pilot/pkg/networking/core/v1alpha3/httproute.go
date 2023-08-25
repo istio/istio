@@ -302,6 +302,7 @@ type ProxyHeaders struct {
 	IncludeRequestAttemptCount bool
 	GenerateRequestID          *wrappers.BoolValue
 	SuppressDebugHeaders       bool
+	SkipIstioMXHeaders         bool
 }
 
 func GetProxyHeaders(node *model.Proxy, push *model.PushContext, class istionetworking.ListenerClass) ProxyHeaders {
@@ -317,6 +318,7 @@ func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetwo
 		IncludeRequestAttemptCount: true,
 		SuppressDebugHeaders:       false,
 		GenerateRequestID:          nil, // Envoy default is to enable them, so set nil
+		SkipIstioMXHeaders:         false,
 	}
 	if class == istionetworking.ListenerClassSidecarOutbound {
 		// Likely due to a mistake, outbound uses "envoy" while inbound uses "istio-envoy". Bummer.
@@ -346,6 +348,9 @@ func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetwo
 	}
 	if ph.EnvoyDebugHeaders.GetDisabled().GetValue() {
 		base.SuppressDebugHeaders = true
+	}
+	if ph.MetadataExchangeHeaders != nil && ph.MetadataExchangeHeaders.GetMode() == meshconfig.ProxyConfig_ProxyHeaders_IN_MESH {
+		base.SkipIstioMXHeaders = true
 	}
 	return base
 }
