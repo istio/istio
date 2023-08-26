@@ -16,12 +16,14 @@ package controller
 
 import (
 	"github.com/hashicorp/go-multierror"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/mesh"
 	filter "istio.io/istio/pkg/kube/namespace"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // initialize handlers for discovery selection scoping
@@ -44,7 +46,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(discoveryNamespacesFilter fi
 				if features.EnableEnhancedResourceScoping {
 					c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 						Full:   true,
-						Reason: []model.TriggerReason{model.NamespaceUpdate},
+						Reason: model.NewReasonStats(model.NamespaceUpdate),
 					})
 				}
 				return nil
@@ -57,7 +59,7 @@ func (c *Controller) initDiscoveryNamespaceHandlers(discoveryNamespacesFilter fi
 				if features.EnableEnhancedResourceScoping {
 					c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 						Full:   true,
-						Reason: []model.TriggerReason{model.NamespaceUpdate},
+						Reason: model.NewReasonStats(model.NamespaceUpdate),
 					})
 				}
 				return nil
@@ -75,6 +77,35 @@ func (c *Controller) initMeshWatcherHandler(meshWatcher mesh.Watcher, discoveryN
 	})
 }
 
+// HandleSelectedNamespace processes pods and workload entries for the selected namespace
+// and sends an XDS update as needed.
+//
+// NOTE: As an interface method of AmbientIndex, this locks the index.
+func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod, c *Controller) {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
+	updates := sets.New[model.ConfigKey]()
+
+	// Handle Pods.
+	for _, p := range pods {
+		updates = updates.Merge(a.handlePod(nil, p, false, c))
+	}
+
+	// Handle WorkloadEntries.
+	allWorkloadEntries := c.getControllerWorkloadEntries(ns)
+	for _, w := range allWorkloadEntries {
+		updates = updates.Merge(a.handleWorkloadEntry(nil, w, false, c))
+	}
+
+	if len(updates) > 0 {
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			ConfigsUpdated: updates,
+			Reason:         model.NewReasonStats(model.AmbientUpdate),
+		})
+	}
+}
+
 // issue create events for all services, pods, and endpoints in the newly labeled namespace
 func (c *Controller) handleSelectedNamespace(ns string) {
 	var errs *multierror.Error
@@ -90,10 +121,7 @@ func (c *Controller) handleSelectedNamespace(ns string) {
 	}
 
 	if c.ambientIndex != nil {
-		c.ambientIndex.handlePods(pods, c)
-		allWorkloadEntries := c.getControllerWorkloadEntries(ns)
-		c.ambientIndex.handleWorkloadEntries(allWorkloadEntries, c)
-
+		c.ambientIndex.HandleSelectedNamespace(ns, pods, c)
 	}
 
 	errs = multierror.Append(errs, c.endpoints.sync("", ns, model.EventAdd, false))

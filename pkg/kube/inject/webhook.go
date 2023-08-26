@@ -49,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -124,6 +125,10 @@ func (wh *Webhook) GetConfig() WebhookConfig {
 type ParsedContainers struct {
 	Containers     []corev1.Container `json:"containers,omitempty"`
 	InitContainers []corev1.Container `json:"initContainers,omitempty"`
+}
+
+func (p ParsedContainers) AllContainers() []corev1.Container {
+	return append(slices.Clone(p.Containers), p.InitContainers...)
 }
 
 // nolint directives: interfacer
@@ -239,6 +244,22 @@ const (
 	Remove
 )
 
+func moveContainer(from, to []corev1.Container, name string) ([]corev1.Container, []corev1.Container) {
+	var container *corev1.Container
+	for i, c := range from {
+		c := c
+		if from[i].Name == name {
+			from = slices.Delete(from, i)
+			container = &c
+			break
+		}
+	}
+	if container != nil {
+		to = append(to, *container)
+	}
+	return from, to
+}
+
 func modifyContainers(cl []corev1.Container, name string, modifier ContainerReorder) []corev1.Container {
 	containers := []corev1.Container{}
 	var match *corev1.Container
@@ -263,6 +284,15 @@ func modifyContainers(cl []corev1.Container, name string, modifier ContainerReor
 	default:
 		return cl
 	}
+}
+
+func hasContainer(cl []corev1.Container, name string) bool {
+	for _, c := range cl {
+		if c.Name == name {
+			return true
+		}
+	}
+	return false
 }
 
 func enablePrometheusMerge(mesh *meshconfig.MeshConfig, anno map[string]string) bool {
@@ -464,7 +494,7 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 	}
 	for _, c := range templatePod.Spec.Containers {
 		// sidecarStatus annotation is added on the pod by webhook. We should use new container template
-		// instead of restoring what maybe previously injected. Doing this ensures we are correctly calculating
+		// instead of restoring what may be previously injected. Doing this ensures we are correctly calculating
 		// env variables like ISTIO_META_APP_CONTAINERS and ISTIO_META_POD_PORTS.
 		if match := FindContainer(c.Name, parsedInjectedStatus.Containers); match != nil {
 			continue
@@ -493,7 +523,7 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 		}
 		match := FindContainer(c.Name, existingOverrides.InitContainers)
 		if match == nil {
-			match = FindContainer(c.Name, originalPod.Spec.InitContainers)
+			match = FindContainerFromPod(c.Name, originalPod)
 		}
 		if match == nil {
 			continue
@@ -608,7 +638,7 @@ func postProcessPod(pod *corev1.Pod, injectedPod corev1.Pod, req InjectionParame
 		pod.Labels = map[string]string{}
 	}
 
-	overwriteClusterInfo(pod.Spec.Containers, req)
+	overwriteClusterInfo(pod, req)
 
 	if err := applyPrometheusMerge(pod, req.meshConfig); err != nil {
 		return err
@@ -665,17 +695,30 @@ func reorderPod(pod *corev1.Pod, req InjectionParameters) error {
 	// Proxy container should be last, unless HoldApplicationUntilProxyStarts is set
 	// This is to ensure `kubectl exec` and similar commands continue to default to the user's container
 	pod.Spec.Containers = modifyContainers(pod.Spec.Containers, ProxyContainerName, proxyLocation)
-	// Validation container must be first to block any user containers
-	pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, ValidationContainerName, MoveFirst)
-	// Init container must be last to allow any traffic to pass before iptables is setup
-	pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, InitContainerName, MoveLast)
-	pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, EnableCoreDumpName, MoveLast)
+
+	if hasContainer(pod.Spec.InitContainers, ProxyContainerName) {
+		// This is using native sidecar support in K8s.
+		// We want istio to be first in this case, so init containers are part of the mesh
+		// This is {istio-init/istio-validation} => proxy => rest.
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, EnableCoreDumpName, MoveFirst)
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, ProxyContainerName, MoveFirst)
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, ValidationContainerName, MoveFirst)
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, InitContainerName, MoveFirst)
+	} else {
+		// Else, we want iptables setup last so we do not blackhole init containers
+		// This is istio-validation => rest => istio-init (note: only one of istio-init or istio-validation should be present)
+		// Validation container must be first to block any user containers
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, ValidationContainerName, MoveFirst)
+		// Init container must be last to allow any traffic to pass before iptables is setup
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, InitContainerName, MoveLast)
+		pod.Spec.InitContainers = modifyContainers(pod.Spec.InitContainers, EnableCoreDumpName, MoveLast)
+	}
 
 	return nil
 }
 
 func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
-	sidecar := FindSidecar(pod.Spec.Containers)
+	sidecar := FindSidecar(pod)
 	if sidecar == nil {
 		return nil
 	}
@@ -683,7 +726,7 @@ func applyRewrite(pod *corev1.Pod, req InjectionParameters) error {
 	rewrite := ShouldRewriteAppHTTPProbers(pod.Annotations, req.valuesConfig.asStruct.GetSidecarInjectorWebhook().GetRewriteAppHTTPProbe().GetValue())
 	// We don't have to escape json encoding here when using golang libraries.
 	if rewrite {
-		if prober := DumpAppProbers(&pod.Spec, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
+		if prober := DumpAppProbers(pod, req.meshConfig.GetDefaultConfig().GetStatusPort()); prober != "" {
 			// If sidecar.istio.io/status is not present then append instead of merge.
 			_, previouslyInjected := pod.Annotations[annotation.SidecarStatus.Name]
 			sidecar.Env = mergeOrAppendProbers(previouslyInjected, sidecar.Env, prober)
@@ -747,7 +790,7 @@ func applyPrometheusMerge(pod *corev1.Pod, mesh *meshconfig.MeshConfig) error {
 			}
 		}
 		scrape := getPrometheusScrapeConfiguration(pod)
-		sidecar := FindSidecar(pod.Spec.Containers)
+		sidecar := FindSidecar(pod)
 		if sidecar != nil && scrape != emptyScrape {
 			by, err := json.Marshal(scrape)
 			if err != nil {
@@ -1104,7 +1147,7 @@ func parseInjectEnvs(path string) map[string]string {
 		if len(parts) == 3 { // If length is less than 3, then the path is simply "/inject".
 			if strings.HasPrefix(parts[2], ":ENV:") {
 				// Deprecated, not recommended.
-				//    Note that this systax fails validation when used to set injectionPath (i.e., service.path in mwh).
+				//    Note that this syntax fails validation when used to set injectionPath (i.e., service.path in mwh).
 				//    It doesn't fail validation when used to set injectionURL, however. K8s bug maybe?
 				pairs := strings.Split(parts[2], ":ENV:")
 				for i := 1; i < len(pairs); i++ { // skip the first part, it is a nil

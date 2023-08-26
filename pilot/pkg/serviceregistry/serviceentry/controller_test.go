@@ -33,7 +33,9 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
@@ -107,7 +109,9 @@ func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Opti
 	stop := test.NewStop(t)
 	go configController.Run(stop)
 
-	xdsUpdater := xdsfake.NewFakeXDS()
+	endpoints := model.NewEndpointIndex(model.DisabledCache{})
+	delegate := model.NewEndpointIndexUpdater(endpoints)
+	xdsUpdater := xdsfake.NewWithDelegate(delegate)
 
 	istioStore := configController
 	var controller *Controller
@@ -135,7 +139,9 @@ func TestServiceDiscoveryServices(t *testing.T) {
 		Event{Type: "xds full", ID: "*.istio.io"},
 		Event{Type: "xds full", ID: "tcpstatic.com"},
 		Event{Type: "service", ID: "*.google.com", Namespace: httpDNS.Namespace},
+		Event{Type: "eds cache", ID: "*.google.com", Namespace: httpDNS.Namespace},
 		Event{Type: "service", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
+		Event{Type: "eds cache", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
 		Event{Type: "service", ID: "tcpstatic.com", Namespace: tcpStatic.Namespace},
 		Event{Type: "eds cache", ID: "tcpstatic.com", Namespace: tcpStatic.Namespace})
 	services := sd.Services()
@@ -268,11 +274,11 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedInstance, 0, instances)
-		proxyInstances := []*model.ServiceInstance{
-			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
-			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText),
+		proxyInstances := []model.ServiceTarget{
+			makeTarget(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+			makeTarget(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText),
 		}
-		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
+		expectProxyTargets(t, sd, proxyInstances, "6.6.6.6")
 		// TODO 45 is wrong
 		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 
@@ -282,10 +288,10 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
-		proxyInstances = []*model.ServiceInstance{
-			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+		proxyInstances = []model.ServiceTarget{
+			makeTarget(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 		}
-		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
+		expectProxyTargets(t, sd, proxyInstances, "6.6.6.6")
 		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 	})
 
@@ -434,12 +440,15 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// Service change, so we need a full push
 		expectEvents(t, events,
 			Event{Type: "service", ID: "tcpdns.com", Namespace: tcpDNS.Namespace},
+			Event{Type: "eds cache", ID: "tcpdns.com", Namespace: tcpDNS.Namespace},
 			Event{Type: "xds full", ID: "tcpdns.com"}) // service added
 
 		// now update the config
 		createConfigs([]*config.Config{tcpDNSUpdated}, store, t)
 		expectEvents(t, events,
-			Event{Type: "xds full", ID: "tcpdns.com"}) // service deleted
+			Event{Type: "xds full", ID: "tcpdns.com"},
+			Event{Type: "eds cache", ID: "tcpdns.com"},
+		) // service deleted
 		expectServiceInstances(t, sd, tcpDNS, 0, instances2)
 	})
 
@@ -618,6 +627,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
+			Event{Type: "eds cache", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
 			Event{Type: "xds full", ID: "dns.selector.com"})
 	})
 
@@ -914,6 +924,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectServiceInstances(t, sd, selectorDNS, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selectorDNS.Namespace},
+			Event{Type: "eds cache", ID: "selector.com", Namespace: selectorDNS.Namespace},
 			Event{Type: "xds full", ID: "selector.com"})
 	})
 
@@ -1058,6 +1069,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
+			Event{Type: "eds cache", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
 			Event{Type: "xds full", ID: "dns.selector.com"})
 	})
 
@@ -1327,11 +1339,16 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 
 func expectProxyInstances(t testing.TB, sd *Controller, expected []*model.ServiceInstance, ip string) {
 	t.Helper()
+	expectProxyTargets(t, sd, slices.Map(expected, model.ServiceInstanceToTarget), ip)
+}
+
+func expectProxyTargets(t testing.TB, sd *Controller, expected []model.ServiceTarget, ip string) {
+	t.Helper()
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
-		instances := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{ip}, Metadata: &model.NodeMetadata{}})
-		sortServiceInstances(instances)
-		sortServiceInstances(expected)
+		instances := sd.GetProxyServiceTargets(&model.Proxy{IPAddresses: []string{ip}, Metadata: &model.NodeMetadata{}})
+		sortServiceTargets(instances)
+		sortServiceTargets(expected)
 		if err := compare(t, instances, expected); err != nil {
 			return err
 		}
@@ -1350,13 +1367,24 @@ func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, po
 	if len(svcs) != len(expected) {
 		t.Fatalf("got more services than expected: %v vs %v", len(svcs), len(expected))
 	}
+	expe := [][]*model.IstioEndpoint{}
+	for _, o := range expected {
+		res := []*model.IstioEndpoint{}
+		for _, i := range o {
+			res = append(res, i.Endpoint)
+		}
+		expe = append(expe, res)
+	}
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
 		for i, svc := range svcs {
-			instances := sd.InstancesByPort(svc, port)
-			sortServiceInstances(instances)
-			sortServiceInstances(expected[i])
-			if err := compare(t, instances, expected[i]); err != nil {
+			endpoints := GetEndpointsForPort(svc, sd.XdsUpdater.(*xdsfake.Updater).Delegate.(*model.EndpointIndexUpdater).Index, port)
+			if endpoints == nil {
+				endpoints = []*model.IstioEndpoint{} // To simplify tests a bit
+			}
+			sortEndpoints(endpoints)
+			sortEndpoints(expe[i])
+			if err := compare(t, endpoints, expe[i]); err != nil {
 				return fmt.Errorf("%d: %v", i, err)
 			}
 		}
@@ -1364,7 +1392,7 @@ func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, po
 	}, retry.Converge(2), retry.Timeout(time.Second*1))
 }
 
-func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
+func TestServiceDiscoveryGetProxyServiceTargets(t *testing.T) {
 	store, sd, _ := initServiceDiscovery(t)
 
 	createConfigs([]*config.Config{httpStatic, tcpStatic}, store, t)
@@ -1609,6 +1637,17 @@ func sortServices(services []*model.Service) {
 	}
 }
 
+func sortServiceTargets(instances []model.ServiceTarget) {
+	sort.Slice(instances, func(i, j int) bool {
+		if instances[i].Service.Hostname == instances[j].Service.Hostname {
+			if instances[i].Port.TargetPort == instances[j].Port.TargetPort {
+				return instances[i].Port.TargetPort < instances[j].Port.TargetPort
+			}
+		}
+		return instances[i].Service.Hostname < instances[j].Service.Hostname
+	})
+}
+
 func sortServiceInstances(instances []*model.ServiceInstance) {
 	labelsToSlice := func(labels labels.Instance) []string {
 		out := make([]string, 0, len(labels))
@@ -1639,6 +1678,36 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 			return instances[i].Endpoint.EndpointPort < instances[j].Endpoint.EndpointPort
 		}
 		return instances[i].Service.Hostname < instances[j].Service.Hostname
+	})
+}
+
+func sortEndpoints(endpoints []*model.IstioEndpoint) {
+	labelsToSlice := func(labels labels.Instance) []string {
+		out := make([]string, 0, len(labels))
+		for k, v := range labels {
+			out = append(out, fmt.Sprintf("%s=%s", k, v))
+		}
+		sort.Strings(out)
+		return out
+	}
+
+	sort.Slice(endpoints, func(i, j int) bool {
+		if endpoints[i].EndpointPort == endpoints[j].EndpointPort {
+			if endpoints[i].Address == endpoints[j].Address {
+				if len(endpoints[i].Labels) == len(endpoints[j].Labels) {
+					iLabels := labelsToSlice(endpoints[i].Labels)
+					jLabels := labelsToSlice(endpoints[j].Labels)
+					for k := range iLabels {
+						if iLabels[k] < jLabels[k] {
+							return true
+						}
+					}
+				}
+				return len(endpoints[i].Labels) < len(endpoints[j].Labels)
+			}
+			return endpoints[i].Address < endpoints[j].Address
+		}
+		return endpoints[i].EndpointPort < endpoints[j].EndpointPort
 	})
 }
 
@@ -2113,4 +2182,30 @@ func BenchmarkWorkloadEntryHandler(b *testing.B) {
 		sd.workloadEntryHandler(config.Config{}, *dnsWle, model.EventDelete)
 		sd.workloadEntryHandler(config.Config{}, *wle2, model.EventDelete)
 	}
+}
+
+func GetEndpoints(s *model.Service, endpoints *model.EndpointIndex) []*model.IstioEndpoint {
+	return GetEndpointsForPort(s, endpoints, 0)
+}
+
+func GetEndpointsForPort(s *model.Service, endpoints *model.EndpointIndex, port int) []*model.IstioEndpoint {
+	shards, ok := endpoints.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
+	if !ok {
+		return nil
+	}
+	var pn string
+	for _, p := range s.Ports {
+		if p.Port == port {
+			pn = p.Name
+			break
+		}
+	}
+	if pn == "" && port != 0 {
+		return nil
+	}
+	shards.RLock()
+	defer shards.RUnlock()
+	return slices.FilterInPlace(slices.Flatten(maps.Values(shards.Shards)), func(endpoint *model.IstioEndpoint) bool {
+		return pn == "" || endpoint.ServicePortName == pn
+	})
 }

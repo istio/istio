@@ -33,7 +33,7 @@ Some examples are given below. Given a resource:
 	    - "vv1"
 	    - vv2=foo
 
-values and list entries can be added, modifed or deleted.
+values and list entries can be added, modified or deleted.
 
 # MODIFY
 

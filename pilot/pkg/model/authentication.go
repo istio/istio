@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 // MutualTLSMode is the mutual TLS mode specified by authentication policy.
@@ -42,6 +43,10 @@ const (
 	// MTLSStrict if authentication policy enable mTLS in strict mode.
 	MTLSStrict
 )
+
+// In Ambient, we convert k8s PeerAuthentication resources to the same type as AuthorizationPolicies
+// To prevent conflicts in xDS, we add this prefix to the converted PeerAuthentication resources.
+const convertedPeerAuthenticationPrefix = "converted_peer_authentication_" // use '_' character since those are illegal in k8s names
 
 // String converts MutualTLSMode to human readable string for debugging.
 func (mode MutualTLSMode) String() string {
@@ -214,6 +219,15 @@ func (policy *AuthenticationPolicies) GetRootNamespace() string {
 // GetVersion return versions of all peer authentications..
 func (policy *AuthenticationPolicies) GetVersion() string {
 	return policy.aggregateVersion
+}
+
+func GetAmbientPolicyConfigName(key ConfigKey) string {
+	switch key.Kind {
+	case kind.PeerAuthentication:
+		return convertedPeerAuthenticationPrefix + key.Name
+	default:
+		return key.Name
+	}
 }
 
 func getConfigsForWorkload(configsByNamespace map[string][]config.Config,

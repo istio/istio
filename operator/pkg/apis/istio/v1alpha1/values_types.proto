@@ -713,9 +713,9 @@ message PilotConfig {
   repeated google.protobuf.Struct tolerations = 26 [deprecated=true];
 
   // if protocol sniffing is enabled for outbound
-  google.protobuf.BoolValue enableProtocolSniffingForOutbound = 28;
+  google.protobuf.BoolValue enableProtocolSniffingForOutbound = 28 [deprecated=true];
   // if protocol sniffing is enabled for inbound
-  google.protobuf.BoolValue enableProtocolSniffingForInbound = 29;
+  google.protobuf.BoolValue enableProtocolSniffingForInbound = 29 [deprecated=true];
 
   // K8s annotations for pods.
   //
@@ -1037,6 +1037,9 @@ message ServiceConfig {
 message SidecarInjectorConfig {
   // Enables sidecar auto-injection in namespaces by default.
   google.protobuf.BoolValue enableNamespacesByDefault = 2;
+
+  // Setting this to `IfNeeded` will result in the sidecar injector being run again if additonal mutations occur. Default: Never
+  string reinvocationPolicy = 3;
 
   // Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
   //

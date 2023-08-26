@@ -16,6 +16,7 @@ package kclient_test
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 	"time"
 
@@ -24,10 +25,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
 
 	istioclient "istio.io/client-go/pkg/apis/extensions/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -45,7 +48,7 @@ func TestSwappingClient(t *testing.T) {
 	t.Run("CRD partially ready", func(t *testing.T) {
 		stop := test.NewStop(t)
 		c := kube.NewFakeClient()
-		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
 		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
 		tracker := assert.NewTracker[string](t)
 		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
@@ -72,7 +75,7 @@ func TestSwappingClient(t *testing.T) {
 		c.RunAndWait(stop)
 
 		// Now that CRD is synced, we create the client
-		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
 		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
 		tracker := assert.NewTracker[string](t)
 		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
@@ -93,8 +96,7 @@ func TestSwappingClient(t *testing.T) {
 		c := kube.NewFakeClient()
 
 		// Client created before CRDs are ready
-		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
-		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
+		wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
 		tracker := assert.NewTracker[string](t)
 		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
 		go constantlyAccessForRaceDetection(stop, wasm)
@@ -106,15 +108,25 @@ func TestSwappingClient(t *testing.T) {
 
 		// Now we add the CRD
 		clienttest.MakeCRD(t, c, gvr.WasmPlugin)
-		// This is not needed in real-world, but purely works around https://github.com/kubernetes/kubernetes/issues/95372
+		// This is pretty bad, but purely works around https://github.com/kubernetes/kubernetes/issues/95372
 		// which impacts only the fake client.
-		c.RunAndWait(stop)
-		wt.Create(&istioclient.WasmPlugin{
-			ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+		// Basically if the Create happens between the List and Watch it is lost. But we don't know when
+		// this occurs, so we just retry
+		cl := kclient.NewWriteClient[*istioclient.WasmPlugin](c)
+		retry.UntilSuccessOrFail(t, func() error {
+			cl.Create(&istioclient.WasmPlugin{
+				ObjectMeta: metav1.ObjectMeta{Name: "name", Namespace: "default"},
+			})
+			for attempt := 0; attempt < 10; attempt++ {
+				l := wasm.List("", klabels.Everything())
+				if len(l) == 1 {
+					return nil
+				}
+				time.Sleep(time.Millisecond * 2)
+			}
+			cl.Delete("name", "default")
+			return fmt.Errorf("expected one item in list")
 		})
-		assert.EventuallyEqual(t, func() int {
-			return len(wasm.List("", klabels.Everything()))
-		}, 1)
 		tracker.WaitOrdered("add/name")
 	})
 	t.Run("watcher not run ready", func(t *testing.T) {
@@ -122,7 +134,7 @@ func TestSwappingClient(t *testing.T) {
 		c := kube.NewFakeClient()
 
 		// Client created before CRDs are ready
-		wasm := kclient.NewDelayedInformer(c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
+		wasm := kclient.NewDelayedInformer[controllers.Object](c, gvr.WasmPlugin, kubetypes.StandardInformer, kubetypes.Filter{})
 		wt := clienttest.NewWriter[*istioclient.WasmPlugin](t, c)
 		tracker := assert.NewTracker[string](t)
 		wasm.AddEventHandler(clienttest.TrackerHandler(tracker))
@@ -267,4 +279,51 @@ func TestErrorHandler(t *testing.T) {
 	deployments := kclient.New[*appsv1.Deployment](c)
 	deployments.Start(test.NewStop(t))
 	mt.Assert("controller_sync_errors_total", map[string]string{"cluster": "fake"}, monitortest.AtLeast(1))
+}
+
+func TestToOpts(t *testing.T) {
+	test.SetForTest(t, &features.InformerWatchNamespace, "istio-system")
+	c := kube.NewFakeClient()
+	cases := []struct {
+		name   string
+		gvr    schema.GroupVersionResource
+		filter kclient.Filter
+		want   kubetypes.InformerOptions
+	}{
+		{
+			name: "watch pods in the foo namespace",
+			gvr:  gvr.Pod,
+			filter: kclient.Filter{
+				Namespace: "foo",
+			},
+			want: kubetypes.InformerOptions{
+				Namespace: "foo",
+				Cluster:   c.ClusterID(),
+			},
+		},
+		{
+			name: "watch pods in the InformerWatchNamespace",
+			gvr:  gvr.Pod,
+			want: kubetypes.InformerOptions{
+				Namespace: features.InformerWatchNamespace,
+				Cluster:   c.ClusterID(),
+			},
+		},
+		{
+			name: "watch namespaces",
+			gvr:  gvr.Namespace,
+			want: kubetypes.InformerOptions{
+				Namespace: "",
+				Cluster:   c.ClusterID(),
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			got := kclient.ToOpts(c, tt.gvr, tt.filter)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("ToOpts: got %v, want %v", got, tt.want)
+			}
+		})
+	}
 }

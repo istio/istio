@@ -151,18 +151,32 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 	var updatedPolicies sets.Set[model.ConfigKey]
 	if len(req.ConfigsUpdated) != 0 {
 		updatedPolicies = model.ConfigsOfKind(req.ConfigsUpdated, kind.AuthorizationPolicy)
-		updatedPolicies = updatedPolicies.Merge(model.ConfigsOfKind(req.ConfigsUpdated, kind.PeerAuthentication))
+		// Convert the actual Kubernetes PeerAuthentication policies to the synthetic ones
+		// by adding the prefix
+		//
+		// This is needed because the handler that produces the ConfigUpdate blindly sends
+		// the Kubernetes resource names without context of the synthetic Ambient policies
+		// TODO: Split out PeerAuthentication into a separate handler in
+		// https://github.com/istio/istio/blob/master/pilot/pkg/bootstrap/server.go#L882
+		for p := range model.ConfigsOfKind(req.ConfigsUpdated, kind.PeerAuthentication) {
+			updatedPolicies.Insert(model.ConfigKey{
+				Name:      model.GetAmbientPolicyConfigName(p),
+				Namespace: p.Namespace,
+				Kind:      p.Kind,
+			})
+		}
 	}
 	if len(req.ConfigsUpdated) != 0 && len(updatedPolicies) == 0 {
 		// This was a incremental push for a resource we don't watch... skip
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
+
 	policies := e.s.Env.ServiceDiscovery.Policies(updatedPolicies)
 
 	resources := make(model.Resources, 0)
 	expected := sets.New[string]()
 	if len(updatedPolicies) > 0 {
-		// Partial update. Removes are ones we request but didn't get
+		// Partial update. Removes are ones we request but didn't get back when querying the policies
 		for k := range updatedPolicies {
 			expected.Insert(k.Namespace + "/" + k.Name)
 		}

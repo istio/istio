@@ -35,6 +35,7 @@ templates:
         {{- end }}
       {{- end }}
     {{- end }}
+    {{ $nativeSidecar := (eq (env "ENABLE_NATIVE_SIDECARS" "false") "true") }}
     {{- $containers := list }}
     {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
     metadata:
@@ -195,13 +196,16 @@ templates:
           runAsNonRoot: false
           runAsUser: 0
       {{ end }}
+      {{ if not $nativeSidecar }}
       containers:
+      {{ end }}
       - name: istio-proxy
       {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
         image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
       {{- else }}
         image: "{{ .ProxyImage }}"
       {{- end }}
+        {{ if $nativeSidecar }}restartPolicy: Always{{end}}
         ports:
         - containerPort: 15090
           protocol: TCP
@@ -288,6 +292,14 @@ templates:
             ]
         - name: ISTIO_META_APP_CONTAINERS
           value: "{{ $containers | join "," }}"
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
         - name: ISTIO_META_NODE_NAME
@@ -335,7 +347,11 @@ templates:
         {{- end }}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
+      {{ if $nativeSidecar }}
+        startupProbe:
+      {{ else }}
         readinessProbe:
+      {{ end }}
           httpGet:
             path: /healthz/ready
             port: 15021
@@ -613,6 +629,14 @@ templates:
               {{- end}}
             {{- end}}
             ]
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
         - name: ISTIO_META_APP_CONTAINERS
           value: "{{ $containers | join "," }}"
         - name: ISTIO_META_CLUSTER_ID
@@ -1260,6 +1284,14 @@ templates:
             - name: PROXY_CONFIG
               value: |
                      {{ protoToJSON .ProxyConfig }}
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
             - name: ISTIO_META_CLUSTER_ID
               value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
             - name: ISTIO_META_INTERCEPTION_MODE
@@ -1382,6 +1414,10 @@ templates:
       {{- end }}
       selector:
         istio.io/gateway-name: "{{.Name}}"
+      {{- if and (.Spec.Addresses) (eq .ServiceType "LoadBalancer") }}
+      loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
+      {{- end }}
+      type: {{ .ServiceType | quote }}
     ---
   kube-gateway: |
     apiVersion: v1
@@ -1539,6 +1575,14 @@ templates:
               value: "[]"
             - name: ISTIO_META_APP_CONTAINERS
               value: ""
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
             - name: ISTIO_META_CLUSTER_ID
               value: "{{ valueOrDefault .Values.global.multiCluster.clusterName .ClusterID }}"
             - name: ISTIO_META_NODE_NAME
@@ -1695,8 +1739,8 @@ templates:
       {{- end }}
       selector:
         istio.io/gateway-name: {{.Name}}
-      {{- if .Spec.Addresses }}
+      {{- if and (.Spec.Addresses) (eq .ServiceType "LoadBalancer") }}
       loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
       {{- end }}
-      type: {{ index .Annotations "networking.istio.io/service-type" | default "LoadBalancer" | quote }}
+      type: {{ .ServiceType | quote }}
     ---

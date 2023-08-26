@@ -178,12 +178,12 @@ var (
 		UpdateFunc: func(e event.UpdateEvent) bool {
 			oldIOP, ok := e.ObjectOld.(*iopv1alpha1.IstioOperator)
 			if !ok {
-				scope.Errorf(errdict.OperatorFailedToGetObjectInCallback, "failed to get old IstioOperator")
+				errdict.OperatorFailedToGetObjectInCallback.Log(scope).Errorf("failed to get old IstioOperator")
 				return false
 			}
 			newIOP, ok := e.ObjectNew.(*iopv1alpha1.IstioOperator)
 			if !ok {
-				scope.Errorf(errdict.OperatorFailedToGetObjectInCallback, "failed to get new IstioOperator")
+				errdict.OperatorFailedToGetObjectInCallback.Log(scope).Errorf("failed to get new IstioOperator")
 				return false
 			}
 
@@ -261,7 +261,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		scope.Warnf(errdict.OperatorFailedToGetObjectFromAPIServer, "error getting IstioOperator %s: %s", iopName, err)
+		errdict.OperatorFailedToGetObjectFromAPIServer.Log(scope).Warnf("error getting IstioOperator %s: %s", iopName, err)
 		metrics.CountCRFetchFail(errors.ReasonForError(err))
 		return reconcile.Result{}, err
 	}
@@ -286,7 +286,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	// get the merged values in iop on top of the defaults for the profile given by iop.profile
 	iopMerged.Spec, err = mergeIOPSWithProfile(iopMerged)
 	if err != nil {
-		scope.Errorf(errdict.OperatorFailedToMergeUserIOP, "failed to merge base profile with user IstioOperator CR %s, %s", iopName, err)
+		errdict.OperatorFailedToMergeUserIOP.Log(scope).Errorf("failed to merge base profile with user IstioOperator CR %s, %s", iopName, err)
 		return reconcile.Result{}, err
 	}
 
@@ -329,7 +329,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 				scope.Infof("Could not remove finalizer from %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
 				return reconcile.Result{}, nil
 			}
-			scope.Errorf(errdict.OperatorFailedToRemoveFinalizer, "error removing finalizer: %s", finalizerError)
+			errdict.OperatorFailedToRemoveFinalizer.Log(scope).Errorf("error removing finalizer: %s", finalizerError)
 			return reconcile.Result{}, finalizerError
 		}
 		return reconcile.Result{}, nil
@@ -346,7 +346,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			} else if errors.IsConflict(err) {
 				scope.Infof("Could not add finalizer to %s due to conflict. Operation will be retried in next reconcile attempt.", iopName)
 			}
-			scope.Errorf(errdict.OperatorFailedToAddFinalizer, "Failed to add finalizer to IstioOperator CR %s: %s", iopName, err)
+			errdict.OperatorFailedToAddFinalizer.Log(scope).Errorf("Failed to add finalizer to IstioOperator CR %s: %s", iopName, err)
 			return reconcile.Result{}, err
 		}
 	}
@@ -372,7 +372,7 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 	}
 	err = util.ValidateIOPCAConfig(r.kubeClient, iopMerged)
 	if err != nil {
-		scope.Errorf(errdict.OperatorFailedToConfigure, "failed to apply IstioOperator resources. Error %s", err)
+		errdict.OperatorFailedToConfigure.Log(scope).Errorf("failed to apply IstioOperator resources. Error %s", err)
 		return reconcile.Result{}, err
 	}
 	helmReconcilerOptions := &helmreconciler.Options{

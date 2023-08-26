@@ -45,7 +45,7 @@ func TestGetTokenForXDS(t *testing.T) {
 	serviceCluster := constants.ServiceClusterName
 	proxyConfigEnv := ""
 	concurrency := 0
-	proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv, concurrency, role)
+	proxyConfig, err := config.ConstructProxyConfig(meshConfigFile, serviceCluster, proxyConfigEnv, concurrency)
 	if err != nil {
 		t.Fatalf("failed to construct proxy config: %v", err)
 	}
@@ -143,7 +143,7 @@ func writeToTempFile(content, fileNamePrefix string) (string, error) {
 	}
 	defer func() { _ = outFile.Close() }()
 
-	if _, err := outFile.Write([]byte(content)); err != nil {
+	if _, err := outFile.WriteString(content); err != nil {
 		return "", fmt.Errorf("failed writing to the temp file: %v", err)
 	}
 	return outFile.Name(), nil

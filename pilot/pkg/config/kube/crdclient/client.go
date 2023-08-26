@@ -94,7 +94,7 @@ type Option struct {
 
 var _ model.ConfigStoreController = &Client{}
 
-func New(client kube.Client, opts Option) (*Client, error) {
+func New(client kube.Client, opts Option) *Client {
 	schemas := collections.Pilot
 	if features.EnableGatewayAPI {
 		schemas = collections.PilotGatewayAPI()
@@ -102,7 +102,7 @@ func New(client kube.Client, opts Option) (*Client, error) {
 	return NewForSchemas(client, opts, schemas)
 }
 
-func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) (*Client, error) {
+func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) *Client {
 	schemasByCRDName := map[string]resource.Schema{}
 	for _, s := range schemas.All() {
 		// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
@@ -129,7 +129,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		out.addCRD(name)
 	}
 
-	return out, nil
+	return out
 }
 
 func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
@@ -351,7 +351,7 @@ func (cl *Client) addCRD(name string) {
 	if s.IsBuiltin() {
 		kc = kclient.NewUntypedInformer(cl.client, gvr, filter)
 	} else {
-		kc = kclient.NewDelayedInformer(
+		kc = kclient.NewDelayedInformer[controllers.Object](
 			cl.client,
 			gvr,
 			kubetypes.StandardInformer,

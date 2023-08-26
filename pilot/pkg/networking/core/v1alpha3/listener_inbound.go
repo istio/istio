@@ -17,7 +17,6 @@ package v1alpha3
 import (
 	"fmt"
 	"sort"
-	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -27,7 +26,6 @@ import (
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -56,7 +54,7 @@ type inboundChainConfig struct {
 	// port defines the port configuration for this chain. Note that there is a Port and TargetPort;
 	// most usages should just use TargetPort. Port is mostly used for legacy compatibility and
 	// telemetry.
-	port ServiceInstancePort
+	port model.ServiceInstancePort
 	// bind determines where (IP) this filter chain should bind. Note: typically we just end up using
 	// 'virtual' listener and do not literally bind to port; in these cases this just impacts naming
 	// and telemetry.
@@ -133,24 +131,6 @@ func (cc inboundChainConfig) ToFilterChainMatch(opt FilterChainMatchOptions) *li
 	return match
 }
 
-// ServiceInstancePort defines a port that has both a port and targetPort (which distinguishes it from model.Port)
-// Note: ServiceInstancePort only makes sense in the context of a specific ServiceInstance, because TargetPort depends on a specific instance.
-type ServiceInstancePort struct {
-	// Name ascribes a human readable name for the port object. When a
-	// service has multiple ports, the name field is mandatory
-	Name string `json:"name,omitempty"`
-
-	// Port number where the service can be reached. Does not necessarily
-	// map to the corresponding port numbers for the instances behind the
-	// service.
-	Port uint32 `json:"port"`
-
-	TargetPort uint32 `json:"targetPort"`
-
-	// Protocol to be used for the port.
-	Protocol protocol.Instance `json:"protocol,omitempty"`
-}
-
 func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	routes := []*route.Route{{
 		Match: &route.RouteMatch{
@@ -173,15 +153,16 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	// Now we have top level listener... but we must have an internal listener for each standard filter chain
 	// 1 listener per port; that listener will do protocol detection.
 	l := &listener.Listener{
-		Name:              MainInternalName,
-		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
-		TrafficDirection:  core.TrafficDirection_INBOUND,
+		Name:                             MainInternalName,
+		ListenerSpecifier:                &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
+		TrafficDirection:                 core.TrafficDirection_INBOUND,
+		ContinueOnListenerFiltersTimeout: true,
 	}
 
 	inboundChainConfigs := lb.buildInboundChainConfigs()
 	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
-		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
+		lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
 		// Internal chain has no mTLS
 		mtls := authn.MTLSSettings{Port: cc.port.TargetPort, Mode: model.MTLSDisable}
 		opts := getFilterChainMatchOptions(mtls, lp)
@@ -221,12 +202,12 @@ func (lb *ListenerBuilder) buildInboundListeners() []*listener.Listener {
 			// Since we are terminating TLS, we need to treat the protocol as if its terminated.
 			// Example: user specifies protocol=HTTPS and user TLS, we will use HTTP
 			cc.port.Protocol = cc.port.Protocol.AfterTLSTermination()
-			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
+			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
 			opts = getTLSFilterChainMatchOptions(lp)
 			mtls.TCP = BuildListenerTLSContext(cc.tlsSettings, lb.node, lb.push.Mesh, istionetworking.TransportProtocolTCP, false)
 			mtls.HTTP = mtls.TCP
 		} else {
-			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol, core.TrafficDirection_INBOUND)
+			lp := istionetworking.ModelProtocolToListenerProtocol(cc.port.Protocol)
 			opts = getFilterChainMatchOptions(mtls, lp)
 		}
 		// Build the actual chain
@@ -280,13 +261,14 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	}
 	address := util.BuildAddress(addresses[0], tPort)
 	l := &listener.Listener{
-		Name:             name,
-		Address:          address,
-		TrafficDirection: core.TrafficDirection_INBOUND,
+		Name:                             name,
+		Address:                          address,
+		TrafficDirection:                 core.TrafficDirection_INBOUND,
+		ContinueOnListenerFiltersTimeout: true,
 	}
 	if features.EnableDualStack && len(addresses) > 1 {
 		// add extra addresses for the listener
-		l.AdditionalAddresses = util.BuildAdditionalAddresses(addresses[1:], tPort, lb.node)
+		l.AdditionalAddresses = util.BuildAdditionalAddresses(addresses[1:], tPort)
 	}
 	if lb.node.Metadata.InboundListenerExactBalance {
 		l.ConnectionBalanceConfig = &listener.Listener_ConnectionBalanceConfig{
@@ -303,7 +285,6 @@ func (lb *ListenerBuilder) buildInboundListener(name string, addresses []string,
 	l.FilterChains = chains
 	l.ListenerFilters = populateListenerFilters(lb.node, l, bindToPort)
 	l.ListenerFiltersTimeout = lb.push.Mesh.GetProtocolDetectionTimeout()
-	l.ContinueOnListenerFiltersTimeout = true
 	return l
 }
 
@@ -349,13 +330,15 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 	if sidecarScope.HasIngressListener() {
 		ingressPortListSet = getSidecarIngressPortList(lb.node)
 	}
-	for _, i := range lb.node.ServiceInstances {
-		port := ServiceInstancePort{
-			Name:       i.ServicePort.Name,
-			Port:       uint32(i.ServicePort.Port),
-			TargetPort: i.Endpoint.EndpointPort,
-			Protocol:   i.ServicePort.Protocol,
+	for _, i := range lb.node.ServiceTargets {
+		bindToPort := getBindToPort(networking.CaptureMode_DEFAULT, lb.node)
+		// Skip ports we cannot bind to
+		if !lb.node.CanBindToPort(bindToPort, i.Port.TargetPort) {
+			log.Debugf("buildInboundListeners: skipping privileged service port %d for node %s as it is an unprivileged proxy",
+				i.Port.TargetPort, lb.node.ID)
+			continue
 		}
+		port := i.Port
 		actualWildcards, _ := getWildcardsAndLocalHost(lb.node.GetIPMode())
 		if enableSidecarServiceInboundListenerMerge && sidecarScope.HasIngressListener() &&
 			// ingress listener port means the target port, may not equal to service port
@@ -371,9 +354,16 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 			port:              port,
 			clusterName:       model.BuildInboundSubsetKey(int(port.TargetPort)),
 			bind:              actualWildcards[0],
-			bindToPort:        getBindToPort(networking.CaptureMode_DEFAULT, lb.node),
+			bindToPort:        bindToPort,
 			hbone:             lb.node.IsWaypointProxy(),
 		}
+		// for inbound only generate a standalone listener when bindToPort=true
+		if bindToPort && conflictWithStaticListener(lb.node, cc.bind, int(port.TargetPort), port.Protocol) {
+			log.Debugf("buildInboundListeners: skipping service port %d for node %s as it conflicts with static listener",
+				port.TargetPort, lb.node.ID)
+			continue
+		}
+
 		// add extra binding addresses
 		if len(actualWildcards) > 1 {
 			cc.extraBind = actualWildcards[1:]
@@ -407,27 +397,28 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 			return nil
 		}
 		chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, false)
-	} else if lb.node.SidecarScope.HasIngressListener() {
+	} else {
 		// only allow to merge inbound listeners if sidecar has ingress listener pilot has env EnableSidecarServiceInboundListenerMerge set
 		if features.EnableSidecarServiceInboundListenerMerge {
 			chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, true)
 		}
 
 		for _, i := range lb.node.SidecarScope.Sidecar.Ingress {
-			port := ServiceInstancePort{
-				Name:       i.Port.Name,
-				Port:       i.Port.Number,
+			port := model.ServiceInstancePort{
+				ServicePort: &model.Port{
+					Name:     i.Port.Name,
+					Port:     int(i.Port.Number),
+					Protocol: protocol.Parse(i.Port.Protocol),
+				},
 				TargetPort: i.Port.Number, // No targetPort support in the API
-				Protocol:   protocol.Parse(i.Port.Protocol),
 			}
 			bindtoPort := getBindToPort(i.CaptureMode, lb.node)
 			// Skip ports we cannot bind to
 			if !lb.node.CanBindToPort(bindtoPort, port.TargetPort) {
 				log.Warnf("buildInboundListeners: skipping privileged sidecar port %d for node %s as it is an unprivileged proxy",
-					i.Port.Number, lb.node.ID)
+					port.TargetPort, lb.node.ID)
 				continue
 			}
-
 			cc := inboundChainConfig{
 				// Sidecar config doesn't have a real hostname. In order to give some telemetry info, make a synthetic hostname.
 				telemetryMetadata: telemetry.FilterChainMetadata{
@@ -447,6 +438,13 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 					cc.extraBind = actualWildcards[1:]
 				}
 			}
+			// for inbound only generate a standalone listener when bindToPort=true
+			if bindtoPort && conflictWithStaticListener(lb.node, cc.bind, port.Port, port.Protocol) {
+				log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
+					port.TargetPort, lb.node.ID)
+				continue
+			}
+
 			// If there is a conflict, we will use the oldest Service. This impacts the protocol used as well.
 			if old, f := chainsByPort[port.TargetPort]; f {
 				reportInboundConflict(lb, old, cc)
@@ -525,7 +523,7 @@ func populateListenerFilters(node *model.Proxy, vi *listener.Listener, bindToPor
 	// Note: the HTTP inspector should be after TLS inspector.
 	// If TLS inspector sets transport protocol to tls, the http inspector
 	// won't inspect the packet.
-	if features.EnableProtocolSniffingForInbound && needsHTTP(inspectors) {
+	if needsHTTP(inspectors) {
 		lf = append(lf, buildHTTPInspector(inspectors))
 	}
 
@@ -703,12 +701,14 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 		mtlsOptions := lb.authnBuilder.ForPassthrough()
 		for _, mtls := range mtlsOptions {
 			cc := inboundChainConfig{
-				port: ServiceInstancePort{
-					Name: model.VirtualInboundListenerName,
-					// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
-					// but this is backwards compatible and there aren't any perfect options.
-					Port:       0,
-					Protocol:   protocol.Unsupported,
+				port: model.ServiceInstancePort{
+					ServicePort: &model.Port{
+						Name: model.VirtualInboundListenerName,
+						// Port as 0 doesn't completely make sense here, since we get weird tracing decorators like `:0/*`,
+						// but this is backwards compatible and there aren't any perfect options.
+						Port:     0,
+						Protocol: protocol.Unsupported,
+					},
 					TargetPort: mtls.Port,
 				},
 				clusterName: clusterName,
@@ -809,15 +809,12 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 	statPrefix := fcc.clusterName
 	// If stat name is configured, build the stat prefix from configured pattern.
 	if len(lb.push.Mesh.InboundClusterStatName) != 0 {
-		statPrefix = telemetry.BuildInboundStatPrefix(lb.push.Mesh.InboundClusterStatName, fcc.telemetryMetadata, "", fcc.port.Port, fcc.port.Name)
+		statPrefix = telemetry.BuildInboundStatPrefix(lb.push.Mesh.InboundClusterStatName, fcc.telemetryMetadata, "", uint32(fcc.port.Port), fcc.port.Name)
 	}
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: fcc.clusterName},
-	}
-	idleTimeout, err := time.ParseDuration(lb.node.Metadata.IdleTimeout)
-	if err == nil {
-		tcpProxy.IdleTimeout = durationpb.New(idleTimeout)
+		IdleTimeout:      parseDuration(lb.node.Metadata.IdleTimeout),
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound)
 

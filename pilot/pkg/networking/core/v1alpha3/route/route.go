@@ -119,7 +119,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+			if port.Protocol.IsHTTPOrSniffed() {
 				hash, destinationRule := hashForService(push, node, svc, port)
 				if hash != nil {
 					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
@@ -236,7 +236,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+			if port.Protocol.IsHTTPOrSniffed() {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}
@@ -527,78 +527,99 @@ func applyHTTPRouteDestination(
 
 	if in.Mirror != nil {
 		if mp := MirrorPercent(in); mp != nil {
-			action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
-				Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort),
-				RuntimeFraction: mp,
-				TraceSampled:    &wrappers.BoolValue{Value: false},
-			}}
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				TranslateRequestMirrorPolicy(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort, mp))
+		}
+	}
+	for _, mirror := range in.Mirrors {
+		if mp := MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				TranslateRequestMirrorPolicy(mirror.Destination, serviceRegistry[host.Name(mirror.Destination.Host)], listenerPort, mp))
 		}
 	}
 
-	// TODO: eliminate this logic and use the total_weight option in envoy route
-	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
-	for _, dst := range in.Route {
-		weight := &wrappers.UInt32Value{Value: uint32(dst.Weight)}
-		if dst.Weight == 0 {
-			// Ignore 0 weighted clusters if there are other clusters in the route.
-			// But if this is the only cluster in the route, then add it as a cluster with weight 100
-			if len(in.Route) == 1 {
-				weight.Value = uint32(100)
-			} else {
+	if len(in.Route) == 1 {
+		processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action)
+	} else {
+		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
+		for _, dst := range in.Route {
+			if dst.Weight == 0 {
+				// Ignore 0 weighted clusters if there are other clusters in the route.
 				continue
 			}
+			weighted = append(weighted, processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action))
 		}
-		hostname := host.Name(dst.GetDestination().GetHost())
-		n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort)
-		clusterWeight := &route.WeightedCluster_ClusterWeight{
-			Name:   n,
-			Weight: weight,
-		}
-		if dst.Headers != nil {
-			operations := TranslateHeadersOperations(dst.Headers)
-			clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
-			clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
-			clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
-			clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
-			if operations.Authority != "" {
-				clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
-					HostRewriteLiteral: operations.Authority,
-				}
-			}
-		}
-
-		weighted = append(weighted, clusterWeight)
-		hash := hashByDestination[dst]
-		hashPolicy := consistentHashToHashPolicy(hash)
-		if hashPolicy != nil {
-			action.HashPolicy = append(action.HashPolicy, hashPolicy)
-		}
-	}
-
-	// rewrite to a single cluster if there is only weighted cluster
-	if len(weighted) == 1 {
-		action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
-		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
-		out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, weighted[0].RequestHeadersToRemove...)
-		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
-		out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
-		if weighted[0].HostRewriteSpecifier != nil && action.HostRewriteSpecifier == nil {
-			// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
-			// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
-			// However, Envoy behavior is different when we set at both cluster level and route level, and we want
-			// behavior to be consistent with a single cluster and multiple clusters.
-			// As a result, we only override if the top level rewrite is not set
-			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
-				HostRewriteLiteral: weighted[0].GetHostRewriteLiteral(),
-			}
-		}
-	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
 				Clusters: weighted,
 			},
 		}
 	}
+}
+
+func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
+	listenerPort int,
+	hashByDestination DestinationHashMap,
+	out *route.Route,
+	action *route.RouteAction,
+) {
+	hostname := host.Name(dst.GetDestination().GetHost())
+	action.ClusterSpecifier = &route.RouteAction_Cluster{
+		Cluster: GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
+	}
+	if dst.Headers != nil {
+		operations := TranslateHeadersOperations(dst.Headers)
+		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, operations.RequestHeadersToAdd...)
+		out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, operations.RequestHeadersToRemove...)
+		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, operations.ResponseHeadersToAdd...)
+		out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, operations.ResponseHeadersToRemove...)
+		if operations.Authority != "" && action.HostRewriteSpecifier == nil {
+			// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
+			// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
+			// However, Envoy behavior is different when we set at both cluster level and route level, and we want
+			// behavior to be consistent with a single cluster and multiple clusters.
+			// As a result, we only override if the top level rewrite is not set
+			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+				HostRewriteLiteral: operations.Authority,
+			}
+		}
+	}
+	hash := hashByDestination[dst]
+	hashPolicy := consistentHashToHashPolicy(hash)
+	if hashPolicy != nil {
+		action.HashPolicy = append(action.HashPolicy, hashPolicy)
+	}
+}
+
+func processWeightedDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
+	listenerPort int,
+	hashByDestination DestinationHashMap,
+	action *route.RouteAction,
+) *route.WeightedCluster_ClusterWeight {
+	hostname := host.Name(dst.GetDestination().GetHost())
+	clusterWeight := &route.WeightedCluster_ClusterWeight{
+		Name:   GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
+		Weight: &wrappers.UInt32Value{Value: uint32(dst.Weight)},
+	}
+	if dst.Headers != nil {
+		operations := TranslateHeadersOperations(dst.Headers)
+		// If weighted destination has headers, we need to set them on the cluster weight.
+		clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
+		clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
+		clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
+		clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
+		if operations.Authority != "" {
+			clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
+				HostRewriteLiteral: operations.Authority,
+			}
+		}
+	}
+	hash := hashByDestination[dst]
+	hashPolicy := consistentHashToHashPolicy(hash)
+	if hashPolicy != nil {
+		action.HashPolicy = append(action.HashPolicy, hashPolicy)
+	}
+	return clusterWeight
 }
 
 func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, isTLS bool, useGatewaySemantics bool) {
@@ -736,6 +757,25 @@ func MirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
 		if in.MirrorPercent.GetValue() > 0 {
 			return &core.RuntimeFractionalPercent{
 				DefaultValue: translateIntegerToFractionalPercent((int32(in.MirrorPercent.GetValue()))),
+			}
+		}
+		// If zero percent is provided explicitly, we should not mirror.
+		return nil
+	default:
+		// Default to 100 percent if percent is not given.
+		return &core.RuntimeFractionalPercent{
+			DefaultValue: translateIntegerToFractionalPercent(100),
+		}
+	}
+}
+
+// MirrorPercentByPolicy computes the mirror percent to be used based on HTTPMirrorPolicy.
+func MirrorPercentByPolicy(mirror *networking.HTTPMirrorPolicy) *core.RuntimeFractionalPercent {
+	switch {
+	case mirror.Percentage != nil:
+		if mirror.Percentage.GetValue() > 0 {
+			return &core.RuntimeFractionalPercent{
+				DefaultValue: translatePercentToFractionalPercent(mirror.Percentage),
 			}
 		}
 		// If zero percent is provided explicitly, we should not mirror.
@@ -1066,7 +1106,7 @@ func GetRouteOperation(in *route.Route, vsName string, port int) string {
 
 	// If there is only one destination cluster in route, return host:port/uri as description of route.
 	// Otherwise there are multiple destination clusters and destination host is not clear. For that case
-	// return virtual serivce name:port/uri as substitute.
+	// return virtual service name:port/uri as substitute.
 	if c := in.GetRoute().GetCluster(); model.IsValidSubsetKey(c) {
 		// Parse host and port from cluster name.
 		_, _, h, p := model.ParseSubsetKey(c)
@@ -1212,6 +1252,16 @@ func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	}
 
 	return &out
+}
+
+func TranslateRequestMirrorPolicy(dst *networking.Destination, service *model.Service,
+	listenerPort int, mp *core.RuntimeFractionalPercent,
+) *route.RouteAction_RequestMirrorPolicy {
+	return &route.RouteAction_RequestMirrorPolicy{
+		Cluster:         GetDestinationCluster(dst, service, listenerPort),
+		RuntimeFraction: mp,
+		TraceSampled:    &wrappers.BoolValue{Value: false},
+	}
 }
 
 func portLevelSettingsConsistentHash(dst *networking.Destination,

@@ -74,7 +74,7 @@ func newInstance(ctx resource.Context, config echo.Config) (echo.Instance, error
 
 	grpcPort, found := config.Ports.ForProtocol(protocol.GRPC)
 	if !found {
-		return nil, errors.New("unable fo find GRPC command port")
+		return nil, errors.New("unable to find GRPC command port")
 	}
 	workloads, err := newWorkloads(config.StaticAddresses, grpcPort.WorkloadPort, config.TLSSettings, config.Cluster)
 	if err != nil {

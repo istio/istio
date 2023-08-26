@@ -110,6 +110,13 @@ spec:
                 description: SHA256 checksum that will be used to verify Wasm module
                   or OCI container.
                 type: string
+              type:
+                description: Specifies the type of Wasm Extension to be used.
+                enum:
+                - UNSPECIFIED_PLUGIN_TYPE
+                - HTTP
+                - NETWORK
+                type: string
               url:
                 description: URL of a Wasm module or OCI container.
                 type: string
@@ -3308,7 +3315,7 @@ spec:
                         behavior.
                       properties:
                         caCertificates:
-                          description: REQUIRED if mode is `MUTUAL`.
+                          description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -3345,6 +3352,7 @@ spec:
                           - MUTUAL
                           - AUTO_PASSTHROUGH
                           - ISTIO_MUTUAL
+                          - OPTIONAL_MUTUAL
                           type: string
                         privateKey:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -3424,7 +3432,7 @@ spec:
                         behavior.
                       properties:
                         caCertificates:
-                          description: REQUIRED if mode is `MUTUAL`.
+                          description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -3461,6 +3469,7 @@ spec:
                           - MUTUAL
                           - AUTO_PASSTHROUGH
                           - ISTIO_MUTUAL
+                          - OPTIONAL_MUTUAL
                           type: string
                         privateKey:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -3931,7 +3940,7 @@ spec:
                     tls:
                       properties:
                         caCertificates:
-                          description: REQUIRED if mode is `MUTUAL`.
+                          description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -3968,6 +3977,7 @@ spec:
                           - MUTUAL
                           - AUTO_PASSTHROUGH
                           - ISTIO_MUTUAL
+                          - OPTIONAL_MUTUAL
                           type: string
                         privateKey:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -4104,7 +4114,7 @@ spec:
                     tls:
                       properties:
                         caCertificates:
-                          description: REQUIRED if mode is `MUTUAL`.
+                          description: REQUIRED if mode is `MUTUAL` or `OPTIONAL_MUTUAL`.
                           type: string
                         cipherSuites:
                           description: 'Optional: If specified, only support the specified
@@ -4141,6 +4151,7 @@ spec:
                           - MUTUAL
                           - AUTO_PASSTHROUGH
                           - ISTIO_MUTUAL
+                          - OPTIONAL_MUTUAL
                           type: string
                         privateKey:
                           description: REQUIRED if mode is `SIMPLE` or `MUTUAL`.
@@ -4732,6 +4743,38 @@ spec:
                           format: double
                           type: number
                       type: object
+                    mirrors:
+                      items:
+                        properties:
+                          destination:
+                            description: Destination specifies the target of the mirror
+                              operation.
+                            properties:
+                              host:
+                                description: The name of a service from the service
+                                  registry.
+                                type: string
+                              port:
+                                description: Specifies the port on the host that is
+                                  being addressed.
+                                properties:
+                                  number:
+                                    type: integer
+                                type: object
+                              subset:
+                                description: The name of a subset within the service.
+                                type: string
+                            type: object
+                          percentage:
+                            description: Percentage of the traffic to be mirrored
+                              by the `destination` field.
+                            properties:
+                              value:
+                                format: double
+                                type: number
+                            type: object
+                        type: object
+                      type: array
                     name:
                       description: The name assigned to the route for debugging purposes.
                       type: string
@@ -5527,6 +5570,38 @@ spec:
                           format: double
                           type: number
                       type: object
+                    mirrors:
+                      items:
+                        properties:
+                          destination:
+                            description: Destination specifies the target of the mirror
+                              operation.
+                            properties:
+                              host:
+                                description: The name of a service from the service
+                                  registry.
+                                type: string
+                              port:
+                                description: Specifies the port on the host that is
+                                  being addressed.
+                                properties:
+                                  number:
+                                    type: integer
+                                type: object
+                              subset:
+                                description: The name of a subset within the service.
+                                type: string
+                            type: object
+                          percentage:
+                            description: Percentage of the traffic to be mirrored
+                              by the `destination` field.
+                            properties:
+                              value:
+                                format: double
+                                type: number
+                            type: object
+                        type: object
+                      type: array
                     name:
                       description: The name assigned to the route for debugging purposes.
                       type: string

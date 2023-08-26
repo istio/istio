@@ -15,12 +15,18 @@
 package object
 
 import (
+	"fmt"
+	"io"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestHash(t *testing.T) {
@@ -711,4 +717,126 @@ func TestK8sObject_ResolveK8sConflict(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseK8sObjectsFromYAMLManifestFailOption(t *testing.T) {
+	cases := []struct {
+		name        string
+		input       string
+		failOnError bool
+		expectErr   bool
+		expectCount int
+		expectOut   bool
+	}{
+		{
+			name:        "well formed yaml, no errors",
+			input:       "well-formed",
+			failOnError: false,
+			expectErr:   false,
+			expectCount: 2,
+		},
+		{
+			name:        "malformed yaml, fail on error",
+			input:       "malformed",
+			failOnError: true,
+			expectErr:   true,
+			expectCount: 0,
+		},
+		{
+			name:        "malformed yaml, continue on error",
+			input:       "malformed",
+			failOnError: false,
+			expectErr:   false,
+			expectCount: 1,
+		},
+		{
+			name:        "space in the end of the manifest",
+			input:       "well-formed-with-space",
+			expectCount: 1,
+			expectOut:   true,
+		},
+		{
+			name:        "some random comments",
+			input:       "well-formed-with-comments",
+			expectCount: 1,
+			expectOut:   true,
+		},
+		{
+			name:        "invalid k8s object - missing kind",
+			input:       "invalid",
+			failOnError: true,
+			expectErr:   true,
+			expectCount: 0,
+		},
+		{
+			name:        "invalid k8s object - missing kind - skip error",
+			input:       "invalid",
+			failOnError: false,
+			expectErr:   false,
+			expectCount: 0,
+		},
+		{
+			name:        "empty object - do not have errors",
+			input:       "empty",
+			failOnError: true,
+			expectErr:   false,
+			expectCount: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			inputFileName := fmt.Sprintf("testdata/%s.yaml", tc.input)
+			inputFile, err := os.Open(inputFileName)
+			if err != nil {
+				t.Errorf("error opening test data file: %v", err)
+			}
+			defer inputFile.Close()
+			manifest, err := io.ReadAll(inputFile)
+			if err != nil {
+				t.Errorf("error reading test data file: %v", err)
+			}
+			objects, err := ParseK8sObjectsFromYAMLManifestFailOption(string(manifest), tc.failOnError)
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tc.expectCount, len(objects))
+			if tc.expectOut {
+				outputFileName := fmt.Sprintf("testdata/%s.out.yaml", tc.input)
+				outputFile, err := os.Open(outputFileName)
+				if err != nil {
+					t.Errorf("error opening test data file: %v", err)
+				}
+				defer outputFile.Close()
+				expectedYAML, err := io.ReadAll(outputFile)
+				if err != nil {
+					t.Errorf("error reading test data file: %v", err)
+				}
+				expectedYAMLs := strings.Split(string(expectedYAML), "---")
+				if len(expectedYAMLs) != len(objects) {
+					t.Errorf("expected %d objects, got %d", len(expectedYAMLs), len(objects))
+				}
+				for i, obj := range objects {
+					assert.Equal(t, true, compareYAMLContent(string(obj.yaml), expectedYAMLs[i]))
+				}
+			}
+		})
+	}
+}
+
+// compareYAMLContent compares two yaml resources and returns true if they are equal. If they have same content but different
+// order of fields, it will return true as well.
+func compareYAMLContent(yaml1, yaml2 string) bool {
+	var obj1, obj2 interface{}
+	err := k8syaml.Unmarshal([]byte(yaml1), &obj1)
+	if err != nil {
+		return false
+	}
+	err = k8syaml.Unmarshal([]byte(yaml2), &obj2)
+	if err != nil {
+		return false
+	}
+	return reflect.DeepEqual(obj1, obj2)
 }

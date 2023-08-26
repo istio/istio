@@ -29,11 +29,15 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
+	"istio.io/istio/pkg/slices"
 )
+
+func TestConfigureTracingExhaustiveness(t *testing.T) {
+	model.AssertProvidersHandled(configureFromProviderConfigHandled)
+}
 
 func TestConfigureTracing(t *testing.T) {
 	clusterName := "testcluster"
@@ -52,7 +56,7 @@ func TestConfigureTracing(t *testing.T) {
 
 	testcases := []struct {
 		name            string
-		opts            buildListenerOpts
+		opts            gatewayListenerOpts
 		inSpec          *model.TracingConfig
 		want            *hcm.HttpConnectionManager_Tracing
 		wantRfCtx       *xdsfilters.RouterFilterContext
@@ -168,6 +172,14 @@ func TestConfigureTracing(t *testing.T) {
 			wantRfCtx:       &xdsfilters.RouterFilterContext{StartChildSpan: true},
 			wantReqIDExtCtx: &requestidextension.UUIDRequestIDExtensionContext{UseRequestIDForTraceSampling: false},
 		},
+		{
+			name:            "invalid provider",
+			inSpec:          fakeTracingSpec(fakePrometheus(), 99.999, false, true),
+			opts:            fakeOptsMeshAndTelemetryAPI(true /* enable tracing */),
+			want:            nil,
+			wantRfCtx:       nil,
+			wantReqIDExtCtx: nil,
+		},
 	}
 
 	for _, tc := range testcases {
@@ -188,7 +200,7 @@ func TestConfigureTracing(t *testing.T) {
 }
 
 func defaultTracingTags() []*tracing.CustomTag {
-	return append(buildOptionalPolicyTags(),
+	return append(slices.Clone(optionalPolicyTags),
 		&tracing.CustomTag{
 			Tag: "istio.canonical_revision",
 			Type: &tracing.CustomTag_Literal_{
@@ -223,8 +235,8 @@ func defaultTracingTags() []*tracing.CustomTag {
 		})
 }
 
-func fakeOptsNoTelemetryAPI() buildListenerOpts {
-	var opts buildListenerOpts
+func fakeOptsNoTelemetryAPI() gatewayListenerOpts {
+	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
 			EnableTracing: true,
@@ -253,8 +265,8 @@ func fakeOptsNoTelemetryAPI() buildListenerOpts {
 	return opts
 }
 
-func fakeOptsNoTelemetryAPIWithNilCustomTag() buildListenerOpts {
-	var opts buildListenerOpts
+func fakeOptsNoTelemetryAPIWithNilCustomTag() gatewayListenerOpts {
+	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
 			EnableTracing: true,
@@ -277,8 +289,8 @@ func fakeOptsNoTelemetryAPIWithNilCustomTag() buildListenerOpts {
 	return opts
 }
 
-func fakeOptsOnlyZipkinTelemetryAPI() buildListenerOpts {
-	var opts buildListenerOpts
+func fakeOptsOnlyZipkinTelemetryAPI() gatewayListenerOpts {
+	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
 			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
@@ -317,6 +329,13 @@ func fakeZipkin() *meshconfig.MeshConfig_ExtensionProvider {
 	}
 }
 
+func fakePrometheus() *meshconfig.MeshConfig_ExtensionProvider {
+	return &meshconfig.MeshConfig_ExtensionProvider{
+		Name:     "foo",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Prometheus{},
+	}
+}
+
 func fakeZipkinEnable64bitTraceID() *meshconfig.MeshConfig_ExtensionProvider {
 	return &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "foo",
@@ -344,8 +363,8 @@ func fakeDatadog() *meshconfig.MeshConfig_ExtensionProvider {
 	}
 }
 
-func fakeOptsOnlyDatadogTelemetryAPI() buildListenerOpts {
-	var opts buildListenerOpts
+func fakeOptsOnlyDatadogTelemetryAPI() gatewayListenerOpts {
+	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
 			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
@@ -374,8 +393,8 @@ func fakeOptsOnlyDatadogTelemetryAPI() buildListenerOpts {
 	return opts
 }
 
-func fakeOptsMeshAndTelemetryAPI(enableTracing bool) buildListenerOpts {
-	var opts buildListenerOpts
+func fakeOptsMeshAndTelemetryAPI(enableTracing bool) gatewayListenerOpts {
+	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
 			EnableTracing: enableTracing,
@@ -428,8 +447,8 @@ func fakeSkywalking() *meshconfig.MeshConfig_ExtensionProvider {
 	}
 }
 
-func fakeOptsOnlySkywalkingTelemetryAPI() buildListenerOpts {
-	var opts buildListenerOpts
+func fakeOptsOnlySkywalkingTelemetryAPI() gatewayListenerOpts {
+	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
 			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
@@ -454,9 +473,8 @@ func fakeOptsOnlySkywalkingTelemetryAPI() buildListenerOpts {
 	return opts
 }
 
-func fakeInboundOptsOnlySkywalkingTelemetryAPI() buildListenerOpts {
+func fakeInboundOptsOnlySkywalkingTelemetryAPI() gatewayListenerOpts {
 	opts := fakeOptsOnlySkywalkingTelemetryAPI()
-	opts.class = networking.ListenerClassSidecarInbound
 	return opts
 }
 

@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path"
@@ -66,7 +67,8 @@ type suiteContext struct {
 
 	dumpCount *atomic.Uint64
 
-	traces sync.Map
+	traceContext context.Context
+	traces       sync.Map
 }
 
 func newSuiteContext(s *resource.Settings, envFn resource.EnvironmentFactory, labels label.Set) (*suiteContext, error) {

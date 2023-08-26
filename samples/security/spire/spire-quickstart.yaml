@@ -338,7 +338,7 @@ spec:
               mountPath: /tmp/spire-server/private
               readOnly: false
         - name: spire-controller-manager
-          image: ghcr.io/spiffe/spire-controller-manager:nightly
+          image: ghcr.io/spiffe/spire-controller-manager:0.2.3
           imagePullPolicy: IfNotPresent
           args:
           - "--config=spire-controller-manager-config.yaml"

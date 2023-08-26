@@ -64,6 +64,17 @@ spec:
   - "other.bookinfo.com" # This ServiceEntry should not match any instance as it isn't exported to other namespaces
 ---
 apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: service-entry-exported
+  namespace: other
+spec:
+  exportTo:
+    - "default"
+  hosts:
+  - "abc.bookinfo.com" # This ServiceEntry matches a destination host in a virtualService in another namespace
+---
+apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
   name: reviews
@@ -341,3 +352,14 @@ spec:
     - route:
         - destination:
             host: hello.hello.svc.cluster.local
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: vs-to-extporto-serviceentry
+  namespace: default
+spec:
+  http:
+  - route:
+    - destination:  # This virtualservice has no validation errors
+        host: abc.bookinfo.com # Host defined in an SE in another namespace, but exported to this namespace

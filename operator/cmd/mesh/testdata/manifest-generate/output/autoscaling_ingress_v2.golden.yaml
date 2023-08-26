@@ -23,32 +23,34 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: istio-ingressgateway
+
 ---
 
 
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: istiod
-  namespace: istio-system
   labels:
     app: istiod
-    release: istio
-    istio.io/rev: default
     install.operator.istio.io/owning-resource: unknown
-    operator.istio.io/component: "Pilot"
+    istio.io/rev: default
+    operator.istio.io/component: Pilot
+    release: istio
+  name: istiod
+  namespace: istio-system
 spec:
   maxReplicas: 5
+  metrics:
+  - resource:
+      name: cpu
+      target:
+        averageUtilization: 90
+        type: Utilization
+    type: Resource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
     name: istiod
-  metrics:
-  - type: Resource
-    resource:
-      name: cpu
-      target:
-        type: Utilization
-        averageUtilization: 90
+
 ---

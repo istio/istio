@@ -75,7 +75,7 @@
       }
     },
     "replicaCount": {
-      "type": "integer"
+      "type": [ "integer", "null" ]
     },
     "resources": {
       "type": "object",
@@ -213,6 +213,21 @@
           "type": "string",
           "enum": ["", "IfHealthyBudget", "AlwaysAllow"]
         }
+      }
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "number"
+    },
+    "volumes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "volumeMounts": {
+      "type": "array",
+      "items": {
+        "type": "object"
       }
     }
   }

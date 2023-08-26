@@ -627,6 +627,145 @@ func TestAddSubsetToMetadata(t *testing.T) {
 	}
 }
 
+func TestAddALPNOverrideToMetadata(t *testing.T) {
+	alpnOverrideFalse := &core.Metadata{
+		FilterMetadata: map[string]*structpb.Struct{
+			IstioMetadataKey: {
+				Fields: map[string]*structpb.Value{
+					AlpnOverrideMetadataKey: {
+						Kind: &structpb.Value_StringValue{
+							StringValue: "false",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cases := []struct {
+		name    string
+		tlsMode networking.ClientTLSSettings_TLSmode
+		meta    *core.Metadata
+		want    *core.Metadata
+	}{
+		{
+			name:    "ISTIO_MUTUAL TLS",
+			tlsMode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+			meta:    nil,
+			want:    nil,
+		},
+		{
+			name:    "DISABLED TLS",
+			tlsMode: networking.ClientTLSSettings_DISABLE,
+			meta:    nil,
+			want:    nil,
+		},
+		{
+			name:    "SIMPLE TLS and nil metadata",
+			tlsMode: networking.ClientTLSSettings_SIMPLE,
+			meta:    nil,
+			want:    alpnOverrideFalse,
+		},
+		{
+			name:    "MUTUAL TLS and nil metadata",
+			tlsMode: networking.ClientTLSSettings_SIMPLE,
+			meta:    nil,
+			want:    alpnOverrideFalse,
+		},
+		{
+			name:    "SIMPLE TLS and empty metadata",
+			tlsMode: networking.ClientTLSSettings_SIMPLE,
+			meta: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{},
+			},
+			want: alpnOverrideFalse,
+		},
+		{
+			name:    "SIMPLE TLS and existing istio metadata",
+			tlsMode: networking.ClientTLSSettings_SIMPLE,
+			meta: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+							AlpnOverrideMetadataKey: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "false",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		{
+			name:    "SIMPLE TLS and existing non-istio metadata",
+			tlsMode: networking.ClientTLSSettings_SIMPLE,
+			meta: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					"other-metadata": {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: &core.Metadata{
+				FilterMetadata: map[string]*structpb.Struct{
+					"other-metadata": {
+						Fields: map[string]*structpb.Value{
+							"other-config": {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "other-config",
+								},
+							},
+						},
+					},
+					IstioMetadataKey: {
+						Fields: map[string]*structpb.Value{
+							AlpnOverrideMetadataKey: {
+								Kind: &structpb.Value_StringValue{
+									StringValue: "false",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	for _, v := range cases {
+		t.Run(v.name, func(tt *testing.T) {
+			got := AddALPNOverrideToMetadata(v.meta, v.tlsMode)
+			if diff := cmp.Diff(got, v.want, protocmp.Transform()); diff != "" {
+				tt.Errorf("AddALPNOverrideToMetadata produced incorrect result:\ngot: %v\nwant: %v\nDiff: %s", got, v.want, diff)
+			}
+		})
+	}
+}
+
 func TestIsHTTPFilterChain(t *testing.T) {
 	httpFilterChain := &listener.FilterChain{
 		Filters: []*listener.Filter{

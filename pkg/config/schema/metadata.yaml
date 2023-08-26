@@ -152,6 +152,14 @@ resources:
     proto: "k8s.io.api.networking.v1.IngressClassSpec"
     protoPackage: "k8s.io/api/networking/v1"
 
+  - kind: "Lease"
+    plural: "leases"
+    group: "coordination.k8s.io"
+    version: "v1"
+    builtin: true
+    proto: "k8s.io.api.coordination.v1.LeaseSpec"
+    protoPackage: "k8s.io/api/coordination/v1"
+
   - kind: "GatewayClass"
     plural: "gatewayclasses"
     group: "gateway.networking.k8s.io"

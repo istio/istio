@@ -12,6 +12,7 @@ import (
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
+	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
@@ -288,6 +289,21 @@ var (
 		Synthetic:     false,
 		Builtin:       false,
 		ValidateProto: validation.ValidateKubernetesGateway,
+	}.MustBuild()
+
+	Lease = resource.Builder{
+		Identifier:    "Lease",
+		Group:         "coordination.k8s.io",
+		Kind:          "Lease",
+		Plural:        "leases",
+		Version:       "v1",
+		Proto:         "k8s.io.api.coordination.v1.LeaseSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapicoordinationv1.LeaseSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/coordination/v1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	MeshConfig = resource.Builder{
@@ -689,6 +705,7 @@ var (
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
+		MustAdd(Lease).
 		MustAdd(MeshConfig).
 		MustAdd(MeshNetworks).
 		MustAdd(MutatingWebhookConfiguration).
@@ -729,6 +746,7 @@ var (
 		MustAdd(Ingress).
 		MustAdd(IngressClass).
 		MustAdd(KubernetesGateway).
+		MustAdd(Lease).
 		MustAdd(MutatingWebhookConfiguration).
 		MustAdd(Namespace).
 		MustAdd(Node).

@@ -55,9 +55,16 @@ import (
 var _ mesh.Holder = &Environment{}
 
 func NewEnvironment() *Environment {
+	var cache XdsCache
+	if features.EnableXDSCaching {
+		cache = NewXdsCache()
+	} else {
+		cache = DisabledCache{}
+	}
 	return &Environment{
 		pushContext:   NewPushContext(),
-		EndpointIndex: NewEndpointIndex(),
+		Cache:         cache,
+		EndpointIndex: NewEndpointIndex(cache),
 	}
 }
 
@@ -108,6 +115,9 @@ type Environment struct {
 	// EndpointShards for a service. This is a global (per-server) list, built from
 	// incremental updates. This is keyed by service and namespace
 	EndpointIndex *EndpointIndex
+
+	// Cache for XDS resources.
+	Cache XdsCache
 }
 
 func (e *Environment) Mesh() *meshconfig.MeshConfig {
@@ -327,8 +337,12 @@ type Proxy struct {
 	// The merged gateways associated with the proxy if this is a Router
 	MergedGateway *MergedGateway
 
-	// service instances associated with the proxy
-	ServiceInstances []*ServiceInstance
+	// ServiceTargets contains a list of all Services associated with the proxy, contextualized for this particular proxy.
+	// These are unique to this proxy, as the port information is specific to it - while a ServicePort is shared with the
+	// service, the target port may be distinct per-endpoint. So this maintains a view specific to this proxy.
+	// ServiceTargets will maintain a list entry for each Service-port, so if we have 2 services each with 3 ports, we
+	// would have 6 entries.
+	ServiceTargets []ServiceTarget
 
 	// Istio version associated with the Proxy
 	IstioVersion *IstioVersion
@@ -908,7 +922,7 @@ func (node *Proxy) SetSidecarScope(ps *PushContext) {
 // proxy and caches the merged object in the proxy Node. This is a convenience hack so that
 // callers can simply call push.MergedGateways(node) instead of having to
 // fetch all the gateways and invoke the merge call in multiple places (lds/rds).
-// Must be called after ServiceInstances are set
+// Must be called after ServiceTargets are set
 func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	if node.Type != Router {
 		return
@@ -916,8 +930,8 @@ func (node *Proxy) SetGatewaysForProxy(ps *PushContext) {
 	node.MergedGateway = ps.mergeGateways(node)
 }
 
-func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
-	instances := serviceDiscovery.GetProxyServiceInstances(node)
+func (node *Proxy) SetServiceTargets(serviceDiscovery ServiceDiscovery) {
+	instances := serviceDiscovery.GetProxyServiceTargets(node)
 
 	// Keep service instances in order of creation/hostname.
 	sort.SliceStable(instances, func(i, j int) bool {
@@ -931,7 +945,7 @@ func (node *Proxy) SetServiceInstances(serviceDiscovery ServiceDiscovery) {
 		return true
 	})
 
-	node.ServiceInstances = instances
+	node.ServiceTargets = instances
 }
 
 // SetWorkloadLabels will set the node.Labels.
@@ -1073,7 +1087,7 @@ func ParseIstioVersion(ver string) *IstioVersion {
 	}
 
 	parts := strings.Split(ver, ".")
-	// we are guaranteed to have atleast major and minor based on the regex
+	// we are guaranteed to have at least major and minor based on the regex
 	major, _ := strconv.Atoi(parts[0])
 	minor, _ := strconv.Atoi(parts[1])
 	// Assume very large patch release if not set
@@ -1199,8 +1213,15 @@ func (node *Proxy) IsUnprivileged() bool {
 
 // CanBindToPort returns true if the proxy can bind to a given port.
 func (node *Proxy) CanBindToPort(bindTo bool, port uint32) bool {
-	if bindTo && IsPrivilegedPort(port) && node.IsUnprivileged() {
-		return false
+	if bindTo {
+		if IsPrivilegedPort(port) && node.IsUnprivileged() {
+			return false
+		}
+		if node.Metadata != nil &&
+			(node.Metadata.EnvoyPrometheusPort == int(port) || node.Metadata.EnvoyStatusPort == int(port)) {
+			// can not bind to port that already bound by proxy static listener
+			return false
+		}
 	}
 	return true
 }
@@ -1214,7 +1235,7 @@ func IsPrivilegedPort(port uint32) bool {
 }
 
 func (node *Proxy) IsVM() bool {
-	// TODO use node metadata to indicate that this is a VM intstead of the TestVMLabel
+	// TODO use node metadata to indicate that this is a VM instead of the TestVMLabel
 	return node.Metadata.Labels[constants.TestVMLabel] != ""
 }
 
@@ -1230,6 +1251,34 @@ func (node *Proxy) GetNodeName() string {
 	// this can happen for an "old" proxy with no `Metadata.NodeName` set
 	// TODO: remove this when 1.16 is EOL?
 	return node.Labels[label.LabelHostname]
+}
+
+func (node *Proxy) GetClusterID() cluster.ID {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.ClusterID
+}
+
+func (node *Proxy) GetNamespace() string {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.Namespace
+}
+
+func (node *Proxy) GetIstioVersion() string {
+	if node == nil || node.Metadata == nil {
+		return ""
+	}
+	return node.Metadata.IstioVersion
+}
+
+func (node *Proxy) GetID() string {
+	if node == nil {
+		return ""
+	}
+	return node.ID
 }
 
 func (node *Proxy) FuzzValidate() bool {

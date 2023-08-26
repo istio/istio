@@ -475,7 +475,6 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, listenerHosts)
 	svces := ps.servicesExportedToNamespace(configNamespace)
 	out.services = out.selectServices(svces, configNamespace, listenerHosts)
-
 	return out
 }
 
@@ -605,7 +604,7 @@ func (sc *SidecarScope) DestinationRule(direction TrafficDirection, proxy *Proxy
 	return nil
 }
 
-// DestinationRule returns a destinationrule for a svc.
+// DestinationRuleConfig returns merged destination rules for a svc.
 func (sc *SidecarScope) DestinationRuleConfig(direction TrafficDirection, proxy *Proxy, svc host.Name) *config.Config {
 	cdr := sc.DestinationRule(direction, proxy, svc)
 	if cdr == nil {

@@ -31,6 +31,7 @@ import (
 
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/maps"
 )
 
 const (
@@ -239,10 +240,9 @@ base:
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 	}
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, config.Labels)
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, customLabels)
-	decodedWh.Annotations = mergeMaps(decodedWh.Annotations, config.Annotations)
-
+	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, config.Labels)
+	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, customLabels)
+	decodedWh.Annotations = maps.MergeCopy(decodedWh.Annotations, config.Annotations)
 	for i := range decodedWh.Webhooks {
 		if failurePolicy, ok := config.FailurePolicy[decodedWh.Webhooks[i].Name]; ok {
 			decodedWh.Webhooks[i].FailurePolicy = failurePolicy
@@ -255,20 +255,6 @@ base:
 	}
 
 	return whBuf.String(), nil
-}
-
-// mergeMaps merges maps into one. If both maps have the same key, the value from override will be used.
-func mergeMaps(base, override map[string]string) map[string]string {
-	if base == nil {
-		return override
-	}
-	if override == nil {
-		return base
-	}
-	for k, v := range override {
-		base[k] = v
-	}
-	return base
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
@@ -325,10 +311,9 @@ istiodRemote:
 	if opts.WebhookName != "" {
 		decodedWh.Name = opts.WebhookName
 	}
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, config.Labels)
-	decodedWh.Labels = mergeMaps(decodedWh.Labels, opts.CustomLabels)
-	decodedWh.Annotations = mergeMaps(decodedWh.Annotations, config.Annotations)
-
+	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, config.Labels)
+	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, opts.CustomLabels)
+	decodedWh.Annotations = maps.MergeCopy(decodedWh.Annotations, config.Annotations)
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
 		return "", err
@@ -416,7 +401,7 @@ func writeToTempFile(content string) (string, error) {
 	}
 	defer func() { _ = outFile.Close() }()
 
-	if _, err := outFile.Write([]byte(content)); err != nil {
+	if _, err := outFile.WriteString(content); err != nil {
 		return "", fmt.Errorf("failed writing manifest file: %w", err)
 	}
 	return outFile.Name(), nil

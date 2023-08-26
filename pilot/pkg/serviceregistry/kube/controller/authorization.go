@@ -38,8 +38,7 @@ import (
 )
 
 const (
-	convertedPeerAuthenticationPrefix = "converted_peer_authentication_" // use '_' character since those are illegal in k8s names
-	staticStrictPolicyName            = "istio_converted_static_strict"  // use '_' character since those are illegal in k8s names
+	staticStrictPolicyName = "istio_converted_static_strict" // use '_' character since those are illegal in k8s names
 )
 
 func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.Authorization {
@@ -64,10 +63,13 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 			Name:      cfg.Name,
 			Namespace: cfg.Namespace,
 		}
+
+		// All PeerAuthentications are synthetic, so we need to prepend our special prefix to the name
 		if k.Kind == kind.PeerAuthentication {
 			// PeerAuthentications are synthetic so prepend our special prefix
-			k.Name = fmt.Sprintf("%s%s", convertedPeerAuthenticationPrefix, k.Name)
+			k.Name = model.GetAmbientPolicyConfigName(k)
 		}
+
 		if len(requested) > 0 && !requested.Contains(k) {
 			continue
 		}
@@ -229,7 +231,11 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 			if foundPermissive {
 				// If we found a non-strict policy, we need to reference this workload policy to see the port level exceptions
-				effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+				effectivePortLevelPolicyKey = workloadCfg.Namespace + "/" + model.GetAmbientPolicyConfigName(model.ConfigKey{
+					Name:      workloadCfg.Name,
+					Kind:      kind.MustFromGVK(workloadCfg.GroupVersionKind),
+					Namespace: workloadCfg.Namespace,
+				})
 				isEffectiveStrictPolicy = false // don't send our static STRICT policy since the converted form of this policy will include the default STRICT mode
 			}
 		case v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE, v1beta1.PeerAuthentication_MutualTLS_DISABLE:
@@ -243,7 +249,11 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 			// There's a STRICT port mode, so we need to reference this policy in the workload
 			if foundStrict {
-				effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+				effectivePortLevelPolicyKey = workloadCfg.Namespace + "/" + model.GetAmbientPolicyConfigName(model.ConfigKey{
+					Name:      workloadCfg.Name,
+					Kind:      kind.MustFromGVK(workloadCfg.GroupVersionKind),
+					Namespace: workloadCfg.Namespace,
+				})
 			}
 		default: // Unset
 			if isEffectiveStrictPolicy {
@@ -258,7 +268,11 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 				if foundPermissive {
 					// If we found a non-strict policy, we need to reference this workload policy to see the port level exceptions
-					effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+					effectivePortLevelPolicyKey = workloadCfg.Namespace + "/" + model.GetAmbientPolicyConfigName(model.ConfigKey{
+						Name:      workloadCfg.Name,
+						Kind:      kind.MustFromGVK(workloadCfg.GroupVersionKind),
+						Namespace: workloadCfg.Namespace,
+					})
 				}
 			} else {
 				// Permissive mesh or namespace policy
@@ -273,7 +287,11 @@ func (c *Controller) convertedSelectorPeerAuthentications(ns string, lbls map[st
 
 				// There's a STRICT port mode, so we need to reference this policy in the workload
 				if foundStrict {
-					effectivePortLevelPolicyKey = fmt.Sprintf("%s/%s%s", workloadCfg.Namespace, convertedPeerAuthenticationPrefix, workloadCfg.Name)
+					effectivePortLevelPolicyKey = workloadCfg.Namespace + "/" + model.GetAmbientPolicyConfigName(model.ConfigKey{
+						Name:      workloadCfg.Name,
+						Kind:      kind.MustFromGVK(workloadCfg.GroupVersionKind),
+						Namespace: workloadCfg.Namespace,
+					})
 				}
 			}
 		}
@@ -407,29 +425,49 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 		}
 	}
 
-	updates := c.calculateUpdatedWorkloads(pods)
+	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, nil, c)
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			ConfigsUpdated: updates,
-			Reason:         []model.TriggerReason{model.AmbientUpdate},
+			Reason:         model.NewReasonStats(model.AmbientUpdate),
 		})
 	}
 }
 
-func (c *Controller) calculateUpdatedWorkloads(pods map[string]*v1.Pod) map[model.ConfigKey]struct{} {
+// CalculateUpdatedWorkloads returns the set of updated config keys for the given
+// pods and workload entries.
+//
+// NOTE: As an interface method of AmbientIndex, this locks the index.
+func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
+	workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, c *Controller,
+) map[model.ConfigKey]struct{} {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+
 	updates := map[model.ConfigKey]struct{}{}
 	for _, pod := range pods {
-		newWl := c.extractWorkload(pod)
+		newWl := a.extractWorkload(pod, c)
 		if newWl != nil {
 			// Update the pod, since it now has new VIP info
 			networkAddrs := networkAddressFromWorkload(newWl)
-			c.ambientIndex.mu.Lock()
 			for _, networkAddr := range networkAddrs {
-				c.ambientIndex.byPod[networkAddr] = newWl
+				a.byPod[networkAddr] = newWl
 			}
-			c.ambientIndex.byUID[c.generatePodUID(pod)] = newWl
-			c.ambientIndex.mu.Unlock()
+			a.byUID[c.generatePodUID(pod)] = newWl
+			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
+		}
+	}
+
+	for _, w := range workloadEntries {
+		newWl := a.extractWorkloadEntry(w, c)
+		if newWl != nil {
+			// Update the WorkloadEntry, since it now has new VIP info
+			networkAddrs := networkAddressFromWorkload(newWl)
+			for _, networkAddr := range networkAddrs {
+				a.byWorkloadEntry[networkAddr] = newWl
+			}
+			a.byUID[c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())] = newWl
 			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
 		}
 	}
@@ -473,8 +511,6 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 		}
 	}
 
-	updates := c.calculateUpdatedWorkloads(pods)
-
 	workloadEntries := map[networkAddress]*apiv1alpha3.WorkloadEntry{}
 	for _, w := range c.getWorkloadEntriesInPolicy(obj.Namespace, sel) {
 		network := c.Network(w.Spec.Address, w.Spec.Labels).String()
@@ -499,25 +535,12 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 		}
 	}
 
-	for _, w := range workloadEntries {
-		newWl := c.extractWorkloadEntry(w)
-		if newWl != nil {
-			// Update the WorkloadEntry, since it now has new VIP info
-			networkAddrs := networkAddressFromWorkload(newWl)
-			c.ambientIndex.mu.Lock()
-			for _, networkAddr := range networkAddrs {
-				c.ambientIndex.byWorkloadEntry[networkAddr] = newWl
-			}
-			c.ambientIndex.byUID[c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())] = newWl
-			c.ambientIndex.mu.Unlock()
-			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
-		}
-	}
+	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, c)
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 			ConfigsUpdated: updates,
-			Reason:         []model.TriggerReason{model.AmbientUpdate},
+			Reason:         model.NewReasonStats(model.AmbientUpdate),
 		})
 	}
 }
@@ -536,6 +559,7 @@ func (c *Controller) getPodsInPolicy(ns string, sel map[string]string, meshWideS
 // 2. The PeerAuthentication is NOT in the root namespace
 // 3. There is a portLevelMtls policy (technically implied by 1)
 // 4. If the top-level mode is PERMISSIVE or DISABLE, there is at least one portLevelMtls policy with mode STRICT
+//
 // STRICT policies that don't have portLevelMtls will be
 // handled when the Workload xDS resource is pushed (a static STRICT-equivalent policy will always be pushed)
 func convertPeerAuthentication(rootNamespace string, cfg config.Config) *security.Authorization {
@@ -660,7 +684,11 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 	}
 
 	opol := &security.Authorization{
-		Name:      convertedPeerAuthenticationPrefix + cfg.Name,
+		Name: model.GetAmbientPolicyConfigName(model.ConfigKey{
+			Name:      cfg.Name,
+			Kind:      kind.PeerAuthentication,
+			Namespace: cfg.Namespace,
+		}),
 		Namespace: cfg.Namespace,
 		Scope:     scope,
 		Action:    action,

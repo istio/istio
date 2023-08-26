@@ -158,7 +158,7 @@ func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options
 		return err
 	}
 
-	common.LogAndPrintf("\n\nFetching proxy logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
+	common.LogAndPrintf("\n\nFetching logs for the following containers:\n\n%s\n", strings.Join(paths, "\n"))
 
 	gatherInfo(runner, config, resources, paths)
 	if len(gErrors) != 0 {
@@ -312,6 +312,11 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
 	getFromCluster(content.GetDescribePods, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
 
+	common.LogAndPrintf("\nFetching CNI logs from cluster.\n\n")
+	for _, cniPod := range resources.CniPod {
+		getCniLogs(runner, config, resources, cniPod.Namespace, cniPod.Name, &mandatoryWg)
+	}
+
 	// optionalWg is subject to timer.
 	var optionalWg sync.WaitGroup
 	for _, p := range paths {
@@ -366,12 +371,13 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 // getFromCluster runs a cluster info fetching function f against the cluster and writes the results to fileName.
 // Runs if a goroutine, with errors reported through gErrors.
 func getFromCluster(f func(params *content.Params) (map[string]string, error), params *content.Params, dir string, wg *sync.WaitGroup) {
+	startTime := time.Now()
 	wg.Add(1)
 	log.Infof("Waiting on %s", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 	go func() {
 		defer func() {
 			wg.Done()
-			logRuntime(time.Now(), "Done getting from cluster for %v", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
+			logRuntime(startTime, "Done getting from cluster for %v", runtime.FuncForPC(reflect.ValueOf(f).Pointer()).Name())
 		}()
 
 		out, err := f(params)
@@ -389,12 +395,13 @@ func getFromCluster(f func(params *content.Params) (map[string]string, error), p
 func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
 	path, namespace, pod, container string, wg *sync.WaitGroup,
 ) {
+	startTime := time.Now()
 	wg.Add(1)
-	log.Infof("Waiting on logs %s", pod)
+	log.Infof("Waiting on proxy logs %v/%v/%v", namespace, pod, container)
 	go func() {
 		defer func() {
 			wg.Done()
-			logRuntime(time.Now(), "Done getting from proxy logs for %v/%v/%v", namespace, pod, container)
+			logRuntime(startTime, "Done getting from proxy logs for %v/%v/%v", namespace, pod, container)
 		}()
 
 		clog, cstat, imp, err := getLog(runner, resources, config, namespace, pod, container)
@@ -404,7 +411,7 @@ func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, res
 			logs[path], stats[path], importance[path] = clog, cstat, imp
 		}
 		lock.Unlock()
-		log.Infof("Done with logs %s", pod)
+		log.Infof("Done with proxy logs %v/%v/%v", namespace, pod, container)
 	}()
 }
 
@@ -413,18 +420,19 @@ func getProxyLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, res
 func getIstiodLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
+	startTime := time.Now()
 	wg.Add(1)
-	log.Infof("Waiting on logs %s", pod)
+	log.Infof("Waiting on Istiod logs for %v/%v", namespace, pod)
 	go func() {
 		defer func() {
 			wg.Done()
-			logRuntime(time.Now(), "Done getting Istiod logs for %v/%v", namespace, pod)
+			logRuntime(startTime, "Done getting Istiod logs for %v/%v", namespace, pod)
 		}()
 
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.DiscoveryContainerName)
 		appendGlobalErr(err)
 		writeFile(filepath.Join(archive.IstiodPath(tempDir, namespace, pod), "discovery.log"), clog, config.DryRun)
-		log.Infof("Done with logs %s", pod)
+		log.Infof("Done with Istiod logs for %v/%v", namespace, pod)
 	}()
 }
 
@@ -432,18 +440,40 @@ func getIstiodLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, re
 func getOperatorLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
 	namespace, pod string, wg *sync.WaitGroup,
 ) {
+	startTime := time.Now()
 	wg.Add(1)
-	log.Infof("Waiting on logs %s", pod)
+	log.Infof("Waiting on operator logs for %v/%v", namespace, pod)
 	go func() {
 		defer func() {
 			wg.Done()
-			logRuntime(time.Now(), "Done getting operator logs for %v/%v", namespace, pod)
+			logRuntime(startTime, "Done getting operator logs for %v/%v", namespace, pod)
 		}()
 
 		clog, _, _, err := getLog(runner, resources, config, namespace, pod, common.OperatorContainerName)
 		appendGlobalErr(err)
 		writeFile(filepath.Join(archive.OperatorPath(tempDir, namespace, pod), "operator.log"), clog, config.DryRun)
-		log.Infof("Done with logs %s", pod)
+		log.Infof("Done with operator logs for %v/%v", namespace, pod)
+	}()
+}
+
+// getCniLogs fetches Cni logs from istio-cni-node daemonsets inside namespace kube-system and writes the output
+// Runs if a goroutine, with errors reported through gErrors
+func getCniLogs(runner *kubectlcmd.Runner, config *config.BugReportConfig, resources *cluster2.Resources,
+	namespace, pod string, wg *sync.WaitGroup,
+) {
+	startTime := time.Now()
+	wg.Add(1)
+	log.Infof("Waiting on CNI logs for %v", pod)
+	go func() {
+		defer func() {
+			wg.Done()
+			logRuntime(startTime, "Done getting CNI logs for %v", pod)
+		}()
+
+		clog, _, _, err := getLog(runner, resources, config, namespace, pod, "")
+		appendGlobalErr(err)
+		writeFile(filepath.Join(archive.CniPath(tempDir, pod), "cni.log"), clog, config.DryRun)
+		log.Infof("Done with CNI logs %v", pod)
 	}()
 }
 
@@ -458,7 +488,7 @@ func getLog(runner *kubectlcmd.Runner, resources *cluster2.Resources, config *co
 	if err != nil {
 		return "", nil, 0, err
 	}
-	if resources.ContainerRestarts(namespace, pod, container) > 0 {
+	if resources.ContainerRestarts(namespace, pod, container, common.IsCniPod(pod)) > 0 {
 		pclog, err := runner.Logs(namespace, pod, container, true, config.DryRun)
 		if err != nil {
 			return "", nil, 0, err
@@ -544,6 +574,6 @@ func configLogs(opt *log.Options) error {
 	return log.Configure(&opt2)
 }
 
-func logRuntime(start time.Time, args ...any) {
-	log.WithLabels("runtime", time.Since(start)).Infof(args...)
+func logRuntime(start time.Time, format string, args ...any) {
+	log.WithLabels("runtime", time.Since(start)).Infof(format, args...)
 }

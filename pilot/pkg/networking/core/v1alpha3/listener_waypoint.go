@@ -110,7 +110,7 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 
 	// Filters needed to propagate the tunnel metadata to the inner streams.
 	h.HttpFilters = []*hcm.HttpFilter{
-		xdsfilters.ConnectBaggageFilter,
+		xdsfilters.WaypointDownstreamMetadataFilter,
 		xdsfilters.ConnectAuthorityFilter,
 		xdsfilters.Router,
 	}
@@ -177,11 +177,9 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 			portString := fmt.Sprintf("%d", port.Port)
 			cc := inboundChainConfig{
 				clusterName: model.BuildSubsetKey(model.TrafficDirectionInboundVIP, "tcp", svc.Hostname, port.Port),
-				port: ServiceInstancePort{
-					Name:       port.Name,
-					Port:       uint32(port.Port),
-					TargetPort: uint32(port.Port),
-					Protocol:   port.Protocol,
+				port: model.ServiceInstancePort{
+					ServicePort: port,
+					TargetPort:  uint32(port.Port),
 				},
 				bind:  "0.0.0.0",
 				hbone: true,
@@ -231,9 +229,11 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 		// Direct pod access chain.
 		cc := inboundChainConfig{
 			clusterName: EncapClusterName,
-			port: ServiceInstancePort{
-				Name:     "unknown",
-				Protocol: protocol.TCP,
+			port: model.ServiceInstancePort{
+				ServicePort: &model.Port{
+					Name:     "unknown",
+					Protocol: protocol.TCP,
+				},
 			},
 			bind:  "0.0.0.0",
 			hbone: true,
@@ -305,17 +305,11 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 }
 
 func buildWaypointConnectOriginateListener() *listener.Listener {
-	return buildConnectOriginateListener("")
+	return buildConnectOriginateListener()
 }
 
-func buildConnectOriginateListener(baggage string) *listener.Listener {
+func buildConnectOriginateListener() *listener.Listener {
 	var headers []*core.HeaderValueOption
-	if baggage != "" {
-		headers = append(headers, &core.HeaderValueOption{Header: &core.HeaderValue{
-			Key:   "baggage",
-			Value: baggage,
-		}})
-	}
 	l := &listener.Listener{
 		Name:              ConnectOriginate,
 		UseOriginalDst:    wrappers.Bool(false),
@@ -359,6 +353,7 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, po
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	post = extension.PopAppend(post, wasm, extensions.PluginPhase_STATS)
 	post = extension.PopAppend(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	post = append(post, xdsfilters.WaypointUpstreamMetadataFilter)
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls)...)
 	return
 }
@@ -409,7 +404,7 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	if svc == nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
-	vss := getConfigsForHost(svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
+	vss := getConfigsForHost(lb.node.ConfigNamespace, svc.Hostname, lb.node.SidecarScope.EgressListeners[0].VirtualServices())
 	if len(vss) == 0 {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
@@ -421,13 +416,13 @@ func buildWaypointInboundHTTPRouteConfig(lb *ListenerBuilder, svc *model.Service
 	// Typically we setup routes with the Host header match. However, for waypoint inbound we are actually using
 	// hostname purely to match to the Service VIP. So we only need a single VHost, with routes compute based on the VS.
 	// For destinations, we need to hit the inbound clusters if it is an internal destination, otherwise outbound.
-	routes, err := lb.waypointInboundRoute(vs, int(cc.port.Port))
+	routes, err := lb.waypointInboundRoute(vs, cc.port.Port)
 	if err != nil {
 		return buildSidecarInboundHTTPRouteConfig(lb, cc)
 	}
 
 	inboundVHost := &route.VirtualHost{
-		Name:    inboundVirtualHostPrefix + strconv.Itoa(int(cc.port.Port)), // Format: "inbound|http|%d"
+		Name:    inboundVirtualHostPrefix + strconv.Itoa(cc.port.Port), // Format: "inbound|http|%d"
 		Domains: []string{"*"},
 		Routes:  routes,
 	}
@@ -567,11 +562,14 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 
 	if in.Mirror != nil {
 		if mp := istio_route.MirrorPercent(in); mp != nil {
-			action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
-				Cluster:         lb.GetDestinationCluster(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort),
-				RuntimeFraction: mp,
-				TraceSampled:    &wrappers.BoolValue{Value: false},
-			}}
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				istio_route.TranslateRequestMirrorPolicy(in.Mirror, lb.serviceForHostname(host.Name(in.Mirror.Host)), listenerPort, mp))
+		}
+	}
+	for _, mirror := range in.Mirrors {
+		if mp := istio_route.MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				istio_route.TranslateRequestMirrorPolicy(mirror.Destination, lb.serviceForHostname(host.Name(mirror.Destination.Host)), listenerPort, mp))
 		}
 	}
 

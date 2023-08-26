@@ -241,6 +241,7 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 		added, err = checkAmbient(client, *ambientConf, podName, podNamespace, args.IfName, args.Netns, podIPs)
 		if err != nil {
 			log.Errorf("istio-cni cmdAdd failed to check ambient: %s", err)
+			return err
 		}
 
 		if added {
@@ -283,7 +284,7 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 	}
 
 	if pi.ProxyType != "" && pi.ProxyType != "sidecar" {
-		log.Infof("excluded because it has proxy type %v", podNamespace, podName, pi.ProxyType)
+		log.Infof("excluded %s/%s pod because it has proxy type %s", podNamespace, podName, pi.ProxyType)
 		return nil
 	}
 

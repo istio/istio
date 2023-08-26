@@ -27,6 +27,7 @@ var (
 	Ingress                        = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "Ingress"}
 	IngressClass                   = config.GroupVersionKind{Group: "networking.k8s.io", Version: "v1", Kind: "IngressClass"}
 	KubernetesGateway              = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1beta1", Kind: "Gateway"}
+	Lease                          = config.GroupVersionKind{Group: "coordination.k8s.io", Version: "v1", Kind: "Lease"}
 	MeshConfig                     = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshConfig"}
 	MeshNetworks                   = config.GroupVersionKind{Group: "", Version: "v1alpha1", Kind: "MeshNetworks"}
 	MutatingWebhookConfiguration   = config.GroupVersionKind{Group: "admissionregistration.k8s.io", Version: "v1", Kind: "MutatingWebhookConfiguration"}
@@ -88,6 +89,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.IngressClass, true
 	case KubernetesGateway:
 		return gvr.KubernetesGateway, true
+	case Lease:
+		return gvr.Lease, true
 	case MeshConfig:
 		return gvr.MeshConfig, true
 	case MeshNetworks:
@@ -186,6 +189,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return IngressClass, true
 	case gvr.KubernetesGateway:
 		return KubernetesGateway, true
+	case gvr.Lease:
+		return Lease, true
 	case gvr.MeshConfig:
 		return MeshConfig, true
 	case gvr.MeshNetworks:

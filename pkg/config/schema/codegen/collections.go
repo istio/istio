@@ -64,8 +64,6 @@ type colEntry struct {
 	IstioAwareClientImport string
 	// ClientGroupPath represents the group in the client. Example: NetworkingV1alpha3.
 	ClientGroupPath string
-	// InformerGroup represents the group in the client. Example: Networking().V1alpha3().
-	InformerGroup string
 	// ClientGetter returns the path to get the client from a kube.Client. Example: Istio.
 	ClientGetter string
 	// ClientTypePath returns the kind name. Basically upper cased "plural". Example: Gateways
@@ -105,7 +103,6 @@ func buildInputs() (inputs, error) {
 			StatusImport:           toImport(r.StatusProtoPackage),
 			IstioAwareClientImport: toIstioAwareImport(r.ProtoPackage),
 			ClientGroupPath:        toGroup(r.ProtoPackage),
-			InformerGroup:          toInformerGroup(r.ProtoPackage),
 			ClientGetter:           toGetter(r.ProtoPackage),
 			ClientTypePath:         toTypePath(r),
 			SpecType:               tname,
@@ -185,17 +182,6 @@ func toGroup(protoPackage string) string {
 	}
 	// rest have two levels of nesting
 	return strcase.UpperCamelCase(p[e-1]) + strcase.UpperCamelCase(p[e])
-}
-
-func toInformerGroup(protoPackage string) string {
-	p := strings.Split(protoPackage, "/")
-	e := len(p) - 1
-	if strings.Contains(protoPackage, "sigs.k8s.io/gateway-api") {
-		// Gateway has one level of nesting with custom name
-		return "Gateway()." + strcase.UpperCamelCase(p[e]) + "()"
-	}
-	// rest have two levels of nesting
-	return strcase.UpperCamelCase(p[e-1]) + "()." + strcase.UpperCamelCase(p[e]) + "()"
 }
 
 type packageImport struct {

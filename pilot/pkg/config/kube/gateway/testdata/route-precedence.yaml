@@ -36,9 +36,11 @@ spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
-  - kind: Service
+  - group: ""
+    kind: Service
     name: a-example
-  - kind: Service
+  - group: ""
+    kind: Service
     name: b-example
   hostnames: ["a.domain.example", "b.domain.example"]
   rules:
@@ -70,7 +72,8 @@ spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
-  - kind: Service
+  - group: ""
+    kind: Service
     name: a-example
   hostnames: ["a.domain.example"]
   rules:
@@ -105,6 +108,14 @@ spec:
         value: /
     backendRefs:
     - name: svc3
+      port: 80
+  - matches:
+    - method: PATCH
+      path:
+        type: PathPrefix
+        value: /
+    backendRefs:
+    - name: svc2
       port: 80
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2

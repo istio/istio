@@ -31,6 +31,8 @@ import (
 	"time"
 
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/mitchellh/copystructure"
 	"google.golang.org/protobuf/proto"
 
@@ -45,7 +47,6 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
@@ -124,6 +125,12 @@ func (s *Service) Key() string {
 	}
 
 	return s.Attributes.Namespace + "/" + string(s.Hostname)
+}
+
+var serviceCmpOpts = []cmp.Option{cmpopts.IgnoreFields(AddressMap{}, "mutex")}
+
+func (s *Service) CmpOpts() []cmp.Option {
+	return serviceCmpOpts
 }
 
 // Resolution indicates how the service instances need to be resolved before routing traffic.
@@ -272,6 +279,42 @@ type ServiceInstance struct {
 	Endpoint    *IstioEndpoint `json:"endpoint,omitempty"`
 }
 
+func (instance *ServiceInstance) CmpOpts() []cmp.Option {
+	res := []cmp.Option{}
+	res = append(res, istioEndpointCmpOpts...)
+	res = append(res, serviceCmpOpts...)
+	return res
+}
+
+// ServiceTarget includes a Service object, along with a specific service port
+// and target port. This is basically a smaller version of ServiceInstance,
+// intended to avoid the need to have the full object when only port information
+// is needed.
+type ServiceTarget struct {
+	Service *Service
+	Port    ServiceInstancePort
+}
+
+type (
+	ServicePort = *Port
+	// ServiceInstancePort defines a port that has both a port and targetPort (which distinguishes it from model.Port)
+	// Note: ServiceInstancePort only makes sense in the context of a specific ServiceInstance, because TargetPort depends on a specific instance.
+	ServiceInstancePort struct {
+		ServicePort
+		TargetPort uint32
+	}
+)
+
+func ServiceInstanceToTarget(e *ServiceInstance) ServiceTarget {
+	return ServiceTarget{
+		Service: e.Service,
+		Port: ServiceInstancePort{
+			ServicePort: e.ServicePort,
+			TargetPort:  e.Endpoint.EndpointPort,
+		},
+	}
+}
+
 // DeepCopy creates a copy of ServiceInstance.
 func (instance *ServiceInstance) DeepCopy() *ServiceInstance {
 	return &ServiceInstance{
@@ -316,6 +359,10 @@ type WorkloadInstance struct {
 	DNSServiceEntryOnly bool `json:"dnsServiceEntryOnly,omitempty"`
 }
 
+func (instance *WorkloadInstance) CmpOpts() []cmp.Option {
+	return istioEndpointCmpOpts
+}
+
 // DeepCopy creates a copy of WorkloadInstance.
 func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	pmap := map[string]uint32{}
@@ -331,8 +378,8 @@ func (instance *WorkloadInstance) DeepCopy() *WorkloadInstance {
 	}
 }
 
-// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need
-// i.e. excluding the ports. Returns true if equal, false otherwise.
+// WorkloadInstancesEqual is a custom comparison of workload instances based on the fields that we need.
+// Returns true if equal, false otherwise.
 func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint == nil || second.Endpoint == nil {
 		return first.Endpoint == second.Endpoint
@@ -367,28 +414,15 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Kind != second.Kind {
 		return false
 	}
-	if !portMapEquals(first.PortMap, second.PortMap) {
+	if !maps.Equal(first.PortMap, second.PortMap) {
 		return false
 	}
 	return true
 }
 
-func portMapEquals(a, b map[string]uint32) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for k, v := range a {
-		if b[k] != v {
-			return false
-		}
-	}
-	return true
-}
-
-// GetLocalityLabelOrDefault returns the locality from the supplied label, or falls back to
-// the supplied default locality if the supplied label is empty. Because Kubernetes
+// GetLocalityLabel returns the locality from the supplied label. Because Kubernetes
 // labels don't support `/`, we replace "." with "/" in the supplied label as a workaround.
-func GetLocalityLabelOrDefault(label, defaultLabel string) string {
+func GetLocalityLabel(label string) string {
 	if len(label) > 0 {
 		// if there are /'s present we don't need to replace
 		if strings.Contains(label, "/") {
@@ -397,7 +431,7 @@ func GetLocalityLabelOrDefault(label, defaultLabel string) string {
 		// replace "." with "/"
 		return strings.Replace(label, k8sSeparator, "/", -1)
 	}
-	return defaultLabel
+	return ""
 }
 
 // Locality information for an IstioEndpoint
@@ -493,15 +527,15 @@ type IstioEndpoint struct {
 
 	// precomputedEnvoyEndpoint is a cached LbEndpoint, converted from the data, to
 	// avoid recomputation
-	precomputedEnvoyEndpoint atomic.Pointer[*endpoint.LbEndpoint]
+	precomputedEnvoyEndpoint atomic.Pointer[endpoint.LbEndpoint]
 }
 
 func (ep *IstioEndpoint) EnvoyEndpoint() *endpoint.LbEndpoint {
-	return ptr.OrEmpty(ep.precomputedEnvoyEndpoint.Load())
+	return ep.precomputedEnvoyEndpoint.Load()
 }
 
 func (ep *IstioEndpoint) ComputeEnvoyEndpoint(now *endpoint.LbEndpoint) {
-	ep.precomputedEnvoyEndpoint.Store(&now)
+	ep.precomputedEnvoyEndpoint.Store(now)
 }
 
 func (ep *IstioEndpoint) SupportsTunnel(tunnelType string) bool {
@@ -551,6 +585,12 @@ func (ep *IstioEndpoint) Metadata() *EndpointMetadata {
 	}
 }
 
+var istioEndpointCmpOpts = []cmp.Option{cmpopts.IgnoreUnexported(IstioEndpoint{}), endpointDiscoverabilityPolicyImplCmpOpt, cmp.AllowUnexported()}
+
+func (ep *IstioEndpoint) CmpOpts() []cmp.Option {
+	return istioEndpointCmpOpts
+}
+
 // EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.
 type EndpointMetadata struct {
 	// Network holds the network where this endpoint is present
@@ -592,6 +632,14 @@ func (p *endpointDiscoverabilityPolicyImpl) IsDiscoverableFromProxy(ep *IstioEnd
 
 func (p *endpointDiscoverabilityPolicyImpl) String() string {
 	return p.name
+}
+
+var endpointDiscoverabilityPolicyImplCmpOpt = cmp.Comparer(func(x, y endpointDiscoverabilityPolicyImpl) bool {
+	return x.String() == y.String()
+})
+
+func (p *endpointDiscoverabilityPolicyImpl) CmpOpts() []cmp.Option {
+	return []cmp.Option{endpointDiscoverabilityPolicyImplCmpOpt}
 }
 
 // AlwaysDiscoverable is an EndpointDiscoverabilityPolicy that allows an endpoint to be discoverable throughout the mesh.
@@ -766,48 +814,24 @@ type ServiceDiscovery interface {
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname host.Name) *Service
 
-	// InstancesByPort retrieves instances for a service on the given ports with labels that match
-	// any of the supplied labels. All instances match an empty tag list.
-	//
-	// For example, consider an example of catalog.mystore.com:
-	// Instances(catalog.myservice.com, 80) ->
-	//      --> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> IstioEndpoint(172.16.0.3:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//      --> IstioEndpoint(172.16.0.4:8888), Service(catalog.myservice.com), Labels(kitty=cat)
-	//
-	// Calling Instances with specific labels returns a trimmed list.
-	// e.g., Instances(catalog.myservice.com, 80, foo=bar) ->
-	//      --> IstioEndpoint(172.16.0.1:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//      --> IstioEndpoint(172.16.0.2:8888), Service(catalog.myservice.com), Labels(foo=bar)
-	//
-	// Similar concepts apply for calling this function with a specific
-	// port, hostname and labels.
-	//
-	// Introduced in Istio 0.8. It is only called with 1 port.
-	// CDS (clusters.go) calls it for building 'dnslb' type clusters.
-	// EDS calls it for building the endpoints result.
-	// Consult istio-dev before using this for anything else (except debugging/tools)
-	InstancesByPort(svc *Service, servicePort int) []*ServiceInstance
-
-	// GetProxyServiceInstances returns the service instances that co-located with a given Proxy
+	// GetProxyServiceTargets returns the service instances that co-located with a given Proxy
 	//
 	// Co-located generally means running in the same network namespace and security context.
 	//
 	// A Proxy operating as a Sidecar will return a non-empty slice.  A stand-alone Proxy
 	// will return an empty slice.
 	//
-	// There are two reasons why this returns multiple ServiceInstances instead of one:
-	// - A ServiceInstance has a single IstioEndpoint which has a single Port.  But a Service
+	// There are two reasons why this returns multiple ServiceTargets instead of one:
+	// - A ServiceTargets has a single IstioEndpoint which has a single Port.  But a Service
 	//   may have many ports.  So a workload implementing such a Service would need
-	//   multiple ServiceInstances, one for each port.
+	//   multiple ServiceEndpoints, one for each port.
 	// - A single workload may implement multiple logical Services.
 	//
 	// In the second case, multiple services may be implemented by the same physical port number,
 	// though with a different ServicePort and IstioEndpoint for each.  If any of these overlapping
 	// services are not HTTP or H2-based, behavior is undefined, since the listener may not be able to
 	// determine the intended destination of a connection without a Host header on the request.
-	GetProxyServiceInstances(*Proxy) []*ServiceInstance
+	GetProxyServiceTargets(*Proxy) []ServiceTarget
 	GetProxyWorkloadLabels(*Proxy) labels.Instance
 
 	// MCSServices returns information about the services that have been exported/imported via the
@@ -1010,26 +1034,13 @@ func (p *Port) Equals(other *Port) bool {
 }
 
 func (ports PortList) Equals(other PortList) bool {
-	if len(ports) != len(other) {
-		return false
-	}
-	for _, p1 := range ports {
-		found := false
-		for _, p2 := range other {
-			if p1.Equals(p2) {
-				found = true
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	}
-	return true
+	return slices.EqualFunc(ports, other, func(a, b *Port) bool {
+		return a.Equals(b)
+	})
 }
 
 func (ports PortList) String() string {
-	var sp []string
+	sp := make([]string, 0, len(ports))
 	for _, p := range ports {
 		sp = append(sp, p.String())
 	}

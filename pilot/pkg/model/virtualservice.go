@@ -17,7 +17,6 @@ package model
 import (
 	"strings"
 
-	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -128,6 +128,11 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 		}
 		if d.Mirror != nil {
 			d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, meta))
+		}
+		for _, m := range d.Mirrors {
+			if m.Destination != nil {
+				m.Destination.Host = string(ResolveShortnameToFQDN(m.Destination.Host, meta))
+			}
 		}
 	}
 	// resolve host in tcp route.destination
@@ -244,8 +249,8 @@ func mergeVirtualServicesIfNeeded(
 				}
 				// DeepCopy to prevent mutate the original delegate, it can conflict
 				// when multiple routes delegate to one single VS.
-				copiedDelegate := delegateVS.DeepCopy()
-				vs := copiedDelegate.Spec.(*networking.VirtualService)
+				copiedDelegate := config.DeepCopy(delegateVS.Spec)
+				vs := copiedDelegate.(*networking.VirtualService)
 				merged := mergeHTTPRoutes(route, vs.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
 			} else {
@@ -322,6 +327,9 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	if delegate.CorsPolicy == nil {
 		delegate.CorsPolicy = root.CorsPolicy
 	}
+	if delegate.Mirrors == nil {
+		delegate.Mirrors = root.Mirrors
+	}
 	if delegate.Headers == nil {
 		delegate.Headers = root.Headers
 	}
@@ -362,7 +370,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {
-	out := proto.Clone(delegate).(*networking.HTTPMatchRequest)
+	out := delegate
 	if out.Name == "" {
 		out.Name = root.Name
 	} else if root.Name != "" {
@@ -381,50 +389,20 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.Authority = root.Authority
 	}
 	// headers
-	if len(root.Headers) > 0 || len(delegate.Headers) > 0 {
-		out.Headers = make(map[string]*networking.StringMatch)
-	}
-	for k, v := range root.Headers {
-		out.Headers[k] = v
-	}
-	for k, v := range delegate.Headers {
-		out.Headers[k] = v
-	}
+	out.Headers = maps.MergeCopy(root.Headers, delegate.Headers)
+
 	// withoutheaders
-	if len(root.WithoutHeaders) > 0 || len(delegate.WithoutHeaders) > 0 {
-		out.WithoutHeaders = make(map[string]*networking.StringMatch)
-	}
-	for k, v := range root.WithoutHeaders {
-		out.WithoutHeaders[k] = v
-	}
-	for k, v := range delegate.WithoutHeaders {
-		out.WithoutHeaders[k] = v
-	}
+	out.WithoutHeaders = maps.MergeCopy(root.WithoutHeaders, delegate.WithoutHeaders)
+
 	// queryparams
-	if len(root.QueryParams) > 0 || len(delegate.QueryParams) > 0 {
-		out.QueryParams = make(map[string]*networking.StringMatch)
-	}
-	for k, v := range root.QueryParams {
-		out.QueryParams[k] = v
-	}
-	for k, v := range delegate.QueryParams {
-		out.QueryParams[k] = v
-	}
+	out.QueryParams = maps.MergeCopy(root.QueryParams, delegate.QueryParams)
 
 	if out.Port == 0 {
 		out.Port = root.Port
 	}
 
 	// SourceLabels
-	if len(root.SourceLabels) > 0 || len(delegate.SourceLabels) > 0 {
-		out.SourceLabels = make(map[string]string)
-	}
-	for k, v := range root.SourceLabels {
-		out.SourceLabels[k] = v
-	}
-	for k, v := range delegate.SourceLabels {
-		out.SourceLabels[k] = v
-	}
+	out.SourceLabels = maps.MergeCopy(root.SourceLabels, delegate.SourceLabels)
 
 	if out.SourceNamespace == "" {
 		out.SourceNamespace = root.SourceNamespace
@@ -515,7 +493,7 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 			return true
 		}
 	}
-	// If delgate regex match is specified, root should not have other matches.
+	// If delegate regex match is specified, root should not have other matches.
 	if leaf.GetRegex() != "" {
 		if root.GetRegex() != "" || root.GetPrefix() != "" || root.GetExact() != "" {
 			return true

@@ -53,6 +53,20 @@ import (
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
+const originateTLSTmpl = `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "{{.VirtualServiceHost|replace "*" "wild"}}"
+  namespace: "{{.IngressNamespace}}"
+spec:
+  host: "{{.VirtualServiceHost}}"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+---
+`
+
 const httpVirtualServiceTmpl = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -137,7 +151,7 @@ spec:
       protocol: {{.GatewayProtocol}}
 {{- if .Credential }}
     tls:
-      mode: SIMPLE
+      mode: {{.TLSMode}}
       credentialName: {{.Credential}}
 {{- if .Ciphers }}
       cipherSuites:
@@ -159,8 +173,9 @@ func httpGateway(host string, port int, portName, protocol string, gatewayIstioL
 		GatewayProtocol   string
 		Credential        string
 		GatewayIstioLabel string
+		TLSMode           string
 	}{
-		host, port, portName, protocol, "", gatewayIstioLabel,
+		host, port, portName, protocol, "", gatewayIstioLabel, "SIMPLE",
 	})
 }
 
@@ -1150,7 +1165,7 @@ spec:
 func gatewayCases(t TrafficContext) {
 	// TODO fix for ambient
 	skipEnvoyPeerMeta := skipAmbient(t, "X-Envoy-Peer-Metadata present in response")
-	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string) map[string]any {
+	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string, port string) map[string]any {
 		hostName, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
 			hostName, portN, cred = dest.Config().ClusterLocalFQDN(), 443, "cred"
@@ -1163,9 +1178,10 @@ func gatewayCases(t TrafficContext) {
 			"GatewayProtocol":    string(protocol),
 			"Gateway":            "gateway",
 			"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-			"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
+			"Port":               dest.PortForName(port).ServicePort,
 			"Credential":         cred,
 			"Ciphers":            ciphers,
+			"TLSMode":            "SIMPLE",
 			"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 		}
 	}
@@ -1328,8 +1344,28 @@ spec:
 			// Test all cipher suites, including a fake one. Envoy should accept all of the ones on the "valid" list,
 			// and control plane should filter our invalid one.
 
-			params := templateParams(protocol.HTTPS, src, dests, append(sets.SortedList(security.ValidCipherSuites), "fake"))
+			params := templateParams(protocol.HTTPS, src, dests, append(sets.SortedList(security.ValidCipherSuites), "fake"), ports.HTTP.Name)
 			params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
+			return params
+		},
+		setupOpts: fqdnHostHeader,
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Protocol: protocol.HTTPS,
+			},
+		},
+		viaIngress:       true,
+		workloadAgnostic: true,
+	})
+	t.RunTraffic(TrafficTestCase{
+		name: "optional mTLS",
+		config: gatewayTmpl + httpVirtualServiceTmpl +
+			ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
+		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
+			params := templateParams(protocol.HTTPS, src, dests, nil, ports.HTTP.Name)
+			params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
+			params["TLSMode"] = "OPTIONAL_MUTUAL"
 			return params
 		},
 		setupOpts: fqdnHostHeader,
@@ -1706,7 +1742,7 @@ spec:
 			name:   string(proto),
 			config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 			templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
-				params := templateParams(proto, src, dests, nil)
+				params := templateParams(proto, src, dests, nil, ports.HTTP.Name)
 				params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
 				return params
 			},
@@ -1724,7 +1760,7 @@ spec:
 			name:   fmt.Sprintf("%s scheme match", proto),
 			config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 			templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
-				params := templateParams(proto, src, dests, nil)
+				params := templateParams(proto, src, dests, nil, ports.HTTP.Name)
 				params["MatchScheme"] = strings.ToLower(string(proto))
 				params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
 				return params
@@ -1745,64 +1781,24 @@ spec:
 			workloadAgnostic: true,
 		})
 	}
-}
-
-// 1. Creates a TCP Gateway and VirtualService listener
-// 2. Configures the echoserver to call itself via the TCP gateway using PROXY protocol https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
-// 3. Assumes that the proxy filter EnvoyFilter is not applied
-func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
-	var cases []TrafficTestCase
-	gatewayListenPort := 80
-	gatewayListenPortName := "tcp"
-
-	destinationSets := []echo.Instances{
-		apps.A,
-	}
-
-	for _, d := range destinationSets {
-		d := d
-		if len(d) == 0 {
-			continue
-		}
-
-		fqdn := d[0].Config().ClusterLocalFQDN()
-		cases = append(cases, TrafficTestCase{
-			name: d[0].Config().Service,
-			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
-			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP", "") + // use the default label since this test creates its own gateway
-				tcpVirtualService("gateway", fqdn, "", 80, ports.TCP.ServicePort),
-			call: apps.Naked[0].CallOrFail,
-			opts: echo.CallOptions{
-				Count:                1,
-				Port:                 echo.Port{ServicePort: 80},
-				Scheme:               scheme.TCP,
-				Address:              gateway,
-				ProxyProtocolVersion: 1,
-				// Envoy requires PROXY protocol TCP payloads have a minimum size, see:
-				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto
-				//
-				// If the PROXY protocol filter is enabled,
-				// Envoy will parse and consume the header out of the TCP payload, otherwise echo it back as-is)
-				//
-				// Note that Envoy's behavior is odd here and contradicts the PROXY protocol spec - it should _terminate the connection_ if it
-				// is configured to expect PROXY protocol headers and does not get them - instead, it ignores them for TCP traffic, as this test demonstrates.
-				Message: "This is a test TCP message",
-				Check: check.Each(
-					func(r echoClient.Response) error {
-						body := r.RawContent
-						// Tests run for both TCP4 and 6
-						ok := (strings.Contains(body, "PROXY TCP4") || strings.Contains(body, "PROXY TCP6"))
-						if !ok {
-							return fmt.Errorf("sent proxy protocol header, and it was not echoed back")
-						}
-						return nil
-					}),
-			},
+	secret := ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA)
+	t.RunTraffic(TrafficTestCase{
+		name:   "HTTPS re-encrypt",
+		config: gatewayTmpl + httpVirtualServiceTmpl + originateTLSTmpl + secret,
+		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
+			return templateParams(protocol.HTTPS, src, dests, nil, ports.HTTPS.Name)
 		},
-		)
-	}
-	return cases
+		setupOpts: fqdnHostHeader,
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Protocol: protocol.HTTPS,
+			},
+			Check: check.OK(),
+		},
+		viaIngress:       true,
+		workloadAgnostic: true,
+	})
 }
 
 // 1. Creates a TCP Gateway and VirtualService listener

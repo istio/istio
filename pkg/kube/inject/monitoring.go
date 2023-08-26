@@ -45,13 +45,3 @@ var (
 		[]float64{.1, 1, 3, 5, 10, 20, 30, 60},
 	)
 )
-
-func init() {
-	monitoring.MustRegister(
-		totalInjections,
-		totalSuccessfulInjections,
-		totalFailedInjections,
-		totalSkippedInjections,
-		injectionTime,
-	)
-}

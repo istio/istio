@@ -107,18 +107,27 @@ function maybe_build_ztunnel() {
 
   pushd "${BUILD_ZTUNNEL_REPO}"
   cargo build --profile="${BUILD_ZTUNNEL_PROFILE:-dev}"
-  echo "Copying $(pwd)/out/rust/debug/ztunnel to ${TARGET_OUT_LINUX}/ztunnel"
-  mkdir -p "${ISTIO_ZTUNNEL_LINUX_DEBUG_DIR}"
-  cp out/rust/debug/ztunnel "${TARGET_OUT_LINUX}/ztunnel"
+
+  local ZTUNNEL_BIN_PATH
+  if [[ "${BUILD_ZTUNNEL_PROFILE:-dev}" == "dev" ]]; then
+      ZTUNNEL_BIN_PATH=debug
+  else
+      ZTUNNEL_BIN_PATH="${BUILD_ZTUNNEL_PROFILE}"
+  fi
+  ZTUNNEL_BIN_PATH="out/rust/${ZTUNNEL_BIN_PATH}/ztunnel"
+
+  echo "Copying $(pwd)/${ZTUNNEL_BIN_PATH} to ${TARGET_OUT_LINUX}/ztunnel"
+  mkdir -p "${TARGET_OUT_LINUX}"
+  cp "${ZTUNNEL_BIN_PATH}" "${TARGET_OUT_LINUX}/ztunnel"
   popd
 }
 
-# ztunnel binary vars (TODO handle debug builds, centos, arm, darwin etc.)
+# ztunnel binary vars (TODO handle debug builds, arm, darwin etc.)
 ISTIO_ZTUNNEL_BASE_URL="${ISTIO_ZTUNNEL_BASE_URL:-https://storage.googleapis.com/istio-build/ztunnel}"
 
 # If we are not using the default, assume its private and we need to authenticate
 if [[ "${ISTIO_ZTUNNEL_BASE_URL}" != "https://storage.googleapis.com/istio-build/ztunnel" ]]; then
-  AUTH_HEADER="Authorization: Bearer $(shell gcloud auth print-access-token)"
+  AUTH_HEADER="Authorization: Bearer $(gcloud auth print-access-token)"
   export AUTH_HEADER
 fi
 

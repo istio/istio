@@ -34,7 +34,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes/fake"
 	k8stesting "k8s.io/client-go/testing"
-	"sigs.k8s.io/yaml"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
@@ -47,28 +46,25 @@ import (
 	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
-	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/keepalive"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
-	"istio.io/istio/tests/util"
 )
 
 type FakeOptions struct {
@@ -94,8 +90,6 @@ type FakeOptions struct {
 	MeshConfig      *meshconfig.MeshConfig
 	NetworksWatcher mesh.NetworksWatcher
 
-	// Callback to modify the server before it is started
-	DiscoveryServerModifier func(s *DiscoveryServer, m *memregistry.ServiceDiscovery)
 	// Callback to modify the kube client before it is started
 	KubeClientModifier func(c kubelib.Client)
 
@@ -133,8 +127,9 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(model.NewEnvironment(), "pilot-123", "", map[string]string{})
-	s.InitGenerators(s.Env, "istio-system", nil)
+	s := NewDiscoveryServer(model.NewEnvironment(), map[string]string{})
+	s.discoveryStartTime = time.Now()
+	s.InitGenerators(s.Env, "istio-system", "", nil)
 	t.Cleanup(func() {
 		s.JwtKeyResolver.Close()
 		s.pushQueue.ShutDown()
@@ -144,7 +139,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
-			Reason:         []model.TriggerReason{model.ServiceUpdate},
+			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		}
 		s.ConfigUpdate(pushReq)
 	}
@@ -160,7 +155,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		opts.NetworksWatcher.AddNetworksHandler(func() {
 			s.ConfigUpdate(&model.PushRequest{
 				Full:   true,
-				Reason: []model.TriggerReason{model.NetworksTrigger},
+				Reason: model.NewReasonStats(model.NetworksTrigger),
 			})
 		})
 	}
@@ -206,9 +201,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 			client.RunAndWait(stop)
 		}
 		registries = append(registries, k8s)
-		if err := creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop); err != nil {
-			t.Fatal(err)
-		}
+		creds.ClusterAdded(&multicluster.Cluster{ID: k8sCluster, Client: client}, stop)
 	}
 
 	stop := test.NewStop(t)
@@ -224,6 +217,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		ConfigTemplateInput: opts.ConfigTemplateInput,
 		ConfigController:    configController,
 		MeshConfig:          m,
+		XDSUpdater:          xdsUpdater,
 		NetworksWatcher:     opts.NetworksWatcher,
 		ServiceRegistries:   registries,
 		ConfigStoreCaches:   []model.ConfigStoreController{ingr},
@@ -241,7 +235,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		Services:  opts.Services,
 		Gateways:  opts.Gateways,
 	})
-	cg.ServiceEntryRegistry.AppendServiceHandler(serviceHandler)
+	cg.Registry.AppendServiceHandler(serviceHandler)
 	s.Env = cg.Env()
 	s.Env.GatewayAPIController = gwc
 	if err := s.Env.InitNetworksManager(s); err != nil {
@@ -259,7 +253,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		pushReq := &model.PushRequest{
 			Full:           true,
 			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.MustFromGVK(curr.GroupVersionKind), Name: curr.Name, Namespace: curr.Namespace}),
-			Reason:         []model.TriggerReason{model.ConfigUpdate},
+			Reason:         model.NewReasonStats(model.ConfigUpdate),
 		}
 		s.ConfigUpdate(pushReq)
 	}
@@ -288,10 +282,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		k8s.AppendWorkloadHandler(cg.ServiceEntryRegistry.WorkloadInstanceHandler)
 	}
 	s.WorkloadEntryController = autoregistration.NewController(cg.Store(), "test", keepalive.Infinity)
-
-	if opts.DiscoveryServerModifier != nil {
-		opts.DiscoveryServerModifier(s, memRegistry)
-	}
 
 	var listener net.Listener
 	if opts.ListenerBuilder != nil {
@@ -329,8 +319,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	// Send an update. This ensures that even if there are no configs provided, the push context is
 	// initialized.
 	s.ConfigUpdate(&model.PushRequest{Full: true})
-
-	processStartTime = time.Now()
 
 	// Wait until initial updates are committed
 	c := s.InboundUpdates.Load()
@@ -456,7 +444,8 @@ func (f *FakeDiscoveryServer) Connect(p *model.Proxy, watch []string, wait []str
 func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadAssignment {
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 	for _, c := range xdstest.ExtractEdsClusterNames(f.Clusters(p)) {
-		loadAssignments = append(loadAssignments, f.Discovery.generateEndpoints(NewEndpointBuilder(c, p, f.PushContext())))
+		builder := endpoints.NewEndpointBuilder(c, p, f.PushContext())
+		loadAssignments = append(loadAssignments, builder.BuildClusterLoadAssignment(f.Discovery.Env.EndpointIndex))
 	}
 	return loadAssignments
 }
@@ -469,73 +458,6 @@ func (f *FakeDiscoveryServer) EnsureSynced(t test.Failer) {
 	retry.UntilOrFail(t, func() bool {
 		return f.Discovery.CommittedUpdates.Load() >= c
 	}, retry.Delay(time.Millisecond))
-}
-
-// AssertEndpointConsistency compares endpointShards - which are incrementally updated - with
-// InstancesByPort, which rebuilds the same state from the ground up. This ensures the two are kept in sync;
-// out of sync fields typically are bugs.
-func (f *FakeDiscoveryServer) AssertEndpointConsistency() error {
-	f.t.Helper()
-	mock := &DiscoveryServer{
-		Env:   &model.Environment{EndpointIndex: model.NewEndpointIndex()},
-		Cache: model.DisabledCache{},
-	}
-	ag := f.Discovery.Env.ServiceDiscovery.(*aggregate.Controller)
-
-	for _, svc := range f.Discovery.Env.Services() {
-		for _, reg := range ag.GetRegistries() {
-			endpoints := make([]*model.IstioEndpoint, 0)
-			for _, port := range svc.Ports {
-				if port.Protocol == protocol.UDP {
-					continue
-				}
-
-				// This loses track of grouping (shards)
-				for _, inst := range reg.InstancesByPort(svc, port.Port) {
-					endpoints = append(endpoints, inst.Endpoint)
-				}
-			}
-
-			mock.EDSCacheUpdate(model.ShardKeyFromRegistry(reg), string(svc.Hostname), svc.Attributes.Namespace, endpoints)
-		}
-	}
-
-	// Normalize result for compare
-	sort := func(a, b *model.IstioEndpoint) bool {
-		if a.Address == b.Address {
-			return a.EndpointPort > b.EndpointPort
-		}
-		return a.Address > b.Address
-	}
-	haveShardz := f.Discovery.Env.EndpointIndex.Shardz()
-	for svc, ns := range haveShardz {
-		for _, shard := range ns {
-			// As an optimization, we will keep empty services around to avoid 0->1->0 scaling
-			if len(shard.Shards) == 0 {
-				delete(haveShardz, svc)
-			}
-			for _, s := range shard.Shards {
-				slices.SortFunc(s, sort)
-			}
-		}
-	}
-	wantShardz := mock.Env.EndpointIndex.Shardz()
-	for _, ns := range wantShardz {
-		for _, shard := range ns {
-			for _, s := range shard.Shards {
-				slices.SortFunc(s, sort)
-			}
-		}
-	}
-	have, _ := yaml.Marshal(haveShardz)
-	want, _ := yaml.Marshal(wantShardz)
-	if err := util.Compare(have, want); err != nil {
-		f.t.Logf("Endpoint Shards: %v", string(have))
-		f.t.Logf("Instances By Port: %v", string(want))
-		return err
-	}
-
-	return nil
 }
 
 func getKubernetesObjects(t test.Failer, opts FakeOptions) map[cluster.ID][]runtime.Object {

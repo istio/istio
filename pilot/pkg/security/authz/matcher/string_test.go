@@ -119,3 +119,126 @@ func TestStringMatcherRegex(t *testing.T) {
 		})
 	}
 }
+
+func TestStringMatcherPrefix(t *testing.T) {
+	testCases := []struct {
+		name       string
+		str        string
+		ignoreCase bool
+		want       *matcher.StringMatcher
+	}{
+		{
+			name:       "prefix1",
+			str:        "foo",
+			ignoreCase: true,
+			want: &matcher.StringMatcher{
+				IgnoreCase: true,
+				MatchPattern: &matcher.StringMatcher_Prefix{
+					Prefix: "foo",
+				},
+			},
+		},
+		{
+			name:       "prefix2",
+			str:        "bar",
+			ignoreCase: false,
+			want: &matcher.StringMatcher{
+				IgnoreCase: false,
+				MatchPattern: &matcher.StringMatcher_Prefix{
+					Prefix: "bar",
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := StringMatcherPrefix(tc.str, tc.ignoreCase)
+			if !cmp.Equal(got, tc.want, protocmp.Transform()) {
+				t.Errorf("want %v but got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestStringMatcherSuffix(t *testing.T) {
+	testCases := []struct {
+		name       string
+		str        string
+		ignoreCase bool
+		want       *matcher.StringMatcher
+	}{
+		{
+			name:       "suffix1",
+			str:        "foo",
+			ignoreCase: true,
+			want: &matcher.StringMatcher{
+				IgnoreCase: true,
+				MatchPattern: &matcher.StringMatcher_Suffix{
+					Suffix: "foo",
+				},
+			},
+		},
+		{
+			name:       "suffix2",
+			str:        "bar",
+			ignoreCase: false,
+			want: &matcher.StringMatcher{
+				IgnoreCase: false,
+				MatchPattern: &matcher.StringMatcher_Suffix{
+					Suffix: "bar",
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := StringMatcherSuffix(tc.str, tc.ignoreCase)
+			if !cmp.Equal(got, tc.want, protocmp.Transform()) {
+				t.Errorf("want %v but got %v", tc.want, got)
+			}
+		})
+	}
+}
+
+func TestStringMatcherExact(t *testing.T) {
+	testCases := []struct {
+		name       string
+		str        string
+		ignoreCase bool
+		want       *matcher.StringMatcher
+	}{
+		{
+			name:       "exact1",
+			str:        "foo",
+			ignoreCase: true,
+			want: &matcher.StringMatcher{
+				IgnoreCase: true,
+				MatchPattern: &matcher.StringMatcher_Exact{
+					Exact: "foo",
+				},
+			},
+		},
+		{
+			name:       "exact2",
+			str:        "bar",
+			ignoreCase: false,
+			want: &matcher.StringMatcher{
+				IgnoreCase: false,
+				MatchPattern: &matcher.StringMatcher_Exact{
+					Exact: "bar",
+				},
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := StringMatcherExact(tc.str, tc.ignoreCase)
+			if !cmp.Equal(got, tc.want, protocmp.Transform()) {
+				t.Errorf("want %v but got %v", tc.want, got)
+			}
+		})
+	}
+}

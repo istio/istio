@@ -273,6 +273,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy1",
 						clusterID:      "cluster1",
+						version:        "1.20",
 						cdsSyncStatus:  status.ConfigStatus_STALE,
 						ldsSyncStatus:  status.ConfigStatus_SYNCED,
 						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
@@ -284,6 +285,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy2",
 						clusterID:      "cluster2",
+						version:        "1.19",
 						cdsSyncStatus:  status.ConfigStatus_STALE,
 						ldsSyncStatus:  status.ConfigStatus_SYNCED,
 						rdsSyncStatus:  status.ConfigStatus_SYNCED,
@@ -295,6 +297,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy3",
 						clusterID:      "cluster3",
+						version:        "1.20",
 						cdsSyncStatus:  status.ConfigStatus_NOT_SENT,
 						ldsSyncStatus:  status.ConfigStatus_ERROR,
 						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
@@ -306,6 +309,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy4",
 						clusterID:      "cluster4",
+						version:        "1.20",
 						cdsSyncStatus:  status.ConfigStatus_UNKNOWN,
 						ldsSyncStatus:  status.ConfigStatus_UNKNOWN,
 						rdsSyncStatus:  status.ConfigStatus_UNKNOWN,
@@ -323,6 +327,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy1",
 						clusterID:      "cluster1",
+						version:        "1.20",
 						cdsSyncStatus:  status.ConfigStatus_STALE,
 						ldsSyncStatus:  status.ConfigStatus_SYNCED,
 						rdsSyncStatus:  status.ConfigStatus_NOT_SENT,
@@ -332,6 +337,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 					{
 						proxyID:        "proxy2",
 						clusterID:      "cluster2",
+						version:        "1.20",
 						cdsSyncStatus:  status.ConfigStatus_STALE,
 						ldsSyncStatus:  status.ConfigStatus_SYNCED,
 						rdsSyncStatus:  status.ConfigStatus_SYNCED,
@@ -371,6 +377,7 @@ const clientConfigType = "type.googleapis.com/envoy.service.status.v3.ClientConf
 type clientConfigInput struct {
 	proxyID   string
 	clusterID string
+	version   string
 
 	cdsSyncStatus  status.ConfigStatus
 	ldsSyncStatus  status.ConfigStatus
@@ -381,7 +388,8 @@ type clientConfigInput struct {
 
 func newXdsClientConfig(config clientConfigInput) *status.ClientConfig {
 	meta := model.NodeMetadata{
-		ClusterID: cluster.ID(config.clusterID),
+		ClusterID:    cluster.ID(config.clusterID),
+		IstioVersion: config.version,
 	}
 	return &status.ClientConfig{
 		Node: &core.Node{

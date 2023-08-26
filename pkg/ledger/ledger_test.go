@@ -136,7 +136,7 @@ func BenchmarkScale(b *testing.B) {
 	b.SetBytes(8)
 	l := &smtLedger{tree: newSMT(HashCollider, nil, time.Minute)}
 	var eg errgroup.Group
-	ids := make([]string, configSize)
+	ids := make([]string, 0, configSize)
 	for i := 0; i < configSize; i++ {
 		ids = append(ids, addConfig(l, b))
 	}

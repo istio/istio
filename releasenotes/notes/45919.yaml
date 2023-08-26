@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** support for namespace filtering for proxy statuses. Note: please ensure that both istioctl and istiod are upgraded for this feature to work.

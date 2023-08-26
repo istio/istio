@@ -15,6 +15,7 @@
 package framework
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -30,12 +31,15 @@ import (
 	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/tracing"
 )
 
 // TestContext is a test-level context that can be created as part of test executing tests.
 type TestContext interface {
 	resource.Context
 	test.Failer
+
+	Context() context.Context
 
 	// NewSubTest creates a new sub-test under the current running Test. The lifecycle of a sub-Test is scoped to the
 	// parent. Calls to Done() will block until all children are also Done(). When Run, sub-Tests will automatically
@@ -151,6 +155,10 @@ func (c *testContext) Settings() *resource.Settings {
 	return c.suite.settings
 }
 
+func (c *testContext) Context() context.Context {
+	return c.test.tc
+}
+
 func (c *testContext) TrackResource(r resource.Resource) resource.ID {
 	id := c.suite.allocateResourceID(c.id, r)
 	rid := &resourceID{id: id}
@@ -248,7 +256,11 @@ func (c *testContext) NewSubTest(name string) Test {
 		panic(fmt.Sprintf("Attempting to create subtest %s before running parent", name))
 	}
 
+	tc, span := tracing.Start(c.test.tc, name)
+
 	return &testImpl{
+		tc:            tc,
+		ts:            span,
 		name:          name,
 		parent:        c.test,
 		s:             c.test.s,

@@ -147,46 +147,40 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 
 func TestCommonHttpProtocolOptions(t *testing.T) {
 	cases := []struct {
-		clusterName               string
-		useDownStreamProtocol     bool
-		sniffingEnabledForInbound bool
-		proxyType                 model.NodeType
-		clusters                  int
+		clusterName           string
+		useDownStreamProtocol bool
+		proxyType             model.NodeType
+		clusters              int
 	}{
 		{
-			clusterName:               "outbound|8080||*.example.org",
-			useDownStreamProtocol:     false,
-			sniffingEnabledForInbound: false,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "outbound|8080||*.example.org",
+			useDownStreamProtocol: false,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "inbound|10001||",
-			useDownStreamProtocol:     false,
-			sniffingEnabledForInbound: false,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "inbound|10001||",
+			useDownStreamProtocol: false,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "outbound|9090||*.example.org",
-			useDownStreamProtocol:     true,
-			sniffingEnabledForInbound: false,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "outbound|9090||*.example.org",
+			useDownStreamProtocol: true,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "inbound|10002||",
-			useDownStreamProtocol:     true,
-			sniffingEnabledForInbound: true,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "inbound|10002||",
+			useDownStreamProtocol: true,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "outbound|8080||*.example.org",
-			useDownStreamProtocol:     true,
-			sniffingEnabledForInbound: true,
-			proxyType:                 model.Router,
-			clusters:                  3,
+			clusterName:           "outbound|8080||*.example.org",
+			useDownStreamProtocol: true,
+			proxyType:             model.Router,
+			clusters:              3,
 		},
 	}
 	settings := &networking.ConnectionPoolSettings{
@@ -196,10 +190,8 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		},
 	}
 
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 	for _, tc := range cases {
-		test.SetForTest(t, &features.EnableProtocolSniffingForInbound, tc.sniffingEnabledForInbound)
-		test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
-
 		settingsName := "default"
 		if settings != nil {
 			settingsName = "override"
@@ -304,8 +296,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10001,
+				Address:         "6.6.6.6",
+				ServicePortName: servicePort[0].Name,
+				EndpointPort:    10001,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region1/zone1/subzone1",
@@ -318,8 +311,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10001,
+				Address:         "6.6.6.6",
+				ServicePortName: servicePort[0].Name,
+				EndpointPort:    10001,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region1/zone1/subzone2",
@@ -332,8 +326,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10001,
+				Address:         "6.6.6.6",
+				ServicePortName: servicePort[0].Name,
+				EndpointPort:    10001,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region2/zone1/subzone1",
@@ -346,8 +341,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[1],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10002,
+				ServicePortName: servicePort[1].Name,
+				Address:         "6.6.6.6",
+				EndpointPort:    10002,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region1/zone1/subzone1",
@@ -1411,18 +1407,12 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 		Resolution: model.ClientSideLB,
 	}
 
-	instances := []*model.ServiceInstance{
+	instances := []model.ServiceTarget{
 		{
-			Service:     service,
-			ServicePort: servicePort,
-			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.1",
-				EndpointPort: 7443,
-				Locality: model.Locality{
-					ClusterID: "",
-					Label:     "region1/zone1/subzone1",
-				},
-				LbWeight: 30,
+			Service: service,
+			Port: model.ServiceInstancePort{
+				ServicePort: servicePort,
+				TargetPort:  7443,
 			},
 		},
 	}
@@ -1436,14 +1426,11 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 			Protocol: "GRPC",
 		},
 	}
-	instance := findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
-	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
+	svc := findOrCreateService(instances, ingress, "sidecar", "sidecarns")
+	if svc == nil || svc.Hostname.Matches("sidecar.sidecarns") {
 		t.Fatal("Expected to return a valid instance, but got nil/default instance")
 	}
-	if instance == instances[0] {
-		t.Fatal("Expected to return a copy of instance, but got the same instance")
-	}
-	if !reflect.DeepEqual(instance, instances[0]) {
+	if !reflect.DeepEqual(svc, service) {
 		t.Fatal("Expected returned copy of instance to be equal, but they are different")
 	}
 }
@@ -2111,7 +2098,7 @@ func TestTelemetryMetadata(t *testing.T) {
 		name      string
 		direction model.TrafficDirection
 		cluster   *cluster.Cluster
-		svcInsts  []*model.ServiceInstance
+		svcInsts  []model.ServiceTarget
 		service   *model.Service
 		want      *core.Metadata
 	}{
@@ -2119,7 +2106,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "no cluster",
 			direction: model.TrafficDirectionInbound,
 			cluster:   nil,
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2136,7 +2123,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound no service",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts:  []*model.ServiceInstance{},
+			svcInsts:  []model.ServiceTarget{},
 			want:      nil,
 		},
 		{
@@ -2153,7 +2140,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2162,8 +2149,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 			},
@@ -2226,7 +2215,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2235,8 +2224,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 			},
@@ -2285,7 +2276,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound multiple services",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2294,8 +2285,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 				{
@@ -2306,8 +2299,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "b.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 			},
@@ -2388,7 +2383,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2397,8 +2392,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 			},
@@ -2497,7 +2494,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound duplicated metadata",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2506,8 +2503,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 				{
@@ -2518,8 +2517,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 			},
@@ -2568,11 +2569,10 @@ func TestTelemetryMetadata(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			opt := buildClusterOpts{
-				mutable:          NewMutableCluster(tt.cluster),
-				port:             &model.Port{Port: 80},
-				serviceInstances: tt.svcInsts,
+				mutable: newClusterWrapper(tt.cluster),
+				port:    &model.Port{Port: 80},
 			}
-			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
+			addTelemetryMetadata(tt.cluster, opt.port, tt.service, tt.direction, tt.svcInsts)
 			if opt.mutable.cluster != nil && !reflect.DeepEqual(opt.mutable.cluster.Metadata, tt.want) {
 				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.mutable.cluster.Metadata)
 			}

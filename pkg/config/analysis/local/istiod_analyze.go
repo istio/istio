@@ -47,6 +47,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -132,7 +133,7 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 
 	sa.analyzer.Analyze(ctx)
 
-	// TODO(hzxuzhonghu): we donot need set here
+	// TODO(hzxuzhonghu): we do not need set here
 	namespaces := sets.New[resource.Namespace]()
 	if sa.namespace != "" {
 		namespaces.Insert(sa.namespace)
@@ -276,6 +277,14 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 	sa.AddRunningKubeSourceWithRevision(c, "default")
 }
 
+func isIstioConfigMap(obj any) bool {
+	cObj, ok := obj.(controllers.Object)
+	if !ok {
+		return false
+	}
+	return strings.HasPrefix(cObj.GetName(), "istio")
+}
+
 func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string) {
 	// This makes the assumption we don't care about Helm secrets or SA token secrets - two common
 	// large secrets in clusters.
@@ -285,9 +294,22 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
 
 	// TODO: are either of these string constants intended to vary?
-	// This gets us only istio/ ones
-	store, err := crdclient.NewForSchemas(c, crdclient.Option{
+	// We gets Istio CRD resources with a specific revision.
+	store := crdclient.NewForSchemas(c, crdclient.Option{
 		Revision:     revision,
+		DomainSuffix: "cluster.local",
+		Identifier:   "analysis-controller",
+		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
+			gvk.ConfigMap: {
+				Namespace:    sa.istioNamespace.String(),
+				ObjectFilter: isIstioConfigMap,
+			},
+		},
+	}, sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...))
+	sa.stores = append(sa.stores, store)
+
+	// We gets service discovery resources without a specific revision.
+	store = crdclient.NewForSchemas(c, crdclient.Option{
 		DomainSuffix: "cluster.local",
 		Identifier:   "analysis-controller",
 		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
@@ -295,14 +317,10 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 				FieldSelector: secretFieldSelector,
 			},
 		},
-	}, sa.kubeResources)
-	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
-	if err != nil {
-		scope.Analysis.Errorf("error adding kube crdclient: %v", err)
-		return
-	}
+	}, sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas()))
 	sa.stores = append(sa.stores, store)
 
+	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
 	sa.clientsToRun = append(sa.clientsToRun, c)
 
 	// Since we're using a running k8s source, try to get meshconfig and meshnetworks from the configmap.

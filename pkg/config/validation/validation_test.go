@@ -36,10 +36,8 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	api "istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -1474,6 +1472,36 @@ func TestValidateTlsOptions(t *testing.T) {
 			"client CA bundle", "",
 		},
 		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"server certificate", "",
+		},
+		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"private key", "",
+		},
+		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"client CA bundle", "",
+		},
+		{
 			"pass through sds no certs",
 			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_PASSTHROUGH,
@@ -2403,248 +2431,6 @@ func TestValidateHTTPDirectResponse(t *testing.T) {
 	}
 }
 
-func TestValidateDestinationWithInheritance(t *testing.T) {
-	test.SetForTest(t, &features.EnableDestinationRuleInheritance, true)
-	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
-	}{
-		{name: "simple destination rule", in: &networking.DestinationRule{
-			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
-			},
-		}, valid: true},
-		{name: "simple global destination rule", in: &networking.DestinationRule{
-			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings without protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with POST protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "POST",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings without protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "reviews-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "reviews-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "CONNECT",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings with POST protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "example-com-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "POST",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with IPv4 target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "192.168.1.2",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with IPv6 target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "2001:db8:1234::",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "masque",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "subset tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "example-com-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "masque",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: false},
-		{name: "global rule with subsets", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
-			},
-		}, valid: false},
-		{name: "global rule with exportTo", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			ExportTo: []string{"ns1", "ns2"},
-		}, valid: false},
-		{name: "empty host with workloadSelector", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			WorkloadSelector: &api.WorkloadSelector{
-				MatchLabels: map[string]string{"app": "app1"},
-			},
-		}, valid: false},
-		{name: "global rule with portLevelSettings", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
-					{
-						Port: &networking.PortSelector{Number: 8000},
-						OutlierDetection: &networking.OutlierDetection{
-							MinHealthPercent: 20,
-						},
-					},
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings for wildcard target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "*.example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings for with invalid port", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-					TargetPort: 0,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings without required target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings without required target port", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-				},
-			},
-		}, valid: false},
-	}
-	for _, c := range cases {
-		if _, got := ValidateDestinationRule(config.Config{
-			Meta: config.Meta{
-				Name:      someName,
-				Namespace: someNamespace,
-			},
-			Spec: c.in,
-		}); (got == nil) != c.valid {
-			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
 func TestValidateDestination(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -2997,6 +2783,59 @@ func TestValidateHTTPRoute(t *testing.T) {
 				Destination: &networking.Destination{Host: "foo.bar"},
 			}},
 			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "mirrors without destination", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: nil,
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "mirrors invalid mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 101},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "mirrors valid mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 1},
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 50},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: true},
+		{name: "mirrors negative mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: -1},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "conflicting mirror and mirrors", route: &networking.HTTPRoute{
+			Mirror: &networking.Destination{Host: "foo.baz"},
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
 		}, valid: false},
 	}
 
@@ -3758,23 +3597,225 @@ func TestValidateDestinationRule(t *testing.T) {
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CaCertificates:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CaCertificates:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_SIMPLE,
+					CredentialName: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_SIMPLE,
+					CaCertificates: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the san is specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is not specified with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode mutual, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_MUTUAL,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode mutual, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_MUTUAL,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_MUTUAL,
+					CredentialName: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is not specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the san is specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
 	}
 	for _, c := range cases {
-		warn, got := ValidateDestinationRule(config.Config{
-			Meta: config.Meta{
-				Name:      someName,
-				Namespace: someNamespace,
-			},
-			Spec: c.in,
+		t.Run(c.name, func(t *testing.T) {
+			warn, got := ValidateDestinationRule(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: c.in,
+			})
+			if (got == nil) != c.valid {
+				t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
+					c.name, got == nil, c.valid, got)
+			}
+			if (warn == nil) == c.warning {
+				t.Errorf("ValidateDestinationRule failed on %v: got warn=%v but wanted warn=%v: %v",
+					c.name, warn == nil, c.warning, warn)
+			}
 		})
-		if (got == nil) != c.valid {
-			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
-		}
-		if (warn == nil) == c.warning {
-			t.Errorf("ValidateDestinationRule failed on %v: got warn=%v but wanted warn=%v: %v",
-				c.name, warn == nil, c.warning, warn)
-		}
 	}
 }
 

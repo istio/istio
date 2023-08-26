@@ -27,6 +27,8 @@ spec:
         sidecar.istio.io/inject: "false"
 {{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
     spec:
+      nodeSelector:
+        kubernetes.io/os: linux
       serviceAccountName: ztunnel
       tolerations:
         - effect: NoSchedule
@@ -73,6 +75,14 @@ spec:
         - proxy
         - ztunnel
         env:
+        - name: CA_ADDRESS
+        {{- if .Values.caAddress }}
+          value: {{ .Values.caAddress }}
+        {{- else }}
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
+        {{- end }}
+        - name: XDS_ADDRESS
+          value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
         - name: CLUSTER_ID
           value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         - name: POD_NAME
@@ -112,6 +122,9 @@ spec:
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        {{- with .Values.volumeMounts }}
+          {{- toYaml . | nindent 8 }}
+        {{- end }}
       terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
       volumes:
       - name: istio-token
@@ -124,3 +137,6 @@ spec:
       - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
+      {{- with .Values.volumes }}
+        {{- toYaml . | nindent 6}}
+      {{- end }}

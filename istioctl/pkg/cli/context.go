@@ -16,6 +16,7 @@ package cli
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -128,11 +129,18 @@ type fakeInstance struct {
 	clients   map[string]kube.CLIClient
 	rootFlags *RootFlags
 	results   map[string][]byte
+	objects   []runtime.Object
+	version   string
 }
 
 func (f *fakeInstance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 	if _, ok := f.clients[rev]; !ok {
-		cliclient := kube.NewFakeClient()
+		var cliclient kube.CLIClient
+		if f.version != "" {
+			cliclient = kube.NewFakeClientWithVersion(f.version, f.objects...)
+		} else {
+			cliclient = kube.NewFakeClient(f.objects...)
+		}
 		if rev != "" {
 			kube.SetRevisionForTest(cliclient, rev)
 		}
@@ -192,6 +200,10 @@ type NewFakeContextOption struct {
 	Namespace      string
 	IstioNamespace string
 	Results        map[string][]byte
+	// Objects are the objects to be applied to the fake client
+	Objects []runtime.Object
+	// Version is the version of the fake client
+	Version string
 }
 
 func NewFakeContext(opts *NewFakeContextOption) Context {
@@ -210,5 +222,7 @@ func NewFakeContext(opts *NewFakeContextOption) Context {
 			defaultNamespace: "",
 		},
 		results: opts.Results,
+		objects: opts.Objects,
+		version: opts.Version,
 	}
 }
