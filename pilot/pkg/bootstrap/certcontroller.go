@@ -132,24 +132,32 @@ func (s *Server) initDNSCerts() error {
 			}
 		}
 		// check if signing key file exists the cert dir and if the istio-generated file exists
-		if !detectedSigningCABundle || (detectedSigningCABundle && istioGenerated) {
-			if !detectedSigningCABundle {
-				log.Infof("No plugged-in cert at %v; self-signed cert is used", fileBundle.SigningKeyFile)
-			} else {
-				// TODO(jaellio): Modify to read secret data from file.
-				log.Infof("Found cert at %v, but is istio-generated; self-signed cert is used", fileBundle.SigningKeyFile)
-			}
-
+		if !detectedSigningCABundle {
 			caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
-			s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
-				go func() {
-					// regenerate istiod key cert when root cert changes.
-					s.watchRootCertAndGenKeyCert(stop)
-				}()
-				return nil
-			})
+			// check if there is a ca cert file watch. If no files were detected but there
+			// is a file watch then the cacerts secret hasn't been mounted yet. The file
+			// watch is responsible for generating a new key when the root is modified.
+			// If there is no file watch then an istio-ca-secret secret was created and
+			// will never be mounted.
+			if s.cacertsWatcher == nil {
+				log.Infof("No cert at %v; self-signed cert is used", fileBundle.SigningKeyFile)
+				s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
+					go func() {
+						// regenerate istiod key cert when root cert changes.
+						s.watchRootCertAndGenKeyCert(stop)
+					}()
+					return nil
+				})
+			} else {
+				log.Infof("Cert not found at %v; self-signed, istio generated cert is stored "+
+					"in cacerts secret. cacerts secret not yet mounted.", fileBundle.SigningKeyFile)
+			}
 		} else {
-			log.Infof("Use plugged-in cert at %v", fileBundle.SigningKeyFile)
+			if istioGenerated {
+				log.Infof("Found cert at %v, but is istio-generated; self-signed cert is used", fileBundle.SigningKeyFile)
+			} else {
+				log.Infof("Use plugged-in cert at %v", fileBundle.SigningKeyFile)
+			}
 
 			caBundle, err = os.ReadFile(fileBundle.RootCertFile)
 			if err != nil {

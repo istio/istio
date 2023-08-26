@@ -304,6 +304,7 @@ func handleEvent(s *Server) {
 
 	var newCABundle []byte
 	var err error
+	var istioGenerated bool
 
 	currentCABundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 
@@ -314,13 +315,17 @@ func handleEvent(s *Server) {
 	}
 	newCABundle, err = os.ReadFile(fileBundle.RootCertFile)
 
+	if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
+		istioGenerated = true
+	}
+
 	if err != nil {
 		log.Errorf("failed reading root-cert.pem: %v", err)
 		return
 	}
 
-	// Only updating intermediate CA is supported now
-	if !bytes.Equal(currentCABundle, newCABundle) {
+	// Only updating intermediate CA is supported now for pluggin certs
+	if !bytes.Equal(currentCABundle, newCABundle) && !istioGenerated {
 		log.Info("Updating new ROOT-CA not supported")
 		return
 	}
