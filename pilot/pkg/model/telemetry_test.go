@@ -15,7 +15,6 @@
 package model
 
 import (
-	"istio.io/istio/pkg/ptr"
 	"strings"
 	"testing"
 	"time"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
