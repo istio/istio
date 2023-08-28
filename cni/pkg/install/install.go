@@ -17,9 +17,11 @@ package install
 import (
 	"context"
 	"fmt"
+	"math/rand"
 	"os"
 	"path/filepath"
 	"sync/atomic"
+	"time"
 
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
@@ -120,37 +122,29 @@ func (in *Installer) Cleanup() error {
 	installLog.Info("Cleaning up.")
 	if len(in.cniConfigFilepath) > 0 && file.Exists(in.cniConfigFilepath) {
 		if in.cfg.ChainedCNIPlugin {
-			installLog.Infof("Removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
-
-			// Read JSON from CNI config file
-			cniConfigMap, err := util.ReadCNIConfigMap(in.cniConfigFilepath)
-			if err != nil {
-				return err
-			}
-			// Find Istio CNI and remove from plugin list
-			plugins, err := util.GetPlugins(cniConfigMap)
-			if err != nil {
-				return fmt.Errorf("%s: %w", in.cniConfigFilepath, err)
-			}
-			for i, rawPlugin := range plugins {
-				plugin, err := util.GetPlugin(rawPlugin)
-				if err != nil {
-					return fmt.Errorf("%s: %w", in.cniConfigFilepath, err)
+			// For chained mode, other processes are potentially watching/writing
+			// the shared node config during install/uninstall/whatever.
+			//
+			// This can lead to contentions during uninstall in the worst case,
+			// so if removal fails, retry a few times before giving up.
+			//
+			// tryRemoveChainedConfig will only return nil on a successful write.
+			// nolint: gosec
+			r := rand.Intn(10)
+			for i := 0; i < 3; i++ {
+				if err := in.tryRemoveChainedConfig(); err != nil {
+					installLog.Warnf("Detected contention removing Istio CNI config from shared node CNI file: %s, error was %s, retrying...",
+						in.cniConfigFilepath, err)
+					time.Sleep((time.Duration(r+10) * time.Millisecond))
+					continue
 				}
-				if plugin["type"] == "istio-cni" {
-					cniConfigMap["plugins"] = append(plugins[:i], plugins[i+1:]...)
-					break
-				}
-			}
-
-			cniConfig, err := util.MarshalCNIConfig(cniConfigMap)
-			if err != nil {
-				return err
-			}
-			if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
-				return err
+				installLog.Infof("Successfully removed Istio CNI config from shared node CNI file: %s",
+					in.cniConfigFilepath)
+				break
 			}
 		} else {
+			// in non-chained mode (multus, et al) we follow a systemd style where every plugin
+			// has their own file, so there should be no contention, we are the sole owner.
 			installLog.Infof("Removing Istio CNI config file: %s", in.cniConfigFilepath)
 			if err := os.Remove(in.cniConfigFilepath); err != nil {
 				return err
@@ -173,6 +167,64 @@ func (in *Installer) Cleanup() error {
 			}
 		}
 	}
+	return nil
+}
+
+// tryRemoveChainedConfig reads the current shared CNI plugin config,
+// removes the Istio plugin entry, then writes the file back out.
+//
+// If the file changes between the time when we read it and attempt to write it back out,
+// then we do not write and return an error instead - retries should be performed in this case.
+//
+// This is required because in chained mode, multiple node agents with their own plugins may be
+// watching/writing/contending over the same file we are.
+func (in *Installer) tryRemoveChainedConfig() error {
+	installLog.Infof("Removing Istio CNI config from CNI config file: %s", in.cniConfigFilepath)
+	// Corner case handling - we read the file into memory, excise our config, and overwrite the result
+	// back out to the file. 99% of the time this is fine - but if we are chained with another node agent
+	// doing something similar, the other node agent can read/excise/write the file in between the
+	// time when we read it in and write it back out - in that case we end up writing invalid node config.
+	//
+	// So, do a simple check to make sure the file hasn't changed since we initially read it. If it has, discard and retry.
+	cniConfigInitial, err := os.Stat(in.cniConfigFilepath)
+	if err != nil {
+		return err
+	}
+	// Read JSON from CNI config file
+	cniConfigMap, err := util.ReadCNIConfigMap(in.cniConfigFilepath)
+	if err != nil {
+		return err
+	}
+	// Find Istio CNI and remove from plugin list
+	plugins, err := util.GetPlugins(cniConfigMap)
+	if err != nil {
+		return fmt.Errorf("%s: %w", in.cniConfigFilepath, err)
+	}
+	for i, rawPlugin := range plugins {
+		plugin, err := util.GetPlugin(rawPlugin)
+		if err != nil {
+			return fmt.Errorf("%s: %w", in.cniConfigFilepath, err)
+		}
+		if plugin["type"] == "istio-cni" {
+			cniConfigMap["plugins"] = append(plugins[:i], plugins[i+1:]...)
+			break
+		}
+	}
+
+	cniConfig, err := util.MarshalCNIConfig(cniConfigMap)
+	if err != nil {
+		return err
+	}
+
+	if stat, err := os.Stat(in.cniConfigFilepath); err != nil ||
+		stat.Size() != cniConfigInitial.Size() ||
+		stat.ModTime() != cniConfigInitial.ModTime() {
+		return fmt.Errorf("shared node CNI config %s changed by other process during removal, not writing", in.cniConfigFilepath)
+	} else if err = file.AtomicWrite(in.cniConfigFilepath, cniConfig, os.FileMode(0o644)); err != nil {
+		installLog.Errorf("error writing shared node-level CNI config file: %s", in.cniConfigFilepath)
+		return err
+	}
+
 	return nil
 }
 
