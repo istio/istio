@@ -37,9 +37,9 @@ import (
 )
 
 const (
-	// String to emit for any component which is disabled.
-	componentDisabledStr = "component is disabled."
-	yamlCommentStr       = "#"
+	// DisabledStr String to emit for any component which is disabled.
+	DisabledStr    = "component is disabled."
+	yamlCommentStr = "#"
 )
 
 var scope = log.RegisterScope("installer", "installer")
@@ -379,5 +379,5 @@ func disabledYAMLStr(componentName name.ComponentName, resourceName string) stri
 	if resourceName != "" {
 		fullName += " " + resourceName
 	}
-	return fmt.Sprintf("%s %s %s\n", yamlCommentStr, fullName, componentDisabledStr)
+	return fmt.Sprintf("%s %s %s\n", yamlCommentStr, fullName, DisabledStr)
 }

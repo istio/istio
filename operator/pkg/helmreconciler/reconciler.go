@@ -37,6 +37,7 @@ import (
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	"istio.io/istio/operator/pkg/component"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
@@ -160,6 +161,10 @@ func (h *HelmReconciler) Reconcile() (*v1alpha1.InstallStatus, error) {
 	}
 	manifestMap, err := h.RenderCharts()
 	if err != nil {
+		return nil, err
+	}
+
+	if err = validateManifests(manifestMap); err != nil {
 		return nil, err
 	}
 
@@ -569,6 +574,31 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 			return err
 		}
 		return fmt.Errorf("creating default tag would conflict:\n%v", o)
+	}
+	return nil
+}
+
+func validateManifests(manifests name.ManifestMap) error {
+	// Ztunnel cannot be installed with other components
+	ztunnelEnabled := false
+	totalEnabled := 0
+	for c, ms := range manifests {
+		disabled := false
+		for _, m := range ms {
+			if strings.Contains(m, component.DisabledStr) {
+				disabled = true
+				break
+			}
+		}
+		if !disabled {
+			totalEnabled++
+			if c == name.ZtunnelComponentName {
+				ztunnelEnabled = true
+			}
+		}
+	}
+	if ztunnelEnabled && totalEnabled > 1 {
+		return fmt.Errorf("%s cannot be installed with other components", name.UserFacingComponentName(name.ZtunnelComponentName))
 	}
 	return nil
 }

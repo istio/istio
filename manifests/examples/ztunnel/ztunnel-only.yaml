@@ -1,0 +1,10 @@
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  namespace: istio-system
+  name: ztunnel-only
+spec:
+  profile: empty
+  components:
+    ztunnel:
+      enabled: true

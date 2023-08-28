@@ -18,7 +18,7 @@ spec:
     cni:
       enabled: true
     ztunnel:
-      enabled: true
+      enabled: false
     ingressGateways:
     - name: istio-ingressgateway
       enabled: false
