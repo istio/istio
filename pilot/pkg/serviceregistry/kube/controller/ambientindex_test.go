@@ -252,14 +252,14 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	s.assertAddresses(t, "", "pod1", "pod2", "pod3", "pod4", "waypoint-ns-pod", "waypoint-sa2-pod")
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
 
-	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", testNS, "", time.Duration(0))
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "")
 	// create the waypoint service
 	s.addService(t, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
 
-	s.addWaypoint(t, "10.0.0.3", "waypoint-sa2", testNS, "sa2", time.Duration(0))
+	s.addWaypoint(t, "10.0.0.3", "waypoint-sa2", "sa2")
 	// create the waypoint service
 	s.addService(t, "waypoint-sa2",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
@@ -389,14 +389,14 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	s.deletePod(t, "pod2")
 	s.assertEvent(t, s.podXdsName("pod2"))
 
-	s.deleteWaypoint(t, "waypoint-ns", testNS)
+	s.deleteWaypoint(t, "waypoint-ns")
 	s.deleteService(t, "waypoint-ns")
 	s.assertEvent(t, s.podXdsName("pod1"))
 	s.assertEvent(t,
 		s.podXdsName("waypoint-ns-pod"),
 		s.svcXdsName("waypoint-ns"))
 
-	s.deleteWaypoint(t, "waypoint-sa2", testNS)
+	s.deleteWaypoint(t, "waypoint-sa2")
 	s.deleteService(t, "waypoint-sa2")
 	s.assertEvent(t, s.podXdsName("pod4"))
 	s.assertEvent(t,
@@ -425,7 +425,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{constants.WaypointServiceAccount: "sa2"}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
-	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", testNS, "", 0)
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "")
 	s.addService(t, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
@@ -946,7 +946,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	}
 }
 
-func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, namespace, sa string, delay time.Duration) {
+func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string) {
 	t.Helper()
 
 	fromSame := k8sbeta.NamespacesFromSame
@@ -970,7 +970,7 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, namespace, sa st
 		Meta: config.Meta{
 			GroupVersionKind: gvk.KubernetesGateway,
 			Name:             name,
-			Namespace:        namespace,
+			Namespace:        testNS,
 		},
 		Spec:   &gatewaySpec,
 		Status: &k8sbeta.GatewayStatus{},
@@ -984,7 +984,6 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, namespace, sa st
 	if err != nil {
 		t.Fatal(err)
 	}
-	time.Sleep(delay)
 	addrType := k8sbeta.IPAddressType
 	gwconfig.Status = &k8sbeta.GatewayStatus{
 		// addresses:
@@ -1003,9 +1002,9 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, namespace, sa st
 	}
 }
 
-func (s *ambientTestServer) deleteWaypoint(t *testing.T, name, namespace string) {
+func (s *ambientTestServer) deleteWaypoint(t *testing.T, name string) {
 	t.Helper()
-	_ = s.cfg.Delete(gvk.KubernetesGateway, name, namespace, nil)
+	_ = s.cfg.Delete(gvk.KubernetesGateway, name, testNS, nil)
 }
 
 func (s *ambientTestServer) addPods(t *testing.T, ip string, name, sa string, labels map[string]string,
