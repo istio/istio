@@ -300,9 +300,6 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 
 // runCommand runs the given command string.
 func runCommand(command string) (string, error) {
-	kubeClientFunc = func() (kube.CLIClient, error) {
-		return nil, nil
-	}
 	var out bytes.Buffer
 	rootCmd := GetRootCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
 		Version: "25",
