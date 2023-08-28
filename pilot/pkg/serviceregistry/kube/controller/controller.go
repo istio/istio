@@ -387,7 +387,7 @@ func (c *Controller) Cleanup() error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) error {
+func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) error {
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.
@@ -473,6 +473,9 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
+	if event == model.EventUpdate && !serviceUpdateNeedsPush(prevConv, currConv) {
+		return
+	}
 	c.handlers.NotifyServiceHandlers(prevConv, currConv, event)
 }
 
@@ -1147,4 +1150,14 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 		return []*model.Service{svc}
 	}
 	return nil
+}
+
+func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
+	if !features.EnableOptimizedServicePush {
+		return true
+	}
+	if prev == nil {
+		return true
+	}
+	return !prev.Equals(curr)
 }
