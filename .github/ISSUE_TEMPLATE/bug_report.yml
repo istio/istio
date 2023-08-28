@@ -58,6 +58,7 @@ body:
       options:
       - label: "Ambient"
       - label: "Docs"
+      - label: "Dual Stack"
       - label: "Installation"
       - label: "Networking"
       - label: "Performance and Scalability"

@@ -44,7 +44,10 @@ import (
 
 var supportedFilters = []*hcm.HttpFilter{
 	xdsfilters.Fault,
-	xdsfilters.Router,
+	xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       false,
+		SuppressDebugHeaders: false, // No need to set this to true, gRPC doesn't respect it anyways
+	}),
 }
 
 const (
@@ -201,7 +204,10 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	}
 
 	// Must be last
-	fc = append(fc, xdsfilters.Router)
+	fc = append(fc, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       false,
+		SuppressDebugHeaders: false, // No need to set this to true, gRPC doesn't respect it anyways
+	}))
 
 	out := &listener.FilterChain{
 		Name:             "inbound-" + nameSuffix,

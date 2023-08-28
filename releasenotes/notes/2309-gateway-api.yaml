@@ -9,4 +9,5 @@ releaseNotes:
 - |
   **Fixed** Istio's Gateway API implementation to adhere to the Gateway API
   requirement that a `group: ""` field must be set for a `parentRef` of `kind: Service`.
-  Istio previously tolerated the missing group for Service-kind parent references.
+  Istio previously tolerated the missing group for Service-kind parent references. This
+  is a breaking change; see the upgrade notes for details.

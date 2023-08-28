@@ -73,6 +73,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 }
 
 func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) []*listener.Filter {
+	ph := GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	h := &hcm.HttpConnectionManager{
 		StatPrefix: ConnectTerminate,
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
@@ -85,15 +86,17 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 				}},
 			},
 		},
-		// Append and forward client cert to backend.
-		ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+		// Append and forward client cert to backend, if configured
+		ForwardClientCertDetails: ph.ForwardedClientCert,
 		SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 			Subject: proto.BoolTrue,
 			Uri:     true,
 			Dns:     true,
 		},
-		ServerName:       EnvoyWaypoint,
-		UseRemoteAddress: proto.BoolFalse,
+		ServerName:                 ph.ServerName,
+		ServerHeaderTransformation: ph.ServerHeaderTransformation,
+		GenerateRequestId:          ph.GenerateRequestID,
+		UseRemoteAddress:           proto.BoolFalse,
 	}
 
 	// Protocol settings
@@ -112,7 +115,10 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 	h.HttpFilters = []*hcm.HttpFilter{
 		xdsfilters.WaypointDownstreamMetadataFilter,
 		xdsfilters.ConnectAuthorityFilter,
-		xdsfilters.Router,
+		xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+			StartChildSpan:       false,
+			SuppressDebugHeaders: ph.SuppressDebugHeaders,
+		}),
 	}
 	return []*listener.Filter{
 		xdsfilters.IstioNetworkAuthenticationFilterShared,
@@ -361,18 +367,22 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, po
 // buildWaypointInboundHTTPFilters builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig, pre, post []*hcm.HttpFilter) []*listener.Filter {
+	ph := GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	var filters []*listener.Filter
 	httpOpts := &httpListenerOpts{
 		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
-			ServerName: EnvoyServerName,
+			ServerName:                 ph.ServerName,
+			ServerHeaderTransformation: ph.ServerHeaderTransformation,
+			GenerateRequestId:          ph.GenerateRequestID,
 		},
-		protocol:   cc.port.Protocol,
-		class:      istionetworking.ListenerClassSidecarInbound,
-		statPrefix: cc.StatPrefix(),
-		isWaypoint: true,
+		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+		protocol:                  cc.port.Protocol,
+		class:                     istionetworking.ListenerClassSidecarInbound,
+		statPrefix:                cc.StatPrefix(),
+		isWaypoint:                true,
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {

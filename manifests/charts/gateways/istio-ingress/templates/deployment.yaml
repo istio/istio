@@ -53,10 +53,11 @@ spec:
     spec:
 {{- if not $gateway.runAsRoot }}
       securityContext:
+{{- if not (eq .Values.global.platform "openshift") }}
         runAsUser: 1337
         runAsGroup: 1337
+{{- end }}
         runAsNonRoot: true
-        fsGroup: 1337
 {{- end }}
       serviceAccountName: {{ $gateway.name }}-service-account
 {{- if .Values.global.priorityClassName }}
