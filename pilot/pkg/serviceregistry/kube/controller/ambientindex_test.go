@@ -964,7 +964,6 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, namespace, sa st
 	if err != nil {
 		t.Fatal(err)
 	}
-
 }
 
 func (s *ambientTestServer) deleteWaypoint(t *testing.T, name, namespace string) {

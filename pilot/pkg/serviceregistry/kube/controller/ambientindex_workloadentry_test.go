@@ -18,6 +18,7 @@ import (
 	"context"
 	"net/netip"
 	"testing"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -137,6 +138,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns-pod")
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", testNS, "", time.Duration(0))
 	// create the waypoint service
 	s.addService(t, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel}, // labels
@@ -147,10 +149,12 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	)
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns", "waypoint-ns-pod")
 	// All these workloads updated, so push them
-	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
+	s.assertEvent(t,
 		s.wleXdsName("name1"),
 		s.wleXdsName("name2"),
 		s.wleXdsName("name3"),
+	)
+	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
 		s.svcXdsName("waypoint-ns"),
 	)
 	// We should now see the waypoint service IP
@@ -201,12 +205,15 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.deleteWorkloadEntry(t, "name6")
 	s.assertEvent(t, s.wleXdsName("name6"))
 
+	s.deleteWaypoint(t, "waypoint-ns", testNS)
 	s.deleteService(t, "waypoint-ns")
 	// all affected addresses with the waypoint should be updated
-	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
+	s.assertEvent(t,
 		s.wleXdsName("name1"),
 		s.wleXdsName("name2"),
-		s.wleXdsName("name3"),
+		s.wleXdsName("name3"))
+
+	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
 		s.svcXdsName("waypoint-ns"))
 
 	s.deleteWorkloadEntry(t, "name3")
