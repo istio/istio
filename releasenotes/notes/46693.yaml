@@ -1,8 +1,8 @@
 apiVersion: release-notes/v2
-kind: bug-fix
+kind: feature
 area: traffic-management
 issue:
-  - 46680
+  - 45150
 releaseNotes:
   - |
-    **Fixed** an issue where istio validation required address to be set on endpoints even if network is set.
+    **Added** Inlined `WorkloadEntry` resources via `endpoints` field on `ServiceEntry` resources on different networks do not require an address to be specified.
