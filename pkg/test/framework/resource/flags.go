@@ -178,10 +178,10 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.SkipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.SkipTProxy,
 		"Skip TProxy related parts in all tests.")
 
-	flag.BoolVar(&settingsFromCommandLine.Ambient, "istio.test.ambient", settingsFromCommandLine.Ambient,
-		"Indicate the use of ambient mesh.")
+	flag.BoolVar(&settingsFromCommandLine.ambient, "istio.test.ambient", settingsFromCommandLine.ambient,
+		"Deprecated. This flag will be removed once it isn't referenced in CI.")
 
-	flag.BoolVar(&settingsFromCommandLine.AmbientEverywhere, "istio.test.ambient.everywhere", settingsFromCommandLine.AmbientEverywhere,
+	flag.BoolVar(&settingsFromCommandLine.AddWaypoints, "istio.test.ambient.addWaypoints", settingsFromCommandLine.AddWaypoints,
 		"Make Waypoint proxies the default instead of sidecar proxies for all echo apps. Must be used with istio.test.ambient")
 
 	flag.BoolVar(&settingsFromCommandLine.Compatibility, "istio.test.compatibility", settingsFromCommandLine.Compatibility,
