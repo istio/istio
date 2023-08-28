@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/resource"
@@ -276,6 +277,20 @@ func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	g.Expect(err).To(BeNil())
 	sa.AddDefaultResources()
 	g.Expect(sa.stores).To(HaveLen(0))
+}
+
+func TestEmptyContext(t *testing.T) {
+	fakeType := diag.NewMessageType(diag.Warning, "IST9999", "Fake message for testing")
+
+	ctx := istiodContext{
+		messages: map[string]*diag.Messages{
+			"full": {
+				diag.NewMessage(fakeType, nil),
+			},
+			"empty": {},
+		},
+	}
+	ctx.GetMessages()
 }
 
 func tempFileFromString(t *testing.T, content string) *os.File {
