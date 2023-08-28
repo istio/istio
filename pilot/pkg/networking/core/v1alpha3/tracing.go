@@ -316,6 +316,7 @@ func stackdriverConfig(proxyMetaData *model.NodeMetadata, sdProvider *meshconfig
 			return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
 		}
 		tokenPath := constants.TrustworthyJWTPath
+		// nolint: staticcheck
 		sd.StackdriverGrpcService = &core.GrpcService{
 			InitialMetadata: []*core.HeaderValue{
 				{
