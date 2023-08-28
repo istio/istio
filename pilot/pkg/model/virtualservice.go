@@ -32,22 +32,29 @@ import (
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This function is used by sidecar converter.
-func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hosts map[string][]host.Name) []config.Config {
+func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
 
 	vsset := sets.New[string]()
-	addVirtualService := func(vs config.Config, hosts host.Names) {
+	addVirtualService := func(vs config.Config, hosts hostClassification) {
 		vsname := vs.Name + "/" + vs.Namespace
 		rule := vs.Spec.(*networking.VirtualService)
-		for _, ih := range hosts {
-			// Check if the virtual service is already processed.
+
+		for _, vh := range rule.Hosts {
 			if vsset.Contains(vsname) {
 				break
 			}
-			for _, h := range rule.Hosts {
-				// VirtualServices can have many hosts, so we need to avoid appending
-				// duplicated virtualservices to slice importedVirtualServices
-				if vsHostMatches(h, ih, vs) {
+
+			// first, check exactHosts
+			if hosts.exactHosts.Contains(host.Name(vh)) {
+				importedVirtualServices = append(importedVirtualServices, vs)
+				vsset.Insert(vsname)
+				break
+			}
+
+			// exactHosts not found, fallback to loop allHosts
+			for _, ah := range hosts.allHosts {
+				if vsHostMatches(vh, ah, vs) {
 					importedVirtualServices = append(importedVirtualServices, vs)
 					vsset.Insert(vsname)
 					break
@@ -65,12 +72,12 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 			// and break out of the loop.
 
 			// Check if there is an explicit import of form ns/* or ns/host
-			if importedHosts, nsFound := hosts[configNamespace]; nsFound {
+			if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
 				addVirtualService(c, importedHosts)
 			}
 
 			// Check if there is an import of form */host or */*
-			if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
+			if importedHosts, wnsFound := hostsByNamespace[wildcardNamespace]; wnsFound {
 				addVirtualService(c, importedHosts)
 			}
 		}

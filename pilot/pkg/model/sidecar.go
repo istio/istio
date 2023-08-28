@@ -56,6 +56,11 @@ var (
 	)
 )
 
+type hostClassification struct {
+	exactHosts sets.Set[host.Name]
+	allHosts   []host.Name
+}
+
 // SidecarScope is a wrapper over the Sidecar resource with some
 // preprocessed data to determine the list of services, virtualServices,
 // and destinationRules that are accessible to a given
@@ -447,7 +452,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		IstioListener: istioListener,
 	}
 
-	listenerHosts := make(map[string][]host.Name)
+	hostsByNamespace := make(map[string]hostClassification)
 	for _, h := range istioListener.Hosts {
 		parts := strings.SplitN(h, "/", 2)
 		if len(parts) < 2 {
@@ -457,15 +462,28 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		if parts[0] == currentNamespace {
 			parts[0] = configNamespace
 		}
-		if _, exists := listenerHosts[parts[0]]; !exists {
-			listenerHosts[parts[0]] = make([]host.Name, 0)
+
+		ns := parts[0]
+		hName := host.Name(parts[1])
+		if _, exists := hostsByNamespace[ns]; !exists {
+			hostsByNamespace[ns] = hostClassification{exactHosts: sets.New[host.Name](), allHosts: make([]host.Name, 0)}
 		}
-		listenerHosts[parts[0]] = append(listenerHosts[parts[0]], host.Name(parts[1]))
+
+		// exact hosts are saved separately for map lookup
+		if !hName.IsWildCarded() {
+			hostsByNamespace[ns].exactHosts.Insert(hName)
+		}
+
+		// allHosts contains the exact hosts and wildcard hosts,
+		// since SelectVirtualServices will use `Matches` semantic matching.
+		hc := hostsByNamespace[ns]
+		hc.allHosts = append(hc.allHosts, hName)
+		hostsByNamespace[ns] = hc
 	}
 
-	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, listenerHosts)
+	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, hostsByNamespace)
 	svces := ps.servicesExportedToNamespace(configNamespace)
-	out.services = out.selectServices(svces, configNamespace, listenerHosts)
+	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
 	return out
 }
 
@@ -645,14 +663,14 @@ func (sc *SidecarScope) ServicesForHostname(hostname host.Name) []*Service {
 
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
-func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string, hosts map[string][]host.Name) []*Service {
+func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string, hostsByNamespace map[string]hostClassification) []*Service {
 	importedServices := make([]*Service, 0)
-	wildcardHosts, wnsFound := hosts[wildcardNamespace]
+	wildcardHosts, wnsFound := hostsByNamespace[wildcardNamespace]
 	for _, s := range services {
 		configNamespace := s.Attributes.Namespace
 
 		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := hosts[configNamespace]; nsFound {
+		if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
 			if svc := matchingService(importedHosts, s, ilw); svc != nil {
 				importedServices = append(importedServices, svc)
 				continue
@@ -687,9 +705,19 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 }
 
 // Return the original service or a trimmed service which has a subset of the ports in original service.
-func matchingService(importedHosts []host.Name, service *Service, ilw *IstioEgressListenerWrapper) *Service {
+func matchingService(importedHosts hostClassification, service *Service, ilw *IstioEgressListenerWrapper) *Service {
 	matchPort := needsPortMatch(ilw)
-	for _, importedHost := range importedHosts {
+
+	// first, check exactHosts
+	if importedHosts.exactHosts.Contains(service.Hostname) {
+		if matchPort {
+			return serviceMatchingListenerPort(service, ilw)
+		}
+		return service
+	}
+
+	// exactHosts not found, fallback to loop allHosts
+	for _, importedHost := range importedHosts.allHosts {
 		// Check if the hostnames match per usual hostname matching rules
 		if service.Hostname.SubsetOf(importedHost) {
 			if matchPort {
