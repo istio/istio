@@ -4652,7 +4652,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
 		{
 			name: "discovery type DNS, one host set with IP address and https port",
 			in: &networking.ServiceEntry{
@@ -5242,6 +5241,21 @@ func TestValidateServiceEntries(t *testing.T) {
 				},
 				Endpoints:  []*networking.WorkloadEntry{},
 				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "network set with no address on endpoint", in: &networking.ServiceEntry{
+				Hosts:     []string{"www.example.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 443, Protocol: "HTTPS", Name: "https-example"},
+				},
+				Endpoints: []*networking.WorkloadEntry{
+					{Network: "cluster-1"},
+				},
+				Resolution: networking.ServiceEntry_STATIC,
 			},
 			valid:   true,
 			warning: true,
