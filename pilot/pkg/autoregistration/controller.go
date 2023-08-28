@@ -182,7 +182,9 @@ func (c *Controller) setupAutoRecreate() {
 				if entryName == "" {
 					continue
 				}
+				proxy.Lock()
 				proxy.WorkloadEntryAutoCreated = true
+				proxy.Unlock()
 				if err := c.registerWorkload(entryName, proxy, conn.ConnectedAt()); err != nil {
 					log.Error(err)
 				}
@@ -245,8 +247,11 @@ func (c *Controller) OnConnect(conn Connection) error {
 	if entryName == "" {
 		return nil
 	}
+
+	proxy.Lock()
 	proxy.WorkloadEntryName = entryName
 	proxy.WorkloadEntryAutoCreated = autoCreate
+	proxy.Unlock()
 
 	c.adsConnections.Connect(conn)
 
@@ -446,6 +451,8 @@ func (c *Controller) OnDisconnect(conn Connection) {
 		return
 	}
 
+	proxy.RLock()
+	defer proxy.RUnlock()
 	workload := &workItem{
 		entryName:   entryName,
 		autoCreated: conn.Proxy().WorkloadEntryAutoCreated,
