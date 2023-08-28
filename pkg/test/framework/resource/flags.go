@@ -178,7 +178,7 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.SkipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.SkipTProxy,
 		"Skip TProxy related parts in all tests.")
 
-	flag.BoolVar(&settingsFromCommandLine.ambient, "istio.test.ambient", settingsFromCommandLine.ambient,
+	flag.BoolVar(&settingsFromCommandLine.ambient, "istio.test.ambient", settingsFromCommandLine.noopTemp,
 		"Deprecated. This flag will be removed once it isn't referenced in CI.")
 
 	flag.BoolVar(&settingsFromCommandLine.AddWaypoints, "istio.test.ambient.addWaypoints", settingsFromCommandLine.AddWaypoints,

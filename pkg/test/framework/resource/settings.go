@@ -139,7 +139,8 @@ type Settings struct {
 	SkipTProxy bool
 
 	// Ambient mesh is being used
-	ambient bool
+	ambient  bool
+	noopTemp bool
 
 	// Use ambient instead of sidecars
 	AddWaypoints bool
