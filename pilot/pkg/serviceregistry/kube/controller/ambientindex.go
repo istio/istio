@@ -683,62 +683,6 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 	svc := controllers.Extract[*v1.Service](obj)
 	updates := sets.New[model.ConfigKey]()
 
-	// TODO: temporarily commented out in case I missed something. This logic has all been moved to the Kubernetes Gateway handler
-	// if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-	// 	scope := model.WaypointScope{Namespace: svc.Namespace, ServiceAccount: svc.Annotations[constants.WaypointServiceAccount]}
-
-	// 	// TODO get IP+Port from the Gateway CRD
-	// 	// https://github.com/istio/istio/issues/44230
-	// 	if svc.Spec.ClusterIP == v1.ClusterIPNone {
-	// 		// TODO handle headless Service
-	// 		log.Warn("headless service currently not supported as a waypoint")
-	// 		return updates
-	// 	}
-	// 	waypointPort := uint32(15008)
-	// 	for _, p := range svc.Spec.Ports {
-	// 		if strings.Contains(p.Name, "hbone") {
-	// 			waypointPort = uint32(p.Port)
-	// 		}
-	// 	}
-
-	// 	useSvc := true
-	// 	gatewayClient := c.client.GatewayAPI().GatewayV1beta1().Gateways(svc.Namespace)
-	// 	// TODO: handle error
-	// 	gateway, _ := gatewayClient.Get(context.TODO(), strings.TrimSuffix(svc.Name, "-istio-waypoint"), metav1.GetOptions{})
-	// 	if gateway != nil {
-	// 		gatewayAddresses := gateway.Status.Addresses
-	// 		if len(gatewayAddresses) == 0 {
-	// 			// in order to ensure adding waypoints isn't disruptive we're only going to configure them once they have reported being ready
-	// 			// gateway controller will add address only once one pod has become ready
-	// 			log.Info(fmt.Sprintf("waypoint %s has not reported being ready", gateway.Name))
-	// 			useSvc = false
-	// 		}
-	// 	}
-
-	// 	svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
-	// 	addr := &workloadapi.GatewayAddress{
-	// 		Destination: &workloadapi.GatewayAddress_Address{
-	// 			Address: &workloadapi.NetworkAddress{
-	// 				Network: c.Network(svcIP.String(), make(labels.Instance, 0)).String(),
-	// 				Address: svcIP.AsSlice(),
-	// 			},
-	// 		},
-	// 		Port: waypointPort,
-	// 	}
-
-	// 	if isDelete {
-	// 		if proto.Equal(a.waypoints[scope], addr) {
-	// 			delete(a.waypoints, scope)
-	// 			updates.Merge(a.updateWaypoint(scope, addr, true))
-	// 		}
-	// 	} else {
-	// 		if !proto.Equal(a.waypoints[scope], addr) && useSvc {
-	// 			a.waypoints[scope] = addr
-	// 			updates.Merge(a.updateWaypoint(scope, addr, false))
-	// 		}
-	// 	}
-	// }
-
 	si := c.constructService(svc)
 	networkAddrs := toInternalNetworkAddresses(si.GetAddresses())
 	pods := c.getPodsInService(svc)
