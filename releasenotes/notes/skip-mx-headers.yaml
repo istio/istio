@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- https://github.com/istio/istio/issues/17635
+releaseNotes:
+  - |
+    **Added** a new configuration to `ProxyHeaders`, `MetadataExchangeHeaders`. The `IN_MESH` mode ensures `x-envoy-peer-metadata` and `x-envoy-peer-metadata-id`
+    headers will not be added to outbound requests from sidecars to destination services considered mesh external.
