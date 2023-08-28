@@ -3256,7 +3256,7 @@ func validateWorkloadEntry(we *networking.WorkloadEntry, servicePorts map[string
 			errs = appendValidation(errs, fmt.Errorf("endpoint address %q is not a valid IP address", addr))
 		} else if err := ValidateFQDN(addr); err != nil { // Otherwise could be an FQDN
 			errs = appendValidation(errs, fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", addr))
-		} 
+		}
 	}
 
 	errs = appendValidation(errs,
