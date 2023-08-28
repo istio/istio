@@ -62,7 +62,10 @@ type fakeConn struct {
 }
 
 func makeConn(proxy *model.Proxy, connTime time.Time) *fakeConn {
-	return &fakeConn{proxy: proxy, connTime: connTime}
+	// copy the proxy; two conns won't share the same struct
+	p := *proxy
+	p.RWMutex = sync.RWMutex{}
+	return &fakeConn{proxy: &p, connTime: connTime}
 }
 
 func (f *fakeConn) ID() string {
