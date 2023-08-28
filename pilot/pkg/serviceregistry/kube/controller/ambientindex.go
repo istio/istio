@@ -517,10 +517,8 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			idx.mu.Lock()
 			defer idx.mu.Unlock()
 			if ev == model.EventDelete {
-				if proto.Equal(idx.waypoints[scope], addr) {
-					delete(idx.waypoints, scope)
-					updates.Merge(idx.updateWaypoint(scope, addr, true))
-				}
+				delete(idx.waypoints, scope)
+				updates.Merge(idx.updateWaypoint(scope, addr, true))
 			} else {
 				if !proto.Equal(idx.waypoints[scope], addr) {
 					idx.waypoints[scope] = addr
