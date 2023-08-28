@@ -529,7 +529,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			}
 
 			if len(updates) > 0 {
-				log.Debug("Waypoint svc ready: Pushing Updates")
+				log.Debug("Waypoint ready: Pushing Updates")
 				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					ConfigsUpdated: updates,
 					Reason:         model.NewReasonStats(model.AmbientUpdate),
