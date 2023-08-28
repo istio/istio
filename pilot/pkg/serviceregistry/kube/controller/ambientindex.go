@@ -501,8 +501,12 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 				}
 			}
 
-			// Is MustParseAddr safe? Should we use ParseAddr and handle the error?
-			ip := netip.MustParseAddr(gateway.Status.Addresses[0].Value)
+			ip, err := netip.ParseAddr(gateway.Status.Addresses[0].Value)
+			if err != nil {
+				// This should be a transient error when upgrading, when the Kube Gateway status is updated it should write an IP address
+				log.Errorf("Unable to parse IP address in status of %v/%v/%v", gvk.KubernetesGateway, gateway.Namespace, gateway.Name)
+				return
+			}
 			addr := &workloadapi.GatewayAddress{
 				Destination: &workloadapi.GatewayAddress_Address{
 					Address: &workloadapi.NetworkAddress{
@@ -519,11 +523,9 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 			if ev == model.EventDelete {
 				delete(idx.waypoints, scope)
 				updates.Merge(idx.updateWaypoint(scope, addr, true))
-			} else {
-				if !proto.Equal(idx.waypoints[scope], addr) {
-					idx.waypoints[scope] = addr
-					updates.Merge(idx.updateWaypoint(scope, addr, false))
-				}
+			} else if !proto.Equal(idx.waypoints[scope], addr) {
+				idx.waypoints[scope] = addr
+				updates.Merge(idx.updateWaypoint(scope, addr, false))
 			}
 
 			if len(updates) > 0 {
