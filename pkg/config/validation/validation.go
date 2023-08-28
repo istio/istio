@@ -3226,16 +3226,18 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to workload entry")
 		}
-		return validateWorkloadEntry(we)
+		// TODO: We currently don't validate if we port is part of service port, as that is tricky to do without ServiceEntry
+		return validateWorkloadEntry(we, nil, true).Unwrap()
 	})
 
-func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
+func validateWorkloadEntry(we *networking.WorkloadEntry, servicePorts map[string]bool, allowFQDNAddresses bool) Validation {
 	errs := Validation{}
+	unixEndpoint := false
 
-	addr := we.Address
+	addr := we.GetAddress()
 	if addr == "" {
 		if we.Network == "" {
-			return nil, fmt.Errorf("address must be set")
+			return appendErrorf(errs, "address is required")
 		}
 		errs = appendWarningf(errs, "address is unset with network %q", we.Network)
 	}
@@ -3244,12 +3246,15 @@ func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
 	// check based on content and try validations.
 	// First check if it is a Unix endpoint - this will be specified for STATIC.
 	if strings.HasPrefix(addr, UnixAddressPrefix) {
+		unixEndpoint = true
 		errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
 		if len(we.Ports) != 0 {
 			errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 		}
 	} else if addr != "" && !netutil.IsValidIPAddress(addr) { // This could be IP (in STATIC resolution) or DNS host name (for DNS).
-		if err := ValidateFQDN(addr); err != nil { // Otherwise could be an FQDN
+		if !allowFQDNAddresses {
+			errs = appendValidation(errs, fmt.Errorf("endpoint address %q is not a valid IP address", addr))
+		} else if err := ValidateFQDN(addr); err != nil { // Otherwise could be an FQDN
 			errs = appendValidation(errs, fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", addr))
 		}
 	}
@@ -3257,12 +3262,19 @@ func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
 	errs = appendValidation(errs,
 		labels.Instance(we.Labels).Validate())
 	for name, port := range we.Ports {
-		// TODO: Validate port is part of Service Port - which is tricky to validate with out service entry.
+		if servicePorts != nil && !servicePorts[name] {
+			errs = appendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
+		}
 		errs = appendValidation(errs,
 			ValidatePortName(name),
-			ValidatePort(int(port)))
+			ValidatePort(int(port)),
+		)
 	}
-	return errs.Unwrap()
+	errs = appendValidation(errs, labels.Instance(we.Labels).Validate())
+	if unixEndpoint && servicePorts != nil && len(servicePorts) != 1 {
+		errs = appendValidation(errs, errors.New("exactly 1 service port required for unix endpoints"))
+	}
+	return errs
 }
 
 // ValidateWorkloadGroup validates a workload group.
@@ -3433,35 +3445,12 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				errs = appendValidation(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 			}
 		case networking.ServiceEntry_STATIC:
-			unixEndpoint := false
 			for _, endpoint := range serviceEntry.Endpoints {
 				if endpoint == nil {
 					errs = appendValidation(errs, errors.New("endpoint cannot be nil"))
 					continue
 				}
-				addr := endpoint.GetAddress()
-				if strings.HasPrefix(addr, UnixAddressPrefix) {
-					unixEndpoint = true
-					errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
-					if len(endpoint.Ports) != 0 {
-						errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
-					}
-				} else {
-					errs = appendValidation(errs, ValidateIPAddress(addr))
-
-					for name, port := range endpoint.Ports {
-						if !servicePorts[name] {
-							errs = appendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
-						}
-						errs = appendValidation(errs,
-							ValidatePortName(name),
-							ValidatePort(int(port)))
-					}
-				}
-				errs = appendValidation(errs, labels.Instance(endpoint.Labels).Validate())
-			}
-			if unixEndpoint && len(serviceEntry.Ports) != 1 {
-				errs = appendValidation(errs, errors.New("exactly 1 service port required for unix endpoints"))
+				errs = appendValidation(errs, validateWorkloadEntry(endpoint, servicePorts, false))
 			}
 		case networking.ServiceEntry_DNS, networking.ServiceEntry_DNS_ROUND_ROBIN:
 			if len(serviceEntry.Endpoints) == 0 {
