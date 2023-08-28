@@ -1294,9 +1294,10 @@ templates:
                   resource: limits.cpu
             - name: ISTIO_META_CLUSTER_ID
               value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
-            {{- if .Values.global.network }}
+            {{- $network := valueOrDefault (index .Labels `topology.istio.io/network`) .Values.global.network }}
+            {{- if $network }}
             - name: ISTIO_META_NETWORK
-              value: "{{ .Values.global.network }}"
+              value: "{{ $network }}"
             {{- end }}
             - name: ISTIO_META_INTERCEPTION_MODE
               value: REDIRECT
