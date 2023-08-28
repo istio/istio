@@ -146,8 +146,8 @@ func InstallCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 	return InstallCmdWithArgs(ctx, &RootArgs{}, &InstallArgs{}, logOpts)
 }
 
-func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOut io.Writer, l clog.Logger,
-	p Printer) error {
+func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, logOpts *log.Options, stdOut io.Writer, l clog.Logger, p Printer,
+) error {
 	kubeClient, client, err := KubernetesClients(kubeClient, l)
 	if err != nil {
 		return err

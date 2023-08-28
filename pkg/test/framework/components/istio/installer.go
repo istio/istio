@@ -24,6 +24,8 @@ import (
 	"strconv"
 	"sync"
 
+	"k8s.io/client-go/rest"
+
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
@@ -32,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
-	"k8s.io/client-go/rest"
 )
 
 var _ resource.Dumper = &installer{}
