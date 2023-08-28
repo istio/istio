@@ -943,6 +943,11 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, namespace, sa st
 		Spec:   &gatewaySpec,
 		Status: &k8sbeta.GatewayStatus{},
 	}
+	if sa != "" {
+		annotations := make(map[string]string, 1)
+		annotations[constants.WaypointServiceAccount] = sa
+		gwconfig.Meta.Annotations = annotations
+	}
 	_, err := s.cfg.Create(gwconfig)
 	if err != nil {
 		t.Fatal(err)
