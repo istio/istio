@@ -3226,16 +3226,16 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to workload entry")
 		}
-		return validateWorkloadEntry(we)
+		return validateWorkloadEntry(we).Unwrap()
 	})
 
-func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
+func validateWorkloadEntry(we *networking.WorkloadEntry) Validation {
 	errs := Validation{}
 
 	addr := we.Address
 	if addr == "" {
 		if we.Network == "" {
-			return nil, fmt.Errorf("address must be set")
+			return appendErrorf(errs, "address is required")
 		}
 		errs = appendWarningf(errs, "address is unset with network %q", we.Network)
 	}
@@ -3262,7 +3262,7 @@ func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
 			ValidatePortName(name),
 			ValidatePort(int(port)))
 	}
-	return errs.Unwrap()
+	return errs
 }
 
 // ValidateWorkloadGroup validates a workload group.
@@ -3433,42 +3433,8 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				errs = appendValidation(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 			}
 		case networking.ServiceEntry_STATIC:
-			unixEndpoint := false
 			for _, endpoint := range serviceEntry.Endpoints {
-				if endpoint == nil {
-					errs = appendValidation(errs, errors.New("endpoint cannot be nil"))
-					continue
-				}
-				addr := endpoint.GetAddress()
-				if strings.HasPrefix(addr, UnixAddressPrefix) {
-					unixEndpoint = true
-					errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
-					if len(endpoint.Ports) != 0 {
-						errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
-					}
-				} else {
-					if addr == "" {
-						if endpoint.GetNetwork() == "" {
-							errs = appendValidation(errs, errors.New("address must be set"))
-						}
-						errs = appendWarningf(errs, "address is unset with network %s", endpoint.GetNetwork())
-					} else {
-						errs = appendValidation(errs, ValidateIPAddress(addr))
-					}
-
-					for name, port := range endpoint.Ports {
-						if !servicePorts[name] {
-							errs = appendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
-						}
-						errs = appendValidation(errs,
-							ValidatePortName(name),
-							ValidatePort(int(port)))
-					}
-				}
-				errs = appendValidation(errs, labels.Instance(endpoint.Labels).Validate())
-			}
-			if unixEndpoint && len(serviceEntry.Ports) != 1 {
-				errs = appendValidation(errs, errors.New("exactly 1 service port required for unix endpoints"))
+				errs = appendValidation(errs, validateWorkloadEntry(endpoint))
 			}
 		case networking.ServiceEntry_DNS, networking.ServiceEntry_DNS_ROUND_ROBIN:
 			if len(serviceEntry.Endpoints) == 0 {
