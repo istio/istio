@@ -457,6 +457,9 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
 			opts.Namespace, s.kubeClient.Kube().CoreV1(), fileBundle.RootCertFile,
 			enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		// The secret is mounted and the "istio-generated" key is not used.
 		log.Info("Use local CA certificate")
