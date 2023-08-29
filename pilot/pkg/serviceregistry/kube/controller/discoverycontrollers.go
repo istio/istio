@@ -92,10 +92,12 @@ func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod
 		updates = updates.Merge(a.handlePod(nil, p, false, c))
 	}
 
-	// Handle WorkloadEntries.
-	allWorkloadEntries := c.getControllerWorkloadEntries(ns)
-	for _, w := range allWorkloadEntries {
-		updates = updates.Merge(a.handleWorkloadEntry(nil, w, false, c))
+	if c.configCluster {
+		// Handle WorkloadEntries.
+		allWorkloadEntries := c.getControllerWorkloadEntries(ns)
+		for _, w := range allWorkloadEntries {
+			updates = updates.Merge(a.handleWorkloadEntry(nil, w, false, c))
+		}
 	}
 
 	if len(updates) > 0 {
