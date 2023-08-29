@@ -429,11 +429,11 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		map[string]string{constants.WaypointServiceAccount: "sa2"}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
 	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "")
+	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addService(t, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
-	s.assertEvent(t, s.podXdsName("pod1"))
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
 
 	s.clearEvents()

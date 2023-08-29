@@ -205,13 +205,13 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.assertEvent(t, s.wleXdsName("name6"))
 
 	s.deleteWaypoint(t, "waypoint-ns")
-	s.deleteService(t, "waypoint-ns")
 	// all affected addresses with the waypoint should be updated
 	s.assertEvent(t,
 		s.wleXdsName("name1"),
 		s.wleXdsName("name2"),
 		s.wleXdsName("name3"))
 
+	s.deleteService(t, "waypoint-ns")
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
 		s.svcXdsName("waypoint-ns"))
 
