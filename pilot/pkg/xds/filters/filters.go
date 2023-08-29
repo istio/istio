@@ -245,6 +245,54 @@ var (
 		},
 	}
 
+	SidecarOutboundMetadataFilter = &hcm.HttpFilter{
+		Name: MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+					"upstream_propagation": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+					},
+				}),
+		},
+	}
+	// TODO https://github.com/istio/istio/issues/46740
+	// false values can be omitted in protobuf, results in diff JSON values between control plane and envoy config dumps
+	// long term fix will be to add the metadata config to istio/api and use that over TypedStruct
+	SidecarOutboundMetadataFilterSkipHeaders = &hcm.HttpFilter{
+		Name: MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+					"upstream_propagation": []any{
+						map[string]any{
+							"istio_headers": map[string]any{
+								"skip_external_clusters": true,
+							},
+						},
+					},
+				}),
+		},
+	}
+
 	ConnectAuthorityFilter = &hcm.HttpFilter{
 		Name: "connect_authority",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -277,58 +325,6 @@ var (
 		},
 	}
 )
-
-func BuildSidecarOutboundMetadataFilter(skipHeaders bool) *hcm.HttpFilter {
-	// TODO GregHanson
-	// false values can be omitted in protobuf, results in diff JSON values between controlplane and envoy config dumps
-	// long term fix will be to add the metadata config to istio/api and use that over TypedStruct
-	if skipHeaders {
-		return &hcm.HttpFilter{
-			Name: MxFilterName,
-			ConfigType: &hcm.HttpFilter_TypedConfig{
-				TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
-					map[string]any{
-						"upstream_discovery": []any{
-							map[string]any{
-								"istio_headers": map[string]any{},
-							},
-							map[string]any{
-								"workload_discovery": map[string]any{},
-							},
-						},
-						"upstream_propagation": []any{
-							map[string]any{
-								"istio_headers": map[string]any{
-									"skip_external_clusters": true,
-								},
-							},
-						},
-					}),
-			},
-		}
-	}
-	return &hcm.HttpFilter{
-		Name: MxFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
-				map[string]any{
-					"upstream_discovery": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
-					"upstream_propagation": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-					},
-				}),
-		},
-	}
-}
 
 // Router is used a bunch, so its worth precomputing even though we have a few options.
 // Since there are only 4 possible options, just precompute them all
