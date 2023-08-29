@@ -123,7 +123,7 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 	}
 
 	nsLabels := map[string]string{}
-	if ctx.Settings().Ambient {
+	if ctx.Settings().Ambient() {
 		nsLabels["istio.io/dataplane-mode"] = "ambient"
 	}
 
@@ -134,7 +134,7 @@ func (c *Config) fillDefaults(ctx resource.Context) error {
 			// If only using a single namespace, preserve the "echo" prefix.
 			g.Go(func() error {
 				ns, err := namespace.New(ctx, namespace.Config{
-					Inject: !ctx.Settings().AmbientEverywhere,
+					Inject: !ctx.Settings().AddWaypoints,
 					Prefix: "echo",
 					Labels: nsLabels,
 				})
@@ -312,8 +312,8 @@ ISTIO_DELTA_XDS: "true"`),
 		defaultConfigs = append(defaultConfigs, proxylessGRPC)
 	}
 
-	if t.Settings().Ambient {
-		if t.Settings().AmbientEverywhere {
+	if t.Settings().Ambient() {
+		if t.Settings().AddWaypoints {
 			for i, config := range defaultConfigs {
 				if !config.HasSidecar() && !config.IsProxylessGRPC() {
 					scopes.Framework.Infof("adding waypoint to %s", config.NamespacedName())
