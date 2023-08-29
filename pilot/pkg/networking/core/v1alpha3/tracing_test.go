@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
+	"istio.io/istio/pkg/ptr"
 )
 
 func TestConfigureTracingExhaustiveness(t *testing.T) {
@@ -69,6 +70,21 @@ func TestConfigureTracing(t *testing.T) {
 			want:            fakeTracingConfigNoProvider(55.55, 13, append(defaultTracingTags(), fakeEnvTag)),
 			wantRfCtx:       nil,
 			wantReqIDExtCtx: nil,
+		},
+		{
+			name: "default providers",
+			inSpec: &model.TracingConfig{
+				ClientSpec: model.TracingSpec{
+					Disabled: true,
+				},
+				ServerSpec: model.TracingSpec{
+					Provider: fakeZipkin(),
+				},
+			},
+			opts:            fakeOptsWithDefaultProviders(),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, true), 55.5, 256, defaultTracingTags()),
+			wantRfCtx:       nil,
+			wantReqIDExtCtx: &requestidextension.UUIDRequestIDExtensionContext{},
 		},
 		{
 			name:            "no telemetry api and nil custom tag",
@@ -234,6 +250,42 @@ func defaultTracingTags() []*tracing.CustomTag {
 				},
 			},
 		})
+}
+
+func fakeOptsWithDefaultProviders() buildListenerOpts {
+	var opts buildListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			EnableTracing: true,
+			DefaultConfig: &meshconfig.ProxyConfig{
+				Tracing: &meshconfig.Tracing{
+					Sampling: 55.5,
+				},
+			},
+			DefaultProviders: &meshconfig.MeshConfig_DefaultProviders{
+				Tracing: []string{
+					"foo",
+				},
+			},
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "foo",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Zipkin{
+						Zipkin: &meshconfig.MeshConfig_ExtensionProvider_ZipkinTracingProvider{
+							Service:      "zipkin",
+							Port:         9411,
+							MaxTagLength: 256,
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		Metadata: &model.NodeMetadata{},
+	}
+
+	return opts
 }
 
 func fakeOptsNoTelemetryAPI() buildListenerOpts {
@@ -528,7 +580,7 @@ func tracingSpec(provider *meshconfig.MeshConfig_ExtensionProvider, sampling flo
 	return model.TracingSpec{
 		Provider:                 provider,
 		Disabled:                 disableReporting,
-		RandomSamplingPercentage: sampling,
+		RandomSamplingPercentage: ptr.Of(sampling),
 		CustomTags: map[string]*tpb.Tracing_CustomTag{
 			"test": {
 				Type: &tpb.Tracing_CustomTag_Environment{
@@ -549,7 +601,7 @@ func fakeTracingSpecWithNilCustomTag(provider *meshconfig.MeshConfig_ExtensionPr
 		ClientSpec: model.TracingSpec{
 			Provider:                 provider,
 			Disabled:                 disableReporting,
-			RandomSamplingPercentage: sampling,
+			RandomSamplingPercentage: ptr.Of(sampling),
 			CustomTags: map[string]*tpb.Tracing_CustomTag{
 				"test": nil,
 			},
@@ -558,7 +610,7 @@ func fakeTracingSpecWithNilCustomTag(provider *meshconfig.MeshConfig_ExtensionPr
 		ServerSpec: model.TracingSpec{
 			Provider:                 provider,
 			Disabled:                 disableReporting,
-			RandomSamplingPercentage: sampling,
+			RandomSamplingPercentage: ptr.Of(sampling),
 			CustomTags: map[string]*tpb.Tracing_CustomTag{
 				"test": nil,
 			},
