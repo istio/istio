@@ -78,7 +78,7 @@ func TestConfigureTracing(t *testing.T) {
 				},
 			},
 			opts:            fakeOptsWithDefaultProviders(),
-			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority, true), 55.5, 256, defaultTracingTags()),
+			want:            fakeTracingConfig(fakeZipkinProvider(clusterName, authority), 55.5, 256, defaultTracingTags()),
 			wantRfCtx:       nil,
 			wantReqIDExtCtx: &requestidextension.UUIDRequestIDExtensionContext{},
 		},
