@@ -264,7 +264,6 @@ func (m *Multicluster) initializeCluster(cluster *multicluster.Cluster, kubeCont
 			}
 			m.opts.MeshServiceController.AddRegistryAndRun(kubeController.workloadEntryController, clusterStopCh)
 			go configStore.Run(clusterStopCh)
-
 		}
 	}
 
