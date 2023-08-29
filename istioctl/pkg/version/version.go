@@ -175,6 +175,7 @@ func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptio
 					Info: istioVersion.BuildInfo{
 						Version: "MISSING CP ID",
 					},
+					Revision: "MISSING CP ID",
 				},
 			}, nil
 		}
@@ -187,6 +188,7 @@ func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptio
 			istioVersion.ServerInfo{
 				Component: cpID.Component,
 				Info:      cpID.Info,
+				Revision:  opts.Revision,
 			},
 		}, nil
 	}
