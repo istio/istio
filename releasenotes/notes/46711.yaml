@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+
+issue:
+  - 46653
+
+releaseNotes:
+  - |
+    **Fixed** `meshConfig.defaultConfig.sampling` is ignored when there's only default providers.
