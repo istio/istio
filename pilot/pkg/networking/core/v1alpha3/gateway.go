@@ -103,7 +103,7 @@ func (ml *MutableGatewayListener) build(builder *ListenerBuilder, opts gatewayLi
 				Port:  opt.httpOpts.port,
 				Class: opt.httpOpts.class,
 			}, model.WasmPluginTypeNetwork)
-			ml.Listener.FilterChains[i].Filters = append(ml.Listener.FilterChains[i].Filters, extension.BuildNetworkFilters(wasm)...)
+			filterChain.Filters = append(ml.Listener.FilterChains[i].Filters, extension.BuildNetworkFilters(wasm)...)
 
 			httpConnectionManagers[i] = builder.buildHTTPConnectionManager(opt.httpOpts)
 			filter := &listener.Filter{
