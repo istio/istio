@@ -279,6 +279,34 @@ var (
 )
 
 func BuildSidecarOutboundMetadataFilter(skipHeaders bool) *hcm.HttpFilter {
+	// TODO GregHanson
+	// false values can be omitted in protobuf, results in diff JSON values between controlplane and envoy config dumps
+	// long term fix will be to add the metadata config to istio/api and use that over TypedStruct
+	if skipHeaders {
+		return &hcm.HttpFilter{
+			Name: MxFilterName,
+			ConfigType: &hcm.HttpFilter_TypedConfig{
+				TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+					map[string]any{
+						"upstream_discovery": []any{
+							map[string]any{
+								"istio_headers": map[string]any{},
+							},
+							map[string]any{
+								"workload_discovery": map[string]any{},
+							},
+						},
+						"upstream_propagation": []any{
+							map[string]any{
+								"istio_headers": map[string]any{
+									"skip_external_clusters": true,
+								},
+							},
+						},
+					}),
+			},
+		}
+	}
 	return &hcm.HttpFilter{
 		Name: MxFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -294,9 +322,7 @@ func BuildSidecarOutboundMetadataFilter(skipHeaders bool) *hcm.HttpFilter {
 					},
 					"upstream_propagation": []any{
 						map[string]any{
-							"istio_headers": map[string]any{
-								"skip_external_clusters": skipHeaders,
-							},
+							"istio_headers": map[string]any{},
 						},
 					},
 				}),
