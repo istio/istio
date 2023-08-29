@@ -322,7 +322,7 @@ func buildEmptyClusterLoadAssignment(clusterName string) *endpoint.ClusterLoadAs
 	}
 }
 
-// build LocalityLbEndpoints for a cluster from existing EndpointShards.
+// BuildLocalityLbEndpointsFromShards builds LocalityLbEndpoints for a cluster from existing EndpointShards.
 func (b *EndpointBuilder) BuildLocalityLbEndpointsFromShards(
 	shards *model.EndpointShards,
 	svcPort *model.Port,

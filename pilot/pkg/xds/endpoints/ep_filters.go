@@ -54,6 +54,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 	// Go through all cluster endpoints and add those with the same network as the sidecar
 	// to the result. Also count the number of endpoints per each remote network while
 	// iterating so that it can be used as the weight for the gateway endpoint
+
 	for _, ep := range endpoints {
 		lbEndpoints := &LocalityEndpoints{
 			llbEndpoints: endpoint.LocalityLbEndpoints{
