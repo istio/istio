@@ -39,6 +39,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	apiannotation "istio.io/api/annotation"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	typev1beta1 "istio.io/api/type/v1beta1"
@@ -115,7 +116,7 @@ the configuration objects that affect that pod.`,
 
 			podLabels := klabels.Set(pod.ObjectMeta.Labels)
 			annotations := klabels.Set(pod.ObjectMeta.Annotations)
-			opts.Revision = getRevisionFromPodAnnotation(annotations)
+			opts.Revision = GetRevisionFromPodAnnotation(annotations)
 
 			printPod(writer, pod, opts.Revision)
 
@@ -178,7 +179,10 @@ the configuration objects that affect that pod.`,
 	return cmd
 }
 
-func getRevisionFromPodAnnotation(anno klabels.Set) string {
+func GetRevisionFromPodAnnotation(anno klabels.Set) string {
+	if v, ok := anno[label.IoIstioRev.Name]; ok {
+		return v
+	}
 	statusString := anno.Get(apiannotation.SidecarStatus.Name)
 	var injectionStatus inject.SidecarInjectionStatus
 	if err := json.Unmarshal([]byte(statusString), &injectionStatus); err != nil {
