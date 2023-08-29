@@ -28,6 +28,7 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
@@ -36,9 +37,12 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeutil "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/spiffe"
@@ -482,62 +486,6 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 		})
 	}
 
-	c.configController.RegisterEventHandler(gvk.KubernetesGateway, func(oldCfg config.Config, newCfg config.Config, ev model.Event) {
-		gateway, ok := extractKubernetesGateway(newCfg)
-		if !ok {
-			return
-		}
-
-		// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
-		// ignore Kubernetes Gateways which aren't waypoints
-		// TODO: should this be WaypointGatewayClass or matches a label?
-		if gateway.Spec.GatewayClassName == constants.WaypointGatewayClassName && len(gateway.Status.Addresses) > 0 {
-			scope := model.WaypointScope{Namespace: gateway.Namespace, ServiceAccount: gateway.Annotations[constants.WaypointServiceAccount]}
-
-			waypointPort := uint32(15008)
-			for _, l := range gateway.Spec.Listeners {
-				if l.Protocol == k8sbeta.ProtocolType(protocol.HBONE) {
-					waypointPort = uint32(l.Port)
-				}
-			}
-
-			ip, err := netip.ParseAddr(gateway.Status.Addresses[0].Value)
-			if err != nil {
-				// This should be a transient error when upgrading, when the Kube Gateway status is updated it should write an IP address
-				log.Errorf("Unable to parse IP address in status of %v/%v/%v", gvk.KubernetesGateway, gateway.Namespace, gateway.Name)
-				return
-			}
-			addr := &workloadapi.GatewayAddress{
-				Destination: &workloadapi.GatewayAddress_Address{
-					Address: &workloadapi.NetworkAddress{
-						Network: c.Network(ip.String(), make(labels.Instance, 0)).String(),
-						Address: ip.AsSlice(),
-					},
-				},
-				Port: waypointPort,
-			}
-
-			updates := sets.New[model.ConfigKey]()
-			idx.mu.Lock()
-			defer idx.mu.Unlock()
-			if ev == model.EventDelete {
-				delete(idx.waypoints, scope)
-				updates.Merge(idx.updateWaypoint(scope, addr, true))
-			} else if !proto.Equal(idx.waypoints[scope], addr) {
-				idx.waypoints[scope] = addr
-				updates.Merge(idx.updateWaypoint(scope, addr, false))
-			}
-
-			if len(updates) > 0 {
-				log.Debug("Waypoint ready: Pushing Updates")
-				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					ConfigsUpdated: updates,
-					Reason:         model.NewReasonStats(model.AmbientUpdate),
-				})
-			}
-		}
-	})
-
 	serviceHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			idx.mu.Lock()
@@ -585,6 +533,29 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 
 	idx.servicesMap = make(map[types.NamespacedName]*apiv1alpha3.ServiceEntry)
 	c.services.AddEventHandler(serviceHandler)
+
+	kubeGatewayHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj any) {
+			log.Debug("KubeGatewayHandler AddFunc")
+			idx.handleKubeGateway(nil, obj, false, c)
+		},
+		UpdateFunc: func(oldObj, newObj any) {
+			log.Debug("KubeGatewayHandler UpdateFunc")
+			idx.handleKubeGateway(oldObj, newObj, false, c)
+		},
+		DeleteFunc: func(obj any) {
+			log.Debug("KubeGatewayHandler DeleteFunc")
+			idx.handleKubeGateway(nil, obj, true, c)
+		},
+	}
+
+	// initNetworkManager initializes this if features.MultiNetworkGatewayAPI is enabled
+	// TODO: sort this out, it's probably not good to have 2 points of initialization
+	if !features.MultiNetworkGatewayAPI {
+		c.gatewayResourceClient = kclient.NewDelayedInformer[*k8sbeta.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
+	}
+	c.gatewayResourceClient.AddEventHandler(kubeGatewayHandler)
+
 	return &idx
 }
 
@@ -748,6 +719,59 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 	}
 
 	return updates
+}
+
+func (a *AmbientIndexImpl) handleKubeGateway(_, newObj any, isDelete bool, c *Controller) {
+	gateway := controllers.Extract[*k8sbeta.Gateway](newObj)
+
+	// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
+	// ignore Kubernetes Gateways which aren't waypoints
+	// TODO: should this be WaypointGatewayClass or matches a label?
+	if gateway.Spec.GatewayClassName == constants.WaypointGatewayClassName && len(gateway.Status.Addresses) > 0 {
+		scope := model.WaypointScope{Namespace: gateway.Namespace, ServiceAccount: gateway.Annotations[constants.WaypointServiceAccount]}
+
+		waypointPort := uint32(15008)
+		for _, l := range gateway.Spec.Listeners {
+			if l.Protocol == k8sbeta.ProtocolType(protocol.HBONE) {
+				waypointPort = uint32(l.Port)
+			}
+		}
+
+		ip, err := netip.ParseAddr(gateway.Status.Addresses[0].Value)
+		if err != nil {
+			// This should be a transient error when upgrading, when the Kube Gateway status is updated it should write an IP address
+			log.Errorf("Unable to parse IP address in status of %v/%v/%v", gvk.KubernetesGateway, gateway.Namespace, gateway.Name)
+			return
+		}
+		addr := &workloadapi.GatewayAddress{
+			Destination: &workloadapi.GatewayAddress_Address{
+				Address: &workloadapi.NetworkAddress{
+					Network: c.Network(ip.String(), make(labels.Instance, 0)).String(),
+					Address: ip.AsSlice(),
+				},
+			},
+			Port: waypointPort,
+		}
+
+		updates := sets.New[model.ConfigKey]()
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		if isDelete {
+			delete(a.waypoints, scope)
+			updates.Merge(a.updateWaypoint(scope, addr, true))
+		} else if !proto.Equal(a.waypoints[scope], addr) {
+			a.waypoints[scope] = addr
+			updates.Merge(a.updateWaypoint(scope, addr, false))
+		}
+
+		if len(updates) > 0 {
+			log.Debug("Waypoint ready: Pushing Updates")
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+				ConfigsUpdated: updates,
+				Reason:         model.NewReasonStats(model.AmbientUpdate),
+			})
+		}
+	}
 }
 
 func (c *Controller) getPodsInService(svc *v1.Service) []*v1.Pod {
@@ -921,25 +945,6 @@ func (c *Controller) AdditionalPodSubscriptions(
 	}
 
 	return shouldSubscribe
-}
-
-// extractKubernetesGateway converts a config.Config into a Kubernetes Gateway
-func extractKubernetesGateway(cfg config.Config) (k8sbeta.Gateway, bool) {
-	gateway := k8sbeta.Gateway{
-		ObjectMeta: cfg.Meta.ToObjectMeta(),
-	}
-	if spec, ok := cfg.Spec.(*k8sbeta.GatewaySpec); ok {
-		gateway.Spec = *spec.DeepCopy()
-	} else {
-		return k8sbeta.Gateway{}, false
-	}
-
-	if status, ok := cfg.Status.(*k8sbeta.GatewayStatus); ok {
-		gateway.Status = *status.DeepCopy()
-	} else {
-		return k8sbeta.Gateway{}, false
-	}
-	return gateway, true
 }
 
 func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
