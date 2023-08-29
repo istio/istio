@@ -420,62 +420,65 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 
 	c.podsClient.AddEventHandler(podHandler)
 
-	// Handle WorkloadEntries.
-	c.configController.RegisterEventHandler(gvk.WorkloadEntry, func(oldCfg config.Config, newCfg config.Config, ev model.Event) {
-		var oldWkEntrySpec *v1alpha3.WorkloadEntry
-		if ev == model.EventUpdate {
-			oldWkEntrySpec = serviceentry.ConvertWorkloadEntry(oldCfg)
-		}
-		var oldWkEntry *apiv1alpha3.WorkloadEntry
-		if oldWkEntrySpec != nil {
-			oldWkEntry = &apiv1alpha3.WorkloadEntry{
-				ObjectMeta: oldCfg.ToObjectMeta(),
-				Spec:       *oldWkEntrySpec.DeepCopy(),
+	// We only handle WLE and SE from config cluster, otherwise we could get duplicate workload from remote clusters.
+	if c.configCluster {
+		// Handle WorkloadEntries.
+		c.configController.RegisterEventHandler(gvk.WorkloadEntry, func(oldCfg config.Config, newCfg config.Config, ev model.Event) {
+			var oldWkEntrySpec *v1alpha3.WorkloadEntry
+			if ev == model.EventUpdate {
+				oldWkEntrySpec = serviceentry.ConvertWorkloadEntry(oldCfg)
 			}
-		}
-		newWkEntrySpec := serviceentry.ConvertWorkloadEntry(newCfg)
-		var newWkEntry *apiv1alpha3.WorkloadEntry
-		if newWkEntrySpec != nil {
-			newWkEntry = &apiv1alpha3.WorkloadEntry{
-				ObjectMeta: newCfg.ToObjectMeta(),
-				Spec:       *newWkEntrySpec.DeepCopy(),
+			var oldWkEntry *apiv1alpha3.WorkloadEntry
+			if oldWkEntrySpec != nil {
+				oldWkEntry = &apiv1alpha3.WorkloadEntry{
+					ObjectMeta: oldCfg.ToObjectMeta(),
+					Spec:       *oldWkEntrySpec.DeepCopy(),
+				}
 			}
-		}
-
-		idx.mu.Lock()
-		defer idx.mu.Unlock()
-		updates := idx.handleWorkloadEntry(oldWkEntry, newWkEntry, ev == model.EventDelete, c)
-		if len(updates) > 0 {
-			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Full:           false,
-				ConfigsUpdated: updates,
-				Reason:         model.NewReasonStats(model.AmbientUpdate),
-			})
-		}
-	})
-
-	// Handle ServiceEntries.
-	c.configController.RegisterEventHandler(gvk.ServiceEntry, func(_ config.Config, newCfg config.Config, ev model.Event) {
-		newSvcEntrySpec := serviceentry.ConvertServiceEntry(newCfg)
-		var newSvcEntry *apiv1alpha3.ServiceEntry
-		if newSvcEntrySpec != nil {
-			newSvcEntry = &apiv1alpha3.ServiceEntry{
-				ObjectMeta: newCfg.ToObjectMeta(),
-				Spec:       *newSvcEntrySpec.DeepCopy(),
+			newWkEntrySpec := serviceentry.ConvertWorkloadEntry(newCfg)
+			var newWkEntry *apiv1alpha3.WorkloadEntry
+			if newWkEntrySpec != nil {
+				newWkEntry = &apiv1alpha3.WorkloadEntry{
+					ObjectMeta: newCfg.ToObjectMeta(),
+					Spec:       *newWkEntrySpec.DeepCopy(),
+				}
 			}
-		}
 
-		idx.mu.Lock()
-		defer idx.mu.Unlock()
-		updates := idx.handleServiceEntry(newSvcEntry, ev, c)
-		if len(updates) > 0 {
-			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Full:           false,
-				ConfigsUpdated: updates,
-				Reason:         model.NewReasonStats(model.AmbientUpdate),
-			})
-		}
-	})
+			idx.mu.Lock()
+			defer idx.mu.Unlock()
+			updates := idx.handleWorkloadEntry(oldWkEntry, newWkEntry, ev == model.EventDelete, c)
+			if len(updates) > 0 {
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:           false,
+					ConfigsUpdated: updates,
+					Reason:         model.NewReasonStats(model.AmbientUpdate),
+				})
+			}
+		})
+
+		// Handle ServiceEntries.
+		c.configController.RegisterEventHandler(gvk.ServiceEntry, func(_ config.Config, newCfg config.Config, ev model.Event) {
+			newSvcEntrySpec := serviceentry.ConvertServiceEntry(newCfg)
+			var newSvcEntry *apiv1alpha3.ServiceEntry
+			if newSvcEntrySpec != nil {
+				newSvcEntry = &apiv1alpha3.ServiceEntry{
+					ObjectMeta: newCfg.ToObjectMeta(),
+					Spec:       *newSvcEntrySpec.DeepCopy(),
+				}
+			}
+
+			idx.mu.Lock()
+			defer idx.mu.Unlock()
+			updates := idx.handleServiceEntry(newSvcEntry, ev, c)
+			if len(updates) > 0 {
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:           false,
+					ConfigsUpdated: updates,
+					Reason:         model.NewReasonStats(model.AmbientUpdate),
+				})
+			}
+		})
+	}
 
 	serviceHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
