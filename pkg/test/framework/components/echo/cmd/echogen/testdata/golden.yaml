@@ -163,3 +163,10 @@ spec:
           periodSeconds: 1
           tcpSocket:
             port: tcp-health-port
+      topologySpreadConstraints:
+      - labelSelector:
+          matchLabels:
+            app: a
+        maxSkew: 1
+        topologyKey: kubernetes.io/hostname
+        whenUnsatisfiable: ScheduleAnyway
