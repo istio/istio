@@ -372,8 +372,8 @@ type Proxy struct {
 	// XdsNode is the xDS node identifier
 	XdsNode *core.Node
 
-	WorkloadEntryName        string
-	WorkloadEntryAutoCreated bool
+	workloadEntryName        string
+	workloadEntryAutoCreated bool
 
 	// LastPushContext stores the most recent push context for this proxy. This will be monotonically
 	// increasing in version. Requests should send config based on this context; not the global latest.
@@ -1316,6 +1316,19 @@ func (node *Proxy) WaypointScope() WaypointScope {
 		Namespace:      node.ConfigNamespace,
 		ServiceAccount: node.Metadata.Annotations[constants.WaypointServiceAccount],
 	}
+}
+
+func (node *Proxy) SetWorkloadEntry(name string, create bool) {
+	node.Lock()
+	defer node.Unlock()
+	node.workloadEntryName = name
+	node.workloadEntryAutoCreated = create
+}
+
+func (node *Proxy) WorkloadEntry() (string, bool) {
+	node.RLock()
+	defer node.RUnlock()
+	return node.workloadEntryName, node.workloadEntryAutoCreated
 }
 
 type GatewayController interface {

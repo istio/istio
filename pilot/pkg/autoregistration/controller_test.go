@@ -62,10 +62,7 @@ type fakeConn struct {
 }
 
 func makeConn(proxy *model.Proxy, connTime time.Time) *fakeConn {
-	// copy the proxy; two conns won't share the same struct
-	p := *proxy
-	p.RWMutex = sync.RWMutex{}
-	return &fakeConn{proxy: &p, connTime: connTime}
+	return &fakeConn{proxy: proxy, connTime: connTime}
 }
 
 func (f *fakeConn) ID() string {
@@ -839,7 +836,7 @@ func checkNoEntryOrFail(
 }
 
 func checkNoEntryHealth(store model.ConfigStoreController, proxy *model.Proxy) error {
-	name := proxy.WorkloadEntryName
+	name, _ := proxy.WorkloadEntry()
 	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
 	if cfg == nil {
 		return fmt.Errorf("expected WorkloadEntry %s/%s to exist", proxy.Metadata.Namespace, name)
@@ -856,7 +853,7 @@ func checkNoEntryHealth(store model.ConfigStoreController, proxy *model.Proxy) e
 }
 
 func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, healthy bool) (err error) {
-	name := proxy.WorkloadEntryName
+	name, _ := proxy.WorkloadEntry()
 	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
 	if cfg == nil || cfg.Status == nil {
 		err = multierror.Append(fmt.Errorf("expected workloadEntry %s/%s to exist", name, proxy.Metadata.Namespace))

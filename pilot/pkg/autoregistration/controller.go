@@ -169,6 +169,9 @@ type workItem struct {
 
 // setupAutoRecreate adds a handler to create entries for existing connections when a WG is added
 func (c *Controller) setupAutoRecreate() {
+	if !features.WorkloadEntryAutoRegistration {
+		return
+	}
 	c.lateRegistrationQueue = controllers.NewQueue("auto-register existing connections",
 		controllers.WithReconciler(func(key kubetypes.NamespacedName) error {
 			// WorkloadGroup doesn't exist anymore, skip this.
@@ -182,9 +185,7 @@ func (c *Controller) setupAutoRecreate() {
 				if entryName == "" {
 					continue
 				}
-				proxy.Lock()
-				proxy.WorkloadEntryAutoCreated = true
-				proxy.Unlock()
+				proxy.SetWorkloadEntry(entryName, true)
 				if err := c.registerWorkload(entryName, proxy, conn.ConnectedAt()); err != nil {
 					log.Error(err)
 				}
@@ -248,11 +249,7 @@ func (c *Controller) OnConnect(conn Connection) error {
 		return nil
 	}
 
-	proxy.Lock()
-	proxy.WorkloadEntryName = entryName
-	proxy.WorkloadEntryAutoCreated = autoCreate
-	proxy.Unlock()
-
+	proxy.SetWorkloadEntry(entryName, autoCreate)
 	c.adsConnections.Connect(conn)
 
 	err := c.onWorkloadConnect(entryName, proxy, conn.ConnectedAt(), autoCreate)
@@ -441,7 +438,7 @@ func (c *Controller) OnDisconnect(conn Connection) {
 	}
 	proxy := conn.Proxy()
 	// check if the WE already exists, update the status
-	entryName := proxy.WorkloadEntryName
+	entryName, autoCreate := proxy.WorkloadEntry()
 	if entryName == "" {
 		return
 	}
@@ -455,7 +452,7 @@ func (c *Controller) OnDisconnect(conn Connection) {
 	defer proxy.RUnlock()
 	workload := &workItem{
 		entryName:   entryName,
-		autoCreated: conn.Proxy().WorkloadEntryAutoCreated,
+		autoCreated: autoCreate,
 		proxy:       conn.Proxy(),
 		disConTime:  time.Now(),
 		origConTime: conn.ConnectedAt(),
