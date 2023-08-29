@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
-	cdeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -72,6 +71,7 @@ proxyHeaders:
 				"x-forwarded-client-cert",
 				"x-request-id",
 			)
+
 			allowedClientHeaders := sets.New(
 				// Envoy has no way to turn this off
 				"x-forwarded-proto",
@@ -122,17 +122,15 @@ proxyHeaders:
 				return nil
 			})
 
-			t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]any{
+			t.ConfigIstio().Eval(ns.Name(), map[string]any{
 				"Namespace": apps.External.Namespace.Name(),
-				"Hostname":  cdeployment.ExternalHostname,
 			}, `apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
-  name: external-service
+  name: mock-external
 spec:
-  exportTo: [.]
   hosts:
-  - {{.Hostname}}
+  - httpbin.org
   location: MESH_EXTERNAL
   resolution: DNS
   endpoints:
@@ -141,9 +139,9 @@ spec:
   - name: http
     number: 80
     protocol: HTTP
-`).ApplyOrFail(t, apply.NoCleanup)
+`).ApplyOrFail(t, apply.CleanupConditionally)
 			instance.CallOrFail(t, echo.CallOptions{
-				Address: cdeployment.ExternalHostname,
+				Address: "httpbin.org",
 				Scheme:  scheme.HTTP,
 				Port:    ports.HTTP,
 				Check:   check.And(check.OK(), checkNoProxyMetaHeaders),
