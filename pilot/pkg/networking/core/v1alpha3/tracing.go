@@ -120,9 +120,16 @@ func configureTracingFromSpec(
 		// something like: configureFromProxyConfig(tracingCfg, opts.proxy.Metadata.ProxyConfig.Tracing)
 	}
 
-	// gracefully fallback to MeshConfig configuration. It will act as an implicit
-	// parent configuration during transition period.
-	configureSampling(h.Tracing, spec.RandomSamplingPercentage)
+	var sampling float64
+	if spec.RandomSamplingPercentage != nil {
+		sampling = *spec.RandomSamplingPercentage
+	} else {
+		// gracefully fallback to MeshConfig configuration. It will act as an implicit
+		// parent configuration during transition period.
+		sampling = proxyConfigSamplingValue(proxyCfg)
+	}
+
+	configureSampling(h.Tracing, sampling)
 	configureCustomTags(h.Tracing, spec.CustomTags, proxyCfg, proxy)
 
 	// if there is configured max tag length somewhere, fallback to it.
