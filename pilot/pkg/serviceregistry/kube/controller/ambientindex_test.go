@@ -936,7 +936,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	controller.network = networkID
 	pc := clienttest.Wrap(t, controller.podsClient)
 	sc := clienttest.Wrap(t, controller.services)
-	grc := clienttest.WrapReadWriter[*k8sbeta.Gateway](t, controller.gatewayResourceClient)
+	grc := clienttest.Wrap(t, controller.gatewayResourceClient)
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	cfg.RegisterEventHandler(gvk.PeerAuthentication, controller.PeerAuthenticationHandler)
 
