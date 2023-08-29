@@ -886,6 +886,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: systemNS}),
 		ClusterID:        clusterID,
+		ConfigCluster:    true,
 	})
 	controller.network = networkID
 	pc := clienttest.Wrap(t, controller.podsClient)
