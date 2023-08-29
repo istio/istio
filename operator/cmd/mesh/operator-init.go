@@ -22,6 +22,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/cli"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
@@ -29,6 +30,7 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/kube"
 	buildversion "istio.io/istio/pkg/version"
 )
 
@@ -64,7 +66,7 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	cmd.PersistentFlags().StringVarP(&args.common.revision, "revision", "r", "", OperatorRevFlagHelpStr)
 }
 
-func operatorInitCmd(rootArgs *RootArgs, oiArgs *operatorInitArgs) *cobra.Command {
+func operatorInitCmd(ctx cli.Context, rootArgs *RootArgs, oiArgs *operatorInitArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "init",
 		Short: "Installs the Istio operator controller in the cluster.",
@@ -76,18 +78,23 @@ func operatorInitCmd(rootArgs *RootArgs, oiArgs *operatorInitArgs) *cobra.Comman
 			}
 			return nil
 		},
-		Run: func(cmd *cobra.Command, args []string) {
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-			operatorInit(rootArgs, oiArgs, l)
+			operatorInit(client, rootArgs, oiArgs, l)
+			return nil
 		},
 	}
 }
 
 // operatorInit installs the Istio operator controller into the cluster.
-func operatorInit(args *RootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
+func operatorInit(cliClient kube.CLIClient, args *RootArgs, oiArgs *operatorInitArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
-	kubeClient, client, err := kubeClients(oiArgs.kubeConfigPath, oiArgs.context, l)
+	kubeClient, client, err := kubeClients(cliClient, l)
 	if err != nil {
 		l.LogAndFatal(err)
 	}

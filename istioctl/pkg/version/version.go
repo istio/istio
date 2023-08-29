@@ -38,7 +38,7 @@ import (
 )
 
 func NewVersionCommand(ctx cli.Context) *cobra.Command {
-	profileCmd := mesh.ProfileCmd(log.DefaultOptions())
+	profileCmd := mesh.ProfileCmd(ctx, log.DefaultOptions())
 	var opts clioptions.ControlPlaneOptions
 	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
 		GetRemoteVersion: getRemoteInfoWrapper(ctx, &profileCmd, &opts),

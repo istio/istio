@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -300,7 +301,9 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 // runCommand runs the given command string.
 func runCommand(command string) (string, error) {
 	var out bytes.Buffer
-	rootCmd := GetRootCmd(strings.Split(command, " "))
+	rootCmd := GetRootCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
+		Version: "25",
+	}), strings.Split(command, " "))
 	rootCmd.SetOut(&out)
 
 	err := rootCmd.Execute()
