@@ -384,7 +384,6 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 					} else {
 						filters = append(filters, xdsfilters.SidecarOutboundMetadataFilter)
 					}
-
 				}
 			} else {
 				filters = append(filters, xdsfilters.HTTPMx)
