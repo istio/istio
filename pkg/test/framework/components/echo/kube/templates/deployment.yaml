@@ -52,6 +52,7 @@ spec:
         proxy.istio.io/config: '{"holdApplicationUntilProxyStarts": true}'
 {{- end }}
     spec:
+{{- if $.Ambient }}
       topologySpreadConstraints:
       - topologyKey: "kubernetes.io/hostname"
         whenUnsatisfiable: "ScheduleAnyway"
@@ -59,6 +60,7 @@ spec:
         labelSelector:
           matchLabels:
             app: {{ $.Service }}
+{{- end }}
 {{- if $.ServiceAccount }}
       serviceAccountName: {{ $.Service }}
 {{- end }}
