@@ -37,12 +37,10 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeutil "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	"istio.io/istio/pkg/kube/kubetypes"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/spiffe"
@@ -552,7 +550,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 	// initNetworkManager initializes this if features.MultiNetworkGatewayAPI is enabled
 	// TODO: sort this out, it's probably not good to have 2 points of initialization
 	if !features.MultiNetworkGatewayAPI {
-		c.gatewayResourceClient = kclient.NewDelayedInformer[*k8sbeta.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
+		c.gatewayResourceClient = kclient.New[*k8sbeta.Gateway](c.client)
 	}
 	c.gatewayResourceClient.AddEventHandler(kubeGatewayHandler)
 
