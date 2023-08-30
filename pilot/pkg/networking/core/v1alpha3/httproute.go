@@ -205,7 +205,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 
 	if !useSniffing {
 		includeRequestAttemptCount := GetProxyHeaders(node, req.Push, istionetworking.ListenerClassSidecarOutbound).IncludeRequestAttemptCount
-		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node, includeRequestAttemptCount))
+		includeResponseAttemptCount := GetProxyHeaders(node, req.Push, istionetworking.ListenerClassSidecarOutbound).IncludeRequestAttemptCount
+		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node, includeRequestAttemptCount, includeResponseAttemptCount))
 	}
 
 	out := &route.RouteConfiguration{
@@ -296,13 +297,14 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 }
 
 type ProxyHeaders struct {
-	ServerName                 string
-	ServerHeaderTransformation hcm.HttpConnectionManager_ServerHeaderTransformation
-	ForwardedClientCert        hcm.HttpConnectionManager_ForwardClientCertDetails
-	IncludeRequestAttemptCount bool
-	GenerateRequestID          *wrappers.BoolValue
-	SuppressDebugHeaders       bool
-	SkipIstioMXHeaders         bool
+	ServerName                  string
+	ServerHeaderTransformation  hcm.HttpConnectionManager_ServerHeaderTransformation
+	ForwardedClientCert         hcm.HttpConnectionManager_ForwardClientCertDetails
+	IncludeRequestAttemptCount  bool
+	IncludeResponseAttemptCount bool
+	GenerateRequestID           *wrappers.BoolValue
+	SuppressDebugHeaders        bool
+	SkipIstioMXHeaders          bool
 }
 
 func GetProxyHeaders(node *model.Proxy, push *model.PushContext, class istionetworking.ListenerClass) ProxyHeaders {
@@ -312,13 +314,14 @@ func GetProxyHeaders(node *model.Proxy, push *model.PushContext, class istionetw
 
 func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetworking.ListenerClass) ProxyHeaders {
 	base := ProxyHeaders{
-		ServerName:                 EnvoyServerName,
-		ServerHeaderTransformation: hcm.HttpConnectionManager_OVERWRITE,
-		ForwardedClientCert:        hcm.HttpConnectionManager_APPEND_FORWARD,
-		IncludeRequestAttemptCount: true,
-		SuppressDebugHeaders:       false,
-		GenerateRequestID:          nil, // Envoy default is to enable them, so set nil
-		SkipIstioMXHeaders:         false,
+		ServerName:                  EnvoyServerName,
+		ServerHeaderTransformation:  hcm.HttpConnectionManager_OVERWRITE,
+		ForwardedClientCert:         hcm.HttpConnectionManager_APPEND_FORWARD,
+		IncludeRequestAttemptCount:  true,
+		IncludeResponseAttemptCount: true,
+		SuppressDebugHeaders:        false,
+		GenerateRequestID:           nil, // Envoy default is to enable them, so set nil
+		SkipIstioMXHeaders:          false,
 	}
 	if class == istionetworking.ListenerClassSidecarOutbound {
 		// Likely due to a mistake, outbound uses "envoy" while inbound uses "istio-envoy". Bummer.
@@ -331,6 +334,7 @@ func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetwo
 	}
 	if ph.AttemptCount.GetDisabled().GetValue() {
 		base.IncludeRequestAttemptCount = false
+		base.IncludeResponseAttemptCount = false
 	}
 	if ph.ForwardedClientCert != meshconfig.ForwardClientCertDetails_UNDEFINED {
 		base.ForwardedClientCert = util.MeshConfigToEnvoyForwardClientCertDetails(ph.ForwardedClientCert)
@@ -389,6 +393,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	includeRequestAttemptCount := GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound).IncludeRequestAttemptCount
+	includeResponseAttemptCount := GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound).IncludeResponseAttemptCount
 
 	servicesByName := make(map[host.Name]*model.Service)
 	for _, svc := range services {
@@ -513,11 +518,12 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 				perRouteFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
 			}
 			return &route.VirtualHost{
-				Name:                       name,
-				Domains:                    domains,
-				Routes:                     vhwrapper.Routes,
-				IncludeRequestAttemptCount: includeRequestAttemptCount,
-				TypedPerFilterConfig:       perRouteFilters,
+				Name:                          name,
+				Domains:                       domains,
+				Routes:                        vhwrapper.Routes,
+				IncludeRequestAttemptCount:    includeRequestAttemptCount,
+				IncludeAttemptCountInResponse: includeResponseAttemptCount,
+				TypedPerFilterConfig:          perRouteFilters,
 			}
 		}
 
@@ -830,7 +836,7 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 	return
 }
 
-func buildCatchAllVirtualHost(node *model.Proxy, includeRequestAttemptCount bool) *route.VirtualHost {
+func buildCatchAllVirtualHost(node *model.Proxy, includeRequestAttemptCount, includeResponseAttemptCount bool) *route.VirtualHost {
 	if util.IsAllowAnyOutbound(node) {
 		egressCluster := util.PassthroughCluster
 		notimeout := durationpb.New(0)
@@ -866,7 +872,8 @@ func buildCatchAllVirtualHost(node *model.Proxy, includeRequestAttemptCount bool
 					},
 				},
 			},
-			IncludeRequestAttemptCount: includeRequestAttemptCount,
+			IncludeRequestAttemptCount:    includeRequestAttemptCount,
+			IncludeAttemptCountInResponse: includeResponseAttemptCount,
 		}
 	}
 
@@ -886,7 +893,8 @@ func buildCatchAllVirtualHost(node *model.Proxy, includeRequestAttemptCount bool
 				},
 			},
 		},
-		IncludeRequestAttemptCount: includeRequestAttemptCount,
+		IncludeRequestAttemptCount:    includeRequestAttemptCount,
+		IncludeAttemptCountInResponse: includeResponseAttemptCount,
 	}
 }
 

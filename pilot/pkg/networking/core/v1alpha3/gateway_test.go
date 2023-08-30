@@ -2317,7 +2317,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			for _, h := range r.VirtualHosts {
 				vh[h.Name] = h.Domains
 				hr[h.Name] = len(h.Routes)
-				if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount {
+				if h.Name != "blackhole:80" && !h.IncludeRequestAttemptCount && !h.IncludeAttemptCountInResponse {
 					t.Errorf("expected attempt count to be set in virtual host, but not found")
 				}
 				if tt.redirect != (h.RequireTls == route.VirtualHost_ALL) {
