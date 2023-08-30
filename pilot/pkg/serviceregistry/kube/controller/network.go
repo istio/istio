@@ -46,7 +46,6 @@ type networkManager struct {
 	ranger    cidranger.Ranger
 	clusterID cluster.ID
 
-	// this should be an informer instead of a client however unit tests with an Informer were problematic and need further investigation
 	gatewayResourceClient kclient.Informer[*v1beta1.Gateway]
 	meshNetworksWatcher   mesh.NetworksWatcher
 
