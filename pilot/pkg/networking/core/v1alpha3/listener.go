@@ -666,6 +666,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 				GenerateRequestId:          ph.GenerateRequestID,
 			},
 			suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+			skipIstioMXHeaders:        false,
 			protocol:                  protocol.HTTP_PROXY,
 			class:                     istionetworking.ListenerClassSidecarOutbound,
 		},
@@ -712,6 +713,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 			GenerateRequestId:          ph.GenerateRequestID,
 		},
 		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+		skipIstioMXHeaders:        ph.SkipIstioMXHeaders,
 		protocol:                  opts.port.Protocol,
 		class:                     istionetworking.ListenerClassSidecarOutbound,
 	}
@@ -974,6 +976,7 @@ type httpListenerOpts struct {
 	useRemoteAddress bool
 
 	suppressEnvoyDebugHeaders bool
+	skipIstioMXHeaders        bool
 
 	// http3Only indicates that the HTTP codec used
 	// is HTTP/3 over QUIC transport (uses UDP)
