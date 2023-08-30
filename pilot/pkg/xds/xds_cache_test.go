@@ -57,7 +57,7 @@ func TestXdsCacheToken(t *testing.T) {
 		v := mkv(n)
 		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
 		req := &model.PushRequest{Start: start}
-		c.Add(&k, req, v)
+		c.Add(k, req, v)
 	}
 	// 5 round of xds push
 	for vals := 0; vals < 5; vals++ {
@@ -68,11 +68,11 @@ func TestXdsCacheToken(t *testing.T) {
 			go work(start, n.Load())
 		}
 		retry.UntilOrFail(t, func() bool {
-			val := c.Get(&k)
+			val := c.Get(k)
 			return val != nil && val.Resource.TypeUrl == fmt.Sprint(n.Load())
 		})
 		for i := 0; i < 5; i++ {
-			val := c.Get(&k)
+			val := c.Get(k)
 			if val == nil {
 				t.Fatalf("no cache found")
 			}
@@ -92,7 +92,7 @@ func TestXdsCache(t *testing.T) {
 			fmt.Sprintf("outbound|%s|foo.com", subset),
 			model.TrafficDirectionOutbound, subset, "foo.com", 80,
 			svc, dr)
-		return &b
+		return b
 	}
 	ep1 := makeEp("1", nil)
 	ep2 := makeEp("2", nil)

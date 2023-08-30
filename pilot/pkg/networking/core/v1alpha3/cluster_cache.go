@@ -45,7 +45,7 @@ type clusterCache struct {
 	hbone           bool
 	proxyView       model.ProxyView
 	metadataCerts   *metadataCerts // metadata certificates of proxy
-	endpointBuilder endpoints.EndpointBuilder
+	endpointBuilder *endpoints.EndpointBuilder
 
 	// service attributes
 	http2          bool // http2 identifies if the cluster is for an http2 service
@@ -177,6 +177,16 @@ func (c cacheStats) merge(other cacheStats) cacheStats {
 func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) clusterCache {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
 	dr := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
+	var eb *endpoints.EndpointBuilder
+	if service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB {
+		eb = endpoints.NewCDSEndpointBuilder(
+			proxy,
+			cb.req.Push,
+			clusterName,
+			model.TrafficDirectionOutbound, "", service.Hostname, port.Port,
+			service, dr,
+		)
+	}
 	return clusterCache{
 		clusterName:     clusterName,
 		proxyVersion:    cb.proxyVersion,
@@ -194,12 +204,6 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		metadataCerts:   cb.metadataCerts,
 		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
 		serviceAccounts: cb.req.Push.ServiceAccounts(service.Hostname, service.Attributes.Namespace, port.Port),
-		endpointBuilder: endpoints.NewCDSEndpointBuilder(
-			proxy,
-			cb.req.Push,
-			clusterName,
-			model.TrafficDirectionOutbound, "", service.Hostname, port.Port,
-			service, dr,
-		),
+		endpointBuilder: eb,
 	}
 }

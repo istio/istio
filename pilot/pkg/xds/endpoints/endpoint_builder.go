@@ -90,7 +90,7 @@ func NewEndpointBuilder(clusterName string, proxy *model.Proxy, push *model.Push
 		dr = proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, svc.Hostname)
 	}
 
-	return NewCDSEndpointBuilder(
+	return *NewCDSEndpointBuilder(
 		proxy, push, clusterName,
 		dir, subsetName, hostname, port,
 		svc, dr,
@@ -103,7 +103,7 @@ func NewCDSEndpointBuilder(
 	proxy *model.Proxy, push *model.PushContext, clusterName string,
 	dir model.TrafficDirection, subsetName string, hostname host.Name, port int,
 	service *model.Service, dr *model.ConsolidatedDestRule,
-) EndpointBuilder {
+) *EndpointBuilder {
 	b := EndpointBuilder{
 		clusterName:     clusterName,
 		network:         proxy.Metadata.Network,
@@ -124,7 +124,7 @@ func NewCDSEndpointBuilder(
 	}
 	b.populateSubsetInfo()
 	b.populateFailoverPriorityLabels()
-	return b
+	return &b
 }
 
 func (b *EndpointBuilder) servicePort(port int) *model.Port {

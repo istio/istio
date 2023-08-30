@@ -425,7 +425,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 				service.Hostname, port.Port)
 
 			var lbEndpoints []*endpoint.LocalityLbEndpoints
-			var endpointBuilder endpoints.EndpointBuilder
+			var endpointBuilder *endpoints.EndpointBuilder
 			if service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB {
 				endpointBuilder = endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push,
 					clusterName, model.TrafficDirectionOutbound, "", service.Hostname, port.Port,

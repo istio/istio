@@ -156,7 +156,7 @@ func (cb *ClusterBuilder) sidecarProxy() bool {
 
 func (cb *ClusterBuilder) buildSubsetCluster(
 	opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
-	endpointBuilder endpoints.EndpointBuilder,
+	endpointBuilder *endpoints.EndpointBuilder,
 ) *cluster.Cluster {
 	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
@@ -218,7 +218,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 // applyDestinationRule applies the destination rule if it exists for the Service.
 // It returns the subset clusters if any created as it applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode ClusterMode, service *model.Service,
-	port *model.Port, eb endpoints.EndpointBuilder, destRule *config.Config, serviceAccounts []string,
+	port *model.Port, eb *endpoints.EndpointBuilder, destRule *config.Config, serviceAccounts []string,
 ) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
