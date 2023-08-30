@@ -22,11 +22,13 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	cdeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
@@ -122,26 +124,11 @@ proxyHeaders:
 				return nil
 			})
 
-			t.ConfigIstio().Eval(ns.Name(), map[string]any{
-				"Namespace": apps.External.Namespace.Name(),
-			}, `apiVersion: networking.istio.io/v1alpha3
-kind: ServiceEntry
-metadata:
-  name: mock-external
-spec:
-  hosts:
-  - httpbin.org
-  location: MESH_EXTERNAL
-  resolution: DNS
-  endpoints:
-  - address: external.{{.Namespace}}.svc.cluster.local
-  ports:
-  - name: http
-    number: 80
-    protocol: HTTP
-`).ApplyOrFail(t, apply.CleanupConditionally)
+			cdeployment.DeployExternalServiceEntry(t.ConfigIstio(), ns, apps.External.Namespace).
+				ApplyOrFail(t, apply.CleanupConditionally)
 			instance.CallOrFail(t, echo.CallOptions{
-				Address: "httpbin.org",
+				Address: apps.External.All[0].Address(),
+				HTTP:    echo.HTTP{Headers: headers.New().WithHost(apps.External.All.Config().DefaultHostHeader).Build()},
 				Scheme:  scheme.HTTP,
 				Port:    ports.HTTP,
 				Check:   check.And(check.OK(), checkNoProxyMetaHeaders),
