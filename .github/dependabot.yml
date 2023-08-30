@@ -1,22 +1,186 @@
-# Configures Depdendabot to PR go security updates only
-
-version: 2
-updates:
-  # Go configuration for master branch
-  - package-ecosystem: "gomod"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    # Limit number of open PRs to 0 so that we only get security updates
-    # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates
-    open-pull-requests-limit: 0
-  # Go configuration for release-1.18 branch
-  - package-ecosystem: "gomod"
-    target-branch: "release-1.18"
-    directory: "/"
-    schedule:
-      interval: "daily"
-    # Limit number of open PRs to 0 so that we only get security updates
-    # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates
-    open-pull-requests-limit: 0
-   
+!!python/object/apply:ruamel.yaml.comments.CommentedMap
+dictitems:
+  updates: !!python/object/new:ruamel.yaml.comments.CommentedSeq
+    listitems:
+    - !!python/object/apply:ruamel.yaml.comments.CommentedMap
+      dictitems:
+        directory: !!python/object/new:ruamel.yaml.scalarstring.DoubleQuotedScalarString [
+          /]
+        open-pull-requests-limit: 0
+        package-ecosystem: !!python/object/new:ruamel.yaml.scalarstring.DoubleQuotedScalarString [
+          gomod]
+        schedule: !!python/object/apply:ruamel.yaml.comments.CommentedMap
+          dictitems:
+            interval: !!python/object/new:ruamel.yaml.scalarstring.DoubleQuotedScalarString [
+              daily]
+          state:
+            _yaml_format: !!python/object/new:ruamel.yaml.comments.Format
+              state: !!python/tuple
+              - null
+              - {_flow_style: false}
+            _yaml_line_col: !!python/object:ruamel.yaml.comments.LineCol
+              col: 6
+              data:
+                interval: [8, 6, 8, 16]
+              line: 8
+      state:
+        _yaml_format: !!python/object/new:ruamel.yaml.comments.Format
+          state: !!python/tuple
+          - null
+          - {_flow_style: false}
+        _yaml_line_col: !!python/object:ruamel.yaml.comments.LineCol
+          col: 4
+          data:
+            directory: [6, 4, 6, 15]
+            open-pull-requests-limit: [11, 4, 11, 30]
+            package-ecosystem: [5, 4, 5, 23]
+            schedule: [7, 4, 8, 6]
+          line: 5
+    - !!python/object/apply:ruamel.yaml.comments.CommentedMap
+      dictitems:
+        directory: !!python/object/new:ruamel.yaml.scalarstring.DoubleQuotedScalarString [
+          /]
+        open-pull-requests-limit: 0
+        package-ecosystem: !!python/object/new:ruamel.yaml.scalarstring.DoubleQuotedScalarString [
+          gomod]
+        schedule: !!python/object/apply:ruamel.yaml.comments.CommentedMap
+          dictitems:
+            interval: !!python/object/new:ruamel.yaml.scalarstring.DoubleQuotedScalarString [
+              daily]
+          state:
+            _yaml_format: !!python/object/new:ruamel.yaml.comments.Format
+              state: !!python/tuple
+              - null
+              - {_flow_style: false}
+            _yaml_line_col: !!python/object:ruamel.yaml.comments.LineCol
+              col: 6
+              data:
+                interval: [17, 6, 17, 16]
+              line: 17
+        target-branch: !!python/object/new:ruamel.yaml.scalarstring.DoubleQuotedScalarString [
+          release-1.18]
+      state:
+        _yaml_format: !!python/object/new:ruamel.yaml.comments.Format
+          state: !!python/tuple
+          - null
+          - {_flow_style: false}
+        _yaml_line_col: !!python/object:ruamel.yaml.comments.LineCol
+          col: 4
+          data:
+            directory: [15, 4, 15, 15]
+            open-pull-requests-limit: [20, 4, 20, 30]
+            package-ecosystem: [13, 4, 13, 23]
+            schedule: [16, 4, 17, 6]
+            target-branch: [14, 4, 14, 19]
+          line: 13
+    - directory: /
+      package-ecosystem: docker
+      schedule: {interval: daily}
+    state: !!python/tuple
+    - _yaml_format: !!python/object/new:ruamel.yaml.comments.Format
+        state: !!python/tuple
+        - null
+        - {_flow_style: false}
+      _yaml_line_col: !!python/object:ruamel.yaml.comments.LineCol
+        col: 2
+        data:
+          0: [5, 4]
+          1: [13, 4]
+        line: 5
+    - _yaml_comment: !!python/object/new:ruamel.yaml.comments.Comment
+        state: !!python/tuple
+        - null
+        - _end: []
+          _items:
+            1:
+            - null
+            - - !!python/object/new:ruamel.yaml.tokens.CommentToken
+                state: !!python/tuple
+                - null
+                - end_mark: !!python/object/new:ruamel.yaml.error.StringMark
+                    state: !!python/tuple
+                    - null
+                    - {buffer: "# Configures Depdendabot to PR go security updates\
+                        \ only\n\nversion: 2\nupdates:\n  # Go configuration for master\
+                        \ branch\n  - package-ecosystem: \"gomod\"\n    directory:\
+                        \ \"/\"\n    schedule:\n      interval: \"daily\"\n    # Limit\
+                        \ number of open PRs to 0 so that we only get security updates\n\
+                        \    # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates\n\
+                        \    open-pull-requests-limit: 0\n  # Go configuration for\
+                        \ release-1.18 branch\n  - package-ecosystem: \"gomod\"\n\
+                        \    target-branch: \"release-1.18\"\n    directory: \"/\"\
+                        \n    schedule:\n      interval: \"daily\"\n    # Limit number\
+                        \ of open PRs to 0 so that we only get security updates\n\
+                        \    # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates\n\
+                        \    open-pull-requests-limit: 0\n   \0", column: 0, index: 484,
+                      line: 13, name: <byte string>, pointer: 484}
+                  start_mark: !!python/object/new:ruamel.yaml.error.StringMark
+                    state: !!python/tuple
+                    - null
+                    - {buffer: "# Configures Depdendabot to PR go security updates\
+                        \ only\n\nversion: 2\nupdates:\n  # Go configuration for master\
+                        \ branch\n  - package-ecosystem: \"gomod\"\n    directory:\
+                        \ \"/\"\n    schedule:\n      interval: \"daily\"\n    # Limit\
+                        \ number of open PRs to 0 so that we only get security updates\n\
+                        \    # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates\n\
+                        \    open-pull-requests-limit: 0\n  # Go configuration for\
+                        \ release-1.18 branch\n  - package-ecosystem: \"gomod\"\n\
+                        \    target-branch: \"release-1.18\"\n    directory: \"/\"\
+                        \n    schedule:\n      interval: \"daily\"\n    # Limit number\
+                        \ of open PRs to 0 so that we only get security updates\n\
+                        \    # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates\n\
+                        \    open-pull-requests-limit: 0\n   \0", column: 2, index: 441,
+                      line: 12, name: <byte string>, pointer: 441}
+                  value: "# Go configuration for release-1.18 branch\n"
+            - null
+            - null
+          comment:
+          - null
+          - - !!python/object/new:ruamel.yaml.tokens.CommentToken
+              state: !!python/tuple
+              - null
+              - end_mark: !!python/object/new:ruamel.yaml.error.StringMark
+                  state: !!python/tuple
+                  - null
+                  - {buffer: "# Configures Depdendabot to PR go security updates only\n\
+                      \nversion: 2\nupdates:\n  # Go configuration for master branch\n\
+                      \  - package-ecosystem: \"gomod\"\n    directory: \"/\"\n  \
+                      \  schedule:\n      interval: \"daily\"\n    # Limit number\
+                      \ of open PRs to 0 so that we only get security updates\n  \
+                      \  # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates\n\
+                      \    open-pull-requests-limit: 0\n  # Go configuration for release-1.18\
+                      \ branch\n  - package-ecosystem: \"gomod\"\n    target-branch:\
+                      \ \"release-1.18\"\n    directory: \"/\"\n    schedule:\n  \
+                      \    interval: \"daily\"\n    # Limit number of open PRs to\
+                      \ 0 so that we only get security updates\n    # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates\n\
+                      \    open-pull-requests-limit: 0\n   \0", column: 0, index: 116,
+                    line: 5, name: <byte string>, pointer: 116}
+                start_mark: !!python/object/new:ruamel.yaml.error.StringMark
+                  state: !!python/tuple
+                  - null
+                  - {buffer: "# Configures Depdendabot to PR go security updates only\n\
+                      \nversion: 2\nupdates:\n  # Go configuration for master branch\n\
+                      \  - package-ecosystem: \"gomod\"\n    directory: \"/\"\n  \
+                      \  schedule:\n      interval: \"daily\"\n    # Limit number\
+                      \ of open PRs to 0 so that we only get security updates\n  \
+                      \  # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates\n\
+                      \    open-pull-requests-limit: 0\n  # Go configuration for release-1.18\
+                      \ branch\n  - package-ecosystem: \"gomod\"\n    target-branch:\
+                      \ \"release-1.18\"\n    directory: \"/\"\n    schedule:\n  \
+                      \    interval: \"daily\"\n    # Limit number of open PRs to\
+                      \ 0 so that we only get security updates\n    # See https://docs.github.com/en/code-security/dependabot/dependabot-security-updates/configuring-dependabot-security-updates\n\
+                      \    open-pull-requests-limit: 0\n   \0", column: 2, index: 79,
+                    line: 4, name: <byte string>, pointer: 79}
+                value: "# Go configuration for master branch\n"
+  version: 2
+state:
+  _yaml_format: !!python/object/new:ruamel.yaml.comments.Format
+    state: !!python/tuple
+    - null
+    - {_flow_style: false}
+  _yaml_line_col: !!python/object:ruamel.yaml.comments.LineCol
+    col: 0
+    data:
+      updates: [3, 0, 5, 2]
+      version: [2, 0, 2, 9]
+    line: 2
