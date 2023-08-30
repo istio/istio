@@ -567,7 +567,3 @@ func (c Config) WorkloadClass() WorkloadClass {
 	}
 	return Standard
 }
-
-func (c Config) CanCreateIstioProxy() bool {
-	return !c.ZTunnelCaptured() && !c.HasWaypointProxy() && c.HasSidecar()
-}

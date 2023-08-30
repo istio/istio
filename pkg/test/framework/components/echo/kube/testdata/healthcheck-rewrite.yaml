@@ -37,13 +37,6 @@ spec:
         prometheus.io/port: "15014"
         sidecar.istio.io/rewriteAppHTTPProbers: "true"
     spec:
-      topologySpreadConstraints:
-      - topologyKey: "kubernetes.io/hostname"
-        whenUnsatisfiable: "ScheduleAnyway"
-        maxSkew: 1
-        labelSelector:
-          matchLabels:
-            app: healthcheck
       imagePullSecrets:
       - name: myregistrykey
       containers:

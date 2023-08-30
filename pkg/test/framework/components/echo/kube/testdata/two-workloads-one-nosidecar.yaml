@@ -36,13 +36,6 @@ spec:
         prometheus.io/scrape: "true"
         prometheus.io/port: "15014"
     spec:
-      topologySpreadConstraints:
-      - topologyKey: "kubernetes.io/hostname"
-        whenUnsatisfiable: "ScheduleAnyway"
-        maxSkew: 1
-        labelSelector:
-          matchLabels:
-            app: foo
       imagePullSecrets:
       - name: myregistrykey
       containers:
@@ -123,13 +116,6 @@ spec:
         prometheus.io/port: "15014"
         sidecar.istio.io/inject: "false"
     spec:
-      topologySpreadConstraints:
-      - topologyKey: "kubernetes.io/hostname"
-        whenUnsatisfiable: "ScheduleAnyway"
-        maxSkew: 1
-        labelSelector:
-          matchLabels:
-            app: foo
       imagePullSecrets:
       - name: myregistrykey
       containers:

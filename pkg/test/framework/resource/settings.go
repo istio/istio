@@ -139,11 +139,10 @@ type Settings struct {
 	SkipTProxy bool
 
 	// Ambient mesh is being used
-	ambient  bool
-	noopTemp bool
+	Ambient bool
 
 	// Use ambient instead of sidecars
-	AddWaypoints bool
+	AmbientEverywhere bool
 
 	// Compatibility determines whether we should transparently deploy echo workloads attached to each revision
 	// specified in `Revisions` when creating echo instances. Used primarily for compatibility testing between revisions
@@ -202,14 +201,6 @@ func (s *Settings) SkipWorkloadClassesAsSet() sets.String {
 
 func (s *Settings) OnlyWorkloadClassesAsSet() sets.String {
 	return sets.New[string](s.OnlyWorkloadClasses...)
-}
-
-func (s *Settings) Ambient() bool {
-	return s.ambient || s.AddWaypoints
-}
-
-func (s *Settings) SetAmbient() {
-	s.ambient = true
 }
 
 // RunDir is the name of the dir to output, for this particular run.
