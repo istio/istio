@@ -177,8 +177,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 		clusterType = cluster.Cluster_ORIGINAL_DST
 	}
 	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
-		subsetBuilder := endpointBuilder.WithSubset(subset.Name)
-		lbEndpoints = subsetBuilder.FromServiceEndpoints()
+		lbEndpoints = endpointBuilder.WithSubset(subset.Name).FromServiceEndpoints()
 		if len(lbEndpoints) == 0 {
 			log.Debugf("locality endpoints missing for cluster %s", subsetClusterName)
 		}

@@ -140,11 +140,14 @@ func (b *EndpointBuilder) servicePort(port int) *model.Port {
 	return svcPort
 }
 
-func (b *EndpointBuilder) WithSubset(subset string) EndpointBuilder {
+func (b *EndpointBuilder) WithSubset(subset string) *EndpointBuilder {
+	if b == nil {
+		return nil
+	}
 	subsetBuilder := *b
 	subsetBuilder.subsetName = subset
 	subsetBuilder.populateSubsetInfo()
-	return subsetBuilder
+	return &subsetBuilder
 }
 
 func (b *EndpointBuilder) populateSubsetInfo() {
@@ -197,6 +200,9 @@ func (b *EndpointBuilder) Key() any {
 }
 
 func (b *EndpointBuilder) WriteHash(h hash.Hash) {
+	if b == nil {
+		return
+	}
 	h.Write([]byte(b.clusterName))
 	h.Write(Separator)
 	h.Write([]byte(b.network))
@@ -310,6 +316,9 @@ func (e *LocalityEndpoints) AssertInvarianceInTest() {
 // FromServiceEndpoints builds LocalityLbEndpoints from the PushContext's snapshotted ServiceIndex.
 // Used for CDS (ClusterLoadAssignment constructed elsewhere).
 func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints {
+	if b == nil {
+		return nil
+	}
 	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
 	// don't use the pre-computed endpoints for CDS to preserve previous behavior
 	return ExtractEnvoyEndpoints(b.generate(svcEps, true))
