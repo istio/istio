@@ -498,6 +498,20 @@ func (c *Controller) getSelectedWorkloadEntries(ns string, selector map[string]s
 			workloadEntries = append(workloadEntries, wl)
 		}
 	}
+
+	// Include workload entries inlined in service entries (endpoints)
+	allServiceEntries := c.configController.List(gvk.ServiceEntry, ns)
+	for _, se := range allServiceEntries {
+		for _, wl := range serviceentry.ConvertServiceEntry(se).Endpoints {
+			if labels.Instance(selector).SubsetOf(wl.Labels) || (len(wl.Labels) == 0 && labels.Instance(selector).SubsetOf(se.Labels)) {
+				workloadEntries = append(workloadEntries, &apiv1alpha3.WorkloadEntry{
+					ObjectMeta: se.ToObjectMeta(),
+					Spec:       *wl.DeepCopy(),
+				})
+			}
+		}
+	}
+
 	return workloadEntries
 }
 

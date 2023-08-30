@@ -980,14 +980,14 @@ func (s *ambientTestServer) deleteWorkloadEntry(t *testing.T, name string) {
 	_ = s.cfg.Delete(gvk.WorkloadEntry, name, "ns1", nil)
 }
 
-func (s *ambientTestServer) addServiceEntry(t *testing.T, hostStr string, addresses []string, name, ns string, labels map[string]string) {
+func (s *ambientTestServer) addServiceEntry(t *testing.T, hostStr string, addresses []string, name, ns string, labels map[string]string, inlined bool) {
 	t.Helper()
 
 	_, _ = s.controller.client.Kube().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{"istio.io/dataplane-mode": "ambient"}},
 	}, metav1.CreateOptions{})
 
-	serviceEntry := generateServiceEntry(hostStr, addresses, labels)
+	serviceEntry := generateServiceEntry(hostStr, addresses, labels, inlined)
 	w := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.ServiceEntry,
@@ -1006,11 +1006,11 @@ func (s *ambientTestServer) addServiceEntry(t *testing.T, hostStr string, addres
 	}
 }
 
-func generateServiceEntry(host string, addresses []string, labels map[string]string) *v1alpha3.ServiceEntry {
+func generateServiceEntry(host string, addresses []string, labels map[string]string, inlined bool) *v1alpha3.ServiceEntry {
 	var endpoints []*v1alpha3.WorkloadEntry
 	var workloadSelector *v1alpha3.WorkloadSelector
 
-	if len(labels) > 0 {
+	if !inlined {
 		workloadSelector = &v1alpha3.WorkloadSelector{
 			Labels: labels,
 		}
@@ -1018,6 +1018,7 @@ func generateServiceEntry(host string, addresses []string, labels map[string]str
 		endpoints = []*v1alpha3.WorkloadEntry{
 			{
 				Address: "127.0.0.1",
+				Labels:  labels,
 				Ports: map[string]uint32{
 					"http": 8081, // we will override the SE http port
 				},
