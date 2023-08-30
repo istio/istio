@@ -33,7 +33,9 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 )
@@ -45,7 +47,7 @@ type networkManager struct {
 	clusterID cluster.ID
 
 	// this should be an informer instead of a client however unit tests with an Informer were problematic and need further investigation
-	gatewayResourceClient kclient.Client[*v1beta1.Gateway]
+	gatewayResourceClient kclient.Informer[*v1beta1.Gateway]
 	meshNetworksWatcher   mesh.NetworksWatcher
 
 	// Network name for to be used when the meshNetworks fromRegistry nor network label on pod is specified
@@ -81,7 +83,7 @@ func initNetworkManager(c *Controller, options Options) *networkManager {
 		discoverRemoteGatewayResources: options.ConfigCluster,
 	}
 	if features.MultiNetworkGatewayAPI {
-		n.gatewayResourceClient = kclient.New[*v1beta1.Gateway](c.client)
+		n.gatewayResourceClient = kclient.NewDelayedInformer[*v1beta1.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
 		registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
 	}
 	return n
