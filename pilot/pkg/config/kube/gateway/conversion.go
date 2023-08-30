@@ -18,6 +18,8 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/netip"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -1807,6 +1809,12 @@ var meshParentKey = parentKey{
 	Name: "istio",
 }
 
+// Sourced from https://github.com/kubernetes-sigs/gateway-api/blob/f55fda236a92b43da14e98c57c25ee5f2de42726/apis/v1beta1/validation/gateway.go#L48
+var (
+	validHostnameAddress = `^(\*\.)?[a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$`
+	validHostnameRegexp  = regexp.MustCompile(validHostnameAddress)
+)
+
 type configContext struct {
 	GatewayResources
 	AllowedReferences AllowedReferences
@@ -2102,6 +2110,13 @@ func reportGatewayStatus(
 		if len(addressesToReport) > 0 {
 			gs.Addresses = make([]k8sbeta.GatewayStatusAddress, 0, len(addressesToReport))
 			for _, addr := range addressesToReport {
+				// If the address is not an IP, then we check if it is a hostname
+				if _, err := netip.ParseAddr(addr); err != nil {
+					// TODO: this is a bit of a hack, we should probably have a better way to determine if an address is a hostname
+					if validHostnameRegexp.MatchString(addr) {
+						addrType = k8s.HostnameAddressType
+					}
+				}
 				gs.Addresses = append(gs.Addresses, k8sbeta.GatewayStatusAddress{
 					Value: addr,
 					Type:  &addrType,
