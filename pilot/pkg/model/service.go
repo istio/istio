@@ -814,7 +814,7 @@ type ServiceDiscovery interface {
 	// GetService retrieves a service by host name if it exists
 	GetService(hostname host.Name) *Service
 
-	// GetProxyServiceTargets returns the service instances that co-located with a given Proxy
+	// GetProxyServiceTargets returns the service targets that co-located with a given Proxy
 	//
 	// Co-located generally means running in the same network namespace and security context.
 	//
@@ -822,9 +822,9 @@ type ServiceDiscovery interface {
 	// will return an empty slice.
 	//
 	// There are two reasons why this returns multiple ServiceTargets instead of one:
-	// - A ServiceTargets has a single IstioEndpoint which has a single Port.  But a Service
+	// - A ServiceTargets has a single Port.  But a Service
 	//   may have many ports.  So a workload implementing such a Service would need
-	//   multiple ServiceEndpoints, one for each port.
+	//   multiple ServiceTargets, one for each port.
 	// - A single workload may implement multiple logical Services.
 	//
 	// In the second case, multiple services may be implemented by the same physical port number,
