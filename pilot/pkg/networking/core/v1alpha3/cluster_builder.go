@@ -260,6 +260,15 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 
 	cb.applyMetadataExchange(opts.mutable.cluster)
 
+	if service.MeshExternal {
+		im := getOrCreateIstioMetadata(mc.cluster)
+		im.Fields["external"] = &structpb.Value{
+			Kind: &structpb.Value_BoolValue{
+				BoolValue: true,
+			},
+		}
+	}
+
 	if destRule != nil {
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
 		mc.cluster.Metadata = util.AddALPNOverrideToMetadata(mc.cluster.Metadata, opts.policy.GetTls().GetMode())
