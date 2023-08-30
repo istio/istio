@@ -126,7 +126,9 @@ func (t *clusterCache) Key() any {
 	}
 	h.Write(Separator)
 
-	t.endpointBuilder.WriteHash(h)
+	if t.service.Resolution == model.DNSLB || t.service.Resolution == model.DNSRoundRobinLB {
+		t.endpointBuilder.WriteHash(h)
+	}
 
 	return h.Sum64()
 }
