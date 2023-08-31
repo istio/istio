@@ -141,13 +141,6 @@ func (s *Server) initDNSCerts() error {
 			// will never be mounted.
 			if s.cacertsWatcher == nil {
 				log.Infof("No cert at %v; self-signed cert is used", fileBundle.SigningKeyFile)
-				s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
-					go func() {
-						// regenerate istiod key cert when root cert changes.
-						s.watchRootCertAndGenKeyCert(stop)
-					}()
-					return nil
-				})
 			} else {
 				log.Infof("Cert not found at %v; self-signed, istio generated cert is stored "+
 					"in cacerts secret. cacerts secret not yet mounted.", fileBundle.SigningKeyFile)
@@ -164,6 +157,14 @@ func (s *Server) initDNSCerts() error {
 				return fmt.Errorf("failed reading %s: %v", fileBundle.RootCertFile, err)
 			}
 		}
+		// Add watch to root cert bundle to update istiod certs
+		s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
+			go func() {
+				// regenerate istiod key cert when root cert changes.
+				s.watchRootCertAndGenKeyCert(stop)
+			}()
+			return nil
+		})
 	} else {
 		customCACertPath := security.DefaultRootCertFilePath
 		log.Infof("User specified cert provider: %v, mounted in a well known location %v",
@@ -172,6 +173,7 @@ func (s *Server) initDNSCerts() error {
 		if err != nil {
 			return fmt.Errorf("failed reading %s: %v", customCACertPath, err)
 		}
+		//TODO(jaellio): Does this also need a root cert watch? Would this have used the plugged in cert workflow?
 	}
 	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
 	return nil
@@ -218,18 +220,6 @@ func (s *Server) RotateDNSCertForK8sCA(stop <-chan struct{},
 		}
 		s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, s.istiodCertBundleWatcher.GetCABundle())
 	}
-}
-
-// updatePluggedinRootCertAndGenKeyCert when intermediate CA is updated, it generates new dns certs and notifies keycertbundle about the changes
-func (s *Server) updatePluggedinRootCertAndGenKeyCert() error {
-	caBundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
-	certChain, keyPEM, err := s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
-	if err != nil {
-		return err
-	}
-
-	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
-	return nil
 }
 
 // initCertificateWatches sets up watches for the plugin dns certs.

@@ -296,8 +296,7 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 // handleEvent handles the events on cacerts related files.
 // If create/write(modified) event occurs, then it verifies that
 // newly introduced cacerts are intermediate CA which is generated
-// from cuurent root-cert.pem. Then it updates and keycertbundle
-// and generates new dns certs.
+// from cuurent root-cert.pem. Then it updates keycertbundle.
 // TODO(rveerama1): Add support for new ROOT-CA rotation also.
 func handleEvent(s *Server) {
 	log.Info("Update Istiod cacerts")
@@ -325,9 +324,12 @@ func handleEvent(s *Server) {
 	}
 
 	// Only updating intermediate CA is supported now for pluggin certs
-	if !bytes.Equal(currentCABundle, newCABundle) && !istioGenerated {
-		log.Info("Updating new ROOT-CA not supported")
-		return
+	if !bytes.Equal(currentCABundle, newCABundle) {
+		if !istioGenerated {
+			log.Info("Updating new ROOT-CA not supported for pluggin certs")
+			return
+		}
+		log.Info("ROOT-CA updated for istio-generated self-signed cert")
 	}
 
 	err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
@@ -341,13 +343,9 @@ func handleEvent(s *Server) {
 		return
 	}
 
-	err = s.updatePluggedinRootCertAndGenKeyCert()
-	if err != nil {
-		log.Errorf("Failed generating plugged-in istiod key cert: %v", err)
-		return
-	}
+	// Updating Istiod certs handled by watchRootCertAndGenKeyCert in certController
 
-	log.Info("Istiod has detected the newly added intermediate CA and updated its key and certs accordingly")
+	log.Info("Updated Istiod CA cert")
 }
 
 // handleCACertsFileWatch handles the events on cacerts files
