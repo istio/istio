@@ -993,7 +993,6 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string) {
 		annotations[constants.WaypointServiceAccount] = sa
 		gateway.Annotations = annotations
 	}
-	_ = s.grc.Create(&gateway)
 	addrType := k8sbeta.IPAddressType
 	gateway.Status = k8sbeta.GatewayStatus{
 		// addresses:
@@ -1006,7 +1005,7 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string) {
 			},
 		},
 	}
-	_ = s.grc.UpdateStatus(&gateway)
+	_ = s.grc.Create(&gateway)
 }
 
 func (s *ambientTestServer) deleteWaypoint(t *testing.T, name string) {
