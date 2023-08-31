@@ -1,7 +1,6 @@
-# This is a example of using istio local rate limiting while using descriptors to limit by path. 
-# It uses the base book info demo and we add rate limiting by path specifically rate limiting the product page 
-# to 10 request per minute, and the overall fdqn will be able to take 100 request in a minute. 
-# This can be applied by saving it to a file then "kubectl apply -f <filename.yaml>".
+# This example shows how to use Istio local rate limiting with descriptors to limit by path. 
+# This uses the base book-info demo and adds rate limiting by path, specifically rate limiting the product page
+# to 10 requests per minute, and the overall fdqn will be able to accept 100 requests per minute. 
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
