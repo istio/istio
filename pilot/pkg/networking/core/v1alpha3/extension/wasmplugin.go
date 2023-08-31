@@ -52,9 +52,9 @@ func PopAppendHTTP(list []*hcm.HttpFilter,
 	return list
 }
 
-// popAppendNetwork takes a list of filters and a set of WASM plugins, keyed by phase. It will remove all
+// PopAppendNetwork takes a list of filters and a set of WASM plugins, keyed by phase. It will remove all
 // plugins of a provided phase from the WASM plugin set and append them to the list of filters
-func popAppendNetwork(list []*listener.Filter,
+func PopAppendNetwork(list []*listener.Filter,
 	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	phase extensions.PluginPhase,
 ) []*listener.Filter {
@@ -65,14 +65,14 @@ func popAppendNetwork(list []*listener.Filter,
 	return list
 }
 
-// BuildNetworkFilters builds network WASM filters from a set of WASM plugins, orderded by phase.
-func BuildNetworkFilters(filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper) []*listener.Filter {
-	filters := make([]*listener.Filter, 0)
-	filters = popAppendNetwork(filters, filterMap, extensions.PluginPhase_AUTHN)
-	filters = popAppendNetwork(filters, filterMap, extensions.PluginPhase_AUTHZ)
-	filters = popAppendNetwork(filters, filterMap, extensions.PluginPhase_STATS)
-	filters = popAppendNetwork(filters, filterMap, extensions.PluginPhase_UNSPECIFIED_PHASE)
-	return filters
+func PopAppendNetworkFilters(list []*listener.Filter,
+	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
+) []*listener.Filter {
+	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_AUTHN)
+	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_AUTHZ)
+	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_STATS)
+	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	return list
 }
 
 func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm.HttpFilter {

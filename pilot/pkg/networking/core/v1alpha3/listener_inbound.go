@@ -28,6 +28,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
@@ -804,7 +805,7 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 		Port:  httpOpts.port,
 		Class: httpOpts.class,
 	}, model.WasmPluginTypeNetwork)
-	filters = append(filters, extension.BuildNetworkFilters(wasm)...)
+	filters = extension.PopAppendNetworkFilters(filters, wasm)
 	h := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
@@ -837,10 +838,13 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 		Port:  fcc.port.Port,
 		Class: istionetworking.ListenerClassSidecarInbound,
 	}, model.WasmPluginTypeNetwork)
+	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)...)
 	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
 	filters = append(filters, lb.authzBuilder.BuildTCP()...)
+	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)...)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
-	filters = append(filters, extension.BuildNetworkFilters(wasm)...)
+	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)...)
+	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)...)
 	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
 
 	return filters

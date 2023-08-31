@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -596,12 +595,6 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		} else {
 			opt.httpOpts.statPrefix = strings.ToLower(l.TrafficDirection.String()) + "_" + l.Name
 			opt.httpOpts.port = le.servicePort.Port
-			// Add network level WASM filters if any configured.
-			wasm := builder.push.WasmPluginsByListenerInfo(builder.node, model.WasmPluginListenerInfo{
-				Port:  opt.httpOpts.port,
-				Class: opt.httpOpts.class,
-			}, model.WasmPluginTypeNetwork)
-			chain.Filters = append(chain.Filters, extension.BuildNetworkFilters(wasm)...)
 			hcm := builder.buildHTTPConnectionManager(opt.httpOpts)
 			filter := &listener.Filter{
 				Name:       wellknown.HTTPConnectionManager,
