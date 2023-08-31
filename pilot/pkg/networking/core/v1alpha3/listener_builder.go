@@ -363,7 +363,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	accessLogBuilder.setHTTPAccessLog(lb.push, lb.node, connectionManager, httpOpts.class)
 
-	routerFilterCtx, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
+	startChildSpan, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
 
 	filters := []*hcm.HttpFilter{}
 	if !httpOpts.isWaypoint {
@@ -379,7 +379,11 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 				if httpOpts.class == istionetworking.ListenerClassSidecarInbound {
 					filters = append(filters, xdsfilters.SidecarInboundMetadataFilter)
 				} else {
-					filters = append(filters, xdsfilters.SidecarOutboundMetadataFilter)
+					if httpOpts.skipIstioMXHeaders {
+						filters = append(filters, xdsfilters.SidecarOutboundMetadataFilterSkipHeaders)
+					} else {
+						filters = append(filters, xdsfilters.SidecarOutboundMetadataFilter)
+					}
 				}
 			} else {
 				filters = append(filters, xdsfilters.HTTPMx)
@@ -420,7 +424,10 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	if features.EnablePersistentSessionFilter && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
 		filters = append(filters, xdsfilters.EmptySessionFilter)
 	}
-	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
+	filters = append(filters, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       startChildSpan,
+		SuppressDebugHeaders: httpOpts.suppressEnvoyDebugHeaders,
+	}))
 
 	connectionManager.HttpFilters = filters
 	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIDExtensionCtx)

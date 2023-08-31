@@ -35,6 +35,8 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/concurrent"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Controller manages repeatedly running analyzers in istiod, and reporting results
@@ -55,7 +57,12 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 
 	// Filter out configs watched by rwConfigStore so we don't watch multiple times
 	store := crdclient.NewForSchemas(kubeClient,
-		crdclient.Option{Revision: revision, DomainSuffix: domainSuffix, Identifier: "analysis-controller"},
+		crdclient.Option{
+			Revision:     revision,
+			DomainSuffix: domainSuffix,
+			Identifier:   "analysis-controller",
+			FiltersByGVK: ia.GetFiltersByGVK(),
+		},
 		all.Remove(rwConfigStore.Schemas().All()...))
 
 	ia.AddSource(store)
@@ -78,27 +85,37 @@ func NewController(stop <-chan struct{}, rwConfigStore model.ConfigStoreControll
 
 // Run is blocking
 func (c *Controller) Run(stop <-chan struct{}) {
-	t := time.NewTicker(features.AnalysisInterval)
-	oldmsgs := diag.Messages{}
-	for {
-		select {
-		case <-t.C:
-			res, err := c.analyzer.ReAnalyze(stop)
-			if err != nil {
-				log.Errorf("In-cluster analysis has failed: %s", err)
-				continue
+	db := concurrent.Debouncer[config.GroupVersionKind]{}
+	chKind := make(chan config.GroupVersionKind, 10)
+
+	for _, k := range c.analyzer.Schemas().All() {
+		c.analyzer.RegisterEventHandler(k.GroupVersionKind(), func(oldcfg config.Config, newcfg config.Config, ev model.Event) {
+			gvk := oldcfg.GroupVersionKind
+			if (gvk == config.GroupVersionKind{}) {
+				gvk = newcfg.GroupVersionKind
 			}
-			// reorganize messages to map
-			index := map[status.Resource]diag.Messages{}
-			for _, m := range res.Messages {
-				key := status.ResourceFromMetadata(m.Resource.Metadata)
-				index[key] = append(index[key], m)
-			}
-			// if we previously had a message that has been removed, ensure it is removed
-			// TODO: this creates a state destruction problem when istiod crashes
-			// in that old messages may not be removed.  Not sure how to fix this
-			// other than write every object's status every loop.
-			for _, m := range oldmsgs {
+			chKind <- gvk
+		})
+	}
+	oldmsgs := map[string]diag.Messages{}
+	pushFn := func(combinedKinds sets.Set[config.GroupVersionKind]) {
+		res, err := c.analyzer.ReAnalyzeSubset(combinedKinds, stop)
+		if err != nil {
+			log.Errorf("In-cluster analysis has failed: %s", err)
+			return
+		}
+		// reorganize messages to map
+		index := map[status.Resource]diag.Messages{}
+		for _, m := range res.Messages {
+			key := status.ResourceFromMetadata(m.Resource.Metadata)
+			index[key] = append(index[key], m)
+		}
+		// if we previously had a message that has been removed, ensure it is removed
+		// TODO: this creates a state destruction problem when istiod crashes
+		// in that old messages may not be removed.  Not sure how to fix this
+		// other than write every object's status every loop.
+		for _, a := range res.ExecutedAnalyzers {
+			for _, m := range oldmsgs[a] {
 				key := status.ResourceFromMetadata(m.Resource.Metadata)
 				if _, ok := index[key]; !ok {
 					index[key] = diag.Messages{}
@@ -111,11 +128,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 					c.statusctl.EnqueueStatusUpdateResource(m, r)
 				}
 			}
-			oldmsgs = res.Messages
-			log.Debugf("finished enqueueing all statuses")
-		case <-stop:
-			t.Stop()
-			return
+			oldmsgs[a] = res.MappedMessages[a]
 		}
+		log.Debugf("finished enqueueing all statuses")
 	}
+	db.Run(chKind, stop, 1*time.Second, features.AnalysisInterval, pushFn)
 }

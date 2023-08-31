@@ -496,7 +496,7 @@ func TestGetRevisionFromPodAnnotation(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run("", func(t *testing.T) {
-			got := getRevisionFromPodAnnotation(tc.anno)
+			got := GetRevisionFromPodAnnotation(tc.anno)
 			assert.Equal(t, tc.expected, got)
 		})
 	}

@@ -260,6 +260,15 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 
 	cb.applyMetadataExchange(opts.mutable.cluster)
 
+	if service.MeshExternal {
+		im := getOrCreateIstioMetadata(mc.cluster)
+		im.Fields["external"] = &structpb.Value{
+			Kind: &structpb.Value_BoolValue{
+				BoolValue: true,
+			},
+		}
+	}
+
 	if destRule != nil {
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
 		mc.cluster.Metadata = util.AddALPNOverrideToMetadata(mc.cluster.Metadata, opts.policy.GetTls().GetMode())
@@ -400,13 +409,13 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 				},
 			},
 		}
-		// There is an usage doc here:
+		// There is a usage doc here:
 		// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/address.proto#config-core-v3-bindconfig
-		// to support the Dual Stack via Envoy bindconfig, and belows are related issue and PR in Envoy:
+		// to support Dual Stack via Envoy BindConfig, and below is the related issue/PR in Envoy:
 		// https://github.com/envoyproxy/envoy/issues/9811
-		// https://github.com/envoyproxy/envoy/pull/22639
-		// the extra source address for UpstreamBindConfig shoulde be added if dual stack is enabled and there are
-		// more than 1 IP for proxy
+		// https://github.com/envoyproxy/envoy/pull/22639.
+		// The extra source address for UpstreamBindConfig should be added if dual stack is enabled and there is
+		// more than one IP for the proxy.
 		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 {
 			// add extra source addresses to cluster builder
 			var extraSrcAddrs []*core.ExtraSourceAddress

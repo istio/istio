@@ -106,7 +106,7 @@ func (a *AmbientIndexImpl) handleServiceEntry(svcEntry *apiv1alpha3.ServiceEntry
 			for _, networkAddr := range networkAddressFromWorkload(wl) {
 				a.byWorkloadEntry[networkAddr] = wl
 			}
-			a.byUID[c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), w.Spec.GetAddress())] = wl
+			a.byUID[c.generateWorkloadEntryUID(wl.GetNamespace(), wl.GetName())] = wl
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 			wls[wl.Uid] = wl
 		}
@@ -498,6 +498,20 @@ func (c *Controller) getSelectedWorkloadEntries(ns string, selector map[string]s
 			workloadEntries = append(workloadEntries, wl)
 		}
 	}
+
+	// Include workload entries inlined in service entries (endpoints)
+	allServiceEntries := c.configController.List(gvk.ServiceEntry, ns)
+	for _, se := range allServiceEntries {
+		for _, wl := range serviceentry.ConvertServiceEntry(se).Endpoints {
+			if labels.Instance(selector).SubsetOf(wl.Labels) || (len(wl.Labels) == 0 && labels.Instance(selector).SubsetOf(se.Labels)) {
+				workloadEntries = append(workloadEntries, &apiv1alpha3.WorkloadEntry{
+					ObjectMeta: se.ToObjectMeta(),
+					Spec:       *wl.DeepCopy(),
+				})
+			}
+		}
+	}
+
 	return workloadEntries
 }
 

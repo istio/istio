@@ -418,7 +418,6 @@ func newClientInternal(clientFactory *clientFactory, revision string, cluster cl
 		}
 	}
 	c.version = lazy.NewWithRetry(clientWithTimeout.Discovery().ServerVersion)
-
 	return &c, nil
 }
 
@@ -818,7 +817,10 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 	res := version.MeshInfo{}
 	for _, pod := range readyPods {
 		component := pod.Labels["istio"]
-		server := version.ServerInfo{Component: component}
+		server := version.ServerInfo{
+			Component: component,
+			Revision:  pod.GetLabels()[label.IoIstioRev.Name],
+		}
 
 		// :15014/version returns something like
 		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean

@@ -1790,7 +1790,6 @@ spec:
 		},
 		setupOpts: fqdnHostHeader,
 		opts: echo.CallOptions{
-			Count: 1,
 			Port: echo.Port{
 				Protocol: protocol.HTTPS,
 			},

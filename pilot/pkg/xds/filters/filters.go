@@ -87,12 +87,6 @@ var (
 			TypedConfig: protoconv.MessageToAny(&fault.HTTPFault{}),
 		},
 	}
-	Router = &hcm.HttpFilter{
-		Name: wellknown.Router,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&router.Router{}),
-		},
-	}
 	GrpcWeb = &hcm.HttpFilter{
 		Name: wellknown.GRPCWeb,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -272,6 +266,32 @@ var (
 				}),
 		},
 	}
+	// TODO https://github.com/istio/istio/issues/46740
+	// false values can be omitted in protobuf, results in diff JSON values between control plane and envoy config dumps
+	// long term fix will be to add the metadata config to istio/api and use that over TypedStruct
+	SidecarOutboundMetadataFilterSkipHeaders = &hcm.HttpFilter{
+		Name: MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+					"upstream_propagation": []any{
+						map[string]any{
+							"istio_headers": map[string]any{
+								"skip_external_clusters": true,
+							},
+						},
+					},
+				}),
+		},
+	}
 
 	ConnectAuthorityFilter = &hcm.HttpFilter{
 		Name: "connect_authority",
@@ -306,19 +326,31 @@ var (
 	}
 )
 
-func BuildRouterFilter(ctx *RouterFilterContext) *hcm.HttpFilter {
-	if ctx == nil {
-		return Router
+// Router is used a bunch, so its worth precomputing even though we have a few options.
+// Since there are only 4 possible options, just precompute them all
+var routers = func() map[RouterFilterContext]*hcm.HttpFilter {
+	res := map[RouterFilterContext]*hcm.HttpFilter{}
+	for _, startSpan := range []bool{true, false} {
+		for _, supressHeaders := range []bool{true, false} {
+			res[RouterFilterContext{
+				StartChildSpan:       startSpan,
+				SuppressDebugHeaders: supressHeaders,
+			}] = &hcm.HttpFilter{
+				Name: wellknown.Router,
+				ConfigType: &hcm.HttpFilter_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&router.Router{
+						StartChildSpan:       startSpan,
+						SuppressEnvoyHeaders: supressHeaders,
+					}),
+				},
+			}
+		}
 	}
+	return res
+}()
 
-	return &hcm.HttpFilter{
-		Name: wellknown.Router,
-		ConfigType: &hcm.HttpFilter_TypedConfig{
-			TypedConfig: protoconv.MessageToAny(&router.Router{
-				StartChildSpan: ctx.StartChildSpan,
-			}),
-		},
-	}
+func BuildRouterFilter(ctx RouterFilterContext) *hcm.HttpFilter {
+	return routers[ctx]
 }
 
 var (

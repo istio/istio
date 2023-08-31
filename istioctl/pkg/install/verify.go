@@ -18,29 +18,20 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/formatting"
 	"istio.io/istio/istioctl/pkg/verifier"
-	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/ptr"
 )
 
 // NewVerifyCommand creates a new command for verifying Istio Installation Status
-func NewVerifyCommand() *cobra.Command {
+func NewVerifyCommand(ctx cli.Context) *cobra.Command {
 	var (
-		kubeConfigFlags = &genericclioptions.ConfigFlags{
-			Context:    ptr.Of(""),
-			Namespace:  ptr.Of(""),
-			KubeConfig: ptr.Of(""),
-		}
-
-		filenames      = []string{}
-		istioNamespace string
-		opts           clioptions.ControlPlaneOptions
-		manifestsPath  string
+		filenames     = []string{}
+		opts          clioptions.ControlPlaneOptions
+		manifestsPath string
 	)
 	verifyInstallCmd := &cobra.Command{
 		Use:   "verify-install [-f <deployment or istio operator file>] [--revision <revision>]",
@@ -76,8 +67,11 @@ istioctl experimental precheck.
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
-			installationVerifier, err := verifier.NewStatusVerifier(istioNamespace, manifestsPath,
-				*kubeConfigFlags.KubeConfig, *kubeConfigFlags.Context, filenames, opts)
+			client, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
+			installationVerifier, err := verifier.NewStatusVerifier(client, ctx.IstioNamespace(), manifestsPath, filenames, opts)
 			if err != nil {
 				return err
 			}
@@ -89,9 +83,6 @@ istioctl experimental precheck.
 	}
 
 	flags := verifyInstallCmd.PersistentFlags()
-	flags.StringVarP(&istioNamespace, "istioNamespace", "i", constants.IstioSystemNamespace,
-		"Istio system namespace")
-	kubeConfigFlags.AddFlags(flags)
 	flags.StringSliceVarP(&filenames, "filename", "f", filenames, "Istio YAML installation file.")
 	verifyInstallCmd.PersistentFlags().StringVarP(&manifestsPath, "manifests", "d", "", util.ManifestsFlagHelpStr)
 	opts.AttachControlPlaneFlags(verifyInstallCmd)

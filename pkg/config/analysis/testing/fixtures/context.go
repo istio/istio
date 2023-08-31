@@ -49,3 +49,5 @@ func (ctx *Context) ForEach(_ config.GroupVersionKind, fn analysis.IteratorFn) {
 
 // Canceled implements analysis.Context
 func (ctx *Context) Canceled() bool { return false }
+
+func (ctx *Context) SetAnalyzer(analyzerName string) {}

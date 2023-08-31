@@ -96,7 +96,7 @@ templates:
         - "-z"
         - {{ .MeshConfig.ProxyInboundListenPort | default "15006" | quote }}
         - "-u"
-        - "1337"
+        - {{ .ProxyUID | default "1337" | quote }}
         - "-m"
         - "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
         - "-i"
@@ -163,8 +163,8 @@ templates:
           runAsUser: 0
         {{- else }}
           readOnlyRootFilesystem: true
-          runAsGroup: 1337
-          runAsUser: 1337
+          runAsGroup: {{ .ProxyGID | default "1337" }}
+          runAsUser: {{ .ProxyUID | default "1337" }}
           runAsNonRoot: true
         {{- end }}
       {{ end -}}
@@ -370,7 +370,7 @@ templates:
             - ALL
           privileged: true
           readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
-          runAsGroup: 1337
+          runAsGroup: {{ .ProxyGID | default "1337" }}
           runAsNonRoot: false
           runAsUser: 0
           {{- else }}
@@ -389,13 +389,13 @@ templates:
             - ALL
           privileged: {{ .Values.global.proxy.privileged }}
           readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
-          runAsGroup: 1337
+          runAsGroup: {{ .ProxyGID | default "1337" }}
           {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
           runAsNonRoot: false
           runAsUser: 0
           {{- else -}}
           runAsNonRoot: true
-          runAsUser: 1337
+          runAsUser: {{ .ProxyUID | default "1337" }}
           {{- end }}
           {{- end }}
         resources:
@@ -1294,6 +1294,11 @@ templates:
                   resource: limits.cpu
             - name: ISTIO_META_CLUSTER_ID
               value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+            {{- $network := valueOrDefault (index .Labels `topology.istio.io/network`) .Values.global.network }}
+            {{- if $network }}
+            - name: ISTIO_META_NETWORK
+              value: "{{ $network }}"
+            {{- end }}
             - name: ISTIO_META_INTERCEPTION_MODE
               value: REDIRECT
             - name: ISTIO_META_WORKLOAD_NAME
@@ -1490,8 +1495,10 @@ templates:
               allowPrivilegeEscalation: false
               privileged: false
               readOnlyRootFilesystem: true
+    {{- if not (eq .Values.global.platform "openshift") }}
               runAsUser: 1337
               runAsGroup: 1337
+    {{- end }}
               runAsNonRoot: true
             {{- else }}
               capabilities:

@@ -546,7 +546,6 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	workloadGen := &WorkloadGenerator{s: s}
 	s.Generators[v3.AddressType] = workloadGen
 	s.Generators[v3.WorkloadType] = workloadGen
-	s.Generators[v3.ServiceType] = workloadGen
 	s.Generators[v3.WorkloadAuthorizationType] = &WorkloadRBACGenerator{s: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
