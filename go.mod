@@ -8,7 +8,7 @@ exclude k8s.io/kubernetes v1.13.0
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
-replace istio.io/api => github.com/jaellio/api v0.0.0-20230822185345-8541ffad15d3
+replace istio.io/api => github.com/jaellio/api v0.0.0-20230824213738-7144031ad455
 
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
