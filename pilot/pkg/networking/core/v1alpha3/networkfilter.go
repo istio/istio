@@ -69,14 +69,6 @@ func buildMetricsNetworkFilters(push *model.PushContext, proxy *model.Proxy, cla
 	return push.Telemetry.TCPFilters(proxy, class)
 }
 
-// func buildWasmNetworkFilters(push *model.PushContext, proxy *model.Proxy, port *model.Port, class istionetworking.ListenerClass) []*listener.Filter {
-// 	wasm := push.WasmPluginsByListenerInfo(proxy, model.WasmPluginListenerInfo{
-// 		Port:  port.Port,
-// 		Class: class,
-// 	}, model.WasmPluginTypeNetwork)
-// 	return extension.BuildNetworkFilters(wasm)
-// }
-
 // setAccessLogAndBuildTCPFilter sets the AccessLog configuration in the given
 // TcpProxy instance and builds a TCP filter out of it.
 func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, config *tcp.TcpProxy, class istionetworking.ListenerClass) *listener.Filter {
@@ -117,11 +109,9 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 		Class: class,
 	}, model.WasmPluginTypeNetwork)
 
-	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)...)
-	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)...)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
 	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
-	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)...)
-	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)...)
 	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	return filters
 }

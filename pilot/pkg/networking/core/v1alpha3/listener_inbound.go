@@ -838,13 +838,13 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 		Port:  fcc.port.Port,
 		Class: istionetworking.ListenerClassSidecarInbound,
 	}, model.WasmPluginTypeNetwork)
-	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)...)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
 	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
 	filters = append(filters, lb.authzBuilder.BuildTCP()...)
-	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)...)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
-	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)...)
-	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)...)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
 
 	return filters
