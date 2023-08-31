@@ -445,7 +445,8 @@ func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadA
 	loadAssignments := make([]*endpoint.ClusterLoadAssignment, 0)
 	for _, c := range xdstest.ExtractEdsClusterNames(f.Clusters(p)) {
 		builder := endpoints.NewEndpointBuilder(c, p, f.PushContext())
-		loadAssignments = append(loadAssignments, builder.BuildClusterLoadAssignment(f.Discovery.Env.EndpointIndex))
+		loadAssignments = append(loadAssignments, builder.BuildClusterLoadAssignment(
+			f.Discovery.Env.EndpointIndex, f.Discovery.Env.SystemNetworks()))
 	}
 	return loadAssignments
 }

@@ -834,6 +834,10 @@ func (s *Controller) MCSServices() []model.MCSServiceInfo {
 	return nil
 }
 
+func (s *Controller) SystemNetworks() map[cluster.ID]network.ID {
+	return nil
+}
+
 func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, []*model.Service, []*model.Service, []*model.Service) {
 	var added, deleted, updated, unchanged []*model.Service
 

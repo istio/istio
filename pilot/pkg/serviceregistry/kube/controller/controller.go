@@ -210,6 +210,8 @@ type Controller struct {
 	nodeInfoMap map[string]kubernetesNode
 	// index over workload instances from workload entries
 	workloadInstancesIndex workloadinstances.Index
+	// systemNamespaceNetwork are the networks for the system namespace.
+	systemNetworks map[cluster.ID]network.ID
 
 	*networkManager
 
@@ -236,6 +238,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 		nodeInfoMap:              make(map[string]kubernetesNode),
 		workloadInstancesIndex:   workloadinstances.NewIndex(),
 		initialSyncTimedout:      atomic.NewBool(false),
+		systemNetworks:           make(map[cluster.ID]network.ID),
 
 		configCluster: options.ConfigCluster,
 	}
@@ -249,6 +252,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			c.namespaces,
 			"Namespaces",
 			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
+				c.Lock()
+				c.systemNetworks[c.opts.ClusterID] = network.ID(cur.GetLabels()[label.TopologyNetwork.Name])
+				c.Unlock()
 				if cur.Name == c.opts.SystemNamespace {
 					return c.onSystemNamespaceEvent(old, cur, event)
 				}
@@ -1130,4 +1136,11 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 		return []*model.Service{svc}
 	}
 	return nil
+}
+
+// SystemNetworks returns the network ID for the system namespace.
+func (c *Controller) SystemNetworks() map[cluster.ID]network.ID {
+	c.RLock()
+	defer c.RUnlock()
+	return c.systemNetworks
 }

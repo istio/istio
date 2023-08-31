@@ -336,19 +336,6 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 
 	}
 
-	// Check if Network has changed. We should do a full push if they have changed.
-	//epNetworks := make(map[string]network.ID, len(newIstioEndpoints))
-	//for _, e := range newIstioEndpoints {
-	//	epNetworks[e.Address] = e.Network
-	//}
-	//for _, e := range ep.Shards[shard] {
-	//	if e.Network != epNetworks[e.Address] {
-	//		log.Infof("Full push, network changed for endpoint %v, %v", e.Address, e.Network)
-	//		pushType = FullPush
-	//		break
-	//	}
-	//}
-
 	ep.Shards[shard] = newIstioEndpoints
 
 	// Check if ServiceAccounts have changed. We should do a full push if they have changed.

@@ -25,6 +25,8 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -36,6 +38,7 @@ type ServiceDiscovery struct {
 	handlers model.ControllerHandlers
 
 	networkGateways []model.NetworkGateway
+	systemNetworks  map[cluster.ID]network.ID
 	model.NetworkGatewaysHandler
 
 	// EndpointShards table. Key is the fqdn of the service, ':', port
@@ -308,6 +311,14 @@ func (sd *ServiceDiscovery) AddGateways(gws ...model.NetworkGateway) {
 
 func (sd *ServiceDiscovery) NetworkGateways() []model.NetworkGateway {
 	return sd.networkGateways
+}
+
+func (sd *ServiceDiscovery) AppendSystemNetworks(networks map[cluster.ID]network.ID) {
+	sd.systemNetworks = maps.MergeCopy(sd.systemNetworks, networks)
+}
+
+func (sd *ServiceDiscovery) SystemNetworks() map[cluster.ID]network.ID {
+	return sd.systemNetworks
 }
 
 func (sd *ServiceDiscovery) MCSServices() []model.MCSServiceInfo {

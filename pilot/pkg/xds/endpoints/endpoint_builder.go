@@ -267,7 +267,8 @@ func (b *EndpointBuilder) populateFailoverPriorityLabels() {
 	}
 }
 
-func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
+func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex, systemNetworks map[cluster.ID]network.ID,
+) *endpoint.ClusterLoadAssignment {
 	if !b.ServiceFound() {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
@@ -284,7 +285,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 	localityLbEndpoints := b.BuildLocalityLbEndpointsFromShards(epShards, svcPort)
 
 	// Apply the Split Horizon EDS filter, if applicable.
-	localityLbEndpoints = b.EndpointsByNetworkFilter(localityLbEndpoints)
+	localityLbEndpoints = b.EndpointsByNetworkFilter(localityLbEndpoints, systemNetworks)
 
 	if model.IsDNSSrvSubsetKey(b.clusterName) {
 		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended

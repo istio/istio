@@ -28,6 +28,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi/security"
 )
@@ -419,4 +420,12 @@ func (c *Controller) UnRegisterHandlersForCluster(id cluster.ID) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 	delete(c.handlersByCluster, id)
+}
+
+func (c *Controller) SystemNetworks() map[cluster.ID]network.ID {
+	networks := make(map[cluster.ID]network.ID)
+	for _, r := range c.GetRegistries() {
+		networks = maps.MergeCopy(networks, r.SystemNetworks())
+	}
+	return networks
 }

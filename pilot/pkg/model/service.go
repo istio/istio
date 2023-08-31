@@ -806,7 +806,7 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 // ServiceDiscovery enumerates Istio service instances.
 // nolint: lll
 type ServiceDiscovery interface {
-	NetworkGatewaysWatcher
+	NetworkWatcher
 
 	// Services list declarations of all services in the system
 	Services() []*Service

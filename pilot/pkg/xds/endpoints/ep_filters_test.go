@@ -605,7 +605,8 @@ func runNetworkFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []net
 			proxy := ds.SetupProxy(tt.proxy)
 			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints := b.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
-			filtered := b.EndpointsByNetworkFilter(testEndpoints)
+			testSystemNetworks := map[cluster.ID]network.ID{}
+			filtered := b.EndpointsByNetworkFilter(testEndpoints, testSystemNetworks)
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
 			}
@@ -613,7 +614,7 @@ func runNetworkFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []net
 
 			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints2 := b2.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
-			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
+			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2, testSystemNetworks)
 			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
 			}
@@ -664,7 +665,8 @@ func runMTLSFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networ
 			cn := fmt.Sprintf("outbound_.80_.%s_.example.ns.svc.cluster.local", subset)
 			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints := b.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
-			filtered := b.EndpointsByNetworkFilter(testEndpoints)
+			testSystemNetworks := map[cluster.ID]network.ID{}
+			filtered := b.EndpointsByNetworkFilter(testEndpoints, testSystemNetworks)
 			filtered = b.EndpointsWithMTLSFilter(filtered)
 			for _, e := range testEndpoints {
 				e.AssertInvarianceInTest()
@@ -673,7 +675,7 @@ func runMTLSFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networ
 
 			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
 			testEndpoints2 := b2.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
-			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
+			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2, testSystemNetworks)
 			filtered2 = b2.EndpointsWithMTLSFilter(filtered2)
 			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)

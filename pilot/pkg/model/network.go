@@ -46,6 +46,11 @@ type NetworkGateway struct {
 	Port uint32
 }
 
+type NetworkWatcher interface {
+	NetworkGatewaysWatcher
+	SystemNetworks() map[cluster.ID]network.ID
+}
+
 type NetworkGatewaysWatcher interface {
 	NetworkGateways() []NetworkGateway
 	AppendNetworkGatewayHandler(h func())
@@ -74,7 +79,7 @@ type NetworkGateways struct {
 	byNetworkAndCluster map[networkAndCluster][]NetworkGateway
 }
 
-// NetworkManager provides gateway details for accessing remote networks.
+// NetworkManager provides network details for accessing remote networks.
 type NetworkManager struct {
 	env *Environment
 	// exported for test
@@ -88,6 +93,9 @@ type NetworkManager struct {
 	*NetworkGateways
 	// includes all gateways with no DNS resolution or filtering, regardless of feature flags
 	Unresolved *NetworkGateways
+
+	// systemNetworks is a map from cluster's system namespace to network ID
+	systemNetworks map[cluster.ID]network.ID
 }
 
 // NewNetworkManager creates a new NetworkManager from the Environment by merging
