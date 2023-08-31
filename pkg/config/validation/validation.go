@@ -1954,13 +1954,13 @@ func validatePolicyTargetReference(selector *type_beta.WorkloadSelector, targetR
 	if targetRef.Namespace == nil {
 		v = appendErrorf(v, "policyTargetReference.namespace must be set")
 	}
-	// Currently, gateway.networking.k8s.io is the only valid Group for this field.
-	if targetRef.Group != defaultGatewayGVK.Group {
-		v = appendErrorf(v, "policyTargetReference.group is incorrect; expected: %v, got: %v", defaultGatewayGVK.Group, targetRef.Group)
+	targetRefGVK := config.GroupVersionKind{
+		Group: targetRef.Group,
+		Kind:  targetRef.Kind,
 	}
-	// Currently, gateway.networking.k8s.io/Gateway is the only valid Kind for this field.
-	if targetRef.Kind != defaultGatewayGVK.Kind {
-		v = appendErrorf(v, "policyTargetReference.kind is incorrect; expected: %v, got: %v", defaultGatewayGVK.Kind, targetRef.Kind)
+	// Currently, gateway.networking.k8s.io is the only valid Group and gateway.networking.k8s.io/Gateway the only valid Kind.
+	if targetRef.Group != defaultGatewayGVK.Group || targetRef.Kind != defaultGatewayGVK.Kind {
+		v = appendErrorf(v, "policyTargetReference Group and Kind don't match; expected: %v, got: %v", defaultGatewayGVK, targetRefGVK)
 	}
 	return
 }
