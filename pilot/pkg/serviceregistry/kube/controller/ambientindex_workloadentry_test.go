@@ -59,6 +59,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 					CanonicalRevision: "latest",
 					WorkloadType:      workloadapi.WorkloadType_POD,
 					WorkloadName:      "name3",
+					ClusterId:         testC,
 				},
 			},
 		},
