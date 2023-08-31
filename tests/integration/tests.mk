@@ -111,7 +111,7 @@ test.integration.%.kube.presubmit:
 
 # Run all tests
 .PHONY: test.integration.kube
-test.integration.kube: test.integration.kube.presubmit
+test.integration.kube: test.integration.kube.environment
 	@:
 
 # Presubmit integration tests targeting Kubernetes environment. Really used for postsubmit on different k8s versions.
