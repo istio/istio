@@ -30,8 +30,6 @@ import (
 	"istio.io/istio/pkg/keepalive"
 )
 
-var _ autoregistration.Connection = &fakeConn{}
-
 type fakeConn struct {
 	proxy    *model.Proxy
 	connTime time.Time

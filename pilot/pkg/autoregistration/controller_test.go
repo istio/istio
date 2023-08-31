@@ -52,7 +52,7 @@ func init() {
 	features.WorkloadEntryCleanupGracePeriod = 50 * time.Millisecond
 }
 
-var _ Connection = &fakeConn{}
+var _ connection = &fakeConn{}
 
 type fakeConn struct {
 	sync.RWMutex

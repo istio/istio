@@ -220,7 +220,7 @@ func setConnectMeta(c *config.Config, controller string, conTime time.Time) {
 // If connecting proxy represents a workload that is not using auto-registration,
 // the WorkloadEntry resource is expected to exist beforehand. Otherwise, no special
 // processing will be initiated, e.g. health status updates will be ignored.
-func (c *Controller) OnConnect(conn Connection) error {
+func (c *Controller) OnConnect(conn connection) error {
 	if c == nil {
 		return nil
 	}
@@ -429,7 +429,7 @@ func (c *Controller) changeWorkloadEntryStateToDisconnected(entryName string, pr
 //
 // If proxy represents a workload that is not using auto-registration, WorkloadEntry resource
 // will be scheduled to be marked unhealthy if the proxy does not reconnect within a grace period.
-func (c *Controller) OnDisconnect(conn Connection) {
+func (c *Controller) OnDisconnect(conn connection) {
 	if c == nil {
 		return
 	}
