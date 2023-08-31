@@ -8633,7 +8633,7 @@ func TestValidateTelemetry(t *testing.T) {
 					Namespace: proto.String("bar"),
 				},
 			},
-			"policyTargetReference.group is incorrect", "",
+			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: wrong-group//Gateway", "",
 		},
 		{
 			"bad targetRef - wrong kind",
@@ -8656,7 +8656,7 @@ func TestValidateTelemetry(t *testing.T) {
 					Namespace: proto.String("bar"),
 				},
 			},
-			"policyTargetReference.kind is incorrect", "",
+			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: gateway.networking.k8s.io//wrong-kind", "",
 		},
 		{
 			"targetRef and selector cannot both be set",
@@ -8920,7 +8920,7 @@ func TestValidateWasmPlugin(t *testing.T) {
 					Namespace: proto.String("bar"),
 				},
 			},
-			"policyTargetReference.group is incorrect", "",
+			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: wrong-group//Gateway", "",
 		},
 		{
 			"target-ref-wrong-kind",
@@ -8933,7 +8933,7 @@ func TestValidateWasmPlugin(t *testing.T) {
 					Namespace: proto.String("bar"),
 				},
 			},
-			"policyTargetReference.kind is incorrect", "",
+			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: gateway.networking.k8s.io//wrong-kind", "",
 		},
 		{
 			"target-ref-and-selector-cannot-both-be-set",
