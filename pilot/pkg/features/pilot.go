@@ -679,6 +679,10 @@ var (
 	// User should not rely on builtin resource labels, this flag will be removed in future releases(1.20).
 	EnableOTELBuiltinResourceLables = env.Register("ENABLE_OTEL_BUILTIN_RESOURCE_LABELS", false,
 		"If enabled, envoy will send builtin lables(e.g. node_name) via OTel sink.").Get()
+
+	// Useful for IPv6-only EKS clusters. See https://aws.github.io/aws-eks-best-practices/networking/ipv6/ why it assigns an additional IPv4 NAT address.
+	EnableAdditionalIpv4OutboundListenerForIpv6Only = env.RegisterBoolVar("ISTIO_ENABLE_IPV4_OUTBOUND_LISTENER_FOR_IPV6_CLUSTERS", false,
+		"If true, pilot will configure an additional IPv4 listener for outbound traffic in IPv6 only clusters, e.g. AWS EKS IPv6 only clusters.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
