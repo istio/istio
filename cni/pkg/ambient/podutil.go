@@ -40,7 +40,7 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 ))
 
 // PodRedirectionEnabled determines if a pod should or should not be configured
-// to have traffic redirected thru the node proxy.
+// to have traffic redirected through the node proxy.
 func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 	if namespace.GetLabels()[constants.DataplaneMode] != constants.DataplaneModeAmbient {
 		// Namespace does not have ambient mode enabled
@@ -58,10 +58,11 @@ func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 }
 
 func podHasSidecar(pod *corev1.Pod) bool {
-	if _, f := pod.Annotations[annotation.SidecarStatus.Name]; f {
-		return true
+	if pod == nil {
+		return false
 	}
-	return false
+	_, f := pod.Annotations[annotation.SidecarStatus.Name]
+	return f
 }
 
 func ztunnelPod(pod *corev1.Pod) bool {
@@ -81,11 +82,15 @@ func AnnotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
 	return err
 }
 
-func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
+func AnnotateUnrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
 	if pod.Annotations[constants.AmbientRedirection] != constants.AmbientRedirectionEnabled {
 		return nil
 	}
-	// TODO: do not overwrite if already none
+
+	if pod.ObjectMeta.Annotations == nil {
+		return nil
+	}
+
 	_, err := client.CoreV1().
 		Pods(pod.Namespace).
 		Patch(
@@ -102,6 +107,9 @@ func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
 }
 
 func getEnvFromPod(pod *corev1.Pod, envName string) string {
+	if pod == nil {
+		return ""
+	}
 	for _, container := range pod.Spec.Containers {
 		for _, env := range container.Env {
 			if env.Name == envName {

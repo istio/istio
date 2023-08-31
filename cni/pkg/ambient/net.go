@@ -271,7 +271,7 @@ func (s *Server) DelPodFromMesh(pod *corev1.Pod, event controllers.Event) {
 	}
 	// event.New will be nil if the pod is deleted
 	if event.New != nil {
-		if err := AnnotateUnenrollPod(s.kubeClient.Kube(), pod); err != nil {
+		if err := AnnotateUnrollPod(s.kubeClient.Kube(), pod); err != nil {
 			log.Errorf("failed to annotate pod unenrollment: %v", err)
 		}
 	}
@@ -309,7 +309,7 @@ func (s *Server) cleanupPodsEbpfOnNode() error {
 			if err := s.delPodEbpfOnNode(pod.Status.PodIP, true); err != nil {
 				log.Errorf("failed to cleanup pod ebpf: %v", err)
 			}
-			if err := AnnotateUnenrollPod(s.kubeClient.Kube(), pod); err != nil {
+			if err := AnnotateUnrollPod(s.kubeClient.Kube(), pod); err != nil {
 				log.Errorf("failed to annotate pod unenrollment: %v", err)
 			}
 		}
