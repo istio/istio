@@ -124,3 +124,22 @@ func TestInitializeDurationFlag(t *testing.T) {
 		t.Errorf("%s: pflag parse error. Actual %d, Expected %d", testName, testDuration, defaultDuration)
 	}
 }
+
+func TestMarkFlagsHidden(t *testing.T) {
+	cmd := &cobra.Command{}
+	var flag1 string
+	var flag2 string
+	flag.StringVar(&flag1, "flag1", "", "flag1")
+	flag.StringVar(&flag2, "flag2", "", "flag2")
+	AddFlags(cmd)
+
+	MarkFlagsHidden(cmd, "flag1")
+	cmd.Flags().VisitAll(func(f *pflag.Flag) {
+		if f.Name == "flag1" && !f.Hidden {
+			t.Errorf("flag1 should be hidden")
+		}
+		if f.Name == "flag2" && f.Hidden {
+			t.Errorf("flag2 should not be hidden")
+		}
+	})
+}

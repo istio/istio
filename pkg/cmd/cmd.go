@@ -55,3 +55,13 @@ func PrintFlags(flags *pflag.FlagSet) {
 		log.Infof("FLAG: --%s=%q", flag.Name, flag.Value)
 	})
 }
+
+// MarkFlagsHidden marks the given flags as hidden.
+func MarkFlagsHidden(rootCmd *cobra.Command, hidden ...string) {
+	for _, h := range hidden {
+		err := rootCmd.PersistentFlags().MarkHidden(h)
+		if err != nil {
+			log.Errorf("failed to mark flag %s as hidden: %v", h, err)
+		}
+	}
+}

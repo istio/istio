@@ -68,6 +68,19 @@ const (
 	FlagCharts = "charts"
 )
 
+// hiddenFlags are flags that are not shown in the help message.
+var hiddenFlags = []string{
+	"log_as_json",
+	"log_rotate",
+	"log_rotate_max_age",
+	"log_rotate_max_backups",
+	"log_rotate_max_size",
+	"log_stacktrace_level",
+	"log_target",
+	"log_caller",
+	"log_output_level",
+}
+
 // ConfigAndEnvProcessing uses spf13/viper for overriding CLI parameters
 func ConfigAndEnvProcessing() error {
 	configPath := filepath.Dir(root.IstioConfig)
@@ -108,6 +121,10 @@ func GetRootCmd(args []string) *cobra.Command {
 		Short:             "Istio control interface.",
 		SilenceUsage:      true,
 		DisableAutoGenTag: true,
+		FParseErrWhitelist: cobra.FParseErrWhitelist{
+			// Allow unknown flags for backward-compatibility.
+			UnknownFlags: true,
+		},
 		Long: `Istio configuration command line utility for service operators to
 debug and diagnose their Istio mesh.
 `,
@@ -141,14 +158,8 @@ debug and diagnose their Istio mesh.
 
 	// Attach the Istio logging options to the command.
 	root.LoggingOptions.AttachCobraFlags(rootCmd)
-	hiddenFlags := []string{
-		"log_as_json", "log_rotate", "log_rotate_max_age", "log_rotate_max_backups",
-		"log_rotate_max_size", "log_stacktrace_level", "log_target", "log_caller", "log_output_level",
-	}
-	for _, opt := range hiddenFlags {
-		_ = rootCmd.PersistentFlags().MarkHidden(opt)
-	}
 
+	cmd.MarkFlagsHidden(rootCmd, hiddenFlags...)
 	cmd.AddFlags(rootCmd)
 
 	kubeInjectCmd := kubeinject.InjectCommand(ctx)
@@ -289,13 +300,10 @@ debug and diagnose their Istio mesh.
 }
 
 func hideInheritedFlags(orig *cobra.Command, hidden ...string) {
-	orig.SetHelpFunc(func(cmd *cobra.Command, args []string) {
-		for _, hidden := range hidden {
-			_ = cmd.Flags().MarkHidden(hidden) // nolint: errcheck
-		}
-
+	orig.SetHelpFunc(func(command *cobra.Command, args []string) {
+		cmd.MarkFlagsHidden(command, hidden...)
 		orig.SetHelpFunc(nil)
-		orig.HelpFunc()(cmd, args)
+		orig.HelpFunc()(command, args)
 	})
 }
 
