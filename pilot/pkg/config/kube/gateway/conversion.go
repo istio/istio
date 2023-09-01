@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strings"
 
@@ -1729,6 +1730,11 @@ func reportGatewayStatus(
 		if len(addressesToReport) > 0 {
 			gs.Addresses = make([]k8sbeta.GatewayStatusAddress, 0, len(addressesToReport))
 			for _, addr := range addressesToReport {
+				if _, err := netip.ParseAddr(addr); err == nil {
+					addrType = k8s.IPAddressType
+				} else {
+					addrType = k8s.HostnameAddressType
+				}
 				gs.Addresses = append(gs.Addresses, k8sbeta.GatewayStatusAddress{
 					Value: addr,
 					Type:  &addrType,
