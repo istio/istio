@@ -29,7 +29,7 @@ a unique prefix to each. */}}
     resources: ["pods"]
   failurePolicy: Fail
   reinvocationPolicy: "{{ .reinvocationPolicy }}"
-  timeoutSeconds: "{{ .timeoutSeconds }}"
+  timeoutSeconds: {{ .timeoutSeconds }}
   admissionReviewVersions: ["v1beta1", "v1"]
 {{- end }}
 {{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
