@@ -243,6 +243,13 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	s.addPods(t, "127.0.0.4", "pod4", "sa2", map[string]string{"app": "b"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod4"))
 
+	// Prime gateway informer with throw away events
+	s.addWaypoint(t, "10.0.0.2", "primer", "")
+	s.deleteWaypoint(t, "primer")
+	s.clearEvents()
+	stop := test.NewStop(t)
+	s.controller.client.WaitForCacheSync("test", stop)
+
 	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "")
 	// All these workloads updated, so push them
 	s.assertEvent(t, s.podXdsName("pod1"),
