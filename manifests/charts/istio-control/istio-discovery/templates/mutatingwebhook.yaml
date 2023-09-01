@@ -5,6 +5,7 @@
   "injectionPath" .Values.istiodRemote.injectionPath
   "injectionURL" .Values.istiodRemote.injectionURL
   "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
+  "timeoutSeconds" .Values.sidecarInjectorWebhook.timeoutSeconds
   "namespace" .Release.Namespace }}
 {{- define "core" }}
 {{- /* Kubernetes unfortunately requires a unique name for the webhook in some newer versions, so we assign
@@ -28,6 +29,7 @@ a unique prefix to each. */}}
     resources: ["pods"]
   failurePolicy: Fail
   reinvocationPolicy: "{{ .reinvocationPolicy }}"
+  timeoutSeconds: "{{ .timeoutSeconds }}"
   admissionReviewVersions: ["v1beta1", "v1"]
 {{- end }}
 {{- /* Installed for each revision - not installed for cluster resources ( cluster roles, bindings, crds) */}}
