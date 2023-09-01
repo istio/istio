@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/sets"
@@ -2773,6 +2774,46 @@ type vmCase struct {
 	from echo.Instance
 	to   echo.Instances
 	host string
+}
+
+func ExternalServiceCases(t TrafficContext) {
+	sidecarScope := fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
+	kind: Sidecar
+	metadata:
+		name: restrict-external-service
+		namespace: %s
+	spec:
+		workloadSelector:
+			labels:
+				app: a
+		outboundTrafficPolicy:
+			mode: "REGISTRY_ONLY"
+	`, t.Apps.EchoNamespace.Namespace.Name())
+
+	deployment.DeployExternalServiceEntry(t.ConfigIstio(), t.Apps.Namespace, t.Apps.External.Namespace).
+		ApplyOrFail(t, apply.CleanupConditionally)
+
+	client := t.Apps.A[0]
+	for _, port := range []echo.Port{ports.HTTP, ports.HTTPS} {
+		var s scheme.Instance
+		switch strings.ToLower(port.Name) {
+		case "https":
+			s = scheme.HTTPS
+		default:
+			s = scheme.HTTP
+		}
+		t.RunTraffic(TrafficTestCase{
+			name:   "external-service-" + port.Name,
+			call:   client.CallOrFail,
+			config: sidecarScope,
+			opts: echo.CallOptions{
+				Scheme:  s,
+				Count:   1,
+				Address: "external." + t.Apps.External.Namespace.Name() + "svc.cluster.local",
+				Check:   check.OK(),
+			},
+		})
+	}
 }
 
 func DNSTestCases(t TrafficContext) {

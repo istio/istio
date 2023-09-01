@@ -286,6 +286,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 	RunCase("destinationrule", destinationRuleCases)
 	RunCase("vm", VMTestCases(apps.VM))
 	RunSkipAmbient("dns", DNSTestCases, "https://github.com/istio/istio/issues/45923")
+	RunCase("external-serviceentry", ExternalServiceCases)
 	RunCase("externalservice", TestExternalService)
 }
 

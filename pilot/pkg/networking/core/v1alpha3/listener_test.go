@@ -56,7 +56,7 @@ import (
 
 const (
 	wildcardIPv4 = "0.0.0.0"
-	wildcardIPv6 = "::/0"
+	wildcardIPv6 = "::"
 )
 
 func getProxy() *model.Proxy {
