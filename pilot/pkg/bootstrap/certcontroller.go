@@ -166,6 +166,7 @@ func (s *Server) initDNSCerts() error {
 			return nil
 		})
 	} else {
+		// TODO(jaellio): Does this also need a root cert watch? Would this have used the plugged in cert workflow?
 		customCACertPath := security.DefaultRootCertFilePath
 		log.Infof("User specified cert provider: %v, mounted in a well known location %v",
 			features.PilotCertProvider, customCACertPath)
@@ -173,7 +174,6 @@ func (s *Server) initDNSCerts() error {
 		if err != nil {
 			return fmt.Errorf("failed reading %s: %v", customCACertPath, err)
 		}
-		//TODO(jaellio): Does this also need a root cert watch? Would this have used the plugged in cert workflow?
 	}
 	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)
 	return nil
