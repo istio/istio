@@ -137,7 +137,7 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns-pod")
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
-	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "")
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", true)
 	// All these workloads updated, so push them
 	s.assertEvent(t,
 		s.wleXdsName("name1"),

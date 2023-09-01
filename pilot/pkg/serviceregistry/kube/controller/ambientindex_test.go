@@ -25,6 +25,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -228,6 +229,25 @@ func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
 	assert.Equal(t, len(s.controller.ambientIndex.(*AmbientIndexImpl).byService), 0)
 }
 
+func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, testC, testNW)
+
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "b"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod2"))
+
+	s.addWaypoint(t, "10.0.0.1", "waypoint-sa1", "sa1", false)
+	s.addWaypoint(t, "10.0.0.2", "waypoint-sa2", "sa2", true)
+	s.assertEvent(t, s.podXdsName("pod2"))
+
+	// make waypoint-sa1 ready
+	s.addWaypoint(t, "10.0.0.1", "waypoint-sa1", "sa1", true)
+	// if waypoint-sa1 was configured when not ready "pod2" assertions should skip the "pod1" xds event and this should fail
+	s.assertEvent(t, s.podXdsName("pod1"))
+}
+
 func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
@@ -243,14 +263,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	s.addPods(t, "127.0.0.4", "pod4", "sa2", map[string]string{"app": "b"}, nil, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("pod4"))
 
-	// Prime gateway informer with throw away events
-	s.addWaypoint(t, "10.0.0.2", "primer", "")
-	s.deleteWaypoint(t, "primer")
-	s.clearEvents()
-	stop := test.NewStop(t)
-	s.controller.client.WaitForCacheSync("test", stop)
-
-	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "")
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", true)
 	// All these workloads updated, so push them
 	s.assertEvent(t, s.podXdsName("pod1"),
 		s.podXdsName("pod2"),
@@ -275,7 +288,7 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	)
 	s.assertAddresses(t, "", "pod1", "pod2", "pod3", "pod4", "waypoint-ns", "waypoint-ns-pod")
 
-	s.addWaypoint(t, "10.0.0.3", "waypoint-sa2", "sa2")
+	s.addWaypoint(t, "10.0.0.3", "waypoint-sa2", "sa2", true)
 	s.assertEvent(t, s.podXdsName("pod4"))
 	// Add a waypoint proxy pod for sa2
 	s.addPods(t, "127.0.0.250", "waypoint-sa2-pod", "service-account",
@@ -438,7 +451,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{constants.WaypointServiceAccount: "sa2"}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
-	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "")
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", true)
 	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addService(t, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
@@ -938,6 +951,7 @@ type ambientTestServer struct {
 func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.ID) *ambientTestServer {
 	cfg := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		CRDs:             []schema.GroupVersionResource{gvr.KubernetesGateway},
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: systemNS}),
 		ClusterID:        clusterID,
@@ -946,7 +960,6 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	controller.network = networkID
 	pc := clienttest.Wrap(t, controller.podsClient)
 	sc := clienttest.Wrap(t, controller.services)
-	clienttest.MakeCRD(t, controller.client, gvr.KubernetesGateway)
 	grc := clienttest.Wrap(t, kclient.NewFiltered[*k8sbeta.Gateway](controller.client, kubetypes.Filter{}))
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	cfg.RegisterEventHandler(gvk.PeerAuthentication, controller.PeerAuthenticationHandler)
@@ -963,7 +976,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	}
 }
 
-func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string) {
+func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready bool) {
 	t.Helper()
 
 	fromSame := k8sbeta.NamespacesFromSame
@@ -1000,19 +1013,21 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string) {
 		annotations[constants.WaypointServiceAccount] = sa
 		gateway.Annotations = annotations
 	}
-	addrType := k8sbeta.IPAddressType
-	gateway.Status = k8sbeta.GatewayStatus{
-		// addresses:
-		// - type: IPAddress
-		//   value: 10.96.59.188
-		Addresses: []k8sbeta.GatewayStatusAddress{
-			{
-				Type:  &addrType,
-				Value: ip,
+	if ready {
+		addrType := k8sbeta.IPAddressType
+		gateway.Status = k8sbeta.GatewayStatus{
+			// addresses:
+			// - type: IPAddress
+			//   value: 10.96.59.188
+			Addresses: []k8sbeta.GatewayStatusAddress{
+				{
+					Type:  &addrType,
+					Value: ip,
+				},
 			},
-		},
+		}
 	}
-	_ = s.grc.Create(&gateway)
+	s.grc.CreateOrUpdate(&gateway)
 }
 
 func (s *ambientTestServer) deleteWaypoint(t *testing.T, name string) {
