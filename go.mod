@@ -79,15 +79,15 @@ require (
 	github.com/stretchr/testify v1.8.4
 	github.com/vishvananda/netlink v1.2.1-beta.2
 	github.com/yl2chen/cidranger v1.0.2
-	go.opentelemetry.io/otel v1.16.0
+	go.opentelemetry.io/otel v1.17.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.16.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.16.0
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.16.0
 	go.opentelemetry.io/otel/exporters/prometheus v0.39.1-0.20230714155235-03b8c47770f2
-	go.opentelemetry.io/otel/metric v1.16.0
+	go.opentelemetry.io/otel/metric v1.17.0
 	go.opentelemetry.io/otel/sdk v1.16.0
 	go.opentelemetry.io/otel/sdk/metric v0.39.0
-	go.opentelemetry.io/otel/trace v1.16.0
+	go.opentelemetry.io/otel/trace v1.17.0
 	go.opentelemetry.io/proto/otlp v1.0.0
 	go.uber.org/atomic v1.11.0
 	go.uber.org/zap v1.25.0
@@ -109,19 +109,19 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.12.3
-	istio.io/api v1.19.0-alpha.1.0.20230825174443-708fbc7bc95f
-	istio.io/client-go v1.19.0-alpha.1.0.20230825174843-7a8fbe28cb5d
-	k8s.io/api v0.28.0
-	k8s.io/apiextensions-apiserver v0.28.0
-	k8s.io/apimachinery v0.28.0
-	k8s.io/apiserver v0.28.0
+	istio.io/api v1.19.0-alpha.1.0.20230831152911-56a12e041c2d
+	istio.io/client-go v1.19.0-alpha.1.0.20230831153909-c8a4b43e3e65
+	k8s.io/api v0.28.1
+	k8s.io/apiextensions-apiserver v0.28.1
+	k8s.io/apimachinery v0.28.1
+	k8s.io/apiserver v0.28.1
 	k8s.io/cli-runtime v0.28.0
-	k8s.io/client-go v0.28.0
+	k8s.io/client-go v0.28.1
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kubectl v0.28.0
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
-	sigs.k8s.io/controller-runtime v0.15.1
-	sigs.k8s.io/gateway-api v0.8.0-rc2
+	sigs.k8s.io/controller-runtime v0.16.0
+	sigs.k8s.io/gateway-api v0.8.0
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -232,6 +232,7 @@ require (
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	github.com/xlab/treeprint v1.2.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.43.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/internal/retry v1.16.0 // indirect
 	go.starlark.net v0.0.0-20230525235612-a134d8f9ddca // indirect
 	go.uber.org/multierr v1.11.0 // indirect
@@ -243,7 +244,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	k8s.io/component-base v0.28.0 // indirect
+	k8s.io/component-base v0.28.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230811205723-7ac0aad8c58d // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3 // indirect

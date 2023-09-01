@@ -1197,7 +1197,7 @@ func (ps *PushContext) getExportedDestinationRuleFromNamespace(owningNamespace s
 // IsClusterLocal indicates whether the endpoints for the service should only be accessible to clients
 // within the cluster.
 func (ps *PushContext) IsClusterLocal(service *Service) bool {
-	if service == nil {
+	if ps == nil || service == nil {
 		return false
 	}
 	return ps.clusterLocalHosts.IsClusterLocal(service.Hostname)
@@ -2130,7 +2130,7 @@ func (ps *PushContext) BestEffortInferServiceMTLSMode(tp *networking.TrafficPoli
 
 // ServiceEndpointsByPort returns the cached instances by port if it exists.
 func (ps *PushContext) ServiceEndpointsByPort(svc *Service, port int, labels labels.Instance) []*IstioEndpoint {
-	out := []*IstioEndpoint{}
+	var out []*IstioEndpoint
 	if instances, exists := ps.ServiceIndex.instancesByPort[svc.Key()][port]; exists {
 		// Use cached version of instances by port when labels are empty.
 		if len(labels) == 0 {

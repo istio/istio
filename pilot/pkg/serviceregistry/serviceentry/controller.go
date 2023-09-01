@@ -785,7 +785,7 @@ func (s *Controller) buildEndpoints(keys map[instancesKey]struct{}) map[instance
 	return endpoints
 }
 
-// GetProxyServiceTargets lists service instances co-located with a given proxy
+// GetProxyServiceTargets lists service targets co-located with a given proxy
 // NOTE: The service objects in these instances do not have the auto allocated IP set.
 func (s *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTarget {
 	out := make([]model.ServiceTarget, 0)

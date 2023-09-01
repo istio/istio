@@ -1,0 +1,87 @@
+# This example shows how to use Istio local rate limiting with descriptors to limit by path. 
+# This uses the base book-info demo and adds rate limiting by path, specifically rate limiting the product page
+# to 10 requests per minute, and the overall fdqn will be able to accept 100 requests per minute. 
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: filter-local-ratelimit-svc
+  namespace: istio-system
+spec:
+  workloadSelector:
+    labels:
+      app: productpage
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: SIDECAR_INBOUND
+        listener:
+          filterChain:
+            filter:
+              name: "envoy.filters.network.http_connection_manager"
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.local_ratelimit
+          typed_config:
+            "@type": type.googleapis.com/udpa.type.v1.TypedStruct
+            type_url: type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+            value:
+              stat_prefix: http_local_rate_limiter
+    - applyTo: HTTP_ROUTE
+      match:
+        context: SIDECAR_INBOUND
+        routeConfiguration:
+          vhost:
+            name: "inbound|http|8000"
+            route:
+              action: ANY
+      patch:
+        operation: MERGE
+        value:
+          route:
+            rate_limits:
+              - actions:
+                  - remote_address: {}
+              - actions:
+                  - header_value_match:
+                      descriptor_value: "productpage"
+                      expect_match: true
+                      headers:
+                        - name: :path
+                          string_match:
+                            prefix: /productpage
+                            ignore_case: true
+
+          typed_per_filter_config:
+            envoy.filters.http.local_ratelimit:
+              "@type": type.googleapis.com/envoy.extensions.filters.http.local_ratelimit.v3.LocalRateLimit
+              stat_prefix: test_enabled
+              token_bucket:
+                max_tokens: 100
+                tokens_per_fill: 100
+                fill_interval: 60s
+              enable_x_ratelimit_headers: DRAFT_VERSION_03 # This adds the ability to see headers for how many tokens are left in the bucket, how often the bucket refills, and what is the token bucket max.
+              filter_enabled:
+                runtime_key: test_enabled
+                default_value:
+                  numerator: 100
+                  denominator: HUNDRED
+              filter_enforced:
+                runtime_key: test_enabled
+                default_value:
+                  numerator: 100
+                  denominator: HUNDRED
+              response_headers_to_add:
+                - append: false
+                  header:
+                    key: x-local-rate-limit
+                    value: "true"
+              descriptors:
+                - entries:
+                    - key: header_match
+                      value: productpage
+                  token_bucket:
+                    max_tokens: 10
+                    tokens_per_fill: 10
+                    fill_interval: 60s
+                    

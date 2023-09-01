@@ -252,10 +252,10 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			c.namespaces,
 			"Namespaces",
 			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
-				c.Lock()
-				c.systemNetworks[c.opts.ClusterID] = network.ID(cur.GetLabels()[label.TopologyNetwork.Name])
-				c.Unlock()
 				if cur.Name == c.opts.SystemNamespace {
+					c.Lock()
+					c.systemNetworks[c.opts.ClusterID] = network.ID(cur.GetLabels()[label.TopologyNetwork.Name])
+					c.Unlock()
 					return c.onSystemNamespaceEvent(old, cur, event)
 				}
 				return nil
@@ -770,7 +770,7 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 	return endpoints
 }
 
-// GetProxyServiceTargets returns service instances co-located with a given proxy
+// GetProxyServiceTargets returns service targets co-located with a given proxy
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {

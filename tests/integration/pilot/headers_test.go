@@ -22,13 +22,17 @@ import (
 	"strings"
 	"testing"
 
+	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
+	cdeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -54,7 +58,9 @@ proxyHeaders:
   attemptCount:
     disabled: true
   envoyDebugHeaders:
-    disabled: true`),
+    disabled: true
+  metadataExchangeHeaders:
+    mode: IN_MESH`),
 					},
 				},
 			}
@@ -67,6 +73,7 @@ proxyHeaders:
 				"x-forwarded-client-cert",
 				"x-request-id",
 			)
+
 			allowedClientHeaders := sets.New(
 				// Envoy has no way to turn this off
 				"x-forwarded-proto",
@@ -105,6 +112,26 @@ proxyHeaders:
 					Name: ports.HTTP.Name,
 				},
 				Check: check.And(check.OK(), checkNoProxyHeaders),
+			})
+
+			checkNoProxyMetaHeaders := check.Each(func(response echoClient.Response) error {
+				for k, v := range response.RequestHeaders {
+					hn := strings.ToLower(k)
+					if strings.HasPrefix(hn, "x-envoy-peer-metadata") {
+						return fmt.Errorf("got unexpected proxy header: %v=%v", k, v)
+					}
+				}
+				return nil
+			})
+
+			cdeployment.DeployExternalServiceEntry(t.ConfigIstio(), ns, apps.External.Namespace).
+				ApplyOrFail(t, apply.CleanupConditionally)
+			instance.CallOrFail(t, echo.CallOptions{
+				Address: apps.External.All[0].Address(),
+				HTTP:    echo.HTTP{Headers: headers.New().WithHost(apps.External.All.Config().DefaultHostHeader).Build()},
+				Scheme:  scheme.HTTP,
+				Port:    ports.HTTP,
+				Check:   check.And(check.OK(), checkNoProxyMetaHeaders),
 			})
 		})
 }
