@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package dockerfile
+package dockerfile // import "istio.io/istio/tools/docker-builder/dockerfile"
 
 import (
 	"fmt"

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package signer implements a CA signer that uses keys stored on local disk.
-package signer
+package signer // import "istio.io/istio/pkg/test/csrctrl/signer"
 
 import (
 	"bytes"

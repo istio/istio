@@ -14,7 +14,7 @@
 
 // Package env makes it possible to track use of environment variables within a procress
 // in order to generate documentation for these uses.
-package env
+package env // import "istio.io/istio/pkg/env"
 
 import (
 	"encoding/json"

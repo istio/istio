@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package reachability
+package reachability // import "istio.io/istio/tests/integration/security/util/reachability"
 
 import (
 	"fmt"

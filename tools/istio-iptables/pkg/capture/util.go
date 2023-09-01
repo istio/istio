@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package capture
+package capture // import "istio.io/istio/tools/istio-iptables/pkg/capture"
 
 func CombineMatchers(values []string, matcher func(value string) []string) []string {
 	matchers := make([][]string, 0, len(values))

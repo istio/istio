@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package version provides build version information.
-package version
+package version // import "istio.io/istio/pkg/version"
 
 import (
 	"fmt"

@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // package jwt includes sample JWT Token used in e2e tests.
-package jwt
+package jwt // import "istio.io/istio/tests/common/jwt"
 
 const (
 	// Payload {

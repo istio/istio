@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package url
+package url // import "istio.io/istio/pkg/url"
 
 import (
 	"fmt"

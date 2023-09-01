@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package controller // import "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 
 import (
 	v1 "k8s.io/api/core/v1"

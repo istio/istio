@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package collateral
+package collateral // import "istio.io/istio/pkg/collateral"
 
 import (
 	"github.com/spf13/cobra"

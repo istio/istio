@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package network
+package network // import "istio.io/istio/pkg/network"
 
 import "istio.io/istio/pkg/util/identifier"
 

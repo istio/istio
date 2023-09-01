@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package telemetry
+package telemetry // import "istio.io/istio/pkg/config/analysis/analyzers/telemetry"
 
 import (
 	"fmt"

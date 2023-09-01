@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitoring
+package monitoring // import "istio.io/istio/pkg/monitoring"
 
 // Unit encodes the standard name for describing the quantity
 // measured by a Metric (if applicable).

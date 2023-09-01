@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package writer
+package writer // import "istio.io/istio/istioctl/pkg/writer"
 
 type ConfigDumpWriter interface {
 	PrintSecretSummary() error

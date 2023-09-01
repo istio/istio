@@ -14,7 +14,7 @@
 
 // Package inject implements kube-inject or webhoook autoinject feature to inject sidecar.
 // This file is focused on rewriting Kubernetes app probers to support mutual TLS.
-package inject
+package inject // import "istio.io/istio/pkg/kube/inject"
 
 import (
 	"encoding/json"

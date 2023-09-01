@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package testserver
+package testserver // import "istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 
 import (
 	"net"

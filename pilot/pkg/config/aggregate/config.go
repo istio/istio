@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package aggregate implements a read-only aggregator for config stores.
-package aggregate
+package aggregate // import "istio.io/istio/pilot/pkg/config/aggregate"
 
 import (
 	"errors"

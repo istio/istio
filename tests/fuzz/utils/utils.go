@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package utils
+package utils // import "istio.io/istio/tests/fuzz/utils"
 
 import (
 	"os"

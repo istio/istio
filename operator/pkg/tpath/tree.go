@@ -19,7 +19,7 @@ For some tree updates, like delete or append, it's necessary to have access to t
 tree constructed during tree traversal that gives access to ancestor nodes all the way up to the root, which can be
 used for this purpose.
 */
-package tpath
+package tpath // import "istio.io/istio/operator/pkg/tpath"
 
 import (
 	"encoding/json"

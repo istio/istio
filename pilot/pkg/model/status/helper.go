@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package status
+package status // import "istio.io/istio/pilot/pkg/model/status"
 
 import (
 	"istio.io/api/meta/v1alpha1"

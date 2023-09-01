@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package maturity
+package maturity // import "istio.io/istio/pkg/config/analysis/analyzers/maturity"
 
 import (
 	"strings"

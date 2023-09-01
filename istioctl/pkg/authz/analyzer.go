@@ -15,7 +15,7 @@
 // The auth package provides support for checking the authentication and authorization policy applied
 // in the mesh. It aims to increase the debuggability and observability of auth policies.
 // Note: this is still under active development and is not ready for real use.
-package authz
+package authz // import "istio.io/istio/istioctl/pkg/authz"
 
 import (
 	"fmt"

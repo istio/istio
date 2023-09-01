@@ -22,3 +22,5 @@
 # limitations under the License.
 
 golangci-lint run --fix -c ./common/config/.golangci-format.yml
+
+go run github.com/jcchavezs/porto/cmd/porto@main --skip-dirs=tests --skip-files ".*\\.pb\\.go$,.*\\.gen\\.go$" -w .

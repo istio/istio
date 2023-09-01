@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package grpc
+package grpc // import "istio.io/istio/pkg/util/grpc"
 
 import (
 	"google.golang.org/grpc/codes"

@@ -49,7 +49,7 @@
 //
 // Once configured, this package intercepts the output of the standard golang "log" package as well as anything
 // sent to the global zap logger (zap.L()).
-package log
+package log // import "istio.io/istio/pkg/log"
 
 import (
 	"os"

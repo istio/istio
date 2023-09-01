@@ -14,7 +14,7 @@
 
 // Package gcemetadata provides basic utilities around configuring the fake
 // GCE Metadata Server component for integration testing.
-package gcemetadata
+package gcemetadata // import "istio.io/istio/pkg/test/framework/components/gcemetadata"
 
 import (
 	"istio.io/istio/pkg/test"

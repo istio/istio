@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package cache is the in-memory secret store.
-package cache
+package cache // import "istio.io/istio/security/pkg/nodeagent/cache"
 
 import (
 	"bytes"

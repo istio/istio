@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package h2c
+package h2c // import "istio.io/istio/pkg/h2c"
 
 import (
 	"net/http"

@@ -20,7 +20,7 @@
 // generate the configuration files for the Layer 7 proxy sidecar. The proxy
 // code is specific to individual proxy implementations
 
-package model
+package model // import "istio.io/istio/pilot/pkg/model"
 
 import (
 	"fmt"

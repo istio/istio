@@ -16,7 +16,7 @@
 // importing the massive 15mb+ Kubernetes API libraries.
 // This is intended for import only by istio-agent. Any other binaries (Istiod) should likely import the
 // upstream Kubernetes API instead.
-package apimirror
+package apimirror // import "istio.io/istio/pkg/kube/apimirror"
 
 import "k8s.io/apimachinery/pkg/util/intstr"
 

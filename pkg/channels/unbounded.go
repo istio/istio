@@ -1,5 +1,5 @@
 // Package buffer provides an implementation of an unbounded buffer.
-package channels
+package channels // import "istio.io/istio/pkg/channels"
 
 // Heavily inspired by the private library from gRPC (https://raw.githubusercontent.com/grpc/grpc-go/master/internal/buffer/unbounded.go)
 // Since it cannot be imported directly it is mirror here. Original license:

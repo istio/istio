@@ -17,7 +17,7 @@
 // These functions are not exported, and, if they were, when imported bring k8s.io/kubernetes as dependency, which is problematic
 // License is Apache 2.0: https://github.com/openshift/apiserver-library-go/blob/c22aa58bb57416b9f9f190957d07c9e7669c26df/LICENSE
 
-package inject
+package inject // import "istio.io/istio/pkg/kube/inject"
 
 import (
 	"fmt"

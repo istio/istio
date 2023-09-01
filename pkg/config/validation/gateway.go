@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package validation
+package validation // import "istio.io/istio/pkg/config/validation"
 
 import (
 	gatewayalpha "sigs.k8s.io/gateway-api/apis/v1alpha2"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package param
+package param // import "istio.io/istio/pkg/test/framework/components/echo/config/param"
 
 // WellKnown defines a well-known template parameter injected automatically by the echo testing framework.
 type WellKnown string

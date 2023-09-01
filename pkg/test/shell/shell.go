@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package shell
+package shell // import "istio.io/istio/pkg/test/shell"
 
 import (
 	"fmt"

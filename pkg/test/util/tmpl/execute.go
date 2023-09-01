@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tmpl
+package tmpl // import "istio.io/istio/pkg/test/util/tmpl"
 
 import (
 	"bytes"

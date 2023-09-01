@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package prometheus
+package prometheus // import "istio.io/istio/pkg/test/framework/components/prometheus"
 
 import (
 	v1 "github.com/prometheus/client_golang/api/prometheus/v1"

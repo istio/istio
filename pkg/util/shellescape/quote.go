@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package shellescape
+package shellescape // import "istio.io/istio/pkg/util/shellescape"
 
 import (
 	"regexp"

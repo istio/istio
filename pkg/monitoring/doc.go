@@ -15,4 +15,4 @@
 // Package monitoring provides a common instrumentation library for Istio components.
 // Use of this library enables collateral generation for collected metrics, as well as
 // a consistent developer experience across Istio codebases.
-package monitoring
+package monitoring // import "istio.io/istio/pkg/monitoring"

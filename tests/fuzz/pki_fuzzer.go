@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fuzz
+package fuzz // import "istio.io/istio/tests/fuzz"
 
 import (
 	"crypto/x509/pkix"

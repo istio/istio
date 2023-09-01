@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package serviceentry
+package serviceentry // import "istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 
 import (
 	networking "istio.io/api/networking/v1alpha3"

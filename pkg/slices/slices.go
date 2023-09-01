@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package slices defines various functions useful with slices of any type.
-package slices
+package slices // import "istio.io/istio/pkg/slices"
 
 import (
 	"golang.org/x/exp/constraints"

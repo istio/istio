@@ -14,7 +14,7 @@
 
 // Package lazy is a package to expose lazily computed values.
 // The concepts and code are heavily influenced by https://cs.opensource.google/go/go/+/go1.19:src/sync/once.go.
-package lazy
+package lazy // import "istio.io/istio/pkg/lazy"
 
 import (
 	"sync"

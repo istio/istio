@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // nolint: revive
-package fuzz
+package fuzz // import "istio.io/istio/tests/fuzz"
 
 import (
 	"os"

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tracing
+package tracing // import "istio.io/istio/tests/integration/telemetry/tracing"
 
 import (
 	"fmt"

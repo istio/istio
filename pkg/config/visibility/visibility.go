@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package visibility
+package visibility // import "istio.io/istio/pkg/config/visibility"
 
 import (
 	"fmt"

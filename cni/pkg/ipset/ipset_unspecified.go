@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ipset
+package ipset // import "istio.io/istio/cni/pkg/ipset"
 
 import (
 	"errors"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package autoregistration
+package autoregistration // import "istio.io/istio/pilot/pkg/autoregistration"
 
 import (
 	"context"

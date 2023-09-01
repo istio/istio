@@ -12,7 +12,7 @@
 //  See the License for the specific language governing permissions and
 //  limitations under the License.
 
-package scheme
+package scheme // import "istio.io/istio/pkg/test/echo/common/scheme"
 
 // Scheme enumerates the optional schemes for requests.
 type Instance string

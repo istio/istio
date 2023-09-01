@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package log
+package log // import "istio.io/istio/pkg/log"
 
 import (
 	"go.uber.org/zap/zapcore"

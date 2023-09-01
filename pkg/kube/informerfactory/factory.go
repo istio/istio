@@ -25,7 +25,7 @@
 // * Single factory for any type, including dynamic informers, meta informers, typed informers, etc.
 // * Ability to create multiple informers of the same type but with different filters.
 // * Ability to run a single informer rather than all of them.
-package informerfactory
+package informerfactory // import "istio.io/istio/pkg/kube/informerfactory"
 
 import (
 	"fmt"

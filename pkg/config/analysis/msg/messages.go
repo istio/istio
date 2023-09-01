@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package msg
+package msg // import "istio.io/istio/pkg/config/analysis/msg"
 
 // Create static initializers file
 //go:generate go run "$REPO_ROOT/pkg/config/analysis/msg/generate.main.go" messages.yaml messages.gen.go

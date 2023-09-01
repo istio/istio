@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kstatus
+package kstatus // import "istio.io/istio/pilot/pkg/model/kstatus"
 
 import (
 	"reflect"

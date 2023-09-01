@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package maps
+package maps // import "istio.io/istio/pkg/maps"
 
 import "golang.org/x/exp/maps"
 

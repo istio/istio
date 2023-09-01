@@ -17,7 +17,7 @@
  limitations under the License.
 */
 
-package operator
+package operator // import "istio.io/istio/tests/integration/operator"
 
 import (
 	"istio.io/istio/pkg/test/framework/resource"

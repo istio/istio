@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package precheck
+package precheck // import "istio.io/istio/istioctl/pkg/precheck"
 
 import (
 	"context"

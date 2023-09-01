@@ -17,7 +17,7 @@ Package component defines an in-memory representation of IstioOperator.<Feature>
 for manipulating the component and rendering a manifest from it.
 See ../README.md for an architecture overview.
 */
-package component
+package component // import "istio.io/istio/operator/pkg/component"
 
 import (
 	"fmt"

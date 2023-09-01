@@ -14,7 +14,7 @@
 
 // This is a sample chained plugin that supports multiple CNI versions. It
 // parses prevResult according to the cniVersion
-package plugin
+package plugin // import "istio.io/istio/cni/pkg/plugin"
 
 import (
 	"encoding/json"

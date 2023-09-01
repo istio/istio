@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package resource
+package resource // import "istio.io/istio/pkg/config/resource"
 
 // Version is the version identifier of a resource.
 type Version string

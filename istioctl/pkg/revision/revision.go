@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package revision
+package revision // import "istio.io/istio/istioctl/pkg/revision"
 
 import (
 	"context"

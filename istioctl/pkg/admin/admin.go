@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package admin
+package admin // import "istio.io/istio/istioctl/pkg/admin"
 
 import (
 	"fmt"

@@ -15,7 +15,7 @@
 // leak checks for goroutine leaks in tests
 // This is (heavily) inspired by https://github.com/grpc/grpc-go/blob/master/internal/leakcheck/leakcheck.go
 // and https://github.com/fortytw2/leaktest
-package leak
+package leak // import "istio.io/istio/tests/util/leak"
 
 import (
 	"errors"

@@ -15,7 +15,7 @@
 // Package backoff is a wrapper of `github.com/cenkalti/backoff/v4`.
 // It is to prevent misuse of `github.com/cenkalti/backoff/v4`,
 // thus application could fall into dead loop.
-package backoff
+package backoff // import "istio.io/istio/pkg/backoff"
 
 import (
 	"context"

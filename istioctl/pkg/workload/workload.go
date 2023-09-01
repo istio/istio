@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package workload
+package workload // import "istio.io/istio/istioctl/pkg/workload"
 
 import (
 	"context"

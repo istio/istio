@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package mesh contains types and functions.
-package mesh
+package mesh // import "istio.io/istio/operator/cmd/mesh"
 
 import (
 	"fmt"

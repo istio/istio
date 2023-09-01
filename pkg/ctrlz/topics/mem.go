@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package topics defines several canonical ControlZ topics.
-package topics
+package topics // import "istio.io/istio/pkg/ctrlz/topics"
 
 import (
 	"net/http"

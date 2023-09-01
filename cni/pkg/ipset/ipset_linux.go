@@ -1,4 +1,4 @@
-package ipset
+package ipset // import "istio.io/istio/cni/pkg/ipset"
 
 // Copyright Istio Authors
 //

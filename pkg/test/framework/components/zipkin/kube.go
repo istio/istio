@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package zipkin
+package zipkin // import "istio.io/istio/pkg/test/framework/components/zipkin"
 
 import (
 	"encoding/json"

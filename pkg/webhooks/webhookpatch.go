@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package webhooks
+package webhooks // import "istio.io/istio/pkg/webhooks"
 
 import (
 	"bytes"

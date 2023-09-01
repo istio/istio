@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-package schema
+package schema // import "istio.io/istio/pkg/config/analysis/analyzers/schema"
 
 import (
 	"fmt"

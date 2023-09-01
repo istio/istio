@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package builder
+package builder // import "istio.io/istio/pilot/pkg/security/authz/builder"
 
 import (
 	"fmt"

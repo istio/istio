@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package options
+package options // import "istio.io/istio/pilot/cmd/pilot-agent/options"
 
 // ProxyArgs provides all of the configuration parameters for the Pilot proxy.
 type ProxyArgs struct {

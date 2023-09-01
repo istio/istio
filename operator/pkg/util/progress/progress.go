@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package progress
+package progress // import "istio.io/istio/operator/pkg/util/progress"
 
 import (
 	"fmt"

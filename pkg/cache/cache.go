@@ -15,7 +15,7 @@
 // Package cache provides general-purpose in-memory caches.
 // Different caches provide different eviction policies suitable for
 // specific use cases.
-package cache
+package cache // import "istio.io/istio/pkg/cache"
 
 import (
 	"time"

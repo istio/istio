@@ -16,7 +16,7 @@
 // options. This implementation is Largely inspired from
 // https://golang.org/src/crypto/tls/generate_cert.go.
 
-package util
+package util // import "istio.io/istio/security/pkg/pki/util"
 
 import (
 	"crypto"

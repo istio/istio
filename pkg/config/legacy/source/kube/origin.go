@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-package kube
+package kube // import "istio.io/istio/pkg/config/legacy/source/kube"
 
 import (
 	"fmt"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package util
+package util // import "istio.io/istio/istioctl/pkg/util"
 
 const (
 	// DefaultProxyAdminPort is the default port for the proxy admin server

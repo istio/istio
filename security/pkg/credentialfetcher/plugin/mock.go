@@ -14,7 +14,7 @@
 
 // Test only: this is the mock plugin of credentialfetcher.
 
-package plugin
+package plugin // import "istio.io/istio/security/pkg/credentialfetcher/plugin"
 
 import (
 	"fmt"

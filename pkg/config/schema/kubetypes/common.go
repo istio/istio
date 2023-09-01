@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kubetypes
+package kubetypes // import "istio.io/istio/pkg/config/schema/kubetypes"
 
 import (
 	"fmt"

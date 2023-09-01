@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package common contains resource names, which may vary from version to version.
-package common
+package common // import "istio.io/istio/tools/bug-report/pkg/common"
 
 import (
 	"fmt"

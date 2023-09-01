@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package log
+package log // import "istio.io/istio/tools/istio-iptables/pkg/log"
 
 type Command struct {
 	// Short identifier that shows up in NFLOG output. Must be less than 64 characters

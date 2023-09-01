@@ -14,4 +14,4 @@
 
 // Package config is a common, top-level folder for aggregating Istio-wide config related libraries and utilities.
 // More details can be found here: https://docs.google.com/document/d/1atY5vDHy5sXJP7qIaFQS3ixQZvOxUciPgULH5qTPX_8/
-package config
+package config // import "istio.io/istio/pkg/config"

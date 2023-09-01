@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package retry
+package retry // import "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route/retry"
 
 import (
 	"net/http"

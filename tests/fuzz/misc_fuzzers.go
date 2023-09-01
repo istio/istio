@@ -18,7 +18,7 @@
 // The fuzzers can be moved to other files without anything
 // breaking on the OSS-fuzz side.
 
-package fuzz
+package fuzz // import "istio.io/istio/tests/fuzz"
 
 import (
 	fuzz "github.com/AdaLogics/go-fuzz-headers"

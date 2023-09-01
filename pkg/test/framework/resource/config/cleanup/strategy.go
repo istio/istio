@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cleanup
+package cleanup // import "istio.io/istio/pkg/test/framework/resource/config/cleanup"
 
 // Strategy enumerates the options for configuration cleanup behavior.
 type Strategy int

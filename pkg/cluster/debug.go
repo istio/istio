@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package cluster
+package cluster // import "istio.io/istio/pkg/cluster"
 
 // DebugInfo contains minimal information about remote clusters.
 // This struct is defined here, in a package that avoids many imports, since xds/debug usually

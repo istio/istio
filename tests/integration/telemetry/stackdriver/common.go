@@ -15,7 +15,7 @@
 //go:build integ
 // +build integ
 
-package stackdriver
+package stackdriver // import "istio.io/istio/tests/integration/telemetry/stackdriver"
 
 import (
 	"encoding/json"

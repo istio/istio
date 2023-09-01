@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package constants
+package constants // import "istio.io/istio/pkg/config/constants"
 
 const (
 	// UnspecifiedIP constant for empty IP address

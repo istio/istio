@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package uds
+package uds // import "istio.io/istio/pkg/uds"
 
 import (
 	"fmt"

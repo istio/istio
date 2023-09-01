@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package helmupgrade
+package helmupgrade // import "istio.io/istio/tests/integration/helm/upgrade"
 
 import (
 	"context"

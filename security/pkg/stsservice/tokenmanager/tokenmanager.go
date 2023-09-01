@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package tokenmanager
+package tokenmanager // import "istio.io/istio/security/pkg/stsservice/tokenmanager"
 
 import (
 	"errors"

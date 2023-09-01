@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package route
+package route // import "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 
 import (
 	"fmt"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package configdump
+package configdump // import "istio.io/istio/istioctl/pkg/util/configdump"
 
 import (
 	"fmt"

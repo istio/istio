@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package server
+package server // import "istio.io/istio/cni/pkg/ebpf/server"
 
 //go:generate sh -c "echo NOTE: eBPF support is temporarily disabled pending CNCF establishing guidance around dual-licensed eBPF bytecode"
 //go:generate sh -c "echo NOTE: https://github.com/cncf/toc/pull/1000#issuecomment-1564289871"

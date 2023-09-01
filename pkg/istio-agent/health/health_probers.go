@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package health
+package health // import "istio.io/istio/pkg/istio-agent/health"
 
 import (
 	"context"

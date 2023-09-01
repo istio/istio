@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package sets
+package sets // import "istio.io/istio/pkg/util/sets"
 
 import (
 	"golang.org/x/exp/constraints"

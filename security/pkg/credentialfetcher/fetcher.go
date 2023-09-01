@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package credentialfetcher fetches workload credentials through platform plugins.
-package credentialfetcher
+package credentialfetcher // import "istio.io/istio/security/pkg/credentialfetcher"
 
 import (
 	"fmt"

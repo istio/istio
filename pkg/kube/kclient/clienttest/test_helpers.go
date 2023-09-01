@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package clienttest
+package clienttest // import "istio.io/istio/pkg/kube/kclient/clienttest"
 
 import (
 	klabels "k8s.io/apimachinery/pkg/labels"

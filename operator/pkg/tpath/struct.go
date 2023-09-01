@@ -15,7 +15,7 @@
 /*
 struct.go contains functions for traversing and modifying trees of Go structs.
 */
-package tpath
+package tpath // import "istio.io/istio/operator/pkg/tpath"
 
 import (
 	"fmt"

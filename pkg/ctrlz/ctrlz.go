@@ -22,7 +22,7 @@
 // parts of the UI. There are a set of built-in topics representing the core introspection
 // functionality, and each component that uses ControlZ can add new topics specialized
 // for their purpose.
-package ctrlz
+package ctrlz // import "istio.io/istio/pkg/ctrlz"
 
 import (
 	"fmt"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package monitoring
+package monitoring // import "istio.io/istio/pkg/monitoring"
 
 // Options encode changes to the options passed to a Metric at creation time.
 type Options func(*options)

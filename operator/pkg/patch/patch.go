@@ -93,7 +93,7 @@ just an example which normally is greater than the most of the lists used.
 that way in the object being patched.
 - [key:value] treats ':' as a special separator character. Any ':' in the key or value string must be escaped as \:.
 */
-package patch
+package patch // import "istio.io/istio/operator/pkg/patch"
 
 import (
 	"fmt"

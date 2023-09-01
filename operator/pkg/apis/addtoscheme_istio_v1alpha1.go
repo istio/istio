@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package apis
+package apis // import "istio.io/istio/operator/pkg/apis"
 
 import (
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"

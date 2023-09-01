@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package k8sleaderelection
+package k8sleaderelection // import "istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection"
 
 import (
 	"sync"

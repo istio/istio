@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package ctrlz
+package ctrlz // import "istio.io/istio/pkg/ctrlz"
 
 import (
 	"html/template"

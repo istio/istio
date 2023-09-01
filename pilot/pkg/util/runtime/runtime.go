@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package runtime
+package runtime // import "istio.io/istio/pilot/pkg/util/runtime"
 
 import (
 	"runtime"

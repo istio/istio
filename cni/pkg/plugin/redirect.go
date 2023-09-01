@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Defines the redirect object and operations.
-package plugin
+package plugin // import "istio.io/istio/cni/pkg/plugin"
 
 import (
 	"fmt"

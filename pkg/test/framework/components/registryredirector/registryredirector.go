@@ -14,7 +14,7 @@
 
 // Package registryredirector provides basic utilities around configuring the fake
 // image registry server component for integration testing.
-package registryredirector
+package registryredirector // import "istio.io/istio/pkg/test/framework/components/registryredirector"
 
 import (
 	"istio.io/istio/pkg/test"

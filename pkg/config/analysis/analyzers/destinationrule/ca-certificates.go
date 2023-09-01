@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package destinationrule
+package destinationrule // import "istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
 
 import (
 	"fmt"

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package mesh
+package mesh // import "istio.io/istio/operator/cmd/mesh"
 
 import (
 	"sort"

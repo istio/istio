@@ -16,7 +16,7 @@
 // 1. every unique state of the map is given a unique hash
 // 2. prior states of the map are retained for a fixed period of time
 // 2. given a previous hash, we can retrieve a previous state from the map, if it is still retained.
-package ledger
+package ledger // import "istio.io/istio/pkg/ledger"
 
 import (
 	"encoding/base64"

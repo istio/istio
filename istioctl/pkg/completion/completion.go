@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package completion
+package completion // import "istio.io/istio/istioctl/pkg/completion"
 
 import (
 	"context"

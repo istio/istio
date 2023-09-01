@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package multixds
+package multixds // import "istio.io/istio/istioctl/pkg/multixds"
 
 // multixds knows how to target either central Istiod or all the Istiod pods on a cluster.
 

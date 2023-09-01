@@ -51,7 +51,7 @@ limitations under the License.
 // or even be removed entirely in subsequent releases. Depend on this API at
 // your own risk.
 // nolint
-package k8sleaderelection
+package k8sleaderelection // import "istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection"
 
 import (
 	"bytes"

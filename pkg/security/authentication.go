@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package security
+package security // import "istio.io/istio/pkg/security"
 
 import (
 	"context"

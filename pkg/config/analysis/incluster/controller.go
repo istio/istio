@@ -14,7 +14,7 @@
  limitations under the License.
 */
 
-package incluster
+package incluster // import "istio.io/istio/pkg/config/analysis/incluster"
 
 import (
 	"fmt"

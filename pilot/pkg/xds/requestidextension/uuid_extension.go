@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package requestidextension
+package requestidextension // import "istio.io/istio/pilot/pkg/xds/requestidextension"
 
 import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"

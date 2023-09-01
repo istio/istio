@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kubeyaml
+package kubeyaml // import "istio.io/istio/pilot/pkg/config/file/util/kubeyaml"
 
 import (
 	"bufio"

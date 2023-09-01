@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package content
+package content // import "istio.io/istio/tools/bug-report/pkg/content"
 
 import (
 	"fmt"

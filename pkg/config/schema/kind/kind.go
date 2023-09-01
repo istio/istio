@@ -12,6 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kind
+package kind // import "istio.io/istio/pkg/config/schema/kind"
 
 type Kind uint8

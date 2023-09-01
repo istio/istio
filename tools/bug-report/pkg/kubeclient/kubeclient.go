@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package kubeclient
+package kubeclient // import "istio.io/istio/tools/bug-report/pkg/kubeclient"
 
 import (
 	"k8s.io/client-go/kubernetes"

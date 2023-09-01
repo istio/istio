@@ -17,7 +17,7 @@
 // explicitly uses the legacy jsonpb package. This is due to a number of compatibility concerns with the new API:
 // * https://github.com/golang/protobuf/issues/1374
 // * https://github.com/golang/protobuf/issues/1373
-package protomarshal
+package protomarshal // import "istio.io/istio/pkg/util/protomarshal"
 
 import (
 	"bytes"

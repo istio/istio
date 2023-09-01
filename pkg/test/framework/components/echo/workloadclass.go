@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package echo
+package echo // import "istio.io/istio/pkg/test/framework/components/echo"
 
 // WorkloadClass is the class of workload in the echo instance
 type WorkloadClass = string
