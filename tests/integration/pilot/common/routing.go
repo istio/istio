@@ -2777,17 +2777,18 @@ type vmCase struct {
 }
 
 func ExternalServiceCases(t TrafficContext) {
-	sidecarScope := fmt.Sprintf(`apiVersion: networking.istio.io/v1alpha3
-	kind: Sidecar
-	metadata:
-		name: restrict-external-service
-		namespace: %s
-	spec:
-		workloadSelector:
-			labels:
-				app: a
-		outboundTrafficPolicy:
-			mode: "REGISTRY_ONLY"
+	sidecarScope := fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: restrict-external-service
+  namespace: %s
+spec:
+  workloadSelector:
+    labels:
+      app: a
+  outboundTrafficPolicy:
+    mode: "REGISTRY_ONLY"
 	`, t.Apps.EchoNamespace.Namespace.Name())
 
 	deployment.DeployExternalServiceEntry(t.ConfigIstio(), t.Apps.Namespace, t.Apps.External.Namespace).
@@ -2809,7 +2810,8 @@ func ExternalServiceCases(t TrafficContext) {
 			opts: echo.CallOptions{
 				Scheme:  s,
 				Count:   1,
-				Address: "external." + t.Apps.External.Namespace.Name() + "svc.cluster.local",
+				Port:    port,
+				Address: "external." + t.Apps.External.Namespace.Name() + ".svc.cluster.local",
 				Check:   check.OK(),
 			},
 		})
