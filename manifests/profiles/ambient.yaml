@@ -21,7 +21,7 @@ spec:
       enabled: true
     ingressGateways:
     - name: istio-ingressgateway
-      enabled: true
+      enabled: false
 
   values:
     pilot:
