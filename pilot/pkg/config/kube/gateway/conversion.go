@@ -2072,10 +2072,8 @@ func reportGatewayStatus(
 			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
 		}
 		gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)].error = &ConfigError{
-			// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/1832#issuecomment-1487167378): Invalid is bad,
-			// this should be AddressNotAssigned
 			// TODO: this only checks Service ready, we should also check Deployment ready?
-			Reason:  string(k8sbeta.GatewayReasonInvalid),
+			Reason:  string(k8sbeta.GatewayReasonAddressNotAssigned),
 			Message: msg,
 		}
 	}
