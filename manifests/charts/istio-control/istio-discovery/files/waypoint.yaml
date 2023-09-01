@@ -199,9 +199,8 @@ spec:
           runAsGroup: 1337
           runAsUser: 0
           capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
+            drop:
+            - all
         volumeMounts:
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
