@@ -92,11 +92,11 @@ func (c *ConfigWriter) PrintEndpoints(filter EndpointFilter, outputFormat string
 	if err != nil {
 		return err
 	}
-	marshaller := make(proto.MessageSlice, 0, len(dump))
+	marshaler := make(proto.MessageSlice, 0, len(dump))
 	for _, eds := range dump {
-		marshaller = append(marshaller, eds)
+		marshaler = append(marshaler, eds)
 	}
-	out, err := json.MarshalIndent(marshaller, "", "    ")
+	out, err := json.MarshalIndent(marshaler, "", "    ")
 	if err != nil {
 		return err
 	}

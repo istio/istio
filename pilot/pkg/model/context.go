@@ -509,7 +509,7 @@ func (s *StringBool) UnmarshalJSON(data []byte) error {
 }
 
 // ProxyConfig can only be marshaled using (gogo) jsonpb. However, the rest of node meta is not a proto
-// To allow marshaling, we need to define a custom type that calls out to the gogo marshaller
+// To allow marshaling, we need to define a custom type that calls out to the gogo marshaler
 type NodeMetaProxyConfig meshconfig.ProxyConfig
 
 func (s *NodeMetaProxyConfig) MarshalJSON() ([]byte, error) {

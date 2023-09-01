@@ -195,7 +195,7 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 		return "", nil, err
 	}
 
-	// convertDefaultIOPMapValues converts default paths values into string, prevent errors when unmarshalling.
+	// convertDefaultIOPMapValues converts default paths values into string, prevent errors when unmarshaling.
 	outYAML, err = convertDefaultIOPMapValues(outYAML, setFlags)
 	if err != nil {
 		return "", nil, err

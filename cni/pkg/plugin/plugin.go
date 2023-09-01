@@ -87,7 +87,7 @@ type Config struct {
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
-// The field names need to match exact keys in kubelet args for unmarshalling
+// The field names need to match exact keys in kubelet args for unmarshaling
 type K8sArgs struct {
 	types.CommonArgs
 	IP                         net.IP

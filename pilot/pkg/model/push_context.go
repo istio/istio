@@ -718,7 +718,7 @@ func (ps *PushContext) AddServiceInstances(service *Service, instances map[int][
 	}
 }
 
-// StatusJSON implements json.Marshaller, with a lock.
+// StatusJSON implements json.Marshaler, with a lock.
 func (ps *PushContext) StatusJSON() ([]byte, error) {
 	if ps == nil {
 		return []byte{'{', '}'}, nil

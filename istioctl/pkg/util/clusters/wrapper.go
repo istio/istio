@@ -26,12 +26,12 @@ type Wrapper struct {
 	*admin.Clusters
 }
 
-// MarshalJSON is a custom marshaller to handle protobuf pain
+// MarshalJSON is a custom marshaler to handle protobuf pain
 func (w *Wrapper) MarshalJSON() ([]byte, error) {
 	return protomarshal.Marshal(w)
 }
 
-// UnmarshalJSON is a custom unmarshaller to handle protobuf pain
+// UnmarshalJSON is a custom unmarshaler to handle protobuf pain
 func (w *Wrapper) UnmarshalJSON(b []byte) error {
 	cd := &admin.Clusters{}
 	err := protomarshal.UnmarshalAllowUnknown(b, cd)

@@ -29,7 +29,7 @@ import (
 
 var _ github_com_golang_protobuf_jsonpb.JSONPBUnmarshaler = &IntOrString{}
 
-// UnmarshalJSON implements the json.Unmarshaller interface.
+// UnmarshalJSON implements the json.Unmarshaler interface.
 func (this *IntOrString) UnmarshalJSON(value []byte) error {
 	if value[0] == '"' {
 		this.Type = int64(intstr.String)

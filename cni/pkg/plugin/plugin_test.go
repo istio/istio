@@ -195,7 +195,7 @@ func testCmdAddWithStdinData(t *testing.T, stdinData string) {
 	}
 }
 
-// Validate k8sArgs struct works for unmarshalling kubelet args
+// Validate k8sArgs struct works for unmarshaling kubelet args
 func TestLoadArgs(t *testing.T) {
 	kubeletArgs := "IgnoreUnknown=1;K8S_POD_NAMESPACE=istio-system;" +
 		"K8S_POD_NAME=istio-sidecar-injector-8489cf78fb-48pvg;" +

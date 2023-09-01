@@ -127,7 +127,7 @@ type SidecarScope struct {
 	RootNamespace string
 }
 
-// MarshalJSON implements json.Marshaller
+// MarshalJSON implements json.Marshaler
 func (sc *SidecarScope) MarshalJSON() ([]byte, error) {
 	// Json cannot expose unexported fields, so copy the ones we want here
 	return json.MarshalIndent(map[string]any{

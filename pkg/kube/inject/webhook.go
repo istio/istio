@@ -124,7 +124,7 @@ func (wh *Webhook) GetConfig() WebhookConfig {
 	}
 }
 
-// ParsedContainers holds the unmarshalled containers and initContainers
+// ParsedContainers holds the unmarshaled containers and initContainers
 type ParsedContainers struct {
 	Containers     []corev1.Container `json:"containers,omitempty"`
 	InitContainers []corev1.Container `json:"initContainers,omitempty"`
@@ -578,8 +578,8 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 // parseStatus extracts containers from injected SidecarStatus annotation
 func parseStatus(status string) ParsedContainers {
 	parsedContainers := ParsedContainers{}
-	var unMarshalledStatus map[string]interface{}
-	if err := json.Unmarshal([]byte(status), &unMarshalledStatus); err != nil {
+	var unmarshaledStatus map[string]interface{}
+	if err := json.Unmarshal([]byte(status), &unmarshaledStatus); err != nil {
 		log.Errorf("Failed to unmarshal %s : %v", annotation.SidecarStatus.Name, err)
 		return parsedContainers
 	}
@@ -592,8 +592,8 @@ func parseStatus(status string) ParsedContainers {
 		}
 		return out
 	}
-	parsedContainers.Containers = parser(Containers, unMarshalledStatus)
-	parsedContainers.InitContainers = parser(InitContainers, unMarshalledStatus)
+	parsedContainers.Containers = parser(Containers, unmarshaledStatus)
+	parsedContainers.InitContainers = parser(InitContainers, unmarshaledStatus)
 
 	return parsedContainers
 }
@@ -780,13 +780,13 @@ func mergeOrAppendProbers(previouslyInjected bool, envVars []corev1.EnvVar, newP
 				// merge old and new probers.
 				newKubeAppProber[k] = v
 			}
-			marshalledKubeAppProber, err := json.Marshal(newKubeAppProber)
+			marshaledKubeAppProber, err := json.Marshal(newKubeAppProber)
 			if err != nil {
 				log.Errorf("failed to serialize the merged app prober config %v", err)
 				return envVars
 			}
 			// replace old env var with new value.
-			envVars[idx] = corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: string(marshalledKubeAppProber)}
+			envVars[idx] = corev1.EnvVar{Name: status.KubeAppProberEnvName, Value: string(marshaledKubeAppProber)}
 			return envVars
 		}
 	}

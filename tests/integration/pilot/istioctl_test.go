@@ -220,7 +220,7 @@ func TestProxyConfig(t *testing.T) {
 				"pc", "bootstrap", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
-			jsonOutput := jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			jsonOutput := jsonUnmarshalOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("bootstrap"))
 
 			args = []string{
@@ -228,7 +228,7 @@ func TestProxyConfig(t *testing.T) {
 				"pc", "cluster", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
-			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			jsonOutput = jsonUnmarshalOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{
@@ -236,7 +236,7 @@ func TestProxyConfig(t *testing.T) {
 				"pc", "endpoint", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
-			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			jsonOutput = jsonUnmarshalOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{
@@ -244,7 +244,7 @@ func TestProxyConfig(t *testing.T) {
 				"pc", "listener", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
-			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			jsonOutput = jsonUnmarshalOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{
@@ -252,7 +252,7 @@ func TestProxyConfig(t *testing.T) {
 				"pc", "route", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
-			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			jsonOutput = jsonUnmarshalOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
 
 			args = []string{
@@ -260,7 +260,7 @@ func TestProxyConfig(t *testing.T) {
 				"pc", "secret", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
-			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			jsonOutput = jsonUnmarshalOrFail(t, strings.Join(args, " "), output)
 			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
 			dump := &admin.SecretsConfigDump{}
 			if err := protomarshal.Unmarshal([]byte(output), dump); err != nil {
@@ -278,7 +278,7 @@ func TestProxyConfig(t *testing.T) {
 		})
 }
 
-func jsonUnmarshallOrFail(t test.Failer, context, s string) any {
+func jsonUnmarshalOrFail(t test.Failer, context, s string) any {
 	t.Helper()
 	var val any
 

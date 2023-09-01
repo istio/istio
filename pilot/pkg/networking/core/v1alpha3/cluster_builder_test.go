@@ -1796,7 +1796,7 @@ func getTLSContext(t *testing.T, c *cluster.Cluster) *tls.UpstreamTlsContext {
 	tlsContext := &tls.UpstreamTlsContext{}
 	err := c.TransportSocket.GetTypedConfig().UnmarshalTo(tlsContext)
 	if err != nil {
-		t.Fatalf("Failed to unmarshall tls context: %v", err)
+		t.Fatalf("Failed to unmarshal tls context: %v", err)
 	}
 	return tlsContext
 }

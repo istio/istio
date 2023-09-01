@@ -98,7 +98,7 @@ func watchFiles(watcher *fsnotify.Watcher, fileModified chan struct{}, errChan c
 	}
 }
 
-// Read CNI config from file and return the unmarshalled JSON as a map
+// Read CNI config from file and return the unmarshaled JSON as a map
 func ReadCNIConfigMap(path string) (map[string]any, error) {
 	cniConfig, err := os.ReadFile(path)
 	if err != nil {
@@ -113,7 +113,7 @@ func ReadCNIConfigMap(path string) (map[string]any, error) {
 	return cniConfigMap, nil
 }
 
-// Given an unmarshalled CNI config JSON map, return the plugin list asserted as a []interface{}
+// Given an unmarshaled CNI config JSON map, return the plugin list asserted as a []interface{}
 func GetPlugins(cniConfigMap map[string]any) (plugins []any, err error) {
 	plugins, ok := cniConfigMap["plugins"].([]any)
 	if !ok {
