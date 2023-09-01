@@ -80,7 +80,7 @@ status:
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
       not found'
-    reason: Invalid
+    reason: AddressNotAssigned
     status: "False"
     type: Programmed
   listeners:
@@ -130,7 +130,7 @@ status:
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
       port should be specified, not the workload port. Did you mean one of these ports:
       [80]?)'
-    reason: Invalid
+    reason: AddressNotAssigned
     status: "False"
     type: Programmed
   listeners:
