@@ -597,7 +597,7 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 	proxy.XdsNode = node
 	// Update the network of proxy to default system namespace's network if it is not set.
-	if proxy.Metadata.Network == "" {
+	if proxy.Metadata.Network == "" && s.Env.NetworkManager != nil {
 		proxy.Metadata.Network = s.Env.NetworkManager.DefaultNetworkForCluster(proxy.Metadata.ClusterID)
 	}
 	return proxy, nil
