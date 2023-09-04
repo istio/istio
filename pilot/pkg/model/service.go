@@ -962,26 +962,6 @@ func ExtractWorkloadsFromAddresses(addrs []*AddressInfo) []WorkloadInfo {
 	})
 }
 
-func WorkloadToAddressInfo(w *workloadapi.Workload) *AddressInfo {
-	return &AddressInfo{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Workload{
-				Workload: w,
-			},
-		},
-	}
-}
-
-func ServiceToAddressInfo(s *workloadapi.Service) *AddressInfo {
-	return &AddressInfo{
-		Address: &workloadapi.Address{
-			Type: &workloadapi.Address_Service{
-				Service: s,
-			},
-		},
-	}
-}
-
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
 // is used for debug information regarding the state of Kubernetes Multi-Cluster Services (MCS).
 type MCSServiceInfo struct {
