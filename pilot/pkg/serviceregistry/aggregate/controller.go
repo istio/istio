@@ -28,7 +28,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi/security"
 )
@@ -303,6 +302,14 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 	return gws
 }
 
+func (c *Controller) DefaultNetworks() []model.DefaultNetwork {
+	var out []model.DefaultNetwork
+	for _, r := range c.GetRegistries() {
+		out = append(out, r.DefaultNetworks()...)
+	}
+	return out
+}
+
 func (c *Controller) MCSServices() []model.MCSServiceInfo {
 	var out []model.MCSServiceInfo
 	for _, r := range c.GetRegistries() {
@@ -420,12 +427,4 @@ func (c *Controller) UnRegisterHandlersForCluster(id cluster.ID) {
 	c.storeLock.Lock()
 	defer c.storeLock.Unlock()
 	delete(c.handlersByCluster, id)
-}
-
-func (c *Controller) SystemNetworks() map[cluster.ID]network.ID {
-	networks := make(map[cluster.ID]network.ID)
-	for _, r := range c.GetRegistries() {
-		networks = maps.MergeCopy(networks, r.SystemNetworks())
-	}
-	return networks
 }

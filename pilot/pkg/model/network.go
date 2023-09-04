@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/miekg/dns"
+	"istio.io/istio/pkg/util/identifier"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
@@ -46,14 +47,15 @@ type NetworkGateway struct {
 	Port uint32
 }
 
-type NetworkWatcher interface {
-	NetworkGatewaysWatcher
-	SystemNetworks() map[cluster.ID]network.ID
+type DefaultNetwork struct {
+	Network network.ID
+	Cluster cluster.ID
 }
 
-type NetworkGatewaysWatcher interface {
+type NetworkConfigWatcher interface {
 	NetworkGateways() []NetworkGateway
 	AppendNetworkGatewayHandler(h func())
+	DefaultNetworks() []DefaultNetwork
 }
 
 // NetworkGatewaysHandler can be embedded to easily implement NetworkGatewaysWatcher.
@@ -257,6 +259,16 @@ func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet NetworkGatewaySet)
 		}
 	}
 	return resolvedGatewaySet
+}
+
+func (mgr *NetworkManager) SystemNetworkForCluster(cluster cluster.ID) network.ID {
+	networks := mgr.env.DefaultNetworks()
+	for _, nw := range networks {
+		if nw.Cluster == cluster {
+			return nw.Network
+		}
+	}
+	return identifier.Undefined
 }
 
 func (gws *NetworkGateways) IsMultiNetworkEnabled() bool {

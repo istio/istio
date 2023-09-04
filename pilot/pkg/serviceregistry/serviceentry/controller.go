@@ -830,11 +830,12 @@ func (s *Controller) NetworkGateways() []model.NetworkGateway {
 	return nil
 }
 
-func (s *Controller) MCSServices() []model.MCSServiceInfo {
+func (s *Controller) DefaultNetworks() []model.DefaultNetwork {
 	return nil
 }
 
-func (s *Controller) SystemNetworks() map[cluster.ID]network.ID {
+
+func (s *Controller) MCSServices() []model.MCSServiceInfo {
 	return nil
 }
 

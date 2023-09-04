@@ -40,7 +40,6 @@ import (
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -50,7 +49,6 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -2960,7 +2958,7 @@ func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {
 	return nil
 }
 
-func (l *localServiceDiscovery) SystemNetworks() map[cluster.ID]network.ID {
+func (l *localServiceDiscovery) DefaultNetworks() []DefaultNetwork {
 	return nil
 }
 

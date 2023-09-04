@@ -321,15 +321,14 @@ func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints
 	}
 	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
 	// don't use the pre-computed endpoints for CDS to preserve previous behavior
-	return ExtractEnvoyEndpoints(b.generate(svcEps, true, nil))
+	return ExtractEnvoyEndpoints(b.generate(svcEps, true))
 }
 
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
 // into a ClusterLoadAssignment. Used for EDS.
-func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex, systemNetworks map[cluster.ID]network.ID,
-) *endpoint.ClusterLoadAssignment {
+func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
 	svcEps := b.snapshotShards(endpointIndex)
-	localityLbEndpoints := b.generate(svcEps, false, systemNetworks)
+	localityLbEndpoints := b.generate(svcEps, false)
 	if len(localityLbEndpoints) == 0 {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
@@ -358,7 +357,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 
 // generate endpoints with applies weights, multi-network mapping and other filtering
 // noCache means we will not use or update the IstioEndpoint's precomputedEnvoyEndpoint
-func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed bool, systemNetworks map[cluster.ID]network.ID) []*LocalityEndpoints {
+func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed bool) []*LocalityEndpoints {
 	// shouldn't happen here
 	if !b.ServiceFound() {
 		return nil
@@ -440,7 +439,7 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed 
 	}
 
 	// Apply the Split Horizon EDS filter, if applicable.
-	locEps = b.EndpointsByNetworkFilter(locEps, systemNetworks)
+	locEps = b.EndpointsByNetworkFilter(locEps)
 
 	if model.IsDNSSrvSubsetKey(b.clusterName) {
 		// For the SNI-DNAT clusters, we are using AUTO_PASSTHROUGH gateway. AUTO_PASSTHROUGH is intended

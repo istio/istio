@@ -221,7 +221,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 		// generate eds from beginning
 		{
-			l := builder.BuildClusterLoadAssignment(eds.Server.Env.EndpointIndex, eds.Server.Env.SystemNetworks())
+			l := builder.BuildClusterLoadAssignment(eds.Server.Env.EndpointIndex)
 			if l == nil {
 				continue
 			}
@@ -281,7 +281,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 		}
 		// generate new eds cache
 		{
-			l := builder.BuildClusterLoadAssignment(eds.Server.Env.EndpointIndex, eds.Server.Env.SystemNetworks())
+			l := builder.BuildClusterLoadAssignment(eds.Server.Env.EndpointIndex)
 			if l == nil {
 				removed = append(removed, clusterName)
 				continue

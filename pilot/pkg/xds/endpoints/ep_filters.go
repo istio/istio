@@ -29,7 +29,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/network"
-	"istio.io/istio/pkg/util/identifier"
 )
 
 // EndpointsByNetworkFilter is a network filter function to support Split Horizon EDS - filter the endpoints based on the network
@@ -37,8 +36,7 @@ import (
 // sidecar network and add a gateway endpoint to remote networks that have endpoints
 // (if gateway exists and its IP is an IP and not a dns name).
 // Information for the mesh networks is provided as a MeshNetwork config map.
-func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoints, systemNetworks map[cluster.ID]network.ID,
-) []*LocalityEndpoints {
+func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoints) []*LocalityEndpoints {
 	if !b.gateways().IsMultiNetworkEnabled() {
 		// Multi-network is not configured (this is the case by default). Just access all endpoints directly.
 		return endpoints
@@ -95,26 +93,14 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// Check if the endpoint is directly reachable. It's considered directly reachable if
 			// the endpoint is either on the local network or on a remote network that can be reached
 			// directly from the local network.
-			proxyNetwork := b.proxy.Metadata.Network
-			if proxyNetwork == "" {
-				proxyNetwork = systemNetworks[b.clusterID]
-			}
-
-			// Check if the endpoint address is empty
-			addressNotEmpty := lbEp.GetEndpoint().GetAddress().GetSocketAddress().GetAddress() != ""
-			// Check if the proxy and endpoint are in the same network or if there are no gateways
-			shouldAppendBasedOnNetwork := proxyNetwork.Equals(epNetwork) || len(gateways) == 0
-
-			if addressNotEmpty {
-				if b.proxy.Metadata.Network == identifier.Undefined {
-					if epNetwork == identifier.Undefined || shouldAppendBasedOnNetwork {
-						lbEndpoints.append(ep.istioEndpoints[i], lbEp)
-						continue
-					}
-				} else if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
+			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
+				// The endpoint is directly reachable - just add it.
+				// If there is no gateway, the address must not be empty
+				if lbEp.GetEndpoint().GetAddress().GetSocketAddress().GetAddress() != "" {
 					lbEndpoints.append(ep.istioEndpoints[i], lbEp)
-					continue
 				}
+
+				continue
 			}
 
 			// Cross-network traffic relies on mTLS to be enabled for SNI routing

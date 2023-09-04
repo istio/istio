@@ -235,6 +235,17 @@ func (c *Controller) NetworkGateways() []model.NetworkGateway {
 	return model.SortGateways(unsorted)
 }
 
+func (c *Controller) DefaultNetworks() []model.DefaultNetwork {
+	c.networkManager.RLock()
+	defer c.networkManager.RUnlock()
+	return []model.DefaultNetwork{
+		{
+			Network: c.network,
+			Cluster: c.clusterID,
+		},
+	}
+}
+
 // extractGatewaysFromService checks if the service is a cross-network gateway
 // and if it is, updates the controller's gateways.
 func (c *Controller) extractGatewaysFromService(svc *model.Service) bool {
