@@ -24,12 +24,12 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/miekg/dns"
-	"istio.io/istio/pkg/util/identifier"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/identifier"
 	"istio.io/istio/pkg/util/istiomultierror"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
@@ -95,9 +95,6 @@ type NetworkManager struct {
 	*NetworkGateways
 	// includes all gateways with no DNS resolution or filtering, regardless of feature flags
 	Unresolved *NetworkGateways
-
-	// systemNetworks is a map from cluster's system namespace to network ID
-	systemNetworks map[cluster.ID]network.ID
 }
 
 // NewNetworkManager creates a new NetworkManager from the Environment by merging
@@ -261,7 +258,7 @@ func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet NetworkGatewaySet)
 	return resolvedGatewaySet
 }
 
-func (mgr *NetworkManager) SystemNetworkForCluster(cluster cluster.ID) network.ID {
+func (mgr *NetworkManager) DefaultNetworkForCluster(cluster cluster.ID) network.ID {
 	networks := mgr.env.DefaultNetworks()
 	for _, nw := range networks {
 		if nw.Cluster == cluster {

@@ -135,7 +135,6 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		EndpointPort:          uint32(endpointPort),
 		ServicePortName:       svcPortName,
 		Network:               networkID,
-
 		WorkloadName:          b.workloadName,
 		Namespace:             b.namespace,
 		HostName:              b.hostname,
