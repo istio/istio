@@ -65,7 +65,7 @@ func AddPodToMesh(client kubernetes.Interface, pod *corev1.Pod, ip string) error
 }
 
 func addPodToMeshWithIptables(pod *corev1.Pod, ip string) error {
-	if ip == "" {
+	if ip == "" || ip == "<nil>" {
 		ip = pod.Status.PodIP
 	}
 	// TODO: bug, pod may have multiple IPs in PodIPs
