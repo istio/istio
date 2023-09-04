@@ -184,28 +184,28 @@ func mergeVirtualServicesIfNeeded(
 		// it is delegate, add it to the indexer cache along with the exportTo for the delegate
 		if len(rule.Hosts) == 0 {
 			delegatesMap[key{vs.Name, vs.Namespace}] = vs
-			var exportToMap sets.Set[visibility.Instance]
+			var exportToSet sets.Set[visibility.Instance]
 			if len(rule.ExportTo) == 0 {
 				// No exportTo in virtualService. Use the global default
-				exportToMap = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
+				exportToSet = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
 				for v := range defaultExportTo {
 					if v == visibility.Private {
-						exportToMap.Insert(visibility.Instance(vs.Namespace))
+						exportToSet.Insert(visibility.Instance(vs.Namespace))
 					} else {
-						exportToMap.Insert(v)
+						exportToSet.Insert(v)
 					}
 				}
 			} else {
-				exportToMap = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
+				exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
 				for _, e := range rule.ExportTo {
 					if e == string(visibility.Private) {
-						exportToMap.Insert(visibility.Instance(vs.Namespace))
+						exportToSet.Insert(visibility.Instance(vs.Namespace))
 					} else {
-						exportToMap.Insert(visibility.Instance(e))
+						exportToSet.Insert(visibility.Instance(e))
 					}
 				}
 			}
-			delegatesExportToMap[key{vs.Name, vs.Namespace}] = exportToMap
+			delegatesExportToMap[key{vs.Name, vs.Namespace}] = exportToSet
 			continue
 		}
 
