@@ -973,7 +973,7 @@ func (ps *PushContext) IsServiceVisible(service *Service, namespace string) bool
 	}
 
 	ns := service.Attributes.Namespace
-	if len(service.Attributes.ExportTo) == 0 {
+	if service.Attributes.ExportTo.IsEmpty() {
 		if ps.exportToDefaults.service.Contains(visibility.Private) {
 			return ns == namespace
 		} else if ps.exportToDefaults.service.Contains(visibility.Public) {
