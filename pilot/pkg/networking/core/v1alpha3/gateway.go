@@ -254,8 +254,11 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 		httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, serversForPort.RouteName,
 			proxyConfig, istionetworking.ListenerProtocolTCP, builder.push)
 		// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
-		httpFilterChainOpts.networkFilters = tcpAuthFilters
-		httpFilterChainOpts.networkFilters = extension.PopAppendNetworkFilters(httpFilterChainOpts.networkFilters, wasm)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
+		httpFilterChainOpts.networkFilters = append(httpFilterChainOpts.networkFilters, tcpAuthFilters...)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 		opts.filterChainOpts = []*filterChainOpts{httpFilterChainOpts}
 	} else {
 		// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
@@ -270,18 +273,22 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
 					routeName, proxyConfig, istionetworking.TransportProtocolTCP, builder.push)
 				// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
-				httpFilterChainOpts.networkFilters = tcpAuthFilters
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
+				httpFilterChainOpts.networkFilters = append(httpFilterChainOpts.networkFilters, tcpAuthFilters...)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 				opts.filterChainOpts = append(opts.filterChainOpts, httpFilterChainOpts)
 			} else {
 				// we are building a network filter chain (no http connection manager) for this filter chain
 				// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
 				// codec is used by RBAC later.
 				var tcpAuthAndWasmFilters []*listener.Filter
-				tcpAuthAndWasmFilters = append(tcpAuthAndWasmFilters, xdsfilters.IstioNetworkAuthenticationFilter)
 				tcpAuthAndWasmFilters = extension.PopAppendNetwork(tcpAuthAndWasmFilters, wasm, extensions.PluginPhase_AUTHN)
+				tcpAuthAndWasmFilters = append(tcpAuthAndWasmFilters, xdsfilters.IstioNetworkAuthenticationFilter)
+				tcpAuthAndWasmFilters = extension.PopAppendNetwork(tcpAuthAndWasmFilters, wasm, extensions.PluginPhase_AUTHZ)
 				tcpAuthAndWasmFilters = append(tcpAuthAndWasmFilters, builder.authzCustomBuilder.BuildTCP()...)
 				tcpAuthAndWasmFilters = append(tcpAuthAndWasmFilters, builder.authzBuilder.BuildTCP()...)
-				tcpAuthAndWasmFilters = extension.PopAppendNetwork(tcpAuthAndWasmFilters, wasm, extensions.PluginPhase_AUTHZ)
 				tcpAuthAndWasmFilters = extension.PopAppendNetwork(tcpAuthAndWasmFilters, wasm, extensions.PluginPhase_STATS)
 				tcpAuthAndWasmFilters = extension.PopAppendNetwork(tcpAuthAndWasmFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 

@@ -171,8 +171,8 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 
 	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)...)
 	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)...)
-	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
 	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)...)
+	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
 	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)...)
 	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
