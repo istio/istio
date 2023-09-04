@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
@@ -3055,9 +3056,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "test",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Private: true,
-			},
+			ExportTo:  sets.New(visibility.Private),
 		},
 	}
 
@@ -3071,9 +3070,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "default",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Public: true,
-			},
+			ExportTo:  sets.New(visibility.Public),
 		},
 	}
 
@@ -3087,9 +3084,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "default",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Private: true,
-			},
+			ExportTo:  sets.New(visibility.Private),
 		},
 	}
 

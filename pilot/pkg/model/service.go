@@ -673,7 +673,7 @@ type ServiceAttributes struct {
 	Labels map[string]string
 	// ExportTo defines the visibility of Service in
 	// a namespace when the namespace is imported.
-	ExportTo map[visibility.Instance]bool
+	ExportTo sets.Set[visibility.Instance]
 
 	// LabelSelectors are the labels used by the service to select workloads.
 	// Applicable to both Kubernetes and ServiceEntries.
@@ -724,10 +724,7 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 	}
 
 	if s.ExportTo != nil {
-		out.ExportTo = make(map[visibility.Instance]bool, len(s.ExportTo))
-		for k, v := range s.ExportTo {
-			out.ExportTo[k] = v
-		}
+		out.ExportTo = s.ExportTo.Copy()
 	}
 
 	if s.LabelSelectors != nil {

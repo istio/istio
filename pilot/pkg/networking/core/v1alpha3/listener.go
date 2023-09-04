@@ -719,7 +719,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 }
 
 func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServices []config.Config) []*filterChainOpts {
-	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
+	meshGateway := sets.New(constants.IstioMeshGateway)
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []config.Config
 	if opts.service != nil {

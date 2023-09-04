@@ -1161,7 +1161,7 @@ func TestServiceIndex(t *testing.T) {
 				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					ExportTo:  sets.New(visibility.Public),
 				},
 			},
 			{
@@ -1169,7 +1169,7 @@ func TestServiceIndex(t *testing.T) {
 				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
+					ExportTo:  sets.New(visibility.Private),
 				},
 			},
 			{
@@ -1177,7 +1177,7 @@ func TestServiceIndex(t *testing.T) {
 				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+					ExportTo:  sets.New(visibility.None),
 				},
 			},
 			{
@@ -1185,7 +1185,7 @@ func TestServiceIndex(t *testing.T) {
 				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{"namespace": true},
+					ExportTo:  sets.New(visibility.Instance("namespace")),
 				},
 			},
 		},
@@ -1235,9 +1235,7 @@ func TestIsServiceVisible(t *testing.T) {
 			name: "service whose namespace is foo has no exportTo map with global private",
 			pushContext: &PushContext{
 				exportToDefaults: exportToDefaults{
-					service: map[visibility.Instance]bool{
-						visibility.Private: true,
-					},
+					service: sets.New(visibility.Private),
 				},
 			},
 			service: &Service{
@@ -1251,9 +1249,7 @@ func TestIsServiceVisible(t *testing.T) {
 			name: "service whose namespace is bar has no exportTo map with global private",
 			pushContext: &PushContext{
 				exportToDefaults: exportToDefaults{
-					service: map[visibility.Instance]bool{
-						visibility.Private: true,
-					},
+					service: sets.New(visibility.Private),
 				},
 			},
 			service: &Service{
@@ -1267,9 +1263,7 @@ func TestIsServiceVisible(t *testing.T) {
 			name: "service whose namespace is bar has no exportTo map with global public",
 			pushContext: &PushContext{
 				exportToDefaults: exportToDefaults{
-					service: map[visibility.Instance]bool{
-						visibility.Public: true,
-					},
+					service: sets.New(visibility.Public),
 				},
 			},
 			service: &Service{
@@ -1285,9 +1279,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "foo",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Private: true,
-					},
+					ExportTo:  sets.New(visibility.Private),
 				},
 			},
 			expect: true,
@@ -1298,9 +1290,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Private: true,
-					},
+					ExportTo:  sets.New(visibility.Private),
 				},
 			},
 			expect: false,
@@ -1311,9 +1301,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Public: true,
-					},
+					ExportTo:  sets.New(visibility.Public),
 				},
 			},
 			expect: true,
@@ -1324,9 +1312,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Instance("foo"): true,
-					},
+					ExportTo:  sets.New(visibility.Instance("foo")),
 				},
 			},
 			expect: true,
@@ -1337,9 +1323,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Instance("baz"): true,
-					},
+					ExportTo:  sets.New(visibility.Instance("baz")),
 				},
 			},
 			expect: false,
@@ -1350,9 +1334,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.None: true,
-					},
+					ExportTo:  sets.New(visibility.None),
 				},
 			},
 			expect: false,
@@ -1363,10 +1345,10 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Public: true,
-						visibility.None:   true,
-					},
+					ExportTo: sets.New(
+						visibility.Public,
+						visibility.None,
+					),
 				},
 			},
 			expect: true,
@@ -1377,10 +1359,10 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Private: true,
-						visibility.None:    true,
-					},
+					ExportTo: sets.New(
+						visibility.Private,
+						visibility.None,
+					),
 				},
 			},
 			expect: false,
@@ -1458,7 +1440,7 @@ func TestInitPushContext(t *testing.T) {
 				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					ExportTo:  sets.New(visibility.Public),
 				},
 			},
 		},
@@ -1995,7 +1977,7 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 
 func TestSetDestinationRuleMerging(t *testing.T) {
 	ps := NewPushContext()
-	ps.exportToDefaults.destinationRule = map[visibility.Instance]bool{visibility.Public: true}
+	ps.exportToDefaults.destinationRule = sets.New(visibility.Public)
 	testhost := "httpbin.org"
 	destinationRuleNamespace1 := config.Config{
 		Meta: config.Meta{
@@ -2719,29 +2701,29 @@ func TestServiceWithExportTo(t *testing.T) {
 		Hostname: "svc1",
 		Attributes: ServiceAttributes{
 			Namespace: "test1",
-			ExportTo:  map[visibility.Instance]bool{visibility.Private: true, visibility.Instance("ns1"): true},
+			ExportTo:  sets.New(visibility.Private, visibility.Instance("ns1")),
 		},
 	}
 	svc2 := &Service{
 		Hostname: "svc2",
 		Attributes: ServiceAttributes{
 			Namespace: "test2",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Instance("test1"): true,
-				visibility.Instance("ns1"):   true,
-				visibility.Instance("test2"): true,
-			},
+			ExportTo: sets.New(
+				visibility.Instance("test1"),
+				visibility.Instance("ns1"),
+				visibility.Instance("test2"),
+			),
 		},
 	}
 	svc3 := &Service{
 		Hostname: "svc3",
 		Attributes: ServiceAttributes{
 			Namespace: "test3",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Instance("test1"): true,
-				visibility.Public:            true,
-				visibility.Instance("test2"): true,
-			},
+			ExportTo: sets.New(
+				visibility.Instance("test1"),
+				visibility.Public,
+				visibility.Instance("test2"),
+			),
 		},
 	}
 	svc4 := &Service{
