@@ -1425,7 +1425,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) {
 		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
 
 		ns := s.Attributes.Namespace
-		if len(s.Attributes.ExportTo) == 0 {
+		if s.Attributes.ExportTo.IsEmpty() {
 			if ps.exportToDefaults.service.Contains(visibility.Private) {
 				ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
 			} else if ps.exportToDefaults.service.Contains(visibility.Public) {
