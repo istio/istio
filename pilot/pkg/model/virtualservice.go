@@ -183,7 +183,7 @@ func mergeVirtualServicesIfNeeded(
 		rule := vs.Spec.(*networking.VirtualService)
 		// it is delegate, add it to the indexer cache along with the exportTo for the delegate
 		if len(rule.Hosts) == 0 {
-			delegatesMap[types.NamespacedName{vs.Namespace, vs.Name}] = vs
+			delegatesMap[types.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}] = vs
 			var exportToSet sets.Set[visibility.Instance]
 			if len(rule.ExportTo) == 0 {
 				// No exportTo in virtualService. Use the global default
@@ -205,7 +205,7 @@ func mergeVirtualServicesIfNeeded(
 					}
 				}
 			}
-			delegatesExportToMap[types.NamespacedName{vs.Namespace, vs.Name}] = exportToSet
+			delegatesExportToMap[types.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}] = exportToSet
 			continue
 		}
 
@@ -235,7 +235,7 @@ func mergeVirtualServicesIfNeeded(
 				}
 				delegateConfigKey := ConfigKey{Kind: kind.VirtualService, Name: delegate.Name, Namespace: delegateNamespace}
 				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
-				delegateVS, ok := delegatesMap[types.NamespacedName{delegateNamespace, delegate.Name}]
+				delegateVS, ok := delegatesMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
 				if !ok {
 					log.Debugf("delegate virtual service %s/%s of %s/%s not found",
 						delegateNamespace, delegate.Name, root.Namespace, root.Name)
@@ -243,7 +243,7 @@ func mergeVirtualServicesIfNeeded(
 					continue
 				}
 				// make sure that the delegate is visible to root virtual service's namespace
-				exportTo := delegatesExportToMap[types.NamespacedName{delegateNamespace, delegate.Name}]
+				exportTo := delegatesExportToMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
 				if !exportTo.Contains(visibility.Public) && !exportTo.Contains(visibility.Instance(root.Namespace)) {
 					log.Debugf("delegate virtual service %s/%s of %s/%s is not exported to %s",
 						delegateNamespace, delegate.Name, root.Namespace, root.Name, root.Namespace)
