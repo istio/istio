@@ -205,7 +205,8 @@ func mergeVirtualServicesIfNeeded(
 					}
 				}
 			}
-			delegatesExportToMap[types.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}] = exportToSet
+			delegatesExportToMap[config.NamespacedName(vs)] = exportToSet
+
 			continue
 		}
 
