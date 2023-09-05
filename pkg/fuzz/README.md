@@ -27,7 +27,6 @@ func FuzzBuildHTTP(f *testing.F) {
 
     // Run our actual test code. In this case, we are just checking nothing crashes.
     // In other tests, explicit assertions may be helpful.
-    // TODO: confirm this doc makes sense
     policies := push.AuthzPolicies.ListAuthorizationPolicies(proxyInfo)
     New(bundle, push, policies, option).BuildHTTP()
   })
