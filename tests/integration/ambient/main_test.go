@@ -99,11 +99,9 @@ func TestMain(m *testing.M) {
 		SkipIf("https://github.com/istio/istio/issues/43243", func(ctx resource.Context) bool {
 			return os.Getenv("VARIANT") == "distroless"
 		}).
-		SkipIf("https://github.com/istio/istio/issues/43508", func(ctx resource.Context) bool {
-			return !ctx.Settings().Ambient
-		}).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
+			ctx.Settings().SetAmbient()
 			// can't deploy VMs without eastwest gateway
 			ctx.Settings().SkipVMs()
 			cfg.DeployEastWestGW = false
@@ -216,11 +214,13 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 				{
 					Replicas:    1,
 					Version:     "v1",
+					Labels:      map[string]string{echo.SidecarInject.Name: "false"},
 					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
 				},
 				{
 					Replicas:    1,
 					Version:     "v2",
+					Labels:      map[string]string{echo.SidecarInject.Name: "false"},
 					Annotations: echo.NewAnnotations().Set(echo.AmbientType, constants.AmbientRedirectionDisabled),
 				},
 			},

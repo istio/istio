@@ -249,7 +249,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 }
 
 func skipAmbient(t framework.TestContext, reason string) skip {
-	return skip{skip: t.Settings().Ambient, reason: reason}
+	return skip{skip: t.Settings().Ambient(), reason: reason}
 }
 
 func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployment.SingleNamespaceView) {
@@ -260,7 +260,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 	}
 	RunSkipAmbient := func(name string, f func(t TrafficContext), reason string) {
 		t.NewSubTest(name).Run(func(t framework.TestContext) {
-			if t.Settings().Ambient {
+			if t.Settings().Ambient() {
 				t.Skipf("ambient skipped: %v", reason)
 			} else {
 				f(TrafficContext{TestContext: t, Apps: apps, Istio: i})
