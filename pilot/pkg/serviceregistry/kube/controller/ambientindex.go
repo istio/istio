@@ -480,6 +480,9 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 		})
 	}
 
+	c.configController.RegisterEventHandler(gvk.AuthorizationPolicy, c.AuthorizationPolicyHandler)
+	c.configController.RegisterEventHandler(gvk.PeerAuthentication, c.PeerAuthenticationHandler)
+
 	serviceHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
 			idx.mu.Lock()
@@ -682,7 +685,7 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 		}
 	}
 
-	workloadEntries := c.getWorkloadEntriesInService(svc)
+	workloadEntries := c.getSelectedWorkloadEntries(svc.GetNamespace(), svc.Spec.Selector)
 	for _, w := range workloadEntries {
 		wl := a.extractWorkloadEntry(w, c)
 		// Can be nil if the WorkloadEntry IP has not been mapped yet
