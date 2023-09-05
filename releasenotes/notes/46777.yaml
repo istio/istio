@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+- |
+  **Fixed** an issue where endpoints were not being correctly constructed in accordance with the network topology when the network label of the system namespace was changed.
