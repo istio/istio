@@ -523,8 +523,8 @@ github.com/json-iterator/go v1.1.12/go.mod h1:e30LSqwooZae/UwlEbR2852Gd8hjQvJoHm
 github.com/jstemmer/go-junit-report v0.0.0-20190106144839-af01ea7f8024/go.mod h1:6v2b51hI/fHJwM22ozAgKL4VKDeJcHhJFhtBdhmNjmU=
 github.com/jstemmer/go-junit-report v0.9.1/go.mod h1:Brl9GWCQeLvo8nXZwPNNblvFj/XSXhF0NWZEnDohbsk=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
-github.com/keithmattix/gateway-api v0.5.0-rc1.0.20230904231439-e4659e6a6ab5 h1:nSGEmHhGKY/VArs+aNtmk26BupAhmYV9Pm2OjPr0UXg=
-github.com/keithmattix/gateway-api v0.5.0-rc1.0.20230904231439-e4659e6a6ab5/go.mod h1:okOnjPNBFbIS/Rw9kAhuIUaIkLhTKEu+ARIuXk2dgaM=
+github.com/keithmattix/gateway-api v0.5.0-rc1.0.20230905005811-d8c6dd818252 h1:QktQLUyFZdcXcMHiZPjjEdz08gtno7/QcOcVP8O4ze4=
+github.com/keithmattix/gateway-api v0.5.0-rc1.0.20230905005811-d8c6dd818252/go.mod h1:okOnjPNBFbIS/Rw9kAhuIUaIkLhTKEu+ARIuXk2dgaM=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/errcheck v1.2.0/go.mod h1:/BMXB+zMLi60iA8Vv6Ksmxu/1UDYcXs4uQLJ+jE2L00=
 github.com/kisielk/errcheck v1.5.0/go.mod h1:pFxgyoBC7bSaBwPgfKdkLd5X25qrDl4LWUI2bnpBCr8=
