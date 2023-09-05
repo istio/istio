@@ -97,7 +97,7 @@ func retMap(filename, text string, err error) (map[string]string, error) {
 func GetK8sResources(p *Params) (map[string]string, error) {
 	out, err := p.Runner.RunCmd("get --all-namespaces "+
 		"all,namespaces,jobs,ingresses,endpoints,endpointslices,customresourcedefinitions,configmaps,events,"+
-		"mutatingwebhookconfigurations,validatingwebhookconfigurations "+
+		"mutatingwebhookconfigurations,validatingwebhookconfigurations,networkpolicies "+
 		"-o yaml", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	return retMap("k8s-resources", out, err)
 }
