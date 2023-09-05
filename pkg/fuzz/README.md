@@ -21,12 +21,14 @@ func FuzzBuildHTTP(f *testing.F) {
     push := fuzz.Struct[*model.PushContext](fg, validatePush)
         // *model.Proxy, and other types, implement the fuzz.Validator interface and already validate some basics.
     node := fuzz.Struct[*model.Proxy](fg)
+    // TODO(whitneygriffith): fuzz proxyInfo or build the struct based on node's value?
+    proxyInfo := fuzz.Struct[model.ProxyInfo](fg)
     option := fuzz.Struct[Option](fg)
 
     // Run our actual test code. In this case, we are just checking nothing crashes.
     // In other tests, explicit assertions may be helpful.
     // TODO: confirm this doc makes sense
-    policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.IsWaypointProxy(), node.Metadata.Labels)
+    policies := push.AuthzPolicies.ListAuthorizationPolicies(proxyInfo)
     New(bundle, push, policies, option).BuildHTTP()
   })
 }

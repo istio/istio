@@ -1255,7 +1255,6 @@ func (ps *PushContext) createNewContext(env *Environment) error {
 	ps.initDestinationRules(env)
 	ps.initAuthnPolicies(env)
 
-	// INFO: gets all authorization policies across all namespaces
 	ps.initAuthorizationPolicies(env)
 	ps.initTelemetry(env)
 	ps.initProxyConfigs(env)
@@ -1817,8 +1816,8 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	ps.destinationRuleIndex.rootNamespaceLocal = rootNamespaceLocalDestRules
 }
 
+// pre computes all AuthorizationPolicies per namespace
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) {
-	// INFO: returns all AuthorizationPolicies across all namespaces
 	ps.AuthzPolicies = GetAuthorizationPolicies(env)
 }
 

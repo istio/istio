@@ -88,6 +88,7 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(proxyInfo ProxyIn
 			// At this time, policies without a targetRef will default to workload selectors
 			// TODO: remove this logic when workloadselector for waypoints is disallowed
 			if targetRef == nil {
+				log.Infof("waypoint proxy is requesting policy %s.%s that does not have a targetRef", config.Namespace, config.Name)
 				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
 				if selector.SubsetOf(proxyInfo.Workload) {
 					ret = updateAuthorizationPoliciesResult(config, ret)
