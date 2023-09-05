@@ -183,7 +183,7 @@ func mergeVirtualServicesIfNeeded(
 		rule := vs.Spec.(*networking.VirtualService)
 		// it is delegate, add it to the indexer cache along with the exportTo for the delegate
 		if len(rule.Hosts) == 0 {
-			delegatesMap[types.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}] = vs
+			delegatesMap[config.NamespacedName(vs)] = vs
 			var exportToSet sets.Set[visibility.Instance]
 			if len(rule.ExportTo) == 0 {
 				// No exportTo in virtualService. Use the global default
