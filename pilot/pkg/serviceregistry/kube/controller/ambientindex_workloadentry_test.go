@@ -138,6 +138,13 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns-pod")
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", true)
+	// All these workloads updated, so push them
+	s.assertEvent(t,
+		s.wleXdsName("name1"),
+		s.wleXdsName("name2"),
+		s.wleXdsName("name3"),
+	)
 	// create the waypoint service
 	s.addService(t, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel}, // labels
@@ -146,14 +153,10 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 		map[string]string{constants.GatewayNameLabel: "namespace-wide"}, // selector
 		"10.0.0.2",
 	)
-	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns", "waypoint-ns-pod")
-	// All these workloads updated, so push them
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
-		s.wleXdsName("name1"),
-		s.wleXdsName("name2"),
-		s.wleXdsName("name3"),
 		s.svcXdsName("waypoint-ns"),
 	)
+	s.assertAddresses(t, "", "name1", "name2", "name3", "waypoint-ns", "waypoint-ns-pod")
 	// We should now see the waypoint service IP
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.3"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
@@ -202,12 +205,15 @@ func TestAmbientIndex_WorkloadEntries(t *testing.T) {
 	s.deleteWorkloadEntry(t, "name6")
 	s.assertEvent(t, s.wleXdsName("name6"))
 
-	s.deleteService(t, "waypoint-ns")
+	s.deleteWaypoint(t, "waypoint-ns")
 	// all affected addresses with the waypoint should be updated
-	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
+	s.assertEvent(t,
 		s.wleXdsName("name1"),
 		s.wleXdsName("name2"),
-		s.wleXdsName("name3"),
+		s.wleXdsName("name3"))
+
+	s.deleteService(t, "waypoint-ns")
+	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"),
 		s.svcXdsName("waypoint-ns"))
 
 	s.deleteWorkloadEntry(t, "name3")
