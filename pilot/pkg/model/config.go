@@ -346,8 +346,3 @@ func sortConfigByCreationTime(configs []config.Config) []config.Config {
 	})
 	return configs
 }
-
-type key struct {
-	name      string
-	namespace string
-}
