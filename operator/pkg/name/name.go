@@ -37,6 +37,7 @@ const (
 	IstioOperator                     = "IstioOperator"
 	MutatingWebhookConfigurationStr   = "MutatingWebhookConfiguration"
 	NamespaceStr                      = "Namespace"
+	NetworkAttachmentDefinitionStr    = "NetworkAttachmentDefinition"
 	PodStr                            = "Pod"
 	PDBStr                            = "PodDisruptionBudget"
 	ReplicaSetStr                     = "ReplicaSet"

@@ -68,6 +68,7 @@ var (
 	// AllClusterResources lists all cluster scope resources types which should be deleted in purge case, including CRD.
 	AllClusterResources = append(ClusterResources,
 		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: name.CRDStr},
+		schema.GroupVersionKind{Group: "k8s.cni.cncf.io", Version: "v1", Kind: name.NetworkAttachmentDefinitionStr},
 	)
 )
 
