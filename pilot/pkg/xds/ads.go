@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/identifier"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -596,10 +597,6 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 	// Update the config namespace associated with this proxy
 	proxy.ConfigNamespace = model.GetProxyConfigNamespace(proxy)
 	proxy.XdsNode = node
-	// Update the network of proxy to default system namespace's network if it is not set.
-	if proxy.Metadata.Network == "" && s.Env.NetworkManager != nil {
-		proxy.Metadata.Network = s.Env.NetworkManager.DefaultNetworkForCluster(proxy.Metadata.ClusterID)
-	}
 	return proxy, nil
 }
 
@@ -629,6 +626,16 @@ func setTopologyLabels(proxy *model.Proxy) {
 		proxy.GetNodeName(),
 		proxy.Metadata.Network,
 	)
+}
+
+func setDefaultNetworkIfNotPresent(proxy *model.Proxy, nm *model.NetworkManager) {
+	if nm == nil {
+		return
+	}
+	if proxy.Metadata.Network != identifier.Undefined {
+		return
+	}
+	proxy.Metadata.Network = nm.DefaultNetworkForCluster(proxy.Metadata.ClusterID)
 }
 
 func localityFromProxyLabels(proxy *model.Proxy) *core.Locality {
@@ -683,6 +690,8 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		proxy.SetWorkloadLabels(s.Env)
 		setTopologyLabels(proxy)
 	}
+	setDefaultNetworkIfNotPresent(proxy, s.Env.NetworkManager)
+
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become
