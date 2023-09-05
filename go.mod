@@ -9,7 +9,7 @@ exclude k8s.io/kubernetes v1.13.0
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
 // Replacing to confirm bug fix; DNM until this is removed
-replace sigs.k8s.io/gateway-api => github.com/keithmattix/gateway-api v0.5.0-rc1.0.20230905005811-d8c6dd818252
+replace sigs.k8s.io/gateway-api => github.com/keithmattix/gateway-api v0.5.0-rc1.0.20230905035617-52b6e260f4a9
 
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
