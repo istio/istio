@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	netutil "istio.io/istio/pkg/util/net"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func convertPort(port *networking.ServicePort) *model.Port {
@@ -85,11 +86,9 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 	}
 
 	// Based on networking.istio.io/exportTo annotation
-	for k, v := range svc.Attributes.ExportTo {
-		if v {
-			// k is Private or Public
-			se.ExportTo = append(se.ExportTo, string(k))
-		}
+	for k := range svc.Attributes.ExportTo {
+		// k is Private or Public
+		se.ExportTo = append(se.ExportTo, string(k))
 	}
 
 	if svc.MeshExternal {
@@ -170,11 +169,11 @@ func convertServices(cfg config.Config) []*model.Service {
 		svcPorts = append(svcPorts, convertPort(port))
 	}
 
-	var exportTo map[visibility.Instance]bool
+	var exportTo sets.Set[visibility.Instance]
 	if len(serviceEntry.ExportTo) > 0 {
-		exportTo = make(map[visibility.Instance]bool)
+		exportTo = sets.NewWithLength[visibility.Instance](len(serviceEntry.ExportTo))
 		for _, e := range serviceEntry.ExportTo {
-			exportTo[visibility.Instance(e)] = true
+			exportTo.Insert(visibility.Instance(e))
 		}
 	}
 
@@ -208,7 +207,7 @@ func convertServices(cfg config.Config) []*model.Service {
 }
 
 func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
-	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
+	resolution model.Resolution, exportTo sets.Set[visibility.Instance], selectors map[string]string, saccounts []string,
 	ctime time.Time, labels map[string]string,
 ) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))

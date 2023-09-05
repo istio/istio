@@ -19,13 +19,14 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestMatchTLS(t *testing.T) {
 	type args struct {
 		match       *v1alpha3.TLSMatchAttributes
 		proxyLabels labels.Instance
-		gateways    map[string]bool
+		gateways    sets.String
 		port        int
 		namespace   string
 	}
@@ -86,7 +87,7 @@ func TestMatchTCP(t *testing.T) {
 	type args struct {
 		match       *v1alpha3.L4MatchAttributes
 		proxyLabels labels.Instance
-		gateways    map[string]bool
+		gateways    sets.String
 		port        int
 		namespace   string
 	}

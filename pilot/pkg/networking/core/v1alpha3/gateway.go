@@ -829,9 +829,9 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.Push
 		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
-	gatewayServerHosts := make(map[host.Name]bool, len(server.Hosts))
+	gatewayServerHosts := sets.NewWithLength[host.Name](len(server.Hosts))
 	for _, hostname := range server.Hosts {
-		gatewayServerHosts[host.Name(hostname)] = true
+		gatewayServerHosts.Insert(host.Name(hostname))
 	}
 
 	virtualServices := push.VirtualServicesForGateway(node.ConfigNamespace, gateway)
@@ -880,9 +880,9 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
-	gatewayServerHosts := make(map[host.Name]bool, len(server.Hosts))
+	gatewayServerHosts := sets.NewWithLength[host.Name](len(server.Hosts))
 	for _, hostname := range server.Hosts {
-		gatewayServerHosts[host.Name(hostname)] = true
+		gatewayServerHosts.Insert(host.Name(hostname))
 	}
 
 	filterChains := make([]*filterChainOpts, 0)
@@ -1008,7 +1008,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 
 // Select the virtualService's hosts that match the ones specified in the gateway server's hosts
 // based on the wildcard hostname match and the namespace match
-func pickMatchingGatewayHosts(gatewayServerHosts map[host.Name]bool, virtualService config.Config) map[string]host.Name {
+func pickMatchingGatewayHosts(gatewayServerHosts sets.Set[host.Name], virtualService config.Config) map[string]host.Name {
 	matchingHosts := make(map[string]host.Name)
 	virtualServiceHosts := virtualService.Spec.(*networking.VirtualService).Hosts
 	for _, vsvcHost := range virtualServiceHosts {
