@@ -1500,7 +1500,7 @@ templates:
               privileged: false
               readOnlyRootFilesystem: true
               runAsUser: {{ .ProxyUID | default "1337" }}
-              runAsGroup: {{ .ProxyUID | default "1337" }}
+              runAsGroup: {{ .ProxyGID | default "1337" }}
               runAsNonRoot: true
             {{- else }}
               capabilities:
