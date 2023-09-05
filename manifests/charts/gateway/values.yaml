@@ -91,6 +91,8 @@ topologySpreadConstraints: []
 
 affinity: {}
 
+global: {}
+
 # If specified, the gateway will act as a network gateway for the given network.
 networkGateway: ""
 
