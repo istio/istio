@@ -49,16 +49,13 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	}
 
 	proxyInfo := model.ProxyInfo{
-		Namespace:       proxy.ConfigNamespace,
-		WorkloadName:    proxy.Metadata.WorkloadName,
-		IsWaypointProxy: proxy.IsWaypointProxy(),
-		Workload:        proxy.Labels,
+		Namespace:    proxy.ConfigNamespace,
+		WorkloadName: proxy.Metadata.WorkloadName,
+		Workload:     proxy.Labels,
 	}
 
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxyInfo)
-	if !util.IsIstioVersionGE117(proxy.IstioVersion) {
-		option.UseAuthenticated = true
-	}
+
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}
 }

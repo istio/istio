@@ -21,8 +21,12 @@ func FuzzBuildHTTP(f *testing.F) {
     push := fuzz.Struct[*model.PushContext](fg, validatePush)
         // *model.Proxy, and other types, implement the fuzz.Validator interface and already validate some basics.
     node := fuzz.Struct[*model.Proxy](fg)
-    // TODO(whitneygriffith): fuzz proxyInfo or build the struct based on node's value?
-    proxyInfo := fuzz.Struct[model.ProxyInfo](fg)
+    proxyInfo := model.ProxyInfo{
+      Namespace:       node.ConfigNamespace,
+      WorkloadName:    node.Metadata.WorkloadName,
+      Workload:        node.Labels,
+	  }
+    
     option := fuzz.Struct[Option](fg)
 
     // Run our actual test code. In this case, we are just checking nothing crashes.

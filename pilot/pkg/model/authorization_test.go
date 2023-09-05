@@ -60,7 +60,6 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	}
 	policyWithTargetRef := proto.Clone(policy).(*authpb.AuthorizationPolicy)
 	policyWithTargetRef.TargetRef = &selectorpb.PolicyTargetReference{
-		// TODO(whitneygriffith): add other struct fields if needed
 		Name: "waypoint",
 	}
 
@@ -101,15 +100,13 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			wantAllow: nil,
 		},
 		{
-			// TODO(whitneygriffith): not sure if this is needed
-			name: "no policies in ns bar when it is a waypoint",
+			name: "no policies with a targetRef in namespace foo",
 			proxyInfo: ProxyInfo{
-				Namespace:       "bar",
-				WorkloadName:    "waypoint",
-				IsWaypointProxy: true,
+				Namespace:    "foo",
+				WorkloadName: "waypoint",
 			},
 			configs: []config.Config{
-				newConfig("authz-1", "foo", policyWithTargetRef),
+				newConfig("authz-1", "bar", policyWithTargetRef),
 			},
 			wantAllow: nil,
 		},
@@ -241,9 +238,8 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "targetRef is an exact match",
 			proxyInfo: ProxyInfo{
-				Namespace:       "bar",
-				WorkloadName:    "waypoint",
-				IsWaypointProxy: true,
+				Namespace:    "bar",
+				WorkloadName: "waypoint",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithTargetRef),
@@ -260,27 +256,6 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			name: "selector exact match",
 			proxyInfo: ProxyInfo{
 				Namespace: "bar",
-				Workload: map[string]string{
-					"app":     "httpbin",
-					"version": "v1",
-				},
-			},
-			configs: []config.Config{
-				newConfig("authz-1", "bar", policyWithSelector),
-			},
-			wantAllow: []AuthorizationPolicy{
-				{
-					Name:      "authz-1",
-					Namespace: "bar",
-					Spec:      policyWithSelector,
-				},
-			},
-		},
-		{
-			name: "selector exact match for waypoint",
-			proxyInfo: ProxyInfo{
-				Namespace:       "bar",
-				IsWaypointProxy: true,
 				Workload: map[string]string{
 					"app":     "httpbin",
 					"version": "v1",
@@ -321,9 +296,8 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "targetRef is not a match",
 			proxyInfo: ProxyInfo{
-				Namespace:       "bar",
-				WorkloadName:    "waypoint2",
-				IsWaypointProxy: true,
+				Namespace:    "bar",
+				WorkloadName: "waypoint2",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithTargetRef),
@@ -375,11 +349,10 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 		{
-			name: "root namespace and waypoint namespace does not match",
+			name: "policy with targetRef in root namespace does not apply globally",
 			proxyInfo: ProxyInfo{
-				Namespace:       "bar",
-				WorkloadName:    "waypoint2",
-				IsWaypointProxy: true,
+				Namespace:    "bar",
+				WorkloadName: "waypoint",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "istio-config", policyWithTargetRef),
@@ -430,7 +403,6 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs)
 
-			// TODO: fix test by adding IsAmbient and Metadata.WorkloadName params
 			result := authzPolicies.ListAuthorizationPolicies(tc.proxyInfo)
 			if !reflect.DeepEqual(tc.wantAllow, result.Allow) {
 				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, result.Allow)

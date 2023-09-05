@@ -66,13 +66,11 @@ type AuthorizationPoliciesResult struct {
 }
 
 type ProxyInfo struct {
-	Namespace       string
-	WorkloadName    string
-	IsWaypointProxy bool
-	Workload        labels.Instance
+	Namespace    string
+	WorkloadName string
+	Workload     labels.Instance
 }
 
-// namespace string, workloadName string, isWaypointProxy bool, workload labels.Instance
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
 func (policy *AuthorizationPolicies) ListAuthorizationPolicies(proxyInfo ProxyInfo) AuthorizationPoliciesResult {
 	ret := AuthorizationPoliciesResult{}
@@ -80,44 +78,34 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(proxyInfo ProxyIn
 		return ret
 	}
 
-	if proxyInfo.IsWaypointProxy {
-		for _, config := range policy.NamespaceToPolicies[proxyInfo.Namespace] {
+	var namespaces []string
+	if policy.RootNamespace != "" {
+		namespaces = append(namespaces, policy.RootNamespace)
+	}
+
+	// Policies can be in root namespace and have workload selectors or a targetRef
+	// This prevents duplicate policies in case root namespace equals proxy's namespace.
+	if proxyInfo.Namespace != policy.RootNamespace {
+		namespaces = append(namespaces, proxyInfo.Namespace)
+	}
+
+	for _, ns := range namespaces {
+		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 			targetRef := spec.GetTargetRef()
 
 			// At this time, policies without a targetRef will default to workload selectors
 			// TODO: remove this logic when workloadselector for waypoints is disallowed
 			if targetRef == nil {
-				log.Infof("waypoint proxy is requesting policy %s.%s that does not have a targetRef", config.Namespace, config.Name)
 				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
 				if selector.SubsetOf(proxyInfo.Workload) {
+					log.Infof("matching policy %s.%s does not have a targetRef", config.Namespace, config.Name)
 					ret = updateAuthorizationPoliciesResult(config, ret)
 				}
-			} else if targetRef.GetName() == proxyInfo.WorkloadName {
+			} else if (targetRef.GetName() == proxyInfo.WorkloadName) && (ns == proxyInfo.Namespace) {
+				log.Infof("matching policy %s.%s has a targetRef", config.Namespace, config.Name)
 				ret = updateAuthorizationPoliciesResult(config, ret)
 			}
-		}
-	} else {
-		var namespaces []string
-		if policy.RootNamespace != "" {
-			namespaces = append(namespaces, policy.RootNamespace)
-		}
-
-		// Policies can be in root namespace and have workload selectors
-		// This prevent duplicate policies in case root namespace equals proxy's namespace.
-		if proxyInfo.Namespace != policy.RootNamespace {
-			namespaces = append(namespaces, proxyInfo.Namespace)
-		}
-
-		for _, ns := range namespaces {
-			for _, config := range policy.NamespaceToPolicies[ns] {
-				spec := config.Spec
-				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-				if selector.SubsetOf(proxyInfo.Workload) {
-					ret = updateAuthorizationPoliciesResult(config, ret)
-				}
-			}
-
 		}
 	}
 

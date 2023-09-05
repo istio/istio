@@ -178,10 +178,9 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	// See security/authz/builder and grpc internal/xds/rbac
 	// grpc supports ALLOW and DENY actions (fail if it is not one of them), so we can't use the normal generator
 	nodeInfo := model.ProxyInfo{
-		Namespace:       node.ConfigNamespace,
-		WorkloadName:    node.Metadata.WorkloadName,
-		IsWaypointProxy: node.IsWaypointProxy(),
-		Workload:        node.Labels,
+		Namespace:    node.ConfigNamespace,
+		WorkloadName: node.Metadata.WorkloadName,
+		Workload:     node.Labels,
 	}
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(nodeInfo)
 	if len(policies.Deny)+len(policies.Allow) > 0 {

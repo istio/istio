@@ -1344,7 +1344,6 @@ func (ps *PushContext) updateContext(
 	}
 
 	if authnChanged {
-		// INFO: gets all authorization policies across all namespaces
 		ps.initAuthnPolicies(env)
 	} else {
 		ps.AuthnPolicies = oldPushContext.AuthnPolicies
