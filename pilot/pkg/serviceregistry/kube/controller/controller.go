@@ -297,7 +297,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	if c.opts.MeshNetworksWatcher != nil {
 		c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
 			c.reloadMeshNetworks()
-			c.onNetworkChange()
+			c.onNetworkChange(false)
 		})
 		c.reloadMeshNetworks()
 	}
@@ -908,7 +908,7 @@ func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event)
 	if c.setNetworkFromNamespace(ns) {
 		// network changed, rarely happen
 		// refresh pods/endpoints/services
-		c.onNetworkChange()
+		c.onNetworkChange(true)
 	}
 	return nil
 }

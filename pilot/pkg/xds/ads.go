@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util/identifier"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -628,16 +627,6 @@ func setTopologyLabels(proxy *model.Proxy) {
 	)
 }
 
-func setDefaultNetworkIfNotPresent(proxy *model.Proxy, nm *model.NetworkManager) {
-	if nm == nil {
-		return
-	}
-	if proxy.Metadata.Network != identifier.Undefined {
-		return
-	}
-	proxy.Metadata.Network = nm.DefaultNetworkForCluster(proxy.Metadata.ClusterID)
-}
-
 func localityFromProxyLabels(proxy *model.Proxy) *core.Locality {
 	region, f1 := proxy.Labels[labelutil.LabelTopologyRegion]
 	zone, f2 := proxy.Labels[labelutil.LabelTopologyZone]
@@ -690,8 +679,6 @@ func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.P
 		proxy.SetWorkloadLabels(s.Env)
 		setTopologyLabels(proxy)
 	}
-	setDefaultNetworkIfNotPresent(proxy, s.Env.NetworkManager)
-
 	// Precompute the sidecar scope and merged gateways associated with this proxy.
 	// Saves compute cycles in networking code. Though this might be redundant sometimes, we still
 	// have to compute this because as part of a config change, a new Sidecar could become

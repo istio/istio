@@ -143,7 +143,7 @@ func (n namedRangerEntry) Network() net.IPNet {
 }
 
 // onNetworkChange is fired if the default network is changed either via the namespace label or mesh-networks
-func (c *Controller) onNetworkChange() {
+func (c *Controller) onNetworkChange(push bool) {
 	// the network for endpoints are computed when we process the events; this will fix the cache
 	// NOTE: this must run before the other network watcher handler that creates a force push
 	if err := c.syncPods(); err != nil {
@@ -152,7 +152,10 @@ func (c *Controller) onNetworkChange() {
 	if err := c.endpoints.sync("", metav1.NamespaceAll, model.EventAdd, true); err != nil {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
-	c.reloadNetworkGateways()
+	c.reloadNetworkGateways(!push)
+	if push {
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
+	}
 }
 
 // reloadMeshNetworks will read the mesh networks configuration to setup
@@ -259,7 +262,7 @@ func (c *Controller) extractGatewaysFromService(svc *model.Service) bool {
 // reloadNetworkGateways performs extractGatewaysFromService for all services registered with the controller.
 // It is called only by `onNetworkChange`.
 // It iterates over all services, because mesh networks can be set with a service name.
-func (c *Controller) reloadNetworkGateways() {
+func (c *Controller) reloadNetworkGateways(push bool) {
 	c.Lock()
 	gwsChanged := false
 	for _, svc := range c.servicesMap {
@@ -272,7 +275,9 @@ func (c *Controller) reloadNetworkGateways() {
 	if gwsChanged {
 		c.NotifyGatewayHandlers()
 		// TODO ConfigUpdate via gateway handler
-		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
+		if push {
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{Full: true, Reason: model.NewReasonStats(model.NetworksTrigger)})
+		}
 	}
 }
 

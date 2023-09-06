@@ -22,6 +22,7 @@ import (
 	"google.golang.org/protobuf/proto"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	labelutil "istio.io/istio/pilot/pkg/serviceregistry/util/label"
@@ -93,7 +94,21 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			// Check if the endpoint is directly reachable. It's considered directly reachable if
 			// the endpoint is either on the local network or on a remote network that can be reached
 			// directly from the local network.
-			if b.proxy.InNetwork(epNetwork) || len(gateways) == 0 {
+			// If the proxy is not explicitly set with a network, we use its default cluster network to
+			// determine if the endpoint is directly reachable.
+			var proxyNetwork network.ID
+			if v, ok := b.proxy.Metadata.Labels[label.TopologyNetwork.Name]; !ok {
+				proxyNetwork = b.push.NetworkManager().DefaultNetworkForCluster(b.proxy.Metadata.ClusterID)
+				if b.proxy.Metadata.Network != "" {
+					proxyNetwork = b.proxy.Metadata.Network
+				}
+			} else {
+				proxyNetwork = network.ID(v)
+			}
+			// If the proxy resides in the same network as the endpoint, or if we do not have a gateway,
+			// we need to select the endpoint.
+			shouldAppend := proxyNetwork.Equals(epNetwork) || len(gateways) == 0
+			if shouldAppend {
 				// The endpoint is directly reachable - just add it.
 				// If there is no gateway, the address must not be empty
 				if lbEp.GetEndpoint().GetAddress().GetSocketAddress().GetAddress() != "" {

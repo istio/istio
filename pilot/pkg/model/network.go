@@ -259,6 +259,9 @@ func (mgr *NetworkManager) resolveHostnameGateways(gatewaySet NetworkGatewaySet)
 }
 
 func (mgr *NetworkManager) DefaultNetworkForCluster(cluster cluster.ID) network.ID {
+	if mgr == nil {
+		return identifier.Undefined
+	}
 	networks := mgr.env.DefaultNetworks()
 	for _, nw := range networks {
 		if nw.Cluster == cluster {
