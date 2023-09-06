@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -225,7 +224,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 				}
 			}
 			cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
-			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t, apply.CleanupConditionally)
+			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t)
 		}
 
 		if c.call != nil && len(c.children) > 0 {

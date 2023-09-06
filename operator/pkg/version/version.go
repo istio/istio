@@ -81,7 +81,7 @@ func TagToVersionString(path string) (string, error) {
 	return strings.Join(fmtParts, "."), nil
 }
 
-// TagToVersionString converts an istio container tag into a version string,
+// TagToVersionStringGrace converts an Istio container tag into a version string,
 // if any error, fallback to use the original tag.
 func TagToVersionStringGrace(path string) string {
 	v, err := TagToVersionString(path)
