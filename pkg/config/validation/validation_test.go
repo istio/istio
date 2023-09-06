@@ -16,6 +16,7 @@ package validation
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -8627,7 +8628,8 @@ func TestValidateTelemetry(t *testing.T) {
 					Name:  "foo",
 				},
 			},
-			"targetRef Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: wrong-group//Gateway", "",
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, "wrong-group", gvk.KubernetesGateway.Kind), "",
 		},
 		{
 			"bad targetRef - wrong kind",
@@ -8649,7 +8651,8 @@ func TestValidateTelemetry(t *testing.T) {
 					Name:  "foo",
 				},
 			},
-			"targetRef Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: gateway.networking.k8s.io//wrong-kind", "",
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, gvk.KubernetesGateway.Group, "wrong-kind"), "",
 		},
 		{
 			"targetRef and selector cannot both be set",
@@ -8910,7 +8913,8 @@ func TestValidateWasmPlugin(t *testing.T) {
 					Name:  "foo",
 				},
 			},
-			"targetRef Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: wrong-group//Gateway", "",
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, "wrong-group", gvk.KubernetesGateway.Kind), "",
 		},
 		{
 			"target-ref-wrong-kind",
@@ -8922,7 +8926,8 @@ func TestValidateWasmPlugin(t *testing.T) {
 					Name:  "foo",
 				},
 			},
-			"targetRef Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: gateway.networking.k8s.io//wrong-kind", "",
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, gvk.KubernetesGateway.Group, "wrong-kind"), "",
 		},
 		{
 			"target-ref-and-selector-cannot-both-be-set",

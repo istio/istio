@@ -1950,14 +1950,10 @@ func validatePolicyTargetReference(selector *type_beta.WorkloadSelector, targetR
 	if targetRef.Namespace != "" {
 		v = appendErrorf(v, "targetRef namespace must not be set")
 	}
-	targetRefGVK := config.GroupVersionKind{
-		Group:   targetRef.Group,
-		Kind:    targetRef.Kind,
-		Version: gvk.KubernetesGateway.Version,
-	}
 	// Currently, gateway.networking.k8s.io is the only valid Group and gateway.networking.k8s.io/Gateway the only valid Kind.
 	if targetRef.Group != gvk.KubernetesGateway.Group || targetRef.Kind != gvk.KubernetesGateway.Kind {
-		v = appendErrorf(v, "targetRef Group and Kind don't match; expected: %v, got: %v", gvk.KubernetesGateway, targetRefGVK)
+		v = appendErrorf(v, "targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+			gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, targetRef.Group, targetRef.Kind)
 	}
 	return
 }
