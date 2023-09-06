@@ -935,6 +935,23 @@ func TestWasmPlugins(t *testing.T) {
 				Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2",
 			},
 		},
+		"authn-low-prio-all-network": {
+			Meta: config.Meta{Name: "authn-low-prio-all-network", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Type:     extensions.PluginType_NETWORK,
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &wrappers.Int32Value{Value: 10},
+				Url:      "file:///etc/istio/filters/authn.wasm",
+				PluginConfig: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"test": {
+							Kind: &structpb.Value_StringValue{StringValue: "test"},
+						},
+					},
+				},
+				Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2",
+			},
+		},
 		"global-authn-low-prio-ingress": {
 			Meta: config.Meta{Name: "global-authn-low-prio-ingress", Namespace: constants.IstioSystemNamespace, GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
@@ -1003,12 +1020,14 @@ func TestWasmPlugins(t *testing.T) {
 		name               string
 		node               *Proxy
 		listenerInfo       WasmPluginListenerInfo
+		pluginType         WasmPluginType
 		expectedExtensions map[extensions.PluginPhase][]*WasmPluginWrapper
 	}{
 		{
 			name:               "nil proxy",
 			node:               nil,
 			listenerInfo:       anyListener,
+			pluginType:         WasmPluginTypeHTTP,
 			expectedExtensions: nil,
 		},
 		{
@@ -1018,6 +1037,7 @@ func TestWasmPlugins(t *testing.T) {
 				Metadata:        &NodeMetadata{},
 			},
 			listenerInfo:       anyListener,
+			pluginType:         WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{},
 		},
 		{
@@ -1034,6 +1054,7 @@ func TestWasmPlugins(t *testing.T) {
 				},
 			},
 			listenerInfo: anyListener,
+			pluginType:   WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
@@ -1054,9 +1075,55 @@ func TestWasmPlugins(t *testing.T) {
 				},
 			},
 			listenerInfo: anyListener,
+			pluginType:   WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+				},
+			},
+		},
+		{
+			name: "ingress-testns-1-network",
+			node: &Proxy{
+				ConfigNamespace: "testns-1",
+				Labels: map[string]string{
+					"istio": "ingressgateway",
+				},
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"istio": "ingressgateway",
+					},
+				},
+			},
+			listenerInfo: anyListener,
+			pluginType:   WasmPluginTypeNetwork,
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
+				},
+			},
+		},
+		{
+			name: "ingress-testns-1-any",
+			node: &Proxy{
+				ConfigNamespace: "testns-1",
+				Labels: map[string]string{
+					"istio": "ingressgateway",
+				},
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"istio": "ingressgateway",
+					},
+				},
+			},
+			listenerInfo: anyListener,
+			pluginType:   WasmPluginTypeAny,
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
 					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
 				},
@@ -1076,6 +1143,7 @@ func TestWasmPlugins(t *testing.T) {
 				},
 			},
 			listenerInfo: anyListener,
+			pluginType:   WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
@@ -1109,6 +1177,7 @@ func TestWasmPlugins(t *testing.T) {
 				Port:  1234,
 				Class: istionetworking.ListenerClassSidecarInbound,
 			},
+			pluginType: WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
@@ -1135,7 +1204,7 @@ func TestWasmPlugins(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := pc.WasmPluginsByListenerInfo(tc.node, tc.listenerInfo)
+			result := pc.WasmPluginsByListenerInfo(tc.node, tc.listenerInfo, tc.pluginType)
 			if !reflect.DeepEqual(tc.expectedExtensions, result) {
 				t.Errorf("WasmPlugins did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
 			}

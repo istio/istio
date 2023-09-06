@@ -32,11 +32,13 @@ import (
 	anypb "github.com/golang/protobuf/ptypes/any"
 	"github.com/hashicorp/go-multierror"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -241,13 +243,22 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	tlsHostsByPort map[uint32]map[string]string,
 ) {
 	tcpAuthFilters := []*listener.Filter{xdsfilters.IstioNetworkAuthenticationFilter}
+	// Add network level WASM filters if any configured.
+	wasm := builder.push.WasmPluginsByListenerInfo(builder.node, model.WasmPluginListenerInfo{
+		Port:  opts.port,
+		Class: istionetworking.ListenerClassGateway,
+	}, model.WasmPluginTypeNetwork)
 	if p.IsHTTP() {
 		// We have a list of HTTP servers on this port. Build a single listener for the server port.
 		port := &networking.Port{Number: port.Number, Protocol: port.Protocol}
 		httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, port, nil, serversForPort.RouteName,
 			proxyConfig, istionetworking.ListenerProtocolTCP, builder.push)
 		// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
-		httpFilterChainOpts.networkFilters = tcpAuthFilters
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
+		httpFilterChainOpts.networkFilters = append(httpFilterChainOpts.networkFilters, tcpAuthFilters...)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)
+		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 		opts.filterChainOpts = []*filterChainOpts{httpFilterChainOpts}
 	} else {
 		// build http connection manager with TLS context, for HTTPS servers using simple/mutual TLS
@@ -262,16 +273,25 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				httpFilterChainOpts := configgen.createGatewayHTTPFilterChainOpts(builder.node, server.Port, server,
 					routeName, proxyConfig, istionetworking.TransportProtocolTCP, builder.push)
 				// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
-				httpFilterChainOpts.networkFilters = tcpAuthFilters
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
+				httpFilterChainOpts.networkFilters = append(httpFilterChainOpts.networkFilters, tcpAuthFilters...)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)
+				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 				opts.filterChainOpts = append(opts.filterChainOpts, httpFilterChainOpts)
 			} else {
 				// we are building a network filter chain (no http connection manager) for this filter chain
 				// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
 				// codec is used by RBAC later.
-				var tcpAuthFilters []*listener.Filter
-				tcpAuthFilters = append(tcpAuthFilters, xdsfilters.IstioNetworkAuthenticationFilter)
-				tcpAuthFilters = append(tcpAuthFilters, builder.authzCustomBuilder.BuildTCP()...)
-				tcpAuthFilters = append(tcpAuthFilters, builder.authzBuilder.BuildTCP()...)
+				var tcpAuthAndWasmFilters []*listener.Filter
+				tcpAuthAndWasmFilters = extension.PopAppendNetwork(tcpAuthAndWasmFilters, wasm, extensions.PluginPhase_AUTHN)
+				tcpAuthAndWasmFilters = append(tcpAuthAndWasmFilters, xdsfilters.IstioNetworkAuthenticationFilter)
+				tcpAuthAndWasmFilters = extension.PopAppendNetwork(tcpAuthAndWasmFilters, wasm, extensions.PluginPhase_AUTHZ)
+				tcpAuthAndWasmFilters = append(tcpAuthAndWasmFilters, builder.authzCustomBuilder.BuildTCP()...)
+				tcpAuthAndWasmFilters = append(tcpAuthAndWasmFilters, builder.authzBuilder.BuildTCP()...)
+				tcpAuthAndWasmFilters = extension.PopAppendNetwork(tcpAuthAndWasmFilters, wasm, extensions.PluginPhase_STATS)
+				tcpAuthAndWasmFilters = extension.PopAppendNetwork(tcpAuthAndWasmFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+
 				// This is the case of TCP or PASSTHROUGH.
 				tcpChainOpts := configgen.createGatewayTCPFilterChainOpts(builder.node, builder.push,
 					server, port.Number, mergedGateway.GatewayNameForServer[server], tlsHostsByPort)
@@ -279,10 +299,10 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 					if len(opt.networkFilters) > 0 {
 						// this is the terminating filter
 						lastNetworkFilter := opt.networkFilters[len(opt.networkFilters)-1]
-						opt.networkFilters = append(opt.networkFilters[:len(opt.networkFilters)-1], tcpAuthFilters...)
+						opt.networkFilters = append(opt.networkFilters[:len(opt.networkFilters)-1], tcpAuthAndWasmFilters...)
 						opt.networkFilters = append(opt.networkFilters, lastNetworkFilter)
 					} else {
-						opt.networkFilters = append(opt.networkFilters, tcpAuthFilters...)
+						opt.networkFilters = append(opt.networkFilters, tcpAuthAndWasmFilters...)
 					}
 				}
 				opts.filterChainOpts = append(opts.filterChainOpts, tcpChainOpts...)

@@ -28,10 +28,12 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
@@ -798,6 +800,12 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 	}
 
 	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
+	// Add network level WASM filters if any configured.
+	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+		Port:  httpOpts.port,
+		Class: httpOpts.class,
+	}, model.WasmPluginTypeNetwork)
+	filters = extension.PopAppendNetworkFilters(filters, wasm)
 	h := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
@@ -826,9 +834,17 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
 		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
 	}
+	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+		Port:  fcc.port.Port,
+		Class: istionetworking.ListenerClassSidecarInbound,
+	}, model.WasmPluginTypeNetwork)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
 	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
 	filters = append(filters, lb.authzBuilder.BuildTCP()...)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
 
 	return filters

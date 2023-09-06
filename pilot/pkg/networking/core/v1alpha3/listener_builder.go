@@ -370,7 +370,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
 			Port:  httpOpts.port,
 			Class: httpOpts.class,
-		})
+		}, model.WasmPluginTypeHTTP)
 
 		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
@@ -391,13 +391,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		}
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
 		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHZ)
 		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_STATS)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	}
 
 	if httpOpts.protocol == protocol.GRPCWeb {
