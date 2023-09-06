@@ -5543,13 +5543,14 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
-			name: "target-ref-empty-namespace",
+			name: "target-ref-non-empty-namespace",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
-					Kind:  defaultGatewayGVK.Kind,
-					Name:  "foo",
+					Group:     defaultGatewayGVK.Group,
+					Kind:      defaultGatewayGVK.Kind,
+					Name:      "foo",
+					Namespace: "bar",
 				},
 				Rules: []*security_beta.Rule{
 					{
@@ -5579,9 +5580,8 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      defaultGatewayGVK.Kind,
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  defaultGatewayGVK.Kind,
 				},
 				Rules: []*security_beta.Rule{
 					{
@@ -5611,10 +5611,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
 				TargetRef: &api.PolicyTargetReference{
-					Group:     "wrong-group",
-					Kind:      defaultGatewayGVK.Kind,
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: "wrong-group",
+					Kind:  defaultGatewayGVK.Kind,
+					Name:  "foo",
 				},
 				Rules: []*security_beta.Rule{
 					{
@@ -5644,10 +5643,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      "wrong-kind",
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
 				},
 				Rules: []*security_beta.Rule{
 					{
@@ -5677,10 +5675,9 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      defaultGatewayGVK.Kind,
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  defaultGatewayGVK.Kind,
+					Name:  "foo",
 				},
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -7736,9 +7733,8 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      defaultGatewayGVK.Kind,
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  defaultGatewayGVK.Kind,
 				},
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -7750,13 +7746,14 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
-			name:       "bad targetRef - empty namespace",
+			name:       "bad targetRef - non-empty namespace",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
-					Kind:  defaultGatewayGVK.Kind,
-					Name:  "foo",
+					Group:     defaultGatewayGVK.Group,
+					Kind:      defaultGatewayGVK.Kind,
+					Name:      "foo",
+					Namespace: "bar",
 				},
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -7772,10 +7769,9 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
-					Group:     "wrong-group",
-					Kind:      defaultGatewayGVK.Kind,
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: "wrong-group",
+					Kind:  defaultGatewayGVK.Kind,
+					Name:  "foo",
 				},
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -7791,10 +7787,9 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      "wrong-kind",
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
 				},
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -7810,10 +7805,9 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      defaultGatewayGVK.Kind,
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  defaultGatewayGVK.Kind,
+					Name:  "foo",
 				},
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -8583,15 +8577,14 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      defaultGatewayGVK.Kind,
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  defaultGatewayGVK.Kind,
 				},
 			},
 			"policyTargetReference.name must be set", "",
 		},
 		{
-			"bad targetRef - empty namespace",
+			"bad targetRef - non-empty namespace",
 			&telemetry.Telemetry{
 				Tracing: []*telemetry.Tracing{{
 					CustomTags: map[string]*telemetry.Tracing_CustomTag{
@@ -8605,12 +8598,13 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
-					Kind:  defaultGatewayGVK.Kind,
-					Name:  "foo",
+					Group:     defaultGatewayGVK.Group,
+					Kind:      defaultGatewayGVK.Kind,
+					Name:      "foo",
+					Namespace: "bar",
 				},
 			},
-			"policyTargetReference.namespace must be set", "",
+			"policyTargetReference.namespace must not be set", "",
 		},
 		{
 			"bad targetRef - wrong group",
@@ -8627,10 +8621,9 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 				TargetRef: &api.PolicyTargetReference{
-					Group:     "wrong-group",
-					Kind:      defaultGatewayGVK.Kind,
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: "wrong-group",
+					Kind:  defaultGatewayGVK.Kind,
+					Name:  "foo",
 				},
 			},
 			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: wrong-group//Gateway", "",
@@ -8650,10 +8643,9 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      "wrong-kind",
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
 				},
 			},
 			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: gateway.networking.k8s.io//wrong-kind", "",
@@ -8673,10 +8665,9 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      "wrong-kind",
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
 				},
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{
@@ -8902,9 +8893,8 @@ func TestValidateWasmPlugin(t *testing.T) {
 			&extensions.WasmPlugin{
 				Url: "test.com/test",
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      defaultGatewayGVK.Kind,
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  defaultGatewayGVK.Kind,
 				},
 			},
 			"policyTargetReference.name must be set", "",
@@ -8914,10 +8904,9 @@ func TestValidateWasmPlugin(t *testing.T) {
 			&extensions.WasmPlugin{
 				Url: "test.com/test",
 				TargetRef: &api.PolicyTargetReference{
-					Group:     "wrong-group",
-					Kind:      defaultGatewayGVK.Kind,
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: "wrong-group",
+					Kind:  defaultGatewayGVK.Kind,
+					Name:  "foo",
 				},
 			},
 			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: wrong-group//Gateway", "",
@@ -8927,10 +8916,9 @@ func TestValidateWasmPlugin(t *testing.T) {
 			&extensions.WasmPlugin{
 				Url: "test.com/test",
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      "wrong-kind",
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
 				},
 			},
 			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: gateway.networking.k8s.io//wrong-kind", "",
@@ -8940,10 +8928,9 @@ func TestValidateWasmPlugin(t *testing.T) {
 			&extensions.WasmPlugin{
 				Url: "test.com/test",
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      defaultGatewayGVK.Kind,
-					Name:      "foo",
-					Namespace: proto.String("bar"),
+					Group: defaultGatewayGVK.Group,
+					Kind:  defaultGatewayGVK.Kind,
+					Name:  "foo",
 				},
 				Selector: &api.WorkloadSelector{
 					MatchLabels: map[string]string{

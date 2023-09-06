@@ -8,8 +8,6 @@ exclude k8s.io/kubernetes v1.13.0
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
-replace istio.io/api => github.com/jaellio/api v0.0.0-20230824213738-7144031ad455
-
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
 	cloud.google.com/go/logging v1.8.1
@@ -112,7 +110,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.12.3
 	istio.io/api v1.19.0-alpha.1.0.20230905224552-283cc40b0769
-	istio.io/client-go v1.19.0-alpha.1.0.20230905224952-edf90373f36a
+	istio.io/client-go v1.19.0-alpha.1.0.20230831153909-c8a4b43e3e65
 	k8s.io/api v0.28.1
 	k8s.io/apiextensions-apiserver v0.28.1
 	k8s.io/apimachinery v0.28.1

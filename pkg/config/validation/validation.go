@@ -1951,8 +1951,8 @@ func validatePolicyTargetReference(selector *type_beta.WorkloadSelector, targetR
 	if targetRef.Name == "" {
 		v = appendErrorf(v, "policyTargetReference.name must be set")
 	}
-	if targetRef.Namespace == nil {
-		v = appendErrorf(v, "policyTargetReference.namespace must be set")
+	if targetRef.Namespace != "" {
+		v = appendErrorf(v, "policyTargetReference.namespace must not be set")
 	}
 	targetRefGVK := config.GroupVersionKind{
 		Group: targetRef.Group,
