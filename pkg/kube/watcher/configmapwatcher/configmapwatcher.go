@@ -26,6 +26,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/informers"
 	informersv1 "k8s.io/client-go/informers/core/v1"
+	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -43,6 +44,7 @@ type Controller struct {
 	callback           func(*v1.ConfigMap)
 
 	hasSynced atomic.Bool
+	handle    cache.ResourceEventHandlerRegistration
 }
 
 // NewController returns a new ConfigMap watcher controller.
@@ -63,7 +65,7 @@ func NewController(client kube.Client, namespace, name string, callback func(*v1
 		Core().V1().ConfigMaps()
 
 	c.queue = controllers.NewQueue("configmap "+name, controllers.WithReconciler(c.processItem))
-	_, _ = c.informer.Informer().AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
+	c.handle, _ = c.informer.Informer().AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		// Filter out configmaps
 		return o.GetName() == name && o.GetNamespace() == namespace
 	}))
@@ -82,6 +84,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 // HasSynced returns whether the underlying cache has synced and the callback has been called at least once.
 func (c *Controller) HasSynced() bool {
+	if c.handle != nil && !c.handle.HasSynced() {
+		return false
+	}
 	return c.queue.HasSynced()
 }
 

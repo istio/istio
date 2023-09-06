@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 45739
+
+releaseNotes:
+  - |
+    **Fixed** an issue causing mesh configuration to not be properly synced, typically resulting in a misconfigured trust domain.
