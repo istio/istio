@@ -116,7 +116,7 @@ images:
   - ${TARGET_OUT_LINUX}/client
   - ${TARGET_OUT_LINUX}/server
   emulationRequired: true
-- name: app_sidecar_ubuntu_xenial
+- name: app_sidecar_ubuntu_bionic
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar
   files:
   - tools/packaging/common/envoy_bootstrap.json
@@ -134,9 +134,6 @@ images:
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
   base: true
 - name: app_sidecar_base_ubuntu_jammy # newest ubuntu
-  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
-  base: true
-- name: app_sidecar_base_ubuntu_xenial # soon to be removed, need to "make then break"
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
   base: true
 - name: app_sidecar_base_ubuntu_bionic # oldest supported ubuntu
