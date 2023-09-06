@@ -50,18 +50,7 @@ messages:
       - name: podName
         type: string
 
-# Deprecated: Correcting refactoring to gateway port is not on workload
-  - name: "GatewayPortNotOnWorkload"
-    code: IST0104
-    level: Warning
-    description: "Unhandled gateway port"
-    template: "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)"
-    args:
-      - name: selector
-        type: string
-      - name: port
-        type: int
-
+  # IST0104 RETIRED
   # IST0105 RETIRED
 
   - name: "SchemaValidationError"

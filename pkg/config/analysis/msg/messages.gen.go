@@ -29,10 +29,6 @@ var (
 	// Description: A pod is missing the Istio proxy.
 	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod %s is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload.")
 
-	// GatewayPortNotOnWorkload defines a diag.MessageType for message "GatewayPortNotOnWorkload".
-	// Description: Unhandled gateway port
-	GatewayPortNotOnWorkload = diag.NewMessageType(diag.Warning, "IST0104", "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)")
-
 	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
 	// Description: The resource has a schema validation error.
 	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "Schema validation error: %v")
@@ -246,7 +242,6 @@ func All() []*diag.MessageType {
 		ReferencedResourceNotFound,
 		NamespaceNotInjected,
 		PodMissingProxy,
-		GatewayPortNotOnWorkload,
 		SchemaValidationError,
 		MisplacedAnnotation,
 		UnknownAnnotation,
@@ -345,16 +340,6 @@ func NewPodMissingProxy(r *resource.Instance, podName string) diag.Message {
 		PodMissingProxy,
 		r,
 		podName,
-	)
-}
-
-// NewGatewayPortNotOnWorkload returns a new diag.Message based on GatewayPortNotOnWorkload.
-func NewGatewayPortNotOnWorkload(r *resource.Instance, selector string, port int) diag.Message {
-	return diag.NewMessage(
-		GatewayPortNotOnWorkload,
-		r,
-		selector,
-		port,
 	)
 }
 

@@ -3,5 +3,5 @@ kind: bug-fix
 area: istioctl
 releaseNotes:
   - |
-    **Optimized** Replace `GatewayPortNotOnWorkload` to `GatewayPortNotDefinedOnService` alert in 
-    the `IngressGatewayPortAnalyzer`, and deprecated it.
+    **Optimized** Replace `IST0104 - GatewayPortNotOnWorkload` to new message `IST0162 - GatewayPortNotDefinedOnService` alert in 
+    the `IngressGatewayPortAnalyzer`, and retired `IST0104`.
