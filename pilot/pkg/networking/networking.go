@@ -17,8 +17,6 @@ package networking
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
-	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 
 	"istio.io/istio/pkg/config/protocol"
 )
@@ -83,10 +81,6 @@ func (tp TransportProtocol) ToEnvoySocketProtocol() core.SocketAddress_Protocol 
 
 // FilterChain describes a set of filters (HTTP or TCP) with a shared TLS context.
 type FilterChain struct {
-	// FilterChainMatch is the match used to select the filter chain.
-	FilterChainMatch *listener.FilterChainMatch
-	// TLSContext is the TLS settings for this filter chains.
-	TLSContext *tls.DownstreamTlsContext
 	// ListenerProtocol indicates whether this filter chain is for HTTP or TCP
 	// Note that HTTP filter chains can also have network filters
 	ListenerProtocol ListenerProtocol
@@ -94,8 +88,6 @@ type FilterChain struct {
 	// This would be TCP by default
 	TransportProtocol TransportProtocol
 
-	// HTTP is the set of HTTP filters for this filter chain
-	HTTP []*hcm.HttpFilter
 	// TCP is the set of network (TCP) filters for this filter chain.
 	TCP []*listener.Filter
 }

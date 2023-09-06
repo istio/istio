@@ -44,7 +44,10 @@ import (
 
 var supportedFilters = []*hcm.HttpFilter{
 	xdsfilters.Fault,
-	xdsfilters.Router,
+	xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       false,
+		SuppressDebugHeaders: false, // No need to set this to true, gRPC doesn't respect it anyways
+	}),
 }
 
 const (
@@ -114,7 +117,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		// add extra addresses for the listener
 		extrAddresses := si.Service.GetExtraAddressesForProxy(node)
 		if len(extrAddresses) > 0 {
-			ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(listenPort), node)
+			ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(listenPort))
 		}
 
 		out = append(out, &discovery.Resource{
@@ -201,7 +204,10 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	}
 
 	// Must be last
-	fc = append(fc, xdsfilters.Router)
+	fc = append(fc, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       false,
+		SuppressDebugHeaders: false, // No need to set this to true, gRPC doesn't respect it anyways
+	}))
 
 	out := &listener.FilterChain{
 		Name:             "inbound-" + nameSuffix,
@@ -325,7 +331,7 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				// add extra addresses for the listener
 				extrAddresses := sv.GetExtraAddressesForProxy(node)
 				if len(extrAddresses) > 0 {
-					ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(p.Port), node)
+					ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(p.Port))
 				}
 
 				out = append(out, &discovery.Resource{
