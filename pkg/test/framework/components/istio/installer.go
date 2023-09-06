@@ -24,11 +24,8 @@ import (
 	"strconv"
 	"sync"
 
-	"k8s.io/client-go/rest"
-
 	"istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/util/clog"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	testenv "istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework/components/cluster"
@@ -71,27 +68,16 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 	}
 
 	iArgs := &mesh.InstallArgs{
-		InFilenames:   args.Files,
-		Set:           args.Set,
-		ManifestsPath: filepath.Join(testenv.IstioSrc, "manifests"),
-		Revision:      args.Revision,
-	}
-
-	rc, err := kube.DefaultRestConfig(kubeConfigFile, "", func(config *rest.Config) {
-		config.QPS = 50
-		config.Burst = 100
-	})
-	if err != nil {
-		return err
-	}
-	kubeClient, err := kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), "")
-	if err != nil {
-		return fmt.Errorf("create Kubernetes client: %v", err)
+		InFilenames:    args.Files,
+		KubeConfigPath: kubeConfigFile,
+		Set:            args.Set,
+		ManifestsPath:  filepath.Join(testenv.IstioSrc, "manifests"),
+		Revision:       args.Revision,
 	}
 
 	// Generate the manifest YAML, so that we can uninstall it in Close.
 	var stdOut, stdErr bytes.Buffer
-	if err := mesh.ManifestGenerate(kubeClient, &mesh.RootArgs{}, &mesh.ManifestGenerateArgs{
+	if err := mesh.ManifestGenerate(&mesh.RootArgs{}, &mesh.ManifestGenerateArgs{
 		InFilenames:   iArgs.InFilenames,
 		Set:           iArgs.Set,
 		Force:         iArgs.Force,
@@ -118,7 +104,7 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 	scopes.Framework.Infof("Installing %s on cluster %s: %s", componentName, c.Name(), iArgs)
 	stdOut.Reset()
 	stdErr.Reset()
-	if err := mesh.Install(kubeClient, &mesh.RootArgs{}, iArgs, cmdLogOptions(), &stdOut,
+	if err := mesh.Install(&mesh.RootArgs{}, iArgs, cmdLogOptions(), &stdOut,
 		cmdLogger(&stdOut, &stdErr),
 		mesh.NewPrinterForWriter(&stdOut)); err != nil {
 		return fmt.Errorf("failed installing %s on cluster %s: %v. Details: %s", componentName, c.Name(), err, &stdErr)

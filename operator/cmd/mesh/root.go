@@ -19,7 +19,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"istio.io/istio/istioctl/pkg/cli"
 	binversion "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
@@ -72,7 +71,7 @@ func addFlags(cmd *cobra.Command, rootArgs *RootArgs) {
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(ctx cli.Context, args []string) *cobra.Command {
+func GetRootCmd(args []string) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "mesh",
 		Short:        "Command line Istio install utility.",
@@ -83,12 +82,12 @@ func GetRootCmd(ctx cli.Context, args []string) *cobra.Command {
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	rootCmd.AddCommand(ManifestCmd(ctx, log.DefaultOptions()))
-	rootCmd.AddCommand(InstallCmd(ctx, log.DefaultOptions()))
-	rootCmd.AddCommand(ProfileCmd(ctx, log.DefaultOptions()))
-	rootCmd.AddCommand(OperatorCmd(ctx))
+	rootCmd.AddCommand(ManifestCmd(log.DefaultOptions()))
+	rootCmd.AddCommand(InstallCmd(log.DefaultOptions()))
+	rootCmd.AddCommand(ProfileCmd(log.DefaultOptions()))
+	rootCmd.AddCommand(OperatorCmd())
 	rootCmd.AddCommand(version.CobraCommand())
-	rootCmd.AddCommand(UpgradeCmd(ctx, log.DefaultOptions()))
+	rootCmd.AddCommand(UpgradeCmd(log.DefaultOptions()))
 
 	return rootCmd
 }

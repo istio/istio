@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/operator/pkg/util/clog"
 	tutil "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/version"
@@ -101,12 +100,6 @@ type testGroup []struct {
 	diffSelect                  string
 	diffIgnore                  string
 	chartSource                 chartSourceType
-}
-
-func init() {
-	kubeClientFunc = func() (kube.CLIClient, error) {
-		return nil, nil
-	}
 }
 
 func extract(gzipStream io.Reader, destination string) error {

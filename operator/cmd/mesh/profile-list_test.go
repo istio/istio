@@ -21,8 +21,6 @@ import (
 
 	"github.com/onsi/gomega"
 
-	"istio.io/istio/istioctl/pkg/cli"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
 )
 
@@ -30,12 +28,7 @@ func TestProfileList(t *testing.T) {
 	g := gomega.NewWithT(t)
 	args := []string{"profile", "list", "--dry-run", "--manifests", filepath.Join(env.IstioSrc, "manifests")}
 
-	kubeClientFunc = func() (kube.CLIClient, error) {
-		return nil, nil
-	}
-	rootCmd := GetRootCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
-		Version: "25",
-	}), args)
+	rootCmd := GetRootCmd(args)
 	var out bytes.Buffer
 	rootCmd.SetOut(&out)
 	rootCmd.SetErr(&out)

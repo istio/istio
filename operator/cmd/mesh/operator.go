@@ -16,12 +16,10 @@ package mesh
 
 import (
 	"github.com/spf13/cobra"
-
-	"istio.io/istio/istioctl/pkg/cli"
 )
 
 // OperatorCmd is a group of commands related to installation and management of the operator controller.
-func OperatorCmd(ctx cli.Context) *cobra.Command {
+func OperatorCmd() *cobra.Command {
 	oc := &cobra.Command{
 		Use:   "operator",
 		Short: "Commands related to Istio operator controller.",
@@ -34,8 +32,8 @@ func OperatorCmd(ctx cli.Context) *cobra.Command {
 	args := &RootArgs{}
 
 	odc := operatorDumpCmd(args, odArgs)
-	oic := operatorInitCmd(ctx, args, oiArgs)
-	orc := operatorRemoveCmd(ctx, args, orArgs)
+	oic := operatorInitCmd(args, oiArgs)
+	orc := operatorRemoveCmd(args, orArgs)
 
 	addFlags(odc, args)
 	addFlags(oic, args)

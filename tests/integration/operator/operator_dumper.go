@@ -21,7 +21,7 @@ package operator
 
 import (
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/kube"
+	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -43,7 +43,7 @@ func (d *operatorDumper) Dump(ctx resource.Context) {
 		scopes.Framework.Errorf("Unable to create directory for dumping operator contents: %v", err)
 		return
 	}
-	kube.DumpPods(ctx, dir, ns, []string{"name=istio-operator"})
+	kube2.DumpPods(ctx, dir, ns, []string{"name=istio-operator"})
 }
 
 func (d *operatorDumper) ID() resource.ID {
