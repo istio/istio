@@ -99,10 +99,12 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			var proxyNetwork network.ID
 			if v, ok := b.proxy.Metadata.Labels[label.TopologyNetwork.Name]; !ok {
 				proxyNetwork = b.push.NetworkManager().DefaultNetworkForCluster(b.proxy.Metadata.ClusterID)
+				// meta NETWORK takes precedence over cluster default network.
 				if b.proxy.Metadata.Network != "" {
 					proxyNetwork = b.proxy.Metadata.Network
 				}
 			} else {
+				// Explicitly labeled network takes highest precedence.
 				proxyNetwork = network.ID(v)
 			}
 			// If the proxy resides in the same network as the endpoint, or if we do not have a gateway,
