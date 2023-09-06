@@ -69,26 +69,6 @@ type EchoDeployments struct {
 	WaypointProxy ambient.WaypointProxy
 }
 
-var ControlPlaneValues = `
-profile: ambient
-components:
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: true
-values:
-  ztunnel:
-    meshConfig:
-      defaultConfig:
-        proxyMetadata:
-          ISTIO_META_DNS_CAPTURE: "true"
-          DNS_PROXY_ADDR: "0.0.0.0:15053"
-  meshConfig:
-    defaultConfig:
-      proxyMetadata:
-        ISTIO_META_DNS_CAPTURE: "true"
-        DNS_PROXY_ADDR: "0.0.0.0:15053"
-    accessLogFile: /dev/stdout`
-
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
@@ -107,7 +87,6 @@ func TestMain(m *testing.M) {
 			// can't deploy VMs without eastwest gateway
 			ctx.Settings().SkipVMs()
 			cfg.DeployEastWestGW = false
-			cfg.ControlPlaneValues = ControlPlaneValues
 		})).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Client = t.Clusters().Default()

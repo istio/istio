@@ -328,7 +328,7 @@ func (c Config) HasSidecar() bool {
 		perPodDisable = c.Subsets[0].Labels["sidecar.istio.io/inject"] == "false"
 	}
 
-	return perPodEnable || (!perPodDisable && c.Namespace.IsInjected())
+	return perPodEnable || (!perPodDisable && c.Namespace != nil && c.Namespace.IsInjected())
 }
 
 func (c Config) IsUncaptured() bool {
