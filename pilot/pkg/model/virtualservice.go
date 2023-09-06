@@ -177,11 +177,11 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 // Return merged virtual services and the root->delegate vs map
 func mergeVirtualServicesIfNeeded(
 	vServices []config.Config,
-	defaultExportTo map[visibility.Instance]bool,
+	defaultExportTo sets.Set[visibility.Instance],
 ) ([]config.Config, map[ConfigKey][]ConfigKey) {
 	out := make([]config.Config, 0, len(vServices))
-	delegatesMap := map[string]config.Config{}
-	delegatesExportToMap := map[string]map[visibility.Instance]bool{}
+	delegatesMap := map[types.NamespacedName]config.Config{}
+	delegatesExportToMap := make(map[types.NamespacedName]sets.Set[visibility.Instance])
 	// root virtualservices with delegate
 	var rootVses []config.Config
 
@@ -190,27 +190,30 @@ func mergeVirtualServicesIfNeeded(
 		rule := vs.Spec.(*networking.VirtualService)
 		// it is delegate, add it to the indexer cache along with the exportTo for the delegate
 		if len(rule.Hosts) == 0 {
-			delegatesMap[key(vs.Name, vs.Namespace)] = vs
-			exportToMap := make(map[visibility.Instance]bool)
+			delegatesMap[config.NamespacedName(vs)] = vs
+			var exportToSet sets.Set[visibility.Instance]
 			if len(rule.ExportTo) == 0 {
 				// No exportTo in virtualService. Use the global default
+				exportToSet = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
 				for v := range defaultExportTo {
 					if v == visibility.Private {
-						exportToMap[visibility.Instance(vs.Namespace)] = true
+						exportToSet.Insert(visibility.Instance(vs.Namespace))
 					} else {
-						exportToMap[v] = true
+						exportToSet.Insert(v)
 					}
 				}
 			} else {
+				exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
 				for _, e := range rule.ExportTo {
 					if e == string(visibility.Private) {
-						exportToMap[visibility.Instance(vs.Namespace)] = true
+						exportToSet.Insert(visibility.Instance(vs.Namespace))
 					} else {
-						exportToMap[visibility.Instance(e)] = true
+						exportToSet.Insert(visibility.Instance(e))
 					}
 				}
 			}
-			delegatesExportToMap[key(vs.Name, vs.Namespace)] = exportToMap
+			delegatesExportToMap[config.NamespacedName(vs)] = exportToSet
+
 			continue
 		}
 
@@ -240,7 +243,7 @@ func mergeVirtualServicesIfNeeded(
 				}
 				delegateConfigKey := ConfigKey{Kind: kind.VirtualService, Name: delegate.Name, Namespace: delegateNamespace}
 				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
-				delegateVS, ok := delegatesMap[key(delegate.Name, delegateNamespace)]
+				delegateVS, ok := delegatesMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
 				if !ok {
 					log.Debugf("delegate virtual service %s/%s of %s/%s not found",
 						delegateNamespace, delegate.Name, root.Namespace, root.Name)
@@ -248,8 +251,8 @@ func mergeVirtualServicesIfNeeded(
 					continue
 				}
 				// make sure that the delegate is visible to root virtual service's namespace
-				exportTo := delegatesExportToMap[key(delegate.Name, delegateNamespace)]
-				if !exportTo[visibility.Public] && !exportTo[visibility.Instance(root.Namespace)] {
+				exportTo := delegatesExportToMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
+				if !exportTo.Contains(visibility.Public) && !exportTo.Contains(visibility.Instance(root.Namespace)) {
 					log.Debugf("delegate virtual service %s/%s of %s/%s is not exported to %s",
 						delegateNamespace, delegate.Name, root.Namespace, root.Name, root.Namespace)
 					continue

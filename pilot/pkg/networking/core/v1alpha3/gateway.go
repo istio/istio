@@ -240,11 +240,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 	mergedGateway *model.MergedGateway,
 	tlsHostsByPort map[uint32]map[string]string,
 ) {
-	var tcpAuthFilters []*listener.Filter
-	if util.IsIstioVersionGE117(builder.node.IstioVersion) {
-		tcpAuthFilters = append(tcpAuthFilters, xdsfilters.IstioNetworkAuthenticationFilter)
-	}
-
+	tcpAuthFilters := []*listener.Filter{xdsfilters.IstioNetworkAuthenticationFilter}
 	if p.IsHTTP() {
 		// We have a list of HTTP servers on this port. Build a single listener for the server port.
 		port := &networking.Port{Number: port.Number, Protocol: port.Protocol}
@@ -273,9 +269,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 				// For network filters such as mysql, mongo, etc., we need the filter codec upfront. Data from this
 				// codec is used by RBAC later.
 				var tcpAuthFilters []*listener.Filter
-				if util.IsIstioVersionGE117(builder.node.IstioVersion) {
-					tcpAuthFilters = append(tcpAuthFilters, xdsfilters.IstioNetworkAuthenticationFilter)
-				}
+				tcpAuthFilters = append(tcpAuthFilters, xdsfilters.IstioNetworkAuthenticationFilter)
 				tcpAuthFilters = append(tcpAuthFilters, builder.authzCustomBuilder.BuildTCP()...)
 				tcpAuthFilters = append(tcpAuthFilters, builder.authzBuilder.BuildTCP()...)
 				// This is the case of TCP or PASSTHROUGH.
@@ -835,9 +829,9 @@ func buildGatewayNetworkFiltersFromTCPRoutes(node *model.Proxy, push *model.Push
 		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
-	gatewayServerHosts := make(map[host.Name]bool, len(server.Hosts))
+	gatewayServerHosts := sets.NewWithLength[host.Name](len(server.Hosts))
 	for _, hostname := range server.Hosts {
-		gatewayServerHosts[host.Name(hostname)] = true
+		gatewayServerHosts.Insert(host.Name(hostname))
 	}
 
 	virtualServices := push.VirtualServicesForGateway(node.ConfigNamespace, gateway)
@@ -886,9 +880,9 @@ func buildGatewayNetworkFiltersFromTLSRoutes(node *model.Proxy, push *model.Push
 		Protocol: protocol.Parse(server.Port.Protocol),
 	}
 
-	gatewayServerHosts := make(map[host.Name]bool, len(server.Hosts))
+	gatewayServerHosts := sets.NewWithLength[host.Name](len(server.Hosts))
 	for _, hostname := range server.Hosts {
-		gatewayServerHosts[host.Name(hostname)] = true
+		gatewayServerHosts.Insert(host.Name(hostname))
 	}
 
 	filterChains := make([]*filterChainOpts, 0)
@@ -1014,7 +1008,7 @@ func builtAutoPassthroughFilterChains(push *model.PushContext, proxy *model.Prox
 
 // Select the virtualService's hosts that match the ones specified in the gateway server's hosts
 // based on the wildcard hostname match and the namespace match
-func pickMatchingGatewayHosts(gatewayServerHosts map[host.Name]bool, virtualService config.Config) map[string]host.Name {
+func pickMatchingGatewayHosts(gatewayServerHosts sets.Set[host.Name], virtualService config.Config) map[string]host.Name {
 	matchingHosts := make(map[string]host.Name)
 	virtualServiceHosts := virtualService.Spec.(*networking.VirtualService).Hosts
 	for _, vsvcHost := range virtualServiceHosts {

@@ -136,7 +136,10 @@ images:
 - name: app_sidecar_base_ubuntu_jammy # newest ubuntu
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
   base: true
-- name: app_sidecar_base_ubuntu_xenial # oldest supported ubuntu
+- name: app_sidecar_base_ubuntu_xenial # soon to be removed, need to "make then break"
+  dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
+  base: true
+- name: app_sidecar_base_ubuntu_bionic # oldest supported ubuntu
   dockerfile: pkg/test/echo/docker/Dockerfile.app_sidecar_base
   base: true
 #  TODO(https://github.com/istio/istio/issues/38224)

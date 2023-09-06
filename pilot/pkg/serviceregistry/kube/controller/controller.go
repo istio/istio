@@ -764,7 +764,7 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 	return endpoints
 }
 
-// GetProxyServiceTargets returns service instances co-located with a given proxy
+// GetProxyServiceTargets returns service targets co-located with a given proxy
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {

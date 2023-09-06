@@ -28,19 +28,20 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Instance, gateways map[string]bool, port int, proxyNamespace string) bool {
+func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Instance, gateways sets.String, port int, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
 
 	gatewayMatch := len(match.Gateways) == 0
 	for _, gateway := range match.Gateways {
-		gatewayMatch = gatewayMatch || gateways[gateway]
+		gatewayMatch = gatewayMatch || gateways.Contains(gateway)
 	}
 
 	labelMatch := labels.Instance(match.SourceLabels).SubsetOf(proxyLabels)
@@ -55,14 +56,14 @@ func matchTLS(match *v1alpha3.TLSMatchAttributes, proxyLabels labels.Instance, g
 // Match by source labels, the listener port where traffic comes in, the gateway on which the rule is being
 // bound, etc. All these can be checked statically, since we are generating the configuration for a proxy
 // with predefined labels, on a specific port.
-func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Instance, gateways map[string]bool, port int, proxyNamespace string) bool {
+func matchTCP(match *v1alpha3.L4MatchAttributes, proxyLabels labels.Instance, gateways sets.String, port int, proxyNamespace string) bool {
 	if match == nil {
 		return true
 	}
 
 	gatewayMatch := len(match.Gateways) == 0
 	for _, gateway := range match.Gateways {
-		gatewayMatch = gatewayMatch || gateways[gateway]
+		gatewayMatch = gatewayMatch || gateways.Contains(gateway)
 	}
 
 	labelMatch := labels.Instance(match.SourceLabels).SubsetOf(proxyLabels)
@@ -99,7 +100,7 @@ func hashRuntimeTLSMatchPredicates(match *v1alpha3.TLSMatchAttributes) string {
 
 func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
 	service *model.Service, bind string, listenPort *model.Port,
-	gateways map[string]bool, configs []config.Config,
+	gateways sets.String, configs []config.Config,
 ) []*filterChainOpts {
 	if !listenPort.Protocol.IsTLS() {
 		return nil
@@ -124,7 +125,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 	//
 	// To achieve this in this function we keep track of which runtime matches we have already generated config for
 	// and only add config if the we have not already generated config for that set of runtime predicates.
-	matchHasBeenHandled := make(map[string]bool) // Runtime predicate set -> have we generated config for this set?
+	matchHasBeenHandled := sets.New[string]() // Runtime predicate set -> have we generated config for this set?
 
 	// Is there a virtual service with a TLS block that matches us?
 	hasTLSMatch := false
@@ -150,7 +151,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 						destinationCIDRs = match.DestinationSubnets
 					}
 					matchHash := hashRuntimeTLSMatchPredicates(match)
-					if !matchHasBeenHandled[matchHash] {
+					if !matchHasBeenHandled.Contains(matchHash) {
 						out = append(out, &filterChainOpts{
 							metadata:         util.BuildConfigInfoMetadata(cfg.Meta),
 							sniHosts:         match.SniHosts,
@@ -159,7 +160,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 						})
 						hasTLSMatch = true
 					}
-					matchHasBeenHandled[matchHash] = true
+					matchHasBeenHandled.Insert(matchHash)
 				}
 			}
 		}
@@ -223,7 +224,7 @@ func buildSidecarOutboundTLSFilterChainOpts(node *model.Proxy, push *model.PushC
 
 func buildSidecarOutboundTCPFilterChainOpts(node *model.Proxy, push *model.PushContext, destinationCIDR string,
 	service *model.Service, listenPort *model.Port,
-	gateways map[string]bool, configs []config.Config,
+	gateways sets.String, configs []config.Config,
 ) []*filterChainOpts {
 	if listenPort.Protocol.IsTLS() {
 		return nil

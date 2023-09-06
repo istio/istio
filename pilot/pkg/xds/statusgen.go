@@ -89,11 +89,12 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req 
 			break
 		}
 		var err error
-		res, err = sg.debugConfigDump(w.ResourceNames[0])
+		dumpRes, err := sg.debugConfigDump(w.ResourceNames[0])
 		if err != nil {
 			log.Infof("%s failed: %v", TypeDebugConfigDump, err)
 			break
 		}
+		res = dumpRes
 	}
 	return res, model.DefaultXdsLogDetails, nil
 }

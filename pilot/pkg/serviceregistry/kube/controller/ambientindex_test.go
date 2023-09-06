@@ -25,6 +25,8 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -43,8 +45,11 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -224,42 +229,93 @@ func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
 	assert.Equal(t, len(s.controller.ambientIndex.(*AmbientIndexImpl).byService), 0)
 }
 
+func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, testC, testNW)
+
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "b"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod2"))
+
+	s.addWaypoint(t, "10.0.0.1", "waypoint-sa1", "sa1", false)
+	s.addWaypoint(t, "10.0.0.2", "waypoint-sa2", "sa2", true)
+	s.assertEvent(t, s.podXdsName("pod2"))
+
+	// make waypoint-sa1 ready
+	s.addWaypoint(t, "10.0.0.1", "waypoint-sa1", "sa1", true)
+	// if waypoint-sa1 was configured when not ready "pod2" assertions should skip the "pod1" xds event and this should fail
+	s.assertEvent(t, s.podXdsName("pod1"))
+}
+
 func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
 	// Add pods for app "a".
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addPods(t, "127.0.0.2", "pod2", "sa1", map[string]string{"app": "a", "other": "label"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod2"))
 	s.addPods(t, "127.0.0.3", "pod3", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
-	s.clearEvents()
+	s.assertEvent(t, s.podXdsName("pod3"))
+	// Add pods for app "b".
+	s.addPods(t, "127.0.0.4", "pod4", "sa2", map[string]string{"app": "b"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod4"))
 
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", true)
+	// All these workloads updated, so push them
+	s.assertEvent(t, s.podXdsName("pod1"),
+		s.podXdsName("pod2"),
+		s.podXdsName("pod3"),
+		s.podXdsName("pod4"),
+	)
 	// Add a waypoint proxy pod for namespace
 	s.addPods(t, "127.0.0.200", "waypoint-ns-pod", "namespace-wide",
 		map[string]string{
 			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
 			constants.GatewayNameLabel:    "namespace-wide",
 		}, nil, true, corev1.PodRunning)
-	s.assertAddresses(t, "", "pod1", "pod2", "pod3", "waypoint-ns-pod")
 	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"))
-
 	// create the waypoint service
 	s.addService(t, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
-	s.assertAddresses(t, "", "pod1", "pod2", "pod3", "waypoint-ns", "waypoint-ns-pod")
-	// All these workloads updated, so push them
-	s.assertEvent(t, s.podXdsName("pod1"),
-		s.podXdsName("pod2"),
-		s.podXdsName("pod3"),
+	s.assertEvent(t,
 		s.podXdsName("waypoint-ns-pod"),
 		s.svcXdsName("waypoint-ns"),
 	)
+	s.assertAddresses(t, "", "pod1", "pod2", "pod3", "pod4", "waypoint-ns", "waypoint-ns-pod")
+
+	s.addWaypoint(t, "10.0.0.3", "waypoint-sa2", "sa2", true)
+	s.assertEvent(t, s.podXdsName("pod4"))
+	// Add a waypoint proxy pod for sa2
+	s.addPods(t, "127.0.0.250", "waypoint-sa2-pod", "service-account",
+		map[string]string{
+			constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel,
+			constants.GatewayNameLabel:    "service-account",
+		}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("waypoint-sa2-pod"))
+	// create the waypoint service
+	s.addService(t, "waypoint-sa2",
+		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
+		map[string]string{},
+		[]int32{80}, map[string]string{constants.GatewayNameLabel: "service-account"}, "10.0.0.3")
+	s.assertEvent(t,
+		s.podXdsName("waypoint-sa2-pod"),
+		s.svcXdsName("waypoint-sa2"),
+	)
+	s.assertAddresses(t, "", "pod1", "pod2", "pod3", "pod4", "waypoint-ns", "waypoint-ns-pod", "waypoint-sa2-pod", "waypoint-sa2")
+
 	// We should now see the waypoint service IP
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.3"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
 		netip.MustParseAddr("10.0.0.2").AsSlice())
+
+	assert.Equal(t,
+		s.lookup(s.addrXdsName("127.0.0.4"))[0].Address.GetWorkload().Waypoint.GetAddress().Address,
+		netip.MustParseAddr("10.0.0.3").AsSlice())
 
 	// Lookup for service VIP should return Workload and Service AddressInfo objects
 	assert.Equal(t,
@@ -359,11 +415,19 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	s.deletePod(t, "pod2")
 	s.assertEvent(t, s.podXdsName("pod2"))
 
+	s.deleteWaypoint(t, "waypoint-ns")
+	s.assertEvent(t, s.podXdsName("pod1"))
 	s.deleteService(t, "waypoint-ns")
-	s.assertEvent(t, s.podXdsName("pod1"),
+	s.assertEvent(t,
 		s.podXdsName("waypoint-ns-pod"),
-		s.svcXdsName("waypoint-ns"),
-	)
+		s.svcXdsName("waypoint-ns"))
+
+	s.deleteWaypoint(t, "waypoint-sa2")
+	s.assertEvent(t, s.podXdsName("pod4"))
+	s.deleteService(t, "waypoint-sa2")
+	s.assertEvent(t,
+		s.podXdsName("waypoint-sa2-pod"),
+		s.svcXdsName("waypoint-sa2"))
 
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("10.0.0.1"))[1].Address.GetWorkload().Waypoint,
@@ -387,11 +451,14 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{constants.WaypointServiceAccount: "sa2"}, true, corev1.PodRunning)
 	s.assertEvent(t, s.podXdsName("waypoint2-sa"))
+	s.addWaypoint(t, "10.0.0.2", "waypoint-ns", "", true)
+	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addService(t, "waypoint-ns",
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
+	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
+
 	s.clearEvents()
 	selectorPolicyName := "selector"
 
@@ -878,11 +945,13 @@ type ambientTestServer struct {
 	fx         *xdsfake.Updater
 	pc         clienttest.TestClient[*corev1.Pod]
 	sc         clienttest.TestClient[*corev1.Service]
+	grc        clienttest.TestClient[*k8sbeta.Gateway]
 }
 
 func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.ID) *ambientTestServer {
 	cfg := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		CRDs:             []schema.GroupVersionResource{gvr.KubernetesGateway},
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: systemNS}),
 		ClusterID:        clusterID,
@@ -891,6 +960,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	controller.network = networkID
 	pc := clienttest.Wrap(t, controller.podsClient)
 	sc := clienttest.Wrap(t, controller.services)
+	grc := clienttest.Wrap(t, kclient.NewFiltered[*k8sbeta.Gateway](controller.client, kubetypes.Filter{}))
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	cfg.RegisterEventHandler(gvk.PeerAuthentication, controller.PeerAuthenticationHandler)
 
@@ -902,7 +972,67 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		fx:         fx,
 		pc:         pc,
 		sc:         sc,
+		grc:        grc,
 	}
+}
+
+func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready bool) {
+	t.Helper()
+
+	fromSame := k8sbeta.NamespacesFromSame
+	gatewaySpec := k8sbeta.GatewaySpec{
+		GatewayClassName: constants.WaypointGatewayClassName,
+		Listeners: []k8sbeta.Listener{
+			{
+				Name:     "mesh",
+				Port:     15008,
+				Protocol: "HBONE",
+				AllowedRoutes: &k8sbeta.AllowedRoutes{
+					Namespaces: &k8sbeta.RouteNamespaces{
+						From: &fromSame,
+					},
+				},
+			},
+		},
+	}
+
+	gateway := k8sbeta.Gateway{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       gvk.KubernetesGateway.Kind,
+			APIVersion: gvk.KubernetesGateway.GroupVersion(),
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: testNS,
+		},
+		Spec:   gatewaySpec,
+		Status: k8sbeta.GatewayStatus{},
+	}
+	if sa != "" {
+		annotations := make(map[string]string, 1)
+		annotations[constants.WaypointServiceAccount] = sa
+		gateway.Annotations = annotations
+	}
+	if ready {
+		addrType := k8sbeta.IPAddressType
+		gateway.Status = k8sbeta.GatewayStatus{
+			// addresses:
+			// - type: IPAddress
+			//   value: 10.96.59.188
+			Addresses: []k8sbeta.GatewayStatusAddress{
+				{
+					Type:  &addrType,
+					Value: ip,
+				},
+			},
+		}
+	}
+	s.grc.CreateOrUpdate(&gateway)
+}
+
+func (s *ambientTestServer) deleteWaypoint(t *testing.T, name string) {
+	t.Helper()
+	s.grc.Delete(name, testNS)
 }
 
 func (s *ambientTestServer) addPods(t *testing.T, ip string, name, sa string, labels map[string]string,
