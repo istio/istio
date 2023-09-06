@@ -56,7 +56,7 @@ import (
 
 const (
 	wildcardIPv4 = "0.0.0.0"
-	wildcardIPv6 = "::/0"
+	wildcardIPv6 = "::"
 )
 
 func getProxy() *model.Proxy {
@@ -382,6 +382,28 @@ func TestOutboundListenerConflictWithStaticListener(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestOutboundListenerDualStackWildcard(t *testing.T) {
+	test.SetForTest(t, &features.EnableDualStack, true)
+	service := buildService("test1.com", "0.0.0.0", protocol.TCP, tnow.Add(1*time.Second))
+	service.Attributes.ServiceRegistry = provider.External // Imitate a ServiceEntry with no addresses
+	services := []*model.Service{service}
+	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+		p.DiscoverIPMode()
+		listeners := buildOutboundListeners(t, p, nil, nil, services...)
+		if len(listeners) != 1 {
+			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+		}
+		if p.IsDual() {
+			if len(listeners[0].AdditionalAddresses) != 1 {
+				t.Fatalf("expected %d additional addresses, found %d", 1, len(listeners[0].AdditionalAddresses))
+			}
+			if listeners[0].AdditionalAddresses[0].GetAddress().GetSocketAddress().GetAddress() != wildcardIPv6 {
+				t.Fatalf("expected additional address %s, found %s", wildcardIPv6, listeners[0].AdditionalAddresses[0].String())
+			}
+		}
 	}
 }
 
