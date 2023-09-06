@@ -38,6 +38,7 @@ import (
 	api "istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -5547,8 +5548,8 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      defaultGatewayGVK.Kind,
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
 					Name:      "foo",
 					Namespace: "bar",
 				},
@@ -5580,8 +5581,8 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
-					Kind:  defaultGatewayGVK.Kind,
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
 				},
 				Rules: []*security_beta.Rule{
 					{
@@ -5612,7 +5613,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 				Action: security_beta.AuthorizationPolicy_DENY,
 				TargetRef: &api.PolicyTargetReference{
 					Group: "wrong-group",
-					Kind:  defaultGatewayGVK.Kind,
+					Kind:  gvk.KubernetesGateway.Kind,
 					Name:  "foo",
 				},
 				Rules: []*security_beta.Rule{
@@ -5643,7 +5644,7 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
+					Group: gvk.KubernetesGateway.Group,
 					Kind:  "wrong-kind",
 					Name:  "foo",
 				},
@@ -5675,8 +5676,8 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
-					Kind:  defaultGatewayGVK.Kind,
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
 					Name:  "foo",
 				},
 				Selector: &api.WorkloadSelector{
@@ -7733,8 +7734,8 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
-					Kind:  defaultGatewayGVK.Kind,
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
 				},
 				JwtRules: []*security_beta.JWTRule{
 					{
@@ -7750,8 +7751,8 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      defaultGatewayGVK.Kind,
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
 					Name:      "foo",
 					Namespace: "bar",
 				},
@@ -7770,7 +7771,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
 					Group: "wrong-group",
-					Kind:  defaultGatewayGVK.Kind,
+					Kind:  gvk.KubernetesGateway.Kind,
 					Name:  "foo",
 				},
 				JwtRules: []*security_beta.JWTRule{
@@ -7787,7 +7788,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
+					Group: gvk.KubernetesGateway.Group,
 					Kind:  "wrong-kind",
 					Name:  "foo",
 				},
@@ -7805,8 +7806,8 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
-					Kind:  defaultGatewayGVK.Kind,
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
 					Name:  "foo",
 				},
 				JwtRules: []*security_beta.JWTRule{
@@ -8577,11 +8578,11 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
-					Kind:  defaultGatewayGVK.Kind,
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
 				},
 			},
-			"policyTargetReference.name must be set", "",
+			"targetRef name must be set", "",
 		},
 		{
 			"bad targetRef - non-empty namespace",
@@ -8598,13 +8599,13 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 				TargetRef: &api.PolicyTargetReference{
-					Group:     defaultGatewayGVK.Group,
-					Kind:      defaultGatewayGVK.Kind,
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
 					Name:      "foo",
 					Namespace: "bar",
 				},
 			},
-			"policyTargetReference.namespace must not be set", "",
+			"targetRef namespace must not be set", "",
 		},
 		{
 			"bad targetRef - wrong group",
@@ -8622,11 +8623,11 @@ func TestValidateTelemetry(t *testing.T) {
 				}},
 				TargetRef: &api.PolicyTargetReference{
 					Group: "wrong-group",
-					Kind:  defaultGatewayGVK.Kind,
+					Kind:  gvk.KubernetesGateway.Kind,
 					Name:  "foo",
 				},
 			},
-			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: wrong-group//Gateway", "",
+			"targetRef Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: wrong-group//Gateway", "",
 		},
 		{
 			"bad targetRef - wrong kind",
@@ -8643,12 +8644,12 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
+					Group: gvk.KubernetesGateway.Group,
 					Kind:  "wrong-kind",
 					Name:  "foo",
 				},
 			},
-			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: gateway.networking.k8s.io//wrong-kind", "",
+			"targetRef Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: gateway.networking.k8s.io//wrong-kind", "",
 		},
 		{
 			"targetRef and selector cannot both be set",
@@ -8665,7 +8666,7 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				}},
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
+					Group: gvk.KubernetesGateway.Group,
 					Kind:  "wrong-kind",
 					Name:  "foo",
 				},
@@ -8675,7 +8676,7 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				},
 			},
-			"policyTargetReference and selector cannot both be set", "",
+			"targetRef and selector cannot both be set", "",
 		},
 	}
 	for _, tt := range tests {
@@ -8881,8 +8882,8 @@ func TestValidateWasmPlugin(t *testing.T) {
 					},
 				},
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
-					Kind:  defaultGatewayGVK.Kind,
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
 					Name:  "foo",
 				},
 			},
@@ -8893,11 +8894,11 @@ func TestValidateWasmPlugin(t *testing.T) {
 			&extensions.WasmPlugin{
 				Url: "test.com/test",
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
-					Kind:  defaultGatewayGVK.Kind,
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
 				},
 			},
-			"policyTargetReference.name must be set", "",
+			"targetRef name must be set", "",
 		},
 		{
 			"target-ref-wrong-group",
@@ -8905,31 +8906,31 @@ func TestValidateWasmPlugin(t *testing.T) {
 				Url: "test.com/test",
 				TargetRef: &api.PolicyTargetReference{
 					Group: "wrong-group",
-					Kind:  defaultGatewayGVK.Kind,
+					Kind:  gvk.KubernetesGateway.Kind,
 					Name:  "foo",
 				},
 			},
-			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: wrong-group//Gateway", "",
+			"targetRef Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: wrong-group//Gateway", "",
 		},
 		{
 			"target-ref-wrong-kind",
 			&extensions.WasmPlugin{
 				Url: "test.com/test",
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
+					Group: gvk.KubernetesGateway.Group,
 					Kind:  "wrong-kind",
 					Name:  "foo",
 				},
 			},
-			"policyTargetReference Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: gateway.networking.k8s.io//wrong-kind", "",
+			"targetRef Group and Kind don't match; expected: gateway.networking.k8s.io//Gateway, got: gateway.networking.k8s.io//wrong-kind", "",
 		},
 		{
 			"target-ref-and-selector-cannot-both-be-set",
 			&extensions.WasmPlugin{
 				Url: "test.com/test",
 				TargetRef: &api.PolicyTargetReference{
-					Group: defaultGatewayGVK.Group,
-					Kind:  defaultGatewayGVK.Kind,
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
 					Name:  "foo",
 				},
 				Selector: &api.WorkloadSelector{
@@ -8938,7 +8939,7 @@ func TestValidateWasmPlugin(t *testing.T) {
 					},
 				},
 			},
-			"policyTargetReference and selector cannot both be set", "",
+			"targetRef and selector cannot both be set", "",
 		},
 	}
 	for _, tt := range tests {

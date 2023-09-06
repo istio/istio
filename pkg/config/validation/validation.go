@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
@@ -137,11 +138,6 @@ var (
 		})
 
 	validateFuncs = make(map[string]ValidateFunc)
-
-	defaultGatewayGVK = config.GroupVersionKind{
-		Group: "gateway.networking.k8s.io",
-		Kind:  "Gateway",
-	}
 )
 
 type Warning error
@@ -1946,21 +1942,22 @@ func validatePolicyTargetReference(selector *type_beta.WorkloadSelector, targetR
 		return
 	}
 	if selector != nil && targetRef != nil {
-		v = appendErrorf(v, "policyTargetReference and selector cannot both be set")
+		v = appendErrorf(v, "targetRef and selector cannot both be set")
 	}
 	if targetRef.Name == "" {
-		v = appendErrorf(v, "policyTargetReference.name must be set")
+		v = appendErrorf(v, "targetRef name must be set")
 	}
 	if targetRef.Namespace != "" {
-		v = appendErrorf(v, "policyTargetReference.namespace must not be set")
+		v = appendErrorf(v, "targetRef namespace must not be set")
 	}
 	targetRefGVK := config.GroupVersionKind{
-		Group: targetRef.Group,
-		Kind:  targetRef.Kind,
+		Group:   targetRef.Group,
+		Kind:    targetRef.Kind,
+		Version: gvk.KubernetesGateway.Version,
 	}
 	// Currently, gateway.networking.k8s.io is the only valid Group and gateway.networking.k8s.io/Gateway the only valid Kind.
-	if targetRef.Group != defaultGatewayGVK.Group || targetRef.Kind != defaultGatewayGVK.Kind {
-		v = appendErrorf(v, "policyTargetReference Group and Kind don't match; expected: %v, got: %v", defaultGatewayGVK, targetRefGVK)
+	if targetRef.Group != gvk.KubernetesGateway.Group || targetRef.Kind != gvk.KubernetesGateway.Kind {
+		v = appendErrorf(v, "targetRef Group and Kind don't match; expected: %v, got: %v", gvk.KubernetesGateway, targetRefGVK)
 	}
 	return
 }
