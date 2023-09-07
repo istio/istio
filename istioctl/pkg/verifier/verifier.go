@@ -279,10 +279,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 		kind := un.GetKind()
 		name := un.GetName()
 		namespace := un.GetNamespace()
-		kinds := findResourceInSpec(un.GetObjectKind().GroupVersionKind())
-		if kinds == "" {
-			kinds = strings.ToLower(kind) + "s"
-		}
+		kinds := resourceKinds(un)
 		if namespace == "" {
 			namespace = v.istioNamespace
 		}
@@ -412,6 +409,18 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 		return nil
 	})
 	return crdCount, istioDeploymentCount, daemonSetCount, err
+}
+
+func resourceKinds(un *unstructured.Unstructured) string {
+	kinds := findResourceInSpec(un.GetObjectKind().GroupVersionKind())
+	if kinds == "" {
+		kinds = strings.ToLower(un.GetKind()) + "s"
+	}
+	// Fix the specific kind which does not follow the general pattern.
+	if un.GetKind() == "NetworkAttachmentDefinition" {
+		kinds = "network-attachment-definitions"
+	}
+	return kinds
 }
 
 // Find Istio injector matching revision.  ("" matches any revision.)
