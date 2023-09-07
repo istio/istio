@@ -65,16 +65,6 @@ func PopAppendNetwork(list []*listener.Filter,
 	return list
 }
 
-func PopAppendNetworkFilters(list []*listener.Filter,
-	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
-) []*listener.Filter {
-	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_AUTHN)
-	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_AUTHZ)
-	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_STATS)
-	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_UNSPECIFIED_PHASE)
-	return list
-}
-
 func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm.HttpFilter {
 	return &hcm.HttpFilter{
 		Name: wasmPlugin.ResourceName,
