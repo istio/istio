@@ -42,10 +42,6 @@ import (
 )
 
 type uninstallArgs struct {
-	// kubeConfigPath is the path to kube config file.
-	kubeConfigPath string
-	// context is the cluster context in the kube config.
-	context string
 	// skipConfirmation determines whether the user is prompted for confirmation.
 	// If set to true, the user is not prompted and a Yes response is assumed in all cases.
 	skipConfirmation bool
@@ -77,8 +73,6 @@ const (
 )
 
 func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&args.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.purge, "purge", false, "Delete all Istio related sources for all versions")
@@ -118,11 +112,7 @@ func UninstallCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := ctx.CLIClient()
-			if err != nil {
-				return err
-			}
-			return uninstall(cmd, client, rootArgs, uiArgs, logOpts)
+			return uninstall(cmd, ctx, rootArgs, uiArgs, logOpts)
 		},
 	}
 	addFlags(uicmd, rootArgs)
@@ -131,10 +121,14 @@ func UninstallCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 }
 
 // uninstall uninstalls control plane by either pruning by target revision or deleting specified manifests.
-func uninstall(cmd *cobra.Command, cliClient kube.CLIClient, rootArgs *RootArgs, uiArgs *uninstallArgs, logOpts *log.Options) error {
+func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *uninstallArgs, logOpts *log.Options) error {
 	l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 	if err := configLogs(logOpts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
+	}
+	cliClient, err := ctx.CLIClient()
+	if err != nil {
+		return err
 	}
 	kubeClient, client, err := KubernetesClients(cliClient, l)
 	if err != nil {
@@ -142,7 +136,7 @@ func uninstall(cmd *cobra.Command, cliClient kube.CLIClient, rootArgs *RootArgs,
 	}
 	var kubeClientWithRev kube.CLIClient
 	if uiArgs.revision != "" && uiArgs.revision != "default" {
-		kubeClientWithRev, err = kube.NewCLIClient(kube.BuildClientCmd(uiArgs.kubeConfigPath, uiArgs.context), uiArgs.revision)
+		kubeClientWithRev, err = ctx.CLIClientWithRevision(uiArgs.revision)
 		if err != nil {
 			return err
 		}

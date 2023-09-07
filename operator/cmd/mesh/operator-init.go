@@ -37,10 +37,6 @@ import (
 type operatorInitArgs struct {
 	// inFilenames is the path to the input IstioOperator CR.
 	inFilename string
-	// kubeConfigPath is the path to kube config file.
-	kubeConfigPath string
-	// context is the cluster context in the kube config.
-	context string
 
 	// common is shared operator args
 	common operatorCommonArgs
@@ -53,8 +49,6 @@ func addOperatorInitFlags(cmd *cobra.Command, args *operatorInitArgs) {
 	hub, tag := buildversion.DockerInfo.Hub, buildversion.DockerInfo.Tag
 
 	cmd.PersistentFlags().StringVarP(&args.inFilename, "filename", "f", "", filenameFlagHelpStr)
-	cmd.PersistentFlags().StringVarP(&args.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.context, "context", "", ContextFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.common.hub, "hub", hub, HubFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&args.common.tag, "tag", tag, TagFlagHelpStr)
 	cmd.PersistentFlags().StringSliceVar(&args.common.imagePullSecrets, "imagePullSecrets", nil, ImagePullSecretsHelpStr)
@@ -124,8 +118,6 @@ func operatorInit(cliClient kube.CLIClient, args *RootArgs, oiArgs *operatorInit
 
 	opts := &applyOptions{
 		DryRun:     args.DryRun,
-		Kubeconfig: oiArgs.kubeConfigPath,
-		Context:    oiArgs.context,
 	}
 
 	// If CR was passed, we must create a namespace for it and install CR into it.

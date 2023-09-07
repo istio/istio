@@ -31,10 +31,6 @@ import (
 )
 
 type operatorRemoveArgs struct {
-	// kubeConfigPath is the path to kube config file.
-	kubeConfigPath string
-	// context is the cluster context in the kube config.
-	context string
 	// skipConfirmation determines whether the user is prompted for confirmation.
 	// If set to true, the user is not prompted and a Yes response is assumed in all cases.
 	skipConfirmation bool
@@ -49,8 +45,6 @@ type operatorRemoveArgs struct {
 }
 
 func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
-	cmd.PersistentFlags().StringVarP(&oiArgs.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&oiArgs.context, "context", "", ContextFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&oiArgs.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&oiArgs.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&oiArgs.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)

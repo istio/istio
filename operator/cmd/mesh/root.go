@@ -48,8 +48,6 @@ This flag can be specified multiple times to overlay multiple files. Multiple fi
 	installationCompleteStr            = `Installation complete`
 	ForceFlagHelpStr                   = `Proceed even with validation errors.`
 	MaxConcurrentReconcilesFlagHelpStr = `Defines the concurrency limit for operator to reconcile IstioOperatorSpec in parallel. Default value is 1.`
-	KubeConfigFlagHelpStr              = `Path to kube config.`
-	ContextFlagHelpStr                 = `The name of the kubeconfig context to use.`
 	HubFlagHelpStr                     = `The hub for the operator controller image.`
 	TagFlagHelpStr                     = `The tag for the operator controller image.`
 	ImagePullSecretsHelpStr            = `The imagePullSecrets are used to pull the operator image from the private registry,
