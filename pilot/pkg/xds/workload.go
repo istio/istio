@@ -112,16 +112,28 @@ func (e WorkloadGenerator) GenerateDeltas(
 		}
 	}
 
-	if !w.Wildcard {
-		// For on-demand, we may have requested a VIP but gotten Pod IPs back. We need to update
-		// the internal book-keeping to subscribe to the Pods, so that we push updates to those Pods.
-		w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).Merge(have))
-	}
 	if full {
 		// If it's a full push, AddressInformation won't have info to compute the full set of removals.
 		// Instead, we need can see what resources are missing that we were subscribe to; those were removed.
 		removes := subs.Difference(have).InsertAll(removed...)
+		// TODO: we may not need to sort, as we donot sort for other resource
 		removed = sets.SortedList(removes)
+	}
+
+	if !w.Wildcard {
+		// For on-demand, we may have requested a VIP but gotten Pod IPs back. We need to update
+		// the internal book-keeping to subscribe to the Pods, so that we push updates to those Pods.
+		// TODO: we may not need to sort, as we donot sort for other resource
+		w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).Merge(have))
+	} else {
+		// For wildcard, we record all resources that have been pushed and not removed
+		// It was to correctly calculate removed resources during full push alongside with specific address removed.
+
+		// If pushed all addresses, then we set all as subscribed.
+		if len(addresses) == 0 {
+			w.ResourceNames = sets.SortedList(have)
+		}
+		w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).Merge(have).Difference(sets.New[string](removed...)))
 	}
 	return resources, removed, model.XdsLogDetails{}, true, nil
 }
