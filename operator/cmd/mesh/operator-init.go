@@ -117,7 +117,7 @@ func operatorInit(cliClient kube.CLIClient, args *RootArgs, oiArgs *operatorInit
 	installerScope.Debugf("Using the following manifest to install operator:\n%s\n", mstr)
 
 	opts := &applyOptions{
-		DryRun:     args.DryRun,
+		DryRun: args.DryRun,
 	}
 
 	// If CR was passed, we must create a namespace for it and install CR into it.
