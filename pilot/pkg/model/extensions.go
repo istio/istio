@@ -68,7 +68,7 @@ func fromPluginType(pluginType extensions.PluginType) WasmPluginType {
 	case extensions.PluginType_UNSPECIFIED_PLUGIN_TYPE:
 		return WasmPluginTypeHTTP // Return HTTP as default for backward compatibility.
 	}
-	return WasmPluginTypeAny
+	return WasmPluginTypeHTTP
 }
 
 func workloadModeForListenerClass(class istionetworking.ListenerClass) typeapi.WorkloadMode {
