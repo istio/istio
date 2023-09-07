@@ -65,8 +65,8 @@ spec:
             allowPrivilegeEscalation: false
             privileged: false
             readOnlyRootFilesystem: true
-            runAsUser: {{ .ProxyUID | default "1337" }}
-            runAsGroup: {{ .ProxyGID | default "1337" }}
+            runAsUser: 1337
+            runAsGroup: 1337
             runAsNonRoot: true
           {{- else }}
             capabilities:
