@@ -28,6 +28,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
 	ctrlmetrics "sigs.k8s.io/controller-runtime/pkg/metrics"
+	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	root "istio.io/istio/operator/cmd/mesh"
 	"istio.io/istio/operator/pkg/apis"
@@ -99,7 +100,7 @@ func serverCmd() *cobra.Command {
 }
 
 // getWatchNamespaces returns the namespaces the operator should be watching for changes
-func getWatchNamespaces() ([]string, error) {
+func getWatchNamespaces() (map[string]cache.Config, error) {
 	value, found := os.LookupEnv("WATCH_NAMESPACE")
 	if !found {
 		return nil, fmt.Errorf("WATCH_NAMESPACE must be set")
@@ -107,7 +108,14 @@ func getWatchNamespaces() ([]string, error) {
 	if value == "" {
 		return nil, nil
 	}
-	return strings.Split(value, ","), nil
+
+	values := strings.Split(value, ",")
+	namespaces := make(map[string]cache.Config, len(values))
+	for _, ns := range values {
+		namespaces[ns] = cache.Config{}
+	}
+
+	return namespaces, nil
 }
 
 // getLeaderElectionNamespace returns the namespace in which the leader election configmap will be created
@@ -158,12 +166,12 @@ func run(sArgs *serverArgs) {
 	}
 	log.Infof("Leader election cm: %s", leaderElectionID)
 
-	monitoringBindAddress := fmt.Sprintf("%s:%d", sArgs.monitoring.host, sArgs.monitoring.port)
+	metricsOptions := metricsserver.Options{BindAddress: fmt.Sprintf("%s:%d", sArgs.monitoring.host, sArgs.monitoring.port)}
 	if len(watchNamespaces) > 0 {
 		// Create MultiNamespacedCache with watched namespaces if it's not empty.
 		mgrOpt = manager.Options{
-			Cache:                   cache.Options{Namespaces: watchNamespaces},
-			MetricsBindAddress:      monitoringBindAddress,
+			Cache:                   cache.Options{DefaultNamespaces: watchNamespaces},
+			Metrics:                 metricsOptions,
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
@@ -173,8 +181,7 @@ func run(sArgs *serverArgs) {
 	} else {
 		// Create manager option for watching all namespaces.
 		mgrOpt = manager.Options{
-			Namespace:               "",
-			MetricsBindAddress:      monitoringBindAddress,
+			Metrics:                 metricsOptions,
 			LeaderElection:          leaderElectionEnabled,
 			LeaderElectionNamespace: leaderElectionNS,
 			LeaderElectionID:        leaderElectionID,
@@ -189,7 +196,7 @@ func run(sArgs *serverArgs) {
 		log.Fatalf("Could not create a controller manager: %v", err)
 	}
 
-	log.Infof("Creating operator metrics exporter available at %s", monitoringBindAddress)
+	log.Infof("Creating operator metrics exporter available at %s", metricsOptions.BindAddress)
 	registry := ctrlmetrics.Registry.(*prometheus.Registry)
 	wrapped := prometheus.WrapRegistererWithPrefix("istio_install_operator_", registry)
 
