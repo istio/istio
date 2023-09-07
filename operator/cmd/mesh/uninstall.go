@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	proxyinfo "istio.io/istio/pkg/proxy"
@@ -51,8 +50,6 @@ type uninstallArgs struct {
 	purge bool
 	// revision is the Istio control plane revision the command targets.
 	revision string
-	// istioNamespace is the target namespace of istio control plane.
-	istioNamespace string
 	// filename is the path of input IstioOperator CR.
 	filename string
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
@@ -77,8 +74,6 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 	cmd.PersistentFlags().BoolVar(&args.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&args.purge, "purge", false, "Delete all Istio related sources for all versions")
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&args.istioNamespace, "istioNamespace", constants.IstioSystemNamespace,
-		"The namespace of Istio Control Plane.")
 	cmd.PersistentFlags().StringVarP(&args.filename, "filename", "f", "",
 		"The filename of the IstioOperator CR.")
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
@@ -179,7 +174,7 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 		if err != nil {
 			return err
 		}
-		preCheckWarnings(cmd, kubeClientWithRev, uiArgs, uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
+		preCheckWarnings(cmd, kubeClientWithRev, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
 
 		if err := h.DeleteObjectsList(objectsList, ""); err != nil {
 			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
@@ -197,7 +192,7 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 	if err != nil {
 		return err
 	}
-	preCheckWarnings(cmd, kubeClientWithRev, uiArgs, iop.Spec.Revision, nil, cpObjects, l, rootArgs.DryRun)
+	preCheckWarnings(cmd, kubeClientWithRev, uiArgs, ctx.IstioNamespace(), iop.Spec.Revision, nil, cpObjects, l, rootArgs.DryRun)
 	h, err = helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
@@ -212,10 +207,10 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 // preCheckWarnings checks possible breaking changes and issue warnings to users, it checks the following:
 // 1. checks proxies still pointing to the target control plane revision.
 // 2. lists to be pruned resources if user uninstall by --revision flag.
-func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uninstallArgs,
+func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uninstallArgs, istioNamespace,
 	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger, dryRun bool,
 ) {
-	pids, err := proxyinfo.GetIDsFromProxyInfo(kubeClient, uiArgs.istioNamespace)
+	pids, err := proxyinfo.GetIDsFromProxyInfo(kubeClient, istioNamespace)
 	if err != nil {
 		l.LogAndError(err.Error())
 	}
