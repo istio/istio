@@ -606,11 +606,6 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 		args.AppendSet("components.cni.enabled", "true")
 	}
 
-	if ctx.Settings().EnableDualStack {
-		args.AppendSet("values.pilot.env.ISTIO_DUAL_STACK", "true")
-		args.AppendSet("meshConfig.defaultConfig.proxyMetadata.ISTIO_DUAL_STACK", "true")
-	}
-
 	// Include all user-specified values.
 	for k, v := range cfg.Values {
 		args.AppendSet("values."+k, v)
