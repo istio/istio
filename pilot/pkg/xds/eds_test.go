@@ -399,8 +399,8 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 		}
 	}
 
-	// Validate that we do not send initial unhealthy endpoints.
-	validateEndpoints(false, nil, nil)
+	// Validate that we do  send initial unhealthy endpoints.
+	validateEndpoints(true, nil, []string{"10.0.0.53:53"})
 	adscon.WaitClear()
 
 	// Set additional unhealthy endpoint and validate Eds update is not triggered.
@@ -420,8 +420,8 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			},
 		})
 
-	// Validate that endpoint is not pushed.
-	validateEndpoints(false, nil, nil)
+	// Validate that endpoint is pushed.
+	validateEndpoints(true, nil, []string{"10.0.0.53:53", "10.0.0.54:53"})
 
 	// Change the status of endpoint to Healthy and validate Eds is pushed.
 	s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
