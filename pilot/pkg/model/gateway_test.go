@@ -16,10 +16,12 @@ package model
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/slices"
 )
 
 // nolint lll
@@ -160,10 +162,6 @@ func TestMergeGateways(t *testing.T) {
 	}
 }
 
-func TestResolvePorts(t *testing.T) {
-	// TODO: add tests
-}
-
 func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string, bind string,
 	mode networking.ServerTLSSettings_TLSmode,
 ) config.Config {
@@ -233,5 +231,121 @@ func TestParseGatewayRDSRouteName(t *testing.T) {
 				t.Errorf("ParseGatewayRDSRouteName() gotGateway = %v, want %v", gotGateway, tt.wantGateway)
 			}
 		})
+	}
+}
+
+func Test_resolvePorts(t *testing.T) {
+	placeHolderService := &Service{}
+	type args struct {
+		gwPort                uint32
+		serviceTargets        []ServiceTarget
+		legacyGatewaySelector bool
+	}
+	tests := []struct {
+		name string
+		args args
+		want []uint32
+	}{
+		{
+			name: "gwPort equals service port",
+			args: args{
+				gwPort: 1000,
+				serviceTargets: []ServiceTarget{
+					makeServiceTarget(placeHolderService, 1000, 2000),
+					makeServiceTarget(placeHolderService, 1001, 2001)},
+				legacyGatewaySelector: true,
+			},
+			want: []uint32{2000},
+		},
+
+		{
+			name: "simple gwPort not equals service port",
+			args: args{
+				gwPort: 1005,
+				serviceTargets: []ServiceTarget{
+					makeServiceTarget(placeHolderService, 1000, 2000),
+					makeServiceTarget(placeHolderService, 1001, 2001)},
+				legacyGatewaySelector: true,
+			},
+			want: []uint32{1005},
+		},
+		{
+			name: "gwPort equals multiple services' port",
+			args: args{
+				gwPort: 1000,
+				serviceTargets: []ServiceTarget{
+					makeServiceTarget(placeHolderService, 1000, 2000),
+					makeServiceTarget(placeHolderService, 1000, 2008)},
+				legacyGatewaySelector: true,
+			},
+			want: []uint32{2000},
+		},
+		{
+			name: "gwPort equals multiple services' port and also one targetPort",
+			args: args{
+				gwPort: 1000,
+				serviceTargets: []ServiceTarget{
+					makeServiceTarget(placeHolderService, 1000, 2000),
+					makeServiceTarget(placeHolderService, 1000, 2008),
+					makeServiceTarget(placeHolderService, 1000, 1000)},
+				legacyGatewaySelector: true,
+			},
+			want: []uint32{1000},
+		},
+		{
+			name: "k8s gateway: gwPort equals service port",
+			args: args{
+				gwPort: 1000,
+				serviceTargets: []ServiceTarget{
+					makeServiceTarget(placeHolderService, 1000, 2000),
+					makeServiceTarget(placeHolderService, 1001, 2001)},
+				legacyGatewaySelector: false,
+			},
+			want: []uint32{2000},
+		},
+		{
+			name: "k8s gateway: gwPort equals multiple services' port",
+			args: args{
+				gwPort: 1000,
+				serviceTargets: []ServiceTarget{
+					makeServiceTarget(placeHolderService, 1000, 2000),
+					makeServiceTarget(placeHolderService, 1000, 2008),
+					makeServiceTarget(placeHolderService, 1000, 1000)},
+				legacyGatewaySelector: false,
+			},
+			want: []uint32{1000, 2000, 2008},
+		},
+		{
+			name: "k8s gateway: gwPort not equals service port",
+			args: args{
+				gwPort: 1005,
+				serviceTargets: []ServiceTarget{
+					makeServiceTarget(placeHolderService, 1000, 2000),
+					makeServiceTarget(placeHolderService, 1001, 2001)},
+				legacyGatewaySelector: false,
+			},
+			want: []uint32{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := resolvePorts(tt.args.gwPort, tt.args.serviceTargets, tt.args.legacyGatewaySelector)
+			got = slices.Sort(got)
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("resolvePorts() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func makeServiceTarget(svc *Service, port int, targetPort uint32) ServiceTarget {
+	return ServiceTarget{
+		Service: svc,
+		Port: ServiceInstancePort{
+			ServicePort: &Port{
+				Port: port,
+			},
+			TargetPort: targetPort,
+		},
 	}
 }
