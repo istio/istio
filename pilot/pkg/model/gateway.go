@@ -364,6 +364,7 @@ func udpSupportedPort(number uint32, instances []ServiceTarget) bool {
 // case, we just make a best effort guess by picking the first match.
 func resolvePorts(number uint32, instances []ServiceTarget, legacyGatewaySelector bool) []uint32 {
 	ports := sets.New[uint32]()
+	var portSlice []uint32
 	for _, w := range instances {
 		if _, disablePortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]; disablePortTranslation && legacyGatewaySelector {
 			// Skip this Service, they opted out of port translation
@@ -373,24 +374,32 @@ func resolvePorts(number uint32, instances []ServiceTarget, legacyGatewaySelecto
 		}
 		if w.Port.Port == int(number) {
 			if legacyGatewaySelector {
-				// When we are using legacy gateway label selection, we only resolve to a single port
-				// This has pros and cons; we don't allow merging of routes when it would be desirable, but
-				// we also avoid accidentally merging routes when we didn't intend to. While neither option is great,
-				// picking the first one here preserves backwards compatibility.
-				return []uint32{w.Port.TargetPort}
+				portSlice = append(portSlice, w.Port.TargetPort)
 			}
 			ports.Insert(w.Port.TargetPort)
 		}
 	}
-	ret := ports.UnsortedList()
-	if len(ret) == 0 && legacyGatewaySelector {
+	if legacyGatewaySelector {
+		// When we are using legacy gateway label selection, we only resolve to a single port
+		// This has pros and cons; we don't allow merging of routes when it would be desirable, but
+		// we also avoid accidentally merging routes when we didn't intend to. While neither option is great,
+		// picking the first one here preserves backwards compatibility.
+
+		// We priotized selecting port that equals gateway service's targetPort
+		if ports.Contains(number) {
+			return []uint32{number}
+		}
+
+		if len(portSlice) > 0 {
+			return []uint32{portSlice[0]}
+		}
 		// When we are using legacy gateway label selection, we should bind to the port as-is if there is
 		// no matching ServiceInstance.
 		return []uint32{number}
 	}
 	// For cases where we are directly referencing a Service, we know that they port *must* be in the Service,
 	// so we have no fallback. If there was no match, the Gateway is a no-op.
-	return ret
+	return ports.UnsortedList()
 }
 
 func canMergeProtocols(current protocol.Instance, p protocol.Instance) bool {

@@ -160,6 +160,10 @@ func TestMergeGateways(t *testing.T) {
 	}
 }
 
+func TestResolvePorts(t *testing.T) {
+	// TODO: add tests
+}
+
 func makeConfig(name, namespace, host, portName, portProtocol string, portNumber uint32, gw string, bind string,
 	mode networking.ServerTLSSettings_TLSmode,
 ) config.Config {

@@ -2070,9 +2070,6 @@ func (ps *PushContext) mergeGateways(proxy *Proxy) *MergedGateway {
 			if len(matchingInstances) > 0 {
 				gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, false, matchingInstances})
 			}
-		} else if gw.GetSelector() == nil {
-			// no selector. Applies to all workloads asking for the gateway
-			gatewayInstances = append(gatewayInstances, gatewayWithInstances{cfg, true, proxy.ServiceTargets})
 		} else {
 			gatewaySelector := labels.Instance(gw.GetSelector())
 			if gatewaySelector.SubsetOf(proxy.Labels) {
