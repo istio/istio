@@ -46,11 +46,19 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-var istioOperatorGVR = apimachinery_schema.GroupVersionResource{
-	Group:    v1alpha1.SchemeGroupVersion.Group,
-	Version:  v1alpha1.SchemeGroupVersion.Version,
-	Resource: "istiooperators",
-}
+var (
+	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
+		Group:    v1alpha1.SchemeGroupVersion.Group,
+		Version:  v1alpha1.SchemeGroupVersion.Version,
+		Resource: "istiooperators",
+	}
+
+	// specialKinds is a map of special kinds to their corresponding kind names, which do not follow the
+	// standard convention of pluralizing the kind name.
+	specialKinds = map[string]string{
+		"NetworkAttachmentDefinition": "network-attachment-definitions",
+	}
+)
 
 // StatusVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.
@@ -420,10 +428,6 @@ func resourceKinds(un *unstructured.Unstructured) string {
 	kinds := findResourceInSpec(un.GetObjectKind().GroupVersionKind())
 	if kinds == "" {
 		kinds = strings.ToLower(un.GetKind()) + "s"
-	}
-
-	specialKinds := map[string]string{
-		"NetworkAttachmentDefinition": "network-attachment-definitions",
 	}
 	// Override with special kind if it exists in the map
 	if specialKind, exists := specialKinds[un.GetKind()]; exists {
