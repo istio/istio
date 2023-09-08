@@ -257,6 +257,34 @@ func TestProxyConfig(t *testing.T) {
 
 			args = []string{
 				"--namespace=dummy",
+				"pc", "all", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
+			}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			dumpAll, ok := jsonOutput.(map[string]any)
+			if !ok {
+				t.Fatalf("Failed to parse istioctl %s config dump to top level map", strings.Join(args, " "))
+			}
+			rawConfigs, ok := dumpAll["configs"].([]any)
+			if !ok {
+				t.Fatalf("Failed to parse istioctl %s config dump to slice of any", strings.Join(args, " "))
+			}
+			hasEndpoints := false
+			for _, rawConfig := range rawConfigs {
+				configDump, ok := rawConfig.(map[string]any)
+				if !ok {
+					t.Fatalf("Failed to parse istioctl %s raw config dump element to map of any", strings.Join(args, " "))
+				}
+				if configDump["@type"] == "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump" {
+					hasEndpoints = true
+					break
+				}
+			}
+
+			g.Expect(hasEndpoints).To(gomega.BeTrue())
+
+			args = []string{
+				"--namespace=dummy",
 				"pc", "secret", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
