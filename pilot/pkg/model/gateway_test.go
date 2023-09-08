@@ -234,7 +234,7 @@ func TestParseGatewayRDSRouteName(t *testing.T) {
 	}
 }
 
-func Test_resolvePorts(t *testing.T) {
+func TestResolvePorts(t *testing.T) {
 	placeHolderService := &Service{}
 	type args struct {
 		gwPort                uint32
@@ -252,7 +252,8 @@ func Test_resolvePorts(t *testing.T) {
 				gwPort: 1000,
 				serviceTargets: []ServiceTarget{
 					makeServiceTarget(placeHolderService, 1000, 2000),
-					makeServiceTarget(placeHolderService, 1001, 2001)},
+					makeServiceTarget(placeHolderService, 1001, 2001),
+				},
 				legacyGatewaySelector: true,
 			},
 			want: []uint32{2000},
@@ -264,7 +265,8 @@ func Test_resolvePorts(t *testing.T) {
 				gwPort: 1005,
 				serviceTargets: []ServiceTarget{
 					makeServiceTarget(placeHolderService, 1000, 2000),
-					makeServiceTarget(placeHolderService, 1001, 2001)},
+					makeServiceTarget(placeHolderService, 1001, 2001),
+				},
 				legacyGatewaySelector: true,
 			},
 			want: []uint32{1005},
@@ -275,7 +277,8 @@ func Test_resolvePorts(t *testing.T) {
 				gwPort: 1000,
 				serviceTargets: []ServiceTarget{
 					makeServiceTarget(placeHolderService, 1000, 2000),
-					makeServiceTarget(placeHolderService, 1000, 2008)},
+					makeServiceTarget(placeHolderService, 1000, 2008),
+				},
 				legacyGatewaySelector: true,
 			},
 			want: []uint32{2000},
@@ -287,7 +290,8 @@ func Test_resolvePorts(t *testing.T) {
 				serviceTargets: []ServiceTarget{
 					makeServiceTarget(placeHolderService, 1000, 2000),
 					makeServiceTarget(placeHolderService, 1000, 2008),
-					makeServiceTarget(placeHolderService, 1000, 1000)},
+					makeServiceTarget(placeHolderService, 1000, 1000),
+				},
 				legacyGatewaySelector: true,
 			},
 			want: []uint32{1000},
@@ -298,7 +302,8 @@ func Test_resolvePorts(t *testing.T) {
 				gwPort: 1000,
 				serviceTargets: []ServiceTarget{
 					makeServiceTarget(placeHolderService, 1000, 2000),
-					makeServiceTarget(placeHolderService, 1001, 2001)},
+					makeServiceTarget(placeHolderService, 1001, 2001),
+				},
 				legacyGatewaySelector: false,
 			},
 			want: []uint32{2000},
@@ -310,7 +315,8 @@ func Test_resolvePorts(t *testing.T) {
 				serviceTargets: []ServiceTarget{
 					makeServiceTarget(placeHolderService, 1000, 2000),
 					makeServiceTarget(placeHolderService, 1000, 2008),
-					makeServiceTarget(placeHolderService, 1000, 1000)},
+					makeServiceTarget(placeHolderService, 1000, 1000),
+				},
 				legacyGatewaySelector: false,
 			},
 			want: []uint32{1000, 2000, 2008},
@@ -321,7 +327,8 @@ func Test_resolvePorts(t *testing.T) {
 				gwPort: 1005,
 				serviceTargets: []ServiceTarget{
 					makeServiceTarget(placeHolderService, 1000, 2000),
-					makeServiceTarget(placeHolderService, 1001, 2001)},
+					makeServiceTarget(placeHolderService, 1001, 2001),
+				},
 				legacyGatewaySelector: false,
 			},
 			want: []uint32{},
