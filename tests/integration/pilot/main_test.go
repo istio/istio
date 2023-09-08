@@ -41,20 +41,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
-		Setup(istio.Setup(&i, func(c resource.Context, cfg *istio.Config) {
-			if c.Settings().EnableDualStack {
-				cfg.ControlPlaneValues = `
-values:
-  pilot:
-    env:
-      ISTIO_DUAL_STACK: true
-meshConfig:
-  defaultConfig:
-    proxyMetadata:
-      ISTIO_DUAL_STACK: "true"
-`
-			}
-		})).
+		Setup(istio.Setup(&i, nil)).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Client = t.Clusters().Default()
