@@ -40,7 +40,6 @@ const fieldOwnerOperator = "istio-operator"
 func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply bool) (object.K8sObjects, int, error) {
 	var processedObjects object.K8sObjects
 	var deployedObjects int
-	var errs util.Errors
 	cname := string(manifest.Name)
 	crHash, err := h.getCRHash(cname)
 	if err != nil {
@@ -100,9 +99,8 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply b
 				return nil, 0, err
 			}
 			if err := h.ApplyObject(obj.UnstructuredObject(), serverSideApply); err != nil {
-				scope.Error(err.Error())
-				errs = util.AppendErr(errs, err)
-				continue
+				plog.ReportError(err.Error())
+				return processedObjects, 0, err
 			}
 			plog.ReportProgress()
 			metrics.AddResource(obj.FullName(), obj.GroupVersionKind().GroupKind())
@@ -125,11 +123,6 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply b
 	}
 
 	if len(changedObjectKeys) > 0 {
-		if len(errs) != 0 {
-			plog.ReportError(util.ToString(errs.Dedup(), "\n"))
-			return processedObjects, 0, errs.ToError()
-		}
-
 		err := WaitForResources(processedObjects, h.kubeClient,
 			h.opts.WaitTimeout, h.opts.DryRun, plog)
 		if err != nil {
