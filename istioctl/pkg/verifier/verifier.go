@@ -421,9 +421,13 @@ func resourceKinds(un *unstructured.Unstructured) string {
 	if kinds == "" {
 		kinds = strings.ToLower(un.GetKind()) + "s"
 	}
-	// Fix the specific kind which does not follow the general pattern.
-	if un.GetKind() == "NetworkAttachmentDefinition" {
-		kinds = "network-attachment-definitions"
+
+	specialKinds := map[string]string{
+		"NetworkAttachmentDefinition": "network-attachment-definitions",
+	}
+	// Override with special kind if it exists in the map
+	if specialKind, exists := specialKinds[un.GetKind()]; exists {
+		kinds = specialKind
 	}
 	return kinds
 }
