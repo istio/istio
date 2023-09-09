@@ -625,7 +625,7 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 						},
 					},
 					{
-						name: "deny with sub-1 token due to ignored RequestAuthentication",
+						name: "allow with sub-1 token despite \"ignored\" RequestAuthentication (onlyPolicyAttachment flag = false)",
 						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
 							opts.HTTP.Path = "/"
 							opts.HTTP.Headers = headers.New().

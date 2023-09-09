@@ -676,6 +676,9 @@ var (
 	// User should not rely on builtin resource labels, this flag will be removed in future releases(1.20).
 	EnableOTELBuiltinResourceLables = env.Register("ENABLE_OTEL_BUILTIN_RESOURCE_LABELS", false,
 		"If enabled, envoy will send builtin lables(e.g. node_name) via OTel sink.").Get()
+
+	EnableGatewayPolicyAttachmentOnly = env.Register("ENABLE_GATEWAY_POLICY_ATTACHMENT_ONLY", false,
+		"If enabled, Gateway API gateways will only apply policies bound by targetRef and not workloadSelector.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

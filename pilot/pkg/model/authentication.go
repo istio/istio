@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
@@ -201,15 +202,29 @@ func (policy *AuthenticationPolicies) GetNamespaceMutualTLSMode(namespace string
 // GetJwtPoliciesForWorkload returns a list of JWT policies matching to labels.
 func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string,
 	workloadLabels labels.Instance,
+	isWaypoint bool,
 ) []*config.Config {
-	return getConfigsForWorkload(policy.requestAuthentications, policy.rootNamespace, namespace, workloadLabels)
+
+	return getConfigsForWorkload(policy.requestAuthentications, workloadSelectionInfo{
+		rootNamespace:  policy.rootNamespace,
+		namespace:      namespace,
+		workloadLabels: workloadLabels,
+		isWaypoint:     isWaypoint,
+	})
 }
 
 // GetPeerAuthenticationsForWorkload returns a list of peer authentication policies matching to labels.
 func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespace string,
 	workloadLabels labels.Instance,
+	isWaypoint bool,
 ) []*config.Config {
-	return getConfigsForWorkload(policy.peerAuthentications, policy.rootNamespace, namespace, workloadLabels)
+
+	return getConfigsForWorkload(policy.peerAuthentications, workloadSelectionInfo{
+		rootNamespace:  policy.rootNamespace,
+		namespace:      namespace,
+		workloadLabels: workloadLabels,
+		isWaypoint:     isWaypoint,
+	})
 }
 
 // GetRootNamespace return root namespace that is tracked by the policy object.
@@ -231,12 +246,17 @@ func GetAmbientPolicyConfigName(key ConfigKey) string {
 	}
 }
 
-func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
-	rootNamespace string,
-	namespace string,
-	workloadLabels labels.Instance,
-) []*config.Config {
-	log.Infof("Getting config for workload labels %q", workloadLabels)
+type workloadSelectionInfo struct {
+	rootNamespace  string
+	namespace      string
+	workloadLabels labels.Instance
+	isWaypoint     bool
+}
+
+func getConfigsForWorkload(configsByNamespace map[string][]config.Config, selectionInfo workloadSelectionInfo) []*config.Config {
+	workloadLabels := selectionInfo.workloadLabels
+	namespace := selectionInfo.namespace
+	rootNamespace := selectionInfo.rootNamespace
 	configs := make([]*config.Config, 0)
 	var lookupInNamespaces []string
 	if namespace != rootNamespace {
@@ -262,10 +282,11 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 					targetRef := ra.GetTargetRef()
 					// TODO: Figure out a better way to handle this that doesn't rely on labels
 					gatewayName, isGatewayAPIGateway := workloadLabels[constants.IstioGatewayLabel]
-					log.Infof("Processing RequestAuthentication %q for workload labels %q", cfg.Name, workloadLabels)
 					if isGatewayAPIGateway && targetRef == nil && ra.GetSelector() != nil {
-						log.Infof("Ignoring workload-scoped RequestAuthentication %q for gateway %q because it has no targetRef", cfg.Name, gatewayName)
-						continue // This workload is a gateway API gateway, but this is a workload scoped RA policy. Ignore
+						if selectionInfo.isWaypoint || features.EnableGatewayPolicyAttachmentOnly {
+							log.Warnf("Ignoring workload-scoped RequestAuthentication %q for gateway %q because it has no targetRef", cfg.Name, gatewayName)
+							continue // This workload is a gateway API gateway, but this is a workload scoped RA policy. Ignore
+						}
 					}
 
 					if !isGatewayAPIGateway && targetRef != nil {
@@ -284,9 +305,8 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 						}
 					}
 
-					if !isGatewayAPIGateway && targetRef == nil {
-						selector = ra.GetSelector().GetMatchLabels()
-					}
+					// Default case
+					selector = ra.GetSelector().GetMatchLabels()
 
 				case gvk.PeerAuthentication:
 					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()

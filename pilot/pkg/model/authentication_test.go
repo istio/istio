@@ -23,12 +23,14 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	securityBeta "istio.io/api/security/v1beta1"
 	selectorpb "istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
+	pkgtest "istio.io/istio/pkg/test"
 )
 
 const (
@@ -47,6 +49,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 		wantRequestAuthn       []*config.Config
 		wantPeerAuthn          []*config.Config
 		wantNamespaceMutualTLS MutualTLSMode
+		isWaypoint             bool
 	}{
 		{
 			name:              "Empty workload labels in foo",
@@ -103,6 +106,89 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 		{
 			name:              "Gateway targetRef foo namespace",
 			workloadNamespace: "foo",
+			workloadLabels: labels.Instance{
+				constants.IstioGatewayLabel: "my-gateway",
+			},
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "ignored-gateway-selector",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								constants.IstioGatewayLabel: "my-gateway",
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "with-targetref",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.KubernetesGateway.Group,
+							Kind:  gvk.KubernetesGateway.Kind,
+							Name:  "my-gateway",
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
+		},
+		{
+			name:              "waypoint targetRef foo namespace",
+			workloadNamespace: "foo",
+			isWaypoint:        true,
 			workloadLabels: labels.Instance{
 				constants.IstioGatewayLabel: "my-gateway",
 			},
@@ -515,10 +601,572 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
 			}
-			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
+			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
+				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
+			}
+			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
+				t.Fatalf("want %s\n, but got %s\n", tc.wantNamespaceMutualTLS, got)
+			}
+		})
+	}
+}
+
+func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
+	pkgtest.SetForTest(t, &features.EnableGatewayPolicyAttachmentOnly, true)
+	policies := getTestAuthenticationPolicies(createTestConfigs(true /* with mesh peer authn */), t)
+
+	cases := []struct {
+		name                   string
+		workloadNamespace      string
+		workloadLabels         labels.Instance
+		wantRequestAuthn       []*config.Config
+		wantPeerAuthn          []*config.Config
+		wantNamespaceMutualTLS MutualTLSMode
+		isWaypoint             bool
+	}{
+		{
+			name:              "Empty workload labels in foo",
+			workloadNamespace: "foo",
+			workloadLabels:    nil,
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
+		},
+		{
+			name:              "Gateway targetRef foo namespace",
+			workloadNamespace: "foo",
+			workloadLabels: labels.Instance{
+				constants.IstioGatewayLabel: "my-gateway",
+			},
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "with-targetref",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.KubernetesGateway.Group,
+							Kind:  gvk.KubernetesGateway.Kind,
+							Name:  "my-gateway",
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
+		},
+		{
+			name:              "waypoint targetRef foo namespace",
+			workloadNamespace: "foo",
+			isWaypoint:        true,
+			workloadLabels: labels.Instance{
+				constants.IstioGatewayLabel: "my-gateway",
+			},
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "with-targetref",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.KubernetesGateway.Group,
+							Kind:  gvk.KubernetesGateway.Kind,
+							Name:  "my-gateway",
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
+		},
+		{
+			name:              "Gateway targetRef bar namespace",
+			workloadNamespace: "bar",
+			workloadLabels: labels.Instance{
+				constants.IstioGatewayLabel: "my-gateway",
+			},
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "bar",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "with-targetref",
+						Namespace:        "bar",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.KubernetesGateway.Group,
+							Kind:  gvk.KubernetesGateway.Kind,
+							Name:  "my-gateway",
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSPermissive,
+		},
+		{
+			name:              "Empty workload labels in bar",
+			workloadNamespace: "bar",
+			workloadLabels:    nil,
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "bar",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSPermissive,
+		},
+		{
+			name:              "Empty workload labels in baz",
+			workloadNamespace: "baz",
+			workloadLabels:    nil,
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSPermissive,
+		},
+		{
+			name:              "Match workload labels in foo",
+			workloadNamespace: "foo",
+			workloadLabels:    labels.Instance{"app": "httpbin", "version": "v1", "other": "labels"},
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "with-selector",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app":     "httpbin",
+								"version": "v1",
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-selector",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
+							},
+						},
+					},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "peer-with-selector",
+						Namespace:         "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"version": "v1",
+							},
+						},
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_DISABLE,
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
+		},
+		{
+			name:              "Match workload labels in bar",
+			workloadNamespace: "bar",
+			workloadLabels:    labels.Instance{"app": "httpbin", "version": "v1"},
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "bar",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-selector",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
+							},
+						},
+					},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSPermissive,
+		},
+		{
+			name:              "Partial match workload labels in foo",
+			workloadNamespace: "foo",
+			workloadLabels:    labels.Instance{"app": "httpbin"},
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "global-with-selector",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						Selector: &selectorpb.WorkloadSelector{
+							MatchLabels: map[string]string{
+								"app": "httpbin",
+							},
+						},
+					},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
+			}
+			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
 			}
 			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
@@ -537,6 +1185,7 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 		workloadLabels         labels.Instance
 		wantPeerAuthn          []*config.Config
 		wantNamespaceMutualTLS MutualTLSMode
+		isWaypoint             bool
 	}{
 		{
 			name:              "Empty workload labels in foo",
@@ -644,7 +1293,7 @@ func TestGetPoliciesForWorkloadWithoutMeshPeerAuthn(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
+			if got := policies.GetPeerAuthenticationsForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantPeerAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantPeerAuthn), printConfigs(got))
 			}
 			if got := policies.GetNamespaceMutualTLSMode(tc.workloadNamespace); got != tc.wantNamespaceMutualTLS {
@@ -668,6 +1317,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 		workloadNamespace string
 		workloadLabels    labels.Instance
 		wantRequestAuthn  []*config.Config
+		isWaypoint        bool
 	}{
 		{
 			name:              "single hit",
@@ -805,7 +1455,7 @@ func TestGetPoliciesForWorkloadWithJwksResolver(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
+			if got := policies.GetJwtPoliciesForWorkload(tc.workloadNamespace, tc.workloadLabels, tc.isWaypoint); !reflect.DeepEqual(tc.wantRequestAuthn, got) {
 				t.Fatalf("want %+v\n, but got %+v\n", printConfigs(tc.wantRequestAuthn), printConfigs(got))
 			}
 		})
@@ -889,7 +1539,7 @@ func createTestConfigs(withMeshPeerAuthn bool) []*config.Config {
 			Kind:  gvk.KubernetesGateway.Kind,
 			Name:  "my-gateway",
 		}),
-		createTestRequestAuthenticationResource("ignored-selector", "foo", &selectorpb.WorkloadSelector{
+		createTestRequestAuthenticationResource("ignored-gateway-selector", "foo", &selectorpb.WorkloadSelector{
 			MatchLabels: map[string]string{
 				constants.IstioGatewayLabel: "my-gateway",
 			},
