@@ -18,11 +18,40 @@
 # plane, data plane as well as addons.We generate this list by looking
 # at the values.yaml file where the Helm charts are stored, as well as
 # reading the values of DOCKER_TARGETS rule in the istio-docker.mk file.
+#
+# Starting with 1.14.0 these were updated and DOCKER_TARGETS no longer exists.
+# We parse out docker.yaml now and generate our images based on that.
+#
+# Addons left as-is
 
 ISTIO_HELM_CHART=https://api.github.com/repos/istio/istio/contents/install/kubernetes/helm/istio/charts
 ISTIO_GITHUB=https://raw.githubusercontent.com/istio/istio
 
+function toJson () {
+        python3 -c '
+import sys, yaml, json
+yml = list(y for y in yaml.safe_load_all(sys.stdin) if y)
+if len(yml) == 1: yml = yml[0]
+json.dump(yml, sys.stdout, indent=4)
+'
+}
+
 function get_istio_images() {
+    curl --silent "${ISTIO_GITHUB}/${1}/tools/docker.yaml" -o temp.file
+
+    defaultTargets="$(< "temp.file" toJson | toJson | jq -r '.images[] | select(.base != true) | "docker.io/istio/" + .name' -r)"
+    for i in ${defaultTargets}; do
+	    echo "$i:${1}"
+    done
+
+    if [ -f temp.file ];
+    then
+       rm temp.file
+    fi
+}
+
+# maintained for 1.13.9 and below.
+function get_istio_images_old() {
     buff=''
     continue_processing=0
 
@@ -64,6 +93,18 @@ function get_istio_images() {
 }
 
 function get_current_release() {
+    TAGS="$(curl --silent 'https://api.github.com/repos/istio/istio/tags' | grep -o '"name": "[0-9]\+\.[0-9]\+\.[0-9]\+"' | tr -d '"' | cut -d ' ' -f2)"
+    latest_tag="0.0.0"
+    for tag in $TAGS;
+    do
+        if [[ $(printf "%s\n%s" "$tag" "$latest_tag" | sort -V | head -n1) != "$tag" ]]; then
+            latest_tag=$tag
+        fi
+    done
+    echo "$latest_tag"
+}
+
+function old_get_current_release() {
     TAGS="$(curl --silent 'https://api.github.com/repos/istio/istio/tags' | grep -o '"name": "[0-9].[0-9].[0-9]"' | tr -d '"' )"
     for tag in $TAGS;
     do
@@ -158,9 +199,15 @@ do
    esac
 done
 
-if [ -z "${CURRENT_RELEASE}" ]
-then
-    CURRENT_RELEASE=$(get_current_release)
+# If CURRENT_RELEASE is not set or if it's greater than or equal to 1.14.0, fetch it
+: "${CURRENT_RELEASE:=$(get_current_release)}"
+
+if [[ $(printf "%s\n%s" "1.14.0" "$CURRENT_RELEASE" | sort -V | head -n1) != "1.14.0" ]]; then
+    # If CURRENT_RELEASE is less than 1.14.0
+    get_istio_images_old "${CURRENT_RELEASE}"
+else
+    # If CURRENT_RELEASE is greater than or equal to 1.14.0
+    get_istio_images "${CURRENT_RELEASE}"
 fi
-get_istio_images "${CURRENT_RELEASE}"
+
 get_istio_addons "${CURRENT_RELEASE}"
