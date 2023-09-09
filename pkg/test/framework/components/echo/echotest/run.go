@@ -15,14 +15,17 @@
 package echotest
 
 import (
+	"fmt"
 	"strings"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type (
@@ -145,6 +148,52 @@ func (t *T) RunToN(n int, testFn oneToNTest) {
 				testFn(ctx, fromInstance, destDeployments)
 			})
 		})
+	})
+}
+
+type gatewayInstance struct {
+	types.NamespacedName
+	GatewayClass string
+}
+
+func (gi gatewayInstance) ServiceName() types.NamespacedName {
+	return types.NamespacedName{
+		Namespace: gi.Namespace,
+		Name:      gi.Name + "-" + gi.GatewayClass,
+	}
+}
+
+func (t *T) RunViaGatewayIngress(gatewayClass string, testFn ingressTest) {
+	// Build and apply any completed configuration that does not require to/from params.
+	t.cfg.BuildCompleteSources().Apply()
+	istioInstance := istio.GetOrFail(t.rootCtx, t.rootCtx)
+	t.toEachDeployment(t.rootCtx, func(ctx framework.TestContext, dstInstances echo.Instances) {
+		gwInstance := gatewayInstance{
+			NamespacedName: types.NamespacedName{
+				Namespace: dstInstances.NamespaceName(),
+				Name:      dstInstances.ServiceName() + "-gateway",
+			},
+			GatewayClass: gatewayClass,
+		}
+		// Build and apply per-destination config
+		gwIngress := istioInstance.CustomIngressFor(ctx.Clusters()[0], gwInstance.ServiceName(), fmt.Sprintf("%s=%s", constants.IstioGatewayLabel, gwInstance.Name))
+		callers := ingress.Instances{gwIngress}.Callers()
+		t.cfg.Context(ctx).BuildFromAndTo(callers, dstInstances.Services()).Apply()
+
+		t.setupPair(ctx, callers, echo.Services{dstInstances})
+		doTest := func(ctx framework.TestContext, fromCluster cluster.Cluster, dst echo.Instances) {
+			if gwIngress == nil {
+				ctx.Skipf("no gateway for %s", fromCluster.StableName())
+			}
+			testFn(ctx, gwIngress, dst)
+		}
+		if len(ctx.Clusters()) == 1 {
+			doTest(ctx, ctx.Clusters()[0], dstInstances)
+		} else {
+			t.fromEachCluster(ctx, func(ctx framework.TestContext, c cluster.Cluster) {
+				doTest(ctx, c, dstInstances)
+			})
+		}
 	})
 }
 

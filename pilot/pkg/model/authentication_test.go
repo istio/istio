@@ -25,6 +25,7 @@ import (
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/model/test"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -98,6 +99,129 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 				},
 			},
 			wantNamespaceMutualTLS: MTLSStrict,
+		},
+		{
+			name:              "Gateway targetRef foo namespace",
+			workloadNamespace: "foo",
+			workloadLabels: labels.Instance{
+				constants.IstioGatewayLabel: "my-gateway",
+			},
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "with-targetref",
+						Namespace:        "foo",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.KubernetesGateway.Group,
+							Kind:  gvk.KubernetesGateway.Kind,
+							Name:  "my-gateway",
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "foo",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_STRICT,
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSStrict,
+		},
+		{
+			name:              "Gateway targetRef bar namespace",
+			workloadNamespace: "bar",
+			workloadLabels: labels.Instance{
+				constants.IstioGatewayLabel: "my-gateway",
+			},
+			wantRequestAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "bar",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "with-targetref",
+						Namespace:        "bar",
+					},
+					Spec: &securityBeta.RequestAuthentication{
+						TargetRef: &selectorpb.PolicyTargetReference{
+							Group: gvk.KubernetesGateway.Group,
+							Kind:  gvk.KubernetesGateway.Kind,
+							Name:  "my-gateway",
+						},
+					},
+				},
+				{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.RequestAuthentication,
+						Name:             "default",
+						Namespace:        "istio-config",
+					},
+					Spec: &securityBeta.RequestAuthentication{},
+				},
+			},
+			wantPeerAuthn: []*config.Config{
+				{
+					Meta: config.Meta{
+						GroupVersionKind:  gvk.PeerAuthentication,
+						CreationTimestamp: baseTimestamp,
+						Name:              "default",
+						Namespace:         "istio-config",
+					},
+					Spec: &securityBeta.PeerAuthentication{
+						Mtls: &securityBeta.PeerAuthentication_MutualTLS{
+							Mode: securityBeta.PeerAuthentication_MutualTLS_UNSET,
+						},
+					},
+				},
+			},
+			wantNamespaceMutualTLS: MTLSPermissive,
 		},
 		{
 			name:              "Empty workload labels in bar",
@@ -704,17 +828,23 @@ func getTestAuthenticationPolicies(configs []*config.Config, t *testing.T) *Auth
 	return initAuthenticationPolicies(environment)
 }
 
-func createTestRequestAuthenticationResource(name string, namespace string, selector *selectorpb.WorkloadSelector) *config.Config {
-	return &config.Config{
+func createTestRequestAuthenticationResource(name string, namespace string, selector *selectorpb.WorkloadSelector, targetRef *selectorpb.PolicyTargetReference) *config.Config {
+	ra := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.RequestAuthentication,
 			Name:             name,
 			Namespace:        namespace,
 		},
-		Spec: &securityBeta.RequestAuthentication{
-			Selector: selector,
-		},
+		Spec: &securityBeta.RequestAuthentication{},
 	}
+
+	if targetRef != nil {
+		ra.Spec.(*securityBeta.RequestAuthentication).TargetRef = targetRef
+	} else {
+		ra.Spec.(*securityBeta.RequestAuthentication).Selector = selector
+	}
+
+	return ra
 }
 
 func createTestPeerAuthenticationResource(name string, namespace string, timestamp time.Time,
@@ -745,15 +875,34 @@ func createTestConfigs(withMeshPeerAuthn bool) []*config.Config {
 			"version": "v1",
 		},
 	}
-	configs = append(configs, createTestRequestAuthenticationResource("default", rootNamespace, nil),
+	configs = append(configs, createTestRequestAuthenticationResource("default", rootNamespace, nil, nil),
 		createTestRequestAuthenticationResource("global-with-selector", rootNamespace, &selectorpb.WorkloadSelector{
 			MatchLabels: map[string]string{
 				"app": "httpbin",
 			},
+		}, nil),
+		createTestRequestAuthenticationResource("default", "foo", nil, nil),
+		createTestRequestAuthenticationResource("default", "bar", nil, nil),
+		createTestRequestAuthenticationResource("with-selector", "foo", selector, nil),
+		createTestRequestAuthenticationResource("with-targetref", "foo", nil, &selectorpb.PolicyTargetReference{
+			Group: gvk.KubernetesGateway.Group,
+			Kind:  gvk.KubernetesGateway.Kind,
+			Name:  "my-gateway",
 		}),
-		createTestRequestAuthenticationResource("default", "foo", nil),
-		createTestRequestAuthenticationResource("default", "bar", nil),
-		createTestRequestAuthenticationResource("with-selector", "foo", selector),
+		createTestRequestAuthenticationResource("ignored-selector", "foo", &selectorpb.WorkloadSelector{
+			MatchLabels: map[string]string{
+				constants.IstioGatewayLabel: "my-gateway",
+			},
+		}, nil),
+		createTestRequestAuthenticationResource("with-targetref", "bar", &selectorpb.WorkloadSelector{
+			MatchLabels: map[string]string{ // should be ignored by non-gateway workloads
+				"app": "httpbin",
+			},
+		}, &selectorpb.PolicyTargetReference{
+			Group: gvk.KubernetesGateway.Group,
+			Kind:  gvk.KubernetesGateway.Kind,
+			Name:  "my-gateway",
+		}),
 		createTestPeerAuthenticationResource("global-peer-with-selector", rootNamespace, baseTimestamp, &selectorpb.WorkloadSelector{
 			MatchLabels: map[string]string{
 				"app":     "httpbin",
@@ -796,7 +945,7 @@ func addJwtRule(issuer, jwksURI, jwks string, config *config.Config) {
 func createNonTrivialRequestAuthnTestConfigs(issuer string) []*config.Config {
 	configs := make([]*config.Config, 0)
 
-	globalCfg := createTestRequestAuthenticationResource("default", rootNamespace, nil)
+	globalCfg := createTestRequestAuthenticationResource("default", rootNamespace, nil, nil)
 	addJwtRule(issuer, "", "", globalCfg)
 	configs = append(configs, globalCfg)
 
@@ -804,7 +953,7 @@ func createNonTrivialRequestAuthnTestConfigs(issuer string) []*config.Config {
 		MatchLabels: map[string]string{
 			"app": "httpbin",
 		},
-	})
+	}, nil)
 
 	addJwtRule(issuer, "", "", httpbinCfg)
 	addJwtRule("bad-issuer", "", "", httpbinCfg)
@@ -815,7 +964,7 @@ func createNonTrivialRequestAuthnTestConfigs(issuer string) []*config.Config {
 			"app":     "httpbin",
 			"version": "v1",
 		},
-	})
+	}, nil)
 	addJwtRule("issuer-with-jwks-uri", "example.com", "", httpbinCfgV1)
 	addJwtRule("issuer-with-jwks", "", "deadbeef", httpbinCfgV1)
 	configs = append(configs, httpbinCfgV1)

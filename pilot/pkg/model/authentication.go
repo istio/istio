@@ -22,6 +22,7 @@ import (
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -235,6 +236,7 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 	namespace string,
 	workloadLabels labels.Instance,
 ) []*config.Config {
+	log.Infof("Getting config for workload labels %q", workloadLabels)
 	configs := make([]*config.Config, 0)
 	var lookupInNamespaces []string
 	if namespace != rootNamespace {
@@ -253,10 +255,39 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 					log.Warnf("Seeing config %s with namespace %s in map entry for %s. Ignored", cfg.Name, cfg.Namespace, ns)
 					continue
 				}
-				var selector labels.Instance
+				var selector labels.Instance // NOTE: nil/empty selector matches all workloads
 				switch cfg.GroupVersionKind {
 				case gvk.RequestAuthentication:
-					selector = cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
+					ra := cfg.Spec.(*v1beta1.RequestAuthentication)
+					targetRef := ra.GetTargetRef()
+					// TODO: Figure out a better way to handle this that doesn't rely on labels
+					gatewayName, isGatewayAPIGateway := workloadLabels[constants.IstioGatewayLabel]
+					log.Infof("Processing RequestAuthentication %q for workload labels %q", cfg.Name, workloadLabels)
+					if isGatewayAPIGateway && targetRef == nil && ra.GetSelector() != nil {
+						log.Infof("Ignoring workload-scoped RequestAuthentication %q for gateway %q because it has no targetRef", cfg.Name, gatewayName)
+						continue // This workload is a gateway API gateway, but this is a workload scoped RA policy. Ignore
+					}
+
+					if !isGatewayAPIGateway && targetRef != nil {
+						continue // This policy is only for gateway API gateways and the workload is not one
+					}
+
+					if isGatewayAPIGateway && targetRef != nil {
+						// There's a targetRef specified for this RA, and the proxy is a Gateway API Gateway. Use targetRef instead of workload selector
+						// TODO: Account for `kind`s that are not `KubernetesGateway`
+						if targetRef.GetGroup() == gvk.KubernetesGateway.Group &&
+							targetRef.GetName() == gatewayName &&
+							(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == namespace) &&
+							ra.GetTargetRef().GetKind() == gvk.KubernetesGateway.Kind {
+							configs = append(configs, cfg)
+							continue
+						}
+					}
+
+					if !isGatewayAPIGateway && targetRef == nil {
+						selector = ra.GetSelector().GetMatchLabels()
+					}
+
 				case gvk.PeerAuthentication:
 					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
 				default:
