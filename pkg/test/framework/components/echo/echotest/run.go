@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 type (
