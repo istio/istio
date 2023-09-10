@@ -23,7 +23,6 @@ import (
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/api/mesh/v1alpha1"
@@ -37,6 +36,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/wellknown"
 )
 
 var istioMtlsTransportSocketMatch = &structpb.Struct{
@@ -96,7 +96,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 
 	if tlsContext != nil {
 		c.cluster.TransportSocket = &core.TransportSocket{
-			Name:       wellknown.TransportSocketTls,
+			Name:       wellknown.TransportSocketTLS,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 		}
 	}
