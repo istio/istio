@@ -819,6 +819,38 @@ func TestPodLifecycleWorkloadGates(t *testing.T) {
 	// pod3 isn't running at all
 }
 
+func TestAddressInformation(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, testC, testNW)
+
+	// Add 2 pods with the "a" label, and one without.
+	// We should get an event for the new Service and the two *Pod* IPs impacted
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	s.addPods(t, "127.0.0.2", "pod2", "sa1", map[string]string{"app": "a", "other": "label"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod2"))
+	s.addPods(t, "127.0.0.3", "pod3", "sa1", map[string]string{"app": "other"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod3"))
+	s.clearEvents()
+
+	// Now add a service that will select pods with label "a".
+	s.addService(t, "svc1",
+		map[string]string{},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.svcXdsName("svc1"))
+
+	addrs,_:=s.controller.AddressInformation(sets.New[string](s.svcXdsName("svc1"),s.podXdsName("pod2")))
+	got := sets.New[string]()
+	for _,addr:=range addrs{
+		if got.Contains(addr.ResourceName()){
+			t.Fatalf("got duplicate address %v",addr.ResourceName() )
+		}
+		got.Insert(addr.ResourceName())
+	}
+}
+
+
 func TestRBACConvert(t *testing.T) {
 	files := file.ReadDirOrFail(t, "testdata")
 	if len(files) == 0 {
