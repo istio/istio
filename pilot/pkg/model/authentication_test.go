@@ -1478,7 +1478,9 @@ func getTestAuthenticationPolicies(configs []*config.Config, t *testing.T) *Auth
 	return initAuthenticationPolicies(environment)
 }
 
-func createTestRequestAuthenticationResource(name string, namespace string, selector *selectorpb.WorkloadSelector, targetRef *selectorpb.PolicyTargetReference) *config.Config {
+func createTestRequestAuthenticationResource(
+	name string, namespace string, selector *selectorpb.WorkloadSelector, targetRef *selectorpb.PolicyTargetReference,
+) *config.Config {
 	ra := &config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.RequestAuthentication,
