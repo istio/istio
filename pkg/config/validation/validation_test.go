@@ -5545,6 +5545,38 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 			valid: false,
 		},
 		{
+			name: "target-ref-good",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: false,
+		},
+		{
 			name: "target-ref-non-empty-namespace",
 			in: &security_beta.AuthorizationPolicy{
 				Action: security_beta.AuthorizationPolicy_DENY,
@@ -7731,6 +7763,24 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: false,
 		},
 		{
+			name:       "good targetRef",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: true,
+		},
+		{
 			name:       "bad targetRef - empty name",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
@@ -8565,6 +8615,28 @@ func TestValidateTelemetry(t *testing.T) {
 			"", "",
 		},
 		{
+			"good targetRef",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+			},
+			"", "",
+		},
+		{
 			"bad targetRef - empty name",
 			&telemetry.Telemetry{
 				Tracing: []*telemetry.Tracing{{
@@ -8873,29 +8945,34 @@ func TestValidateWasmPlugin(t *testing.T) {
 			"duplicate env", "",
 		},
 		{
-			"target-ref-empty-namespace",
+			"target-ref-good",
 			&extensions.WasmPlugin{
-				Url: "test.com/test",
-				VmConfig: &extensions.VmConfig{
-					Env: []*extensions.EnvVar{
-						{
-							Name:      "",
-							ValueFrom: extensions.EnvValueSource_HOST,
-						},
-					},
-				},
+				Url: "http://test.com/test",
 				TargetRef: &api.PolicyTargetReference{
 					Group: gvk.KubernetesGateway.Group,
 					Kind:  gvk.KubernetesGateway.Kind,
 					Name:  "foo",
 				},
 			},
-			"spec.vmConfig.env invalid", "",
+			"", "",
+		},
+		{
+			"target-ref-non-empty-namespace",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
+					Name:      "foo",
+					Namespace: "bar",
+				},
+			},
+			"targetRef namespace must not be set", "",
 		},
 		{
 			"target-ref-empty-name",
 			&extensions.WasmPlugin{
-				Url: "test.com/test",
+				Url: "http://test.com/test",
 				TargetRef: &api.PolicyTargetReference{
 					Group: gvk.KubernetesGateway.Group,
 					Kind:  gvk.KubernetesGateway.Kind,
@@ -8906,7 +8983,7 @@ func TestValidateWasmPlugin(t *testing.T) {
 		{
 			"target-ref-wrong-group",
 			&extensions.WasmPlugin{
-				Url: "test.com/test",
+				Url: "http://test.com/test",
 				TargetRef: &api.PolicyTargetReference{
 					Group: "wrong-group",
 					Kind:  gvk.KubernetesGateway.Kind,
@@ -8919,7 +8996,7 @@ func TestValidateWasmPlugin(t *testing.T) {
 		{
 			"target-ref-wrong-kind",
 			&extensions.WasmPlugin{
-				Url: "test.com/test",
+				Url: "http://test.com/test",
 				TargetRef: &api.PolicyTargetReference{
 					Group: gvk.KubernetesGateway.Group,
 					Kind:  "wrong-kind",
@@ -8932,7 +9009,7 @@ func TestValidateWasmPlugin(t *testing.T) {
 		{
 			"target-ref-and-selector-cannot-both-be-set",
 			&extensions.WasmPlugin{
-				Url: "test.com/test",
+				Url: "http://test.com/test",
 				TargetRef: &api.PolicyTargetReference{
 					Group: gvk.KubernetesGateway.Group,
 					Kind:  gvk.KubernetesGateway.Kind,
