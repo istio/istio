@@ -627,11 +627,11 @@ func HandleDNSUDP(
 	}
 
 	if captureAllDNS {
-		// Redirect all TCP dns traffic on port 53 to the agent on port 15053
+		// Redirect all UDP dns traffic on port 53 to the agent on port 15053
 		// This will be useful for the CNI case where pod DNS server address cannot be decided.
 		f.Run("-p", "udp", "--dport", "53", "-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort)
 	} else {
-		// redirect all TCP dns traffic on port 53 to the agent on port 15053 for all servers
+		// redirect all UDP dns traffic on port 53 to the agent on port 15053 for all servers
 		// in etc/resolv.conf
 		// We avoid redirecting all IP ranges to avoid infinite loops when there are local DNS proxies
 		// such as: app -> istio dns server -> dnsmasq -> upstream
