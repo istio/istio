@@ -474,7 +474,6 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 
 	// filter out same service event
 	if event == model.EventUpdate && !serviceUpdateNeedsPush(prevConv, currConv) {
-		log.Infof("===skipped service update for %s/%s", currConv.ClusterVIPs, prevConv.ClusterVIPs)
 		return
 	}
 
