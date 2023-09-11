@@ -96,7 +96,7 @@ type WasmPluginWrapper struct {
 }
 
 func (p *WasmPluginWrapper) MatchListener(proxyLabels map[string]string, li WasmPluginListenerInfo) bool {
-	workloadMatch := (p.Selector == nil || labels.Instance(p.GetSelector().MatchLabels).SubsetOf(proxyLabels))
+	workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(proxyLabels))
 	return workloadMatch && matchTrafficSelectors(p.Match, li)
 }
 
