@@ -1689,14 +1689,14 @@ func (ps *PushContext) initSidecarScopes(env *Environment) {
 	for _, sidecarConfig := range rawSidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		// sidecars with selector take preference
-		if sidecar.WorkloadSelector != nil {
+		if sidecar.WorkloadSelector != nil && len(sidecar.WorkloadSelector.Labels) > 0 {
 			sidecarConfigs = append(sidecarConfigs, sidecarConfig)
 		}
 	}
 	for _, sidecarConfig := range rawSidecarConfigs {
 		sidecar := sidecarConfig.Spec.(*networking.Sidecar)
 		// sidecars without selector placed behind
-		if sidecar.WorkloadSelector == nil {
+		if sidecar.WorkloadSelector == nil || len(sidecar.WorkloadSelector.Labels) == 0 {
 			sidecarConfigs = append(sidecarConfigs, sidecarConfig)
 		}
 	}

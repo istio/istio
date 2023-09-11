@@ -1581,6 +1581,17 @@ func TestSidecarScope(t *testing.T) {
 		},
 		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
 	}
+	sidecarWithoutWorkloadSelectorWithEmptyLabel := &networking.Sidecar{
+		WorkloadSelector: &networking.WorkloadSelector{
+			Labels: nil,
+		},
+		Egress: []*networking.IstioEgressListener{
+			{
+				Hosts: []string{"default/*"},
+			},
+		},
+		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
+	}
 	sidecarWithoutWorkloadSelector := &networking.Sidecar{
 		Egress: []*networking.IstioEgressListener{
 			{
@@ -1589,22 +1600,34 @@ func TestSidecarScope(t *testing.T) {
 		},
 		OutboundTrafficPolicy: &networking.OutboundTrafficPolicy{},
 	}
+	configDefaultNamespace := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind:  gvk.Sidecar,
+			Name:              "foo-namespace",
+			Namespace:         "default",
+			CreationTimestamp: baseTimestamp,
+		},
+		Spec: sidecarWithoutWorkloadSelectorWithEmptyLabel,
+	}
 	configWithWorkloadSelector := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: gvk.Sidecar,
-			Name:             "foo",
-			Namespace:        "default",
+			GroupVersionKind:  gvk.Sidecar,
+			Name:              "foo",
+			Namespace:         "default",
+			CreationTimestamp: baseTimestamp.Add(time.Second),
 		},
 		Spec: sidecarWithWorkloadSelector,
 	}
 	rootConfig := config.Config{
 		Meta: config.Meta{
-			GroupVersionKind: gvk.Sidecar,
-			Name:             "global",
-			Namespace:        constants.IstioSystemNamespace,
+			GroupVersionKind:  gvk.Sidecar,
+			Name:              "global",
+			Namespace:         constants.IstioSystemNamespace,
+			CreationTimestamp: baseTimestamp.Add(time.Second * 2),
 		},
 		Spec: sidecarWithoutWorkloadSelector,
 	}
+	_, _ = configStore.Create(configDefaultNamespace)
 	_, _ = configStore.Create(configWithWorkloadSelector)
 	_, _ = configStore.Create(rootConfig)
 
@@ -1625,7 +1648,7 @@ func TestSidecarScope(t *testing.T) {
 		{
 			proxy:    &Proxy{Type: SidecarProxy, ConfigNamespace: "default"},
 			labels:   labels.Instance{"app": "bar"},
-			sidecar:  "default/global",
+			sidecar:  "default/foo-namespace",
 			describe: "no match local sidecar",
 		},
 		{
