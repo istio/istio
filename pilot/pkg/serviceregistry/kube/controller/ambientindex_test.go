@@ -840,16 +840,15 @@ func TestAddressInformation(t *testing.T) {
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.svcXdsName("svc1"))
 
-	addrs,_:=s.controller.AddressInformation(sets.New[string](s.svcXdsName("svc1"),s.podXdsName("pod2")))
+	addrs, _ := s.controller.AddressInformation(sets.New[string](s.svcXdsName("svc1"), s.podXdsName("pod2")))
 	got := sets.New[string]()
-	for _,addr:=range addrs{
-		if got.Contains(addr.ResourceName()){
-			t.Fatalf("got duplicate address %v",addr.ResourceName() )
+	for _, addr := range addrs {
+		if got.Contains(addr.ResourceName()) {
+			t.Fatalf("got duplicate address %v", addr.ResourceName())
 		}
 		got.Insert(addr.ResourceName())
 	}
 }
-
 
 func TestRBACConvert(t *testing.T) {
 	files := file.ReadDirOrFail(t, "testdata")

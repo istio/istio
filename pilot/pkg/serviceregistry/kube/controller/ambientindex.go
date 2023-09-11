@@ -752,8 +752,8 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]*model.Address
 		if len(wl) == 0 {
 			removed = append(removed, addr)
 		} else {
-			for _, addr:=range wl{
-				if got.Contains(addr.ResourceName()){
+			for _, addr := range wl {
+				if got.Contains(addr.ResourceName()) {
 					continue
 				}
 				got.Insert(addr.ResourceName())
