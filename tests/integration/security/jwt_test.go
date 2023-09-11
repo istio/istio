@@ -632,7 +632,7 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
 								WithAuthz(jwt.TokenIssuer3).
 								Build()
-							opts.Check = check.Status(http.StatusUnauthorized)
+							opts.Check = check.OK()
 						},
 					},
 					{

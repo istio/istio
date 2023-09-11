@@ -31,6 +31,8 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/config"
 	"istio.io/istio/pkg/test/framework/components/echo/config/param"
+	"istio.io/istio/pkg/test/framework/components/echo/echotest"
+	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/tests/common/jwt"
@@ -186,4 +188,21 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 					})
 			})
 		})
+}
+
+func newTrafficTest(t framework.TestContext, echos ...echo.Instances) *echotest.T {
+	var all []echo.Instance
+	for _, e := range echos {
+		all = append(all, e...)
+	}
+
+	return echotest.New(t, all).
+		WithDefaultFilters(1, 1).
+		FromMatch(match.And(
+			match.NotNaked,
+			match.NotProxylessGRPC)).
+		ToMatch(match.And(
+			match.NotNaked,
+			match.NotProxylessGRPC)).
+		ConditionallyTo(echotest.NoSelfCalls)
 }

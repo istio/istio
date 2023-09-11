@@ -6,7 +6,7 @@ spec:
   targetRef:
     kind: Gateway
     group: gateway.networking.k8s.io
-    name: {{ .To.ServiceName }}-gateway
+    name: waypoint
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
@@ -20,7 +20,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: {{ .To.ServiceName }}-gateway # This would be ignored (not a targetRef) but the feature flag isn't on, so it's applied
+      istio.io/gateway-name: waypoint # This should be ignored because it's not a targetRef
   jwtRules:
   - issuer: "test-issuer-3@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
@@ -32,28 +32,13 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: {{ .To.ServiceName }}-gateway # TODO: Replace this with a targetRef after https://github.com/istio/istio/pull/46560 merges
+      istio.io/gateway-name: waypoint # TODO: Replace this with a targetRef after https://github.com/istio/istio/pull/46560 merges
   rules:
-  - to:
-    - operation:
-        hosts:
-{{- range $svc := .Services }}
-        - "example.{{ $svc.ServiceName }}.com"
-{{- end }}
-    from:
+  - from:
     - source:
         requestPrincipals: ["test-issuer-1@istio.io/sub-1"]
     - source:
         requestPrincipals: ["test-issuer-3@istio.io/sub-1"]
-  - to:
-    - operation:
-        hosts:
-  {{- range $svc := .Services }}
-        - "any-request-principal-ok.{{ $svc.ServiceName }}.com"
-  {{- end }}
-    from:
-    - source:
-        requestPrincipals: ["*"]
   - to:
     - operation:
         paths: ["/healthz"]
