@@ -26,10 +26,12 @@ import (
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	istioroute "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -102,6 +104,13 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	if !node.IsAmbient() {
 		filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
 	}
+	wasm := push.WasmPluginsByListenerInfo(node, model.WasmPluginListenerInfo{
+		Port:  port.Port,
+		Class: class,
+	}, model.WasmPluginTypeNetwork)
+
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
 	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
 	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	return filters
@@ -155,7 +164,17 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	if !node.IsAmbient() {
 		filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
 	}
+	wasm := push.WasmPluginsByListenerInfo(node, model.WasmPluginListenerInfo{
+		Port:  port.Port,
+		Class: class,
+	}, model.WasmPluginTypeNetwork)
+
+	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)...)
+	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)...)
+	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)...)
 	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
+	filters = append(filters, extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)...)
+	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
 	return filters
 }

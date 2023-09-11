@@ -22,8 +22,11 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	rbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
-	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	httprbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
+	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	networkrbac "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
+	networkwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
+	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
 	"github.com/hashicorp/go-multierror"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -35,12 +38,23 @@ import (
 	"istio.io/istio/pkg/config/xds"
 )
 
-var allowTypedConfig = protoconv.MessageToAny(&rbac.RBAC{})
+var (
+	allowHTTPTypedConfig    = protoconv.MessageToAny(&httprbac.RBAC{})
+	allowNetworkTypedConfig = protoconv.MessageToAny(&networkrbac.RBAC{})
+)
 
-func createAllowAllFilter(name string) (*anypb.Any, error) {
+func createHTTPAllowAllFilter(name string) (*anypb.Any, error) {
 	ec := &core.TypedExtensionConfig{
 		Name:        name,
-		TypedConfig: allowTypedConfig,
+		TypedConfig: allowHTTPTypedConfig,
+	}
+	return anypb.New(ec)
+}
+
+func createNetworkAllowAllFilter(name string) (*anypb.Any, error) {
+	ec := &core.TypedExtensionConfig{
+		Name:        name,
+		TypedConfig: allowNetworkTypedConfig,
 	}
 	return anypb.New(ec)
 }
@@ -62,7 +76,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 	for i := 0; i < numResources; i++ {
 		go func(i int) {
 			defer wg.Done()
-			extConfig, wasmConfig, err := tryUnmarshal(resources[i])
+			extConfig, wasmHTTPConfig, wasmNetworkConfig, err := tryUnmarshal(resources[i])
 			if err != nil {
 				wasmConfigConversionCount.
 					With(resultTag.Value(unmarshalFailure)).
@@ -71,7 +85,7 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 				return
 			}
 
-			if extConfig == nil || wasmConfig == nil {
+			if extConfig == nil || (wasmHTTPConfig == nil && wasmNetworkConfig == nil) {
 				// If there is no config, it is not wasm config.
 				// Let's bypass the ECDS resource.
 				wasmConfigConversionCount.
@@ -79,24 +93,41 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 					Increment()
 				return
 			}
-
-			newExtensionConfig, err := convertWasmConfigFromRemoteToLocal(extConfig, wasmConfig, cache)
-			if err != nil {
-				if !wasmConfig.GetConfig().GetFailOpen() {
-					convertErrs[i] = err
-					return
-				}
-				// Use NOOP filter because the download failed.
-				newExtensionConfig, err = createAllowAllFilter(extConfig.GetName())
+			if wasmHTTPConfig != nil {
+				newExtensionConfig, err := convertHTTPWasmConfigFromRemoteToLocal(extConfig, wasmHTTPConfig, cache)
 				if err != nil {
-					// If the fallback is failing, send the Nack regardless of fail_open.
-					err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
-					convertErrs[i] = err
-					return
+					if !wasmHTTPConfig.GetConfig().GetFailOpen() {
+						convertErrs[i] = err
+						return
+					}
+					// Use NOOP filter because the download failed.
+					newExtensionConfig, err = createHTTPAllowAllFilter(extConfig.GetName())
+					if err != nil {
+						// If the fallback is failing, send the Nack regardless of fail_open.
+						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
+						convertErrs[i] = err
+						return
+					}
 				}
+				resources[i] = newExtensionConfig
+			} else {
+				newExtensionConfig, err := convertNetworkWasmConfigFromRemoteToLocal(extConfig, wasmNetworkConfig, cache)
+				if err != nil {
+					if !wasmNetworkConfig.GetConfig().GetFailOpen() {
+						convertErrs[i] = err
+						return
+					}
+					// Use NOOP filter because the download failed.
+					newExtensionConfig, err = createNetworkAllowAllFilter(extConfig.GetName())
+					if err != nil {
+						// If the fallback is failing, send the Nack regardless of fail_open.
+						err = fmt.Errorf("failed to create allow-all filter as a fallback of %s Wasm Module: %w", extConfig.GetName(), err)
+						convertErrs[i] = err
+						return
+					}
+				}
+				resources[i] = newExtensionConfig
 			}
-
-			resources[i] = newExtensionConfig
 		}(i)
 	}
 
@@ -111,58 +142,80 @@ func MaybeConvertWasmExtensionConfig(resources []*anypb.Any, cache Cache) error 
 // tryUnmarshal returns the typed extension config and wasm config by unmarsharling `resource`,
 // if `resource` is a wasm config loading a wasm module from the remote site.
 // It returns `nil` for both the typed extension config and wasm config if it is not for the remote wasm or has an error.
-func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *wasm.Wasm, error) {
+func tryUnmarshal(resource *anypb.Any) (*core.TypedExtensionConfig, *httpwasm.Wasm, *networkwasm.Wasm, error) {
 	ec := &core.TypedExtensionConfig{}
-	wasmHTTPFilterConfig := &wasm.Wasm{}
-
+	wasmHTTPFilterConfig := &httpwasm.Wasm{}
+	wasmNetworkFilterConfig := &networkwasm.Wasm{}
+	wasmNetwork := false
 	if err := resource.UnmarshalTo(ec); err != nil {
-		return nil, nil, fmt.Errorf("failed to unmarshal extension config resource: %w", err)
+		return nil, nil, nil, fmt.Errorf("failed to unmarshal extension config resource: %w", err)
 	}
 
 	// Wasm filter can be configured using typed struct and Wasm filter type
 	switch {
 	case ec.GetTypedConfig() == nil:
-		return nil, nil, fmt.Errorf("typed extension config %+v does not contain any typed config", ec)
-		// TODO: Currently only WASM HTTP filter is supported. Extend it to Network filter when ECDS is supported for network filters.
+		return nil, nil, nil, fmt.Errorf("typed extension config %+v does not contain any typed config", ec)
 	case ec.GetTypedConfig().TypeUrl == xds.WasmHTTPFilterType:
 		if err := ec.GetTypedConfig().UnmarshalTo(wasmHTTPFilterConfig); err != nil {
-			return nil, nil, fmt.Errorf("failed to unmarshal extension config resource into Wasm HTTP filter: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to unmarshal extension config resource into Wasm HTTP filter: %w", err)
+		}
+	case ec.GetTypedConfig().TypeUrl == xds.WasmNetworkFilterType:
+		wasmNetwork = true
+		if err := ec.GetTypedConfig().UnmarshalTo(wasmNetworkFilterConfig); err != nil {
+			return nil, nil, nil, fmt.Errorf("failed to unmarshal extension config resource into Wasm Network filter: %w", err)
 		}
 	case ec.GetTypedConfig().TypeUrl == xds.TypedStructType:
 		typedStruct := &udpa.TypedStruct{}
 		wasmTypedConfig := ec.GetTypedConfig()
 		if err := wasmTypedConfig.UnmarshalTo(typedStruct); err != nil {
-			return nil, nil, fmt.Errorf("failed to unmarshal typed config for wasm filter: %w", err)
+			return nil, nil, nil, fmt.Errorf("failed to unmarshal typed config for wasm filter: %w", err)
 		}
 
 		if typedStruct.TypeUrl == xds.WasmHTTPFilterType {
 			if err := conversion.StructToMessage(typedStruct.Value, wasmHTTPFilterConfig); err != nil {
-				return nil, nil, fmt.Errorf("failed to convert extension config struct %+v to Wasm HTTP filter", typedStruct)
+				return nil, nil, nil, fmt.Errorf("failed to convert extension config struct %+v to Wasm Network filter", typedStruct)
+			}
+		} else if typedStruct.TypeUrl == xds.WasmNetworkFilterType {
+			wasmNetwork = true
+			if err := conversion.StructToMessage(typedStruct.Value, wasmNetworkFilterConfig); err != nil {
+				return nil, nil, nil, fmt.Errorf("failed to convert extension config struct %+v to Wasm HTTP filter", typedStruct)
 			}
 		} else {
 			// This is not a Wasm filter.
 			wasmLog.Debugf("typed extension config %+v does not contain wasm http filter", typedStruct)
-			return nil, nil, nil
+			return nil, nil, nil, nil
 		}
 	default:
 		// This is not a Wasm filter.
 		wasmLog.Debugf("cannot find typed config or typed struct in %+v", ec)
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
+	// At this point, we should have wasmNetworkFilterConfig or wasmHTTPFilterConfig should be unmarshalled.
+	if wasmNetwork {
+		if wasmNetworkFilterConfig.Config.GetVmConfig().GetCode().GetRemote() == nil {
+			if wasmNetworkFilterConfig.Config.GetVmConfig().GetCode().GetLocal() == nil {
+				return nil, nil, nil, fmt.Errorf("no remote and local load found in Wasm Network filter %+v", wasmNetworkFilterConfig)
+			}
+			// This has a local Wasm. Let's bypass it.
+			wasmLog.Debugf("no remote load found in Wasm Network filter %+v", wasmNetworkFilterConfig)
+			return nil, nil, nil, nil
+		}
+		return ec, nil, wasmNetworkFilterConfig, nil
+	}
 	if wasmHTTPFilterConfig.Config.GetVmConfig().GetCode().GetRemote() == nil {
 		if wasmHTTPFilterConfig.Config.GetVmConfig().GetCode().GetLocal() == nil {
-			return nil, nil, fmt.Errorf("no remote and local load found in Wasm HTTP filter %+v", wasmHTTPFilterConfig)
+			return nil, nil, nil, fmt.Errorf("no remote and local load found in Wasm HTTP filter %+v", wasmHTTPFilterConfig)
 		}
 		// This has a local Wasm. Let's bypass it.
 		wasmLog.Debugf("no remote load found in Wasm HTTP filter %+v", wasmHTTPFilterConfig)
-		return nil, nil, nil
+		return nil, nil, nil, nil
 	}
 
-	return ec, wasmHTTPFilterConfig, nil
+	return ec, wasmHTTPFilterConfig, nil, nil
 }
 
-func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPFilterConfig *wasm.Wasm, cache Cache) (*anypb.Any, error) {
+func convertHTTPWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPFilterConfig *httpwasm.Wasm, cache Cache) (*anypb.Any, error) {
 	status := conversionSuccess
 	defer func() {
 		wasmConfigConversionCount.
@@ -170,7 +223,66 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 			Increment()
 	}()
 
-	vm := wasmHTTPFilterConfig.Config.GetVmConfig()
+	// ec.Name is resourceName.
+	// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1alpha3/extension/wasmplugin.go#L103
+	err := rewriteVMConfig(ec.Name, wasmHTTPFilterConfig.Config.GetVmConfig(), &status, cache, wasmHTTPFilterConfig.Config.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	wasmTypedConfig, err := anypb.New(wasmHTTPFilterConfig)
+	if err != nil {
+		status = marshalFailure
+		return nil, fmt.Errorf("failed to marshal new wasm HTTP filter %+v to protobuf Any: %w", wasmHTTPFilterConfig, err)
+	}
+	ec.TypedConfig = wasmTypedConfig
+	wasmLog.Debugf("new extension config resource %+v", ec)
+
+	nec, err := anypb.New(ec)
+	if err != nil {
+		status = marshalFailure
+		return nil, fmt.Errorf("failed to marshal new extension config resource: %w", err)
+	}
+
+	// At this point, we are certain that wasm module has been downloaded and config is rewritten.
+	// ECDS will be rewritten successfully.
+	return nec, nil
+}
+
+func convertNetworkWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmNetworkFilterConfig *networkwasm.Wasm, cache Cache) (*anypb.Any, error) {
+	status := conversionSuccess
+	defer func() {
+		wasmConfigConversionCount.
+			With(resultTag.Value(status)).
+			Increment()
+	}()
+
+	// ec.Name is resourceName.
+	// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1alpha3/extension/wasmplugin.go#L103
+	err := rewriteVMConfig(ec.Name, wasmNetworkFilterConfig.Config.GetVmConfig(), &status, cache, wasmNetworkFilterConfig.Config.Name)
+	if err != nil {
+		return nil, err
+	}
+	wasmTypedConfig, err := anypb.New(wasmNetworkFilterConfig)
+	if err != nil {
+		status = marshalFailure
+		return nil, fmt.Errorf("failed to marshal new wasm Network filter %+v to protobuf Any: %w", wasmNetworkFilterConfig, err)
+	}
+	ec.TypedConfig = wasmTypedConfig
+	wasmLog.Debugf("new extension config resource %+v", ec)
+
+	nec, err := anypb.New(ec)
+	if err != nil {
+		status = marshalFailure
+		return nil, fmt.Errorf("failed to marshal new extension config resource: %w", err)
+	}
+
+	// At this point, we are certain that wasm module has been downloaded and config is rewritten.
+	// ECDS will be rewritten successfully.
+	return nec, nil
+}
+
+func rewriteVMConfig(resourceName string, vm *wasmextensions.VmConfig, status *string, cache Cache, configName string) error {
 	envs := vm.GetEnvironmentVariables()
 	var pullSecret []byte
 	pullPolicy := extensions.PullPolicy_UNSPECIFIED_POLICY
@@ -178,8 +290,8 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 	if envs != nil {
 		if sec, found := envs.KeyValues[model.WasmSecretEnv]; found {
 			if sec == "" {
-				status = fetchFailure
-				return nil, fmt.Errorf("cannot fetch Wasm module %v: missing image pulling secret", wasmHTTPFilterConfig.Config.Name)
+				*status = fetchFailure
+				return fmt.Errorf("cannot fetch Wasm module %v: missing image pulling secret", configName)
 			}
 			pullSecret = []byte(sec)
 		}
@@ -210,8 +322,8 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 	remote := vm.GetCode().GetRemote()
 	httpURI := remote.GetHttpUri()
 	if httpURI == nil {
-		status = missRemoteFetchHint
-		return nil, fmt.Errorf("wasm remote fetch %+v does not have httpUri specified", remote)
+		*status = missRemoteFetchHint
+		return fmt.Errorf("wasm remote fetch %+v does not have httpUri specified for config %s", remote, configName)
 	}
 	// checksum sent by istiod can be "nil" if not set by user - magic value used to avoid unmarshaling errors
 	if remote.Sha256 == "nil" {
@@ -223,19 +335,17 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
 	}
-	// ec.Name is resourceName.
-	// https://github.com/istio/istio/blob/9ea7ad532a9cc58a3564143d41ac89a61aaa8058/pilot/pkg/networking/core/v1alpha3/extension/wasmplugin.go#L103
 	f, err := cache.Get(httpURI.GetUri(), GetOptions{
 		Checksum:        remote.Sha256,
-		ResourceName:    ec.Name,
+		ResourceName:    resourceName,
 		ResourceVersion: resourceVersion,
 		RequestTimeout:  timeout,
 		PullSecret:      pullSecret,
 		PullPolicy:      pullPolicy,
 	})
 	if err != nil {
-		status = fetchFailure
-		return nil, fmt.Errorf("cannot fetch Wasm module %v: %w", remote.GetHttpUri().GetUri(), err)
+		*status = fetchFailure
+		return fmt.Errorf("cannot fetch Wasm module %v: %w", remote.GetHttpUri().GetUri(), err)
 	}
 
 	// Rewrite remote fetch to local file.
@@ -248,22 +358,5 @@ func convertWasmConfigFromRemoteToLocal(ec *core.TypedExtensionConfig, wasmHTTPF
 			},
 		},
 	}
-
-	wasmTypedConfig, err := anypb.New(wasmHTTPFilterConfig)
-	if err != nil {
-		status = marshalFailure
-		return nil, fmt.Errorf("failed to marshal new wasm HTTP filter %+v to protobuf Any: %w", wasmHTTPFilterConfig, err)
-	}
-	ec.TypedConfig = wasmTypedConfig
-	wasmLog.Debugf("new extension config resource %+v", ec)
-
-	nec, err := anypb.New(ec)
-	if err != nil {
-		status = marshalFailure
-		return nil, fmt.Errorf("failed to marshal new extension config resource: %w", err)
-	}
-
-	// At this point, we are certain that wasm module has been downloaded and config is rewritten.
-	// ECDS will be rewritten successfully.
-	return nec, nil
+	return nil
 }

@@ -20,9 +20,11 @@ import (
 )
 
 const (
-	WasmHTTPFilterType = resource.APITypePrefix + wellknown.HTTPWasm
-	RBACHTTPFilterType = resource.APITypePrefix + "envoy.extensions.filters.http.rbac.v3.RBAC"
-	TypedStructType    = resource.APITypePrefix + "udpa.type.v1.TypedStruct"
+	WasmHTTPFilterType    = resource.APITypePrefix + wellknown.HTTPWasm
+	WasmNetworkFilterType = resource.APITypePrefix + "envoy.extensions.filters.network.wasm.v3.Wasm"
+	RBACHTTPFilterType    = resource.APITypePrefix + "envoy.extensions.filters.http.rbac.v3.RBAC"
+	RBACNetworkFilterType = resource.APITypePrefix + "envoy.extensions.filters.network.rbac.v3.RBAC"
+	TypedStructType       = resource.APITypePrefix + "udpa.type.v1.TypedStruct"
 
 	StatsFilterName       = "istio.stats"
 	StackdriverFilterName = "istio.stackdriver"
