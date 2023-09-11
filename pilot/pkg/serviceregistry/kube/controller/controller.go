@@ -432,11 +432,6 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	c.servicesMap[currConv.Hostname] = currConv
 	c.Unlock()
 
-	// filter out same service event
-	if event == model.EventUpdate && !serviceUpdateNeedsPush(prevConv, currConv) {
-		return
-	}
-
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -475,6 +470,12 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 		if len(endpoints) > 0 {
 			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(currConv.Hostname), ns, endpoints)
 		}
+	}
+
+	// filter out same service event
+	if event == model.EventUpdate && !serviceUpdateNeedsPush(prevConv, currConv) {
+		log.Infof("===skipped service update for %s/%s", currConv.ClusterVIPs, prevConv.ClusterVIPs)
+		return
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)

@@ -183,7 +183,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object
 
 		// The service already existed. Treat it as an update.
 		event = model.EventUpdate
-
+		mcsService = mcsService.DeepCopy()
 		if ic.updateIPs(mcsService, ips) {
 			needsFullPush = true
 		}
@@ -193,6 +193,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object
 	// a change to the discoverability policy.
 	ic.addOrUpdateService(nil, mcsService, event, true)
 
+	// TODO: do we really need a full push, we should do it in `addOrUpdateService`.
 	if needsFullPush {
 		ic.doFullPush(mcsHost, si.GetNamespace())
 	}
