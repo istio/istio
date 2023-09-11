@@ -53,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
@@ -1936,6 +1937,24 @@ func ValidateControlPlaneAuthPolicy(policy meshconfig.AuthenticationPolicy) erro
 	return fmt.Errorf("unrecognized control plane auth policy %q", policy)
 }
 
+func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
+	if targetRef == nil {
+		return
+	}
+	if targetRef.Name == "" {
+		v = appendErrorf(v, "targetRef name must be set")
+	}
+	if targetRef.Namespace != "" {
+		v = appendErrorf(v, "targetRef namespace must not be set")
+	}
+	// Currently, gateway.networking.k8s.io is the only valid Group and gateway.networking.k8s.io/Gateway the only valid Kind.
+	if targetRef.Group != gvk.KubernetesGateway.Group || targetRef.Kind != gvk.KubernetesGateway.Kind {
+		v = appendErrorf(v, "targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+			gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, targetRef.Group, targetRef.Kind)
+	}
+	return
+}
+
 func validateWorkloadSelector(selector *type_beta.WorkloadSelector) Validation {
 	validation := Validation{}
 	if selector != nil {
@@ -1958,6 +1977,13 @@ func validateWorkloadSelector(selector *type_beta.WorkloadSelector) Validation {
 	return validation
 }
 
+func validateOneOfSelectorType(selector *type_beta.WorkloadSelector, targetRef *type_beta.PolicyTargetReference) (v Validation) {
+	if selector != nil && targetRef != nil {
+		v = appendErrorf(v, "only one of targetRef or workloadSelector can be set")
+	}
+	return
+}
+
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPolicy",
 	func(cfg config.Config) (Warning, error) {
@@ -1968,9 +1994,11 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 
 		var errs error
 		var warnings Warning
-		validation := validateWorkloadSelector(in.Selector)
-		errs = appendErrors(errs, validation)
-		warnings = appendErrors(warnings, validation.Warning)
+		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef())
+		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
+		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef())
+		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation)
+		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
 
 		if in.Action == security_beta.AuthorizationPolicy_CUSTOM {
 			if in.Rules == nil {
@@ -2139,8 +2167,11 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 		}
 
 		errs := Validation{}
-		validation := validateWorkloadSelector(in.Selector)
-		errs = appendValidation(errs, validation)
+		errs = appendValidation(errs,
+			validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef()),
+			validateWorkloadSelector(in.GetSelector()),
+			validatePolicyTargetReference(in.GetTargetRef()),
+		)
 
 		for _, rule := range in.JwtRules {
 			errs = appendValidation(errs, validateJwtRule(rule))
@@ -3828,7 +3859,9 @@ var ValidateTelemetry = registerValidateFunc("ValidateTelemetry",
 		errs := Validation{}
 
 		errs = appendValidation(errs,
-			validateWorkloadSelector(spec.Selector),
+			validateOneOfSelectorType(spec.GetSelector(), spec.GetTargetRef()),
+			validateWorkloadSelector(spec.GetSelector()),
+			validatePolicyTargetReference(spec.GetTargetRef()),
 			validateTelemetryMetrics(spec.Metrics),
 			validateTelemetryTracing(spec.Tracing),
 			validateTelemetryAccessLogging(spec.AccessLogging),
@@ -3950,10 +3983,12 @@ var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to wasmplugin")
 		}
-
+		// figure out how to add check for targetRef and workload selector is not nil
 		errs := Validation{}
 		errs = appendValidation(errs,
-			validateWorkloadSelector(spec.Selector),
+			validateOneOfSelectorType(spec.GetSelector(), spec.GetTargetRef()),
+			validateWorkloadSelector(spec.GetSelector()),
+			validatePolicyTargetReference(spec.GetTargetRef()),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
 			validateWasmPluginVMConfig(spec.VmConfig),

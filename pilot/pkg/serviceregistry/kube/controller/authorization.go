@@ -320,7 +320,7 @@ func (c *Controller) selectorAuthorizationPolicies(ns string, lbls map[string]st
 	local := c.configController.List(gvk.AuthorizationPolicy, ns)
 	res := sets.New[string]()
 	matches := func(c config.Config) bool {
-		sel := c.Spec.(*v1beta1.AuthorizationPolicy).Selector
+		sel := c.Spec.(*v1beta1.AuthorizationPolicy).GetSelector()
 		if sel == nil {
 			return false
 		}
@@ -508,7 +508,7 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 			return nil
 		}
 		pol := c.Spec.(*v1beta1.AuthorizationPolicy)
-		return pol.Selector.GetMatchLabels()
+		return pol.GetSelector().GetMatchLabels()
 	}
 	// Normal flow for AuthorizationPolicy will trigger XDS push, so we don't need to push those. But we do need
 	// to update any relevant workloads and push them.
@@ -733,7 +733,7 @@ func convertAuthorizationPolicy(rootns string, obj config.Config) *security.Auth
 	pol := obj.Spec.(*v1beta1.AuthorizationPolicy)
 
 	scope := security.Scope_WORKLOAD_SELECTOR
-	if pol.Selector == nil {
+	if pol.GetSelector() == nil {
 		scope = security.Scope_NAMESPACE
 		// TODO: TDA
 		if rootns == obj.Namespace {
