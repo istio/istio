@@ -830,6 +830,153 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 		{
+			"prometheus overrides all metrics",
+			[]config.Config{newTelemetry("istio-system", &tpb.Telemetry{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						Overrides: []*tpb.MetricsOverrides{
+							{
+								TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+									"remove": {
+										Operation: tpb.MetricsOverrides_TagOverride_REMOVE,
+									},
+									"add": {
+										Operation: tpb.MetricsOverrides_TagOverride_UPSERT,
+										Value:     "bar",
+									},
+								},
+							},
+						},
+					},
+				},
+			})},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stats": `{"metrics":[` +
+					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`]}`,
+			},
+		},
+		{
+			"prometheus overrides all metrics first",
+			[]config.Config{newTelemetry("istio-system", &tpb.Telemetry{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						Overrides: []*tpb.MetricsOverrides{
+							{
+								TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+									"remove": {
+										Operation: tpb.MetricsOverrides_TagOverride_REMOVE,
+									},
+									"add": {
+										Operation: tpb.MetricsOverrides_TagOverride_UPSERT,
+										Value:     "bar",
+									},
+								},
+							},
+							{
+								Match: &tpb.MetricSelector{
+									MetricMatch: &tpb.MetricSelector_Metric{
+										Metric: tpb.MetricSelector_REQUEST_COUNT,
+									},
+								},
+								TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+									"add": {
+										Value: "add-override",
+									},
+								},
+							},
+						},
+					},
+				},
+			})},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stats": `{"metrics":[` +
+					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"add-override"},"name":"requests_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`]}`,
+			},
+		},
+		{
+			"prometheus overrides all metrics secondary",
+			[]config.Config{newTelemetry("istio-system", &tpb.Telemetry{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						Overrides: []*tpb.MetricsOverrides{
+							{
+								Match: &tpb.MetricSelector{
+									MetricMatch: &tpb.MetricSelector_Metric{
+										Metric: tpb.MetricSelector_REQUEST_COUNT,
+									},
+								},
+								TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+									"add": {
+										Value: "add-override",
+									},
+								},
+							},
+							{
+								TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+									"remove": {
+										Operation: tpb.MetricsOverrides_TagOverride_REMOVE,
+									},
+									"add": {
+										Operation: tpb.MetricsOverrides_TagOverride_UPSERT,
+										Value:     "bar",
+									},
+								},
+							},
+						},
+					},
+				},
+			})},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stats": `{"metrics":[` +
+					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`]}`,
+			},
+		},
+		{
 			"prometheus overrides TCP",
 			[]config.Config{newTelemetry("istio-system", overridesPrometheus)},
 			sidecar,
