@@ -255,6 +255,18 @@ func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, in
 	}
 	src.SetDefaultNamespace(sa.namespace)
 
+	src.SetNamespacesFilter(func(obj interface{}) bool {
+		cfg, ok := obj.(config.Config)
+		if !ok {
+			return false
+		}
+		meta := cfg.GetNamespace()
+		if cfg.Meta.GroupVersionKind.Kind == gvk.Namespace.Kind {
+			meta = cfg.GetName()
+		}
+		return !inject.IgnoredNamespaces.Contains(meta)
+	})
+
 	var errs error
 
 	// If we encounter any errors reading or applying files, track them but attempt to continue

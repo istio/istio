@@ -168,6 +168,11 @@ func (s *KubeSource) SetDefaultNamespace(defaultNs resource.Namespace) {
 	s.defaultNs = defaultNs
 }
 
+// SetNamespacesFilter enables filtering the namespaces this controller watches.
+func (s *KubeSource) SetNamespacesFilter(namespacesFilter func(obj interface{}) bool) {
+	s.namespacesFilter = namespacesFilter
+}
+
 // Clear the contents of this source
 func (s *KubeSource) Clear() {
 	s.versionCtr = 0

@@ -3,6 +3,22 @@
 apiVersion: v1
 kind: Service
 metadata:
+  name: my-service1
+  namespace: kube-system  # Skipped because it's in a kube system namespace
+spec:
+  selector:
+    app: my-service1
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+    - protocol: TCP
+      port: 8081
+      targetPort: 8081
+---
+apiVersion: v1
+kind: Service
+metadata:
   name: my-service2 # Skipped because it has an istio: label
   namespace: istio-system
   labels:
@@ -12,6 +28,20 @@ spec:
     app: my-service2
   ports:
     - name: foo
+      protocol: TCP
+      port: 8080
+      targetPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-service3 # Skipped because it's in a kube system namespace
+  namespace: kube-public
+spec:
+  selector:
+    app: my-service3
+  ports:
+    - name: bar
       protocol: TCP
       port: 8080
       targetPort: 8080
