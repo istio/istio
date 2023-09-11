@@ -47,7 +47,6 @@ import (
 )
 
 type caOptions struct {
-	// Either extCAK8s or extCAGrpc
 	ExternalCAType   ra.CaExternalType
 	ExternalCASigner string
 	// domain to use in SPIFFE identity URLs
@@ -133,8 +132,7 @@ var (
 
 	// TODO: Likely to be removed and added to mesh config
 	externalCaType = env.Register("EXTERNAL_CA", "",
-		"External CA Integration Type. Permitted Values are ISTIOD_RA_KUBERNETES_API or "+
-			"ISTIOD_RA_ISTIO_API").Get()
+		"External CA Integration Type. Permitted value is ISTIOD_RA_KUBERNETES_API.").Get()
 
 	// TODO: Likely to be removed and added to mesh config
 	k8sSigner = env.Register("K8S_SIGNER", "",
