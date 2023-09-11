@@ -8679,7 +8679,7 @@ func TestValidateTelemetry(t *testing.T) {
 					},
 				},
 			},
-			"targetRef and selector cannot both be set", "",
+			"only one of targetRef or workloadSelector can be set", "",
 		},
 	}
 	for _, tt := range tests {
@@ -8944,7 +8944,7 @@ func TestValidateWasmPlugin(t *testing.T) {
 					},
 				},
 			},
-			"targetRef and selector cannot both be set", "",
+			"only one of targetRef or workloadSelector can be set", "",
 		},
 	}
 	for _, tt := range tests {

@@ -1937,12 +1937,9 @@ func ValidateControlPlaneAuthPolicy(policy meshconfig.AuthenticationPolicy) erro
 	return fmt.Errorf("unrecognized control plane auth policy %q", policy)
 }
 
-func validatePolicyTargetReference(selector *type_beta.WorkloadSelector, targetRef *type_beta.PolicyTargetReference) (v Validation) {
+func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
 	if targetRef == nil {
 		return
-	}
-	if selector != nil && targetRef != nil {
-		v = appendErrorf(v, "targetRef and selector cannot both be set")
 	}
 	if targetRef.Name == "" {
 		v = appendErrorf(v, "targetRef name must be set")
@@ -1980,6 +1977,13 @@ func validateWorkloadSelector(selector *type_beta.WorkloadSelector) Validation {
 	return validation
 }
 
+func validateOneOfSelectorType(selector *type_beta.WorkloadSelector, targetRef *type_beta.PolicyTargetReference) (v Validation) {
+	if selector != nil && targetRef != nil {
+		v = appendErrorf(v, "only one of targetRef or workloadSelector can be set")
+	}
+	return
+}
+
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPolicy",
 	func(cfg config.Config) (Warning, error) {
@@ -1990,9 +1994,10 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 
 		var errs error
 		var warnings Warning
+		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef())
 		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
-		targetRefValidation := validatePolicyTargetReference(in.GetSelector(), in.GetTargetRef())
-		errs = appendErrors(errs, workloadSelectorValidation, targetRefValidation)
+		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef())
+		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation)
 		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
 
 		if in.Action == security_beta.AuthorizationPolicy_CUSTOM {
@@ -2163,8 +2168,9 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 
 		errs := Validation{}
 		errs = appendValidation(errs,
+			validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef()),
 			validateWorkloadSelector(in.GetSelector()),
-			validatePolicyTargetReference(in.GetSelector(), in.GetTargetRef()),
+			validatePolicyTargetReference(in.GetTargetRef()),
 		)
 
 		for _, rule := range in.JwtRules {
@@ -3853,8 +3859,9 @@ var ValidateTelemetry = registerValidateFunc("ValidateTelemetry",
 		errs := Validation{}
 
 		errs = appendValidation(errs,
+			validateOneOfSelectorType(spec.GetSelector(), spec.GetTargetRef()),
 			validateWorkloadSelector(spec.GetSelector()),
-			validatePolicyTargetReference(spec.GetSelector(), spec.GetTargetRef()),
+			validatePolicyTargetReference(spec.GetTargetRef()),
 			validateTelemetryMetrics(spec.Metrics),
 			validateTelemetryTracing(spec.Tracing),
 			validateTelemetryAccessLogging(spec.AccessLogging),
@@ -3979,8 +3986,9 @@ var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
 		// figure out how to add check for targetRef and workload selector is not nil
 		errs := Validation{}
 		errs = appendValidation(errs,
+			validateOneOfSelectorType(spec.GetSelector(), spec.GetTargetRef()),
 			validateWorkloadSelector(spec.GetSelector()),
-			validatePolicyTargetReference(spec.GetSelector(), spec.GetTargetRef()),
+			validatePolicyTargetReference(spec.GetTargetRef()),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
 			validateWasmPluginVMConfig(spec.VmConfig),
