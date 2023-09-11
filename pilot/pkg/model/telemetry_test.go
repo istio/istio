@@ -855,6 +855,7 @@ func TestTelemetryFilters(t *testing.T) {
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
 			nil,
+			// TODO: the following should be simple to `{"metrics":[{"dimensions":{"add":"bar"},"tags_to_remove":["remove"]}]}`
 			map[string]string{
 				"istio.stats": `{"metrics":[` +
 					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
