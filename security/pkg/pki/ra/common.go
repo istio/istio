@@ -64,9 +64,6 @@ const (
 	// ExtCAK8s : Integrate with external CA using k8s CSR API
 	ExtCAK8s CaExternalType = "ISTIOD_RA_KUBERNETES_API"
 
-	// ExtCAGrpc : Integration with external CA using Istio CA gRPC API
-	ExtCAGrpc CaExternalType = "ISTIOD_RA_ISTIO_API"
-
 	// DefaultExtCACertDir : Location of external CA certificate
 	DefaultExtCACertDir string = "./etc/external-ca-cert"
 )
