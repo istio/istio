@@ -24,7 +24,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/anypb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -46,6 +45,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // inboundChainConfig defines the configuration for a single inbound filter chain. This may be created
@@ -609,7 +609,7 @@ func buildTLSInspector(inspectors map[int]enabledInspector) *listener.ListenerFi
 		// Ensure consistent ordering as we are looping over a map
 		sort.Ints(ports)
 		filter := &listener.ListenerFilter{
-			Name:           wellknown.TlsInspector,
+			Name:           wellknown.TLSInspector,
 			ConfigType:     xdsfilters.TLSInspector.ConfigType,
 			FilterDisabled: listenerPredicateExcludePorts(ports),
 		}
@@ -632,7 +632,7 @@ func buildTLSInspector(inspectors map[int]enabledInspector) *listener.ListenerFi
 	// Ensure consistent ordering as we are looping over a map
 	sort.Ints(ports)
 	filter := &listener.ListenerFilter{
-		Name:       wellknown.TlsInspector,
+		Name:       wellknown.TLSInspector,
 		ConfigType: xdsfilters.TLSInspector.ConfigType,
 		// Exclude all disabled ports
 		FilterDisabled: listenerPredicateIncludePorts(ports),
@@ -657,7 +657,7 @@ func buildHTTPInspector(inspectors map[int]enabledInspector) *listener.ListenerF
 	// Ensure consistent ordering as we are looping over a map
 	sort.Ints(ports)
 	filter := &listener.ListenerFilter{
-		Name:       wellknown.HttpInspector,
+		Name:       wellknown.HTTPInspector,
 		ConfigType: xdsfilters.HTTPInspector.ConfigType,
 		// Exclude all disabled ports
 		FilterDisabled: listenerPredicateExcludePorts(ports),

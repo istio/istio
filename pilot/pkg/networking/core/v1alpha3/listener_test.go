@@ -28,7 +28,6 @@ import (
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -52,6 +51,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -1725,8 +1725,8 @@ func verifyListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
 	if len(lfilters) != 2 {
 		t.Fatalf("expected %d listener filter, found %d", 2, len(lfilters))
 	}
-	if lfilters[0].Name != wellknown.TlsInspector ||
-		lfilters[1].Name != wellknown.HttpInspector {
+	if lfilters[0].Name != wellknown.TLSInspector ||
+		lfilters[1].Name != wellknown.HTTPInspector {
 		t.Fatalf("expected listener filters not found, got %v", lfilters)
 	}
 }
