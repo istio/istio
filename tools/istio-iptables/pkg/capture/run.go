@@ -689,7 +689,7 @@ func addConntrackZoneDNSUDP(
 			f.RunV4("-p", "udp", "--dport", "53", "-d", s+"/32",
 				"-j", constants.CT, "--zone", "2")
 			// Mark all UDP dns traffic with src port 53 as zone 1. These are response packets from the DNS resolvers.
-			f.WithChain(constants.PREROUTING).RunV4("-p", "udp", "--sport", "53", "-d", s+"/32",
+			f.WithChain(constants.PREROUTING).RunV4("-p", "udp", "--sport", "53", "-s", s+"/32",
 				"-j", constants.CT, "--zone", "1")
 		}
 		for _, s := range dnsServersV6 {
@@ -697,7 +697,7 @@ func addConntrackZoneDNSUDP(
 			f.RunV6("-p", "udp", "--dport", "53", "-d", s+"/128",
 				"-j", constants.CT, "--zone", "2")
 			// Mark all UDP dns traffic with src port 53 as zone 1. These are response packets from the DNS resolvers.
-			f.WithChain(constants.PREROUTING).RunV6("-p", "udp", "--sport", "53", "-d", s+"/128",
+			f.WithChain(constants.PREROUTING).RunV6("-p", "udp", "--sport", "53", "-s", s+"/128",
 				"-j", constants.CT, "--zone", "1")
 		}
 	}
