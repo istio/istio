@@ -239,7 +239,12 @@ func (mc *meshConfig) MeshConfig() (*meshconfig.MeshConfig, error) {
 	if mymc == nil {
 		c := mc.ctx.AllClusters().Configs()[0]
 
-		cfgMap, err := mc.getConfigMap(c, mc.configMapName())
+		cfgMapName, err := mc.configMapName()
+		if err != nil {
+			return nil, err
+		}
+
+		cfgMap, err := mc.getConfigMap(c, cfgMapName)
 		if err != nil {
 			return nil, err
 		}
@@ -287,7 +292,12 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 	for _, c := range mc.ctx.AllClusters().Kube() {
 		c := c
 		errG.Go(func() error {
-			cfgMap, err := mc.getConfigMap(c, mc.configMapName())
+			cfgMapName, err := mc.configMapName()
+			if err != nil {
+				return err
+			}
+
+			cfgMap, err := mc.getConfigMap(c, cfgMapName)
 			if err != nil {
 				return err
 			}
@@ -343,7 +353,11 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 			cn, mcYAML := cn, mcYAML
 			c := mc.ctx.AllClusters().GetByName(cn)
 			errG.Go(func() error {
-				cfgMap, err := mc.getConfigMap(c, mc.configMapName())
+				cfgMapName, err := mc.configMapName()
+				if err != nil {
+					return err
+				}
+				cfgMap, err := mc.getConfigMap(c, cfgMapName)
 				if err != nil {
 					return err
 				}
@@ -382,12 +396,22 @@ func (mc *meshConfig) PatchMeshConfigOrFail(ctx resource.Context, t test.Failer,
 	}
 }
 
-func (mc *meshConfig) configMapName() string {
+func (mc *meshConfig) configMapName() (string, error) {
+	i, err := Get(mc.ctx)
+	if err != nil {
+		return "", err
+	}
+
+	sharedCfgMapName := i.Settings().SharedMeshConfigName
+	if sharedCfgMapName != "" {
+		return sharedCfgMapName, nil
+	}
+
 	cmName := "istio"
 	if rev := mc.revisions.Default(); rev != "default" && rev != "" {
 		cmName += "-" + rev
 	}
-	return cmName
+	return cmName, nil
 }
 
 func (cm *configMap) getConfigMap(c cluster.Cluster, name string) (*corev1.ConfigMap, error) {

@@ -53,4 +53,20 @@ func init() {
 		settingsFromCommandline.IngressGatewayIstioLabel,
 		`Specifies the istio label of the ingressgateway to search for when running tests in a preinstalled istio installation.
 		Should only be set when istio.test.kube.deploy=false`)
+	flag.StringVar(&settingsFromCommandline.EgressGatewayServiceName, "istio.test.kube.egressGatewayServiceName",
+		settingsFromCommandline.EgressGatewayServiceName,
+		`Specifies the name of the egressgateway service to use when running tests in a preinstalled istio installation.
+		Should only be set when istio.test.kube.deploy=false`)
+	flag.StringVar(&settingsFromCommandline.EgressGatewayServiceNamespace, "istio.test.kube.egressGatewayServiceNamespace",
+		settingsFromCommandline.IngressGatewayServiceNamespace,
+		`Specifies the namespace of the egressgateway service to use when running tests in a preinstalled istio installation.
+		Should only be set when istio.test.kube.deploy=false`)
+	flag.StringVar(&settingsFromCommandline.EgressGatewayIstioLabel, "istio.test.kube.egressGatewayIstioLabel",
+		settingsFromCommandline.EgressGatewayIstioLabel,
+		`Specifies the istio label of the egressgateway to search for when running tests in a preinstalled istio installation.
+		Should only be set when istio.test.kube.deploy=false`)
+	flag.StringVar(&settingsFromCommandline.SharedMeshConfigName, "istio.test.kube.sharedMeshConfigName",
+		settingsFromCommandline.SharedMeshConfigName,
+		`Specifies the name of the SHARED_MESH_CONFIG defined and created by the user upon installing Istio.
+		Should only be set when istio.test.kube.userSharedMeshConfig=true and istio.test.kube.deploy=false.`)
 }
