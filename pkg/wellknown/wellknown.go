@@ -97,28 +97,6 @@ const (
 	OriginalSource = "envoy.filters.listener.original_src"
 )
 
-// Tracing provider names
-const (
-	// Lightstep tracer name
-	Lightstep = "envoy.tracers.lightstep"
-	// Zipkin tracer name
-	Zipkin = "envoy.tracers.zipkin"
-	// DynamicOT tracer name
-	DynamicOT = "envoy.tracers.dynamic_ot"
-	// Datadog tracer name
-	Datadog = "envoy.tracers.datadog"
-)
-
-// Stats sink names
-const (
-	// Statsd sink
-	Statsd = "envoy.stat_sinks.statsd"
-	// DogStatsD compatible stastsd sink
-	DogStatsd = "envoy.stat_sinks.dog_statsd"
-	// MetricsService sink
-	MetricsService = "envoy.stat_sinks.metrics_service"
-)
-
 // Access log sink names
 const (
 	// FileAccessLog sink name
@@ -129,10 +107,6 @@ const (
 
 // Transport socket names
 const (
-	// TransportSocket Alts
-	TransportSocketAlts = "envoy.transport_sockets.alts"
-	// TransportSocket Tap
-	TransportSocketTap = "envoy.transport_sockets.tap"
 	// TransportSocket RawBuffer
 	TransportSocketRawBuffer = "envoy.transport_sockets.raw_buffer"
 	// TransportSocketTLS labels the "envoy.transport_sockets.tls" filter.
