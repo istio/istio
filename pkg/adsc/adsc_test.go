@@ -19,7 +19,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -29,6 +28,7 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -131,7 +131,6 @@ func TestADSC_Run(t *testing.T) {
 				Received:   make(map[string]*discovery.DiscoveryResponse),
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *discovery.DiscoveryResponse),
-				RecvWg:     sync.WaitGroup{},
 				cfg: &Config{
 					InitialDiscoveryRequests: desc.initialRequests,
 				},
@@ -186,7 +185,24 @@ func TestADSC_Run(t *testing.T) {
 				t.Errorf("ADSC: failed running %v", err)
 				return
 			}
-			tt.inAdsc.RecvWg.Wait()
+			assert.Eventually(t, func() bool {
+				tt.inAdsc.mutex.Lock()
+				defer tt.inAdsc.mutex.Unlock()
+				rec := tt.inAdsc.Received
+
+				if rec == nil && len(rec) != len(tt.expectedADSResources.Received) {
+					return false
+				}
+				for tpe, rsrcs := range tt.expectedADSResources.Received {
+					if _, ok := rec[tpe]; !ok {
+						return false
+					}
+					if len(rsrcs.Resources) != len(rec[tpe].Resources) {
+						return false
+					}
+				}
+				return true
+			}, time.Second, time.Millisecond)
 
 			if tt.validator != nil {
 				if err := tt.validator(tt); err != nil {

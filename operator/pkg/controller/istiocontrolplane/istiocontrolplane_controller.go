@@ -98,7 +98,6 @@ func watchedResources(version *kubeversion.Info) []schema.GroupVersionKind {
 		// Endpoints should not be pruned because these are generated and not in the manifest.
 		// {Group: "", Version: "v1", Kind: name.EndpointStr},
 		{Group: "", Version: "v1", Kind: name.CMStr},
-		{Group: "", Version: "v1", Kind: name.PVCStr},
 		{Group: "", Version: "v1", Kind: name.PodStr},
 		{Group: "", Version: "v1", Kind: name.SecretStr},
 		{Group: "", Version: "v1", Kind: name.SAStr},
@@ -218,15 +217,6 @@ var (
 	}
 )
 
-// NewReconcileIstioOperator creates a new ReconcileIstioOperator and returns a ptr to it.
-func NewReconcileIstioOperator(client client.Client, kubeClient kube.Client, scheme *runtime.Scheme) *ReconcileIstioOperator {
-	return &ReconcileIstioOperator{
-		client:     client,
-		kubeClient: kubeClient,
-		scheme:     scheme,
-	}
-}
-
 // ReconcileIstioOperator reconciles a IstioOperator object
 type ReconcileIstioOperator struct {
 	// This client, initialized using mgr.Client() above, is a split client
@@ -278,6 +268,10 @@ func (r *ReconcileIstioOperator) Reconcile(_ context.Context, request reconcile.
 			scope.Infof("Ignoring the IstioOperator CR %s because it is annotated to be ignored for reconcile ", iopName)
 			return reconcile.Result{}, nil
 		}
+	}
+	if iop.Spec.Profile == "ambient" {
+		scope.Infof("Ignoring the IstioOperator CR %s because it is using the unsupported profile 'ambient'.", iopName)
+		return reconcile.Result{}, nil
 	}
 
 	var err error

@@ -45,6 +45,7 @@ type BuildInfo struct {
 // ServerInfo contains the version for a single control plane component
 type ServerInfo struct {
 	Component string
+	Revision  string
 	Info      BuildInfo
 }
 

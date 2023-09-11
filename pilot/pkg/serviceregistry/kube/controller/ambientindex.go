@@ -24,6 +24,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
+	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/networking/v1alpha3"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -33,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeutil "istio.io/istio/pkg/kube"
@@ -420,62 +422,68 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 
 	c.podsClient.AddEventHandler(podHandler)
 
-	// Handle WorkloadEntries.
-	c.configController.RegisterEventHandler(gvk.WorkloadEntry, func(oldCfg config.Config, newCfg config.Config, ev model.Event) {
-		var oldWkEntrySpec *v1alpha3.WorkloadEntry
-		if ev == model.EventUpdate {
-			oldWkEntrySpec = serviceentry.ConvertWorkloadEntry(oldCfg)
-		}
-		var oldWkEntry *apiv1alpha3.WorkloadEntry
-		if oldWkEntrySpec != nil {
-			oldWkEntry = &apiv1alpha3.WorkloadEntry{
-				ObjectMeta: oldCfg.ToObjectMeta(),
-				Spec:       *oldWkEntrySpec.DeepCopy(),
+	// We only handle WLE and SE from config cluster, otherwise we could get duplicate workload from remote clusters.
+	if c.configCluster {
+		// Handle WorkloadEntries.
+		c.configController.RegisterEventHandler(gvk.WorkloadEntry, func(oldCfg config.Config, newCfg config.Config, ev model.Event) {
+			var oldWkEntrySpec *v1alpha3.WorkloadEntry
+			if ev == model.EventUpdate {
+				oldWkEntrySpec = serviceentry.ConvertWorkloadEntry(oldCfg)
 			}
-		}
-		newWkEntrySpec := serviceentry.ConvertWorkloadEntry(newCfg)
-		var newWkEntry *apiv1alpha3.WorkloadEntry
-		if newWkEntrySpec != nil {
-			newWkEntry = &apiv1alpha3.WorkloadEntry{
-				ObjectMeta: newCfg.ToObjectMeta(),
-				Spec:       *newWkEntrySpec.DeepCopy(),
+			var oldWkEntry *apiv1alpha3.WorkloadEntry
+			if oldWkEntrySpec != nil {
+				oldWkEntry = &apiv1alpha3.WorkloadEntry{
+					ObjectMeta: oldCfg.ToObjectMeta(),
+					Spec:       *oldWkEntrySpec.DeepCopy(),
+				}
 			}
-		}
-
-		idx.mu.Lock()
-		defer idx.mu.Unlock()
-		updates := idx.handleWorkloadEntry(oldWkEntry, newWkEntry, ev == model.EventDelete, c)
-		if len(updates) > 0 {
-			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Full:           false,
-				ConfigsUpdated: updates,
-				Reason:         model.NewReasonStats(model.AmbientUpdate),
-			})
-		}
-	})
-
-	// Handle ServiceEntries.
-	c.configController.RegisterEventHandler(gvk.ServiceEntry, func(_ config.Config, newCfg config.Config, ev model.Event) {
-		newSvcEntrySpec := serviceentry.ConvertServiceEntry(newCfg)
-		var newSvcEntry *apiv1alpha3.ServiceEntry
-		if newSvcEntrySpec != nil {
-			newSvcEntry = &apiv1alpha3.ServiceEntry{
-				ObjectMeta: newCfg.ToObjectMeta(),
-				Spec:       *newSvcEntrySpec.DeepCopy(),
+			newWkEntrySpec := serviceentry.ConvertWorkloadEntry(newCfg)
+			var newWkEntry *apiv1alpha3.WorkloadEntry
+			if newWkEntrySpec != nil {
+				newWkEntry = &apiv1alpha3.WorkloadEntry{
+					ObjectMeta: newCfg.ToObjectMeta(),
+					Spec:       *newWkEntrySpec.DeepCopy(),
+				}
 			}
-		}
 
-		idx.mu.Lock()
-		defer idx.mu.Unlock()
-		updates := idx.handleServiceEntry(newSvcEntry, ev, c)
-		if len(updates) > 0 {
-			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				Full:           false,
-				ConfigsUpdated: updates,
-				Reason:         model.NewReasonStats(model.AmbientUpdate),
-			})
-		}
-	})
+			idx.mu.Lock()
+			defer idx.mu.Unlock()
+			updates := idx.handleWorkloadEntry(oldWkEntry, newWkEntry, ev == model.EventDelete, c)
+			if len(updates) > 0 {
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:           false,
+					ConfigsUpdated: updates,
+					Reason:         model.NewReasonStats(model.AmbientUpdate),
+				})
+			}
+		})
+
+		// Handle ServiceEntries.
+		c.configController.RegisterEventHandler(gvk.ServiceEntry, func(_ config.Config, newCfg config.Config, ev model.Event) {
+			newSvcEntrySpec := serviceentry.ConvertServiceEntry(newCfg)
+			var newSvcEntry *apiv1alpha3.ServiceEntry
+			if newSvcEntrySpec != nil {
+				newSvcEntry = &apiv1alpha3.ServiceEntry{
+					ObjectMeta: newCfg.ToObjectMeta(),
+					Spec:       *newSvcEntrySpec.DeepCopy(),
+				}
+			}
+
+			idx.mu.Lock()
+			defer idx.mu.Unlock()
+			updates := idx.handleServiceEntry(newSvcEntry, ev, c)
+			if len(updates) > 0 {
+				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+					Full:           false,
+					ConfigsUpdated: updates,
+					Reason:         model.NewReasonStats(model.AmbientUpdate),
+				})
+			}
+		})
+	}
+
+	c.configController.RegisterEventHandler(gvk.AuthorizationPolicy, c.AuthorizationPolicyHandler)
+	c.configController.RegisterEventHandler(gvk.PeerAuthentication, c.PeerAuthenticationHandler)
 
 	serviceHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {
@@ -524,6 +532,25 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 
 	idx.servicesMap = make(map[types.NamespacedName]*apiv1alpha3.ServiceEntry)
 	c.services.AddEventHandler(serviceHandler)
+
+	kubeGatewayHandler := cache.ResourceEventHandlerFuncs{
+		AddFunc: func(obj any) {
+			log.Debug("KubeGatewayHandler AddFunc")
+			idx.handleKubeGateway(nil, obj, false, c)
+		},
+		UpdateFunc: func(oldObj, newObj any) {
+			log.Debug("KubeGatewayHandler UpdateFunc")
+			idx.handleKubeGateway(oldObj, newObj, false, c)
+		},
+		DeleteFunc: func(obj any) {
+			log.Debug("KubeGatewayHandler DeleteFunc")
+			idx.handleKubeGateway(nil, obj, true, c)
+		},
+	}
+
+	// initNetworkManager initializes the gatewayResourceClient, it should not be re-initialized in setupIndex
+	c.gatewayResourceClient.AddEventHandler(kubeGatewayHandler)
+
 	return &idx
 }
 
@@ -622,46 +649,6 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 	svc := controllers.Extract[*v1.Service](obj)
 	updates := sets.New[model.ConfigKey]()
 
-	if svc.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
-		scope := model.WaypointScope{Namespace: svc.Namespace, ServiceAccount: svc.Annotations[constants.WaypointServiceAccount]}
-
-		// TODO get IP+Port from the Gateway CRD
-		// https://github.com/istio/istio/issues/44230
-		if svc.Spec.ClusterIP == v1.ClusterIPNone {
-			// TODO handle headless Service
-			log.Warn("headless service currently not supported as a waypoint")
-			return updates
-		}
-		waypointPort := uint32(15008)
-		for _, p := range svc.Spec.Ports {
-			if strings.Contains(p.Name, "hbone") {
-				waypointPort = uint32(p.Port)
-			}
-		}
-		svcIP := netip.MustParseAddr(svc.Spec.ClusterIP)
-		addr := &workloadapi.GatewayAddress{
-			Destination: &workloadapi.GatewayAddress_Address{
-				Address: &workloadapi.NetworkAddress{
-					Network: c.Network(svcIP.String(), make(labels.Instance, 0)).String(),
-					Address: svcIP.AsSlice(),
-				},
-			},
-			Port: waypointPort,
-		}
-
-		if isDelete {
-			if proto.Equal(a.waypoints[scope], addr) {
-				delete(a.waypoints, scope)
-				updates.Merge(a.updateWaypoint(scope, addr, true))
-			}
-		} else {
-			if !proto.Equal(a.waypoints[scope], addr) {
-				a.waypoints[scope] = addr
-				updates.Merge(a.updateWaypoint(scope, addr, false))
-			}
-		}
-	}
-
 	si := c.constructService(svc)
 	networkAddrs := toInternalNetworkAddresses(si.GetAddresses())
 	pods := c.getPodsInService(svc)
@@ -679,7 +666,7 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 		}
 	}
 
-	workloadEntries := c.getWorkloadEntriesInService(svc)
+	workloadEntries := c.getSelectedWorkloadEntries(svc.GetNamespace(), svc.Spec.Selector)
 	for _, w := range workloadEntries {
 		wl := a.extractWorkloadEntry(w, c)
 		// Can be nil if the WorkloadEntry IP has not been mapped yet
@@ -727,6 +714,59 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 	}
 
 	return updates
+}
+
+func (a *AmbientIndexImpl) handleKubeGateway(_, newObj any, isDelete bool, c *Controller) {
+	gateway := controllers.Extract[*k8sbeta.Gateway](newObj)
+
+	// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
+	// ignore Kubernetes Gateways which aren't waypoints
+	// TODO: should this be WaypointGatewayClass or matches a label?
+	if gateway.Spec.GatewayClassName == constants.WaypointGatewayClassName && len(gateway.Status.Addresses) > 0 {
+		scope := model.WaypointScope{Namespace: gateway.Namespace, ServiceAccount: gateway.Annotations[constants.WaypointServiceAccount]}
+
+		waypointPort := uint32(15008)
+		for _, l := range gateway.Spec.Listeners {
+			if l.Protocol == k8sbeta.ProtocolType(protocol.HBONE) {
+				waypointPort = uint32(l.Port)
+			}
+		}
+
+		ip, err := netip.ParseAddr(gateway.Status.Addresses[0].Value)
+		if err != nil {
+			// This should be a transient error when upgrading, when the Kube Gateway status is updated it should write an IP address
+			log.Errorf("Unable to parse IP address in status of %v/%v/%v", gvk.KubernetesGateway, gateway.Namespace, gateway.Name)
+			return
+		}
+		addr := &workloadapi.GatewayAddress{
+			Destination: &workloadapi.GatewayAddress_Address{
+				Address: &workloadapi.NetworkAddress{
+					Network: c.Network(ip.String(), make(labels.Instance, 0)).String(),
+					Address: ip.AsSlice(),
+				},
+			},
+			Port: waypointPort,
+		}
+
+		updates := sets.New[model.ConfigKey]()
+		a.mu.Lock()
+		defer a.mu.Unlock()
+		if isDelete {
+			delete(a.waypoints, scope)
+			updates.Merge(a.updateWaypoint(scope, addr, true))
+		} else if !proto.Equal(a.waypoints[scope], addr) {
+			a.waypoints[scope] = addr
+			updates.Merge(a.updateWaypoint(scope, addr, false))
+		}
+
+		if len(updates) > 0 {
+			log.Debug("Waypoint ready: Pushing Updates")
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+				ConfigsUpdated: updates,
+				Reason:         model.NewReasonStats(model.AmbientUpdate),
+			})
+		}
+	}
 }
 
 func (c *Controller) getPodsInService(svc *v1.Service) []*v1.Pod {

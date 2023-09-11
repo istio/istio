@@ -604,16 +604,11 @@ func runNetworkFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []net
 			cn := fmt.Sprintf("outbound|80|%s|example.ns.svc.cluster.local", subset)
 			proxy := ds.SetupProxy(tt.proxy)
 			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
-			testEndpoints := b.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
-			filtered := b.EndpointsByNetworkFilter(testEndpoints)
-			for _, e := range testEndpoints {
-				e.AssertInvarianceInTest()
-			}
-			xdstest.CompareEndpointsOrFail(t, cn, ExtractEnvoyEndpoints(filtered), tt.want)
+			filtered := b.BuildClusterLoadAssignment(testShards()).Endpoints
+			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
 
 			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
-			testEndpoints2 := b2.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
-			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
+			filtered2 := b2.BuildClusterLoadAssignment(testShards()).Endpoints
 			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
 			}
@@ -663,18 +658,11 @@ func runMTLSFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networ
 			proxy := ds.SetupProxy(tt.proxy)
 			cn := fmt.Sprintf("outbound_.80_.%s_.example.ns.svc.cluster.local", subset)
 			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
-			testEndpoints := b.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
-			filtered := b.EndpointsByNetworkFilter(testEndpoints)
-			filtered = b.EndpointsWithMTLSFilter(filtered)
-			for _, e := range testEndpoints {
-				e.AssertInvarianceInTest()
-			}
-			xdstest.CompareEndpointsOrFail(t, cn, ExtractEnvoyEndpoints(filtered), tt.want)
+			filtered := b.BuildClusterLoadAssignment(testShards()).Endpoints
+			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
 
 			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
-			testEndpoints2 := b2.BuildLocalityLbEndpointsFromShards(testShards(), &model.Port{Name: "http", Port: 80, Protocol: protocol.HTTP})
-			filtered2 := b2.EndpointsByNetworkFilter(testEndpoints2)
-			filtered2 = b2.EndpointsWithMTLSFilter(filtered2)
+			filtered2 := b2.BuildClusterLoadAssignment(testShards()).Endpoints
 			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
 			}
@@ -702,6 +690,7 @@ func environment(t test.Failer, c ...config.Config) *xds.FakeDiscoveryServer {
 		Services: []*model.Service{{
 			Hostname:   "example.ns.svc.cluster.local",
 			Attributes: model.ServiceAttributes{Name: "example", Namespace: "ns"},
+			Ports:      model.PortList{{Port: 80, Protocol: protocol.HTTP, Name: "http"}},
 		}},
 		Gateways: []model.NetworkGateway{
 			// network1 has only 1 gateway in cluster1a, which will be used for the endpoints
@@ -754,7 +743,7 @@ func environment(t test.Failer, c ...config.Config) *xds.FakeDiscoveryServer {
 //   - 1 endpoints in network4
 //
 // All endpoints are part of service example.ns.svc.cluster.local on port 80 (http).
-func testShards() *model.EndpointShards {
+func testShards() *model.EndpointIndex {
 	shards := &model.EndpointShards{Shards: map[model.ShardKey][]*model.IstioEndpoint{
 		// network1 has one endpoint in each cluster
 		{Cluster: "cluster1a"}: {
@@ -794,5 +783,13 @@ func testShards() *model.EndpointShards {
 			shards.Shards[sk][i] = ep
 		}
 	}
-	return shards
+	// convert to EndpointIndex
+	index := model.NewEndpointIndex(model.NewXdsCache())
+	for shardKey, testEps := range shards.Shards {
+		svc, _ := index.GetOrCreateEndpointShard("example.ns.svc.cluster.local", "ns")
+		svc.Lock()
+		svc.Shards[shardKey] = testEps
+		svc.Unlock()
+	}
+	return index
 }

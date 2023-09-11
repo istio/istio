@@ -1001,6 +1001,10 @@ func (node *Proxy) IsIPv6() bool {
 	return node.ipMode == IPv6
 }
 
+func (node *Proxy) IsDual() bool {
+	return node.ipMode == Dual
+}
+
 // GetIPMode returns proxy's ipMode
 func (node *Proxy) GetIPMode() IPMode {
 	return node.ipMode
@@ -1050,7 +1054,7 @@ func ParseServiceNodeWithMetadata(nodeID string, metadata *NodeMetadata) (*Proxy
 	}
 
 	if !IsApplicationNodeType(NodeType(parts[0])) {
-		return out, fmt.Errorf("invalid node type (valid types: sidecar, router in the service node %q", nodeID)
+		return out, fmt.Errorf("invalid node type (valid types: %v) in the service node %q", NodeTypes, nodeID)
 	}
 	out.Type = NodeType(parts[0])
 

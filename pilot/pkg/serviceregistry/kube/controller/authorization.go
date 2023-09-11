@@ -425,7 +425,34 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 		}
 	}
 
-	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, nil, c)
+	workloadEntries := map[networkAddress]*apiv1alpha3.WorkloadEntry{}
+	// 2. only process workload entries in config cluster
+	if c.configCluster {
+		for _, w := range c.getWorkloadEntriesInPolicy(obj.Namespace, sel) {
+			network := c.Network(w.Spec.Address, w.Spec.Labels).String()
+			if w.Spec.Network != "" {
+				network = w.Spec.Network
+			}
+			workloadEntries[networkAddress{
+				ip:      w.Spec.Address,
+				network: network,
+			}] = w
+		}
+		if oldSel != nil {
+			for _, w := range c.getWorkloadEntriesInPolicy(obj.Namespace, oldSel) {
+				network := c.Network(w.Spec.Address, w.Spec.Labels).String()
+				if w.Spec.Network != "" {
+					network = w.Spec.Network
+				}
+				workloadEntries[networkAddress{
+					ip:      w.Spec.Address,
+					network: network,
+				}] = w
+			}
+		}
+	}
+
+	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, c)
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
@@ -501,6 +528,7 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 		}
 	}
 
+	// 1. process pods for all cluster
 	pods := map[string]*v1.Pod{}
 	for _, p := range c.getPodsInPolicy(obj.Namespace, sel, true) {
 		pods[p.Status.PodIP] = p
@@ -512,18 +540,9 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 	}
 
 	workloadEntries := map[networkAddress]*apiv1alpha3.WorkloadEntry{}
-	for _, w := range c.getWorkloadEntriesInPolicy(obj.Namespace, sel) {
-		network := c.Network(w.Spec.Address, w.Spec.Labels).String()
-		if w.Spec.Network != "" {
-			network = w.Spec.Network
-		}
-		workloadEntries[networkAddress{
-			ip:      w.Spec.Address,
-			network: network,
-		}] = w
-	}
-	if oldSel != nil {
-		for _, w := range c.getWorkloadEntriesInPolicy(obj.Namespace, oldSel) {
+	// 2. only process workload entries in config cluster
+	if c.configCluster {
+		for _, w := range c.getWorkloadEntriesInPolicy(obj.Namespace, sel) {
 			network := c.Network(w.Spec.Address, w.Spec.Labels).String()
 			if w.Spec.Network != "" {
 				network = w.Spec.Network
@@ -532,6 +551,18 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 				ip:      w.Spec.Address,
 				network: network,
 			}] = w
+		}
+		if oldSel != nil {
+			for _, w := range c.getWorkloadEntriesInPolicy(obj.Namespace, oldSel) {
+				network := c.Network(w.Spec.Address, w.Spec.Labels).String()
+				if w.Spec.Network != "" {
+					network = w.Spec.Network
+				}
+				workloadEntries[networkAddress{
+					ip:      w.Spec.Address,
+					network: network,
+				}] = w
+			}
 		}
 	}
 

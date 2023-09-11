@@ -450,7 +450,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 					if ztunnelPod {
 						dump, err = extractZtunnelConfigDump(kubeClient, podName, podNamespace)
 					} else {
-						dump, err = extractConfigDump(kubeClient, podName, podNamespace, false)
+						dump, err = extractConfigDump(kubeClient, podName, podNamespace, true)
 					}
 					if err != nil {
 						return err

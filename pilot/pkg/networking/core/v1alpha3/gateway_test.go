@@ -52,6 +52,7 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
@@ -3055,9 +3056,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "test",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Private: true,
-			},
+			ExportTo:  sets.New(visibility.Private),
 		},
 	}
 
@@ -3071,9 +3070,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "default",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Public: true,
-			},
+			ExportTo:  sets.New(visibility.Public),
 		},
 	}
 
@@ -3087,9 +3084,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "default",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Private: true,
-			},
+			ExportTo:  sets.New(visibility.Private),
 		},
 	}
 
@@ -3168,7 +3163,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					HTTPFilters: []string{
 						xdsfilters.MxFilterName,
 						xdsfilters.Alpn.GetName(),
-						xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
+						xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), wellknown.Router,
 					},
 				},
 			}},
@@ -3405,7 +3400,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							xdsfilters.MxFilterName,
 							xdsfilters.GrpcStats.GetName(),
 							xdsfilters.Alpn.GetName(),
-							xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
+							xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), wellknown.Router,
 						},
 					},
 					{
@@ -3448,7 +3443,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							xdsfilters.MxFilterName,
 							wellknown.HTTPGRPCStats,
 							xdsfilters.Alpn.GetName(),
-							xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), xdsfilters.Router.GetName(),
+							xdsfilters.Fault.GetName(), xdsfilters.Cors.GetName(), wellknown.Router,
 						},
 						TotalMatch: true,
 					},
@@ -3630,7 +3625,7 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							xdsfilters.Fault.GetName(),
 							xdsfilters.Cors.GetName(),
 							xds.StatsFilterName,
-							xdsfilters.Router.GetName(),
+							wellknown.Router,
 						},
 					},
 				},

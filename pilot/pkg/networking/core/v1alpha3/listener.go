@@ -312,7 +312,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 	actualWildcards, actualLocalHosts := getWildcardsAndLocalHost(node.GetIPMode())
 
 	// For conflict resolution
-	listenerMap := make(map[string]*outboundListenerEntry)
+	listenerMap := make(map[listenerKey]*outboundListenerEntry)
 
 	// The sidecarConfig if provided could filter the list of
 	// services/virtual services that we need to process. It could also
@@ -516,7 +516,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 	return finalizeOutboundListeners(lb, listenerMap)
 }
 
-func finalizeOutboundListeners(lb *ListenerBuilder, listenerMap map[string]*outboundListenerEntry) []*listener.Listener {
+func finalizeOutboundListeners(lb *ListenerBuilder, listenerMap map[listenerKey]*outboundListenerEntry) []*listener.Listener {
 	listeners := make([]*listener.Listener, 0, len(listenerMap))
 	for _, le := range listenerMap {
 		// TODO: this could be outside the loop, but we would get object sharing in EnvoyFilter patches.
@@ -644,6 +644,7 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 	if httpProxyPort == 0 {
 		return nil
 	}
+	ph := GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound)
 
 	// enable HTTP PROXY port if necessary; this will add an RDS route for this port
 	_, actualLocalHosts := getWildcardsAndLocalHost(node.GetIPMode())
@@ -660,10 +661,15 @@ func (lb *ListenerBuilder) buildHTTPProxy(node *model.Proxy,
 			rds:              model.RDSHttpProxy,
 			useRemoteAddress: false,
 			connectionManager: &hcm.HttpConnectionManager{
-				HttpProtocolOptions: httpOpts,
+				HttpProtocolOptions:        httpOpts,
+				ServerName:                 ph.ServerName,
+				ServerHeaderTransformation: ph.ServerHeaderTransformation,
+				GenerateRequestId:          ph.GenerateRequestID,
 			},
-			protocol: protocol.HTTP_PROXY,
-			class:    istionetworking.ListenerClassSidecarOutbound,
+			suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+			skipIstioMXHeaders:        false,
+			protocol:                  protocol.HTTP_PROXY,
+			class:                     istionetworking.ListenerClassSidecarOutbound,
 		},
 	}}
 
@@ -694,6 +700,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 			rdsName = strconv.Itoa(opts.port.Port)
 		}
 	}
+	ph := GetProxyHeaders(opts.proxy, opts.push, istionetworking.ListenerClassSidecarOutbound)
 	httpOpts := &httpListenerOpts{
 		// Set useRemoteAddress to true for sidecar outbound listeners so that it picks up the localhost address of the sender,
 		// which is an internal address, so that trusted headers are not sanitized. This helps to retain the timeout headers
@@ -701,15 +708,20 @@ func buildSidecarOutboundHTTPListenerOpts(
 		useRemoteAddress: features.UseRemoteAddress,
 		rds:              rdsName,
 
-		protocol: opts.port.Protocol,
-		class:    istionetworking.ListenerClassSidecarOutbound,
+		connectionManager: &hcm.HttpConnectionManager{
+			ServerName:                 ph.ServerName,
+			ServerHeaderTransformation: ph.ServerHeaderTransformation,
+			GenerateRequestId:          ph.GenerateRequestID,
+		},
+		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+		skipIstioMXHeaders:        ph.SkipIstioMXHeaders,
+		protocol:                  opts.port.Protocol,
+		class:                     istionetworking.ListenerClassSidecarOutbound,
 	}
 
 	if features.HTTP10 || enableHTTP10(opts.proxy.Metadata.HTTP10) {
-		httpOpts.connectionManager = &hcm.HttpConnectionManager{
-			HttpProtocolOptions: &core.Http1ProtocolOptions{
-				AcceptHttp_10: true,
-			},
+		httpOpts.connectionManager.HttpProtocolOptions = &core.Http1ProtocolOptions{
+			AcceptHttp_10: true,
 		}
 	}
 
@@ -719,7 +731,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 }
 
 func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServices []config.Config) []*filterChainOpts {
-	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
+	meshGateway := sets.New(constants.IstioMeshGateway)
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []config.Config
 	if opts.service != nil {
@@ -743,7 +755,7 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
 func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundListenerOpts,
-	listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcards []string,
+	listenerMap map[listenerKey]*outboundListenerEntry, virtualServices []config.Config, actualWildcards []string,
 ) {
 	// TODO: remove actualWildcard
 	var currentListenerEntry *outboundListenerEntry
@@ -753,7 +765,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 	listenerPortProtocol := listenerOpts.port.Protocol
 	listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(listenerOpts.port.Protocol)
 
-	var listenerMapKey string
+	var listenerMapKey listenerKey
 	switch listenerProtocol {
 	case istionetworking.ListenerProtocolTCP, istionetworking.ListenerProtocolAuto:
 		// Determine the listener address if bind is empty
@@ -773,6 +785,12 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				svcListenAddress == constants.UnspecifiedIP {
 				svcListenAddress = constants.UnspecifiedIPv6
 			}
+
+			// For dualstack proxies we need to add the unspecifed ipv6 address to the list of extra listen addresses
+			if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsDual() &&
+				svcListenAddress == constants.UnspecifiedIP {
+				svcExtraListenAddresses = append(svcExtraListenAddresses, constants.UnspecifiedIPv6)
+			}
 			// We should never get an empty address.
 			// This is a safety guard, in case some platform adapter isn't doing things
 			// properly
@@ -788,7 +806,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				}
 			}
 		}
-		listenerMapKey = listenerKey(listenerOpts.bind.Primary(), listenerOpts.port.Port)
+		listenerMapKey = listenerKey{listenerOpts.bind.Primary(), listenerOpts.port.Port}
 
 	case istionetworking.ListenerProtocolHTTP:
 		// first identify the bind if its not set. Then construct the key
@@ -796,7 +814,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 		if len(listenerOpts.bind.Primary()) == 0 { // no user specified bind. Use 0.0.0.0:Port or [::]:Port
 			listenerOpts.bind.binds = actualWildcards
 		}
-		listenerMapKey = listenerKey(listenerOpts.bind.Primary(), listenerOpts.port.Port)
+		listenerMapKey = listenerKey{listenerOpts.bind.Primary(), listenerOpts.port.Port}
 	}
 
 	// Have we already generated a listener for this Port based on user
@@ -963,6 +981,9 @@ type httpListenerOpts struct {
 	statPrefix       string
 	protocol         protocol.Instance
 	useRemoteAddress bool
+
+	suppressEnvoyDebugHeaders bool
+	skipIstioMXHeaders        bool
 
 	// http3Only indicates that the HTTP codec used
 	// is HTTP/3 over QUIC transport (uses UDP)
@@ -1323,9 +1344,9 @@ func buildDownstreamQUICTransportSocket(tlsContext *auth.DownstreamTlsContext) *
 	}
 }
 
-// listenerKey builds the key for a given bind and port
-func listenerKey(bind string, port int) string {
-	return bind + ":" + strconv.Itoa(port)
+type listenerKey struct {
+	bind string
+	port int
 }
 
 // conflictWithStaticListener checks whether the listener address bind:port conflicts with static listener port

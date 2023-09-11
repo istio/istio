@@ -185,6 +185,9 @@ func TestConfigureIstioGateway(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "namespace",
 					Namespace: "default",
+					Labels: map[string]string{
+						"topology.istio.io/network": "network-1",
+					},
 				},
 				Spec: v1beta1.GatewaySpec{
 					GatewayClassName: constants.WaypointGatewayClassName,

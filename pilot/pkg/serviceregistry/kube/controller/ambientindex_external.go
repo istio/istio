@@ -106,7 +106,7 @@ func (a *AmbientIndexImpl) handleServiceEntry(svcEntry *apiv1alpha3.ServiceEntry
 			for _, networkAddr := range networkAddressFromWorkload(wl) {
 				a.byWorkloadEntry[networkAddr] = wl
 			}
-			a.byUID[c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), w.Spec.GetAddress())] = wl
+			a.byUID[c.generateWorkloadEntryUID(wl.GetNamespace(), wl.GetName())] = wl
 			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 			wls[wl.Uid] = wl
 		}
@@ -396,6 +396,7 @@ func (a *AmbientIndexImpl) constructWorkloadFromWorkloadEntry(workloadEntry *v1a
 		Services:              workloadServices,
 		AuthorizationPolicies: policies,
 		Waypoint:              waypoint,
+		ClusterId:             c.Cluster().String(),
 	}
 	if td := spiffe.GetTrustDomain(); td != "cluster.local" {
 		wl.TrustDomain = td
@@ -482,22 +483,36 @@ func findPortForWorkloadEntry(workloadEntry *v1alpha3.WorkloadEntry, svcPort *v1
 	return uint32(svcPort.Port), nil
 }
 
-func (c *Controller) getWorkloadEntriesInService(svc *v1.Service) []*apiv1alpha3.WorkloadEntry {
-	return c.getSelectedWorkloadEntries(svc.GetNamespace(), svc.Spec.Selector)
-}
-
 func (c *Controller) getSelectedWorkloadEntries(ns string, selector map[string]string) []*apiv1alpha3.WorkloadEntry {
-	allWorkloadEntries := c.getControllerWorkloadEntries(ns)
+	// skip WLE for non config clusters
+	if !c.configCluster {
+		return nil
+	}
 	if len(selector) == 0 {
 		// k8s services and service entry workloadSelector with empty selectors match nothing, not everything.
 		return nil
 	}
+	allWorkloadEntries := c.getControllerWorkloadEntries(ns)
 	var workloadEntries []*apiv1alpha3.WorkloadEntry
 	for _, wl := range allWorkloadEntries {
 		if labels.Instance(selector).SubsetOf(wl.Spec.Labels) {
 			workloadEntries = append(workloadEntries, wl)
 		}
 	}
+
+	// Include workload entries inlined in service entries (endpoints)
+	allServiceEntries := c.configController.List(gvk.ServiceEntry, ns)
+	for _, se := range allServiceEntries {
+		for _, wl := range serviceentry.ConvertServiceEntry(se).Endpoints {
+			if labels.Instance(selector).SubsetOf(wl.Labels) || (len(wl.Labels) == 0 && labels.Instance(selector).SubsetOf(se.Labels)) {
+				workloadEntries = append(workloadEntries, &apiv1alpha3.WorkloadEntry{
+					ObjectMeta: se.ToObjectMeta(),
+					Spec:       *wl.DeepCopy(),
+				})
+			}
+		}
+	}
+
 	return workloadEntries
 }
 

@@ -67,3 +67,4 @@ manifests/charts/global.yaml                                     @costinm @jacob
 architecture/ambient                                             @istio/wg-networking-maintainers-pilot @istio/wg-networking-maintainers-ztunnel
 architecture/environments                                        @istio/wg-environments-maintainers
 architecture/networking                                          @istio/wg-networking-maintainers
+architecture/security                                            @istio/wg-security-maintainers

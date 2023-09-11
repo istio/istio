@@ -102,6 +102,7 @@ func (s *Server) updateNodeProxyEBPF(pod *corev1.Pod, captureDNS bool) error {
 	veth, err := getVethWithDestinationOf(ip)
 	if err != nil {
 		log.Warnf("failed to get device: %v", err)
+		return err
 	}
 	peerIndex, err := getPeerIndex(veth)
 	if err != nil {

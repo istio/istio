@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestGenerateVirtualHostDomains(t *testing.T) {
@@ -1662,7 +1663,7 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 		Attributes: model.ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
 			Namespace:       namespace,
-			ExportTo:        map[visibility.Instance]bool{v: true},
+			ExportTo:        sets.New(v),
 		},
 	}
 	if ip == wildcardIPv4 {

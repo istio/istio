@@ -65,3 +65,13 @@ redirectMode: "iptables"
 # 2. how many seconds ztunnel waits to drain its own connections (this value - 1 sec)
 # Default K8S value is 30 seconds
 terminationGracePeriodSeconds: 30
+
+# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+revision: ""
+
+# The customized CA address to retrieve certificates for the pods in the cluster.
+# CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
+caAddress: ""
+
+# Used to locate istiod.
+istioNamespace: istio-system
