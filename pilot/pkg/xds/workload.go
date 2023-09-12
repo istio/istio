@@ -51,8 +51,8 @@ func (e WorkloadGenerator) GenerateDeltas(
 		// Nothing changed..
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
-	subs := sets.New(w.ResourceNames...)
 
+	subs := sets.New(w.ResourceNames...)
 	addresses := updatedAddresses
 	if !w.Wildcard {
 		// If it;s not a wildcard, filter out resources we are not subscribed to
@@ -128,11 +128,6 @@ func (e WorkloadGenerator) GenerateDeltas(
 	} else {
 		// For wildcard, we record all resources that have been pushed and not removed
 		// It was to correctly calculate removed resources during full push alongside with specific address removed.
-
-		// If pushed all addresses, then we set all as subscribed.
-		if len(addresses) == 0 {
-			w.ResourceNames = sets.SortedList(have)
-		}
 		w.ResourceNames = sets.SortedList(sets.New(w.ResourceNames...).Merge(have).Difference(sets.New[string](removed...)))
 	}
 	return resources, removed, model.XdsLogDetails{}, true, nil

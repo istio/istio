@@ -561,8 +561,7 @@ func requiresResourceNamesModification(url string) bool {
 
 func isWildcardResource(w *model.WatchedResource) bool {
 	if w.TypeUrl == v3.AddressType {
-		// Both are supported
-		return w.Wildcard
+		return false
 	}
 	// Else fallback based on type
 	return isWildcardTypeURL(w.TypeUrl)
