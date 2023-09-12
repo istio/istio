@@ -15,6 +15,6 @@
 package msg
 
 // Create static initializers file
-//go:generate go run "$REPO_ROOT/pkg/config/analysis/msg/generate.main.go" messages.yaml messages.gen.go
+//go:generate go run generate.main.go messages.yaml messages.gen.go
 
-//go:generate goimports -w -local istio.io "$REPO_ROOT/pkg/config/analysis/msg/messages.gen.go"
+//go:generate go run golang.org/x/tools/cmd/goimports@latest -w -local istio.io messages.gen.go
