@@ -13,12 +13,12 @@ spec:
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: egressgateway
-  namespace: {{ .SystemNamespace.Name }}
+  name: {{ .EgressGatewayIstioLabel | default "egressgateway" }}
+  namespace: {{ .EgressGatewayServiceNamespace | default .SystemNamespace.Name }}
 spec:
   selector:
     matchLabels:
-      app: istio-egressgateway
+      app: {{ .EgressGatewayServiceName | default "istio-egressgateway" }}
   rules:
     - to: # only allow /allow for company.com
         - operation:
