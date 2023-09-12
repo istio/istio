@@ -220,9 +220,11 @@ message GatewayAddress {
     NamespacedHostname hostname = 1;
     NetworkAddress address = 2;
   }
-  // port to reach the gateway at
-  uint32 port = 3;
-  PortList ports = 4;
+  // port to reach the gateway at for mTLS HBONE connections
+  uint32 hbone_mtls_port = 3;
+  // port to reach the gateway at for single tls HBONE connections
+  // used for traffic originating outside the mesh reaching a waypoint-enabled destination
+  uint32 hbone_single_tls_port = 4;
 }
 
 // NetworkAddress represents an address bound to a specific network.
