@@ -41,6 +41,9 @@ spec:
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}
   {{- end }}
+    securityContext:
+      runAsUser: {{ .ProxyUID | default "1337" }}
+      runAsGroup: {{ .ProxyGID | default "1337" }}
     env:
     - name: JWT_POLICY
       value: {{ .Values.global.jwtPolicy }}
