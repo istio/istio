@@ -222,6 +222,7 @@ message GatewayAddress {
   }
   // port to reach the gateway at
   uint32 port = 3;
+  PortList ports = 4;
 }
 
 // NetworkAddress represents an address bound to a specific network.
