@@ -24,6 +24,7 @@ import (
 
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
 	"istio.io/pkg/log"
 )
 
@@ -47,9 +48,7 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	viper.Set(constants.OutboundPorts, rdrct.includeOutboundPorts)
 	viper.Set(constants.ServiceExcludeCidr, rdrct.excludeIPCidrs)
 	viper.Set(constants.KubeVirtInterfaces, rdrct.kubevirtInterfaces)
-	drf := dryRunFilePath.Get()
-	viper.Set(constants.DryRun, drf != "")
-	viper.Set(constants.OutputPath, drf)
+	viper.Set(constants.DryRun, dependencies.DryRunFilePath.Get() != "")
 	viper.Set(constants.RedirectDNS, rdrct.dnsRedirect)
 	viper.Set(constants.CaptureAllDNS, rdrct.dnsRedirect)
 	viper.Set(constants.DropInvalid, rdrct.invalidDrop)
