@@ -610,11 +610,6 @@ spec:
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
 			// due to draining.
 			opt.NewConnectionPerRequest = true
-			if src.Config().IsUncaptured() {
-				// For this case, it is broken if the src and dst are on the same node.
-				// TODO: fix this and remove this skip
-				t.Skip("https://github.com/istio/istio/issues/43238")
-			}
 
 			t.NewSubTest("permissive").Run(func(t framework.TestContext) {
 				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
@@ -805,13 +800,6 @@ spec:
 		runTest(t, func(t framework.TestContext, src echo.Caller, dst echo.Instance, opt echo.CallOptions) {
 			if opt.Scheme != scheme.HTTP {
 				return
-			}
-
-			// sidecar-uncaptured is failing the Ambient destination port test
-			// seems like a bug in the sidecar HBONE implementation that
-			// may need rules transformation as well
-			if dst.Config().HasSidecar() {
-				t.Skip("https://github.com/istio/istio/issues/42929")
 			}
 
 			// Ensure we don't get stuck on old connections with old RBAC rules. This causes 45s test times
