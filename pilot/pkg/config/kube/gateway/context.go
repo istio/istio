@@ -44,6 +44,7 @@ func NewGatewayContext(ps *model.PushContext) GatewayContext {
 // The actual configuration generation is done on a per-workload basis and will get the exact set of matched instances for that workload.
 // Four sets are exposed:
 // * Internal addresses (eg istio-ingressgateway.istio-system.svc.cluster.local:80).
+// * Internal IP addresses (eg 1.2.3.4). This comes from ClusterIP.
 // * External addresses (eg 1.2.3.4), this comes from LoadBalancer services. There may be multiple in some cases (especially multi cluster).
 // * Pending addresses (eg istio-ingressgateway.istio-system.svc), are LoadBalancer-type services with pending external addresses.
 // * Warnings for references that could not be resolved. These are intended to be user facing.
@@ -51,12 +52,13 @@ func (gc GatewayContext) ResolveGatewayInstances(
 	namespace string,
 	gwsvcs []string,
 	servers []*networking.Server,
-) (internal, external, pending, warns []string) {
+) (internal, internalIP, external, pending, warns []string) {
 	ports := map[int]struct{}{}
 	for _, s := range servers {
 		ports[int(s.Port.Number)] = struct{}{}
 	}
 	foundInternal := sets.New[string]()
+	foundInternalIP := sets.New[string]()
 	foundExternal := sets.New[string]()
 	foundPending := sets.New[string]()
 	warnings := []string{}
@@ -81,6 +83,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 			instances := gc.ps.ServiceInstancesByPort(svc, port, nil)
 			if len(instances) > 0 {
 				foundInternal.Insert(fmt.Sprintf("%s:%d", g, port))
+				foundInternalIP.InsertAll(svc.GetAddresses(&model.Proxy{})...)
 				if svc.Attributes.ClusterExternalAddresses.Len() > 0 {
 					// Fetch external IPs from all clusters
 					svc.Attributes.ClusterExternalAddresses.ForEach(func(c cluster.ID, externalIPs []string) {
@@ -117,7 +120,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 		}
 	}
 	sort.Strings(warnings)
-	return sets.SortedList(foundInternal), sets.SortedList(foundExternal), sets.SortedList(foundPending), warnings
+	return sets.SortedList(foundInternal), sets.SortedList(foundInternalIP), sets.SortedList(foundExternal), sets.SortedList(foundPending), warnings
 }
 
 func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {

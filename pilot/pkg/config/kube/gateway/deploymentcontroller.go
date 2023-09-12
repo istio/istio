@@ -110,6 +110,9 @@ type classInfo struct {
 
 	// disableRouteGeneration, if set, will make it so the controller ignores this class.
 	disableRouteGeneration bool
+
+	// addressType is the default address type to report
+	addressType gateway.AddressType
 }
 
 var classInfos = getClassInfos()
@@ -134,6 +137,7 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			description:        "The default Istio GatewayClass",
 			templates:          "kube-gateway",
 			defaultServiceType: corev1.ServiceTypeLoadBalancer,
+			addressType:        gateway.HostnameAddressType,
 		},
 		constants.UnmanagedGatewayController: {
 			// This represents a gateway that our control plane cannot discover directly via the API server.
@@ -141,6 +145,7 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			controller:             constants.UnmanagedGatewayController,
 			description:            "Remote to this cluster. Does not deploy or affect configuration.",
 			disableRouteGeneration: true,
+			addressType:            gateway.HostnameAddressType,
 		},
 	}
 	if features.EnableAmbientControllers {
@@ -149,6 +154,7 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			description:        "The default Istio waypoint GatewayClass",
 			templates:          "waypoint",
 			defaultServiceType: corev1.ServiceTypeClusterIP,
+			addressType:        gateway.IPAddressType,
 		}
 	}
 	return m
