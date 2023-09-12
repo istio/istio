@@ -41,6 +41,7 @@ Makefile*                                                        @istio/wg-test-
 /pkg/tracing/                                                    @istio/wg-policies-and-telemetry-maintainers
 /pkg/wasm/                                                       @istio/wg-policies-and-telemetry-maintainers
 /pkg/webhooks/                                                   @istio/wg-environments-maintainers
+/pkg/workloadapi/                                                @istio/wg-networking-maintainers
 /prow/                                                           @istio/wg-test-and-release-maintainers
 /release/                                                        @istio/wg-test-and-release-maintainers
 /releasenotes/                                                   @istio/wg-test-and-release-maintainers
