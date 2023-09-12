@@ -746,12 +746,19 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]*model.Address
 	}
 	var wls []*model.AddressInfo
 	var removed []string
+	got := sets.String{}
 	for addr := range addresses {
 		wl := c.ambientIndex.Lookup(addr)
 		if len(wl) == 0 {
 			removed = append(removed, addr)
 		} else {
-			wls = append(wls, wl...)
+			for _, addr := range wl {
+				if got.Contains(addr.ResourceName()) {
+					continue
+				}
+				got.Insert(addr.ResourceName())
+				wls = append(wls, addr)
+			}
 		}
 	}
 	return wls, removed
