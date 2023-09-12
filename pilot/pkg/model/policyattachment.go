@@ -69,6 +69,9 @@ func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts Work
 			(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == opts.namespace) &&
 			targetRef.GetKind() == gvk.KubernetesGateway.Kind {
 			return policyMatchDirect
+		} else {
+			// This config doesn't match this workload. Ignore
+			return policyMatchIgnore
 		}
 		// This config doesn't match this workload. Ignore
 		return policyMatchIgnore

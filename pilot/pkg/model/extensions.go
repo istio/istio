@@ -95,9 +95,19 @@ type WasmPluginWrapper struct {
 	ResourceVersion string
 }
 
-func (p *WasmPluginWrapper) MatchListener(proxyLabels map[string]string, li WasmPluginListenerInfo) bool {
-	workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(proxyLabels))
-	return workloadMatch && matchTrafficSelectors(p.Match, li)
+func (p *WasmPluginWrapper) MatchListener(opts workloadSelectionOpts, li WasmPluginListenerInfo) bool {
+	switch getPolicyMatcher(p.Name, opts, p) {
+	case policyMatchDirect:
+		// This plugin is bound directly to this workload; just check traffic selectors
+		return matchTrafficSelectors(p.Match, li)
+	case policyMatchSelector:
+		// This plugin is bound based on the workload selector; check traffic selectors and workload selector
+		workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(opts.workloadLabels))
+		return workloadMatch && matchTrafficSelectors(p.Match, li)
+	}
+
+	// If it doesn't match one of the above cases, the plugin is not bound to this workload
+	return false
 }
 
 func (p *WasmPluginWrapper) MatchType(pluginType WasmPluginType) bool {

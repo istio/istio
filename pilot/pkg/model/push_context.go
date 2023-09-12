@@ -1852,24 +1852,30 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 	if proxy == nil {
 		return nil
 	}
+
+	var lookupInNamespaces []string
 	matchedPlugins := make(map[extensions.PluginPhase][]*WasmPluginWrapper)
-	// First get all the extension configs from the config root namespace
-	// and then add the ones from proxy's own namespace
-	if ps.Mesh.RootNamespace != "" {
-		// if there is no workload selector, the config applies to all workloads
-		// if there is a workload selector, check for matching workload labels
-		for _, plugin := range ps.wasmPluginsByNamespace[ps.Mesh.RootNamespace] {
-			if plugin.MatchListener(proxy.Labels, info) && plugin.MatchType(pluginType) {
-				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
-			}
-		}
+
+	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
+		// Only check the root namespace if the (workload) namespace is not already the root namespace
+		// to avoid double inclusion.
+		lookupInNamespaces = []string{proxy.ConfigNamespace, ps.Mesh.RootNamespace}
+	} else {
+		lookupInNamespaces = []string{proxy.ConfigNamespace}
 	}
 
-	// To prevent duplicate extensions in case root namespace equals proxy's namespace
-	if proxy.ConfigNamespace != ps.Mesh.RootNamespace {
-		for _, plugin := range ps.wasmPluginsByNamespace[proxy.ConfigNamespace] {
-			if plugin.MatchListener(proxy.Labels, info) && plugin.MatchType(pluginType) {
-				matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
+	for _, ns := range lookupInNamespaces {
+		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
+			for _, plugin := range wasmPlugins {
+				opts := workloadSelectionOpts{
+					rootNamespace:  ps.Mesh.RootNamespace,
+					namespace:      proxy.ConfigNamespace,
+					workloadLabels: proxy.Labels,
+					isWaypoint:     proxy.IsWaypointProxy(),
+				}
+				if plugin.MatchListener(opts, info) && plugin.MatchType(pluginType) {
+					matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)
+				}
 			}
 		}
 	}
