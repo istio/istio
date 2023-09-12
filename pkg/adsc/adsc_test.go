@@ -28,7 +28,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/google/go-cmp/cmp"
-	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/testing/protocmp"
 	anypb "google.golang.org/protobuf/types/known/anypb"
@@ -41,6 +40,8 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 type testAdscRunServer struct{}
@@ -185,7 +186,7 @@ func TestADSC_Run(t *testing.T) {
 				t.Errorf("ADSC: failed running %v", err)
 				return
 			}
-			assert.Eventually(t, func() bool {
+			assert.EventuallyEqual(t, func() bool {
 				tt.inAdsc.mutex.Lock()
 				defer tt.inAdsc.mutex.Unlock()
 				rec := tt.inAdsc.Received
@@ -202,7 +203,7 @@ func TestADSC_Run(t *testing.T) {
 					}
 				}
 				return true
-			}, time.Second, time.Millisecond)
+			}, true, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
 
 			if tt.validator != nil {
 				if err := tt.validator(tt); err != nil {
