@@ -21,9 +21,7 @@ import (
 	"time"
 
 	"istio.io/api/security/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -204,7 +202,7 @@ func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string
 	workloadLabels labels.Instance,
 	isWaypoint bool,
 ) []*config.Config {
-	return getConfigsForWorkload(policy.requestAuthentications, workloadSelectionInfo{
+	return getConfigsForWorkload(policy.requestAuthentications, workloadSelectionOpts{
 		rootNamespace:  policy.rootNamespace,
 		namespace:      namespace,
 		workloadLabels: workloadLabels,
@@ -217,7 +215,7 @@ func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespac
 	workloadLabels labels.Instance,
 	isWaypoint bool,
 ) []*config.Config {
-	return getConfigsForWorkload(policy.peerAuthentications, workloadSelectionInfo{
+	return getConfigsForWorkload(policy.peerAuthentications, workloadSelectionOpts{
 		rootNamespace:  policy.rootNamespace,
 		namespace:      namespace,
 		workloadLabels: workloadLabels,
@@ -244,14 +242,14 @@ func GetAmbientPolicyConfigName(key ConfigKey) string {
 	}
 }
 
-type workloadSelectionInfo struct {
+type workloadSelectionOpts struct {
 	rootNamespace  string
 	namespace      string
 	workloadLabels labels.Instance
 	isWaypoint     bool
 }
 
-func getConfigsForWorkload(configsByNamespace map[string][]config.Config, selectionInfo workloadSelectionInfo) []*config.Config {
+func getConfigsForWorkload(configsByNamespace map[string][]config.Config, selectionInfo workloadSelectionOpts) []*config.Config {
 	workloadLabels := selectionInfo.workloadLabels
 	namespace := selectionInfo.namespace
 	rootNamespace := selectionInfo.rootNamespace
@@ -277,35 +275,15 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config, select
 				switch cfg.GroupVersionKind {
 				case gvk.RequestAuthentication:
 					ra := cfg.Spec.(*v1beta1.RequestAuthentication)
-					targetRef := ra.GetTargetRef()
-					// TODO: Figure out a better way to handle this that doesn't rely on labels
-					gatewayName, isGatewayAPIGateway := workloadLabels[constants.IstioGatewayLabel]
-					if isGatewayAPIGateway && targetRef == nil && ra.GetSelector() != nil {
-						if selectionInfo.isWaypoint || features.EnableGatewayPolicyAttachmentOnly {
-							log.Warnf("Ignoring workload-scoped RequestAuthentication %q for gateway %q because it has no targetRef", cfg.Name, gatewayName)
-							continue // This workload is a gateway API gateway, but this is a workload scoped RA policy. Ignore
-						}
+					switch getPolicyMatcher(cfg.Name, selectionInfo, ra) {
+					case policyMatchSelector:
+						selector = ra.GetSelector().GetMatchLabels()
+					case policyMatchDirect:
+						configs = append(configs, cfg)
+						continue
+					case policyMatchIgnore:
+						continue
 					}
-
-					if !isGatewayAPIGateway && targetRef != nil {
-						continue // This policy is only for gateway API gateways and the workload is not one
-					}
-
-					if isGatewayAPIGateway && targetRef != nil {
-						// There's a targetRef specified for this RA, and the proxy is a Gateway API Gateway. Use targetRef instead of workload selector
-						// TODO: Account for `kind`s that are not `KubernetesGateway`
-						if targetRef.GetGroup() == gvk.KubernetesGateway.Group &&
-							targetRef.GetName() == gatewayName &&
-							(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == namespace) &&
-							ra.GetTargetRef().GetKind() == gvk.KubernetesGateway.Kind {
-							configs = append(configs, cfg)
-							continue
-						}
-					}
-
-					// Default case
-					selector = ra.GetSelector().GetMatchLabels()
-
 				case gvk.PeerAuthentication:
 					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
 				default:
