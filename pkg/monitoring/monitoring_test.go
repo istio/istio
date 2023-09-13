@@ -19,6 +19,9 @@ import (
 
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/monitoring/monitortest"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -84,7 +87,7 @@ func TestSum(t *testing.T) {
 	goofySum.With(name.Value("baz")).Record(45)
 	goofySum.With(name.Value("baz")).Decrement()
 
-	mt.Assert(goofySum.Name(), map[string]string{"name": "baz"}, monitortest.Exactly(44))
+	mt.Assert(goofySum.Name(), map[string]string{"kind": "goofy", "name": "baz"}, monitortest.Exactly(44))
 	mt.Assert(testSum.Name(), map[string]string{"kind": "bar"}, monitortest.Exactly(1))
 }
 
@@ -96,6 +99,44 @@ func TestRegisterIfSum(t *testing.T) {
 
 	testConditionalSum.With(name.Value("foo"), kind.Value("bar")).Increment()
 	mt.Assert(testConditionalSum.Name(), map[string]string{"name": "foo", "kind": "bar"}, monitortest.Exactly(1))
+}
+
+// Create distinct metrics for this test, otherwise we are order-dependant since they are globals
+var (
+	testEmptyGauge = monitoring.NewGauge(
+		"test_empty_gauge",
+		"Testing empty gauge functionality",
+	)
+	testEmptySum = monitoring.NewSum(
+		"test_empty_sum",
+		"Testing empty sum",
+	)
+	testEmptyDistribution = monitoring.NewDistribution(
+		"test_empty_dist",
+		"Testing empty dist",
+		[]float64{0, 1, 2},
+	)
+)
+
+func TestEmptyMetrics(t *testing.T) {
+	mt := monitortest.New(t)
+	relevantMetrics := sets.New(testEmptyGauge.Name(), testEmptySum.Name(), testEmptyDistribution.Name())
+	assertRecordedMetrics := func(names ...string) {
+		t.Helper()
+		want := sets.New(names...)
+		got := sets.New(slices.Map(mt.Metrics(), func(e monitortest.Metric) string {
+			return e.Name
+		})...).Intersection(relevantMetrics)
+		assert.Equal(t, want, got)
+	}
+	// derived gauge is always present
+	assertRecordedMetrics()
+
+	// Once we write it shows up
+	testEmptyGauge.Record(0)
+	testEmptySum.Record(0)
+	testEmptyDistribution.Record(0)
+	assertRecordedMetrics(relevantMetrics.UnsortedList()...)
 }
 
 func TestGauge(t *testing.T) {
