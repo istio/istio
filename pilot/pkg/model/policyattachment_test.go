@@ -18,9 +18,11 @@ import (
 	"testing"
 
 	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test"
 )
 
 func TestGetPolicyMatcher(t *testing.T) {
@@ -74,10 +76,11 @@ func TestGetPolicyMatcher(t *testing.T) {
 		isWaypoint: true,
 	}
 	tests := []struct {
-		name     string
-		opts     workloadSelectionOpts
-		policy   policyTargetGetter
-		expected policyMatch
+		name                 string
+		opts                 workloadSelectionOpts
+		policy               policyTargetGetter
+		expected             policyMatch
+		policyAttachmentOnly bool
 	}{
 		{
 			name: "non-gateway API workload and a targetRef",
@@ -125,6 +128,15 @@ func TestGetPolicyMatcher(t *testing.T) {
 			},
 			opts:     sampleGateway,
 			expected: policyMatchSelector,
+		},
+		{
+			name: "gateway API ingress and a selector (policy attachment only)",
+			policy: &mockPolicyTargetGetter{
+				selector: sampleGatewaySelector,
+			},
+			opts:                 sampleGateway,
+			expected:             policyMatchSelector,
+			policyAttachmentOnly: true,
 		},
 		{
 			name: "gateway API ingress and both a targetRef and a selector",
@@ -192,6 +204,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableGatewayPolicyAttachmentOnly, false)
 			matcher := getPolicyMatcher("policy1", tt.opts, tt.policy)
 
 			if matcher != tt.expected {
