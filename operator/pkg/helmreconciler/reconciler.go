@@ -598,7 +598,8 @@ func validateManifests(manifests name.ManifestMap) error {
 		}
 	}
 	if ztunnelEnabled && totalEnabled > 1 {
-		return fmt.Errorf("%s cannot be installed with other components", name.UserFacingComponentName(name.ZtunnelComponentName))
+		ztunnelName := name.UserFacingComponentName(name.ZtunnelComponentName)
+		return fmt.Errorf("%s cannot be installed with other components, please use Helm to manage %s", ztunnelName, ztunnelName)
 	}
 	return nil
 }
