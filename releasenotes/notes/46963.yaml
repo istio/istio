@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+issue:
+- 46960
+releaseNotes:
+- |
+  **Fixed** an issue where metric `DNSNoEndpointClusters` not working.
