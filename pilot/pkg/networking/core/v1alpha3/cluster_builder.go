@@ -178,9 +178,6 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	}
 	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
 		lbEndpoints = endpointBuilder.WithSubset(subset.Name).FromServiceEndpoints()
-		if len(lbEndpoints) == 0 {
-			log.Debugf("locality endpoints missing for cluster %s", subsetClusterName)
-		}
 	}
 
 	subsetCluster := cb.buildCluster(subsetClusterName, clusterType, lbEndpoints, model.TrafficDirectionOutbound, opts.port, service, nil)
@@ -315,6 +312,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		fallthrough
 	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
+			log.Debugf("locality endpoints missing for cluster %s", c.Name)
 			cb.req.Push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxyID,
 				fmt.Sprintf("%s cluster without endpoints %s found while pushing CDS", discoveryType.String(), c.Name))
 			return nil
