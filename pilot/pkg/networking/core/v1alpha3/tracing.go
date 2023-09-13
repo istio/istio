@@ -26,7 +26,6 @@ import (
 	envoy_type_metadata_v3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -117,9 +117,16 @@ func configureTracingFromTelemetry(
 		// something like: configureFromProxyConfig(tracingCfg, opts.proxy.Metadata.ProxyConfig.Tracing)
 	}
 
-	// gracefully fallback to MeshConfig configuration. It will act as an implicit
-	// parent configuration during transition period.
-	configureSampling(h.Tracing, spec.RandomSamplingPercentage)
+	var sampling float64
+	if spec.RandomSamplingPercentage != nil {
+		sampling = *spec.RandomSamplingPercentage
+	} else {
+		// gracefully fallback to MeshConfig configuration. It will act as an implicit
+		// parent configuration during transition period.
+		sampling = proxyConfigSamplingValue(proxyCfg)
+	}
+
+	configureSampling(h.Tracing, sampling)
 	configureCustomTags(h.Tracing, spec.CustomTags, proxyCfg, proxy)
 
 	// if there is configured max tag length somewhere, fallback to it.
@@ -316,6 +323,7 @@ func stackdriverConfig(proxyMetaData *model.NodeMetadata, sdProvider *meshconfig
 			return nil, fmt.Errorf("could not configure Stackdriver tracer - bad sts port: %v", err)
 		}
 		tokenPath := constants.TrustworthyJWTPath
+		// nolint: staticcheck
 		sd.StackdriverGrpcService = &core.GrpcService{
 			InitialMetadata: []*core.HeaderValue{
 				{

@@ -43,6 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -701,9 +702,11 @@ func TestApplyDestinationRule(t *testing.T) {
 			tt.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 
 			ec := newClusterWrapper(tt.cluster)
-			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname).GetRule()
-
-			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.proxyView, destRule, nil)
+			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname)
+			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push, tt.cluster.Name,
+				model.TrafficDirectionOutbound, "", tt.service.Hostname, tt.port.Port,
+				tt.service, destRule)
+			subsetClusters := cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, eb, destRule.GetRule(), nil)
 			if len(subsetClusters) != len(tt.expectedSubsetClusters) {
 				t.Fatalf("Unexpected subset clusters want %v, got %v. keys=%v",
 					len(tt.expectedSubsetClusters), len(subsetClusters), xdstest.MapKeys(xdstest.ExtractClusters(subsetClusters)))
@@ -1020,7 +1023,8 @@ func TestBuildDefaultCluster(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mesh := testMesh()
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
-			cb := NewClusterBuilder(cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, nil)
+			proxy := cg.SetupProxy(nil)
+			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 			service := &model.Service{
 				Ports: model.PortList{
 					servicePort,
@@ -1030,8 +1034,11 @@ func TestBuildDefaultCluster(t *testing.T) {
 				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
 			}
 			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, tt.endpoints, tt.direction, servicePort, service, nil)
+			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push, tt.clusterName,
+				tt.direction, "", service.Hostname, servicePort.Port,
+				service, nil)
 			if defaultCluster != nil {
-				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, cb.proxyView, nil, nil)
+				_ = cb.applyDestinationRule(defaultCluster, DefaultClusterMode, service, servicePort, eb, nil, nil)
 			}
 
 			if diff := cmp.Diff(defaultCluster.build(), tt.expectedCluster, protocmp.Transform()); diff != "" {
@@ -1044,7 +1051,8 @@ func TestBuildDefaultCluster(t *testing.T) {
 func TestBuildLocalityLbEndpoints(t *testing.T) {
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{
-			ClusterID: "cluster-1",
+			ClusterID:            "cluster-1",
+			RequestedNetworkView: []string{"nw-0", "nw-1"},
 		},
 	}
 	servicePort := &model.Port{
@@ -1454,12 +1462,13 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 				})
 
 				cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
-				view := (&model.Proxy{
-					Metadata: &model.NodeMetadata{
-						RequestedNetworkView: []string{"nw-0", "nw-1"},
-					},
-				}).GetView()
-				actual := cb.buildLocalityLbEndpoints(view, service, 8080, tt.labels)
+				eb := endpoints.NewCDSEndpointBuilder(
+					proxy, cb.req.Push,
+					"outbound|8080|v1|foo.com",
+					model.TrafficDirectionOutbound, "v1", "foo.com", 8080,
+					service, drWithLabels(tt.labels),
+				)
+				actual := eb.FromServiceEndpoints()
 				sortEndpoints(actual)
 				if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
 					t.Fatalf("Expected (-) != actual (+):\n%s", v)
@@ -1469,11 +1478,24 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 	}
 }
 
+func drWithLabels(lbls labels.Instance) *model.ConsolidatedDestRule {
+	return model.ConvertConsolidatedDestRule(&config.Config{
+		Meta: config.Meta{},
+		Spec: &networking.DestinationRule{
+			Subsets: []*networking.Subset{{
+				Name:   "v1",
+				Labels: lbls,
+			}},
+		},
+	})
+}
+
 func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{
-			ClusterID: "cluster-1",
+			ClusterID:            "cluster-1",
+			RequestedNetworkView: []string{"nw-0", "nw-1"},
 		},
 	}
 	servicePort := &model.Port{
@@ -1492,6 +1514,7 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 		MeshExternal: true,
 		Resolution:   model.DNSLB,
 	}
+	dr := drWithLabels(labels.Instance{"version": "v1"})
 
 	buildMetadata := func(networkID network.ID, tlsMode, workloadname, namespace string,
 		clusterID istiocluster.ID, lbls labels.Instance,
@@ -1507,8 +1530,6 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 		}, newmeta)
 		return newmeta
 	}
-
-	lbls := labels.Instance{"version": "v1"}
 
 	instances := []*model.ServiceInstance{
 		{
@@ -1651,18 +1672,19 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 	})
 
 	cb := NewClusterBuilder(cg.SetupProxy(proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
-	view := (&model.Proxy{
-		Metadata: &model.NodeMetadata{
-			RequestedNetworkView: []string{"nw-0", "nw-1"},
-		},
-	}).GetView()
 	wg := sync.WaitGroup{}
 	wg.Add(5)
 	var actual []*endpoint.LocalityLbEndpoints
 	mu := sync.Mutex{}
 	for i := 0; i < 5; i++ {
 		go func() {
-			eps := cb.buildLocalityLbEndpoints(view, service, 8080, lbls)
+			eb := endpoints.NewCDSEndpointBuilder(
+				proxy, cb.req.Push,
+				"outbound|8080|v1|foo.com",
+				model.TrafficDirectionOutbound, "v1", "foo.com", 8080,
+				service, dr,
+			)
+			eps := eb.FromServiceEndpoints()
 			mu.Lock()
 			actual = eps
 			mu.Unlock()
@@ -2093,12 +2115,16 @@ func TestApplyDestinationRuleOSCACert(t *testing.T) {
 			tt.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 
 			ec := newClusterWrapper(tt.cluster)
-			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname).GetRule()
+			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname)
+
+			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push, tt.cluster.Name,
+				model.TrafficDirectionOutbound, "", service.Hostname, tt.port.Port,
+				service, destRule)
 
 			// ACT
-			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, tt.proxyView, destRule, nil)
+			_ = cb.applyDestinationRule(ec, tt.clusterMode, tt.service, tt.port, eb, destRule.GetRule(), nil)
 
-			byteArray, err := config.ToJSON(destRule.Spec)
+			byteArray, err := config.ToJSON(destRule.GetRule().Spec)
 			if err != nil {
 				t.Errorf("Could not parse destination rule: %v", err)
 			}
@@ -3023,8 +3049,12 @@ func TestInsecureSkipVerify(t *testing.T) {
 			cb := NewClusterBuilder(proxy, &model.PushRequest{Push: cg.PushContext()}, nil)
 			ec := newClusterWrapper(tc.cluster)
 			tc.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
-			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tc.service.Hostname).GetRule()
-			_ = cb.applyDestinationRule(ec, tc.clusterMode, tc.service, tc.port, tc.proxyView, destRule, tc.serviceAcct)
+			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tc.service.Hostname)
+			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push, tc.cluster.Name,
+				model.TrafficDirectionOutbound, "", service.Hostname, tc.port.Port,
+				service, destRule)
+
+			_ = cb.applyDestinationRule(ec, tc.clusterMode, tc.service, tc.port, eb, destRule.GetRule(), tc.serviceAcct)
 
 			result := getTLSContext(t, ec.cluster)
 			if diff := cmp.Diff(result, tc.expectTLSContext, protocmp.Transform()); diff != "" {

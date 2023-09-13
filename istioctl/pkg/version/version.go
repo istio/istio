@@ -38,7 +38,7 @@ import (
 )
 
 func NewVersionCommand(ctx cli.Context) *cobra.Command {
-	profileCmd := mesh.ProfileCmd(log.DefaultOptions())
+	profileCmd := mesh.ProfileCmd(ctx, log.DefaultOptions())
 	var opts clioptions.ControlPlaneOptions
 	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
 		GetRemoteVersion: getRemoteInfoWrapper(ctx, &profileCmd, &opts),
@@ -175,6 +175,7 @@ func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptio
 					Info: istioVersion.BuildInfo{
 						Version: "MISSING CP ID",
 					},
+					Revision: "MISSING CP ID",
 				},
 			}, nil
 		}
@@ -187,6 +188,7 @@ func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptio
 			istioVersion.ServerInfo{
 				Component: cpID.Component,
 				Info:      cpID.Info,
+				Revision:  opts.Revision,
 			},
 		}, nil
 	}

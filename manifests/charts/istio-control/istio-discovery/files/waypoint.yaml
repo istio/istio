@@ -132,6 +132,11 @@ spec:
               resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
+        {{- $network := valueOrDefault (index .Labels `topology.istio.io/network`) .Values.global.network }}
+        {{- if $network }}
+        - name: ISTIO_META_NETWORK
+          value: "{{ $network }}"
+        {{- end }}
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME

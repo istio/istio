@@ -28,7 +28,6 @@ import (
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
@@ -52,11 +51,12 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
 	wildcardIPv4 = "0.0.0.0"
-	wildcardIPv6 = "::/0"
+	wildcardIPv6 = "::"
 )
 
 func getProxy() *model.Proxy {
@@ -382,6 +382,28 @@ func TestOutboundListenerConflictWithStaticListener(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestOutboundListenerDualStackWildcard(t *testing.T) {
+	test.SetForTest(t, &features.EnableDualStack, true)
+	service := buildService("test1.com", "0.0.0.0", protocol.TCP, tnow.Add(1*time.Second))
+	service.Attributes.ServiceRegistry = provider.External // Imitate a ServiceEntry with no addresses
+	services := []*model.Service{service}
+	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+		p.DiscoverIPMode()
+		listeners := buildOutboundListeners(t, p, nil, nil, services...)
+		if len(listeners) != 1 {
+			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+		}
+		if p.IsDual() {
+			if len(listeners[0].AdditionalAddresses) != 1 {
+				t.Fatalf("expected %d additional addresses, found %d", 1, len(listeners[0].AdditionalAddresses))
+			}
+			if listeners[0].AdditionalAddresses[0].GetAddress().GetSocketAddress().GetAddress() != wildcardIPv6 {
+				t.Fatalf("expected additional address %s, found %s", wildcardIPv6, listeners[0].AdditionalAddresses[0].String())
+			}
+		}
 	}
 }
 
@@ -1703,8 +1725,8 @@ func verifyListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
 	if len(lfilters) != 2 {
 		t.Fatalf("expected %d listener filter, found %d", 2, len(lfilters))
 	}
-	if lfilters[0].Name != wellknown.TlsInspector ||
-		lfilters[1].Name != wellknown.HttpInspector {
+	if lfilters[0].Name != wellknown.TLSInspector ||
+		lfilters[1].Name != wellknown.HTTPInspector {
 		t.Fatalf("expected listener filters not found, got %v", lfilters)
 	}
 }

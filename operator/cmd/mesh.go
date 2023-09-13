@@ -17,6 +17,7 @@ package main
 import (
 	"os"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/cmd/mesh"
 	binversion "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/version"
@@ -24,7 +25,7 @@ import (
 
 func main() {
 	version.Info.Version = binversion.OperatorVersionString
-	rootCmd := mesh.GetRootCmd(os.Args[1:])
+	rootCmd := mesh.GetRootCmd(cli.NewCLIContext(nil), os.Args[1:])
 	if err := rootCmd.Execute(); err != nil {
 		os.Exit(1)
 	}

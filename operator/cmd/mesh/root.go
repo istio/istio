@@ -19,6 +19,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	binversion "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
@@ -38,7 +39,6 @@ settings (--set meshConfig.enableTracing=true). See documentation for more info:
 
 const (
 	ChartsDeprecatedStr         = "Deprecated, use --manifests instead."
-	ControlPlaneRevStr          = "Control plane revision"
 	revisionFlagHelpStr         = `Target control plane revision for the command.`
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
@@ -47,8 +47,6 @@ This flag can be specified multiple times to overlay multiple files. Multiple fi
 	installationCompleteStr            = `Installation complete`
 	ForceFlagHelpStr                   = `Proceed even with validation errors.`
 	MaxConcurrentReconcilesFlagHelpStr = `Defines the concurrency limit for operator to reconcile IstioOperatorSpec in parallel. Default value is 1.`
-	KubeConfigFlagHelpStr              = `Path to kube config.`
-	ContextFlagHelpStr                 = `The name of the kubeconfig context to use.`
 	HubFlagHelpStr                     = `The hub for the operator controller image.`
 	TagFlagHelpStr                     = `The tag for the operator controller image.`
 	ImagePullSecretsHelpStr            = `The imagePullSecrets are used to pull the operator image from the private registry,
@@ -71,7 +69,7 @@ func addFlags(cmd *cobra.Command, rootArgs *RootArgs) {
 }
 
 // GetRootCmd returns the root of the cobra command-tree.
-func GetRootCmd(args []string) *cobra.Command {
+func GetRootCmd(ctx cli.Context, args []string) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:          "mesh",
 		Short:        "Command line Istio install utility.",
@@ -82,12 +80,12 @@ func GetRootCmd(args []string) *cobra.Command {
 	rootCmd.SetArgs(args)
 	rootCmd.PersistentFlags().AddGoFlagSet(flag.CommandLine)
 
-	rootCmd.AddCommand(ManifestCmd(log.DefaultOptions()))
-	rootCmd.AddCommand(InstallCmd(log.DefaultOptions()))
-	rootCmd.AddCommand(ProfileCmd(log.DefaultOptions()))
-	rootCmd.AddCommand(OperatorCmd())
+	rootCmd.AddCommand(ManifestCmd(ctx, log.DefaultOptions()))
+	rootCmd.AddCommand(InstallCmd(ctx, log.DefaultOptions()))
+	rootCmd.AddCommand(ProfileCmd(ctx, log.DefaultOptions()))
+	rootCmd.AddCommand(OperatorCmd(ctx))
 	rootCmd.AddCommand(version.CobraCommand())
-	rootCmd.AddCommand(UpgradeCmd(log.DefaultOptions()))
+	rootCmd.AddCommand(UpgradeCmd(ctx, log.DefaultOptions()))
 
 	return rootCmd
 }

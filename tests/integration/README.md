@@ -565,6 +565,9 @@ The test framework supports the following command-line flags:
 
   -istio.test.helmRepo string
         Overwrite the default helm Repo used for the tests.
+
+  -istio.test.ambient bool
+        Indicate the use of ambient mesh.
 ```
 
 ## Notes

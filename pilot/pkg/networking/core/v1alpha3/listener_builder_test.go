@@ -23,7 +23,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	wrappers "github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -40,6 +39,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/wellknown"
 )
 
 func TestVirtualListenerBuilder(t *testing.T) {
@@ -200,10 +200,10 @@ func TestVirtualInboundHasPassthroughClusters(t *testing.T) {
 	}
 
 	if l.ListenerFilters[0].Name != wellknown.OriginalDestination ||
-		l.ListenerFilters[1].Name != wellknown.TlsInspector ||
-		l.ListenerFilters[2].Name != wellknown.HttpInspector {
+		l.ListenerFilters[1].Name != wellknown.TLSInspector ||
+		l.ListenerFilters[2].Name != wellknown.HTTPInspector {
 		t.Fatalf("expect listener filters [%q, %q, %q], found [%q, %q, %q]",
-			wellknown.OriginalDestination, wellknown.TlsInspector, wellknown.HttpInspector,
+			wellknown.OriginalDestination, wellknown.TLSInspector, wellknown.HTTPInspector,
 			l.ListenerFilters[0].Name, l.ListenerFilters[1].Name, l.ListenerFilters[2].Name)
 	}
 }
@@ -655,13 +655,13 @@ func TestInboundListenerFilters(t *testing.T) {
 			listeners := cg.Listeners(cg.SetupProxy(nil))
 			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
 			filters := xdstest.ExtractListenerFilters(virtualInbound)
-			evaluateListenerFilterPredicates(t, filters[wellknown.HttpInspector].GetFilterDisabled(), tt.http)
-			if filters[wellknown.TlsInspector] == nil {
+			evaluateListenerFilterPredicates(t, filters[wellknown.HTTPInspector].GetFilterDisabled(), tt.http)
+			if filters[wellknown.TLSInspector] == nil {
 				if len(tt.tls) > 0 {
 					t.Fatalf("Expected tls inspector, got none")
 				}
 			} else {
-				evaluateListenerFilterPredicates(t, filters[wellknown.TlsInspector].FilterDisabled, tt.tls)
+				evaluateListenerFilterPredicates(t, filters[wellknown.TLSInspector].FilterDisabled, tt.tls)
 			}
 		})
 	}

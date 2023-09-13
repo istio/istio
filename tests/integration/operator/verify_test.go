@@ -51,8 +51,8 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 			}
 			istioCtl.InvokeOrFail(t, installCmd)
 			tfLogger := clog.NewConsoleLogger(io.Discard, io.Discard, scopes.Framework)
-			statusVerifier, err := verifier.NewStatusVerifier(IstioNamespace, ManifestPath, "",
-				"", []string{}, clioptions.ControlPlaneOptions{}, verifier.WithLogger(tfLogger))
+			statusVerifier, err := verifier.NewStatusVerifier(cs, IstioNamespace, ManifestPath, []string{},
+				clioptions.ControlPlaneOptions{}, verifier.WithLogger(tfLogger))
 			if err != nil {
 				t.Fatal(err)
 			}

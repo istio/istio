@@ -27,13 +27,13 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (

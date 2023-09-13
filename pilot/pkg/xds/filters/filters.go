@@ -35,7 +35,6 @@ import (
 	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
 	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
@@ -43,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -105,13 +105,13 @@ var (
 		},
 	}
 	TLSInspector = &listener.ListenerFilter{
-		Name: wellknown.TlsInspector,
+		Name: wellknown.TLSInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: protoconv.MessageToAny(&tlsinspector.TlsInspector{}),
 		},
 	}
 	HTTPInspector = &listener.ListenerFilter{
-		Name: wellknown.HttpInspector,
+		Name: wellknown.HTTPInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: protoconv.MessageToAny(&httpinspector.HttpInspector{}),
 		},
@@ -261,6 +261,32 @@ var (
 					"upstream_propagation": []any{
 						map[string]any{
 							"istio_headers": map[string]any{},
+						},
+					},
+				}),
+		},
+	}
+	// TODO https://github.com/istio/istio/issues/46740
+	// false values can be omitted in protobuf, results in diff JSON values between control plane and envoy config dumps
+	// long term fix will be to add the metadata config to istio/api and use that over TypedStruct
+	SidecarOutboundMetadataFilterSkipHeaders = &hcm.HttpFilter{
+		Name: MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+					"upstream_propagation": []any{
+						map[string]any{
+							"istio_headers": map[string]any{
+								"skip_external_clusters": true,
+							},
 						},
 					},
 				}),

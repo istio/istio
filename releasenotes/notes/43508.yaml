@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: documentation
+issue:
+  - 43508
+releaseNotes:
+  - |
+    **Fixed** add ambient test framework flag for quick running integration test.

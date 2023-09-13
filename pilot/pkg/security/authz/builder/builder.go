@@ -23,7 +23,6 @@ import (
 	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	rbactcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/api/annotation"
@@ -31,6 +30,7 @@ import (
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/wellknown"
 )
 
 var rbacPolicyMatchNever = &rbacpb.Policy{
@@ -44,8 +44,7 @@ var rbacPolicyMatchNever = &rbacpb.Policy{
 
 // General setting to control behavior
 type Option struct {
-	IsCustomBuilder  bool
-	UseAuthenticated bool
+	IsCustomBuilder bool
 }
 
 // Builder builds Istio authorization policy to Envoy filters.
@@ -226,7 +225,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 			if len(b.trustDomainBundle.TrustDomains) > 1 {
 				b.logger.AppendDebugf("patched source principal with trust domain aliases %v", b.trustDomainBundle.TrustDomains)
 			}
-			generated, err := m.Generate(forTCP, b.option.UseAuthenticated, action)
+			generated, err := m.Generate(forTCP, false, action)
 			if err != nil {
 				b.logger.AppendDebugf("skipped rule %s on TCP filter chain: %v", name, err)
 				continue

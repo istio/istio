@@ -16,9 +16,9 @@ package extension
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"google.golang.org/protobuf/proto"
+	wasmextensions "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	extensions "istio.io/api/extensions/v1alpha1"
@@ -39,9 +39,9 @@ var defaultConfigSource = &core.ConfigSource{
 	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
 }
 
-// PopAppend takes a list of filters and a set of WASM plugins, keyed by phase. It will remove all
+// PopAppendHTTP takes a list of filters and a set of WASM plugins, keyed by phase. It will remove all
 // plugins of a provided phase from the WASM plugin set and append them to the list of filters
-func PopAppend(list []*hcm.HttpFilter,
+func PopAppendHTTP(list []*hcm.HttpFilter,
 	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	phase extensions.PluginPhase,
 ) []*hcm.HttpFilter {
@@ -49,6 +49,29 @@ func PopAppend(list []*hcm.HttpFilter,
 		list = append(list, toEnvoyHTTPFilter(ext))
 	}
 	delete(filterMap, phase)
+	return list
+}
+
+// PopAppendNetwork takes a list of filters and a set of WASM plugins, keyed by phase. It will remove all
+// plugins of a provided phase from the WASM plugin set and append them to the list of filters
+func PopAppendNetwork(list []*listener.Filter,
+	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
+	phase extensions.PluginPhase,
+) []*listener.Filter {
+	for _, ext := range filterMap[phase] {
+		list = append(list, toEnvoyNetworkFilter(ext))
+	}
+	delete(filterMap, phase)
+	return list
+}
+
+func PopAppendNetworkFilters(list []*listener.Filter,
+	filterMap map[extensions.PluginPhase][]*model.WasmPluginWrapper,
+) []*listener.Filter {
+	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_AUTHN)
+	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_AUTHZ)
+	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_STATS)
+	list = PopAppendNetwork(list, filterMap, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	return list
 }
 
@@ -67,7 +90,22 @@ func toEnvoyHTTPFilter(wasmPlugin *model.WasmPluginWrapper) *hcm.HttpFilter {
 	}
 }
 
-// InsertedExtensionConfigurations returns pre-generated extension configurations added via WasmPlugin.
+func toEnvoyNetworkFilter(wasmPlugin *model.WasmPluginWrapper) *listener.Filter {
+	return &listener.Filter{
+		Name: wasmPlugin.ResourceName,
+		ConfigType: &listener.Filter_ConfigDiscovery{
+			ConfigDiscovery: &core.ExtensionConfigSource{
+				ConfigSource: defaultConfigSource,
+				TypeUrls: []string{
+					xds.WasmNetworkFilterType,
+					xds.RBACNetworkFilterType,
+				},
+			},
+		},
+	}
+}
+
+// InsertedExtensionConfigurations builds added via WasmPlugin.
 func InsertedExtensionConfigurations(
 	wasmPlugins map[extensions.PluginPhase][]*model.WasmPluginWrapper,
 	names []string, pullSecrets map[string][]byte,
@@ -82,29 +120,52 @@ func InsertedExtensionConfigurations(
 			if !hasName.Contains(p.ResourceName) {
 				continue
 			}
-			wasmExtensionConfig := proto.Clone(p.WasmExtensionConfig).(*wasm.Wasm)
-			// Find the pull secret resource name from wasm vm env variables.
-			// The Wasm extension config should already have a `ISTIO_META_WASM_IMAGE_PULL_SECRET` env variable
-			// at in the VM env variables, with value being the secret resource name. We try to find the actual
-			// secret, and replace the env variable value with it. When ECDS config update reaches the proxy,
-			// agent will extract out the secret from env variable, use it for image pulling, and strip the
-			// env variable from VM config before forwarding it to envoy.
-			envs := wasmExtensionConfig.GetConfig().GetVmConfig().GetEnvironmentVariables().GetKeyValues()
-			secretName := envs[model.WasmSecretEnv]
-			if secretName != "" {
-				if sec, found := pullSecrets[secretName]; found {
-					envs[model.WasmSecretEnv] = string(sec)
-				} else {
-					envs[model.WasmSecretEnv] = ""
+			switch {
+			case p.Type == extensions.PluginType_NETWORK:
+				wasmExtensionConfig := p.BuildNetworkWasmFilter()
+				if wasmExtensionConfig == nil {
+					continue
 				}
+				updatePluginConfig(wasmExtensionConfig.GetConfig(), pullSecrets)
+				typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
+				ec := &core.TypedExtensionConfig{
+					Name:        p.ResourceName,
+					TypedConfig: typedConfig,
+				}
+				result = append(result, ec)
+			default:
+				wasmExtensionConfig := p.BuildHTTPWasmFilter()
+				if wasmExtensionConfig == nil {
+					continue
+				}
+				updatePluginConfig(wasmExtensionConfig.GetConfig(), pullSecrets)
+				typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
+				ec := &core.TypedExtensionConfig{
+					Name:        p.ResourceName,
+					TypedConfig: typedConfig,
+				}
+				result = append(result, ec)
 			}
-			typedConfig := protoconv.MessageToAny(wasmExtensionConfig)
-			ec := &core.TypedExtensionConfig{
-				Name:        p.ResourceName,
-				TypedConfig: typedConfig,
-			}
-			result = append(result, ec)
+
 		}
 	}
 	return result
+}
+
+func updatePluginConfig(pluginConfig *wasmextensions.PluginConfig, pullSecrets map[string][]byte) {
+	// Find the pull secret resource name from wasm vm env variables.
+	// The Wasm extension config should already have a `ISTIO_META_WASM_IMAGE_PULL_SECRET` env variable
+	// at in the VM env variables, with value being the secret resource name. We try to find the actual
+	// secret, and replace the env variable value with it. When ECDS config update reaches the proxy,
+	// agent will extract out the secret from env variable, use it for image pulling, and strip the
+	// env variable from VM config before forwarding it to envoy.
+	envs := pluginConfig.GetVmConfig().GetEnvironmentVariables().GetKeyValues()
+	secretName := envs[model.WasmSecretEnv]
+	if secretName != "" {
+		if sec, found := pullSecrets[secretName]; found {
+			envs[model.WasmSecretEnv] = string(sec)
+		} else {
+			envs[model.WasmSecretEnv] = ""
+		}
+	}
 }

@@ -27,7 +27,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	any "google.golang.org/protobuf/types/known/anypb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -50,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/wellknown"
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
@@ -349,16 +349,16 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, po
 	cls := istionetworking.ListenerClassSidecarInbound
 	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
 		Class: cls,
-	})
+	}, model.WasmPluginTypeHTTP)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	pre = append(pre, lb.authzCustomBuilder.BuildHTTP(cls)...)
-	pre = extension.PopAppend(pre, wasm, extensions.PluginPhase_AUTHN)
+	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHN)
 	pre = append(pre, lb.authnBuilder.BuildHTTP(cls)...)
-	pre = extension.PopAppend(pre, wasm, extensions.PluginPhase_AUTHZ)
+	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHZ)
 	pre = append(pre, lb.authzBuilder.BuildHTTP(cls)...)
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-	post = extension.PopAppend(post, wasm, extensions.PluginPhase_STATS)
-	post = extension.PopAppend(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_STATS)
+	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	post = append(post, xdsfilters.WaypointUpstreamMetadataFilter)
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls)...)
 	return

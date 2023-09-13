@@ -70,7 +70,7 @@ type Configurable interface {
 type VMDistro = string
 
 const (
-	UbuntuXenial VMDistro = "UbuntuXenial"
+	UbuntuBionic VMDistro = "UbuntuBionic"
 	UbuntuJammy  VMDistro = "UbuntuJammy"
 	Debian11     VMDistro = "Debian11"
 	Rockylinux8  VMDistro = "Centos8"

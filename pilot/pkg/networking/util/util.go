@@ -33,7 +33,6 @@ import (
 	headerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/header/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -51,6 +50,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/strcase"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -229,12 +229,6 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	sort.SliceStable(hosts, func(i, j int) bool {
 		return hosts[i].Name < hosts[j].Name
 	})
-}
-
-// IsIstioVersionGE117 checks whether the given Istio version is greater than or equals 1.17.
-func IsIstioVersionGE117(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 17, Patch: -1}) >= 0
 }
 
 // IsIstioVersionGE119 checks whether the given Istio version is greater than or equals 1.19.
@@ -763,4 +757,53 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 		}
 	}
 	return nil
+}
+
+// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
+func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	if subsetPolicy == nil {
+		return original
+	}
+
+	// Sanity check that top-level port level settings have already been merged for the given port
+	if original != nil && len(original.PortLevelSettings) != 0 {
+		original = MergeTrafficPolicy(nil, original, port)
+	}
+
+	mergedPolicy := &networking.TrafficPolicy{}
+	if original != nil {
+		mergedPolicy.ConnectionPool = original.ConnectionPool
+		mergedPolicy.LoadBalancer = original.LoadBalancer
+		mergedPolicy.OutlierDetection = original.OutlierDetection
+		mergedPolicy.Tls = original.Tls
+	}
+
+	// Override with subset values.
+	if subsetPolicy.ConnectionPool != nil {
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
+	}
+	if subsetPolicy.OutlierDetection != nil {
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
+	}
+	if subsetPolicy.LoadBalancer != nil {
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
+	}
+	if subsetPolicy.Tls != nil {
+		mergedPolicy.Tls = subsetPolicy.Tls
+	}
+
+	// Check if port level overrides exist, if yes override with them.
+	if port != nil {
+		for _, p := range subsetPolicy.PortLevelSettings {
+			if p.Port != nil && uint32(port.Port) == p.Port.Number {
+				// per the docs, port level policies do not inherit and instead to defaults if not provided
+				mergedPolicy.ConnectionPool = p.ConnectionPool
+				mergedPolicy.OutlierDetection = p.OutlierDetection
+				mergedPolicy.LoadBalancer = p.LoadBalancer
+				mergedPolicy.Tls = p.Tls
+				break
+			}
+		}
+	}
+	return mergedPolicy
 }

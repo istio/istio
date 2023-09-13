@@ -29,7 +29,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -39,6 +38,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	apiannotation "istio.io/api/annotation"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	typev1beta1 "istio.io/api/type/v1beta1"
@@ -68,6 +68,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/wellknown"
 )
 
 type myProtoValue struct {
@@ -115,7 +116,7 @@ the configuration objects that affect that pod.`,
 
 			podLabels := klabels.Set(pod.ObjectMeta.Labels)
 			annotations := klabels.Set(pod.ObjectMeta.Annotations)
-			opts.Revision = getRevisionFromPodAnnotation(annotations)
+			opts.Revision = GetRevisionFromPodAnnotation(annotations)
 
 			printPod(writer, pod, opts.Revision)
 
@@ -178,7 +179,10 @@ the configuration objects that affect that pod.`,
 	return cmd
 }
 
-func getRevisionFromPodAnnotation(anno klabels.Set) string {
+func GetRevisionFromPodAnnotation(anno klabels.Set) string {
+	if v, ok := anno[label.IoIstioRev.Name]; ok {
+		return v
+	}
 	statusString := anno.Get(apiannotation.SidecarStatus.Name)
 	var injectionStatus inject.SidecarInjectionStatus
 	if err := json.Unmarshal([]byte(statusString), &injectionStatus); err != nil {

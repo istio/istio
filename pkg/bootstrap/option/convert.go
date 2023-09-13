@@ -25,7 +25,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // TransportSocket wraps UpstreamTLSContext
@@ -81,7 +81,7 @@ func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName stri
 		// bootstrap generation this is better than having our custom structs.
 		tlsContextStruct, _ := conversion.MessageToStruct(protoconv.MessageToAny(tlsContext))
 		transportSocket := &TransportSocket{
-			Name:        wellknown.TransportSocketTls,
+			Name:        wellknown.TransportSocketTLS,
 			TypedConfig: tlsContextStruct,
 		}
 		return convertToJSON(transportSocket), nil

@@ -18,6 +18,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strings"
 
@@ -2072,10 +2073,8 @@ func reportGatewayStatus(
 			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
 		}
 		gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)].error = &ConfigError{
-			// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/1832#issuecomment-1487167378): Invalid is bad,
-			// this should be AddressNotAssigned
 			// TODO: this only checks Service ready, we should also check Deployment ready?
-			Reason:  string(k8sbeta.GatewayReasonInvalid),
+			Reason:  string(k8sbeta.GatewayReasonAddressNotAssigned),
 			Message: msg,
 		}
 	}
@@ -2102,6 +2101,11 @@ func reportGatewayStatus(
 		if len(addressesToReport) > 0 {
 			gs.Addresses = make([]k8sbeta.GatewayStatusAddress, 0, len(addressesToReport))
 			for _, addr := range addressesToReport {
+				if _, err := netip.ParseAddr(addr); err == nil {
+					addrType = k8s.IPAddressType
+				} else {
+					addrType = k8s.HostnameAddressType
+				}
 				gs.Addresses = append(gs.Addresses, k8sbeta.GatewayStatusAddress{
 					Value: addr,
 					Type:  &addrType,
