@@ -4,8 +4,29 @@ typedConfig:
   rules:
     action: DENY
     policies:
-      default-deny-all-due-to-bad-CUSTOM-action:
+      default-deny-due-to-bad-CUSTOM-action[0]:
         permissions:
-        - any: true
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: /httpbin1
         principals:
-        - any: true
+        - andIds:
+            ids:
+            - any: true
+      default-deny-due-to-bad-CUSTOM-action[1]:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: /httpbin2
+        principals:
+        - andIds:
+            ids:
+            - any: true
