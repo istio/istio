@@ -191,7 +191,6 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		if features.VerifySDSCertificate {
 			if err := ValidateCertificate(caCertInfo.Cert); err != nil {
 				recordInvalidCertificate(sr.ResourceName, err)
-				return nil
 			}
 		}
 		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
@@ -206,7 +205,6 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	if features.VerifySDSCertificate {
 		if err := ValidateCertificate(certInfo.Cert); err != nil {
 			recordInvalidCertificate(sr.ResourceName, err)
-			return nil
 		}
 	}
 	res := toEnvoyTLSSecret(sr.ResourceName, certInfo, proxy, s.meshConfig)
