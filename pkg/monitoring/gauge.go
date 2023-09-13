@@ -39,11 +39,8 @@ var _ Metric = &gauge{}
 func newGauge(o options) *gauge {
 	r := &gauge{
 		attributeSetsMutex: &sync.RWMutex{},
-		currentGaugeSet:    &gaugeValues{},
 	}
-	r.attributeSets = map[attribute.Set]*gaugeValues{
-		attribute.NewSet(): r.currentGaugeSet,
-	}
+	r.attributeSets = map[attribute.Set]*gaugeValues{}
 	g, err := meter().Float64ObservableGauge(o.name,
 		api.WithFloat64Callback(func(ctx context.Context, observer api.Float64Observer) error {
 			r.attributeSetsMutex.Lock()
@@ -70,6 +67,12 @@ func (f *gauge) Record(value float64) {
 	f.runRecordHook(value)
 	// TODO: https://github.com/open-telemetry/opentelemetry-specification/issues/2318 use synchronous gauge so we don't need to deal with this
 	f.attributeSetsMutex.Lock()
+	// Special case: we lazy-load the non-labeled value. This ensures that metrics which should always have labels do not end up with a un-labeled zero-value
+	// If a metric really requires `metric{} 0`, they can explicitly call .Record(0).
+	if f.currentGaugeSet == nil {
+		f.currentGaugeSet = &gaugeValues{}
+		f.attributeSets[attribute.NewSet()] = f.currentGaugeSet
+	}
 	f.currentGaugeSet.val = value
 	f.attributeSetsMutex.Unlock()
 }
