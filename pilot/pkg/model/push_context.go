@@ -676,6 +676,7 @@ var (
 
 	// All metrics we registered.
 	metrics = []monitoring.Metric{
+		DNSNoEndpointClusters,
 		EndpointNoPod,
 		ProxyStatusNoService,
 		ProxyStatusEndpointNotReady,
