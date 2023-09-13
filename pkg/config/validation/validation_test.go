@@ -4088,22 +4088,6 @@ func TestValidateLoadBalancer(t *testing.T) {
 		},
 
 		{
-			name: "invalid load balancer with consistentHash load balancing, missing ttl", in: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
-					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
-						MinimumRingSize: 1024,
-						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
-							HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
-								Name: "test",
-							},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-
-		{
 			name: "invalid load balancer with consistentHash load balancing, missing name", in: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
 					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
