@@ -135,7 +135,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 				selector: sampleGatewaySelector,
 			},
 			opts:                 sampleGateway,
-			expected:             policyMatchSelector,
+			expected:             policyMatchIgnore,
 			policyAttachmentOnly: true,
 		},
 		{
@@ -204,7 +204,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableGatewayPolicyAttachmentOnly, false)
+			test.SetForTest(t, &features.EnableGatewayPolicyAttachmentOnly, tt.policyAttachmentOnly)
 			matcher := getPolicyMatcher("policy1", tt.opts, tt.policy)
 
 			if matcher != tt.expected {
