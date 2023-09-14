@@ -847,18 +847,12 @@ func (s *Server) initRegistryEventHandlers() {
 	log.Info("initializing registry event handlers")
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(prev, curr *model.Service, event model.Event) {
-		needsPush := true
-		if event == model.EventUpdate {
-			needsPush = serviceUpdateNeedsPush(prev, curr)
+		pushReq := &model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
+			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		}
-		if needsPush {
-			pushReq := &model.PushRequest{
-				Full:           true,
-				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
-				Reason:         model.NewReasonStats(model.ServiceUpdate),
-			}
-			s.XDSServer.ConfigUpdate(pushReq)
-		}
+		s.XDSServer.ConfigUpdate(pushReq)
 	}
 	s.ServiceController().AppendServiceHandler(serviceHandler)
 
@@ -1334,14 +1328,4 @@ func (s *Server) initReadinessProbes() {
 	for name, probe := range probes {
 		s.addReadinessProbe(name, probe)
 	}
-}
-
-func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
-	if !features.EnableOptimizedServicePush {
-		return true
-	}
-	if prev == nil {
-		return true
-	}
-	return !prev.Equals(curr)
 }
