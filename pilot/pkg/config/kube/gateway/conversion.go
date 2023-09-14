@@ -21,6 +21,7 @@ import (
 	"net/netip"
 	"sort"
 	"strings"
+	"time"
 
 	"google.golang.org/protobuf/types/known/durationpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,8 +44,6 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-
-	time "time"
 )
 
 func sortConfigByCreationTime(configs []config.Config) {
@@ -276,13 +275,13 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 
 	if r.Timeouts != nil {
 		if r.Timeouts.Request != nil {
-			request, _ := time.ParseDuration((string)(*r.Timeouts.Request))
+			request, _ := time.ParseDuration(string(*r.Timeouts.Request))
 			if request != 0 {
 				vs.Timeout = durationpb.New(request)
 			}
 		}
 		if r.Timeouts.BackendRequest != nil {
-			backendRequest, _ := time.ParseDuration((string)(*r.Timeouts.BackendRequest))
+			backendRequest, _ := time.ParseDuration(string(*r.Timeouts.BackendRequest))
 			if backendRequest != 0 {
 				timeout := durationpb.New(backendRequest)
 				if vs.Retries != nil {
