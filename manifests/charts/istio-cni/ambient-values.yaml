@@ -5,7 +5,7 @@ cni:
   logLevel: info
 
   # Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift)
-  privileged: false
+  privileged: true
 
   # Configure ambient settings
   ambient:
