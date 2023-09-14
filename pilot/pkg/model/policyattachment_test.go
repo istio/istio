@@ -150,7 +150,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 				selector: sampleGatewaySelector,
 			},
 			opts:                 sampleGateway,
-			expected:             policyMatchSelector,
+			expected:             policyMatchIgnore,
 			policyAttachmentOnly: true,
 		},
 		{
