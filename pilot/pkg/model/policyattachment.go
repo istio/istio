@@ -34,7 +34,7 @@ const (
 	// policyMatchDirect is used when the policy has a targetRef, and the workload matches the targetRef.
 	// Note that the actual targetRef matching is done within `getPolicyMatcher`
 	policyMatchDirect policyMatch = "direct"
-	// policyMatchIgnore indicatesd that there is no match between the workload and the policy, and the policy should be ignored
+	// policyMatchIgnore indicates that there is no match between the workload and the policy, and the policy should be ignored
 	policyMatchIgnore policyMatch = "ignore"
 )
 
