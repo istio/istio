@@ -2331,9 +2331,9 @@ spec:
   trafficPolicy:
     loadBalancer:
       consistentHash:
-	    httpCookie:
-		  name: session-cookie
-		  ttl: 5s
+        httpCookie:
+          name: session-cookie
+          ttl: 5s
 `, svcName, svcName)
 			// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
 			// and could be broken by having only 1 pod so its good to have this check in place
