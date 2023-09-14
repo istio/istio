@@ -53,7 +53,7 @@ const (
 	IstioNamespace    = "istio-system"
 	OperatorNamespace = "istio-operator"
 	retryDelay        = time.Second
-	retryTimeOut      = 20 * time.Minute
+	retryTimeOut      = 5 * time.Minute
 	nsDeletionTimeout = 5 * time.Minute
 )
 
