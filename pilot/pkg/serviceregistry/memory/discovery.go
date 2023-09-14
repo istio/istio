@@ -16,6 +16,7 @@ package memory
 
 import (
 	"fmt"
+	"net/netip"
 	"sync"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -25,12 +26,15 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
+	"istio.io/istio/pkg/workloadapi/security"
 )
 
 // ServiceDiscovery is a mock discovery interface
 type ServiceDiscovery struct {
-	model.NoopAmbientIndexes
 	services map[host.Name]*model.Service
 
 	handlers model.ControllerHandlers
@@ -52,6 +56,8 @@ type ServiceDiscovery struct {
 
 	// Used by GetProxyWorkloadLabels
 	ip2workloadLabels map[string]labels.Instance
+
+	addresses map[string]*model.AddressInfo
 
 	// XDSUpdater will push EDS changes to the ADS model.
 	XdsUpdater model.XDSUpdater
@@ -77,6 +83,7 @@ func NewServiceDiscovery(services ...*model.Service) *ServiceDiscovery {
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
 		ip2workloadLabels:   map[string]labels.Instance{},
+		addresses:           map[string]*model.AddressInfo{},
 	}
 }
 
@@ -327,3 +334,90 @@ func (sd *ServiceDiscovery) Run(<-chan struct{}) {}
 
 // HasSynced always returns true
 func (sd *ServiceDiscovery) HasSynced() bool { return true }
+
+func (sd *ServiceDiscovery) AddressInformation(requests sets.String) ([]*model.AddressInfo, []string) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	if len(requests) == 0 {
+		return maps.Values(sd.addresses), nil
+	}
+
+	var infos []*model.AddressInfo
+	var removed []string
+	for req := range requests {
+		if _, found := sd.addresses[req]; !found {
+			removed = append(removed, req)
+		} else {
+			infos = append(infos, sd.addresses[req])
+		}
+	}
+	return infos, removed
+}
+
+func (sd *ServiceDiscovery) AdditionalPodSubscriptions(
+	*model.Proxy,
+	sets.String,
+	sets.String,
+) sets.String {
+	return nil
+}
+
+func (sd *ServiceDiscovery) Policies(sets.Set[model.ConfigKey]) []*security.Authorization {
+	return nil
+}
+
+func (sd *ServiceDiscovery) Waypoint(model.WaypointScope) []netip.Addr {
+	return nil
+}
+
+func (sd *ServiceDiscovery) WorkloadsForWaypoint(scope model.WaypointScope) []*model.WorkloadInfo {
+	return nil
+}
+
+func (sd *ServiceDiscovery) AddWorkloadInfo(infos ...*model.WorkloadInfo) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	for _, info := range infos {
+		sd.addresses[info.ResourceName()] = workloadToAddressInfo(info.Workload)
+	}
+}
+
+func (sd *ServiceDiscovery) RemoveWorkloadInfo(info *model.WorkloadInfo) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	delete(sd.addresses, info.ResourceName())
+}
+
+func (sd *ServiceDiscovery) AddServiceInfo(infos ...*model.ServiceInfo) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	for _, info := range infos {
+		sd.addresses[info.ResourceName()] = serviceToAddressInfo(info.Service)
+	}
+}
+
+func (sd *ServiceDiscovery) RemoveServiceInfo(info *model.ServiceInfo) {
+	sd.mutex.Lock()
+	defer sd.mutex.Unlock()
+	delete(sd.addresses, info.ResourceName())
+}
+
+func workloadToAddressInfo(w *workloadapi.Workload) *model.AddressInfo {
+	return &model.AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Workload{
+				Workload: w,
+			},
+		},
+	}
+}
+
+func serviceToAddressInfo(s *workloadapi.Service) *model.AddressInfo {
+	return &model.AddressInfo{
+		Address: &workloadapi.Address{
+			Type: &workloadapi.Address_Service{
+				Service: s,
+			},
+		},
+	}
+}
