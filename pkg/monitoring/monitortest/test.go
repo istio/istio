@@ -234,6 +234,36 @@ func toFloat(r interface{}) float64 {
 	}
 }
 
+// Metrics returns the full list of known metrics. Usually Assert should be used
+func (m *MetricsTest) Metrics() []Metric {
+	m.t.Helper()
+	res, err := m.reg.Gather()
+	if err != nil {
+		m.t.Fatal(err)
+	}
+	metrics := []Metric{}
+	for _, metric := range res {
+		if len(metric.Metric) == 0 {
+			m.t.Logf("%v: no rows", *metric.Name)
+		}
+		for _, row := range metric.Metric {
+			m := Metric{Name: *metric.Name, Labels: map[string]string{}, Value: display(row)}
+			for _, kv := range row.Label {
+				k, v := *kv.Name, *kv.Value
+				m.Labels[k] = v
+			}
+			metrics = append(metrics, m)
+		}
+	}
+	return metrics
+}
+
+type Metric struct {
+	Name   string
+	Labels map[string]string
+	Value  string
+}
+
 func (m *MetricsTest) Dump() {
 	m.t.Helper()
 	res, err := m.reg.Gather()
