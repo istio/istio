@@ -11,9 +11,6 @@ pilot:
     CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
     PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
 
-  # Sidecar injector mutating webhook configuration path value for the clientConfig.service field.
-  # Override to pass env variables, for example: /inject/cluster/remote/net/network2
-  injectionPath: "/inject"
 telemetry:
   # Telemetry handled with Telemetry API only
   enabled: false
