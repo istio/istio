@@ -30,7 +30,10 @@ import (
 	"istio.io/api/label"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/echo"
+	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -88,6 +91,37 @@ func TestWebhook(t *testing.T) {
 			}
 			verifyRejectsInvalidConfig(t, revision, true)
 			verifyRejectsInvalidConfig(t, "", true)
+		})
+}
+
+// Verify that the controller validation webhook service is reachable at
+// https://IstioPodIP:15017/validate . This is being explicitly done
+// to make sure, in dual-stack scenarios both v4 and v6 endpoints are reachable.
+func TestWebhookValidationEndpoints(t *testing.T) {
+	// nolint: staticcheck
+	framework.NewTest(t).
+		RequiresSingleCluster().
+		Run(func(t framework.TestContext) {
+			c := t.Clusters().Default()
+			podIPs, err := i.PodIPsFor(c, "app=istiod")
+			if err != nil {
+				t.Fatalf("error getting istiod pod ips: %v", err)
+			}
+			for _, ip := range podIPs {
+				apps.External.All[0].CallOrFail(t, echo.CallOptions{
+					Address: ip.IP,
+					Port:    echo.Port{ServicePort: 15017},
+					Scheme:  scheme.HTTPS,
+					HTTP: echo.HTTP{
+						Path: "/validate",
+					},
+					// Response code 400 is OK as we have not passed an object for validation.
+					// But the service is reachable without an error.
+					Check: check.And(
+						check.Status(400),
+					),
+				})
+			}
 		})
 }
 
