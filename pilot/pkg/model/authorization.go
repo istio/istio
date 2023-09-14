@@ -65,14 +65,14 @@ type AuthorizationPoliciesResult struct {
 	Audit  []AuthorizationPolicy
 }
 
-type ProxyInfo struct {
+type WorkloadSelectionOpts struct {
 	Namespace    string
 	WorkloadName string
 	Workload     labels.Instance
 }
 
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(proxyInfo ProxyInfo) AuthorizationPoliciesResult {
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionInfo WorkloadSelectionOpts) AuthorizationPoliciesResult {
 	ret := AuthorizationPoliciesResult{}
 	if policy == nil {
 		return ret
@@ -85,8 +85,8 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(proxyInfo ProxyIn
 
 	// Policies can be in root namespace and have workload selectors or a targetRef
 	// This prevents duplicate policies in case root namespace equals proxy's namespace.
-	if proxyInfo.Namespace != policy.RootNamespace {
-		namespaces = append(namespaces, proxyInfo.Namespace)
+	if selectionInfo.Namespace != policy.RootNamespace {
+		namespaces = append(namespaces, selectionInfo.Namespace)
 	}
 
 	for _, ns := range namespaces {
@@ -98,11 +98,11 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(proxyInfo ProxyIn
 			// TODO: remove this logic when workloadselector for waypoints is disallowed
 			if targetRef == nil {
 				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-				if selector.SubsetOf(proxyInfo.Workload) {
+				if selector.SubsetOf(selectionInfo.Workload) {
 					log.Infof("matching policy %s.%s does not have a targetRef", config.Namespace, config.Name)
 					ret = updateAuthorizationPoliciesResult(config, ret)
 				}
-			} else if (targetRef.GetName() == proxyInfo.WorkloadName) && (ns == proxyInfo.Namespace) {
+			} else if (targetRef.GetName() == selectionInfo.WorkloadName) && (ns == selectionInfo.Namespace) {
 				log.Infof("matching policy %s.%s has a targetRef", config.Namespace, config.Name)
 				ret = updateAuthorizationPoliciesResult(config, ret)
 			}

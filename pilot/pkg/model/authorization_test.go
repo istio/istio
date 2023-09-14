@@ -73,24 +73,24 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 	customPolicy.Action = authpb.AuthorizationPolicy_CUSTOM
 
 	cases := []struct {
-		name       string
-		proxyInfo  ProxyInfo
-		configs    []config.Config
-		wantDeny   []AuthorizationPolicy
-		wantAllow  []AuthorizationPolicy
-		wantAudit  []AuthorizationPolicy
-		wantCustom []AuthorizationPolicy
+		name          string
+		selectionInfo WorkloadSelectionOpts
+		configs       []config.Config
+		wantDeny      []AuthorizationPolicy
+		wantAllow     []AuthorizationPolicy
+		wantAudit     []AuthorizationPolicy
+		wantCustom    []AuthorizationPolicy
 	}{
 		{
 			name: "no policies",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "foo",
 			},
 			wantAllow: nil,
 		},
 		{
 			name: "no policies in namespace foo",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "foo",
 			},
 			configs: []config.Config{
@@ -101,7 +101,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "no policies with a targetRef in namespace foo",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace:    "foo",
 				WorkloadName: "waypoint",
 			},
@@ -112,7 +112,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "one allow policy",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
 			},
 			configs: []config.Config{
@@ -128,7 +128,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "one deny policy",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
 			},
 			configs: []config.Config{
@@ -144,7 +144,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "one audit policy",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
 			},
 			configs: []config.Config{
@@ -160,7 +160,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "one custom policy",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
 			},
 			configs: []config.Config{
@@ -176,7 +176,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "two policies",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
 			},
 			configs: []config.Config{
@@ -199,7 +199,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "mixing allow, deny, and audit policies",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
 			},
 			configs: []config.Config{
@@ -237,7 +237,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "targetRef is an exact match",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace:    "bar",
 				WorkloadName: "waypoint",
 			},
@@ -254,7 +254,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "selector exact match",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
 				Workload: map[string]string{
 					"app":     "httpbin",
@@ -274,7 +274,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "selector subset match",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
 				Workload: map[string]string{
 					"app":     "httpbin",
@@ -295,7 +295,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "targetRef is not a match",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace:    "bar",
 				WorkloadName: "waypoint2",
 			},
@@ -306,7 +306,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "selector not match",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
 				Workload: map[string]string{
 					"app":     "httpbin",
@@ -320,7 +320,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "namespace not match",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "foo",
 				Workload: map[string]string{
 					"app":     "httpbin",
@@ -334,7 +334,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "root namespace",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
 			},
 			configs: []config.Config{
@@ -350,7 +350,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "policy with targetRef in root namespace does not apply globally",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace:    "bar",
 				WorkloadName: "waypoint",
 			},
@@ -361,7 +361,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "root namespace equals config namespace",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "istio-config",
 			},
 			configs: []config.Config{
@@ -377,7 +377,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		},
 		{
 			name: "root namespace and config namespace",
-			proxyInfo: ProxyInfo{
+			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
 			},
 			configs: []config.Config{
@@ -403,7 +403,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			authzPolicies := createFakeAuthorizationPolicies(tc.configs)
 
-			result := authzPolicies.ListAuthorizationPolicies(tc.proxyInfo)
+			result := authzPolicies.ListAuthorizationPolicies(tc.selectionInfo)
 			if !reflect.DeepEqual(tc.wantAllow, result.Allow) {
 				t.Errorf("wantAllow:%v\n but got: %v\n", tc.wantAllow, result.Allow)
 			}
