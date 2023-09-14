@@ -79,10 +79,11 @@ func TestMain(m *testing.M) {
 		SkipIf("https://github.com/istio/istio/issues/43243", func(ctx resource.Context) bool {
 			return os.Getenv("VARIANT") == "distroless"
 		}).
-		SkipIf("https://github.com/istio/istio/issues/43508", func(ctx resource.Context) bool {
-			return !ctx.Settings().Ambient
-		}).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
+		Setup(func(t resource.Context) error {
+			t.Settings().Ambient = true
+			return nil
+		}).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			// can't deploy VMs without eastwest gateway
 			ctx.Settings().SkipVMs()
