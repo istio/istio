@@ -108,10 +108,16 @@ func (c *Controller) AddressInformation(addresses sets.String) ([]*model.Address
 	for _, p := range c.GetRegistries() {
 		wis, r := p.AddressInformation(addresses)
 		i = append(i, wis...)
-		removed.InsertAll(r...)
+		// This is because the address key can be in any type network/ip, resource name, etc.
+		if len(r) == 0 {
+			removed = sets.New[string]()
+		} else {
+			removed.InsertAll(r...)
+		}
 	}
 	// We may have 'removed' it in one registry but found it in another
 	for _, wl := range i {
+		// TODO(@hzxuzhonghu) This is not right for workload, we may search workload by ip, but the resource name is uid.
 		if removed.Contains(wl.ResourceName()) {
 			removed.Delete(wl.ResourceName())
 		}
