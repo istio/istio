@@ -16,7 +16,6 @@ package builder
 
 import (
 	"fmt"
-	"sort"
 	"strconv"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
@@ -359,10 +358,8 @@ func getBadCustomDenyRules(rules *rbacpb.RBAC) *rbacpb.RBAC {
 		Action:   rbacpb.RBAC_DENY,
 		Policies: map[string]*rbacpb.Policy{},
 	}
-	keys := maps.Keys(rules.Policies)
-	sort.Strings(keys)
-	for i, key := range keys {
-		rbac.Policies[fmt.Sprintf(badCustomActionTemplate, i)] = rules.Policies[key]
+	for _, key := range maps.Keys(rules.Policies) {
+		rbac.Policies[key+badCustomActionSuffix] = rules.Policies[key]
 	}
 	return rbac
 }

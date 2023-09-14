@@ -40,7 +40,7 @@ import (
 
 const (
 	extAuthzMatchPrefix     = "istio-ext-authz"
-	badCustomActionTemplate = `default-deny-due-to-bad-CUSTOM-action[%d]`
+	badCustomActionSuffix = `-deny-due-to-bad-CUSTOM-action`
 )
 
 var (
