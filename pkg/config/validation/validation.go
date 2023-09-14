@@ -1448,7 +1448,7 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 	consistentHash := settings.GetConsistentHash()
 	if consistentHash != nil {
 		httpCookie := consistentHash.GetHttpCookie()
-		if httpCookie.GetName() == "" {
+		if httpCookie != nil && httpCookie.GetName() == "" {
 			errs = appendValidation(errs, fmt.Errorf("name required for HttpCookie"))
 		}
 		if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
