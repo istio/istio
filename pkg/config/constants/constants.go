@@ -80,9 +80,6 @@ const (
 	// IstioLabel indicates that a workload is part of a named Istio system component.
 	IstioLabel = "istio"
 
-	// IstioGatewayLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
-	IstioGatewayLabel = "istio.io/gateway-name"
-
 	// IstioIngressLabelValue is value for IstioLabel that identifies an ingress workload.
 	// TODO we should derive this from IngressClass
 	IstioIngressLabelValue = "ingressgateway"
@@ -167,7 +164,9 @@ const (
 
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
-	// TODO formalize this API
+
+	// GatewayNameLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
+	// TODO: Formalize this API
 	GatewayNameLabel = "istio.io/gateway-name"
 
 	// TODO formalize this API

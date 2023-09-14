@@ -43,12 +43,12 @@ func TestGetPolicyMatcher(t *testing.T) {
 	}
 	sampleGatewaySelector := &v1beta1.WorkloadSelector{
 		MatchLabels: labels.Instance{
-			constants.IstioGatewayLabel: "sample-gateway",
+			constants.GatewayNameLabel: "sample-gateway",
 		},
 	}
 	sampleWaypointSelector := &v1beta1.WorkloadSelector{
 		MatchLabels: labels.Instance{
-			constants.IstioGatewayLabel: "sample-waypoint",
+			constants.GatewayNameLabel: "sample-waypoint",
 		},
 	}
 	regularApp := workloadSelectionOpts{
@@ -63,7 +63,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 		rootNamespace: "root",
 		namespace:     "default",
 		workloadLabels: labels.Instance{
-			constants.IstioGatewayLabel: "sample-gateway",
+			constants.GatewayNameLabel: "sample-gateway",
 		},
 		isWaypoint: false,
 	}
@@ -71,7 +71,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 		rootNamespace: "root",
 		namespace:     "default",
 		workloadLabels: labels.Instance{
-			constants.IstioGatewayLabel: "sample-waypoint",
+			constants.GatewayNameLabel: "sample-waypoint",
 		},
 		isWaypoint: true,
 	}

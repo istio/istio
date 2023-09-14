@@ -29,13 +29,17 @@ type policyTargetGetter interface {
 type policyMatch string
 
 const (
+	// policyMatchSelector is the default behavior. If the workload matches the policy's selector, the policy is applied
 	policyMatchSelector policyMatch = "selector"
-	policyMatchDirect   policyMatch = "direct"
-	policyMatchIgnore   policyMatch = "ignore"
+	// policyMatchDirect is used when the policy has a targetRef, and the workload matches the targetRef.
+	// Note that the actual targetRef matching is done within `getPolicyMatcher`
+	policyMatchDirect policyMatch = "direct"
+	// policyMatchIgnore indicatesd that there is no match between the workload and the policy, and the policy should be ignored
+	policyMatchIgnore policyMatch = "ignore"
 )
 
 func getPolicyMatcher(policyName string, opts workloadSelectionOpts, policy policyTargetGetter) policyMatch {
-	gatewayName, isGatewayAPI := opts.workloadLabels[constants.IstioGatewayLabel]
+	gatewayName, isGatewayAPI := opts.workloadLabels[constants.GatewayNameLabel]
 	targetRef := policy.GetTargetRef()
 	if isGatewayAPI && targetRef == nil && policy.GetSelector() != nil {
 		if opts.isWaypoint || features.EnableGatewayPolicyAttachmentOnly {

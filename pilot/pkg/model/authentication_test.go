@@ -107,7 +107,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			name:              "Gateway targetRef foo namespace",
 			workloadNamespace: "foo",
 			workloadLabels: labels.Instance{
-				constants.IstioGatewayLabel: "my-gateway",
+				constants.GatewayNameLabel: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -127,7 +127,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 					Spec: &securityBeta.RequestAuthentication{
 						Selector: &selectorpb.WorkloadSelector{
 							MatchLabels: map[string]string{
-								constants.IstioGatewayLabel: "my-gateway",
+								constants.GatewayNameLabel: "my-gateway",
 							},
 						},
 					},
@@ -190,7 +190,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			workloadNamespace: "foo",
 			isWaypoint:        true,
 			workloadLabels: labels.Instance{
-				constants.IstioGatewayLabel: "my-gateway",
+				constants.GatewayNameLabel: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -258,7 +258,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 			name:              "Gateway targetRef bar namespace",
 			workloadNamespace: "bar",
 			workloadLabels: labels.Instance{
-				constants.IstioGatewayLabel: "my-gateway",
+				constants.GatewayNameLabel: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -683,7 +683,7 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 			name:              "Gateway targetRef foo namespace",
 			workloadNamespace: "foo",
 			workloadLabels: labels.Instance{
-				constants.IstioGatewayLabel: "my-gateway",
+				constants.GatewayNameLabel: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -752,7 +752,7 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 			workloadNamespace: "foo",
 			isWaypoint:        true,
 			workloadLabels: labels.Instance{
-				constants.IstioGatewayLabel: "my-gateway",
+				constants.GatewayNameLabel: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -820,7 +820,7 @@ func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
 			name:              "Gateway targetRef bar namespace",
 			workloadNamespace: "bar",
 			workloadLabels: labels.Instance{
-				constants.IstioGatewayLabel: "my-gateway",
+				constants.GatewayNameLabel: "my-gateway",
 			},
 			wantRequestAuthn: []*config.Config{
 				{
@@ -1543,7 +1543,7 @@ func createTestConfigs(withMeshPeerAuthn bool) []*config.Config {
 		}),
 		createTestRequestAuthenticationResource("ignored-gateway-selector", "foo", &selectorpb.WorkloadSelector{
 			MatchLabels: map[string]string{
-				constants.IstioGatewayLabel: "my-gateway",
+				constants.GatewayNameLabel: "my-gateway",
 			},
 		}, nil),
 		createTestRequestAuthenticationResource("with-targetref", "bar", &selectorpb.WorkloadSelector{

@@ -177,7 +177,7 @@ func (t *T) RunViaGatewayIngress(gatewayClass string, testFn ingressTest) {
 			GatewayClass: gatewayClass,
 		}
 		// Build and apply per-destination config
-		gwIngress := istioInstance.CustomIngressFor(ctx.Clusters()[0], gwInstance.ServiceName(), fmt.Sprintf("%s=%s", constants.IstioGatewayLabel, gwInstance.Name))
+		gwIngress := istioInstance.CustomIngressFor(ctx.Clusters()[0], gwInstance.ServiceName(), fmt.Sprintf("%s=%s", constants.GatewayNameLabel, gwInstance.Name))
 		callers := ingress.Instances{gwIngress}.Callers()
 		t.cfg.Context(ctx).BuildFromAndTo(callers, dstInstances.Services()).Apply()
 
