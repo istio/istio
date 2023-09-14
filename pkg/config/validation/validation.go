@@ -1449,13 +1449,8 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 	consistentHash := settings.GetConsistentHash()
 	if consistentHash != nil {
 		httpCookie := consistentHash.GetHttpCookie()
-		if httpCookie != nil {
-			if httpCookie.Name == "" {
-				errs = appendValidation(errs, fmt.Errorf("name required for HttpCookie"))
-			}
-			if httpCookie.Ttl == nil {
-				errs = appendValidation(errs, fmt.Errorf("ttl required for HttpCookie"))
-			}
+		if httpCookie != nil && httpCookie.GetName() == "" {
+			errs = appendValidation(errs, fmt.Errorf("name required for HttpCookie"))
 		}
 		if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
 			warn := "consistent hash MinimumRingSize is deprecated, use ConsistentHashLB's RingHash configuration instead"
