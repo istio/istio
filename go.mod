@@ -250,5 +250,3 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.14.3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 )
-
-replace sigs.k8s.io/gateway-api => /Users/simone/go/src/sigs.k8s.io/gateway-api
