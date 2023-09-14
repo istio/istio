@@ -2398,6 +2398,14 @@ spec:
 					reason: "", // TODO: is this a bug or WAI?
 				},
 			})
+			t.RunTraffic(TrafficTestCase{
+				name: "http cookie with ttl " + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(destRule, `httpCookie:
+				                                            name: "session-cookie", 
+															ttl: "5s"`),
+				call: c.CallOrFail,
+				opts: tcpCallopts,
+			})
 		}
 	}
 }
