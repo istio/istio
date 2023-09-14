@@ -110,7 +110,6 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(proxyInfo ProxyIn
 	}
 
 	return ret
-
 }
 
 func updateAuthorizationPoliciesResult(config AuthorizationPolicy, ret AuthorizationPoliciesResult) AuthorizationPoliciesResult {
