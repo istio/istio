@@ -242,17 +242,10 @@ func GetAmbientPolicyConfigName(key ConfigKey) string {
 	}
 }
 
-type workloadSelectionOpts struct {
-	rootNamespace  string
-	namespace      string
-	workloadLabels labels.Instance
-	isWaypoint     bool
-}
-
-func getConfigsForWorkload(configsByNamespace map[string][]config.Config, selectionInfo workloadSelectionOpts) []*config.Config {
-	workloadLabels := selectionInfo.workloadLabels
-	namespace := selectionInfo.namespace
-	rootNamespace := selectionInfo.rootNamespace
+func getConfigsForWorkload(configsByNamespace map[string][]config.Config, selectionOpts workloadSelectionOpts) []*config.Config {
+	workloadLabels := selectionOpts.workloadLabels
+	namespace := selectionOpts.namespace
+	rootNamespace := selectionOpts.rootNamespace
 	configs := make([]*config.Config, 0)
 	var lookupInNamespaces []string
 	if namespace != rootNamespace {
@@ -275,7 +268,7 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config, select
 				switch cfg.GroupVersionKind {
 				case gvk.RequestAuthentication:
 					ra := cfg.Spec.(*v1beta1.RequestAuthentication)
-					switch getPolicyMatcher(cfg.Name, selectionInfo, ra) {
+					switch getPolicyMatcher(cfg.Name, selectionOpts, ra) {
 					case policyMatchSelector:
 						selector = ra.GetSelector().GetMatchLabels()
 					case policyMatchDirect:

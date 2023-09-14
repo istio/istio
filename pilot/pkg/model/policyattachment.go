@@ -18,12 +18,20 @@ import (
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 type policyTargetGetter interface {
 	GetTargetRef() *v1beta1.PolicyTargetReference
 	GetSelector() *v1beta1.WorkloadSelector
+}
+
+type workloadSelectionOpts struct {
+	rootNamespace  string
+	namespace      string
+	workloadLabels labels.Instance
+	isWaypoint     bool
 }
 
 type policyMatch string
