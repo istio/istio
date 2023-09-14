@@ -39,20 +39,18 @@ import (
 )
 
 const (
-	extAuthzMatchPrefix     = "istio-ext-authz"
+	extAuthzMatchPrefix   = "istio-ext-authz"
 	badCustomActionSuffix = `-deny-due-to-bad-CUSTOM-action`
 )
 
-var (
-	supportedStatus = func() []int {
-		var supported []int
-		for code := range envoytypev3.StatusCode_name {
-			supported = append(supported, int(code))
-		}
-		sort.Ints(supported)
-		return supported
-	}()
-)
+var supportedStatus = func() []int {
+	var supported []int
+	for code := range envoytypev3.StatusCode_name {
+		supported = append(supported, int(code))
+	}
+	sort.Ints(supported)
+	return supported
+}()
 
 type builtExtAuthz struct {
 	http *extauthzhttp.ExtAuthz
