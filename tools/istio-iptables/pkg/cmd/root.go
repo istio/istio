@@ -67,9 +67,14 @@ var rootCmd = &cobra.Command{
 		if cfg.DryRun {
 			ext = &dep.StdoutStubDependencies{}
 		} else {
+			ipv, err := dep.DetectIptablesVersion(cfg.IPTablesVersion)
+			if err != nil {
+				handleErrorWithCode(err, 1)
+			}
 			ext = &dep.RealDependencies{
 				CNIMode:          cfg.CNIMode,
 				NetworkNamespace: cfg.NetworkNamespace,
+				IptablesVersion:  ipv,
 			}
 		}
 
@@ -276,6 +281,7 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	bind(constants.CaptureAllDNS, false)
 	bind(constants.NetworkNamespace, "")
 	bind(constants.CNIMode, false)
+	bind(constants.IptablesVersion, "")
 	bind(constants.DualStack, DualStack)
 }
 
@@ -362,6 +368,8 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 	rootCmd.Flags().String(constants.NetworkNamespace, "", "The network namespace that iptables rules should be applied to.")
 
 	rootCmd.Flags().Bool(constants.CNIMode, false, "Whether to run as CNI plugin.")
+
+	rootCmd.Flags().String(constants.IptablesVersion, "", "version of iptables command. If not set, this is automatically detected.")
 }
 
 func GetCommand() *cobra.Command {
