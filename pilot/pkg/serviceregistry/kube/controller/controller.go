@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -1140,7 +1141,12 @@ func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
 		return true
 	}
 	if prev == nil {
-		return true
+		return !curr.Attributes.ExportTo.Contains(visibility.None)
+	}
+	// if service are not exported, no need to push
+	if prev.Attributes.ExportTo.Contains(visibility.None) &&
+		curr.Attributes.ExportTo.Contains(visibility.None) {
+		return false
 	}
 	return !prev.Equals(curr)
 }
