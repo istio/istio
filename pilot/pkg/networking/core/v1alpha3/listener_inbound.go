@@ -730,7 +730,7 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	var filters []*listener.Filter
 	if !lb.node.IsAmbient() {
-		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+		filters = append(filters, buildMetadataExchangeNetworkFilters()...)
 	}
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, &listener.Filter{
@@ -792,20 +792,30 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 // buildInboundNetworkFiltersForHTTP builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
-	var filters []*listener.Filter
-
-	if !cc.hbone {
-		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
-		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
-	}
-
-	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
 	// Add network level WASM filters if any configured.
+	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
 	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
 		Port:  httpOpts.port,
 		Class: httpOpts.class,
 	}, model.WasmPluginTypeNetwork)
-	filters = extension.PopAppendNetworkFilters(filters, wasm)
+
+	var filters []*listener.Filter
+	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066
+	if !cc.hbone {
+		filters = append(filters, buildMetadataExchangeNetworkFilters()...)
+	}
+
+	// Authn
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
+	if !cc.hbone {
+		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
+	}
+
+	// Authz. Since this is HTTP, we only add WASM network filters -- not TCP RBAC, stats, etc.
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+
 	h := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
@@ -827,25 +837,6 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 		IdleTimeout:      parseDuration(lb.node.Metadata.IdleTimeout),
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound)
-
-	var filters []*listener.Filter
-
-	if !fcc.hbone {
-		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
-		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
-	}
-	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
-		Port:  fcc.port.Port,
-		Class: istionetworking.ListenerClassSidecarInbound,
-	}, model.WasmPluginTypeNetwork)
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
-	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
-	filters = append(filters, lb.authzBuilder.BuildTCP()...)
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
-	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
-	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
-	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
-
-	return filters
+	networkFilterstack := buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)
+	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true)
 }
