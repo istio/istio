@@ -1514,8 +1514,6 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 		}
 	}
 
-	// referencedHostnames := ConfigNameOfKind(configsUpdated, kind.ServiceEntry)
-
 	// aliasesForService builds a map of Concrete -> []Aliases
 	aliasesForService := map[host.Name][]NamespacedHostname{}
 	for alias, concrete := range resolvedAliases {

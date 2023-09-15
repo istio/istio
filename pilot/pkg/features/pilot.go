@@ -654,7 +654,7 @@ var (
 	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
 		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
 
-	EnableExternalNameAlias = env.Register("ENABLE_EXTERNAL_NAME_ALIAS", true,
+	EnableExternalNameAlias = env.Register("ENABLE_EXTERNAL_NAME_ALIAS", false,
 		"If enabled, ExternalName Services will be treated as simple aliases: anywhere where we would match the concrete service, "+
 			"we also match the ExternalName. In general, this mirrors Kubernetes behavior more closely. However, it means that policies (routes and DestinationRule) "+
 			"cannot be applied to the ExternalName service. "+
