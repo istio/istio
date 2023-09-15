@@ -76,6 +76,7 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		RequireMinVersion(24).
 		SkipIf("https://github.com/istio/istio/issues/43243", func(ctx resource.Context) bool {
 			return os.Getenv("VARIANT") == "distroless"
 		}).
