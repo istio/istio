@@ -117,15 +117,17 @@ func ParseJSONToK8sObject(json []byte) (*K8sObject, error) {
 
 // ParseYAMLToK8sObject parses YAML to an Object.
 func ParseYAMLToK8sObject(yaml []byte) (*K8sObject, error) {
-	r := bytes.NewReader(yaml)
-	decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
-
-	out := &unstructured.Unstructured{}
-	err := decoder.Decode(out)
+	objects, err := ParseK8sObjectsFromYAMLManifest(string(yaml))
 	if err != nil {
-		return nil, fmt.Errorf("error decoding object %v: %v", string(yaml), err)
+		return nil, err
 	}
-	return NewK8sObject(out, nil, yaml), nil
+	if len(objects) > 1 {
+		return nil, fmt.Errorf("expect one object, actually: %d", len(objects))
+	}
+	if len(objects) == 0 || objects[0] == nil {
+		return nil, fmt.Errorf("decoding object %v: %v", string(yaml), "no object found")
+	}
+	return objects[0], nil
 }
 
 // UnstructuredObject exposes the raw object, primarily for testing
