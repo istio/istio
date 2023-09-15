@@ -2419,11 +2419,10 @@ spec:
 				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
-				name:            "tcp source ip " + c.Config().Service,
-				minIstioVersion: "1.14.0",
-				config:          svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
-				call:            c.CallOrFail,
-				opts:            tcpCallopts,
+				name:   "tcp source ip " + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
+				call:   c.CallOrFail,
+				opts:   tcpCallopts,
 				skip: skip{
 					skip:   c.Config().WorkloadClass() == echo.Proxyless,
 					reason: "", // TODO: is this a bug or WAI?
