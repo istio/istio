@@ -61,6 +61,21 @@ type hostClassification struct {
 	allHosts   []host.Name
 }
 
+func (hc hostClassification) Matches(h host.Name) bool {
+	// exact lookup is fast, so check that first
+	if hc.exactHosts.Contains(h) {
+		return true
+	}
+	// exactHosts not found, fallback to loop allHosts
+	for _, importedHost := range hc.allHosts {
+		// Check if the hostnames match per usual hostname matching rules
+		if h.SubsetOf(importedHost) {
+			return true
+		}
+	}
+	return false
+}
+
 // SidecarScope is a wrapper over the Sidecar resource with some
 // preprocessed data to determine the list of services, virtualServices,
 // and destinationRules that are accessible to a given
@@ -711,41 +726,27 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 func matchingService(importedHosts hostClassification, service *Service, ilw *IstioEgressListenerWrapper) *Service {
 	matchPort := needsPortMatch(ilw)
 
-	// first, check exactHosts
-	if importedHosts.exactHosts.Contains(service.Hostname) {
+	if importedHosts.Matches(service.Hostname) {
 		if matchPort {
 			return serviceMatchingListenerPort(service, ilw)
 		}
 		return service
 	}
-
-	// exactHosts not found, fallback to loop allHosts
-	for _, importedHost := range importedHosts.allHosts {
-		// Check if the hostnames match per usual hostname matching rules
-		if service.Hostname.SubsetOf(importedHost) {
-			if matchPort {
-				return serviceMatchingListenerPort(service, ilw)
-			}
-			return service
-		}
-	}
 	return nil
 }
 
 // Return the original service or a trimmed service which has a subset of the ports in original service.
-func matchingAliasService(importedHosts []host.Name, service *Service) *Service {
+func matchingAliasService(importedHosts hostClassification, service *Service) *Service {
 	if service == nil {
 		return nil
 	}
 	matched := make([]NamespacedHostname, 0, len(service.Attributes.Aliases))
-	for _, importedHost := range importedHosts {
-		for _, alias := range service.Attributes.Aliases {
-			// Check if the hostnames match per usual hostname matching rules
-			if alias.Hostname.SubsetOf(importedHost) {
-				matched = append(matched, alias)
-			}
+	for _, alias := range service.Attributes.Aliases {
+		if importedHosts.Matches(alias.Hostname) {
+			matched = append(matched, alias)
 		}
 	}
+
 	if len(matched) == len(service.Attributes.Aliases) {
 		return service
 	}

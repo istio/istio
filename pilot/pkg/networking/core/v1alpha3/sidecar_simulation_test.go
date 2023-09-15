@@ -1132,6 +1132,7 @@ ports:
 }
 
 func TestExternalNameServices(t *testing.T) {
+	test.SetForTest(t, &features.EnableExternalNameAlias, true)
 	ports := `
   - name: http
     port: 80

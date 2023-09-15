@@ -20,6 +20,7 @@ spec:
       keepaliveMaxServerConnectionAge: 120s
       autoscaleEnabled: false
       env:
+        ENABLE_EXTERNAL_NAME_ALIAS: true
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
         PILOT_ENABLE_ALPHA_GATEWAY_API: "true"
