@@ -55,7 +55,7 @@ values:
   pilot: 
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
-      ENABLE_GATEWAY_POLICY_ATTACHMENT_ONLY: true
+      ENABLE_SELECTOR_BASED_K8S_GATEWAY_POLICY: true
 meshConfig:
   defaultConfig:
     gatewayTopology:
@@ -68,7 +68,7 @@ values:
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
       ISTIO_DUAL_STACK: true
-      ENABLE_GATEWAY_POLICY_ATTACHMENT_ONLY: true
+      ENABLE_SELECTOR_BASED_K8S_GATEWAY_POLICY: true
 meshConfig:
   defaultConfig:
     proxyMetadata:

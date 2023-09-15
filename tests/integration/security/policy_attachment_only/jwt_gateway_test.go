@@ -56,7 +56,7 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 				Apply()
 
 			t.NewSubTest("gateway-authn-policy-attachment-only").Run(func(t framework.TestContext) {
-				test.SetForTest(t, &features.EnableGatewayPolicyAttachmentOnly, true)
+				test.SetForTest(t, &features.EnableSelectorBasedK8sGatewayPolicy, false)
 				cases := []struct {
 					name          string
 					customizeCall func(opts *echo.CallOptions, to echo.Target)

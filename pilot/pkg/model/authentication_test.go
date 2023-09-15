@@ -615,7 +615,7 @@ func TestGetPoliciesForWorkload(t *testing.T) {
 }
 
 func TestGetPoliciesForGatewayPolicyAttachmentOnly(t *testing.T) {
-	pkgtest.SetForTest(t, &features.EnableGatewayPolicyAttachmentOnly, true)
+	pkgtest.SetForTest(t, &features.EnableSelectorBasedK8sGatewayPolicy, false)
 	policies := getTestAuthenticationPolicies(createTestConfigs(true /* with mesh peer authn */), t)
 
 	cases := []struct {

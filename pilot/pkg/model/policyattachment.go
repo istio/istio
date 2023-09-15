@@ -17,6 +17,7 @@ package model
 import (
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -46,12 +47,12 @@ const (
 	policyMatchIgnore policyMatch = "ignore"
 )
 
-func getPolicyMatcher(policyName string, opts workloadSelectionOpts, policy policyTargetGetter) policyMatch {
+func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts workloadSelectionOpts, policy policyTargetGetter) policyMatch {
 	gatewayName, isGatewayAPI := opts.workloadLabels[constants.GatewayNameLabel]
 	targetRef := policy.GetTargetRef()
 	if isGatewayAPI && targetRef == nil && policy.GetSelector() != nil {
-		if opts.isWaypoint || features.EnableGatewayPolicyAttachmentOnly {
-			log.Warnf("Ignoring workload-scoped RequestAuthentication %s.%s for gateway %s because it has no targetRef", opts.namespace, policyName, gatewayName)
+		if opts.isWaypoint || !features.EnableSelectorBasedK8sGatewayPolicy {
+			log.Warnf("Ignoring workload-scoped %s/%s %s.%s for gateway %s because it has no targetRef", kind.Group, kind.Kind, opts.namespace, policyName, gatewayName)
 			return policyMatchIgnore
 		}
 	}

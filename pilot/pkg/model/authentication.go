@@ -268,7 +268,7 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config, select
 				switch cfg.GroupVersionKind {
 				case gvk.RequestAuthentication:
 					ra := cfg.Spec.(*v1beta1.RequestAuthentication)
-					switch getPolicyMatcher(cfg.Name, selectionOpts, ra) {
+					switch getPolicyMatcher(cfg.GroupVersionKind, cfg.Name, selectionOpts, ra) {
 					case policyMatchSelector:
 						selector = ra.GetSelector().GetMatchLabels()
 					case policyMatchDirect:
