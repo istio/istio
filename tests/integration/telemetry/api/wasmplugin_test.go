@@ -231,6 +231,15 @@ func applyAndTestWasmWithHTTP(ctx framework.TestContext, c wasmTestConfigs) {
 	})
 }
 
+// TestTargetRef vs workloadSelector for gateways
+func TestGatewaySelection(t *testing.T) {
+	framework.NewTest(t).
+		Features("extensibility.wasm.remote-load").
+		Run(func(t framework.TestContext) {
+
+		})
+}
+
 // TestImagePullPolicyWithHTTP tests pulling Wasm Binary via HTTP and ImagePullPolicy.
 func TestImagePullPolicyWithHTTP(t *testing.T) {
 	framework.NewTest(t).
