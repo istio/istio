@@ -1670,6 +1670,7 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 
 func TestExternalNameServiceInstances(t *testing.T) {
 	t.Run("alias", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableExternalNameAlias, true)
 		controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 		createExternalNameService(controller, "svc5", "nsA",
 			[]int32{1, 2, 3}, "foo.co", t, fx)
