@@ -48,13 +48,6 @@ func (s *PortNameAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (s *PortNameAnalyzer) Analyze(c analysis.Context) {
 	c.ForEach(gvk.Service, func(r *resource.Instance) bool {
-		svcNs := r.Metadata.FullName.Namespace
-
-		// Skip system namespaces entirely
-		if util.IsSystemNamespace(svcNs) {
-			return true
-		}
-
 		// Skip port name check for istio control plane
 		if util.IsIstioControlPlane(r) {
 			return true
