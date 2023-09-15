@@ -745,7 +745,7 @@ func (a *AmbientIndexImpl) handleKubeGateway(_, newObj any, isDelete bool, c *Co
 					Address: ip.AsSlice(),
 				},
 			},
-			Port: waypointPort,
+			HboneMtlsPort: waypointPort,
 		}
 
 		updates := sets.New[model.ConfigKey]()
