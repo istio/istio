@@ -30,6 +30,7 @@ import (
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -272,8 +273,8 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 
 	extauthz, err := getExtAuthz(b.extensions, providers)
 	if err != nil {
-		b.logger.AppendError(multierror.Prefix(err, "failed to process CUSTOM action:"))
-		rbac := &rbachttp.RBAC{Rules: rbacDefaultDenyAll}
+		b.logger.AppendError(multierror.Prefix(err, "failed to process CUSTOM action, will generate deny configs for the specified rules:"))
+		rbac := &rbachttp.RBAC{Rules: getBadCustomDenyRules(rules)}
 		return []*hcm.HttpFilter{
 			{
 				Name:       wellknown.HTTPRoleBasedAccessControl,
@@ -319,9 +320,9 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 	}
 
 	if extauthz, err := getExtAuthz(b.extensions, providers); err != nil {
-		b.logger.AppendError(multierror.Prefix(err, "failed to parse CUSTOM action, will generate a deny all config:"))
+		b.logger.AppendError(multierror.Prefix(err, "failed to process CUSTOM action, will generate deny configs for the specified rules:"))
 		rbac := &rbactcp.RBAC{
-			Rules:      rbacDefaultDenyAll,
+			Rules:      getBadCustomDenyRules(rules),
 			StatPrefix: authzmodel.RBACTCPFilterStatPrefix,
 		}
 		return []*listener.Filter{
@@ -350,6 +351,17 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 			},
 		}
 	}
+}
+
+func getBadCustomDenyRules(rules *rbacpb.RBAC) *rbacpb.RBAC {
+	rbac := &rbacpb.RBAC{
+		Action:   rbacpb.RBAC_DENY,
+		Policies: map[string]*rbacpb.Policy{},
+	}
+	for _, key := range maps.Keys(rules.Policies) {
+		rbac.Policies[key+badCustomActionSuffix] = rules.Policies[key]
+	}
+	return rbac
 }
 
 func policyName(namespace, name string, rule int, option Option) string {
