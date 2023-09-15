@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -287,9 +288,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 
 	subs := sets.New(req.ResourceNamesSubscribe...).Delete("*")
 	// InitialResourceVersions are essential subscriptions on the first request, since we don't care about the version
-	for k := range req.InitialResourceVersions {
-		subs.Insert(k)
-	}
+	subs.InsertAll(maps.Keys(req.InitialResourceVersions)...)
 	request := &model.PushRequest{
 		Full:   true,
 		Push:   con.proxy.LastPushContext,
@@ -348,9 +347,11 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		} else {
 			deltaLog.Debugf("ADS:%s: INIT %s %s", stype, con.conID, request.ResponseNonce)
 		}
+
 		con.proxy.Lock()
+		defer con.proxy.Unlock()
+
 		res, wildcard := deltaWatchedResources(nil, request)
-		// A request is wildcard if they explicitly subscribe to "*" or subscribe to nothing
 		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
 			ResourceNames: res,
@@ -371,7 +372,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 				dwr.AlwaysRespond = true
 			}
 		}
-		con.proxy.Unlock()
 		return true
 	}
 
@@ -389,14 +389,14 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// the ack details and respond if there is a change in resource names.
 	con.proxy.Lock()
 	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
-	deltaResources, _ := deltaWatchedResources(previousResources, request)
+	currentResources, _ := deltaWatchedResources(previousResources, request)
 	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
-	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = deltaResources
+	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = currentResources
 	alwaysRespond := previousInfo.AlwaysRespond
 	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
-	oldAck := listEqualUnordered(previousResources, deltaResources)
+	oldAck := listEqualUnordered(previousResources, currentResources)
 	// Spontaneous DeltaDiscoveryRequests from the client.
 	// This can be done to dynamically add or remove elements from the tracked resource_names set.
 	// In this case response_nonce is empty.
@@ -414,7 +414,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
 		// even though Nonce match and it looks like an ACK.
 		if alwaysRespond {
-			log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
+			deltaLog.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
 			return true
 		}
 
@@ -422,13 +422,12 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		return false
 	}
 	deltaLog.Debugf("ADS:%s: RESOURCE CHANGE previous resources: %v, new resources: %v %s %s", stype,
-		previousResources, deltaResources, con.conID, request.ResponseNonce)
+		previousResources, currentResources, con.conID, request.ResponseNonce)
 
 	return true
 }
 
-// Push an Delta XDS resource for the given connection. Configuration will be generated
-// based on the passed in generator.
+// Push a Delta XDS resource for the given connection.
 func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	w *model.WatchedResource, req *model.PushRequest,
 ) error {
@@ -593,16 +592,16 @@ func deltaToSotwRequest(request *discovery.DeltaDiscoveryRequest) *discovery.Dis
 	}
 }
 
+// deltaWatchedResources returns current watched resources of delta xds
 func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryRequest) ([]string, bool) {
 	res := sets.New(existing...)
 	res.InsertAll(request.ResourceNamesSubscribe...)
 	// This is set by Envoy on first request on reconnection so that we are aware of what Envoy knows
 	// and can continue the xDS session properly.
-	for k := range request.InitialResourceVersions {
-		res.Insert(k)
-	}
+	res.InsertAll(maps.Keys(request.InitialResourceVersions)...)
 	res.DeleteAll(request.ResourceNamesUnsubscribe...)
 	wildcard := false
+	// A request is wildcard if they explicitly subscribe to "*" or subscribe to nothing
 	if res.Contains("*") {
 		wildcard = true
 		res.Delete("*")

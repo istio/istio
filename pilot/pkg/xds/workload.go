@@ -51,17 +51,13 @@ func (e WorkloadGenerator) GenerateDeltas(
 		// Nothing changed..
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
-
 	subs := sets.New(w.ResourceNames...)
-	addresses := updatedAddresses
-	if !w.Wildcard {
-		// If it;s not a wildcard, filter out resources we are not subscribed to
-		addresses = updatedAddresses.Intersection(subs)
-	}
 	// Specific requested resource: always include
-	addresses = addresses.Merge(req.Delta.Subscribed)
-
+	addresses := subs.Merge(req.Delta.Subscribed)
+	addresses = addresses.Difference(req.Delta.Unsubscribed)
 	if !w.Wildcard {
+		// If it's not a wildcard, filter out resources we are not subscribed to
+		addresses = updatedAddresses.Intersection(addresses)
 		// We only need this for on-demand. This allows us to subscribe the client to resources they
 		// didn't explicitly request.
 		// For wildcard, they subscribe to everything already.
