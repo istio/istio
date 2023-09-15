@@ -55,7 +55,7 @@ values:
   pilot: 
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
-      ENABLE_SELECTOR_BASED_K8S_GATEWAY_POLICY: true
+      ENABLE_SELECTOR_BASED_K8S_GATEWAY_POLICY: false
 meshConfig:
   defaultConfig:
     gatewayTopology:
@@ -68,7 +68,7 @@ values:
     env: 
       PILOT_JWT_ENABLE_REMOTE_JWKS: true
       ISTIO_DUAL_STACK: true
-      ENABLE_SELECTOR_BASED_K8S_GATEWAY_POLICY: true
+      ENABLE_SELECTOR_BASED_K8S_GATEWAY_POLICY: false
 meshConfig:
   defaultConfig:
     proxyMetadata:
