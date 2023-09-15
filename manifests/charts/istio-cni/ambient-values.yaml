@@ -12,6 +12,6 @@ cni:
     # If enabled, ambient redirection will be enabled
     enabled: true
 
-    # Default excludes istio-system; its actually fine to redirect there since we opt-out istiod, ztunnel, and istio-cni
+  # Default excludes istio-system; its actually fine to redirect there since we opt-out istiod, ztunnel, and istio-cni
   excludeNamespaces:
   - kube-system
