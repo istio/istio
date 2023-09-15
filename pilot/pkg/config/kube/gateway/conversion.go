@@ -21,7 +21,9 @@ import (
 	"net/netip"
 	"sort"
 	"strings"
+	"time"
 
+	"google.golang.org/protobuf/types/known/durationpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -253,6 +255,26 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 			return nil, &ConfigError{
 				Reason:  InvalidFilter,
 				Message: fmt.Sprintf("unsupported filter type %q", filter.Type),
+			}
+		}
+	}
+
+	if r.Timeouts != nil {
+		if r.Timeouts.Request != nil {
+			request, _ := time.ParseDuration(string(*r.Timeouts.Request))
+			if request != 0 {
+				vs.Timeout = durationpb.New(request)
+			}
+		}
+		if r.Timeouts.BackendRequest != nil {
+			backendRequest, _ := time.ParseDuration(string(*r.Timeouts.BackendRequest))
+			if backendRequest != 0 {
+				timeout := durationpb.New(backendRequest)
+				if vs.Retries != nil {
+					vs.Retries.PerTryTimeout = timeout
+				} else {
+					vs.Timeout = timeout
+				}
 			}
 		}
 	}
