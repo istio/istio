@@ -11,8 +11,14 @@ pilot:
     CA_TRUSTED_NODE_ACCOUNTS: "istio-system/ztunnel,kube-system/ztunnel"
     PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
 
+# ProxyConfig settings
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      ISTIO_META_ENABLE_HBONE: "true"
+
+# Telemetry handled with Telemetry API only
 telemetry:
-  # Telemetry handled with Telemetry API only
   enabled: false
   v2:
     enabled: false
