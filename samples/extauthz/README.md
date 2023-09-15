@@ -12,7 +12,7 @@ Note that `a` is just a default value for testing. It can be changed with the fl
 1. Deploy the Ext Authz service in a dedicated pod:
 
     ```console
-    $ kubectl apply -f ext-authz.yaml
+    $ kubectl apply -f ext-authz.yaml -n foo
     service/ext-authz created
     deployment.apps/ext-authz created
     ```
@@ -24,7 +24,7 @@ Note that `a` is just a default value for testing. It can be changed with the fl
     Deploy a sleep pod to send the request:
 
     ```console
-    $ kubectl apply -f ../sleep/sleep.yaml
+    $ kubectl apply -f ../sleep/sleep.yaml -n foo
     ```
 
     Send a check request with header `x-ext-authz: allow` to the Ext Authz server:
@@ -80,8 +80,8 @@ Note that `a` is just a default value for testing. It can be changed with the fl
 1. To clean up, execute the following commands:
 
     ```console
-    $ kubectl delete -f ../sleep/sleep.yaml
-    $ kubectl delete -f ext-authz.yaml
+    $ kubectl delete -f ../sleep/sleep.yaml -n foo
+    $ kubectl delete -f ext-authz.yaml -n foo
     ```
 
 ## Advanced features
