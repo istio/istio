@@ -149,9 +149,9 @@ func TestGetPolicyMatcher(t *testing.T) {
 			policy: &mockPolicyTargetGetter{
 				selector: sampleGatewaySelector,
 			},
-			opts:                 sampleGateway,
-			expected:             policyMatchIgnore,
-			policyAttachmentOnly: true,
+			opts:                   sampleGateway,
+			expected:               policyMatchIgnore,
+			enableSelectorPolicies: false,
 		},
 		{
 			name: "gateway API ingress and both a targetRef and a selector",
