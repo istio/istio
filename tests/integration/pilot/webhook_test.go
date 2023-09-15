@@ -101,7 +101,8 @@ func TestWebhookValidationEndpoints(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresSingleCluster().
-		Features("pilot.webhook.validation").
+		RequiresLocalControlPlane().
+		Features("traffic.webhook.reachability").
 		Run(func(t framework.TestContext) {
 			c := t.Clusters().Default()
 			podIPs, err := i.PodIPsFor(c, "app=istiod")

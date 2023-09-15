@@ -61,6 +61,7 @@ features:
       upgrade:
     tunneling:
     gateway:
+    webhook:
   usability:
     observability:
       describe:
