@@ -15,6 +15,7 @@
 package mesh
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/fatih/color"
@@ -57,7 +58,15 @@ func operatorRemoveCmd(ctx cli.Context, rootArgs *RootArgs, orArgs *operatorRemo
 		Use:   "remove",
 		Short: "Removes the Istio operator controller from the cluster.",
 		Long:  "The remove subcommand removes the Istio operator controller from the cluster.",
-		Args:  cobra.ExactArgs(0),
+		Args: func(cmd *cobra.Command, args []string) error {
+			if orArgs.revision == "" && !orArgs.purge {
+				return fmt.Errorf("at least one of the --revision or --purge flags must be set")
+			}
+			if len(args) > 0 {
+				return fmt.Errorf("istioctl operator remove does not take arguments")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := ctx.CLIClient()
 			if err != nil {
@@ -79,16 +88,20 @@ func operatorRemove(cmd *cobra.Command, cliClient kube.CLIClient, args *RootArgs
 		l.LogAndFatal(err)
 	}
 
-	// If the user is performing purge but also specified a revision, an error message
-	// should be displayed and do nothing
+	// If the user is performing purge but also specified a revision, we should warn
+	// that the purge will still remove all resources
 	if orArgs.purge && orArgs.revision != "" {
 		orArgs.revision = ""
-		l.LogAndFatal("At most one of the --revision or --purge flags could be set\n")
-	} else if orArgs.revision == "default" {
-		orArgs.revision = ""
+		l.LogAndPrint("Purge remove will remove all Istio operator controller, ignoring the specified revision\n")
 	}
 
-	installed, err := isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, orArgs.revision)
+	var installed bool
+	if orArgs.revision == "default" {
+		installed, err = isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, "")
+	} else {
+		installed, err = isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, orArgs.revision)
+	}
+
 	if installed && err != nil {
 		l.LogAndFatal(err)
 	}
