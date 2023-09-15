@@ -273,7 +273,6 @@ spec:
 				check.Host("my-custom-authority")),
 		},
 		workloadAgnostic: true,
-		minIstioVersion:  "1.10.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header in destination",
@@ -303,7 +302,6 @@ spec:
 				check.Host("my-custom-authority")),
 		},
 		workloadAgnostic: true,
-		minIstioVersion:  "1.10.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header in route and destination",
@@ -337,7 +335,6 @@ spec:
 				check.Host("route-authority")),
 		},
 		workloadAgnostic: true,
-		minIstioVersion:  "1.12.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header in route and multi destination",
@@ -375,7 +372,6 @@ spec:
 				check.Host("route-authority")),
 		},
 		workloadAgnostic: true,
-		minIstioVersion:  "1.12.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header multi destination",
@@ -413,7 +409,6 @@ spec:
 				check.Host("dest-authority")),
 		},
 		workloadAgnostic: true,
-		minIstioVersion:  "1.12.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "redirect",
@@ -801,8 +796,7 @@ spec:
 	})
 
 	t.RunTraffic(TrafficTestCase{
-		name:            "fault abort gRPC",
-		minIstioVersion: "1.15.0",
+		name: "fault abort gRPC",
 		config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -1008,7 +1002,6 @@ func useClientProtocolCases(t TrafficContext) {
 				check.Protocol("HTTP/2.0"),
 			),
 		},
-		minIstioVersion: "1.10.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:   "use client protocol with h1",
@@ -1051,7 +1044,6 @@ func destinationRuleCases(t TrafficContext) {
 			},
 			Check: check.OK(),
 		},
-		minIstioVersion: "1.10.0",
 	})
 }
 
@@ -1658,8 +1650,7 @@ spec:
 				},
 			},
 		},
-		minIstioVersion: "1.15.0",
-		setupOpts:       noTarget,
+		setupOpts: noTarget,
 		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
 			return map[string]any{
 				"Gateway":            "gateway",
@@ -2064,9 +2055,8 @@ func hostCases(t TrafficContext) {
 		for _, h := range hosts {
 			name := strings.Replace(h, address, "ip", -1) + "/auto-http"
 			t.RunTraffic(TrafficTestCase{
-				name:            name,
-				minIstioVersion: "1.15.0",
-				call:            c.CallOrFail,
+				name: name,
+				call: c.CallOrFail,
 				opts: echo.CallOptions{
 					To:    t.Apps.Headless,
 					Count: 1,
@@ -2111,9 +2101,8 @@ func hostCases(t TrafficContext) {
 				assertion = check.OK()
 			}
 			t.RunTraffic(TrafficTestCase{
-				name:            name,
-				minIstioVersion: "1.15.0",
-				call:            c.CallOrFail,
+				name: name,
+				call: c.CallOrFail,
 				opts: echo.CallOptions{
 					To: t.Apps.Headless,
 					Port: echo.Port{
@@ -2419,11 +2408,10 @@ spec:
 				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
-				name:            "tcp source ip " + c.Config().Service,
-				minIstioVersion: "1.14.0",
-				config:          svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
-				call:            c.CallOrFail,
-				opts:            tcpCallopts,
+				name:   "tcp source ip " + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
+				call:   c.CallOrFail,
+				opts:   tcpCallopts,
 				skip: skip{
 					skip:   c.Config().WorkloadClass() == echo.Proxyless,
 					reason: "", // TODO: is this a bug or WAI?
@@ -2717,8 +2705,6 @@ func instanceIPTests(t TrafficContext) {
 			disableSidecar: true,
 			port:           ports.HTTPLocalHost,
 			code:           http.StatusServiceUnavailable,
-			// when testing with pre-1.10 versions this request succeeds
-			minIstioVersion: "1.10.0",
 		},
 		{
 			name:     "localhost IP with wildcard sidecar",
@@ -2737,8 +2723,6 @@ func instanceIPTests(t TrafficContext) {
 			endpoint: "",
 			port:     ports.HTTPLocalHost,
 			code:     http.StatusServiceUnavailable,
-			// when testing with pre-1.10 versions this request succeeds
-			minIstioVersion: "1.10.0",
 		},
 
 		// Wildcard bind
