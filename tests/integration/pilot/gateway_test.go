@@ -563,3 +563,36 @@ func StatusGatewayTest(t framework.TestContext) {
 	// It should be added back
 	retry.UntilSuccessOrFail(t, check)
 }
+
+// Verify that the envoy readiness probes are reachable at
+// https://GatewayPodIP:15021/healthz/ready . This is being explicitly done
+// to make sure, in dual-stack scenarios both v4 and v6 probes are reachable.
+func TestGatewayReadinessProbes(t *testing.T) {
+	// nolint: staticcheck
+	framework.NewTest(t).
+		RequiresSingleCluster().
+		RequiresLocalControlPlane().
+		Features("traffic.gateway.readiness").
+		Run(func(t framework.TestContext) {
+			c := t.Clusters().Default()
+			podIPs, err := i.PodIPsFor(c, "app=istio-ingressgateway")
+			if err != nil {
+				t.Fatalf("error getting ingress gateway pod ips: %v", err)
+			}
+			for _, ip := range podIPs {
+				t.NewSubTest("gateway-readiness-probe-" + ip.IP).Run(func(t framework.TestContext) {
+					apps.External.All[0].CallOrFail(t, echo.CallOptions{
+						Address: ip.IP,
+						Port:    echo.Port{ServicePort: 15021},
+						Scheme:  scheme.HTTP,
+						HTTP: echo.HTTP{
+							Path: "/healthz/ready",
+						},
+						Check: check.And(
+							check.Status(200),
+						),
+					})
+				})
+			}
+		})
+}
