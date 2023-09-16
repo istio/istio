@@ -1,0 +1,17 @@
+cni:
+  # Configuration log level of istio-cni binary
+  # by default istio-cni send all logs to UDS server
+  # if want to see them you need change global.logging.level with cni:debug
+  logLevel: info
+
+  # Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift)
+  privileged: true
+
+  # Configure ambient settings
+  ambient:
+    # If enabled, ambient redirection will be enabled
+    enabled: true
+
+  # Default excludes istio-system; its actually fine to redirect there since we opt-out istiod, ztunnel, and istio-cni
+  excludeNamespaces:
+  - kube-system
