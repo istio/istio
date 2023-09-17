@@ -12,7 +12,7 @@ Note that `a` is just a default value for testing. It can be changed with the fl
 1. Deploy the Ext Authz service in a dedicated pod:
 
     ```console
-    $ kubectl apply -f ext-authz.yaml -n foo
+    $ kubectl apply -f ext-authz.yaml
     service/ext-authz created
     deployment.apps/ext-authz created
     ```
@@ -24,13 +24,13 @@ Note that `a` is just a default value for testing. It can be changed with the fl
     Deploy a sleep pod to send the request:
 
     ```console
-    $ kubectl apply -f ../sleep/sleep.yaml -n foo
+    $ kubectl apply -f ../sleep/sleep.yaml
     ```
 
     Send a check request with header `x-ext-authz: allow` to the Ext Authz server:
 
     ```console
-    $ kubectl exec -it $(kubectl get pod -l app=sleep -n foo -o jsonpath={.items..metadata.name}) -n foo -c sleep -- curl -v ext-authz:8000 -H "x-ext-authz: allow"
+    $ kubectl exec -it $(kubectl get pod -l app=sleep -o jsonpath={.items..metadata.name}) -c sleep -- curl -v ext-authz:8000 -H "x-ext-authz: allow"
        *   Trying 10.97.88.183:8000...
        * Connected to ext-authz-server (10.97.88.183) port 8000 (#0)
        > GET / HTTP/1.1
@@ -55,7 +55,7 @@ Note that `a` is just a default value for testing. It can be changed with the fl
     Send another check request with `x-ext-authz: blabla` to the Ext Authz server:
 
     ```console
-    $ kubectl exec -it $(kubectl get pod -l app=sleep -n foo -o jsonpath={.items..metadata.name}) -n foo -c sleep -- curl -v ext-authz:8000 -H "x-ext-authz: bla"
+    $ kubectl exec -it $(kubectl get pod -l app=sleep -o jsonpath={.items..metadata.name}) -c sleep -- curl -v ext-authz:8000 -H "x-ext-authz: bla"
         > GET / HTTP/1.1
         > Host: ext-authz-server:8000
         > User-Agent: curl/7.73.0-DEV
@@ -80,8 +80,8 @@ Note that `a` is just a default value for testing. It can be changed with the fl
 1. To clean up, execute the following commands:
 
     ```console
-    $ kubectl delete -f ../sleep/sleep.yaml -n foo
-    $ kubectl delete -f ext-authz.yaml -n foo
+    $ kubectl delete -f ../sleep/sleep.yaml
+    $ kubectl delete -f ext-authz.yaml
     ```
 
 ## Advanced features
