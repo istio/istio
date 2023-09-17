@@ -421,4 +421,4 @@ in the cluster in the istio-system namespace and the controller will react to it
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md)
+See [ARCHITECTURE.md](../architecture/environments/operator.md)
