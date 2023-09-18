@@ -409,12 +409,6 @@ func (c *Controller) deleteService(svc *model.Service) {
 }
 
 func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
-	// instance conversion is only required when service is added/updated.
-	c.Lock()
-	prevConv := c.servicesMap[currConv.Hostname]
-	c.servicesMap[currConv.Hostname] = currConv
-	c.Unlock()
-
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -436,6 +430,10 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 		updateEDSCache = true
 	}
 
+	c.Lock()
+	prevConv := c.servicesMap[currConv.Hostname]
+	c.servicesMap[currConv.Hostname] = currConv
+	c.Unlock()
 	// This full push needed to update ALL ends endpoints, even though we do a full push on service add/update
 	// as that full push is only triggered for the specific service.
 	if needsFullPush {
