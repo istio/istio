@@ -335,7 +335,7 @@ func (sd *ServiceDiscovery) Run(<-chan struct{}) {}
 // HasSynced always returns true
 func (sd *ServiceDiscovery) HasSynced() bool { return true }
 
-func (sd *ServiceDiscovery) AddressInformation(requests sets.String) ([]*model.AddressInfo, []string) {
+func (sd *ServiceDiscovery) AddressInformation(requests sets.String) ([]*model.AddressInfo, sets.String) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if len(requests) == 0 {
@@ -343,10 +343,10 @@ func (sd *ServiceDiscovery) AddressInformation(requests sets.String) ([]*model.A
 	}
 
 	var infos []*model.AddressInfo
-	var removed []string
+	removed := sets.String{}
 	for req := range requests {
 		if _, found := sd.addresses[req]; !found {
-			removed = append(removed, req)
+			removed.Insert(req)
 		} else {
 			infos = append(infos, sd.addresses[req])
 		}

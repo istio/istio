@@ -779,18 +779,18 @@ func (c *Controller) getPodsInService(svc *v1.Service) []*v1.Pod {
 
 // AddressInformation returns all AddressInfo's in the cluster.
 // This may be scoped to specific subsets by specifying a non-empty addresses field
-func (c *Controller) AddressInformation(addresses sets.String) ([]*model.AddressInfo, []string) {
+func (c *Controller) AddressInformation(addresses sets.String) ([]*model.AddressInfo, sets.String) {
 	if len(addresses) == 0 {
 		// Full update
 		return c.ambientIndex.All(), nil
 	}
 	var wls []*model.AddressInfo
-	var removed []string
+	removed := sets.New[string]()
 	got := sets.String{}
 	for addr := range addresses {
 		wl := c.ambientIndex.Lookup(addr)
 		if len(wl) == 0 {
-			removed = append(removed, addr)
+			removed.Insert(addr)
 		} else {
 			for _, addr := range wl {
 				if got.Contains(addr.ResourceName()) {
