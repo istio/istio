@@ -37,7 +37,7 @@ func ShardKeyFromRegistry(instance shardRegistry) ShardKey {
 	return ShardKey{Cluster: instance.Cluster(), Provider: instance.Provider()}
 }
 
-// ShardKey is the key for EndpointShards made of a key with the format "cluster/provider"
+// ShardKey is the key for EndpointShards made of a key with the format "provider/cluster"
 type ShardKey struct {
 	Cluster  cluster.ID
 	Provider provider.ID
