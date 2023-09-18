@@ -99,24 +99,25 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 	return res
 }
 
-func (c *Controller) AddressInformation(addresses sets.String) ([]*model.AddressInfo, []string) {
+func (c *Controller) AddressInformation(addresses sets.String) ([]*model.AddressInfo, sets.String) {
 	i := []*model.AddressInfo{}
-	removed := sets.New[string]()
 	if !features.EnableAmbientControllers {
-		return i, []string{}
+		return i, nil
 	}
+	removed := sets.String{}
 	for _, p := range c.GetRegistries() {
 		wis, r := p.AddressInformation(addresses)
 		i = append(i, wis...)
-		removed.InsertAll(r...)
+		removed.Merge(r)
 	}
 	// We may have 'removed' it in one registry but found it in another
 	for _, wl := range i {
+		// TODO(@hzxuzhonghu) This is not right for workload, we may search workload by ip, but the resource name is uid.
 		if removed.Contains(wl.ResourceName()) {
 			removed.Delete(wl.ResourceName())
 		}
 	}
-	return i, removed.UnsortedList()
+	return i, removed
 }
 
 type registryEntry struct {
