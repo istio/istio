@@ -104,9 +104,11 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 components:
   egressGateways:
   - enabled: false
+    name: istio-egressgateway
 
   ingressGateways:
   - enabled: false
+    name: istio-ingressgateway
 
   pilot:
     enabled: true
@@ -146,6 +148,7 @@ values:
 components:
   ingressGateways:
   - enabled: false
+    name: istio-eastwestgateway
 `
 }
 
