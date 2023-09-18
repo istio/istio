@@ -122,14 +122,13 @@ func (e WorkloadGenerator) GenerateDeltas(
 	if !w.Wildcard {
 		// For on-demand, we may have requested a VIP but gotten Pod IPs back. We need to update
 		// the internal book-keeping to subscribe to the Pods, so that we push updates to those Pods.
-		// TODO: we may not need to sort, as we donot sort for other resource
-		w.ResourceNames = sets.SortedList(subs.Merge(have))
+		w.ResourceNames = subs.Merge(have).UnsortedList()
 	} else {
 		// For wildcard, we record all resources that have been pushed and not removed
 		// It was to correctly calculate removed resources during full push alongside with specific address removed.
-		w.ResourceNames = sets.SortedList(subs.Merge(have).Difference(removed))
+		w.ResourceNames = subs.Merge(have).Difference(removed).UnsortedList()
 	}
-	return resources, sets.SortedList(removed), model.XdsLogDetails{}, true, nil
+	return resources, removed.UnsortedList(), model.XdsLogDetails{}, true, nil
 }
 
 func (e WorkloadGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
