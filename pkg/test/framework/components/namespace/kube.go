@@ -284,6 +284,9 @@ func (n *kubeNamespace) IsAmbient() bool {
 }
 
 func (n *kubeNamespace) IsInjected() bool {
+	if n == nil {
+		return false
+	}
 	// TODO cache labels and invalidate on SetLabel to avoid a ton of kube calls
 	labels, err := n.Labels()
 	if err != nil {

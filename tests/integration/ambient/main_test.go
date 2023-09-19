@@ -69,26 +69,6 @@ type EchoDeployments struct {
 	WaypointProxy ambient.WaypointProxy
 }
 
-var ControlPlaneValues = `
-profile: ambient
-components:
-  ingressGateways:
-  - name: istio-ingressgateway
-    enabled: true
-values:
-  ztunnel:
-    meshConfig:
-      defaultConfig:
-        proxyMetadata:
-          ISTIO_META_DNS_CAPTURE: "true"
-          DNS_PROXY_ADDR: "0.0.0.0:15053"
-  meshConfig:
-    defaultConfig:
-      proxyMetadata:
-        ISTIO_META_DNS_CAPTURE: "true"
-        DNS_PROXY_ADDR: "0.0.0.0:15053"
-    accessLogFile: /dev/stdout`
-
 // TestMain defines the entrypoint for pilot tests using a standard Istio installation.
 // If a test requires a custom install it should go into its own package, otherwise it should go
 // here to reuse a single install across tests.
@@ -96,18 +76,19 @@ func TestMain(m *testing.M) {
 	// nolint: staticcheck
 	framework.
 		NewSuite(m).
+		RequireMinVersion(24).
 		SkipIf("https://github.com/istio/istio/issues/43243", func(ctx resource.Context) bool {
 			return os.Getenv("VARIANT") == "distroless"
 		}).
-		SkipIf("https://github.com/istio/istio/issues/43508", func(ctx resource.Context) bool {
-			return !ctx.Settings().Ambient
-		}).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
+		Setup(func(t resource.Context) error {
+			t.Settings().Ambient = true
+			return nil
+		}).
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			// can't deploy VMs without eastwest gateway
 			ctx.Settings().SkipVMs()
 			cfg.DeployEastWestGW = false
-			cfg.ControlPlaneValues = ControlPlaneValues
 		})).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Client = t.Clusters().Default()

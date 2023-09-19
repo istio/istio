@@ -26,8 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/operator/pkg/name"
-	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
-	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/istio/tools/bug-report/pkg/util/path"
@@ -237,7 +236,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 			out.CniPod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
 		}
 
-		if analyzer_util.IsSystemNamespace(resource.Namespace(p.Namespace)) {
+		if inject.IgnoredNamespaces.Contains(p.Namespace) {
 			continue
 		}
 		if skip := shouldSkipPod(&p, config); skip {

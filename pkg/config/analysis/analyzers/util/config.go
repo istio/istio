@@ -16,13 +16,7 @@ package util
 
 import (
 	"istio.io/istio/pkg/config/resource"
-	"istio.io/istio/pkg/kube/inject"
 )
-
-// IsSystemNamespace returns true for system namespaces
-func IsSystemNamespace(ns resource.Namespace) bool {
-	return inject.IgnoredNamespaces.Contains(ns.String())
-}
 
 // IsIstioControlPlane returns true for resources that are part of the Istio control plane
 func IsIstioControlPlane(r *resource.Instance) bool {

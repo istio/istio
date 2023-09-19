@@ -489,7 +489,7 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *
 		return false
 	}
 	// If we don't know the address we must eventually use a gateway address
-	if ep.Address == "" && ep.Network == b.network {
+	if ep.Address == "" && (!b.gateways().IsMultiNetworkEnabled() || b.proxy.InNetwork(ep.Network)) {
 		return false
 	}
 	// Draining endpoints are only sent to 'persistent session' clusters.

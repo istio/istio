@@ -66,6 +66,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/tap/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/config/upstream/local_address_selector/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/data/accesslog/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/data/cluster/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/data/core/v3"

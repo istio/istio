@@ -24,13 +24,13 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/uuid"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	security "istio.io/api/security/v1beta1"
@@ -46,12 +46,15 @@ import (
 	"istio.io/istio/pilot/test/xdstest"
 	config "istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 func TestBuildGatewayListenerTlsContext(t *testing.T) {
@@ -3055,9 +3058,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "test",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Private: true,
-			},
+			ExportTo:  sets.New(visibility.Private),
 		},
 	}
 
@@ -3071,9 +3072,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "default",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Public: true,
-			},
+			ExportTo:  sets.New(visibility.Public),
 		},
 	}
 
@@ -3087,9 +3086,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "default",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Private: true,
-			},
+			ExportTo:  sets.New(visibility.Private),
 		},
 	}
 
@@ -3561,9 +3558,9 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					{
 						TotalMatch: true,
 						NetworkFilters: []string{
-							xds.StatsFilterName,
 							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 							wellknown.RoleBasedAccessControl,
+							xds.StatsFilterName,
 							wellknown.TCPProxy,
 						},
 					},
@@ -3571,7 +3568,101 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			},
 		},
 		{
-			name: "HTTP RBAC and Stats",
+			name: "mTLS, RBAC, WASM, and Stats",
+			configs: []config.Config{
+				{
+					Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 100, Protocol: "TCP"},
+								Tls:   &networking.ServerTLSSettings{Mode: networking.ServerTLSSettings_ISTIO_MUTUAL},
+								Hosts: []string{"www.example.com"},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway"},
+						Hosts:    []string{"www.example.com"},
+						Tcp: []*networking.TCPRoute{
+							{
+								Route: []*networking.RouteDestination{
+									{
+										Destination: &networking.Destination{
+											Host: "http.com",
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+					Spec: &extensions.WasmPlugin{
+						Phase: extensions.PluginPhase_AUTHZ,
+						Type:  extensions.PluginType_NETWORK,
+					},
+				},
+				{
+					Meta: config.Meta{Name: "wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+					Spec: &extensions.WasmPlugin{
+						Phase: extensions.PluginPhase_AUTHN,
+						Type:  extensions.PluginType_NETWORK,
+					},
+				},
+				{
+					Meta: config.Meta{Name: "wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+					Spec: &extensions.WasmPlugin{
+						Phase: extensions.PluginPhase_STATS,
+						Type:  extensions.PluginType_NETWORK,
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.AuthorizationPolicy},
+					Spec: &security.AuthorizationPolicy{},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.AuthorizationPolicy},
+					Spec: &security.AuthorizationPolicy{
+						Action:       security.AuthorizationPolicy_CUSTOM,
+						ActionDetail: &security.AuthorizationPolicy_Provider{Provider: &security.AuthorizationPolicy_ExtensionProvider{Name: "extauthz"}},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.Telemetry},
+					Spec: &telemetry.Telemetry{
+						Metrics: []*telemetry.Metrics{{Providers: []*telemetry.ProviderRef{{Name: "prometheus"}}}},
+					},
+				},
+			},
+			expectedListener: listenertest.ListenerTest{
+				TotalMatch: true,
+				FilterChains: []listenertest.FilterChainTest{
+					{
+						TotalMatch: true,
+						NetworkFilters: []string{
+							xdsfilters.MxFilterName,
+							// Ext auth makes 2 filters
+							wellknown.RoleBasedAccessControl,
+							wellknown.ExternalAuthorization,
+							"istio-system.wasm-authn",
+							xdsfilters.AuthnFilterName,
+							"istio-system.wasm-authz",
+							wellknown.RoleBasedAccessControl,
+							"istio-system.wasm-stats",
+							xds.StatsFilterName,
+							wellknown.TCPProxy,
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "HTTP RBAC, WASM, and Stats",
 			configs: []config.Config{
 				{
 					Meta: config.Meta{Name: "gateway", Namespace: "testns", GroupVersionKind: gvk.Gateway},
@@ -3582,6 +3673,45 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 								Hosts: []string{"www.example.com"},
 							},
 						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+					Spec: &extensions.WasmPlugin{
+						Phase: extensions.PluginPhase_AUTHZ,
+						Type:  extensions.PluginType_NETWORK,
+					},
+				},
+				{
+					Meta: config.Meta{Name: "wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+					Spec: &extensions.WasmPlugin{
+						Phase: extensions.PluginPhase_AUTHN,
+						Type:  extensions.PluginType_NETWORK,
+					},
+				},
+				{
+					Meta: config.Meta{Name: "wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+					Spec: &extensions.WasmPlugin{
+						Phase: extensions.PluginPhase_STATS,
+						Type:  extensions.PluginType_NETWORK,
+					},
+				},
+				{
+					Meta: config.Meta{Name: "wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+					Spec: &extensions.WasmPlugin{
+						Phase: extensions.PluginPhase_AUTHZ,
+					},
+				},
+				{
+					Meta: config.Meta{Name: "wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+					Spec: &extensions.WasmPlugin{
+						Phase: extensions.PluginPhase_AUTHN,
+					},
+				},
+				{
+					Meta: config.Meta{Name: "wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+					Spec: &extensions.WasmPlugin{
+						Phase: extensions.PluginPhase_STATS,
 					},
 				},
 				{
@@ -3604,6 +3734,13 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				},
 				{
 					Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.AuthorizationPolicy},
+					Spec: &security.AuthorizationPolicy{
+						Action:       security.AuthorizationPolicy_CUSTOM,
+						ActionDetail: &security.AuthorizationPolicy_Provider{Provider: &security.AuthorizationPolicy_ExtensionProvider{Name: "extauthz"}},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.AuthorizationPolicy},
 					Spec: &security.AuthorizationPolicy{},
 				},
 				{
@@ -3619,16 +3756,25 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					{
 						TotalMatch: true,
 						NetworkFilters: []string{
-							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
+							"istio-system.wasm-network-authn",
+							xdsfilters.AuthnFilterName,
+							"istio-system.wasm-network-authz",
+							"istio-system.wasm-network-stats",
 							wellknown.HTTPConnectionManager,
 						},
 						HTTPFilters: []string{
 							xdsfilters.MxFilterName,
+							// Ext auth makes 2 filters
 							wellknown.HTTPRoleBasedAccessControl,
+							wellknown.HTTPExternalAuthorization,
+							"istio-system.wasm-authn",
+							"istio-system.wasm-authz",
+							wellknown.HTTPRoleBasedAccessControl,
+							"istio-system.wasm-stats",
 							wellknown.HTTPGRPCStats,
-							xdsfilters.Alpn.GetName(),
-							xdsfilters.Fault.GetName(),
-							xdsfilters.Cors.GetName(),
+							xdsfilters.Alpn.Name,
+							xdsfilters.Fault.Name,
+							xdsfilters.Cors.Name,
 							xds.StatsFilterName,
 							wellknown.Router,
 						},
@@ -3639,9 +3785,28 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{
-				Configs: tt.configs,
+			mc := mesh.DefaultMeshConfig()
+			mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+				Name: "extauthz",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
+					EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
+						Service: "foo/example.local",
+						Port:    1234,
+					},
+				},
 			})
+
+			cg := NewConfigGenTest(t, TestOptions{
+				Configs:    tt.configs,
+				MeshConfig: mc,
+			})
+			cg.PushContext().ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*pilot_model.Service{
+				"example.local": {
+					"foo": &pilot_model.Service{
+						Hostname: "example.local",
+					},
+				},
+			}
 			proxy := cg.SetupProxy(&proxyGateway)
 			metadata := proxyGatewayMetadata
 			metadata.ProxyConfig = tt.proxyConfig

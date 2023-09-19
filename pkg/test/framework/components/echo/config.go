@@ -70,7 +70,7 @@ type Configurable interface {
 type VMDistro = string
 
 const (
-	UbuntuXenial VMDistro = "UbuntuXenial"
+	UbuntuBionic VMDistro = "UbuntuBionic"
 	UbuntuJammy  VMDistro = "UbuntuJammy"
 	Debian11     VMDistro = "Debian11"
 	Rockylinux8  VMDistro = "Centos8"
@@ -328,7 +328,7 @@ func (c Config) HasSidecar() bool {
 		perPodDisable = c.Subsets[0].Labels["sidecar.istio.io/inject"] == "false"
 	}
 
-	return perPodEnable || (!perPodDisable && c.Namespace.IsInjected())
+	return perPodEnable || (!perPodDisable && c.Namespace != nil && c.Namespace.IsInjected())
 }
 
 func (c Config) IsUncaptured() bool {

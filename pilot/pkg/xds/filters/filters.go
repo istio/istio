@@ -35,7 +35,6 @@ import (
 	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
 	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
@@ -43,6 +42,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -105,13 +105,13 @@ var (
 		},
 	}
 	TLSInspector = &listener.ListenerFilter{
-		Name: wellknown.TlsInspector,
+		Name: wellknown.TLSInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: protoconv.MessageToAny(&tlsinspector.TlsInspector{}),
 		},
 	}
 	HTTPInspector = &listener.ListenerFilter{
-		Name: wellknown.HttpInspector,
+		Name: wellknown.HTTPInspector,
 		ConfigType: &listener.ListenerFilter_TypedConfig{
 			TypedConfig: protoconv.MessageToAny(&httpinspector.HttpInspector{}),
 		},

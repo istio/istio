@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -269,6 +270,18 @@ func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, in
 	}
 	src.SetDefaultNamespace(sa.namespace)
 
+	src.SetNamespacesFilter(func(obj interface{}) bool {
+		cfg, ok := obj.(config.Config)
+		if !ok {
+			return false
+		}
+		meta := cfg.GetNamespace()
+		if cfg.Meta.GroupVersionKind.Kind == gvk.Namespace.Kind {
+			meta = cfg.GetName()
+		}
+		return !inject.IgnoredNamespaces.Contains(meta)
+	})
+
 	var errs error
 
 	// If we encounter any errors reading or applying files, track them but attempt to continue
@@ -321,6 +334,17 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 	// large secrets in clusters.
 	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
 
+	ignoredNamespacesSelectorForField := func(field string) string {
+		selectors := make([]fields.Selector, 0, len(inject.IgnoredNamespaces))
+		for _, ns := range inject.IgnoredNamespaces.UnsortedList() {
+			selectors = append(selectors, fields.OneTermNotEqualSelector(field, ns))
+		}
+		return fields.AndSelectors(selectors...).String()
+	}
+
+	namespaceFieldSelector := ignoredNamespacesSelectorForField("metadata.name")
+	generalSelectors := ignoredNamespacesSelectorForField("metadata.namespace")
+
 	// TODO: are either of these string constants intended to vary?
 	// We gets Istio CRD resources with a specific revision.
 	store := crdclient.NewForSchemas(c, crdclient.Option{
@@ -343,6 +367,18 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
 			gvk.Secret: {
 				FieldSelector: secretFieldSelector,
+			},
+			gvk.Namespace: {
+				FieldSelector: namespaceFieldSelector,
+			},
+			gvk.Service: {
+				FieldSelector: generalSelectors,
+			},
+			gvk.Pod: {
+				FieldSelector: generalSelectors,
+			},
+			gvk.Deployment: {
+				FieldSelector: generalSelectors,
 			},
 		},
 	}, sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas()))

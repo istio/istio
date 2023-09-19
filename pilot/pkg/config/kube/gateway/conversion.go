@@ -18,9 +18,12 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net"
+	"net/netip"
 	"sort"
 	"strings"
+	"time"
 
+	"google.golang.org/protobuf/types/known/durationpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
@@ -252,6 +255,26 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 			return nil, &ConfigError{
 				Reason:  InvalidFilter,
 				Message: fmt.Sprintf("unsupported filter type %q", filter.Type),
+			}
+		}
+	}
+
+	if r.Timeouts != nil {
+		if r.Timeouts.Request != nil {
+			request, _ := time.ParseDuration(string(*r.Timeouts.Request))
+			if request != 0 {
+				vs.Timeout = durationpb.New(request)
+			}
+		}
+		if r.Timeouts.BackendRequest != nil {
+			backendRequest, _ := time.ParseDuration(string(*r.Timeouts.BackendRequest))
+			if backendRequest != 0 {
+				timeout := durationpb.New(backendRequest)
+				if vs.Retries != nil {
+					vs.Retries.PerTryTimeout = timeout
+				} else {
+					vs.Timeout = timeout
+				}
 			}
 		}
 	}
@@ -2072,10 +2095,8 @@ func reportGatewayStatus(
 			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
 		}
 		gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)].error = &ConfigError{
-			// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/1832#issuecomment-1487167378): Invalid is bad,
-			// this should be AddressNotAssigned
 			// TODO: this only checks Service ready, we should also check Deployment ready?
-			Reason:  string(k8sbeta.GatewayReasonInvalid),
+			Reason:  string(k8sbeta.GatewayReasonAddressNotAssigned),
 			Message: msg,
 		}
 	}
@@ -2102,6 +2123,11 @@ func reportGatewayStatus(
 		if len(addressesToReport) > 0 {
 			gs.Addresses = make([]k8sbeta.GatewayStatusAddress, 0, len(addressesToReport))
 			for _, addr := range addressesToReport {
+				if _, err := netip.ParseAddr(addr); err == nil {
+					addrType = k8s.IPAddressType
+				} else {
+					addrType = k8s.HostnameAddressType
+				}
 				gs.Addresses = append(gs.Addresses, k8sbeta.GatewayStatusAddress{
 					Value: addr,
 					Type:  &addrType,

@@ -61,6 +61,9 @@ const (
 	// on external istiod config clusters for integration tests
 	IntegrationTestExternalIstiodConfigDefaultsIOP = "tests/integration/iop-externalistiod-config-integration-test-defaults.yaml"
 
+	// IntegrationTestAmbientDefaultsIOP is the path of the default IstioOperator for ambient
+	IntegrationTestAmbientDefaultsIOP = "tests/integration/iop-ambient-test-defaults.yaml"
+
 	// hubValuesKey values key for the Docker image hub.
 	hubValuesKey = "global.hub"
 
