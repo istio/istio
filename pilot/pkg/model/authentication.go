@@ -202,7 +202,7 @@ func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string
 	workloadLabels labels.Instance,
 	isWaypoint bool,
 ) []*config.Config {
-	return getConfigsForWorkload(policy.requestAuthentications, workloadSelectionOpts{
+	return getConfigsForWorkload(policy.requestAuthentications, WorkloadSelectionOpts{
 		rootNamespace:  policy.rootNamespace,
 		namespace:      namespace,
 		workloadLabels: workloadLabels,
@@ -215,7 +215,7 @@ func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespac
 	workloadLabels labels.Instance,
 	isWaypoint bool,
 ) []*config.Config {
-	return getConfigsForWorkload(policy.peerAuthentications, workloadSelectionOpts{
+	return getConfigsForWorkload(policy.peerAuthentications, WorkloadSelectionOpts{
 		rootNamespace:  policy.rootNamespace,
 		namespace:      namespace,
 		workloadLabels: workloadLabels,
@@ -242,7 +242,7 @@ func GetAmbientPolicyConfigName(key ConfigKey) string {
 	}
 }
 
-func getConfigsForWorkload(configsByNamespace map[string][]config.Config, selectionOpts workloadSelectionOpts) []*config.Config {
+func getConfigsForWorkload(configsByNamespace map[string][]config.Config, selectionOpts WorkloadSelectionOpts) []*config.Config {
 	workloadLabels := selectionOpts.workloadLabels
 	namespace := selectionOpts.namespace
 	rootNamespace := selectionOpts.rootNamespace

@@ -52,7 +52,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 			constants.GatewayNameLabel: "sample-waypoint",
 		},
 	}
-	regularApp := workloadSelectionOpts{
+	regularApp := WorkloadSelectionOpts{
 		rootNamespace: "root",
 		namespace:     "default",
 		workloadLabels: labels.Instance{
@@ -60,7 +60,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 		},
 		isWaypoint: false,
 	}
-	sampleGateway := workloadSelectionOpts{
+	sampleGateway := WorkloadSelectionOpts{
 		rootNamespace: "root",
 		namespace:     "default",
 		workloadLabels: labels.Instance{
@@ -68,7 +68,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 		},
 		isWaypoint: false,
 	}
-	sampleWaypoint := workloadSelectionOpts{
+	sampleWaypoint := WorkloadSelectionOpts{
 		rootNamespace: "root",
 		namespace:     "default",
 		workloadLabels: labels.Instance{
@@ -78,7 +78,7 @@ func TestGetPolicyMatcher(t *testing.T) {
 	}
 	tests := []struct {
 		name                   string
-		opts                   workloadSelectionOpts
+		opts                   WorkloadSelectionOpts
 		policy                 policyTargetGetter
 		expected               policyMatch
 		enableSelectorPolicies bool

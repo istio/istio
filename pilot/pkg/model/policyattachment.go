@@ -28,7 +28,7 @@ type policyTargetGetter interface {
 	GetSelector() *v1beta1.WorkloadSelector
 }
 
-type workloadSelectionOpts struct {
+type WorkloadSelectionOpts struct {
 	rootNamespace  string
 	namespace      string
 	workloadLabels labels.Instance
@@ -47,7 +47,7 @@ const (
 	policyMatchIgnore policyMatch = "ignore"
 )
 
-func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts workloadSelectionOpts, policy policyTargetGetter) policyMatch {
+func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts WorkloadSelectionOpts, policy policyTargetGetter) policyMatch {
 	gatewayName, isGatewayAPI := opts.workloadLabels[constants.GatewayNameLabel]
 	targetRef := policy.GetTargetRef()
 	if isGatewayAPI && targetRef == nil && policy.GetSelector() != nil {
