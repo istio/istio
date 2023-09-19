@@ -65,68 +65,63 @@ type AuthorizationPoliciesResult struct {
 	Audit  []AuthorizationPolicy
 }
 
-type WorkloadSelectionOpts struct {
-	Namespace    string
-	WorkloadName string
-	Workload     labels.Instance
-}
-
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionInfo WorkloadSelectionOpts) AuthorizationPoliciesResult {
-	ret := AuthorizationPoliciesResult{}
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts WorkloadSelectionOpts) AuthorizationPoliciesResult {
+	configs := AuthorizationPoliciesResult{}
+	rootNamespace := policy.RootNamespace
+	namespace := selectionOpts.Namespace
+	workloadLabels := selectionOpts.WorkloadLabels
+	var lookupInNamespaces []string
 	if policy == nil {
-		return ret
+		return configs
 	}
 
-	var namespaces []string
-	if policy.RootNamespace != "" {
-		namespaces = append(namespaces, policy.RootNamespace)
+	if namespace != rootNamespace {
+		// Only check the root namespace if the (workload) namespace is not already the root namespace
+		// to avoid double inclusion.
+		lookupInNamespaces = []string{namespace, rootNamespace}
+	} else {
+		lookupInNamespaces = []string{namespace}
 	}
 
-	// Policies can be in root namespace and have workload selectors or a targetRef
-	// This prevents duplicate policies in case root namespace equals proxy's namespace.
-	if selectionInfo.Namespace != policy.RootNamespace {
-		namespaces = append(namespaces, selectionInfo.Namespace)
-	}
+	for _, ns := range lookupInNamespaces {
 
-	for _, ns := range namespaces {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
-			targetRef := spec.GetTargetRef()
-
-			// At this time, policies without a targetRef will default to workload selectors
-			// TODO: remove this logic when workloadselector for waypoints is disallowed
-			if targetRef == nil {
-				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-				if selector.SubsetOf(selectionInfo.Workload) {
-					log.Infof("matching policy %s.%s does not have a targetRef", config.Namespace, config.Name)
-					ret = updateAuthorizationPoliciesResult(config, ret)
+			var selector labels.Instance // NOTE: nil/empty selector matches all workloads
+			switch getPolicyMatcher(gvk.AuthorizationPolicy, config.Name, selectionOpts, spec) {
+			case policyMatchSelector:
+				selector = spec.GetSelector().GetMatchLabels()
+				if selector.SubsetOf(workloadLabels) {
+					configs = updateAuthorizationPoliciesResult(configs, config)
 				}
-			} else if (targetRef.GetName() == selectionInfo.WorkloadName) && (ns == selectionInfo.Namespace) {
-				log.Infof("matching policy %s.%s has a targetRef", config.Namespace, config.Name)
-				ret = updateAuthorizationPoliciesResult(config, ret)
+			case policyMatchDirect:
+				configs = updateAuthorizationPoliciesResult(configs, config)
+				continue
+			case policyMatchIgnore:
+				continue
 			}
 		}
 	}
 
-	return ret
+	return configs
 }
 
-func updateAuthorizationPoliciesResult(config AuthorizationPolicy, ret AuthorizationPoliciesResult) AuthorizationPoliciesResult {
+func updateAuthorizationPoliciesResult(configs AuthorizationPoliciesResult, config AuthorizationPolicy) AuthorizationPoliciesResult {
 	log.Infof("applying authorization policy %s.%s",
 		config.Namespace, config.Name)
 	switch config.Spec.GetAction() {
 	case authpb.AuthorizationPolicy_ALLOW:
-		ret.Allow = append(ret.Allow, config)
+		configs.Allow = append(configs.Allow, config)
 	case authpb.AuthorizationPolicy_DENY:
-		ret.Deny = append(ret.Deny, config)
+		configs.Deny = append(configs.Deny, config)
 	case authpb.AuthorizationPolicy_AUDIT:
-		ret.Audit = append(ret.Audit, config)
+		configs.Audit = append(configs.Audit, config)
 	case authpb.AuthorizationPolicy_CUSTOM:
-		ret.Custom = append(ret.Custom, config)
+		configs.Custom = append(configs.Custom, config)
 	default:
 		log.Errorf("ignored authorization policy %s.%s with unsupported action: %s",
 			config.Namespace, config.Name, config.Spec.GetAction())
 	}
-	return ret
+	return configs
 }
