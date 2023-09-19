@@ -80,7 +80,6 @@ type Config struct {
 	LogUDSAddress   string     `json:"log_uds_address"`
 	AmbientEnabled  bool       `json:"ambient_enabled"`
 	Kubernetes      Kubernetes `json:"kubernetes"`
-	HostNSEnterExec bool       `json:"hostNSEnterExec"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -302,7 +301,6 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 							log.Errorf("Pod redirect failed due to unavailable InterceptRuleMgr of type %s",
 								interceptRuleMgrType)
 						} else {
-							redirect.hostNSEnterExec = conf.HostNSEnterExec
 							rulesMgr := interceptMgrCtor()
 							if err := rulesMgr.Program(podName, args.Netns, redirect); err != nil {
 								return err

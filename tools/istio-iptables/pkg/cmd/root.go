@@ -69,7 +69,6 @@ var rootCmd = &cobra.Command{
 		} else {
 			ext = &dep.RealDependencies{
 				CNIMode:          cfg.CNIMode,
-				HostNSEnterExec:  cfg.HostNSEnterExec,
 				NetworkNamespace: cfg.NetworkNamespace,
 			}
 		}
@@ -100,23 +99,6 @@ If installed with 'cni.repair.deletePods=true', this pod should automatically be
 Otherwise, this pod will need to be manually removed so that it is scheduled on a node with istio-cni running, allowing iptables rules to be established.
 `)
 				handleErrorWithCode(msg, constants.ValidationErrorCode)
-			}
-		}
-	},
-}
-
-var configureRoutesCommand = &cobra.Command{
-	Use:    "configure-routes",
-	Short:  "Configures iproute2 rules for the Istio sidecar",
-	PreRun: bindFlags,
-	Run: func(cmd *cobra.Command, args []string) {
-		cfg := constructConfig()
-		if err := cfg.Validate(); err != nil {
-			handleErrorWithCode(err, 1)
-		}
-		if !cfg.SkipRuleApply {
-			if err := capture.ConfigureRoutes(cfg, nil); err != nil {
-				handleErrorWithCode(err, 1)
 			}
 		}
 	},
@@ -154,7 +136,6 @@ func constructConfig() *config.Config {
 		CaptureAllDNS:           viper.GetBool(constants.CaptureAllDNS),
 		NetworkNamespace:        viper.GetString(constants.NetworkNamespace),
 		CNIMode:                 viper.GetBool(constants.CNIMode),
-		HostNSEnterExec:         viper.GetBool(constants.HostNSEnterExec),
 		DualStack:               viper.GetBool(constants.DualStack),
 	}
 
@@ -295,7 +276,6 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	bind(constants.CaptureAllDNS, false)
 	bind(constants.NetworkNamespace, "")
 	bind(constants.CNIMode, false)
-	bind(constants.HostNSEnterExec, false)
 	bind(constants.DualStack, DualStack)
 }
 
@@ -304,7 +284,6 @@ func bindFlags(cmd *cobra.Command, args []string) {
 // Otherwise, the flag with the same name shared across subcommands will be overwritten by the last.
 func init() {
 	bindCmdlineFlags(rootCmd)
-	bindCmdlineFlags(configureRoutesCommand)
 }
 
 func bindCmdlineFlags(rootCmd *cobra.Command) {
@@ -383,14 +362,8 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 	rootCmd.Flags().String(constants.NetworkNamespace, "", "The network namespace that iptables rules should be applied to.")
 
 	rootCmd.Flags().Bool(constants.CNIMode, false, "Whether to run as CNI plugin.")
-
-	rootCmd.Flags().Bool(constants.HostNSEnterExec, false, "Instead of using the internal go netns, use the nsenter command for switching network namespaces.")
 }
 
 func GetCommand() *cobra.Command {
 	return rootCmd
-}
-
-func GetRouteCommand() *cobra.Command {
-	return configureRoutesCommand
 }

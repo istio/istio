@@ -32,11 +32,6 @@ import (
 )
 
 func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reader, args ...string) error {
-	if r.CNIMode && r.HostNSEnterExec {
-		originalCmd := cmd
-		cmd = constants.NSENTER
-		args = append([]string{fmt.Sprintf("--net=%v", r.NetworkNamespace), "--", originalCmd}, args...)
-	}
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 
 	externalCommand := exec.Command(cmd, args...)
@@ -57,7 +52,7 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reade
 	}
 	var err error
 	var nsContainer ns.NetNS
-	if r.CNIMode && !r.HostNSEnterExec {
+	if r.CNIMode {
 		nsContainer, err = ns.GetNS(r.NetworkNamespace)
 		if err != nil {
 			return err
@@ -83,18 +78,13 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reade
 }
 
 func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
-	if r.CNIMode && r.HostNSEnterExec {
-		originalCmd := cmd
-		cmd = constants.NSENTER
-		args = append([]string{fmt.Sprintf("--net=%v", r.NetworkNamespace), "--", originalCmd}, args...)
-	}
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 
 	var stdout, stderr *bytes.Buffer
 	var err error
 	var nsContainer ns.NetNS
 
-	if r.CNIMode && !r.HostNSEnterExec {
+	if r.CNIMode {
 		nsContainer, err = ns.GetNS(r.NetworkNamespace)
 		if err != nil {
 			return err
@@ -120,7 +110,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin i
 				return err
 			}
 		}
-		if r.CNIMode && !r.HostNSEnterExec {
+		if r.CNIMode {
 			err = nsContainer.Do(func(ns.NetNS) error {
 				return externalCommand.Run()
 			})
