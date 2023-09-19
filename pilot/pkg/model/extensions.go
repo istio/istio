@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -96,7 +97,7 @@ type WasmPluginWrapper struct {
 }
 
 func (p *WasmPluginWrapper) MatchListener(opts workloadSelectionOpts, li WasmPluginListenerInfo) bool {
-	switch getPolicyMatcher(p.Name, opts, p) {
+	switch getPolicyMatcher(gvk.WasmPlugin, p.Name, opts, p) {
 	case policyMatchDirect:
 		// This plugin is bound directly to this workload; just check traffic selectors
 		return matchTrafficSelectors(p.Match, li)

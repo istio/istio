@@ -236,7 +236,17 @@ func TestGatewaySelection(t *testing.T) {
 	framework.NewTest(t).
 		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
+			t.ConfigIstio().EvalFile()
+			applyAndTestWasmWithOCI(t, wasmTestConfigs{
+				desc:            "initial creation with latest",
+				name:            "wasm-test-module",
+				tag:             "latest",
+				policy:          "",
+				upstreamVersion: "0.0.1",
+				expectedVersion: "0.0.1",
+			})
 
+			resetWasm(t, "wasm-test-module")
 		})
 }
 
