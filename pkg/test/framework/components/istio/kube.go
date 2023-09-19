@@ -171,6 +171,18 @@ func (i *istioImpl) CustomIngressFor(c cluster.Cluster, service types.Namespaced
 	return i.ingress[c.Name()][labelSelector]
 }
 
+func (i *istioImpl) PodIPsFor(c cluster.Cluster, label string) ([]corev1.PodIP, error) {
+	// Find the pod with the specified label in the system namespace
+	fetchFn := testKube.NewSinglePodFetch(c, i.cfg.SystemNamespace, label)
+	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
+	if err != nil {
+		return nil, err
+	}
+
+	pod := pods[0]
+	return pod.Status.PodIPs, nil
+}
+
 func (i *istioImpl) InternalDiscoveryAddressFor(c cluster.Cluster) (string, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()

@@ -105,6 +105,14 @@ func Wildcard(value WildcardValue) Instance {
 	return newOption("wildcard", value)
 }
 
+func AdditionalWildCard(value WildcardValue) Instance {
+	return newOption("additional_wildcard", value)
+}
+
+func DualStack(value bool) Instance {
+	return newOption("dual_stack", value)
+}
+
 func DNSLookupFamily(value DNSLookupFamilyValue) Instance {
 	return newOption("dns_lookup_family", value)
 }
