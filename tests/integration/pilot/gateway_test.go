@@ -596,3 +596,36 @@ func TestGatewayReadinessProbes(t *testing.T) {
 			}
 		})
 }
+
+// Verify that the envoy metrics endpoints are reachable at
+// https://GatewayPodIP:15090/stats/prometheus . This is being explicitly done
+// to make sure, in dual-stack scenarios both v4 and v6 probes are reachable.
+func TestGatewayMetricsEndpoints(t *testing.T) {
+	// nolint: staticcheck
+	framework.NewTest(t).
+		RequiresSingleCluster().
+		RequiresLocalControlPlane().
+		Features("traffic.gateway.metrics").
+		Run(func(t framework.TestContext) {
+			c := t.Clusters().Default()
+			podIPs, err := i.PodIPsFor(c, "app=istio-ingressgateway")
+			if err != nil {
+				t.Fatalf("error getting ingress gateway pod ips: %v", err)
+			}
+			for _, ip := range podIPs {
+				t.NewSubTest("gateway-metrics-endpoints-" + ip.IP).Run(func(t framework.TestContext) {
+					apps.External.All[0].CallOrFail(t, echo.CallOptions{
+						Address: ip.IP,
+						Port:    echo.Port{ServicePort: 15090},
+						Scheme:  scheme.HTTP,
+						HTTP: echo.HTTP{
+							Path: "/stats/prometheus",
+						},
+						Check: check.And(
+							check.Status(200),
+						),
+					})
+				})
+			}
+		})
+}
