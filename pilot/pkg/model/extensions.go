@@ -96,14 +96,14 @@ type WasmPluginWrapper struct {
 	ResourceVersion string
 }
 
-func (p *WasmPluginWrapper) MatchListener(opts workloadSelectionOpts, li WasmPluginListenerInfo) bool {
+func (p *WasmPluginWrapper) MatchListener(opts WorkloadSelectionOpts, li WasmPluginListenerInfo) bool {
 	switch getPolicyMatcher(gvk.WasmPlugin, p.Name, opts, p) {
 	case policyMatchDirect:
 		// This plugin is bound directly to this workload; just check traffic selectors
 		return matchTrafficSelectors(p.Match, li)
 	case policyMatchSelector:
 		// This plugin is bound based on the workload selector; check traffic selectors and workload selector
-		workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(opts.workloadLabels))
+		workloadMatch := (p.Selector == nil || labels.Instance(p.Selector.MatchLabels).SubsetOf(opts.WorkloadLabels))
 		return workloadMatch && matchTrafficSelectors(p.Match, li)
 	}
 

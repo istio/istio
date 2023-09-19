@@ -1867,11 +1867,11 @@ func (ps *PushContext) WasmPluginsByListenerInfo(proxy *Proxy, info WasmPluginLi
 	for _, ns := range lookupInNamespaces {
 		if wasmPlugins, ok := ps.wasmPluginsByNamespace[ns]; ok {
 			for _, plugin := range wasmPlugins {
-				opts := workloadSelectionOpts{
-					rootNamespace:  ps.Mesh.RootNamespace,
-					namespace:      proxy.ConfigNamespace,
-					workloadLabels: proxy.Labels,
-					isWaypoint:     proxy.IsWaypointProxy(),
+				opts := WorkloadSelectionOpts{
+					RootNamespace:  ps.Mesh.RootNamespace,
+					Namespace:      proxy.ConfigNamespace,
+					WorkloadLabels: proxy.Labels,
+					IsWaypoint:     proxy.IsWaypointProxy(),
 				}
 				if plugin.MatchListener(opts, info) && plugin.MatchType(pluginType) {
 					matchedPlugins[plugin.Phase] = append(matchedPlugins[plugin.Phase], plugin)

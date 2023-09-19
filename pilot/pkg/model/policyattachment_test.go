@@ -53,28 +53,28 @@ func TestGetPolicyMatcher(t *testing.T) {
 		},
 	}
 	regularApp := WorkloadSelectionOpts{
-		rootNamespace: "root",
-		namespace:     "default",
-		workloadLabels: labels.Instance{
+		RootNamespace: "root",
+		Namespace:     "default",
+		WorkloadLabels: labels.Instance{
 			"app": "my-app",
 		},
-		isWaypoint: false,
+		IsWaypoint: false,
 	}
 	sampleGateway := WorkloadSelectionOpts{
-		rootNamespace: "root",
-		namespace:     "default",
-		workloadLabels: labels.Instance{
+		RootNamespace: "root",
+		Namespace:     "default",
+		WorkloadLabels: labels.Instance{
 			constants.GatewayNameLabel: "sample-gateway",
 		},
-		isWaypoint: false,
+		IsWaypoint: false,
 	}
 	sampleWaypoint := WorkloadSelectionOpts{
-		rootNamespace: "root",
-		namespace:     "default",
-		workloadLabels: labels.Instance{
+		RootNamespace: "root",
+		Namespace:     "default",
+		WorkloadLabels: labels.Instance{
 			constants.GatewayNameLabel: "sample-waypoint",
 		},
-		isWaypoint: true,
+		IsWaypoint: true,
 	}
 	tests := []struct {
 		name                   string
