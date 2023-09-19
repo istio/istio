@@ -89,7 +89,6 @@ type Redirect struct {
 	excludeInterfaces    string
 	dnsRedirect          bool
 	invalidDrop          bool
-	hostNSEnterExec      bool
 }
 
 type annotationValidationFunc func(value string) error

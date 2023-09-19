@@ -64,7 +64,6 @@ var XTablesCmds = sets.New(
 // RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct {
 	NetworkNamespace string
-	HostNSEnterExec  bool
 	CNIMode          bool
 }
 
