@@ -109,6 +109,22 @@ type Connection struct {
 	errorChan chan error
 }
 
+func (conn *Connection) ID() string {
+	return conn.conID
+}
+
+func (conn *Connection) Proxy() *model.Proxy {
+	return conn.proxy
+}
+
+func (conn *Connection) ConnectedAt() time.Time {
+	return conn.connectedAt
+}
+
+func (conn *Connection) Stop() {
+	close(conn.stop)
+}
+
 // Event represents a config or registry event that results in a push.
 type Event struct {
 	// pushRequest PushRequest to use for the push.
@@ -573,7 +589,7 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterDisconnect(con.conID, AllEventTypesList)
 	}
-	s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.connectedAt)
+	s.WorkloadEntryController.OnDisconnect(con)
 }
 
 func connectionID(node string) string {
@@ -653,7 +669,7 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 	proxy := con.proxy
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
-	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.connectedAt); err != nil {
+	if err := s.WorkloadEntryController.OnConnect(con); err != nil {
 		return err
 	}
 	s.computeProxyState(proxy, nil)
@@ -962,10 +978,6 @@ func (conn *Connection) Clusters() []string {
 	return []string{}
 }
 
-func (conn *Connection) Proxy() *model.Proxy {
-	return conn.proxy
-}
-
 func (conn *Connection) Routes() []string {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
@@ -1024,8 +1036,4 @@ func orderWatchedResources(resources map[string]*model.WatchedResource) []*model
 		}
 	}
 	return wr
-}
-
-func (conn *Connection) Stop() {
-	close(conn.stop)
 }
