@@ -28,9 +28,8 @@ func FuzzBuildHTTP(f *testing.F) {
 		push := fuzz.Struct[*model.PushContext](fg, validatePush)
 		node := fuzz.Struct[*model.Proxy](fg)
 		selectionInfo := model.WorkloadSelectionOpts{
-			Namespace:    node.ConfigNamespace,
-			WorkloadName: node.Metadata.WorkloadName,
-			Workload:     node.Labels,
+			Namespace:      node.ConfigNamespace,
+			WorkloadLabels: node.Labels,
 		}
 		policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionInfo)
 		option := fuzz.Struct[Option](fg)
@@ -44,9 +43,8 @@ func FuzzBuildTCP(f *testing.F) {
 		push := fuzz.Struct[*model.PushContext](fg, validatePush)
 		node := fuzz.Struct[*model.Proxy](fg)
 		selectionInfo := model.WorkloadSelectionOpts{
-			Namespace:    node.ConfigNamespace,
-			WorkloadName: node.Metadata.WorkloadName,
-			Workload:     node.Labels,
+			Namespace:      node.ConfigNamespace,
+			WorkloadLabels: node.Labels,
 		}
 		policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionInfo)
 		option := fuzz.Struct[Option](fg)

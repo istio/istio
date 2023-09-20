@@ -49,9 +49,8 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	}
 
 	selectionInfo := model.WorkloadSelectionOpts{
-		Namespace:    proxy.ConfigNamespace,
-		WorkloadName: proxy.Metadata.WorkloadName,
-		Workload:     proxy.Labels,
+		Namespace:      proxy.ConfigNamespace,
+		WorkloadLabels: proxy.Labels,
 	}
 
 	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionInfo)

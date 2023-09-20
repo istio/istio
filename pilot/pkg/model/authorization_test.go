@@ -102,8 +102,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "no policies with a targetRef in namespace foo",
 			selectionInfo: WorkloadSelectionOpts{
-				Namespace:    "foo",
-				WorkloadName: "waypoint",
+				Namespace: "foo",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithTargetRef),
@@ -238,8 +237,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "targetRef is an exact match",
 			selectionInfo: WorkloadSelectionOpts{
-				Namespace:    "bar",
-				WorkloadName: "waypoint",
+				Namespace: "bar",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithTargetRef),
@@ -256,7 +254,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			name: "selector exact match",
 			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
-				Workload: map[string]string{
+				WorkloadLabels: map[string]string{
 					"app":     "httpbin",
 					"version": "v1",
 				},
@@ -276,7 +274,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			name: "selector subset match",
 			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
-				Workload: map[string]string{
+				WorkloadLabels: map[string]string{
 					"app":     "httpbin",
 					"version": "v1",
 					"env":     "dev",
@@ -296,8 +294,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "targetRef is not a match",
 			selectionInfo: WorkloadSelectionOpts{
-				Namespace:    "bar",
-				WorkloadName: "waypoint2",
+				Namespace: "bar",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "bar", policyWithTargetRef),
@@ -308,7 +305,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			name: "selector not match",
 			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "bar",
-				Workload: map[string]string{
+				WorkloadLabels: map[string]string{
 					"app":     "httpbin",
 					"version": "v2",
 				},
@@ -322,7 +319,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			name: "namespace not match",
 			selectionInfo: WorkloadSelectionOpts{
 				Namespace: "foo",
-				Workload: map[string]string{
+				WorkloadLabels: map[string]string{
 					"app":     "httpbin",
 					"version": "v1",
 				},
@@ -351,8 +348,7 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 		{
 			name: "policy with targetRef in root namespace does not apply globally",
 			selectionInfo: WorkloadSelectionOpts{
-				Namespace:    "bar",
-				WorkloadName: "waypoint",
+				Namespace: "bar",
 			},
 			configs: []config.Config{
 				newConfig("authz-1", "istio-config", policyWithTargetRef),
