@@ -48,12 +48,12 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 		IsCustomBuilder: actionType == Custom,
 	}
 
-	selectionInfo := model.WorkloadSelectionOpts{
+	selectionOpts := model.WorkloadSelectionOpts{
 		Namespace:      proxy.ConfigNamespace,
 		WorkloadLabels: proxy.Labels,
 	}
 
-	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionInfo)
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}

@@ -21,16 +21,15 @@ func FuzzBuildHTTP(f *testing.F) {
     push := fuzz.Struct[*model.PushContext](fg, validatePush)
         // *model.Proxy, and other types, implement the fuzz.Validator interface and already validate some basics.
     node := fuzz.Struct[*model.Proxy](fg)
-    selectionInfo := model.WorkloadSelectionOpts{
+    selectionOpts := model.WorkloadSelectionOpts{
       Namespace:       node.ConfigNamespace,
-      WorkloadName:    node.Metadata.WorkloadName,
-      Workload:        node.Labels,
+      WorkloadLabels:  node.Labels,
     }
     option := fuzz.Struct[Option](fg)
 
     // Run our actual test code. In this case, we are just checking nothing crashes.
     // In other tests, explicit assertions may be helpful.
-    policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionInfo)
+    policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
     New(bundle, push, policies, option).BuildHTTP()
   })
 }
