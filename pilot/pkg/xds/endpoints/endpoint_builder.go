@@ -374,7 +374,7 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed 
 	localityEpMap := make(map[string]*LocalityEndpoints)
 	for _, ep := range eps {
 		eep := ep.EnvoyEndpoint()
-		mtlsEnabled := b.mtlsChecker.checkMtlsEnabled(ep, b.proxy.IsWaypointProxy())
+		mtlsEnabled := b.mtlsChecker.checkMtlsEnabled(ep)
 		// Determine if we need to build the endpoint. We try to cache it for performance reasons
 		needToCompute := eep == nil
 		if features.EnableHBONE {

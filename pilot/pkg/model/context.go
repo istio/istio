@@ -1001,7 +1001,7 @@ func (node *Proxy) IsIPv6() bool {
 	return node.ipMode == IPv6
 }
 
-func (node *Proxy) IsDualStack() bool {
+func (node *Proxy) IsDual() bool {
 	return node.ipMode == Dual
 }
 
