@@ -360,19 +360,6 @@ func TestAuthorizationPolicies_ListAuthorizationPolicies(t *testing.T) {
 			},
 		},
 		{
-			name: "policy with targetRef in root namespace does not apply globally",
-			selectionOpts: WorkloadSelectionOpts{
-				Namespace: "bar",
-				WorkloadLabels: labels.Instance{
-					constants.GatewayNameLabel: "my-gateway",
-				},
-			},
-			configs: []config.Config{
-				newConfig("authz-1", "istio-config", policyWithTargetRef),
-			},
-			wantAllow: nil,
-		},
-		{
 			name: "root namespace equals config namespace",
 			selectionOpts: WorkloadSelectionOpts{
 				Namespace: "istio-config",

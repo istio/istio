@@ -79,7 +79,7 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 	if namespace != rootNamespace {
 		// Only check the root namespace if the (workload) namespace is not already the root namespace
 		// to avoid double inclusion.
-		lookupInNamespaces = []string{namespace, rootNamespace}
+		lookupInNamespaces = []string{rootNamespace, namespace}
 	} else {
 		lookupInNamespaces = []string{namespace}
 	}
