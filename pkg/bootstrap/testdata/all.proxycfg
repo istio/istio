@@ -9,6 +9,6 @@ envoy_access_log_service:         {address: "accesslog-service:15000"}
 proxy_admin_port:                 15005
 control_plane_auth_policy:        MUTUAL_TLS
 stat_name_length:                 200
-tracing:                          { zipkin: { address: "localhost:6000" } }
+tracing:                          { zipkin: { address: "localhost:6000" }, dns_settings: {refresh_rate: {seconds: 30}, respect_ttl: true } }
 
 # Sets all relevant options to values different than default

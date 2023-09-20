@@ -183,6 +183,14 @@ func TracingTLS(value *networkingAPI.ClientTLSSettings, metadata *model.Bootstra
 		withConvert(transportSocketConverter(value, "tracer", metadata, isH2))
 }
 
+func TracingDNSRefreshRate(value *durationpb.Duration) Instance {
+	return newDurationOption("tracing_dns_refresh_rate", value)
+}
+
+func TracingDNSRespectTTL(value bool) Instance {
+	return newOption("tracing_dns_respect_ttl", value)
+}
+
 func EnvoyMetricsServiceAddress(value string) Instance {
 	return newOptionOrSkipIfZero("envoy_metrics_service_address", value).withConvert(addressConverter(value))
 }

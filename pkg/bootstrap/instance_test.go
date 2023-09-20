@@ -148,6 +148,9 @@ func TestGolden(t *testing.T) {
 			base: "tracing_zipkin",
 		},
 		{
+			base: "tracing_zipkin_custom_dns",
+		},
+		{
 			base: "tracing_datadog",
 		},
 		{

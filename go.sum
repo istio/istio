@@ -88,6 +88,8 @@ github.com/PuerkitoBio/urlesc v0.0.0-20160726150825-5bd2802263f2/go.mod h1:uGdko
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/VividCortex/ewma v1.2.0 h1:f58SaIzcDXrSy3kWaHNvuJgJ3Nmz59Zji6XoJR/q1ow=
 github.com/VividCortex/ewma v1.2.0/go.mod h1:nz4BbCtbLyFDeC9SUHbtcT5644juEuWfUAUnGx7j5l4=
+github.com/aatarasoff/istio-api v0.0.0-20230920115634-14da4c0d14e4 h1:WNkTGBBEcjb9d55e2oY/xNcdb+Wn9Uqm9sd1JzXPDoE=
+github.com/aatarasoff/istio-api v0.0.0-20230920115634-14da4c0d14e4/go.mod h1:hFqNwCBpXIy5jboW4geFoz3io9ZR3nVJ4oLI7udf6Vo=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/alecholmes/xfccparser v0.1.0 h1:/PBnzDBxfHJ66AinLNglzZH4oWLrc1/QTKlSoNNnei8=
 github.com/alecholmes/xfccparser v0.1.0/go.mod h1:c1S35dudNR5aZ4Vf9zKCrEwC8iqwF4TcDAbU+RXQ5yY=
@@ -1379,8 +1381,6 @@ honnef.co/go/tools v0.0.0-20190523083050-ea95bdfd59fc/go.mod h1:rf3lG4BRIbNafJWh
 honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
 honnef.co/go/tools v0.0.1-2020.1.3/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
 honnef.co/go/tools v0.0.1-2020.1.4/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
-istio.io/api v1.19.0-alpha.1.0.20230918214254-81c6f470a05e h1:67qPPS5KfX4do6WNgiry4n0SFHBhwkhuLMzLKi4HcUE=
-istio.io/api v1.19.0-alpha.1.0.20230918214254-81c6f470a05e/go.mod h1:hFqNwCBpXIy5jboW4geFoz3io9ZR3nVJ4oLI7udf6Vo=
 istio.io/client-go v1.19.0-alpha.1.0.20230918215054-8519cd6292c3 h1:eBV4LrcaUDCRbHPj/rxpQbBXmdHh4C9sOdyRQpu9q8M=
 istio.io/client-go v1.19.0-alpha.1.0.20230918215054-8519cd6292c3/go.mod h1:7IkkSA+0YT81exNuyy+OnW/LuA5deWOF1eUmBGjiHSE=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=

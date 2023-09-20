@@ -53,6 +53,10 @@ func DefaultProxyConfig() *meshconfig.ProxyConfig {
 					Address: "zipkin.istio-system:9411",
 				},
 			},
+			DnsSettings: &meshconfig.Tracing_DNSSettings{
+				RefreshRate: durationpb.New(30 * time.Second),
+				RespectTtl:  true,
+			},
 		},
 
 		// Code defaults

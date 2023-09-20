@@ -441,6 +441,10 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 		}
 
 		opts = append(opts, option.TracingTLS(config.Tracing.TlsSettings, metadata, isH2))
+		if config.Tracing.DnsSettings != nil {
+			opts = append(opts, option.TracingDNSRefreshRate(config.Tracing.DnsSettings.RefreshRate))
+			opts = append(opts, option.TracingDNSRespectTTL(config.Tracing.DnsSettings.RespectTtl))
+		}
 	}
 
 	// Add options for Envoy metrics.
