@@ -190,7 +190,7 @@ func poll(ctx cli.Context,
 		return 0, 0, 0, err
 	}
 	path := fmt.Sprintf("debug/config_distribution?resource=%s", targetResource)
-	pilotResponses, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), path, opts.MonitoringPort)
+	pilotResponses, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), path)
 	if err != nil {
 		return 0, 0, 0, fmt.Errorf("unable to query pilot for distribution "+
 			"(are you using pilot version >= 1.4 with config distribution tracking on): %s", err)

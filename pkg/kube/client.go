@@ -158,7 +158,7 @@ type CLIClient interface {
 	EnvoyDoWithPort(ctx context.Context, podName, podNamespace, method, path string, port int) ([]byte, error)
 
 	// AllDiscoveryDo makes a http request to each Istio discovery instance.
-	AllDiscoveryDo(ctx context.Context, namespace, path string, port int) (map[string][]byte, error)
+	AllDiscoveryDo(ctx context.Context, namespace, path string) (map[string][]byte, error)
 
 	// GetIstioVersions gets the version for each Istio control plane component.
 	GetIstioVersions(ctx context.Context, namespace string) (*version.MeshInfo, error)
@@ -708,7 +708,7 @@ func (c *client) PodLogs(ctx context.Context, podName, podNamespace, container s
 	return builder.String(), nil
 }
 
-func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string, port int) (map[string][]byte, error) {
+func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path string) (map[string][]byte, error) {
 	istiods, err := c.GetIstioPods(ctx, istiodNamespace, metav1.ListOptions{
 		LabelSelector: "app=istiod",
 		FieldSelector: RunningStatus,
@@ -722,7 +722,7 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, port)
+		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, 15014)
 		if err != nil {
 			return nil, err
 		}

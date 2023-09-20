@@ -256,7 +256,7 @@ func getIstioVersions(ctx cli.Context, istioNamespace string, revisions []string
 			continue
 		}
 		istioVersions[revision] = getIstioVersion(client, istioNamespace)
-		proxyInfo, err := proxy.GetProxyInfo(client, istioNamespace, 15014)
+		proxyInfo, err := proxy.GetProxyInfo(client, istioNamespace)
 		if err != nil {
 			log.Error(err)
 			continue

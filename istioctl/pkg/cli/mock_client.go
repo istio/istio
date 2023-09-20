@@ -53,7 +53,7 @@ func (c MockClient) NewPortForwarder(_, _, _ string, _, _ int) (kube.PortForward
 	return MockPortForwarder{}, nil
 }
 
-func (c MockClient) AllDiscoveryDo(_ context.Context, _, _ string, _ int) (map[string][]byte, error) {
+func (c MockClient) AllDiscoveryDo(_ context.Context, _, _ string) (map[string][]byte, error) {
 	return c.Results, nil
 }
 
