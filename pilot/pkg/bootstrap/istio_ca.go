@@ -378,7 +378,7 @@ func (s *Server) handleCACertsFileWatch() {
 func (s *Server) addCACertsFileWatcher(dir string) error {
 	err := s.cacertsWatcher.Add(dir)
 	if err != nil {
-		log.Infof("AUTO_RELOAD_PLUGIN_CERTS will not work, failed to add file watcher: %v", err)
+		log.Infof("failed to add cacerts file watcher for %s: %v", dir, err)
 		return err
 	}
 
@@ -395,12 +395,13 @@ func (s *Server) initCACertsWatcher() {
 
 	s.cacertsWatcher, err = fsnotify.NewWatcher()
 	if err != nil {
-		log.Infof("failed to add CAcerts watcher: %v", err)
+		log.Warnf("failed to add CAcerts watcher: %v", err)
 		return
 	}
 
 	err = s.addCACertsFileWatcher(LocalCertDir.Get())
 	if err != nil {
+		log.Warnf("failed to add CAcerts file watcher: %v", err)
 		return
 	}
 
