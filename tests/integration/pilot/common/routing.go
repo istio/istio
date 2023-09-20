@@ -2308,6 +2308,37 @@ spec:
       consistentHash:
         {{. | indent 8}}
 `, svcName, svcName)
+
+			cookieWithTTLDest := fmt.Sprintf(`
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: session-cookie
+          ttl: 3600s
+`, svcName, svcName)
+
+			cookieWithoutTTLDest := fmt.Sprintf(`
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: session-cookie
+`, svcName, svcName)
 			// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
 			// and could be broken by having only 1 pod so its good to have this check in place
 			t.RunTraffic(TrafficTestCase{
@@ -2385,6 +2416,18 @@ spec:
 					skip:   c.Config().WorkloadClass() == echo.Proxyless,
 					reason: "", // TODO: is this a bug or WAI?
 				},
+			})
+			t.RunTraffic(TrafficTestCase{
+				name:   "http cookie with ttl" + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(cookieWithTTLDest, ""),
+				call:   c.CallOrFail,
+				opts:   tcpCallopts,
+			})
+			t.RunTraffic(TrafficTestCase{
+				name:   "http cookie without ttl" + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(cookieWithoutTTLDest, ""),
+				call:   c.CallOrFail,
+				opts:   tcpCallopts,
 			})
 		}
 	}
