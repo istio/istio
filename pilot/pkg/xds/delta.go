@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -288,7 +287,9 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 
 	subs := sets.New(req.ResourceNamesSubscribe...).Delete("*")
 	// InitialResourceVersions are essential subscriptions on the first request, since we don't care about the version
-	subs.InsertAll(maps.Keys(req.InitialResourceVersions)...)
+	for k := range req.InitialResourceVersions {
+		subs.Insert(k)
+	}
 	request := &model.PushRequest{
 		Full:   true,
 		Push:   con.proxy.LastPushContext,
@@ -598,7 +599,9 @@ func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryR
 	res.InsertAll(request.ResourceNamesSubscribe...)
 	// This is set by Envoy on first request on reconnection so that we are aware of what Envoy knows
 	// and can continue the xDS session properly.
-	res.InsertAll(maps.Keys(request.InitialResourceVersions)...)
+	for k := range request.InitialResourceVersions {
+		res.Insert(k)
+	}
 	res.DeleteAll(request.ResourceNamesUnsubscribe...)
 	wildcard := false
 	// A request is wildcard if they explicitly subscribe to "*" or subscribe to nothing
@@ -614,5 +617,5 @@ func deltaWatchedResources(existing []string, request *discovery.DeltaDiscoveryR
 	if len(request.ResourceNamesSubscribe) == 0 {
 		wildcard = true
 	}
-	return sets.SortedList(res), wildcard
+	return res.UnsortedList(), wildcard
 }

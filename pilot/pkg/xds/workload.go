@@ -64,6 +64,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 		// We only need this for on-demand. This allows us to subscribe the client to resources they
 		// didn't explicitly request.
 		// For wildcard, they subscribe to everything already.
+		// TODO: optimize me
 		additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
 		addresses.Merge(additional)
 	}
