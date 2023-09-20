@@ -91,7 +91,6 @@ import (
 
 const (
 	defaultLocalAddress = "localhost"
-	fieldManager        = "istio-kube-client"
 	RunningStatus       = "status.phase=Running"
 )
 
