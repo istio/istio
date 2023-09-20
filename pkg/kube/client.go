@@ -21,8 +21,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -87,6 +89,7 @@ import (
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/version"
+	"istio.io/istio/tools/bug-report/pkg/common"
 )
 
 const (
@@ -722,7 +725,8 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, 15014)
+		monitoringPort := findIstiodMonitoringPort(&istiod)
+		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, monitoringPort)
 		if err != nil {
 			return nil, err
 		}
@@ -1220,4 +1224,38 @@ func SetRevisionForTest(c CLIClient, rev string) CLIClient {
 	tc := c.(*client)
 	tc.revision = rev
 	return tc
+}
+
+func findIstiodMonitoringPort(pod *v1.Pod) int {
+	if v, ok := pod.GetAnnotations()["prometheus.io/port"]; ok {
+		if port, err := strconv.Atoi(v); err == nil {
+			return port
+		}
+	}
+	for _, container := range pod.Spec.Containers {
+		if container.Name != common.DiscoveryContainerName {
+			continue
+		}
+		argsStr := strings.Join(container.Args, " ")
+		if !strings.Contains(argsStr, "monitoringAddr") {
+			continue
+		}
+		args := strings.Split(argsStr, " ")
+		for i, arg := range args {
+			var port string
+			if strings.HasPrefix(arg, "--monitoringAddr=") {
+				addr := strings.TrimSpace(strings.TrimPrefix(arg, "--monitoringAddr="))
+				_, port, _ = net.SplitHostPort(addr)
+			} else if arg == "--monitoringAddr" && i+1 < len(args) {
+				addr := strings.TrimSpace(args[i+1])
+				_, port, _ = net.SplitHostPort(addr)
+			}
+			if len(port) > 0 {
+				if p, err := strconv.Atoi(port); err == nil {
+					return p
+				}
+			}
+		}
+	}
+	return 15014
 }
