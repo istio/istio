@@ -68,13 +68,13 @@ type AuthorizationPoliciesResult struct {
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
 func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts WorkloadSelectionOpts) AuthorizationPoliciesResult {
 	configs := AuthorizationPoliciesResult{}
+	if policy == nil {
+		return configs
+	}
 	rootNamespace := policy.RootNamespace
 	namespace := selectionOpts.Namespace
 	workloadLabels := selectionOpts.WorkloadLabels
 	var lookupInNamespaces []string
-	if policy == nil {
-		return configs
-	}
 
 	if namespace != rootNamespace {
 		// Only check the root namespace if the (workload) namespace is not already the root namespace
@@ -85,7 +85,6 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 	}
 
 	for _, ns := range lookupInNamespaces {
-
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
 			var selector labels.Instance // NOTE: nil/empty selector matches all workloads
