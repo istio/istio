@@ -319,8 +319,14 @@ func handleEvent(s *Server) {
 
 	// Only updating intermediate CA is supported now
 	if !bytes.Equal(currentCABundle, newCABundle) {
-		log.Info("Updating new ROOT-CA not supported")
-		return
+		// Check if newCABundle or currentCABundle is combination of other
+		if bytes.Contains(currentCABundle, newCABundle) ||
+			bytes.Contains(newCABundle, currentCABundle) {
+			log.Info("Updating new ROOT-CA")
+		} else {
+			log.Warn("Updating new ROOT-CA not supported")
+			return
+		}
 	}
 
 	err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(

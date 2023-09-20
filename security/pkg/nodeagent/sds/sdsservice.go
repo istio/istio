@@ -93,6 +93,7 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 		proxy.RUnlock()
 
 		if resources == nil {
+			sdsServiceLog.Debugf("Skipping push for proxy %s, no resources", proxy.ID)
 			return false
 		}
 
@@ -104,6 +105,9 @@ func NewXdsServer(stop chan struct{}, gen model.XdsResourceGenerator) *xds.Disco
 				break
 			}
 		}
+
+		sdsServiceLog.Debugf("Proxy %s needs push %v, name: %v request: %v", proxy.ID, found, names, req)
+
 		return found
 	}
 	s.CachesSynced()
