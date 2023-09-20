@@ -60,6 +60,7 @@ type Config struct {
 	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`
 	CNIMode                 bool          `json:"CNI_MODE"`
 	TraceLogging            bool          `json:"IPTABLES_TRACE_LOGGING"`
+	DualStack               bool          `json:"DUAL_STACK"`
 }
 
 func (c *Config) String() string {
@@ -90,6 +91,7 @@ func (c *Config) Print() {
 	b.WriteString(fmt.Sprintf("OUTBOUND_PORTS_EXCLUDE=%s\n", c.OutboundPortsExclude))
 	b.WriteString(fmt.Sprintf("KUBE_VIRT_INTERFACES=%s\n", c.KubeVirtInterfaces))
 	b.WriteString(fmt.Sprintf("ENABLE_INBOUND_IPV6=%t\n", c.EnableInboundIPv6))
+	b.WriteString(fmt.Sprintf("DUAL_STACK=%t\n", c.DualStack))
 	b.WriteString(fmt.Sprintf("DNS_CAPTURE=%t\n", c.RedirectDNS))
 	b.WriteString(fmt.Sprintf("DROP_INVALID=%t\n", c.DropInvalid))
 	b.WriteString(fmt.Sprintf("CAPTURE_ALL_DNS=%t\n", c.CaptureAllDNS))
