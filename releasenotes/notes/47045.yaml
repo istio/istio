@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 46652
+releaseNotes:
+- |
+  **Added** support for specifying the monitoring port for some commands that require access to the pilot monitoring port. Default is 15014. 
