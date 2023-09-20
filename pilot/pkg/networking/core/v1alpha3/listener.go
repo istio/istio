@@ -761,6 +761,11 @@ func buildSidecarOutboundTCPListenerOptsForPortOrUDS(listenerMapKey *string,
 			svcListenAddress == constants.UnspecifiedIP {
 			svcListenAddress = constants.UnspecifiedIPv6
 		}
+		// For dualstack proxies we need to add the unspecifed ipv6 address to the list of extra listen addresses
+		if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsDual() &&
+			svcListenAddress == constants.UnspecifiedIP {
+			svcExtraListenAddress = append(svcExtraListenAddress, constants.UnspecifiedIPv6)
+		}
 		// We should never get an empty address.
 		// This is a safety guard, in case some platform adapter isn't doing things
 		// properly

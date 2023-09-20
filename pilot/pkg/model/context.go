@@ -970,6 +970,10 @@ func (node *Proxy) IsIPv6() bool {
 	return node.ipMode == IPv6
 }
 
+func (node *Proxy) IsDual() bool {
+	return node.ipMode == Dual
+}
+
 // GetIPMode returns proxy's ipMode
 func (node *Proxy) GetIPMode() IPMode {
 	return node.ipMode
