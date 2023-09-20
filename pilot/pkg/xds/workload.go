@@ -52,12 +52,15 @@ func (e WorkloadGenerator) GenerateDeltas(
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
 	subs := sets.New(w.ResourceNames...)
+	addresses := updatedAddresses
+	// If it is not a wildcard, filter out resources we are not subscribed to
+	if !w.Wildcard {
+		addresses = addresses.Intersection(subs)
+	}
 	// Specific requested resource: always include
-	addresses := subs.Merge(req.Delta.Subscribed)
+	addresses = addresses.Merge(req.Delta.Subscribed)
 	addresses = addresses.Difference(req.Delta.Unsubscribed)
 	if !w.Wildcard {
-		// If it's not a wildcard, filter out resources we are not subscribed to
-		addresses = updatedAddresses.Intersection(addresses)
 		// We only need this for on-demand. This allows us to subscribe the client to resources they
 		// didn't explicitly request.
 		// For wildcard, they subscribe to everything already.
@@ -79,7 +82,6 @@ func (e WorkloadGenerator) GenerateDeltas(
 		// For NOP pushes, no need
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
-
 	resources := make(model.Resources, 0)
 	addrs, removed := e.s.Env.ServiceDiscovery.AddressInformation(addresses)
 	// Note: while "removed" is a weird name for a resource that never existed, this is how the spec works:
