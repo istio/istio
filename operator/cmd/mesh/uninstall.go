@@ -50,6 +50,8 @@ type uninstallArgs struct {
 	purge bool
 	// revision is the Istio control plane revision the command targets.
 	revision string
+	// MonitoringPort is the control plane monitoring port
+	MonitoringPort int
 	// filename is the path of input IstioOperator CR.
 	filename string
 	// set is a string with element format "path=value" where path is an IstioOperator path and the value is a
@@ -76,6 +78,8 @@ func addUninstallFlags(cmd *cobra.Command, args *uninstallArgs) {
 	cmd.PersistentFlags().StringVarP(&args.revision, "revision", "r", "", revisionFlagHelpStr)
 	cmd.PersistentFlags().StringVarP(&args.filename, "filename", "f", "",
 		"The filename of the IstioOperator CR.")
+	cmd.PersistentFlags().IntVar(&args.MonitoringPort, "monitoringPort", 15014,
+		"Control plane monitoring port address")
 	cmd.PersistentFlags().StringVarP(&args.manifestsPath, "manifests", "d", "", ManifestsFlagHelpStr)
 	cmd.PersistentFlags().StringArrayVarP(&args.set, "set", "s", nil, setFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&args.verbose, "verbose", "v", false, "Verbose output.")
@@ -210,7 +214,7 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uninstallArgs, istioNamespace,
 	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger, dryRun bool,
 ) {
-	pids, err := proxyinfo.GetIDsFromProxyInfo(kubeClient, istioNamespace)
+	pids, err := proxyinfo.GetIDsFromProxyInfo(kubeClient, istioNamespace, uiArgs.MonitoringPort)
 	if err != nil {
 		l.LogAndError(err.Error())
 	}

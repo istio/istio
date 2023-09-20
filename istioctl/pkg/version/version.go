@@ -93,7 +93,7 @@ func getProxyInfoWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions) 
 		if err != nil {
 			return nil, err
 		}
-		return proxy.GetProxyInfo(client, ctx.IstioNamespace())
+		return proxy.GetProxyInfo(client, ctx.IstioNamespace(), opts.MonitoringPort)
 	}
 }
 

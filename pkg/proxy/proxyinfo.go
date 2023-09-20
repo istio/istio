@@ -31,9 +31,9 @@ type sidecarSyncStatus struct {
 }
 
 // GetProxyInfo retrieves infos of proxies that connect to the Istio control plane of specific revision.
-func GetProxyInfo(kubeClient kube.CLIClient, istioNamespace string) (*[]istioVersion.ProxyInfo, error) {
+func GetProxyInfo(kubeClient kube.CLIClient, istioNamespace string, port int) (*[]istioVersion.ProxyInfo, error) {
 	// Ask Pilot for the Envoy sidecar sync status, which includes the sidecar version info
-	allSyncz, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "debug/syncz")
+	allSyncz, err := kubeClient.AllDiscoveryDo(context.TODO(), istioNamespace, "debug/syncz", port)
 	if err != nil {
 		return nil, err
 	}
@@ -59,9 +59,9 @@ func GetProxyInfo(kubeClient kube.CLIClient, istioNamespace string) (*[]istioVer
 }
 
 // GetIDsFromProxyInfo is a helper function to retrieve list of IDs from Proxy.
-func GetIDsFromProxyInfo(kubeClient kube.CLIClient, istioNamespace string) ([]string, error) {
+func GetIDsFromProxyInfo(kubeClient kube.CLIClient, istioNamespace string, port int) ([]string, error) {
 	var IDs []string
-	pi, err := GetProxyInfo(kubeClient, istioNamespace)
+	pi, err := GetProxyInfo(kubeClient, istioNamespace, port)
 	if err != nil {
 		return IDs, fmt.Errorf("failed to get proxy infos: %v", err)
 	}

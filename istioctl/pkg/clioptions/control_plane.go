@@ -20,6 +20,8 @@ import "github.com/spf13/cobra"
 type ControlPlaneOptions struct {
 	// Revision is the istio.io/rev control plane revision
 	Revision string
+	// MonitoringPort is the control plane monitoring port
+	MonitoringPort int
 }
 
 // AttachControlPlaneFlags attaches control-plane flags to a Cobra command.
@@ -27,4 +29,6 @@ type ControlPlaneOptions struct {
 func (o *ControlPlaneOptions) AttachControlPlaneFlags(cmd *cobra.Command) {
 	cmd.PersistentFlags().StringVarP(&o.Revision, "revision", "r", "",
 		"Control plane revision")
+	cmd.PersistentFlags().IntVar(&o.MonitoringPort, "monitoringPort", 15014,
+		"Control plane monitoring port address")
 }

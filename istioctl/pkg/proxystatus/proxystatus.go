@@ -94,7 +94,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				}
 
 				path := fmt.Sprintf("debug/config_dump?proxyID=%s.%s", podName, ns)
-				istiodDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), path)
+				istiodDumps, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), path, opts.MonitoringPort)
 				if err != nil {
 					return err
 				}
@@ -108,7 +108,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			if ctx.Namespace() != "" {
 				queryStr += "?namespace=" + ctx.Namespace()
 			}
-			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), queryStr)
+			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), queryStr, opts.MonitoringPort)
 			if err != nil {
 				return err
 			}
