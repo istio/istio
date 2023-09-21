@@ -465,6 +465,10 @@ func TestMultiCluster(t *testing.T) {
 		NewTest(t).
 		Features("usability.observability.analysis.multi-cluster").
 		Run(func(t framework.TestContext) {
+			if len(t.Environment().Clusters()) < 2 {
+				t.Skip("skipping test, need at least 2 clusters")
+			}
+
 			g := NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
@@ -472,9 +476,27 @@ func TestMultiCluster(t *testing.T) {
 				Inject: true,
 			})
 
-			// apply inconsistent services to different clusters
+			// create remote secrets for analysis
+			secrets := map[string]string{}
+			for _, c := range t.Environment().Clusters() {
+				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{
+					Cluster: c,
+				})
+				secret, _, err := createRemoteSecret(t, istioCtl, c.Name())
+				g.Expect(err).To(BeNil())
+				secrets[c.Name()] = secret
+			}
 			for ind, c := range t.Environment().Clusters() {
-				c.ApplyYAMLFiles(ns.Name(), fmt.Sprintf(`
+				// apply remote secret to be used for analysis
+				for sc, secret := range secrets {
+					if c.Name() == sc {
+						continue
+					}
+					err := c.ApplyYAMLFiles(secret)
+					g.Expect(err).To(BeNil())
+				}
+				// apply inconsistent services
+				err := c.ApplyYAMLFiles(ns.Name(), fmt.Sprintf(`
 apiVersion: v1
 kind: Service
 metadata:
@@ -489,18 +511,25 @@ spec:
     protocol: TCP
     targetPort: %d
 `, ind, ind))
-			}
-
-			if len(t.Environment().Clusters()) < 2 {
-				t.Skip("skipping test, need at least 2 clusters")
+				g.Expect(err).To(BeNil())
 			}
 
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
-
 			// Validation error if we have a gateway with invalid selector.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile, virtualServiceFile, "--multi-cluster")
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--multi-cluster")
 
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
 			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
+}
+
+func createRemoteSecret(t test.Failer, i istioctl.Instance, cluster string) (string, string, error) {
+	t.Helper()
+
+	args := []string{"create-remote-secret"}
+	// Suppress some cluster-wide checks. This ensures we do not fail tests when running on clusters that trigger
+	// analyzers we didn't intended to test.
+	args = append(args, fmt.Sprintf("--name %s", cluster))
+
+	return i.Invoke(args)
 }
