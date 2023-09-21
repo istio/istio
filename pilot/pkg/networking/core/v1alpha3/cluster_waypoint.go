@@ -26,6 +26,7 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -178,6 +179,13 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 		ConnectTimeout:                durationpb.New(2 * time.Second),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UpstreamPortOverride: &wrappers.UInt32Value{
+					Value: model.HBoneInboundListenPort,
+				},
+			},
+		},
 		TransportSocket: &core.TransportSocket{
 			Name: "tls",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{

@@ -655,12 +655,14 @@ func BuildInternalEndpoint(dest string, meta *core.Metadata) []*endpoint.Localit
 	return llb
 }
 
+const OriginalDstMetadataKey = "envoy.filters.listener.original_dst"
+
 // BuildInternalLbEndpoint builds an lb endpoint pointing to the internal listener named dest.
-// If the metadata contains "tunnel.destination" that will become the "endpointId" to prevent deduplication.
+// If the metadata contains ORIGINAL_DST destination that will become the "endpointId" to prevent deduplication.
 func BuildInternalLbEndpoint(dest string, meta *core.Metadata) *endpoint.LbEndpoint {
 	var endpointID string
-	if tunnel, ok := meta.GetFilterMetadata()["tunnel"]; ok {
-		if dest, ok := tunnel.GetFields()["destination"]; ok {
+	if tunnel, ok := meta.GetFilterMetadata()[OriginalDstMetadataKey]; ok {
+		if dest, ok := tunnel.GetFields()["local"]; ok {
 			endpointID = dest.GetStringValue()
 		}
 	}
@@ -689,20 +691,18 @@ func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
 	}
 }
 
-func BuildTunnelMetadata(address string, port, tunnelPort int) *core.Metadata {
+func BuildTunnelMetadata(address string, port int) *core.Metadata {
 	return &core.Metadata{
 		FilterMetadata: map[string]*structpb.Struct{
-			"tunnel": BuildTunnelMetadataStruct(address, address, port, tunnelPort),
+			OriginalDstMetadataKey: BuildTunnelMetadataStruct(address, port),
 		},
 	}
 }
 
-func BuildTunnelMetadataStruct(tunnelAddress, address string, port, tunnelPort int) *structpb.Struct {
+func BuildTunnelMetadataStruct(address string, port int) *structpb.Struct {
 	st, _ := structpb.NewStruct(map[string]interface{}{
-		// ORIGINAL_DST destination address to tunnel on (usually only differs from "destination" by port)
-		"address": net.JoinHostPort(tunnelAddress, strconv.Itoa(tunnelPort)),
 		// logical destination behind the tunnel, on which policy and telemetry will be applied
-		"destination": net.JoinHostPort(address, strconv.Itoa(port)),
+		"local": net.JoinHostPort(address, strconv.Itoa(port)),
 	})
 	return st
 }

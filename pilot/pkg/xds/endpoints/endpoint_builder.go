@@ -646,7 +646,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
 	address, port := e.Address, e.EndpointPort
-	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
 
 	supportsTunnel := false
 	// Other side is a waypoint proxy.
@@ -686,29 +685,20 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
 		if supportsTunnel {
 			address := e.Address
-			tunnelPort := 15008
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
-			ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, address, int(e.EndpointPort), tunnelPort)
+			ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, int(e.EndpointPort))
 			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
 			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
 				Value: e.GetLoadBalancingWeight(),
 			}
 		}
 	} else if supportsTunnel {
-		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
-		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
-			workloads := findWaypoints(b.push, e)
-			if len(workloads) > 0 {
-				// TODO: load balance
-				tunnelAddress = workloads[0].String()
-			}
-		}
 		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}
-		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
+		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, int(port))
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
