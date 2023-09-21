@@ -23,17 +23,17 @@ import (
 
 // NewPolicyApplier returns the appropriate (policy) applier, depends on the versions of the policy exists
 // for the given service instance.
-func NewPolicyApplier(push *model.PushContext, namespace string, labels labels.Instance, isWaypoint bool) authn.PolicyApplier {
+func NewPolicyApplier(push *model.PushContext, namespace string, labels labels.Instance) authn.PolicyApplier {
 	return v1beta1.NewPolicyApplier(
 		push.AuthnPolicies.GetRootNamespace(),
-		push.AuthnPolicies.GetJwtPoliciesForWorkload(namespace, labels, isWaypoint),
-		push.AuthnPolicies.GetPeerAuthenticationsForWorkload(namespace, labels, isWaypoint), push)
+		push.AuthnPolicies.GetJwtPoliciesForWorkload(namespace, labels),
+		push.AuthnPolicies.GetPeerAuthenticationsForWorkload(namespace, labels), push)
 }
 
 // NewMtlsPolicy returns a checker used to detect proxy mtls mode.
-func NewMtlsPolicy(push *model.PushContext, namespace string, labels labels.Instance, isWaypoint bool) authn.MtlsPolicy {
+func NewMtlsPolicy(push *model.PushContext, namespace string, labels labels.Instance) authn.MtlsPolicy {
 	return v1beta1.NewPolicyApplier(
 		push.AuthnPolicies.GetRootNamespace(),
 		nil,
-		push.AuthnPolicies.GetPeerAuthenticationsForWorkload(namespace, labels, isWaypoint), push)
+		push.AuthnPolicies.GetPeerAuthenticationsForWorkload(namespace, labels), push)
 }

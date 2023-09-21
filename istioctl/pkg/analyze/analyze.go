@@ -26,7 +26,6 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
-
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd"

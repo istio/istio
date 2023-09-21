@@ -200,27 +200,15 @@ func (policy *AuthenticationPolicies) GetNamespaceMutualTLSMode(namespace string
 // GetJwtPoliciesForWorkload returns a list of JWT policies matching to labels.
 func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string,
 	workloadLabels labels.Instance,
-	isWaypoint bool,
 ) []*config.Config {
-	return getConfigsForWorkload(policy.requestAuthentications, WorkloadSelectionOpts{
-		rootNamespace:  policy.rootNamespace,
-		namespace:      namespace,
-		workloadLabels: workloadLabels,
-		isWaypoint:     isWaypoint,
-	})
+	return getConfigsForWorkload(policy.requestAuthentications, policy.rootNamespace, namespace, workloadLabels)
 }
 
 // GetPeerAuthenticationsForWorkload returns a list of peer authentication policies matching to labels.
 func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespace string,
 	workloadLabels labels.Instance,
-	isWaypoint bool,
 ) []*config.Config {
-	return getConfigsForWorkload(policy.peerAuthentications, WorkloadSelectionOpts{
-		rootNamespace:  policy.rootNamespace,
-		namespace:      namespace,
-		workloadLabels: workloadLabels,
-		isWaypoint:     isWaypoint,
-	})
+	return getConfigsForWorkload(policy.peerAuthentications, policy.rootNamespace, namespace, workloadLabels)
 }
 
 // GetRootNamespace return root namespace that is tracked by the policy object.
@@ -242,10 +230,11 @@ func GetAmbientPolicyConfigName(key ConfigKey) string {
 	}
 }
 
-func getConfigsForWorkload(configsByNamespace map[string][]config.Config, selectionOpts WorkloadSelectionOpts) []*config.Config {
-	workloadLabels := selectionOpts.workloadLabels
-	namespace := selectionOpts.namespace
-	rootNamespace := selectionOpts.rootNamespace
+func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
+	rootNamespace string,
+	namespace string,
+	workloadLabels labels.Instance,
+) []*config.Config {
 	configs := make([]*config.Config, 0)
 	var lookupInNamespaces []string
 	if namespace != rootNamespace {
@@ -264,19 +253,10 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config, select
 					log.Warnf("Seeing config %s with namespace %s in map entry for %s. Ignored", cfg.Name, cfg.Namespace, ns)
 					continue
 				}
-				var selector labels.Instance // NOTE: nil/empty selector matches all workloads
+				var selector labels.Instance
 				switch cfg.GroupVersionKind {
 				case gvk.RequestAuthentication:
-					ra := cfg.Spec.(*v1beta1.RequestAuthentication)
-					switch getPolicyMatcher(cfg.GroupVersionKind, cfg.Name, selectionOpts, ra) {
-					case policyMatchSelector:
-						selector = ra.GetSelector().GetMatchLabels()
-					case policyMatchDirect:
-						configs = append(configs, cfg)
-						continue
-					case policyMatchIgnore:
-						continue
-					}
+					selector = cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
 				case gvk.PeerAuthentication:
 					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
 				default:

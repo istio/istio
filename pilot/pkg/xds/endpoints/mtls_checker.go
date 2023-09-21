@@ -48,7 +48,7 @@ func isMtlsEnabled(lbEp *endpoint.LbEndpoint) bool {
 
 // checkMtlsEnabled computes whether mTLS should be enabled or not. This is determined based
 // on the DR, original endpoint TLSMode (based on injection of sidecar), and PeerAuthentication settings.
-func (c *mtlsChecker) checkMtlsEnabled(ep *model.IstioEndpoint, isWaypoint bool) bool {
+func (c *mtlsChecker) checkMtlsEnabled(ep *model.IstioEndpoint) bool {
 	if drMode := c.destinationRule; drMode != nil {
 		return *drMode == networkingapi.ClientTLSSettings_ISTIO_MUTUAL
 	}
@@ -59,7 +59,7 @@ func (c *mtlsChecker) checkMtlsEnabled(ep *model.IstioEndpoint, isWaypoint bool)
 	}
 
 	return factory.
-		NewMtlsPolicy(c.push, ep.Namespace, ep.Labels, isWaypoint).
+		NewMtlsPolicy(c.push, ep.Namespace, ep.Labels).
 		GetMutualTLSModeForPort(ep.EndpointPort) != model.MTLSDisable
 }
 
