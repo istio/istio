@@ -17,7 +17,6 @@ package endpoints
 import (
 	"math"
 	"net"
-	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -720,15 +719,6 @@ func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
 		return false
 	}
 	return true
-}
-
-func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {
-	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
-	ips := push.WaypointsFor(model.WaypointScope{
-		Namespace:      e.Namespace,
-		ServiceAccount: ident.ServiceAccount,
-	})
-	return ips
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(
