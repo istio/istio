@@ -50,17 +50,7 @@ messages:
       - name: podName
         type: string
 
-  - name: "GatewayPortNotOnWorkload"
-    code: IST0104
-    level: Warning
-    description: "Unhandled gateway port"
-    template: "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)"
-    args:
-      - name: selector
-        type: string
-      - name: port
-        type: int
-
+  # IST0104 RETIRED
   # IST0105 RETIRED
 
   - name: "SchemaValidationError"
@@ -589,6 +579,7 @@ messages:
         type: "[]string"
       - name: namespace
         type: string
+
   - name: "InvalidGatewayCredential"
     code: IST0161
     level: Error
@@ -598,4 +589,15 @@ messages:
       - name: gatewayName
         type: string
       - name: gatewayNamespace
+        type: string
+
+  - name: "GatewayPortNotDefinedOnService"
+    code: IST0162
+    level: Warning
+    description: "Gateway port not exposed by service"
+    template: "The gateway is listening on a target port (port %d) that is not defined in the Service associated with its workload instances (Pod selector %s). If you need to access the gateway port through the gateway Service, it will not be available."
+    args:
+      - name: port
+        type: int
+      - name: selector
         type: string

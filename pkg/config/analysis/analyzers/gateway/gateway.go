@@ -118,7 +118,7 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		if server.Port != nil {
 			_, ok := servicePorts[server.Port.Number]
 			if !ok {
-				m := msg.NewGatewayPortNotOnWorkload(r, gwSelector.String(), int(server.Port.Number))
+				m := msg.NewGatewayPortNotDefinedOnService(r, int(server.Port.Number), gwSelector.String())
 
 				label := util.ExtractLabelFromSelectorString(gwSelector.String())
 				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {
