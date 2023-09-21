@@ -458,3 +458,49 @@ func applyFileOrFail(t framework.TestContext, ns, filename string) {
 		_ = t.Clusters().Default().DeleteYAMLFiles(ns, filename)
 	})
 }
+
+func TestMultiCluster(t *testing.T) {
+	// nolint: staticcheck
+	framework.
+		NewTest(t).
+		Features("usability.observability.analysis.multi-cluster").
+		Run(func(t framework.TestContext) {
+			g := NewWithT(t)
+
+			ns := namespace.NewOrFail(t, t, namespace.Config{
+				Prefix: "istioctl-analyze",
+				Inject: true,
+			})
+
+			// apply inconsistent services to different clusters
+			for ind, c := range t.Environment().Clusters() {
+				c.ApplyYAMLFiles(ns.Name(), fmt.Sprintf(`
+apiVersion: v1
+kind: Service
+metadata:
+  name: reviews
+spec:
+  selector:
+    app: reviews
+  type: ClusterIP
+  ports:
+  - name: http
+    port: %d
+    protocol: TCP
+    targetPort: %d
+`, ind, ind))
+			}
+
+			if len(t.Environment().Clusters()) < 2 {
+				t.Skip("skipping test, need at least 2 clusters")
+			}
+
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+
+			// Validation error if we have a gateway with invalid selector.
+			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile, virtualServiceFile, "--multi-cluster")
+
+			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
+			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+		})
+}
