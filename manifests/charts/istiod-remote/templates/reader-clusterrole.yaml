@@ -13,6 +13,8 @@ rules:
       - "networking.istio.io"
       - "authentication.istio.io"
       - "rbac.istio.io"
+      - "telemetry.istio.io"
+      - "extensions.istio.io"
     resources: ["*"]
     verbs: ["get", "list", "watch"]
   - apiGroups: [""]
@@ -37,7 +39,7 @@ rules:
     resources: ["serviceimports"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["apps"]
-    resources: ["replicasets"]
+    resources: ["replicasets", "deployments"]
     verbs: ["get", "list", "watch"]
   - apiGroups: ["authentication.k8s.io"]
     resources: ["tokenreviews"]
@@ -55,4 +57,14 @@ rules:
   - apiGroups: ["admissionregistration.k8s.io"]
     resources: ["validatingwebhookconfigurations"]
     verbs: ["get", "list", "watch", "update"]
+{{- else}}
+  - apiGroups: [ "" ]
+    resources: [ "configmaps" ]
+    verbs: [ "create", "get", "list", "watch" ]
+  - apiGroups: [ "admissionregistration.k8s.io" ]
+    resources: [ "mutatingwebhookconfigurations" ]
+    verbs: [ "get", "list", "watch" ]
+  - apiGroups: [ "admissionregistration.k8s.io" ]
+    resources: [ "validatingwebhookconfigurations" ]
+    verbs: [ "get", "list", "watch" ]
 {{- end}}

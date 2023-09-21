@@ -190,7 +190,8 @@ func (i *istiodContext) Canceled() bool {
 }
 
 func cfgToInstance(cfg config.Config, col config.GroupVersionKind, colschema sresource.Schema, cluster cluster.ID) (*resource.Instance,
-	error) {
+	error,
+) {
 	res := resource.PilotConfigToInstance(&cfg, colschema)
 	fmstring := cfg.Meta.Annotations[file.FieldMapKey]
 	var out map[string]int
