@@ -410,6 +410,11 @@ func bindFlags(cmd *cobra.Command, args []string) {
 		handleError(err)
 	}
 	viper.SetDefault(constants.HostNSEnterExec, false)
+
+	if err := viper.BindPFlag(constants.DualStack, cmd.Flags().Lookup(constants.DualStack)); err != nil {
+		handleError(err)
+	}
+	viper.SetDefault(constants.DualStack, false)
 }
 
 // https://github.com/spf13/viper/issues/233.
