@@ -288,7 +288,16 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 			IPFamilies:      "IPv6, IPv4",
 			IPFamilyPolicy:  "RequireDualStack",
 		}
-		defaultConfigs = append(defaultConfigs, dSvc)
+		eSvc := echo.Config{
+			Service:         ESvc,
+			ServiceAccount:  true,
+			Ports:           ports.All(),
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: c.IncludeExtAuthz,
+			IPFamilies:      "IPv6",
+			IPFamilyPolicy:  "SingleStack",
+		}
+		defaultConfigs = append(defaultConfigs, dSvc, eSvc)
 	}
 
 	if !skipDeltaXDS(t) {
