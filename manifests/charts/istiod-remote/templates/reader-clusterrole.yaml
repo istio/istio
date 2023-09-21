@@ -60,7 +60,7 @@ rules:
 {{- else}}
   - apiGroups: [ "" ]
     resources: [ "configmaps" ]
-    verbs: [ "create", "get", "list", "watch" ]
+    verbs: [ "get", "list", "watch" ]
   - apiGroups: [ "admissionregistration.k8s.io" ]
     resources: [ "mutatingwebhookconfigurations" ]
     verbs: [ "get", "list", "watch" ]
