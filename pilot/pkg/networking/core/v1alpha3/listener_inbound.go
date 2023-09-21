@@ -181,7 +181,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	l.ListenerFilters = append(l.ListenerFilters, xdsfilters.OriginalDestination)
 	// TODO: Exclude inspectors from some inbound ports.
-	l.ListenerFilters = populateListenerFilters(lb.node, l, true)
+	l.ListenerFilters = append(l.ListenerFilters, populateListenerFilters(lb.node, l, true)...)
 	return []*listener.Listener{terminate, l}
 }
 

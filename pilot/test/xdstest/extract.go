@@ -288,7 +288,6 @@ func ExtractHealthEndpoints(cla *endpoint.ClusterLoadAssignment) ([]string, []st
 			case *core.Address_Pipe:
 				addrString = lb.GetEndpoint().Address.GetPipe().Path
 			case *core.Address_EnvoyInternalAddress:
-				fmt.Sprintf("%#v\n", lb)
 				internalAddr := lb.GetEndpoint().Address.GetEnvoyInternalAddress().GetServerListenerName()
 				destinationAddr := lb.GetMetadata().GetFilterMetadata()[util.OriginalDstMetadataKey].GetFields()["local"].GetStringValue()
 				addrString = fmt.Sprintf("%s;%s", internalAddr, destinationAddr)
