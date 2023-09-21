@@ -89,13 +89,15 @@ import (
 	"istio.io/istio/pkg/sleep"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/version"
-	"istio.io/istio/tools/bug-report/pkg/common"
 )
 
 const (
 	defaultLocalAddress = "localhost"
 	fieldManager        = "istio-kube-client"
 	RunningStatus       = "status.phase=Running"
+
+	// well-known pilot container name
+	discoveryContainerName = "discovery"
 )
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
@@ -1233,7 +1235,7 @@ func findIstiodMonitoringPort(pod *v1.Pod) int {
 		}
 	}
 	for _, container := range pod.Spec.Containers {
-		if container.Name != common.DiscoveryContainerName {
+		if container.Name != discoveryContainerName {
 			continue
 		}
 		argsStr := strings.Join(container.Args, " ")
