@@ -48,6 +48,8 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
@@ -445,7 +447,7 @@ func TestEnvoyFilterOrder(t *testing.T) {
 
 	// Init a new push context
 	pc := NewPushContext()
-	pc.initEnvoyFilters(env)
+	pc.initEnvoyFilters(env, nil, nil)
 	gotns := make([]string, 0)
 	for _, filter := range pc.envoyFiltersByNamespace["testns"] {
 		gotns = append(gotns, filter.Keys()...)
@@ -459,6 +461,444 @@ func TestEnvoyFilterOrder(t *testing.T) {
 	}
 	if !reflect.DeepEqual(expectedns1, gotns1) {
 		t.Errorf("Envoy filters are not ordered as expected. expected: %v got: %v", expectedns1, gotns1)
+	}
+}
+
+func TestEnvoyFilterUpdate(t *testing.T) {
+	ctime := time.Now()
+
+	initialEnvoyFilters := []config.Config{
+		{
+			Meta: config.Meta{Name: "default-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "default-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "b-medium-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "a-medium-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "b-medium-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "a-medium-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "a-low-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: time.Now()},
+			Spec: &networking.EnvoyFilter{
+				Priority: 20,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "b-low-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter, CreationTimestamp: ctime},
+			Spec: &networking.EnvoyFilter{
+				Priority: 20,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "high-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				Priority: -1,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+		{
+			Meta: config.Meta{Name: "super-high-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+			Spec: &networking.EnvoyFilter{
+				Priority: -10,
+				ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+					{
+						Patch: &networking.EnvoyFilter_Patch{},
+						Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+							Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cases := []struct {
+		name    string
+		creates []config.Config
+		updates []config.Config
+		deletes []ConfigKey
+	}{
+		{
+			name: "create one",
+			creates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority-2", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			updates: []config.Config{},
+			deletes: []ConfigKey{},
+		},
+		{
+			name:    "update one",
+			creates: []config.Config{},
+			updates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			deletes: []ConfigKey{},
+		},
+		{
+			name:    "delete one",
+			creates: []config.Config{},
+			updates: []config.Config{},
+			deletes: []ConfigKey{{Kind: kind.EnvoyFilter, Name: "default-priority", Namespace: "testns"}},
+		},
+		{
+			name: "create and delete one same namespace",
+			creates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority-2", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			updates: []config.Config{},
+			deletes: []ConfigKey{{Kind: kind.EnvoyFilter, Name: "default-priority", Namespace: "testns"}},
+		},
+		{
+			name: "create and delete one different namespace",
+			creates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority-2", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			updates: []config.Config{},
+			deletes: []ConfigKey{{Kind: kind.EnvoyFilter, Name: "default-priority", Namespace: "testns-1"}},
+		},
+		{
+			name: "create, update delete",
+			creates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority-2", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "default-priority-3", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			updates: []config.Config{
+				{
+					Meta: config.Meta{Name: "default-priority", Namespace: "testns", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "default-priority", Namespace: "testns-1", GroupVersionKind: gvk.EnvoyFilter},
+					Spec: &networking.EnvoyFilter{
+						ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
+							{
+								Patch: &networking.EnvoyFilter_Patch{},
+								Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+									Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobaz`},
+								},
+							},
+						},
+					},
+				},
+			},
+			deletes: []ConfigKey{{Kind: kind.EnvoyFilter, Name: "b-medium-priority", Namespace: "testns-1"}},
+		},
+		{
+			name:    "delete entire namespace",
+			creates: []config.Config{},
+			updates: []config.Config{},
+			deletes: []ConfigKey{
+				{Kind: kind.EnvoyFilter, Name: "default-priority", Namespace: "testns-1"},
+				{Kind: kind.EnvoyFilter, Name: "b-medium-priority", Namespace: "testns-1"},
+				{Kind: kind.EnvoyFilter, Name: "a-medium-priority", Namespace: "testns-1"},
+			},
+		},
+	}
+
+	OptimizedConfigRebuildModes := []bool{true, false}
+	for _, tt := range cases {
+		for _, mode := range OptimizedConfigRebuildModes {
+			t.Run(tt.name, func(t *testing.T) {
+				test.SetForTest(t, &features.OptimizedConfigRebuild, mode)
+				env := &Environment{}
+				store := NewFakeStore()
+				for _, cfg := range initialEnvoyFilters {
+					_, _ = store.Create(cfg)
+				}
+				env.ConfigStore = store
+				m := mesh.DefaultMeshConfig()
+				env.Watcher = mesh.NewFixedWatcher(m)
+				env.Init()
+
+				// Init a new push context
+				pc1 := NewPushContext()
+				pc1.initEnvoyFilters(env, nil, nil)
+
+				// Update store with incoming changes
+				creates := map[ConfigKey]config.Config{}
+				for _, cfg := range tt.creates {
+					if _, err := store.Create(cfg); err != nil {
+						t.Errorf("Error creating config %s/%s", cfg.Namespace, cfg.Name)
+					}
+					creates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
+				}
+				updates := map[ConfigKey]config.Config{}
+				for _, cfg := range tt.updates {
+					if _, err := store.Update(cfg); err != nil {
+						t.Errorf("Error updating config %s/%s", cfg.Namespace, cfg.Name)
+					}
+					updates[ConfigKey{Name: cfg.Name, Namespace: cfg.Namespace, Kind: kind.EnvoyFilter}] = cfg
+				}
+				deletes := sets.Set[ConfigKey]{}
+				for _, key := range tt.deletes {
+					store.Delete(gvk.EnvoyFilter, key.Name, key.Namespace, nil)
+					deletes.Insert(key)
+				}
+
+				createSet := sets.New(maps.Keys(creates)...)
+				updateSet := sets.New(maps.Keys(updates)...)
+				changes := deletes.Union(createSet).Union(updateSet)
+
+				pc2 := NewPushContext()
+				pc2.initEnvoyFilters(env, changes, pc1.envoyFiltersByNamespace)
+
+				total2 := 0
+				for ns, envoyFilters := range pc2.envoyFiltersByNamespace {
+					total2 += len(envoyFilters)
+					for _, ef := range envoyFilters {
+						key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
+						previousVersion := slices.FindFunc(pc1.envoyFiltersByNamespace[ns], func(e *EnvoyFilterWrapper) bool {
+							return e.Name == ef.Name
+						})
+						switch {
+						// Newly created Envoy filter.
+						case createSet.Contains(key):
+							cfg := creates[key]
+							// If the filter is newly created, it should not have a previous version.
+							if previousVersion != nil {
+								t.Errorf("Created Envoy filter %s/%s already existed", ns, ef.Name)
+							}
+							// Validate that the generated filter is the same as the one created.
+							if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
+								t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
+							}
+						// Updated Envoy filter.
+						case updateSet.Contains(key):
+							cfg := updates[key]
+							// If the filter is updated, it should have a previous version.
+							if previousVersion == nil {
+								t.Errorf("Updated Envoy filter %s/%s did not exist", ns, ef.Name)
+							} else if reflect.DeepEqual(*previousVersion, ef) {
+								// Validate that the generated filter is different from the previous version.
+								t.Errorf("Envoy filter %s/%s was not updated", ns, ef.Name)
+							}
+							// Validate that the generated filter is the same as the one updated.
+							if !reflect.DeepEqual(ef, convertToEnvoyFilterWrapper(&cfg)) {
+								t.Errorf("Unexpected envoy filter generated %s/%s", ns, ef.Name)
+							}
+						// Deleted Envoy filter.
+						case deletes.Contains(key):
+							t.Errorf("Found deleted EnvoyFilter %s/%s", ns, ef.Name)
+						// Unchanged Envoy filter.
+						default:
+							if previousVersion == nil {
+								t.Errorf("Unchanged EnvoyFilter was not previously found %s/%s", ns, ef.Name)
+							} else {
+								if mode && *previousVersion != ef {
+									// Validate that Unchanged filter is not regenerated when config optimization is enabled.
+									t.Errorf("Unchanged EnvoyFilter is different from original %s/%s", ns, ef.Name)
+								} else if !mode && *previousVersion == ef {
+									// Validate that Unchanged filter is regenerated when config optimization is disabled.
+									t.Errorf("Unchanged EnvoyFilter is not regenerated from original %s/%s", ns, ef.Name)
+								}
+								if !reflect.DeepEqual(*previousVersion, ef) {
+									t.Errorf("Envoy filter %s/%s has unexpected change", ns, ef.Name)
+								}
+							}
+						}
+					}
+				}
+
+				total1 := 0
+				// Validate that empty namespace is deleted when all filters in that namespace are deleted.
+				for ns, envoyFilters := range pc1.envoyFiltersByNamespace {
+					total1 += len(envoyFilters)
+					deleted := 0
+					for _, ef := range envoyFilters {
+						key := ConfigKey{Kind: kind.EnvoyFilter, Namespace: ns, Name: ef.Name}
+						if deletes.Contains(key) {
+							deleted++
+						}
+					}
+
+					if deleted == len(envoyFilters) {
+						if _, ok := pc2.envoyFiltersByNamespace[ns]; ok {
+							t.Errorf("Empty Namespace %s was not deleted", ns)
+						}
+					}
+				}
+
+				if total2 != total1+len(tt.creates)-len(tt.deletes) {
+					t.Errorf("Expected %d envoy filters, found %d", total1+len(tt.creates)-len(tt.deletes), total2)
+				}
+			})
+		}
 	}
 }
 
@@ -482,6 +922,23 @@ func TestWasmPlugins(t *testing.T) {
 		"authn-low-prio-all": {
 			Meta: config.Meta{Name: "authn-low-prio-all", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
 			Spec: &extensions.WasmPlugin{
+				Phase:    extensions.PluginPhase_AUTHN,
+				Priority: &wrappers.Int32Value{Value: 10},
+				Url:      "file:///etc/istio/filters/authn.wasm",
+				PluginConfig: &structpb.Struct{
+					Fields: map[string]*structpb.Value{
+						"test": {
+							Kind: &structpb.Value_StringValue{StringValue: "test"},
+						},
+					},
+				},
+				Sha256: "f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2",
+			},
+		},
+		"authn-low-prio-all-network": {
+			Meta: config.Meta{Name: "authn-low-prio-all-network", Namespace: "testns-1", GroupVersionKind: gvk.WasmPlugin},
+			Spec: &extensions.WasmPlugin{
+				Type:     extensions.PluginType_NETWORK,
 				Phase:    extensions.PluginPhase_AUTHN,
 				Priority: &wrappers.Int32Value{Value: 10},
 				Url:      "file:///etc/istio/filters/authn.wasm",
@@ -563,12 +1020,14 @@ func TestWasmPlugins(t *testing.T) {
 		name               string
 		node               *Proxy
 		listenerInfo       WasmPluginListenerInfo
+		pluginType         WasmPluginType
 		expectedExtensions map[extensions.PluginPhase][]*WasmPluginWrapper
 	}{
 		{
 			name:               "nil proxy",
 			node:               nil,
 			listenerInfo:       anyListener,
+			pluginType:         WasmPluginTypeHTTP,
 			expectedExtensions: nil,
 		},
 		{
@@ -578,6 +1037,7 @@ func TestWasmPlugins(t *testing.T) {
 				Metadata:        &NodeMetadata{},
 			},
 			listenerInfo:       anyListener,
+			pluginType:         WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{},
 		},
 		{
@@ -594,6 +1054,7 @@ func TestWasmPlugins(t *testing.T) {
 				},
 			},
 			listenerInfo: anyListener,
+			pluginType:   WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
@@ -614,9 +1075,55 @@ func TestWasmPlugins(t *testing.T) {
 				},
 			},
 			listenerInfo: anyListener,
+			pluginType:   WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
+				},
+			},
+		},
+		{
+			name: "ingress-testns-1-network",
+			node: &Proxy{
+				ConfigNamespace: "testns-1",
+				Labels: map[string]string{
+					"istio": "ingressgateway",
+				},
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"istio": "ingressgateway",
+					},
+				},
+			},
+			listenerInfo: anyListener,
+			pluginType:   WasmPluginTypeNetwork,
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
+				},
+			},
+		},
+		{
+			name: "ingress-testns-1-any",
+			node: &Proxy{
+				ConfigNamespace: "testns-1",
+				Labels: map[string]string{
+					"istio": "ingressgateway",
+				},
+				Metadata: &NodeMetadata{
+					Labels: map[string]string{
+						"istio": "ingressgateway",
+					},
+				},
+			},
+			listenerInfo: anyListener,
+			pluginType:   WasmPluginTypeAny,
+			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
+				extensions.PluginPhase_AUTHN: {
+					convertToWasmPluginWrapper(wasmPlugins["authn-med-prio-all"]),
+					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all-network"]),
 					convertToWasmPluginWrapper(wasmPlugins["authn-low-prio-all"]),
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-low-prio-ingress"]),
 				},
@@ -636,6 +1143,7 @@ func TestWasmPlugins(t *testing.T) {
 				},
 			},
 			listenerInfo: anyListener,
+			pluginType:   WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
@@ -669,6 +1177,7 @@ func TestWasmPlugins(t *testing.T) {
 				Port:  1234,
 				Class: istionetworking.ListenerClassSidecarInbound,
 			},
+			pluginType: WasmPluginTypeHTTP,
 			expectedExtensions: map[extensions.PluginPhase][]*WasmPluginWrapper{
 				extensions.PluginPhase_AUTHN: {
 					convertToWasmPluginWrapper(wasmPlugins["global-authn-high-prio-app"]),
@@ -695,7 +1204,7 @@ func TestWasmPlugins(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			result := pc.WasmPluginsByListenerInfo(tc.node, tc.listenerInfo)
+			result := pc.WasmPluginsByListenerInfo(tc.node, tc.listenerInfo, tc.pluginType)
 			if !reflect.DeepEqual(tc.expectedExtensions, result) {
 				t.Errorf("WasmPlugins did not match expectations\n\ngot: %v\n\nexpected: %v", result, tc.expectedExtensions)
 			}
@@ -721,7 +1230,7 @@ func TestServiceIndex(t *testing.T) {
 				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					ExportTo:  sets.New(visibility.Public),
 				},
 			},
 			{
@@ -729,7 +1238,7 @@ func TestServiceIndex(t *testing.T) {
 				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
+					ExportTo:  sets.New(visibility.Private),
 				},
 			},
 			{
@@ -737,7 +1246,7 @@ func TestServiceIndex(t *testing.T) {
 				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+					ExportTo:  sets.New(visibility.None),
 				},
 			},
 			{
@@ -745,7 +1254,7 @@ func TestServiceIndex(t *testing.T) {
 				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{"namespace": true},
+					ExportTo:  sets.New(visibility.Instance("namespace")),
 				},
 			},
 		},
@@ -795,9 +1304,7 @@ func TestIsServiceVisible(t *testing.T) {
 			name: "service whose namespace is foo has no exportTo map with global private",
 			pushContext: &PushContext{
 				exportToDefaults: exportToDefaults{
-					service: map[visibility.Instance]bool{
-						visibility.Private: true,
-					},
+					service: sets.New(visibility.Private),
 				},
 			},
 			service: &Service{
@@ -811,9 +1318,7 @@ func TestIsServiceVisible(t *testing.T) {
 			name: "service whose namespace is bar has no exportTo map with global private",
 			pushContext: &PushContext{
 				exportToDefaults: exportToDefaults{
-					service: map[visibility.Instance]bool{
-						visibility.Private: true,
-					},
+					service: sets.New(visibility.Private),
 				},
 			},
 			service: &Service{
@@ -827,9 +1332,7 @@ func TestIsServiceVisible(t *testing.T) {
 			name: "service whose namespace is bar has no exportTo map with global public",
 			pushContext: &PushContext{
 				exportToDefaults: exportToDefaults{
-					service: map[visibility.Instance]bool{
-						visibility.Public: true,
-					},
+					service: sets.New(visibility.Public),
 				},
 			},
 			service: &Service{
@@ -845,9 +1348,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "foo",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Private: true,
-					},
+					ExportTo:  sets.New(visibility.Private),
 				},
 			},
 			expect: true,
@@ -858,9 +1359,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Private: true,
-					},
+					ExportTo:  sets.New(visibility.Private),
 				},
 			},
 			expect: false,
@@ -871,9 +1370,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Public: true,
-					},
+					ExportTo:  sets.New(visibility.Public),
 				},
 			},
 			expect: true,
@@ -884,9 +1381,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Instance("foo"): true,
-					},
+					ExportTo:  sets.New(visibility.Instance("foo")),
 				},
 			},
 			expect: true,
@@ -897,9 +1392,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Instance("baz"): true,
-					},
+					ExportTo:  sets.New(visibility.Instance("baz")),
 				},
 			},
 			expect: false,
@@ -910,9 +1403,7 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.None: true,
-					},
+					ExportTo:  sets.New(visibility.None),
 				},
 			},
 			expect: false,
@@ -923,10 +1414,10 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Public: true,
-						visibility.None:   true,
-					},
+					ExportTo: sets.New(
+						visibility.Public,
+						visibility.None,
+					),
 				},
 			},
 			expect: true,
@@ -937,10 +1428,10 @@ func TestIsServiceVisible(t *testing.T) {
 			service: &Service{
 				Attributes: ServiceAttributes{
 					Namespace: "bar",
-					ExportTo: map[visibility.Instance]bool{
-						visibility.Private: true,
-						visibility.None:    true,
-					},
+					ExportTo: sets.New(
+						visibility.Private,
+						visibility.None,
+					),
 				},
 			},
 			expect: false,
@@ -1018,7 +1509,7 @@ func TestInitPushContext(t *testing.T) {
 				Ports:    allPorts,
 				Attributes: ServiceAttributes{
 					Namespace: "test1",
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					ExportTo:  sets.New(visibility.Public),
 				},
 			},
 		},
@@ -1383,285 +1874,6 @@ func scopeToSidecar(scope *SidecarScope) string {
 	return scope.Namespace + "/" + scope.Name
 }
 
-func TestSetDestinationRuleInheritance(t *testing.T) {
-	test.SetForTest(t, &features.EnableDestinationRuleInheritance, true)
-	ps := NewPushContext()
-	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
-	testhost := "httpbin.org"
-	meshDestinationRule := config.Config{
-		Meta: config.Meta{
-			Name:      "meshRule",
-			Namespace: ps.Mesh.RootNamespace,
-		},
-		Spec: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 1},
-						MaxConnections: 111,
-					},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode:              networking.ClientTLSSettings_MUTUAL,
-					ClientCertificate: "/etc/certs/myclientcert.pem",
-					PrivateKey:        "/etc/certs/client_private_key.pem",
-					CaCertificates:    "/etc/certs/rootcacerts.pem",
-				},
-			},
-		},
-	}
-	nsDestinationRule := config.Config{
-		Meta: config.Meta{
-			Name:      "nsRule",
-			Namespace: "test",
-		},
-		Spec: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
-					Interval:                 &durationpb.Duration{Seconds: 22},
-				},
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 2,
-					},
-				},
-			},
-		},
-	}
-	svcDestinationRule := config.Config{
-		Meta: config.Meta{
-			Name:      "svcRule",
-			Namespace: "test",
-		},
-		Spec: &networking.DestinationRule{
-			Host: testhost,
-			TrafficPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 33,
-					},
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 33},
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-		},
-	}
-	destinationRuleNamespace2 := config.Config{
-		Meta: config.Meta{
-			Name:      "svcRule2",
-			Namespace: "test2",
-		},
-		Spec: &networking.DestinationRule{
-			Host: testhost,
-			Subsets: []*networking.Subset{
-				{
-					Name: "subset1",
-				},
-				{
-					Name: "subset2",
-				},
-			},
-		},
-	}
-	workloadSpecificDrNamespace2 := config.Config{
-		Meta: config.Meta{
-			Name:      "drRule2",
-			Namespace: "test2",
-		},
-		Spec: &networking.DestinationRule{
-			Host: testhost,
-			WorkloadSelector: &selectorpb.WorkloadSelector{
-				MatchLabels: map[string]string{"app": "app1"},
-			},
-			TrafficPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 33,
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
-				},
-			},
-		},
-	}
-	testCases := []struct {
-		name               string
-		proxyNs            string
-		serviceNs          string
-		serviceHostname    string
-		expectedConfig     string
-		expectedSourceRule []types.NamespacedName
-		expectedPolicy     *networking.TrafficPolicy
-	}{
-		{
-			name:            "merge mesh+namespace+service DR",
-			proxyNs:         "test",
-			serviceNs:       "test",
-			serviceHostname: testhost,
-			expectedConfig:  "svcRule",
-			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
-				{Namespace: "test", Name: "nsRule"},
-				{Namespace: "test", Name: "svcRule"},
-			},
-			expectedPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 33,
-					},
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 33},
-						MaxConnections: 111,
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors:    &wrappers.UInt32Value{Value: 3},
-					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
-					Interval:                 &durationpb.Duration{Seconds: 22},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-		},
-		{
-			name:            "merge mesh+service DR",
-			proxyNs:         "test2",
-			serviceNs:       "test2",
-			serviceHostname: testhost,
-			expectedConfig:  "svcRule2",
-			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
-				{Namespace: "test2", Name: "svcRule2"},
-			},
-			expectedPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 1},
-						MaxConnections: 111,
-					},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode:              networking.ClientTLSSettings_MUTUAL,
-					ClientCertificate: "/etc/certs/myclientcert.pem",
-					PrivateKey:        "/etc/certs/client_private_key.pem",
-					CaCertificates:    "/etc/certs/rootcacerts.pem",
-				},
-			},
-		},
-		{
-			name:            "merge mesh+workloadselector DR",
-			proxyNs:         "test2",
-			serviceNs:       "test2",
-			serviceHostname: testhost,
-			expectedConfig:  "drRule2",
-			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
-				{Namespace: "test2", Name: "drRule2"},
-				{Namespace: "test2", Name: "svcRule2"},
-			},
-			expectedPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 33,
-					},
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 1},
-						MaxConnections: 111,
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					Consecutive_5XxErrors: &wrappers.UInt32Value{Value: 3},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode:              networking.ClientTLSSettings_MUTUAL,
-					ClientCertificate: "/etc/certs/myclientcert.pem",
-					PrivateKey:        "/etc/certs/client_private_key.pem",
-					CaCertificates:    "/etc/certs/rootcacerts.pem",
-				},
-			},
-		},
-		{
-			name:            "unknown host returns merged mesh+namespace",
-			proxyNs:         "test",
-			serviceNs:       "test",
-			serviceHostname: "unknown.host",
-			expectedConfig:  "nsRule",
-			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
-				{Namespace: "test", Name: "nsRule"},
-			},
-			expectedPolicy: &networking.TrafficPolicy{
-				ConnectionPool: &networking.ConnectionPoolSettings{
-					Http: &networking.ConnectionPoolSettings_HTTPSettings{
-						MaxRetries: 2,
-					},
-					Tcp: &networking.ConnectionPoolSettings_TCPSettings{
-						ConnectTimeout: &durationpb.Duration{Seconds: 1},
-						MaxConnections: 111,
-					},
-				},
-				OutlierDetection: &networking.OutlierDetection{
-					ConsecutiveGatewayErrors: &wrappers.UInt32Value{Value: 222},
-					Interval:                 &durationpb.Duration{Seconds: 22},
-				},
-				Tls: &networking.ClientTLSSettings{
-					Mode:              networking.ClientTLSSettings_MUTUAL,
-					ClientCertificate: "/etc/certs/myclientcert.pem",
-					PrivateKey:        "/etc/certs/client_private_key.pem",
-					CaCertificates:    "/etc/certs/rootcacerts.pem",
-				},
-			},
-		},
-		{
-			name:            "unknown namespace+host returns mesh",
-			proxyNs:         "unknown",
-			serviceNs:       "unknown",
-			serviceHostname: "unknown.host",
-			expectedConfig:  "meshRule",
-			expectedSourceRule: []types.NamespacedName{
-				{Namespace: "istio-system", Name: "meshRule"},
-			},
-			expectedPolicy: meshDestinationRule.Spec.(*networking.DestinationRule).TrafficPolicy,
-		},
-	}
-
-	ps.setDestinationRules([]config.Config{meshDestinationRule, nsDestinationRule, svcDestinationRule, destinationRuleNamespace2, workloadSpecificDrNamespace2})
-
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			mergedConfigList := ps.destinationRule(tt.proxyNs,
-				&Service{
-					Hostname: host.Name(tt.serviceHostname),
-					Attributes: ServiceAttributes{
-						Namespace: tt.serviceNs,
-					},
-				})
-			expectedConfigPresent := false
-			for _, mergedConfig := range mergedConfigList {
-				if mergedConfig.rule.Name == tt.expectedConfig {
-					expectedConfigPresent = true
-					mergedPolicy := mergedConfig.rule.Spec.(*networking.DestinationRule).TrafficPolicy
-					assert.Equal(t, mergedPolicy, tt.expectedPolicy)
-					assert.Equal(t, mergedConfig.from, tt.expectedSourceRule)
-				}
-			}
-			if !expectedConfigPresent {
-				t.Errorf("case %s failed, merged config should contain most specific config name, wanted %v but missing", tt.name, tt.expectedConfig)
-			}
-		})
-	}
-}
-
 func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 	ps := NewPushContext()
 	ps.Mesh = &meshconfig.MeshConfig{RootNamespace: "istio-system"}
@@ -1834,7 +2046,7 @@ func TestSetDestinationRuleWithWorkloadSelector(t *testing.T) {
 
 func TestSetDestinationRuleMerging(t *testing.T) {
 	ps := NewPushContext()
-	ps.exportToDefaults.destinationRule = map[visibility.Instance]bool{visibility.Public: true}
+	ps.exportToDefaults.destinationRule = sets.New(visibility.Public)
 	testhost := "httpbin.org"
 	destinationRuleNamespace1 := config.Config{
 		Meta: config.Meta{
@@ -2550,36 +2762,37 @@ func TestInitVirtualService(t *testing.T) {
 
 func TestServiceWithExportTo(t *testing.T) {
 	ps := NewPushContext()
-	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})}
+	env := NewEnvironment()
+	env.Watcher = mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "zzz"})
 	ps.Mesh = env.Mesh()
 
 	svc1 := &Service{
 		Hostname: "svc1",
 		Attributes: ServiceAttributes{
 			Namespace: "test1",
-			ExportTo:  map[visibility.Instance]bool{visibility.Private: true, visibility.Instance("ns1"): true},
+			ExportTo:  sets.New(visibility.Private, visibility.Instance("ns1")),
 		},
 	}
 	svc2 := &Service{
 		Hostname: "svc2",
 		Attributes: ServiceAttributes{
 			Namespace: "test2",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Instance("test1"): true,
-				visibility.Instance("ns1"):   true,
-				visibility.Instance("test2"): true,
-			},
+			ExportTo: sets.New(
+				visibility.Instance("test1"),
+				visibility.Instance("ns1"),
+				visibility.Instance("test2"),
+			),
 		},
 	}
 	svc3 := &Service{
 		Hostname: "svc3",
 		Attributes: ServiceAttributes{
 			Namespace: "test3",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Instance("test1"): true,
-				visibility.Public:            true,
-				visibility.Instance("test2"): true,
-			},
+			ExportTo: sets.New(
+				visibility.Instance("test1"),
+				visibility.Public,
+				visibility.Instance("test2"),
+			),
 		},
 	}
 	svc4 := &Service{
@@ -2713,29 +2926,32 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, sets.SortedList(got))
 }
 
+func TestWellKnownProvidersCount(t *testing.T) {
+	msg := &meshconfig.MeshConfig_ExtensionProvider{}
+	pb := msg.ProtoReflect()
+	md := pb.Descriptor()
+
+	found := sets.New[string]()
+	for i := 0; i < md.Oneofs().Get(0).Fields().Len(); i++ {
+		found.Insert(string(md.Oneofs().Get(0).Fields().Get(i).Name()))
+	}
+	// If this fails, there is a provider added that we have not handled.
+	// DO NOT JUST
+	assert.Equal(t, found, wellknownProviders)
+}
+
 // TestGetHostsFromMeshConfigExhaustiveness exhaustiveness check of `getHostsFromMeshConfig`
 // Once some one add a new `Provider` in api, we should update `wellknownProviders` and
 // implements of `getHostsFromMeshConfig`
 func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
-	wellknownProviders := map[string]struct{}{
-		"envoy_ext_authz_http": {},
-		"envoy_ext_authz_grpc": {},
-		"zipkin":               {},
-		"lightstep":            {},
-		"datadog":              {},
-		"opencensus":           {},
-		"skywalking":           {},
-		"envoy_http_als":       {},
-		"envoy_tcp_als":        {},
-		"envoy_otel_als":       {},
-		"opentelemetry":        {},
-	}
-
+	AssertProvidersHandled(addHostsFromMeshConfigProvidersHandled)
 	unexpectedProviders := make([]string, 0)
 	msg := &meshconfig.MeshConfig_ExtensionProvider{}
 	pb := msg.ProtoReflect()
 	md := pb.Descriptor()
 
+	// We only consider ones with `service` field
+	wellknownProviders := wellknownProviders.Copy().DeleteAll("prometheus", "stackdriver", "envoy_file_access_log")
 	of := md.Oneofs().Get(0)
 	for i := 0; i < of.Fields().Len(); i++ {
 		o := of.Fields().Get(i)
@@ -2750,7 +2966,7 @@ func TestGetHostsFromMeshConfigExhaustiveness(t *testing.T) {
 	}
 
 	if len(wellknownProviders) != 0 || len(unexpectedProviders) != 0 {
-		t.Errorf("unexpected provider not implemented in getHostsFromMeshConfig")
+		t.Errorf("unexpected provider not implemented in getHostsFromMeshConfig: %v, %v", wellknownProviders, unexpectedProviders)
 		t.Fail()
 	}
 }
@@ -2776,11 +2992,7 @@ func (l *localServiceDiscovery) GetService(host.Name) *Service {
 	panic("implement me")
 }
 
-func (l *localServiceDiscovery) InstancesByPort(*Service, int) []*ServiceInstance {
-	return l.serviceInstances
-}
-
-func (l *localServiceDiscovery) GetProxyServiceInstances(*Proxy) []*ServiceInstance {
+func (l *localServiceDiscovery) GetProxyServiceTargets(*Proxy) []ServiceTarget {
 	panic("implement me")
 }
 

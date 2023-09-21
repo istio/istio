@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strings"
@@ -92,7 +91,6 @@ import (
 
 const (
 	defaultLocalAddress = "localhost"
-	fieldManager        = "istio-kube-client"
 	RunningStatus       = "status.phase=Running"
 )
 
@@ -205,9 +203,6 @@ type CLIClient interface {
 	// UtilFactory returns a kubectl factory
 	UtilFactory() PartialFactory
 
-	// SetPortManager overrides the default port manager to provision local ports
-	SetPortManager(PortManager)
-
 	// InvalidateDiscovery invalidates the discovery client, useful after manually changing CRD's
 	InvalidateDiscovery()
 }
@@ -226,6 +221,10 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		clusterID:              "fake",
 	}
 	c.kube = fake.NewSimpleClientset(objects...)
+
+	c.config = &rest.Config{
+		Host: "server",
+	}
 
 	c.informerFactory = informerfactory.NewSharedInformerFactory()
 	s := FakeIstioScheme
@@ -337,8 +336,6 @@ type client struct {
 
 	version lazy.Lazy[*kubeVersion.Info]
 
-	portManager PortManager
-
 	crdWatcher kubetypes.CrdWatcher
 
 	// http is a client for HTTP requests
@@ -405,7 +402,6 @@ func newClientInternal(clientFactory *clientFactory, revision string, cluster cl
 	if err != nil {
 		return nil, err
 	}
-	c.portManager = defaultAvailablePort
 
 	c.http = &http.Client{
 		Timeout: time.Second * 15,
@@ -421,7 +417,6 @@ func newClientInternal(clientFactory *clientFactory, revision string, cluster cl
 		}
 	}
 	c.version = lazy.NewWithRetry(clientWithTimeout.Discovery().ServerVersion)
-
 	return &c, nil
 }
 
@@ -835,7 +830,10 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 	res := version.MeshInfo{}
 	for _, pod := range readyPods {
 		component := pod.Labels["istio"]
-		server := version.ServerInfo{Component: component}
+		server := version.ServerInfo{
+			Component: component,
+			Revision:  pod.GetLabels()[label.IoIstioRev.Name],
+		}
 
 		// :15014/version returns something like
 		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
@@ -918,25 +916,11 @@ func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, erro
 		binary    string
 		container string
 	}{
-		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
-		"istiod":           {"/usr/local/bin/pilot-discovery", "discovery"},
-		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
-		"galley":           {"/usr/local/bin/galley", "galley"},
-		"telemetry":        {"/usr/local/bin/mixs", "mixer"},
-		"policy":           {"/usr/local/bin/mixs", "mixer"},
-		"sidecar-injector": {"/usr/local/bin/sidecar-injector", "sidecar-injector-webhook"},
+		"pilot":  {"/usr/local/bin/pilot-discovery", "discovery"},
+		"istiod": {"/usr/local/bin/pilot-discovery", "discovery"},
 	}
 
 	component := pod.Labels["istio"]
-
-	// Special cases
-	switch component {
-	case "statsd-prom-bridge":
-		// statsd-prom-bridge doesn't support version
-		return nil, fmt.Errorf("statsd-prom-bridge doesn't support version")
-	case "mixer":
-		component = pod.Labels["istio-mixer-type"]
-	}
 
 	detail, ok := labelToPodDetail[component]
 	if !ok {
@@ -1114,10 +1098,6 @@ func (c *client) DeleteYAMLFilesDryRun(namespace string, yamlFiles ...string) (e
 	return multierror.Append(nil, errs...).ErrorOrNil()
 }
 
-func (c *client) SetPortManager(manager PortManager) {
-	c.portManager = manager
-}
-
 func closeQuietly(c io.Closer) {
 	_ = c.Close()
 }
@@ -1233,20 +1213,6 @@ func setServerInfoWithIstiodVersionInfo(serverInfo *version.BuildInfo, istioInfo
 	} else {
 		serverInfo.Version = istioInfo
 	}
-}
-
-func defaultAvailablePort() (uint16, error) {
-	addr, err := net.ResolveTCPAddr("tcp", net.JoinHostPort("127.0.0.1", "0"))
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	port := l.Addr().(*net.TCPAddr).Port
-	return uint16(port), l.Close()
 }
 
 func SetRevisionForTest(c CLIClient, rev string) CLIClient {

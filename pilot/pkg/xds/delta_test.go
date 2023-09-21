@@ -15,18 +15,22 @@
 package xds_test
 
 import (
+	"fmt"
 	"reflect"
 	"testing"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/workloadapi"
 )
 
 func TestDeltaAds(t *testing.T) {
@@ -109,9 +113,9 @@ func TestDeltaEDS(t *testing.T) {
 		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
 	}
 
+	t.Logf("update svc")
 	// update svc, only send the eds for this service
 	s.MemRegistry.AddHTTPService(edsIncSvc, "10.10.1.3", 8080)
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: edsIncSvc, Namespace: ""})})
 
 	resp = ads.ExpectResponse()
 	if len(resp.Resources) != 1 || resp.Resources[0].Name != "outbound|8080||"+edsIncSvc {
@@ -121,9 +125,8 @@ func TestDeltaEDS(t *testing.T) {
 		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
 	}
 
-	// delete svc, only send eds fot this service
+	// delete svc, only send eds for this service
 	s.MemRegistry.RemoveService(edsIncSvc)
-	s.Discovery.ConfigUpdate(&model.PushRequest{Full: true, ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: edsIncSvc, Namespace: ""})})
 
 	resp = ads.ExpectResponse()
 	if len(resp.RemovedResources) != 1 || resp.RemovedResources[0] != "outbound|8080||"+edsIncSvc {
@@ -212,5 +215,116 @@ func TestDeltaReconnectRequests(t *testing.T) {
 	// It should be removed
 	if resn := sets.New(res.RemovedResources...); !resn.Contains(updateCluster) {
 		t.Fatalf("unexpected remove resources: %v", resn)
+	}
+}
+
+func TestDeltaWDS(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	wlA := &model.WorkloadInfo{
+		Workload: &workloadapi.Workload{
+			Uid:       fmt.Sprintf("Kubernetes//Pod/%s/%s", "test", "a"),
+			Namespace: "test",
+			Name:      "a",
+		},
+	}
+	wlB := &model.WorkloadInfo{
+		Workload: &workloadapi.Workload{
+			Uid:       fmt.Sprintf("Kubernetes//Pod/%s/%s", "test", "b"),
+			Namespace: "test",
+			Name:      "n",
+		},
+	}
+	wlC := &model.WorkloadInfo{
+		Workload: &workloadapi.Workload{
+			Uid:       fmt.Sprintf("Kubernetes//Pod/%s/%s", "test", "c"),
+			Namespace: "test",
+			Name:      "c",
+		},
+	}
+	svcA := &model.ServiceInfo{
+		Service: &workloadapi.Service{
+			Name:      "a",
+			Namespace: "default",
+			Hostname:  "a.default.svc.cluster.local",
+		},
+	}
+	svcB := &model.ServiceInfo{
+		Service: &workloadapi.Service{
+			Name:      "b",
+			Namespace: "default",
+			Hostname:  "b.default.svc.cluster.local",
+		},
+	}
+	svcC := &model.ServiceInfo{
+		Service: &workloadapi.Service{
+			Name:      "c",
+			Namespace: "default",
+			Hostname:  "c.default.svc.cluster.local",
+		},
+	}
+	s.MemRegistry.AddWorkloadInfo(wlA, wlB, wlC)
+	s.MemRegistry.AddServiceInfo(svcA, svcB, svcC)
+
+	// Wait until the above debounce, to ensure we can precisely check XDS responses without spurious pushes
+	s.EnsureSynced(t)
+
+	ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithID("ztunnel~1.1.1.1~test.default~default.svc.cluster.local")
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{"*"},
+	})
+	resp := ads.ExpectResponse()
+	if len(resp.Resources) != 6 {
+		t.Fatalf("received unexpected eds resource %v", resp.Resources)
+	}
+	if len(resp.RemovedResources) != 0 {
+		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
+	}
+
+	// simulate a svc update
+	s.XdsUpdater.ConfigUpdate(&model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{
+			Kind: kind.Address, Name: svcA.ResourceName(), Namespace: svcA.Namespace,
+		}),
+	})
+
+	resp = ads.ExpectResponse()
+	if len(resp.Resources) != 1 || resp.Resources[0].Name != svcA.ResourceName() {
+		t.Fatalf("received unexpected address resource %v", resp.Resources)
+	}
+	if len(resp.RemovedResources) != 0 {
+		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
+	}
+
+	// simulate a svc delete
+	s.MemRegistry.RemoveServiceInfo(svcA)
+	s.XdsUpdater.ConfigUpdate(&model.PushRequest{
+		ConfigsUpdated: sets.New(model.ConfigKey{
+			Kind: kind.Address, Name: svcA.ResourceName(), Namespace: svcA.Namespace,
+		}),
+	})
+
+	resp = ads.ExpectResponse()
+	if len(resp.Resources) != 0 {
+		t.Fatalf("received unexpected address resource %v", resp.Resources)
+	}
+	if len(resp.RemovedResources) != 1 || resp.RemovedResources[0] != svcA.ResourceName() {
+		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
+	}
+
+	// delete workload
+	s.MemRegistry.RemoveWorkloadInfo(wlA)
+	// a full push and a pod delete event
+	// This is a merged push request
+	s.XdsUpdater.ConfigUpdate(&model.PushRequest{
+		Full: true,
+	})
+
+	resp = ads.ExpectResponse()
+	if len(resp.RemovedResources) != 1 || resp.RemovedResources[0] != wlA.ResourceName() {
+		t.Fatalf("received unexpected removed eds resource %v", resp.RemovedResources)
+	}
+	if len(resp.Resources) != 4 {
+		t.Fatalf("received unexpected eds resource %v", resp.Resources)
 	}
 }

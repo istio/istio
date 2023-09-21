@@ -39,4 +39,6 @@ type Context interface {
 
 	// Canceled indicates that the context has been canceled. The analyzer should stop executing as soon as possible.
 	Canceled() bool
+
+	SetAnalyzer(analyzerName string)
 }

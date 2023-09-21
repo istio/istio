@@ -121,7 +121,7 @@ func (a *KubeJWTAuthenticator) authenticate(targetJWT string, clusterID cluster.
 	}
 	var aud []string
 
-	// If the token has audience - we will validate it by setting in in the audiences field,
+	// If the token has audience - we will validate it by setting it in the audiences field,
 	// This happens regardless of Require3PToken setting.
 	//
 	// If 'Require3PToken' is set - we will also set the audiences field, forcing the check.

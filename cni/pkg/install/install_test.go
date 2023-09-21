@@ -26,6 +26,7 @@ import (
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestCheckInstall(t *testing.T) {
@@ -107,7 +108,7 @@ func TestCheckInstall(t *testing.T) {
 				CNIConfName:      c.cniConfName,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
 			}
-			err := checkInstall(cfg, filepath.Join(tempDir, c.cniConfigFilename))
+			err := checkValidCNIConfig(cfg, filepath.Join(tempDir, c.cniConfigFilename))
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {
 				t.Fatalf("expected failure: %t, got %v", c.expectedFailure, err)
 			}
@@ -172,7 +173,8 @@ func TestSleepCheckInstall(t *testing.T) {
 			}
 
 			t.Log("Expecting an invalid configuration log:")
-			if err := in.sleepCheckInstall(ctx); err != nil {
+			err := in.sleepWatchInstall(ctx, sets.Set[string]{})
+			if err != nil {
 				t.Fatalf("error should be nil due to invalid config, got: %v", err)
 			}
 			assert.Equal(t, isReady.Load(), false)
@@ -205,11 +207,11 @@ func TestSleepCheckInstall(t *testing.T) {
 				}
 			}(ctx, ticker.C)
 
-			// Listen to sleepCheckInstall return value
+			// Listen to sleepWatchInstall return value
 			// Should detect a valid configuration and wait indefinitely for a file modification
 			errChan := make(chan error)
 			go func(ctx context.Context) {
-				errChan <- in.sleepCheckInstall(ctx)
+				errChan <- in.sleepWatchInstall(ctx, sets.Set[string]{})
 			}(ctx)
 
 			select {
@@ -247,9 +249,9 @@ func TestSleepCheckInstall(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				// Run sleepCheckInstall
+				// Run sleepWatchInstall
 				go func(ctx context.Context, in *Installer) {
-					errChan <- in.sleepCheckInstall(ctx)
+					errChan <- in.sleepWatchInstall(ctx, sets.Set[string]{})
 				}(ctx, in)
 			}
 

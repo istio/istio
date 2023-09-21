@@ -22,7 +22,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
+	"istio.io/api/annotation"
 	kubecontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	"istio.io/istio/pkg/config/mesh"
 	kubelib "istio.io/istio/pkg/kube"
@@ -140,7 +140,7 @@ func TestStatusController(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        "ingress",
 			Namespace:   "default",
-			Annotations: map[string]string{kube.IngressClassAnnotation: "istio"},
+			Annotations: map[string]string{annotation.IoKubernetesIngressClass.Name: "istio"},
 		},
 	})
 

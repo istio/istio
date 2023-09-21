@@ -120,7 +120,6 @@ func (s *SecretGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		updatedSecrets = model.ConfigsOfKind(req.ConfigsUpdated, kind.Secret)
 	}
 
-	// TODO: For the new gateway-api, we should always search the config namespace and stop reading across all clusters
 	proxyClusterSecrets, err := s.secrets.ForCluster(proxy.Metadata.ClusterID)
 	if err != nil {
 		log.Warnf("proxy %s is from an unknown cluster, cannot retrieve certificates: %v", proxy.ID, err)
@@ -191,7 +190,6 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 		if features.VerifySDSCertificate {
 			if err := ValidateCertificate(caCertInfo.Cert); err != nil {
 				recordInvalidCertificate(sr.ResourceName, err)
-				return nil
 			}
 		}
 		res := toEnvoyCaSecret(sr.ResourceName, caCertInfo)
@@ -206,7 +204,6 @@ func (s *SecretGen) generate(sr SecretResource, configClusterSecrets, proxyClust
 	if features.VerifySDSCertificate {
 		if err := ValidateCertificate(certInfo.Cert); err != nil {
 			recordInvalidCertificate(sr.ResourceName, err)
-			return nil
 		}
 	}
 	res := toEnvoyTLSSecret(sr.ResourceName, certInfo, proxy, s.meshConfig)

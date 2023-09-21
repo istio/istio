@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/spiffe"
 	netutil "istio.io/istio/pkg/util/net"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func convertPort(port *networking.ServicePort) *model.Port {
@@ -85,11 +86,9 @@ func ServiceToServiceEntry(svc *model.Service, proxy *model.Proxy) *config.Confi
 	}
 
 	// Based on networking.istio.io/exportTo annotation
-	for k, v := range svc.Attributes.ExportTo {
-		if v {
-			// k is Private or Public
-			se.ExportTo = append(se.ExportTo, string(k))
-		}
+	for k := range svc.Attributes.ExportTo {
+		// k is Private or Public
+		se.ExportTo = append(se.ExportTo, string(k))
 	}
 
 	if svc.MeshExternal {
@@ -170,11 +169,11 @@ func convertServices(cfg config.Config) []*model.Service {
 		svcPorts = append(svcPorts, convertPort(port))
 	}
 
-	var exportTo map[visibility.Instance]bool
+	var exportTo sets.Set[visibility.Instance]
 	if len(serviceEntry.ExportTo) > 0 {
-		exportTo = make(map[visibility.Instance]bool)
+		exportTo = sets.NewWithLength[visibility.Instance](len(serviceEntry.ExportTo))
 		for _, e := range serviceEntry.ExportTo {
-			exportTo[visibility.Instance(e)] = true
+			exportTo.Insert(visibility.Instance(e))
 		}
 	}
 
@@ -208,7 +207,7 @@ func convertServices(cfg config.Config) []*model.Service {
 }
 
 func buildServices(hostAddresses []*HostAddress, name, namespace string, ports model.PortList, location networking.ServiceEntry_Location,
-	resolution model.Resolution, exportTo map[visibility.Instance]bool, selectors map[string]string, saccounts []string,
+	resolution model.Resolution, exportTo sets.Set[visibility.Instance], selectors map[string]string, saccounts []string,
 	ctime time.Time, labels map[string]string,
 ) []*model.Service {
 	out := make([]*model.Service, 0, len(hostAddresses))
@@ -276,7 +275,11 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 		sa = spiffe.MustGenSpiffeURI(service.Attributes.Namespace, wle.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(wle)
-	labels := labelutil.AugmentLabels(wle.Labels, clusterID, wle.Locality, "", networkID)
+	locality := wle.Locality
+	if locality == "" && len(wle.Labels[model.LocalityLabel]) > 0 {
+		locality = model.GetLocalityLabel(wle.Labels[model.LocalityLabel])
+	}
+	labels := labelutil.AugmentLabels(wle.Labels, clusterID, locality, "", networkID)
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address:         addr,
@@ -284,7 +287,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 			ServicePortName: servicePort.Name,
 			Network:         network.ID(wle.Network),
 			Locality: model.Locality{
-				Label:     wle.Locality,
+				Label:     locality,
 				ClusterID: clusterID,
 			},
 			LbWeight:       wle.Weight,
@@ -301,7 +304,7 @@ func (s *Controller) convertEndpoint(service *model.Service, servicePort *networ
 	}
 }
 
-// convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceInstances. This logic is largely the
+// convertWorkloadEntryToServiceInstances translates a WorkloadEntry into ServiceEndpoints. This logic is largely the
 // same as the ServiceEntry convertServiceEntryToInstances.
 func (s *Controller) convertWorkloadEntryToServiceInstances(wle *networking.WorkloadEntry, services []*model.Service,
 	se *networking.ServiceEntry, configKey *configKey, clusterID cluster.ID,
@@ -425,14 +428,18 @@ func (s *Controller) convertWorkloadEntryToWorkloadInstance(cfg config.Config, c
 		sa = spiffe.MustGenSpiffeURI(cfg.Namespace, we.ServiceAccount)
 	}
 	networkID := s.workloadEntryNetwork(we)
-	labels := labelutil.AugmentLabels(we.Labels, clusterID, we.Locality, "", networkID)
+	locality := we.Locality
+	if locality == "" && len(we.Labels[model.LocalityLabel]) > 0 {
+		locality = model.GetLocalityLabel(we.Labels[model.LocalityLabel])
+	}
+	labels := labelutil.AugmentLabels(we.Labels, clusterID, locality, "", networkID)
 	return &model.WorkloadInstance{
 		Endpoint: &model.IstioEndpoint{
 			Address: addr,
 			// Not setting ports here as its done by k8s controller
 			Network: network.ID(we.Network),
 			Locality: model.Locality{
-				Label:     we.Locality,
+				Label:     locality,
 				ClusterID: clusterID,
 			},
 			LbWeight:  we.Weight,

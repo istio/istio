@@ -10,6 +10,7 @@ import (
 	k8sioapiadmissionregistrationv1 "k8s.io/api/admissionregistration/v1"
 	k8sioapiappsv1 "k8s.io/api/apps/v1"
 	k8sioapicertificatesv1 "k8s.io/api/certificates/v1"
+	k8sioapicoordinationv1 "k8s.io/api/coordination/v1"
 	k8sioapicorev1 "k8s.io/api/core/v1"
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
@@ -67,6 +68,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().NetworkingV1().IngressClasses().(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1beta1.Gateway:
 		return c.GatewayAPI().GatewayV1beta1().Gateways(namespace).(ktypes.WriteAPI[T])
+	case *k8sioapicoordinationv1.Lease:
+		return c.Kube().CoordinationV1().Leases(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration:
 		return c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().(ktypes.WriteAPI[T])
 	case *k8sioapicorev1.Namespace:
@@ -150,6 +153,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().NetworkingV1().IngressClasses().(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1beta1.Gateway:
 		return c.GatewayAPI().GatewayV1beta1().Gateways(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapicoordinationv1.Lease:
+		return c.Kube().CoordinationV1().Leases(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration:
 		return c.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicorev1.Namespace:
@@ -233,6 +238,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &k8sioapinetworkingv1.IngressClass{}
 	case gvr.KubernetesGateway:
 		return &sigsk8siogatewayapiapisv1beta1.Gateway{}
+	case gvr.Lease:
+		return &k8sioapicoordinationv1.Lease{}
 	case gvr.MutatingWebhookConfiguration:
 		return &k8sioapiadmissionregistrationv1.MutatingWebhookConfiguration{}
 	case gvr.Namespace:
@@ -398,6 +405,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.GatewayAPI().GatewayV1beta1().Gateways(opts.Namespace).Watch(context.Background(), options)
+		}
+	case gvr.Lease:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().CoordinationV1().Leases(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().CoordinationV1().Leases(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.MutatingWebhookConfiguration:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

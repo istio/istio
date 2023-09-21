@@ -79,11 +79,10 @@ type Config struct {
 	PrevResult    *cniv1.Result   `json:"-"`
 
 	// Add plugin-specific flags here
-	LogLevel        string     `json:"log_level"`
-	LogUDSAddress   string     `json:"log_uds_address"`
-	AmbientEnabled  bool       `json:"ambient_enabled"`
-	Kubernetes      Kubernetes `json:"kubernetes"`
-	HostNSEnterExec bool       `json:"hostNSEnterExec"`
+	LogLevel       string     `json:"log_level"`
+	LogUDSAddress  string     `json:"log_uds_address"`
+	AmbientEnabled bool       `json:"ambient_enabled"`
+	Kubernetes     Kubernetes `json:"kubernetes"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -284,7 +283,7 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 	}
 
 	if pi.ProxyType != "" && pi.ProxyType != "sidecar" {
-		log.Infof("excluded because it has proxy type %v", podNamespace, podName, pi.ProxyType)
+		log.Infof("excluded %s/%s pod because it has proxy type %s", podNamespace, podName, pi.ProxyType)
 		return nil
 	}
 
@@ -323,7 +322,6 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 		return fmt.Errorf("redirect failed to find InterceptRuleMgr")
 	}
 
-	redirect.hostNSEnterExec = conf.HostNSEnterExec
 	rulesMgr := interceptMgrCtor()
 	if err := rulesMgr.Program(podName, args.Netns, redirect); err != nil {
 		return err

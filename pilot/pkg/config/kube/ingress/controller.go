@@ -18,6 +18,7 @@ package ingress
 
 import (
 	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
@@ -39,6 +40,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // In 1.0, the Gateway is defined in the namespace where the actual controller runs, and needs to be managed by
@@ -112,6 +114,13 @@ func NewController(client kube.Client, meshWatcher mesh.Holder,
 		controllers.WithReconciler(c.onEvent),
 		controllers.WithMaxAttempts(5))
 	c.ingress.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
+
+	// We watch service changes to detect service port number change to trigger
+	// re-convert ingress to new-vs.
+	c.services.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
+		c.onServiceEvent(o)
+	}))
+
 	return c
 }
 
@@ -210,6 +219,32 @@ func (c *controller) onEvent(item types.NamespacedName) error {
 	return nil
 }
 
+func (c *controller) onServiceEvent(input any) {
+	event := input.(controllers.Event)
+	curSvc := event.Latest().(*corev1.Service)
+
+	// This is shortcut. We only care about the port number change if we receive service update event.
+	if event.Event == controllers.EventUpdate {
+		oldSvc := event.Old.(*corev1.Service)
+		oldPorts := extractPorts(oldSvc.Spec.Ports)
+		curPorts := extractPorts(curSvc.Spec.Ports)
+		// If the ports don't change, we do nothing.
+		if oldPorts.Equals(curPorts) {
+			return
+		}
+	}
+
+	// We care about add, delete and ports changed event of services that are referred
+	// by ingress using port name.
+	namespacedName := config.NamespacedName(curSvc).String()
+	for _, ingress := range c.ingress.List(curSvc.GetNamespace(), klabels.Everything()) {
+		referredSvcSet := extractServicesByPortNameType(ingress)
+		if referredSvcSet.Contains(namespacedName) {
+			c.queue.AddObject(ingress)
+		}
+	}
+}
+
 func (c *controller) RegisterEventHandler(kind config.GroupVersionKind, f model.EventHandler) {
 	switch kind {
 	case gvk.VirtualService:
@@ -278,6 +313,39 @@ func (c *controller) List(typ config.GroupVersionKind, namespace string) []confi
 	}
 
 	return out
+}
+
+// extractServicesByPortNameType extract services that are of port name type in the specified ingress resource.
+func extractServicesByPortNameType(ingress *knetworking.Ingress) sets.String {
+	services := sets.String{}
+	for _, rule := range ingress.Spec.Rules {
+		if rule.HTTP == nil {
+			continue
+		}
+
+		for _, route := range rule.HTTP.Paths {
+			if route.Backend.Service == nil {
+				continue
+			}
+
+			if route.Backend.Service.Port.Name != "" {
+				services.Insert(types.NamespacedName{
+					Namespace: ingress.GetNamespace(),
+					Name:      route.Backend.Service.Name,
+				}.String())
+			}
+		}
+	}
+	return services
+}
+
+func extractPorts(ports []corev1.ServicePort) sets.String {
+	result := sets.String{}
+	for _, port := range ports {
+		// the format is port number|port name.
+		result.Insert(fmt.Sprintf("%d|%s", port.Port, port.Name))
+	}
+	return result
 }
 
 func (c *controller) Create(_ config.Config) (string, error) {

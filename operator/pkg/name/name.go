@@ -34,14 +34,12 @@ const (
 	DeploymentStr                     = "Deployment"
 	EndpointStr                       = "Endpoints"
 	HPAStr                            = "HorizontalPodAutoscaler"
-	IngressStr                        = "Ingress"
 	IstioOperator                     = "IstioOperator"
 	MutatingWebhookConfigurationStr   = "MutatingWebhookConfiguration"
 	NamespaceStr                      = "Namespace"
-	PVCStr                            = "PersistentVolumeClaim"
+	NetworkAttachmentDefinitionStr    = "NetworkAttachmentDefinition"
 	PodStr                            = "Pod"
 	PDBStr                            = "PodDisruptionBudget"
-	ReplicationControllerStr          = "ReplicationController"
 	ReplicaSetStr                     = "ReplicaSet"
 	RoleStr                           = "Role"
 	RoleBindingStr                    = "RoleBinding"
@@ -52,35 +50,18 @@ const (
 	ValidatingWebhookConfigurationStr = "ValidatingWebhookConfiguration"
 )
 
-// Istio Kind strings
 const (
-	EnvoyFilterStr        = "EnvoyFilter"
-	GatewayStr            = "Gateway"
-	DestinationRuleStr    = "DestinationRule"
-	MeshPolicyStr         = "MeshPolicy"
-	PeerAuthenticationStr = "PeerAuthentication"
-	VirtualServiceStr     = "VirtualService"
-	IstioOperatorStr      = "IstioOperator"
-)
+	// IstioOperatorStr is the kind name of the IstioOperator CRD.
+	IstioOperatorStr = "IstioOperator"
 
-// Istio API Group Names
-const (
-	AuthenticationAPIGroupName = "authentication.istio.io"
-	ConfigAPIGroupName         = "config.istio.io"
-	NetworkingAPIGroupName     = "networking.istio.io"
-	OperatorAPIGroupName       = "operator.istio.io"
-	SecurityAPIGroupName       = "security.istio.io"
-)
-
-const (
 	// OperatorAPINamespace is the API namespace for operator config.
 	// TODO: move this to a base definitions file when one is created.
-	OperatorAPINamespace = OperatorAPIGroupName
+	OperatorAPINamespace = "operator.istio.io"
 
 	// DefaultProfileName is the name of the default profile.
 	DefaultProfileName = "default"
 
-	// installedSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
+	// InstalledSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
 	// in the last install operation.
 	InstalledSpecCRPrefix = "installed-state"
 )
@@ -127,8 +108,6 @@ var (
 	AllComponentNames = append(AllCoreComponentNames, IngressComponentName, EgressComponentName,
 		IstioOperatorComponentName, IstioOperatorCustomResourceName)
 
-	allCoreComponentNamesMap = map[ComponentName]bool{}
-
 	// ValuesEnablementPathMap defines a mapping between legacy values enablement paths and the corresponding enablement
 	// paths in IstioOperator.
 	ValuesEnablementPathMap = map[string]string{
@@ -159,12 +138,6 @@ type Manifest struct {
 
 // ManifestMap is a map of ComponentName to its manifest string.
 type ManifestMap map[ComponentName][]string
-
-func init() {
-	for _, c := range AllCoreComponentNames {
-		allCoreComponentNamesMap[c] = true
-	}
-}
 
 // Consolidated returns a representation of mm where all manifests in the slice under a key are combined into a single
 // manifest.

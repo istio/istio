@@ -15,24 +15,22 @@
 package monitoring_test
 
 import (
-	"errors"
-	"strings"
 	"testing"
-
-	"go.opencensus.io/stats/view"
 
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/monitoring/monitortest"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
-	name = monitoring.MustCreateLabel("name")
-	kind = monitoring.MustCreateLabel("kind")
+	name = monitoring.CreateLabel("name")
+	kind = monitoring.CreateLabel("kind")
 
 	testSum = monitoring.NewSum(
 		"events_total",
 		"Number of events observed, by name and kind",
-		monitoring.WithLabels(name, kind),
 	)
 
 	goofySum = testSum.With(kind.Value("goofy"))
@@ -40,21 +38,12 @@ var (
 	hookSum = monitoring.NewSum(
 		"hook_total",
 		"Number of hook events observed",
-		monitoring.WithLabels(name),
-	)
-
-	int64Sum = monitoring.NewSum(
-		"int64_sum",
-		"Number of events (int values)",
-		monitoring.WithLabels(name, kind),
-		monitoring.WithInt64Values(),
 	)
 
 	testDistribution = monitoring.NewDistribution(
 		"test_buckets",
 		"Testing distribution functionality",
-		[]float64{0, 2.5, 7, 8, 10, 154.3, 99},
-		monitoring.WithLabels(name),
+		[]float64{0, 2.5, 7, 8, 10, 99, 154.3},
 		monitoring.WithUnit(monitoring.Seconds),
 	)
 
@@ -66,20 +55,29 @@ var (
 	testDisabledSum = monitoring.NewSum(
 		"events_disabled_total",
 		"Number of events observed, by name and kind",
-		monitoring.WithLabels(name, kind),
+		monitoring.WithEnabled(func() bool { return false }),
 	)
 
 	testConditionalSum = monitoring.NewSum(
 		"events_conditional_total",
 		"Number of events observed, by name and kind",
-		monitoring.WithLabels(name, kind),
+		monitoring.WithEnabled(func() bool { return true }),
 	)
 )
 
-func init() {
-	monitoring.MustRegister(testSum, hookSum, int64Sum, testDistribution, testGauge)
-	testDisabledSum = monitoring.RegisterIf(testDisabledSum, func() bool { return false })
-	testConditionalSum = monitoring.RegisterIf(testConditionalSum, func() bool { return true })
+func TestMonitorTestReset(t *testing.T) {
+	t.Run("initial", func(t *testing.T) {
+		mt := monitortest.New(t)
+		testSum.With(name.Value("foo"), kind.Value("bar")).Increment()
+		mt.Assert(testSum.Name(), map[string]string{"kind": "bar"}, monitortest.Exactly(1))
+	})
+	t.Run("secondary", func(t *testing.T) {
+		mt := monitortest.New(t)
+		testSum.With(name.Value("foo"), kind.Value("bar2")).Increment()
+		// Should have been reset
+		mt.Assert(testSum.Name(), map[string]string{"kind": "bar"}, monitortest.Exactly(0))
+		mt.Assert(testSum.Name(), map[string]string{"kind": "bar2"}, monitortest.Exactly(1))
+	})
 }
 
 func TestSum(t *testing.T) {
@@ -89,30 +87,56 @@ func TestSum(t *testing.T) {
 	goofySum.With(name.Value("baz")).Record(45)
 	goofySum.With(name.Value("baz")).Decrement()
 
-	int64Sum.With(name.Value("foo"), kind.Value("bar")).Increment()
-	int64Sum.With(name.Value("foo"), kind.Value("bar")).RecordInt(10)
-	int64Sum.With(name.Value("foo"), kind.Value("bar")).Record(10.75) // should use floor, so this will be counted as 10
-
-	mt.Assert(goofySum.Name(), map[string]string{"name": "baz"}, monitortest.Exactly(44))
+	mt.Assert(goofySum.Name(), map[string]string{"kind": "goofy", "name": "baz"}, monitortest.Exactly(44))
 	mt.Assert(testSum.Name(), map[string]string{"kind": "bar"}, monitortest.Exactly(1))
-	mt.Assert(int64Sum.Name(), map[string]string{"kind": "bar"}, monitortest.Exactly(21))
 }
 
 func TestRegisterIfSum(t *testing.T) {
+	mt := monitortest.New(t)
+
 	testDisabledSum.With(name.Value("foo"), kind.Value("bar")).Increment()
-	var err error
-	_, err = view.RetrieveData(testDisabledSum.Name())
-	if err == nil || !strings.EqualFold(err.Error(), "cannot retrieve data; view \"events_disabled_total\" is not registered") {
-		t.Errorf("failure validating disabled metrics. exptected error but got %v", err)
-	}
+	mt.Assert(testDisabledSum.Name(), nil, monitortest.DoesNotExist)
+
 	testConditionalSum.With(name.Value("foo"), kind.Value("bar")).Increment()
-	rows, err := view.RetrieveData(testConditionalSum.Name())
-	if err != nil {
-		t.Errorf("exptected to register metric %s but got %v", testConditionalSum.Name(), err)
+	mt.Assert(testConditionalSum.Name(), map[string]string{"name": "foo", "kind": "bar"}, monitortest.Exactly(1))
+}
+
+// Create distinct metrics for this test, otherwise we are order-dependant since they are globals
+var (
+	testEmptyGauge = monitoring.NewGauge(
+		"test_empty_gauge",
+		"Testing empty gauge functionality",
+	)
+	testEmptySum = monitoring.NewSum(
+		"test_empty_sum",
+		"Testing empty sum",
+	)
+	testEmptyDistribution = monitoring.NewDistribution(
+		"test_empty_dist",
+		"Testing empty dist",
+		[]float64{0, 1, 2},
+	)
+)
+
+func TestEmptyMetrics(t *testing.T) {
+	mt := monitortest.New(t)
+	relevantMetrics := sets.New(testEmptyGauge.Name(), testEmptySum.Name(), testEmptyDistribution.Name())
+	assertRecordedMetrics := func(names ...string) {
+		t.Helper()
+		want := sets.New(names...)
+		got := sets.New(slices.Map(mt.Metrics(), func(e monitortest.Metric) string {
+			return e.Name
+		})...).Intersection(relevantMetrics)
+		assert.Equal(t, want, got)
 	}
-	if len(rows) == 0 {
-		t.Errorf("exptected to metric %s has values  but got %v", testConditionalSum.Name(), len(rows))
-	}
+	// derived gauge is always present
+	assertRecordedMetrics()
+
+	// Once we write it shows up
+	testEmptyGauge.Record(0)
+	testEmptySum.Record(0)
+	testEmptyDistribution.Record(0)
+	assertRecordedMetrics(relevantMetrics.UnsortedList()...)
 }
 
 func TestGauge(t *testing.T) {
@@ -124,40 +148,50 @@ func TestGauge(t *testing.T) {
 	mt.Assert(testGauge.Name(), nil, monitortest.Exactly(77))
 }
 
-func TestDerivedGauge(t *testing.T) {
-	testDerivedGauge := monitoring.NewDerivedGauge(
+func TestGaugeLabels(t *testing.T) {
+	mt := monitortest.New(t)
+
+	testGauge.With(kind.Value("foo")).Record(42)
+	testGauge.With(kind.Value("bar")).Record(77)
+	testGauge.With(kind.Value("bar")).Record(72)
+
+	mt.Assert(testGauge.Name(), map[string]string{"kind": "foo"}, monitortest.Exactly(42))
+	mt.Assert(testGauge.Name(), map[string]string{"kind": "bar"}, monitortest.Exactly(72))
+}
+
+var (
+	testDerivedGauge = monitoring.NewDerivedGauge(
 		"test_derived_gauge",
 		"Testing derived gauge functionality",
-		monitoring.WithLabelKeys("blah"), // NOTE: This will be ignored!
-		monitoring.WithValueFrom(
-			func() float64 {
-				return 17.76
-			},
-		),
+	).ValueFrom(func() float64 {
+		return 17.76
+	})
+
+	testDerivedGaugeLabels = monitoring.NewDerivedGauge(
+		"test_derived_gauge_labels",
+		"Testing derived gauge functionality",
 	)
+)
+
+func TestDerivedGauge(t *testing.T) {
 	mt := monitortest.New(t)
 	mt.Assert(testDerivedGauge.Name(), nil, monitortest.Exactly(17.76))
 }
 
 func TestDerivedGaugeWithLabels(t *testing.T) {
-	testDerivedGauge := monitoring.NewDerivedGauge(
-		"test_derived_gauge",
-		"Testing derived gauge functionality",
-		monitoring.WithLabelKeys("foo"),
-	)
-
-	testDerivedGauge.ValueFrom(
+	foo := monitoring.CreateLabel("foo")
+	testDerivedGaugeLabels.ValueFrom(
 		func() float64 {
 			return 17.76
 		},
-		"bar",
+		foo.Value("bar"),
 	)
 
-	testDerivedGauge.ValueFrom(
+	testDerivedGaugeLabels.ValueFrom(
 		func() float64 {
 			return 18.12
 		},
-		"baz",
+		foo.Value("baz"),
 	)
 
 	mt := monitortest.New(t)
@@ -171,7 +205,7 @@ func TestDerivedGaugeWithLabels(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.wantLabel, func(tt *testing.T) {
-			mt.Assert(testDerivedGauge.Name(), map[string]string{"foo": tc.wantLabel}, monitortest.Exactly(tc.wantValue))
+			mt.Assert(testDerivedGaugeLabels.Name(), map[string]string{"foo": tc.wantLabel}, monitortest.Exactly(tc.wantValue))
 		})
 	}
 }
@@ -187,31 +221,7 @@ func TestDistribution(t *testing.T) {
 
 	mt.Assert(testDistribution.Name(), map[string]string{"name": "fun"}, monitortest.Distribution(1, 7.7773))
 	mt.Assert(testDistribution.Name(), map[string]string{"name": "foo"}, monitortest.Distribution(3, 24.4))
-}
-
-func TestMustCreateLabel(t *testing.T) {
-	defer func() {
-		if r := recover(); r != nil {
-			if !strings.Contains(r.(error).Error(), "label") {
-				t.Errorf("no panic for invalid label, recovered: %q", r.(error).Error())
-			}
-		} else {
-			t.Error("no panic for failed label creation.")
-		}
-	}()
-
-	// labels must be ascii
-	monitoring.MustCreateLabel("£®")
-}
-
-func TestMustRegister(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("no panic for failed registration.")
-		}
-	}()
-
-	monitoring.MustRegister(&registerFail{})
+	mt.Assert(testDistribution.Name(), map[string]string{"name": "foo"}, monitortest.Buckets(7))
 }
 
 func TestRecordHook(t *testing.T) {
@@ -221,56 +231,70 @@ func TestRecordHook(t *testing.T) {
 	rh := &testRecordHook{}
 	monitoring.RegisterRecordHook(testSum.Name(), rh)
 
-	testSum.With(name.Value("foo"), kind.Value("bar")).Increment()
-	testSum.With(name.Value("baz"), kind.Value("bar")).Record(45)
+	testSum.With(name.Value("foo"), kind.Value("bart")).Increment()
+	testSum.With(name.Value("baz"), kind.Value("bart")).Record(45)
 
-	mt.Assert(testSum.Name(), map[string]string{"name": "foo", "kind": "bar"}, monitortest.Exactly(1))
-	mt.Assert(testSum.Name(), map[string]string{"name": "baz", "kind": "bar"}, monitortest.Exactly(45))
+	mt.Assert(testSum.Name(), map[string]string{"name": "foo", "kind": "bart"}, monitortest.Exactly(1))
+	mt.Assert(testSum.Name(), map[string]string{"name": "baz", "kind": "bart"}, monitortest.Exactly(45))
 	mt.Assert(hookSum.Name(), map[string]string{"name": "foo"}, monitortest.Exactly(1))
 	mt.Assert(hookSum.Name(), map[string]string{"name": "baz"}, monitortest.Exactly(45))
 }
 
-type registerFail struct {
-	monitoring.Metric
-}
-
-func (r registerFail) Register() error {
-	return errors.New("fail")
-}
-
 type testRecordHook struct{}
 
-func (r *testRecordHook) OnRecord(name string, tags monitoring.LabelSet, value float64) {
+func (r *testRecordHook) OnRecord(n string, tags []monitoring.LabelValue, value float64) {
 	// Check if this is `events_total` metric.
-	if name != "events_total" {
+	if n != "events_total" {
 		return
 	}
 
-	nl := monitoring.MustCreateLabel("name")
-	// Get name tag of recorded testSum metric, and record the corresponding hookSum metric.
-	v, f := tags.Value(nl)
-	if !f {
-		return
+	// Get name tag of recorded testSume metric, and record the corresponding hookSum metric.
+	var nv string
+	for _, tag := range tags {
+		if tag.Key() == name {
+			nv = tag.Value()
+			break
+		}
 	}
-	hookSum.With(nl.Value(v)).Record(value)
+	hookSum.With(name.Value(nv)).Record(value)
 }
 
 func BenchmarkCounter(b *testing.B) {
 	monitortest.New(b)
 	b.Run("no labels", func(b *testing.B) {
 		for n := 0; n < b.N; n++ {
-			int64Sum.Increment()
+			testSum.Increment()
 		}
 	})
 	b.Run("dynamic labels", func(b *testing.B) {
 		for n := 0; n < b.N; n++ {
-			int64Sum.With(name.Value("test")).Increment()
+			testSum.With(name.Value("test")).Increment()
 		}
 	})
 	b.Run("static labels", func(b *testing.B) {
-		testSum := int64Sum.With(name.Value("test"))
+		testSum := testSum.With(name.Value("test"))
 		for n := 0; n < b.N; n++ {
 			testSum.Increment()
+		}
+	})
+}
+
+func BenchmarkGauge(b *testing.B) {
+	monitortest.New(b)
+	b.Run("no labels", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			testGauge.Increment()
+		}
+	})
+	b.Run("dynamic labels", func(b *testing.B) {
+		for n := 0; n < b.N; n++ {
+			testGauge.With(name.Value("test")).Increment()
+		}
+	})
+	b.Run("static labels", func(b *testing.B) {
+		testGauge := testGauge.With(name.Value("test"))
+		for n := 0; n < b.N; n++ {
+			testGauge.Increment()
 		}
 	})
 }

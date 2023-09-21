@@ -18,6 +18,7 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    topology.istio.io/network: network-1
   name: namespace-istio-waypoint
   namespace: default
   ownerReferences:
@@ -43,6 +44,7 @@ spec:
         service.istio.io/canonical-name: namespace-istio-waypoint
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
+        topology.istio.io/network: network-1
     spec:
       containers:
       - args:
@@ -100,8 +102,18 @@ spec:
         - name: PROXY_CONFIG
           value: |
             {}
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
+        - name: ISTIO_META_NETWORK
+          value: network-1
         - name: ISTIO_META_INTERCEPTION_MODE
           value: REDIRECT
         - name: ISTIO_META_WORKLOAD_NAME
@@ -204,6 +216,7 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    topology.istio.io/network: network-1
   name: namespace-istio-waypoint
   namespace: default
   ownerReferences:
@@ -223,4 +236,5 @@ spec:
     protocol: TCP
   selector:
     istio.io/gateway-name: namespace
+  type: ClusterIP
 ---

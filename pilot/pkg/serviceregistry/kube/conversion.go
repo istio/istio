@@ -15,12 +15,15 @@
 package kube
 
 import (
+	"fmt"
 	"strings"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/annotation"
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -30,18 +33,7 @@ import (
 	"istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/spiffe"
-)
-
-const (
-	// IngressClassAnnotation is the annotation on ingress resources for the class of controllers
-	// responsible for it
-	IngressClassAnnotation = "kubernetes.io/ingress.class"
-
-	// NodeSelectorAnnotation is the value for this annotation is a set of key value pairs (node labels)
-	// that can be used to select a subset of nodes from the pool of k8s nodes
-	// It is used for multi-cluster scenario, and with nodePort type gateway service.
-	// TODO: move to API
-	NodeSelectorAnnotation = "traffic.istio.io/nodeSelector"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func convertPort(port corev1.ServicePort) *model.Port {
@@ -80,7 +72,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 		ports = append(ports, convertPort(port))
 	}
 
-	var exportTo map[visibility.Instance]bool
+	var exportTo sets.Set[visibility.Instance]
 	serviceaccounts := make([]string, 0)
 	if svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name] != "" {
 		serviceaccounts = append(serviceaccounts, strings.Split(svc.Annotations[annotation.AlphaCanonicalServiceAccounts.Name], ",")...)
@@ -92,9 +84,9 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	}
 	if svc.Annotations[annotation.NetworkingExportTo.Name] != "" {
 		namespaces := strings.Split(svc.Annotations[annotation.NetworkingExportTo.Name], ",")
-		exportTo = make(map[visibility.Instance]bool, len(namespaces))
+		exportTo = sets.NewWithLength[visibility.Instance](len(namespaces))
 		for _, ns := range namespaces {
-			exportTo[visibility.Instance(ns)] = true
+			exportTo.Insert(visibility.Instance(ns))
 		}
 	}
 
@@ -124,7 +116,7 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 
 	switch svc.Spec.Type {
 	case corev1.ServiceTypeNodePort:
-		if _, ok := svc.Annotations[NodeSelectorAnnotation]; !ok {
+		if _, ok := svc.Annotations[annotation.TrafficNodeSelector.Name]; !ok {
 			// only do this for istio ingress-gateway services
 			break
 		}
@@ -172,11 +164,11 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	return istioService
 }
 
-func ExternalNameServiceInstances(k8sSvc *corev1.Service, svc *model.Service) []*model.ServiceInstance {
-	if k8sSvc == nil || k8sSvc.Spec.Type != corev1.ServiceTypeExternalName || k8sSvc.Spec.ExternalName == "" {
+func ExternalNameEndpoints(svc *model.Service) []*model.IstioEndpoint {
+	if svc.Attributes.ExternalName == "" {
 		return nil
 	}
-	out := make([]*model.ServiceInstance, 0, len(svc.Ports))
+	out := make([]*model.IstioEndpoint, 0, len(svc.Ports))
 
 	discoverabilityPolicy := model.AlwaysDiscoverable
 	if features.EnableMCSServiceDiscovery {
@@ -185,16 +177,12 @@ func ExternalNameServiceInstances(k8sSvc *corev1.Service, svc *model.Service) []
 		discoverabilityPolicy = model.DiscoverableFromSameCluster
 	}
 	for _, portEntry := range svc.Ports {
-		out = append(out, &model.ServiceInstance{
-			Service:     svc,
-			ServicePort: portEntry,
-			Endpoint: &model.IstioEndpoint{
-				Address:               k8sSvc.Spec.ExternalName,
-				EndpointPort:          uint32(portEntry.Port),
-				ServicePortName:       portEntry.Name,
-				Labels:                k8sSvc.Labels,
-				DiscoverabilityPolicy: discoverabilityPolicy,
-			},
+		out = append(out, &model.IstioEndpoint{
+			Address:               svc.Attributes.ExternalName,
+			EndpointPort:          uint32(portEntry.Port),
+			ServicePortName:       portEntry.Name,
+			Labels:                svc.Attributes.Labels,
+			DiscoverabilityPolicy: discoverabilityPolicy,
 		})
 	}
 	return out
@@ -226,4 +214,35 @@ func PodTLSMode(pod *corev1.Pod) string {
 		return model.DisabledTLSModeLabel
 	}
 	return model.GetTLSModeFromEndpointLabels(pod.Labels)
+}
+
+// IsAutoPassthrough determines if a listener should use auto passthrough mode. This is used for
+// multi-network. In the Istio API, this is an explicit tls.Mode. However, this mode is not part of
+// the gateway-api, and leaks implementation details. We already have an API to declare a Gateway as
+// a multi-network gateway, so we will use this as a signal.
+// A user who wishes to expose multi-network connectivity should create a listener named "tls-passthrough"
+// with TLS.Mode Passthrough.
+// For some backwards compatibility, we assume any listener with TLS specified and a port matching
+// 15443 (or the label-override for gateway port) is auto-passtrough as well.
+func IsAutoPassthrough(gwLabels map[string]string, l v1beta1.Listener) bool {
+	if l.TLS == nil {
+		return false
+	}
+	if hasListenerMode(l, constants.ListenerModeAutoPassthrough) {
+		return true
+	}
+	_, networkSet := gwLabels[label.TopologyNetwork.Name]
+	if !networkSet {
+		return false
+	}
+	expectedPort := "15443"
+	if port, f := gwLabels[label.NetworkingGatewayPort.Name]; f {
+		expectedPort = port
+	}
+	return fmt.Sprint(l.Port) == expectedPort
+}
+
+func hasListenerMode(l v1beta1.Listener, mode string) bool {
+	// TODO if we add a hybrid mode for detecting HBONE/passthrough, also check that here
+	return l.TLS != nil && l.TLS.Options != nil && string(l.TLS.Options[constants.ListenerModeOption]) == mode
 }

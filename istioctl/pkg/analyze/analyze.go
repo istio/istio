@@ -145,15 +145,18 @@ func Analyze(ctx cli.Context) *cobra.Command {
 			selectedNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
 
 			// check whether selected namespace exists.
-			if ctx.Namespace() != "" && useKube {
+			namespace := ctx.NamespaceOrDefault(ctx.Namespace())
+			if namespace != "" && useKube {
 				client, err := ctx.CLIClient()
 				if err != nil {
 					return err
 				}
-				_, err = client.Kube().CoreV1().Namespaces().Get(context.TODO(), ctx.Namespace(), metav1.GetOptions{})
+				_, err = client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
 				if errors.IsNotFound(err) {
 					fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", ctx.Namespace())
 					return nil
+				} else if err != nil {
+					return err
 				}
 			}
 

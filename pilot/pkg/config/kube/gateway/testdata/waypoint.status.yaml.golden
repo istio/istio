@@ -15,7 +15,7 @@ status:
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "namespace-istio-waypoint.ns.svc.domain.suffix"
       not found'
-    reason: Invalid
+    reason: AddressNotAssigned
     status: "False"
     type: Programmed
   listeners:
@@ -61,7 +61,7 @@ status:
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "invalid-istio-waypoint.ns.svc.domain.suffix"
       not found'
-    reason: Invalid
+    reason: AddressNotAssigned
     status: "False"
     type: Programmed
   listeners:
@@ -91,4 +91,6 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---

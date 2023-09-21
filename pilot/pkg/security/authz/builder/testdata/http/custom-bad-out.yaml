@@ -4,8 +4,29 @@ typedConfig:
   rules:
     action: DENY
     policies:
-      default-deny-all-due-to-bad-CUSTOM-action:
+      istio-ext-authz-ns[foo]-policy[httpbin-1]-rule[0]-deny-due-to-bad-CUSTOM-action:
         permissions:
-        - any: true
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: /httpbin1
         principals:
-        - any: true
+        - andIds:
+            ids:
+            - any: true
+      istio-ext-authz-ns[foo]-policy[httpbin-2]-rule[0]-deny-due-to-bad-CUSTOM-action:
+        permissions:
+        - andRules:
+            rules:
+            - orRules:
+                rules:
+                - urlPath:
+                    path:
+                      exact: /httpbin2
+        principals:
+        - andIds:
+            ids:
+            - any: true

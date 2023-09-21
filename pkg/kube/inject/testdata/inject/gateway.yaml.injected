@@ -72,6 +72,16 @@ spec:
           value: |-
             [
             ]
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              divisor: "0"
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              divisor: "0"
+              resource: limits.cpu
         - name: ISTIO_META_APP_CONTAINERS
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
@@ -105,6 +115,9 @@ spec:
           periodSeconds: 2
           timeoutSeconds: 3
         resources: {}
+        securityContext:
+          runAsGroup: 1337
+          runAsUser: 1337
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket

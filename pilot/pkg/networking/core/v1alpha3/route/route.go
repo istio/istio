@@ -26,7 +26,6 @@ import (
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/duration"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -48,6 +47,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/grpc"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // Headers with special meaning in Envoy
@@ -119,7 +119,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+			if port.Protocol.IsHTTPOrSniffed() {
 				hash, destinationRule := hashForService(push, node, svc, port)
 				if hash != nil {
 					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
@@ -236,7 +236,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+			if port.Protocol.IsHTTPOrSniffed() {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}
@@ -527,11 +527,14 @@ func applyHTTPRouteDestination(
 
 	if in.Mirror != nil {
 		if mp := MirrorPercent(in); mp != nil {
-			action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
-				Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort),
-				RuntimeFraction: mp,
-				TraceSampled:    &wrappers.BoolValue{Value: false},
-			}}
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				TranslateRequestMirrorPolicy(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort, mp))
+		}
+	}
+	for _, mirror := range in.Mirrors {
+		if mp := MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				TranslateRequestMirrorPolicy(mirror.Destination, serviceRegistry[host.Name(mirror.Destination.Host)], listenerPort, mp))
 		}
 	}
 
@@ -754,6 +757,25 @@ func MirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
 		if in.MirrorPercent.GetValue() > 0 {
 			return &core.RuntimeFractionalPercent{
 				DefaultValue: translateIntegerToFractionalPercent((int32(in.MirrorPercent.GetValue()))),
+			}
+		}
+		// If zero percent is provided explicitly, we should not mirror.
+		return nil
+	default:
+		// Default to 100 percent if percent is not given.
+		return &core.RuntimeFractionalPercent{
+			DefaultValue: translateIntegerToFractionalPercent(100),
+		}
+	}
+}
+
+// MirrorPercentByPolicy computes the mirror percent to be used based on HTTPMirrorPolicy.
+func MirrorPercentByPolicy(mirror *networking.HTTPMirrorPolicy) *core.RuntimeFractionalPercent {
+	switch {
+	case mirror.Percentage != nil:
+		if mirror.Percentage.GetValue() > 0 {
+			return &core.RuntimeFractionalPercent{
+				DefaultValue: translatePercentToFractionalPercent(mirror.Percentage),
 			}
 		}
 		// If zero percent is provided explicitly, we should not mirror.
@@ -1084,7 +1106,7 @@ func GetRouteOperation(in *route.Route, vsName string, port int) string {
 
 	// If there is only one destination cluster in route, return host:port/uri as description of route.
 	// Otherwise there are multiple destination clusters and destination host is not clear. For that case
-	// return virtual serivce name:port/uri as substitute.
+	// return virtual service name:port/uri as substitute.
 	if c := in.GetRoute().GetCluster(); model.IsValidSubsetKey(c) {
 		// Parse host and port from cluster name.
 		_, _, h, p := model.ParseSubsetKey(c)
@@ -1230,6 +1252,16 @@ func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	}
 
 	return &out
+}
+
+func TranslateRequestMirrorPolicy(dst *networking.Destination, service *model.Service,
+	listenerPort int, mp *core.RuntimeFractionalPercent,
+) *route.RouteAction_RequestMirrorPolicy {
+	return &route.RouteAction_RequestMirrorPolicy{
+		Cluster:         GetDestinationCluster(dst, service, listenerPort),
+		RuntimeFraction: mp,
+		TraceSampled:    &wrappers.BoolValue{Value: false},
+	}
 }
 
 func portLevelSettingsConsistentHash(dst *networking.Destination,

@@ -19,8 +19,8 @@ spec:
       labels:
         istio.io/benchmark: "true"
 ---
-  {{- range $i := until .Services }}
-apiVersion: security.istio.io/v1beta1
+{{- range $i := until .Services }}
+apiVersion: security.istio.io/v1
 kind: AuthorizationPolicy
 metadata:
   name: authn-{{$i}}
@@ -34,4 +34,4 @@ spec:
         - operation:
             methods: ["POST"]
 ---
-  {{- end }}
+{{- end }}

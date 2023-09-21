@@ -33,7 +33,7 @@ type Builder struct {
 }
 
 func NewBuilder(push *model.PushContext, proxy *model.Proxy) *Builder {
-	applier := factory.NewPolicyApplier(push, proxy.Metadata.Namespace, proxy.Labels)
+	applier := factory.NewPolicyApplier(push, proxy.Metadata.Namespace, proxy.Labels, proxy.IsWaypointProxy())
 	trustDomains := TrustDomainsForValidation(push.Mesh)
 	return &Builder{
 		applier:      applier,
@@ -125,8 +125,8 @@ func needPerPortPassthroughFilterChain(port uint32, node *model.Proxy) bool {
 	}
 
 	// If there is no Sidecar, check if the port is appearing in any service.
-	for _, si := range node.ServiceInstances {
-		if port == si.Endpoint.EndpointPort {
+	for _, si := range node.ServiceTargets {
+		if port == si.Port.TargetPort {
 			return false
 		}
 	}

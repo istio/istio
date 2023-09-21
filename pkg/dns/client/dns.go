@@ -92,8 +92,6 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 		forwardToUpstreamParallel: forwardToUpstreamParallel,
 	}
 
-	registerStats()
-
 	// proxyDomain could contain the namespace making it redundant.
 	// we just need the .svc.cluster.local piece
 	parts := strings.Split(proxyDomain, ".")
@@ -309,7 +307,7 @@ func (h *LocalDNSServer) ServeDNS(proxy *dnsProxy, w dns.ResponseWriter, req *dn
 	_ = w.WriteMsg(response)
 }
 
-// IsReady returns true if DNS lookup table is updated atleast once.
+// IsReady returns true if DNS lookup table is updated at least once.
 func (h *LocalDNSServer) IsReady() bool {
 	return h.lookupTable.Load() != nil
 }

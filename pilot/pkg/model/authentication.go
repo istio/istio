@@ -24,6 +24,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kind"
 )
 
 // MutualTLSMode is the mutual TLS mode specified by authentication policy.
@@ -42,6 +43,10 @@ const (
 	// MTLSStrict if authentication policy enable mTLS in strict mode.
 	MTLSStrict
 )
+
+// In Ambient, we convert k8s PeerAuthentication resources to the same type as AuthorizationPolicies
+// To prevent conflicts in xDS, we add this prefix to the converted PeerAuthentication resources.
+const convertedPeerAuthenticationPrefix = "converted_peer_authentication_" // use '_' character since those are illegal in k8s names
 
 // String converts MutualTLSMode to human readable string for debugging.
 func (mode MutualTLSMode) String() string {
@@ -195,15 +200,27 @@ func (policy *AuthenticationPolicies) GetNamespaceMutualTLSMode(namespace string
 // GetJwtPoliciesForWorkload returns a list of JWT policies matching to labels.
 func (policy *AuthenticationPolicies) GetJwtPoliciesForWorkload(namespace string,
 	workloadLabels labels.Instance,
+	isWaypoint bool,
 ) []*config.Config {
-	return getConfigsForWorkload(policy.requestAuthentications, policy.rootNamespace, namespace, workloadLabels)
+	return getConfigsForWorkload(policy.requestAuthentications, WorkloadSelectionOpts{
+		rootNamespace:  policy.rootNamespace,
+		namespace:      namespace,
+		workloadLabels: workloadLabels,
+		isWaypoint:     isWaypoint,
+	})
 }
 
 // GetPeerAuthenticationsForWorkload returns a list of peer authentication policies matching to labels.
 func (policy *AuthenticationPolicies) GetPeerAuthenticationsForWorkload(namespace string,
 	workloadLabels labels.Instance,
+	isWaypoint bool,
 ) []*config.Config {
-	return getConfigsForWorkload(policy.peerAuthentications, policy.rootNamespace, namespace, workloadLabels)
+	return getConfigsForWorkload(policy.peerAuthentications, WorkloadSelectionOpts{
+		rootNamespace:  policy.rootNamespace,
+		namespace:      namespace,
+		workloadLabels: workloadLabels,
+		isWaypoint:     isWaypoint,
+	})
 }
 
 // GetRootNamespace return root namespace that is tracked by the policy object.
@@ -216,11 +233,19 @@ func (policy *AuthenticationPolicies) GetVersion() string {
 	return policy.aggregateVersion
 }
 
-func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
-	rootNamespace string,
-	namespace string,
-	workloadLabels labels.Instance,
-) []*config.Config {
+func GetAmbientPolicyConfigName(key ConfigKey) string {
+	switch key.Kind {
+	case kind.PeerAuthentication:
+		return convertedPeerAuthenticationPrefix + key.Name
+	default:
+		return key.Name
+	}
+}
+
+func getConfigsForWorkload(configsByNamespace map[string][]config.Config, selectionOpts WorkloadSelectionOpts) []*config.Config {
+	workloadLabels := selectionOpts.workloadLabels
+	namespace := selectionOpts.namespace
+	rootNamespace := selectionOpts.rootNamespace
 	configs := make([]*config.Config, 0)
 	var lookupInNamespaces []string
 	if namespace != rootNamespace {
@@ -239,10 +264,19 @@ func getConfigsForWorkload(configsByNamespace map[string][]config.Config,
 					log.Warnf("Seeing config %s with namespace %s in map entry for %s. Ignored", cfg.Name, cfg.Namespace, ns)
 					continue
 				}
-				var selector labels.Instance
+				var selector labels.Instance // NOTE: nil/empty selector matches all workloads
 				switch cfg.GroupVersionKind {
 				case gvk.RequestAuthentication:
-					selector = cfg.Spec.(*v1beta1.RequestAuthentication).GetSelector().GetMatchLabels()
+					ra := cfg.Spec.(*v1beta1.RequestAuthentication)
+					switch getPolicyMatcher(cfg.GroupVersionKind, cfg.Name, selectionOpts, ra) {
+					case policyMatchSelector:
+						selector = ra.GetSelector().GetMatchLabels()
+					case policyMatchDirect:
+						configs = append(configs, cfg)
+						continue
+					case policyMatchIgnore:
+						continue
+					}
 				case gvk.PeerAuthentication:
 					selector = cfg.Spec.(*v1beta1.PeerAuthentication).GetSelector().GetMatchLabels()
 				default:

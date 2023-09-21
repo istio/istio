@@ -33,7 +33,6 @@ import (
 	headerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/header/v3"
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -51,6 +50,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
 	"istio.io/istio/pkg/util/strcase"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -86,6 +86,10 @@ const (
 	// Envoy Stateful Session Filter
 	// TODO: Move to well known.
 	StatefulSessionFilter = "envoy.filters.http.stateful_session"
+
+	// AlpnOverrideMetadataKey is the key under which metadata is added
+	// to indicate whether Istio rewrite the ALPN headers
+	AlpnOverrideMetadataKey = "alpn_override"
 )
 
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
@@ -130,38 +134,36 @@ func ConvertAddressToCidr(addr string) *core.CidrRange {
 	return cidr
 }
 
+// AddrStrToCidrRange converts from string to CIDR prefix
+func AddrStrToPrefix(addr string) (netip.Prefix, error) {
+	if len(addr) == 0 {
+		return netip.Prefix{}, fmt.Errorf("empty address")
+	}
+
+	// Already a CIDR, just parse it.
+	if strings.Contains(addr, "/") {
+		return netip.ParsePrefix(addr)
+	}
+
+	// Otherwise it is a raw IP. Make it a /32 or /128 depending on family
+	ipa, err := netip.ParseAddr(addr)
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+
+	return netip.PrefixFrom(ipa, ipa.BitLen()), nil
+}
+
 // AddrStrToCidrRange converts from string to CIDR proto
 func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
-	if len(addr) == 0 {
-		return nil, fmt.Errorf("empty address")
+	prefix, err := AddrStrToPrefix(addr)
+	if err != nil {
+		return nil, err
 	}
-
-	var (
-		ipAddr        netip.Addr
-		maxCidrPrefix int
-	)
-
-	if strings.Contains(addr, "/") {
-		ipp, err := netip.ParsePrefix(addr)
-		if err != nil {
-			return nil, err
-		}
-		ipAddr = ipp.Addr()
-		maxCidrPrefix = ipp.Bits()
-	} else {
-		ipa, err := netip.ParseAddr(addr)
-		if err != nil {
-			return nil, err
-		}
-
-		ipAddr = ipa
-		maxCidrPrefix = ipAddr.BitLen()
-	}
-
 	return &core.CidrRange{
-		AddressPrefix: ipAddr.String(),
+		AddressPrefix: prefix.Addr().String(),
 		PrefixLen: &wrapperspb.UInt32Value{
-			Value: uint32(maxCidrPrefix),
+			Value: uint32(prefix.Bits()),
 		},
 	}, nil
 }
@@ -183,9 +185,9 @@ func BuildAddress(bind string, port uint32) *core.Address {
 }
 
 // BuildAdditionalAddresses can add extra addresses to additional addresses for a listener
-func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, node *model.Proxy) []*listener.AdditionalAddress {
+func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32) []*listener.AdditionalAddress {
 	var additionalAddresses []*listener.AdditionalAddress
-	if len(extrAddresses) > 0 && IsIstioVersionGE116(node.IstioVersion) {
+	if len(extrAddresses) > 0 {
 		for _, exbd := range extrAddresses {
 			if exbd == "" {
 				continue
@@ -229,28 +231,10 @@ func SortVirtualHosts(hosts []*route.VirtualHost) {
 	})
 }
 
-// IsIstioVersionGE116 checks whether the given Istio version is greater than or equals 1.16.
-func IsIstioVersionGE116(version *model.IstioVersion) bool {
+// IsIstioVersionGE119 checks whether the given Istio version is greater than or equals 1.19.
+func IsIstioVersionGE119(version *model.IstioVersion) bool {
 	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 16, Patch: -1}) >= 0
-}
-
-// IsIstioVersionGE117 checks whether the given Istio version is greater than or equals 1.17.
-func IsIstioVersionGE117(version *model.IstioVersion) bool {
-	return version == nil ||
-		version.Compare(&model.IstioVersion{Major: 1, Minor: 17, Patch: -1}) >= 0
-}
-
-func IsProtocolSniffingEnabledForPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForInboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForInbound && port.Protocol.IsUnsupported()
-}
-
-func IsProtocolSniffingEnabledForOutboundPort(port *model.Port) bool {
-	return features.EnableProtocolSniffingForOutbound && port.Protocol.IsUnsupported()
+		version.Compare(&model.IstioVersion{Major: 1, Minor: 19, Patch: -1}) >= 0
 }
 
 // ConvertLocality converts '/' separated locality string to Locality struct.
@@ -411,6 +395,34 @@ func AddSubsetToMetadata(md *core.Metadata, subset string) {
 	}
 }
 
+// AddALPNOverrideToMetadata sets filter metadata `istio.alpn_override: "false"` in the given core.Metadata struct,
+// when TLS mode is SIMPLE or MUTUAL. If metadata is not initialized, builds a new metadata.
+func AddALPNOverrideToMetadata(metadata *core.Metadata, tlsMode networking.ClientTLSSettings_TLSmode) *core.Metadata {
+	if tlsMode != networking.ClientTLSSettings_SIMPLE && tlsMode != networking.ClientTLSSettings_MUTUAL {
+		return metadata
+	}
+
+	if metadata == nil {
+		metadata = &core.Metadata{
+			FilterMetadata: map[string]*structpb.Struct{},
+		}
+	}
+
+	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
+		metadata.FilterMetadata[IstioMetadataKey] = &structpb.Struct{
+			Fields: map[string]*structpb.Value{},
+		}
+	}
+
+	metadata.FilterMetadata[IstioMetadataKey].Fields["alpn_override"] = &structpb.Value{
+		Kind: &structpb.Value_StringValue{
+			StringValue: "false",
+		},
+	}
+
+	return metadata
+}
+
 // IsHTTPFilterChain returns true if the filter chain contains a HTTP connection manager filter
 func IsHTTPFilterChain(filterChain *listener.FilterChain) bool {
 	for _, f := range filterChain.Filters {
@@ -470,7 +482,7 @@ func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetada
 	// Add compressed telemetry metadata. Note this is a short term solution to make server workload metadata
 	// available at client sidecar, so that telemetry filter could use for metric labels. This is useful for two cases:
 	// server does not have sidecar injected, and request fails to reach server and thus metadata exchange does not happen.
-	// Due to performance concern, telemetry metadata is compressed into a semicolon separted string:
+	// Due to performance concern, telemetry metadata is compressed into a semicolon separated string:
 	// workload-name;namespace;canonical-service-name;canonical-service-revision;cluster-id.
 	if features.EndpointTelemetryLabel {
 		// allow defaulting for non-injected cases
@@ -601,7 +613,7 @@ func toMaskedPrefix(c *core.CidrRange) (netip.Prefix, error) {
 
 // meshconfig ForwardClientCertDetails and the Envoy config enum are off by 1
 // due to the UNDEFINED in the meshconfig ForwardClientCertDetails
-func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.Topology_ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
+func MeshConfigToEnvoyForwardClientCertDetails(c meshconfig.ForwardClientCertDetails) hcm.HttpConnectionManager_ForwardClientCertDetails {
 	return hcm.HttpConnectionManager_ForwardClientCertDetails(c - 1)
 }
 
@@ -745,4 +757,53 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 		}
 	}
 	return nil
+}
+
+// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
+func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	if subsetPolicy == nil {
+		return original
+	}
+
+	// Sanity check that top-level port level settings have already been merged for the given port
+	if original != nil && len(original.PortLevelSettings) != 0 {
+		original = MergeTrafficPolicy(nil, original, port)
+	}
+
+	mergedPolicy := &networking.TrafficPolicy{}
+	if original != nil {
+		mergedPolicy.ConnectionPool = original.ConnectionPool
+		mergedPolicy.LoadBalancer = original.LoadBalancer
+		mergedPolicy.OutlierDetection = original.OutlierDetection
+		mergedPolicy.Tls = original.Tls
+	}
+
+	// Override with subset values.
+	if subsetPolicy.ConnectionPool != nil {
+		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
+	}
+	if subsetPolicy.OutlierDetection != nil {
+		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
+	}
+	if subsetPolicy.LoadBalancer != nil {
+		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
+	}
+	if subsetPolicy.Tls != nil {
+		mergedPolicy.Tls = subsetPolicy.Tls
+	}
+
+	// Check if port level overrides exist, if yes override with them.
+	if port != nil {
+		for _, p := range subsetPolicy.PortLevelSettings {
+			if p.Port != nil && uint32(port.Port) == p.Port.Number {
+				// per the docs, port level policies do not inherit and instead to defaults if not provided
+				mergedPolicy.ConnectionPool = p.ConnectionPool
+				mergedPolicy.OutlierDetection = p.OutlierDetection
+				mergedPolicy.LoadBalancer = p.LoadBalancer
+				mergedPolicy.Tls = p.Tls
+				break
+			}
+		}
+	}
+	return mergedPolicy
 }

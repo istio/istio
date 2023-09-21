@@ -53,7 +53,11 @@ spec:
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
       - name: istio-proxy
+      {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
+        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+      {{- else }}
         image: "{{ .ProxyImage }}"
+      {{- end }}
         {{- if .Values.global.proxy.resources }}
         resources:
           {{- toYaml .Values.global.proxy.resources | nindent 10 }}
@@ -68,8 +72,8 @@ spec:
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: true
-          runAsUser: 1337
-          runAsGroup: 1337
+          runAsUser: {{ .ProxyUID | default "1337" }}
+          runAsGroup: {{ .ProxyGID | default "1337" }}
           runAsNonRoot: true
         {{- else }}
           capabilities:
@@ -153,6 +157,14 @@ spec:
           value: "[]"
         - name: ISTIO_META_APP_CONTAINERS
           value: ""
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName .ClusterID }}"
         - name: ISTIO_META_NODE_NAME
@@ -309,8 +321,8 @@ spec:
   {{- end }}
   selector:
     istio.io/gateway-name: {{.Name}}
-  {{- if .Spec.Addresses }}
+  {{- if and (.Spec.Addresses) (eq .ServiceType "LoadBalancer") }}
   loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
   {{- end }}
-  type: {{ index .Annotations "networking.istio.io/service-type" | default "LoadBalancer" | quote }}
+  type: {{ .ServiceType | quote }}
 ---

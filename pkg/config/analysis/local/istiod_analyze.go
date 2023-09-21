@@ -48,6 +48,8 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -129,26 +131,41 @@ func NewIstiodAnalyzer(analyzer *analysis.CombinedAnalyzer, namespace,
 	return sa
 }
 
+func (sa *IstiodAnalyzer) ReAnalyzeSubset(kinds sets.Set[config.GroupVersionKind], cancel <-chan struct{}) (AnalysisResult, error) {
+	subset := sa.analyzer.RelevantSubset(kinds)
+	return sa.internalAnalyze(subset, cancel)
+}
+
 // ReAnalyze loads the sources and executes the analysis, assuming init is already called
 func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, error) {
+	return sa.internalAnalyze(sa.analyzer, cancel)
+}
+
+func (sa *IstiodAnalyzer) internalAnalyze(a *analysis.CombinedAnalyzer, cancel <-chan struct{}) (AnalysisResult, error) {
 	var result AnalysisResult
+	result.MappedMessages = map[string]diag.Messages{}
 	store := sa.initializedStore
-	result.ExecutedAnalyzers = sa.analyzer.AnalyzerNames()
-	result.SkippedAnalyzers = sa.analyzer.RemoveSkipped(store.Schemas())
+	result.ExecutedAnalyzers = a.AnalyzerNames()
+	result.SkippedAnalyzers = a.RemoveSkipped(store.Schemas())
 
 	kubelib.WaitForCacheSync("istiod analyzer", cancel, store.HasSynced)
 
 	ctx := NewContext(store, sa.cluster, cancel, sa.collectionReporter)
 
-	sa.analyzer.Analyze(ctx)
+	a.Analyze(ctx)
 
-	// TODO(hzxuzhonghu): we donot need set here
+	// TODO(hzxuzhonghu): we do not need set here
 	namespaces := sets.New[resource.Namespace]()
 	if sa.namespace != "" {
 		namespaces.Insert(sa.namespace)
 	}
-	// TODO: analysis is run for all namespaces, even if they are requested to be filtered.
-	msgs := filterMessages(ctx.(*istiodContext).messages, namespaces, sa.suppressions)
+	for _, analyzerName := range result.ExecutedAnalyzers {
+
+		// TODO: analysis is run for all namespaces, even if they are requested to be filtered.
+		msgs := filterMessages(ctx.(*istiodContext).GetMessages(analyzerName), namespaces, sa.suppressions)
+		result.MappedMessages[analyzerName] = msgs.SortedDedupedCopy()
+	}
+	msgs := filterMessages(ctx.(*istiodContext).GetMessages(), namespaces, sa.suppressions)
 	result.Messages = msgs.SortedDedupedCopy()
 
 	if len(sa.multiClusterStores) == 0 || sa.multiClusterAnalyzers == nil {
@@ -281,6 +298,18 @@ func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, in
 	}
 	src.SetDefaultNamespace(sa.namespace)
 
+	src.SetNamespacesFilter(func(obj interface{}) bool {
+		cfg, ok := obj.(config.Config)
+		if !ok {
+			return false
+		}
+		meta := cfg.GetNamespace()
+		if cfg.Meta.GroupVersionKind.Kind == gvk.Namespace.Kind {
+			meta = cfg.GetName()
+		}
+		return !inject.IgnoredNamespaces.Contains(meta)
+	})
+
 	var errs error
 
 	// If we encounter any errors reading or applying files, track them but attempt to continue
@@ -304,26 +333,83 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 	sa.AddRunningKubeSourceWithRevision(c, "default", false)
 }
 
+func isIstioConfigMap(obj any) bool {
+	cObj, ok := obj.(controllers.Object)
+	if !ok {
+		return false
+	}
+	return strings.HasPrefix(cObj.GetName(), "istio")
+}
+
+var secretFieldSelector = fields.AndSelectors(
+	fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
+	fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
+
+func (sa *IstiodAnalyzer) GetFiltersByGVK() map[config.GroupVersionKind]kubetypes.Filter {
+	return map[config.GroupVersionKind]kubetypes.Filter{
+		gvk.ConfigMap: {
+			Namespace:    sa.istioNamespace.String(),
+			ObjectFilter: isIstioConfigMap,
+		},
+		gvk.Secret: {
+			FieldSelector: secretFieldSelector,
+		},
+	}
+}
+
 func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string, multicluster bool) {
 	// This makes the assumption we don't care about Helm secrets or SA token secrets - two common
 	// large secrets in clusters.
 	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
-	secretFieldSelector := fields.AndSelectors(
-		fields.OneTermNotEqualSelector("type", "helm.sh/release.v1"),
-		fields.OneTermNotEqualSelector("type", string(v1.SecretTypeServiceAccountToken))).String()
+
+	ignoredNamespacesSelectorForField := func(field string) string {
+		selectors := make([]fields.Selector, 0, len(inject.IgnoredNamespaces))
+		for _, ns := range inject.IgnoredNamespaces.UnsortedList() {
+			selectors = append(selectors, fields.OneTermNotEqualSelector(field, ns))
+		}
+		return fields.AndSelectors(selectors...).String()
+	}
+
+	namespaceFieldSelector := ignoredNamespacesSelectorForField("metadata.name")
+	generalSelectors := ignoredNamespacesSelectorForField("metadata.namespace")
 
 	// TODO: are either of these string constants intended to vary?
-	// This gets us only istio/ ones
+	// We gets Istio CRD resources with a specific revision.
 	store := crdclient.NewForSchemas(c, crdclient.Option{
 		Revision:     revision,
+		DomainSuffix: "cluster.local",
+		Identifier:   "analysis-controller",
+		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
+			gvk.ConfigMap: {
+				Namespace:    sa.istioNamespace.String(),
+				ObjectFilter: isIstioConfigMap,
+			},
+		},
+	}, sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...))
+	sa.stores = append(sa.stores, store)
+
+	// We gets service discovery resources without a specific revision.
+	store = crdclient.NewForSchemas(c, crdclient.Option{
 		DomainSuffix: "cluster.local",
 		Identifier:   "analysis-controller",
 		FiltersByGVK: map[config.GroupVersionKind]kubetypes.Filter{
 			gvk.Secret: {
 				FieldSelector: secretFieldSelector,
 			},
+			gvk.Namespace: {
+				FieldSelector: namespaceFieldSelector,
+			},
+			gvk.Service: {
+				FieldSelector: generalSelectors,
+			},
+			gvk.Pod: {
+				FieldSelector: generalSelectors,
+			},
+			gvk.Deployment: {
+				FieldSelector: generalSelectors,
+			},
 		},
-	}, sa.kubeResources)
+	}, sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas()))
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
 	if multicluster {
 		clusterID := c.ClusterID()
@@ -403,6 +489,22 @@ func (sa *IstiodAnalyzer) AddDefaultResources() error {
 	}
 
 	return sa.AddReaderKubeSource(readers)
+}
+
+func (sa *IstiodAnalyzer) RegisterEventHandler(kind config.GroupVersionKind, handler model.EventHandler) {
+	for _, store := range sa.stores {
+		store.RegisterEventHandler(kind, handler)
+	}
+}
+
+func (sa *IstiodAnalyzer) Schemas() collection.Schemas {
+	result := collection.NewSchemasBuilder()
+	for _, store := range sa.stores {
+		for _, schema := range store.Schemas().All() {
+			result.MustAdd(schema)
+		}
+	}
+	return result.Build()
 }
 
 func (sa *IstiodAnalyzer) addRunningKubeIstioConfigMapSource(client kubelib.Client) error {

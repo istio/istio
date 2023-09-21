@@ -357,7 +357,7 @@ func renderManifest(cf *IstioComponentBase) (string, error) {
 }
 
 // createHelmRenderer creates a helm renderer for the component defined by c and returns a ptr to it.
-// If a helm subdir is not found in ComponentMap translations, it is assumed to be "addon/<component name>.
+// If a helm subdir is not found in ComponentMap translations, it is assumed to be "addon/<component name>".
 func createHelmRenderer(c *CommonComponentFields) helm.TemplateRenderer {
 	iop := c.InstallSpec
 	cns := string(c.ComponentName)

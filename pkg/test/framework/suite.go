@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test/prow"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/file"
+	"istio.io/istio/pkg/tracing"
 )
 
 // test.Run uses 0, 1, 2 exit codes. Use different exit codes for our framework.
@@ -401,10 +402,16 @@ func (s *suiteImpl) doSkip(ctx *suiteContext) int {
 }
 
 func (s *suiteImpl) run() (errLevel int) {
+	tc, shutdown, err := tracing.InitializeFullBinary(s.testID)
+	if err != nil {
+		return 99
+	}
+	defer shutdown()
 	if err := initRuntime(s); err != nil {
 		scopes.Framework.Errorf("Error during test framework init: %v", err)
 		return exitCodeInitError
 	}
+	rt.context.traceContext = tc
 
 	ctx := rt.suiteContext()
 	// Skip the test if its explicitly skipped
@@ -439,10 +446,12 @@ func (s *suiteImpl) run() (errLevel int) {
 		rt = nil
 	}()
 
+	_, span := tracing.Start(tc, "setup")
 	if err := s.runSetupFns(ctx); err != nil {
 		scopes.Framework.Errorf("Exiting due to setup failure: %v", err)
 		return exitCodeSetupError
 	}
+	span.End()
 
 	// Check if one of the setup functions ended up skipping the suite.
 	if s.isSkipped(ctx) {
@@ -543,6 +552,11 @@ func (s *suiteImpl) runSetupFns(ctx SuiteContext) (err error) {
 	// Run all the require functions first, then the setup functions.
 	setupFns := append(append([]resource.SetupFn{}, s.requireFns...), s.setupFns...)
 
+	// don't waste time setting up if already skipped
+	if s.isSkipped(ctx) {
+		return nil
+	}
+
 	start := time.Now()
 	for _, fn := range setupFns {
 		err := s.runSetupFn(fn, ctx)
@@ -552,6 +566,7 @@ func (s *suiteImpl) runSetupFns(ctx SuiteContext) (err error) {
 			return err
 		}
 
+		// setup added a skip
 		if s.isSkipped(ctx) {
 			return nil
 		}

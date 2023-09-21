@@ -29,7 +29,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -39,6 +38,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	apiannotation "istio.io/api/annotation"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	typev1beta1 "istio.io/api/type/v1beta1"
@@ -68,6 +68,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/wellknown"
 )
 
 type myProtoValue struct {
@@ -115,7 +116,7 @@ the configuration objects that affect that pod.`,
 
 			podLabels := klabels.Set(pod.ObjectMeta.Labels)
 			annotations := klabels.Set(pod.ObjectMeta.Annotations)
-			opts.Revision = getRevisionFromPodAnnotation(annotations)
+			opts.Revision = GetRevisionFromPodAnnotation(annotations)
 
 			printPod(writer, pod, opts.Revision)
 
@@ -178,7 +179,10 @@ the configuration objects that affect that pod.`,
 	return cmd
 }
 
-func getRevisionFromPodAnnotation(anno klabels.Set) string {
+func GetRevisionFromPodAnnotation(anno klabels.Set) string {
+	if v, ok := anno[label.IoIstioRev.Name]; ok {
+		return v
+	}
 	statusString := anno.Get(apiannotation.SidecarStatus.Name)
 	var injectionStatus inject.SidecarInjectionStatus
 	if err := json.Unmarshal([]byte(statusString), &injectionStatus); err != nil {
@@ -545,7 +549,7 @@ func findProtocolForPort(port *corev1.ServicePort) string {
 }
 
 func isMeshed(pod *corev1.Pod) bool {
-	return inject.FindSidecar(pod.Spec.Containers) != nil || inject.FindSidecar(pod.Spec.InitContainers) != nil
+	return inject.FindSidecar(pod) != nil
 }
 
 // Extract value of key out of Struct, but always return a Struct, even if the value isn't one
@@ -906,13 +910,17 @@ func printIngressInfo(
 	pod := pods.Items[0]
 
 	// Currently no support for non-standard gateways selecting non ingressgateway pods
-	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: "istio=ingressgateway",
-	})
+	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return multierror.Prefix(err, "Could not find ingress gateway service")
 	}
-	if len(ingressSvcs.Items) == 0 {
+	filteredIngressSvcs := []corev1.Service{}
+	for _, svc := range ingressSvcs.Items {
+		if v, ok := svc.Spec.Selector["istio"]; ok && v == "ingressgateway" {
+			filteredIngressSvcs = append(filteredIngressSvcs, svc)
+		}
+	}
+	if len(filteredIngressSvcs) == 0 {
 		return fmt.Errorf("no ingress gateway service")
 	}
 	byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump")
@@ -926,7 +934,7 @@ func printIngressInfo(
 		return fmt.Errorf("can't parse ingress gateway sidecar config_dump: %v", err)
 	}
 
-	ipIngress := getIngressIP(ingressSvcs.Items[0], pod)
+	ipIngress := getIngressIP(filteredIngressSvcs[0], pod)
 
 	for row, svc := range matchingServices {
 		for _, port := range svc.Spec.Ports {
@@ -955,7 +963,7 @@ func printIngressInfo(
 						fmt.Fprintf(writer, "--------------------\n")
 					}
 
-					printIngressService(writer, &ingressSvcs.Items[0], &pod, ipIngress)
+					printIngressService(writer, &filteredIngressSvcs[0], &pod, ipIngress)
 					printVirtualService(writer, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
 				} else {
 					fmt.Fprintf(writer,

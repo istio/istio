@@ -22,7 +22,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // A stateful listener builder
@@ -107,7 +107,6 @@ func (lb *ListenerBuilder) buildHTTPProxyListener() *ListenerBuilder {
 	if httpProxy == nil {
 		return lb
 	}
-	removeListenerFilterTimeout([]*listener.Listener{httpProxy})
 	lb.httpProxyListener = httpProxy
 	return lb
 }
@@ -137,7 +136,7 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 	}
 	// add extra addresses for the listener
 	if features.EnableDualStack && len(actualWildcards) > 1 {
-		ipTablesListener.AdditionalAddresses = util.BuildAdditionalAddresses(actualWildcards[1:], uint32(lb.push.Mesh.ProxyListenPort), lb.node)
+		ipTablesListener.AdditionalAddresses = util.BuildAdditionalAddresses(actualWildcards[1:], uint32(lb.push.Mesh.ProxyListenPort))
 	}
 
 	class := model.OutboundListenerClass(lb.node.Type)
@@ -235,11 +234,9 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       egressCluster,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: egressCluster},
+		IdleTimeout:      parseDuration(node.Metadata.IdleTimeout),
 	}
-	idleTimeoutDuration, err := time.ParseDuration(node.Metadata.IdleTimeout)
-	if err == nil {
-		tcpProxy.IdleTimeout = durationpb.New(idleTimeoutDuration)
-	}
+
 	filterStack := buildMetricsNetworkFilters(push, node, istionetworking.ListenerClassSidecarOutbound)
 	accessLogBuilder.setTCPAccessLog(push, node, tcpProxy, istionetworking.ListenerClassSidecarOutbound)
 	filterStack = append(filterStack, &listener.Filter{
@@ -248,6 +245,17 @@ func buildOutboundCatchAllNetworkFiltersOnly(push *model.PushContext, node *mode
 	})
 
 	return filterStack
+}
+
+func parseDuration(s string) *durationpb.Duration {
+	if s == "" {
+		return nil
+	}
+	t, err := time.ParseDuration(s)
+	if err != nil {
+		return nil
+	}
+	return durationpb.New(t)
 }
 
 // TODO: This code is still insufficient. Ideally we should be parsing all the virtual services
@@ -327,15 +335,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	websocketUpgrade := &hcm.HttpConnectionManager_UpgradeConfig{UpgradeType: "websocket"}
 	connectionManager.UpgradeConfigs = []*hcm.HttpConnectionManager_UpgradeConfig{websocketUpgrade}
 
-	idleTimeout, err := time.ParseDuration(lb.node.Metadata.IdleTimeout)
-	if err == nil {
+	if idleTimeout := parseDuration(lb.node.Metadata.IdleTimeout); idleTimeout != nil {
 		connectionManager.CommonHttpProtocolOptions = &core.HttpProtocolOptions{
-			IdleTimeout: durationpb.New(idleTimeout),
+			IdleTimeout: idleTimeout,
 		}
 	}
 
-	notimeout := durationpb.New(0 * time.Second)
-	connectionManager.StreamIdleTimeout = notimeout
+	connectionManager.StreamIdleTimeout = durationpb.New(0 * time.Second)
 
 	if httpOpts.rds != "" {
 		rds := &hcm.HttpConnectionManager_Rds{
@@ -357,32 +363,46 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	accessLogBuilder.setHTTPAccessLog(lb.push, lb.node, connectionManager, httpOpts.class)
 
-	routerFilterCtx, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
+	startChildSpan, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
 
 	filters := []*hcm.HttpFilter{}
 	if !httpOpts.isWaypoint {
 		wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
 			Port:  httpOpts.port,
 			Class: httpOpts.class,
-		})
+		}, model.WasmPluginTypeHTTP)
 
 		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
 		if features.MetadataExchange && !httpOpts.hbone && !lb.node.IsAmbient() {
-			filters = append(filters, xdsfilters.HTTPMx)
+			if features.NativeMetadataExchange && util.IsIstioVersionGE119(lb.node.IstioVersion) {
+				if httpOpts.class == istionetworking.ListenerClassSidecarInbound {
+					filters = append(filters, xdsfilters.SidecarInboundMetadataFilter)
+				} else {
+					if httpOpts.skipIstioMXHeaders {
+						filters = append(filters, xdsfilters.SidecarOutboundMetadataFilterSkipHeaders)
+					} else {
+						filters = append(filters, xdsfilters.SidecarOutboundMetadataFilter)
+					}
+				}
+			} else {
+				filters = append(filters, xdsfilters.HTTPMx)
+			}
 		}
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
 		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHZ)
 		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_STATS)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	}
 
 	if httpOpts.protocol == protocol.GRPCWeb {
+		// TODO: because we share an HCM between many services, this check is broken; it will only work if the first
+		// GRPCWeb is probably only used for Gateways though, which don't have this concern.
 		filters = append(filters, xdsfilters.GrpcWeb)
 	}
 
@@ -404,7 +424,10 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	if features.EnablePersistentSessionFilter && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
 		filters = append(filters, xdsfilters.EmptySessionFilter)
 	}
-	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
+	filters = append(filters, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       startChildSpan,
+		SuppressDebugHeaders: httpOpts.suppressEnvoyDebugHeaders,
+	}))
 
 	connectionManager.HttpFilters = filters
 	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIDExtensionCtx)

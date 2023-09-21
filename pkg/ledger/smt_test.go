@@ -195,7 +195,7 @@ func TestSmtDelete(t *testing.T) {
 	_, err := smt.Update([][]byte{key0, key1}, [][]byte{defaultLeaf, defaultLeaf})
 	assert.NoError(t, err)
 	if !bytes.Equal(root, smt.root) {
-		t.Fatal("deleting a default key shouldnt' modify the tree")
+		t.Fatal("deleting a default key shouldn't modify the tree")
 	}
 }
 
@@ -208,7 +208,7 @@ func TestTrieUpdateAndDelete(t *testing.T) {
 	smt.atomicUpdate = false
 	_, _, k, v, isShortcut, _ := smt.loadChildren(root, smt.trieHeight, 0, nil)
 	if !isShortcut || !bytes.Equal(k[:hashLength], key0) || !bytes.Equal(v[:hashLength], values[0]) {
-		t.Fatal("leaf shortcut didn'tree move up to root")
+		t.Fatal("leaf shortcut didn't move up to root")
 	}
 
 	key1 := make([]byte, 8)
@@ -239,7 +239,7 @@ func TestSmtRaisesError(t *testing.T) {
 		_, err := smt.Get(key)
 		assert.Error(t, err)
 		assert.Equal(t, strings.Contains(err.Error(), "is unavailable in the disk db"), true,
-			"Error not created if database doesnt have a node")
+			"Error not created if database doesn't have a node")
 	}
 }
 

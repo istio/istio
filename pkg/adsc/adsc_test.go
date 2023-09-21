@@ -19,7 +19,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"sync"
 	"testing"
 	"time"
 
@@ -41,6 +40,8 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 )
 
 type testAdscRunServer struct{}
@@ -131,7 +132,6 @@ func TestADSC_Run(t *testing.T) {
 				Received:   make(map[string]*discovery.DiscoveryResponse),
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *discovery.DiscoveryResponse),
-				RecvWg:     sync.WaitGroup{},
 				cfg: &Config{
 					InitialDiscoveryRequests: desc.initialRequests,
 				},
@@ -186,7 +186,24 @@ func TestADSC_Run(t *testing.T) {
 				t.Errorf("ADSC: failed running %v", err)
 				return
 			}
-			tt.inAdsc.RecvWg.Wait()
+			assert.EventuallyEqual(t, func() bool {
+				tt.inAdsc.mutex.Lock()
+				defer tt.inAdsc.mutex.Unlock()
+				rec := tt.inAdsc.Received
+
+				if rec == nil && len(rec) != len(tt.expectedADSResources.Received) {
+					return false
+				}
+				for tpe, rsrcs := range tt.expectedADSResources.Received {
+					if _, ok := rec[tpe]; !ok {
+						return false
+					}
+					if len(rsrcs.Resources) != len(rec[tpe].Resources) {
+						return false
+					}
+				}
+				return true
+			}, true, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
 
 			if tt.validator != nil {
 				if err := tt.validator(tt); err != nil {

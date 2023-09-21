@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
+	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
@@ -76,6 +77,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				if err != nil {
 					return err
 				}
+				if ambient.IsZtunnelPod(kubeClient, podName, ns) {
+					_, _ = fmt.Fprintf(c.OutOrStdout(),
+						"Sync diff is not available for ztunnel pod %s.%s\n", podName, ns)
+					return nil
+				}
 				var envoyDump []byte
 				if configDumpFile != "" {
 					envoyDump, err = readConfigFile(configDumpFile)
@@ -98,7 +104,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				}
 				return c.Diff()
 			}
-			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), "debug/syncz")
+			queryStr := "debug/syncz"
+			if ctx.Namespace() != "" {
+				queryStr += "?namespace=" + ctx.Namespace()
+			}
+			statuses, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), queryStr)
 			if err != nil {
 				return err
 			}
@@ -183,6 +193,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				if err != nil {
 					return err
 				}
+				if ambient.IsZtunnelPod(kubeClient, podName, ns) {
+					_, _ = fmt.Fprintf(c.OutOrStdout(),
+						"Sync diff is not available for ztunnel pod %s.%s\n", podName, ns)
+					return nil
+				}
 				var envoyDump []byte
 				if configDumpFile != "" {
 					envoyDump, err = readConfigFile(configDumpFile)
@@ -215,7 +230,10 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			if err != nil {
 				return err
 			}
-			sw := pilot.XdsStatusWriter{Writer: c.OutOrStdout()}
+			sw := pilot.XdsStatusWriter{
+				Writer:    c.OutOrStdout(),
+				Namespace: ctx.Namespace(),
+			}
 			return sw.PrintAll(xdsResponses)
 		},
 	}

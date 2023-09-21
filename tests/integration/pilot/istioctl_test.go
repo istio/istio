@@ -257,6 +257,34 @@ func TestProxyConfig(t *testing.T) {
 
 			args = []string{
 				"--namespace=dummy",
+				"pc", "all", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
+			}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			dumpAll, ok := jsonOutput.(map[string]any)
+			if !ok {
+				t.Fatalf("Failed to parse istioctl %s config dump to top level map", strings.Join(args, " "))
+			}
+			rawConfigs, ok := dumpAll["configs"].([]any)
+			if !ok {
+				t.Fatalf("Failed to parse istioctl %s config dump to slice of any", strings.Join(args, " "))
+			}
+			hasEndpoints := false
+			for _, rawConfig := range rawConfigs {
+				configDump, ok := rawConfig.(map[string]any)
+				if !ok {
+					t.Fatalf("Failed to parse istioctl %s raw config dump element to map of any", strings.Join(args, " "))
+				}
+				if configDump["@type"] == "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump" {
+					hasEndpoints = true
+					break
+				}
+			}
+
+			g.Expect(hasEndpoints).To(gomega.BeTrue())
+
+			args = []string{
+				"--namespace=dummy",
 				"pc", "secret", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
@@ -352,6 +380,13 @@ func TestProxyStatus(t *testing.T) {
 				}
 				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
 			})
+
+			// test namespace filtering
+			retry.UntilSuccessOrFail(t, func() error {
+				args = []string{"proxy-status", "-n", apps.Namespace.Name()}
+				output, _ = istioCtl.InvokeOrFail(t, args)
+				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
+			})
 		})
 }
 
@@ -419,6 +454,16 @@ func TestXdsProxyStatus(t *testing.T) {
 					return err
 				}
 				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
+			})
+
+			// test namespace filtering
+			retry.UntilSuccessOrFail(t, func() error {
+				args := []string{"x", "proxy-status", "-n", apps.Namespace.Name()}
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
+				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
 			})
 		})
 }

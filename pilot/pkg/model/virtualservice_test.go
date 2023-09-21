@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const wildcardIP = "0.0.0.0"
@@ -635,67 +636,67 @@ func TestMergeVirtualServices(t *testing.T) {
 		name                    string
 		virtualServices         []config.Config
 		expectedVirtualServices []config.Config
-		defaultExportTo         map[visibility.Instance]bool
+		defaultExportTo         sets.Set[visibility.Instance]
 	}{
 		{
 			name:                    "one independent vs",
 			virtualServices:         []config.Config{independentVs},
 			expectedVirtualServices: []config.Config{independentVs},
-			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
+			defaultExportTo:         sets.New(visibility.Public),
 		},
 		{
 			name:                    "one root vs",
 			virtualServices:         []config.Config{rootVs},
 			expectedVirtualServices: []config.Config{oneRoot},
-			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
+			defaultExportTo:         sets.New(visibility.Public),
 		},
 		{
 			name:                    "one delegate vs",
 			virtualServices:         []config.Config{delegateVs},
 			expectedVirtualServices: []config.Config{},
-			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
+			defaultExportTo:         sets.New(visibility.Public),
 		},
 		{
 			name:                    "root and delegate vs",
 			virtualServices:         []config.Config{rootVs.DeepCopy(), delegateVs},
 			expectedVirtualServices: []config.Config{mergedVs},
-			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
+			defaultExportTo:         sets.New(visibility.Public),
 		},
 		{
 			name:                    "root and conflicted delegate vs",
 			virtualServices:         []config.Config{rootVs.DeepCopy(), delegateVs2},
 			expectedVirtualServices: []config.Config{mergedVs2},
-			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
+			defaultExportTo:         sets.New(visibility.Public),
 		},
 		{
 			name:                    "multiple routes delegate to one",
 			virtualServices:         []config.Config{multiRoutes.DeepCopy(), singleDelegate},
 			expectedVirtualServices: []config.Config{mergedVs3},
-			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
+			defaultExportTo:         sets.New(visibility.Public),
 		},
 		{
 			name:                    "root not specify delegate namespace default public",
 			virtualServices:         []config.Config{defaultVs.DeepCopy(), delegateVsExportedToAll},
 			expectedVirtualServices: []config.Config{mergedVsInDefault},
-			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
+			defaultExportTo:         sets.New(visibility.Public),
 		},
 		{
 			name:                    "delegate not exported to root vs namespace default public",
 			virtualServices:         []config.Config{rootVs, delegateVsNotExported},
 			expectedVirtualServices: []config.Config{oneRoot},
-			defaultExportTo:         map[visibility.Instance]bool{visibility.Public: true},
+			defaultExportTo:         sets.New(visibility.Public),
 		},
 		{
 			name:                    "root not specify delegate namespace default private",
 			virtualServices:         []config.Config{defaultVs.DeepCopy(), delegateVsExportedToAll},
 			expectedVirtualServices: []config.Config{mergedVsInDefault},
-			defaultExportTo:         map[visibility.Instance]bool{visibility.Private: true},
+			defaultExportTo:         sets.New(visibility.Private),
 		},
 		{
 			name:                    "delegate not exported to root vs namespace default private",
 			virtualServices:         []config.Config{rootVs, delegateVsNotExported},
 			expectedVirtualServices: []config.Config{oneRoot},
-			defaultExportTo:         map[visibility.Instance]bool{visibility.Private: true},
+			defaultExportTo:         sets.New(visibility.Private),
 		},
 	}
 
@@ -708,6 +709,34 @@ func TestMergeVirtualServices(t *testing.T) {
 }
 
 func TestMergeHttpRoutes(t *testing.T) {
+	dstV1 := &networking.Destination{
+		Host: "productpage.org",
+		Port: &networking.PortSelector{
+			Number: 80,
+		},
+		Subset: "v1",
+	}
+	dstV2 := &networking.Destination{
+		Host: "productpage.org",
+		Port: &networking.PortSelector{
+			Number: 80,
+		},
+		Subset: "v2",
+	}
+	dstV3 := &networking.Destination{
+		Host: "productpage.org",
+		Port: &networking.PortSelector{
+			Number: 80,
+		},
+		Subset: "v3",
+	}
+	dstMirrorV1 := dstV1.DeepCopy()
+	dstMirrorV1.Host = "productpage-mirror.org"
+	dstMirrorV2 := dstV2.DeepCopy()
+	dstMirrorV2.Host = "productpage-mirror.org"
+	dstMirrorV3 := dstV3.DeepCopy()
+	dstMirrorV3.Host = "productpage-mirror.org"
+
 	cases := []struct {
 		name     string
 		root     *networking.HTTPRoute
@@ -746,17 +775,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v1",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV1}},
 				},
 				{
 					Match: []*networking.HTTPMatchRequest{
@@ -783,17 +802,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v2",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV2}},
 				},
 			},
 			expected: []*networking.HTTPRoute{
@@ -810,17 +819,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v1",
-							},
-						},
-					},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV1}},
 					Timeout: &durationpb.Duration{Seconds: 10},
 					Headers: &networking.Headers{
 						Request: &networking.Headers_HeaderOperations{
@@ -856,17 +855,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v2",
-							},
-						},
-					},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV2}},
 					Timeout: &durationpb.Duration{Seconds: 10},
 					Headers: &networking.Headers{
 						Request: &networking.Headers_HeaderOperations{
@@ -909,17 +898,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v1",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV1}},
 				},
 				{
 					Match: []*networking.HTTPMatchRequest{
@@ -946,31 +925,11 @@ func TestMergeHttpRoutes(t *testing.T) {
 							},
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v2",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV2}},
 				},
 				{
 					// default route to v3
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v3",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV3}},
 				},
 			},
 			expected: []*networking.HTTPRoute{
@@ -988,17 +947,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							Port: 8080,
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v1",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV1}},
 				},
 				{
 					Match: []*networking.HTTPMatchRequest{
@@ -1030,17 +979,7 @@ func TestMergeHttpRoutes(t *testing.T) {
 							Port: 8080,
 						},
 					},
-					Route: []*networking.HTTPRouteDestination{
-						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v2",
-							},
-						},
-					},
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV2}},
 				},
 				{
 					Match: []*networking.HTTPMatchRequest{
@@ -1052,17 +991,75 @@ func TestMergeHttpRoutes(t *testing.T) {
 						},
 					},
 					// default route to v3
-					Route: []*networking.HTTPRouteDestination{
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV3}},
+				},
+			},
+		},
+		{
+			name: "delegate with mirrors",
+			root: &networking.HTTPRoute{
+				Match:   nil,
+				Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV3}},
+				Delegate: &networking.Delegate{
+					Name:      "delegate",
+					Namespace: "default",
+				},
+			},
+			delegate: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
 						{
-							Destination: &networking.Destination{
-								Host: "productpage.org",
-								Port: &networking.PortSelector{
-									Number: 80,
-								},
-								Subset: "v3",
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v1"},
 							},
 						},
 					},
+					Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV1}},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV1}},
+				},
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v2"},
+							},
+						},
+					},
+					Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV2}},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV2}},
+				},
+				{
+					// default route to v3 with no specified mirrors
+					Route: []*networking.HTTPRouteDestination{{Destination: dstV3}},
+				},
+			},
+			expected: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v1"},
+							},
+						},
+					},
+					Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV1}},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV1}},
+				},
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{Prefix: "/productpage/v2"},
+							},
+						},
+					},
+					Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV2}},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV2}},
+				},
+				{
+					// default route to v3
+					Mirrors: []*networking.HTTPMirrorPolicy{{Destination: dstMirrorV3}},
+					Route:   []*networking.HTTPRouteDestination{{Destination: dstV3}},
 				},
 			},
 		},
@@ -1249,7 +1246,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			},
 		},
 		{
-			name: "headers",
+			name: "headers conflict",
 			root: []*networking.HTTPMatchRequest{
 				{
 					Headers: map[string]*networking.StringMatch{
@@ -1484,6 +1481,7 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
+			tc.delegate = config.DeepCopy(tc.delegate).([]*networking.HTTPMatchRequest)
 			got, _ := mergeHTTPMatchRequests(tc.root, tc.delegate)
 			assert.Equal(t, got, tc.expected)
 		})
@@ -1808,6 +1806,7 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 			r.Route = nil
 			r.Redirect = nil
 			r.Delegate = nil
+			r.Mirrors = []*networking.HTTPMirrorPolicy{{}}
 		},
 		func(r *networking.HTTPMatchRequest, c fuzz.Continue) {
 			*r = networking.HTTPMatchRequest{}
@@ -1852,6 +1851,9 @@ func TestFuzzMergeHttpRoute(t *testing.T) {
 		},
 		func(r *networking.Headers, c fuzz.Continue) {
 			*r = networking.Headers{}
+		},
+		func(r *networking.HTTPMirrorPolicy, c fuzz.Continue) {
+			*r = networking.HTTPMirrorPolicy{}
 		})
 
 	root := &networking.HTTPRoute{}
@@ -1957,11 +1959,24 @@ func TestSelectVirtualService(t *testing.T) {
 		buildHTTPService("test-private-2.com", visibility.Private, "9.9.9.10", "not-default", 60),
 		buildHTTPService("test-headless.com", visibility.Public, wildcardIP, "not-default", 8888),
 		buildHTTPService("test-headless-someother.com", visibility.Public, wildcardIP, "some-other-ns", 8888),
+		buildHTTPService("a.test1.wildcard.com", visibility.Public, wildcardIP, "default", 8888),
+		buildHTTPService("*.test2.wildcard.com", visibility.Public, wildcardIP, "default", 8888),
 	}
 
-	hostsByNamespace := make(map[string][]host.Name)
+	hostsByNamespace := make(map[string]hostClassification)
 	for _, svc := range services {
-		hostsByNamespace[svc.Attributes.Namespace] = append(hostsByNamespace[svc.Attributes.Namespace], svc.Hostname)
+		ns := svc.Attributes.Namespace
+		if _, exists := hostsByNamespace[ns]; !exists {
+			hostsByNamespace[ns] = hostClassification{exactHosts: sets.New[host.Name](), allHosts: make([]host.Name, 0)}
+		}
+
+		hc := hostsByNamespace[ns]
+		hc.allHosts = append(hc.allHosts, svc.Hostname)
+		hostsByNamespace[ns] = hc
+
+		if !svc.Hostname.IsWildCarded() {
+			hostsByNamespace[ns].exactHosts.Insert(svc.Hostname)
+		}
 	}
 
 	virtualServiceSpec1 := &networking.VirtualService{
@@ -2092,6 +2107,44 @@ func TestSelectVirtualService(t *testing.T) {
 			},
 		},
 	}
+	virtualServiceSpec8 := &networking.VirtualService{
+		Hosts:    []string{"*.test1.wildcard.com"}, // match: a.test1.wildcard.com
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 64,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
+	virtualServiceSpec9 := &networking.VirtualService{
+		Hosts:    []string{"foo.test2.wildcard.com"}, // match: *.test2.wildcard.com
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test.org",
+							Port: &networking.PortSelector{
+								Number: 64,
+							},
+						},
+						Weight: 100,
+					},
+				},
+			},
+		},
+	}
 	virtualService1 := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.VirtualService,
@@ -2148,6 +2201,22 @@ func TestSelectVirtualService(t *testing.T) {
 		},
 		Spec: virtualServiceSpec7,
 	}
+	virtualService8 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "vs-wildcard-v1",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceSpec8,
+	}
+	virtualService9 := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.VirtualService,
+			Name:             "service-wildcard-v1",
+			Namespace:        "default",
+		},
+		Spec: virtualServiceSpec9,
+	}
 
 	index := virtualServiceIndex{
 		publicByGateway: map[string][]config.Config{
@@ -2159,18 +2228,23 @@ func TestSelectVirtualService(t *testing.T) {
 				virtualService5,
 				virtualService6,
 				virtualService7,
+				virtualService8,
+				virtualService9,
 			},
 		},
 	}
 
 	configs := SelectVirtualServices(index, "some-ns", hostsByNamespace)
-	expectedVS := []string{virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name}
+	expectedVS := []string{
+		virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name,
+		virtualService8.Name, virtualService9.Name,
+	}
 	if len(expectedVS) != len(configs) {
-		t.Fatalf("Unexpected virtualService, got %d, epxected %d", len(configs), len(expectedVS))
+		t.Fatalf("Unexpected virtualService, got %d, expected %d", len(configs), len(expectedVS))
 	}
 	for i, config := range configs {
 		if config.Name != expectedVS[i] {
-			t.Fatalf("Unexpected virtualService, got %s, epxected %s", config.Name, expectedVS[i])
+			t.Fatalf("Unexpected virtualService, got %s, expected %s", config.Name, expectedVS[i])
 		}
 	}
 }
@@ -2184,7 +2258,7 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 		Attributes: ServiceAttributes{
 			ServiceRegistry: provider.Kubernetes,
 			Namespace:       namespace,
-			ExportTo:        map[visibility.Instance]bool{v: true},
+			ExportTo:        sets.New(v),
 		},
 	}
 	if ip == wildcardIP {

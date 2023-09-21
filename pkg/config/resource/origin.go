@@ -31,7 +31,7 @@ type Origin interface {
 	ClusterName() cluster.ID
 }
 
-// Reference provides more information about an Origin. This is also source-implementation dependant.
+// Reference provides more information about an Origin. This is also source-implementation dependent.
 type Reference interface {
 	String() string
 }

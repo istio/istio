@@ -17,18 +17,13 @@ package monitoring_test
 import "istio.io/istio/pkg/monitoring"
 
 var (
-	protocol = monitoring.MustCreateLabel("protocol")
+	protocol = monitoring.CreateLabel("protocol")
 
 	requests = monitoring.NewSum(
 		"requests_total",
 		"Number of requests handled, by protocol",
-		monitoring.WithLabels(protocol),
 	)
 )
-
-func init() {
-	monitoring.MustRegister(requests)
-}
 
 func ExampleNewSum() {
 	// increment on every http request

@@ -78,8 +78,6 @@ spec:
 {{- if .Values.global.priorityClassName }}
       priorityClassName: "{{ .Values.global.priorityClassName }}"
 {{- end }}
-      securityContext:
-        fsGroup: 1337
       containers:
         - name: discovery
 {{- if contains "/" .Values.pilot.image }}
@@ -163,12 +161,6 @@ spec:
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.pilot.traceSampling }}"
 {{- end }}
-          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
-            value: "{{ .Values.pilot.enableProtocolSniffingForOutbound }}"
-          - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-            value: "{{ .Values.pilot.enableProtocolSniffingForInbound }}"
-          - name: ISTIOD_ADDR
-            value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Release.Namespace }}.svc:15012
           - name: PILOT_ENABLE_ANALYSIS
             value: "{{ .Values.global.istiod.enableAnalysis }}"
           - name: CLUSTER_ID
@@ -177,6 +169,10 @@ spec:
             valueFrom:
               resourceFieldRef:
                 resource: limits.memory
+          - name: GOMAXPROCS
+            valueFrom:
+              resourceFieldRef:
+                resource: limits.cpu
           - name: PLATFORM
             value: "{{ .Values.global.platform }}"
           resources:
@@ -188,8 +184,6 @@ spec:
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
-            runAsUser: 1337
-            runAsGroup: 1337
             runAsNonRoot: true
             capabilities:
               drop:

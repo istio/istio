@@ -38,8 +38,18 @@ func (wf *WorkloadFilter) Verify(workload *ztunnelDump.ZtunnelWorkload) bool {
 	if wf.Address == "" && wf.Node == "" {
 		return true
 	}
-	if wf.Address != "" && !strings.EqualFold(workload.WorkloadIP, wf.Address) {
-		return false
+
+	if wf.Address != "" {
+		var find bool
+		for _, ip := range workload.WorkloadIPs {
+			if strings.EqualFold(ip, wf.Address) {
+				find = true
+				break
+			}
+		}
+		if !find {
+			return false
+		}
 	}
 	if wf.Node != "" && !strings.EqualFold(workload.Node, wf.Node) {
 		return false
@@ -63,10 +73,10 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 
 	// Sort by name, node
 	sort.Slice(verifiedWorkloads, func(i, j int) bool {
-		iName := verifiedWorkloads[i].Name
-		jName := verifiedWorkloads[j].Name
-		if iName != jName {
-			return iName < jName
+		in := verifiedWorkloads[i].Namespace + "." + verifiedWorkloads[i].Name
+		jn := verifiedWorkloads[j].Namespace + "." + verifiedWorkloads[j].Name
+		if in != jn {
+			return in < jn
 		}
 		iNode := verifiedWorkloads[i].Node
 		jNode := verifiedWorkloads[j].Node
@@ -74,17 +84,21 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 	})
 
 	if filter.Verbose {
-		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE\tWAYPOINT\tPROTOCOL")
+		fmt.Fprintln(w, "NAMESPACE\tNAME\tIP\tNODE\tWAYPOINT\tPROTOCOL")
 	} else {
-		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE")
+		fmt.Fprintln(w, "NAMESPACE\tNAME\tIP\tNODE")
 	}
 
 	for _, wl := range verifiedWorkloads {
+		var ip string
+		if len(wl.WorkloadIPs) > 0 {
+			ip = wl.WorkloadIPs[0]
+		}
 		if filter.Verbose {
 			waypoint := waypointName(wl, zDump.Services)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, wl.WorkloadIP, wl.Node, waypoint, wl.Protocol)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", wl.Namespace, wl.Name, ip, wl.Node, waypoint, wl.Protocol)
 		} else {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, wl.WorkloadIP, wl.Node)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Namespace, wl.Name, ip, wl.Node)
 		}
 	}
 	return w.Flush()
@@ -144,7 +158,7 @@ func waypointName(wl *ztunnelDump.ZtunnelWorkload, services map[string]*ztunnelD
 		return "None"
 	}
 
-	if svc, ok := services[wl.Waypoint.Destination.Content]; ok {
+	if svc, ok := services[wl.Waypoint.Destination]; ok {
 		return svc.Name
 	}
 

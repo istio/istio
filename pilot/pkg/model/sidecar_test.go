@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -836,7 +837,7 @@ var (
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns1",
-				ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
+				ExportTo:  sets.New(visibility.Private),
 			},
 		},
 		{
@@ -1989,9 +1990,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			ps.exportToDefaults = exportToDefaults{
-				virtualService:  map[visibility.Instance]bool{visibility.Public: true},
-				service:         map[visibility.Instance]bool{visibility.Public: true},
-				destinationRule: map[visibility.Instance]bool{visibility.Public: true},
+				virtualService:  sets.New(visibility.Public),
+				service:         sets.New(visibility.Public),
+				destinationRule: sets.New(visibility.Public),
 			}
 
 			sidecarConfig := tt.sidecarConfig
@@ -2091,77 +2092,121 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		Ports:      port8000,
 		Attributes: ServiceAttributes{Namespace: "b"},
 	}
+
+	serviceBWildcard := &Service{
+		Hostname:   "*.test.wildcard.com",
+		Ports:      port8000,
+		Attributes: ServiceAttributes{Namespace: "b"},
+	}
 	allServices := []*Service{serviceA8000, serviceA9000, serviceAalt, serviceB8000, serviceB9000, serviceBalt}
 
 	tests := []struct {
 		name          string
-		listenerHosts map[string][]host.Name
+		listenerHosts map[string]hostClassification
 		services      []*Service
 		expected      []*Service
 		namespace     string
 	}{
 		{
-			name:          "*/* imports only those in a",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {wildcardService}},
-			services:      allServices,
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "*/* imports only those in a",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "*/* will bias towards configNamespace",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {wildcardService}},
-			services:      []*Service{serviceB8000, serviceB9000, serviceBalt, serviceA8000, serviceA9000, serviceAalt},
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "*/* will bias towards configNamespace",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  []*Service{serviceB8000, serviceB9000, serviceBalt, serviceA8000, serviceA9000, serviceAalt},
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "a/* imports only those in a",
-			listenerHosts: map[string][]host.Name{"a": {wildcardService}},
-			services:      allServices,
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "a/* imports only those in a",
+			listenerHosts: map[string]hostClassification{
+				"a": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "b/*, b/* imports only those in b",
-			listenerHosts: map[string][]host.Name{"b": {wildcardService, wildcardService}},
-			services:      allServices,
-			expected:      []*Service{serviceB8000, serviceB9000, serviceBalt},
-			namespace:     "a",
+			name: "b/*, b/* imports only those in b",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{wildcardService, wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceB8000, serviceB9000, serviceBalt},
+			namespace: "a",
 		},
 		{
-			name:          "*/alt imports alt in namespace a",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {"alt"}},
-			services:      allServices,
-			expected:      []*Service{serviceAalt},
-			namespace:     "a",
+			name: "*/alt imports alt in namespace a",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{"alt"}, exactHosts: sets.New[host.Name]("alt")},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "b/alt imports alt in a namespaces",
-			listenerHosts: map[string][]host.Name{"b": {"alt"}},
-			services:      allServices,
-			expected:      []*Service{serviceBalt},
-			namespace:     "a",
+			name: "b/alt imports alt in a namespaces",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{"alt"}, exactHosts: sets.New[host.Name]("alt")},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceBalt},
+			namespace: "a",
 		},
 		{
-			name:          "b/* imports doesn't import in namespace a with proxy in a",
-			listenerHosts: map[string][]host.Name{"b": {wildcardService}},
-			services:      []*Service{serviceA8000},
-			expected:      []*Service{},
-			namespace:     "a",
+			name: "b/* imports doesn't import in namespace a with proxy in a",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  []*Service{serviceA8000},
+			expected:  []*Service{},
+			namespace: "a",
 		},
 		{
-			name:          "multiple hosts selected same service",
-			listenerHosts: map[string][]host.Name{"a": {wildcardService}, "*": {wildcardService}},
-			services:      []*Service{serviceA8000},
-			expected:      []*Service{serviceA8000},
-			namespace:     "a",
+			name: "multiple hosts selected same service",
+			listenerHosts: map[string]hostClassification{
+				"a": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+				"*": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  []*Service{serviceA8000},
+			expected:  []*Service{serviceA8000},
+			namespace: "a",
 		},
 		{
-			name:          "fall back to wildcard namespace",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {"host"}, "a": {"alt"}},
-			services:      allServices,
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "fall back to wildcard namespace",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{"host"}, exactHosts: sets.New[host.Name]("host")},
+				"a":               {allHosts: []host.Name{"alt"}, exactHosts: sets.New[host.Name]("alt")},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
+		},
+		{
+			name: "service is wildcard, but not listener's subset",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{"wildcard.com"}, exactHosts: sets.New[host.Name]("wildcard.com")},
+			},
+			services:  []*Service{serviceBWildcard},
+			expected:  []*Service{},
+			namespace: "b",
+		},
+		{
+			name: "service is wildcard",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{"*.wildcard.com"}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  []*Service{serviceBWildcard},
+			expected:  []*Service{serviceBWildcard},
+			namespace: "b",
 		},
 	}
 
@@ -2503,6 +2548,7 @@ func BenchmarkConvertIstioListenerToWrapper(b *testing.B) {
 }
 
 func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int, wildcard string, matchAll bool) {
+	// virtual service
 	cfgs := make([]config.Config, 0)
 	for i := 0; i < vsNum; i++ {
 		cfgs = append(cfgs, config.Config{
@@ -2517,7 +2563,17 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 		})
 	}
 	ps := NewPushContext()
-	ps.virtualServiceIndex.publicByGateway["default"] = cfgs
+	ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = cfgs
+
+	// service
+	svcList := make([]*Service, 0, vsNum)
+	for i := 0; i < vsNum; i++ {
+		svcList = append(svcList, &Service{
+			Attributes: ServiceAttributes{Namespace: "default"},
+			Hostname:   host.Name("host-" + strconv.Itoa(i) + ".com"),
+		})
+	}
+	ps.ServiceIndex.public = svcList
 
 	hosts := make([]string, 0)
 	if matchAll {
@@ -2537,6 +2593,6 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		convertIstioListenerToWrapper(ps, "this-test-not-use-ns", istioListener)
+		convertIstioListenerToWrapper(ps, "default", istioListener)
 	}
 }

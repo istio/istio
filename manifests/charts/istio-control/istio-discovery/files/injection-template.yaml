@@ -24,6 +24,7 @@
     {{- end }}
   {{- end }}
 {{- end }}
+{{ $nativeSidecar := (eq (env "ENABLE_NATIVE_SIDECARS" "false") "true") }}
 {{- $containers := list }}
 {{- range $index, $container := .Spec.Containers }}{{ if not (eq $container.Name "istio-proxy") }}{{ $containers = append $containers $container.Name }}{{end}}{{- end}}
 metadata:
@@ -84,7 +85,7 @@ spec:
     - "-z"
     - {{ .MeshConfig.ProxyInboundListenPort | default "15006" | quote }}
     - "-u"
-    - "1337"
+    - {{ .ProxyUID | default "1337" | quote }}
     - "-m"
     - "{{ annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode }}"
     - "-i"
@@ -151,8 +152,8 @@ spec:
       runAsUser: 0
     {{- else }}
       readOnlyRootFilesystem: true
-      runAsGroup: 1337
-      runAsUser: 1337
+      runAsGroup: {{ .ProxyGID | default "1337" }}
+      runAsUser: {{ .ProxyUID | default "1337" }}
       runAsNonRoot: true
     {{- end }}
   {{ end -}}
@@ -184,13 +185,16 @@ spec:
       runAsNonRoot: false
       runAsUser: 0
   {{ end }}
+  {{ if not $nativeSidecar }}
   containers:
+  {{ end }}
   - name: istio-proxy
   {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
     image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
   {{- else }}
     image: "{{ .ProxyImage }}"
   {{- end }}
+    {{ if $nativeSidecar }}restartPolicy: Always{{end}}
     ports:
     - containerPort: 15090
       protocol: TCP
@@ -277,6 +281,14 @@ spec:
         ]
     - name: ISTIO_META_APP_CONTAINERS
       value: "{{ $containers | join "," }}"
+    - name: GOMEMLIMIT
+      valueFrom:
+        resourceFieldRef:
+          resource: limits.memory
+    - name: GOMAXPROCS
+      valueFrom:
+        resourceFieldRef:
+          resource: limits.cpu
     - name: ISTIO_META_CLUSTER_ID
       value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
     - name: ISTIO_META_NODE_NAME
@@ -324,7 +336,11 @@ spec:
     {{- end }}
     {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
     {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
+  {{ if $nativeSidecar }}
+    startupProbe:
+  {{ else }}
     readinessProbe:
+  {{ end }}
       httpGet:
         path: /healthz/ready
         port: 15021
@@ -343,7 +359,7 @@ spec:
         - ALL
       privileged: true
       readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
-      runAsGroup: 1337
+      runAsGroup: {{ .ProxyGID | default "1337" }}
       runAsNonRoot: false
       runAsUser: 0
       {{- else }}
@@ -362,13 +378,13 @@ spec:
         - ALL
       privileged: {{ .Values.global.proxy.privileged }}
       readOnlyRootFilesystem: {{ ne (annotation .ObjectMeta `sidecar.istio.io/enableCoreDump` .Values.global.proxy.enableCoreDump) "true" }}
-      runAsGroup: 1337
+      runAsGroup: {{ .ProxyGID | default "1337" }}
       {{ if or (eq (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `TPROXY`) (eq (annotation .ObjectMeta `sidecar.istio.io/capNetBindService` .Values.global.proxy.capNetBindService) `true`) -}}
       runAsNonRoot: false
       runAsUser: 0
       {{- else -}}
       runAsNonRoot: true
-      runAsUser: 1337
+      runAsUser: {{ .ProxyUID | default "1337" }}
       {{- end }}
       {{- end }}
     resources:

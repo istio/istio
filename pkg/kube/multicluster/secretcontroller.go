@@ -46,25 +46,18 @@ const (
 	MultiClusterSecretLabel = "istio/multiCluster"
 )
 
-func init() {
-	monitoring.MustRegister(timeouts)
-	monitoring.MustRegister(clustersCount)
-}
-
 var (
-	clusterLabel = monitoring.MustCreateLabel("cluster")
+	clusterLabel = monitoring.CreateLabel("cluster")
 	timeouts     = monitoring.NewSum(
 		"remote_cluster_sync_timeouts_total",
 		"Number of times remote clusters took too long to sync, causing slow startup that excludes remote clusters.",
-		monitoring.WithLabels(clusterLabel),
 	)
 
-	clusterType = monitoring.MustCreateLabel("cluster_type")
+	clusterType = monitoring.CreateLabel("cluster_type")
 
 	clustersCount = monitoring.NewGauge(
 		"istiod_managed_clusters",
 		"Number of clusters managed by istiod",
-		monitoring.WithLabels(clusterType),
 	)
 
 	localClusters  = clustersCount.With(clusterType.Value("local"))

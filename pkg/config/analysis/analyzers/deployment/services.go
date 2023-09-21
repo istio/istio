@@ -78,12 +78,6 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentPortProtocol(r *resource.I
 	// Find matching services with resulting pod from deployment
 	matchingSvcs := s.findMatchingServices(r, c)
 
-	// If there isn't any matching service, generate message: At least one service is needed.
-	if len(matchingSvcs) == 0 {
-		c.Report(gvk.Deployment, msg.NewDeploymentRequiresServiceAssociated(r))
-		return
-	}
-
 	// Generate a port map from the matching services.
 	// It creates a structure that will allow us to detect
 	// if there are different protocols for the same port.
@@ -115,12 +109,6 @@ func (s *ServiceAssociationAnalyzer) analyzeDeploymentPortProtocol(r *resource.I
 func (s *ServiceAssociationAnalyzer) analyzeDeploymentTargetPorts(r *resource.Instance, c analysis.Context) {
 	// Find matching services with resulting pod from deployment
 	matchingSvcs := s.findMatchingServices(r, c)
-
-	// If there isn't any matching service, generate message: At least one service is needed.
-	if len(matchingSvcs) == 0 {
-		c.Report(gvk.Deployment, msg.NewDeploymentRequiresServiceAssociated(r))
-		return
-	}
 
 	tpm := serviceTargetPortsMap(matchingSvcs)
 

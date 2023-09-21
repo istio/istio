@@ -27,6 +27,7 @@ import (
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
+	"istio.io/api/label"
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
@@ -106,6 +107,22 @@ type Connection struct {
 
 	// errorChan is used to process error during discovery request processing.
 	errorChan chan error
+}
+
+func (conn *Connection) ID() string {
+	return conn.conID
+}
+
+func (conn *Connection) Proxy() *model.Proxy {
+	return conn.proxy
+}
+
+func (conn *Connection) ConnectedAt() time.Time {
+	return conn.connectedAt
+}
+
+func (conn *Connection) Stop() {
+	close(conn.stop)
 }
 
 // Event represents a config or registry event that results in a push.
@@ -572,7 +589,7 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterDisconnect(con.conID, AllEventTypesList)
 	}
-	s.WorkloadEntryController.QueueUnregisterWorkload(con.proxy, con.connectedAt)
+	s.WorkloadEntryController.OnDisconnect(con)
 }
 
 func connectionID(node string) string {
@@ -599,21 +616,14 @@ func (s *DiscoveryServer) initProxyMetadata(node *core.Node) (*model.Proxy, erro
 }
 
 // setTopologyLabels sets locality, cluster, network label
-// must be called after `SetWorkloadLabels` and `SetServiceInstances`.
+// must be called after `SetWorkloadLabels` and `SetServiceTargets`.
 func setTopologyLabels(proxy *model.Proxy) {
-	var localityStr string
-	// Get the locality from the proxy's service instances.
-	// We expect all instances to have the same IP and therefore the same locality.
-	// So its enough to look at the first instance.
-	if len(proxy.ServiceInstances) > 0 {
-		localityStr = proxy.ServiceInstances[0].Endpoint.Locality.Label
-	} else {
-		// If no service instances(this maybe common for a pure client), respect LocalityLabel
-		localityStr = proxy.Labels[model.LocalityLabel]
-	}
-	if localityStr != "" {
-		proxy.Locality = util.ConvertLocality(localityStr)
-	} else {
+	// This is a bit un-intuitive, but pull the locality from Labels first. The service registries have the best access to
+	// locality information, as they can read from various sources (Node on Kubernetes, for example). They will take this
+	// information and add it to the labels. So while the proxy may not originally have these labels,
+	// it will by the time we get here (as a result of calling this after SetWorkloadLabels).
+	proxy.Locality = localityFromProxyLabels(proxy)
+	if proxy.Locality == nil {
 		// If there is no locality in the registry then use the one sent as part of the discovery request.
 		// This is not preferable as only the connected Pilot is aware of this proxies location, but it
 		// can still help provide some client-side Envoy context when load balancing based on location.
@@ -623,10 +633,34 @@ func setTopologyLabels(proxy *model.Proxy) {
 			SubZone: proxy.XdsNode.Locality.GetSubZone(),
 		}
 	}
-
-	locality := util.LocalityToString(proxy.Locality)
 	// add topology labels to proxy labels
-	proxy.Labels = labelutil.AugmentLabels(proxy.Labels, proxy.Metadata.ClusterID, locality, proxy.GetNodeName(), proxy.Metadata.Network)
+	proxy.Labels = labelutil.AugmentLabels(
+		proxy.Labels,
+		proxy.Metadata.ClusterID,
+		util.LocalityToString(proxy.Locality),
+		proxy.GetNodeName(),
+		proxy.Metadata.Network,
+	)
+}
+
+func localityFromProxyLabels(proxy *model.Proxy) *core.Locality {
+	region, f1 := proxy.Labels[labelutil.LabelTopologyRegion]
+	zone, f2 := proxy.Labels[labelutil.LabelTopologyZone]
+	subzone, f3 := proxy.Labels[label.TopologySubzone.Name]
+	if !f1 && !f2 && !f3 {
+		// If no labels set, we didn't find the locality from the service registry. We do support a (mostly undocumented/internal)
+		// label to override the locality, so respect that here as well.
+		ls, f := proxy.Labels[model.LocalityLabel]
+		if f {
+			return util.ConvertLocality(ls)
+		}
+		return nil
+	}
+	return &core.Locality{
+		Region:  region,
+		Zone:    zone,
+		SubZone: subzone,
+	}
 }
 
 // initializeProxy completes the initialization of a proxy. It is expected to be called only after
@@ -635,7 +669,7 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 	proxy := con.proxy
 	// this should be done before we look for service instances, but after we load metadata
 	// TODO fix check in kubecontroller treat echo VMs like there isn't a pod
-	if err := s.WorkloadEntryController.RegisterWorkload(proxy, con.connectedAt); err != nil {
+	if err := s.WorkloadEntryController.OnConnect(con); err != nil {
 		return err
 	}
 	s.computeProxyState(proxy, nil)
@@ -652,7 +686,7 @@ func (s *DiscoveryServer) initializeProxy(con *Connection) error {
 }
 
 func (s *DiscoveryServer) computeProxyState(proxy *model.Proxy, request *model.PushRequest) {
-	proxy.SetServiceInstances(s.Env.ServiceDiscovery)
+	proxy.SetServiceTargets(s.Env.ServiceDiscovery)
 	// only recompute workload labels when
 	// 1. stream established and proxy first time initialization
 	// 2. proxy update
@@ -1002,8 +1036,4 @@ func orderWatchedResources(resources map[string]*model.WatchedResource) []*model
 		}
 	}
 	return wr
-}
-
-func (conn *Connection) Stop() {
-	close(conn.stop)
 }

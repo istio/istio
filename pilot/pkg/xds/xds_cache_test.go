@@ -26,6 +26,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/retry"
@@ -33,8 +34,9 @@ import (
 )
 
 var (
-	any1 = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "foo"}}
-	any2 = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "bar"}}
+	proxy = &model.Proxy{Metadata: &model.NodeMetadata{}}
+	any1  = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "foo"}}
+	any2  = &discovery.Resource{Resource: &anypb.Any{TypeUrl: "bar"}}
 )
 
 // TestXdsCacheToken is a regression test to ensure that we do not write
@@ -46,9 +48,11 @@ func TestXdsCacheToken(t *testing.T) {
 	mkv := func(n int32) *discovery.Resource {
 		return &discovery.Resource{Resource: &anypb.Any{TypeUrl: fmt.Sprint(n)}}
 	}
-	k := &EndpointBuilder{clusterName: "key", service: &model.Service{
-		Hostname: "foo.com",
-	}}
+	k := endpoints.NewCDSEndpointBuilder(
+		proxy, nil,
+		"outbound||foo.com",
+		model.TrafficDirectionOutbound, "", "foo.com", 80,
+		&model.Service{Hostname: "foo.com"}, nil)
 	work := func(start time.Time, n int32) {
 		v := mkv(n)
 		time.Sleep(time.Millisecond * time.Duration(rand.Intn(100)))
@@ -81,18 +85,18 @@ func TestXdsCacheToken(t *testing.T) {
 }
 
 func TestXdsCache(t *testing.T) {
-	ep1 := &EndpointBuilder{
-		clusterName: "outbound|1||foo.com",
-		service: &model.Service{
-			Hostname: "foo.com",
-		},
+	makeEp := func(subset string, dr *model.ConsolidatedDestRule) *endpoints.EndpointBuilder {
+		svc := &model.Service{Hostname: "foo.com"}
+		b := endpoints.NewCDSEndpointBuilder(
+			proxy, nil,
+			fmt.Sprintf("outbound|%s|foo.com", subset),
+			model.TrafficDirectionOutbound, subset, "foo.com", 80,
+			svc, dr)
+		return b
 	}
-	ep2 := &EndpointBuilder{
-		clusterName: "outbound|2||foo.com",
-		service: &model.Service{
-			Hostname: "foo.com",
-		},
-	}
+	ep1 := makeEp("1", nil)
+	ep2 := makeEp("2", nil)
+
 	t.Run("simple", func(t *testing.T) {
 		c := model.NewXdsCache()
 		c.Add(ep1, &model.PushRequest{Start: time.Now()}, any1)
@@ -137,10 +141,9 @@ func TestXdsCache(t *testing.T) {
 	t.Run("multiple destinationRules", func(t *testing.T) {
 		c := model.NewXdsCache()
 
-		ep1 := ep1
-		ep1.destinationRule = model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}})
-		ep2 := ep2
-		ep2.destinationRule = model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}})
+		ep1 := makeEp("1", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "a", Namespace: "b"}}))
+		ep2 := makeEp("2", model.ConvertConsolidatedDestRule(&config.Config{Meta: config.Meta{Name: "b", Namespace: "b"}}))
+
 		start := time.Now()
 		c.Add(ep1, &model.PushRequest{Start: start}, any1)
 		c.Add(ep2, &model.PushRequest{Start: start}, any2)

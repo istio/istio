@@ -27,13 +27,13 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/util/proto"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -334,8 +334,8 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 			})
 			for _, match := range matches {
 				if includeConfigType {
-					l.Name = fmt.Sprintf("listener/%s", l.Name)
-					fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", l.Name, strings.Join(addresses, ","), port, match.match, match.destination)
+					name := fmt.Sprintf("listener/%s", l.Name)
+					fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\n", name, strings.Join(addresses, ","), port, match.match, match.destination)
 				} else {
 					fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", strings.Join(addresses, ","), port, match.match, match.destination)
 				}
@@ -343,8 +343,8 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 		} else {
 			listenerType := retrieveListenerType(l)
 			if includeConfigType {
-				l.Name = fmt.Sprintf("listener/%s", l.Name)
-				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", l.Name, strings.Join(addresses, ","), port, listenerType)
+				name := fmt.Sprintf("listener/%s", l.Name)
+				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", name, strings.Join(addresses, ","), port, listenerType)
 			} else {
 				fmt.Fprintf(w, "%v\t%v\t%v\n", strings.Join(addresses, ","), port, listenerType)
 			}

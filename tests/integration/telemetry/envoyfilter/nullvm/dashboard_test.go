@@ -68,8 +68,7 @@ var dashboards = []struct {
 			"sidecar_injection_failure_total",
 			// In default install, we have no proxy
 			"istio-proxy",
-			// https://github.com/istio/istio/issues/22674 this causes flaky tests
-			//"galley_validation_passed",
+			// We do not simulate validation failed
 			"galley_validation_failed",
 			// cAdvisor does not expose this metrics, and we don't have kubelet in kind
 			"container_fs_usage_bytes",
@@ -118,6 +117,7 @@ var dashboards = []struct {
 		},
 		true,
 	},
+	/* No longer using Wasm by default.
 	{
 		"istio-services-grafana-dashboards",
 		"istio-extension-dashboard.json",
@@ -129,6 +129,7 @@ var dashboards = []struct {
 		},
 		false,
 	},
+	*/
 }
 
 func TestDashboard(t *testing.T) {
@@ -316,7 +317,7 @@ func setupDashboardTest(done <-chan struct{}) {
 						Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
 						Headers: headers.New().WithHost("server").Build(),
 					},
-					Check: check.OK(),
+					Check: check.NoError(), // Do not use check.OK since we expect non-200
 					Retry: echo.Retry{
 						NoRetry: true,
 					},

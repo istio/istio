@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -124,10 +125,6 @@ type DiscoveryServer struct {
 
 	debounceOptions debounceOptions
 
-	instanceID string
-
-	clusterID cluster.ID
-
 	// Cache for XDS resources
 	Cache model.XdsCache
 
@@ -137,7 +134,7 @@ type DiscoveryServer struct {
 	// ListRemoteClusters collects debug information about other clusters this istiod reads from.
 	ListRemoteClusters func() []cluster.DebugInfo
 
-	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
+	// ClusterAliases are alias names for cluster. When a proxy connects with a cluster ID
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[cluster.ID]cluster.ID
 
@@ -149,7 +146,7 @@ type DiscoveryServer struct {
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
-func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID cluster.ID, clusterAliases map[string]string) *DiscoveryServer {
+func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string) *DiscoveryServer {
 	out := &DiscoveryServer{
 		Env:                 env,
 		Generators:          map[string]model.XdsResourceGenerator{},
@@ -168,8 +165,6 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
 		Cache:              env.Cache,
-		instanceID:         instanceID,
-		clusterID:          clusterID,
 		discoveryStartTime: processStartTime,
 	}
 
@@ -532,7 +527,7 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 }
 
 // InitGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string, internalDebugMux *http.ServeMux) {
+func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string, clusterID cluster.ID, internalDebugMux *http.ServeMux) {
 	edsGen := &EdsGenerator{Server: s}
 	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
@@ -541,7 +536,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators[v3.EndpointType] = edsGen
 	ecdsGen := &EcdsGenerator{Server: s}
 	if env.CredentialsController != nil {
-		s.Generators[v3.SecretType] = NewSecretGen(env.CredentialsController, s.Cache, s.clusterID, env.Mesh())
+		s.Generators[v3.SecretType] = NewSecretGen(env.CredentialsController, s.Cache, clusterID, env.Mesh())
 		ecdsGen.SetCredController(env.CredentialsController)
 	}
 	s.Generators[v3.ExtensionConfigurationType] = ecdsGen
@@ -551,7 +546,6 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	workloadGen := &WorkloadGenerator{s: s}
 	s.Generators[v3.AddressType] = workloadGen
 	s.Generators[v3.WorkloadType] = workloadGen
-	s.Generators[v3.ServiceType] = workloadGen
 	s.Generators[v3.WorkloadAuthorizationType] = &WorkloadRBACGenerator{s: s}
 
 	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
@@ -595,7 +589,23 @@ func (s *DiscoveryServer) Clients() []*Connection {
 	return clients
 }
 
-// AllClients returns all connected clients, per Clients, but additionally includes unintialized connections
+// SortedClients returns all currently connected clients in an ordered manner.
+// Sorting order priority is as follows: ClusterID, Namespace, ID.
+func (s *DiscoveryServer) SortedClients() []*Connection {
+	clients := s.Clients()
+	sort.Slice(clients, func(i, j int) bool {
+		if clients[i].proxy.GetClusterID().String() < clients[j].proxy.GetClusterID().String() {
+			return true
+		}
+		if clients[i].proxy.GetNamespace() < clients[j].proxy.GetNamespace() {
+			return true
+		}
+		return clients[i].proxy.GetID() < clients[j].proxy.GetID()
+	})
+	return clients
+}
+
+// AllClients returns all connected clients, per Clients, but additionally includes uninitialized connections
 // Warning: callers must take care not to rely on the con.proxy field being set
 func (s *DiscoveryServer) AllClients() []*Connection {
 	s.adsClientsMutex.RLock()

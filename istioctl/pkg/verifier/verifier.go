@@ -46,11 +46,19 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-var istioOperatorGVR = apimachinery_schema.GroupVersionResource{
-	Group:    v1alpha1.SchemeGroupVersion.Group,
-	Version:  v1alpha1.SchemeGroupVersion.Version,
-	Resource: "istiooperators",
-}
+var (
+	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
+		Group:    v1alpha1.SchemeGroupVersion.Group,
+		Version:  v1alpha1.SchemeGroupVersion.Version,
+		Resource: "istiooperators",
+	}
+
+	// specialKinds is a map of special kinds to their corresponding kind names, which do not follow the
+	// standard convention of pluralizing the kind name.
+	specialKinds = map[string]string{
+		"NetworkAttachmentDefinition": "network-attachment-definitions",
+	}
+)
 
 // StatusVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.
@@ -82,15 +90,10 @@ func WithIOP(iop *v1alpha1.IstioOperator) StatusVerifierOptions {
 
 // NewStatusVerifier creates a new instance of post-install verifier
 // which checks the status of various resources from the manifest.
-func NewStatusVerifier(istioNamespace, manifestsPath, kubeconfig, context string,
+func NewStatusVerifier(client kube.CLIClient, istioNamespace, manifestsPath string,
 	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
 	options ...StatusVerifierOptions,
 ) (*StatusVerifier, error) {
-	client, err := kube.NewCLIClient(kube.BuildClientCmd(kubeconfig, context), "")
-	if err != nil {
-		return nil, fmt.Errorf("failed to connect Kubernetes API server, error: %v", err)
-	}
-
 	verifier := StatusVerifier{
 		logger:           clog.NewDefaultLogger(),
 		successMarker:    "✔",
@@ -284,10 +287,7 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 		kind := un.GetKind()
 		name := un.GetName()
 		namespace := un.GetNamespace()
-		kinds := findResourceInSpec(un.GetObjectKind().GroupVersionKind())
-		if kinds == "" {
-			kinds = strings.ToLower(kind) + "s"
-		}
+		kinds := resourceKinds(un)
 		if namespace == "" {
 			namespace = v.istioNamespace
 		}
@@ -306,13 +306,13 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 				v.reportFailure(kind, name, namespace, err)
 				return err
 			}
+			if namespace == v.istioNamespace && strings.HasPrefix(name, "istio") {
+				istioDeploymentCount++
+			}
 			if err = verifyDeploymentStatus(deployment); err != nil {
 				ivf := istioVerificationFailureError(filename, err)
 				v.reportFailure(kind, name, namespace, ivf)
 				return ivf
-			}
-			if namespace == v.istioNamespace && strings.HasPrefix(name, "istio") {
-				istioDeploymentCount++
 			}
 		case "Job":
 			job := &v1batch.Job{}
@@ -417,6 +417,18 @@ func (v *StatusVerifier) verifyPostInstall(visitor resource.Visitor, filename st
 		return nil
 	})
 	return crdCount, istioDeploymentCount, daemonSetCount, err
+}
+
+func resourceKinds(un *unstructured.Unstructured) string {
+	kinds := findResourceInSpec(un.GetObjectKind().GroupVersionKind())
+	if kinds == "" {
+		kinds = strings.ToLower(un.GetKind()) + "s"
+	}
+	// Override with special kind if it exists in the map
+	if specialKind, exists := specialKinds[un.GetKind()]; exists {
+		kinds = specialKind
+	}
+	return kinds
 }
 
 // Find Istio injector matching revision.  ("" matches any revision.)

@@ -22,6 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/hash"
 )
@@ -37,12 +38,14 @@ type clusterCache struct {
 	clusterName string
 
 	// proxy related cache fields
-	proxyVersion   string         // will be matched by envoyfilter patches
-	locality       *core.Locality // identifies the locality the cluster is generated for
-	proxyClusterID string         // identifies the kubernetes cluster a proxy is in
-	proxySidecar   bool           // identifies if this proxy is a Sidecar
-	proxyView      model.ProxyView
-	metadataCerts  *metadataCerts // metadata certificates of proxy
+	proxyVersion    string         // will be matched by envoyfilter patches
+	locality        *core.Locality // identifies the locality the cluster is generated for
+	proxyClusterID  string         // identifies the kubernetes cluster a proxy is in
+	proxySidecar    bool           // identifies if this proxy is a Sidecar
+	hbone           bool
+	proxyView       model.ProxyView
+	metadataCerts   *metadataCerts // metadata certificates of proxy
+	endpointBuilder *endpoints.EndpointBuilder
 
 	// service attributes
 	http2          bool // http2 identifies if the cluster is for an http2 service
@@ -80,6 +83,8 @@ func (t *clusterCache) Key() any {
 	h.Write([]byte(strconv.FormatBool(t.downstreamAuto)))
 	h.Write(Separator)
 	h.Write([]byte(strconv.FormatBool(t.supportsIPv4)))
+	h.Write(Separator)
+	h.Write([]byte(strconv.FormatBool(t.hbone)))
 	h.Write(Separator)
 
 	if t.proxyView != nil {
@@ -121,6 +126,10 @@ func (t *clusterCache) Key() any {
 	}
 	h.Write(Separator)
 
+	if t.endpointBuilder != nil {
+		t.endpointBuilder.WriteHash(h)
+	}
+
 	return h.Sum64()
 }
 
@@ -139,6 +148,9 @@ func (t *clusterCache) DependentConfigs() []model.ConfigHash {
 		items := strings.Split(efKey, "/")
 		configs = append(configs, model.ConfigKey{Kind: kind.EnvoyFilter, Name: items[1], Namespace: items[0]}.HashCode())
 	}
+
+	// For now, this matches EndpointBuilder's DependentConfigs. No need to duplicate them.
+
 	return configs
 }
 
@@ -162,24 +174,36 @@ func (c cacheStats) merge(other cacheStats) cacheStats {
 	}
 }
 
-func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) *clusterCache {
+func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilder, proxy *model.Proxy, efKeys []string) clusterCache {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionOutbound, "", service.Hostname, port.Port)
-	clusterKey := &clusterCache{
+	dr := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname)
+	var eb *endpoints.EndpointBuilder
+	if service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB {
+		eb = endpoints.NewCDSEndpointBuilder(
+			proxy,
+			cb.req.Push,
+			clusterName,
+			model.TrafficDirectionOutbound, "", service.Hostname, port.Port,
+			service, dr,
+		)
+	}
+	return clusterCache{
 		clusterName:     clusterName,
 		proxyVersion:    cb.proxyVersion,
 		locality:        cb.locality,
 		proxyClusterID:  cb.clusterID,
 		proxySidecar:    cb.sidecarProxy(),
 		proxyView:       cb.proxyView,
+		hbone:           cb.hbone,
 		http2:           port.Protocol.IsHTTP2(),
-		downstreamAuto:  cb.sidecarProxy() && util.IsProtocolSniffingEnabledForOutboundPort(port),
+		downstreamAuto:  cb.sidecarProxy() && port.Protocol.IsUnsupported(),
 		supportsIPv4:    cb.supportsIPv4,
 		service:         service,
-		destinationRule: proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, service.Hostname),
+		destinationRule: dr,
 		envoyFilterKeys: efKeys,
 		metadataCerts:   cb.metadataCerts,
 		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
 		serviceAccounts: cb.req.Push.ServiceAccounts(service.Hostname, service.Attributes.Namespace, port.Port),
+		endpointBuilder: eb,
 	}
-	return clusterKey
 }

@@ -69,10 +69,6 @@ var (
 	// Description: The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols.
 	DeploymentAssociatedToMultipleServices = diag.NewMessageType(diag.Warning, "IST0116", "This deployment %s is associated with multiple services using port %d but different protocols: %v")
 
-	// DeploymentRequiresServiceAssociated defines a diag.MessageType for message "DeploymentRequiresServiceAssociated".
-	// Description: The resulting pods of a service mesh deployment must be associated with at least one service.
-	DeploymentRequiresServiceAssociated = diag.NewMessageType(diag.Warning, "IST0117", "No service associated with this deployment. Service mesh deployments must be associated with a service.")
-
 	// PortNameIsNotUnderNamingConvention defines a diag.MessageType for message "PortNameIsNotUnderNamingConvention".
 	// Description: Port name is not under naming convention. Protocol detection is applied to the port.
 	PortNameIsNotUnderNamingConvention = diag.NewMessageType(diag.Info, "IST0118", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port.")
@@ -86,8 +82,8 @@ var (
 	InvalidRegexp = diag.NewMessageType(diag.Warning, "IST0122", "Field %q regular expression invalid: %q (%s)")
 
 	// NamespaceMultipleInjectionLabels defines a diag.MessageType for message "NamespaceMultipleInjectionLabels".
-	// Description: A namespace has both new and legacy injection labels
-	NamespaceMultipleInjectionLabels = diag.NewMessageType(diag.Warning, "IST0123", "The namespace has both new and legacy injection labels. Run 'kubectl label namespace %s istio.io/rev-' or 'kubectl label namespace %s istio-injection-'")
+	// Description: A namespace has more than one type of injection labels
+	NamespaceMultipleInjectionLabels = diag.NewMessageType(diag.Warning, "IST0123", "The namespace has more than one type of injection labels %v, which may lead to undefined behavior. Make sure only one injection label exists.")
 
 	// InvalidAnnotation defines a diag.MessageType for message "InvalidAnnotation".
 	// Description: An Istio annotation that is not valid
@@ -260,7 +256,6 @@ func All() []*diag.MessageType {
 		VirtualServiceDestinationPortSelectorRequired,
 		MTLSPolicyConflict,
 		DeploymentAssociatedToMultipleServices,
-		DeploymentRequiresServiceAssociated,
 		PortNameIsNotUnderNamingConvention,
 		JwtFailureDueToInvalidServicePortPrefix,
 		InvalidRegexp,
@@ -456,14 +451,6 @@ func NewDeploymentAssociatedToMultipleServices(r *resource.Instance, deployment 
 	)
 }
 
-// NewDeploymentRequiresServiceAssociated returns a new diag.Message based on DeploymentRequiresServiceAssociated.
-func NewDeploymentRequiresServiceAssociated(r *resource.Instance) diag.Message {
-	return diag.NewMessage(
-		DeploymentRequiresServiceAssociated,
-		r,
-	)
-}
-
 // NewPortNameIsNotUnderNamingConvention returns a new diag.Message based on PortNameIsNotUnderNamingConvention.
 func NewPortNameIsNotUnderNamingConvention(r *resource.Instance, portName string, port int, targetPort string) diag.Message {
 	return diag.NewMessage(
@@ -499,12 +486,11 @@ func NewInvalidRegexp(r *resource.Instance, where string, re string, problem str
 }
 
 // NewNamespaceMultipleInjectionLabels returns a new diag.Message based on NamespaceMultipleInjectionLabels.
-func NewNamespaceMultipleInjectionLabels(r *resource.Instance, namespace string, namespace2 string) diag.Message {
+func NewNamespaceMultipleInjectionLabels(r *resource.Instance, labels []string) diag.Message {
 	return diag.NewMessage(
 		NamespaceMultipleInjectionLabels,
 		r,
-		namespace,
-		namespace2,
+		labels,
 	)
 }
 

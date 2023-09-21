@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 13330
+releaseNotes:
+- |
+  **Added** support traffic mirroring to multiple destinations in VirtualService.

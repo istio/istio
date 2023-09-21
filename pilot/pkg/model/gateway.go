@@ -68,7 +68,7 @@ type MergedGateway struct {
 
 	// HTTP3AdvertisingRoutes represents the set of HTTP routes which advertise HTTP/3.
 	// This mapping is used to generate alt-svc header that is needed for HTTP/3 server discovery.
-	HTTP3AdvertisingRoutes map[string]struct{}
+	HTTP3AdvertisingRoutes sets.String
 
 	// GatewayNameForServer maps from server to the owning gateway name.
 	// Used for select the set of virtual services that apply to a port.
@@ -98,19 +98,14 @@ type MergedGateway struct {
 }
 
 var (
-	typeTag = monitoring.MustCreateLabel("type")
-	nameTag = monitoring.MustCreateLabel("name")
+	typeTag = monitoring.CreateLabel("type")
+	nameTag = monitoring.CreateLabel("name")
 
 	totalRejectedConfigs = monitoring.NewSum(
 		"pilot_total_rejected_configs",
 		"Total number of configs that Pilot had to reject or ignore.",
-		monitoring.WithLabels(typeTag, nameTag),
 	)
 )
-
-func init() {
-	monitoring.MustRegister(totalRejectedConfigs)
-}
 
 func RecordRejectedConfig(gatewayName string) {
 	totalRejectedConfigs.With(typeTag.Value("gateway"), nameTag.Value(gatewayName)).Increment()
@@ -131,7 +126,7 @@ const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gatewa
 // Note that today any Servers in the combined gateways listening on the same port must have the same protocol.
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
 func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
-	gatewayPorts := make(map[uint32]bool)
+	gatewayPorts := sets.New[uint32]()
 	nonPlainTextGatewayPortsBindMap := map[uint32]sets.String{}
 	mergedServers := make(map[ServerPort]*MergedServers)
 	mergedQUICServers := make(map[ServerPort]*MergedServers)
@@ -209,7 +204,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				}
 				serverPort := ServerPort{resolvedPort, s.Port.Protocol, s.Bind}
 				serverProtocol := protocol.Parse(serverPort.Protocol)
-				if gatewayPorts[resolvedPort] {
+				if gatewayPorts.Contains(resolvedPort) {
 					// We have two servers on the same port. Should we merge?
 					// 1. Yes if both servers are plain text and HTTP
 					// 2. Yes if both servers are using TLS
@@ -309,7 +304,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					}
 				} else {
 					// This is a new gateway on this port. Create MergedServers for it.
-					gatewayPorts[resolvedPort] = true
+					gatewayPorts.Insert(resolvedPort)
 					if !gateway.IsTLSServer(s) {
 						plainTextServers[serverPort.Number] = serverPort
 					}
@@ -352,9 +347,9 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 	}
 }
 
-func udpSupportedPort(number uint32, instances []*ServiceInstance) bool {
+func udpSupportedPort(number uint32, instances []ServiceTarget) bool {
 	for _, w := range instances {
-		if int(number) == w.ServicePort.Port && w.ServicePort.Protocol == protocol.UDP {
+		if int(number) == w.Port.Port && w.Port.Protocol == protocol.UDP {
 			return true
 		}
 	}
@@ -367,7 +362,7 @@ func udpSupportedPort(number uint32, instances []*ServiceInstance) bool {
 // When legacyGatewaySelector=true things are a bit more complex, as we support referencing a Service
 // port and translating to the targetPort in addition to just directly referencing a port. In this
 // case, we just make a best effort guess by picking the first match.
-func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySelector bool) []uint32 {
+func resolvePorts(number uint32, instances []ServiceTarget, legacyGatewaySelector bool) []uint32 {
 	ports := sets.New[uint32]()
 	for _, w := range instances {
 		if _, disablePortTranslation := w.Service.Attributes.Labels[DisableGatewayPortTranslationLabel]; disablePortTranslation && legacyGatewaySelector {
@@ -376,15 +371,15 @@ func resolvePorts(number uint32, instances []*ServiceInstance, legacyGatewaySele
 			// referencing the Service port, and references are un-ambiguous.
 			continue
 		}
-		if w.ServicePort.Port == int(number) && w.Endpoint != nil {
+		if w.Port.Port == int(number) {
 			if legacyGatewaySelector {
 				// When we are using legacy gateway label selection, we only resolve to a single port
 				// This has pros and cons; we don't allow merging of routes when it would be desirable, but
 				// we also avoid accidentally merging routes when we didn't intend to. While neither option is great,
 				// picking the first one here preserves backwards compatibility.
-				return []uint32{w.Endpoint.EndpointPort}
+				return []uint32{w.Port.TargetPort}
 			}
-			ports.Insert(w.Endpoint.EndpointPort)
+			ports.Insert(w.Port.TargetPort)
 		}
 	}
 	ret := ports.UnsortedList()

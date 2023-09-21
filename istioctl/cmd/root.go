@@ -195,8 +195,8 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(admin.Cmd(ctx))
 	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
-	rootCmd.AddCommand(install.NewVerifyCommand())
-	rootCmd.AddCommand(mesh.UninstallCmd(root.LoggingOptions))
+	rootCmd.AddCommand(install.NewVerifyCommand(ctx))
+	rootCmd.AddCommand(mesh.UninstallCmd(ctx, root.LoggingOptions))
 
 	experimentalCmd.AddCommand(authz.AuthZ(ctx))
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
@@ -220,23 +220,23 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(dashboardCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
 
-	manifestCmd := mesh.ManifestCmd(root.LoggingOptions)
+	manifestCmd := mesh.ManifestCmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(manifestCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(manifestCmd)
 
-	operatorCmd := mesh.OperatorCmd()
+	operatorCmd := mesh.OperatorCmd(ctx)
 	hideInheritedFlags(operatorCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(operatorCmd)
 
-	installCmd := mesh.InstallCmd(root.LoggingOptions)
+	installCmd := mesh.InstallCmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(installCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(installCmd)
 
-	profileCmd := mesh.ProfileCmd(root.LoggingOptions)
+	profileCmd := mesh.ProfileCmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(profileCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(profileCmd)
 
-	upgradeCmd := mesh.UpgradeCmd(root.LoggingOptions)
+	upgradeCmd := mesh.UpgradeCmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(upgradeCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
@@ -248,13 +248,9 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(tag.TagCommand(ctx), cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(tagCmd)
 
-	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
-	remoteClustersCmd := proxyconfig.ClustersCommand(ctx)
 	// leave the multicluster commands in x for backwards compat
-	rootCmd.AddCommand(remoteSecretCmd)
-	rootCmd.AddCommand(remoteClustersCmd)
-	experimentalCmd.AddCommand(remoteSecretCmd)
-	experimentalCmd.AddCommand(remoteClustersCmd)
+	rootCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand(ctx))
+	rootCmd.AddCommand(proxyconfig.ClustersCommand(ctx))
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",

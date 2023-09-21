@@ -17,7 +17,6 @@ package model
 import (
 	"strings"
 
-	"google.golang.org/protobuf/proto"
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -26,28 +25,36 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This function is used by sidecar converter.
-func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hosts map[string][]host.Name) []config.Config {
+func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
 
 	vsset := sets.New[string]()
-	addVirtualService := func(vs config.Config, hosts host.Names) {
+	addVirtualService := func(vs config.Config, hosts hostClassification) {
 		vsname := vs.Name + "/" + vs.Namespace
 		rule := vs.Spec.(*networking.VirtualService)
-		for _, ih := range hosts {
-			// Check if the virtual service is already processed.
+
+		for _, vh := range rule.Hosts {
 			if vsset.Contains(vsname) {
 				break
 			}
-			for _, h := range rule.Hosts {
-				// VirtualServices can have many hosts, so we need to avoid appending
-				// duplicated virtualservices to slice importedVirtualServices
-				if vsHostMatches(h, ih, vs) {
+
+			// first, check exactHosts
+			if hosts.exactHosts.Contains(host.Name(vh)) {
+				importedVirtualServices = append(importedVirtualServices, vs)
+				vsset.Insert(vsname)
+				break
+			}
+
+			// exactHosts not found, fallback to loop allHosts
+			for _, ah := range hosts.allHosts {
+				if vsHostMatches(vh, ah, vs) {
 					importedVirtualServices = append(importedVirtualServices, vs)
 					vsset.Insert(vsname)
 					break
@@ -65,12 +72,12 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 			// and break out of the loop.
 
 			// Check if there is an explicit import of form ns/* or ns/host
-			if importedHosts, nsFound := hosts[configNamespace]; nsFound {
+			if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
 				addVirtualService(c, importedHosts)
 			}
 
 			// Check if there is an import of form */host or */*
-			if importedHosts, wnsFound := hosts[wildcardNamespace]; wnsFound {
+			if importedHosts, wnsFound := hostsByNamespace[wildcardNamespace]; wnsFound {
 				addVirtualService(c, importedHosts)
 			}
 		}
@@ -129,6 +136,11 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 		if d.Mirror != nil {
 			d.Mirror.Host = string(ResolveShortnameToFQDN(d.Mirror.Host, meta))
 		}
+		for _, m := range d.Mirrors {
+			if m.Destination != nil {
+				m.Destination.Host = string(ResolveShortnameToFQDN(m.Destination.Host, meta))
+			}
+		}
 	}
 	// resolve host in tcp route.destination
 	for _, d := range rule.Tcp {
@@ -165,11 +177,11 @@ func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta confi
 // Return merged virtual services and the root->delegate vs map
 func mergeVirtualServicesIfNeeded(
 	vServices []config.Config,
-	defaultExportTo map[visibility.Instance]bool,
+	defaultExportTo sets.Set[visibility.Instance],
 ) ([]config.Config, map[ConfigKey][]ConfigKey) {
 	out := make([]config.Config, 0, len(vServices))
-	delegatesMap := map[string]config.Config{}
-	delegatesExportToMap := map[string]map[visibility.Instance]bool{}
+	delegatesMap := map[types.NamespacedName]config.Config{}
+	delegatesExportToMap := make(map[types.NamespacedName]sets.Set[visibility.Instance])
 	// root virtualservices with delegate
 	var rootVses []config.Config
 
@@ -178,27 +190,30 @@ func mergeVirtualServicesIfNeeded(
 		rule := vs.Spec.(*networking.VirtualService)
 		// it is delegate, add it to the indexer cache along with the exportTo for the delegate
 		if len(rule.Hosts) == 0 {
-			delegatesMap[key(vs.Name, vs.Namespace)] = vs
-			exportToMap := make(map[visibility.Instance]bool)
+			delegatesMap[config.NamespacedName(vs)] = vs
+			var exportToSet sets.Set[visibility.Instance]
 			if len(rule.ExportTo) == 0 {
 				// No exportTo in virtualService. Use the global default
+				exportToSet = sets.NewWithLength[visibility.Instance](defaultExportTo.Len())
 				for v := range defaultExportTo {
 					if v == visibility.Private {
-						exportToMap[visibility.Instance(vs.Namespace)] = true
+						exportToSet.Insert(visibility.Instance(vs.Namespace))
 					} else {
-						exportToMap[v] = true
+						exportToSet.Insert(v)
 					}
 				}
 			} else {
+				exportToSet = sets.NewWithLength[visibility.Instance](len(rule.ExportTo))
 				for _, e := range rule.ExportTo {
 					if e == string(visibility.Private) {
-						exportToMap[visibility.Instance(vs.Namespace)] = true
+						exportToSet.Insert(visibility.Instance(vs.Namespace))
 					} else {
-						exportToMap[visibility.Instance(e)] = true
+						exportToSet.Insert(visibility.Instance(e))
 					}
 				}
 			}
-			delegatesExportToMap[key(vs.Name, vs.Namespace)] = exportToMap
+			delegatesExportToMap[config.NamespacedName(vs)] = exportToSet
+
 			continue
 		}
 
@@ -228,7 +243,7 @@ func mergeVirtualServicesIfNeeded(
 				}
 				delegateConfigKey := ConfigKey{Kind: kind.VirtualService, Name: delegate.Name, Namespace: delegateNamespace}
 				delegatesByRoot[rootConfigKey] = append(delegatesByRoot[rootConfigKey], delegateConfigKey)
-				delegateVS, ok := delegatesMap[key(delegate.Name, delegateNamespace)]
+				delegateVS, ok := delegatesMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
 				if !ok {
 					log.Debugf("delegate virtual service %s/%s of %s/%s not found",
 						delegateNamespace, delegate.Name, root.Namespace, root.Name)
@@ -236,16 +251,16 @@ func mergeVirtualServicesIfNeeded(
 					continue
 				}
 				// make sure that the delegate is visible to root virtual service's namespace
-				exportTo := delegatesExportToMap[key(delegate.Name, delegateNamespace)]
-				if !exportTo[visibility.Public] && !exportTo[visibility.Instance(root.Namespace)] {
+				exportTo := delegatesExportToMap[types.NamespacedName{Namespace: delegateNamespace, Name: delegate.Name}]
+				if !exportTo.Contains(visibility.Public) && !exportTo.Contains(visibility.Instance(root.Namespace)) {
 					log.Debugf("delegate virtual service %s/%s of %s/%s is not exported to %s",
 						delegateNamespace, delegate.Name, root.Namespace, root.Name, root.Namespace)
 					continue
 				}
 				// DeepCopy to prevent mutate the original delegate, it can conflict
 				// when multiple routes delegate to one single VS.
-				copiedDelegate := delegateVS.DeepCopy()
-				vs := copiedDelegate.Spec.(*networking.VirtualService)
+				copiedDelegate := config.DeepCopy(delegateVS.Spec)
+				vs := copiedDelegate.(*networking.VirtualService)
 				merged := mergeHTTPRoutes(route, vs.Http)
 				mergedRoutes = append(mergedRoutes, merged...)
 			} else {
@@ -322,6 +337,9 @@ func mergeHTTPRoute(root *networking.HTTPRoute, delegate *networking.HTTPRoute) 
 	if delegate.CorsPolicy == nil {
 		delegate.CorsPolicy = root.CorsPolicy
 	}
+	if delegate.Mirrors == nil {
+		delegate.Mirrors = root.Mirrors
+	}
 	if delegate.Headers == nil {
 		delegate.Headers = root.Headers
 	}
@@ -362,7 +380,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {
-	out := proto.Clone(delegate).(*networking.HTTPMatchRequest)
+	out := delegate
 	if out.Name == "" {
 		out.Name = root.Name
 	} else if root.Name != "" {
@@ -381,50 +399,20 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 		out.Authority = root.Authority
 	}
 	// headers
-	if len(root.Headers) > 0 || len(delegate.Headers) > 0 {
-		out.Headers = make(map[string]*networking.StringMatch)
-	}
-	for k, v := range root.Headers {
-		out.Headers[k] = v
-	}
-	for k, v := range delegate.Headers {
-		out.Headers[k] = v
-	}
+	out.Headers = maps.MergeCopy(root.Headers, delegate.Headers)
+
 	// withoutheaders
-	if len(root.WithoutHeaders) > 0 || len(delegate.WithoutHeaders) > 0 {
-		out.WithoutHeaders = make(map[string]*networking.StringMatch)
-	}
-	for k, v := range root.WithoutHeaders {
-		out.WithoutHeaders[k] = v
-	}
-	for k, v := range delegate.WithoutHeaders {
-		out.WithoutHeaders[k] = v
-	}
+	out.WithoutHeaders = maps.MergeCopy(root.WithoutHeaders, delegate.WithoutHeaders)
+
 	// queryparams
-	if len(root.QueryParams) > 0 || len(delegate.QueryParams) > 0 {
-		out.QueryParams = make(map[string]*networking.StringMatch)
-	}
-	for k, v := range root.QueryParams {
-		out.QueryParams[k] = v
-	}
-	for k, v := range delegate.QueryParams {
-		out.QueryParams[k] = v
-	}
+	out.QueryParams = maps.MergeCopy(root.QueryParams, delegate.QueryParams)
 
 	if out.Port == 0 {
 		out.Port = root.Port
 	}
 
 	// SourceLabels
-	if len(root.SourceLabels) > 0 || len(delegate.SourceLabels) > 0 {
-		out.SourceLabels = make(map[string]string)
-	}
-	for k, v := range root.SourceLabels {
-		out.SourceLabels[k] = v
-	}
-	for k, v := range delegate.SourceLabels {
-		out.SourceLabels[k] = v
-	}
+	out.SourceLabels = maps.MergeCopy(root.SourceLabels, delegate.SourceLabels)
 
 	if out.SourceNamespace == "" {
 		out.SourceNamespace = root.SourceNamespace
@@ -515,7 +503,7 @@ func stringMatchConflict(root, leaf *networking.StringMatch) bool {
 			return true
 		}
 	}
-	// If delgate regex match is specified, root should not have other matches.
+	// If delegate regex match is specified, root should not have other matches.
 	if leaf.GetRegex() != "" {
 		if root.GetRegex() != "" || root.GetPrefix() != "" || root.GetExact() != "" {
 			return true

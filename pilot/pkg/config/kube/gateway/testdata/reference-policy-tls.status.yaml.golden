@@ -30,7 +30,7 @@ status:
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: port 443 not found for
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
-    reason: Invalid
+    reason: AddressNotAssigned
     status: "False"
     type: Programmed
   listeners:
@@ -60,6 +60,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute

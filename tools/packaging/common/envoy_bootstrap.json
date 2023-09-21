@@ -501,6 +501,19 @@
             "port_value": {{ .envoy_prometheus_port }}
           }
         },
+        {{- if .dual_stack }}
+        "additionalAddresses": [
+          {
+            "address": {
+              "socket_address": {
+                "protocol": "TCP",
+                "address": "{{ .additional_wildcard }}",
+                "port_value": {{ .envoy_prometheus_port }}
+              }
+            }
+          }
+        ],
+        {{- end}}
         "filter_chains": [
           {
             "filters": [
@@ -550,6 +563,19 @@
              "port_value": {{ .envoy_status_port }}
            }
         },
+        {{- if .dual_stack }}
+        "additionalAddresses": [
+          {
+            "address": {
+              "socket_address": {
+                "protocol": "TCP",
+                "address": "{{ .additional_wildcard }}",
+                "port_value": {{ .envoy_status_port }}
+              }
+            }
+          }
+        ],
+        {{- end}}
         "filter_chains": [
           {
             "filters": [

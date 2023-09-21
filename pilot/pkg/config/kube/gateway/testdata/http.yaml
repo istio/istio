@@ -188,6 +188,11 @@ spec:
         backendRef:
           name: httpbin-mirror
           port: 80
+    - type: RequestMirror
+      requestMirror:
+        backendRef:
+          name: httpbin-second
+          port: 80
     backendRefs:
     - name: httpbin
       port: 80
@@ -210,3 +215,46 @@ spec:
     backendRefs:
     - name: httpbin-bad
       port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-timeout-request
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["timeout.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /get
+    backendRefs:
+    - name: httpbin
+      port: 80
+    timeouts:
+      request: 1ms
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-timeout-backend-request
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["timeout-backend.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /get
+    backendRefs:
+    - name: httpbin
+      port: 80
+    timeouts:
+      request: 2ms
+      backendRequest: 1ms

@@ -33,6 +33,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/common/expfmt"
 	"github.com/prometheus/prometheus/model/textparse"
 	"go.uber.org/atomic"
@@ -44,7 +45,9 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 	"istio.io/istio/pkg/kube/apimirror"
+	"istio.io/istio/pkg/lazy"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -59,7 +62,7 @@ type handler struct {
 const (
 	testHeader      = "Some-Header"
 	testHeaderValue = "some-value"
-	testHostValue   = "host"
+	testHostValue   = "test.com:9999"
 )
 
 var liveServerStats = "cluster_manager.cds.update_success: 1\nlistener_manager.lds.update_success: 1\nserver.state: 0\nlistener_manager.workers_started: 1"
@@ -70,7 +73,7 @@ func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch segments[0] {
 	case "header":
 		if r.Host != testHostValue {
-			log.Errorf("Missing expected host header, got %v", r.Host)
+			log.Errorf("Missing expected host value %s, got %v", testHostValue, r.Host)
 			w.WriteHeader(http.StatusBadRequest)
 		}
 		if r.Header.Get(testHeader) != testHeaderValue {
@@ -181,7 +184,8 @@ func TestNewServer(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		_, err := NewServer(Options{
-			KubeAppProbers: tc.probe,
+			KubeAppProbers:     tc.probe,
+			PrometheusRegistry: TestingRegistry(t),
 		})
 
 		if err == nil {
@@ -203,7 +207,7 @@ func TestNewServer(t *testing.T) {
 func TestPprof(t *testing.T) {
 	pprofPath := "/debug/pprof/cmdline"
 	// Starts the pilot agent status server.
-	server, err := NewServer(Options{StatusPort: 0, EnableProfiling: true})
+	server, err := NewServer(Options{StatusPort: 0, EnableProfiling: true, PrometheusRegistry: TestingRegistry(t)})
 	if err != nil {
 		t.Fatalf("failed to create status server %v", err)
 	}
@@ -352,6 +356,7 @@ my_metric{app="bar"} 0
 				},
 				envoyStatsPort: envoyPort,
 				http:           &http.Client{},
+				registry:       TestingRegistry(t),
 			}
 			req := &http.Request{}
 			server.handleStats(rec, req)
@@ -492,6 +497,7 @@ my_other_metric{} 0
 				prometheus: &PrometheusScrapeConfiguration{
 					Port: strings.Split(app.URL, ":")[2],
 				},
+				registry:       TestingRegistry(t),
 				envoyStatsPort: envoyPort,
 				http:           &http.Client{},
 			}
@@ -558,6 +564,7 @@ func TestStatsError(t *testing.T) {
 				prometheus: &PrometheusScrapeConfiguration{
 					Port: strconv.Itoa(tt.app),
 				},
+				registry:       TestingRegistry(t),
 				envoyStatsPort: tt.envoy,
 				http:           &http.Client{},
 			}
@@ -582,17 +589,21 @@ jmx_config_reload_success_total 0.0
 jmx_config_reload_success_created 1.623984612719E9
 `
 	appOpenMetrics := appText + "# EOF"
-	envoy := `# TYPE my_metric counter
+
+	envoy := strings.Builder{}
+	envoy.Grow(size << 10 * 100)
+	envoy.WriteString(`# TYPE my_metric counter
 my_metric{} 0
 # TYPE my_other_metric counter
 my_other_metric{} 0
-`
-	for i := 0; len(envoy)+len(appText) < size<<10; i++ {
-		envoy = envoy + "#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0\n"
+`)
+	for i := 0; envoy.Len()+len(appText) < size<<10; i++ {
+		envoy.WriteString("#TYPE my_other_metric_" + strconv.Itoa(i) + " counter\nmy_other_metric_" + strconv.Itoa(i) + " 0\n")
 	}
+	eb := []byte(envoy.String())
 
 	envoyServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if _, err := w.Write([]byte(envoy)); err != nil {
+		if _, err := w.Write(eb); err != nil {
 			t.Fatalf("write failed: %v", err)
 		}
 	}))
@@ -615,13 +626,19 @@ my_other_metric{} 0
 	if err != nil {
 		t.Fatal(err)
 	}
+	registry, err := initializeMonitoring()
+	if err != nil {
+		t.Fatal(err)
+	}
 	server := &Server{
+		registry: registry,
 		prometheus: &PrometheusScrapeConfiguration{
 			Port: strings.Split(app.URL, ":")[2],
 		},
 		envoyStatsPort: envoyPort,
 		http:           &http.Client{},
 	}
+	t.ResetTimer()
 	return server
 }
 
@@ -731,9 +748,9 @@ func TestAppProbe(t *testing.T) {
 					HTTPGet: &apimirror.HTTPGetAction{
 						Port: intstr.IntOrString{IntVal: int32(appPort)},
 						Path: "/header",
-						Host: testHostValue,
 						HTTPHeaders: []apimirror.HTTPHeader{
 							{Name: testHeader, Value: testHeaderValue},
+							{Name: "Host", Value: testHostValue},
 						},
 					},
 				},
@@ -854,10 +871,11 @@ func TestAppProbe(t *testing.T) {
 			t.Fatalf("invalid app probers")
 		}
 		config := Options{
-			StatusPort:     0,
-			KubeAppProbers: string(appProber),
-			PodIP:          tc.podIP,
-			IPv6:           tc.ipv6,
+			StatusPort:         0,
+			PrometheusRegistry: TestingRegistry(t),
+			KubeAppProbers:     string(appProber),
+			PodIP:              tc.podIP,
+			IPv6:               tc.ipv6,
 		}
 		// Starts the pilot agent status server.
 		server, err := NewServer(config)
@@ -891,6 +909,9 @@ func TestAppProbe(t *testing.T) {
 				}
 			}
 		}
+		// This is simulating the kubelet behavior of setting the Host to Header["Host"].
+		// https://github.com/kubernetes/kubernetes/blob/d3b7391dc2f1040083ee2a8bfcb02edf7b0ded4b/pkg/probe/http/request.go#L84C1-L84C1
+		req.Host = req.Header.Get("Host")
 		resp, err := client.Do(req)
 		if err != nil {
 			t.Fatal("request failed: ", err)
@@ -959,7 +980,8 @@ func TestHttpsAppProbe(t *testing.T) {
 
 		// Starts the pilot agent status server.
 		server, err := NewServer(Options{
-			StatusPort: 0,
+			StatusPort:         0,
+			PrometheusRegistry: TestingRegistry(t),
 			KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"}},
 "/app-health/hello-world/livez": {"httpGet": {"port": %v, "scheme": "HTTPS"}}}`, appPort, appPort),
 		})
@@ -1084,7 +1106,8 @@ func TestGRPCAppProbe(t *testing.T) {
 	appPort := listener.Addr().(*net.TCPAddr).Port
 	// Starts the pilot agent status server.
 	server, err := NewServer(Options{
-		StatusPort: 0,
+		StatusPort:         0,
+		PrometheusRegistry: TestingRegistry(t),
 		KubeAppProbers: fmt.Sprintf(`
 {
     "/app-health/foo/livez": {
@@ -1205,9 +1228,10 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 	appPort := listener.Addr().(*net.TCPAddr).Port
 	// Starts the pilot agent status server.
 	server, err := NewServer(Options{
-		StatusPort: 0,
-		IPv6:       true,
-		PodIP:      "::1",
+		StatusPort:         0,
+		IPv6:               true,
+		PodIP:              "::1",
+		PrometheusRegistry: TestingRegistry(t),
 		KubeAppProbers: fmt.Sprintf(`
 {
     "/app-health/foo/livez": {
@@ -1426,8 +1450,9 @@ func TestProbeHeader(t *testing.T) {
 				t.Fatalf("invalid app probers")
 			}
 			config := Options{
-				StatusPort:     0,
-				KubeAppProbers: string(appProber),
+				StatusPort:         0,
+				PrometheusRegistry: TestingRegistry(t),
+				KubeAppProbers:     string(appProber),
 			}
 			// Starts the pilot agent status server.
 			server, err := NewServer(config)
@@ -1465,7 +1490,7 @@ func TestProbeHeader(t *testing.T) {
 
 func TestHandleQuit(t *testing.T) {
 	statusPort := 15020
-	s, err := NewServer(Options{StatusPort: uint16(statusPort)})
+	s, err := NewServer(Options{StatusPort: uint16(statusPort), PrometheusRegistry: TestingRegistry(t)})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1564,8 +1589,9 @@ func TestAdditionalProbes(t *testing.T) {
 	defer testServer.Close()
 	for _, tc := range testCases {
 		server, err := NewServer(Options{
-			Probes:    tc.probes,
-			AdminPort: uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
+			Probes:             tc.probes,
+			PrometheusRegistry: TestingRegistry(t),
+			AdminPort:          uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
 		})
 		if err != nil {
 			t.Errorf("failed to construct server")
@@ -1594,4 +1620,14 @@ type unreadyProbe struct{}
 
 func (u unreadyProbe) Check() error {
 	return errors.New("not ready")
+}
+
+var reg = lazy.New(initializeMonitoring)
+
+func TestingRegistry(t test.Failer) prometheus.Gatherer {
+	r, err := reg.Get()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
 }

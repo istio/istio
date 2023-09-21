@@ -35,23 +35,29 @@ var enableStats = func() bool {
 }
 
 var (
-	xdsCacheReads = monitoring.RegisterIf(monitoring.NewSum(
+	xdsCacheReads = monitoring.NewSum(
 		"xds_cache_reads",
 		"Total number of xds cache xdsCacheReads.",
-		monitoring.WithLabels(typeTag)), enableStats)
+		monitoring.WithEnabled(enableStats),
+	)
 
-	xdsCacheEvictions = monitoring.RegisterIf(monitoring.NewSum(
+	xdsCacheEvictions = monitoring.NewSum(
 		"xds_cache_evictions",
 		"Total number of xds cache evictions.",
-		monitoring.WithLabels(typeTag)), enableStats)
+		monitoring.WithEnabled(enableStats),
+	)
 
-	xdsCacheSize = monitoring.RegisterIf(monitoring.NewGauge(
+	xdsCacheSize = monitoring.NewGauge(
 		"xds_cache_size",
-		"Current size of xds cache"), enableStats)
+		"Current size of xds cache",
+		monitoring.WithEnabled(enableStats),
+	)
 
-	dependentConfigSize = monitoring.RegisterIf(monitoring.NewGauge(
+	dependentConfigSize = monitoring.NewGauge(
 		"xds_cache_dependent_config_size",
-		"Current size of dependent configs"), enableStats)
+		"Current size of dependent configs",
+		monitoring.WithEnabled(enableStats),
+	)
 
 	xdsCacheHits             = xdsCacheReads.With(typeTag.Value("hit"))
 	xdsCacheMisses           = xdsCacheReads.With(typeTag.Value("miss"))
@@ -305,8 +311,9 @@ func (l *lruCache[K]) Clear(configs sets.Set[ConfigKey]) {
 		l.evictedOnClear = false
 	}()
 	for ckey := range configs {
-		referenced := l.configIndex[ckey.HashCode()]
-		delete(l.configIndex, ckey.HashCode())
+		hc := ckey.HashCode()
+		referenced := l.configIndex[hc]
+		delete(l.configIndex, hc)
 		for key := range referenced {
 			l.store.Remove(key)
 		}

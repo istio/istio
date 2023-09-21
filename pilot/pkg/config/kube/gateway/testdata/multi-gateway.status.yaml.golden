@@ -35,7 +35,7 @@ status:
       and istio-ingressgateway.istio-system.svc.domain.suffix:80, but failed to assign
       to all requested addresses: hostname "istio-ingressgateway.not-default.svc.domain.suffix"
       not found'
-    reason: Invalid
+    reason: AddressNotAssigned
     status: "False"
     type: Programmed
   listeners:
@@ -65,6 +65,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
   - attachedRoutes: 0
     conditions:
     - lastTransitionTime: fake

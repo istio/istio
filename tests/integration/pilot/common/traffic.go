@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
-	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -225,7 +224,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 				}
 			}
 			cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
-			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t, apply.CleanupConditionally)
+			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
@@ -285,7 +284,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 	RunSkipAmbient("use-client-protocol", useClientProtocolCases, "https://github.com/istio/istio/issues/43161")
 	RunCase("destinationrule", destinationRuleCases)
 	RunCase("vm", VMTestCases(apps.VM))
-	RunCase("dns", DNSTestCases)
+	RunSkipAmbient("dns", DNSTestCases, "https://github.com/istio/istio/issues/45923")
 	RunCase("externalservice", TestExternalService)
 }
 

@@ -99,24 +99,25 @@ func (c *Controller) Policies(requested sets.Set[model.ConfigKey]) []*security.A
 	return res
 }
 
-func (c *Controller) AddressInformation(addresses sets.String) ([]*model.AddressInfo, []string) {
+func (c *Controller) AddressInformation(addresses sets.String) ([]*model.AddressInfo, sets.String) {
 	i := []*model.AddressInfo{}
-	removed := sets.New[string]()
 	if !features.EnableAmbientControllers {
-		return i, []string{}
+		return i, nil
 	}
+	removed := sets.String{}
 	for _, p := range c.GetRegistries() {
 		wis, r := p.AddressInformation(addresses)
 		i = append(i, wis...)
-		removed.InsertAll(r...)
+		removed.Merge(r)
 	}
 	// We may have 'removed' it in one registry but found it in another
 	for _, wl := range i {
+		// TODO(@hzxuzhonghu) This is not right for workload, we may search workload by ip, but the resource name is uid.
 		if removed.Contains(wl.ResourceName()) {
 			removed.Delete(wl.ResourceName())
 		}
 	}
-	return i, removed.UnsortedList()
+	return i, removed
 }
 
 type registryEntry struct {
@@ -310,16 +311,6 @@ func (c *Controller) MCSServices() []model.MCSServiceInfo {
 	return out
 }
 
-// InstancesByPort retrieves instances for a service on a given port that match
-// any of the supplied labels. All instances match an empty label list.
-func (c *Controller) InstancesByPort(svc *model.Service, port int) []*model.ServiceInstance {
-	var instances []*model.ServiceInstance
-	for _, r := range c.GetRegistries() {
-		instances = append(instances, r.InstancesByPort(svc, port)...)
-	}
-	return instances
-}
-
 func nodeClusterID(node *model.Proxy) cluster.ID {
 	if node.Metadata == nil || node.Metadata.ClusterID == "" {
 		return ""
@@ -339,18 +330,18 @@ func skipSearchingRegistryForProxy(nodeClusterID cluster.ID, r serviceregistry.I
 	return !r.Cluster().Equals(nodeClusterID)
 }
 
-// GetProxyServiceInstances lists service instances co-located with a given proxy
-func (c *Controller) GetProxyServiceInstances(node *model.Proxy) []*model.ServiceInstance {
-	out := make([]*model.ServiceInstance, 0)
+// GetProxyServiceTargets lists service instances co-located with a given proxy
+func (c *Controller) GetProxyServiceTargets(node *model.Proxy) []model.ServiceTarget {
+	out := make([]model.ServiceTarget, 0)
 	nodeClusterID := nodeClusterID(node)
 	for _, r := range c.GetRegistries() {
 		if skipSearchingRegistryForProxy(nodeClusterID, r) {
-			log.Debugf("GetProxyServiceInstances(): not searching registry %v: proxy %v CLUSTER_ID is %v",
+			log.Debugf("GetProxyServiceTargets(): not searching registry %v: proxy %v CLUSTER_ID is %v",
 				r.Cluster(), node.ID, nodeClusterID)
 			continue
 		}
 
-		instances := r.GetProxyServiceInstances(node)
+		instances := r.GetProxyServiceTargets(node)
 		if len(instances) > 0 {
 			out = append(out, instances...)
 		}
@@ -364,13 +355,7 @@ func (c *Controller) GetProxyWorkloadLabels(proxy *model.Proxy) labels.Instance 
 	for _, r := range c.GetRegistries() {
 		// If proxy clusterID unset, we may find incorrect workload label.
 		// This can not happen in k8s env.
-		if clusterID == "" {
-			lbls := r.GetProxyWorkloadLabels(proxy)
-			if lbls != nil {
-				return lbls
-			}
-		} else if clusterID == r.Cluster() {
-			// find proxy in the specified cluster
+		if clusterID == "" || clusterID == r.Cluster() {
 			lbls := r.GetProxyWorkloadLabels(proxy)
 			if lbls != nil {
 				return lbls

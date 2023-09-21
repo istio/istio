@@ -29,6 +29,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -298,6 +299,12 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	waypointCmd.AddCommand(waypointDeleteCmd)
 	waypointCmd.AddCommand(waypointListCmd)
 	waypointCmd.PersistentFlags().StringVarP(&waypointServiceAccount, "service-account", "s", "", "service account to create a waypoint for")
+
+	_ = waypointCmd.RegisterFlagCompletionFunc("service-account", func(
+		cmd *cobra.Command, args []string, toComplete string,
+	) ([]string, cobra.ShellCompDirective) {
+		return completion.ValidServiceAccountArgs(cmd, ctx, args, toComplete)
+	})
 
 	return waypointCmd
 }

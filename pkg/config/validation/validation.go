@@ -29,7 +29,6 @@ import (
 	"time"
 
 	udpaa "github.com/cncf/xds/go/udpa/annotations"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"github.com/lestrrat-go/jwx/jwk"
 	"google.golang.org/protobuf/proto"
@@ -54,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
@@ -64,6 +64,7 @@ import (
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // Constants for duration fields
@@ -389,7 +390,7 @@ func ValidateHTTPHeaderValue(value string) error {
 		return fmt.Errorf("header value configuration: %w", err)
 	}
 
-	// TODO: find a better way to validate fileds supported in custom header, e.g %ENVIRONMENT(X):Z%
+	// TODO: find a better way to validate fields supported in custom header, e.g %ENVIRONMENT(X):Z%
 
 	return nil
 }
@@ -665,32 +666,9 @@ var ValidateDestinationRule = registerValidateFunc("ValidateDestinationRule",
 			return nil, fmt.Errorf("cannot cast to destination rule")
 		}
 		v := Validation{}
-		if features.EnableDestinationRuleInheritance {
-			if rule.Host == "" {
-				if rule.GetWorkloadSelector() != nil {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have workloadSelector configured"))
-				}
-				if len(rule.Subsets) != 0 {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have subsets"))
-				}
-				if len(rule.ExportTo) != 0 {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have exportTo configured"))
-				}
-				if rule.TrafficPolicy != nil && len(rule.TrafficPolicy.PortLevelSettings) != 0 {
-					v = appendValidation(v,
-						fmt.Errorf("mesh/namespace destination rule cannot have portLevelSettings configured"))
-				}
-			} else {
-				v = appendValidation(v, ValidateWildcardDomain(rule.Host))
-			}
-		} else {
-			v = appendValidation(v, ValidateWildcardDomain(rule.Host))
-		}
-
-		v = appendValidation(v, validateTrafficPolicy(rule.TrafficPolicy))
+		v = appendValidation(v,
+			ValidateWildcardDomain(rule.Host),
+			validateTrafficPolicy(rule.TrafficPolicy))
 
 		for _, subset := range rule.Subsets {
 			if subset == nil {
@@ -884,7 +862,6 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 									continue
 								}
 							}
-
 							errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetName()))
 							errs = appendValidation(errs, validateListenerMatchName(listenerMatch.FilterChain.Filter.GetSubFilter().GetName()))
 						}
@@ -1472,13 +1449,8 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 	consistentHash := settings.GetConsistentHash()
 	if consistentHash != nil {
 		httpCookie := consistentHash.GetHttpCookie()
-		if httpCookie != nil {
-			if httpCookie.Name == "" {
-				errs = appendValidation(errs, fmt.Errorf("name required for HttpCookie"))
-			}
-			if httpCookie.Ttl == nil {
-				errs = appendValidation(errs, fmt.Errorf("ttl required for HttpCookie"))
-			}
+		if httpCookie != nil && httpCookie.GetName() == "" {
+			errs = appendValidation(errs, fmt.Errorf("name required for HttpCookie"))
 		}
 		if consistentHash.MinimumRingSize != 0 { // nolint: staticcheck
 			warn := "consistent hash MinimumRingSize is deprecated, use ConsistentHashLB's RingHash configuration instead"
@@ -1498,6 +1470,23 @@ func validateLoadBalancer(settings *networking.LoadBalancerSettings, outlier *ne
 func validateTLS(settings *networking.ClientTLSSettings) (errs error) {
 	if settings == nil {
 		return
+	}
+
+	if settings.GetInsecureSkipVerify().GetValue() {
+		if settings.Mode == networking.ClientTLSSettings_SIMPLE {
+			// In tls simple mode, we can specify ca cert by CaCertificates or CredentialName.
+			if settings.CaCertificates != "" || settings.CredentialName != "" || settings.SubjectAltNames != nil {
+				errs = appendErrors(errs, fmt.Errorf("cannot specify CaCertificates or CredentialName or SubjectAltNames when InsecureSkipVerify is set true"))
+			}
+		}
+
+		if settings.Mode == networking.ClientTLSSettings_MUTUAL {
+			// In tls mutual mode, we can specify both client cert and ca cert by CredentialName.
+			// However, here we can not distinguish whether user specify ca cert by CredentialName or not.
+			if settings.CaCertificates != "" || settings.SubjectAltNames != nil {
+				errs = appendErrors(errs, fmt.Errorf("cannot specify CaCertificates or SubjectAltNames when InsecureSkipVerify is set true"))
+			}
+		}
 	}
 
 	if (settings.Mode == networking.ClientTLSSettings_SIMPLE || settings.Mode == networking.ClientTLSSettings_MUTUAL) &&
@@ -1943,6 +1932,24 @@ func ValidateControlPlaneAuthPolicy(policy meshconfig.AuthenticationPolicy) erro
 	return fmt.Errorf("unrecognized control plane auth policy %q", policy)
 }
 
+func validatePolicyTargetReference(targetRef *type_beta.PolicyTargetReference) (v Validation) {
+	if targetRef == nil {
+		return
+	}
+	if targetRef.Name == "" {
+		v = appendErrorf(v, "targetRef name must be set")
+	}
+	if targetRef.Namespace != "" {
+		v = appendErrorf(v, "targetRef namespace must not be set")
+	}
+	// Currently, gateway.networking.k8s.io is the only valid Group and gateway.networking.k8s.io/Gateway the only valid Kind.
+	if targetRef.Group != gvk.KubernetesGateway.Group || targetRef.Kind != gvk.KubernetesGateway.Kind {
+		v = appendErrorf(v, "targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+			gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, targetRef.Group, targetRef.Kind)
+	}
+	return
+}
+
 func validateWorkloadSelector(selector *type_beta.WorkloadSelector) Validation {
 	validation := Validation{}
 	if selector != nil {
@@ -1965,6 +1972,13 @@ func validateWorkloadSelector(selector *type_beta.WorkloadSelector) Validation {
 	return validation
 }
 
+func validateOneOfSelectorType(selector *type_beta.WorkloadSelector, targetRef *type_beta.PolicyTargetReference) (v Validation) {
+	if selector != nil && targetRef != nil {
+		v = appendErrorf(v, "only one of targetRef or workloadSelector can be set")
+	}
+	return
+}
+
 // ValidateAuthorizationPolicy checks that AuthorizationPolicy is well-formed.
 var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPolicy",
 	func(cfg config.Config) (Warning, error) {
@@ -1975,9 +1989,11 @@ var ValidateAuthorizationPolicy = registerValidateFunc("ValidateAuthorizationPol
 
 		var errs error
 		var warnings Warning
-		validation := validateWorkloadSelector(in.Selector)
-		errs = appendErrors(errs, validation)
-		warnings = appendErrors(warnings, validation.Warning)
+		selectorTypeValidation := validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef())
+		workloadSelectorValidation := validateWorkloadSelector(in.GetSelector())
+		targetRefValidation := validatePolicyTargetReference(in.GetTargetRef())
+		errs = appendErrors(errs, selectorTypeValidation, workloadSelectorValidation, targetRefValidation)
+		warnings = appendErrors(warnings, workloadSelectorValidation.Warning)
 
 		if in.Action == security_beta.AuthorizationPolicy_CUSTOM {
 			if in.Rules == nil {
@@ -2146,8 +2162,11 @@ var ValidateRequestAuthentication = registerValidateFunc("ValidateRequestAuthent
 		}
 
 		errs := Validation{}
-		validation := validateWorkloadSelector(in.Selector)
-		errs = appendValidation(errs, validation)
+		errs = appendValidation(errs,
+			validateOneOfSelectorType(in.GetSelector(), in.GetTargetRef()),
+			validateWorkloadSelector(in.GetSelector()),
+			validatePolicyTargetReference(in.GetTargetRef()),
+		)
 
 		for _, rule := range in.JwtRules {
 			errs = appendValidation(errs, validateJwtRule(rule))
@@ -2261,11 +2280,11 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no gateways specified"))
 			}
 			if len(virtualService.Tls) != 0 {
-				// meaningless to specify tls in delegate, we donot support tls delegate
+				// meaningless to specify tls in delegate, we do not support tls delegate
 				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no tls route specified"))
 			}
 			if len(virtualService.Tcp) != 0 {
-				// meaningless to specify tls in delegate, we donot support tcp delegate
+				// meaningless to specify tls in delegate, we do not support tcp delegate
 				errs = appendValidation(errs, fmt.Errorf("delegate virtual service must have no tcp route specified"))
 			}
 		}
@@ -3174,6 +3193,32 @@ func validateHTTPDirectResponse(directResponse *networking.HTTPDirectResponse) (
 	return
 }
 
+func validateHTTPMirrors(mirrors []*networking.HTTPMirrorPolicy) error {
+	errs := Validation{}
+	for _, mirror := range mirrors {
+		if mirror == nil {
+			errs = appendValidation(errs, errors.New("mirror cannot be null"))
+			continue
+		}
+		if mirror.Destination == nil {
+			errs = appendValidation(errs, errors.New("destination is required for mirrors"))
+			continue
+		}
+		errs = appendValidation(errs, validateDestination(mirror.Destination))
+
+		if mirror.Percentage != nil {
+			value := mirror.Percentage.GetValue()
+			if value > 100 {
+				errs = appendValidation(errs, fmt.Errorf("mirror percentage must have a max value of 100 (it has %f)", value))
+			}
+			if value < 0 {
+				errs = appendValidation(errs, fmt.Errorf("mirror percentage must have a min value of 0 (it has %f)", value))
+			}
+		}
+	}
+	return errs
+}
+
 func validateHTTPRewrite(rewrite *networking.HTTPRewrite) error {
 	if rewrite == nil {
 		return nil
@@ -3207,16 +3252,18 @@ var ValidateWorkloadEntry = registerValidateFunc("ValidateWorkloadEntry",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to workload entry")
 		}
-		return validateWorkloadEntry(we)
+		// TODO: We currently don't validate if we port is part of service port, as that is tricky to do without ServiceEntry
+		return validateWorkloadEntry(we, nil, true).Unwrap()
 	})
 
-func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
+func validateWorkloadEntry(we *networking.WorkloadEntry, servicePorts map[string]bool, allowFQDNAddresses bool) Validation {
 	errs := Validation{}
+	unixEndpoint := false
 
-	addr := we.Address
+	addr := we.GetAddress()
 	if addr == "" {
 		if we.Network == "" {
-			return nil, fmt.Errorf("address must be set")
+			return appendErrorf(errs, "address is required")
 		}
 		errs = appendWarningf(errs, "address is unset with network %q", we.Network)
 	}
@@ -3225,12 +3272,15 @@ func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
 	// check based on content and try validations.
 	// First check if it is a Unix endpoint - this will be specified for STATIC.
 	if strings.HasPrefix(addr, UnixAddressPrefix) {
+		unixEndpoint = true
 		errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
 		if len(we.Ports) != 0 {
 			errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
 		}
 	} else if addr != "" && !netutil.IsValidIPAddress(addr) { // This could be IP (in STATIC resolution) or DNS host name (for DNS).
-		if err := ValidateFQDN(addr); err != nil { // Otherwise could be an FQDN
+		if !allowFQDNAddresses {
+			errs = appendValidation(errs, fmt.Errorf("endpoint address %q is not a valid IP address", addr))
+		} else if err := ValidateFQDN(addr); err != nil { // Otherwise could be an FQDN
 			errs = appendValidation(errs, fmt.Errorf("endpoint address %q is not a valid FQDN or an IP address", addr))
 		}
 	}
@@ -3238,12 +3288,19 @@ func validateWorkloadEntry(we *networking.WorkloadEntry) (Warning, error) {
 	errs = appendValidation(errs,
 		labels.Instance(we.Labels).Validate())
 	for name, port := range we.Ports {
-		// TODO: Validate port is part of Service Port - which is tricky to validate with out service entry.
+		if servicePorts != nil && !servicePorts[name] {
+			errs = appendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
+		}
 		errs = appendValidation(errs,
 			ValidatePortName(name),
-			ValidatePort(int(port)))
+			ValidatePort(int(port)),
+		)
 	}
-	return errs.Unwrap()
+	errs = appendValidation(errs, labels.Instance(we.Labels).Validate())
+	if unixEndpoint && servicePorts != nil && len(servicePorts) != 1 {
+		errs = appendValidation(errs, errors.New("exactly 1 service port required for unix endpoints"))
+	}
+	return errs
 }
 
 // ValidateWorkloadGroup validates a workload group.
@@ -3414,35 +3471,12 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 				errs = appendValidation(errs, fmt.Errorf("no endpoints should be provided for resolution type none"))
 			}
 		case networking.ServiceEntry_STATIC:
-			unixEndpoint := false
 			for _, endpoint := range serviceEntry.Endpoints {
 				if endpoint == nil {
 					errs = appendValidation(errs, errors.New("endpoint cannot be nil"))
 					continue
 				}
-				addr := endpoint.GetAddress()
-				if strings.HasPrefix(addr, UnixAddressPrefix) {
-					unixEndpoint = true
-					errs = appendValidation(errs, ValidateUnixAddress(strings.TrimPrefix(addr, UnixAddressPrefix)))
-					if len(endpoint.Ports) != 0 {
-						errs = appendValidation(errs, fmt.Errorf("unix endpoint %s must not include ports", addr))
-					}
-				} else {
-					errs = appendValidation(errs, ValidateIPAddress(addr))
-
-					for name, port := range endpoint.Ports {
-						if !servicePorts[name] {
-							errs = appendValidation(errs, fmt.Errorf("endpoint port %v is not defined by the service entry", port))
-						}
-						errs = appendValidation(errs,
-							ValidatePortName(name),
-							ValidatePort(int(port)))
-					}
-				}
-				errs = appendValidation(errs, labels.Instance(endpoint.Labels).Validate())
-			}
-			if unixEndpoint && len(serviceEntry.Ports) != 1 {
-				errs = appendValidation(errs, errors.New("exactly 1 service port required for unix endpoints"))
+				errs = appendValidation(errs, validateWorkloadEntry(endpoint, servicePorts, false))
 			}
 		case networking.ServiceEntry_DNS, networking.ServiceEntry_DNS_ROUND_ROBIN:
 			if len(serviceEntry.Endpoints) == 0 {
@@ -3820,7 +3854,9 @@ var ValidateTelemetry = registerValidateFunc("ValidateTelemetry",
 		errs := Validation{}
 
 		errs = appendValidation(errs,
-			validateWorkloadSelector(spec.Selector),
+			validateOneOfSelectorType(spec.GetSelector(), spec.GetTargetRef()),
+			validateWorkloadSelector(spec.GetSelector()),
+			validatePolicyTargetReference(spec.GetTargetRef()),
 			validateTelemetryMetrics(spec.Metrics),
 			validateTelemetryTracing(spec.Tracing),
 			validateTelemetryAccessLogging(spec.AccessLogging),
@@ -3942,10 +3978,12 @@ var ValidateWasmPlugin = registerValidateFunc("ValidateWasmPlugin",
 		if !ok {
 			return nil, fmt.Errorf("cannot cast to wasmplugin")
 		}
-
+		// figure out how to add check for targetRef and workload selector is not nil
 		errs := Validation{}
 		errs = appendValidation(errs,
-			validateWorkloadSelector(spec.Selector),
+			validateOneOfSelectorType(spec.GetSelector(), spec.GetTargetRef()),
+			validateWorkloadSelector(spec.GetSelector()),
+			validatePolicyTargetReference(spec.GetTargetRef()),
 			validateWasmPluginURL(spec.Url),
 			validateWasmPluginSHA(spec),
 			validateWasmPluginVMConfig(spec.VmConfig),

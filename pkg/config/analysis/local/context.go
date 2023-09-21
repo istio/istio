@@ -39,7 +39,7 @@ func NewContext(store model.ConfigStore, cluster cluster.ID, cancelCh <-chan str
 		cluster:            cluster,
 		store:              store,
 		cancelCh:           cancelCh,
-		messages:           diag.Messages{},
+		messages:           map[string]*diag.Messages{},
 		collectionReporter: collectionReporter,
 		found:              map[key]*resource.Instance{},
 		foundCollections:   map[config.GroupVersionKind]map[resource.FullName]*resource.Instance{},
@@ -50,10 +50,11 @@ type istiodContext struct {
 	cluster            cluster.ID
 	store              model.ConfigStore
 	cancelCh           <-chan struct{}
-	messages           diag.Messages
+	messages           map[string]*diag.Messages
 	collectionReporter CollectionReporterFn
 	found              map[key]*resource.Instance
 	foundCollections   map[config.GroupVersionKind]map[resource.FullName]*resource.Instance
+	currentAnalyzer    string
 }
 
 type key struct {
@@ -62,7 +63,33 @@ type key struct {
 }
 
 func (i *istiodContext) Report(c config.GroupVersionKind, m diag.Message) {
-	i.messages.Add(m)
+	msgs := i.messages[i.currentAnalyzer]
+	if msgs == nil {
+		msgs = &diag.Messages{}
+		i.messages[i.currentAnalyzer] = msgs
+	}
+	msgs.Add(m)
+}
+
+func (i *istiodContext) SetAnalyzer(analyzerName string) {
+	i.currentAnalyzer = analyzerName
+}
+
+func (i *istiodContext) GetMessages(analyzerNames ...string) diag.Messages {
+	result := diag.Messages{}
+	if len(analyzerNames) == 0 {
+		// no AnalyzerNames is equivalent to a wildcard, requesting all messages.
+		for _, msgs := range i.messages {
+			result.Add(*msgs...)
+		}
+	} else {
+		for _, name := range analyzerNames {
+			if msgs, ok := i.messages[name]; ok {
+				result.Add(*msgs...)
+			}
+		}
+	}
+	return result
 }
 
 func (i *istiodContext) Find(col config.GroupVersionKind, name resource.FullName) *resource.Instance {

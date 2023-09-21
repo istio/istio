@@ -18,7 +18,7 @@ const (
 	// UnspecifiedIP constant for empty IP address
 	UnspecifiedIP = "0.0.0.0"
 	// UnspecifiedIPv6 constant for empty IPv6 address
-	UnspecifiedIPv6 = "::/0"
+	UnspecifiedIPv6 = "::"
 
 	// AuthCertsPath is the path location for mTLS certificates
 	AuthCertsPath = "/etc/certs/"
@@ -157,12 +157,22 @@ const (
 
 	ManagedGatewayLabel               = "gateway.istio.io/managed"
 	ManagedGatewayController          = "istio.io/gateway-controller"
+	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
 	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
 	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
 	ManagedGatewayMeshController      = "istio.io/mesh-controller"
 
+	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
-	GatewayNameLabel         = "istio.io/gateway-name"
+
+	// GatewayNameLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
+	// TODO: Formalize this API
+	GatewayNameLabel = "istio.io/gateway-name"
+
+	// TODO formalize this API
+	// TODO additional values to represent passthrough and hbone or both
+	ListenerModeOption          = "gateway.istio.io/listener-protocol"
+	ListenerModeAutoPassthrough = "auto-passthrough"
 
 	// DataplaneMode namespace label for determining ambient mesh behavior
 	DataplaneMode        = "istio.io/dataplane-mode"

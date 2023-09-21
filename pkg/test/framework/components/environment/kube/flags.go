@@ -199,7 +199,7 @@ func parseNetworkTopology() (map[clusterIndex]string, error) {
 	for _, v := range values {
 		parts := strings.Split(v, ":")
 		if len(parts) != 2 {
-			return nil, fmt.Errorf("failed parsing network mapping mapping entry %s", v)
+			return nil, fmt.Errorf("failed parsing network mapping entry %s", v)
 		}
 		cluster, err := parseClusterIndex(parts[0])
 		if err != nil {
@@ -222,7 +222,7 @@ func parseClusterIndex(index string) (clusterIndex, error) {
 }
 
 // configsVal implements config.Value to allow setting the path as a flag or embedding the topology content
-// in the overal test framework config
+// in the overall test framework config
 type configsVal []cluster.Config
 
 func (c *configsVal) String() string {

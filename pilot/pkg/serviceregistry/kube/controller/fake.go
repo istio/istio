@@ -52,17 +52,20 @@ type FakeControllerOptions struct {
 	SkipRun                   bool
 	ConfigController          model.ConfigStoreController
 	ConfigCluster             bool
-	WorkloadEntryEnabled      bool
 }
 
 type FakeController struct {
 	*Controller
+	Endpoints *model.EndpointIndex
 }
 
 func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*FakeController, *xdsfake.Updater) {
 	xdsUpdater := opts.XDSUpdater
+	var endpoints *model.EndpointIndex
 	if xdsUpdater == nil {
-		xdsUpdater = xdsfake.NewFakeXDS()
+		endpoints = model.NewEndpointIndex(model.DisabledCache{})
+		delegate := model.NewEndpointIndexUpdater(endpoints)
+		xdsUpdater = xdsfake.NewWithDelegate(delegate)
 	}
 
 	domainSuffix := defaultFakeDomainSuffix
@@ -124,5 +127,5 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		kubelib.WaitForCacheSync("test", c.stop, c.HasSynced)
 	}
 
-	return &FakeController{c}, fx
+	return &FakeController{Controller: c, Endpoints: endpoints}, fx
 }

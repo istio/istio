@@ -41,6 +41,9 @@ spec:
     lifecycle:
       {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}
   {{- end }}
+    securityContext:
+      runAsUser: {{ .ProxyUID | default "1337" }}
+      runAsGroup: {{ .ProxyGID | default "1337" }}
     env:
     - name: JWT_POLICY
       value: {{ .Values.global.jwtPolicy }}
@@ -92,6 +95,14 @@ spec:
           {{- end}}
         {{- end}}
         ]
+    - name: GOMEMLIMIT
+      valueFrom:
+        resourceFieldRef:
+          resource: limits.memory
+    - name: GOMAXPROCS
+      valueFrom:
+        resourceFieldRef:
+          resource: limits.cpu
     - name: ISTIO_META_APP_CONTAINERS
       value: "{{ $containers | join "," }}"
     - name: ISTIO_META_CLUSTER_ID

@@ -62,6 +62,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -80,7 +82,7 @@ status:
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
       not found'
-    reason: Invalid
+    reason: AddressNotAssigned
     status: "False"
     type: Programmed
   listeners:
@@ -110,6 +112,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -130,7 +134,7 @@ status:
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
       port should be specified, not the workload port. Did you mean one of these ports:
       [80]?)'
-    reason: Invalid
+    reason: AddressNotAssigned
     status: "False"
     type: Programmed
   listeners:
@@ -160,6 +164,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -171,43 +177,15 @@ spec: null
 status:
   conditions:
   - lastTransitionTime: fake
-    message: Resource accepted
-    reason: Accepted
-    status: "True"
+    message: only Hostname is supported, ignoring [1.2.3.4]
+    reason: UnsupportedAddress
+    status: "False"
     type: Accepted
   - lastTransitionTime: fake
-    message: 'Failed to assign to any requested addresses: Only Hostname is supported,
-      ignoring [1.2.3.4]'
-    reason: Invalid
+    message: Failed to assign to any requested addresses
+    reason: UnsupportedAddress
     status: "False"
     type: Programmed
-  listeners:
-  - attachedRoutes: 0
-    conditions:
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Accepted
-      status: "True"
-      type: Accepted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: NoConflicts
-      status: "False"
-      type: Conflicted
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
-      type: Programmed
-    - lastTransitionTime: fake
-      message: No errors found
-      reason: ResolvedRefs
-      status: "True"
-      type: ResolvedRefs
-    name: default
-    supportedKinds:
-    - group: gateway.networking.k8s.io
-      kind: HTTPRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -256,6 +234,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -304,6 +284,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
@@ -352,6 +334,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: gateway.networking.k8s.io
+      kind: GRPCRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -527,6 +511,7 @@ status:
       type: ResolvedRefs
     controllerName: istio.io/gateway-controller
     parentRef:
+      group: ""
       kind: Service
       name: httpbin
 ---

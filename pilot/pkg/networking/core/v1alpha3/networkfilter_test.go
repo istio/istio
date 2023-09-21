@@ -22,7 +22,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/wellknown"
 )
 
 func TestBuildRedisFilter(t *testing.T) {
@@ -96,7 +96,7 @@ func TestInboundNetworkFilterStatPrefix(t *testing.T) {
 			fcc := inboundChainConfig{
 				telemetryMetadata: telemetry.FilterChainMetadata{InstanceHostname: "v0.default.example.org"},
 				clusterName:       "inbound|8888||",
-				port: ServiceInstancePort{
+				port: model.ServiceInstancePort{
 					ServicePort: &model.Port{},
 				},
 			}
@@ -123,7 +123,7 @@ func TestInboundNetworkFilterOrder(t *testing.T) {
 
 		fcc := inboundChainConfig{
 			clusterName: "inbound|8888||",
-			port:        ServiceInstancePort{ServicePort: &model.Port{}},
+			port:        model.ServiceInstancePort{ServicePort: &model.Port{}},
 		}
 		push := cg.PushContext()
 		push.AuthzPolicies = getAuthorizationPolicies()
@@ -135,7 +135,7 @@ func TestInboundNetworkFilterOrder(t *testing.T) {
 			Filters: listenerFilters,
 		}
 		listenertest.VerifyFilterChain(t, listenerFilterChain, listenertest.FilterChainTest{
-			NetworkFilters: []string{"istio_authn", xdsfilters.MxFilterName, RBACTCPFilterName, wellknown.TCPProxy},
+			NetworkFilters: []string{xdsfilters.MxFilterName, "istio_authn", RBACTCPFilterName, wellknown.TCPProxy},
 			TotalMatch:     true,
 		})
 	})
@@ -173,7 +173,7 @@ func TestInboundNetworkFilterIdleTimeout(t *testing.T) {
 			cg := NewConfigGenTest(t, TestOptions{Services: services})
 
 			fcc := inboundChainConfig{
-				port: ServiceInstancePort{ServicePort: &model.Port{}},
+				port: model.ServiceInstancePort{ServicePort: &model.Port{}},
 			}
 			node := &model.Proxy{Metadata: &model.NodeMetadata{IdleTimeout: tt.idleTimeout}}
 			listenerFilters := NewListenerBuilder(cg.SetupProxy(node), cg.PushContext()).buildInboundNetworkFilters(fcc)
@@ -382,9 +382,9 @@ func TestBuildOutboundNetworkFiltersTunnelingConfig(t *testing.T) {
 				},
 			})
 			proxy := cg.SetupProxy(&model.Proxy{ConfigNamespace: ns})
-
-			filters := buildOutboundNetworkFilters(proxy, tt.routeDestinations, cg.PushContext(),
-				&model.Port{Port: 443}, config.Meta{Name: "routing-config-for-example-com", Namespace: ns})
+			lb := ListenerBuilder{node: proxy, push: cg.PushContext()}
+			filters := lb.buildOutboundNetworkFilters(tt.routeDestinations,
+				&model.Port{Port: 443}, config.Meta{Name: "routing-config-for-example-com", Namespace: ns}, false)
 
 			tcpProxy := xdstest.ExtractTCPProxy(t, &listener.FilterChain{Filters: filters})
 			if tt.expectedTunnelingConfig == nil {
@@ -504,9 +504,10 @@ func TestOutboundNetworkFilterStatPrefix(t *testing.T) {
 			m.OutboundClusterStatName = tt.statPattern
 			cg := NewConfigGenTest(t, TestOptions{MeshConfig: m, Services: services})
 
-			listeners := buildOutboundNetworkFilters(
-				cg.SetupProxy(nil), tt.routes, cg.PushContext(),
-				&model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"})
+			lb := ListenerBuilder{node: cg.SetupProxy(nil), push: cg.PushContext()}
+			listeners := lb.buildOutboundNetworkFilters(
+				tt.routes,
+				&model.Port{Port: 9999}, config.Meta{Name: "test.com", Namespace: "ns"}, false)
 			tcp := &tcp.TcpProxy{}
 			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
 			if tcp.StatPrefix != tt.expectedStatPrefix {
@@ -700,7 +701,8 @@ func TestOutboundNetworkFilterWithSourceIPHashing(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			listeners := buildOutboundNetworkFilters(proxy, tt.routes, cg.PushContext(), &model.Port{Port: 9999}, tt.configMeta)
+			lb := ListenerBuilder{node: proxy, push: cg.PushContext()}
+			listeners := lb.buildOutboundNetworkFilters(tt.routes, &model.Port{Port: 9999}, tt.configMeta, false)
 			tcp := &tcp.TcpProxy{}
 			listeners[0].GetTypedConfig().UnmarshalTo(tcp)
 			hasSourceIP := tcp.HashPolicy != nil && len(tcp.HashPolicy) == 1 && tcp.HashPolicy[0].GetSourceIp() != nil

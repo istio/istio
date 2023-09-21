@@ -153,15 +153,18 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv6),
 					option.Wildcard(option.WildcardIPv6),
+					option.AdditionalWildCard(option.WildcardIPv4),
 					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
 			} else {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv4),
 					option.Wildcard(option.WildcardIPv4),
+					option.AdditionalWildCard(option.WildcardIPv6),
 					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
 			}
+			opts = append(opts, option.DualStack(true))
 		} else {
-			// keep the original logic if Dual Stack is disable
+			// keep the original logic if Dual Stack is disabled
 			opts = append(opts,
 				option.Localhost(option.LocalhostIPv4),
 				option.Wildcard(option.WildcardIPv4),
@@ -656,7 +659,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		l = options.Platform.Locality()
 	} else {
 		// replace "." with "/"
-		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
+		localityString := model.GetLocalityLabel(meta.Labels[model.LocalityLabel])
 		if localityString != "" {
 			// override the label with the sanitized value
 			meta.Labels[model.LocalityLabel] = localityString

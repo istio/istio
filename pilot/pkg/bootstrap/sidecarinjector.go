@@ -76,10 +76,11 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 	log.Info("initializing sidecar injector")
 
 	parameters := inject.WebhookParameters{
-		Watcher:  watcher,
-		Env:      s.environment,
-		Mux:      s.httpsMux,
-		Revision: args.Revision,
+		Watcher:    watcher,
+		Env:        s.environment,
+		Mux:        s.httpsMux,
+		Revision:   args.Revision,
+		KubeClient: s.kubeClient,
 	}
 
 	wh, err := inject.NewWebhook(parameters)
@@ -103,8 +104,6 @@ func (s *Server) initSidecarInjector(args *PilotArgs) (*inject.Webhook, error) {
 			return nil
 		})
 	}
-
-	s.readinessFlags.sidecarInjectorReady.Store(true)
 
 	s.addStartFunc("injection server", func(stop <-chan struct{}) error {
 		wh.Run(stop)

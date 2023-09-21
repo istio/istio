@@ -283,7 +283,7 @@ func TestLeaderElectionNoPermission(t *testing.T) {
 	// Expect to run once
 	expectInt(t, completions.Load, 1)
 
-	// drop RBAC permssions to update the configmap
+	// drop RBAC permissions to update the configmap
 	// This simulates loosing an active lease
 	allowRbac.Store(false)
 

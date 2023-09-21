@@ -74,7 +74,7 @@ func NewWriter[T controllers.ComparableObject](t test.Failer, c kube.Client) Tes
 // Any errors will call t.Fatal.
 // Typically, clienttest.WrapReadWriter should be used to simply wrap an existing client when testing an informer.
 // However, NewDirectClient can be useful if we do not need/want an informer and need direct reads.
-// Generic parameters represent the type with and without a pointer, and the lsit type
+// Generic parameters represent the type with and without a pointer, and the list type.
 // Example: NewDirectClient[*Pod, Pod, PodList]
 func NewDirectClient[T controllers.ComparableObject, PT any, TL runtime.Object](t test.Failer, c kube.Client) TestClient[T] {
 	return WrapReadWriter[T](t, &directClient[T, PT, TL]{
