@@ -50,6 +50,10 @@ func (i *multiClusterContext) Find(col config.GroupVersionKind, name resource.Fu
 	return nil
 }
 
+func (i *multiClusterContext) SetAnalyzer(analyzerName string) {
+	// not used in multicluster
+}
+
 func (i *multiClusterContext) Exists(col config.GroupVersionKind, name resource.FullName) bool {
 	existsInAll := true
 	for _, ctx := range i.ctxs {

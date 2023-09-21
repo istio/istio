@@ -117,10 +117,6 @@ func Analyze(ctx cli.Context) *cobra.Command {
   # List available analyzers
   istioctl analyze -L`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			clients, err := getClients(ctx, revisionSpecified)
-			if err != nil {
-				return err
-			}
 			msgOutputFormat = strings.ToLower(msgOutputFormat)
 			_, ok := formatting.MsgOutputFormats[msgOutputFormat]
 			if !ok {
@@ -206,6 +202,10 @@ func Analyze(ctx cli.Context) *cobra.Command {
 				k := kube.EnableCrdWatcher(clik.(kube.Client))
 				sa.AddRunningKubeSourceWithRevision(k, revisionSpecified, false)
 				if enableMultiCluster {
+					clients, err := getClients(ctx)
+					if err != nil {
+						return err
+					}
 					sa.AddMultiClusterAnalyzers(analyzers.AllMultiClusterCombined())
 					for _, c := range clients {
 						if c.ClusterID() != clik.ClusterID() {
@@ -497,7 +497,7 @@ func isJSONorYAMLOutputFormat() bool {
 	return msgOutputFormat == formatting.JSONFormat || msgOutputFormat == formatting.YAMLFormat
 }
 
-func getClients(ctx cli.Context, rev string) ([]kube.Client, error) {
+func getClients(ctx cli.Context) ([]kube.Client, error) {
 	client, err := ctx.CLIClient()
 	if err != nil {
 		return nil, err

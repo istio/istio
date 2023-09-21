@@ -416,7 +416,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 		if clusterID == "" {
 			clusterID = "default"
 		}
-		sa.multiClusterStores[c.ClusterID()] = store
+		sa.multiClusterStores[clusterID] = store
 	} else {
 		sa.stores = append(sa.stores, store)
 	}
