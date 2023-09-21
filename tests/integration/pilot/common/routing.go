@@ -2421,13 +2421,13 @@ spec:
 				name:   "http cookie with ttl" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(cookieWithTTLDest, ""),
 				call:   c.CallOrFail,
-				opts:   tcpCallopts,
+				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
 				name:   "http cookie without ttl" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(cookieWithoutTTLDest, ""),
 				call:   c.CallOrFail,
-				opts:   tcpCallopts,
+				opts:   callOpts,
 			})
 		}
 	}
