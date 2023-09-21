@@ -23,6 +23,7 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -183,6 +184,15 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
 				UpstreamPortOverride: &wrappers.UInt32Value{
 					Value: model.HBoneInboundListenPort,
+				},
+				// Used to override destination pods with waypoints.
+				MetadataKey: &metadata.MetadataKey{
+					Key: util.OriginalDstMetadataKey,
+					Path: []*metadata.MetadataKey_PathSegment{{
+						Segment: &metadata.MetadataKey_PathSegment_Key{
+							Key: "waypoint",
+						},
+					}},
 				},
 			},
 		},

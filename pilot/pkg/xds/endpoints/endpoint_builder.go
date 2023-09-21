@@ -17,6 +17,7 @@ package endpoints
 import (
 	"math"
 	"net"
+	"net/netip"
 	"sort"
 	"strconv"
 	"strings"
@@ -671,6 +672,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		supportsTunnel = false
 	}
 
+	tunnelAddress := ""
+
 	// Setup tunnel information, if needed
 	if b.dir == model.TrafficDirectionInboundVIP {
 		// This is only used in waypoint proxy
@@ -686,18 +689,26 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			address := e.Address
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
-			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(e.EndpointPort))
+			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(e.EndpointPort), tunnelAddress)
 			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
 			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
 				Value: e.GetLoadBalancingWeight(),
 			}
 		}
 	} else if supportsTunnel {
+		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
+		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
+			workloads := findWaypoints(b.push, e)
+			if len(workloads) > 0 {
+				// TODO: load balance
+				tunnelAddress = workloads[0].String()
+			}
+		}
 		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}
-		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(port))
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(port), tunnelAddress)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
@@ -719,6 +730,15 @@ func waypointInScope(waypoint *model.Proxy, e *model.IstioEndpoint) bool {
 		return false
 	}
 	return true
+}
+
+func findWaypoints(push *model.PushContext, e *model.IstioEndpoint) []netip.Addr {
+	ident, _ := spiffe.ParseIdentity(e.ServiceAccount)
+	ips := push.WaypointsFor(model.WaypointScope{
+		Namespace:      e.Namespace,
+		ServiceAccount: ident.ServiceAccount,
+	})
+	return ips
 }
 
 func getOutlierDetectionAndLoadBalancerSettings(

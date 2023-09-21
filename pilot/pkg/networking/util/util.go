@@ -691,19 +691,23 @@ func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
 	}
 }
 
-func BuildTunnelMetadata(address string, port int) *core.Metadata {
+func BuildTunnelMetadata(address string, port int, tunnelAddress string) *core.Metadata {
 	return &core.Metadata{
 		FilterMetadata: map[string]*structpb.Struct{
-			OriginalDstMetadataKey: BuildTunnelMetadataStruct(address, port),
+			OriginalDstMetadataKey: BuildTunnelMetadataStruct(address, port, tunnelAddress),
 		},
 	}
 }
 
-func BuildTunnelMetadataStruct(address string, port int) *structpb.Struct {
-	st, _ := structpb.NewStruct(map[string]interface{}{
+func BuildTunnelMetadataStruct(address string, port int, tunnelAddress string) *structpb.Struct {
+	m := map[string]interface{}{
 		// logical destination behind the tunnel, on which policy and telemetry will be applied
 		"local": net.JoinHostPort(address, strconv.Itoa(port)),
-	})
+	}
+	if tunnelAddress != "" {
+		m["waypoint"] = tunnelAddress
+	}
+	st, _ := structpb.NewStruct(m)
 	return st
 }
 
