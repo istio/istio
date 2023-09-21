@@ -503,18 +503,18 @@ func AppendLbEndpointMetadata(istioMetadata *model.EndpointMetadata, envoyMetada
 		sb.WriteString(canonicalRevision)
 		sb.WriteString(";")
 		sb.WriteString(istioMetadata.ClusterID.String())
-		addIstioEndpointLabel(envoyMetadata, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
+		addEndpointLabel(envoyMetadata, IstioMetadataKey, "workload", &structpb.Value{Kind: &structpb.Value_StringValue{StringValue: sb.String()}})
 	}
 }
 
-func addIstioEndpointLabel(metadata *core.Metadata, key string, val *structpb.Value) {
-	if _, ok := metadata.FilterMetadata[IstioMetadataKey]; !ok {
-		metadata.FilterMetadata[IstioMetadataKey] = &structpb.Struct{
+func addEndpointLabel(metadata *core.Metadata, filterMetadataKey, key string, val *structpb.Value) {
+	if _, ok := metadata.FilterMetadata[filterMetadataKey]; !ok {
+		metadata.FilterMetadata[filterMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{},
 		}
 	}
 
-	metadata.FilterMetadata[IstioMetadataKey].Fields[key] = val
+	metadata.FilterMetadata[filterMetadataKey].Fields[key] = val
 }
 
 // IsAllowAnyOutbound checks if allow_any is enabled for outbound traffic
