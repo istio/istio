@@ -1960,10 +1960,8 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	}
 
 	gotIPMap := make(map[string]string)
-	notallocated := 0
 	for _, svc := range gotServices {
 		if svc.AutoAllocatedIPv4Address == "" {
-			notallocated++
 			continue
 		}
 		if doNotWant[svc.AutoAllocatedIPv4Address] {
@@ -1978,7 +1976,6 @@ func Test_autoAllocateIP_values(t *testing.T) {
 			t.Errorf("invalid IP address %s : %s", svc.AutoAllocatedIPv4Address, svc.Hostname.String())
 		}
 	}
-	fmt.Println("not allocated", notallocated)
 }
 
 func BenchmarkAutoAllocateIPs(t *testing.B) {
