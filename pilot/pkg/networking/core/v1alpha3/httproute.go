@@ -417,32 +417,28 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	var routeCache *istio_route.Cache
-
-	if listenerPort > 0 {
+	if listenerPort > 0 && features.EnableRDSCaching {
+		// sort services, ensure that routeCache calculation result is stable
 		services = make([]*model.Service, 0, len(servicesByName))
-		// sort services
 		for _, svc := range servicesByName {
 			services = append(services, svc)
 		}
 		sort.SliceStable(services, func(i, j int) bool {
 			return services[i].Hostname <= services[j].Hostname
 		})
-
-		if features.EnableRDSCaching {
-			routeCache = &istio_route.Cache{
-				RouteName:               routeName,
-				ProxyVersion:            node.Metadata.IstioVersion,
-				ClusterID:               string(node.Metadata.ClusterID),
-				DNSDomain:               node.DNSDomain,
-				DNSCapture:              bool(node.Metadata.DNSCapture),
-				DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
-				AllowAny:                util.IsAllowAnyOutbound(node),
-				ListenerPort:            listenerPort,
-				Services:                services,
-				VirtualServices:         virtualServices,
-				DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
-				EnvoyFilterKeys:         efKeys,
-			}
+		routeCache = &istio_route.Cache{
+			RouteName:               routeName,
+			ProxyVersion:            node.Metadata.IstioVersion,
+			ClusterID:               string(node.Metadata.ClusterID),
+			DNSDomain:               node.DNSDomain,
+			DNSCapture:              bool(node.Metadata.DNSCapture),
+			DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
+			AllowAny:                util.IsAllowAnyOutbound(node),
+			ListenerPort:            listenerPort,
+			Services:                services,
+			VirtualServices:         virtualServices,
+			DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
+			EnvoyFilterKeys:         efKeys,
 		}
 	}
 
