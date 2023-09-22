@@ -945,7 +945,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			if x%255 == 0 {
 				x++
 			}
-			if allocated >= maxIPs {
+			if x >= maxIPs {
 				log.Errorf("out of IPs to allocate for service entries. x:= %d, maxips:= %d", x, maxIPs)
 				return services
 			}

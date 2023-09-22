@@ -16,6 +16,7 @@ package serviceentry
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 	"strings"
@@ -1923,8 +1924,9 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 }
 
 func Test_autoAllocateIP_values(t *testing.T) {
-	inServices := make([]*model.Service, 255*255)
-	for i := 0; i < 255*255; i++ {
+	ips := 255 * 255
+	inServices := make([]*model.Service, ips)
+	for i := 0; i < ips; i++ {
 		temp := model.Service{
 			Hostname:       host.Name(fmt.Sprintf("foo%d.com", i)),
 			Resolution:     model.ClientSideLB,
@@ -1958,15 +1960,25 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	}
 
 	gotIPMap := make(map[string]string)
+	notallocated := 0
 	for _, svc := range gotServices {
-		if svc.AutoAllocatedIPv4Address == "" || doNotWant[svc.AutoAllocatedIPv4Address] {
+		if svc.AutoAllocatedIPv4Address == "" {
+			notallocated++
+			continue
+		}
+		if doNotWant[svc.AutoAllocatedIPv4Address] {
 			t.Errorf("unexpected value for auto allocated IP address %s", svc.AutoAllocatedIPv4Address)
 		}
 		if v, ok := gotIPMap[svc.AutoAllocatedIPv4Address]; ok && v != svc.Hostname.String() {
 			t.Errorf("multiple allocations of same IP address to different services with different hostname: %s", svc.AutoAllocatedIPv4Address)
 		}
 		gotIPMap[svc.AutoAllocatedIPv4Address] = svc.Hostname.String()
+		ip := net.ParseIP(svc.AutoAllocatedIPv4Address)
+		if ip == nil {
+			t.Errorf("invalid IP address %s : %s", svc.AutoAllocatedIPv4Address, svc.Hostname.String())
+		}
 	}
+	fmt.Println("not allocated", notallocated)
 }
 
 func BenchmarkAutoAllocateIPs(t *testing.B) {
