@@ -306,7 +306,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 			// We have a cache miss, so we will re-generate the cluster and later store it in the cache.
 			var lbEndpoints []*endpoint.LocalityLbEndpoints
 			if clusterKey.endpointBuilder != nil {
-				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints()
+				lbEndpoints = clusterKey.endpointBuilder.FromServiceEndpoints(false)
 			}
 
 			// create default cluster
@@ -430,7 +430,7 @@ func (configgen *ConfigGeneratorImpl) buildOutboundSniDnatClusters(proxy *model.
 					clusterName, model.TrafficDirectionOutbound, "", service.Hostname, port.Port,
 					service, destRule,
 				)
-				lbEndpoints = endpointBuilder.FromServiceEndpoints()
+				lbEndpoints = endpointBuilder.FromServiceEndpoints(true)
 			}
 
 			defaultCluster := cb.buildCluster(clusterName, discoveryType, lbEndpoints, model.TrafficDirectionOutbound, port, service, nil)

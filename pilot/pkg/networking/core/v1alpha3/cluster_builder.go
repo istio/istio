@@ -177,7 +177,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 		clusterType = cluster.Cluster_ORIGINAL_DST
 	}
 	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
-		lbEndpoints = endpointBuilder.WithSubset(subset.Name).FromServiceEndpoints()
+		lbEndpoints = endpointBuilder.WithSubset(subset.Name).FromServiceEndpoints(false)
 	}
 
 	subsetCluster := cb.buildCluster(subsetClusterName, clusterType, lbEndpoints, model.TrafficDirectionOutbound, opts.port, service, nil)

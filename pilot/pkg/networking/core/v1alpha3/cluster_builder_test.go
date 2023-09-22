@@ -1570,7 +1570,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					model.TrafficDirectionOutbound, "v1", "foo.com", 8080,
 					service, drWithLabels(tt.labels),
 				)
-				actual := eb.FromServiceEndpoints()
+				actual := eb.FromServiceEndpoints(false)
 				sortEndpoints(actual)
 				if v := cmp.Diff(tt.expected, actual, protocmp.Transform()); v != "" {
 					t.Fatalf("Expected (-) != actual (+):\n%s", v)
@@ -1786,7 +1786,7 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 				model.TrafficDirectionOutbound, "v1", "foo.com", 8080,
 				service, dr,
 			)
-			eps := eb.FromServiceEndpoints()
+			eps := eb.FromServiceEndpoints(false)
 			mu.Lock()
 			actual = eps
 			mu.Unlock()

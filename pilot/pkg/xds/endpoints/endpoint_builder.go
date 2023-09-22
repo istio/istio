@@ -315,20 +315,23 @@ func (e *LocalityEndpoints) AssertInvarianceInTest() {
 
 // FromServiceEndpoints builds LocalityLbEndpoints from the PushContext's snapshotted ServiceIndex.
 // Used for CDS (ClusterLoadAssignment constructed elsewhere).
-func (b *EndpointBuilder) FromServiceEndpoints() []*endpoint.LocalityLbEndpoints {
+// networkLocalOnly is used for SNI DNAT clusters and other clusters that are designed to handle
+// inbound ingress traffic. In this case, we'd rather filter remote endpoints to prevent request
+// hairpinning.
+func (b *EndpointBuilder) FromServiceEndpoints(networkLocalOnly bool) []*endpoint.LocalityLbEndpoints {
 	if b == nil {
 		return nil
 	}
 	svcEps := b.push.ServiceEndpointsByPort(b.service, b.port, b.subsetLabels)
 	// don't use the pre-computed endpoints for CDS to preserve previous behavior
-	return ExtractEnvoyEndpoints(b.generate(svcEps, true))
+	return ExtractEnvoyEndpoints(b.generate(svcEps, true, networkLocalOnly))
 }
 
 // BuildClusterLoadAssignment converts the shards for this EndpointBuilder's Service
 // into a ClusterLoadAssignment. Used for EDS.
 func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.EndpointIndex) *endpoint.ClusterLoadAssignment {
 	svcEps := b.snapshotShards(endpointIndex)
-	localityLbEndpoints := b.generate(svcEps, false)
+	localityLbEndpoints := b.generate(svcEps, false, false)
 	if len(localityLbEndpoints) == 0 {
 		return buildEmptyClusterLoadAssignment(b.clusterName)
 	}
@@ -357,7 +360,7 @@ func (b *EndpointBuilder) BuildClusterLoadAssignment(endpointIndex *model.Endpoi
 
 // generate endpoints with applies weights, multi-network mapping and other filtering
 // noCache means we will not use or update the IstioEndpoint's precomputedEnvoyEndpoint
-func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed bool) []*LocalityEndpoints {
+func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed, networkLocalOnly bool) []*LocalityEndpoints {
 	// shouldn't happen here
 	if !b.ServiceFound() {
 		return nil
@@ -368,7 +371,7 @@ func (b *EndpointBuilder) generate(eps []*model.IstioEndpoint, allowPrecomputed 
 	}
 
 	eps = slices.Filter(eps, func(ep *model.IstioEndpoint) bool {
-		return b.filterIstioEndpoint(ep, svcPort)
+		return b.filterIstioEndpoint(ep, svcPort, networkLocalOnly)
 	})
 
 	localityEpMap := make(map[string]*LocalityEndpoints)
@@ -461,14 +464,14 @@ func addUint32(left, right uint32) (uint32, bool) {
 	return left + right, false
 }
 
-func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *model.Port) bool {
+func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *model.Port, networkLocalOnly bool) bool {
 	// for ServiceInternalTrafficPolicy
 	if b.service.Attributes.NodeLocal && ep.NodeName != b.proxy.GetNodeName() {
 		return false
 	}
 	// Only send endpoints from the networks in the network view requested by the proxy.
 	// The default network view assigned to the Proxy is nil, in that case match any network.
-	if !b.proxyView.IsVisible(ep) {
+	if !b.proxyView.IsVisible(ep) || (networkLocalOnly && b.network != ep.Network) {
 		// Endpoint's network doesn't match the set of networks that the proxy wants to see.
 		return false
 	}
