@@ -73,10 +73,10 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 
 	// Sort by name, node
 	sort.Slice(verifiedWorkloads, func(i, j int) bool {
-		iName := verifiedWorkloads[i].Name
-		jName := verifiedWorkloads[j].Name
-		if iName != jName {
-			return iName < jName
+		in := verifiedWorkloads[i].Namespace + "." + verifiedWorkloads[i].Name
+		jn := verifiedWorkloads[j].Namespace + "." + verifiedWorkloads[j].Name
+		if in != jn {
+			return in < jn
 		}
 		iNode := verifiedWorkloads[i].Node
 		jNode := verifiedWorkloads[j].Node
@@ -84,9 +84,9 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 	})
 
 	if filter.Verbose {
-		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE\tWAYPOINT\tPROTOCOL")
+		fmt.Fprintln(w, "NAMESPACE\tNAME\tIP\tNODE\tWAYPOINT\tPROTOCOL")
 	} else {
-		fmt.Fprintln(w, "NAME\tNAMESPACE\tIP\tNODE")
+		fmt.Fprintln(w, "NAMESPACE\tNAME\tIP\tNODE")
 	}
 
 	for _, wl := range verifiedWorkloads {
@@ -96,9 +96,9 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 		}
 		if filter.Verbose {
 			waypoint := waypointName(wl, zDump.Services)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, ip, wl.Node, waypoint, wl.Protocol)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", wl.Namespace, wl.Name, ip, wl.Node, waypoint, wl.Protocol)
 		} else {
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Name, wl.Namespace, ip, wl.Node)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Namespace, wl.Name, ip, wl.Node)
 		}
 	}
 	return w.Flush()
