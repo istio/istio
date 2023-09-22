@@ -144,32 +144,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	efw *model.EnvoyFilterWrapper,
 	efKeys []string,
 ) (*discovery.Resource, bool) {
+	listenerPort, useSniffing, err := extractListenerPort(routeName)
+	if err != nil && routeName != model.RDSHttpProxy && !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
+		// TODO: This is potentially one place where envoyFilter ADD operation can be helpful if the
+		// user wants to ship a custom RDS. But at this point, the match semantics are murky. We have no
+		// object to match upon. This needs more thought. For now, we will continue to return nil for
+		// unknown routes
+		return nil, false
+	}
+
 	var virtualHosts []*route.VirtualHost
-	listenerPort := 0
-	useSniffing := false
-	var err error
-	if !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
-		index := strings.IndexRune(routeName, ':')
-		if index != -1 {
-			useSniffing = true
-		}
-		listenerPort, err = strconv.Atoi(routeName[index+1:])
-	} else {
-		listenerPort, err = strconv.Atoi(routeName)
-	}
-
-	if err != nil {
-		// we have a port whose name is http_proxy or unix:///foo/bar
-		// check for both.
-		if routeName != model.RDSHttpProxy && !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
-			// TODO: This is potentially one place where envoyFilter ADD operation can be helpful if the
-			// user wants to ship a custom RDS. But at this point, the match semantics are murky. We have no
-			// object to match upon. This needs more thought. For now, we will continue to return nil for
-			// unknown routes
-			return nil, false
-		}
-	}
-
 	var routeCache *istio_route.Cache
 	var resource *discovery.Resource
 
@@ -229,6 +213,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	}
 
 	return resource, false
+}
+
+func extractListenerPort(routeName string) (int, bool, error) {
+	hasPrefix := strings.HasPrefix(routeName, model.UnixAddressPrefix)
+	index := strings.IndexRune(routeName, ':')
+	if !hasPrefix {
+		routeName = routeName[index+1:]
+	}
+
+	listenerPort, err := strconv.Atoi(routeName)
+	useSniffing := !hasPrefix && index != -1
+	return listenerPort, useSniffing, err
 }
 
 // TODO: merge with IstioEgressListenerWrapper.selectVirtualServices
