@@ -491,7 +491,7 @@ func TestCmdAddNoPrevResult(t *testing.T) {
 func TestCmdAddEnableDualStack(t *testing.T) {
 	defer resetGlobalTestVariables()
 	testProxyEnv["ISTIO_DUAL_STACK"] = "true"
-	testContainers = sets.New("mockContainer", "istio-proxy")
+	testContainers = []string{"mockContainer", "istio-proxy"}
 	testCmdAdd(t)
 
 	if !nsenterFuncCalled {
