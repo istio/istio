@@ -646,7 +646,6 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
 	address, port := e.Address, e.EndpointPort
-	tunnelAddress, tunnelPort := address, model.HBoneInboundListenPort
 
 	supportsTunnel := false
 	// Other side is a waypoint proxy.
@@ -673,6 +672,8 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		supportsTunnel = false
 	}
 
+	waypoint := ""
+
 	// Setup tunnel information, if needed
 	if b.dir == model.TrafficDirectionInboundVIP {
 		// This is only used in waypoint proxy
@@ -686,10 +687,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
 		if supportsTunnel {
 			address := e.Address
-			tunnelPort := 15008
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
-			ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(address, address, int(e.EndpointPort), tunnelPort)
+			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(e.EndpointPort), waypoint)
 			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
 			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
 				Value: e.GetLoadBalancingWeight(),
@@ -701,14 +701,14 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			workloads := findWaypoints(b.push, e)
 			if len(workloads) > 0 {
 				// TODO: load balance
-				tunnelAddress = workloads[0].String()
+				waypoint = net.JoinHostPort(workloads[0].String(), strconv.Itoa(model.HBoneInboundListenPort))
 			}
 		}
 		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
 			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
 		}}
-		ep.Metadata.FilterMetadata[model.TunnelLabelShortName] = util.BuildTunnelMetadataStruct(tunnelAddress, address, int(port), tunnelPort)
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(port), waypoint)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},

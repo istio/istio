@@ -317,13 +317,6 @@ var (
 		map[string]interface{}{
 			"enabled": true,
 		})
-
-	SetDstAddress = &listener.ListenerFilter{
-		Name: "set_dst_address",
-		ConfigType: &listener.ListenerFilter_TypedConfig{
-			TypedConfig: protoconv.TypedStruct("type.googleapis.com/istio.set_internal_dst_address.v1.Config"),
-		},
-	}
 )
 
 // Router is used a bunch, so its worth precomputing even though we have a few options.
