@@ -44,7 +44,7 @@ var (
 	// InvalidDropByIptables is the flag to enable invalid drop iptables rule to drop the out of window packets
 	InvalidDropByIptables = env.Register("INVALID_DROP", false,
 		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
-	DualStack = env.Register("ISTIO_DUAL_STACK", false,
+	DualStack = env.Register("ISTIO_AGENT_DUAL_STACK", false,
 		"If true, Istio will enable the Dual Stack feature.").Get()
 )
 
