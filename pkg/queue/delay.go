@@ -85,6 +85,7 @@ func (q *pq) Peek() any {
 type Delayed interface {
 	baseInstance
 	PushDelayed(t Task, delay time.Duration)
+	Reset()
 }
 
 var _ Delayed = &delayQueue{}
@@ -180,6 +181,13 @@ func (d *delayQueue) pushInternal(task *delayTask) {
 		heap.Push(d.queue, task)
 		d.mu.Unlock()
 	}
+}
+
+// Reset will clear the queue
+func (d *delayQueue) Reset() {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.queue = &pq{}
 }
 
 func (d *delayQueue) Closed() <-chan struct{} {
