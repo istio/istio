@@ -389,7 +389,7 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 			if s := a.secretCache; s != nil {
 				log.Info("ROOTCA changed, regenerating certs")
 				s.Reset()
-				a.getWorkloadCerts(s)
+				_, _ = a.getWorkloadCerts(s)
 				// Tirgger a push to envoy
 				s.OnSecretUpdate(security.WorkloadKeyCertResourceName)
 			}
