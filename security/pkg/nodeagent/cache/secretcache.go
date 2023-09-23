@@ -221,9 +221,8 @@ func (sc *SecretManagerClient) OnSecretUpdate(resourceName string) {
 // Reset clears the cache and cancels any pending certificate rotation events.
 func (sc *SecretManagerClient) Reset() {
 	sc.cache.Clear()
-	// cancels any pending certificate rotation events
-	sc.queue.Closed()
-	sc.queue = queue.NewDelayed(queue.DelayQueueBuffer(0))
+	// cancels all pending events
+	sc.queue.Reset()
 }
 
 // getCachedSecret: retrieve cached Secret Item (workload-certificate/workload-root) from secretManager client
