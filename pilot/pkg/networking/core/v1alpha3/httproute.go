@@ -564,10 +564,9 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 
 // dedupeDomains removes the duplicate domains from the passed in domains.
 func dedupeDomains(domains []string, vhdomains sets.String, expandedHosts []string, knownFQDNs sets.String) []string {
-	temp := domains[:0]
-	for _, d := range domains {
+	return slices.FilterInPlace(domains, func(d string) bool {
 		if vhdomains.Contains(strings.ToLower(d)) {
-			continue
+			return false
 		}
 		// Check if the domain is an "expanded" host, and its also a known FQDN
 		// This prevents a case where a domain like "foo.com.cluster.local" gets expanded to "foo.com", overwriting
@@ -575,12 +574,11 @@ func dedupeDomains(domains []string, vhdomains sets.String, expandedHosts []stri
 		// This works by providing a list of domains that were added as expanding the DNS domain as part of expandedHosts,
 		// and a list of known unexpanded FQDNs to compare against
 		if slices.Contains(expandedHosts, d) && knownFQDNs.Contains(d) { // O(n) search, but n is at most 10
-			continue
+			return false
 		}
-		temp = append(temp, d)
 		vhdomains.Insert(strings.ToLower(d))
-	}
-	return temp
+		return true
+	})
 }
 
 // Returns the set of virtual hosts that correspond to the listener that has HTTP protocol detection
