@@ -110,6 +110,16 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 			threshold.MaxRetries = &wrapperspb.UInt32Value{Value: uint32(settings.Http.MaxRetries)}
 		}
 
+		if settings.Http.RetryBudget != nil {
+			threshold.RetryBudget = getDefaultCircuitBreakerThresholdsRetryBudget()
+			if settings.Http.RetryBudget.MinRetryConcurrency != nil {
+				threshold.RetryBudget.MinRetryConcurrency = &wrappers.UInt32Value{Value: settings.Http.RetryBudget.MinRetryConcurrency.Value}
+			}
+			if settings.Http.RetryBudget.BudgetPercent != nil {
+				threshold.RetryBudget.BudgetPercent = &xdstype.Percent{Value: settings.Http.RetryBudget.BudgetPercent.Value}
+			}
+		}
+
 		idleTimeout = settings.Http.IdleTimeout
 		maxRequestsPerConnection = uint32(settings.Http.MaxRequestsPerConnection)
 	}

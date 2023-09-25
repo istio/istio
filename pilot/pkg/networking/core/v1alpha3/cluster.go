@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -49,6 +50,13 @@ import (
 // deltaConfigTypes are used to detect changes and trigger delta calculations. When config updates has ONLY entries
 // in this map, then delta calculation is triggered.
 var deltaConfigTypes = sets.New(kind.ServiceEntry.String(), kind.DestinationRule.String())
+
+// getDefaultCircuitBreakerThresholdsRetryBudget returns a copy of the default circuit breaker thresholds retry budget for the given traffic direction.
+func getDefaultCircuitBreakerThresholdsRetryBudget() *cluster.CircuitBreakers_Thresholds_RetryBudget {
+	return &cluster.CircuitBreakers_Thresholds_RetryBudget{
+		MinRetryConcurrency: &wrappers.UInt32Value{Value: math.MaxUint32},
+	}
+}
 
 // BuildClusters returns the list of clusters for the given proxy. This is the CDS output
 // For outbound: Cluster for each service/subset hostname or cidr with SNI set to service hostname
