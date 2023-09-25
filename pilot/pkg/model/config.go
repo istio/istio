@@ -259,9 +259,7 @@ func ResolveShortnameToFQDN(hostname string, meta config.Meta) host.Name {
 
 // resolveGatewayName uses metadata information to resolve a reference
 // to shortname of the gateway to FQDN
-func resolveGatewayName(gwname string, meta config.Meta) string {
-	out := gwname
-
+func resolveGatewayName(gwname string, meta config.Meta) (out string) {
 	// New way of binding to a gateway in remote namespace
 	// is ns/name. Old way is either FQDN or short name
 	ns, name, ok := strings.Cut(gwname, "/")
@@ -287,8 +285,7 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 		}
 		out = ns + "/" + convertGatewayName(name)
 	}
-
-	return out
+	return
 }
 
 // MostSpecificHostMatch compares the maps of specific and wildcard hosts to the needle, and returns the longest element

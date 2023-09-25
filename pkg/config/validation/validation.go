@@ -2890,10 +2890,8 @@ func validateGatewayNames(gatewayNames []string) (errs Validation) {
 		isK8s, k8sErrs := validateK8sGatewayName(parts[1])
 		if isK8s {
 			errs = appendValidation(errs, k8sErrs)
-		} else {
-			if !labels.IsDNS1123Label(parts[1]) {
-				errs = appendValidation(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
-			}
+		} else if !labels.IsDNS1123Label(parts[1]) {
+			errs = appendValidation(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
 		}
 	}
 	return
@@ -2906,10 +2904,8 @@ func validateK8sGatewayName(name string) (isK8s bool, errs Validation) {
 		gw, l, ok := strings.Cut(name, ".")
 		if !ok {
 			errs = appendValidation(errs, fmt.Errorf("missing gateway listener name: %q", name))
-		} else {
-			if !labels.IsDNS1123Label(l) {
-				errs = appendValidation(errs, fmt.Errorf("invalid value for listener name: %q", l))
-			}
+		} else if !labels.IsDNS1123Label(l) {
+			errs = appendValidation(errs, fmt.Errorf("invalid value for listener name: %q", l))
 		}
 		if !labels.IsDNS1123Label(gw) {
 			errs = appendValidation(errs, fmt.Errorf("invalid value for gateway name: %q", gw))
