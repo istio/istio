@@ -43,6 +43,7 @@ type GatewayResources struct {
 	GRPCRoute      []config.Config
 	TCPRoute       []config.Config
 	TLSRoute       []config.Config
+	VSRoute        []config.Config
 	ReferenceGrant []config.Config
 	// Namespaces stores all namespace in the cluster, keyed by name
 	Namespaces map[string]*corev1.Namespace

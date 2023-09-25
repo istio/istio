@@ -264,7 +264,9 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 
 	// New way of binding to a gateway in remote namespace
 	// is ns/name. Old way is either FQDN or short name
-	if !strings.Contains(gwname, "/") {
+	ns, name, ok := strings.Cut(gwname, "/")
+	if !ok {
+		gwname = convertGatewayName(gwname)
 		if !strings.Contains(gwname, ".") {
 			// we have a short name. Resolve to a gateway in same namespace
 			out = meta.Namespace + "/" + gwname
@@ -280,12 +282,12 @@ func resolveGatewayName(gwname string, meta config.Meta) string {
 			}
 		}
 	} else {
-		// remove the . from ./gateway and substitute it with the namespace name
-		i := strings.Index(gwname, "/")
-		if gwname[:i] == "." {
-			out = meta.Namespace + "/" + gwname[i+1:]
+		if ns == "." {
+			ns = meta.Namespace
 		}
+		out = ns + "/" + convertGatewayName(name)
 	}
+
 	return out
 }
 

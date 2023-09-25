@@ -2291,6 +2291,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 
 		appliesToMesh := false
 		appliesToGateway := false
+		appliesToK8sGateway := false
 		if len(virtualService.Gateways) == 0 {
 			appliesToMesh = true
 		} else {
@@ -2300,6 +2301,9 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 					appliesToMesh = true
 				} else {
 					appliesToGateway = true
+					if !appliesToK8sGateway {
+						appliesToK8sGateway = isK8sGatewayName(gatewayName)
+					}
 				}
 			}
 		}
@@ -2319,6 +2323,11 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 					validateJWTClaimRoute(m.GetWithoutHeaders())
 				}
 			}
+		} else if appliesToK8sGateway &&
+			!((len(virtualService.Http) == 1 && len(virtualService.Tcp) == 0 && len(virtualService.Tls) == 0) ||
+				(len(virtualService.Http) == 0 && len(virtualService.Tcp) == 1 && len(virtualService.Tls) == 0) ||
+				(len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 && len(virtualService.Tls) == 1)) {
+			errs = appendValidation(errs, errors.New("virtual service attached to k8s gateway must specify exactly one http, tcp, or tls route rule"))
 		}
 
 		allHostsValid := true
@@ -2854,14 +2863,19 @@ func validateGatewayNames(gatewayNames []string) (errs Validation) {
 	for _, gatewayName := range gatewayNames {
 		parts := strings.SplitN(gatewayName, "/", 2)
 		if len(parts) != 2 {
-			if strings.Contains(gatewayName, ".") {
-				// Legacy FQDN style
-				parts := strings.Split(gatewayName, ".")
-				recommended := fmt.Sprintf("%s/%s", parts[1], parts[0])
-				errs = appendValidation(errs, WrapWarning(fmt.Errorf(
-					"using legacy gatewayName format %q; prefer the <namespace>/<name> format: %q", gatewayName, recommended)))
+			isK8s, k8sErrs := validateK8sGatewayName(gatewayName)
+			if isK8s {
+				errs = appendValidation(errs, k8sErrs)
+			} else {
+				if strings.Contains(gatewayName, ".") {
+					// Legacy FQDN style
+					parts := strings.Split(gatewayName, ".")
+					recommended := fmt.Sprintf("%s/%s", parts[1], parts[0])
+					errs = appendValidation(errs, WrapWarning(fmt.Errorf(
+						"using legacy gatewayName format %q; prefer the <namespace>/<name> format: %q", gatewayName, recommended)))
+				}
+				errs = appendValidation(errs, ValidateFQDN(gatewayName))
 			}
-			errs = appendValidation(errs, ValidateFQDN(gatewayName))
 			return
 		}
 
@@ -2869,16 +2883,47 @@ func validateGatewayNames(gatewayNames []string) (errs Validation) {
 			errs = appendValidation(errs, fmt.Errorf("config namespace and gateway name cannot be empty"))
 		}
 
-		// namespace and name must be DNS labels
 		if !labels.IsDNS1123Label(parts[0]) {
 			errs = appendValidation(errs, fmt.Errorf("invalid value for namespace: %q", parts[0]))
 		}
 
-		if !labels.IsDNS1123Label(parts[1]) {
-			errs = appendValidation(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
+		isK8s, k8sErrs := validateK8sGatewayName(parts[1])
+		if isK8s {
+			errs = appendValidation(errs, k8sErrs)
+		} else {
+			if !labels.IsDNS1123Label(parts[1]) {
+				errs = appendValidation(errs, fmt.Errorf("invalid value for gateway name: %q", parts[1]))
+			}
 		}
 	}
 	return
+}
+
+func validateK8sGatewayName(name string) (isK8s bool, errs Validation) {
+	name, isK8s = strings.CutPrefix(name, fmt.Sprintf("%s:", gvk.KubernetesGateway.Group))
+	if isK8s {
+		// k8s gateway name and listener names must be a DNS labels
+		gw, l, ok := strings.Cut(name, ".")
+		if !ok {
+			errs = appendValidation(errs, fmt.Errorf("missing gateway listener name: %q", name))
+		} else {
+			if !labels.IsDNS1123Label(l) {
+				errs = appendValidation(errs, fmt.Errorf("invalid value for listener name: %q", l))
+			}
+		}
+		if !labels.IsDNS1123Label(gw) {
+			errs = appendValidation(errs, fmt.Errorf("invalid value for gateway name: %q", gw))
+		}
+	}
+	return
+}
+
+func isK8sGatewayName(gatewayName string) bool {
+	parts := strings.SplitN(gatewayName, "/", 2)
+	if len(parts) == 2 {
+		gatewayName = parts[1]
+	}
+	return strings.HasPrefix(gatewayName, gvk.KubernetesGateway.Group)
 }
 
 func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination, gatewaySemantics bool) (errs error) {

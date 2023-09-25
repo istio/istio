@@ -185,6 +185,10 @@ func convertVirtualService(r configContext) []config.Config {
 			result = append(result, *vsConfig)
 		}
 	}
+
+	for _, obj := range r.VSRoute {
+		attachVirtualServiceRoute(r, obj)
+	}
 	return result
 }
 
@@ -970,6 +974,43 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 		return parentRefString(a.OriginalReference) < parentRefString(b.OriginalReference)
 	})
 	return parentRefs
+}
+
+func stringToHostnameList(s []string) []k8sbeta.Hostname {
+	return slices.Map(s, func(e string) k8s.Hostname {
+		return k8s.Hostname(e)
+	})
+}
+
+func attachVirtualServiceRoute(ctx configContext, obj config.Config) {
+	vs := obj.Spec.(*istio.VirtualService)
+	for _, gateway := range vs.Gateways {
+		ns, name, _ := strings.Cut(gateway, "/")
+		isK8s, n, l := model.GatewayFromInternalName(name)
+		if !isK8s {
+			continue
+		}
+		ir := parentKey{
+			Kind:      gvk.KubernetesGateway,
+			Name:      n,
+			Namespace: ns,
+		}
+		pk := parentReference{
+			parentKey:   ir,
+			SectionName: k8s.SectionName(l),
+			Port:        0,
+		}
+		for _, gw := range ctx.GatewayReferences[ir] {
+			// Append all matches. Note we may be adding mismatch section or ports; this is handled later
+			deniedReason := referenceAllowed(gw, gvk.VirtualService, pk, stringToHostnameList(vs.Hosts), obj.Namespace)
+			if deniedReason == nil {
+				// Record that we were able to bind to the parent
+				gw.AttachedRoutes++
+			} else {
+				log.Errorf("k8s gateway binding denied for virtual service %s: %v", obj.Meta.Name, deniedReason)
+			}
+		}
+	}
 }
 
 func buildTCPVirtualService(ctx configContext, obj config.Config) []config.Config {
@@ -1952,7 +1993,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 				Meta: config.Meta{
 					CreationTimestamp: obj.CreationTimestamp,
 					GroupVersionKind:  gvk.Gateway,
-					Name:              fmt.Sprintf("%s-%s-%s", obj.Name, constants.KubernetesGatewayName, l.Name),
+					Name:              model.InternalGatewayName(obj.Name, string(l.Name)),
 					Annotations:       meta,
 					Namespace:         obj.Namespace,
 					Domain:            r.Domain,

@@ -64,7 +64,7 @@ status:
       kind: HTTPRoute
     - group: gateway.networking.k8s.io
       kind: GRPCRoute
-  - attachedRoutes: 3
+  - attachedRoutes: 4
     conditions:
     - lastTransitionTime: fake
       message: No errors found
@@ -90,6 +90,8 @@ status:
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
+    - group: networking.istio.io
+      kind: VirtualService
   - attachedRoutes: 1
     conditions:
     - lastTransitionTime: fake

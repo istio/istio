@@ -1156,6 +1156,8 @@ func splitInput(t test.Failer, configs []config.Config) GatewayResources {
 			out.TCPRoute = append(out.TCPRoute, c)
 		case gvk.TLSRoute:
 			out.TLSRoute = append(out.TLSRoute, c)
+		case gvk.VirtualService:
+			out.VSRoute = append(out.VSRoute, c)
 		case gvk.ReferenceGrant:
 			out.ReferenceGrant = append(out.ReferenceGrant, c)
 		}
