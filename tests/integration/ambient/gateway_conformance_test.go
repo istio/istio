@@ -21,11 +21,13 @@ import (
 	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/scopes"
@@ -52,6 +54,11 @@ var conformanceNamespaces = []string{
 var skippedTests = map[string]string{
 	// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/1996) scope this skip more
 	"MeshConsumerRoute": "This requires an egress waypoint which is not yet implemented",
+}
+
+func init() {
+	scope := log.RegisterScope("controlleruntime", "scope for controller runtime")
+	controllruntimelog.SetLogger(log.NewLogrAdapter(scope))
 }
 
 func TestGatewayConformance(t *testing.T) {
