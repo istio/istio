@@ -104,7 +104,10 @@ func (c *crdWatcher) WaitForCRD(s schema.GroupVersionResource, stop <-chan struc
 func (c *crdWatcher) KnownOrCallback(s schema.GroupVersionResource, f func(stop <-chan struct{})) bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	if c.HasSynced() && c.known(s) {
+	// We use HasStoreSyncedIgnoringHandlers here to avoid a subtle race condition.
+	// If we wait for the handlers to be called, we may have cloned the current callbacks in the handler, but not yet finished yet.
+	// In this case, we will add a callback, which will never be triggered later.
+	if c.crds.HasStoreSyncedIgnoringHandlers() && c.known(s) {
 		// Already known, return early
 		return true
 	}

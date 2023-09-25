@@ -71,6 +71,16 @@ func (s *delayedClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 	}
 }
 
+func (s *delayedClient[T]) HasStoreSyncedIgnoringHandlers() bool {
+	if c := s.inf.Load(); c != nil {
+		return (*c).HasStoreSyncedIgnoringHandlers()
+	}
+	// If we haven't loaded the informer yet, we want to check if the delayed filter is synced.
+	// This ensures that at startup, we only return HasStoreSyncedIgnoringHandlers=true if we are sure the CRD is not ready.
+	hs := s.delayed.HasSynced()
+	return hs
+}
+
 func (s *delayedClient[T]) HasSynced() bool {
 	if c := s.inf.Load(); c != nil {
 		return (*c).HasSynced()

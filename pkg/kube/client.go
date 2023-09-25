@@ -425,6 +425,9 @@ func EnableCrdWatcher(c Client) Client {
 	if NewCrdWatcher == nil {
 		panic("NewCrdWatcher is unset. Likely the crd watcher library is not imported anywhere")
 	}
+	if c.(*client).crdWatcher != nil {
+		panic("EnableCrdWatcher called twice for the same client")
+	}
 	c.(*client).crdWatcher = NewCrdWatcher(c)
 	return c
 }

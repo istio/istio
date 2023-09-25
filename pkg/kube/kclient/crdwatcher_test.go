@@ -26,6 +26,30 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
+// TestCRDWatcherRace tests for a previous bug where callbacks may be skipped if added during a handler
+func TestCRDWatcherRace(t *testing.T) {
+	stop := test.NewStop(t)
+	c := kube.NewFakeClient()
+	ctl := c.CrdWatcher()
+	go ctl.Run(stop)
+	vsCalls := atomic.NewInt32(0)
+
+	// Race callback and CRD creation
+	go func() {
+		if ctl.KnownOrCallback(gvr.VirtualService, func(s <-chan struct{}) {
+			assert.Equal(t, s, stop)
+			// Happened async
+			vsCalls.Inc()
+		}) {
+			// Happened sync
+			vsCalls.Inc()
+		}
+	}()
+	clienttest.MakeCRD(t, c, gvr.VirtualService)
+	c.RunAndWait(stop)
+	assert.EventuallyEqual(t, vsCalls.Load, 1)
+}
+
 func TestCRDWatcher(t *testing.T) {
 	stop := test.NewStop(t)
 	c := kube.NewFakeClient()

@@ -129,6 +129,10 @@ func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 	n.registeredHandlers = append(n.registeredHandlers, reg)
 }
 
+func (n *informerClient[T]) HasStoreSyncedIgnoringHandlers() bool {
+	return n.informer.HasSynced()
+}
+
 func (n *informerClient[T]) HasSynced() bool {
 	if !n.informer.HasSynced() {
 		return false
