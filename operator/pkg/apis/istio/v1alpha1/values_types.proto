@@ -703,6 +703,8 @@ message PilotConfig {
   //   ENV_VAR_2: value2
   google.protobuf.Struct env = 21;
 
+  google.protobuf.Struct affinity = 22;
+
   // K8s rolling update strategy
   IntOrString rollingMaxSurge  = 24 [deprecated=true];
 
