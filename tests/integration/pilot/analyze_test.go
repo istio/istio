@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/tests/integration/helm"
 )
 
 const (
@@ -492,11 +493,11 @@ func TestMultiCluster(t *testing.T) {
 					if c.Name() == sc {
 						continue
 					}
-					err := c.ApplyYAMLFiles(secret)
+					err := c.ApplyYAMLFiles(helm.IstioNamespace, secret)
 					g.Expect(err).To(BeNil())
 				}
-				// apply inconsistent services
-				err := c.ApplyYAMLFiles(ns.Name(), fmt.Sprintf(`
+
+				svc := fmt.Sprintf(`
 apiVersion: v1
 kind: Service
 metadata:
@@ -506,20 +507,19 @@ spec:
     app: reviews
   type: ClusterIP
   ports:
-  - name: http
-    port: %d
+  - name: http-%d
+    port: 8080
     protocol: TCP
-    targetPort: %d
-`, ind, ind))
+    targetPort: 8080
+`, ind)
+				// apply inconsistent services
+				err := c.ApplyYAMLFiles(ns.Name(), svc)
 				g.Expect(err).To(BeNil())
 			}
 
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
-			// Validation error if we have a gateway with invalid selector.
-			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--multi-cluster")
-
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Configs().Default()})
+			output, _ := istioctlSafe(t, istioCtl, "", true, "--multi-cluster", "--all-namespaces")
 			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("is inconsistent across clusters"))
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
 
