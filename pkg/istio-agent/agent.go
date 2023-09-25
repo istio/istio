@@ -194,6 +194,7 @@ type AgentOptions struct {
 
 	// Enable metadata discovery bootstrap extension
 	MetadataDiscovery bool
+	RegenerateCerts   bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -384,6 +385,10 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		go a.startFileWatcher(ctx, rootCAForXDS, func() {
 			if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
 				log.Warnf("Failed to init xds proxy dial options")
+			}
+
+			if !a.cfg.RegenerateCerts {
+				return
 			}
 
 			if s := a.secretCache; s != nil {
