@@ -156,4 +156,7 @@ var (
 
 	useExternalWorkloadSDSEnv = env.Register("USE_EXTERNAL_WORKLOAD_SDS", false,
 		"When set to true, the istio-agent will require an external SDS and will throw an error if the workload SDS socket is not found").Get()
+
+	regenerateCertsEnv = env.Register("REGENERATE_CERTS", false,
+		"When set to true, the istio-agent will regenerate certs once root cert rotated.").Get()
 )
