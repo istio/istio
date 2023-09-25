@@ -941,15 +941,19 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			log.Debugf("Reuse IP for domain %s", n)
 			setAutoAllocatedIPs(svc, v)
 		} else {
+			allocated++
 			x++
 			if x%255 == 0 {
 				x++
 			}
-			if x >= maxIPs {
+			if x/255 > 255 {
+				fmt.Println(x, svc.Hostname)
+			}
+			if allocated >= maxIPs {
+				fmt.Println("Allocated IPs for ", allocated)
 				log.Errorf("out of IPs to allocate for service entries. x:= %d, maxips:= %d", x, maxIPs)
 				return services
 			}
-			allocated++
 			pair := octetPair{x / 255, x % 255}
 			setAutoAllocatedIPs(svc, pair)
 			hnMap[n] = pair
