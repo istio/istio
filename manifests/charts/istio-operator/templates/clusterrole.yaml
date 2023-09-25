@@ -35,6 +35,18 @@ rules:
   - '*'
   verbs:
   - '*'
+- apiGroups:
+  - telemetry.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
+- apiGroups:
+  - extensions.istio.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
 # k8s groups
 - apiGroups:
   - admissionregistration.k8s.io
@@ -104,6 +116,7 @@ rules:
   - endpoints
   - events
   - namespaces
+  - nodes
   - pods
   - pods/proxy
   - pods/portforward
