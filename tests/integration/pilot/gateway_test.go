@@ -55,6 +55,7 @@ func TestGateway(t *testing.T) {
 			t.NewSubTest("managed-owner").Run(ManagedOwnerGatewayTest)
 			t.NewSubTest("status").Run(StatusGatewayTest)
 			t.NewSubTest("managed-short-name").Run(ManagedGatewayShortNameTest)
+			t.NewSubTest("managed-virtual-service").Run(ManagedGatewayVirtualServiceTest)
 		})
 }
 
@@ -185,6 +186,92 @@ spec:
 		Scheme: scheme.HTTP,
 		HTTP: echo.HTTP{
 			Headers: headers.New().WithHost("bar").Build(),
+		},
+		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+		Check:   check.NotOK(),
+		Retry: echo.Retry{
+			Options: []retry.Option{retry.Timeout(time.Minute)},
+		},
+	})
+}
+
+func ManagedGatewayVirtualServiceTest(t framework.TestContext) {
+	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "*.example.com"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      kinds:
+      - kind: HTTPRoute
+      - kind: VirtualService
+        group: "networking.istio.io"
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: foo
+spec:
+  parentRefs:
+  - name: gateway
+  hostnames:
+  - foo.example.com
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+---
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: bar
+spec:
+  hosts:
+  - "bar.example.com"
+  gateways:
+  - "gateway.networking.k8s.io:gateway.default"
+  http:
+  - route:
+    - destination:
+        host: b
+        port:
+          number: 80
+`).ApplyOrFail(t)
+	apps.B[0].CallOrFail(t, echo.CallOptions{
+		Port:   echo.Port{ServicePort: 80},
+		Scheme: scheme.HTTP,
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost("foo.example.com").Build(),
+		},
+		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+		Check:   check.OK(),
+		Retry: echo.Retry{
+			Options: []retry.Option{retry.Timeout(time.Minute)},
+		},
+	})
+	apps.B[0].CallOrFail(t, echo.CallOptions{
+		Port:   echo.Port{ServicePort: 80},
+		Scheme: scheme.HTTP,
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost("bar.example.com").Build(),
+		},
+		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+		Check:   check.OK(),
+		Retry: echo.Retry{
+			Options: []retry.Option{retry.Timeout(time.Minute)},
+		},
+	})
+	apps.B[0].CallOrFail(t, echo.CallOptions{
+		Port:   echo.Port{ServicePort: 80},
+		Scheme: scheme.HTTP,
+		HTTP: echo.HTTP{
+			Headers: headers.New().WithHost("other.example.com").Build(),
 		},
 		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
 		Check:   check.NotOK(),
