@@ -782,7 +782,7 @@ type GatewayAddress struct {
 	// port to reach the gateway at for mTLS HBONE connections
 	HboneMtlsPort uint32 `protobuf:"varint,3,opt,name=hbone_mtls_port,json=hboneMtlsPort,proto3" json:"hbone_mtls_port,omitempty"`
 	// port to reach the gateway at for single tls HBONE connections
-	// used for traffic originating outside the mesh reaching a waypoint-enabled destination
+	// used for sending unauthenticated traffic originating outside the mesh to a waypoint-enabled destination
 	// A value of 0 = unset
 	HboneSingleTlsPort uint32 `protobuf:"varint,4,opt,name=hbone_single_tls_port,json=hboneSingleTlsPort,proto3" json:"hbone_single_tls_port,omitempty"`
 }
