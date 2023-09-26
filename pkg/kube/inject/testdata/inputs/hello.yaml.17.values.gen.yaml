@@ -15,6 +15,9 @@
         "cpu": "10m"
       }
     },
+    "dualStack": {
+      "enabled": false
+    },
     "enabled": false,
     "externalIstiod": false,
     "hub": "gcr.io/istio-testing",

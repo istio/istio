@@ -58,12 +58,10 @@ pilot:
   configMap: false
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
-
   # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
   serviceConfig:
     ipFamilyPolicy: ""
     ipFamilies: []
-
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.
@@ -419,6 +417,10 @@ global:
   # whether to use autoscaling/v2 template for HPA settings
   # for internal usage only, not to be configured by users.
   autoscalingv2API: true
+  # whether to enable Istio to work in a dual-stack Kubernetes cluster.
+  # To enable Istio components for dual-stack networking, see .global.serviceConfig settings.
+  dualStack:
+    enabled: false
 base:
   # For istioctl usage to disable istio config crds in base
   enableIstioConfigCRDs: true

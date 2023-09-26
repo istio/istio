@@ -24,11 +24,5 @@ spec:
   type: ExternalName
   externalName: {{ .Values.global.remotePilotAddress }}
   {{- end }}
-  {{- if ne .Values.pilot.serviceConfig.ipFamilyPolicy "" }}
-  ipFamilyPolicy: {{ .Values.pilot.serviceConfig.ipFamilyPolicy }}
-  {{- end }}
-  {{- if not .Values.pilot.serviceConfig.ipFamilies }}
-  ipFamilies: {{ .Values.pilot.serviceConfig.ipFamilies }}
-  {{- end }}
 ---
 {{- end }}

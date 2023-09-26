@@ -1031,35 +1031,17 @@ message SecretVolume {
 
 // ServiceConfig is described in istio.io documentation.
 message ServiceConfig {
-  google.protobuf.Struct annotations = 1 [deprecated=true];
+  repeated string ipFamilies = 4;
+  string ipFamilyPolicy = 5;
 
-  uint32 externalPort = 2 [deprecated=true];
-
-  string name = 3 [deprecated=true];
-
-  // Set ipFamilies in the Service spec per https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
-  enum IPFamily {
-    IPFAMILY_UNSPECIFIED = 0;
-    IPv4 = 1;
-    IPv6 = 2;
-  }
-
-  // Set ipFamilyPolicy in the Service spec per https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
-  enum IPFamilyPolicy {
-    IPFAMILY_POLICY_UNSPECIFIED = 0;
-    SingleStack = 1;
-    PreferDualStack = 2;
-    RequireDualStack = 3;
-  }
-
-  // configuration for setting up a Service, whether IPv4, IPv6 or dual-stack
-  message IPConfig {
-    repeated IPFamily ipFamilies = 1;
-    IPFamilyPolicy ipFamilyPolicy = 2;
-  }
-  IPConfig ipConfig = 4;
-
-  string type = 18 [deprecated=true];
+  reserved 1;
+  reserved "annotations";
+  reserved 2;
+  reserved "externalPort";
+  reserved 3;
+  reserved "name";
+  reserved 18;
+  reserved "type";
 }
 
 // SidecarInjectorConfig is described in istio.io documentation.
