@@ -1243,6 +1243,6 @@ message IntOrString {
 }
 
 message DualStack {
-   // Controls whether CNI is enabled.
+   // Controls whether dual-stack is enabled.
    google.protobuf.BoolValue enabled = 1; 
 }
