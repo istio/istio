@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
 	"k8s.io/apimachinery/pkg/runtime/serializer/versioning"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	utilvalidation "k8s.io/apimachinery/pkg/util/validation"
 	_ "k8s.io/client-go/plugin/pkg/client/auth" //  to avoid 'No Auth Provider found for name "gcp"'
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -41,7 +42,6 @@ import (
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/log"
@@ -600,7 +600,7 @@ type RemoteSecretOptions struct {
 	KubeOptions
 
 	// Name of the local cluster whose credentials are stored in the secret. Must be
-	// DNS1123 label as it will be used for the k8s secret name.
+	// DNS1123Subdomain as it will be used for the k8s secret name.
 	ClusterName string
 
 	// Create a secret with this service account's credentials.
@@ -673,8 +673,8 @@ func (o *RemoteSecretOptions) prepare(ctx cli.Context) error {
 	o.KubeOptions.prepare(ctx)
 
 	if o.ClusterName != "" {
-		if !labels.IsDNS1123Label(o.ClusterName) {
-			return fmt.Errorf("%v is not a valid DNS 1123 label", o.ClusterName)
+		if errs := utilvalidation.IsDNS1123Subdomain(o.ClusterName); len(errs) > 0 {
+			return fmt.Errorf("%s is not a valid, %s", o.ClusterName, strings.Join(errs, ","))
 		}
 	}
 	return nil

@@ -753,4 +753,22 @@ func TestRemoteSecretOptions(t *testing.T) {
 		"?-invalid-name",
 	})).Should(Succeed())
 	g.Expect(o.prepare(ctx)).Should(Not(Succeed()))
+
+	o = RemoteSecretOptions{}
+	flags = pflag.NewFlagSet("test", pflag.ContinueOnError)
+	o.addFlags(flags)
+	g.Expect(flags.Parse([]string{
+		"--name",
+		"example.com",
+	})).Should(Succeed())
+	g.Expect(o.prepare(ctx)).Should(Succeed())
+
+	o = RemoteSecretOptions{}
+	flags = pflag.NewFlagSet("test", pflag.ContinueOnError)
+	o.addFlags(flags)
+	g.Expect(flags.Parse([]string{
+		"--name",
+		"valid-name.example.com",
+	})).Should(Succeed())
+	g.Expect(o.prepare(ctx)).Should(Succeed())
 }
