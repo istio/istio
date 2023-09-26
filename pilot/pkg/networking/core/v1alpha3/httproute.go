@@ -763,14 +763,10 @@ func mergeAllVirtualHosts(vHostPortMap map[int][]*route.VirtualHost) []*route.Vi
 			virtualHosts = append(virtualHosts, vhosts...)
 		} else {
 			for _, vhost := range vhosts {
-				var newDomains []string
-				for _, domain := range vhost.Domains {
-					if strings.Contains(domain, ":") {
-						newDomains = append(newDomains, domain)
-					}
-				}
-				if len(newDomains) > 0 {
-					vhost.Domains = newDomains
+				vhost.Domains = slices.FilterInPlace(vhost.Domains, func(domain string) bool {
+					return strings.Contains(domain, ":")
+				})
+				if len(vhost.Domains) > 0 {
 					virtualHosts = append(virtualHosts, vhost)
 				}
 			}
