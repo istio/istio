@@ -192,7 +192,7 @@ type AgentOptions struct {
 
 	UseExternalWorkloadSDS bool
 
-	RegenerateCerts bool
+	RegenerateWorkloadCerts bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -384,8 +384,8 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 				log.Warnf("Failed to init xds proxy dial options")
 			}
 
-			if a.cfg.RegenerateCerts &&
-				// only regenerate certs if using istiod cert provider
+			if a.cfg.RegenerateWorkloadCerts &&
+				// only regenerate workload certs if using istiod cert provider
 				a.secOpts.PilotCertProvider == constants.CertProviderIstiod {
 				if s := a.secretCache; s != nil {
 					log.Info("ROOTCA changed, regenerating certs")
