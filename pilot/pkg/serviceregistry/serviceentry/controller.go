@@ -951,7 +951,6 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			setAutoAllocatedIPs(svc, pair)
 			hnMap[n] = pair
 			if allocated > maxIPs {
-				fmt.Println("Allocated IPs for ", allocated)
 				log.Errorf("out of IPs to allocate for service entries. x:= %d, maxips:= %d", x, maxIPs)
 				return services
 			}
