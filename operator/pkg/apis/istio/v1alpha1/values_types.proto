@@ -466,11 +466,7 @@ message GlobalConfig {
   // treatment will be considered.
   string platform = 69;
 
-  // Controls whether dual-stack operations are enabled. This does not control
-  // Service definitions for istiod, istiod-remote and any Gateways.
-  DualStack dualStack = 70;
-
-  // The next available key is 71
+  // The next available key is 70
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -1227,9 +1223,4 @@ message IntOrString {
   google.protobuf.Int32Value intVal = 2;
 
   google.protobuf.StringValue strVal = 3;
-}
-
-message DualStack {
-   // Controls whether dual-stack is enabled.
-   google.protobuf.BoolValue enabled = 1; 
 }
