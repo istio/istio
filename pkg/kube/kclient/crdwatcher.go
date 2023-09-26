@@ -69,6 +69,7 @@ func (c *crdWatcher) Run(stop <-chan struct{}) {
 	c.mutex.Lock()
 	if c.stop != nil {
 		// Run already called. Because we call this from client.RunAndWait this isn't uncommon
+		c.mutex.Unlock()
 		return
 	}
 	c.stop = stop

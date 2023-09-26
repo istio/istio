@@ -75,6 +75,7 @@ func TestExtraConfigmap(t *testing.T) {
 		stop := test.NewStop(t)
 		w := NewConfigMapWatcher(client, namespace, name, key, true, stop)
 		AddUserMeshConfig(client, w, namespace, key, extraCmName, stop)
+		client.RunAndWait(stop)
 		return cms, w
 	}
 
