@@ -19,7 +19,6 @@ package ambient
 
 import (
 	"context"
-	"os"
 	"strings"
 	"testing"
 
@@ -77,9 +76,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		RequireMinVersion(24).
-		SkipIf("https://github.com/istio/istio/issues/43243", func(ctx resource.Context) bool {
-			return os.Getenv("VARIANT") == "distroless"
-		}).
 		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
