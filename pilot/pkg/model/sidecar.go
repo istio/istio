@@ -650,7 +650,10 @@ func (sc *SidecarScope) DestinationRuleByName(name, namespace string) *config.Co
 // can be a wildcard.
 func (sc *SidecarScope) ServicesForHostname(hostname host.Name) []*Service {
 	if !hostname.IsWildCarded() {
-		return []*Service{sc.servicesByHostname[hostname]}
+		if svc, f := sc.servicesByHostname[hostname]; f {
+			return []*Service{svc}
+		}
+		return nil
 	}
 	services := make([]*Service, 0)
 	for _, svc := range sc.services {
