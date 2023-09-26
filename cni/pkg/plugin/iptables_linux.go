@@ -53,6 +53,7 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	viper.Set(constants.RedirectDNS, rdrct.dnsRedirect)
 	viper.Set(constants.CaptureAllDNS, rdrct.dnsRedirect)
 	viper.Set(constants.DropInvalid, rdrct.invalidDrop)
+	viper.Set(constants.DualStack, rdrct.dualStack)
 
 	netNs, err := getNs(netns)
 	if err != nil {
