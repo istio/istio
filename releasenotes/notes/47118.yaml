@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Fixed** missing rbac permissions when istio-operator installs multi-cluster mesh on the openshift platform.

@@ -102,6 +102,7 @@ rules:
   resources:
   - configmaps
   - endpoints
+  - endpoints/restricted
   - events
   - namespaces
   - pods
