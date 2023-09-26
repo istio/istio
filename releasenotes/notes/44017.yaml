@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 44017
+docs: []
+
+releaseNotes:
+- |
+  **Added** operator API and helm chart support for easier dual-stack deployment and operations.
