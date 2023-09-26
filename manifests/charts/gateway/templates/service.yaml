@@ -15,12 +15,11 @@ spec:
 {{- with .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ . }}"
 {{- end }}
-{{- with .Values.service.ipFamilyPolicy }}
-  ipFamilyPolicy: "{{ . }}"
+{{- if ne .Values.service.serviceConfig.ipFamilyPolicy "" }}
+ipFamilyPolicy: {{ .Values.service.serviceConfig.ipFamilyPolicy }}
 {{- end }}
-{{- with .Values.service.ipFamilies }}
-  ipFamilies:
-{{ toYaml . | indent 4 }}
+{{- if not .Values.service.serviceConfig.ipFamilies }}
+ipFamilies: {{ .Values.service.serviceConfig.ipFamilies }}
 {{- end }}
 {{- with .Values.service.loadBalancerSourceRanges }}
   loadBalancerSourceRanges:

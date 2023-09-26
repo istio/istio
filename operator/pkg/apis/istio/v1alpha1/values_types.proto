@@ -465,7 +465,12 @@ message GlobalConfig {
   // An empty value means it is a vanilla Kubernetes distribution, therefore no special
   // treatment will be considered.
   string platform = 69;
-  // The next available key is 70
+
+  // Controls whether dual-stack operations are enabled. This does not control
+  // Service definitions for istiod, istiod-remote and any Gateways.
+  DualStack dualStack = 70;
+
+  // The next available key is 71
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -751,6 +756,8 @@ message PilotConfig {
   repeated google.protobuf.Struct volumeMounts = 49;
 
   repeated google.protobuf.Struct volumes = 51;
+
+  ServiceConfig serviceConfig = 52;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -1251,4 +1258,9 @@ message IntOrString {
   google.protobuf.Int32Value intVal = 2;
 
   google.protobuf.StringValue strVal = 3;
+}
+
+message DualStack {
+   // Controls whether CNI is enabled.
+   google.protobuf.BoolValue enabled = 1; 
 }
