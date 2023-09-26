@@ -43,5 +43,11 @@ spec:
       port: {{ $app.port }}
       name: {{ $app.name }}
   {{- end }}
+  {{- if ne .Values.ipFamilyPolicy "" }}
+  ipFamilyPolicy: {{ .Values.ipFamilyPolicy }}
+  {{- end }}
+  {{- with .Values.ipFamilies }}
+  ipFamilies: {{ toYaml . | indent 4 }}
+  {{- end }}
 ---
 {{ end }}

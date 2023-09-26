@@ -274,7 +274,10 @@ message EgressGatewayConfig {
 
   ServiceAccount serviceAccount = 28;
 
-  // Next available 29.
+  repeated string ipFamilies = 29;
+ 
+  string ipFamilyPolicy = 30;
+  // Next available 31.
 }
 
 // Configuration for gateways.
@@ -585,7 +588,10 @@ message IngressGatewayConfig {
 
   ServiceAccount serviceAccount = 47;
 
-  // Next available 48.
+  repeated string ipFamilies = 48;
+ 
+  string ipFamilyPolicy = 49;
+  // Next available 50.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
