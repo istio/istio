@@ -469,7 +469,10 @@ message GlobalConfig {
   // treatment will be considered.
   string platform = 69;
 
-  // The next available key is 70
+  repeated string ipFamilies = 70;
+ 
+  string ipFamilyPolicy = 71;
+  // The next available key is 72
 }
 
 // Configuration for Security Token Service (STS) server.
