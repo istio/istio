@@ -384,16 +384,16 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 				log.Warnf("Failed to init xds proxy dial options")
 			}
 
-			if !a.cfg.RegenerateCerts {
-				return
-			}
-
-			if s := a.secretCache; s != nil {
-				log.Info("ROOTCA changed, regenerating certs")
-				s.Reset()
-				_, _ = a.getWorkloadCerts(s)
-				// Tirgger a push to envoy
-				s.OnSecretUpdate(security.WorkloadKeyCertResourceName)
+			if a.cfg.RegenerateCerts &&
+				// only regenerate certs if using istiod cert provider
+				a.secOpts.PilotCertProvider == constants.CertProviderIstiod {
+				if s := a.secretCache; s != nil {
+					log.Info("ROOTCA changed, regenerating certs")
+					s.Reset()
+					_, _ = a.getWorkloadCerts(s)
+					// Force a push to envoy
+					s.OnSecretUpdate(security.WorkloadKeyCertResourceName)
+				}
 			}
 		})
 	}
