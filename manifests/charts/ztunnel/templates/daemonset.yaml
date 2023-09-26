@@ -42,7 +42,8 @@ spec:
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
-        image: "{{ .Values.hub }}/{{ .Values.image | default "ztunnel" }}:{{ .Values.tag }}{{with (.Values.variant )}}-{{.}}{{end}}"
+      {{- /*TODO: https://github.com/istio/istio/issues/43243 support distroless*/}}
+        image: "{{ .Values.hub }}/{{ .Values.image | default "ztunnel" }}:{{ .Values.tag }}"
 {{- end }}
         ports:
         - containerPort: 15020
