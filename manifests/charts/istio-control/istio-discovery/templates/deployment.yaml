@@ -175,10 +175,6 @@ spec:
                 resource: limits.cpu
           - name: PLATFORM
             value: "{{ .Values.global.platform }}"
-          {{- if .Values.global.dualStack.enabled }}
-          - name: ISTIO_DUAL_STACK
-            value: "{{ .Values.global.dualStack.enabled }}"
-          {{- end }}
           resources:
 {{- if .Values.pilot.resources }}
 {{ toYaml .Values.pilot.resources | trim | indent 12 }}

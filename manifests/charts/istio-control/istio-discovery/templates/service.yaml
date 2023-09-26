@@ -38,10 +38,10 @@ spec:
     # This avoids default deployment picking the canary
     istio: pilot
     {{- end }}
-  {{- if ne .Values.pilot.serviceConfig.ipFamilyPolicy "" }}
-  ipFamilyPolicy: {{ .Values.pilot.serviceConfig.ipFamilyPolicy }}
+  {{- if ne .Values.pilot.ipFamilyPolicy "" }}
+  ipFamilyPolicy: {{ .Values.pilot.ipFamilyPolicy }}
   {{- end }}
-  {{- if not .Values.pilot.serviceConfig.ipFamilies }}
-  ipFamilies: {{ .Values.pilot.serviceConfig.ipFamilies }}
+  {{- with .Values.pilot.ipFamilies }}
+  ipFamilies: {{ toYaml . | indent 4 }}
   {{- end }}
 ---

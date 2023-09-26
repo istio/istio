@@ -757,7 +757,9 @@ message PilotConfig {
 
   repeated google.protobuf.Struct volumes = 51;
 
-  ServiceConfig serviceConfig = 52;
+  repeated string ipFamilies = 52;
+ 
+  string ipFamilyPolicy = 53;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -1027,21 +1029,6 @@ message SecretVolume {
   string name = 2;
 
   string secretName = 3;
-}
-
-// ServiceConfig is described in istio.io documentation.
-message ServiceConfig {
-  repeated string ipFamilies = 4;
-  string ipFamilyPolicy = 5;
-
-  reserved 1;
-  reserved "annotations";
-  reserved 2;
-  reserved "externalPort";
-  reserved 3;
-  reserved "name";
-  reserved 18;
-  reserved "type";
 }
 
 // SidecarInjectorConfig is described in istio.io documentation.

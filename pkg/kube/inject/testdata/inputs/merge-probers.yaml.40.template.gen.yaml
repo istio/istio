@@ -341,10 +341,6 @@ templates:
           value: "{{ $value }}"
         {{- end }}
         {{- end }}
-        {{- if .Values.global.dualStack.enabled }}
-        - name: ISTIO_DUAL_STACK
-          value: "{{ .Values.global.dualStack.enabled }}"
-        {{- end }}
         {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
         - name: {{ $key }}
           value: "{{ $value }}"
@@ -676,10 +672,6 @@ templates:
         {{- with (valueOrDefault .MeshConfig.TrustDomain .Values.global.trustDomain)  }}
         - name: TRUST_DOMAIN
           value: "{{ . }}"
-        {{- end }}
-        {{- if .Values.global.dualStack.enabled }}
-        - name: ISTIO_DUAL_STACK
-          value: "{{ .Values.global.dualStack.enabled }}"
         {{- end }}
         {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
         - name: {{ $key }}
