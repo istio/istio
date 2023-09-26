@@ -51,8 +51,12 @@ var (
 )
 
 var (
-	prime  = 65011     // Used for secondary hash function.
-	maxIPs = 255 * 255 // Maximum possible IPs for address allocation.
+	// Used for secondary hash function.
+	prime = 65011
+	// Maximum possible IPs for address allocation. Even though the address space is 255*255 = 65025,
+	// we skip certain pattern of IPs like "240.240.0.0" and "240.240.0.255". So we can only allocate
+	// 255 * 255 - 254 = 64771 IPs.
+	maxIPs = 64771
 )
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
@@ -931,9 +935,6 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		if svc == nil {
 			// There is no service in the slot. Just increment x and move forward.
 			x++
-			if x%255 == 0 {
-				x++
-			}
 			continue
 		}
 		n := makeServiceKey(svc)
@@ -946,17 +947,14 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			if x%255 == 0 {
 				x++
 			}
-			if x/255 > 255 {
-				fmt.Println(x, svc.Hostname)
-			}
-			if allocated >= maxIPs {
+			pair := octetPair{x / 255, x % 255}
+			setAutoAllocatedIPs(svc, pair)
+			hnMap[n] = pair
+			if allocated > maxIPs {
 				fmt.Println("Allocated IPs for ", allocated)
 				log.Errorf("out of IPs to allocate for service entries. x:= %d, maxips:= %d", x, maxIPs)
 				return services
 			}
-			pair := octetPair{x / 255, x % 255}
-			setAutoAllocatedIPs(svc, pair)
-			hnMap[n] = pair
 		}
 	}
 	return services
