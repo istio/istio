@@ -531,7 +531,7 @@ func (c *client) Shutdown() {
 func (c *client) Run(stop <-chan struct{}) {
 	c.informerFactory.Start(stop)
 	if c.crdWatcher != nil {
-		c.crdWatcher.Run(stop)
+		go c.crdWatcher.Run(stop)
 	}
 	alreadyStarted := c.started.Swap(true)
 	if alreadyStarted {

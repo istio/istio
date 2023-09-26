@@ -44,10 +44,6 @@ type Informer[T controllers.Object] interface {
 	// via AddEventHandler have been called with the initial state.
 	// note: this differs from a standard informer HasSynced, which does not check handlers have been called.
 	HasSynced() bool
-	// HasStoreSyncedIgnoringHandlers returns true when the informer is initially populated, ignoring whether handlers have been called.
-	// This intentionally has an obnoxious name, as most usages should use HasSynced instead.
-	// All callers should document why they are using this instead of HasSynced
-	HasStoreSyncedIgnoringHandlers() bool
 	// ShutdownHandlers terminates all handlers added by AddEventHandler.
 	// Warning: this only applies to handlers called via AddEventHandler; any handlers directly added
 	// to the underlying informer are not touched

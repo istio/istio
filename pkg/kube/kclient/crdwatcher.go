@@ -20,18 +20,21 @@ import (
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kubetypes"
-	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/log"
 )
 
 type crdWatcher struct {
 	crds      Informer[*metav1.PartialObjectMetadata]
+	queue     controllers.Queue
 	mutex     sync.RWMutex
-	callbacks []func(name string)
+	callbacks map[string][]func()
 
 	running chan struct{}
 	stop    <-chan struct{}
@@ -45,39 +48,34 @@ func init() {
 // newCrdWatcher returns a new CRD watcher controller.
 func newCrdWatcher(client kube.Client) kubetypes.CrdWatcher {
 	c := &crdWatcher{
-		running: make(chan struct{}),
+		running:   make(chan struct{}),
+		callbacks: map[string][]func(){},
 	}
 
+	c.queue = controllers.NewQueue("crd watcher",
+		controllers.WithReconciler(c.Reconcile))
 	c.crds = NewMetadata(client, gvr.CustomResourceDefinition, Filter{})
-	c.crds.AddEventHandler(controllers.EventHandler[*metav1.PartialObjectMetadata]{
-		AddFunc: func(crd *metav1.PartialObjectMetadata) {
-			c.mutex.RLock()
-			handlers := slices.Clone(c.callbacks)
-			c.mutex.RUnlock()
-			for _, handler := range handlers {
-				handler(crd.Name)
-			}
-		},
-	})
+	c.crds.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
 	return c
 }
 
 // HasSynced returns whether the underlying cache has synced and the callback has been called at least once.
 func (c *crdWatcher) HasSynced() bool {
-	return c.crds.HasSynced()
+	return c.queue.HasSynced()
 }
 
 // Run starts the controller. This must be called.
 func (c *crdWatcher) Run(stop <-chan struct{}) {
 	c.mutex.Lock()
-	defer c.mutex.Unlock()
-	select {
-	case <-c.running:
-		// already started, ignore
-	default:
-		c.stop = stop
-		close(c.running)
+	if c.stop != nil {
+		// Run already called. Because we call this from client.RunAndWait this isn't uncommon
+		return
 	}
+	c.stop = stop
+	c.mutex.Unlock()
+	kube.WaitForCacheSync("crd watcher", stop, c.crds.HasSynced)
+	c.queue.Run(stop)
+	c.crds.ShutdownHandlers()
 }
 
 // WaitForCRD waits until the request CRD exists, and returns true on success. A false return value
@@ -104,27 +102,16 @@ func (c *crdWatcher) WaitForCRD(s schema.GroupVersionResource, stop <-chan struc
 func (c *crdWatcher) KnownOrCallback(s schema.GroupVersionResource, f func(stop <-chan struct{})) bool {
 	c.mutex.Lock()
 	defer c.mutex.Unlock()
-	// We use HasStoreSyncedIgnoringHandlers here to avoid a subtle race condition.
-	// If we wait for the handlers to be called, we may have cloned the current callbacks in the handler, but not yet finished yet.
-	// In this case, we will add a callback, which will never be triggered later.
-	if c.crds.HasStoreSyncedIgnoringHandlers() && c.known(s) {
+	// If we are already synced, return immediately if the CRD is present.
+	if c.crds.HasSynced() && c.known(s) {
 		// Already known, return early
 		return true
 	}
-	want := fmt.Sprintf("%s.%s", s.Resource, s.Group)
-	ran := false
-	c.callbacks = append(c.callbacks, func(name string) {
-		if want != name {
-			// event was for different resource
-			return
+	name := fmt.Sprintf("%s.%s", s.Resource, s.Group)
+	c.callbacks[name] = append(c.callbacks[name], func() {
+		if features.EnableUnsafeAssertions && c.stop == nil {
+			log.Fatalf("CRD Watcher callback called without stop set")
 		}
-		if ran {
-			// Make sure we only run this once
-			return
-		}
-		ran = true
-		// Wait until we are running, so c.stop is set
-		<-c.running
 		// Call the callback
 		f(c.stop)
 	})
@@ -135,4 +122,20 @@ func (c *crdWatcher) known(s schema.GroupVersionResource) bool {
 	// From the spec: "Its name MUST be in the format <.spec.name>.<.spec.group>."
 	name := fmt.Sprintf("%s.%s", s.Resource, s.Group)
 	return c.crds.Get(name, "") != nil
+}
+
+func (c *crdWatcher) Reconcile(key types.NamespacedName) error {
+	c.mutex.Lock()
+	callbacks, f := c.callbacks[key.Name]
+	if !f {
+		c.mutex.Unlock()
+		return nil
+	}
+	// Delete them so we do not run again
+	delete(c.callbacks, key.Name)
+	c.mutex.Unlock()
+	for _, cb := range callbacks {
+		cb()
+	}
+	return nil
 }
