@@ -137,7 +137,7 @@ func TestServices(t *testing.T) {
 			// For this case, it is broken if the src and dst are on the same node.
 			// Because client request is not captured to perform the hairpin
 			// TODO(https://github.com/istio/istio/issues/43238): fix this and remove this skip
-			opt.Check = check.OK()
+			t.Skip("https://github.com/istio/istio/issues/44530")
 		}
 
 		if !dst.Config().HasWaypointProxy() &&
@@ -167,6 +167,9 @@ func TestPodIP(t *testing.T) {
 								src, dst, srcWl, dstWl := src, dst, srcWl, dstWl
 								if src.Config().HasSidecar() {
 									t.Skip("not supported yet")
+								}
+								if src.Config().IsUncaptured() && dst.Config().HasWaypointProxy() {
+									t.Skip("https://github.com/istio/istio/issues/44530")
 								}
 								for _, opt := range callOptions {
 									opt := opt.DeepCopy()
