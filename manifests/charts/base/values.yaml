@@ -21,6 +21,7 @@ global:
   platform: ""
 
   # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+  # This is intended only for use with external istiod.
   ipFamilyPolicy: ""
   ipFamilies: []
 

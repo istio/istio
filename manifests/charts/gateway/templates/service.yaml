@@ -16,7 +16,7 @@ spec:
   loadBalancerIP: "{{ . }}"
 {{- end }}
 {{- if .Values.service.ipFamilyPolicy }}
-  ipFamilyPolicy: {{ .Values.pilot.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.service.ipFamilyPolicy }}
 {{- end }}
 {{- if .Values.service.ipFamilies }}
   ipFamilies:

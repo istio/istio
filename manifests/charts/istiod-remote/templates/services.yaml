@@ -24,11 +24,14 @@ spec:
   type: ExternalName
   externalName: {{ .Values.global.remotePilotAddress }}
   {{- end }}
-  {{- if .Values.global.ipFamilyPolicy }}
+{{- if .Values.global.ipFamilyPolicy }}
   ipFamilyPolicy: {{ .Values.global.ipFamilyPolicy }}
-  {{- end }}
-  {{- with .Values.global.ipFamilies }}
-  ipFamilies: {{ toYaml . | indent 4 }}
-  {{- end }}
+{{- end }}
+{{- if .Values.global.ipFamilies }}
+  ipFamilies:
+{{- range .Values.global.ipFamilies }}
+  - {{ . }}
+{{- end }}
+{{- end }}
 ---
 {{- end }}
