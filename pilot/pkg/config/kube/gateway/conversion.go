@@ -1000,15 +1000,20 @@ func attachVirtualServiceRoute(ctx configContext, obj config.Config) {
 			SectionName: k8s.SectionName(l),
 			Port:        0,
 		}
+		successCount := 0
+		failedReasons := []string{}
 		for _, gw := range ctx.GatewayReferences[ir] {
-			// Append all matches. Note we may be adding mismatch section or ports; this is handled later
 			deniedReason := referenceAllowed(gw, gvk.VirtualService, pk, stringToHostnameList(vs.Hosts), obj.Namespace)
 			if deniedReason == nil {
 				// Record that we were able to bind to the parent
 				gw.AttachedRoutes++
+				successCount++
 			} else {
-				log.Errorf("k8s gateway binding denied for virtual service %s: %v", obj.Meta.Name, deniedReason)
+				failedReasons = append(failedReasons, fmt.Sprintf("%s: %v", gw.InternalName, deniedReason))
 			}
+		}
+		if successCount == 0 && len(failedReasons) != 0 {
+			log.Errorf("k8s gateway binding denied for virtual service %s: %v", obj.Meta.Name, failedReasons)
 		}
 	}
 }
