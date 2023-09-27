@@ -11,5 +11,23 @@
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
     "ghcr.io/mpriscella/features/kind:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "rust-lang.rust-analyzer",
+        "eamodio.gitlens",             // IDE Git information
+        "zxh404.vscode-proto3",        // Supports Proto syntax
+        "ms-azuretools.vscode-docker", // Docker integration and linting
+        "redhat.vscode-yaml",          // Kubernetes, Drone syntax highlighting
+        "IBM.output-colorizer"         // Colorize your output/test logs
+      ],
+      "settings": {
+        "files.eol": "\n",
+        "go.useLanguageServer": true,
+        "go.lintTool": "golangci-lint"
+      }
+    }
   }
 }
