@@ -512,7 +512,7 @@ func TestOutboundListenerDualStackWildcard(t *testing.T) {
 		if len(listeners) != 1 {
 			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
 		}
-		if p.IsDual() {
+		if p.IsDualStack() {
 			if len(listeners[0].AdditionalAddresses) != 1 {
 				t.Fatalf("expected %d additional addresses, found %d", 1, len(listeners[0].AdditionalAddresses))
 			}

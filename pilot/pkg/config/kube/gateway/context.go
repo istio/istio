@@ -62,6 +62,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 	foundExternal := sets.New[string]()
 	foundPending := sets.New[string]()
 	warnings := []string{}
+	log.Infof("Resolving gateway instances for %v in namespace %s", gwsvcs, namespace)
 	for _, g := range gwsvcs {
 		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
 		if !f {
