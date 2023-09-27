@@ -40,6 +40,7 @@ func TestRemoteCerts(t *testing.T) {
 	s := Server{
 		kubeClient: kube.NewFakeClient(),
 	}
+	s.kubeClient.RunAndWait(test.NewStop(t))
 	caOpts := &caOptions{
 		Namespace: testNamespace,
 	}
@@ -75,6 +76,7 @@ func TestRemoteTLSCerts(t *testing.T) {
 	s := Server{
 		kubeClient: kube.NewFakeClient(),
 	}
+	s.kubeClient.RunAndWait(test.NewStop(t))
 	caOpts := &caOptions{
 		Namespace: testNamespace,
 	}
