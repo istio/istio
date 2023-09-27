@@ -225,6 +225,24 @@
         }
       }
     },
+    "additionalPodDisruptionBudgetSelectorLabels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "integer"
+        ]
+      }
+    },
+    "additionalDeploymentSelectorLabels": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "string",
+          "integer"
+        ]
+      }
+    },
     "terminationGracePeriodSeconds": {
       "type": "number"
     },

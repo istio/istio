@@ -130,6 +130,12 @@ imagePullSecrets: []
 #
 podDisruptionBudget: {}
 
+# In addition to the standard set of labels used as selector on the service obj, add these labels to pods and as selector
+# on deploy and pdb objects. Note that these additional selector labels *are not*
+additionalPodDisruptionBudgetSelectorLabels: {}
+
+additionalDeploymentSelectorLabels: {}
+
 terminationGracePeriodSeconds: 30
 
 # A list of `Volumes` added into the Gateway Pods. See

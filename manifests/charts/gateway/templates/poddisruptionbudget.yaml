@@ -10,6 +10,9 @@ spec:
   selector:
     matchLabels:
   {{- include "gateway.selectorLabels" . | nindent 6 }}
+  {{- with .Values.additionalPodDisruptionBudgetSelectorLabels }}
+    {{- toYaml . | nindent 6 }}
+  {{- end }}
   {{- with .Values.podDisruptionBudget }}
     {{- toYaml . | nindent 2 }}
   {{- end }}

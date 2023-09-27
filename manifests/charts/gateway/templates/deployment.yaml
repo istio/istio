@@ -16,6 +16,9 @@ spec:
   selector:
     matchLabels:
       {{- include "gateway.selectorLabels" . | nindent 6 }}
+      {{- with .Values.additionalDeploymentSelectorLabels }}
+        {{- toYaml . | nindent 6 }}
+      {{- end }}
   template:
     metadata:
       {{- with .Values.podAnnotations }}
