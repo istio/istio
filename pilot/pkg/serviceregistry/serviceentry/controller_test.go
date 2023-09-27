@@ -1795,8 +1795,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.ClientSideLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.114.65",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:7241",
+					AutoAllocatedIPv4Address: "240.240.62.28",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:3e1c",
 				},
 			},
 		},
@@ -1814,8 +1814,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.114.65",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:7241",
+					AutoAllocatedIPv4Address: "240.240.62.28",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:3e1c",
 				},
 			},
 		},
@@ -1840,15 +1840,15 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "a17061.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.9.221",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:9dd",
+					AutoAllocatedIPv4Address: "240.240.0.1",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
 				},
 				{
 					Hostname:                 "a44155.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.15.209",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:fd1",
+					AutoAllocatedIPv4Address: "240.240.75.4",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:4b4",
 				},
 			},
 		},
@@ -1867,8 +1867,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "a.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.236.83",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:ec53",
+					AutoAllocatedIPv4Address: "240.240.162.130",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:a282",
 				},
 			},
 		},
@@ -1893,15 +1893,15 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "a.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.236.83",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:ec53",
+					AutoAllocatedIPv4Address: "240.240.162.130",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:a282",
 				},
 				{
 					Hostname:                 "a.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.128.142",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:808e",
+					AutoAllocatedIPv4Address: "240.240.114.84",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:7254",
 				},
 			},
 		},
@@ -1945,7 +1945,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	// 240.240.2.255
 	// 240.240.3.0
 	// 240.240.3.255
-	// The last IP should be 240.240.134.47
+	// The last IP should be 240.240.202.167
 	doNotWant := map[string]bool{
 		"240.240.0.0":   true,
 		"240.240.0.255": true,
@@ -1956,7 +1956,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		"240.240.3.0":   true,
 		"240.240.3.255": true,
 	}
-	expectedLastIP := "240.240.134.47"
+	expectedLastIP := "240.240.202.167"
 	if gotServices[len(gotServices)-1].AutoAllocatedIPv4Address != expectedLastIP {
 		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
@@ -1970,9 +1970,15 @@ func Test_autoAllocateIP_values(t *testing.T) {
 			t.Errorf("multiple allocations of same IP address to different services with different hostname: %s", svc.AutoAllocatedIPv4Address)
 		}
 		gotIPMap[svc.AutoAllocatedIPv4Address] = svc.Hostname.String()
+		// Validate that IP address is valid.
 		ip := net.ParseIP(svc.AutoAllocatedIPv4Address)
 		if ip == nil {
 			t.Errorf("invalid IP address %s : %s", svc.AutoAllocatedIPv4Address, svc.Hostname.String())
+		}
+		// Validate that IP address is in the expected range.
+		_, subnet, _ := net.ParseCIDR("240.240.0.0/16")
+		if !subnet.Contains(ip) {
+			t.Errorf("IP address not in range %s : %s", svc.AutoAllocatedIPv4Address, svc.Hostname.String())
 		}
 	}
 }
@@ -1997,15 +2003,15 @@ func BenchmarkAutoAllocateIPs(t *testing.B) {
 func Test_autoAllocateIP_deterministic(t *testing.T) {
 	inServices := make([]*model.Service, 0)
 	originalServices := map[string]string{
-		"a.com": "240.240.238.175",
-		"c.com": "240.240.109.89",
-		"e.com": "240.240.120.1",
-		"g.com": "240.240.97.14",
-		"i.com": "240.240.226.157",
-		"k.com": "240.240.182.80",
-		"l.com": "240.240.157.163",
-		"n.com": "240.240.125.66",
-		"o.com": "240.240.159.233",
+		"a.com": "240.240.81.105",
+		"c.com": "240.240.79.20",
+		"e.com": "240.240.174.113",
+		"g.com": "240.240.105.179",
+		"i.com": "240.240.123.152",
+		"k.com": "240.240.233.211",
+		"l.com": "240.240.142.79",
+		"n.com": "240.240.40.231",
+		"o.com": "240.240.31.197",
 	}
 
 	allocateAndValidate := func() {

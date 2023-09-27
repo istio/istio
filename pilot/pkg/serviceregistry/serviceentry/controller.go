@@ -51,12 +51,8 @@ var (
 )
 
 var (
-	// Used for secondary hash function.
-	prime = 65011
-	// Maximum possible IPs for address allocation. Even though the address space is 255*255 = 65025,
-	// we skip certain pattern of IPs like "240.240.0.0" and "240.240.0.255". So we can only allocate
-	// 255 * 255 - 254 = 64771 IPs.
-	maxIPs = 64771
+	prime  = 65011     // Used for secondary hash function.
+	maxIPs = 255 * 255 // Maximum possible IPs for address allocation.
 )
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
@@ -921,16 +917,11 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			hash.Reset()
 		}
 	}
-	// i is everything from 240.240.0.(j) to 240.240.255.(j)
-	// j is everything from 240.240.(i).1 to 240.240.(i).254
-	// we can capture this in one integer variable.
-	// given X, we can compute i by X/255, and j is X%255
-	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
-	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
-	// So we bump X to 511, so that the resulting IP is 240.240.2.1
+
 	x := 0
-	hnMap := make(map[string]octetPair)
+	y := 0
 	allocated := 0
+	hnMap := make(map[string]octetPair)
 	for _, svc := range hashedServices {
 		if svc == nil {
 			// There is no service in the slot. Just increment x and move forward.
@@ -943,11 +934,29 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			setAutoAllocatedIPs(svc, v)
 		} else {
 			allocated++
-			x++
-			if x%255 == 0 {
+			var thirdOctect, fourthOctect int
+			if x/255 < 255 {
+				// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
+				// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
+				// So we bump X to 511, so that the resulting IP is 240.240.2.1
 				x++
+				if x%255 == 0 {
+					x++
+				}
 			}
-			pair := octetPair{x / 255, x % 255}
+			thirdOctect = x / 255
+			// When we reach thirdOctect 255, we need to just increment the fourthOctect
+			// keeping the thirdOctect as 255.
+			if thirdOctect >= 255 {
+				y++
+				thirdOctect = 255
+				fourthOctect = y
+			} else {
+				thirdOctect = x / 255
+				fourthOctect = x % 255
+			}
+
+			pair := octetPair{thirdOctect, fourthOctect}
 			setAutoAllocatedIPs(svc, pair)
 			hnMap[n] = pair
 			if allocated > maxIPs {
