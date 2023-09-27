@@ -43,7 +43,7 @@ spec:
       port: {{ $app.port }}
       name: {{ $app.name }}
   {{- end }}
-  {{- if ne .Values.ipFamilyPolicy "" }}
+  {{- if .Values.ipFamilyPolicy }}
   ipFamilyPolicy: {{ .Values.ipFamilyPolicy }}
   {{- end }}
   {{- with .Values.ipFamilies }}
