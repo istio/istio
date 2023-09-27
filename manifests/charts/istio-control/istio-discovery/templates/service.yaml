@@ -41,7 +41,10 @@ spec:
   {{- if .Values.pilot.ipFamilyPolicy }}
   ipFamilyPolicy: {{ .Values.pilot.ipFamilyPolicy }}
   {{- end }}
-  {{- with .Values.pilot.ipFamilies }}
-  ipFamilies: {{ toYaml . | indent 4 }}
+  {{- if .Values.pilot.ipFamilies }}
+  ipFamilies:
+  {{- range .Values.pilot.ipFamilies }}
+  - {{ . }}
+  {{- end }}
   {{- end }}
 ---

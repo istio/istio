@@ -43,11 +43,14 @@ spec:
       port: {{ $app.port }}
       name: {{ $app.name }}
   {{- end }}
-  {{- if .Values.ipFamilyPolicy }}
-  ipFamilyPolicy: {{ .Values.ipFamilyPolicy }}
-  {{- end }}
-  {{- with .Values.ipFamilies }}
-  ipFamilies: {{ toYaml . | indent 4 }}
-  {{- end }}
+{{- if $gateway.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ $gateway.ipFamilyPolicy }}
+{{- end }}
+{{- if $gateway.ipFamilies }}
+  ipFamilies:
+{{- range $gateway.ipFamilies }}
+  - {{ . }}
+{{- end }}
+{{- end }}
 ---
 {{ end }}
