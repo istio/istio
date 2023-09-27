@@ -138,7 +138,6 @@ func TestServices(t *testing.T) {
 			// Because client request is not captured to perform the hairpin
 			// TODO(https://github.com/istio/istio/issues/43238): fix this and remove this skip
 			t.Skip("https://github.com/istio/istio/issues/44530")
-			// opt.Check = check.OK()
 		}
 
 		if !dst.Config().HasWaypointProxy() &&
