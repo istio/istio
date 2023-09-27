@@ -7,4 +7,4 @@ docs: []
 
 releaseNotes:
 - |
-  **Added** operator API and helm chart support for easier dual-stack deployment and operations.
+  **Added** the user to specify the `IPFamilyPolicy` and `ipFamilies` setting in Istio Service resources either via the operator API or the helm charts.
