@@ -1,6 +1,6 @@
 {
   "name": "istio build-tools",
-  "image": "gcr.io/istio-testing/build-tools:master-f36e91a6385155b2c42ee673f0c666e7894e2f58",
+  "image": "gcr.io/istio-testing/build-tools:master-0eaa9253ee7d0ed14d1f97cfaafa3f298ea7a117",
   "privileged": true,
   "remoteEnv": {
     "USE_GKE_GCLOUD_AUTH_PLUGIN": "True",
@@ -11,5 +11,23 @@
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {},
     "ghcr.io/mpriscella/features/kind:1": {}
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "golang.go",
+        "rust-lang.rust-analyzer",
+        "eamodio.gitlens",             // IDE Git information
+        "zxh404.vscode-proto3",        // Supports Proto syntax
+        "ms-azuretools.vscode-docker", // Docker integration and linting
+        "redhat.vscode-yaml",          // Kubernetes, Drone syntax highlighting
+        "IBM.output-colorizer"         // Colorize your output/test logs
+      ],
+      "settings": {
+        "files.eol": "\n",
+        "go.useLanguageServer": true,
+        "go.lintTool": "golangci-lint"
+      }
+    }
   }
 }

@@ -425,6 +425,9 @@ func EnableCrdWatcher(c Client) Client {
 	if NewCrdWatcher == nil {
 		panic("NewCrdWatcher is unset. Likely the crd watcher library is not imported anywhere")
 	}
+	if c.(*client).crdWatcher != nil {
+		panic("EnableCrdWatcher called twice for the same client")
+	}
 	c.(*client).crdWatcher = NewCrdWatcher(c)
 	return c
 }
@@ -528,7 +531,7 @@ func (c *client) Shutdown() {
 func (c *client) Run(stop <-chan struct{}) {
 	c.informerFactory.Start(stop)
 	if c.crdWatcher != nil {
-		c.crdWatcher.Run(stop)
+		go c.crdWatcher.Run(stop)
 	}
 	alreadyStarted := c.started.Swap(true)
 	if alreadyStarted {

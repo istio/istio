@@ -29,7 +29,7 @@ require (
 	github.com/coreos/go-oidc/v3 v3.6.0
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc
 	github.com/docker/cli v24.0.5+incompatible
-	github.com/envoyproxy/go-control-plane v0.11.2-0.20230908152246-b6468c331a23
+	github.com/envoyproxy/go-control-plane v0.11.2-0.20230925135906-b8d05208285f
 	github.com/evanphx/json-patch/v5 v5.6.0
 	github.com/fatih/color v1.15.0
 	github.com/felixge/fgprof v0.9.3
@@ -39,7 +39,7 @@ require (
 	github.com/go-logr/logr v1.2.4
 	github.com/gogo/protobuf v1.3.2
 	github.com/golang/protobuf v1.5.3
-	github.com/google/cel-go v0.16.0
+	github.com/google/cel-go v0.16.1
 	github.com/google/go-cmp v0.5.9
 	github.com/google/go-containerregistry v0.16.1
 	github.com/google/gofuzz v1.2.0
@@ -101,26 +101,26 @@ require (
 	google.golang.org/genproto v0.0.0-20230822172742-b8732ec3820d
 	google.golang.org/genproto/googleapis/api v0.0.0-20230822172742-b8732ec3820d
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230822172742-b8732ec3820d
-	google.golang.org/grpc v1.57.0
+	google.golang.org/grpc v1.58.1
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/square/go-jose.v2 v2.6.0
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.12.3
-	istio.io/api v1.19.0-alpha.1.0.20230918214254-81c6f470a05e
-	istio.io/client-go v1.19.0-alpha.1.0.20230918215054-8519cd6292c3
-	k8s.io/api v0.28.1
-	k8s.io/apiextensions-apiserver v0.28.1
-	k8s.io/apimachinery v0.28.1
-	k8s.io/apiserver v0.28.1
+	istio.io/api v1.19.0-alpha.1.0.20230927221631-4bc3c01da7d1
+	istio.io/client-go v1.19.0-alpha.1.0.20230927222530-0fe84edc0f40
+	k8s.io/api v0.28.2
+	k8s.io/apiextensions-apiserver v0.28.2
+	k8s.io/apimachinery v0.28.2
+	k8s.io/apiserver v0.28.2
 	k8s.io/cli-runtime v0.28.0
-	k8s.io/client-go v0.28.1
+	k8s.io/client-go v0.28.2
 	k8s.io/klog/v2 v2.100.1
 	k8s.io/kubectl v0.28.0
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
-	sigs.k8s.io/controller-runtime v0.16.1
-	sigs.k8s.io/gateway-api v0.8.2-0.20230915021212-f98e94a5305e
+	sigs.k8s.io/controller-runtime v0.16.2
+	sigs.k8s.io/gateway-api v0.8.2-0.20230927170411-f5d3a1f3e76a
 	sigs.k8s.io/mcs-api v0.1.0
 	sigs.k8s.io/yaml v1.3.0
 )
@@ -243,7 +243,7 @@ require (
 	google.golang.org/appengine v1.6.7 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
-	k8s.io/component-base v0.28.1 // indirect
+	k8s.io/component-base v0.28.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20230811205723-7ac0aad8c58d // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/kustomize/api v0.13.5-0.20230601165947-6ce0bf390ce3 // indirect

@@ -21,6 +21,7 @@ package xds
 
 import (
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/config/v3alpha"
+	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/checksum/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/dynamo/v3"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/golang/v3alpha"
 	_ "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/filters/http/language/v3alpha"
@@ -178,6 +179,7 @@ import (
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/zookeeper_proxy/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/udp/dns_filter/v3"
+	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/udp/udp_proxy/session/http_capsule/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/udp/udp_proxy/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	_ "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/metadata/v3"

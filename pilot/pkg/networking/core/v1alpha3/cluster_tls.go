@@ -51,7 +51,7 @@ var internalUpstreamSocket = &core.TransportSocket{
 		PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
 			{
 				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
-				Name: "tunnel",
+				Name: util.OriginalDstMetadataKey,
 			},
 			{
 				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{

@@ -15,7 +15,9 @@
 package ambient
 
 import (
-	"strconv"
+	"bytes"
+	"os/exec"
+	"regexp"
 	"strings"
 
 	"istio.io/istio/cni/pkg/ambient/constants"
@@ -27,52 +29,62 @@ type iptablesRule struct {
 	RuleSpec []string
 }
 
+var kubeletChainsRegex = regexp.MustCompile(`(?m)^:(KUBE-IPTABLES-HINT|KUBE-KUBELET-CANARY)`)
+
+// hasKubeletChains checks if the output of an iptables*-save command
+// contains any of the rules set by kubelet.
+func hasKubeletChains(output []byte) bool {
+	return kubeletChainsRegex.Match(output)
+}
+
 // detectIptablesCommand will attempt to detect whether to use iptables-legacy, iptables or iptables-nft
 // based on output of iptables-nft or if the command exists.
 //
-// Logic is based on Kubernetes https://github.com/danwinship/kubernetes/blob/ca32fd23cca0797aa787fc5d883807d4eee6899f/build/debian-iptables/iptables-wrapper
-func (s *Server) detectIptablesCommand() string {
-	var err error
-	var numLegacyLines int
-	var numNftLines int
-	var output string
+// Logic is based on Kubernetes https://github.com/kubernetes-sigs/iptables-wrappers/blob/master/internal/iptables/detect.go
+func detectIptablesCommand() string {
+	// This method ignores all errors, this is on purpose. We execute all commands
+	// and try to detect patterns in a best effort basis. If something fails,
+	// continue with the next step. Worse case scenario if everything fails,
+	// default to nft.
 
-	log.Infof("Detecting iptables command")
-
-	output, err = executeOutput("bash", "-c",
-		"(iptables-legacy-save || true; ip6tables-legacy-save || true) 2>/dev/null | grep '^-' | wc -l",
-	)
-	if err != nil {
-		log.Errorf("Error getting iptables-legacy-save output: %v, assuming 0", err)
-	} else {
-		numLegacyLines, err = strconv.Atoi(strings.TrimSpace(output))
-		if err != nil {
-			log.Errorf("Error converting iptables-legacy-save output to int: %v, assuming 0", err)
+	// In kubernetes 1.17 and later, kubelet will have created at least
+	// one chain in the "mangle" table (either "KUBE-IPTABLES-HINT" or
+	// "KUBE-KUBELET-CANARY"), so check that first, against
+	// iptables-nft, because we can check that more efficiently and
+	// it's more common these days.
+	rulesOutput := &bytes.Buffer{}
+	hasChains := func(binary string, canMangle bool) bool {
+		var c *exec.Cmd
+		if canMangle {
+			c = exec.Command(binary, "-t", "mangle")
+		} else {
+			c = exec.Command(binary)
 		}
+		c.Stdout = rulesOutput
+		_ = c.Run()
+		has := hasKubeletChains(rulesOutput.Bytes())
+		rulesOutput.Reset()
+		return has
+	}
+	if hasChains("iptables-nft-save", true) {
+		return "iptables-nft"
+	}
+	if hasChains("ip6tables-nft-save", true) {
+		return "iptables-nft"
 	}
 
-	if numLegacyLines > 10 {
-		log.Infof("Detected iptables-legacy")
+	// Check for kubernetes 1.17-or-later with iptables-legacy. We
+	// can't pass "-t mangle" to iptables-legacy-save because it would
+	// cause the kernel to create that table if it didn't already
+	// exist, which we don't want. So we have to grab all the rules.
+	if hasChains("iptables-legacy-save", false) {
+		return "iptables-legacy"
+	}
+	if hasChains("ip6tables-legacy-save", false) {
 		return "iptables-legacy"
 	}
 
-	output, err = executeOutput("bash", "-c",
-		`(timeout 5 sh -c "iptables-nft-save; ip6tables-nft-save" || true) 2>/dev/null | grep '^-' | wc -l`,
-	)
-	if err != nil {
-		log.Errorf("Error getting iptables-nft-save output: %v, assuming 0", err)
-	} else {
-		numNftLines, err = strconv.Atoi(strings.TrimSpace(output))
-		if err != nil {
-			log.Errorf("Error converting iptables-nft-save output to int: %v, assuming 0", err)
-		}
-	}
-
-	if numLegacyLines > numNftLines {
-		log.Infof("Using iptables command: iptables-legacy")
-		return "iptables-legacy"
-	}
-	log.Infof("Using iptables command: iptables-nft")
+	// If we can't detect any of the 2 patterns, default to nft.
 	return "iptables-nft"
 }
 

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+- |
+  **Added** the capability to attach RequestAuthentication to Kubernetes `Gateway` resources via the `targetRef` field.
