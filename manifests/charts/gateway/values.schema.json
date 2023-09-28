@@ -239,6 +239,9 @@
       "items": {
         "type": "object"
       }
+    },
+    "priorityClassName": {
+      "type": "string"
     }
   }
 }
