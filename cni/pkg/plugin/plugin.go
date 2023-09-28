@@ -76,10 +76,10 @@ type Config struct {
 	PrevResult    *cniv1.Result   `json:"-"`
 
 	// Add plugin-specific flags here
-	LogLevel        string     `json:"log_level"`
-	LogUDSAddress   string     `json:"log_uds_address"`
-	AmbientEnabled  bool       `json:"ambient_enabled"`
-	Kubernetes      Kubernetes `json:"kubernetes"`
+	LogLevel       string     `json:"log_level"`
+	LogUDSAddress  string     `json:"log_uds_address"`
+	AmbientEnabled bool       `json:"ambient_enabled"`
+	Kubernetes     Kubernetes `json:"kubernetes"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes

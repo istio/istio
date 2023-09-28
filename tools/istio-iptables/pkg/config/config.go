@@ -59,6 +59,7 @@ type Config struct {
 	DNSServersV6            []string      `json:"DNS_SERVERS_V6"`
 	NetworkNamespace        string        `json:"NETWORK_NAMESPACE"`
 	CNIMode                 bool          `json:"CNI_MODE"`
+	IPTablesVersion         string        `json:"IPTABLES_VERSION"`
 	TraceLogging            bool          `json:"IPTABLES_TRACE_LOGGING"`
 	DualStack               bool          `json:"DUAL_STACK"`
 }
@@ -73,6 +74,7 @@ func (c *Config) String() string {
 
 func (c *Config) Print() {
 	var b strings.Builder
+	b.WriteString(fmt.Sprintf("IPTABLES_VERSION=%s\n", c.IPTablesVersion))
 	b.WriteString(fmt.Sprintf("PROXY_PORT=%s\n", c.ProxyPort))
 	b.WriteString(fmt.Sprintf("PROXY_INBOUND_CAPTURE_PORT=%s\n", c.InboundCapturePort))
 	b.WriteString(fmt.Sprintf("PROXY_TUNNEL_PORT=%s\n", c.InboundTunnelPort))
