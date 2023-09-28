@@ -974,10 +974,13 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 func getDNSNames(args *PilotArgs, host string) []string {
 	// Append custom hostname if there is any
 	customHost := features.IstiodServiceCustomHost
-	cHosts := strings.Split(customHost, ",")
+	var cHosts []string
+
+	if customHost != "" {
+		cHosts = strings.Split(customHost, ",")
+	}
 	sans := sets.New(cHosts...)
 	sans.Insert(host)
-
 	// The first is the recommended one, also used by Apiserver for webhooks.
 	// add a few known hostnames
 	knownHosts := []string{"istiod", "istiod-remote", "istio-pilot"}
