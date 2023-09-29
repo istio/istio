@@ -260,7 +260,7 @@ while : ; do
     if [[ "${IPFAMILY}" == "ipv6" ]]; then
       ip="[${ip}]"
     fi
-    # kubectl config set clusters.kind-"${CLUSTERNAME}".server https://"${ip}":6443
+    kubectl config set clusters.kind-"${CLUSTERNAME}".server https://"${ip}":6443
     break
   fi
   echo 'Waiting for public IP address to be available...'
