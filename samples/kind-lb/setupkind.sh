@@ -259,6 +259,8 @@ while : ; do
     #Change the kubeconfig file not to use the loopback IP
     if [[ "${IPFAMILY}" == "ipv6" ]]; then
       ip="[${ip}]"
+    elif [[ "${IPFAMILY}" == "dual" ]] && [[ "${IPV6GW}" == "true" ]]; then
+      ip="[${ip}]"
     fi
     kubectl config set clusters.kind-"${CLUSTERNAME}".server https://"${ip}":6443
     break
