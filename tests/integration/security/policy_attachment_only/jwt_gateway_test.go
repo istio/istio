@@ -50,9 +50,9 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 				})).
 				Source(config.File("testdata/requestauthn/gateway-jwt.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Namespace,
-					"Services":               apps.All,
+					"Services":               apps.A.Append(apps.B).Services(),
 				})).
-				BuildAll(nil, apps.All).
+				BuildAll(nil, apps.A.Append(apps.B).Services()).
 				Apply()
 
 			t.NewSubTest("gateway-authn-policy-attachment-only").Run(func(t framework.TestContext) {
@@ -170,7 +170,7 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 					},
 				}
 
-				newTrafficTest(t, apps.All.Instances()).
+				newTrafficTest(t, apps.A.Append(apps.B)).
 					RunViaGatewayIngress("istio", func(t framework.TestContext, from ingress.Instance, to echo.Target) {
 						for _, c := range cases {
 							t.NewSubTest(c.name).Run(func(t framework.TestContext) {
