@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -46,6 +48,7 @@ type wasmTestConfigs struct {
 	tag             string
 	upstreamVersion string
 	expectedVersion string
+	testHostname    string
 }
 
 var generation = 0
@@ -73,7 +76,11 @@ func applyAndTestCustomWasmConfigWithOCI(ctx framework.TestContext, c wasmTestCo
 		if err := installWasmExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", generation), path); err != nil {
 			t.Fatalf("failed to install WasmPlugin: %v", err)
 		}
-		sendTraffic(t, check.ResponseHeader(injectedHeader, c.expectedVersion))
+		if c.testHostname != "" {
+			sendTrafficToHostname(t, check.ResponseHeader(injectedHeader, c.expectedVersion), c.testHostname)
+		} else {
+			sendTraffic(t, check.ResponseHeader(injectedHeader, c.expectedVersion))
+		}
 	})
 }
 
@@ -232,6 +239,36 @@ func sendTraffic(ctx framework.TestContext, checker echo.Checker, options ...ret
 	_ = cltInstance.CallOrFail(ctx, httpOpts)
 }
 
+func sendTrafficToHostname(ctx framework.TestContext, checker echo.Checker, hostname string, options ...retry.Option) {
+	ctx.Helper()
+	if len(common.GetClientInstances()) == 0 {
+		ctx.Fatal("there is no client")
+	}
+	cltInstance := common.GetClientInstances()[0]
+
+	defaultOptions := []retry.Option{retry.Delay(100 * time.Millisecond), retry.Timeout(200 * time.Second)}
+	httpOpts := echo.CallOptions{
+		Address: hostname,
+		Port: echo.Port{
+			Name:        "http",
+			ServicePort: 80,
+			Protocol:    protocol.HTTP,
+		},
+		HTTP: echo.HTTP{
+			Path:    "/path",
+			Method:  "GET",
+			Headers: headers.New().WithHost(fmt.Sprintf("%s.com", common.GetTarget().ServiceName())).Build(),
+		},
+		Count: 1,
+		Retry: echo.Retry{
+			Options: append(defaultOptions, options...),
+		},
+		Check: checker,
+	}
+
+	_ = cltInstance.CallOrFail(ctx, httpOpts)
+}
+
 func applyAndTestWasmWithHTTP(ctx framework.TestContext, c wasmTestConfigs) {
 	applyAndTestCustomWasmConfigWithHTTP(ctx, c, wasmConfigFile)
 }
@@ -270,6 +307,7 @@ func TestGatewaySelection(t *testing.T) {
 				policy:          "",
 				upstreamVersion: "0.0.1",
 				expectedVersion: "0.0.1",
+				testHostname:    fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", common.GetTarget().ServiceName(), common.GetAppNamespace().Name()),
 			}, "testdata/gateway-wasm-filter.yaml")
 
 			resetCustomWasmConfig(t, "wasm-test-module", "testdata/gateway-wasm-filter.yaml")
