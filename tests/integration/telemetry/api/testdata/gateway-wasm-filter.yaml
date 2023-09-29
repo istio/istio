@@ -11,7 +11,7 @@ spec:
   targetRef:
     kind: Gateway
     group: gateway.networking.k8s.io
-    name: example-gateway
+    name: {{ .TargetGatewayName}}
   selector:
     matchLabels:
       app: {{ .TargetAppName }}
