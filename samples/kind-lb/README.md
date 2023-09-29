@@ -17,10 +17,21 @@ Usage:
    ./setupkind.sh --cluster-name cluster1 --k8s-release 1.22.1 --ip-space 255 -i dual
 
 Where:
+  -n|--cluster-name  - name of the k8s cluster to be created
+  -r|--k8s-release   - the release of the k8s to setup, latest available if not given
+  -s|--ip-space      - the 2rd to the last part for public ip addresses, 255 if not given, valid range: 0-255.
+  -m|--mode          - setup the required number of nodes per deployment model. Values are sidecar (1 node) or ambient (minimum of 2)
+  -w|--worker-nodes  - the number of worker nodes to create. Default is 1
+  --pod-subnet       - the pod subnet to specify. Default is 10.244.0.0/16 for IPv4 and fd00:10:244::/56 for IPv6
+  --service-subnet   - the service subnet to specify. Default is 10.96.0.0/16 for IPv4 and fd00:10:96::/112 for IPv6
+  -i|--ip-family     - ip family to be supported, default is ipv4 only. Value should be ipv4, ipv6, or dual (ipv4-preferred by default)
+  -h|--help          - print the usage of this script"
+
   -n|--cluster-name - name of the k8s cluster to be created
   -r|--k8s-release  - the release of the k8s to setup, latest available if not given
   -s|--ip-space     - the 2rd to the last part for public ip addresses, 255 if not given, valid range: 0-255
   -i|--ip-family    - ip family to be supported, default is ipv4 only. Value should be ipv4, ipv6, or dual
+  --ipv6gw          - set ipv6 as the gateway, necessary for dual-stack IPv6-preferred clusters
   -h|--help         - print the usage of this script
 ```
 
@@ -45,4 +56,10 @@ parameters:
 ```bash
   ./setupkind.sh --cluster-name cluster1 --ip-space 255 -i dual
   ./setupkind.sh --cluster-name cluster2 --ip-space 245 -i dual
+```
+
+To setup a dual-stack cluster that prefers IPv6 instead of IPv4 (the default)
+
+```bash
+  ./setupkind.sh --cluster-name cluster2 --ip-space 245 -i dual --pod-subnet "fd00:100:96::/48,100.96.0.0/11" --service-subnet "fd00:100:64::/108,100.64.0.0/13" --ipv6gw
 ```

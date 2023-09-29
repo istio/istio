@@ -29,8 +29,13 @@ function printHelp() {
   echo "Where:"
   echo "    -n|--cluster-name  - name of the k8s cluster to be created"
   echo "    -r|--k8s-release   - the release of the k8s to setup, latest available if not given"
-  echo "    -s|--ip-space      - the 2rd to the last part for public ip addresses, 255 if not given, valid range: 0-255"
-  echo "    -i|--ip-family     - ip family to be supported, default is ipv4 only. Value should be ipv4, ipv6, or dual"
+  echo "    -s|--ip-space      - the 2rd to the last part for public ip addresses, 255 if not given, valid range: 0-255."
+  echo "    -m|--mode          - setup the required number of nodes per deployment model. Values are sidecar (1 node) or ambient (minimum of 2)"
+  echo "    -w|--worker-nodes  - the number of worker nodes to create. Default is 1"
+  echo "    --pod-subnet       - the pod subnet to specify. Default is 10.244.0.0/16 for IPv4 and fd00:10:244::/56 for IPv6"
+  echo "    --service-subnet   - the service subnet to specify. Default is 10.96.0.0/16 for IPv4 and fd00:10:96::/112 for IPv6"
+  echo "    -i|--ip-family     - ip family to be supported, default is ipv4 only. Value should be ipv4, ipv6, or dual (ipv4-preferred by default)"
+  echo "    --ipv6gw           - set ipv6 as the gateway, necessary for dual-stack IPv6-preferred clusters"
   echo "    -h|--help          - print the usage of this script"
 }
 
@@ -39,23 +44,36 @@ CLUSTERNAME="cluster1"
 K8SRELEASE=""
 IPSPACE=255
 IPFAMILY="ipv4"
+MODE="sidecar"
+NUMNODES=""
+PODSUBNET=""
+SERVICESUBNET=""
+IPV6GW=false
 
 # Handling parameters
 while [[ $# -gt 0 ]]; do
   optkey="$1"
   case $optkey in
-    -h|--help)
-      printHelp; exit 0;;
     -n|--cluster-name)
       CLUSTERNAME="$2"; shift 2;;
     -r|--k8s-release)
       K8SRELEASE="--image=kindest/node:v$2"; shift 2;;
     -s|--ip-space)
       IPSPACE="$2"; shift 2;;
-    -i|--ip-family)
-      IPFAMILY="${2,,}";shift 2;;
     -m|--mode)
       MODE="$2"; shift 2;;
+    -w|--worker-nodes)
+      NUMNODES="$2"; shift 2;;
+    --pod-subnet)
+      PODSUBNET="$2"; shift 2;;
+    --service-subnet)
+      SERVICESUBNET="$2"; shift 2;;
+    -i|--ip-family)
+      IPFAMILY="${2,,}";shift 2;;
+    --ipv6gw)
+      IPV6GW=true;shift;;
+    -h|--help)
+      printHelp; exit 0;;
     *) # unknown option
       echo "parameter $1 is not supported"; printHelp; exit 1;;
   esac
@@ -106,56 +124,63 @@ for family in "${validIPFamilies[@]}"; do
   fi
 done
 
+
 if [[ "${isValid}" == "false" ]]; then
   echo "${IPFAMILY} is not valid ip family, valid values are ipv4, ipv6 or dual"
   exit 1
 fi
 
 if [[ "${MODE}" == "ambient" ]]; then
-NODES=$(cat << EOF
-nodes:
-- role: control-plane
-- role: worker
-- role: worker
-EOF
-)
-else
-NODES=$(cat << EOF
-nodes:
-- role: control-plane
-EOF
-)
+  NUMNODES=${NUMNODES:-2}
 fi
 
+NODES=$(cat <<-EOM
+nodes:
+- role: control-plane
+EOM
+)
+
+if [[ -n "${NUMNODES}" ]]; then
+for _ in $(seq 1 "${NUMNODES}"); do
+  NODES+=$(printf "\n%s" "- role: worker")
+done
+fi
+
+CONFIG=$(cat <<-EOM
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+${FEATURES}
+name: ${CLUSTERNAME}
+${NODES}
+networking:
+  ipFamily: ${IPFAMILY}
+EOM
+)
+
+if [[ -n "${PODSUBNET}" ]]; then
+  CONFIG+=$(printf "\n%s" "  podSubnet: \"${PODSUBNET}\"")
+fi
+
+if [[ -n "${SERVICESUBNET}" ]]; then
+  CONFIG+=$(printf "\n%s" "  serviceSubnet: \"${SERVICESUBNET}\"")
+fi
 
 # Create k8s cluster using the giving release and name
 if [[ -z "${K8SRELEASE}" ]]; then
   cat << EOF | kind create cluster --config -
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-${FEATURES}
-name: ${CLUSTERNAME}
-${NODES}
-networking:
-  ipFamily: ${IPFAMILY}
+${CONFIG}
 EOF
 else
   cat << EOF | kind create cluster "${K8SRELEASE}" --config -
-kind: Cluster
-apiVersion: kind.x-k8s.io/v1alpha4
-${FEATURES}
-name: ${CLUSTERNAME}
-${NODES}
-networking:
-  ipFamily: ${IPFAMILY}
+${CONFIG}
 EOF
 fi
 
 # Setup cluster context
 kubectl cluster-info --context "kind-${CLUSTERNAME}"
 
-# Setup metallb using v0.13.6
-kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.6/config/manifests/metallb-native.yaml
+# Setup metallb using v0.13.11
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.11/config/manifests/metallb-native.yaml
 
 addrName="IPAddress"
 ipv4Prefix=""
@@ -174,15 +199,19 @@ done
 
 if [[ "${IPFAMILY}" == "ipv4" ]]; then
   addrName="IPAddress"
-  ipv4Range="- ${ipv4Prefix}.$IPSPACE.200-${ipv4Prefix}.$IPSPACE.240"
+  ipv4Range="- ${ipv4Prefix}.${IPSPACE}.200-${ipv4Prefix}.${IPSPACE}.240"
   ipv6Range=""
 elif [[ "${IPFAMILY}" == "ipv6" ]]; then
-  ipv4Range=""
-  ipv6Range="- ${ipv6Prefix}::$IPSPACE:200-${ipv6Prefix}::$IPSPACE:240"
   addrName="GlobalIPv6Address"
+  ipv4Range=""
+  ipv6Range="- ${ipv6Prefix}::${IPSPACE}:200-${ipv6Prefix}::${IPSPACE}:240"
 else
-  ipv4Range="- ${ipv4Prefix}.$IPSPACE.200-${ipv4Prefix}.$IPSPACE.240"
-  ipv6Range="- ${ipv6Prefix}::$IPSPACE:200-${ipv6Prefix}::$IPSPACE:240"
+  if [[ "${IPV6GW}" ]]; then
+    addrName="GlobalIPv6Address"
+  fi
+
+  ipv4Range="- ${ipv4Prefix}.${IPSPACE}.200-${ipv4Prefix}.${IPSPACE}.240"
+  ipv6Range="- ${ipv6Prefix}::${IPSPACE}:200-${ipv6Prefix}::${IPSPACE}:240"
 fi
 
 # utility function to wait for pods to be ready
@@ -231,7 +260,7 @@ while : ; do
     if [[ "${IPFAMILY}" == "ipv6" ]]; then
       ip="[${ip}]"
     fi
-    kubectl config set clusters.kind-"${CLUSTERNAME}".server https://"${ip}":6443
+    # kubectl config set clusters.kind-"${CLUSTERNAME}".server https://"${ip}":6443
     break
   fi
   echo 'Waiting for public IP address to be available...'
