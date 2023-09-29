@@ -264,7 +264,7 @@ func TestGatewaySelection(t *testing.T) {
 			}
 			t.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, "testdata/gateway-api.yaml").ApplyOrFail(t)
 			applyAndTestCustomWasmConfigWithOCI(t, wasmTestConfigs{
-				desc:            "initial creation with latest",
+				desc:            "initial creation with latest for a gateway",
 				name:            "wasm-test-module",
 				tag:             "latest",
 				policy:          "",
