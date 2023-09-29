@@ -125,6 +125,12 @@ func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
 	return (s || d) && isL7Scheme
 }
 
+// TODO: in ambient integ test suite is it possible to have a sidecar which doesn't have HBONE? if so we should check that here too or we may return incorrect value
+func hboneClient(instance echo.Instance) bool {
+	return instance.Config().ZTunnelCaptured() ||
+		instance.Config().HasSidecar()
+}
+
 func TestServices(t *testing.T) {
 	runTest(t, func(t framework.TestContext, src echo.Instance, dst echo.Instance, opt echo.CallOptions) {
 		if supportsL7(opt, src, dst) {
@@ -133,7 +139,7 @@ func TestServices(t *testing.T) {
 			opt.Check = tcpValidator
 		}
 
-		if src.Config().IsUncaptured() && dst.Config().HasWaypointProxy() {
+		if !hboneClient(src) && dst.Config().HasWaypointProxy() {
 			// For this case, it is broken if the src and dst are on the same node.
 			// Because client request is not captured to perform the hairpin
 			// TODO(https://github.com/istio/istio/issues/43238): fix this and remove this skip
