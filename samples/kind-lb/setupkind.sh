@@ -71,7 +71,7 @@ while [[ $# -gt 0 ]]; do
     -i|--ip-family)
       IPFAMILY="${2,,}";shift 2;;
     --ipv6gw)
-      IPV6GW=true;shift;;
+      IPV6GW=true; shift;;
     -h|--help)
       printHelp; exit 0;;
     *) # unknown option
@@ -206,7 +206,7 @@ elif [[ "${IPFAMILY}" == "ipv6" ]]; then
   ipv4Range=""
   ipv6Range="- ${ipv6Prefix}::${IPSPACE}:200-${ipv6Prefix}::${IPSPACE}:240"
 else
-  if [[ "${IPV6GW}" ]]; then
+  if [[ "${IPV6GW}" == "true" ]]; then
     addrName="GlobalIPv6Address"
   fi
 
