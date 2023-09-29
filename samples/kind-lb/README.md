@@ -25,14 +25,8 @@ Where:
   --pod-subnet       - the pod subnet to specify. Default is 10.244.0.0/16 for IPv4 and fd00:10:244::/56 for IPv6
   --service-subnet   - the service subnet to specify. Default is 10.96.0.0/16 for IPv4 and fd00:10:96::/112 for IPv6
   -i|--ip-family     - ip family to be supported, default is ipv4 only. Value should be ipv4, ipv6, or dual (ipv4-preferred by default)
-  -h|--help          - print the usage of this script"
-
-  -n|--cluster-name - name of the k8s cluster to be created
-  -r|--k8s-release  - the release of the k8s to setup, latest available if not given
-  -s|--ip-space     - the 2rd to the last part for public ip addresses, 255 if not given, valid range: 0-255
-  -i|--ip-family    - ip family to be supported, default is ipv4 only. Value should be ipv4, ipv6, or dual
   --ipv6gw          - set ipv6 as the gateway, necessary for dual-stack IPv6-preferred clusters
-  -h|--help         - print the usage of this script
+  -h|--help          - print the usage of this script"
 ```
 
 The `ip-space` parameter controls the IP range that metallb will use for allocating
