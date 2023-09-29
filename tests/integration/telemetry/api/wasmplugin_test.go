@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
@@ -257,6 +258,7 @@ func TestGatewaySelection(t *testing.T) {
 	framework.NewTest(t).
 		Features("extensibility.wasm.remote-load").
 		Run(func(t framework.TestContext) {
+			crd.DeployGatewayAPIOrSkip(t)
 			args := map[string]any{
 				"To": common.GetTarget().(echo.Instances),
 			}

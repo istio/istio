@@ -12,9 +12,6 @@ spec:
     kind: Gateway
     group: gateway.networking.k8s.io
     name: {{ .TargetGatewayName}}
-  selector:
-    matchLabels:
-      app: {{ .TargetAppName }}
   {{- if .TestWasmModuleURL }}
   url: {{ .TestWasmModuleURL }}
   {{- end }}
