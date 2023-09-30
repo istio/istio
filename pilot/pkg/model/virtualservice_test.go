@@ -1301,6 +1301,48 @@ func TestMergeHTTPMatchRequests(t *testing.T) {
 			},
 		},
 		{
+			name: "multiple header matches",
+			root: []*networking.HTTPMatchRequest{
+				{
+					Headers: map[string]*networking.StringMatch{
+						"a": {
+							MatchType: &networking.StringMatch_Exact{Exact: "a"},
+						},
+					},
+				},
+				{
+					Headers: map[string]*networking.StringMatch{
+						"b": {
+							MatchType: &networking.StringMatch_Exact{Exact: "b"},
+						},
+					},
+				},
+			},
+			delegate: []*networking.HTTPMatchRequest{
+				{
+					Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "/"}},
+				},
+			},
+			expected: []*networking.HTTPMatchRequest{
+				{
+					Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "/"}},
+					Headers: map[string]*networking.StringMatch{
+						"a": {
+							MatchType: &networking.StringMatch_Exact{Exact: "a"},
+						},
+					},
+				},
+				{
+					Uri: &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "/"}},
+					Headers: map[string]*networking.StringMatch{
+						"b": {
+							MatchType: &networking.StringMatch_Exact{Exact: "b"},
+						},
+					},
+				},
+			},
+		},
+		{
 			name: "complicated merge",
 			root: []*networking.HTTPMatchRequest{
 				{
