@@ -3112,9 +3112,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "default",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Private: true,
-			},
+			ExportTo:  sets.New(visibility.Private),
 		},
 	}
 	bazs2HostName := host.Name("bazs2.example.org")
@@ -3127,15 +3125,15 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		}},
 		Attributes: pilot_model.ServiceAttributes{
 			Namespace: "default",
-			ExportTo: map[visibility.Instance]bool{
-				visibility.Private: true,
-			},
+			ExportTo:  sets.New(visibility.Private),
 		},
 	}
 
 	cg := NewConfigGenTest(t, TestOptions{
-		Configs:  []config.Config{virtualService},
-		Services: []*pilot_model.Service{fooServiceInTestNamespace, barServiceInDefaultNamespace, bazServiceInDefaultNamespace, bazsServiceInDefaultNamespace, bazs2ServiceInDefaultNamespace},
+		Configs: []config.Config{virtualService},
+		Services: []*pilot_model.Service{
+			fooServiceInTestNamespace, barServiceInDefaultNamespace, bazServiceInDefaultNamespace, bazsServiceInDefaultNamespace, bazs2ServiceInDefaultNamespace,
+		},
 	})
 	proxy := &pilot_model.Proxy{
 		Type:            pilot_model.Router,
