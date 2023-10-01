@@ -7,4 +7,4 @@ docs: []
 
 releaseNotes:
 - |
-  **Added** the user to specify the `IPFamilyPolicy` and `ipFamilies` setting in Istio Service resources either via the operator API or the helm charts.
+  **Added** the ability for the user to specify the `IPFamilyPolicy` and `ipFamilies` setting in Istio Service resources either via the operator API or the helm charts.
