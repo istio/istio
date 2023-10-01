@@ -124,7 +124,6 @@ for family in "${validIPFamilies[@]}"; do
   fi
 done
 
-
 if [[ "${isValid}" == "false" ]]; then
   echo "${IPFAMILY} is not valid ip family, valid values are ipv4, ipv6 or dual"
   exit 1
