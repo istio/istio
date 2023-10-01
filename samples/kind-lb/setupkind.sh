@@ -29,7 +29,7 @@ function printHelp() {
   echo "Where:"
   echo "    -n|--cluster-name  - name of the k8s cluster to be created"
   echo "    -r|--k8s-release   - the release of the k8s to setup, latest available if not given"
-  echo "    -s|--ip-space      - the 2rd to the last part for public ip addresses, 255 if not given, valid range: 0-255."
+  echo "    -s|--ip-space      - the 2nd to the last part for public ip addresses, 255 if not given, valid range: 0-255."
   echo "    -m|--mode          - setup the required number of nodes per deployment model. Values are sidecar (1 node) or ambient (minimum of 2)"
   echo "    -w|--worker-nodes  - the number of worker nodes to create. Default is 1"
   echo "    --pod-subnet       - the pod subnet to specify. Default is 10.244.0.0/16 for IPv4 and fd00:10:244::/56 for IPv6"
