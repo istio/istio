@@ -19,7 +19,7 @@ Usage:
 Where:
   -n|--cluster-name  - name of the k8s cluster to be created
   -r|--k8s-release   - the release of the k8s to setup, latest available if not given
-  -s|--ip-space      - the 2rd to the last part for public ip addresses, 255 if not given, valid range: 0-255.
+  -s|--ip-space      - the 2nd to the last part for public ip addresses, 255 if not given, valid range: 0-255.
   -m|--mode          - setup the required number of nodes per deployment model. Values are sidecar (1 node) or ambient (minimum of 2)
   -w|--worker-nodes  - the number of worker nodes to create. Default is 1
   --pod-subnet       - the pod subnet to specify. Default is 10.244.0.0/16 for IPv4 and fd00:10:244::/56 for IPv6
