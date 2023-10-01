@@ -39,55 +39,12 @@ func Test_findIstiodMonitoringPort(t *testing.T) {
 			expected: 15016,
 		},
 		{
-			name: "Args single string",
-			pod: &corev1.Pod{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "discovery",
-							Args: []string{"discovery", "--monitoringAddr=:15016"},
-						},
-					},
-				},
-			},
-			expected: 15016,
-		},
-		{
-			name: "Args separate strings",
-			pod: &corev1.Pod{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "discovery",
-							Args: []string{"discovery", "--monitoringAddr", ":15016"},
-						},
-					},
-				},
-			},
-			expected: 15016,
-		},
-		{
-			name: "Args combined",
-			pod: &corev1.Pod{
-				Spec: corev1.PodSpec{
-					Containers: []corev1.Container{
-						{
-							Name: "discovery",
-							Args: []string{"discovery --monitoringAddr=:15016"},
-						},
-					},
-				},
-			},
-			expected: 15016,
-		},
-		{
 			name: "No monitoringAddr",
 			pod: &corev1.Pod{
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
 							Name: "discovery",
-							Args: []string{"--otherFlag=value"},
 						},
 					},
 				},

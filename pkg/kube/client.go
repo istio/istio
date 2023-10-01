@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -94,9 +93,6 @@ import (
 const (
 	defaultLocalAddress = "localhost"
 	RunningStatus       = "status.phase=Running"
-
-	// well-known pilot container name
-	discoveryContainerName = "discovery"
 )
 
 // Client is a helper for common Kubernetes client operations. This contains various different kubernetes
@@ -1217,31 +1213,6 @@ func findIstiodMonitoringPort(pod *v1.Pod) int {
 	if v, ok := pod.GetAnnotations()["prometheus.io/port"]; ok {
 		if port, err := strconv.Atoi(v); err == nil {
 			return port
-		}
-	}
-	for _, container := range pod.Spec.Containers {
-		if container.Name != discoveryContainerName {
-			continue
-		}
-		argsStr := strings.Join(container.Args, " ")
-		if !strings.Contains(argsStr, "monitoringAddr") {
-			continue
-		}
-		args := strings.Split(argsStr, " ")
-		for i, arg := range args {
-			var port string
-			if strings.HasPrefix(arg, "--monitoringAddr=") {
-				addr := strings.TrimSpace(strings.TrimPrefix(arg, "--monitoringAddr="))
-				_, port, _ = net.SplitHostPort(addr)
-			} else if arg == "--monitoringAddr" && i+1 < len(args) {
-				addr := strings.TrimSpace(args[i+1])
-				_, port, _ = net.SplitHostPort(addr)
-			}
-			if len(port) > 0 {
-				if p, err := strconv.Atoi(port); err == nil {
-					return p
-				}
-			}
 		}
 	}
 	return 15014
