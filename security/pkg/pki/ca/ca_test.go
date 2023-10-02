@@ -378,8 +378,8 @@ func TestConcurrentCreateSelfSignedIstioCA(t *testing.T) {
 		}()
 	}
 	wg.Wait()
-	caSecret, err := client.CoreV1().Secrets(caNamespace).Get(context.TODO(), CACertsSecret, metav1.GetOptions{})
-	if err != nil {
+	caSecret, err := client.CoreV1().Secrets(caNamespace).Get(context.TODO(), CASecret, metav1.GetOptions{})
+	if err != nil || caSecret == nil {
 		t.Errorf("failed getting ca secret %v", err)
 	}
 	rootCert := caSecret.Data[CACertFile]
