@@ -2395,7 +2395,7 @@ spec:
 								break
 							}
 						}
-						if sessionCookie == nil {
+						if sessionCookie != nil {
 							req.AddCookie(sessionCookie)
 						}
 					}
