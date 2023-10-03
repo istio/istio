@@ -13,6 +13,7 @@ kubectl -n <namespace> apply -f ../otel.yaml
 In this example, we use `otel-collector` as the namespace to deploy the `otel-collector` backend:
 
 ```bash
+kubectl create namespace otel-collector
 kubectl -n otel-collector apply -f ../otel.yaml
 ```
 
