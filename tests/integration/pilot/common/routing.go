@@ -2454,7 +2454,7 @@ spec:
 				name:   "http cookie without ttl" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(cookieWithoutTTLDest, ""),
 				call:   c.CallOrFail,
-				opts:   callOpts,
+				opts:   cookieCallOpts,
 			})
 		}
 	}
