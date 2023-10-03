@@ -20,7 +20,7 @@ data:
         # Export to zipkin for easy querying
         endpoint: http://zipkin.istio-system.svc:9411/api/v2/spans
       logging:
-        verbosity: detailed
+        loglevel: debug
       jaeger:
         endpoint: jaeger-collector.istio-system.svc.cluster.local:14250
         tls:
@@ -30,8 +30,8 @@ data:
         retry_on_failure:
           enabled: true
     extensions:
-      # default health check endpoint is 0.0.0.0:13133
       health_check:
+        port: 13133
     service:
       extensions:
       - health_check
@@ -102,7 +102,7 @@ spec:
                 fieldRef:
                   apiVersion: v1
                   fieldPath: metadata.namespace
-          image: otel/opentelemetry-collector:0.85.0
+          image: otel/opentelemetry-collector:0.54.0
           imagePullPolicy: IfNotPresent
           name: opentelemetry-collector
           ports:
