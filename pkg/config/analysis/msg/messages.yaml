@@ -599,3 +599,23 @@ messages:
         type: string
       - name: gatewayNamespace
         type: string
+  - name: "ReferencedInternalGateway"
+    code: IST0162
+    level: Error
+    description: "VirtualServices should not reference internal Gateways."
+    template: "Gateway reference in VirtualService %s is to an implementation-generated internal Gateway: %s."
+    args:
+      - name: virtualservice
+        type: string
+      - name: gateway
+        type: string
+  - name: "ReferencedK8sGateway"
+    code: IST0163
+    level: Warning
+    description: "Attaching VirtualServices to Gateway API Gateways should be done sparingly."
+    template: "Gateway reference in VirtualService %s is to a Gateway API Gateway: %s."
+    args:
+      - name: virtualservice
+        type: string
+      - name: gateway
+        type: string

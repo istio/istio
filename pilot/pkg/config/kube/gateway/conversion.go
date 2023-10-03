@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
+	kubeconfig "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -986,7 +987,7 @@ func attachVirtualServiceRoute(ctx configContext, obj config.Config) {
 	vs := obj.Spec.(*istio.VirtualService)
 	for _, gateway := range vs.Gateways {
 		ns, name, _ := strings.Cut(gateway, "/")
-		isK8s, n, l := model.GatewayFromInternalName(name)
+		isK8s, n, l := kubeconfig.GatewayFromInternalName(name)
 		if !isK8s {
 			continue
 		}
@@ -1998,7 +1999,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 				Meta: config.Meta{
 					CreationTimestamp: obj.CreationTimestamp,
 					GroupVersionKind:  gvk.Gateway,
-					Name:              model.InternalGatewayName(obj.Name, string(l.Name)),
+					Name:              kubeconfig.InternalGatewayName(obj.Name, string(l.Name)),
 					Annotations:       meta,
 					Namespace:         obj.Namespace,
 					Domain:            r.Domain,

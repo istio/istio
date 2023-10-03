@@ -15,7 +15,6 @@
 package model
 
 import (
-	"fmt"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/types"
@@ -24,7 +23,6 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
@@ -562,41 +560,6 @@ func UseIngressSemantics(cfg config.Config) bool {
 // semantics.
 func UseGatewaySemantics(cfg config.Config) bool {
 	return cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
-}
-
-// InternalGatewayName returns the name of the internal Istio Gateway corresponding to the
-// specified gateway-api gateway listener.
-func InternalGatewayName(gwName, lName string) string {
-	return fmt.Sprintf("%s-%s-%s", gwName, constants.KubernetesGatewayName, lName)
-}
-
-// GatewayFromInternalName returns (true, gateway name, listener name) if the specified name
-// is the internal name of a gateway-api gateway.
-func GatewayFromInternalName(name string) (isK8s bool, gwName string, lName string) {
-	gwName, lName, isK8s = strings.Cut(name, fmt.Sprintf("-%s-", constants.KubernetesGatewayName))
-	return isK8s, gwName, lName
-}
-
-// convertGatewayName converts a Kubernetes Gateway name, in a VirtualService "gateways" reference,
-// to its corresponding Istio Gateway. Note that both a Gateway name and listener name must be
-// specified when attaching a VirtualService to a Kubernetes Gateway.
-//
-// Syntax: "gateway.networking.k8s.io:" gateway-name "." listener-name
-//
-// Example references:
-// "example-ns/gateway.networking.k8s.io:example-gateway.default"
-// "gateway.networking.k8s.io:example-gateway.default"
-func convertGatewayName(gwName string) string {
-	name, isK8s := strings.CutPrefix(gwName, fmt.Sprintf("%s:", gvk.KubernetesGateway.Group))
-	if !isK8s {
-		return gwName
-	}
-	gw, l, ok := strings.Cut(name, ".")
-	if ok {
-		return InternalGatewayName(gw, l)
-	}
-	log.Errorf("invalid gateway listener ref: %s", gwName)
-	return gwName
 }
 
 // VirtualServiceDependencies returns dependent configs of the vs,

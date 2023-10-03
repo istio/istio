@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
+	kubeconfig "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/hash"
@@ -264,7 +265,7 @@ func resolveGatewayName(gwname string, meta config.Meta) (out string) {
 	// is ns/name. Old way is either FQDN or short name
 	ns, name, ok := strings.Cut(gwname, "/")
 	if !ok {
-		gwname = convertGatewayName(gwname)
+		gwname = kubeconfig.GatewayToInternalName(gwname)
 		if !strings.Contains(gwname, ".") {
 			// we have a short name. Resolve to a gateway in same namespace
 			out = meta.Namespace + "/" + gwname
@@ -283,7 +284,7 @@ func resolveGatewayName(gwname string, meta config.Meta) (out string) {
 		if ns == "." {
 			ns = meta.Namespace
 		}
-		out = ns + "/" + convertGatewayName(name)
+		out = ns + "/" + kubeconfig.GatewayToInternalName(name)
 	}
 	return
 }

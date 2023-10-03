@@ -22,8 +22,10 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
+	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/host"
+	kubeconfig "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
@@ -64,16 +66,36 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 			continue
 		}
 
-		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
-
-		if !c.Exists(gvk.Gateway, gwFullName) {
-			m := msg.NewReferencedResourceNotFound(r, "gateway", gwName)
+		if kubeconfig.IsK8sGatewayReference(gwName) {
+			m := msg.NewReferencedK8sGateway(r, vsName.String(), gwName)
 
 			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
 				m.Line = line
 			}
 
 			c.Report(gvk.VirtualService, m)
+		}
+
+		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
+
+		if !c.Exists(gvk.Gateway, gwFullName) {
+			var m diag.Message
+			isK8s := kubeconfig.IsInternalGatewayReference(gwName)
+			if isK8s {
+				m = msg.NewReferencedInternalGateway(r, vsName.String(), gwName)
+			} else {
+				m = msg.NewReferencedResourceNotFound(r, "gateway", gwName)
+			}
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
+				m.Line = line
+			}
+
+			c.Report(gvk.VirtualService, m)
+
+			if isK8s {
+				continue
+			}
 		}
 
 		if !vsHostInGateway(c, gwFullName, vs.Hosts, vsNs.String()) {

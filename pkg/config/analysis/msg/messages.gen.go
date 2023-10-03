@@ -232,6 +232,14 @@ var (
 	// InvalidGatewayCredential defines a diag.MessageType for message "InvalidGatewayCredential".
 	// Description: The credential provided for the Gateway resource is invalid
 	InvalidGatewayCredential = diag.NewMessageType(diag.Error, "IST0161", "The credential referenced by the Gateway %s in namespace %s is invalid, which can cause the traffic not to work as expected.")
+
+	// ReferencedInternalGateway defines a diag.MessageType for message "ReferencedInternalGateway".
+	// Description: VirtualServices should not reference internal Gateways.
+	ReferencedInternalGateway = diag.NewMessageType(diag.Error, "IST0162", "Gateway reference in VirtualService %s is to an implementation-generated internal Gateway: %s.")
+
+	// ReferencedK8sGateway defines a diag.MessageType for message "ReferencedK8sGateway".
+	// Description: Attaching VirtualServices to Gateway API Gateways should be done sparingly.
+	ReferencedK8sGateway = diag.NewMessageType(diag.Warning, "IST0163", "Gateway reference in VirtualService %s is to a Gateway API Gateway: %s.")
 )
 
 // All returns a list of all known message types.
@@ -293,6 +301,8 @@ func All() []*diag.MessageType {
 		ConflictingTelemetryWorkloadSelectors,
 		MultipleTelemetriesWithoutWorkloadSelectors,
 		InvalidGatewayCredential,
+		ReferencedInternalGateway,
+		ReferencedK8sGateway,
 	}
 }
 
@@ -844,5 +854,25 @@ func NewInvalidGatewayCredential(r *resource.Instance, gatewayName string, gatew
 		r,
 		gatewayName,
 		gatewayNamespace,
+	)
+}
+
+// NewReferencedInternalGateway returns a new diag.Message based on ReferencedInternalGateway.
+func NewReferencedInternalGateway(r *resource.Instance, virtualservice string, gateway string) diag.Message {
+	return diag.NewMessage(
+		ReferencedInternalGateway,
+		r,
+		virtualservice,
+		gateway,
+	)
+}
+
+// NewReferencedK8sGateway returns a new diag.Message based on ReferencedK8sGateway.
+func NewReferencedK8sGateway(r *resource.Instance, virtualservice string, gateway string) diag.Message {
+	return diag.NewMessage(
+		ReferencedK8sGateway,
+		r,
+		virtualservice,
+		gateway,
 	)
 }

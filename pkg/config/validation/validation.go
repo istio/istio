@@ -51,6 +51,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
+	kubeconfig "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -2302,7 +2303,7 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 				} else {
 					appliesToGateway = true
 					if !appliesToK8sGateway {
-						appliesToK8sGateway = isK8sGatewayName(gatewayName)
+						appliesToK8sGateway = kubeconfig.IsK8sGatewayReference(gatewayName)
 					}
 				}
 			}
@@ -2912,14 +2913,6 @@ func validateK8sGatewayName(name string) (isK8s bool, errs Validation) {
 		}
 	}
 	return
-}
-
-func isK8sGatewayName(gatewayName string) bool {
-	parts := strings.SplitN(gatewayName, "/", 2)
-	if len(parts) == 2 {
-		gatewayName = parts[1]
-	}
-	return strings.HasPrefix(gatewayName, gvk.KubernetesGateway.Group)
 }
 
 func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination, gatewaySemantics bool) (errs error) {
