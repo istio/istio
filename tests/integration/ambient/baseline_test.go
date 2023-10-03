@@ -125,7 +125,8 @@ func supportsL7(opt echo.CallOptions, src, dst echo.Instance) bool {
 	return (s || d) && isL7Scheme
 }
 
-// TODO: in ambient integ test suite is it possible to have a sidecar which doesn't have HBONE? if so we should check that here too or we may return incorrect value
+// Assumption is ambient test suite sidecars will support HBONE
+// If the assumption is incorrect hboneClient may return invalid result
 func hboneClient(instance echo.Instance) bool {
 	return instance.Config().ZTunnelCaptured() ||
 		instance.Config().HasSidecar()
