@@ -578,6 +578,9 @@ templates:
         lifecycle:
           {{ toYaml .Values.global.proxy.lifecycle | indent 6 }}
       {{- end }}
+        securityContext:
+          runAsUser: {{ .ProxyUID | default "1337" }}
+          runAsGroup: {{ .ProxyGID | default "1337" }}
         env:
         - name: JWT_POLICY
           value: {{ .Values.global.jwtPolicy }}
@@ -1480,7 +1483,11 @@ templates:
           serviceAccountName: {{.ServiceAccount | quote}}
           containers:
           - name: istio-proxy
+          {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
+            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+          {{- else }}
             image: "{{ .ProxyImage }}"
+          {{- end }}
             {{- if .Values.global.proxy.resources }}
             resources:
               {{- toYaml .Values.global.proxy.resources | nindent 10 }}
@@ -1495,10 +1502,8 @@ templates:
               allowPrivilegeEscalation: false
               privileged: false
               readOnlyRootFilesystem: true
-    {{- if not (eq .Values.global.platform "openshift") }}
-              runAsUser: 1337
-              runAsGroup: 1337
-    {{- end }}
+              runAsUser: {{ .ProxyUID | default "1337" }}
+              runAsGroup: {{ .ProxyGID | default "1337" }}
               runAsNonRoot: true
             {{- else }}
               capabilities:

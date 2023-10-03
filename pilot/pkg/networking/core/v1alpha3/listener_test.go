@@ -28,15 +28,18 @@ import (
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
+	telemetry "istio.io/api/telemetry/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/listenertest"
@@ -49,14 +52,16 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
 	wildcardIPv4 = "0.0.0.0"
-	wildcardIPv6 = "::/0"
+	wildcardIPv6 = "::"
 )
 
 func getProxy() *model.Proxy {
@@ -199,6 +204,117 @@ func TestInboundListenerConfig(t *testing.T) {
 		features.EnableSidecarServiceInboundListenerMerge = true
 		testInboundListenerConfigWithSidecar(t, getProxy(),
 			buildService("test.com", wildcardIPv4, protocol.HTTP, tnow))
+	})
+
+	t.Run("wasm, stats, authz", func(t *testing.T) {
+		tcp := buildService("tcp.example.com", wildcardIPv4, protocol.TCP, tnow)
+		tcp.Ports[0].Port = 1234
+		tcp.Ports[0].Name = "tcp"
+		services := []*model.Service{
+			tcp,
+			buildService("http.example.com", wildcardIPv4, protocol.HTTP, tnow),
+		}
+		mc := mesh.DefaultMeshConfig()
+		mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+			Name: "extauthz",
+			Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
+				EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
+					Service: "default/http.example.com",
+					Port:    8080,
+				},
+			},
+		})
+		o := TestOptions{
+			Services:   services,
+			MeshConfig: mc,
+			Configs:    filterTestConfigs,
+		}
+		cg := NewConfigGenTest(t, o)
+		p := getProxy()
+		for _, s := range o.Services {
+			i := &model.ServiceInstance{
+				Service: s,
+				Endpoint: &model.IstioEndpoint{
+					Address:      "1.1.1.1",
+					EndpointPort: uint32(s.Ports[0].Port),
+				},
+				ServicePort: s.Ports[0],
+			}
+			cg.MemRegistry.AddInstance(i)
+		}
+		listeners := cg.Listeners(cg.SetupProxy(p))
+		xdstest.ValidateListeners(t, listeners)
+		l := xdstest.ExtractListener(model.VirtualInboundListenerName, listeners)
+		httpFilters := []string{
+			xdsfilters.MxFilterName,
+			// Ext auth makes 2 filters
+			wellknown.HTTPRoleBasedAccessControl,
+			wellknown.HTTPExternalAuthorization,
+			"istio-system.wasm-authn",
+			"istio-system.wasm-authz",
+			wellknown.HTTPRoleBasedAccessControl,
+			"istio-system.wasm-stats",
+			wellknown.HTTPGRPCStats,
+			xdsfilters.Fault.Name,
+			xdsfilters.Cors.Name,
+			xds.StatsFilterName,
+			wellknown.Router,
+		}
+		httpNetworkFilters := []string{
+			xdsfilters.MxFilterName,
+			"istio-system.wasm-network-authn",
+			xdsfilters.AuthnFilterName,
+			"istio-system.wasm-network-authz",
+			"istio-system.wasm-network-stats",
+			wellknown.HTTPConnectionManager,
+		}
+		tcpNetworkFilters := []string{
+			xdsfilters.MxFilterName,
+			// Ext auth makes 2 filters
+			wellknown.RoleBasedAccessControl,
+			wellknown.ExternalAuthorization,
+			"istio-system.wasm-network-authn",
+			xdsfilters.AuthnFilterName,
+			"istio-system.wasm-network-authz",
+			wellknown.RoleBasedAccessControl,
+			"istio-system.wasm-network-stats",
+			xds.StatsFilterName,
+			wellknown.TCPProxy,
+		}
+		verifyInboundFilterChains(t, l, httpFilters, httpNetworkFilters, tcpNetworkFilters)
+		// verifyInboundFilterChains only checks the passthrough. Ensure the main filters get created as expected, too.
+		listenertest.VerifyListener(t, l, listenertest.ListenerTest{
+			FilterChains: []listenertest.FilterChainTest{
+				{
+					Name:           "0.0.0.0_8080",
+					Type:           listenertest.MTLSHTTP,
+					HTTPFilters:    httpFilters,
+					NetworkFilters: httpNetworkFilters,
+					TotalMatch:     true,
+				},
+				{
+					Name:           "0.0.0.0_8080",
+					Type:           listenertest.PlainTCP,
+					HTTPFilters:    httpFilters,
+					NetworkFilters: httpNetworkFilters,
+					TotalMatch:     true,
+				},
+				{
+					Name:           "0.0.0.0_1234",
+					Type:           listenertest.StandardTLS,
+					HTTPFilters:    []string{},
+					NetworkFilters: tcpNetworkFilters,
+					TotalMatch:     true,
+				},
+				{
+					Name:           "0.0.0.0_1234",
+					Type:           listenertest.PlainTCP,
+					HTTPFilters:    []string{},
+					NetworkFilters: tcpNetworkFilters,
+					TotalMatch:     true,
+				},
+			},
+		})
 	})
 }
 
@@ -382,6 +498,28 @@ func TestOutboundListenerConflictWithStaticListener(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestOutboundListenerDualStackWildcard(t *testing.T) {
+	test.SetForTest(t, &features.EnableDualStack, true)
+	service := buildService("test1.com", "0.0.0.0", protocol.TCP, tnow.Add(1*time.Second))
+	service.Attributes.ServiceRegistry = provider.External // Imitate a ServiceEntry with no addresses
+	services := []*model.Service{service}
+	for _, p := range []*model.Proxy{getProxy(), &dualStackProxy} {
+		p.DiscoverIPMode()
+		listeners := buildOutboundListeners(t, p, nil, nil, services...)
+		if len(listeners) != 1 {
+			t.Fatalf("expected %d listeners, found %d", 1, len(listeners))
+		}
+		if p.IsDualStack() {
+			if len(listeners[0].AdditionalAddresses) != 1 {
+				t.Fatalf("expected %d additional addresses, found %d", 1, len(listeners[0].AdditionalAddresses))
+			}
+			if listeners[0].AdditionalAddresses[0].GetAddress().GetSocketAddress().GetAddress() != wildcardIPv6 {
+				t.Fatalf("expected additional address %s, found %s", wildcardIPv6, listeners[0].AdditionalAddresses[0].String())
+			}
+		}
 	}
 }
 
@@ -868,6 +1006,144 @@ func TestOutboundTlsTrafficWithoutTimeout(t *testing.T) {
 		},
 	}
 	testOutboundListenerFilterTimeout(t, services...)
+}
+
+var filterTestConfigs = []config.Config{
+	{
+		Meta: config.Meta{Name: "wasm-network-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+		Spec: &extensions.WasmPlugin{
+			Phase: extensions.PluginPhase_AUTHZ,
+			Type:  extensions.PluginType_NETWORK,
+		},
+	},
+	{
+		Meta: config.Meta{Name: "wasm-network-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+		Spec: &extensions.WasmPlugin{
+			Phase: extensions.PluginPhase_AUTHN,
+			Type:  extensions.PluginType_NETWORK,
+		},
+	},
+	{
+		Meta: config.Meta{Name: "wasm-network-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+		Spec: &extensions.WasmPlugin{
+			Phase: extensions.PluginPhase_STATS,
+			Type:  extensions.PluginType_NETWORK,
+		},
+	},
+	{
+		Meta: config.Meta{Name: "wasm-authz", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+		Spec: &extensions.WasmPlugin{
+			Phase: extensions.PluginPhase_AUTHZ,
+		},
+	},
+	{
+		Meta: config.Meta{Name: "wasm-authn", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+		Spec: &extensions.WasmPlugin{
+			Phase: extensions.PluginPhase_AUTHN,
+		},
+	},
+	{
+		Meta: config.Meta{Name: "wasm-stats", Namespace: "istio-system", GroupVersionKind: gvk.WasmPlugin},
+		Spec: &extensions.WasmPlugin{
+			Phase: extensions.PluginPhase_STATS,
+		},
+	},
+	{
+		Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.AuthorizationPolicy},
+		Spec: &security.AuthorizationPolicy{},
+	},
+	{
+		Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.AuthorizationPolicy},
+		Spec: &security.AuthorizationPolicy{
+			Selector:     nil,
+			TargetRef:    nil,
+			Rules:        nil,
+			Action:       security.AuthorizationPolicy_CUSTOM,
+			ActionDetail: &security.AuthorizationPolicy_Provider{Provider: &security.AuthorizationPolicy_ExtensionProvider{Name: "extauthz"}},
+		},
+	},
+	{
+		Meta: config.Meta{Name: uuid.NewString(), Namespace: "istio-system", GroupVersionKind: gvk.Telemetry},
+		Spec: &telemetry.Telemetry{
+			Metrics: []*telemetry.Metrics{{Providers: []*telemetry.ProviderRef{{Name: "prometheus"}}}},
+		},
+	},
+}
+
+func TestOutboundFilters(t *testing.T) {
+	mc := mesh.DefaultMeshConfig()
+	mc.ExtensionProviders = append(mc.ExtensionProviders, &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "extauthz",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc{
+			EnvoyExtAuthzGrpc: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationGrpcProvider{
+				Service: "foo/example.local",
+				Port:    1234,
+			},
+		},
+	})
+
+	t.Run("HTTP", func(t *testing.T) {
+		cg := NewConfigGenTest(t, TestOptions{
+			Services:   []*model.Service{buildService("test.com", wildcardIPv4, protocol.HTTP, tnow)},
+			Configs:    filterTestConfigs,
+			MeshConfig: mc,
+		})
+		proxy := cg.SetupProxy(getProxy())
+		listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(proxy, cg.env.PushContext())
+		xdstest.ValidateListeners(t, listeners)
+		l := xdstest.ExtractListener("0.0.0.0_8080", listeners)
+		listenertest.VerifyListener(t, l, listenertest.ListenerTest{
+			FilterChains: []listenertest.FilterChainTest{
+				{
+					TotalMatch: true,
+					HTTPFilters: []string{
+						xdsfilters.MxFilterName,
+						"istio-system.wasm-authn",
+						"istio-system.wasm-authz",
+						"istio-system.wasm-stats",
+						wellknown.HTTPGRPCStats,
+						xdsfilters.AlpnFilterName,
+						xdsfilters.Fault.Name,
+						xdsfilters.Cors.Name,
+						xds.StatsFilterName,
+						wellknown.Router,
+					},
+					NetworkFilters: []string{
+						"istio-system.wasm-network-authn",
+						"istio-system.wasm-network-authz",
+						"istio-system.wasm-network-stats",
+						wellknown.HTTPConnectionManager,
+					},
+				},
+			},
+		})
+	})
+
+	t.Run("TCP", func(t *testing.T) {
+		cg := NewConfigGenTest(t, TestOptions{
+			Services:   []*model.Service{buildService("test.com", wildcardIPv4, protocol.TCP, tnow)},
+			Configs:    filterTestConfigs,
+			MeshConfig: mc,
+		})
+		proxy := cg.SetupProxy(getProxy())
+		listeners := NewListenerBuilder(proxy, cg.env.PushContext()).buildSidecarOutboundListeners(proxy, cg.env.PushContext())
+		xdstest.ValidateListeners(t, listeners)
+		l := xdstest.ExtractListener("0.0.0.0_8080", listeners)
+		listenertest.VerifyListener(t, l, listenertest.ListenerTest{
+			FilterChains: []listenertest.FilterChainTest{
+				{
+					TotalMatch: true,
+					NetworkFilters: []string{
+						"istio-system.wasm-network-authn",
+						"istio-system.wasm-network-authz",
+						"istio-system.wasm-network-stats",
+						xds.StatsFilterName,
+						wellknown.TCPProxy,
+					},
+				},
+			},
+		})
+	})
 }
 
 func TestOutboundTls(t *testing.T) {
@@ -1703,8 +1979,8 @@ func verifyListenerFilters(t *testing.T, lfilters []*listener.ListenerFilter) {
 	if len(lfilters) != 2 {
 		t.Fatalf("expected %d listener filter, found %d", 2, len(lfilters))
 	}
-	if lfilters[0].Name != wellknown.TlsInspector ||
-		lfilters[1].Name != wellknown.HttpInspector {
+	if lfilters[0].Name != wellknown.TLSInspector ||
+		lfilters[1].Name != wellknown.HTTPInspector {
 		t.Fatalf("expected listener filters not found, got %v", lfilters)
 	}
 }
@@ -2391,6 +2667,7 @@ func verifyOutboundTCPListenerHostname(t *testing.T, l *listener.Listener, hostn
 }
 
 func verifyFilterChainMatch(t *testing.T, listener *listener.Listener) {
+	t.Helper()
 	httpFilters := []string{
 		xdsfilters.MxFilterName,
 		xdsfilters.GrpcStats.Name,
@@ -2398,6 +2675,13 @@ func verifyFilterChainMatch(t *testing.T, listener *listener.Listener) {
 		xdsfilters.Cors.Name,
 		wellknown.Router,
 	}
+	httpNetworkFilters := []string{xdsfilters.MxFilterName, xdsfilters.AuthnFilterName, wellknown.HTTPConnectionManager}
+	tcpNetworkFilters := []string{xdsfilters.MxFilterName, xdsfilters.AuthnFilterName, wellknown.TCPProxy}
+	verifyInboundFilterChains(t, listener, httpFilters, httpNetworkFilters, tcpNetworkFilters)
+}
+
+func verifyInboundFilterChains(t *testing.T, listener *listener.Listener, httpFilters []string, httpNetworkFilters []string, tcpNetworkFilters []string) {
+	t.Helper()
 	listenertest.VerifyListener(t, listener, listenertest.ListenerTest{
 		FilterChains: []listenertest.FilterChainTest{
 			{
@@ -2409,35 +2693,35 @@ func verifyFilterChainMatch(t *testing.T, listener *listener.Listener) {
 				Name:           model.VirtualInboundCatchAllHTTPFilterChainName,
 				Type:           listenertest.MTLSHTTP,
 				HTTPFilters:    httpFilters,
-				NetworkFilters: []string{"istio_authn", xdsfilters.MxFilterName, wellknown.HTTPConnectionManager},
+				NetworkFilters: httpNetworkFilters,
 				TotalMatch:     true,
 			},
 			{
 				Name:           model.VirtualInboundCatchAllHTTPFilterChainName,
 				Type:           listenertest.PlainHTTP,
 				HTTPFilters:    httpFilters,
-				NetworkFilters: []string{"istio_authn", xdsfilters.MxFilterName, wellknown.HTTPConnectionManager},
+				NetworkFilters: httpNetworkFilters,
 				TotalMatch:     true,
 			},
 			{
 				Name:           model.VirtualInboundListenerName,
 				Type:           listenertest.MTLSTCP,
 				HTTPFilters:    []string{},
-				NetworkFilters: []string{"istio_authn", xdsfilters.MxFilterName, wellknown.TCPProxy},
+				NetworkFilters: tcpNetworkFilters,
 				TotalMatch:     true,
 			},
 			{
 				Name:           model.VirtualInboundListenerName,
 				Type:           listenertest.PlainTCP,
 				HTTPFilters:    []string{},
-				NetworkFilters: []string{"istio_authn", xdsfilters.MxFilterName, wellknown.TCPProxy},
+				NetworkFilters: tcpNetworkFilters,
 				TotalMatch:     true,
 			},
 			{
 				Name:           model.VirtualInboundListenerName,
 				Type:           listenertest.StandardTLS,
 				HTTPFilters:    []string{},
-				NetworkFilters: []string{"istio_authn", xdsfilters.MxFilterName, wellknown.TCPProxy},
+				NetworkFilters: tcpNetworkFilters,
 				TotalMatch:     true,
 			},
 		},

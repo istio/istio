@@ -47,7 +47,6 @@ import (
 )
 
 type caOptions struct {
-	// Either extCAK8s or extCAGrpc
 	ExternalCAType   ra.CaExternalType
 	ExternalCASigner string
 	// domain to use in SPIFFE identity URLs
@@ -133,8 +132,7 @@ var (
 
 	// TODO: Likely to be removed and added to mesh config
 	externalCaType = env.Register("EXTERNAL_CA", "",
-		"External CA Integration Type. Permitted Values are ISTIOD_RA_KUBERNETES_API or "+
-			"ISTIOD_RA_ISTIO_API").Get()
+		"External CA Integration Type. Permitted value is ISTIOD_RA_KUBERNETES_API.").Get()
 
 	// TODO: Likely to be removed and added to mesh config
 	k8sSigner = env.Register("K8S_SIGNER", "",
@@ -380,7 +378,7 @@ func (s *Server) handleCACertsFileWatch() {
 func (s *Server) addCACertsFileWatcher(dir string) error {
 	err := s.cacertsWatcher.Add(dir)
 	if err != nil {
-		log.Infof("AUTO_RELOAD_PLUGIN_CERTS will not work, failed to add file watcher: %v", err)
+		log.Infof("failed to add cacerts file watcher for %s: %v", dir, err)
 		return err
 	}
 
@@ -397,12 +395,13 @@ func (s *Server) initCACertsWatcher() {
 
 	s.cacertsWatcher, err = fsnotify.NewWatcher()
 	if err != nil {
-		log.Infof("failed to add CAcerts watcher: %v", err)
+		log.Warnf("failed to add CAcerts watcher: %v", err)
 		return
 	}
 
 	err = s.addCACertsFileWatcher(LocalCertDir.Get())
 	if err != nil {
+		log.Warnf("failed to add CAcerts file watcher: %v", err)
 		return
 	}
 

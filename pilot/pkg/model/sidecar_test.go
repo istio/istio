@@ -837,7 +837,7 @@ var (
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns1",
-				ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
+				ExportTo:  sets.New(visibility.Private),
 			},
 		},
 		{
@@ -1990,9 +1990,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			ps.exportToDefaults = exportToDefaults{
-				virtualService:  map[visibility.Instance]bool{visibility.Public: true},
-				service:         map[visibility.Instance]bool{visibility.Public: true},
-				destinationRule: map[visibility.Instance]bool{visibility.Public: true},
+				virtualService:  sets.New(visibility.Public),
+				service:         sets.New(visibility.Public),
+				destinationRule: sets.New(visibility.Public),
 			}
 
 			sidecarConfig := tt.sidecarConfig

@@ -370,7 +370,7 @@ func (c *Controller) Cleanup() error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) error {
+func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) error {
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.
@@ -429,13 +429,11 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	if curr != nil && curr.Spec.Type == v1.ServiceTypeExternalName {
 		updateEDSCache = true
 	}
-	var prevConv *model.Service
-	// instance conversion is only required when service is added/updated.
+
 	c.Lock()
-	prevConv = c.servicesMap[currConv.Hostname]
+	prevConv := c.servicesMap[currConv.Hostname]
 	c.servicesMap[currConv.Hostname] = currConv
 	c.Unlock()
-
 	// This full push needed to update ALL ends endpoints, even though we do a full push on service add/update
 	// as that full push is only triggered for the specific service.
 	if needsFullPush {
@@ -453,6 +451,11 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 		if len(endpoints) > 0 {
 			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(currConv.Hostname), ns, endpoints)
 		}
+	}
+
+	// filter out same service event
+	if event == model.EventUpdate && !serviceUpdateNeedsPush(prevConv, currConv) {
+		return
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
@@ -1130,4 +1133,14 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 		return []*model.Service{svc}
 	}
 	return nil
+}
+
+func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
+	if !features.EnableOptimizedServicePush {
+		return true
+	}
+	if prev == nil {
+		return true
+	}
+	return !prev.Equals(curr)
 }

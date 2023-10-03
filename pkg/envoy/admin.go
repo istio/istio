@@ -21,18 +21,8 @@ import (
 	"net/http"
 	"strings"
 
-	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"google.golang.org/protobuf/proto"
-
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util/protomarshal"
 )
-
-// Shutdown initiates a graceful shutdown of Envoy.
-func Shutdown(adminPort uint32) error {
-	_, err := doEnvoyPost("quitquitquit", "", "", adminPort)
-	return err
-}
 
 // DrainListeners drains inbound listeners of Envoy so that inflight requests
 // can gracefully finish and even continue making outbound calls as needed.
@@ -48,44 +38,6 @@ func DrainListeners(adminPort uint32, inboundonly bool) error {
 	return err
 }
 
-// GetServerInfo returns a structure representing a call to /server_info
-func GetServerInfo(adminPort uint32) (*admin.ServerInfo, error) {
-	buffer, err := doEnvoyGet("server_info", adminPort)
-	if err != nil {
-		return nil, err
-	}
-
-	msg := &admin.ServerInfo{}
-	if err := unmarshal(buffer.String(), msg); err != nil {
-		return nil, err
-	}
-
-	return msg, nil
-}
-
-// GetConfigDump polls Envoy admin port for the config dump and returns the response.
-func GetConfigDump(adminPort uint32) (*admin.ConfigDump, error) {
-	buffer, err := doEnvoyGet("config_dump", adminPort)
-	if err != nil {
-		return nil, err
-	}
-
-	msg := &admin.ConfigDump{}
-	if err := unmarshal(buffer.String(), msg); err != nil {
-		return nil, err
-	}
-	return msg, nil
-}
-
-func doEnvoyGet(path string, adminPort uint32) (*bytes.Buffer, error) {
-	requestURL := fmt.Sprintf("http://localhost:%d/%s", adminPort, path)
-	buffer, err := doHTTPGet(requestURL)
-	if err != nil {
-		return nil, err
-	}
-	return buffer, nil
-}
-
 func doEnvoyPost(path, contentType, body string, adminPort uint32) (*bytes.Buffer, error) {
 	requestURL := fmt.Sprintf("http://localhost:%d/%s", adminPort, path)
 	buffer, err := doHTTPPost(requestURL, contentType, body)
@@ -93,24 +45,6 @@ func doEnvoyPost(path, contentType, body string, adminPort uint32) (*bytes.Buffe
 		return nil, err
 	}
 	return buffer, nil
-}
-
-func doHTTPGet(requestURL string) (*bytes.Buffer, error) {
-	response, err := http.Get(requestURL)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = response.Body.Close() }()
-
-	if response.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %d", response.StatusCode)
-	}
-
-	var b bytes.Buffer
-	if _, err := io.Copy(&b, response.Body); err != nil {
-		return nil, err
-	}
-	return &b, nil
 }
 
 func doHTTPPost(requestURL, contentType, body string) (*bytes.Buffer, error) {
@@ -125,8 +59,4 @@ func doHTTPPost(requestURL, contentType, body string) (*bytes.Buffer, error) {
 		return nil, err
 	}
 	return &b, nil
-}
-
-func unmarshal(jsonString string, msg proto.Message) error {
-	return protomarshal.UnmarshalAllowUnknown([]byte(jsonString), msg)
 }

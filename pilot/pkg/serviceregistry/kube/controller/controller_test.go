@@ -1995,11 +1995,11 @@ func getService(controller *FakeController, name, namespace string, t *testing.T
 }
 
 func updateService(controller *FakeController, svc *corev1.Service, t *testing.T) *corev1.Service {
-	svc, err := controller.client.Kube().CoreV1().Services(svc.Namespace).Update(context.TODO(), svc, metav1.UpdateOptions{})
+	svcUpdated, err := controller.client.Kube().CoreV1().Services(svc.Namespace).Update(context.TODO(), svc, metav1.UpdateOptions{})
 	if err != nil {
 		t.Fatalf("Cannot update service %s in namespace %s (error: %v)", svc.Name, svc.Namespace, err)
 	}
-	return svc
+	return svcUpdated
 }
 
 func createServiceWithoutClusterIP(controller *FakeController, name, namespace string, annotations map[string]string,

@@ -91,7 +91,6 @@ import (
 
 const (
 	defaultLocalAddress = "localhost"
-	fieldManager        = "istio-kube-client"
 	RunningStatus       = "status.phase=Running"
 )
 
@@ -426,6 +425,9 @@ func EnableCrdWatcher(c Client) Client {
 	if NewCrdWatcher == nil {
 		panic("NewCrdWatcher is unset. Likely the crd watcher library is not imported anywhere")
 	}
+	if c.(*client).crdWatcher != nil {
+		panic("EnableCrdWatcher called twice for the same client")
+	}
 	c.(*client).crdWatcher = NewCrdWatcher(c)
 	return c
 }
@@ -529,7 +531,7 @@ func (c *client) Shutdown() {
 func (c *client) Run(stop <-chan struct{}) {
 	c.informerFactory.Start(stop)
 	if c.crdWatcher != nil {
-		c.crdWatcher.Run(stop)
+		go c.crdWatcher.Run(stop)
 	}
 	alreadyStarted := c.started.Swap(true)
 	if alreadyStarted {
@@ -903,25 +905,11 @@ func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, erro
 		binary    string
 		container string
 	}{
-		"pilot":            {"/usr/local/bin/pilot-discovery", "discovery"},
-		"istiod":           {"/usr/local/bin/pilot-discovery", "discovery"},
-		"citadel":          {"/usr/local/bin/istio_ca", "citadel"},
-		"galley":           {"/usr/local/bin/galley", "galley"},
-		"telemetry":        {"/usr/local/bin/mixs", "mixer"},
-		"policy":           {"/usr/local/bin/mixs", "mixer"},
-		"sidecar-injector": {"/usr/local/bin/sidecar-injector", "sidecar-injector-webhook"},
+		"pilot":  {"/usr/local/bin/pilot-discovery", "discovery"},
+		"istiod": {"/usr/local/bin/pilot-discovery", "discovery"},
 	}
 
 	component := pod.Labels["istio"]
-
-	// Special cases
-	switch component {
-	case "statsd-prom-bridge":
-		// statsd-prom-bridge doesn't support version
-		return nil, fmt.Errorf("statsd-prom-bridge doesn't support version")
-	case "mixer":
-		component = pod.Labels["istio-mixer-type"]
-	}
 
 	detail, ok := labelToPodDetail[component]
 	if !ok {

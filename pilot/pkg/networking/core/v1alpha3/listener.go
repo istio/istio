@@ -26,14 +26,15 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoyquicv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/quic/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	"istio.io/istio/pilot/pkg/networking/util"
 	authnmodel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -50,6 +51,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -312,7 +314,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 	actualWildcards, actualLocalHosts := getWildcardsAndLocalHost(node.GetIPMode())
 
 	// For conflict resolution
-	listenerMap := make(map[string]*outboundListenerEntry)
+	listenerMap := make(map[listenerKey]*outboundListenerEntry)
 
 	// The sidecarConfig if provided could filter the list of
 	// services/virtual services that we need to process. It could also
@@ -516,7 +518,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 	return finalizeOutboundListeners(lb, listenerMap)
 }
 
-func finalizeOutboundListeners(lb *ListenerBuilder, listenerMap map[string]*outboundListenerEntry) []*listener.Listener {
+func finalizeOutboundListeners(lb *ListenerBuilder, listenerMap map[listenerKey]*outboundListenerEntry) []*listener.Listener {
 	listeners := make([]*listener.Listener, 0, len(listenerMap))
 	for _, le := range listenerMap {
 		// TODO: this could be outside the loop, but we would get object sharing in EnvoyFilter patches.
@@ -583,7 +585,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 		// Otherwise, do not have a timeout at all
 		l.ListenerFiltersTimeout = durationpb.New(0)
 	}
-
+	wasm := builder.push.WasmPluginsByListenerInfo(builder.node, model.WasmPluginListenerInfo{
+		Port:  le.servicePort.Port,
+		Class: istionetworking.ListenerClassSidecarOutbound,
+	}, model.WasmPluginTypeNetwork)
 	for _, opt := range le.chains {
 		chain := &listener.FilterChain{
 			Metadata:        opt.metadata,
@@ -600,6 +605,10 @@ func buildListenerFromEntry(builder *ListenerBuilder, le *outboundListenerEntry,
 				Name:       wellknown.HTTPConnectionManager,
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(hcm)},
 			}
+			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHN)
+			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
+			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_STATS)
+			opt.networkFilters = extension.PopAppendNetwork(opt.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 			chain.Filters = append(chain.Filters, opt.networkFilters...)
 			chain.Filters = append(chain.Filters, filter)
 		}
@@ -731,7 +740,7 @@ func buildSidecarOutboundHTTPListenerOpts(
 }
 
 func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServices []config.Config) []*filterChainOpts {
-	meshGateway := map[string]bool{constants.IstioMeshGateway: true}
+	meshGateway := sets.New(constants.IstioMeshGateway)
 	out := make([]*filterChainOpts, 0)
 	var svcConfigs []config.Config
 	if opts.service != nil {
@@ -755,7 +764,7 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 // (as vhosts are shipped through RDS).  TCP listeners on same port are
 // allowed only if they have different CIDR matches.
 func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundListenerOpts,
-	listenerMap map[string]*outboundListenerEntry, virtualServices []config.Config, actualWildcards []string,
+	listenerMap map[listenerKey]*outboundListenerEntry, virtualServices []config.Config, actualWildcards []string,
 ) {
 	// TODO: remove actualWildcard
 	var currentListenerEntry *outboundListenerEntry
@@ -765,7 +774,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 	listenerPortProtocol := listenerOpts.port.Protocol
 	listenerProtocol := istionetworking.ModelProtocolToListenerProtocol(listenerOpts.port.Protocol)
 
-	var listenerMapKey string
+	var listenerMapKey listenerKey
 	switch listenerProtocol {
 	case istionetworking.ListenerProtocolTCP, istionetworking.ListenerProtocolAuto:
 		// Determine the listener address if bind is empty
@@ -785,6 +794,12 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				svcListenAddress == constants.UnspecifiedIP {
 				svcListenAddress = constants.UnspecifiedIPv6
 			}
+
+			// For dualstack proxies we need to add the unspecifed ipv6 address to the list of extra listen addresses
+			if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsDualStack() &&
+				svcListenAddress == constants.UnspecifiedIP {
+				svcExtraListenAddresses = append(svcExtraListenAddresses, constants.UnspecifiedIPv6)
+			}
 			// We should never get an empty address.
 			// This is a safety guard, in case some platform adapter isn't doing things
 			// properly
@@ -800,7 +815,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 				}
 			}
 		}
-		listenerMapKey = listenerKey(listenerOpts.bind.Primary(), listenerOpts.port.Port)
+		listenerMapKey = listenerKey{listenerOpts.bind.Primary(), listenerOpts.port.Port}
 
 	case istionetworking.ListenerProtocolHTTP:
 		// first identify the bind if its not set. Then construct the key
@@ -808,7 +823,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 		if len(listenerOpts.bind.Primary()) == 0 { // no user specified bind. Use 0.0.0.0:Port or [::]:Port
 			listenerOpts.bind.binds = actualWildcards
 		}
-		listenerMapKey = listenerKey(listenerOpts.bind.Primary(), listenerOpts.port.Port)
+		listenerMapKey = listenerKey{listenerOpts.bind.Primary(), listenerOpts.port.Port}
 	}
 
 	// Have we already generated a listener for this Port based on user
@@ -1319,7 +1334,7 @@ func buildDownstreamTLSTransportSocket(tlsContext *auth.DownstreamTlsContext) *c
 		return nil
 	}
 	return &core.TransportSocket{
-		Name:       wellknown.TransportSocketTls,
+		Name:       wellknown.TransportSocketTLS,
 		ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 	}
 }
@@ -1338,9 +1353,9 @@ func buildDownstreamQUICTransportSocket(tlsContext *auth.DownstreamTlsContext) *
 	}
 }
 
-// listenerKey builds the key for a given bind and port
-func listenerKey(bind string, port int) string {
-	return bind + ":" + strconv.Itoa(port)
+type listenerKey struct {
+	bind string
+	port int
 }
 
 // conflictWithStaticListener checks whether the listener address bind:port conflicts with static listener port

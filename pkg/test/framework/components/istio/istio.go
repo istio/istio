@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"google.golang.org/protobuf/types/known/structpb"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -99,6 +100,9 @@ type Instance interface {
 	// InternalDiscoveryAddressFor returns an internal (port-forwarded) address for an Istiod instance in the
 	// cluster.
 	InternalDiscoveryAddressFor(cluster cluster.Cluster) (string, error)
+
+	// Return POD IPs for the pod with the specified label in the system namespace
+	PodIPsFor(cluster cluster.Cluster, label string) ([]corev1.PodIP, error)
 
 	// Values returns the operator values for the installed control plane.
 	Values() (OperatorValues, error)

@@ -53,7 +53,7 @@ const (
 	IstioNamespace    = "istio-system"
 	OperatorNamespace = "istio-operator"
 	retryDelay        = time.Second
-	retryTimeOut      = 20 * time.Minute
+	retryTimeOut      = 5 * time.Minute
 	nsDeletionTimeout = 5 * time.Minute
 )
 
@@ -116,6 +116,18 @@ func TestController(t *testing.T) {
 			// install second operator deployment with different revision
 			istioCtl.InvokeOrFail(t, initCmd)
 			t.TrackResource(&operatorDumper{rev: "v2"})
+
+			initCmd = []string{
+				"operator", "init",
+				"--hub=" + s.Image.Hub,
+				"--tag=" + s.Image.Tag,
+				"--manifests=" + ManifestPath,
+				"--revision=" + "v3",
+			}
+			// install third operator deployment with different revision
+			istioCtl.InvokeOrFail(t, initCmd)
+			t.TrackResource(&operatorDumper{rev: "v3"})
+
 			installWithCRFile(t, t, cs, istioCtl, "default", "v2")
 			installWithCRFile(t, t, cs, istioCtl, "default", "")
 
@@ -123,8 +135,38 @@ func TestController(t *testing.T) {
 			cleanupInClusterCRs(t, cs)
 
 			// test operator remove command
-			scopes.Framework.Infof("checking operator remove command")
+			scopes.Framework.Infof("checking operator remove command for default revision")
 			removeCmd := []string{
+				"operator", "remove",
+				"--skip-confirmation",
+				"--revision", "default",
+			}
+			istioCtl.InvokeOrFail(t, removeCmd)
+
+			retry.UntilSuccessOrFail(t, func() error {
+				// check the revision of operator which should to be removed
+				if svc, _ := cs.Kube().CoreV1().Services(OperatorNamespace).Get(context.TODO(), "istio-operator", metav1.GetOptions{}); svc.Name != "" {
+					return fmt.Errorf("got operator service: %s from cluster, expected to be removed", svc.Name)
+				}
+				if dp, _ := cs.Kube().AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), "istio-operator", metav1.GetOptions{}); dp.Name != "" {
+					return fmt.Errorf("got operator deployment %s from cluster, expected to be removed", dp.Name)
+				}
+
+				// check the revision of operator which should not to be removed
+				for _, n := range []string{"istio-operator-v2", "istio-operator-v3"} {
+					if svc, _ := cs.Kube().CoreV1().Services(OperatorNamespace).Get(context.TODO(), n, metav1.GetOptions{}); svc.Name == "" {
+						return fmt.Errorf("don't got operator service: %s from cluster, expected not to be removed", svc.Name)
+					}
+					if dp, _ := cs.Kube().AppsV1().Deployments(OperatorNamespace).Get(context.TODO(), n, metav1.GetOptions{}); dp.Name == "" {
+						return fmt.Errorf("don't got operator deployment %s from cluster, expected not to be removed", dp.Name)
+					}
+				}
+				return nil
+			}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
+
+			// test operator remove command by purge
+			scopes.Framework.Infof("checking operator remove command")
+			removeCmd = []string{
 				"operator", "remove",
 				"--skip-confirmation",
 				"--purge",
@@ -132,7 +174,7 @@ func TestController(t *testing.T) {
 			istioCtl.InvokeOrFail(t, removeCmd)
 
 			retry.UntilSuccessOrFail(t, func() error {
-				for _, n := range []string{"istio-operator", "istio-operator-v2"} {
+				for _, n := range []string{"istio-operator-v2", "istio-operator-v3"} {
 					if svc, _ := cs.Kube().CoreV1().Services(OperatorNamespace).Get(context.TODO(), n, metav1.GetOptions{}); svc.Name != "" {
 						return fmt.Errorf("got operator service: %s from cluster, expected to be removed", svc.Name)
 					}

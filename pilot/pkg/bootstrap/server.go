@@ -847,18 +847,12 @@ func (s *Server) initRegistryEventHandlers() {
 	log.Info("initializing registry event handlers")
 	// Flush cached discovery responses whenever services configuration change.
 	serviceHandler := func(prev, curr *model.Service, event model.Event) {
-		needsPush := true
-		if event == model.EventUpdate {
-			needsPush = serviceUpdateNeedsPush(prev, curr)
+		pushReq := &model.PushRequest{
+			Full:           true,
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
+			Reason:         model.NewReasonStats(model.ServiceUpdate),
 		}
-		if needsPush {
-			pushReq := &model.PushRequest{
-				Full:           true,
-				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: string(curr.Hostname), Namespace: curr.Attributes.Namespace}),
-				Reason:         model.NewReasonStats(model.ServiceUpdate),
-			}
-			s.XDSServer.ConfigUpdate(pushReq)
-		}
+		s.XDSServer.ConfigUpdate(pushReq)
 	}
 	s.ServiceController().AppendServiceHandler(serviceHandler)
 
@@ -980,10 +974,13 @@ func (s *Server) initIstiodCerts(args *PilotArgs, host string) error {
 func getDNSNames(args *PilotArgs, host string) []string {
 	// Append custom hostname if there is any
 	customHost := features.IstiodServiceCustomHost
-	cHosts := strings.Split(customHost, ",")
+	var cHosts []string
+
+	if customHost != "" {
+		cHosts = strings.Split(customHost, ",")
+	}
 	sans := sets.New(cHosts...)
 	sans.Insert(host)
-
 	// The first is the recommended one, also used by Apiserver for webhooks.
 	// add a few known hostnames
 	knownHosts := []string{"istiod", "istiod-remote", "istio-pilot"}
@@ -1334,14 +1331,4 @@ func (s *Server) initReadinessProbes() {
 	for name, probe := range probes {
 		s.addReadinessProbe(name, probe)
 	}
-}
-
-func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
-	if !features.EnableOptimizedServicePush {
-		return true
-	}
-	if prev == nil {
-		return true
-	}
-	return !prev.Equals(curr)
 }

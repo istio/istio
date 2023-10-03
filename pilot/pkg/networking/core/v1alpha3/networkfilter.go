@@ -23,13 +23,14 @@ import (
 	redis "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/redis_proxy/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	hashpolicy "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	istioroute "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/tunnelingconfig"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -38,22 +39,13 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // redisOpTimeout is the default operation timeout for the Redis proxy filter.
 var redisOpTimeout = 5 * time.Second
 
-func buildMetadataExchangeNetworkFilters(class istionetworking.ListenerClass) []*listener.Filter {
-	filterstack := make([]*listener.Filter, 0)
-	// We add metadata exchange on inbound only; outbound is handled in cluster filter
-	if class == istionetworking.ListenerClassSidecarInbound && features.MetadataExchange {
-		filterstack = append(filterstack, xdsfilters.TCPListenerMx)
-	}
-
-	return filterstack
-}
-
-func buildMetadataExchangeNetworkFiltersForTCPIstioMTLSGateway() []*listener.Filter {
+func buildMetadataExchangeNetworkFilters() []*listener.Filter {
 	filterstack := make([]*listener.Filter, 0)
 	// We add metadata exchange on inbound only; outbound is handled in cluster filter
 	if features.MetadataExchange {
@@ -81,13 +73,14 @@ func setAccessLogAndBuildTCPFilter(push *model.PushContext, node *model.Proxy, c
 
 // buildOutboundNetworkFiltersWithSingleDestination takes a single cluster name
 // and builds a stack of network filters.
-func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, node *model.Proxy,
+func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 	statPrefix, clusterName, subsetName string, port *model.Port, destinationRule *networking.DestinationRule, applyTunnelingConfig tunnelingconfig.ApplyFunc,
+	includeMx bool,
 ) []*listener.Filter {
 	tcpProxy := &tcp.TcpProxy{
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
-		IdleTimeout:      parseDuration(node.Metadata.IdleTimeout),
+		IdleTimeout:      parseDuration(lb.node.Metadata.IdleTimeout),
 	}
 	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
 	if maxConnectionDuration != nil {
@@ -95,22 +88,57 @@ func buildOutboundNetworkFiltersWithSingleDestination(push *model.PushContext, n
 	}
 	maybeSetHashPolicy(destinationRule, tcpProxy, subsetName)
 	applyTunnelingConfig(tcpProxy, destinationRule, subsetName)
-	class := model.OutboundListenerClass(node.Type)
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy, class)
+	class := model.OutboundListenerClass(lb.node.Type)
+	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class)
+	networkFilterStack := buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)
 
+	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx)
+}
+
+func (lb *ListenerBuilder) buildCompleteNetworkFilters(
+	class istionetworking.ListenerClass,
+	port int,
+	networkFilterStack []*listener.Filter,
+	includeMx bool,
+) []*listener.Filter {
 	var filters []*listener.Filter
-	if !node.IsAmbient() {
-		filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
+	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+		Port:  port,
+		Class: class,
+	}, model.WasmPluginTypeNetwork)
+
+	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066
+	if features.MetadataExchange && includeMx {
+		filters = append(filters, xdsfilters.TCPListenerMx)
 	}
-	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
-	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
+	// TODO: not sure why it goes here
+	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
+
+	// Authn
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
+	if class != istionetworking.ListenerClassSidecarOutbound {
+		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
+	}
+
+	// Authz
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
+	filters = append(filters, lb.authzBuilder.BuildTCP()...)
+
+	// Stats
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, class)...)
+
+	// Terminal filters
+	filters = append(filters, networkFilterStack...)
 	return filters
 }
 
 // buildOutboundNetworkFiltersWithWeightedClusters takes a set of weighted
 // destination routes and builds a stack of network filters.
-func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes []*networking.RouteDestination,
-	push *model.PushContext, port *model.Port, configMeta config.Meta, destinationRule *networking.DestinationRule,
+func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithWeightedClusters(routes []*networking.RouteDestination,
+	port *model.Port, configMeta config.Meta, destinationRule *networking.DestinationRule,
+	includeMx bool,
 ) []*listener.Filter {
 	statPrefix := configMeta.Name + "." + configMeta.Namespace
 	clusterSpecifier := &tcp.TcpProxy_WeightedClusters{
@@ -121,7 +149,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 		StatPrefix:       statPrefix,
 		ClusterSpecifier: clusterSpecifier,
 
-		IdleTimeout: parseDuration(node.Metadata.IdleTimeout),
+		IdleTimeout: parseDuration(lb.node.Metadata.IdleTimeout),
 	}
 
 	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
@@ -130,7 +158,7 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 	}
 
 	for _, route := range routes {
-		service := push.ServiceForHostname(node, host.Name(route.Destination.Host))
+		service := lb.push.ServiceForHostname(lb.node, host.Name(route.Destination.Host))
 		if route.Weight > 0 {
 			clusterName := istioroute.GetDestinationCluster(route.Destination, service, port.Port)
 			clusterSpecifier.WeightedClusters.Clusters = append(clusterSpecifier.WeightedClusters.Clusters, &tcp.TcpProxy_WeightedCluster_ClusterWeight{
@@ -148,16 +176,11 @@ func buildOutboundNetworkFiltersWithWeightedClusters(node *model.Proxy, routes [
 
 	// TODO: Need to handle multiple cluster names for Redis
 	clusterName := clusterSpecifier.WeightedClusters.Clusters[0].Name
-	class := model.OutboundListenerClass(node.Type)
-	tcpFilter := setAccessLogAndBuildTCPFilter(push, node, tcpProxy, class)
+	class := model.OutboundListenerClass(lb.node.Type)
+	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, class)
+	networkFilterStack := buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)
 
-	var filters []*listener.Filter
-	if !node.IsAmbient() {
-		filters = append(filters, buildMetadataExchangeNetworkFilters(class)...)
-	}
-	filters = append(filters, buildMetricsNetworkFilters(push, node, class)...)
-	filters = append(filters, buildNetworkFiltersStack(port.Protocol, tcpFilter, statPrefix, clusterName)...)
-	return filters
+	return lb.buildCompleteNetworkFilters(class, port.Port, networkFilterStack, includeMx)
 }
 
 func maybeSetHashPolicy(destinationRule *networking.DestinationRule, tcpProxy *tcp.TcpProxy, subsetName string) {
@@ -220,10 +243,11 @@ func buildNetworkFiltersStack(p protocol.Instance, tcpFilter *listener.Filter, s
 // buildOutboundNetworkFilters generates a TCP proxy network filter for outbound
 // connections. In addition, it generates protocol specific filters (e.g., Mongo
 // filter).
-func buildOutboundNetworkFilters(node *model.Proxy,
-	routes []*networking.RouteDestination, push *model.PushContext,
-	port *model.Port, configMeta config.Meta,
+func (lb *ListenerBuilder) buildOutboundNetworkFilters(
+	routes []*networking.RouteDestination,
+	port *model.Port, configMeta config.Meta, includeMx bool,
 ) []*listener.Filter {
+	push, node := lb.push, lb.node
 	service := push.ServiceForHostname(node, host.Name(routes[0].Destination.Host))
 	var destinationRule *networking.DestinationRule
 	if service != nil {
@@ -238,10 +262,10 @@ func buildOutboundNetworkFilters(node *model.Proxy,
 				routes[0].Destination.Subset, port, 0, &service.Attributes)
 		}
 
-		return buildOutboundNetworkFiltersWithSingleDestination(
-			push, node, statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule, tunnelingconfig.Apply)
+		return lb.buildOutboundNetworkFiltersWithSingleDestination(
+			statPrefix, clusterName, routes[0].Destination.Subset, port, destinationRule, tunnelingconfig.Apply, includeMx)
 	}
-	return buildOutboundNetworkFiltersWithWeightedClusters(node, routes, push, port, configMeta, destinationRule)
+	return lb.buildOutboundNetworkFiltersWithWeightedClusters(routes, port, configMeta, destinationRule, includeMx)
 }
 
 // buildMongoFilter builds an outbound Envoy MongoProxy filter.

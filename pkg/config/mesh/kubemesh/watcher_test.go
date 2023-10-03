@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -75,6 +76,7 @@ func TestExtraConfigmap(t *testing.T) {
 		stop := test.NewStop(t)
 		w := NewConfigMapWatcher(client, namespace, name, key, true, stop)
 		AddUserMeshConfig(client, w, namespace, key, extraCmName, stop)
+		client.RunAndWait(stop)
 		return cms, w
 	}
 
@@ -158,9 +160,9 @@ func TestExtraConfigmap(t *testing.T) {
 				}
 			}()
 			wg.Wait()
-			retry.UntilOrFail(
-				t,
-				func() bool { return w.Mesh().GetIngressClass() == write },
+			assert.EventuallyEqual(t, func() string {
+				return w.Mesh().GetIngressClass()
+			}, write,
 				retry.Delay(time.Millisecond),
 				retry.Timeout(time.Second),
 				retry.Message("write failed "+write),
@@ -200,6 +202,7 @@ func TestNewConfigMapWatcher(t *testing.T) {
 	cms := client.Kube().CoreV1().ConfigMaps(namespace)
 	stop := test.NewStop(t)
 	w := NewConfigMapWatcher(client, namespace, name, key, false, stop)
+	client.RunAndWait(stop)
 
 	var mu sync.Mutex
 	newM := mesh.DefaultMeshConfig()

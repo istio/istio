@@ -52,7 +52,6 @@ type FakeControllerOptions struct {
 	SkipRun                   bool
 	ConfigController          model.ConfigStoreController
 	ConfigCluster             bool
-	WorkloadEntryEnabled      bool
 }
 
 type FakeController struct {

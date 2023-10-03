@@ -16,13 +16,13 @@ package validation
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -38,7 +38,9 @@ import (
 	api "istio.io/api/type/v1beta1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -4088,22 +4090,6 @@ func TestValidateLoadBalancer(t *testing.T) {
 		},
 
 		{
-			name: "invalid load balancer with consistentHash load balancing, missing ttl", in: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
-					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
-						MinimumRingSize: 1024,
-						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
-							HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
-								Name: "test",
-							},
-						},
-					},
-				},
-			},
-			valid: false,
-		},
-
-		{
 			name: "invalid load balancer with consistentHash load balancing, missing name", in: &networking.LoadBalancerSettings{
 				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
 					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
@@ -5541,6 +5527,203 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 				},
 			},
 			valid: false,
+		},
+		{
+			name: "target-ref-good",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: false,
+		},
+		{
+			name: "target-ref-non-empty-namespace",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
+					Name:      "foo",
+					Namespace: "bar",
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
+		},
+		{
+			name: "target-ref-empty-name",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
+		},
+		{
+			name: "target-ref-wrong-group",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: "wrong-group",
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
+		},
+		{
+			name: "target-ref-wrong-kind",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
+		},
+		{
+			name: "target-ref-and-selector-cannot-both-be-set",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
 		},
 		{
 			name: "from-empty",
@@ -7545,7 +7728,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:       "bad selector - empty key",
+			name:       "bad workload selector - empty key",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{
@@ -7558,6 +7741,119 @@ func TestValidateRequestAuthentication(t *testing.T) {
 					{
 						Issuer:  "foo.com",
 						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "good targetRef",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "bad targetRef - empty name",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad targetRef - non-empty namespace",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
+					Name:      "foo",
+					Namespace: "bar",
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad targetRef - wrong group",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group: "wrong-group",
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad targetRef - wrong kind",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "targetRef and selector cannot both be set",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 			},
@@ -8302,6 +8598,145 @@ func TestValidateTelemetry(t *testing.T) {
 			},
 			"", "",
 		},
+		{
+			"good targetRef",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+			},
+			"", "",
+		},
+		{
+			"bad targetRef - empty name",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+				},
+			},
+			"targetRef name must be set", "",
+		},
+		{
+			"bad targetRef - non-empty namespace",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
+					Name:      "foo",
+					Namespace: "bar",
+				},
+			},
+			"targetRef namespace must not be set", "",
+		},
+		{
+			"bad targetRef - wrong group",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: "wrong-group",
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+			},
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, "wrong-group", gvk.KubernetesGateway.Kind), "",
+		},
+		{
+			"bad targetRef - wrong kind",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
+				},
+			},
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, gvk.KubernetesGateway.Group, "wrong-kind"), "",
+		},
+		{
+			"targetRef and selector cannot both be set",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+			},
+			"only one of targetRef or workloadSelector can be set", "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -8492,6 +8927,85 @@ func TestValidateWasmPlugin(t *testing.T) {
 				},
 			},
 			"duplicate env", "",
+		},
+		{
+			"target-ref-good",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+			},
+			"", "",
+		},
+		{
+			"target-ref-non-empty-namespace",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
+					Name:      "foo",
+					Namespace: "bar",
+				},
+			},
+			"targetRef namespace must not be set", "",
+		},
+		{
+			"target-ref-empty-name",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+				},
+			},
+			"targetRef name must be set", "",
+		},
+		{
+			"target-ref-wrong-group",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group: "wrong-group",
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+			},
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, "wrong-group", gvk.KubernetesGateway.Kind), "",
+		},
+		{
+			"target-ref-wrong-kind",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
+				},
+			},
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, gvk.KubernetesGateway.Group, "wrong-kind"), "",
+		},
+		{
+			"target-ref-and-selector-cannot-both-be-set",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+			},
+			"only one of targetRef or workloadSelector can be set", "",
 		},
 	}
 	for _, tt := range tests {

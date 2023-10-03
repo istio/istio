@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func (s *Server) ServiceController() *aggregate.Controller {
@@ -38,14 +39,14 @@ func (s *Server) initServiceControllers(args *PilotArgs) error {
 	)
 	serviceControllers.AddRegistry(s.serviceEntryController)
 
-	registered := make(map[provider.ID]bool)
+	registered := sets.New[provider.ID]()
 	for _, r := range args.RegistryOptions.Registries {
 		serviceRegistry := provider.ID(r)
-		if _, exists := registered[serviceRegistry]; exists {
+		if registered.Contains(serviceRegistry) {
 			log.Warnf("%s registry specified multiple times.", r)
 			continue
 		}
-		registered[serviceRegistry] = true
+		registered.Insert(serviceRegistry)
 		log.Infof("Adding %s registry adapter", serviceRegistry)
 		switch serviceRegistry {
 		case provider.Kubernetes:

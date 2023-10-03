@@ -69,9 +69,6 @@ func (a *Analyzer) Analyze(c analysis.Context) {
 		}
 
 		ns := r.Metadata.FullName.String()
-		if util.IsSystemNamespace(resource.Namespace(ns)) {
-			return true
-		}
 
 		injectionLabel, okInjectionLabel := r.Metadata.Labels[util.InjectionLabelName]
 		nsRevision, okNewInjectionLabel := r.Metadata.Labels[RevisionInjectionLabelName]
