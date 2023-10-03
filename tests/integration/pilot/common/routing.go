@@ -2374,6 +2374,33 @@ spec:
 					ConsistentHostChecker,
 				),
 			}
+			cookieCallOpts := echo.CallOptions{
+				Count:   10,
+				Address: svcName,
+				HTTP: echo.HTTP{
+					Path:    "/?some-query-param=bar",
+					Headers: headers.New().With("x-some-header", "baz").Build(),
+				},
+				Port: echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
+				Check: check.And(
+					check.OK(),
+					ConsistentHostChecker,
+				),
+				PropagateResponse: func(req *http.Request, res *http.Response) {
+					if res != nil && res.Cookies() != nil {
+						var sessionCookie *http.Cookie
+						for _, cookie := range res.Cookies() {
+							if cookie.Name == "session-cookie" {
+								sessionCookie = cookie
+								break
+							}
+						}
+						if sessionCookie == nil {
+							req.AddCookie(sessionCookie)
+						}
+					}
+				},
+			}
 			tcpCallopts := echo.CallOptions{
 				Count:   10,
 				Address: svcName,
@@ -2421,7 +2448,7 @@ spec:
 				name:   "http cookie with ttl" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(cookieWithTTLDest, ""),
 				call:   c.CallOrFail,
-				opts:   callOpts,
+				opts:   cookieCallOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
 				name:   "http cookie without ttl" + c.Config().Service,
