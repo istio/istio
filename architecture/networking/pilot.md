@@ -184,13 +184,13 @@ Istio currently supports both SotW and Delta protocol. However, the delta implem
 
 Istiod consists of a collection of controllers. Per Kubernetes, "controllers are control loops that watch the state of your cluster, then make or request changes where needed."
 
-In Istio, we use the term a bit more liberally. Istio controllers watch more than just the start of *a* cluster -- many are reading from multiple clusters, or even external sources (files and XDS). Generally Kubernetes controllers are then writing state back to the cluster; Istio does have a few of these controllers, but most of them are centered around driving the [Proxy Configuration](#proxy-configuration).
+In Istio, we use the term a bit more liberally. Istio controllers watch more than just the state of *a* cluster -- many are reading from multiple clusters, or even external sources (files and XDS). Generally Kubernetes controllers are then writing state back to the cluster; Istio does have a few of these controllers, but most of them are centered around driving the [Proxy Configuration](#proxy-configuration).
 
 ### Writing controllers
 
 Istio provides a few helper libraries to get started writing a controller. While these libraries help, there are still a lot of subtleties in correctly writing (and testing!) a controller properly.
 
-To get started writing a controller, review the [Example Controller](../pkg/kube/controllers/example_test.go).
+To get started writing a controller, review the [Example Controller](../../pkg/kube/controllers/example_test.go).
 
 ### Controllers overview
 

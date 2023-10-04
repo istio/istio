@@ -473,6 +473,25 @@ func TestCmdAddNoPrevResult(t *testing.T) {
 	testCmdAddWithStdinData(t, confNoPrevResult)
 }
 
+func TestCmdAddEnableDualStack(t *testing.T) {
+	defer resetGlobalTestVariables()
+	testProxyEnv["ISTIO_DUAL_STACK"] = "true"
+	testContainers = sets.New("mockContainer", "istio-proxy")
+	testCmdAdd(t)
+
+	if !nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to be called")
+	}
+	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
+	if !ok {
+		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"]())
+	}
+	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
+	if !r.dualStack {
+		t.Fatalf("expect dualStack is true, actual %v", r.dualStack)
+	}
+}
+
 func MockInterceptRuleMgrCtor() InterceptRuleMgr {
 	return NewMockInterceptRuleMgr()
 }

@@ -58,6 +58,9 @@ pilot:
   configMap: false
   # Additional labels to apply on the pod level for monitoring and logging configuration.
   podLabels: {}
+  # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+  ipFamilyPolicy: ""
+  ipFamilies: []
 sidecarInjectorWebhook:
   # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
   # always skip the injection on pods that match that label selector, regardless of the global policy.

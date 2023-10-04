@@ -26,7 +26,7 @@ import (
 var TunnelHostMetadata = []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
 	{
 		Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{Host: &metadata.MetadataKind_Host{}}},
-		Name: "tunnel",
+		Name: OriginalDstMetadataKey,
 	},
 }
 

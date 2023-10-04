@@ -617,6 +617,7 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 		kubeClient:              kube.NewFakeClient(csr),
 		dnsNames:                []string{"abc.xyz"},
 	}
+	s.kubeClient.RunAndWait(test.NewStop(t))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

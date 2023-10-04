@@ -103,9 +103,11 @@ const (
 	ProbeTimeout              = "probe-timeout"
 	RedirectDNS               = "redirect-dns"
 	DropInvalid               = "drop-invalid"
+	DualStack                 = "dual-stack"
 	CaptureAllDNS             = "capture-all-dns"
 	NetworkNamespace          = "network-namespace"
 	CNIMode                   = "cni-mode"
+	IptablesVersion           = "iptables-version"
 )
 
 // Environment variables that deliberately have no equivalent command-line flags.

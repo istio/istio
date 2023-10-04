@@ -1048,6 +1048,108 @@ func TestBuildDefaultCluster(t *testing.T) {
 	}
 }
 
+func TestClusterDnsLookupFamily(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     8080,
+		Protocol: protocol.HTTP,
+	}
+
+	endpoints := []*endpoint.LocalityLbEndpoints{
+		{
+			Locality: &core.Locality{
+				Region:  "region1",
+				Zone:    "zone1",
+				SubZone: "subzone1",
+			},
+			LbEndpoints: []*endpoint.LbEndpoint{},
+			LoadBalancingWeight: &wrappers.UInt32Value{
+				Value: 1,
+			},
+			Priority: 0,
+		},
+	}
+
+	cases := []struct {
+		name           string
+		clusterName    string
+		discovery      cluster.Cluster_DiscoveryType
+		proxy          *model.Proxy
+		dualStack      bool
+		expectedFamily cluster.Cluster_DnsLookupFamily
+	}{
+		{
+			name:           "all ipv4, dual stack disabled",
+			clusterName:    "foo",
+			discovery:      cluster.Cluster_STRICT_DNS,
+			proxy:          getProxy(),
+			dualStack:      false,
+			expectedFamily: cluster.Cluster_V4_ONLY,
+		},
+		{
+			name:           "all ipv4, dual stack enabled",
+			clusterName:    "foo",
+			discovery:      cluster.Cluster_STRICT_DNS,
+			proxy:          getProxy(),
+			dualStack:      true,
+			expectedFamily: cluster.Cluster_V4_ONLY,
+		},
+		{
+			name:           "all ipv6, dual stack disabled",
+			clusterName:    "foo",
+			discovery:      cluster.Cluster_STRICT_DNS,
+			proxy:          getIPv6Proxy(),
+			dualStack:      false,
+			expectedFamily: cluster.Cluster_V6_ONLY,
+		},
+		{
+			name:           "all ipv6, dual stack enabled",
+			clusterName:    "foo",
+			discovery:      cluster.Cluster_STRICT_DNS,
+			proxy:          getIPv6Proxy(),
+			dualStack:      true,
+			expectedFamily: cluster.Cluster_V6_ONLY,
+		},
+		{
+			name:           "ipv4 and ipv6, dual stack disabled",
+			clusterName:    "foo",
+			discovery:      cluster.Cluster_STRICT_DNS,
+			proxy:          &dualStackProxy,
+			dualStack:      false,
+			expectedFamily: cluster.Cluster_V4_ONLY,
+		},
+		{
+			name:           "ipv4 and ipv6, dual stack enabled",
+			clusterName:    "foo",
+			discovery:      cluster.Cluster_STRICT_DNS,
+			proxy:          &dualStackProxy,
+			dualStack:      true,
+			expectedFamily: cluster.Cluster_ALL,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableDualStack, tt.dualStack)
+			mesh := testMesh()
+			cg := NewConfigGenTest(t, TestOptions{MeshConfig: mesh})
+			cb := NewClusterBuilder(cg.SetupProxy(tt.proxy), &model.PushRequest{Push: cg.PushContext()}, nil)
+			service := &model.Service{
+				Ports: model.PortList{
+					servicePort,
+				},
+				Hostname:     "host",
+				MeshExternal: false,
+				Attributes:   model.ServiceAttributes{Name: "svc", Namespace: "default"},
+			}
+			defaultCluster := cb.buildCluster(tt.clusterName, tt.discovery, endpoints, model.TrafficDirectionOutbound, servicePort, service, nil)
+
+			if defaultCluster.build().DnsLookupFamily != tt.expectedFamily {
+				t.Errorf("Unexpected DnsLookupFamily, got: %v, want: %v", defaultCluster.build().DnsLookupFamily, tt.expectedFamily)
+			}
+		})
+	}
+}
+
 func TestBuildLocalityLbEndpoints(t *testing.T) {
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{

@@ -44,7 +44,7 @@ var (
 	// InvalidDropByIptables is the flag to enable invalid drop iptables rule to drop the out of window packets
 	InvalidDropByIptables = env.Register("INVALID_DROP", false,
 		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
-	DualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
+	DualStack = env.Register("ISTIO_DUAL_STACK", false,
 		"If true, Istio will enable the Dual Stack feature.").Get()
 )
 
@@ -67,13 +67,19 @@ var rootCmd = &cobra.Command{
 		if cfg.DryRun {
 			ext = &dep.StdoutStubDependencies{}
 		} else {
+			ipv, err := dep.DetectIptablesVersion(cfg.IPTablesVersion)
+			if err != nil {
+				handleErrorWithCode(err, 1)
+			}
 			ext = &dep.RealDependencies{
 				CNIMode:          cfg.CNIMode,
 				NetworkNamespace: cfg.NetworkNamespace,
+				IptablesVersion:  ipv,
 			}
 		}
 
 		iptConfigurator := capture.NewIptablesConfigurator(cfg, ext)
+
 		if !cfg.SkipRuleApply {
 			iptConfigurator.Run()
 			if err := capture.ConfigureRoutes(cfg, ext); err != nil {
@@ -82,7 +88,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		if cfg.RunValidation {
-			hostIP, _, err := getLocalIP()
+			hostIP, _, err := getLocalIP(cfg.DualStack)
 			if err != nil {
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
@@ -135,6 +141,7 @@ func constructConfig() *config.Config {
 		CaptureAllDNS:           viper.GetBool(constants.CaptureAllDNS),
 		NetworkNamespace:        viper.GetString(constants.NetworkNamespace),
 		CNIMode:                 viper.GetBool(constants.CNIMode),
+		DualStack:               viper.GetBool(constants.DualStack),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -155,7 +162,7 @@ func constructConfig() *config.Config {
 	}
 
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
-	_, isIPv6, err := getLocalIP()
+	_, isIPv6, err := getLocalIP(cfg.DualStack)
 	if err != nil {
 		panic(err)
 	}
@@ -177,7 +184,7 @@ func constructConfig() *config.Config {
 }
 
 // getLocalIP returns one of the local IP address and it should support IPv6 or not
-func getLocalIP() (netip.Addr, bool, error) {
+func getLocalIP(dualStack bool) (netip.Addr, bool, error) {
 	var isIPv6 bool
 	var ipAddrs []netip.Addr
 	addrs, err := LocalIPAddrs()
@@ -197,7 +204,7 @@ func getLocalIP() (netip.Addr, bool, error) {
 			if !unwrapAddr.IsLoopback() && !unwrapAddr.IsLinkLocalUnicast() && !unwrapAddr.IsLinkLocalMulticast() {
 				isIPv6 = unwrapAddr.Is6()
 				ipAddrs = append(ipAddrs, unwrapAddr)
-				if !DualStack {
+				if !dualStack {
 					return unwrapAddr, isIPv6, nil
 				}
 				if isIPv6 {
@@ -274,6 +281,8 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	bind(constants.CaptureAllDNS, false)
 	bind(constants.NetworkNamespace, "")
 	bind(constants.CNIMode, false)
+	bind(constants.IptablesVersion, "")
+	bind(constants.DualStack, DualStack)
 }
 
 // https://github.com/spf13/viper/issues/233.
@@ -351,12 +360,16 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 
 	rootCmd.Flags().Bool(constants.DropInvalid, InvalidDropByIptables.Get(), "Enable invalid drop in the iptables rules.")
 
+	rootCmd.Flags().Bool(constants.DualStack, DualStack, "Enable ipv4/ipv6 redirects for dual-stack.")
+
 	rootCmd.Flags().Bool(constants.CaptureAllDNS, false,
 		"Instead of only capturing DNS traffic to DNS server IP, capture all DNS traffic at port 53. This setting is only effective when redirect dns is enabled.")
 
 	rootCmd.Flags().String(constants.NetworkNamespace, "", "The network namespace that iptables rules should be applied to.")
 
 	rootCmd.Flags().Bool(constants.CNIMode, false, "Whether to run as CNI plugin.")
+
+	rootCmd.Flags().String(constants.IptablesVersion, "", "version of iptables command. If not set, this is automatically detected.")
 }
 
 func GetCommand() *cobra.Command {

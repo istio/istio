@@ -593,9 +593,9 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 				})).
 				Source(config.File("testdata/requestauthn/gateway-jwt.yaml.tmpl").WithParams(param.Params{
 					param.Namespace.String(): apps.Ns1.Namespace,
-					"Services":               apps.Ns1.All,
+					"Services":               apps.Ns1.A.Append(apps.Ns1.B).Services(),
 				})).
-				BuildAll(nil, apps.Ns1.All).
+				BuildAll(nil, apps.Ns1.A.Append(apps.Ns1.B).Services()).
 				Apply()
 
 			t.NewSubTest("gateway-authn").Run(func(t framework.TestContext) {
@@ -625,7 +625,7 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 						},
 					},
 					{
-						name: "allow with sub-1 token despite \"ignored\" RequestAuthentication (onlyPolicyAttachment flag = false)",
+						name: "allow with sub-1 token despite \"ignored\" RequestAuthentication (enableGatewayAPISelectorPolicies flag = true)",
 						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
 							opts.HTTP.Path = "/"
 							opts.HTTP.Headers = headers.New().
@@ -712,7 +712,7 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 					},
 				}
 
-				newTrafficTest(t, apps.Ns1.All.Instances()).
+				newTrafficTest(t, apps.Ns1.A.Append(apps.Ns1.B)).
 					RunViaGatewayIngress("istio", func(t framework.TestContext, from ingress.Instance, to echo.Target) {
 						for _, c := range cases {
 							t.NewSubTest(c.name).Run(func(t framework.TestContext) {

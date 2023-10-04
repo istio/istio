@@ -88,6 +88,7 @@ type Redirect struct {
 	kubevirtInterfaces   string
 	excludeInterfaces    string
 	dnsRedirect          bool
+	dualStack            bool
 	invalidDrop          bool
 }
 
@@ -282,6 +283,13 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 		redir.dnsRedirect, valErr = strconv.ParseBool(v)
 		if valErr != nil {
 			log.Warnf("cannot parse DNS capture environment variable %v", valErr)
+		}
+	}
+	if v, found := pi.ProxyEnvironments["ISTIO_DUAL_STACK"]; found {
+		// parse and set the bool value of dnsRedirect
+		redir.dualStack, valErr = strconv.ParseBool(v)
+		if valErr != nil {
+			log.Warnf("cannot parse dual stack environment variable %v", valErr)
 		}
 	}
 	if v, found := pi.ProxyEnvironments[cmd.InvalidDropByIptables.Name]; found {
