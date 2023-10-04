@@ -106,8 +106,6 @@ spec:
         {{- else }}
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.global.istioNamespace }}.svc:15012
         {{- end }}
-        - name: OUTPUT_CERTS # Store certs in non-root directory.
-          value: /var/run/user/secrets/istio
         - name: POD_NAME
           valueFrom:
             fieldRef:
