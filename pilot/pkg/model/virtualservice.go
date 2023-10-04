@@ -22,7 +22,6 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
@@ -35,72 +34,41 @@ import (
 func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
 
-	vsset := sets.New[string]()
-	addVirtualService := func(vs config.Config, hosts hostClassification) {
-		vsname := vs.Name + "/" + vs.Namespace
-		rule := vs.Spec.(*networking.VirtualService)
+	addVirtualService := func(vst virtualServiceTrie, host []string) {
+		importedVirtualServices = vst.matchesTrie.Matches(host, importedVirtualServices)
+		importedVirtualServices = vst.subsetOfTrie.SubsetOf(host, importedVirtualServices)
+	}
 
-		for _, vh := range rule.Hosts {
-			if vsset.Contains(vsname) {
-				break
+	loopAndAdd := func(ct configTrie) {
+		if len(ct.trie) == 0 {
+			return
+		}
+
+		for crNs, hc := range hostsByNamespace {
+			if crNs == wildcardNamespace {
+				for _, h := range hc.allHosts {
+					for _, vst := range ct.trie {
+						addVirtualService(vst, strings.Split(h.String(), "."))
+					}
+				}
+				continue
 			}
 
-			// first, check exactHosts
-			if hosts.exactHosts.Contains(host.Name(vh)) {
-				importedVirtualServices = append(importedVirtualServices, vs)
-				vsset.Insert(vsname)
-				break
-			}
-
-			// exactHosts not found, fallback to loop allHosts
-			for _, ah := range hosts.allHosts {
-				if vsHostMatches(vh, ah, vs) {
-					importedVirtualServices = append(importedVirtualServices, vs)
-					vsset.Insert(vsname)
-					break
+			if vst, ok := ct.trie[crNs]; ok {
+				for _, h := range hc.allHosts {
+					addVirtualService(vst, strings.Split(h.String(), "."))
 				}
 			}
 		}
 	}
 
-	loopAndAdd := func(vses []config.Config) {
-		for _, c := range vses {
-			configNamespace := c.Namespace
-			// Selection algorithm:
-			// virtualservices have a list of hosts in the API spec
-			// if any host in the list matches one service hostname, select the virtual service
-			// and break out of the loop.
-
-			// Check if there is an explicit import of form ns/* or ns/host
-			if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-				addVirtualService(c, importedHosts)
-			}
-
-			// Check if there is an import of form */host or */*
-			if importedHosts, wnsFound := hostsByNamespace[wildcardNamespace]; wnsFound {
-				addVirtualService(c, importedHosts)
-			}
-		}
-	}
-
 	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
+
 	loopAndAdd(vsidx.privateByNamespaceAndGateway[n])
 	loopAndAdd(vsidx.exportedToNamespaceByGateway[n])
 	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])
 
 	return importedVirtualServices
-}
-
-// vsHostMatches checks if the given VirtualService host matches the importedHost (from Sidecar)
-func vsHostMatches(vsHost string, importedHost host.Name, vs config.Config) bool {
-	if UseGatewaySemantics(vs) {
-		// The new way. Matching logic exactly mirrors Service matching
-		// If a route defines `*.com` and we import `a.com`, it will not match
-		return host.Name(vsHost).SubsetOf(importedHost)
-	}
-
-	// The old way. We check Matches which is bi-directional. This is for backwards compatibility
-	return host.Name(vsHost).Matches(importedHost)
 }
 
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {

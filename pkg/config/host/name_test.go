@@ -12,19 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package host_test
+package host
 
 import (
 	"fmt"
+	"strings"
 	"testing"
-
-	"istio.io/istio/pkg/config/host"
 )
 
 func TestNameMatches(t *testing.T) {
 	tests := []struct {
 		name string
-		a, b host.Name
+		a, b Name
 		out  bool
 	}{
 		{"empty", "", "", true},
@@ -87,6 +86,19 @@ func TestNameMatches(t *testing.T) {
 			if tt.out != tt.a.Matches(tt.b) {
 				t.Fatalf("%q.Matches(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
 			}
+
+			// reuse test cases for trie implementation
+			tr := NewTrie[Name]()
+			tr.Add(strings.Split(tt.a.String(), "."), tt.a)
+
+			got := make([]Name, 0)
+			got = tr.Matches(strings.Split(tt.b.String(), "."), got)
+			if tt.out != (len(got) > 0) {
+				t.Fatalf("trie: %q.Matches(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
+			}
+			if len(got) > 0 && got[0] != tt.a {
+				t.Fatalf("trie: %q.Matches(%q) = %s wanted %s", tt.a, tt.b, got[0], tt.a)
+			}
 		})
 	}
 }
@@ -94,7 +106,7 @@ func TestNameMatches(t *testing.T) {
 func TestNameSubsetOf(t *testing.T) {
 	tests := []struct {
 		name string
-		a, b host.Name
+		a, b Name
 		out  bool
 	}{
 		{"empty", "", "", true},
@@ -154,13 +166,26 @@ func TestNameSubsetOf(t *testing.T) {
 			if tt.out != tt.a.SubsetOf(tt.b) {
 				t.Fatalf("%q.SubsetOf(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
 			}
+
+			// reuse test cases for trie implementation
+			tr := NewTrie[Name]()
+			tr.Add(strings.Split(tt.a.String(), "."), tt.a)
+
+			got := make([]Name, 0)
+			got = tr.SubsetOf(strings.Split(tt.b.String(), "."), got)
+			if tt.out != (len(got) > 0) {
+				t.Fatalf("trie: %q.Matches(%q) = %t wanted %t", tt.a, tt.b, !tt.out, tt.out)
+			}
+			if len(got) > 0 && got[0] != tt.a {
+				t.Fatalf("trie: %q.Matches(%q) = %s wanted %s", tt.a, tt.b, got[0], tt.a)
+			}
 		})
 	}
 }
 
 func BenchmarkNameMatch(b *testing.B) {
 	tests := []struct {
-		a, z    host.Name
+		a, z    Name
 		matches bool
 	}{
 		{"foo.com", "foo.com", true},

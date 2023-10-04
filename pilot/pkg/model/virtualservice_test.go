@@ -33,6 +33,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -2219,8 +2220,8 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 
 	index := virtualServiceIndex{
-		publicByGateway: map[string][]config.Config{
-			constants.IstioMeshGateway: {
+		publicByGateway: map[string]configTrie{
+			constants.IstioMeshGateway: buildConfigTrie([]config.Config{
 				virtualService1,
 				virtualService2,
 				virtualService3,
@@ -2230,7 +2231,7 @@ func TestSelectVirtualService(t *testing.T) {
 				virtualService7,
 				virtualService8,
 				virtualService9,
-			},
+			}),
 		},
 	}
 
@@ -2239,6 +2240,15 @@ func TestSelectVirtualService(t *testing.T) {
 		virtualService1.Name, virtualService2.Name, virtualService4.Name, virtualService7.Name,
 		virtualService8.Name, virtualService9.Name,
 	}
+
+	// trie tree search result is not stable
+	slices.SortFunc(configs, func(a, b config.Config) bool {
+		return a.Name > b.Name
+	})
+	slices.SortFunc(expectedVS, func(a, b string) bool {
+		return a > b
+	})
+
 	if len(expectedVS) != len(configs) {
 		t.Fatalf("Unexpected virtualService, got %d, expected %d", len(configs), len(expectedVS))
 	}

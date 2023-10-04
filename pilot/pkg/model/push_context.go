@@ -92,13 +92,25 @@ type exportToDefaults struct {
 	destinationRule sets.Set[visibility.Instance]
 }
 
+type configTrie struct {
+	// the key is CR's namespace
+	trie    map[string]virtualServiceTrie
+	configs []config.Config
+}
+
+type virtualServiceTrie struct {
+	matchesTrie  *host.Trie[config.Config]
+	subsetOfTrie *host.Trie[config.Config]
+}
+
 // virtualServiceIndex is the index of virtual services by various fields.
 type virtualServiceIndex struct {
-	exportedToNamespaceByGateway map[types.NamespacedName][]config.Config
+	exportedToNamespaceByGateway map[types.NamespacedName]configTrie
 	// this contains all the virtual services with exportTo "." and current namespace. The keys are namespace,gateway.
-	privateByNamespaceAndGateway map[types.NamespacedName][]config.Config
+	privateByNamespaceAndGateway map[types.NamespacedName]configTrie
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
-	publicByGateway map[string][]config.Config
+	publicByGateway map[string]configTrie
+
 	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
 	delegates map[ConfigKey][]ConfigKey
 
@@ -112,9 +124,9 @@ type virtualServiceIndex struct {
 
 func newVirtualServiceIndex() virtualServiceIndex {
 	out := virtualServiceIndex{
-		publicByGateway:              map[string][]config.Config{},
-		privateByNamespaceAndGateway: map[types.NamespacedName][]config.Config{},
-		exportedToNamespaceByGateway: map[types.NamespacedName][]config.Config{},
+		publicByGateway:              map[string]configTrie{},
+		privateByNamespaceAndGateway: map[types.NamespacedName]configTrie{},
+		exportedToNamespaceByGateway: map[types.NamespacedName]configTrie{},
 		delegates:                    map[ConfigKey][]ConfigKey{},
 		referencedDestinations:       map[string]sets.String{},
 	}
@@ -1000,19 +1012,19 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 		Namespace: proxyNamespace,
 		Name:      gateway,
 	}
-	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[name])+
-		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[name])+
-		len(ps.virtualServiceIndex.publicByGateway[gateway]))
-	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name]...)
-	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name]...)
+	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[name].configs)+
+		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[name].configs)+
+		len(ps.virtualServiceIndex.publicByGateway[gateway].configs))
+	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name].configs...)
+	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name].configs...)
 	// Favor same-namespace Gateway routes, to give the "consumer override" preference.
 	// We do 2 iterations here to avoid extra allocations.
-	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway].configs {
 		if UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace {
 			res = append(res, vs)
 		}
 	}
-	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway] {
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway].configs {
 		if !(UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace) {
 			res = append(res, vs)
 		}
@@ -1513,9 +1525,9 @@ func (ps *PushContext) initAuthnPolicies(env *Environment) {
 
 // Caches list of virtual services
 func (ps *PushContext) initVirtualServices(env *Environment) {
-	ps.virtualServiceIndex.exportedToNamespaceByGateway = map[types.NamespacedName][]config.Config{}
-	ps.virtualServiceIndex.privateByNamespaceAndGateway = map[types.NamespacedName][]config.Config{}
-	ps.virtualServiceIndex.publicByGateway = map[string][]config.Config{}
+	exportedToNamespaceByGateway := map[types.NamespacedName][]config.Config{}
+	privateByNamespaceAndGateway := map[types.NamespacedName][]config.Config{}
+	publicByGateway := map[string][]config.Config{}
 	ps.virtualServiceIndex.referencedDestinations = map[string]sets.String{}
 
 	if features.FilterGatewayClusterConfig {
@@ -1556,14 +1568,13 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 			// We only honor ., *
 			if ps.exportToDefaults.virtualService.Contains(visibility.Private) {
 				// add to local namespace only
-				private := ps.virtualServiceIndex.privateByNamespaceAndGateway
 				for _, gw := range gwNames {
 					n := types.NamespacedName{Namespace: ns, Name: gw}
-					private[n] = append(private[n], virtualService)
+					privateByNamespaceAndGateway[n] = append(privateByNamespaceAndGateway[n], virtualService)
 				}
 			} else if ps.exportToDefaults.virtualService.Contains(visibility.Public) {
 				for _, gw := range gwNames {
-					ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
+					publicByGateway[gw] = append(publicByGateway[gw], virtualService)
 				}
 			}
 		} else {
@@ -1576,7 +1587,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 			// if vs has exportTo ., replace with current namespace
 			if exportToSet.Contains(visibility.Public) {
 				for _, gw := range gwNames {
-					ps.virtualServiceIndex.publicByGateway[gw] = append(ps.virtualServiceIndex.publicByGateway[gw], virtualService)
+					publicByGateway[gw] = append(publicByGateway[gw], virtualService)
 				}
 			} else if !exportToSet.Contains(visibility.None) {
 				// . or other namespaces
@@ -1585,14 +1596,13 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 						// add to local namespace only
 						for _, gw := range gwNames {
 							n := types.NamespacedName{Namespace: ns, Name: gw}
-							ps.virtualServiceIndex.privateByNamespaceAndGateway[n] = append(ps.virtualServiceIndex.privateByNamespaceAndGateway[n], virtualService)
+							privateByNamespaceAndGateway[n] = append(privateByNamespaceAndGateway[n], virtualService)
 						}
 					} else {
-						exported := ps.virtualServiceIndex.exportedToNamespaceByGateway
 						// add to local namespace only
 						for _, gw := range gwNames {
 							n := types.NamespacedName{Namespace: string(exportTo), Name: gw}
-							exported[n] = append(exported[n], virtualService)
+							exportedToNamespaceByGateway[n] = append(exportedToNamespaceByGateway[n], virtualService)
 						}
 					}
 				}
@@ -1626,6 +1636,39 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 			}
 		}
 	}
+
+	ps.virtualServiceIndex.publicByGateway = make(map[string]configTrie, len(publicByGateway))
+	ps.virtualServiceIndex.exportedToNamespaceByGateway = make(map[types.NamespacedName]configTrie, len(exportedToNamespaceByGateway))
+	ps.virtualServiceIndex.privateByNamespaceAndGateway = make(map[types.NamespacedName]configTrie, len(privateByNamespaceAndGateway))
+	for key, vses := range publicByGateway {
+		ps.virtualServiceIndex.publicByGateway[key] = buildConfigTrie(vses)
+	}
+	for key, vses := range exportedToNamespaceByGateway {
+		ps.virtualServiceIndex.exportedToNamespaceByGateway[key] = buildConfigTrie(vses)
+	}
+	for key, vses := range privateByNamespaceAndGateway {
+		ps.virtualServiceIndex.privateByNamespaceAndGateway[key] = buildConfigTrie(vses)
+	}
+}
+
+func buildConfigTrie(vss []config.Config) configTrie {
+	ct := configTrie{trie: make(map[string]virtualServiceTrie), configs: vss}
+	for _, vs := range vss {
+		ns := vs.Namespace
+		if _, ok := ct.trie[ns]; !ok {
+			ct.trie[ns] = virtualServiceTrie{
+				matchesTrie:  host.NewTrie[config.Config](),
+				subsetOfTrie: host.NewTrie[config.Config](),
+			}
+		}
+		spec := vs.Spec.(*networking.VirtualService)
+		if UseGatewaySemantics(vs) {
+			ct.trie[ns].subsetOfTrie.AddBatch(spec.Hosts, vs)
+		} else {
+			ct.trie[ns].matchesTrie.AddBatch(spec.Hosts, vs)
+		}
+	}
+	return ct
 }
 
 var meshGateways = []string{constants.IstioMeshGateway}

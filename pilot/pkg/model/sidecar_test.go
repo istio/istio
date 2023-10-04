@@ -1985,8 +1985,7 @@ func TestCreateSidecarScope(t *testing.T) {
 				}
 			}
 			if tt.virtualServices != nil {
-				// nolint lll
-				ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], tt.virtualServices...)
+				ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = buildConfigTrie(tt.virtualServices)
 			}
 
 			ps.exportToDefaults = exportToDefaults{
@@ -2308,8 +2307,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 				},
 			}
 			ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
-			// nolint lll
-			ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = append(ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway], virtualServices...)
+			ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = buildConfigTrie(virtualServices)
 			ps.setDestinationRules(destinationRules)
 			sidecarScope := ConvertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {
@@ -2563,7 +2561,8 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 		})
 	}
 	ps := NewPushContext()
-	ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = cfgs
+	//ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = cfgs
+	ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = buildConfigTrie(cfgs)
 
 	// service
 	svcList := make([]*Service, 0, vsNum)
