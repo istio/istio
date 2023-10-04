@@ -29,10 +29,6 @@ var (
 	// Description: A pod is missing the Istio proxy.
 	PodMissingProxy = diag.NewMessageType(diag.Warning, "IST0103", "The pod %s is missing the Istio proxy. This can often be resolved by restarting or redeploying the workload.")
 
-	// GatewayPortNotOnWorkload defines a diag.MessageType for message "GatewayPortNotOnWorkload".
-	// Description: Unhandled gateway port
-	GatewayPortNotOnWorkload = diag.NewMessageType(diag.Warning, "IST0104", "The gateway refers to a port that is not exposed on the workload (pod selector %s; port %d)")
-
 	// SchemaValidationError defines a diag.MessageType for message "SchemaValidationError".
 	// Description: The resource has a schema validation error.
 	SchemaValidationError = diag.NewMessageType(diag.Error, "IST0106", "Schema validation error: %v")
@@ -233,13 +229,17 @@ var (
 	// Description: The credential provided for the Gateway resource is invalid
 	InvalidGatewayCredential = diag.NewMessageType(diag.Error, "IST0161", "The credential referenced by the Gateway %s in namespace %s is invalid, which can cause the traffic not to work as expected.")
 
+	// GatewayPortNotDefinedOnService defines a diag.MessageType for message "GatewayPortNotDefinedOnService".
+	// Description: Gateway port not exposed by service
+	GatewayPortNotDefinedOnService = diag.NewMessageType(diag.Warning, "IST0162", "The gateway is listening on a target port (port %d) that is not defined in the Service associated with its workload instances (Pod selector %s). If you need to access the gateway port through the gateway Service, it will not be available.")
+
 	// ReferencedInternalGateway defines a diag.MessageType for message "ReferencedInternalGateway".
 	// Description: VirtualServices should not reference internal Gateways.
-	ReferencedInternalGateway = diag.NewMessageType(diag.Error, "IST0162", "Gateway reference in VirtualService %s is to an implementation-generated internal Gateway: %s.")
+	ReferencedInternalGateway = diag.NewMessageType(diag.Error, "IST0163", "Gateway reference in VirtualService %s is to an implementation-generated internal Gateway: %s.")
 
 	// ReferencedK8sGateway defines a diag.MessageType for message "ReferencedK8sGateway".
 	// Description: Attaching VirtualServices to Gateway API Gateways should be done sparingly.
-	ReferencedK8sGateway = diag.NewMessageType(diag.Warning, "IST0163", "Gateway reference in VirtualService %s is to a Gateway API Gateway: %s.")
+	ReferencedK8sGateway = diag.NewMessageType(diag.Warning, "IST0164", "Gateway reference in VirtualService %s is to a Gateway API Gateway: %s.")
 )
 
 // All returns a list of all known message types.
@@ -250,7 +250,6 @@ func All() []*diag.MessageType {
 		ReferencedResourceNotFound,
 		NamespaceNotInjected,
 		PodMissingProxy,
-		GatewayPortNotOnWorkload,
 		SchemaValidationError,
 		MisplacedAnnotation,
 		UnknownAnnotation,
@@ -301,6 +300,7 @@ func All() []*diag.MessageType {
 		ConflictingTelemetryWorkloadSelectors,
 		MultipleTelemetriesWithoutWorkloadSelectors,
 		InvalidGatewayCredential,
+		GatewayPortNotDefinedOnService,
 		ReferencedInternalGateway,
 		ReferencedK8sGateway,
 	}
@@ -350,16 +350,6 @@ func NewPodMissingProxy(r *resource.Instance, podName string) diag.Message {
 		PodMissingProxy,
 		r,
 		podName,
-	)
-}
-
-// NewGatewayPortNotOnWorkload returns a new diag.Message based on GatewayPortNotOnWorkload.
-func NewGatewayPortNotOnWorkload(r *resource.Instance, selector string, port int) diag.Message {
-	return diag.NewMessage(
-		GatewayPortNotOnWorkload,
-		r,
-		selector,
-		port,
 	)
 }
 
@@ -854,6 +844,16 @@ func NewInvalidGatewayCredential(r *resource.Instance, gatewayName string, gatew
 		r,
 		gatewayName,
 		gatewayNamespace,
+	)
+}
+
+// NewGatewayPortNotDefinedOnService returns a new diag.Message based on GatewayPortNotDefinedOnService.
+func NewGatewayPortNotDefinedOnService(r *resource.Instance, port int, selector string) diag.Message {
+	return diag.NewMessage(
+		GatewayPortNotDefinedOnService,
+		r,
+		port,
+		selector,
 	)
 }
 

@@ -986,11 +986,11 @@ func stringToHostnameList(s []string) []k8sbeta.Hostname {
 func attachVirtualServiceRoute(ctx configContext, obj config.Config) {
 	vs := obj.Spec.(*istio.VirtualService)
 	for _, gateway := range vs.Gateways {
-		ns, name, _ := strings.Cut(gateway, "/")
-		isK8s, n, l := kubeconfig.GatewayFromInternalName(name)
-		if !isK8s {
+		if !kubeconfig.IsInternalGatewayReference(gateway) {
 			continue
 		}
+		ns, name, _ := strings.Cut(gateway, "/")
+		n, l := kubeconfig.GatewayFromInternalName(name)
 		ir := parentKey{
 			Kind:      gvk.KubernetesGateway,
 			Name:      n,
