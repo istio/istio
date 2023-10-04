@@ -74,6 +74,7 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 			}
 
 			c.Report(gvk.VirtualService, m)
+			continue
 		}
 
 		gwFullName := resource.NewShortOrFullName(vsNs, gwName)
