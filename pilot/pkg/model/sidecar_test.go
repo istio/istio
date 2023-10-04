@@ -2561,7 +2561,6 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 		})
 	}
 	ps := NewPushContext()
-	//ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = cfgs
 	ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = buildConfigTrie(cfgs)
 
 	// service

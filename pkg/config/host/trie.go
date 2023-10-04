@@ -62,6 +62,10 @@ func (t *Trie[T]) Matches(host []string, out []T) []T {
 		return out
 	}
 
+	if _, ok := t.child["*"]; ok {
+		return t.getData(out)
+	}
+
 	key := host[len(host)-1]
 	left := host[:len(host)-1]
 
@@ -78,10 +82,6 @@ func (t *Trie[T]) Matches(host []string, out []T) []T {
 		return t.getData(out)
 	}
 
-	if _, ok := t.child["*"]; ok {
-		return t.getData(out)
-	}
-	
 	return out
 }
 

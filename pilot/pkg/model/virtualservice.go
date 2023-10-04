@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -67,6 +68,12 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	loopAndAdd(vsidx.privateByNamespaceAndGateway[n])
 	loopAndAdd(vsidx.exportedToNamespaceByGateway[n])
 	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])
+
+	exists := sets.NewWithLength[string](len(importedVirtualServices))
+	slices.FilterInPlace(importedVirtualServices, func(vs config.Config) bool {
+		name := vs.Name + "/" + vs.Namespace
+		return !exists.InsertContains(name)
+	})
 
 	return importedVirtualServices
 }
