@@ -1120,7 +1120,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
 
 		key := instancesKey{namespace: selector.Namespace, hostname: "selector.com"}
-		namespacedName := config.NamespacedName(selector)
+		namespacedName := selector.NamespacedName()
 		if len(sd.serviceInstances.ip2instance) != 1 {
 			t.Fatalf("service instances store `ip2instance` memory leak, expect 1, got %d", len(sd.serviceInstances.ip2instance))
 		}

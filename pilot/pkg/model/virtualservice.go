@@ -34,30 +34,31 @@ import (
 // This function is used by sidecar converter.
 func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
+	vsset := sets.New[types.NamespacedName]()
 
-	vsset := sets.New[string]()
 	addVirtualService := func(vs config.Config, hosts hostClassification) {
-		vsname := vs.Name + "/" + vs.Namespace
+		key := vs.NamespacedName()
+
+		if vsset.Contains(key) {
+			return
+		}
+
 		rule := vs.Spec.(*networking.VirtualService)
-
 		for _, vh := range rule.Hosts {
-			if vsset.Contains(vsname) {
-				break
-			}
-
 			// first, check exactHosts
 			if hosts.exactHosts.Contains(host.Name(vh)) {
 				importedVirtualServices = append(importedVirtualServices, vs)
-				vsset.Insert(vsname)
-				break
+				vsset.Insert(key)
+				return
 			}
 
 			// exactHosts not found, fallback to loop allHosts
 			for _, ah := range hosts.allHosts {
 				if vsHostMatches(vh, ah, vs) {
 					importedVirtualServices = append(importedVirtualServices, vs)
-					vsset.Insert(vsname)
-					break
+					vsset.Insert(key)
+					// break both loops
+					return
 				}
 			}
 		}
@@ -190,7 +191,7 @@ func mergeVirtualServicesIfNeeded(
 		rule := vs.Spec.(*networking.VirtualService)
 		// it is delegate, add it to the indexer cache along with the exportTo for the delegate
 		if len(rule.Hosts) == 0 {
-			delegatesMap[config.NamespacedName(vs)] = vs
+			delegatesMap[vs.NamespacedName()] = vs
 			var exportToSet sets.Set[visibility.Instance]
 			if len(rule.ExportTo) == 0 {
 				// No exportTo in virtualService. Use the global default
@@ -212,7 +213,7 @@ func mergeVirtualServicesIfNeeded(
 					}
 				}
 			}
-			delegatesExportToMap[config.NamespacedName(vs)] = exportToSet
+			delegatesExportToMap[vs.NamespacedName()] = exportToSet
 
 			continue
 		}
