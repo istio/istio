@@ -969,6 +969,8 @@ message ProxyConfig {
   // Sets the number of successive failed probes before indicating readiness failure.
   uint32 readinessFailureThreshold = 22;
 
+  StartupProbe startup_probe = 41;
+
   // Default port used for the Pilot agent's health checks.
   uint32 statusPort = 23;
 
@@ -991,6 +993,11 @@ message ProxyConfig {
   string includeInboundPorts = 38;
 
   string includeOutboundPorts = 39;
+}
+
+message StartupProbe {
+  google.protobuf.BoolValue enabled = 1;
+  uint32 failureThreshold = 2;
 }
 
 // Specifies which tracer to use.
