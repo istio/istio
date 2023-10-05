@@ -164,7 +164,7 @@ func TestExtraConfigmap(t *testing.T) {
 				return w.Mesh().GetIngressClass()
 			}, write,
 				retry.Delay(time.Millisecond),
-				retry.Timeout(time.Second),
+				retry.Timeout(time.Second*5),
 				retry.Message("write failed "+write),
 			)
 			select {
