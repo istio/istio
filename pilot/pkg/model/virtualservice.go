@@ -40,10 +40,11 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 		key := config.NamespacedName(vs)
 		rule := vs.Spec.(*networking.VirtualService)
 
+		if vsset.Contains(key) {
+			return
+		}
+
 		for _, vh := range rule.Hosts {
-			if vsset.Contains(key) {
-				return
-			}
 
 			// first, check exactHosts
 			if hosts.exactHosts.Contains(host.Name(vh)) {
