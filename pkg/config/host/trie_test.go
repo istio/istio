@@ -17,10 +17,10 @@ package host
 import (
 	"fmt"
 	"math/rand"
+	"reflect"
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -125,7 +125,9 @@ func TestAdd(t *testing.T) {
 			for _, h := range c.hosts {
 				tr.Add(h, h)
 			}
-			assert.Equal(t, tr, c.wantTrie)
+			if !reflect.DeepEqual(c.wantTrie, tr) {
+				t.Errorf("want %+v, but got %+v", c.wantTrie, tr)
+			}
 		})
 	}
 }
@@ -214,12 +216,16 @@ func TestMatches(t *testing.T) {
 			// test Matches
 			g1 := make([]string, 0)
 			g1 = tr.Matches(gh, g1)
-			assert.Equal(t, slices.Sort(g1), slices.Sort(c.wantMatches))
+			if !reflect.DeepEqual(slices.Sort(c.wantMatches), slices.Sort(g1)) {
+				t.Errorf("matches: want %+v, but got %+v", slices.Sort(c.wantMatches), slices.Sort(g1))
+			}
 
 			// test SubsetOf
 			g2 := make([]string, 0)
 			g2 = tr.SubsetOf(gh, g2)
-			assert.Equal(t, slices.Sort(g2), slices.Sort(c.wantSubsetOf))
+			if !reflect.DeepEqual(slices.Sort(c.wantSubsetOf), slices.Sort(g2)) {
+				t.Errorf("subsetOf: want %+v, but got %+v", slices.Sort(c.wantSubsetOf), slices.Sort(g2))
+			}
 		})
 	}
 }
