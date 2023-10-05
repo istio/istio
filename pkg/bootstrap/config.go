@@ -89,10 +89,9 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	}
 
 	// Waypoint overrides
-	metadataDiscovery := false
+	metadataDiscovery := true
 	if strings.HasPrefix(cfg.ID, "waypoint~") {
 		xdsType = "DELTA_GRPC"
-		metadataDiscovery = true
 	}
 
 	opts = append(opts,

@@ -103,7 +103,7 @@ var ALPNInMeshH2 = []string{"istio", "h2"}
 // ALPNInMeshH2WithMxc advertises that Proxy is going to use HTTP/2 when talking to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
 // The custom "istio-peer-exchange" value indicates, metadata exchange is enabled for TCP.
-var ALPNInMeshH2WithMxc = []string{"istio-peer-exchange", "istio", "h2"}
+var ALPNInMeshH2WithMxc = []string{"istio", "h2"}
 
 // ALPNInMesh advertises that Proxy is going to talk to the in-mesh cluster.
 // The custom "istio" value indicates in-mesh traffic and it's going to be used for routing decisions.
@@ -112,7 +112,7 @@ var ALPNInMesh = []string{"istio"}
 // ALPNInMeshWithMxc advertises that Proxy is going to talk to the in-mesh cluster and has metadata exchange enabled for
 // TCP. The custom "istio-peer-exchange" value indicates, metadata exchange is enabled for TCP. The custom "istio" value
 // indicates in-mesh traffic and it's going to be used for routing decisions.
-var ALPNInMeshWithMxc = []string{"istio-peer-exchange", "istio"}
+var ALPNInMeshWithMxc = []string{"istio"}
 
 // ALPNHttp advertises that Proxy is going to talking either http2 or http 1.1.
 var ALPNHttp = []string{"h2", "http/1.1"}
@@ -121,7 +121,7 @@ var ALPNHttp = []string{"h2", "http/1.1"}
 var ALPNHttp3OverQUIC = []string{"h3"}
 
 // ALPNDownstreamWithMxc advertises that Proxy is going to talk either tcp(for metadata exchange), http2 or http 1.1.
-var ALPNDownstreamWithMxc = []string{"istio-peer-exchange", "h2", "http/1.1"}
+var ALPNDownstreamWithMxc = []string{"h2", "http/1.1"}
 
 // ConvertAddressToCidr converts from string to CIDR proto
 func ConvertAddressToCidr(addr string) *core.CidrRange {

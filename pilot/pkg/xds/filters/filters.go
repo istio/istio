@@ -164,7 +164,11 @@ var (
 		},
 	}
 
-	tcpMx = protoconv.MessageToAny(&metadata_exchange.MetadataExchange{Protocol: "istio-peer-exchange"})
+	tcpMx = protoconv.TypedStructWithFields("type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange",
+		map[string]any{
+			"protocol":         "istio-peer-exchange",
+			"enable_discovery": true,
+		})
 
 	TCPListenerMx = &listener.Filter{
 		Name:       MxFilterName,

@@ -88,9 +88,9 @@ var (
 	}()
 	mtlsHTTPALPNs = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
-	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	allIstioMtlsALPNs = []string{"istio", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
-	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
+	mtlsTCPWithMxcALPNs = []string{"istio"}
 )
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
