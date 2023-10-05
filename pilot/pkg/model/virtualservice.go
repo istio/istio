@@ -40,17 +40,16 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 		key := config.NamespacedName(vs)
 		rule := vs.Spec.(*networking.VirtualService)
 
-		if vsset.Contains(key) {
-			return
-		}
-
 		for _, vh := range rule.Hosts {
+			if vsset.Contains(key) {
+				return
+			}
+
 			// first, check exactHosts
 			if hosts.exactHosts.Contains(host.Name(vh)) {
 				importedVirtualServices = append(importedVirtualServices, vs)
 				vsset.Insert(key)
-				// since this VS has already been added there's no need to continue processing
-				return
+				break
 			}
 
 			// exactHosts not found, fallback to loop allHosts
@@ -58,8 +57,7 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 				if vsHostMatches(vh, ah, vs) {
 					importedVirtualServices = append(importedVirtualServices, vs)
 					vsset.Insert(key)
-					// since this VS has already been added there's no need to continue processing
-					return
+					break
 				}
 			}
 		}
