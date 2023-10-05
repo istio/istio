@@ -1815,6 +1815,7 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 	ps.destinationRuleIndex.rootNamespaceLocal = rootNamespaceLocalDestRules
 }
 
+// pre computes all AuthorizationPolicies per namespace
 func (ps *PushContext) initAuthorizationPolicies(env *Environment) {
 	ps.AuthzPolicies = GetAuthorizationPolicies(env)
 }
