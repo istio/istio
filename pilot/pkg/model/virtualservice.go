@@ -38,12 +38,12 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 
 	addVirtualService := func(vs config.Config, hosts hostClassification) {
 		key := types.NamespacedName{Namespace: vs.Namespace, Name: vs.Name}
-		rule := vs.Spec.(*networking.VirtualService)
 
 		if vsset.Contains(key) {
 			return
 		}
 
+		rule := vs.Spec.(*networking.VirtualService)
 		for _, vh := range rule.Hosts {
 			// first, check exactHosts
 			if hosts.exactHosts.Contains(host.Name(vh)) {
