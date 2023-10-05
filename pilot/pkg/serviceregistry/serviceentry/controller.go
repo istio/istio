@@ -363,7 +363,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := sets.New[model.ConfigKey]()
-	key := config.NamespacedName(curr)
+	key := curr.NamespacedName()
 
 	s.mutex.Lock()
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
@@ -538,7 +538,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		// Case 2 : The labelsChanged and the new wi is still a subset of se
 		// Case 3 : The labelsChanged and the new wi is NOT a subset of se anymore
 
-		seNamespacedName := config.NamespacedName(cfg)
+		seNamespacedName := cfg.NamespacedName()
 		services := s.services.getServices(seNamespacedName)
 		currInstance := convertWorkloadInstanceToServiceInstance(wi, services, se)
 
