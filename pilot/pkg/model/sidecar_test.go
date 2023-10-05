@@ -165,7 +165,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   9000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -209,7 +209,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -228,7 +228,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -247,7 +247,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -255,7 +255,7 @@ var (
 					Hosts: []string{"foo/*"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -273,7 +273,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   23145,
 						Protocol: "TCP",
 						Name:     "outbound-tcp",
@@ -301,7 +301,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "GRPC",
 						Name:     "listener-grpc-tls",
@@ -319,7 +319,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "GRPC",
 						Name:     "grpc-tls",
@@ -327,7 +327,7 @@ var (
 					Hosts: []string{"*/*"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7442,
 						Protocol: "HTTP",
 						Name:     "http-tls",
@@ -345,7 +345,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -363,7 +363,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -381,7 +381,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -399,7 +399,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -417,7 +417,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "GRPC",
 						Name:     "grpc-tls",
@@ -425,7 +425,7 @@ var (
 					Hosts: []string{"*/*"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7442,
 						Protocol: "HTTP",
 						Name:     "http-tls",
@@ -446,7 +446,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http",
 						Name:     "grpc-tls",
@@ -532,7 +532,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8031,
 						Protocol: "TCP",
 						Name:     "tcp-ipc1",
@@ -540,7 +540,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8032,
 						Protocol: "TCP",
 						Name:     "tcp-ipc2",
@@ -548,7 +548,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8033,
 						Protocol: "TCP",
 						Name:     "tcp-ipc3",
@@ -556,7 +556,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8034,
 						Protocol: "TCP",
 						Name:     "tcp-ipc4",
@@ -564,7 +564,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8035,
 						Protocol: "TCP",
 						Name:     "tcp-ipc5",

@@ -6525,7 +6525,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   8080,
 						Name:     "h8080",
@@ -6539,7 +6539,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"invalid Port", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http1",
 						Number:   1000000,
 						Name:     "",
@@ -6553,7 +6553,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"Port without name", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   8080,
 					},
@@ -6566,7 +6566,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"UDS bind in outbound", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6581,7 +6581,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"UDS bind in inbound", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6594,7 +6594,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"UDS bind in outbound 2", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6609,7 +6609,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"invalid bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6624,7 +6624,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"invalid capture mode with uds bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6640,7 +6640,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"duplicate UDS bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6651,7 +6651,7 @@ func TestValidateSidecar(t *testing.T) {
 					Bind: "unix:///@foo/bar/com",
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6666,7 +6666,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"duplicate ports", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6676,7 +6676,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "tcp",
@@ -6714,7 +6714,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with duplicate ports", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6722,7 +6722,7 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:110",
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "bar",
@@ -6739,7 +6739,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with duplicate ports and IPv6 endpoint", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6747,7 +6747,7 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "[::1]:110",
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "bar",
@@ -6764,7 +6764,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress without default endpoint", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6780,7 +6780,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with invalid default endpoint in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6792,7 +6792,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with invalid default endpoint in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6804,7 +6804,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with invalid default endpoint uds", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6821,7 +6821,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with invalid default endpoint port in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6838,7 +6838,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with invalid default endpoint port in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6855,7 +6855,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"valid ingress and egress in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6872,7 +6872,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"valid ingress and egress in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6889,7 +6889,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"valid ingress and empty egress in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6901,7 +6901,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"valid ingress and empty egress in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6917,7 +6917,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"empty protocol in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number: 90,
 						Name:   "foo",
 					},
@@ -6933,7 +6933,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"empty protocol in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number: 90,
 						Name:   "foo",
 					},
@@ -7072,7 +7072,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls mode set to ISTIO_MUTUAL in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -7087,7 +7087,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls mode set to ISTIO_MUTUAL in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -7102,7 +7102,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls mode set to ISTIO_AUTO_PASSTHROUGH in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -7117,7 +7117,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls mode set to ISTIO_AUTO_PASSTHROUGH in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -7132,7 +7132,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls invalid protocol in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -7147,7 +7147,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls invalid protocol in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -7162,7 +7162,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls httpRedirect is not supported in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -7178,7 +7178,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls httpRedirect is not supported in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -7194,7 +7194,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls SAN entries are not supported in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -7210,7 +7210,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls SAN entries are not supported in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -7226,7 +7226,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls credentialName is not supported in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -7242,7 +7242,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls credentialName is not supported in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
