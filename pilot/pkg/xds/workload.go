@@ -15,6 +15,8 @@
 package xds
 
 import (
+	"fmt"
+
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -98,6 +100,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 		switch w.TypeUrl {
 		case v3.WorkloadType:
 			if addr.GetWorkload() != nil {
+				fmt.Printf("%#v\n", addr.GetWorkload())
 				resources = append(resources, &discovery.Resource{
 					Name:     n,
 					Aliases:  aliases,
