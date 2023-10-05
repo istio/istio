@@ -45,7 +45,6 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 		}
 
 		for _, vh := range rule.Hosts {
-
 			// first, check exactHosts
 			if hosts.exactHosts.Contains(host.Name(vh)) {
 				importedVirtualServices = append(importedVirtualServices, vs)
