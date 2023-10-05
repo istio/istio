@@ -34,30 +34,32 @@ import (
 // This function is used by sidecar converter.
 func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
+	vsset := sets.New[types.NamespacedName]()
 
-	vsset := sets.New[string]()
 	addVirtualService := func(vs config.Config, hosts hostClassification) {
-		vsname := vs.Name + "/" + vs.Namespace
+		key := config.NamespacedName(vs)
 		rule := vs.Spec.(*networking.VirtualService)
 
-		for _, vh := range rule.Hosts {
-			if vsset.Contains(vsname) {
-				break
-			}
+		if vsset.Contains(key) {
+			return
+		}
 
+		for _, vh := range rule.Hosts {
 			// first, check exactHosts
 			if hosts.exactHosts.Contains(host.Name(vh)) {
 				importedVirtualServices = append(importedVirtualServices, vs)
-				vsset.Insert(vsname)
-				break
+				vsset.Insert(key)
+				// since this VS has already been added there's no need to continue processing
+				return
 			}
 
 			// exactHosts not found, fallback to loop allHosts
 			for _, ah := range hosts.allHosts {
 				if vsHostMatches(vh, ah, vs) {
 					importedVirtualServices = append(importedVirtualServices, vs)
-					vsset.Insert(vsname)
-					break
+					vsset.Insert(key)
+					// since this VS has already been added there's no need to continue processing
+					return
 				}
 			}
 		}
