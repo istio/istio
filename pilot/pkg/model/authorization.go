@@ -87,10 +87,9 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 	for _, ns := range lookupInNamespaces {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
-			var selector labels.Instance // NOTE: nil/empty selector matches all workloads
 			switch getPolicyMatcher(gvk.AuthorizationPolicy, config.Name, selectionOpts, spec) {
 			case policyMatchSelector:
-				selector = spec.GetSelector().GetMatchLabels()
+				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
 				if selector.SubsetOf(workloadLabels) {
 					configs = updateAuthorizationPoliciesResult(configs, config)
 				}
