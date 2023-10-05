@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -35,9 +34,9 @@ import (
 func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
 
-	addVirtualService := func(vst virtualServiceTrie, host []string) {
-		importedVirtualServices = vst.matchesTrie.Matches(host, importedVirtualServices)
-		importedVirtualServices = vst.subsetOfTrie.SubsetOf(host, importedVirtualServices)
+	addVirtualService := func(vst virtualServiceTrie, frags []string) {
+		importedVirtualServices = vst.matchesTrie.Matches(frags, importedVirtualServices)
+		importedVirtualServices = vst.subsetOfTrie.SubsetOf(frags, importedVirtualServices)
 	}
 
 	loopAndAdd := func(ct configTrie) {
@@ -48,8 +47,9 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 		for crNs, hc := range hostsByNamespace {
 			if crNs == wildcardNamespace {
 				for _, h := range hc.allHosts {
+					frags := strings.Split(string(h), ".")
 					for _, vst := range ct.trie {
-						addVirtualService(vst, strings.Split(h.String(), "."))
+						addVirtualService(vst, frags)
 					}
 				}
 				continue
@@ -57,7 +57,8 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 
 			if vst, ok := ct.trie[crNs]; ok {
 				for _, h := range hc.allHosts {
-					addVirtualService(vst, strings.Split(h.String(), "."))
+					frags := strings.Split(string(h), ".")
+					addVirtualService(vst, frags)
 				}
 			}
 		}
@@ -69,13 +70,17 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	loopAndAdd(vsidx.exportedToNamespaceByGateway[n])
 	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])
 
+	out := importedVirtualServices[:0]
 	exists := sets.NewWithLength[string](len(importedVirtualServices))
-	slices.FilterInPlace(importedVirtualServices, func(vs config.Config) bool {
+	for _, vs := range importedVirtualServices {
 		name := vs.Name + "/" + vs.Namespace
-		return !exists.InsertContains(name)
-	})
+		if exists.InsertContains(name) {
+			continue
+		}
+		out = append(out, vs)
+	}
 
-	return importedVirtualServices
+	return out
 }
 
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {

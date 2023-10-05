@@ -14,117 +14,118 @@
 
 package host
 
-import "strings"
-
-type trieChild[T any] map[string]*Trie[T]
+import (
+	"strings"
+)
 
 type Trie[T any] struct {
-	child trieChild[T]
-	data  []T
+	data     []T
+	children map[string]*Trie[T]
 }
 
 func NewTrie[T any]() *Trie[T] {
 	return &Trie[T]{
-		child: make(trieChild[T]),
+		data:     nil,
+		children: make(map[string]*Trie[T]),
 	}
 }
 
-func (t *Trie[T]) Add(host []string, data T) {
-	if len(host) == 0 {
-		t.data = append(t.data, data)
-		return
+func (t *Trie[T]) Add(host string, data T) {
+	frags := strings.Split(host, ".")
+	root := t
+	for i := len(frags) - 1; i >= 0; i-- {
+		key := frags[i]
+		child, exists := root.children[key]
+		if !exists {
+			child = NewTrie[T]()
+			root.children[key] = child
+		}
+		root = child
 	}
-
-	// suffix tree
-	key := host[len(host)-1]
-	left := host[:len(host)-1]
-
-	child, ok := t.child[key]
-	if !ok {
-		child = NewTrie[T]()
-		t.child[key] = child
-	}
-
-	child.Add(left, data)
+	root.data = append(root.data, data)
 }
 
 func (t *Trie[T]) AddBatch(hosts []string, data T) {
-	for _, h := range hosts {
-		t.Add(strings.Split(h, "."), data)
+	for _, host := range hosts {
+		t.Add(host, data)
 	}
 }
 
+// Matches
+// the `host` param is host fragments, eg "foo.bar", the host param is ["foo", "bar"].
+// the `out` param is used for caller to control the capacity.
 func (t *Trie[T]) Matches(host []string, out []T) []T {
-	if len(host) == 0 {
-		if len(t.child) == 0 {
-			return t.getData(out)
+	root := t
+	for i := len(host) - 1; i >= 0; i-- {
+		key := host[i]
+
+		// meet wildcard, all child nodes matches (excluding root itself)
+		if key == "*" {
+			return root.childrenData(out)
 		}
-		return out
+
+		// sibling nodes at the same level have wildcard
+		if wc, ok := root.children["*"]; ok {
+			out = append(out, wc.data...)
+		}
+
+		child, ok := root.children[key]
+		if !ok {
+			return out
+		}
+		root = child
 	}
 
-	if _, ok := t.child["*"]; ok {
-		return t.getData(out)
-	}
-
-	key := host[len(host)-1]
-	left := host[:len(host)-1]
-
-	child, exists := t.child[key]
-	if exists {
-		return child.Matches(left, out)
-	}
-
-	if len(t.child) == 0 {
-		return out
-	}
-
-	if key == "*" {
-		return t.getData(out)
+	// it means that two hosts are found to be equal
+	if root.data != nil {
+		out = append(out, root.data...)
 	}
 
 	return out
 }
 
 func (t *Trie[T]) SubsetOf(host []string, out []T) []T {
-	if len(host) == 0 {
-		if len(t.child) == 0 {
-			return t.getData(out)
+	root := t
+	for i := len(host) - 1; i >= 0; i-- {
+		key := host[i]
+		if key == "*" {
+			return root.childrenData(out)
 		}
-		return out
+
+		child, ok := root.children[key]
+		if !ok {
+			return out
+		}
+		root = child
 	}
 
-	key := host[len(host)-1]
-	left := host[:len(host)-1]
-
-	child, exists := t.child[key]
-	if exists {
-		return child.SubsetOf(left, out)
-	}
-
-	if len(t.child) == 0 {
-		return out
-	}
-
-	if key == "*" {
-		return t.getData(out)
+	if root.data != nil {
+		out = append(out, root.data...)
 	}
 
 	return out
 }
 
-func (t *Trie[T]) getData(out []T) []T {
-	if t == nil {
-		return out
+func (t *Trie[T]) childrenData(out []T) []T {
+	for _, v := range t.children {
+		out = v.getData(out)
 	}
-	if len(t.data) != 0 {
+	return out
+}
+
+func (t *Trie[T]) getData(out []T) []T {
+	if t.data != nil {
 		out = append(out, t.data...)
 	}
-	if len(t.child) == 0 {
+
+	// the leaf node
+	if len(t.children) == 0 {
 		return out
 	}
 
-	for _, child := range t.child {
-		out = child.getData(out)
+	for _, c := range t.children {
+		out = c.getData(out)
 	}
+
 	return out
 }

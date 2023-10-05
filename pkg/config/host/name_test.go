@@ -89,7 +89,7 @@ func TestNameMatches(t *testing.T) {
 
 			// reuse test cases for trie implementation
 			tr := NewTrie[Name]()
-			tr.Add(strings.Split(tt.a.String(), "."), tt.a)
+			tr.Add(tt.a.String(), tt.a)
 
 			got := make([]Name, 0)
 			got = tr.Matches(strings.Split(tt.b.String(), "."), got)
@@ -169,7 +169,7 @@ func TestNameSubsetOf(t *testing.T) {
 
 			// reuse test cases for trie implementation
 			tr := NewTrie[Name]()
-			tr.Add(strings.Split(tt.a.String(), "."), tt.a)
+			tr.Add(tt.a.String(), tt.a)
 
 			got := make([]Name, 0)
 			got = tr.SubsetOf(strings.Split(tt.b.String(), "."), got)
