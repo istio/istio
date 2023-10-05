@@ -96,9 +96,6 @@ func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts Wor
 				}
 			case policyMatchDirect:
 				configs = updateAuthorizationPoliciesResult(configs, config)
-				continue
-			case policyMatchIgnore:
-				continue
 			}
 		}
 	}
