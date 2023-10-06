@@ -29,10 +29,10 @@ type policyTargetGetter interface {
 }
 
 type WorkloadSelectionOpts struct {
-	rootNamespace  string
-	namespace      string
-	workloadLabels labels.Instance
-	isWaypoint     bool
+	RootNamespace  string
+	Namespace      string
+	WorkloadLabels labels.Instance
+	IsWaypoint     bool
 }
 
 type policyMatch string
@@ -48,11 +48,11 @@ const (
 )
 
 func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts WorkloadSelectionOpts, policy policyTargetGetter) policyMatch {
-	gatewayName, isGatewayAPI := opts.workloadLabels[constants.GatewayNameLabel]
+	gatewayName, isGatewayAPI := opts.WorkloadLabels[constants.GatewayNameLabel]
 	targetRef := policy.GetTargetRef()
 	if isGatewayAPI && targetRef == nil && policy.GetSelector() != nil {
-		if opts.isWaypoint || !features.EnableSelectorBasedK8sGatewayPolicy {
-			log.Warnf("Ignoring workload-scoped %s/%s %s.%s for gateway %s because it has no targetRef", kind.Group, kind.Kind, opts.namespace, policyName, gatewayName)
+		if opts.IsWaypoint || !features.EnableSelectorBasedK8sGatewayPolicy {
+			log.Warnf("Ignoring workload-scoped %s/%s %s.%s for gateway %s because it has no targetRef", kind.Group, kind.Kind, opts.Namespace, policyName, gatewayName)
 			return policyMatchIgnore
 		}
 	}
@@ -66,10 +66,11 @@ func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts Work
 		// TODO: Account for `kind`s that are not `KubernetesGateway`
 		if targetRef.GetGroup() == gvk.KubernetesGateway.Group &&
 			targetRef.GetName() == gatewayName &&
-			(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == opts.namespace) &&
+			(targetRef.GetNamespace() == "" || targetRef.GetNamespace() == opts.Namespace) &&
 			targetRef.GetKind() == gvk.KubernetesGateway.Kind {
 			return policyMatchDirect
 		}
+
 		// This config doesn't match this workload. Ignore
 		return policyMatchIgnore
 	}

@@ -3036,6 +3036,18 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 				Mirror: &networking.Destination{
 					Host: "baz.example.org",
 				},
+				Mirrors: []*networking.HTTPMirrorPolicy{
+					{
+						Destination: &networking.Destination{
+							Host: "bazs.example.org",
+						},
+					},
+					{
+						Destination: &networking.Destination{
+							Host: "bazs2.example.org",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -3090,9 +3102,38 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 		},
 	}
 
+	bazsHostName := host.Name("bazs.example.org")
+	bazsServiceInDefaultNamespace := &pilot_model.Service{
+		Hostname: bazsHostName,
+		Ports: []*pilot_model.Port{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     8091,
+		}},
+		Attributes: pilot_model.ServiceAttributes{
+			Namespace: "default",
+			ExportTo:  sets.New(visibility.Private),
+		},
+	}
+	bazs2HostName := host.Name("bazs2.example.org")
+	bazs2ServiceInDefaultNamespace := &pilot_model.Service{
+		Hostname: bazs2HostName,
+		Ports: []*pilot_model.Port{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     8092,
+		}},
+		Attributes: pilot_model.ServiceAttributes{
+			Namespace: "default",
+			ExportTo:  sets.New(visibility.Private),
+		},
+	}
+
 	cg := NewConfigGenTest(t, TestOptions{
-		Configs:  []config.Config{virtualService},
-		Services: []*pilot_model.Service{fooServiceInTestNamespace, barServiceInDefaultNamespace, bazServiceInDefaultNamespace},
+		Configs: []config.Config{virtualService},
+		Services: []*pilot_model.Service{
+			fooServiceInTestNamespace, barServiceInDefaultNamespace, bazServiceInDefaultNamespace, bazsServiceInDefaultNamespace, bazs2ServiceInDefaultNamespace,
+		},
 	})
 	proxy := &pilot_model.Proxy{
 		Type:            pilot_model.Router,
@@ -3102,7 +3143,7 @@ func TestBuildNameToServiceMapForHttpRoutes(t *testing.T) {
 
 	nameToServiceMap := buildNameToServiceMapForHTTPRoutes(proxy, cg.env.PushContext(), virtualService)
 
-	if len(nameToServiceMap) != 3 {
+	if len(nameToServiceMap) != 5 {
 		t.Errorf("The length of nameToServiceMap is wrong.")
 	}
 
