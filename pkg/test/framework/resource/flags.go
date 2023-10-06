@@ -181,6 +181,9 @@ func init() {
 	flag.BoolVar(&settingsFromCommandLine.Ambient, "istio.test.ambient", settingsFromCommandLine.Ambient,
 		"Indicate the use of ambient mesh.")
 
+	flag.BoolVar(&settingsFromCommandLine.WDSMetadata, "istio.test.wds_metadata", settingsFromCommandLine.WDSMetadata,
+		"Force the use of WDS fallback for metadata exchange")
+
 	flag.BoolVar(&settingsFromCommandLine.AmbientEverywhere, "istio.test.ambient.everywhere", settingsFromCommandLine.AmbientEverywhere,
 		"Make Waypoint proxies the default instead of sidecar proxies for all echo apps. Must be used with istio.test.ambient")
 
