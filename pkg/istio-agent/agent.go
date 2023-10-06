@@ -79,6 +79,13 @@ const (
 
 var _ ready.Prober = &Agent{}
 
+type LifecycleEvent string
+
+const (
+	DrainLifecycleEvent LifecycleEvent = "drain"
+	ExitLifecycleEvent  LifecycleEvent = "exit"
+)
+
 // Agent contains the configuration of the agent, based on the injected
 // environment:
 // - SDS hostPath if node-agent was used
@@ -842,4 +849,12 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 // GRPCBootstrapPath returns the most recently generated gRPC bootstrap or nil if there is none.
 func (a *Agent) GRPCBootstrapPath() string {
 	return a.cfg.GRPCBootstrapPath
+}
+
+func (a *Agent) DrainNow() {
+	a.envoyAgent.DrainNow()
+}
+
+func (a *Agent) DisableDraining() {
+	a.envoyAgent.DisableDraining()
 }
