@@ -534,7 +534,7 @@ var (
 
 	EnableAmbientControllers = env.Register(
 		"PILOT_ENABLE_AMBIENT_CONTROLLERS",
-		false,
+		true,
 		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
 
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
