@@ -26,9 +26,6 @@ import (
 
 	"github.com/mattn/go-isatty"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/formatting"
@@ -41,6 +38,8 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
+	"k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // AnalyzerFoundIssuesError indicates that at least one analyzer found problems.
@@ -133,27 +132,31 @@ func Analyze(ctx cli.Context) *cobra.Command {
 
 			// We use the "namespace" arg that's provided as part of root istioctl as a flag for specifying what namespace to use
 			// for file resources that don't have one specified.
-			selectedNamespace = ctx.NamespaceOrDefault(ctx.Namespace())
-
-			// check whether selected namespace exists.
-			namespace := ctx.NamespaceOrDefault(ctx.Namespace())
-			if namespace != "" && useKube {
-				client, err := ctx.CLIClient()
-				if err != nil {
-					return err
-				}
-				_, err = client.Kube().CoreV1().Namespaces().Get(context.TODO(), namespace, metav1.GetOptions{})
-				if errors.IsNotFound(err) {
-					fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", ctx.Namespace())
-					return nil
-				} else if err != nil {
-					return err
+			selectedNamespace = ctx.Namespace()
+			if useKube {
+				// apply default namespace if not specified and useKube is true
+				selectedNamespace = ctx.NamespaceOrDefault(selectedNamespace)
+				if selectedNamespace != "" {
+					client, err := ctx.CLIClient()
+					if err != nil {
+						return err
+					}
+					_, err = client.Kube().CoreV1().Namespaces().Get(context.TODO(), selectedNamespace, metav1.GetOptions{})
+					if errors.IsNotFound(err) {
+						fmt.Fprintf(cmd.ErrOrStderr(), "namespace %q not found\n", ctx.Namespace())
+						return nil
+					} else if err != nil {
+						return err
+					}
 				}
 			}
 
 			// If we've explicitly asked for all namespaces, blank the selectedNamespace var out
+			// If the user hasn't specified a namespace, use the default namespace
 			if allNamespaces {
 				selectedNamespace = ""
+			} else if selectedNamespace == "" {
+				selectedNamespace = metav1.NamespaceDefault
 			}
 
 			sa := local.NewIstiodAnalyzer(analyzers.AllCombined(),
