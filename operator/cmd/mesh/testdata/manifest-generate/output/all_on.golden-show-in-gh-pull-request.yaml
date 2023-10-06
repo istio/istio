@@ -10114,7 +10114,7 @@ data:
         spec:
           selector:
             matchLabels:
-              gateway.networking.k8s.io/gateway-name: "{{.Name}}"
+              istio.io/gateway-name: "{{.Name}}"
           template:
             metadata:
               annotations:
@@ -10143,7 +10143,7 @@ data:
                    )
                   $requiredLabels
                   (strdict
-                    "gateway.networking.k8s.io/gateway-name" .Name
+                    "istio.io/gateway-name" .Name
                     "gateway.istio.io/managed" "istio.io-mesh-controller"
                   ) | nindent 8}}
             spec:
@@ -10396,7 +10396,7 @@ data:
         spec:
           selector:
             matchLabels:
-              gateway.networking.k8s.io/gateway-name: {{.Name}}
+              istio.io/gateway-name: {{.Name}}
           template:
             metadata:
               annotations:
@@ -10416,7 +10416,7 @@ data:
                     "service.istio.io/canonical-revision" "latest"
                    )
                   .Labels
-                  (strdict "gateway.networking.k8s.io/gateway-name" .Name) | nindent 8}}
+                  (strdict "istio.io/gateway-name" .Name) | nindent 8}}
             spec:
               {{- if .KubeVersion122 }}
               {{/* safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326. */}}
@@ -10695,7 +10695,7 @@ data:
             appProtocol: {{ $val.AppProtocol }}
           {{- end }}
           selector:
-            gateway.networking.k8s.io/gateway-name: {{.Name}}
+            istio.io/gateway-name: {{.Name}}
           {{- if and (.Spec.Addresses) (eq .ServiceType "LoadBalancer") }}
           loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
           {{- end }}

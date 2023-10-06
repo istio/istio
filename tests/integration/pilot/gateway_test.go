@@ -86,6 +86,7 @@ spec:
     metadata:
       labels:
         gateway.networking.k8s.io/gateway-name: managed-owner
+        istio.io/gateway-name: managed-owner
     spec:
       containers:
       - name: fake

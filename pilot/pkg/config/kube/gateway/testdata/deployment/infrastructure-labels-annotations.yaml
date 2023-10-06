@@ -7,19 +7,23 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  annotations: {}
+  annotations:
+    fizz: buzz
   labels:
+    foo: bar
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
     istio.io/gateway-name: default
-  name: custom-sa
+  name: default-istio
   namespace: default
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations: {}
+  annotations:
+    fizz: buzz
   labels:
+    foo: bar
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
     istio.io/gateway-name: default
@@ -37,11 +41,13 @@ spec:
   template:
     metadata:
       annotations:
+        fizz: buzz
         istio.io/rev: default
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
       labels:
+        foo: bar
         gateway.networking.k8s.io/gateway-name: default
         istio.io/gateway-name: default
         service.istio.io/canonical-name: default-istio
@@ -178,7 +184,7 @@ spec:
         sysctls:
         - name: net.ipv4.ip_unprivileged_port_start
           value: "0"
-      serviceAccountName: custom-sa
+      serviceAccountName: default-istio
       volumes:
       - emptyDir: {}
         name: workload-socket
@@ -204,8 +210,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  annotations: {}
+  annotations:
+    fizz: buzz
   labels:
+    foo: bar
     gateway.istio.io/managed: istio.io-gateway-controller
     gateway.networking.k8s.io/gateway-name: default
     istio.io/gateway-name: default

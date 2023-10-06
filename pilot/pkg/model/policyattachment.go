@@ -50,15 +50,11 @@ const (
 func KubernetesGatewayNameAndExists(l labels.Instance) (string, bool) {
 	gwName, exists := l[constants.GatewayNameLabel]
 	if !exists {
-		// TODO: Remove deprecated gateway name label (1.21 or 1.22)
+		// TODO: Remove deprecated gateway name label (1.22 or 1.23)
 		gwName, exists = l[constants.DeprecatedGatewayNameLabel]
 	}
 
-	if !exists {
-		return "", false
-	}
-
-	return gwName, true
+	return gwName, exists
 }
 
 func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts WorkloadSelectionOpts, policy policyTargetGetter) policyMatch {
