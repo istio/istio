@@ -59,8 +59,18 @@ func (l *ListenerFilter) Verify(listener *listener.Listener) bool {
 	if l.Address == "" && l.Port == 0 && l.Type == "" {
 		return true
 	}
-	if l.Address != "" && !strings.EqualFold(retrieveListenerAddress(listener), l.Address) {
-		return false
+	if l.Address != "" {
+		addresses := retrieveListenerAdditionalAddresses(listener)
+		addresses = append(addresses, retrieveListenerAddress(listener))
+		found := false
+		for _, address := range addresses {
+			if strings.EqualFold(address, l.Address) {
+				found = true
+			}
+		}
+		if !found {
+			return false
+		}
 	}
 	if l.Port != 0 && retrieveListenerPort(listener) != l.Port {
 		return false
@@ -119,6 +129,17 @@ func retrieveListenerAddress(l *listener.Listener) string {
 	}
 
 	return ""
+}
+
+func retrieveListenerAdditionalAddresses(l *listener.Listener) []string {
+	var addrs []string
+	socketAddresses := l.GetAdditionalAddresses()
+	for _, socketAddr := range socketAddresses {
+		addr := socketAddr.Address
+		addrs = append(addrs, addr.GetSocketAddress().Address)
+	}
+
+	return addrs
 }
 
 func retrieveListenerPort(l *listener.Listener) uint32 {
@@ -292,12 +313,13 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 	})
 
 	if filter.Verbose {
-		fmt.Fprintln(w, "ADDRESS\tPORT\tMATCH\tDESTINATION")
+		fmt.Fprintln(w, "ADDRESSES\tPORT\tMATCH\tDESTINATION")
 	} else {
-		fmt.Fprintln(w, "ADDRESS\tPORT\tTYPE")
+		fmt.Fprintln(w, "ADDRESSES\tPORT\tTYPE")
 	}
 	for _, l := range verifiedListeners {
-		address := retrieveListenerAddress(l)
+		addresses := []string{retrieveListenerAddress(l)}
+		addresses = append(addresses, retrieveListenerAdditionalAddresses(l)...)
 		port := retrieveListenerPort(l)
 		if filter.Verbose {
 
@@ -306,11 +328,11 @@ func (c *ConfigWriter) PrintListenerSummary(filter ListenerFilter) error {
 				return matches[i].destination > matches[j].destination
 			})
 			for _, match := range matches {
-				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", address, port, match.match, match.destination)
+				fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", strings.Join(addresses, ","), port, match.match, match.destination)
 			}
 		} else {
 			listenerType := retrieveListenerType(l)
-			fmt.Fprintf(w, "%v\t%v\t%v\n", address, port, listenerType)
+			fmt.Fprintf(w, "%v\t%v\t%v\n", strings.Join(addresses, ","), port, listenerType)
 		}
 	}
 	return w.Flush()
