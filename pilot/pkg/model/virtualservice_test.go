@@ -1066,6 +1066,82 @@ func TestMergeHttpRoutes(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "multiple header merge",
+			root: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Headers: map[string]*networking.StringMatch{
+							"header1": {
+								MatchType: &networking.StringMatch_Regex{
+									Regex: "regex",
+								},
+							},
+						},
+					},
+					{
+						Headers: map[string]*networking.StringMatch{
+							"header2": {
+								MatchType: &networking.StringMatch_Exact{
+									Exact: "exact",
+								},
+							},
+						},
+					},
+				},
+				Delegate: &networking.Delegate{
+					Name:      "delegate",
+					Namespace: "default",
+				},
+			},
+			delegate: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/",
+								},
+							},
+							Headers: map[string]*networking.StringMatch{
+								"header1": {
+									MatchType: &networking.StringMatch_Regex{
+										Regex: "regex",
+									},
+								},
+							},
+						},
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/",
+								},
+							},
+							Headers: map[string]*networking.StringMatch{
+								"header2": {
+									MatchType: &networking.StringMatch_Exact{
+										Exact: "exact",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {
@@ -1896,6 +1972,36 @@ func TestFuzzMergeHttpMatchRequest(t *testing.T) {
 	merged := mergeHTTPMatchRequest(root, delegate)
 
 	assert.Equal(t, merged, root)
+}
+
+// Note: this is to prevent missing merge new added HTTPMatchRequest fields
+func TestFuzzCloneHttpMatchRequest(t *testing.T) {
+	f := fuzz.New().NilChance(0.5).NumElements(1, 1).Funcs(
+		func(r *networking.StringMatch, c fuzz.Continue) {
+			*r = networking.StringMatch{
+				MatchType: &networking.StringMatch_Exact{
+					Exact: "fuzz",
+				},
+			}
+		},
+		func(m *map[string]*networking.StringMatch, c fuzz.Continue) {
+			*m = map[string]*networking.StringMatch{
+				"test": nil,
+			}
+		},
+		func(m *map[string]string, c fuzz.Continue) {
+			*m = map[string]string{"test": "fuzz"}
+		})
+
+	delegate := &networking.HTTPMatchRequest{}
+	f.Fuzz(delegate)
+	delegate.SourceNamespace = ""
+	delegate.SourceLabels = nil
+	delegate.Gateways = nil
+	delegate.IgnoreUriCase = false
+	cloned := cloneHTTPMatchRequest(delegate)
+
+	assert.Equal(t, cloned, delegate)
 }
 
 var gatewayNameTests = []struct {
