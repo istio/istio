@@ -1258,10 +1258,11 @@ func TestValidateServerPort(t *testing.T) {
 	tests := []struct {
 		name string
 		in   *networking.Port
+		bind string
 		out  string
 	}{
-		{"empty", &networking.Port{}, "invalid protocol"},
-		{"empty", &networking.Port{}, "port name"},
+		{"empty", &networking.Port{}, "", "invalid protocol"},
+		{"empty", &networking.Port{}, "", "port name"},
 		{
 			"happy",
 			&networking.Port{
@@ -1269,6 +1270,7 @@ func TestValidateServerPort(t *testing.T) {
 				Number:   1,
 				Name:     "Henry",
 			},
+			"",
 			"",
 		},
 		{
@@ -1278,6 +1280,7 @@ func TestValidateServerPort(t *testing.T) {
 				Number:   1,
 				Name:     "Henry",
 			},
+			"",
 			"invalid protocol",
 		},
 		{
@@ -1287,6 +1290,7 @@ func TestValidateServerPort(t *testing.T) {
 				Number:   uint32(1 << 30),
 				Name:     "http",
 			},
+			"",
 			"port number",
 		},
 		{
@@ -1297,11 +1301,23 @@ func TestValidateServerPort(t *testing.T) {
 				Name:     "Henry",
 			},
 			"",
+			"port number",
+		},
+		{
+			"name, no number, uds",
+			&networking.Port{
+				Protocol: "http",
+				Number:   0,
+				Name:     "Henry",
+			},
+			"uds:///tmp",
+			"port number",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateServerPort(tt.in)
+			v := validateServerPort(tt.in, tt.bind)
+			_, err := v.Unwrap()
 			if err == nil && tt.out != "" {
 				t.Fatalf("validateServerPort(%v) = nil, wanted %q", tt.in, tt.out)
 			} else if err != nil && tt.out == "" {
@@ -1938,9 +1954,9 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := validateHTTPFaultInjectionAbort(tc.in); (got == nil) != tc.valid {
+			if got := validateHTTPFaultInjectionAbort(tc.in); (got.Err == nil) != tc.valid {
 				t.Errorf("got valid=%v, want valid=%v: %v",
-					got == nil, tc.valid, got)
+					got.Err == nil, tc.valid, got)
 			}
 		})
 	}

@@ -22,7 +22,10 @@ import (
 	"testing"
 	"time"
 
+	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
@@ -45,6 +48,7 @@ type wasmTestConfigs struct {
 	tag             string
 	upstreamVersion string
 	expectedVersion string
+	testHostname    string
 }
 
 var generation = 0
@@ -59,22 +63,39 @@ func mapTagToVersionOrFail(t framework.TestContext, tag, version string) {
 }
 
 func applyAndTestWasmWithOCI(ctx framework.TestContext, c wasmTestConfigs) {
+	applyAndTestCustomWasmConfigWithOCI(ctx, c, wasmConfigFile)
+}
+
+func applyAndTestCustomWasmConfigWithOCI(ctx framework.TestContext, c wasmTestConfigs, path string) {
 	ctx.NewSubTest("OCI_" + c.desc).Run(func(t framework.TestContext) {
 		defer func() {
 			generation++
 		}()
 		mapTagToVersionOrFail(t, c.tag, c.upstreamVersion)
 		wasmModuleURL := fmt.Sprintf("oci://%v/%v:%v", registry.Address(), imageName, c.tag)
-		if err := installWasmExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", generation)); err != nil {
+		if err := installWasmExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", generation), path); err != nil {
 			t.Fatalf("failed to install WasmPlugin: %v", err)
 		}
-		sendTraffic(t, check.ResponseHeader(injectedHeader, c.expectedVersion))
+		if c.testHostname != "" {
+			sendTrafficToHostname(t, check.ResponseHeader(injectedHeader, c.expectedVersion), c.testHostname)
+		} else {
+			sendTraffic(t, check.ResponseHeader(injectedHeader, c.expectedVersion))
+		}
 	})
 }
 
 func resetWasm(ctx framework.TestContext, pluginName string) {
 	ctx.NewSubTest("Delete WasmPlugin " + pluginName).Run(func(t framework.TestContext) {
-		if err := uninstallWasmExtension(t, pluginName); err != nil {
+		if err := uninstallWasmExtension(t, pluginName, wasmConfigFile); err != nil {
+			t.Fatal(err)
+		}
+		sendTraffic(t, check.ResponseHeader(injectedHeader, ""), retry.Converge(2))
+	})
+}
+
+func resetCustomWasmConfig(ctx framework.TestContext, pluginName, path string) {
+	ctx.NewSubTest("Delete WasmPlugin " + pluginName).Run(func(t framework.TestContext) {
+		if err := uninstallWasmExtension(t, pluginName, path); err != nil {
 			t.Fatal(err)
 		}
 		sendTraffic(t, check.ResponseHeader(injectedHeader, ""), retry.Converge(2))
@@ -157,31 +178,35 @@ func TestImagePullPolicy(t *testing.T) {
 		})
 }
 
-func installWasmExtension(ctx framework.TestContext, pluginName, wasmModuleURL, imagePullPolicy, pluginVersion string) error {
+func applyWasmConfig(ctx framework.TestContext, ns string, args map[string]any, path string) error {
+	return ctx.ConfigIstio().EvalFile(ns, args, path).Apply()
+}
+
+func installWasmExtension(ctx framework.TestContext, pluginName, wasmModuleURL, imagePullPolicy, pluginVersion, path string) error {
 	args := map[string]any{
 		"WasmPluginName":    pluginName,
 		"TestWasmModuleURL": wasmModuleURL,
 		"WasmPluginVersion": pluginVersion,
 		"TargetAppName":     common.GetTarget().(echo.Instances).NamespacedName().Name,
+		"TargetGatewayName": common.GetTarget().(echo.Instances).ServiceName() + "-gateway",
 	}
 
 	if len(imagePullPolicy) != 0 {
 		args["ImagePullPolicy"] = imagePullPolicy
 	}
 
-	if err := ctx.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, wasmConfigFile).
-		Apply(); err != nil {
+	if err := applyWasmConfig(ctx, common.GetAppNamespace().Name(), args, path); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func uninstallWasmExtension(ctx framework.TestContext, pluginName string) error {
+func uninstallWasmExtension(ctx framework.TestContext, pluginName, path string) error {
 	args := map[string]any{
 		"WasmPluginName": pluginName,
 	}
-	if err := ctx.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, wasmConfigFile).Delete(); err != nil {
+	if err := ctx.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, path).Delete(); err != nil {
 		return err
 	}
 	return nil
@@ -214,7 +239,41 @@ func sendTraffic(ctx framework.TestContext, checker echo.Checker, options ...ret
 	_ = cltInstance.CallOrFail(ctx, httpOpts)
 }
 
+func sendTrafficToHostname(ctx framework.TestContext, checker echo.Checker, hostname string, options ...retry.Option) {
+	ctx.Helper()
+	if len(common.GetClientInstances()) == 0 {
+		ctx.Fatal("there is no client")
+	}
+	cltInstance := common.GetClientInstances()[0]
+
+	defaultOptions := []retry.Option{retry.Delay(100 * time.Millisecond), retry.Timeout(200 * time.Second)}
+	httpOpts := echo.CallOptions{
+		Address: hostname,
+		Port: echo.Port{
+			Name:        "http",
+			ServicePort: 80,
+			Protocol:    protocol.HTTP,
+		},
+		HTTP: echo.HTTP{
+			Path:    "/path",
+			Method:  "GET",
+			Headers: headers.New().WithHost(fmt.Sprintf("%s.com", common.GetTarget().ServiceName())).Build(),
+		},
+		Count: 1,
+		Retry: echo.Retry{
+			Options: append(defaultOptions, options...),
+		},
+		Check: checker,
+	}
+
+	_ = cltInstance.CallOrFail(ctx, httpOpts)
+}
+
 func applyAndTestWasmWithHTTP(ctx framework.TestContext, c wasmTestConfigs) {
+	applyAndTestCustomWasmConfigWithHTTP(ctx, c, wasmConfigFile)
+}
+
+func applyAndTestCustomWasmConfigWithHTTP(ctx framework.TestContext, c wasmTestConfigs, path string) {
 	ctx.NewSubTest("HTTP_" + c.desc).Run(func(t framework.TestContext) {
 		defer func() {
 			generation++
@@ -224,11 +283,35 @@ func applyAndTestWasmWithHTTP(ctx framework.TestContext, c wasmTestConfigs) {
 		// The gzipped tarball should have a wasm module.
 		wasmModuleURL := fmt.Sprintf("http://%v/layer/v1/%v:%v", registry.Address(), imageName, c.tag)
 		t.Logf("Trying to get a wasm file from %v", wasmModuleURL)
-		if err := installWasmExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", generation)); err != nil {
+		if err := installWasmExtension(t, c.name, wasmModuleURL, c.policy, fmt.Sprintf("g-%d", generation), path); err != nil {
 			t.Fatalf("failed to install WasmPlugin: %v", err)
 		}
 		sendTraffic(t, check.ResponseHeader(injectedHeader, c.expectedVersion))
 	})
+}
+
+// TestTargetRef vs workloadSelector for gateways
+func TestGatewaySelection(t *testing.T) {
+	framework.NewTest(t).
+		Features("extensibility.wasm.remote-load").
+		Run(func(t framework.TestContext) {
+			crd.DeployGatewayAPIOrSkip(t)
+			args := map[string]any{
+				"To": common.GetTarget().(echo.Instances),
+			}
+			t.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, "testdata/gateway-api.yaml").ApplyOrFail(t)
+			applyAndTestCustomWasmConfigWithOCI(t, wasmTestConfigs{
+				desc:            "initial creation with latest for a gateway",
+				name:            "wasm-test-module",
+				tag:             "latest",
+				policy:          "",
+				upstreamVersion: "0.0.1",
+				expectedVersion: "0.0.1",
+				testHostname:    fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", common.GetTarget().ServiceName(), common.GetAppNamespace().Name()),
+			}, "testdata/gateway-wasm-filter.yaml")
+
+			resetCustomWasmConfig(t, "wasm-test-module", "testdata/gateway-wasm-filter.yaml")
+		})
 }
 
 // TestImagePullPolicyWithHTTP tests pulling Wasm Binary via HTTP and ImagePullPolicy.
