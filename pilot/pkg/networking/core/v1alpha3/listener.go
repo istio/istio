@@ -88,9 +88,9 @@ var (
 	}()
 	mtlsHTTPALPNs = []string{"istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
-	allIstioMtlsALPNs = []string{"istio", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
+	allIstioMtlsALPNs = []string{"istio", "istio-peer-exchange", "istio-http/1.0", "istio-http/1.1", "istio-h2"}
 
-	mtlsTCPWithMxcALPNs = []string{"istio"}
+	mtlsTCPWithMxcALPNs = []string{"istio-peer-exchange", "istio"}
 )
 
 // BuildListeners produces a list of listeners and referenced clusters for all proxies
@@ -126,7 +126,11 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	} else if transportProtocol == istionetworking.TransportProtocolTCP &&
 		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL &&
 		gatewayTCPServerWithTerminatingTLS {
-		alpnByTransport = util.ALPNDownstreamWithMxc
+		if features.DisableMxALPN {
+			alpnByTransport = util.ALPNDownstream
+		} else {
+			alpnByTransport = util.ALPNDownstreamWithMxc
+		}
 	}
 
 	ctx := &auth.DownstreamTlsContext{
