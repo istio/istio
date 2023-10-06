@@ -89,9 +89,10 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	}
 
 	// Waypoint overrides
-	metadataDiscovery := true
+	metadataDiscovery := cfg.Metadata.MetadataDiscovery
 	if strings.HasPrefix(cfg.ID, "waypoint~") {
 		xdsType = "DELTA_GRPC"
+		metadataDiscovery = true
 	}
 
 	opts = append(opts,
@@ -102,7 +103,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
 		option.XdsType(xdsType),
-		option.MetadataDiscovery(metadataDiscovery))
+		option.MetadataDiscovery(bool(metadataDiscovery)))
 
 	// Add GCPProjectNumber to access in bootstrap template.
 	md := cfg.Metadata.PlatformMetadata
@@ -549,6 +550,7 @@ type MetadataOptions struct {
 	EnvoyStatusPort             int
 	EnvoyPrometheusPort         int
 	ExitOnZeroActiveConnections bool
+	MetadataDiscovery           bool
 }
 
 const (
@@ -604,6 +606,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.EnvoyStatusPort = options.EnvoyStatusPort
 	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
 	meta.ExitOnZeroActiveConnections = model.StringBool(options.ExitOnZeroActiveConnections)
+	meta.MetadataDiscovery = model.StringBool(options.MetadataDiscovery)
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
