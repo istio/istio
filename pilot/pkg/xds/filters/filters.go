@@ -262,7 +262,6 @@ var (
 							"workload_discovery": map[string]any{},
 						},
 					},
-
 					"upstream_propagation": []any{
 						map[string]any{
 							"istio_headers": map[string]any{},
@@ -287,7 +286,6 @@ var (
 							"workload_discovery": map[string]any{},
 						},
 					},
-
 					"upstream_propagation": []any{
 						map[string]any{
 							"istio_headers": map[string]any{

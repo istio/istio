@@ -20,6 +20,16 @@
   },
   "bootstrap_extensions": [
     {
+      "name": "metadata_discovery",
+      "typed_config": {
+        "@type": "type.googleapis.com/udpa.type.v1.TypedStruct",
+        "type_url": "type.googleapis.com/istio.workload.BootstrapExtension",
+        "value": {
+          "config_source": { "ads": {} }
+        }
+      }
+    },
+    {
       "name": "envoy.bootstrap.internal_listener",
       "typed_config": {
         "@type":"type.googleapis.com/udpa.type.v1.TypedStruct",
@@ -112,6 +122,9 @@
         "patterns": [
           {
           "prefix": "reporter="
+          },
+          {
+          "prefix": "workload_discovery"
           },
           {
           "prefix": "prefix1"

@@ -485,7 +485,7 @@ var (
 		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
 	).Get()
 
-	DisableMxALPN = env.Register("PILOT_DISABLE_MX_ALPN", true,
+	DisableMxALPN = env.Register("PILOT_DISABLE_MX_ALPN", false,
 		"If true, pilot will not put istio-peer-exchange ALPN into TLS handshake configuration.",
 	).Get()
 
@@ -538,7 +538,7 @@ var (
 
 	EnableAmbientControllers = env.Register(
 		"PILOT_ENABLE_AMBIENT_CONTROLLERS",
-		true,
+		false,
 		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
 
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
