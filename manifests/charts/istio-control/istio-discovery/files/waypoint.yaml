@@ -21,7 +21,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: "{{.Name}}"
+      gateway.networking.k8s.io/gateway-name: "{{.Name}}"
   template:
     metadata:
       annotations:
@@ -50,7 +50,7 @@ spec:
            )
           $requiredLabels
           (strdict
-            "istio.io/gateway-name" .Name
+            "gateway.networking.k8s.io/gateway-name" .Name
             "gateway.istio.io/managed" "istio.io-mesh-controller"
           ) | nindent 8}}
     spec:
@@ -273,7 +273,7 @@ spec:
     appProtocol: {{ $val.AppProtocol }}
   {{- end }}
   selector:
-    istio.io/gateway-name: "{{.Name}}"
+    gateway.networking.k8s.io/gateway-name: "{{.Name}}"
   {{- if and (.Spec.Addresses) (eq .ServiceType "LoadBalancer") }}
   loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
   {{- end }}

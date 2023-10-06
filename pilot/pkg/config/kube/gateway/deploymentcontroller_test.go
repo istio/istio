@@ -80,7 +80,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		Spec: &istioio_networking_v1beta1.ProxyConfig{
 			Selector: &istio_type_v1beta1.WorkloadSelector{
 				MatchLabels: map[string]string{
-					"istio.io/gateway-name": "default",
+					"gateway.networking.k8s.io/gateway-name": "default",
 				},
 			},
 			Image: &istioio_networking_v1beta1.ProxyImage{

@@ -369,12 +369,12 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      istio.io/gateway-name: productpage
+      gateway.networking.k8s.io/gateway-name: productpage
   template:
     metadata:
       labels:
         sidecar.istio.io/inject: "false"
-        istio.io/gateway-name: productpage
+        gateway.networking.k8s.io/gateway-name: productpage
     spec:
       serviceAccountName: productpage-istio-waypoint
       containers:

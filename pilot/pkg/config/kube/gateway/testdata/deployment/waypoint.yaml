@@ -29,7 +29,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: namespace
+      gateway.networking.k8s.io/gateway-name: namespace
   template:
     metadata:
       annotations:
@@ -40,7 +40,7 @@ spec:
         prometheus.io/scrape: "true"
       labels:
         gateway.istio.io/managed: istio.io-mesh-controller
-        istio.io/gateway-name: namespace
+        gateway.networking.k8s.io/gateway-name: namespace
         service.istio.io/canonical-name: namespace-istio-waypoint
         service.istio.io/canonical-revision: latest
         sidecar.istio.io/inject: "false"
@@ -235,6 +235,6 @@ spec:
     port: 15008
     protocol: TCP
   selector:
-    istio.io/gateway-name: namespace
+    gateway.networking.k8s.io/gateway-name: namespace
   type: ClusterIP
 ---

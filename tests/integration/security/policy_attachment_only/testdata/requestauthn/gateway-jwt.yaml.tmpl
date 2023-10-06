@@ -20,7 +20,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: {{ .To.ServiceName }}-gateway # This should be ignored because it's not a targetRef
+      gateway.networking.k8s.io/gateway-name: {{ .To.ServiceName }}-gateway # This should be ignored because it's not a targetRef
   jwtRules:
   - issuer: "test-issuer-3@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
