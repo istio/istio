@@ -8,7 +8,7 @@ spec:
     pilot:
       env:
         PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
-        DISABLE_MX_ALPN: "true"
+        PILOT_DISABLE_MX_ALPN: "true"
     meshConfig:
       defaultConfig:
         proxyMetadata:
