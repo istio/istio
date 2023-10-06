@@ -232,14 +232,6 @@ var (
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
 				map[string]any{
-					"downstream_discovery": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
 					"downstream_propagation": []any{
 						map[string]any{
 							"istio_headers": map[string]any{},
@@ -254,14 +246,6 @@ var (
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
 				map[string]any{
-					"upstream_discovery": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
 					"upstream_propagation": []any{
 						map[string]any{
 							"istio_headers": map[string]any{},
@@ -278,14 +262,6 @@ var (
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
 				map[string]any{
-					"upstream_discovery": []any{
-						map[string]any{
-							"istio_headers": map[string]any{},
-						},
-						map[string]any{
-							"workload_discovery": map[string]any{},
-						},
-					},
 					"upstream_propagation": []any{
 						map[string]any{
 							"istio_headers": map[string]any{
