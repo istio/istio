@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"sort"
 	"strings"
+	"sync"
 
 	"k8s.io/apimachinery/pkg/types"
 
@@ -179,6 +180,11 @@ type SidecarScope struct {
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
 	configDependencies sets.Set[ConfigHash]
+
+	// Function that will initialize the sidecar scope. This is used to
+	// defer the initialization of the sidecar scope until the first time
+	// it is used
+	initFunc func()
 }
 
 // MarshalJSON implements json.Marshaller
@@ -372,37 +378,47 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 	}
 
-	egressConfigs := sidecar.GetEgress()
+	if !features.EnableLazySidecarEvaluation {
+		initSidecarScope(ps, out, configNamespace)
+	} else {
+		out.initFunc = sync.OnceFunc(func() {
+			initSidecarScope(ps, out, configNamespace)
+		})
+	}
+
+	return out
+}
+
+func initSidecarScope(ps *PushContext, sidecarScope *SidecarScope, configNamespace string) {
+	egressConfigs := sidecarScope.Sidecar.GetEgress()
 	// If egress not set, setup a default listener
 	if len(egressConfigs) == 0 {
 		egressConfigs = append(egressConfigs, &networking.IstioEgressListener{Hosts: []string{"*/*"}})
 	}
-	out.EgressListeners = make([]*IstioEgressListenerWrapper, 0, len(egressConfigs))
+	sidecarScope.EgressListeners = make([]*IstioEgressListenerWrapper, 0, len(egressConfigs))
 	for _, e := range egressConfigs {
-		out.EgressListeners = append(out.EgressListeners,
+		sidecarScope.EgressListeners = append(sidecarScope.EgressListeners,
 			convertIstioListenerToWrapper(ps, configNamespace, e))
 	}
 
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
-	out.collectImportedServices(ps, configNamespace)
+	sidecarScope.collectImportedServices(ps, configNamespace)
 
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	out.selectDestinationRules(ps, configNamespace)
+	sidecarScope.selectDestinationRules(ps, configNamespace)
 
-	if sidecar.GetOutboundTrafficPolicy() == nil {
+	if sidecarScope.Sidecar.GetOutboundTrafficPolicy() == nil {
 		if ps.Mesh.OutboundTrafficPolicy != nil {
-			out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
+			sidecarScope.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
 				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
 			}
 		}
 	} else {
-		out.OutboundTrafficPolicy = sidecar.GetOutboundTrafficPolicy()
+		sidecarScope.OutboundTrafficPolicy = sidecarScope.Sidecar.GetOutboundTrafficPolicy()
 	}
-
-	return out
 }
 
 func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace string) {

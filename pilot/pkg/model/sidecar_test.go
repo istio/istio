@@ -29,6 +29,7 @@ import (
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -2750,6 +2751,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			sidecarScope := convertToSidecarScope(ps, sidecarConfig, "mynamespace")
+			if features.EnableLazySidecarEvaluation && sidecarScope.initFunc != nil {
+				sidecarScope.initFunc()
+			}
 
 			numberListeners := len(sidecarScope.EgressListeners)
 			if numberListeners != configuredListeneres {
@@ -3032,6 +3036,9 @@ func TestContainsEgressDependencies(t *testing.T) {
 			if len(tt.egress) == 0 {
 				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
 			}
+			if features.EnableLazySidecarEvaluation && sidecarScope.initFunc != nil {
+				sidecarScope.initFunc()
+			}
 
 			for k, v := range tt.contains {
 				if ok := sidecarScope.DependsOnConfig(k, ps.Mesh.RootNamespace); ok != v {
@@ -3090,6 +3097,9 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 			sidecarScope := convertToSidecarScope(ps, cfg, "default")
 			if len(tt.egress) == 0 {
 				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
+			}
+			if features.EnableLazySidecarEvaluation && sidecarScope.initFunc != nil {
+				sidecarScope.initFunc()
 			}
 
 			for k, v := range tt.contains {
@@ -3222,6 +3232,10 @@ outboundTrafficPolicy:
 				sidecarScope = DefaultSidecarScopeForNamespace(ps, "not-default")
 			} else {
 				sidecarScope = convertToSidecarScope(ps, test.sidecar, test.sidecar.Namespace)
+			}
+
+			if features.EnableLazySidecarEvaluation && sidecarScope.initFunc != nil {
+				sidecarScope.initFunc()
 			}
 
 			if !reflect.DeepEqual(test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy) {
@@ -3378,6 +3392,9 @@ func TestInboundConnectionPoolForPort(t *testing.T) {
 				Spec: tt.sidecar,
 			}
 			scope := convertToSidecarScope(ps, sidecar, sidecar.Namespace)
+			if features.EnableLazySidecarEvaluation && scope.initFunc != nil {
+				scope.initFunc()
+			}
 
 			for port, expected := range tt.want {
 				actual := scope.InboundConnectionPoolForPort(port)

@@ -99,7 +99,7 @@ var (
 	ConvertSidecarScopeConcurrency = env.Register(
 		"PILOT_CONVERT_SIDECAR_SCOPE_CONCURRENCY",
 		1,
-		"Used to adjust the concurrency of SidecarScope conversions. "+
+		"Deprecated, superseded by ENABLE_LAZY_SIDECAR_EVALUATION. Used to adjust the concurrency of SidecarScope conversions. "+
 			"When istiod is deployed on a multi-core CPU server, increasing this value will help to use the CPU to "+
 			"accelerate configuration push, but it also means that istiod will consume more CPU resources.",
 	).Get()

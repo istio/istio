@@ -275,6 +275,9 @@ var (
 			" (e.g., my-service.my-ns.svc.cluster.local.) to the domains"+
 			" list for VirtualHost entries.",
 	).Get()
+
+	EnableLazySidecarEvaluation = env.Register("ENABLE_LAZY_SIDECAR_EVALUATION", true,
+		"If enabled, pilot will only evaluate sidecar resources when actually used").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
