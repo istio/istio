@@ -56,11 +56,6 @@ var (
 	)
 )
 
-type hostClassification struct {
-	exactHosts sets.Set[host.Name]
-	allHosts   []host.Name
-}
-
 // SidecarScope is a wrapper over the Sidecar resource with some
 // preprocessed data to determine the list of services, virtualServices,
 // and destinationRules that are accessible to a given
