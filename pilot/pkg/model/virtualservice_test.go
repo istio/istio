@@ -1964,20 +1964,13 @@ func TestSelectVirtualService(t *testing.T) {
 		buildHTTPService("*.test2.wildcard.com", visibility.Public, wildcardIP, "default", 8888),
 	}
 
-	hostsByNamespace := make(map[string]hostClassification)
+	hostsByNamespace := make(map[string][]host.Name)
 	for _, svc := range services {
 		ns := svc.Attributes.Namespace
 		if _, exists := hostsByNamespace[ns]; !exists {
-			hostsByNamespace[ns] = hostClassification{exactHosts: sets.New[host.Name](), allHosts: make([]host.Name, 0)}
+			hostsByNamespace[ns] = make([]host.Name, 0)
 		}
-
-		hc := hostsByNamespace[ns]
-		hc.allHosts = append(hc.allHosts, svc.Hostname)
-		hostsByNamespace[ns] = hc
-
-		if !svc.Hostname.IsWildCarded() {
-			hostsByNamespace[ns].exactHosts.Insert(svc.Hostname)
-		}
+		hostsByNamespace[ns] = append(hostsByNamespace[ns], svc.Hostname)
 	}
 
 	virtualServiceSpec1 := &networking.VirtualService{
@@ -2220,7 +2213,7 @@ func TestSelectVirtualService(t *testing.T) {
 	}
 
 	index := virtualServiceIndex{
-		publicByGateway: map[string]configTrie{
+		publicByGateway: map[string]virtualServiceTrie{
 			constants.IstioMeshGateway: buildConfigTrie([]config.Config{
 				virtualService1,
 				virtualService2,

@@ -17,6 +17,7 @@ package model
 import (
 	"strings"
 
+	"istio.io/istio/pkg/config/host"
 	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -31,33 +32,30 @@ import (
 
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This function is used by sidecar converter.
-func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
+func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string][]host.Name) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
-
-	addVirtualService := func(vst virtualServiceTrie, frags []string) {
+	addVirtualService := func(vst trieGroup, frags []string) {
 		importedVirtualServices = vst.matchesTrie.Matches(frags, importedVirtualServices)
 		importedVirtualServices = vst.subsetOfTrie.SubsetOf(frags, importedVirtualServices)
 	}
 
-	loopAndAdd := func(ct configTrie) {
+	loopAndAdd := func(ct virtualServiceTrie) {
 		if len(ct.trie) == 0 {
 			return
 		}
-
-		for crNs, hc := range hostsByNamespace {
+		for crNs, egressHosts := range hostsByNamespace {
 			if crNs == wildcardNamespace {
-				for _, h := range hc.allHosts {
-					frags := strings.Split(string(h), ".")
+				for _, eh := range egressHosts {
+					frags := strings.Split(string(eh), ".")
 					for _, vst := range ct.trie {
 						addVirtualService(vst, frags)
 					}
 				}
 				continue
 			}
-
 			if vst, ok := ct.trie[crNs]; ok {
-				for _, h := range hc.allHosts {
-					frags := strings.Split(string(h), ".")
+				for _, eh := range egressHosts {
+					frags := strings.Split(string(eh), ".")
 					addVirtualService(vst, frags)
 				}
 			}
@@ -65,7 +63,6 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	}
 
 	n := types.NamespacedName{Namespace: configNamespace, Name: constants.IstioMeshGateway}
-
 	loopAndAdd(vsidx.privateByNamespaceAndGateway[n])
 	loopAndAdd(vsidx.exportedToNamespaceByGateway[n])
 	loopAndAdd(vsidx.publicByGateway[constants.IstioMeshGateway])

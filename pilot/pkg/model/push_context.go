@@ -56,15 +56,21 @@ type Metrics interface {
 
 var _ Metrics = &PushContext{}
 
+type serviceTrie struct {
+	// the key is service's namespace
+	trie    map[string]*host.Trie[*Service]
+	configs []*Service
+}
+
 // serviceIndex is an index of all services by various fields for easy access during push.
 type serviceIndex struct {
 	// privateByNamespace are services that can reachable within the same namespace, with exportTo "."
-	privateByNamespace map[string][]*Service
+	privateByNamespace map[string]serviceTrie
 	// public are services reachable within the mesh with exportTo "*"
-	public []*Service
+	public serviceTrie
 	// exportedToNamespace are services that were made visible to this namespace
 	// by an exportTo explicitly specifying this namespace.
-	exportedToNamespace map[string][]*Service
+	exportedToNamespace map[string]serviceTrie
 
 	// HostnameAndNamespace has all services, indexed by hostname then namespace.
 	HostnameAndNamespace map[host.Name]map[string]*Service `json:"-"`
@@ -77,9 +83,9 @@ type serviceIndex struct {
 
 func newServiceIndex() serviceIndex {
 	return serviceIndex{
-		public:               []*Service{},
-		privateByNamespace:   map[string][]*Service{},
-		exportedToNamespace:  map[string][]*Service{},
+		public:               serviceTrie{},
+		privateByNamespace:   map[string]serviceTrie{},
+		exportedToNamespace:  map[string]serviceTrie{},
 		HostnameAndNamespace: map[host.Name]map[string]*Service{},
 		instancesByPort:      map[string]map[int][]*IstioEndpoint{},
 	}
@@ -92,24 +98,24 @@ type exportToDefaults struct {
 	destinationRule sets.Set[visibility.Instance]
 }
 
-type configTrie struct {
+type virtualServiceTrie struct {
 	// the key is CR's namespace
-	trie    map[string]virtualServiceTrie
+	trie    map[string]trieGroup
 	configs []config.Config
 }
 
-type virtualServiceTrie struct {
+type trieGroup struct {
 	matchesTrie  *host.Trie[config.Config]
 	subsetOfTrie *host.Trie[config.Config]
 }
 
 // virtualServiceIndex is the index of virtual services by various fields.
 type virtualServiceIndex struct {
-	exportedToNamespaceByGateway map[types.NamespacedName]configTrie
+	exportedToNamespaceByGateway map[types.NamespacedName]virtualServiceTrie
 	// this contains all the virtual services with exportTo "." and current namespace. The keys are namespace,gateway.
-	privateByNamespaceAndGateway map[types.NamespacedName]configTrie
+	privateByNamespaceAndGateway map[types.NamespacedName]virtualServiceTrie
 	// This contains all virtual services whose exportTo is "*", keyed by gateway
-	publicByGateway map[string]configTrie
+	publicByGateway map[string]virtualServiceTrie
 
 	// root vs namespace/name ->delegate vs virtualservice gvk/namespace/name
 	delegates map[ConfigKey][]ConfigKey
@@ -124,9 +130,9 @@ type virtualServiceIndex struct {
 
 func newVirtualServiceIndex() virtualServiceIndex {
 	out := virtualServiceIndex{
-		publicByGateway:              map[string]configTrie{},
-		privateByNamespaceAndGateway: map[types.NamespacedName]configTrie{},
-		exportedToNamespaceByGateway: map[types.NamespacedName]configTrie{},
+		publicByGateway:              map[string]virtualServiceTrie{},
+		privateByNamespaceAndGateway: map[types.NamespacedName]virtualServiceTrie{},
+		exportedToNamespaceByGateway: map[types.NamespacedName]virtualServiceTrie{},
 		delegates:                    map[ConfigKey][]ConfigKey{},
 		referencedDestinations:       map[string]sets.String{},
 	}
@@ -717,7 +723,7 @@ func NewPushContext() *PushContext {
 
 // AddPublicServices adds the services to context public services - mainly used in tests.
 func (ps *PushContext) AddPublicServices(services []*Service) {
-	ps.ServiceIndex.public = append(ps.ServiceIndex.public, services...)
+	ps.ServiceIndex.public.configs = append(ps.ServiceIndex.public.configs, services...)
 }
 
 // AddServiceInstances adds instances to the context service instances - mainly used in tests.
@@ -940,19 +946,19 @@ func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 
 	// First add private services and explicitly exportedTo services
 	if ns == NamespaceAll {
-		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace)+len(ps.ServiceIndex.public))
+		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace)+len(ps.ServiceIndex.public.configs))
 		for _, privateServices := range ps.ServiceIndex.privateByNamespace {
-			out = append(out, privateServices...)
+			out = append(out, privateServices.configs...)
 		}
 	} else {
-		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace[ns])+
-			len(ps.ServiceIndex.exportedToNamespace[ns])+len(ps.ServiceIndex.public))
-		out = append(out, ps.ServiceIndex.privateByNamespace[ns]...)
-		out = append(out, ps.ServiceIndex.exportedToNamespace[ns]...)
+		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace[ns].configs)+
+			len(ps.ServiceIndex.exportedToNamespace[ns].configs)+len(ps.ServiceIndex.public.configs))
+		out = append(out, ps.ServiceIndex.privateByNamespace[ns].configs...)
+		out = append(out, ps.ServiceIndex.exportedToNamespace[ns].configs...)
 	}
 
 	// Second add public services
-	out = append(out, ps.ServiceIndex.public...)
+	out = append(out, ps.ServiceIndex.public.configs...)
 
 	return out
 }
@@ -1418,6 +1424,11 @@ func (ps *PushContext) updateContext(
 func (ps *PushContext) initServiceRegistry(env *Environment) {
 	// Sort the services in order of creation.
 	allServices := SortServicesByCreationTime(env.Services())
+
+	privateByNamespace := make(map[string][]*Service)
+	publicToNamespace := make([]*Service, 0)
+	exportedToNamespace := make(map[string][]*Service)
+
 	for _, s := range allServices {
 		portMap := map[string]int{}
 		for _, port := range s.Ports {
@@ -1440,16 +1451,16 @@ func (ps *PushContext) initServiceRegistry(env *Environment) {
 		ns := s.Attributes.Namespace
 		if s.Attributes.ExportTo.IsEmpty() {
 			if ps.exportToDefaults.service.Contains(visibility.Private) {
-				ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
+				privateByNamespace[ns] = append(privateByNamespace[ns], s)
 			} else if ps.exportToDefaults.service.Contains(visibility.Public) {
-				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+				publicToNamespace = append(publicToNamespace, s)
 			}
 		} else {
 			// if service has exportTo *, make it public and ignore all other exportTos.
 			// if service does not have exportTo *, but has exportTo ~ - i.e. not visible to anyone, ignore all exportTos.
 			// if service has exportTo ., replace with current namespace.
 			if s.Attributes.ExportTo.Contains(visibility.Public) {
-				ps.ServiceIndex.public = append(ps.ServiceIndex.public, s)
+				publicToNamespace = append(publicToNamespace, s)
 				continue
 			} else if s.Attributes.ExportTo.Contains(visibility.None) {
 				continue
@@ -1458,10 +1469,10 @@ func (ps *PushContext) initServiceRegistry(env *Environment) {
 				for exportTo := range s.Attributes.ExportTo {
 					if exportTo == visibility.Private || string(exportTo) == ns {
 						// exportTo with same namespace is effectively private
-						ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
+						privateByNamespace[ns] = append(privateByNamespace[ns], s)
 					} else {
 						// exportTo is a specific target namespace
-						ps.ServiceIndex.exportedToNamespace[string(exportTo)] = append(ps.ServiceIndex.exportedToNamespace[string(exportTo)], s)
+						exportedToNamespace[string(exportTo)] = append(exportedToNamespace[string(exportTo)], s)
 					}
 				}
 			}
@@ -1469,6 +1480,36 @@ func (ps *PushContext) initServiceRegistry(env *Environment) {
 	}
 
 	ps.initServiceAccounts(env, allServices)
+
+	// build trie tree
+	ps.ServiceIndex.public = serviceTrie{}
+	ps.ServiceIndex.exportedToNamespace = make(map[string]serviceTrie, len(exportedToNamespace))
+	ps.ServiceIndex.privateByNamespace = make(map[string]serviceTrie, len(privateByNamespace))
+
+	ps.ServiceIndex.public = buildServiceTrie(publicToNamespace)
+	for key, ss := range exportedToNamespace {
+		ps.ServiceIndex.exportedToNamespace[key] = buildServiceTrie(ss)
+	}
+	for key, ss := range privateByNamespace {
+		ps.ServiceIndex.privateByNamespace[key] = buildServiceTrie(ss)
+	}
+}
+
+func buildServiceTrie(ss []*Service) serviceTrie {
+	st := serviceTrie{
+		trie:    map[string]*host.Trie[*Service]{},
+		configs: make([]*Service, len(ss)),
+	}
+	for _, s := range ss {
+		ns := s.Attributes.Namespace
+		if _, ok := st.trie[ns]; !ok {
+			st.trie[ns] = host.NewTrie[*Service]()
+		}
+		st.trie[ns].Add(s.Hostname.String(), s)
+	}
+
+	st.configs = ss
+	return st
 }
 
 // SortServicesByCreationTime sorts the list of services in ascending order by their creation time (if available).
@@ -1637,9 +1678,9 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		}
 	}
 
-	ps.virtualServiceIndex.publicByGateway = make(map[string]configTrie, len(publicByGateway))
-	ps.virtualServiceIndex.exportedToNamespaceByGateway = make(map[types.NamespacedName]configTrie, len(exportedToNamespaceByGateway))
-	ps.virtualServiceIndex.privateByNamespaceAndGateway = make(map[types.NamespacedName]configTrie, len(privateByNamespaceAndGateway))
+	ps.virtualServiceIndex.publicByGateway = make(map[string]virtualServiceTrie, len(publicByGateway))
+	ps.virtualServiceIndex.exportedToNamespaceByGateway = make(map[types.NamespacedName]virtualServiceTrie, len(exportedToNamespaceByGateway))
+	ps.virtualServiceIndex.privateByNamespaceAndGateway = make(map[types.NamespacedName]virtualServiceTrie, len(privateByNamespaceAndGateway))
 	for key, vses := range publicByGateway {
 		ps.virtualServiceIndex.publicByGateway[key] = buildConfigTrie(vses)
 	}
@@ -1651,12 +1692,15 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 	}
 }
 
-func buildConfigTrie(vss []config.Config) configTrie {
-	ct := configTrie{trie: make(map[string]virtualServiceTrie), configs: vss}
+func buildConfigTrie(vss []config.Config) virtualServiceTrie {
+	ct := virtualServiceTrie{
+		trie:    make(map[string]trieGroup),
+		configs: make([]config.Config, len(vss)),
+	}
 	for _, vs := range vss {
 		ns := vs.Namespace
 		if _, ok := ct.trie[ns]; !ok {
-			ct.trie[ns] = virtualServiceTrie{
+			ct.trie[ns] = trieGroup{
 				matchesTrie:  host.NewTrie[config.Config](),
 				subsetOfTrie: host.NewTrie[config.Config](),
 			}
@@ -1668,6 +1712,7 @@ func buildConfigTrie(vss []config.Config) configTrie {
 			ct.trie[ns].matchesTrie.AddBatch(spec.Hosts, vs)
 		}
 	}
+	ct.configs = vss
 	return ct
 }
 

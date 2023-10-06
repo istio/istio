@@ -452,7 +452,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		IstioListener: istioListener,
 	}
 
-	hostsByNamespace := make(map[string]hostClassification)
+	hostsByNamespace := make(map[string][]host.Name)
 	for _, h := range istioListener.Hosts {
 		parts := strings.SplitN(h, "/", 2)
 		if len(parts) < 2 {
@@ -462,28 +462,16 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 		if parts[0] == currentNamespace {
 			parts[0] = configNamespace
 		}
-
 		ns := parts[0]
 		hName := host.Name(parts[1])
 		if _, exists := hostsByNamespace[ns]; !exists {
-			hostsByNamespace[ns] = hostClassification{exactHosts: sets.New[host.Name](), allHosts: make([]host.Name, 0)}
+			hostsByNamespace[ns] = make([]host.Name, 0)
 		}
-
-		// exact hosts are saved separately for map lookup
-		if !hName.IsWildCarded() {
-			hostsByNamespace[ns].exactHosts.Insert(hName)
-		}
-
-		// allHosts contains the exact hosts and wildcard hosts,
-		// since SelectVirtualServices will use `Matches` semantic matching.
-		hc := hostsByNamespace[ns]
-		hc.allHosts = append(hc.allHosts, hName)
-		hostsByNamespace[ns] = hc
+		hostsByNamespace[ns] = append(hostsByNamespace[ns], hName)
 	}
 
 	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, hostsByNamespace)
-	svces := ps.servicesExportedToNamespace(configNamespace)
-	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
+	out.services = out.selectServices(ps.ServiceIndex, configNamespace, hostsByNamespace)
 	return out
 }
 
@@ -666,25 +654,57 @@ func (sc *SidecarScope) ServicesForHostname(hostname host.Name) []*Service {
 
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
-func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, configNamespace string, hostsByNamespace map[string]hostClassification) []*Service {
+func (ilw *IstioEgressListenerWrapper) selectServices(idx serviceIndex, configNamespace string, hostsByNamespace map[string][]host.Name) []*Service {
 	importedServices := make([]*Service, 0)
-	wildcardHosts, wnsFound := hostsByNamespace[wildcardNamespace]
-	for _, s := range services {
-		configNamespace := s.Attributes.Namespace
-
-		// Check if there is an explicit import of form ns/* or ns/host
-		if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-			if svc := matchingService(importedHosts, s, ilw); svc != nil {
-				importedServices = append(importedServices, svc)
+	loopAndAdd := func(st serviceTrie) {
+		if len(st.trie) == 0 {
+			return
+		}
+		for ns, egressHosts := range hostsByNamespace {
+			if ns == wildcardNamespace {
+				for _, eh := range egressHosts {
+					frags := strings.Split(string(eh), ".")
+					for _, trie := range st.trie {
+						importedServices = trie.SubsetOf(frags, importedServices)
+					}
+				}
 				continue
 			}
-		}
-		if wnsFound { // Check if there is an import of form */host or */*
-			if svc := matchingService(wildcardHosts, s, ilw); svc != nil {
-				importedServices = append(importedServices, svc)
+			if trie, ok := st.trie[ns]; ok {
+				for _, eh := range egressHosts {
+					frags := strings.Split(string(eh), ".")
+					importedServices = trie.SubsetOf(frags, importedServices)
+				}
 			}
 		}
 	}
+
+	if configNamespace == NamespaceAll {
+		for _, st := range idx.privateByNamespace {
+			loopAndAdd(st)
+		}
+	} else {
+		loopAndAdd(idx.privateByNamespace[configNamespace])
+		loopAndAdd(idx.exportedToNamespace[configNamespace])
+	}
+	loopAndAdd(idx.public)
+
+	// remove duplicate and do listener port match
+	tempServices := importedServices[:0]
+	exists := sets.New[*Service]()
+	matchPort := needsPortMatch(ilw)
+	for _, svc := range importedServices {
+		if exists.InsertContains(svc) {
+			continue
+		}
+		if matchPort {
+			svc = serviceMatchingListenerPort(svc, ilw)
+		}
+		if svc != nil {
+			tempServices = append(tempServices, svc)
+		}
+	}
+	importedServices = tempServices
 
 	validServices := make(map[host.Name]string)
 	for _, svc := range importedServices {
@@ -705,31 +725,6 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 	return filteredServices
-}
-
-// Return the original service or a trimmed service which has a subset of the ports in original service.
-func matchingService(importedHosts hostClassification, service *Service, ilw *IstioEgressListenerWrapper) *Service {
-	matchPort := needsPortMatch(ilw)
-
-	// first, check exactHosts
-	if importedHosts.exactHosts.Contains(service.Hostname) {
-		if matchPort {
-			return serviceMatchingListenerPort(service, ilw)
-		}
-		return service
-	}
-
-	// exactHosts not found, fallback to loop allHosts
-	for _, importedHost := range importedHosts.allHosts {
-		// Check if the hostnames match per usual hostname matching rules
-		if service.Hostname.SubsetOf(importedHost) {
-			if matchPort {
-				return serviceMatchingListenerPort(service, ilw)
-			}
-			return service
-		}
-	}
-	return nil
 }
 
 // serviceMatchingListenerPort constructs service with listener port.
