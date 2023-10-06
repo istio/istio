@@ -142,12 +142,12 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute) (errs error) {
 				if header == nil {
 					errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 				}
-				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				errs = appendErrors(errs, ValidateHTTPHeaderNameOrJwtClaimRoute(name))
 				errs = appendErrors(errs, validateStringMatch(header, "headers"))
 			}
 
 			for name, header := range match.WithoutHeaders {
-				errs = appendErrors(errs, ValidateHTTPHeaderName(name))
+				errs = appendErrors(errs, ValidateHTTPHeaderNameOrJwtClaimRoute(name))
 				// `*` is NOT a RE2 style regex, it will be translated as present_match.
 				if header != nil && header.GetRegex() != "*" {
 					errs = appendErrors(errs, validateStringMatch(header, "withoutHeaders"))

@@ -1,0 +1,22 @@
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  name: full
+spec:
+  targetRefs:
+  - group: ""
+    kind: Service
+    name: foo
+  jwtRules:
+  - issuer: "example.com"
+    jwksUri: https://example.com/.well-known/jwks.json
+    forwardOriginalToken: true
+    fromCookies: [foo]
+    fromHeaders:
+      - name: foo
+        prefix: baz
+    outputClaimToHeaders:
+    - claim: abc
+      header: def
+    timeout: 5s
+    outputPayloadToHeader: header
