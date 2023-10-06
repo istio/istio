@@ -87,13 +87,6 @@ type IptablesVersion struct {
 	legacy bool
 }
 
-// NoLocks returns true if this version does not use or support locks
-func (v IptablesVersion) NoLocks() bool {
-	// nf_tables does not use locks
-	// legacy added locks in 1.6.2
-	return !v.legacy || v.version.LessThan(IptablesRestoreLocking)
-}
-
 func DetectIptablesVersion(ver string) (IptablesVersion, error) {
 	if ver == "" {
 		var err error
