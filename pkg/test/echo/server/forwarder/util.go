@@ -137,7 +137,7 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 		}
 
 		if cfg.PropagateResponse != nil {
-			workFn()
+			workFn() // nolint: errcheck
 		} else {
 			g.Go(ctx, workFn)
 		}
