@@ -4301,7 +4301,7 @@ type SidecarInjectorConfig struct {
 
 	// Enables sidecar auto-injection in namespaces by default.
 	EnableNamespacesByDefault *wrapperspb.BoolValue `protobuf:"bytes,2,opt,name=enableNamespacesByDefault,proto3" json:"enableNamespacesByDefault,omitempty"`
-	// Setting this to `IfNeeded` will result in the sidecar injector being run again if additonal mutations occur. Default: Never
+	// Setting this to `IfNeeded` will result in the sidecar injector being run again if additional mutations occur. Default: Never
 	ReinvocationPolicy string `protobuf:"bytes,3,opt,name=reinvocationPolicy,proto3" json:"reinvocationPolicy,omitempty"`
 	// Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
 	//
