@@ -86,7 +86,7 @@ sidecarInjectorWebhook:
   enableNamespacesByDefault: false
   # Mutations that occur after the sidecar injector are not handled by default, as the Istio sidecar injector is only run
   # once. For example, an OPA sidecar injected after the Istio sidecar will not have it's liveness/readiness probes rewritten.
-  # Setting this to `IfNeeded` will result in the sidecar injector being run again if additonal mutations occur.
+  # Setting this to `IfNeeded` will result in the sidecar injector being run again if additional mutations occur.
   reinvocationPolicy: Never
   rewriteAppHTTPProbe: true
   # Templates defines a set of custom injection templates that can be used. For example, defining:
