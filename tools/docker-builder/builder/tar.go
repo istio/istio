@@ -111,8 +111,6 @@ func WriteArchiveFromFiles(base string, files map[string]string, out io.Writer) 
 	return nil
 }
 
-var WriteTime = time.Time{}
-
 // Writes a raw TAR archive to out, given an fs.FS.
 func WriteArchiveFromFS(base string, fsys fs.FS, out io.Writer, sourceDateEpoch time.Time) error {
 	tw := tar.NewWriter(out)
