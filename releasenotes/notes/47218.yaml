@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 47159
+releaseNotes:
+- |
+  **Added** lazy loading for default namespace detection in `istioctl` to avoid checking the kube config for commands that require no Kubernetes environment.
