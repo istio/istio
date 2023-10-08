@@ -2308,6 +2308,37 @@ spec:
       consistentHash:
         {{. | indent 8}}
 `, svcName, svcName)
+
+			cookieWithTTLDest := fmt.Sprintf(`
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: session-cookie
+          ttl: 3600s
+`, svcName, svcName)
+
+			cookieWithoutTTLDest := fmt.Sprintf(`
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: session-cookie
+`, svcName, svcName)
 			// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
 			// and could be broken by having only 1 pod so its good to have this check in place
 			t.RunTraffic(TrafficTestCase{
@@ -2342,6 +2373,33 @@ spec:
 					check.OK(),
 					ConsistentHostChecker,
 				),
+			}
+			cookieCallOpts := echo.CallOptions{
+				Count:   10,
+				Address: svcName,
+				HTTP: echo.HTTP{
+					Path:    "/?some-query-param=bar",
+					Headers: headers.New().With("x-some-header", "baz").Build(),
+				},
+				Port: echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
+				Check: check.And(
+					check.OK(),
+					ConsistentHostChecker,
+				),
+				PropagateResponse: func(req *http.Request, res *http.Response) {
+					if res != nil && res.Cookies() != nil {
+						var sessionCookie *http.Cookie
+						for _, cookie := range res.Cookies() {
+							if cookie.Name == "session-cookie" {
+								sessionCookie = cookie
+								break
+							}
+						}
+						if sessionCookie != nil {
+							req.AddCookie(sessionCookie)
+						}
+					}
+				},
 			}
 			tcpCallopts := echo.CallOptions{
 				Count:   10,
@@ -2385,6 +2443,18 @@ spec:
 					skip:   c.Config().WorkloadClass() == echo.Proxyless,
 					reason: "", // TODO: is this a bug or WAI?
 				},
+			})
+			t.RunTraffic(TrafficTestCase{
+				name:   "http cookie with ttl" + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(cookieWithTTLDest, ""),
+				call:   c.CallOrFail,
+				opts:   cookieCallOpts,
+			})
+			t.RunTraffic(TrafficTestCase{
+				name:   "http cookie without ttl" + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(cookieWithoutTTLDest, ""),
+				call:   c.CallOrFail,
+				opts:   cookieCallOpts,
 			})
 		}
 	}

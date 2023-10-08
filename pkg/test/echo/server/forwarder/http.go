@@ -210,6 +210,10 @@ func (c *httpCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 	httpReq.Header = cfg.headers.Clone()
 	writeForwardedHeaders(&outBuffer, requestID, cfg.headers)
 
+	// Propagate previous response cookies if any
+	if cfg.PropagateResponse != nil {
+		cfg.PropagateResponse(httpReq, cfg.previousResponse)
+	}
 	// Get the transport.
 	transport, closeTransport, err := c.getTransport()
 	if err != nil {
@@ -229,6 +233,7 @@ func (c *httpCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 	if err != nil {
 		return outBuffer.String(), err
 	}
+	cfg.previousResponse = httpResp
 
 	echo.LatencyField.WriteForRequest(&outBuffer, requestID, fmt.Sprintf("%v", time.Since(start)))
 	echo.ActiveRequestsField.WriteForRequest(&outBuffer, requestID, fmt.Sprintf("%d", c.e.ActiveRequests()))
