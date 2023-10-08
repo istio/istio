@@ -291,16 +291,35 @@ func (b Builder) buildHTTP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provide
 		ShadowRules:           rules,
 		ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
 	}
-	return []*hcm.HttpFilter{
-		{
+
+	// A helper array of arrays to keep the shadowRbacFilter and extAuthFilter together
+	var extauthzPairFilters [][]*hcm.HttpFilter
+	for _, authz := range extauthz {
+		var httpFilters []*hcm.HttpFilter
+		shadowFilter := &hcm.HttpFilter{
 			Name:       wellknown.HTTPRoleBasedAccessControl,
 			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
-		},
-		{
+		}
+
+		httpFilters = append(httpFilters, shadowFilter)
+
+		httpFilter := &hcm.HttpFilter{
 			Name:       wellknown.HTTPExternalAuthorization,
-			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.http)},
-		},
+			ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(authz.http)},
+		}
+		httpFilters = append(httpFilters, httpFilter)
+		extauthzPairFilters = append(extauthzPairFilters, httpFilters)
+
 	}
+	return flattenArray(extauthzPairFilters)
+}
+
+func flattenArray(arrayOfArrays [][]*hcm.HttpFilter) []*hcm.HttpFilter {
+	var flatArray []*hcm.HttpFilter
+	for _, array := range arrayOfArrays {
+		flatArray = append(flatArray, array...)
+	}
+	return flatArray
 }
 
 func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, providers []string) []*listener.Filter {
@@ -331,7 +350,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
 			},
 		}
-	} else if extauthz.tcp == nil {
+	} else if extauthz[0].tcp == nil {
 		b.logger.AppendDebugf("ignored CUSTOM action with HTTP provider on TCP filter chain")
 		return nil
 	} else {
@@ -347,7 +366,7 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 			},
 			{
 				Name:       wellknown.ExternalAuthorization,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.tcp)},
+				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz[0].tcp)},
 			},
 		}
 	}

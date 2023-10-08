@@ -107,6 +107,60 @@ var (
 			},
 		},
 	}
+
+	meshConfigHTTPMultipleProviders = &meshconfig.MeshConfig{
+		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+			{
+				Name: "provider-1",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
+					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
+						Service:                         "foo/my-custom-ext-authz-1.foo.svc.cluster.local",
+						Port:                            9000,
+						Timeout:                         &durationpb.Duration{Seconds: 10},
+						FailOpen:                        true,
+						StatusOnError:                   "403",
+						PathPrefix:                      "/check",
+						IncludeRequestHeadersInCheck:    []string{"x-custom-id", "x-prefix-*", "*-suffix"},
+						IncludeHeadersInCheck:           []string{"should-not-include-when-IncludeRequestHeadersInCheck-is-set"},
+						IncludeAdditionalHeadersInCheck: map[string]string{"x-header-1": "value-1", "x-header-2": "value-2"},
+						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{
+							MaxRequestBytes:     2048,
+							AllowPartialMessage: true,
+							PackAsBytes:         true,
+						},
+						HeadersToUpstreamOnAllow:   []string{"Authorization", "x-prefix-*", "*-suffix"},
+						HeadersToDownstreamOnDeny:  []string{"Set-cookie", "x-prefix-*", "*-suffix"},
+						HeadersToDownstreamOnAllow: []string{"Set-cookie", "x-prefix-*", "*-suffix"},
+					},
+				},
+			},
+			{
+				Name: "provider-2",
+				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
+					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
+						Service:                         "foo/my-custom-ext-authz-2.foo.svc.cluster.local",
+						Port:                            9000,
+						Timeout:                         &durationpb.Duration{Seconds: 10},
+						FailOpen:                        true,
+						StatusOnError:                   "403",
+						PathPrefix:                      "/check",
+						IncludeRequestHeadersInCheck:    []string{"x-custom-id", "x-prefix-*", "*-suffix"},
+						IncludeHeadersInCheck:           []string{"should-not-include-when-IncludeRequestHeadersInCheck-is-set"},
+						IncludeAdditionalHeadersInCheck: map[string]string{"x-header-1": "value-1", "x-header-2": "value-2"},
+						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{
+							MaxRequestBytes:     2048,
+							AllowPartialMessage: true,
+							PackAsBytes:         true,
+						},
+						HeadersToUpstreamOnAllow:   []string{"Authorization", "x-prefix-*", "*-suffix"},
+						HeadersToDownstreamOnDeny:  []string{"Set-cookie", "x-prefix-*", "*-suffix"},
+						HeadersToDownstreamOnAllow: []string{"Set-cookie", "x-prefix-*", "*-suffix"},
+					},
+				},
+			},
+		},
+	}
+
 	meshConfigInvalid = &meshconfig.MeshConfig{
 		ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
 			{
@@ -126,12 +180,13 @@ var (
 
 func TestGenerator_GenerateHTTP(t *testing.T) {
 	testCases := []struct {
-		name       string
-		tdBundle   trustdomain.Bundle
-		meshConfig *meshconfig.MeshConfig
-		version    *model.IstioVersion
-		input      string
-		want       []string
+		name                 string
+		tdBundle             trustdomain.Bundle
+		meshConfig           *meshconfig.MeshConfig
+		version              *model.IstioVersion
+		hostnameAndNamespace map[host.Name]map[string]*model.Service
+		input                string
+		want                 []string
 	}{
 		{
 			name:  "allow-empty-rule",
@@ -177,10 +232,22 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			want:       []string{"custom-http-provider-out1.yaml", "custom-http-provider-out2.yaml"},
 		},
 		{
-			name:       "custom-bad-multiple-providers",
-			meshConfig: meshConfigHTTP,
-			input:      "custom-bad-multiple-providers-in.yaml",
-			want:       []string{"custom-bad-out.yaml"},
+			name:       "custom-multiple-providers",
+			meshConfig: meshConfigHTTPMultipleProviders,
+			hostnameAndNamespace: map[host.Name]map[string]*model.Service{
+				"my-custom-ext-authz-1.foo.svc.cluster.local": {
+					"foo": &model.Service{
+						Hostname: "my-custom-ext-authz-1.foo.svc.cluster.local",
+					},
+				},
+				"my-custom-ext-authz-2.foo.svc.cluster.local": {
+					"foo": &model.Service{
+						Hostname: "my-custom-ext-authz-2.foo.svc.cluster.local",
+					},
+				},
+			},
+			input: "custom-multiple-providers-in.yaml",
+			want:  []string{"custom-multiple-http-provider-1-out1.yaml", "custom-multiple-http-provider-1-out2.yaml", "custom-multiple-http-provider-2-out1.yaml", "custom-multiple-http-provider-2-out2.yaml"},
 		},
 		{
 			name:       "custom-bad-invalid-config",
@@ -255,7 +322,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
 			}
-			push := push(t, baseDir+tc.input, tc.meshConfig)
+			push := push(t, baseDir+tc.input, tc.meshConfig, tc.hostnameAndNamespace)
 			proxy := node(tc.version)
 			selectionOpts := model.WorkloadSelectionOpts{
 				Namespace:      proxy.ConfigNamespace,
@@ -274,11 +341,12 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 
 func TestGenerator_GenerateTCP(t *testing.T) {
 	testCases := []struct {
-		name       string
-		tdBundle   trustdomain.Bundle
-		meshConfig *meshconfig.MeshConfig
-		input      string
-		want       []string
+		name                 string
+		tdBundle             trustdomain.Bundle
+		meshConfig           *meshconfig.MeshConfig
+		hostnameAndNamespace map[host.Name]map[string]*model.Service
+		input                string
+		want                 []string
 	}{
 		{
 			name:  "allow-both-http-tcp",
@@ -325,7 +393,7 @@ func TestGenerator_GenerateTCP(t *testing.T) {
 			option := Option{
 				IsCustomBuilder: tc.meshConfig != nil,
 			}
-			push := push(t, baseDir+tc.input, tc.meshConfig)
+			push := push(t, baseDir+tc.input, tc.meshConfig, tc.hostnameAndNamespace)
 			proxy := node(nil)
 			selectionOpts := model.WorkloadSelectionOpts{
 				Namespace:      proxy.ConfigNamespace,
@@ -436,19 +504,22 @@ func newAuthzPolicies(t *testing.T, policies []*config.Config) *model.Authorizat
 	return authzPolicies
 }
 
-func push(t *testing.T, input string, mc *meshconfig.MeshConfig) *model.PushContext {
+func push(t *testing.T, input string, mc *meshconfig.MeshConfig, hostnameAndNamespace map[host.Name]map[string]*model.Service) *model.PushContext {
 	t.Helper()
 	p := &model.PushContext{
 		AuthzPolicies: yamlPolicy(t, basePath+input),
 		Mesh:          mc,
 	}
-	p.ServiceIndex.HostnameAndNamespace = map[host.Name]map[string]*model.Service{
-		"my-custom-ext-authz.foo.svc.cluster.local": {
-			"foo": &model.Service{
-				Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
+	if hostnameAndNamespace == nil {
+		hostnameAndNamespace = map[host.Name]map[string]*model.Service{
+			"my-custom-ext-authz.foo.svc.cluster.local": {
+				"foo": &model.Service{
+					Hostname: "my-custom-ext-authz.foo.svc.cluster.local",
+				},
 			},
-		},
+		}
 	}
+	p.ServiceIndex.HostnameAndNamespace = hostnameAndNamespace
 	return p
 }
 

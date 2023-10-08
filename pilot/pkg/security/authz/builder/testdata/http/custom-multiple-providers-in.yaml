@@ -6,15 +6,22 @@ metadata:
 spec:
   action: CUSTOM
   provider:
-    name: default
+    name: provider-1
   selector:
     matchLabels:
       app: httpbin
       version: v1
   rules:
+#    - from:
+#        - source:
+#            namespaces:
+#              - istio-system
     - to:
         - operation:
-            paths: ["/httpbin1"]
+            hosts:
+              - www.example1.com
+            paths:
+              - /httpbin1
 ---
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -24,12 +31,19 @@ metadata:
 spec:
   action: CUSTOM
   provider:
-    name: another
+    name: provider-2
   selector:
     matchLabels:
       app: httpbin
       version: v1
   rules:
+#    - from:
+#        - source:
+#            namespaces:
+#              - istio-system
     - to:
         - operation:
-            paths: ["/httpbin2"]
+            hosts:
+              - www.example2.com
+            paths:
+              - /httpbin2

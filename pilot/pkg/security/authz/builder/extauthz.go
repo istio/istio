@@ -98,39 +98,44 @@ func processExtensionProvider(push *model.PushContext) map[string]*builtExtAuthz
 	return resolved
 }
 
-func notAllTheSame(names []string) bool {
-	for i := 1; i < len(names); i++ {
-		if names[i-1] != names[i] {
-			return true
-		}
-	}
-	return false
-}
-
-func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) (*builtExtAuthz, error) {
+func getExtAuthz(resolved map[string]*builtExtAuthz, providers []string) ([]*builtExtAuthz, error) {
 	if resolved == nil {
 		return nil, fmt.Errorf("extension provider is either invalid or undefined")
 	}
 	if len(providers) < 1 {
 		return nil, fmt.Errorf("no provider specified in authorization policy")
 	}
-	if notAllTheSame(providers) {
-		return nil, fmt.Errorf("only 1 provider can be used per workload, found multiple providers: %v", providers)
-	}
 
-	provider := providers[0]
-	ret, found := resolved[provider]
-	if !found {
-		var li []string
-		for p := range resolved {
-			li = append(li, p)
+	providers = removeDuplicateStr(providers)
+
+	var extAuthzs []*builtExtAuthz
+	for _, provider := range providers {
+		ret, found := resolved[provider]
+		if !found {
+			var li []string
+			for p := range resolved {
+				li = append(li, p)
+			}
+			return nil, fmt.Errorf("available providers are %v but found %q", li, provider)
+		} else if ret.err != nil {
+			return nil, fmt.Errorf("found errors in provider %s: %v", provider, ret.err)
 		}
-		return nil, fmt.Errorf("available providers are %v but found %q", li, provider)
-	} else if ret.err != nil {
-		return nil, fmt.Errorf("found errors in provider %s: %v", provider, ret.err)
+		extAuthzs = append(extAuthzs, ret)
 	}
 
-	return ret, nil
+	return extAuthzs, nil
+}
+
+func removeDuplicateStr(strSlice []string) []string {
+	allKeys := make(map[string]bool)
+	list := []string{}
+	for _, item := range strSlice {
+		if _, value := allKeys[item]; !value {
+			allKeys[item] = true
+			list = append(list, item)
+		}
+	}
+	return list
 }
 
 func buildExtAuthzHTTP(push *model.PushContext,
