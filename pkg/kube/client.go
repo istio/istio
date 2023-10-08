@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -724,7 +725,8 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, 15014)
+		monitoringPort := findIstiodMonitoringPort(&istiod)
+		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, monitoringPort)
 		if err != nil {
 			return nil, err
 		}
@@ -1208,4 +1210,13 @@ func SetRevisionForTest(c CLIClient, rev string) CLIClient {
 	tc := c.(*client)
 	tc.revision = rev
 	return tc
+}
+
+func findIstiodMonitoringPort(pod *v1.Pod) int {
+	if v, ok := pod.GetAnnotations()["prometheus.io/port"]; ok {
+		if port, err := strconv.Atoi(v); err == nil {
+			return port
+		}
+	}
+	return 15014
 }
