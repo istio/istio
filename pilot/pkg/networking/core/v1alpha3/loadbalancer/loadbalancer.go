@@ -82,14 +82,13 @@ func ApplyLocalityLBSetting(
 		// Do not apply default failover when locality LB is disabled.
 	} else if enableFailover && (localityLB.Enabled == nil || localityLB.Enabled.Value) {
 		if len(localityLB.FailoverPriority) > 0 {
-			prioritiesAssigned := applyPriorityFailover(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.FailoverPriority)
-			// if failover and failoverPriority both are present then apply failover on the lowest priority.
+			applyPriorityFailover(loadAssignment, wrappedLocalityLbEndpoints, proxyLabels, localityLB.FailoverPriority)
 			if len(localityLB.Failover) != 0 {
-				applyLocalityFailover(locality, loadAssignment, localityLB.Failover, prioritiesAssigned)
+				applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
 			}
 			return
 		}
-		applyLocalityFailover(locality, loadAssignment, localityLB.Failover, 1)
+		applyLocalityFailover(locality, loadAssignment, localityLB.Failover)
 	}
 }
 
@@ -160,16 +159,12 @@ func applyLocalityFailover(
 	locality *core.Locality,
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	failover []*v1alpha3.LocalityLoadBalancerSetting_Failover,
-	prioritiesAssigned int,
 ) {
 	// key is priority, value is the index of the LocalityLbEndpoints in ClusterLoadAssignment
 	priorityMap := map[int][]int{}
 
 	// 1. calculate the LocalityLbEndpoints.Priority compared with proxy locality
 	for i, localityEndpoint := range loadAssignment.Endpoints {
-		if localityEndpoint.Priority < uint32(prioritiesAssigned-1) {
-			continue
-		}
 		// if region/zone/subZone all match, the priority is 0.
 		// if region/zone match, the priority is 1.
 		// if region matches, the priority is 2.
@@ -187,8 +182,10 @@ func applyLocalityFailover(
 				}
 			}
 		}
-		loadAssignment.Endpoints[i].Priority = uint32(priority)
-		priorityMap[priority] = append(priorityMap[priority], i)
+
+		priorityInt := int(loadAssignment.Endpoints[i].Priority * 5) + priority
+		loadAssignment.Endpoints[i].Priority = uint32(priorityInt)
+		priorityMap[priorityInt] = append(priorityMap[priorityInt], i)
 	}
 
 	// since Priorities should range from 0 (highest) to N (lowest) without skipping.
@@ -205,7 +202,7 @@ func applyLocalityFailover(
 		if i != priority {
 			// the LocalityLbEndpoints index in ClusterLoadAssignment.Endpoints
 			for _, index := range priorityMap[priority] {
-				loadAssignment.Endpoints[index].Priority = uint32(prioritiesAssigned + i - 1)
+				loadAssignment.Endpoints[index].Priority = uint32(i)
 			}
 		}
 	}
@@ -225,9 +222,9 @@ func applyPriorityFailover(
 	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,
 	proxyLabels map[string]string,
 	failoverPriorities []string,
-) int {
+) {
 	if len(proxyLabels) == 0 || len(wrappedLocalityLbEndpoints) == 0 {
-		return 1
+		return
 	}
 	priorityMap := make(map[int][]int, len(failoverPriorities))
 	localityLbEndpoints := []*endpoint.LocalityLbEndpoints{}
@@ -257,7 +254,7 @@ func applyPriorityFailover(
 		}
 	}
 	loadAssignment.Endpoints = localityLbEndpoints
-	return len(priorities)
+	return
 }
 
 // Returning the label names in a separate array as the iteration of map is not ordered.

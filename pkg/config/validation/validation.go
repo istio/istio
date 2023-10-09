@@ -47,6 +47,7 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -3648,6 +3649,16 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 		return
 	}
 
+	if len(lb.GetFailover()) > 0 && len(lb.GetFailoverPriority()) > 0 {
+		for _, priorityLabel := range lb.GetFailoverPriority() {
+			switch priorityLabel {
+				case label.LabelTopologyRegion, label.LabelTopologyZone, label.LabelTopologySubZone:
+					errs = appendValidation(errs, fmt.Errorf("can not simultaneously use 'failover' and mention topology label '%s' in 'failover_priority'", priorityLabel))
+					return
+			}
+		}
+	}
+
 	srcLocalities := make([]string, 0, len(lb.GetDistribute()))
 	for _, locality := range lb.GetDistribute() {
 		srcLocalities = append(srcLocalities, locality.From)
@@ -3658,9 +3669,9 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 			if weight <= 0 || weight > 100 {
 				errs = appendValidation(errs, fmt.Errorf("locality weight must be in range [1, 100]"))
 				return
-			}
+		    }
 			totalWeight += weight
-		}
+	    }
 		if totalWeight != 100 {
 			errs = appendValidation(errs, fmt.Errorf("total locality weight %v != 100", totalWeight))
 			return
