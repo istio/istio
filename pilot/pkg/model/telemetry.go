@@ -435,34 +435,56 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		}
 	}
 
-	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
-		spec := telemetry.Spec
-		if len(spec.GetSelector().GetMatchLabels()) == 0 {
-			continue
-		}
-		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-		if selector.SubsetOf(proxy.Labels) {
-			key.Workload = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
-			ms = append(ms, spec.GetMetrics()...)
-			if len(telemetry.Spec.GetAccessLogging()) != 0 {
-				ls = append(ls, &computedAccessLogging{
-					telemetryKey: telemetryKey{
-						Workload: types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
-					},
-					Logging: telemetry.Spec.GetAccessLogging(),
-				})
-			}
-			ts = append(ts, spec.GetTracing()...)
-			break
-		}
-	}
-
-	return computedTelemetries{
+	ct := computedTelemetries{
 		telemetryKey: key,
 		Metrics:      ms,
 		Logging:      ls,
 		Tracing:      ts,
 	}
+
+	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
+		spec := telemetry.Spec
+		if len(spec.GetSelector().GetMatchLabels()) == 0 {
+			continue
+		}
+		opts := WorkloadSelectionOpts{
+			RootNamespace:  t.RootNamespace,
+			Namespace:      telemetry.Namespace,
+			WorkloadLabels: proxy.Labels,
+			IsWaypoint:     proxy.IsWaypointProxy(),
+		}
+		var selector labels.Instance
+
+		switch getPolicyMatcher(gvk.Telemetry, telemetry.Name, opts, spec) {
+		case policyMatchSelector:
+			selector = labels.Instance(spec.GetSelector().GetMatchLabels())
+			if selector.SubsetOf(proxy.Labels) {
+				ct = appendApplicableTelemetries(ct, telemetry, spec)
+			}
+		case policyMatchDirect:
+			ct = appendApplicableTelemetries(ct, telemetry, spec)
+		case policyMatchIgnore:
+			log.Warn("There isn't a match between the workload and the policy. Policy is ignored.")
+		}
+	}
+
+	return ct
+}
+
+func appendApplicableTelemetries(ct computedTelemetries, tel Telemetry, spec *tpb.Telemetry) computedTelemetries {
+	ct.telemetryKey.Workload = types.NamespacedName{Name: tel.Name, Namespace: tel.Namespace}
+	ct.Metrics = append(ct.Metrics, spec.GetMetrics()...)
+	if len(tel.Spec.GetAccessLogging()) != 0 {
+		ct.Logging = append(ct.Logging, &computedAccessLogging{
+			telemetryKey: telemetryKey{
+				Workload: types.NamespacedName{Name: tel.Name, Namespace: tel.Namespace},
+			},
+			Logging: tel.Spec.GetAccessLogging(),
+		})
+	}
+	ct.Tracing = append(ct.Tracing, spec.GetTracing()...)
+
+	return ct
 }
 
 // telemetryFilters computes the filters for the given proxy/class and protocol. This computes the
