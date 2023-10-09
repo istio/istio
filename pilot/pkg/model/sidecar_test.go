@@ -2416,7 +2416,7 @@ func TestSidecarOutboundTrafficPolicy(t *testing.T) {
 	}
 
 	meshConfigWithRegistryOnly, err := mesh.ApplyMeshConfigDefaults(`
-outboundTrafficPolicy: 
+outboundTrafficPolicy:
   mode: REGISTRY_ONLY
 `)
 	if err != nil {
