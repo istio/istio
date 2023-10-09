@@ -381,7 +381,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {
-	out := cloneHTTPMatchRequest(delegate)
+	out := *delegate
 	if out.Name == "" {
 		out.Name = root.Name
 	} else if root.Name != "" {
@@ -426,36 +426,7 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 	if len(out.StatPrefix) == 0 {
 		out.StatPrefix = root.StatPrefix
 	}
-	return out
-}
-
-func cloneHTTPMatchRequest(delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {
-	copied := &networking.HTTPMatchRequest{}
-	copied.Name = delegate.Name
-	copied.Uri = delegate.Uri
-	copied.Scheme = delegate.Scheme
-	copied.Method = delegate.Method
-	copied.Authority = delegate.Authority
-	// headers
-	copied.Headers = maps.Clone(delegate.Headers)
-
-	// withoutheaders
-	copied.WithoutHeaders = maps.Clone(delegate.WithoutHeaders)
-
-	// queryparams
-	copied.QueryParams = maps.Clone(delegate.QueryParams)
-
-	copied.Port = delegate.Port
-
-	// SourceLabels
-	copied.SourceLabels = maps.Clone(delegate.SourceLabels)
-
-	copied.SourceNamespace = delegate.SourceNamespace
-
-	copied.Gateways = delegate.Gateways
-
-	copied.StatPrefix = delegate.StatPrefix
-	return copied
+	return &out
 }
 
 func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {

@@ -1971,36 +1971,6 @@ func TestFuzzMergeHttpMatchRequest(t *testing.T) {
 	assert.Equal(t, merged, root)
 }
 
-// Note: this is to prevent missing merge new added HTTPMatchRequest fields
-func TestFuzzCloneHttpMatchRequest(t *testing.T) {
-	f := fuzz.New().NilChance(0.5).NumElements(1, 1).Funcs(
-		func(r *networking.StringMatch, c fuzz.Continue) {
-			*r = networking.StringMatch{
-				MatchType: &networking.StringMatch_Exact{
-					Exact: "fuzz",
-				},
-			}
-		},
-		func(m *map[string]*networking.StringMatch, c fuzz.Continue) {
-			*m = map[string]*networking.StringMatch{
-				"test": nil,
-			}
-		},
-		func(m *map[string]string, c fuzz.Continue) {
-			*m = map[string]string{"test": "fuzz"}
-		})
-
-	delegate := &networking.HTTPMatchRequest{}
-	f.Fuzz(delegate)
-	delegate.SourceNamespace = ""
-	delegate.SourceLabels = nil
-	delegate.Gateways = nil
-	delegate.IgnoreUriCase = false
-	cloned := cloneHTTPMatchRequest(delegate)
-
-	assert.Equal(t, cloned, delegate)
-}
-
 var gatewayNameTests = []struct {
 	gateway   string
 	namespace string
