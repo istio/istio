@@ -826,22 +826,24 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 			Revision:  pod.GetLabels()[label.IoIstioRev.Name],
 		}
 
-		// :15014/version returns something like
-		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
-		result, err := c.kube.CoreV1().Pods(pod.Namespace).ProxyGet("", pod.Name, "15014", "/version", nil).DoRaw(ctx)
+		monitoringPort := findIstiodMonitoringPort(&pod)
+		result, err := c.portForwardRequest(ctx, pod.Name, pod.Namespace, http.MethodGet, "/version", monitoringPort)
 		if err != nil {
-			bi, execErr := c.getIstioVersionUsingExec(&pod)
-			if execErr != nil {
-				errs = multierror.Append(errs,
-					fmt.Errorf("error port-forwarding into %s.%s: %v", pod.Namespace, pod.Name, err),
-					execErr,
-				)
-				continue
-			}
-			server.Info = *bi
+			errs = multierror.Append(errs,
+				fmt.Errorf("error port-forwarding into %s.%s: %v", pod.Namespace, pod.Name, err),
+				err,
+			)
+			continue
+		}
+		var v version.Version
+		err = json.Unmarshal(result, &v)
+		if err == nil && v.ClientVersion.Version != "" {
+			server.Info = *v.ClientVersion
 			res = append(res, server)
 			continue
 		}
+		// :15014/version returns something like
+		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
 		if len(result) > 0 {
 			setServerInfoWithIstiodVersionInfo(&server.Info, string(result))
 			// (Golang version not available through :15014/version endpoint)
@@ -899,38 +901,6 @@ func (c *client) GetProxyPods(ctx context.Context, limit int64, token string) (*
 	}
 
 	return list, nil
-}
-
-func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, error) {
-	// exclude data plane components from control plane list
-	labelToPodDetail := map[string]struct {
-		binary    string
-		container string
-	}{
-		"pilot":  {"/usr/local/bin/pilot-discovery", "discovery"},
-		"istiod": {"/usr/local/bin/pilot-discovery", "discovery"},
-	}
-
-	component := pod.Labels["istio"]
-
-	detail, ok := labelToPodDetail[component]
-	if !ok {
-		return nil, fmt.Errorf("unknown Istio component %q", component)
-	}
-
-	stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, detail.container,
-		fmt.Sprintf("%s version -o json", detail.binary))
-	if err != nil {
-		return nil, fmt.Errorf("error exec'ing into %s %s container: %w", pod.Name, detail.container, err)
-	}
-
-	var v version.Version
-	err = json.Unmarshal([]byte(stdout), &v)
-	if err == nil && v.ClientVersion.Version != "" {
-		return v.ClientVersion, nil
-	}
-
-	return nil, fmt.Errorf("error reading %s %s container version: %v", pod.Name, detail.container, stderr)
 }
 
 func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort int, podPort int) (PortForwarder, error) {
