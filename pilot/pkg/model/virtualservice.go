@@ -30,25 +30,43 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+// guess based on experience.
+func guessCapacity(n int) int {
+	n = n / 5
+	if n < 10 {
+		return 10
+	}
+	if n > 300 {
+		return 300
+	}
+	return n
+}
+
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This function is used by sidecar converter.
 func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string][]host.Name) []config.Config {
-	importedVirtualServices := make([]config.Config, 0)
-	addVirtualService := func(vst trieGroup, frags []string) {
-		importedVirtualServices = vst.matchesTrie.Matches(frags, importedVirtualServices)
-		importedVirtualServices = vst.subsetOfTrie.SubsetOf(frags, importedVirtualServices)
+	addVirtualService := func(vst trieGroup, frags []string, importedIndex []int) {
+		importedIndex = vst.matchesTrie.Matches(frags, importedIndex)
+		importedIndex = vst.subsetOfTrie.SubsetOf(frags, importedIndex)
 	}
+
+	var importedVirtualServices []config.Config
+	var importedIndex []int
 
 	loopAndAdd := func(ct virtualServiceTrie) {
 		if len(ct.trie) == 0 {
 			return
 		}
+		if cap(importedIndex) == 0 {
+			importedIndex = make([]int, 0, guessCapacity(len(ct.orderedConfigs)))
+		}
+		importedIndex = importedIndex[:0]
 		for crNs, egressHosts := range hostsByNamespace {
 			if crNs == wildcardNamespace {
 				for _, eh := range egressHosts {
 					frags := strings.Split(string(eh), ".")
 					for _, vst := range ct.trie {
-						addVirtualService(vst, frags)
+						addVirtualService(vst, frags, importedIndex)
 					}
 				}
 				continue
@@ -56,9 +74,15 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 			if vst, ok := ct.trie[crNs]; ok {
 				for _, eh := range egressHosts {
 					frags := strings.Split(string(eh), ".")
-					addVirtualService(vst, frags)
+					addVirtualService(vst, frags, importedIndex)
 				}
 			}
+		}
+		if cap(importedVirtualServices) == 0 {
+			importedVirtualServices = make([]config.Config, 0, len(importedIndex))
+		}
+		for _, idx := range importedIndex {
+			importedVirtualServices = append(importedVirtualServices, ct.orderedConfigs[idx])
 		}
 	}
 

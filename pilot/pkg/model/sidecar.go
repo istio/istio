@@ -420,7 +420,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 						Name:      key.Name,
 						Namespace: key.Namespace,
 					}.HashCode())
-
 					out.destinationRulesByNames[key] = dr.rule
 				}
 			}
@@ -649,18 +648,25 @@ func (sc *SidecarScope) ServicesForHostname(hostname host.Name) []*Service {
 
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
-func (ilw *IstioEgressListenerWrapper) selectServices(idx serviceIndex, configNamespace string, hostsByNamespace map[string][]host.Name) []*Service {
-	importedServices := make([]*Service, 0)
+func (ilw *IstioEgressListenerWrapper) selectServices(svcidx serviceIndex, configNamespace string, hostsByNamespace map[string][]host.Name) []*Service {
+	var importedServices []*Service
+	var importedIndex []int
+
 	loopAndAdd := func(st serviceTrie) {
 		if len(st.trie) == 0 {
 			return
 		}
+		if cap(importedIndex) == 0 {
+			importedIndex = make([]int, 0, guessCapacity(len(st.orderedConfigs)))
+		}
+		importedIndex = importedIndex[:0]
 		for ns, egressHosts := range hostsByNamespace {
 			if ns == wildcardNamespace {
 				for _, eh := range egressHosts {
 					frags := strings.Split(string(eh), ".")
 					for _, trie := range st.trie {
-						importedServices = trie.SubsetOf(frags, importedServices)
+						importedIndex = trie.SubsetOf(frags, importedIndex)
+
 					}
 				}
 				continue
@@ -668,21 +674,27 @@ func (ilw *IstioEgressListenerWrapper) selectServices(idx serviceIndex, configNa
 			if trie, ok := st.trie[ns]; ok {
 				for _, eh := range egressHosts {
 					frags := strings.Split(string(eh), ".")
-					importedServices = trie.SubsetOf(frags, importedServices)
+					importedIndex = trie.SubsetOf(frags, importedIndex)
 				}
 			}
+		}
+		if cap(importedServices) == 0 {
+			importedServices = make([]*Service, 0, len(importedIndex))
+		}
+		for _, idx := range importedIndex {
+			importedServices = append(importedServices, st.orderedConfigs[idx])
 		}
 	}
 
 	if configNamespace == NamespaceAll {
-		for _, st := range idx.privateByNamespace {
+		for _, st := range svcidx.privateByNamespace {
 			loopAndAdd(st)
 		}
 	} else {
-		loopAndAdd(idx.privateByNamespace[configNamespace])
-		loopAndAdd(idx.exportedToNamespace[configNamespace])
+		loopAndAdd(svcidx.privateByNamespace[configNamespace])
+		loopAndAdd(svcidx.exportedToNamespace[configNamespace])
 	}
-	loopAndAdd(idx.public)
+	loopAndAdd(svcidx.public)
 
 	// remove duplicate and do listener port match
 	tempServices := importedServices[:0]

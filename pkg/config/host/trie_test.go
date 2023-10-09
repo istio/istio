@@ -242,7 +242,8 @@ func BenchmarkMatches(b *testing.B) {
 	}
 	vsHosts := make([]string, 0)
 	vsHosts = append(vsHosts, egressHosts...)
-	for i := 0; i < 3; i++ {
+	// if i is too small, the difference is not obvious.
+	for i := 0; i < 5; i++ {
 		for _, h := range egressHosts {
 			if strings.HasPrefix(h, "*") {
 				vsHosts = append(vsHosts, fmt.Sprintf("*.%d%s", i, h[1:]))

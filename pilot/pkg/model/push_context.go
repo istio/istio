@@ -57,9 +57,10 @@ type Metrics interface {
 var _ Metrics = &PushContext{}
 
 type serviceTrie struct {
-	// the key is service's namespace
-	trie    map[string]*host.Trie[*Service]
-	configs []*Service
+	// the map key is service's namespace
+	// the trie tree data is orderedConfigs's index
+	trie           map[string]*host.Trie[int]
+	orderedConfigs []*Service
 }
 
 // serviceIndex is an index of all services by various fields for easy access during push.
@@ -99,14 +100,15 @@ type exportToDefaults struct {
 }
 
 type virtualServiceTrie struct {
-	// the key is CR's namespace
-	trie    map[string]trieGroup
-	configs []config.Config
+	// the map key is VS's namespace
+	trie           map[string]trieGroup
+	orderedConfigs []config.Config
 }
 
 type trieGroup struct {
-	matchesTrie  *host.Trie[config.Config]
-	subsetOfTrie *host.Trie[config.Config]
+	// the trie tree data is orderedConfigs's index
+	matchesTrie  *host.Trie[int]
+	subsetOfTrie *host.Trie[int]
 }
 
 // virtualServiceIndex is the index of virtual services by various fields.
@@ -723,7 +725,7 @@ func NewPushContext() *PushContext {
 
 // AddPublicServices adds the services to context public services - mainly used in tests.
 func (ps *PushContext) AddPublicServices(services []*Service) {
-	ps.ServiceIndex.public.configs = append(ps.ServiceIndex.public.configs, services...)
+	ps.ServiceIndex.public.orderedConfigs = append(ps.ServiceIndex.public.orderedConfigs, services...)
 }
 
 // AddServiceInstances adds instances to the context service instances - mainly used in tests.
@@ -946,19 +948,19 @@ func (ps *PushContext) servicesExportedToNamespace(ns string) []*Service {
 
 	// First add private services and explicitly exportedTo services
 	if ns == NamespaceAll {
-		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace)+len(ps.ServiceIndex.public.configs))
+		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace)+len(ps.ServiceIndex.public.orderedConfigs))
 		for _, privateServices := range ps.ServiceIndex.privateByNamespace {
-			out = append(out, privateServices.configs...)
+			out = append(out, privateServices.orderedConfigs...)
 		}
 	} else {
-		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace[ns].configs)+
-			len(ps.ServiceIndex.exportedToNamespace[ns].configs)+len(ps.ServiceIndex.public.configs))
-		out = append(out, ps.ServiceIndex.privateByNamespace[ns].configs...)
-		out = append(out, ps.ServiceIndex.exportedToNamespace[ns].configs...)
+		out = make([]*Service, 0, len(ps.ServiceIndex.privateByNamespace[ns].orderedConfigs)+
+			len(ps.ServiceIndex.exportedToNamespace[ns].orderedConfigs)+len(ps.ServiceIndex.public.orderedConfigs))
+		out = append(out, ps.ServiceIndex.privateByNamespace[ns].orderedConfigs...)
+		out = append(out, ps.ServiceIndex.exportedToNamespace[ns].orderedConfigs...)
 	}
 
 	// Second add public services
-	out = append(out, ps.ServiceIndex.public.configs...)
+	out = append(out, ps.ServiceIndex.public.orderedConfigs...)
 
 	return out
 }
@@ -1018,19 +1020,19 @@ func (ps *PushContext) VirtualServicesForGateway(proxyNamespace, gateway string)
 		Namespace: proxyNamespace,
 		Name:      gateway,
 	}
-	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[name].configs)+
-		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[name].configs)+
-		len(ps.virtualServiceIndex.publicByGateway[gateway].configs))
-	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name].configs...)
-	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name].configs...)
+	res := make([]config.Config, 0, len(ps.virtualServiceIndex.privateByNamespaceAndGateway[name].orderedConfigs)+
+		len(ps.virtualServiceIndex.exportedToNamespaceByGateway[name].orderedConfigs)+
+		len(ps.virtualServiceIndex.publicByGateway[gateway].orderedConfigs))
+	res = append(res, ps.virtualServiceIndex.privateByNamespaceAndGateway[name].orderedConfigs...)
+	res = append(res, ps.virtualServiceIndex.exportedToNamespaceByGateway[name].orderedConfigs...)
 	// Favor same-namespace Gateway routes, to give the "consumer override" preference.
 	// We do 2 iterations here to avoid extra allocations.
-	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway].configs {
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway].orderedConfigs {
 		if UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace {
 			res = append(res, vs)
 		}
 	}
-	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway].configs {
+	for _, vs := range ps.virtualServiceIndex.publicByGateway[gateway].orderedConfigs {
 		if !(UseGatewaySemantics(vs) && vs.Namespace == proxyNamespace) {
 			res = append(res, vs)
 		}
@@ -1497,18 +1499,18 @@ func (ps *PushContext) initServiceRegistry(env *Environment) {
 
 func buildServiceTrie(ss []*Service) serviceTrie {
 	st := serviceTrie{
-		trie:    map[string]*host.Trie[*Service]{},
-		configs: make([]*Service, len(ss)),
+		trie:           map[string]*host.Trie[int]{},
+		orderedConfigs: make([]*Service, len(ss)),
 	}
-	for _, s := range ss {
+	for idx, s := range ss {
 		ns := s.Attributes.Namespace
 		if _, ok := st.trie[ns]; !ok {
-			st.trie[ns] = host.NewTrie[*Service]()
+			st.trie[ns] = host.NewTrie[int]()
 		}
-		st.trie[ns].Add(s.Hostname.String(), s)
+		st.trie[ns].Add(s.Hostname.String(), idx)
 	}
 
-	st.configs = ss
+	st.orderedConfigs = ss
 	return st
 }
 
@@ -1678,41 +1680,42 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		}
 	}
 
+	// build VirtualService trie tree
 	ps.virtualServiceIndex.publicByGateway = make(map[string]virtualServiceTrie, len(publicByGateway))
 	ps.virtualServiceIndex.exportedToNamespaceByGateway = make(map[types.NamespacedName]virtualServiceTrie, len(exportedToNamespaceByGateway))
 	ps.virtualServiceIndex.privateByNamespaceAndGateway = make(map[types.NamespacedName]virtualServiceTrie, len(privateByNamespaceAndGateway))
 	for key, vses := range publicByGateway {
-		ps.virtualServiceIndex.publicByGateway[key] = buildConfigTrie(vses)
+		ps.virtualServiceIndex.publicByGateway[key] = buildVirtualServiceTrie(vses)
 	}
 	for key, vses := range exportedToNamespaceByGateway {
-		ps.virtualServiceIndex.exportedToNamespaceByGateway[key] = buildConfigTrie(vses)
+		ps.virtualServiceIndex.exportedToNamespaceByGateway[key] = buildVirtualServiceTrie(vses)
 	}
 	for key, vses := range privateByNamespaceAndGateway {
-		ps.virtualServiceIndex.privateByNamespaceAndGateway[key] = buildConfigTrie(vses)
+		ps.virtualServiceIndex.privateByNamespaceAndGateway[key] = buildVirtualServiceTrie(vses)
 	}
 }
 
-func buildConfigTrie(vss []config.Config) virtualServiceTrie {
+func buildVirtualServiceTrie(vss []config.Config) virtualServiceTrie {
 	ct := virtualServiceTrie{
-		trie:    make(map[string]trieGroup),
-		configs: make([]config.Config, len(vss)),
+		trie:           make(map[string]trieGroup),
+		orderedConfigs: make([]config.Config, len(vss)),
 	}
-	for _, vs := range vss {
+	for idx, vs := range vss {
 		ns := vs.Namespace
 		if _, ok := ct.trie[ns]; !ok {
 			ct.trie[ns] = trieGroup{
-				matchesTrie:  host.NewTrie[config.Config](),
-				subsetOfTrie: host.NewTrie[config.Config](),
+				matchesTrie:  host.NewTrie[int](),
+				subsetOfTrie: host.NewTrie[int](),
 			}
 		}
 		spec := vs.Spec.(*networking.VirtualService)
 		if UseGatewaySemantics(vs) {
-			ct.trie[ns].subsetOfTrie.AddBatch(spec.Hosts, vs)
+			ct.trie[ns].subsetOfTrie.AddBatch(spec.Hosts, idx)
 		} else {
-			ct.trie[ns].matchesTrie.AddBatch(spec.Hosts, vs)
+			ct.trie[ns].matchesTrie.AddBatch(spec.Hosts, idx)
 		}
 	}
-	ct.configs = vss
+	ct.orderedConfigs = vss
 	return ct
 }
 

@@ -2214,7 +2214,7 @@ func TestSelectVirtualService(t *testing.T) {
 
 	index := virtualServiceIndex{
 		publicByGateway: map[string]virtualServiceTrie{
-			constants.IstioMeshGateway: buildConfigTrie([]config.Config{
+			constants.IstioMeshGateway: buildVirtualServiceTrie([]config.Config{
 				virtualService1,
 				virtualService2,
 				virtualService3,
