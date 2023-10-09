@@ -432,19 +432,16 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		detectedSigningCABundle = true
 		if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
 			istioGenerated = true
+			log.Infof("%s secret found is IstioGenerated, use it as the CA certificate", ca.CACertsSecret)
 		}
 	}
 
-	if !detectedSigningCABundle || (detectedSigningCABundle && istioGenerated) {
-		if detectedSigningCABundle && istioGenerated {
-			log.Infof("%s secret found is IstioGenerated, use it as the CA certificate", ca.CACertsSecret)
-
-			// TODO(jaellio): Currently, istiod handles a "cacerts" secret with the "istio-generated" key the same way
-			// it handles the "istio-ca-secret" secret. Even though "cacerts" is file mounted, istiod will only watch the
-			// secret. If an "istio-ca-secret" exists in the control plane ns, it will be used instead of a "cacerts"
-			// secret with the "istio-generated" key.
-			// This will change in the future, and istiod will watch the file mount instead.
-		}
+	if !detectedSigningCABundle || istioGenerated {
+		// TODO(jaellio): Currently, istiod handles a "cacerts" secret with the "istio-generated" key the same way
+		// it handles the "istio-ca-secret" secret. Even though "cacerts" is file mounted, istiod will only watch the
+		// secret. If an "istio-ca-secret" exists in the control plane ns, it will be used instead of a "cacerts"
+		// secret with the "istio-generated" key.
+		// This will change in the future, and istiod will watch the file mount instead.
 
 		// Either the secret is not mounted, or it is mounted but the "istio-generated" key is used.
 		caOpts, err = s.createSelfSignedCACertificateOptions(&fileBundle, opts)

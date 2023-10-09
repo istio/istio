@@ -128,6 +128,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCert() {
 // checkAndRotateRootCertForSigningCertCitadel checks root cert secret and rotates
 // root cert if the current one is about to expire. The rotation uses existing
 // root private key to generate a new root cert, and updates root cert secret.
+// TODO: set and notify istiod certBundle watcher, like what we do in handleEvent pilot/pkg/bootstrap/istio_ca.go
 func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCertCitadel(
 	caSecret *v1.Secret,
 ) {
@@ -188,7 +189,10 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 		return
 	}
 
-	pemRootCerts, err := util.AppendRootCerts(pemCert, rotator.config.rootCertFile)
+	// add old root cert as well, otherwise communication between workloads may break
+	// because some workload may still use old certs, while some may use the new signed one.
+	pemRootCerts := util.AppendCertByte(caSecret.Data[CACertFile], pemCert)
+	pemRootCerts, err = util.AppendRootCerts(pemRootCerts, rotator.config.rootCertFile)
 	if err != nil {
 		rootCertRotatorLog.Errorf("failed to append root certificates: %s", err.Error())
 		return
