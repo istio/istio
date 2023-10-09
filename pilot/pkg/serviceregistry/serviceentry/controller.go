@@ -959,7 +959,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			pair := octetPair{thirdOctect, fourthOctect}
 			setAutoAllocatedIPs(svc, pair)
 			hnMap[n] = pair
-			if allocated > maxIPs {
+			if allocated > maxIPs-1 {
 				log.Errorf("out of IPs to allocate for service entries. x:= %d, maxips:= %d", x, maxIPs)
 				return services
 			}
