@@ -72,7 +72,7 @@ type FakeAuthenticator struct {
 	Successes *atomic.Int32
 	Failures  *atomic.Int32
 
-	mu sync.Mutex
+	mu sync.RWMutex
 }
 
 func NewFakeAuthenticator(name string) *FakeAuthenticator {
@@ -98,10 +98,10 @@ func (f *FakeAuthenticator) authenticateHTTP(req *http.Request) (*Caller, error)
 }
 
 func (f *FakeAuthenticator) authenticateGrpc(ctx context.Context) (*Caller, error) {
-	f.mu.Lock()
+	f.mu.RLock()
 	at := f.AllowedToken
 	ac := f.AllowedCert
-	f.mu.Unlock()
+	f.mu.RUnlock()
 	token := checkToken(ctx, at)
 	cert := checkCert(ctx, ac)
 	id := []string{spiffe.Identity{
