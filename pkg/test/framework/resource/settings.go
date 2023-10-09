@@ -177,7 +177,7 @@ type Settings struct {
 
 	DisableDefaultExternalServiceConnectivity bool
 
-	WDSMetadata bool
+	PeerMetadataDiscovery bool
 }
 
 // SkipVMs changes the skip settings at runtime

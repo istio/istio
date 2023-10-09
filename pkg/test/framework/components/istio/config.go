@@ -64,8 +64,8 @@ const (
 	// IntegrationTestAmbientDefaultsIOP is the path of the default IstioOperator for ambient
 	IntegrationTestAmbientDefaultsIOP = "tests/integration/iop-ambient-test-defaults.yaml"
 
-	// IntegrationTestWDSDefaultsIOP is the path of the default IstioOperator to force WDS usage
-	IntegrationTestWDSDefaultsIOP = "tests/integration/iop-wds.yaml"
+	// IntegrationTestPeerMetadataDiscoveryDefaultsIOP is the path of the default IstioOperator to force WDS usage
+	IntegrationTestPeerMetadataDiscoveryDefaultsIOP = "tests/integration/iop-wds.yaml"
 
 	// hubValuesKey values key for the Docker image hub.
 	hubValuesKey = "global.hub"

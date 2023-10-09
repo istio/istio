@@ -79,8 +79,8 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 	if i.ctx.Settings().Ambient {
 		iArgs.InFilenames = append(iArgs.InFilenames, filepath.Join(testenv.IstioSrc, IntegrationTestAmbientDefaultsIOP))
 	}
-	if i.ctx.Settings().WDSMetadata {
-		iArgs.InFilenames = append(iArgs.InFilenames, filepath.Join(testenv.IstioSrc, IntegrationTestWDSDefaultsIOP))
+	if i.ctx.Settings().PeerMetadataDiscovery {
+		iArgs.InFilenames = append(iArgs.InFilenames, filepath.Join(testenv.IstioSrc, IntegrationTestPeerMetadataDiscoveryDefaultsIOP))
 	}
 
 	rc, err := kube.DefaultRestConfig(kubeConfigFile, "", func(config *rest.Config) {
