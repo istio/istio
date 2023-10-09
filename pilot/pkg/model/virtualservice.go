@@ -381,6 +381,7 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {
+	// nolint: govet
 	out := *delegate
 	if out.Name == "" {
 		out.Name = root.Name
