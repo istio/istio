@@ -1500,7 +1500,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment) {
 func buildServiceTrie(ss []*Service) serviceTrie {
 	st := serviceTrie{
 		trie:           map[string]*host.Trie[int]{},
-		orderedConfigs: make([]*Service, len(ss)),
+		orderedConfigs: make([]*Service, 0),
 	}
 	for idx, s := range ss {
 		ns := s.Attributes.Namespace
@@ -1698,7 +1698,7 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 func buildVirtualServiceTrie(vss []config.Config) virtualServiceTrie {
 	ct := virtualServiceTrie{
 		trie:           make(map[string]trieGroup),
-		orderedConfigs: make([]config.Config, len(vss)),
+		orderedConfigs: make([]config.Config, 0),
 	}
 	for idx, vs := range vss {
 		ns := vs.Namespace

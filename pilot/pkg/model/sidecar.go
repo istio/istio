@@ -649,14 +649,14 @@ func (sc *SidecarScope) ServicesForHostname(hostname host.Name) []*Service {
 // Return filtered services through the hosts field in the egress portion of the Sidecar config.
 // Note that the returned service could be trimmed.
 func (ilw *IstioEgressListenerWrapper) selectServices(svcidx serviceIndex, configNamespace string, hostsByNamespace map[string][]host.Name) []*Service {
-	var importedServices []*Service
-	var importedIndex []int
+	importedServices := make([]*Service, 0)
+	importedIndex := make([]int, 0)
 
 	loopAndAdd := func(st serviceTrie) {
 		if len(st.trie) == 0 {
 			return
 		}
-		if cap(importedIndex) == 0 {
+		if len(importedIndex) == 0 {
 			importedIndex = make([]int, 0, guessCapacity(len(st.orderedConfigs)))
 		}
 		importedIndex = importedIndex[:0]
@@ -666,7 +666,6 @@ func (ilw *IstioEgressListenerWrapper) selectServices(svcidx serviceIndex, confi
 					frags := strings.Split(string(eh), ".")
 					for _, trie := range st.trie {
 						importedIndex = trie.SubsetOf(frags, importedIndex)
-
 					}
 				}
 				continue
@@ -678,7 +677,7 @@ func (ilw *IstioEgressListenerWrapper) selectServices(svcidx serviceIndex, confi
 				}
 			}
 		}
-		if cap(importedServices) == 0 {
+		if len(importedServices) == 0 {
 			importedServices = make([]*Service, 0, len(importedIndex))
 		}
 		for _, idx := range importedIndex {

@@ -45,19 +45,14 @@ func guessCapacity(n int) int {
 // SelectVirtualServices selects the virtual services by matching given services' host names.
 // This function is used by sidecar converter.
 func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string][]host.Name) []config.Config {
-	addVirtualService := func(vst trieGroup, frags []string, importedIndex []int) {
-		importedIndex = vst.matchesTrie.Matches(frags, importedIndex)
-		importedIndex = vst.subsetOfTrie.SubsetOf(frags, importedIndex)
-	}
-
-	var importedVirtualServices []config.Config
-	var importedIndex []int
+	importedVirtualServices := make([]config.Config, 0)
+	importedIndex := make([]int, 0)
 
 	loopAndAdd := func(ct virtualServiceTrie) {
 		if len(ct.trie) == 0 {
 			return
 		}
-		if cap(importedIndex) == 0 {
+		if len(importedIndex) == 0 {
 			importedIndex = make([]int, 0, guessCapacity(len(ct.orderedConfigs)))
 		}
 		importedIndex = importedIndex[:0]
@@ -66,7 +61,8 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 				for _, eh := range egressHosts {
 					frags := strings.Split(string(eh), ".")
 					for _, vst := range ct.trie {
-						addVirtualService(vst, frags, importedIndex)
+						importedIndex = vst.matchesTrie.Matches(frags, importedIndex)
+						importedIndex = vst.subsetOfTrie.SubsetOf(frags, importedIndex)
 					}
 				}
 				continue
@@ -74,11 +70,12 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 			if vst, ok := ct.trie[crNs]; ok {
 				for _, eh := range egressHosts {
 					frags := strings.Split(string(eh), ".")
-					addVirtualService(vst, frags, importedIndex)
+					importedIndex = vst.matchesTrie.Matches(frags, importedIndex)
+					importedIndex = vst.subsetOfTrie.SubsetOf(frags, importedIndex)
 				}
 			}
 		}
-		if cap(importedVirtualServices) == 0 {
+		if len(importedVirtualServices) == 0 {
 			importedVirtualServices = make([]config.Config, 0, len(importedIndex))
 		}
 		for _, idx := range importedIndex {
