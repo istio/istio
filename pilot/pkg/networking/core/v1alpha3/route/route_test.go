@@ -1805,7 +1805,8 @@ var virtualServiceWithEmptyRewritePrefixPath = config.Config{
 					{
 						Name: "prefix-path-rewrite",
 						Uri: &networking.StringMatch{
-							MatchType: &networking.StringMatch_Prefix{Prefix: "/prefix-to-be-removed"}},
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/prefix-to-be-removed"},
+						},
 					},
 				},
 				Rewrite: &networking.HTTPRewrite{
