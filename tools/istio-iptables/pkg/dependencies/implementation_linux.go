@@ -30,6 +30,13 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+// NoLocks returns true if this version does not use or support locks
+func (v IptablesVersion) NoLocks() bool {
+	// nf_tables does not use locks
+	// legacy added locks in 1.6.2
+	return !v.legacy || v.version.LessThan(IptablesRestoreLocking)
+}
+
 func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reader, args ...string) error {
 	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
 
