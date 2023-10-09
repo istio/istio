@@ -28,9 +28,9 @@ import (
 const (
 	LabelHostname = "kubernetes.io/hostname"
 
-	LabelTopologyZone   = "topology.kubernetes.io/zone"
-	LabelTopologySubZone =  "topology.istio.io/subzone"
-	LabelTopologyRegion = "topology.kubernetes.io/region"
+	LabelTopologyZone    = "topology.kubernetes.io/zone"
+	LabelTopologySubZone = "topology.istio.io/subzone"
+	LabelTopologyRegion  = "topology.kubernetes.io/region"
 )
 
 // AugmentLabels adds additional labels to the those provided.

@@ -183,7 +183,7 @@ func applyLocalityFailover(
 			}
 		}
 
-		priorityInt := int(loadAssignment.Endpoints[i].Priority * 5) + priority
+		priorityInt := int(loadAssignment.Endpoints[i].Priority*5) + priority
 		loadAssignment.Endpoints[i].Priority = uint32(priorityInt)
 		priorityMap[priorityInt] = append(priorityMap[priorityInt], i)
 	}
@@ -254,7 +254,6 @@ func applyPriorityFailover(
 		}
 	}
 	loadAssignment.Endpoints = localityLbEndpoints
-	return
 }
 
 // Returning the label names in a separate array as the iteration of map is not ordered.

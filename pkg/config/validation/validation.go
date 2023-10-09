@@ -3652,9 +3652,9 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 	if len(lb.GetFailover()) > 0 && len(lb.GetFailoverPriority()) > 0 {
 		for _, priorityLabel := range lb.GetFailoverPriority() {
 			switch priorityLabel {
-				case label.LabelTopologyRegion, label.LabelTopologyZone, label.LabelTopologySubZone:
-					errs = appendValidation(errs, fmt.Errorf("can not simultaneously use 'failover' and mention topology label '%s' in 'failover_priority'", priorityLabel))
-					return
+			case label.LabelTopologyRegion, label.LabelTopologyZone, label.LabelTopologySubZone:
+				errs = appendValidation(errs, fmt.Errorf("can not simultaneously use 'failover' and mention topology label '%s' in 'failover_priority'", priorityLabel))
+				return
 			}
 		}
 	}
@@ -3669,9 +3669,9 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 			if weight <= 0 || weight > 100 {
 				errs = appendValidation(errs, fmt.Errorf("locality weight must be in range [1, 100]"))
 				return
-		    }
+			}
 			totalWeight += weight
-	    }
+		}
 		if totalWeight != 100 {
 			errs = appendValidation(errs, fmt.Errorf("total locality weight %v != 100", totalWeight))
 			return
