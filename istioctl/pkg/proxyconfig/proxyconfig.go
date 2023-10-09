@@ -974,7 +974,8 @@ func logCmd(ctx cli.Context) *cobra.Command {
 	logCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
-			" [<logger>:]<level>,[<logger>:]<level>,... or <level> to change all active loggers, where logger components can be listed by running \"istioctl proxy-config log <pod-name[.namespace]>\""+
+			" [<logger>:]<level>,[<logger>:]<level>,... or <level> to change all active loggers, "+
+			"where logger components can be listed by running \"istioctl proxy-config log <pod-name[.namespace]>\""+
 			"or referred from https://github.com/envoyproxy/envoy/blob/main/source/common/common/logger.h, and level can be one of %s", levelListString))
 	return logCmd
 }
