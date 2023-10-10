@@ -182,7 +182,10 @@ func applyLocalityFailover(
 				}
 			}
 		}
-
+		// priority is calculated using the already assigned priority using failoverPriority.
+		// Since there are at most 5 priorities can be assigned using locality failover(0-4),
+		// we multiply the priority by 5 for maintaining the priorities already assigned.
+		// Afterwards the final priorities can be calculted from 0 (highest) to N (lowest) without skipping.
 		priorityInt := int(loadAssignment.Endpoints[i].Priority*5) + priority
 		loadAssignment.Endpoints[i].Priority = uint32(priorityInt)
 		priorityMap[priorityInt] = append(priorityMap[priorityInt], i)
@@ -216,7 +219,7 @@ type WrappedLocalityLbEndpoints struct {
 	LocalityLbEndpoints *endpoint.LocalityLbEndpoints
 }
 
-// set loadbalancing priority by failover priority label and returns the number of priorities assigned.
+// set loadbalancing priority by failover priority label.
 func applyPriorityFailover(
 	loadAssignment *endpoint.ClusterLoadAssignment,
 	wrappedLocalityLbEndpoints []*WrappedLocalityLbEndpoints,

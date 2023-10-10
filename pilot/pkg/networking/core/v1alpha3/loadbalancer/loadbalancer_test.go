@@ -653,30 +653,12 @@ func TestApplyLocalitySetting(t *testing.T) {
 		}{
 			{
 				name:             "match all labels",
-				failoverPriority: []string{"topology.istio.io/cluster"},
+				failoverPriority: []string{"topology.istio.io/network", "topology.istio.io/cluster"},
 				proxyLabels: map[string]string{
-					"topology.istio.io/cluster": "c1",
+					"topology.istio.io/network": "n2",
+					"topology.istio.io/cluster": "c2",
 				},
 				expected: []*endpoint.LocalityLbEndpoints{
-					{
-						Locality: &core.Locality{
-							Region:  "region1",
-							Zone:    "zone1",
-							SubZone: "subzone1",
-						},
-						LbEndpoints: []*endpoint.LbEndpoint{
-							{
-								HostIdentifier: buildEndpoint("2.2.2.2"),
-								LoadBalancingWeight: &wrappers.UInt32Value{
-									Value: 1,
-								},
-							},
-						},
-						LoadBalancingWeight: &wrappers.UInt32Value{
-							Value: 1,
-						},
-						Priority: 0, // highest priority because of label matching
-					},
 					{
 						Locality: &core.Locality{
 							Region:  "region1",
@@ -694,17 +676,17 @@ func TestApplyLocalitySetting(t *testing.T) {
 						LoadBalancingWeight: &wrappers.UInt32Value{
 							Value: 1,
 						},
-						Priority: 2, // does not match failoverPriority but same locality
+						Priority: 3, // does not match failoverPriority but match locality of the client.
 					},
 					{
 						Locality: &core.Locality{
-							Region:  "region2",
+							Region:  "region1",
 							Zone:    "zone2",
 							SubZone: "subzone2",
 						},
 						LbEndpoints: []*endpoint.LbEndpoint{
 							{
-								HostIdentifier: buildEndpoint("4.4.4.4"),
+								HostIdentifier: buildEndpoint("2.2.2.2"),
 								LoadBalancingWeight: &wrappers.UInt32Value{
 									Value: 1,
 								},
@@ -713,13 +695,13 @@ func TestApplyLocalitySetting(t *testing.T) {
 						LoadBalancingWeight: &wrappers.UInt32Value{
 							Value: 1,
 						},
-						Priority: 3, // does not match failoverPriority and locality but mentioned in locality failover settings for the client region.
+						Priority: 0, // highest priority because of label matching and same region.
 					},
 					{
 						Locality: &core.Locality{
-							Region:  "region3",
-							Zone:    "zone3",
-							SubZone: "subzone3",
+							Region:  "region2",
+							Zone:    "zone2",
+							SubZone: "subzone2",
 						},
 						LbEndpoints: []*endpoint.LbEndpoint{
 							{
@@ -732,11 +714,30 @@ func TestApplyLocalitySetting(t *testing.T) {
 						LoadBalancingWeight: &wrappers.UInt32Value{
 							Value: 1,
 						},
-						Priority: 4,
+						Priority: 4, // does not match failoverPriority and locality but mentioned in locality failover settings for the client region.
 					},
 					{
 						Locality: &core.Locality{
-							Region:  "region1",
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("4.4.4.4"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 2, // match the first label of failoverPriority but not the second
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region2",
 							Zone:    "zone2",
 							SubZone: "subzone2",
 						},
@@ -751,13 +752,31 @@ func TestApplyLocalitySetting(t *testing.T) {
 						LoadBalancingWeight: &wrappers.UInt32Value{
 							Value: 1,
 						},
-						Priority: 1, // matching the same failoverPriority but different locality(zone and subzone different)
+						Priority: 1, // matching the same failoverPriority but different locality.
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("6.6.6.6"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 5, // does not match any of the priority constructs so least priority.
 					},
 				},
 			},
 		}
 		wrappedEndpoints := buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover()
-
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
 				env := buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(tt.failoverPriority)
@@ -1307,13 +1326,28 @@ func buildSmallClusterForFailOverPriorityWithFailover() *cluster.Cluster {
 				},
 				{
 					Locality: &core.Locality{
-						Region:  "region1",
+						Region:  "region2",
 						Zone:    "zone2",
 						SubZone: "subzone2",
 					},
 					LbEndpoints: []*endpoint.LbEndpoint{
 						{
 							HostIdentifier: buildEndpoint("5.5.5.5"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+					},
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region3",
+						Zone:    "zone3",
+						SubZone: "subzone3",
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: buildEndpoint("6.6.6.6"),
 							LoadBalancingWeight: &wrappers.UInt32Value{
 								Value: 1,
 							},
@@ -1447,13 +1481,26 @@ func buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover() []*Wrapped
 			IstioEndpoints: []*model.IstioEndpoint{
 				{
 					Labels: map[string]string{
-						"topology.istio.io/network": "n1",
-						"topology.istio.io/cluster": "c1",
+						"topology.istio.io/network": "n2",
+						"topology.istio.io/cluster": "c2",
 					},
 					Address: "5.5.5.5",
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[4],
+		},
+		{
+			IstioEndpoints: []*model.IstioEndpoint{
+				{
+					Labels: map[string]string{
+						"key":                       "value",
+						"topology.istio.io/network": "n1",
+						"topology.istio.io/cluster": "c6",
+					},
+					Address: "6.6.6.6",
+				},
+			},
+			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[5],
 		},
 	}
 }
