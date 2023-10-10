@@ -48,7 +48,8 @@ func (s *ExternalControlPlaneAnalyzer) Metadata() analysis.Metadata {
 
 // Analyze implements Analyzer
 func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
-	isRemoteCluster := c.Exists(gvk.ValidatingWebhookConfiguration, resource.NewShortOrFullName("", "istio-validator-external-istiod")) && c.Exists(gvk.MutatingWebhookConfiguration, resource.NewShortOrFullName("", "istio-sidecar-injector-external-istiod"))
+	isRemoteCluster := c.Exists(gvk.ValidatingWebhookConfiguration, resource.NewShortOrFullName("", "istio-validator-external-istiod")) &&
+		c.Exists(gvk.MutatingWebhookConfiguration, resource.NewShortOrFullName("", "istio-sidecar-injector-external-istiod"))
 
 	if isRemoteCluster {
 		requiredValidatingWebhooks := []string{"istio-validator-external-istiod", "istiod-default-validator"}
