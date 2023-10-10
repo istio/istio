@@ -3,5 +3,6 @@ kind: feature
 area: traffic-management
 releaseNotes:
 - |
-  **Added** feature ENABLE_LAZY_SIDECAR_EVALUATION that allows to enable lazy initialization of sidecar resources.
+  **Added** feature ENABLE_LAZY_SIDECAR_EVALUATION that allows to enable lazy initialization of sidecar resources,
+  Only computing internal indexes when SidecarScopes are actually used by a Proxy.
 
