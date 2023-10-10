@@ -277,7 +277,7 @@ var (
 	).Get()
 
 	EnableLazySidecarEvaluation = env.Register("ENABLE_LAZY_SIDECAR_EVALUATION", true,
-		"If enabled, pilot will only evaluate sidecar resources when actually used").Get()
+		"If enabled, pilot will only compute sidecar resources when actually used").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
