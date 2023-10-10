@@ -885,11 +885,8 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// - If there is a collision, apply second hash i.e. h2(x) = PRIME - (Key % PRIME)
 	//   where PRIME is the max prime number below MAXIPS.
 	// - Calculate new hash iteratively till we find an empty slot with (h1(k) + i*h2(k)) % MAXIPS
-	for j, svc := range services {
-		if j >= maxIPs {
-			log.Errorf("out of IPs to allocate for service entries. maxips:= %d", maxIPs)
-			break
-		}
+	j := 0
+	for _, svc := range services {
 		// we can allocate IPs only if
 		// 1. the service has resolution set to static/dns. We cannot allocate
 		//   for NONE because we will not know the original DST IP that the application requested.
@@ -897,6 +894,10 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
+			if j >= maxIPs {
+				log.Errorf("out of IPs to allocate for service entries. maxips:= %d", maxIPs)
+				break
+			}
 			hash.Write([]byte(makeServiceKey(svc)))
 			// First hash is calculated by
 			s := hash.Sum32()
@@ -919,6 +920,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 				}
 			}
 			hash.Reset()
+			j++
 		}
 	}
 
