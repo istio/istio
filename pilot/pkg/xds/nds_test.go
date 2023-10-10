@@ -45,7 +45,7 @@ func TestNDS(t *testing.T) {
 			expected: &dnsProto.NameTable{
 				Table: map[string]*dnsProto.NameTable_NameInfo{
 					"random-1.host.example": {
-						Ips:      []string{"240.240.114.167"},
+						Ips:      []string{"240.240.116.21"},
 						Registry: "External",
 					},
 					"random-2.host.example": {
@@ -53,7 +53,7 @@ func TestNDS(t *testing.T) {
 						Registry: "External",
 					},
 					"random-3.host.example": {
-						Ips:      []string{"240.240.48.215"},
+						Ips:      []string{"240.240.81.100"},
 						Registry: "External",
 					},
 				},
