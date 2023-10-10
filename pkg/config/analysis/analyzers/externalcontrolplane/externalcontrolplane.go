@@ -59,7 +59,7 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 				for _, hook := range webhookConfig.Webhooks {
 					if hook.ClientConfig.URL != nil {
 
-						webhookLintResults := lintWebhookUrl(*hook.ClientConfig.URL, hook.Name)
+						webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL, hook.Name)
 						if webhookLintResults != "" {
 							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidWebhook(resource, webhookLintResults))
 							return false
@@ -83,7 +83,7 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 				for _, hook := range webhookConfig.Webhooks {
 					if hook.ClientConfig.URL != nil {
 
-						webhookLintResults := lintWebhookUrl(*hook.ClientConfig.URL, hook.Name)
+						webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL, hook.Name)
 						if webhookLintResults != "" {
 							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidWebhook(resource, webhookLintResults))
 							return false
@@ -101,7 +101,7 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 	}
 }
 
-func lintWebhookUrl(webhookURL string, webhookName string) string {
+func lintWebhookURL(webhookURL string, webhookName string) string {
 	url, err := url.Parse(webhookURL)
 	if err != nil {
 		return fmt.Sprintf("Unable to parse the domain from the URL (%v) set in the webhook (%v).", webhookURL, webhookName)
