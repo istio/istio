@@ -64,7 +64,7 @@ func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*mode
 		hostPort := hostPort{ikey.hostname.String(), i.ServicePort.Port}
 		s.instancesByHostAndPort.Delete(hostPort)
 		delete(s.instances[makeInstanceKey(i)], key)
-		delete(s.ip2instance, i.Endpoint.Address)
+		delete(s.ip2instance, i.Endpoint.GetIstioEndpointKey())
 	}
 }
 
@@ -88,8 +88,8 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 		}
 		s.instancesByHostAndPort.Insert(hostPort)
 		s.instances[ikey][key] = append(s.instances[ikey][key], instance)
-		if instance.Endpoint.Address != "" {
-			s.ip2instance[instance.Endpoint.Address] = append(s.ip2instance[instance.Endpoint.Address], instance)
+		if len(instance.Endpoint.Addresses) > 0 {
+			s.ip2instance[instance.Endpoint.GetIstioEndpointKey()] = append(s.ip2instance[instance.Endpoint.GetIstioEndpointKey()], instance)
 		}
 	}
 }

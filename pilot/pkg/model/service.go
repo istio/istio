@@ -27,6 +27,7 @@ import (
 	"net/netip"
 	"strconv"
 	"strings"
+	"sort"
 	"sync/atomic"
 	"time"
 
@@ -384,9 +385,19 @@ func WorkloadInstancesEqual(first, second *WorkloadInstance) bool {
 	if first.Endpoint == nil || second.Endpoint == nil {
 		return first.Endpoint == second.Endpoint
 	}
-	if first.Endpoint.Address != second.Endpoint.Address {
+
+	if len(first.Endpoint.Addresses) == len(second.Endpoint.Addresses) {
+		firtAddrs := first.Endpoint.SortIstioEndpointByAddresses()
+		secondAddrs := second.Endpoint.SortIstioEndpointByAddresses()
+		for index, first := range firtAddrs {
+			if first != secondAddrs[index] {
+				return false
+			}
+		}
+	} else {
 		return false
 	}
+
 	if first.Endpoint.Network != second.Endpoint.Network {
 		return false
 	}
@@ -479,8 +490,8 @@ type IstioEndpoint struct {
 	// Labels points to the workload or deployment labels.
 	Labels labels.Instance
 
-	// Address is the address of the endpoint, using envoy proto.
-	Address string
+	// Addresses is the address of the endpoint, using envoy proto.
+	Addresses []string
 
 	// ServicePortName tracks the name of the port, this is used to select the IstioEndpoint by service port.
 	ServicePortName string
@@ -589,6 +600,29 @@ var istioEndpointCmpOpts = []cmp.Option{cmpopts.IgnoreUnexported(IstioEndpoint{}
 
 func (ep *IstioEndpoint) CmpOpts() []cmp.Option {
 	return istioEndpointCmpOpts
+}
+
+// SortIstioEndpointByAddresses returns the IstioEndpoint address slices sorted by its addresses.
+func (ep *IstioEndpoint) SortIstioEndpointByAddresses() []string {
+	if ep == nil {
+		return nil
+	}
+
+	addrSlice := ep.Addresses
+	sort.Sort(sort.Reverse(sort.StringSlice(addrSlice)))
+	return addrSlice
+}
+
+// GetIstioEndpointKey returns the key of IstioEndpoint based on its addresses
+func (ep *IstioEndpoint) GetIstioEndpointKey() string {
+	if ep == nil {
+		return ""
+	}
+
+	addrSlice := ep.Addresses
+	sort.Sort(sort.Reverse(sort.StringSlice(addrSlice)))
+	key := strings.Join(addrSlice, ",")
+	return key
 }
 
 // EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.

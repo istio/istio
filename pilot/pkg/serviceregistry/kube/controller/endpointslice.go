@@ -309,13 +309,15 @@ func (e *endpointSliceCache) get(hostname host.Name) []*model.IstioEndpoint {
 	found := sets.New[endpointKey]()
 	for _, eps := range e.endpointsByServiceAndSlice[hostname] {
 		for _, ep := range eps {
-			key := endpointKey{ep.Address, ep.ServicePortName}
-			if found.InsertContains(key) {
-				// This a duplicate. Update() already handles conflict resolution, so we don't
-				// need to pick the "right" one here.
-				continue
+			for _, addr := range ep.Addresses {
+				key := endpointKey{addr, ep.ServicePortName}
+				if found.InsertContains(key) {
+					// This a duplicate. Update() already handles conflict resolution, so we don't
+					// need to pick the "right" one here.
+					continue
+				}
+				endpoints = append(endpoints, ep)
 			}
-			endpoints = append(endpoints, ep)
 		}
 	}
 	return endpoints

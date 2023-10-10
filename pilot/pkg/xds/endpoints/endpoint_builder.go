@@ -489,7 +489,7 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *
 		return false
 	}
 	// If we don't know the address we must eventually use a gateway address
-	if ep.Address == "" && (!b.gateways().IsMultiNetworkEnabled() || b.proxy.InNetwork(ep.Network)) {
+	if len(ep.Addresses) == 0 && (!b.gateways().IsMultiNetworkEnabled() || b.proxy.InNetwork(ep.Network)) {
 		return false
 	}
 	// Draining endpoints are only sent to 'persistent session' clusters.
@@ -598,7 +598,15 @@ func ExtractEnvoyEndpoints(locEps []*LocalityEndpoints) []*endpoint.LocalityLbEn
 
 // buildEnvoyLbEndpoint packs the endpoint based on istio info.
 func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnabled bool) *endpoint.LbEndpoint {
-	addr := util.BuildAddress(e.Address, e.EndpointPort)
+	addr := util.BuildAddress(e.Addresses[0], e.EndpointPort)
+	var additionalAddrs []*endpoint.Endpoint_AdditionalAddress
+	for _, itemAddr := range e.Addresses[1:] {
+		coreAddr := util.BuildAddress(itemAddr, e.EndpointPort)
+		additionalAddr := &endpoint.Endpoint_AdditionalAddress{
+			Address: coreAddr,
+		}
+		additionalAddrs = append(additionalAddrs, additionalAddr)
+	}
 	healthStatus := e.HealthStatus
 	if features.DrainingLabel != "" && e.Labels[features.DrainingLabel] != "" {
 		healthStatus = model.Draining
@@ -612,6 +620,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
 				Address: addr,
+				AdditionalAddresses: additionalAddrs,
 			},
 		},
 		Metadata: &corev3.Metadata{},
@@ -645,7 +654,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
-	address, port := e.Address, e.EndpointPort
+	addresses, port := e.Addresses, e.EndpointPort
 
 	supportsTunnel := false
 	// Other side is a waypoint proxy.
@@ -654,8 +663,13 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	if b.push.SupportsTunnel(e.Network, e.Address) {
-		supportsTunnel = true
+	// Should all ip addresses need to support tunneling ?
+	for _, addr := range e.Addresses {
+		if b.push.SupportsTunnel(e.Network, addr) {
+			supportsTunnel = true
+		} else {
+			supportsTunnel = false
+		}
 	}
 	// Otherwise supports tunnel
 	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
@@ -686,10 +700,11 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		}
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
 		if supportsTunnel {
-			address := e.Address
+			addresses = e.Addresses
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
-			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(e.EndpointPort), waypoint)
+			// TODO: support multiple addresses, currently only generate the Metadata once based on the first address.
+			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(addresses[0], int(e.EndpointPort), waypoint)
 			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
 			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
 				Value: e.GetLoadBalancingWeight(),
@@ -705,10 +720,11 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			}
 		}
 		// Setup tunnel metadata so requests will go through the tunnel
+		// TODO: support multiple addresses, currently only generate the Metadata once based on the first address.
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
+			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(addresses[0], strconv.Itoa(int(port)))),
 		}}
-		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(port), waypoint)
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(addresses[0], int(port), waypoint)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},

@@ -491,16 +491,23 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// Make sure each endpoint address is a valid address
 							// as service entries could have NONE resolution with label selectors for workload
 							// entries (which could technically have hostnames).
-							if !netutil.IsValidIPAddress(instance.Address) {
+							isValidInstance := true
+							for _, addr := range instance.Addresses {
+								if !netutil.IsValidIPAddress(addr) {
+									isValidInstance = false
+									break
+								}
+							}
+							if !isValidInstance {
 								continue
 							}
 							// Skip build outbound listener to the node itself,
 							// as when app access itself by pod ip will not flow through this listener.
 							// Simultaneously, it will be duplicate with inbound listener.
-							if instance.Address == node.IPAddresses[0] {
+							if instance.Addresses[0] == node.IPAddresses[0] {
 								continue
 							}
-							listenerOpts.bind.binds = []string{instance.Address}
+							listenerOpts.bind.binds = instance.Addresses
 							lb.buildSidecarOutboundListener(listenerOpts, listenerMap, virtualServices, actualWildcards)
 						}
 					} else {
