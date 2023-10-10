@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/pkg/config/analysis/analyzers/envoyfilter"
+	"istio.io/istio/pkg/config/analysis/analyzers/externalcontrolplane"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
@@ -110,6 +111,23 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.Deprecated, "VirtualService foo/productpage"},
 			{msg.Deprecated, "Sidecar default/no-selector"},
+		},
+	},
+	{
+		name:       "externalControlPlaneMissingWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-missing-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
+			{msg.InvalidWebhook, "ValidatingWebhookConfiguration istio-validator-external-istiod"},
+		},
+	},
+	{
+		name:       "externalControlPlaneValidWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-valid-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
 		},
 	},
 	{
