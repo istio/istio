@@ -52,7 +52,7 @@ var (
 
 var (
 	prime  = 65011     // Used for secondary hash function.
-	maxIPs = 255 * 255 // Maximum possible IPs for address allocation.
+	maxIPs = 256 * 254 // Maximum possible IPs for address allocation.
 )
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
@@ -885,7 +885,11 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// - If there is a collision, apply second hash i.e. h2(x) = PRIME - (Key % PRIME)
 	//   where PRIME is the max prime number below MAXIPS.
 	// - Calculate new hash iteratively till we find an empty slot with (h1(k) + i*h2(k)) % MAXIPS
-	for _, svc := range services {
+	for j, svc := range services {
+		if j >= maxIPs {
+			log.Errorf("out of IPs to allocate for service entries. maxips:= %d", maxIPs)
+			break
+		}
 		// we can allocate IPs only if
 		// 1. the service has resolution set to static/dns. We cannot allocate
 		//   for NONE because we will not know the original DST IP that the application requested.
@@ -906,7 +910,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 				i := uint32(1)
 				secondHash := uint32(prime) - (s % uint32(prime))
 				for {
-					nh := (s + i*secondHash) % uint32(maxIPs)
+					nh := (s + i*secondHash) % uint32(maxIPs-1)
 					if hashedServices[nh] == nil {
 						hashedServices[nh] = svc
 						break
@@ -920,7 +924,6 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 
 	x := 0
 	y := 0
-	allocated := 0
 	hnMap := make(map[string]octetPair)
 	for _, svc := range hashedServices {
 		if svc == nil {
@@ -933,7 +936,6 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			log.Debugf("Reuse IP for domain %s", n)
 			setAutoAllocatedIPs(svc, v)
 		} else {
-			allocated++
 			var thirdOctect, fourthOctect int
 			if x/255 < 255 {
 				// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
@@ -959,10 +961,6 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			pair := octetPair{thirdOctect, fourthOctect}
 			setAutoAllocatedIPs(svc, pair)
 			hnMap[n] = pair
-			if allocated > maxIPs-1 {
-				log.Errorf("out of IPs to allocate for service entries. x:= %d, maxips:= %d", x, maxIPs)
-				return services
-			}
 		}
 	}
 	return services

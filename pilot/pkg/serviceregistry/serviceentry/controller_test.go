@@ -1956,7 +1956,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		"240.240.3.0":   true,
 		"240.240.3.255": true,
 	}
-	expectedLastIP := "240.240.202.167"
+	expectedLastIP := "240.240.10.222"
 	if gotServices[len(gotServices)-1].AutoAllocatedIPv4Address != expectedLastIP {
 		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
@@ -1964,7 +1964,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	gotIPMap := make(map[string]string)
 	for _, svc := range gotServices {
 		if svc.AutoAllocatedIPv4Address == "" || doNotWant[svc.AutoAllocatedIPv4Address] {
-			t.Errorf("unexpected value for auto allocated IP address %s", svc.AutoAllocatedIPv4Address)
+			t.Errorf("unexpected value for auto allocated IP address %s for service %s", svc.AutoAllocatedIPv4Address, svc.Hostname.String())
 		}
 		if v, ok := gotIPMap[svc.AutoAllocatedIPv4Address]; ok && v != svc.Hostname.String() {
 			t.Errorf("multiple allocations of same IP address to different services with different hostname: %s", svc.AutoAllocatedIPv4Address)
