@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+
+issue:
+  - 47269
+
+releaseNotes:
+- |
+  **Added** an analyzer for showing warning messages for Istio installations using an External Control Plane
