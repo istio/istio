@@ -7448,6 +7448,21 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 			err:     false,
 			warn:    true,
 		},
+		{
+			name: "invalid LocalityLoadBalancerSetting specify both failoverPriority and region in failover",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region2",
+					},
+				},
+				FailoverPriority: []string{"topology.kubernetes.io/region"},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+			warn:    false,
+		},
 	}
 
 	for _, c := range cases {
