@@ -1132,7 +1132,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			}
 
 			bind := i.GetBind()
-			errs = appendValidation(errs, validateSidecarIngressPortAndBind((*networking.Port)(i.Port), bind))
+			errs = appendValidation(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
 			if portMap.Contains(i.Port.Number) {
 				errs = appendValidation(errs, fmt.Errorf("sidecar: ports on IP bound listeners must be unique"))
@@ -1209,7 +1209,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				}
 				bind := egress.GetBind()
 				captureMode := egress.GetCaptureMode()
-				errs = appendValidation(errs, validateSidecarEgressPortBindAndCaptureMode((*networking.Port)(egress.Port), bind, captureMode))
+				errs = appendValidation(errs, validateSidecarEgressPortBindAndCaptureMode(egress.Port, bind, captureMode))
 
 				if egress.Port.Number == 0 {
 					if _, found := udsMap[bind]; found {
