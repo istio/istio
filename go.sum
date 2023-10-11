@@ -89,6 +89,8 @@ github.com/PuerkitoBio/urlesc v0.0.0-20160726150825-5bd2802263f2/go.mod h1:uGdko
 github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578/go.mod h1:uGdkoq3SwY9Y+13GIhn11/XLaGBb4BfwItxLd5jeuXE=
 github.com/VividCortex/ewma v1.2.0 h1:f58SaIzcDXrSy3kWaHNvuJgJ3Nmz59Zji6XoJR/q1ow=
 github.com/VividCortex/ewma v1.2.0/go.mod h1:nz4BbCtbLyFDeC9SUHbtcT5644juEuWfUAUnGx7j5l4=
+github.com/ZackButcher/api v0.0.0-20231010182007-96c3499ff8af h1:TMz144mjVH6kr0jb3GN/Insxbm6oum4rrFqFdNAfsak=
+github.com/ZackButcher/api v0.0.0-20231010182007-96c3499ff8af/go.mod h1:hFqNwCBpXIy5jboW4geFoz3io9ZR3nVJ4oLI7udf6Vo=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/alecholmes/xfccparser v0.1.0 h1:/PBnzDBxfHJ66AinLNglzZH4oWLrc1/QTKlSoNNnei8=
 github.com/alecholmes/xfccparser v0.1.0/go.mod h1:c1S35dudNR5aZ4Vf9zKCrEwC8iqwF4TcDAbU+RXQ5yY=
@@ -1369,6 +1371,8 @@ istio.io/api v1.19.0-alpha.1.0.20231025161828-8716c2d77491 h1:zWR/tFyFpGSwEJeiHL
 istio.io/api v1.19.0-alpha.1.0.20231025161828-8716c2d77491/go.mod h1:hm1PE/mGdIAsjCDkTIAplP53H7TjO5LUQCiVvF26SVg=
 istio.io/client-go v1.19.0-alpha.1.0.20231025162628-18b8989cc87a h1:txOL61HeitHZgTlYSt1qKfT77j52FDjF0GQ1vq299zQ=
 istio.io/client-go v1.19.0-alpha.1.0.20231025162628-18b8989cc87a/go.mod h1:emhkAEhCJQyZqk52hl8gOZATMz6gUcoaytg5i6ZAMZA=
+istio.io/client-go v1.19.0-alpha.1.0.20231003214854-3fced7ab6397 h1:vvbpODimXUCB/c5nX9vStA+dNR5eSCNsQawxbDy0RlM=
+istio.io/client-go v1.19.0-alpha.1.0.20231003214854-3fced7ab6397/go.mod h1:ITMva8kAKStqFPNqLCR3Wz6UZveqfiUlOjiVR4+JFhM=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.4/go.mod h1:lOIQAKYgai1+vz9J7YcDZwC26Z0zQewYOGWdyIPUUQ4=
 k8s.io/api v0.28.3 h1:Gj1HtbSdB4P08C8rs9AR94MfSGpRhJgsS+GF9V26xMM=
