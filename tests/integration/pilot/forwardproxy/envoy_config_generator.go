@@ -71,7 +71,9 @@ func GenerateForwardProxyBootstrapConfig(listeners []ListenerSettings) (string, 
 						ClusterType: &envoy_cluster.Cluster_CustomClusterType{
 							Name: "envoy.clusters.dynamic_forward_proxy",
 							TypedConfig: protoconv.MessageToAny(&envoy_clusters_dynamic_forward_proxy.ClusterConfig{
-								DnsCacheConfig: dynamicForwardProxyCacheConfig,
+								ClusterImplementationSpecifier: &envoy_clusters_dynamic_forward_proxy.ClusterConfig_DnsCacheConfig{
+									DnsCacheConfig: dynamicForwardProxyCacheConfig,
+								},
 							}),
 						},
 					},
@@ -153,7 +155,9 @@ func createHTTPConnectionManager(listenerName, httpVersion string) *envoy_hcm.Ht
 				Name: "envoy.filters.http.dynamic_forward_proxy",
 				ConfigType: &envoy_hcm.HttpFilter_TypedConfig{
 					TypedConfig: protoconv.MessageToAny(&envoy_filters_dynamic_forward_proxy.FilterConfig{
-						DnsCacheConfig: dynamicForwardProxyCacheConfig,
+						ImplementationSpecifier: &envoy_filters_dynamic_forward_proxy.FilterConfig_DnsCacheConfig{
+							DnsCacheConfig: dynamicForwardProxyCacheConfig,
+						},
 					}),
 				},
 			},
