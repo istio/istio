@@ -58,7 +58,7 @@ spec:
         - containerPort: 15090
           protocol: TCP
           name: http-envoy-prom
-        {{- if contains "/" .Values.global.proxy.image }}
+        {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
         image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
         {{- else }}
         image: "{{ .ProxyImage }}"
