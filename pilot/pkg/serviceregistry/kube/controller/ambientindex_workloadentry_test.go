@@ -323,6 +323,9 @@ func TestAmbientIndex_InlinedWorkloadEntries(t *testing.T) {
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),
 		nil)
+
+	s.deleteServiceEntry(t, "se1", testNS)
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY) // Asserting no WE residual
 }
 
 func TestAmbientIndex_WorkloadEntries_DisableK8SServiceSelectWorkloadEntries(t *testing.T) {

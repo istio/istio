@@ -562,13 +562,14 @@ func (a *AmbientIndexImpl) cleanupOldWorkloadEntriesInlinedOnServiceEntry(svcEnt
 	if oldServiceEntry, f := a.servicesMap[nsName]; f {
 		for _, oldWe := range oldServiceEntry.Spec.Endpoints {
 			oldUID := c.generateServiceEntryUID(nsName.Namespace, nsName.Name, oldWe.Address)
-			we, found := a.byUID[oldUID]
-			if found {
+			if we, found := a.byUID[oldUID]; found {
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: we.ResourceName()})
 				for _, networkAddr := range networkAddressFromWorkload(we) {
 					delete(a.byWorkloadEntry, networkAddr)
 				}
 				delete(a.byUID, oldUID)
+				weUID := c.generateWorkloadEntryUID(nsName.Namespace, nsName.Name)
+				delete(a.byUID, weUID)
 			}
 		}
 	}
