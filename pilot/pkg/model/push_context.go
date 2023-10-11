@@ -1150,7 +1150,7 @@ func (ps *PushContext) DelegateVirtualServices(vses []config.Config) []ConfigHas
 func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Instance) *SidecarScope {
 	sidecar := ps.doGetSidecarScope(proxy, workloadLabels)
 	// we need to make sure sidecar scope is initiaized before returning
-	if features.EnableLazySidecarEvaluation && sidecar != nil && sidecar.initFunc != nil {
+	if sidecar != nil && features.EnableLazySidecarEvaluation {
 		sidecar.initFunc()
 	}
 

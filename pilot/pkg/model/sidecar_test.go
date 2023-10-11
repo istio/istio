@@ -2751,7 +2751,7 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			sidecarScope := convertToSidecarScope(ps, sidecarConfig, "mynamespace")
-			if features.EnableLazySidecarEvaluation && sidecarScope.initFunc != nil {
+			if features.EnableLazySidecarEvaluation {
 				sidecarScope.initFunc()
 			}
 
@@ -3036,7 +3036,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 			if len(tt.egress) == 0 {
 				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
 			}
-			if features.EnableLazySidecarEvaluation && sidecarScope.initFunc != nil {
+			if features.EnableLazySidecarEvaluation {
 				sidecarScope.initFunc()
 			}
 
@@ -3098,7 +3098,7 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 			if len(tt.egress) == 0 {
 				sidecarScope = DefaultSidecarScopeForNamespace(ps, "default")
 			}
-			if features.EnableLazySidecarEvaluation && sidecarScope.initFunc != nil {
+			if features.EnableLazySidecarEvaluation {
 				sidecarScope.initFunc()
 			}
 
@@ -3234,7 +3234,7 @@ outboundTrafficPolicy:
 				sidecarScope = convertToSidecarScope(ps, test.sidecar, test.sidecar.Namespace)
 			}
 
-			if features.EnableLazySidecarEvaluation && sidecarScope.initFunc != nil {
+			if features.EnableLazySidecarEvaluation {
 				sidecarScope.initFunc()
 			}
 
@@ -3392,7 +3392,7 @@ func TestInboundConnectionPoolForPort(t *testing.T) {
 				Spec: tt.sidecar,
 			}
 			scope := convertToSidecarScope(ps, sidecar, sidecar.Namespace)
-			if features.EnableLazySidecarEvaluation && scope.initFunc != nil {
+			if features.EnableLazySidecarEvaluation {
 				scope.initFunc()
 			}
 
