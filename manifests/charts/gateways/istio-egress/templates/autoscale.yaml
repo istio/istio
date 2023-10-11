@@ -55,6 +55,9 @@ spec:
       target:
         type: Utilization
         averageUtilization: {{ $gateway.cpu.targetAverageUtilization }}
+  {{- if $gateway.autoscaleBehavior }}
+  behavior: {{ toYaml $gateway.autoscaleBehavior | nindent 4 }}
+  {{- end }}
 ---
 {{- end }}
 {{- end }}

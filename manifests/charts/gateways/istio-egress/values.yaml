@@ -24,6 +24,7 @@ gateways:
     autoscaleEnabled: true
     autoscaleMin: 1
     autoscaleMax: 5
+    autoscaleBehavior: {}
     resources:
       requests:
         cpu: 100m
