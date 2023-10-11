@@ -1115,7 +1115,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				warning))) // nolint: stylecheck
 		}
 
-		if len(rule.Egress) == 0 && len(rule.Ingress) == 0 && rule.OutboundTrafficPolicy == nil {
+		if len(rule.Egress) == 0 && len(rule.Ingress) == 0 && rule.OutboundTrafficPolicy == nil && rule.InboundConnectionPool == nil {
 			return nil, fmt.Errorf("sidecar: empty configuration provided")
 		}
 
@@ -1184,7 +1184,17 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				}
 				errs = appendValidation(errs, validateTLSOptions(i.Tls))
 			}
+
+			// Validate per-port connection pool settings
+			errs = appendValidation(errs, validateConnectionPool(i.ConnectionPool))
+			if i.ConnectionPool != nil && i.ConnectionPool.Http != nil && i.Port != nil && !protocol.Parse(i.Port.Protocol).IsHTTP() {
+				errs = appendWarningf(errs,
+					"sidecar: HTTP connection pool settings are configured but this port's protocol is not HTTP (%s); only TCP settings will apply", i.Port.Protocol)
+			}
 		}
+
+		// Validate top-level connection pool setting
+		errs = appendValidation(errs, validateConnectionPool(rule.InboundConnectionPool))
 
 		portMap = sets.Set[uint32]{}
 		udsMap := sets.String{}

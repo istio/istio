@@ -534,6 +534,29 @@ func (sc *SidecarScope) HasIngressListener() bool {
 	return true
 }
 
+// InboundConnectionPoolForPort returns the connection pool settings for a specific inbound port. If there's not a
+// setting for that specific port, then the settings at the Sidecar resource are returned. If neither exist,
+// then nil is returned so the caller can decide what values to fall back on.
+func (sc *SidecarScope) InboundConnectionPoolForPort(port int) *networking.ConnectionPoolSettings {
+	if sc == nil || sc.Sidecar == nil {
+		return nil
+	}
+
+	for _, in := range sc.Sidecar.Ingress {
+		if int(in.Port.Number) == port {
+			if in.GetConnectionPool() != nil {
+				return in.ConnectionPool
+			}
+		}
+	}
+
+	if sc.Sidecar.GetInboundConnectionPool() != nil {
+		return sc.Sidecar.InboundConnectionPool
+	}
+
+	return nil
+}
+
 // Services returns the list of services imported by this egress listener
 func (ilw *IstioEgressListenerWrapper) Services() []*Service {
 	return ilw.services
