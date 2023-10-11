@@ -346,6 +346,9 @@ global:
     # The period between readiness probes.
     readinessPeriodSeconds: 2
 
+    # The number of seconds after which the probe times out
+    readinessTimeoutSeconds: 3
+
     # Resources for the sidecar.
     resources:
       requests:

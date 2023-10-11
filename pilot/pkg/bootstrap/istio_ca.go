@@ -491,7 +491,7 @@ func (s *Server) createSelfSignedCACertificateOptions(fileBundle *ca.SigningCAFi
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
 			selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
+			maxWorkloadCertTTL.Get(), opts.TrustDomain, features.UseCacertsForSelfSignedCA, true,
 			opts.Namespace, s.kubeClient.Kube().CoreV1(), fileBundle.RootCertFile,
 			enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
 	} else {
