@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 	"time"
 
@@ -421,7 +420,7 @@ func createServiceAccount(client kube.CLIClient, opt RemoteSecretOptions) error 
 	}
 
 	// Apply the YAML to the cluster.
-	return applyYAML(client, yaml, opt.Namespace)
+	return client.ApplyYAMLContents(opt.Namespace, yaml)
 }
 
 func generateServiceAccountYAML(opt RemoteSecretOptions) (string, error) {
@@ -476,19 +475,6 @@ global:
 	return aggregateContent, nil
 }
 
-func applyYAML(client kube.CLIClient, yamlContent, ns string) error {
-	yamlFile, err := writeToTempFile(yamlContent)
-	if err != nil {
-		return fmt.Errorf("failed creating manifest file: %v", err)
-	}
-
-	// Apply the YAML to the cluster.
-	if err := client.ApplyYAMLFiles(ns, yamlFile); err != nil {
-		return fmt.Errorf("failed applying manifest %s: %v", yamlFile, err)
-	}
-	return nil
-}
-
 func createNamespaceIfNotExist(client kube.Client, ns string) error {
 	if _, err := client.Kube().CoreV1().Namespaces().Get(context.TODO(), ns, metav1.GetOptions{}); err != nil {
 		if _, err := client.Kube().CoreV1().Namespaces().Create(context.TODO(), &v1.Namespace{
@@ -500,19 +486,6 @@ func createNamespaceIfNotExist(client kube.Client, ns string) error {
 		}
 	}
 	return nil
-}
-
-func writeToTempFile(content string) (string, error) {
-	outFile, err := os.CreateTemp("", "remote-secret-manifest-*")
-	if err != nil {
-		return "", fmt.Errorf("failed creating temp file for manifest: %v", err)
-	}
-	defer func() { _ = outFile.Close() }()
-
-	if _, err := outFile.WriteString(content); err != nil {
-		return "", fmt.Errorf("failed writing manifest file: %v", err)
-	}
-	return outFile.Name(), nil
 }
 
 func getServerFromKubeconfig(client kube.CLIClient) (string, Warning, error) {

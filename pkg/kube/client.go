@@ -188,6 +188,9 @@ type CLIClient interface {
 	// ApplyYAMLFiles applies the resources in the given YAML files.
 	ApplyYAMLFiles(namespace string, yamlFiles ...string) error
 
+	// ApplyYAMLContents applies the resources in the given YAML strings.
+	ApplyYAMLContents(namespace string, yamls ...string) error
+
 	// ApplyYAMLFilesDryRun performs a dry run for applying the resource in the given YAML files
 	ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) error
 
@@ -920,6 +923,20 @@ func (c *client) ApplyYAMLFiles(namespace string, yamlFiles ...string) error {
 		g.Go(func() error {
 			return c.ssapplyYAMLFile(namespace, false, f)
 		})
+	}
+	return g.Wait()
+}
+
+func (c *client) ApplyYAMLContents(namespace string, yamls ...string) error {
+	g, _ := errgroup.WithContext(context.TODO())
+	for _, yaml := range yamls {
+		cfgs := yml.SplitString(yaml)
+		for _, cfg := range cfgs {
+			cfg := cfg
+			g.Go(func() error {
+				return c.ssapplyYAML(cfg, namespace, false)
+			})
+		}
 	}
 	return g.Wait()
 }
