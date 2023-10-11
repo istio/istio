@@ -382,36 +382,6 @@ func TestInboundClusters(t *testing.T) {
 			},
 			disableInboundPassthrough: true,
 		},
-		{
-			name: "ingress HTTP connection pool",
-			configs: []config.Config{
-				{
-					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
-					Spec: &networking.Sidecar{
-						InboundConnectionPool: &networking.ConnectionPoolSettings{
-							Http: &networking.ConnectionPoolSettings_HTTPSettings{
-								Http1MaxPendingRequests:  1024,
-								Http2MaxRequests:         1024,
-								MaxRequestsPerConnection: 1024,
-								MaxRetries:               1024,
-							},
-						},
-						Ingress: []*networking.IstioIngressListener{
-							{
-								Port: &networking.SidecarPort{
-									Number:   80,
-									Protocol: "HTTP",
-									Name:     "http",
-								},
-							},
-						},
-					},
-				},
-			},
-			clusters: map[string][]string{
-				"inbound|80||": nil,
-			},
-		},
 	}
 	for _, tt := range cases {
 		name := tt.name

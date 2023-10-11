@@ -2564,22 +2564,24 @@ func TestInboundConnectionPoolForPort(t *testing.T) {
 			},
 		},
 		"no settings multiple ports": {
-			sidecar: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{
-				{
-					Port: &networking.SidecarPort{
-						Number:   80,
-						Protocol: "HTTP",
-						Name:     "http",
+			sidecar: &networking.Sidecar{
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+					},
+					{
+						Port: &networking.SidecarPort{
+							Number:   443,
+							Protocol: "HTTPS",
+							Name:     "https",
+						},
 					},
 				},
-				{
-					Port: &networking.SidecarPort{
-						Number:   443,
-						Protocol: "HTTPS",
-						Name:     "https",
-					},
-				},
-			}},
+			},
 			want: map[int]*networking.ConnectionPoolSettings{
 				22:  nil,
 				80:  nil,
@@ -2587,16 +2589,18 @@ func TestInboundConnectionPoolForPort(t *testing.T) {
 			},
 		},
 		"single port with settings": {
-			sidecar: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{
-				{
-					Port: &networking.SidecarPort{
-						Number:   80,
-						Protocol: "HTTP",
-						Name:     "http",
+			sidecar: &networking.Sidecar{
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						ConnectionPool: connectionPoolSettings,
 					},
-					ConnectionPool: connectionPoolSettings,
 				},
-			}},
+			},
 			want: map[int]*networking.ConnectionPoolSettings{
 				22:  nil,
 				80:  connectionPoolSettings,
