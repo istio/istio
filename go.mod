@@ -251,4 +251,4 @@ require (
 )
 
 // TODO: remove & update istio.io/api version when sidecar-cluster-connectionpool is merged
-replace istio.io/api => github.com/ZackButcher/api v0.0.0-20231010182007-96c3499ff8af
+replace istio.io/api => github.com/ZackButcher/api v0.0.0-20231011203019-14b7abb62996

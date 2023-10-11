@@ -91,6 +91,7 @@ github.com/VividCortex/ewma v1.2.0 h1:f58SaIzcDXrSy3kWaHNvuJgJ3Nmz59Zji6XoJR/q1o
 github.com/VividCortex/ewma v1.2.0/go.mod h1:nz4BbCtbLyFDeC9SUHbtcT5644juEuWfUAUnGx7j5l4=
 github.com/ZackButcher/api v0.0.0-20231010182007-96c3499ff8af h1:TMz144mjVH6kr0jb3GN/Insxbm6oum4rrFqFdNAfsak=
 github.com/ZackButcher/api v0.0.0-20231010182007-96c3499ff8af/go.mod h1:hFqNwCBpXIy5jboW4geFoz3io9ZR3nVJ4oLI7udf6Vo=
+github.com/ZackButcher/api v0.0.0-20231011203019-14b7abb62996/go.mod h1:hm1PE/mGdIAsjCDkTIAplP53H7TjO5LUQCiVvF26SVg=
 github.com/agnivade/levenshtein v1.0.1/go.mod h1:CURSv5d9Uaml+FovSIICkLbAUZ9S4RqaHDIsdSBg7lM=
 github.com/alecholmes/xfccparser v0.1.0 h1:/PBnzDBxfHJ66AinLNglzZH4oWLrc1/QTKlSoNNnei8=
 github.com/alecholmes/xfccparser v0.1.0/go.mod h1:c1S35dudNR5aZ4Vf9zKCrEwC8iqwF4TcDAbU+RXQ5yY=
