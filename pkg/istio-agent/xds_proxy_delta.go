@@ -296,6 +296,15 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 		})
 		return
 	}
+
+	respResources := make([]*discovery.Resource, 0, len(resources))
+	for i := range resources {
+		respResources = append(respResources, &discovery.Resource{
+			Resource: resources[i],
+		})
+	}
+	resp.Resources = respResources
+
 	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
 	forward(resp)
 }
