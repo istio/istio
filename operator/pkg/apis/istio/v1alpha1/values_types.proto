@@ -274,7 +274,10 @@ message EgressGatewayConfig {
 
   ServiceAccount serviceAccount = 28;
 
-  // Next available 29.
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior
+  google.protobuf.Struct autoscaleBehavior = 29;
+
+  // Next available 30.
 }
 
 // Configuration for gateways.
@@ -584,7 +587,10 @@ message IngressGatewayConfig {
 
   ServiceAccount serviceAccount = 47;
 
-  // Next available 48.
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior
+  google.protobuf.Struct autoscaleBehavior = 48;
+
+  // Next available 49.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.

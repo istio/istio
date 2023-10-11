@@ -32,7 +32,7 @@ gateways:
     autoscaleEnabled: true
     autoscaleMin: 1
     autoscaleMax: 5
-
+    autoscaleBehavior: {}
     cpu:
       targetAverageUtilization: 80
 
