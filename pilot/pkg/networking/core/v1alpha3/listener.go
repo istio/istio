@@ -126,7 +126,11 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	} else if transportProtocol == istionetworking.TransportProtocolTCP &&
 		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL &&
 		gatewayTCPServerWithTerminatingTLS {
-		alpnByTransport = util.ALPNDownstreamWithMxc
+		if features.DisableMxALPN {
+			alpnByTransport = util.ALPNDownstream
+		} else {
+			alpnByTransport = util.ALPNDownstreamWithMxc
+		}
 	}
 
 	ctx := &auth.DownstreamTlsContext{

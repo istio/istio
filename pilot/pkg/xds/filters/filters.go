@@ -164,7 +164,12 @@ var (
 		},
 	}
 
-	tcpMx = protoconv.MessageToAny(&metadata_exchange.MetadataExchange{Protocol: "istio-peer-exchange"})
+	// TCP MX is an Istio filter defined in https://github.com/istio/proxy/tree/master/source/extensions/filters/network/metadata_exchange.
+	tcpMx = protoconv.TypedStructWithFields("type.googleapis.com/envoy.tcp.metadataexchange.config.MetadataExchange",
+		map[string]any{
+			"protocol":         "istio-peer-exchange",
+			"enable_discovery": true,
+		})
 
 	TCPListenerMx = &listener.Filter{
 		Name:       MxFilterName,
