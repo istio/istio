@@ -163,9 +163,6 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 			}},
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
 		}},
-		TypedPerFilterConfig: map[string]*any.Any{
-			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
-		},
 	}}
 	return lb.buildConnectTerminateListener(routes)
 }
