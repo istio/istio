@@ -319,7 +319,13 @@ func handleEvent(s *Server) {
 
 	// Only updating intermediate CA is supported now
 	if !bytes.Equal(currentCABundle, newCABundle) {
-		// Check if newCABundle or currentCABundle is combination of other
+		if !features.MultiRootMesh {
+			log.Warn("Multi root is disabled, updating new ROOT-CA not supported")
+			return
+		}
+
+		// in order to support root ca rotate, we need to make
+		// the new CA bundle contain both old and new CA certs
 		if bytes.Contains(currentCABundle, newCABundle) ||
 			bytes.Contains(newCABundle, currentCABundle) {
 			log.Info("Updating new ROOT-CA")
