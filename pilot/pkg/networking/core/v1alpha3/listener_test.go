@@ -450,7 +450,7 @@ func TestOutboundListenerConflictWithStaticListener(t *testing.T) {
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   15021,
 						Protocol: "GRPC",
 						Name:     "http",
@@ -893,7 +893,7 @@ func TestInboundHTTPListenerConfig(t *testing.T) {
 		Spec: &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8080,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -1247,7 +1247,7 @@ func TestOutboundListenerConfigWithSidecarHTTPProxy(t *testing.T) {
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"default/*"},
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   15080,
 						Protocol: "HTTP_PROXY",
 						Name:     "15080",
@@ -1422,7 +1422,7 @@ func TestInboundListener_PrivilegedPorts(t *testing.T) {
 			Spec: &networking.Sidecar{
 				Ingress: []*networking.IstioIngressListener{
 					{
-						Port: &networking.Port{
+						Port: &networking.SidecarPort{
 							Number:   port,
 							Protocol: "HTTP",
 							Name:     strconv.Itoa(int(port)),
@@ -1471,7 +1471,7 @@ func TestOutboundListener_PrivilegedPorts(t *testing.T) {
 					Egress: []*networking.IstioEgressListener{
 						{
 							Hosts: []string{"default/*"},
-							Port: &networking.Port{
+							Port: &networking.SidecarPort{
 								Number:   port,
 								Protocol: "HTTP",
 								Name:     strconv.Itoa(int(port)),
@@ -1822,7 +1822,7 @@ func testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t *testing.
 		Spec: &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8083,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -1831,7 +1831,7 @@ func testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t *testing.
 					DefaultEndpoint: "127.0.0.1:8083",
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8084,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -1841,7 +1841,7 @@ func testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t *testing.
 				},
 				{
 					// not conflict with service port
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   80,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -1851,7 +1851,7 @@ func testInboundListenerConfigWithSidecarIngressPortMergeServicePort(t *testing.
 				},
 				{
 					// conflict with service target port
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8080,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -1884,7 +1884,7 @@ func testInboundListenerConfigWithSidecar(t *testing.T, proxy *model.Proxy, serv
 		Spec: &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8080,
 						Protocol: "unknown",
 						Name:     "uds",
@@ -1914,7 +1914,7 @@ func testInboundListenerConfigWithSidecarConflictPort(t *testing.T, proxy *model
 		Spec: &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   15021,
 						Protocol: "unknown",
 						Name:     "uds",
@@ -1949,7 +1949,7 @@ func testInboundListenerConfigWithSidecarWithoutServices(t *testing.T, proxy *mo
 		Spec: &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8080,
 						Protocol: "unknown",
 						Name:     "uds",
@@ -2036,7 +2036,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   9000,
 						Protocol: "GRPC",
 						Name:     "uds",
@@ -2044,7 +2044,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 					Hosts: []string{"*/*"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   3306,
 						Protocol: string(protocol.MySQL),
 						Name:     "MySQL",
@@ -2053,7 +2053,7 @@ func testOutboundListenerConfigWithSidecar(t *testing.T, services ...*model.Serv
 					Hosts: []string{"*/*"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8888,
 						Protocol: "unknown",
 						Name:     "unknown",
@@ -2911,7 +2911,7 @@ func TestOutboundListenerConfig_WithAutoAllocatedAddress(t *testing.T) {
 			Egress: []*networking.IstioEgressListener{
 				{
 					Hosts: []string{"default/*"},
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   tcpPort,
 						Protocol: "TCP",
 						Name:     "tcp",

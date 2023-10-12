@@ -717,7 +717,7 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 				Sidecar: &networking.Sidecar{
 					Ingress: []*networking.IstioIngressListener{
 						{
-							Port: &networking.Port{Name: "https-port", Protocol: "https", Number: 80},
+							Port: &networking.SidecarPort{Name: "https-port", Protocol: "https", Number: 80},
 							Tls: &networking.ServerTLSSettings{
 								Mode:              networking.ServerTLSSettings_SIMPLE,
 								ServerCertificate: "cert.pem",
@@ -752,7 +752,7 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 				Sidecar: &networking.Sidecar{
 					Ingress: []*networking.IstioIngressListener{
 						{
-							Port: &networking.Port{Name: "https-port", Protocol: "https", Number: 80},
+							Port: &networking.SidecarPort{Name: "https-port", Protocol: "https", Number: 80},
 							Tls: &networking.ServerTLSSettings{
 								Mode:              networking.ServerTLSSettings_SIMPLE,
 								ServerCertificate: "cert.pem",
@@ -771,7 +771,7 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 				Sidecar: &networking.Sidecar{
 					Ingress: []*networking.IstioIngressListener{
 						{
-							Port: &networking.Port{Name: "https-port", Protocol: "https", Number: 80},
+							Port: &networking.SidecarPort{Name: "https-port", Protocol: "https", Number: 80},
 							Tls: &networking.ServerTLSSettings{
 								Mode:              networking.ServerTLSSettings_SIMPLE,
 								ServerCertificate: "cert.pem",
