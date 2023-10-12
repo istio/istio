@@ -124,7 +124,6 @@ debug and diagnose their Istio mesh.
 		if err := configureLogging(cmd, args); err != nil {
 			return err
 		}
-		ctx.ConfigureDefaultNamespace()
 		return nil
 	}
 
