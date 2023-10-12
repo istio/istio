@@ -305,40 +305,42 @@ var (
 		Name: "connect_authority",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.MessageToAny(&sfs.Config{
-				OnRequestHeaders: []*sfsvalue.FilterStateValue{{
-					Key: &sfsvalue.FilterStateValue_ObjectKey{
-						ObjectKey: "envoy.filters.listener.original_dst.local_ip",
-					},
-					Value: &sfsvalue.FilterStateValue_FormatString{
-						FormatString: &core.SubstitutionFormatString{
-							Format: &core.SubstitutionFormatString_TextFormatSource{
-								TextFormatSource: &core.DataSource{
-									Specifier: &core.DataSource_InlineString{
-										InlineString: "%REQ(:AUTHORITY)%",
+				OnRequestHeaders: []*sfsvalue.FilterStateValue{
+					{
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: "envoy.filters.listener.original_dst.local_ip",
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%REQ(:AUTHORITY)%",
+										},
 									},
 								},
 							},
 						},
-					},
-					SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
-				}, {
-					Key: &sfsvalue.FilterStateValue_ObjectKey{
-						ObjectKey: "envoy.filters.listener.original_dst.remote_ip",
-					},
-					Value: &sfsvalue.FilterStateValue_FormatString{
-						FormatString: &core.SubstitutionFormatString{
-							Format: &core.SubstitutionFormatString_TextFormatSource{
-								TextFormatSource: &core.DataSource{
-									Specifier: &core.DataSource_InlineString{
-										InlineString: "%DOWNSTREAM_REMOTE_ADDRESS%",
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: "envoy.filters.listener.original_dst.remote_ip",
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%DOWNSTREAM_REMOTE_ADDRESS%",
+										},
 									},
 								},
 							},
 						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
 					},
-					SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
 				},
-				}}),
+			}),
 		},
 	}
 
@@ -362,7 +364,8 @@ var (
 						},
 					},
 					SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
-				}}}),
+				}},
+			}),
 		},
 	}
 )
