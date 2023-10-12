@@ -969,6 +969,9 @@ message ProxyConfig {
   // Sets the number of successive failed probes before indicating readiness failure.
   uint32 readinessFailureThreshold = 22;
 
+  // Sets the number of seconds after which the probe times out
+	uint32 readinessTimeoutSeconds = 40;
+
   // Default port used for the Pilot agent's health checks.
   uint32 statusPort = 23;
 

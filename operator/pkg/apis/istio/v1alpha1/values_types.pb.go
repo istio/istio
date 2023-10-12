@@ -3848,6 +3848,8 @@ type ProxyConfig struct {
 	ReadinessPeriodSeconds uint32 `protobuf:"varint,21,opt,name=readinessPeriodSeconds,proto3" json:"readinessPeriodSeconds,omitempty"`
 	// Sets the number of successive failed probes before indicating readiness failure.
 	ReadinessFailureThreshold uint32 `protobuf:"varint,22,opt,name=readinessFailureThreshold,proto3" json:"readinessFailureThreshold,omitempty"`
+	// Sets the number of seconds after which the probe times out
+	ReadinessTimeoutSeconds uint32 `protobuf:"varint,22,opt,name=readinessTimeoutSeconds,proto3" json:"readinessTimeoutSeconds,omitempty"`
 	// Default port used for the Pilot agent's health checks.
 	StatusPort uint32 `protobuf:"varint,23,opt,name=statusPort,proto3" json:"statusPort,omitempty"`
 	// K8s resources settings.
