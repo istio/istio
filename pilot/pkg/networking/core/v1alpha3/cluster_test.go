@@ -1711,11 +1711,20 @@ func TestInboundClustersPassThroughBindIPs(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Addresses:    []string{"1.1.1.1", "2001:1::1"},
+				Addresses:    []string{"1.1.1.1", "2.2.2.2"},
+				EndpointPort: 10001,
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Addresses:    []string{"2001:1::1", "2002:2::2"},
 				EndpointPort: 10001,
 			},
 		},
 	}
+
 	inboundFilter := func(c *cluster.Cluster) bool {
 		return strings.HasPrefix(c.Name, "inbound|")
 	}
