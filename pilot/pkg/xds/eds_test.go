@@ -475,7 +475,7 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 				Addresses:       []string{"10.0.0.54"},
 				EndpointPort:    53,
 				ServicePortName: "tcp-dns",
-				HealthStatus:    model.UnHealthy,
+				HealthStatus:    model.Healthy,
 			},
 		})
 
