@@ -880,7 +880,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// so that we can deterministically allocate an IP.
 	// We use "Double Hashning" for collision detection.
 	// The hash algorithm is
-	// - h1(k) = Sum32 hash of the host name.
+	// - h1(k) = Sum32 hash of the service key (namespace + "/" + hostname)
 	// - Check if we have an empty slot for h1(x) % MAXIPS. Use it if available.
 	// - If there is a collision, apply second hash i.e. h2(x) = PRIME - (Key % PRIME)
 	//   where PRIME is the max prime number below MAXIPS.
@@ -898,11 +898,11 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 				log.Errorf("out of IPs to allocate for service entries. maxips:= %d", maxIPs)
 				break
 			}
+			// First hash is calculated by hashing the service key i.e. (namespace + "/" + hostname).
 			hash.Write([]byte(makeServiceKey(svc)))
-			// First hash is calculated by
 			s := hash.Sum32()
 			firstHash := s % uint32(maxIPs)
-			// Check if there is no service with this hash first. If there is no service
+			// Check if there is a service with this hash first. If there is no service
 			// at this location - then we can safely assign this position for this service.
 			if hashedServices[firstHash] == nil {
 				hashedServices[firstHash] = svc
