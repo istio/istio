@@ -1406,7 +1406,9 @@ func (ps *PushContext) updateContext(
 func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.Set[ConfigKey]) {
 	// Sort the services in order of creation.
 	allServices := SortServicesByCreationTime(env.Services())
-	resolveServiceAliases(allServices, configsUpdate)
+	if features.EnableExternalNameAlias {
+		resolveServiceAliases(allServices, configsUpdate)
+	}
 
 	for _, s := range allServices {
 		portMap := map[string]int{}
@@ -1480,6 +1482,7 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 	}
 	// unnamespacedRawAlias is like rawAlias but without namespaces.
 	// This is because an `ExternalName` isn't namespaced. If there is a conflict, the behavior is undefined.
+	// This is split from above as a minor optimization to right-size the map
 	unnamespacedRawAlias := make(map[host.Name]host.Name, len(rawAlias))
 	for k, v := range rawAlias {
 		unnamespacedRawAlias[k.Hostname] = v
