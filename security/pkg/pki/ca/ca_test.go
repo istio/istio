@@ -795,8 +795,8 @@ func TestBuildSecret(t *testing.T) {
 	if caSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", caSecret)
 	}
-	if _, ok := caSecret.Data[IstioGenerated]; !ok {
-		t.Fatal("IstioGenerated key should exist")
+	if _, ok := caSecret.Data[IstioGenerated]; ok {
+		t.Fatal("IstioGenerated key should not exist")
 	}
 	if caSecret.Data[CertChainFile] != nil {
 		t.Fatalf("Cert chain should be nil but got %v", caSecret.Data[CertChainFile])
@@ -810,12 +810,12 @@ func TestBuildSecret(t *testing.T) {
 	if !bytes.Equal(caSecret.Data[CAPrivateKeyFile], KeyPem) {
 		t.Fatalf("CA cert does not match, want %v got %v", KeyPem, caSecret.Data[CAPrivateKeyFile])
 	}
-	serverSecret := BuildSecret(CASecret, namespace, CertPem, KeyPem, nil, nil, nil, v1.SecretType(secretType))
+	serverSecret := BuildSecret(CACertsSecret, namespace, CertPem, KeyPem, nil, nil, nil, v1.SecretType(secretType))
 	if serverSecret.ObjectMeta.Annotations != nil {
 		t.Fatalf("Annotation should be nil but got %v", serverSecret)
 	}
 	if _, ok := serverSecret.Data[IstioGenerated]; !ok {
-		t.Fatal("IstioGenerated key should not exist")
+		t.Fatal("IstioGenerated key should exist")
 	}
 	if serverSecret.Data[CACertFile] != nil {
 		t.Fatalf("CA Cert should be nil but got %v", serverSecret.Data[CACertFile])

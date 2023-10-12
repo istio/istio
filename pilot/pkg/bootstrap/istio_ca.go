@@ -435,7 +435,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		}
 	}
 
-	if !detectedSigningCABundle || (detectedSigningCABundle && istioGenerated) {
+	if !detectedSigningCABundle || (features.UseCacertsForSelfSignedCA && detectedSigningCABundle && istioGenerated) {
 		if detectedSigningCABundle && istioGenerated {
 			log.Infof("%s secret found is IstioGenerated, use it as the CA certificate", ca.CACertsSecret)
 

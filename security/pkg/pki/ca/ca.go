@@ -170,7 +170,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			return nil
 		}
 		if apierror.IsNotFound(err) {
-			pkiCaLog.Infof("CASecret %s not found, will create one called %s", caCertName, CACertsSecret)
+			pkiCaLog.Infof("CASecret %s not found, will create one called %s", caCertName, caCertName)
 			options := util.CertOptions{
 				TTL:          caCertTTL,
 				Org:          org,
@@ -206,7 +206,6 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
 			return nil
 		}
-		// Don't update the caCertName if getting the secret failed for other reasons.
 		return err
 	})
 
@@ -289,7 +288,7 @@ func NewPluggedCertIstioCAOptions(fileBundle SigningCAFileBundle,
 }
 
 // BuildSecret returns a secret struct, contents of which are filled with parameters passed in.
-// Adds the "istio-generated" key.
+// Adds the "istio-generated" key if the secret name is `cacerts`.
 func BuildSecret(scrtName, namespace string, certChain, privateKey, rootCert, caCert, caPrivateKey []byte, secretType v1.SecretType) *v1.Secret {
 	secret := &v1.Secret{
 		Data: map[string][]byte{
@@ -298,7 +297,6 @@ func BuildSecret(scrtName, namespace string, certChain, privateKey, rootCert, ca
 			RootCertFile:     rootCert,
 			CACertFile:       caCert,
 			CAPrivateKeyFile: caPrivateKey,
-			IstioGenerated:   []byte(""),
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      scrtName,
@@ -306,6 +304,11 @@ func BuildSecret(scrtName, namespace string, certChain, privateKey, rootCert, ca
 		},
 		Type: secretType,
 	}
+
+	if scrtName == CACertsSecret {
+		secret.Data[IstioGenerated] = []byte("")
+	}
+
 	return secret
 }
 
