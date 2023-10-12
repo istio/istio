@@ -2273,7 +2273,8 @@ func externalNameCases(t TrafficContext) {
 	}
 
 	t.RunTraffic(TrafficTestCase{
-		name: "without port",
+		name:         "without port",
+		globalConfig: true,
 		config: fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
@@ -2285,7 +2286,8 @@ spec:
 	})
 
 	t.RunTraffic(TrafficTestCase{
-		name: "with port",
+		name:         "with port",
+		globalConfig: true,
 		config: fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
@@ -2304,6 +2306,11 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name: "service entry",
+		skip: skip{
+			skip:   true,
+			reason: "not currently working, as SE doesn't have a VIP",
+		},
+		globalConfig: true,
 		config: fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
@@ -2318,7 +2325,8 @@ spec:
 	gatewayListenPort := 80
 	gatewayListenPortName := "http"
 	t.RunTraffic(TrafficTestCase{
-		name: "gateway",
+		name:         "gateway",
+		globalConfig: true,
 		config: fmt.Sprintf(`apiVersion: v1
 kind: Service
 metadata:
