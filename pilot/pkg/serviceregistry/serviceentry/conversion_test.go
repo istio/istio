@@ -617,7 +617,7 @@ func makeInstance(cfg *config.Config, address string, port int,
 	return &model.ServiceInstance{
 		Service: svc,
 		Endpoint: &model.IstioEndpoint{
-			Address:         address,
+			Addresses:       []string{address},
 			EndpointPort:    uint32(port),
 			ServicePortName: svcPort.Name,
 			Labels:          svcLabels,
@@ -1003,7 +1003,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels:         expectedLabel,
-					Address:        "1.1.1.1",
+					Addresses:      []string{"1.1.1.1"},
 					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
 					TLSMode:        "istio",
 					Namespace:      "ns1",
@@ -1041,7 +1041,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 						"security.istio.io/tlsMode": "disabled",
 						"topology.istio.io/cluster": clusterID,
 					},
-					Address:        "1.1.1.1",
+					Addresses:      []string{"1.1.1.1"},
 					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
 					TLSMode:        "disabled",
 					Namespace:      "ns1",
@@ -1072,7 +1072,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 					Labels: map[string]string{
 						"topology.istio.io/cluster": clusterID,
 					},
-					Address:        "unix://foo/bar",
+					Addresses:      []string{"unix://foo/bar"},
 					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
 					TLSMode:        "istio",
 					Namespace:      "ns1",
@@ -1101,7 +1101,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 					Labels: map[string]string{
 						"topology.istio.io/cluster": clusterID,
 					},
-					Address:        "scooby.com",
+					Addresses:      []string{"scooby.com"},
 					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
 					TLSMode:        "istio",
 					Namespace:      "ns1",
@@ -1132,7 +1132,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 				Kind:      model.WorkloadEntryKind,
 				Endpoint: &model.IstioEndpoint{
 					Labels:         expectedLabel,
-					Address:        "1.1.1.1",
+					Addresses:      []string{"1.1.1.1"},
 					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
 					TLSMode:        "istio",
 					Namespace:      "ns1",
@@ -1172,7 +1172,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 						"app":                       "wle",
 						"topology.istio.io/cluster": clusterID,
 					},
-					Address:        "1.1.1.1",
+					Addresses:      []string{"1.1.1.1"},
 					ServiceAccount: "spiffe://cluster.local/ns/ns1/sa/scooby",
 					TLSMode:        "istio",
 					Namespace:      "ns1",
@@ -1214,8 +1214,8 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 						"topology.istio.io/network":     "network1",
 						"topology.istio.io/cluster":     clusterID,
 					},
-					Address: "1.1.1.1",
-					Network: "network1",
+					Addresses: []string{"1.1.1.1"},
+					Network:   "network1",
 					Locality: model.Locality{
 						Label:     "region1/zone1/subzone1",
 						ClusterID: cluster.ID(clusterID),
@@ -1260,7 +1260,7 @@ func TestConvertWorkloadEntryToWorkloadInstance(t *testing.T) {
 						"topology.istio.io/network":     "cb-network1",
 						"topology.istio.io/cluster":     clusterID,
 					},
-					Address: "1.1.1.1",
+					Addresses: []string{"1.1.1.1"},
 					Locality: model.Locality{
 						Label:     "region1/zone1/subzone1",
 						ClusterID: cluster.ID(clusterID),

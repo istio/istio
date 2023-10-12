@@ -235,7 +235,7 @@ func TestInboundListenerConfig(t *testing.T) {
 			i := &model.ServiceInstance{
 				Service: s,
 				Endpoint: &model.IstioEndpoint{
-					Address:      "1.1.1.1",
+					Addresses:    []string{"1.1.1.1"},
 					EndpointPort: uint32(s.Ports[0].Port),
 				},
 				ServicePort: s.Ports[0],
@@ -2856,7 +2856,7 @@ func buildServiceWithPort(hostname string, port int, protocol protocol.Instance,
 func buildServiceInstance(service *model.Service, instanceIP string) *model.ServiceInstance {
 	return &model.ServiceInstance{
 		Endpoint: &model.IstioEndpoint{
-			Address:         instanceIP,
+			Addresses:       []string{instanceIP},
 			ServicePortName: service.Ports[0].Name,
 		},
 		ServicePort: service.Ports[0],

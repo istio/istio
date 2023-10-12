@@ -178,7 +178,7 @@ func ExternalNameEndpoints(svc *model.Service) []*model.IstioEndpoint {
 	}
 	for _, portEntry := range svc.Ports {
 		out = append(out, &model.IstioEndpoint{
-			Addresses:             []string{ svc.Attributes.ExternalName },
+			Addresses:             []string{svc.Attributes.ExternalName},
 			EndpointPort:          uint32(portEntry.Port),
 			ServicePortName:       portEntry.Name,
 			Labels:                svc.Attributes.Labels,

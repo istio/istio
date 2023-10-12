@@ -79,7 +79,7 @@ func TestEndpointSliceCache(t *testing.T) {
 
 	// add a endpoint
 	ep1 := &model.IstioEndpoint{
-		Address:         "1.2.3.4",
+		Addresses:       []string{"1.2.3.4"},
 		ServicePortName: "http",
 	}
 	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1})
@@ -91,7 +91,7 @@ func TestEndpointSliceCache(t *testing.T) {
 	}
 	// add a new endpoint
 	ep2 := &model.IstioEndpoint{
-		Address:         "2.3.4.5",
+		Addresses:       []string{"2.3.4.5"},
 		ServicePortName: "http",
 	}
 	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, ep2})
@@ -101,11 +101,11 @@ func TestEndpointSliceCache(t *testing.T) {
 
 	// change service port name
 	ep1 = &model.IstioEndpoint{
-		Address:         "1.2.3.4",
+		Addresses:       []string{"1.2.3.4"},
 		ServicePortName: "http2",
 	}
 	ep2 = &model.IstioEndpoint{
-		Address:         "2.3.4.5",
+		Addresses:       []string{"2.3.4.5"},
 		ServicePortName: "http2",
 	}
 	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, ep2})
@@ -115,7 +115,7 @@ func TestEndpointSliceCache(t *testing.T) {
 
 	// add a new slice
 	ep3 := &model.IstioEndpoint{
-		Address:         "3.4.5.6",
+		Addresses:       []string{"3.4.5.6"},
 		ServicePortName: "http2",
 	}
 	cache.Update(hostname, "slice2", []*model.IstioEndpoint{ep3})
@@ -147,10 +147,10 @@ func testEndpointsEqual(a, b []*model.IstioEndpoint) bool {
 	m1 := make(map[endpointKey]int)
 	m2 := make(map[endpointKey]int)
 	for _, i := range a {
-		m1[endpointKey{i.Address, i.ServicePortName}]++
+		m1[endpointKey{i.GetIstioEndpointKey(), i.ServicePortName}]++
 	}
 	for _, i := range b {
-		m2[endpointKey{i.Address, i.ServicePortName}]++
+		m2[endpointKey{i.GetIstioEndpointKey(), i.ServicePortName}]++
 	}
 	return reflect.DeepEqual(m1, m2)
 }

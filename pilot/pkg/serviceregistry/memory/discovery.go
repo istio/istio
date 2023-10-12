@@ -182,7 +182,7 @@ func (sd *ServiceDiscovery) AddEndpoint(service host.Name, servicePortName strin
 	instance := &model.ServiceInstance{
 		Service: &model.Service{Hostname: service},
 		Endpoint: &model.IstioEndpoint{
-			Addresses:         []string{ address },
+			Addresses:       []string{address},
 			ServicePortName: servicePortName,
 			EndpointPort:    uint32(port),
 		},

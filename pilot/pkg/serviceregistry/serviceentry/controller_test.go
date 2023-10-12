@@ -899,7 +899,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		Name:      "additional-name",
 		Namespace: selectorDNS.Name,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "4.4.4.4",
+			Addresses:      []string{"4.4.4.4"},
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURI(selectorDNS.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
@@ -910,7 +910,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		Name:      "another-name",
 		Namespace: selectorDNS.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
+			Addresses:      []string{"2.2.2.2"},
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURI(selectorDNS.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
@@ -1022,7 +1022,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		Name:      selector.Name,
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
+			Addresses:      []string{"2.2.2.2"},
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
@@ -1033,7 +1033,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		Name:      "some-other-name",
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "3.3.3.3",
+			Addresses:      []string{"3.3.3.3"},
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
@@ -1044,7 +1044,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		Name:      "another-name",
 		Namespace: dnsSelector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
+			Addresses:      []string{"2.2.2.2"},
 			Labels:         map[string]string{"app": "dns-wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURI(dnsSelector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
@@ -1315,7 +1315,7 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 					Name:      instance.name,
 					Namespace: instance.namespace,
 					Endpoint: &model.IstioEndpoint{
-						Address:        instance.address,
+						Addresses:      []string{instance.address},
 						Labels:         instance.labels,
 						ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, instance.serviceAccount),
 						TLSMode:        instance.tlsmode,
@@ -1662,7 +1662,7 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 	sort.Slice(instances, func(i, j int) bool {
 		if instances[i].Service.Hostname == instances[j].Service.Hostname {
 			if instances[i].Endpoint.EndpointPort == instances[j].Endpoint.EndpointPort {
-				if instances[i].Endpoint.Address == instances[j].Endpoint.Address {
+				if instances[i].Endpoint.GetIstioEndpointKey() == instances[j].Endpoint.GetIstioEndpointKey() {
 					if len(instances[i].Endpoint.Labels) == len(instances[j].Endpoint.Labels) {
 						iLabels := labelsToSlice(instances[i].Endpoint.Labels)
 						jLabels := labelsToSlice(instances[j].Endpoint.Labels)
@@ -1674,7 +1674,7 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 					}
 					return len(instances[i].Endpoint.Labels) < len(instances[j].Endpoint.Labels)
 				}
-				return instances[i].Endpoint.Address < instances[j].Endpoint.Address
+				return instances[i].Endpoint.GetIstioEndpointKey() < instances[j].Endpoint.GetIstioEndpointKey()
 			}
 			return instances[i].Endpoint.EndpointPort < instances[j].Endpoint.EndpointPort
 		}
@@ -1694,7 +1694,7 @@ func sortEndpoints(endpoints []*model.IstioEndpoint) {
 
 	sort.Slice(endpoints, func(i, j int) bool {
 		if endpoints[i].EndpointPort == endpoints[j].EndpointPort {
-			if endpoints[i].Address == endpoints[j].Address {
+			if endpoints[i].GetIstioEndpointKey() == endpoints[j].GetIstioEndpointKey() {
 				if len(endpoints[i].Labels) == len(endpoints[j].Labels) {
 					iLabels := labelsToSlice(endpoints[i].Labels)
 					jLabels := labelsToSlice(endpoints[j].Labels)
@@ -1706,7 +1706,7 @@ func sortEndpoints(endpoints []*model.IstioEndpoint) {
 				}
 				return len(endpoints[i].Labels) < len(endpoints[j].Labels)
 			}
-			return endpoints[i].Address < endpoints[j].Address
+			return endpoints[i].GetIstioEndpointKey() < endpoints[j].GetIstioEndpointKey()
 		}
 		return endpoints[i].EndpointPort < endpoints[j].EndpointPort
 	})
@@ -2127,7 +2127,7 @@ func BenchmarkWorkloadInstanceHandler(b *testing.B) {
 		Name:      selector.Name,
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
+			Addresses:      []string{"2.2.2.2"},
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
@@ -2138,7 +2138,7 @@ func BenchmarkWorkloadInstanceHandler(b *testing.B) {
 		Name:      "some-other-name",
 		Namespace: selector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "3.3.3.3",
+			Addresses:      []string{"3.3.3.3"},
 			Labels:         map[string]string{"app": "wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURI(selector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,
@@ -2149,7 +2149,7 @@ func BenchmarkWorkloadInstanceHandler(b *testing.B) {
 		Name:      "another-name",
 		Namespace: dnsSelector.Namespace,
 		Endpoint: &model.IstioEndpoint{
-			Address:        "2.2.2.2",
+			Addresses:      []string{"2.2.2.2"},
 			Labels:         map[string]string{"app": "dns-wle"},
 			ServiceAccount: spiffe.MustGenSpiffeURI(dnsSelector.Name, "default"),
 			TLSMode:        model.IstioMutualTLSModeLabel,

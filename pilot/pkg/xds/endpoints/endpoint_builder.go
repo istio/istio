@@ -619,7 +619,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		},
 		HostIdentifier: &endpoint.LbEndpoint_Endpoint{
 			Endpoint: &endpoint.Endpoint{
-				Address: addr,
+				Address:             addr,
 				AdditionalAddresses: additionalAddrs,
 			},
 		},

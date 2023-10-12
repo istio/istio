@@ -143,11 +143,11 @@ func TestServices(t *testing.T) {
 		t.Fatalf("Invalid response for GetEndpoints %v", ep)
 	}
 
-	if ep[0].Address == "10.10.1.1" && ep[0].Network != "network1" {
+	if ep[0].GetIstioEndpointKey() == "10.10.1.1" && ep[0].Network != "network1" {
 		t.Fatalf("Endpoint with IP 10.10.1.1 is expected to be in network1 but get: %s", ep[0].Network)
 	}
 
-	if ep[1].Address == "10.11.1.2" && ep[1].Network != "network2" {
+	if ep[1].GetIstioEndpointKey() == "10.11.1.2" && ep[1].Network != "network2" {
 		t.Fatalf("Endpoint with IP 10.11.1.2 is expected to be in network2 but get: %s", ep[1].Network)
 	}
 
@@ -831,7 +831,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-ratings",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "ratings"},
-			Address:      "2.2.2.21",
+			Addresses:    []string{"2.2.2.21"},
 			EndpointPort: 8080,
 		},
 	}
@@ -841,7 +841,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-details",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "details"},
-			Address:      "2.2.2.21",
+			Addresses:    []string{"2.2.2.21"},
 			EndpointPort: 9090,
 		},
 	}
@@ -851,7 +851,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-reviews",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "reviews"},
-			Address:      "3.3.3.31",
+			Addresses:    []string{"3.3.3.31"},
 			EndpointPort: 7070,
 		},
 	}
@@ -861,7 +861,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-reviews",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "reviews"},
-			Address:      "3.3.3.32",
+			Addresses:    []string{"3.3.3.32"},
 			EndpointPort: 7071,
 		},
 	}
@@ -871,7 +871,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-productpage",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "productpage"},
-			Address:      "4.4.4.41",
+			Addresses:    []string{"4.4.4.41"},
 			EndpointPort: 6060,
 		},
 	}
@@ -1614,7 +1614,7 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 		Namespace: "bookinfo-ratings",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "ratings"},
-			Address:      "2.2.2.2",
+			Addresses:    []string{"2.2.2.2"},
 			EndpointPort: 8081, // should be ignored since it doesn't define PortMap
 		},
 	}
@@ -1623,8 +1623,8 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 		Name:      "ratings-2",
 		Namespace: "bookinfo-ratings",
 		Endpoint: &model.IstioEndpoint{
-			Labels:  labels.Instance{"app": "ratings"},
-			Address: "2.2.2.2",
+			Labels:    labels.Instance{"app": "ratings"},
+			Addresses: []string{"2.2.2.2"},
 		},
 		PortMap: map[string]uint32{
 			"http": 8082, // should be used
@@ -1635,8 +1635,8 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 		Name:      "ratings-3",
 		Namespace: "bookinfo-ratings",
 		Endpoint: &model.IstioEndpoint{
-			Labels:  labels.Instance{"app": "ratings"},
-			Address: "2.2.2.2",
+			Labels:    labels.Instance{"app": "ratings"},
+			Addresses: []string{"2.2.2.2"},
 		},
 		PortMap: map[string]uint32{
 			"http": 8083, // should be used
@@ -1657,9 +1657,11 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 
 	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
 
-	got := make([]string, 0, len(endpoints))
+	var got []string
 	for _, instance := range endpoints {
-		got = append(got, net.JoinHostPort(instance.Address, strconv.Itoa(int(instance.EndpointPort))))
+		for _, addr := range instance.Addresses {
+			got = append(got, net.JoinHostPort(addr, strconv.Itoa(int(instance.EndpointPort))))
+		}
 	}
 	sort.Strings(got)
 
@@ -1678,7 +1680,7 @@ func TestExternalNameServiceInstances(t *testing.T) {
 	eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
 	assert.Equal(t, len(eps), 1)
 	assert.Equal(t, eps[0], &model.IstioEndpoint{
-		Address:               "foo.co",
+		Addresses:             []string{"foo.co"},
 		ServicePortName:       "tcp-port-1",
 		EndpointPort:          1,
 		DiscoverabilityPolicy: model.AlwaysDiscoverable,
@@ -1776,7 +1778,7 @@ func TestController_ExternalNameService(t *testing.T) {
 		}
 		endpoints := GetEndpoints(svcList[i], controller.Endpoints)
 		assert.Equal(t, len(endpoints), 1)
-		assert.Equal(t, endpoints[0].Address, k8sSvcs[i].Spec.ExternalName)
+		assert.Equal(t, endpoints[0].GetIstioEndpointKey(), k8sSvcs[i].Spec.ExternalName)
 	}
 
 	deleteWg.Add(len(k8sSvcs))
@@ -2255,7 +2257,7 @@ func TestEndpointUpdateBeforePodUpdate(t *testing.T) {
 		ev := fx.WaitOrFail(t, "eds")
 		var gotIps []string
 		for _, e := range ev.Endpoints {
-			gotIps = append(gotIps, e.Address)
+			gotIps = append(gotIps, e.Addresses...)
 		}
 		var gotSA []string
 		var expectedSa []string
@@ -2375,7 +2377,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Labels:         labels.Instance{"app": "prod-app"},
 			ServiceAccount: "account",
-			Address:        "2.2.2.2",
+			Addresses:      []string{"2.2.2.2"},
 			EndpointPort:   8080,
 		},
 	}, model.EventAdd)
@@ -2393,7 +2395,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 
 	gotEndpointIPs := make([]string, 0, len(ev.Endpoints))
 	for _, ep := range ev.Endpoints {
-		gotEndpointIPs = append(gotEndpointIPs, ep.Address)
+		gotEndpointIPs = append(gotEndpointIPs, ep.Addresses...)
 	}
 	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
 		t.Fatalf("eds update after adding workload entry did not match expected list. got %v, want %v",
@@ -2408,7 +2410,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	endpoints := GetEndpoints(converted[0], controller.Endpoints)
 	gotEndpointIPs = []string{}
 	for _, instance := range endpoints {
-		gotEndpointIPs = append(gotEndpointIPs, instance.Address)
+		gotEndpointIPs = append(gotEndpointIPs, instance.Addresses...)
 	}
 	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
 		t.Fatalf("InstancesByPort after adding workload entry did not match expected list. got %v, want %v",
@@ -2420,7 +2422,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	ev = fx.WaitOrFail(t, "eds")
 	gotEndpointIPs = []string{}
 	for _, ep := range ev.Endpoints {
-		gotEndpointIPs = append(gotEndpointIPs, ep.Address)
+		gotEndpointIPs = append(gotEndpointIPs, ep.Addresses...)
 	}
 	expectedEndpointIPs = []string{"172.0.1.1", "172.0.1.2", "2.2.2.2"}
 	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
@@ -2444,7 +2446,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 		Namespace: "bookinfo",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "ratings"},
-			Address:      "2.2.2.2",
+			Addresses:    []string{"2.2.2.2"},
 			EndpointPort: 8080,
 		},
 	}
@@ -2459,7 +2461,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 		Namespace: "bookinfo",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "details"},
-			Address:      "3.3.3.3",
+			Addresses:    []string{"3.3.3.3"},
 			EndpointPort: 9090,
 		},
 	}
@@ -2475,7 +2477,7 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 		Namespace: "bookinfo",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "details"},
-			Address:      "2.2.2.2", // update IP
+			Addresses:    []string{"2.2.2.2"}, // update IP
 			EndpointPort: 9090,
 		},
 	}

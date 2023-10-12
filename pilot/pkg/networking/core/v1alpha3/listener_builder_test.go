@@ -72,7 +72,7 @@ func buildListeners(t *testing.T, o TestOptions, p *model.Proxy) []*listener.Lis
 		i := &model.ServiceInstance{
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
-				Address:      "1.1.1.1",
+				Addresses:    []string{"1.1.1.1"},
 				EndpointPort: 8080, // service port is 80, target port is 8080
 			},
 			ServicePort: s.Ports[0],
@@ -582,7 +582,7 @@ func TestInboundListenerFilters(t *testing.T) {
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
 				EndpointPort: uint32(s.Ports[0].Port),
-				Address:      "1.1.1.1",
+				Addresses:    []string{"1.1.1.1"},
 			},
 			ServicePort: s.Ports[0],
 		})
@@ -700,7 +700,7 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
 				EndpointPort: uint32(s.Ports[0].Port),
-				Address:      "1.1.1.1",
+				Addresses:    []string{"1.1.1.1"},
 			},
 			ServicePort: s.Ports[0],
 		})

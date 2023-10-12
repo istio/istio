@@ -33,7 +33,7 @@ func initDS(t *testing.T) *xds.FakeDiscoveryServer {
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
 	sd.SetEndpoints("fortio1.fortio.svc.cluster.local", "", []*model.IstioEndpoint{
 		{
-			Address:         "127.0.0.1",
+			Addresses:       []string{"127.0.0.1"},
 			EndpointPort:    uint32(14056),
 			ServicePortName: "http-main",
 		},

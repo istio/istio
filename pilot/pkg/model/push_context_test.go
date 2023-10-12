@@ -1260,7 +1260,7 @@ func TestServiceIndex(t *testing.T) {
 		},
 		serviceInstances: []*ServiceInstance{{
 			Endpoint: &IstioEndpoint{
-				Address:      "192.168.1.2",
+				Addresses:    []string{"192.168.1.2"},
 				EndpointPort: 8000,
 				TLSMode:      DisabledTLSModeLabel,
 			},
@@ -1515,7 +1515,7 @@ func TestInitPushContext(t *testing.T) {
 		},
 		serviceInstances: []*ServiceInstance{{
 			Endpoint: &IstioEndpoint{
-				Address:      "192.168.1.2",
+				Addresses:    []string{"192.168.1.2"},
 				EndpointPort: 8000,
 				TLSMode:      DisabledTLSModeLabel,
 			},
@@ -1791,7 +1791,7 @@ func TestBestEffortInferServiceMTLSMode(t *testing.T) {
 
 	instancePlainText := &ServiceInstance{
 		Endpoint: &IstioEndpoint{
-			Address:      "192.168.1.2",
+			Addresses:    []string{"192.168.1.2"},
 			EndpointPort: 1000000,
 			TLSMode:      DisabledTLSModeLabel,
 		},

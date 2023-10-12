@@ -668,7 +668,7 @@ func TestApplyDestinationRule(t *testing.T) {
 					ServicePort: tt.port,
 					Endpoint: &model.IstioEndpoint{
 						ServicePortName: tt.port.Name,
-						Address:         "192.168.1.1",
+						Addresses:       []string{"192.168.1.1"},
 						EndpointPort:    10001,
 						Locality: model.Locality{
 							ClusterID: "",
@@ -1201,7 +1201,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.1",
+						Addresses:    []string{"192.168.1.1"},
 						EndpointPort: 10001,
 						WorkloadName: "workload-1",
 						Namespace:    "namespace-1",
@@ -1217,7 +1217,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.2",
+						Addresses:    []string{"192.168.1.2"},
 						EndpointPort: 10001,
 						WorkloadName: "workload-2",
 						Namespace:    "namespace-2",
@@ -1233,7 +1233,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.3",
+						Addresses:    []string{"192.168.1.3"},
 						EndpointPort: 10001,
 						WorkloadName: "workload-3",
 						Namespace:    "namespace-3",
@@ -1249,7 +1249,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.4",
+						Addresses:    []string{"192.168.1.4"},
 						EndpointPort: 10001,
 						WorkloadName: "workload-1",
 						Namespace:    "namespace-1",
@@ -1357,7 +1357,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.1",
+						Addresses:    []string{"192.168.1.1"},
 						EndpointPort: 10001,
 						Locality: model.Locality{
 							ClusterID: "cluster-1",
@@ -1370,7 +1370,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.2",
+						Addresses:    []string{"192.168.1.2"},
 						EndpointPort: 10001,
 						Locality: model.Locality{
 							ClusterID: "cluster-2",
@@ -1424,7 +1424,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.1",
+						Addresses:    []string{"192.168.1.1"},
 						EndpointPort: 10001,
 						WorkloadName: "workload-1",
 						Namespace:    "namespace-1",
@@ -1444,7 +1444,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.2",
+						Addresses:    []string{"192.168.1.2"},
 						EndpointPort: 10001,
 						WorkloadName: "workload-2",
 						Namespace:    "namespace-2",
@@ -1464,7 +1464,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.3",
+						Addresses:    []string{"192.168.1.3"},
 						EndpointPort: 10001,
 						WorkloadName: "workload-3",
 						Namespace:    "namespace-3",
@@ -1484,7 +1484,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Address:      "192.168.1.4",
+						Addresses:    []string{"192.168.1.4"},
 						EndpointPort: 10001,
 						WorkloadName: "workload-1",
 						Namespace:    "namespace-1",
@@ -1638,7 +1638,7 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.1",
+				Addresses:    []string{"192.168.1.1"},
 				EndpointPort: 10001,
 				WorkloadName: "workload-1",
 				Namespace:    "namespace-1",
@@ -1658,7 +1658,7 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.2",
+				Addresses:    []string{"192.168.1.2"},
 				EndpointPort: 10001,
 				WorkloadName: "workload-2",
 				Namespace:    "namespace-2",
@@ -1678,7 +1678,7 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.3",
+				Addresses:    []string{"192.168.1.3"},
 				EndpointPort: 10001,
 				WorkloadName: "workload-3",
 				Namespace:    "namespace-3",
@@ -1698,7 +1698,7 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.4",
+				Addresses:    []string{"192.168.1.4"},
 				EndpointPort: 10001,
 				WorkloadName: "workload-1",
 				Namespace:    "namespace-1",

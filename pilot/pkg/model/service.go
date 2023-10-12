@@ -25,9 +25,9 @@ package model
 import (
 	"fmt"
 	"net/netip"
+	"sort"
 	"strconv"
 	"strings"
-	"sort"
 	"sync/atomic"
 	"time"
 

@@ -327,7 +327,7 @@ func addIstiod(sd *memory.ServiceDiscovery, xdsPort int) {
 	})
 	sd.SetEndpoints(testSvcHost, "istio-system", []*model.IstioEndpoint{
 		{
-			Address:         "127.0.0.1",
+			Addresses:       []string{"127.0.0.1"},
 			EndpointPort:    uint32(xdsPort),
 			ServicePortName: "grpc-main",
 		},
@@ -357,7 +357,7 @@ func initPersistent(sd *memory.ServiceDiscovery) {
 	})
 	sd.SetEndpoints(hn, ns, []*model.IstioEndpoint{
 		{
-			Address:         "127.0.1.2",
+			Addresses:       []string{"127.0.1.2"},
 			EndpointPort:    uint32(9999),
 			ServicePortName: "grpc-main",
 			HealthStatus:    model.Draining,
@@ -391,7 +391,7 @@ func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname
 	// The address will be matched against the INSTANCE_IPS and id in the node id. If they match, the service is returned.
 	sd.SetEndpoints(hn, ns, []*model.IstioEndpoint{
 		{
-			Address:         "127.0.1.1",
+			Addresses:       []string{"127.0.1.1"},
 			EndpointPort:    uint32(port),
 			ServicePortName: "grpc-main",
 		},

@@ -296,7 +296,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:         "6.6.6.6",
+				Addresses:       []string{"6.6.6.6"},
 				ServicePortName: servicePort[0].Name,
 				EndpointPort:    10001,
 				Locality: model.Locality{
@@ -311,7 +311,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:         "6.6.6.6",
+				Addresses:       []string{"6.6.6.6"},
 				ServicePortName: servicePort[0].Name,
 				EndpointPort:    10001,
 				Locality: model.Locality{
@@ -326,7 +326,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:         "6.6.6.6",
+				Addresses:       []string{"6.6.6.6"},
 				ServicePortName: servicePort[0].Name,
 				EndpointPort:    10001,
 				Locality: model.Locality{
@@ -342,7 +342,7 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			ServicePort: servicePort[1],
 			Endpoint: &model.IstioEndpoint{
 				ServicePortName: servicePort[1].Name,
-				Address:         "6.6.6.6",
+				Addresses:       []string{"6.6.6.6"},
 				EndpointPort:    10002,
 				Locality: model.Locality{
 					ClusterID: "",
@@ -1569,7 +1569,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Address:      "1.1.1.1",
+				Addresses:    []string{"1.1.1.1"},
 				EndpointPort: 10001,
 			},
 		},
@@ -1711,15 +1711,7 @@ func TestInboundClustersPassThroughBindIPs(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Address:      "1.1.1.1",
-				EndpointPort: 10001,
-			},
-		},
-		{
-			Service:     service,
-			ServicePort: servicePort,
-			Endpoint: &model.IstioEndpoint{
-				Address:      "2001:1::1",
+				Addresses:    []string{"1.1.1.1", "2001:1::1"},
 				EndpointPort: 10001,
 			},
 		},

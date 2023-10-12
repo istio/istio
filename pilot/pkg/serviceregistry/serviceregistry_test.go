@@ -1155,7 +1155,7 @@ func expectServiceEndpointsFromIndex(t *testing.T, ei *model.EndpointIndex, svc 
 		}
 		got := slices.Map(endpoints, func(e *model.IstioEndpoint) EndpointResponse {
 			return EndpointResponse{
-				Address: e.Address,
+				Address: e.Addresses[0],
 				Port:    e.EndpointPort,
 			}
 		})

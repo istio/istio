@@ -33,7 +33,7 @@ var service1 = &Service{
 func TestServiceInstanceValidate(t *testing.T) {
 	endpointWithLabels := func(lbls labels.Instance) *IstioEndpoint {
 		return &IstioEndpoint{
-			Address:      "192.168.1.1",
+			Addresses:    []string{"192.168.1.1"},
 			EndpointPort: 10001,
 			Labels:       lbls,
 		}
@@ -69,7 +69,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 			instance: &ServiceInstance{
 				Service: service1,
 				Endpoint: &IstioEndpoint{
-					Address:      "192.168.1.2",
+					Addresses:    []string{"192.168.1.2"},
 					EndpointPort: 1000000,
 				},
 			},
@@ -84,7 +84,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 					Protocol: service1.Ports[1].Protocol,
 				},
 				Endpoint: &IstioEndpoint{
-					Address:      "192.168.1.2",
+					Addresses:    []string{"192.168.1.2"},
 					EndpointPort: uint32(service1.Ports[1].Port),
 				},
 			},
@@ -99,7 +99,7 @@ func TestServiceInstanceValidate(t *testing.T) {
 					Protocol: protocol.GRPC,
 				},
 				Endpoint: &IstioEndpoint{
-					Address:      "192.168.1.2",
+					Addresses:    []string{"192.168.1.2"},
 					EndpointPort: uint32(service1.Ports[1].Port),
 				},
 			},

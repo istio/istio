@@ -25,8 +25,8 @@ func TestUpdateServiceAccount(t *testing.T) {
 	)
 
 	cluster1Endppoints := []*IstioEndpoint{
-		{Address: "10.172.0.1", ServiceAccount: "sa1"},
-		{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
+		{Addresses: []string{"10.172.0.1"}, ServiceAccount: "sa1"},
+		{Addresses: []string{"10.172.0.2"}, ServiceAccount: "sa-vm1"},
 	}
 
 	testCases := []struct {
@@ -38,21 +38,21 @@ func TestUpdateServiceAccount(t *testing.T) {
 		{
 			name:      "added new endpoint",
 			shardKey:  c1Key,
-			endpoints: append(cluster1Endppoints, &IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa1"}),
+			endpoints: append(cluster1Endppoints, &IstioEndpoint{Addresses: []string{"10.172.0.3"}, ServiceAccount: "sa1"}),
 			expect:    false,
 		},
 		{
 			name:      "added new sa",
 			shardKey:  c1Key,
-			endpoints: append(cluster1Endppoints, &IstioEndpoint{Address: "10.172.0.3", ServiceAccount: "sa2"}),
+			endpoints: append(cluster1Endppoints, &IstioEndpoint{Addresses: []string{"10.172.0.3"}, ServiceAccount: "sa2"}),
 			expect:    true,
 		},
 		{
 			name:     "updated endpoints address",
 			shardKey: c1Key,
 			endpoints: []*IstioEndpoint{
-				{Address: "10.172.0.5", ServiceAccount: "sa1"},
-				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
+				{Addresses: []string{"10.172.0.5"}, ServiceAccount: "sa1"},
+				{Addresses: []string{"10.172.0.2"}, ServiceAccount: "sa-vm1"},
 			},
 			expect: false,
 		},
@@ -60,7 +60,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 			name:     "deleted one endpoint with unique sa",
 			shardKey: c1Key,
 			endpoints: []*IstioEndpoint{
-				{Address: "10.172.0.1", ServiceAccount: "sa1"},
+				{Addresses: []string{"10.172.0.1"}, ServiceAccount: "sa1"},
 			},
 			expect: true,
 		},
@@ -68,7 +68,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 			name:     "deleted one endpoint with duplicate sa",
 			shardKey: c1Key,
 			endpoints: []*IstioEndpoint{
-				{Address: "10.172.0.2", ServiceAccount: "sa-vm1"},
+				{Addresses: []string{"10.172.0.2"}, ServiceAccount: "sa-vm1"},
 			},
 			expect: false,
 		},
@@ -85,7 +85,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 			originalEndpointsShard := &EndpointShards{
 				Shards: map[ShardKey][]*IstioEndpoint{
 					c1Key: cluster1Endppoints,
-					c2Key: {{Address: "10.244.0.1", ServiceAccount: "sa1"}, {Address: "10.244.0.2", ServiceAccount: "sa-vm2"}},
+					c2Key: {{Addresses: []string{"10.244.0.1"}, ServiceAccount: "sa1"}, {Addresses: []string{"10.244.0.2"}, ServiceAccount: "sa-vm2"}},
 				},
 				ServiceAccounts: map[string]struct{}{
 					"sa1":    {},
