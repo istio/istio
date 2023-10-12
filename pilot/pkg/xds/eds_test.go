@@ -407,7 +407,13 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 	s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 		[]*model.IstioEndpoint{
 			{
-				Addresses:       []string{"10.0.0.53", "10.0.0.54"},
+				Addresses:       []string{"10.0.0.53"},
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.UnHealthy,
+			},
+			{
+				Addresses:       []string{"10.0.0.54"},
 				EndpointPort:    53,
 				ServicePortName: "tcp-dns",
 				HealthStatus:    model.UnHealthy,
@@ -421,7 +427,13 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 	s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 		[]*model.IstioEndpoint{
 			{
-				Addresses:       []string{"10.0.0.53", "10.0.0.54"},
+				Addresses:       []string{"10.0.0.53"},
+				EndpointPort:    53,
+				ServicePortName: "tcp-dns",
+				HealthStatus:    model.Healthy,
+			},
+			{
+				Addresses:       []string{"10.0.0.54"},
 				EndpointPort:    53,
 				ServicePortName: "tcp-dns",
 				HealthStatus:    model.Healthy,
