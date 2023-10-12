@@ -835,6 +835,9 @@ func logCmd(ctx cli.Context) *cobra.Command {
 				cmd.Println(cmd.UsageString())
 				return fmt.Errorf("--level cannot be combined with --reset")
 			}
+			if outputFormat != "" && outputFormat != summaryOutput {
+				return fmt.Errorf("--output is not applicable for this command")
+			}
 			return nil
 		},
 		RunE: func(c *cobra.Command, args []string) error {
@@ -898,7 +901,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 								// TODO validate ztunnel logger name when available: https://github.com/istio/ztunnel/issues/426
 								continue
 							}
-							if !strings.Contains(logName, loggerLevel[0]) {
+							if !strings.Contains(logName, loggerLevel[0]) && loggerLevel[0] != defaultLoggerName {
 								return fmt.Errorf("unrecognized logger name: %v", loggerLevel[0])
 							}
 						}
@@ -971,9 +974,9 @@ func logCmd(ctx cli.Context) *cobra.Command {
 	logCmd.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
 	logCmd.PersistentFlags().StringVar(&loggerLevelString, "level", loggerLevelString,
 		fmt.Sprintf("Comma-separated minimum per-logger level of messages to output, in the form of"+
-			" [<logger>:]<level>,[<logger>:]<level>,... where logger components can be listed by running \"istioctl proxy-config log <pod-name[.namespace]>\""+
+			" [<logger>:]<level>,[<logger>:]<level>,... or <level> to change all active loggers, "+
+			"where logger components can be listed by running \"istioctl proxy-config log <pod-name[.namespace]>\""+
 			"or referred from https://github.com/envoyproxy/envoy/blob/main/source/common/common/logger.h, and level can be one of %s", levelListString))
-
 	return logCmd
 }
 
