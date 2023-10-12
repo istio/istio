@@ -39,6 +39,32 @@ func TestAdd(t *testing.T) {
 			},
 		},
 		{
+			name:  "empty host string",
+			hosts: []string{""},
+			wantTrie: &Trie[string]{
+				data: nil,
+				children: map[string]*Trie[string]{
+					"": {
+						data:     []string{""},
+						children: map[string]*Trie[string]{},
+					},
+				},
+			},
+		},
+		{
+			name:  "one char host",
+			hosts: []string{"a"},
+			wantTrie: &Trie[string]{
+				data: nil,
+				children: map[string]*Trie[string]{
+					"a": {
+						data:     []string{"a"},
+						children: map[string]*Trie[string]{},
+					},
+				},
+			},
+		},
+		{
 			name:  "one exact host",
 			hosts: []string{"b.a"},
 			wantTrie: &Trie[string]{

@@ -32,7 +32,7 @@ import (
 
 // guess based on experience.
 func guessCapacity(n int) int {
-	n = n / 5
+	n /= 5
 	if n < 10 {
 		return 10
 	}

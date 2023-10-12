@@ -14,10 +14,6 @@
 
 package host
 
-import (
-	"strings"
-)
-
 type Trie[T any] struct {
 	data     []T
 	children map[string]*Trie[T]
@@ -31,10 +27,23 @@ func NewTrie[T any]() *Trie[T] {
 }
 
 func (t *Trie[T]) Add(host string, data T) {
-	frags := strings.Split(host, ".")
 	root := t
-	for i := len(frags) - 1; i >= 0; i-- {
-		key := frags[i]
+	if host == "" {
+		child := NewTrie[T]()
+		root.children[""] = child
+		root = child
+		root.data = append(root.data, data)
+		return
+	}
+
+	end := len(host)
+	for i := len(host) - 1; i >= 0; i-- {
+		if host[i] != '.' {
+			continue
+		}
+		key := host[i+1 : end]
+		end = i
+
 		child, exists := root.children[key]
 		if !exists {
 			child = NewTrie[T]()
@@ -42,6 +51,17 @@ func (t *Trie[T]) Add(host string, data T) {
 		}
 		root = child
 	}
+
+	if end >= 1 && host[0] != '.' {
+		key := host[0:end]
+		child, exists := root.children[key]
+		if !exists {
+			child = NewTrie[T]()
+			root.children[key] = child
+		}
+		root = child
+	}
+
 	root.data = append(root.data, data)
 }
 
