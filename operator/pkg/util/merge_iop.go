@@ -81,7 +81,7 @@ type values struct {
 	MeshConfig             *meshConfig                      `json:"meshConfig" patchStrategy:"merge"`
 	Base                   *v1alpha12.BaseConfig            `json:"base" patchStrategy:"merge"`
 	IstiodRemote           *v1alpha12.IstiodRemoteConfig    `json:"istiodRemote" patchStrategy:"merge"`
-	Ztunnel                map[string]string                `json:"ztunnel" patchStrategy:"merge"`
+	Ztunnel                map[string]any                   `json:"ztunnel" patchStrategy:"merge"`
 }
 
 type gatewaysConfig struct {
