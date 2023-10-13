@@ -59,6 +59,11 @@ var ports = []*model.Port{
 		Port:     34000,
 		Protocol: "TCP",
 	},
+	{
+		Name:     "tcp-other",
+		Port:     34001,
+		Protocol: "TCP",
+	},
 }
 
 var services = []*model.Service{
@@ -378,6 +383,7 @@ func TestConvertResources(t *testing.T) {
 		{"route-binding"},
 		{"reference-policy-tls"},
 		{"reference-policy-service"},
+		{"reference-policy-tcp"},
 		{"serviceentry"},
 		{"eastwest"},
 		{"eastwest-tlsoption"},
@@ -401,6 +407,10 @@ func TestConvertResources(t *testing.T) {
 				}, &model.ServiceInstance{
 					Service:     svc,
 					ServicePort: ports[1],
+					Endpoint:    &model.IstioEndpoint{},
+				}, &model.ServiceInstance{
+					Service:     svc,
+					ServicePort: ports[2],
 					Endpoint:    &model.IstioEndpoint{},
 				})
 			}
