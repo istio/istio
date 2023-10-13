@@ -453,9 +453,14 @@ func translateRoute(
 	out.Decorator = &route.Decorator{
 		Operation: GetRouteOperation(out, virtualService.Name, listenPort),
 	}
-	if in.Fault != nil {
+	if in.Fault != nil || in.CorsPolicy != nil {
 		out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+	}
+	if in.Fault != nil {
 		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(TranslateFault(in.Fault))
+	}
+	if in.CorsPolicy != nil {
+		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(in.CorsPolicy))
 	}
 
 	if opts.IsHTTP3AltSvcHeaderNeeded {
@@ -486,7 +491,6 @@ func applyHTTPRouteDestination(
 		policy = mesh.GetDefaultHttpRetryPolicy()
 	}
 	action := &route.RouteAction{
-		Cors:        TranslateCORSPolicy(in.CorsPolicy),
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
