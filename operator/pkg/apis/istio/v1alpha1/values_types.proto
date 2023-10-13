@@ -969,7 +969,7 @@ message ProxyConfig {
   // Sets the number of successive failed probes before indicating readiness failure.
   uint32 readinessFailureThreshold = 22;
 
-  StartupProbe startup_probe = 41;
+  StartupProbe startupProbe = 41;
 
   // Default port used for the Pilot agent's health checks.
   uint32 statusPort = 23;
