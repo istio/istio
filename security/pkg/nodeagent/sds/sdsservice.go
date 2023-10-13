@@ -148,11 +148,14 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 		}()
 		defer cancel()
 		_ = b.RetryWithContext(ctx, func() error {
+			sdsServiceLog.Debugf("Warming workload certificates")
 			_, err := st.GenerateSecret(security.WorkloadKeyCertResourceName)
 			if err != nil {
 				sdsServiceLog.Warnf("failed to warm certificate: %v", err)
 				return err
 			}
+
+			sdsServiceLog.Debugf("Warming workload certificates")
 			_, err = st.GenerateSecret(security.RootCertReqResourceName)
 			if err != nil {
 				sdsServiceLog.Warnf("failed to warm root certificate: %v", err)
