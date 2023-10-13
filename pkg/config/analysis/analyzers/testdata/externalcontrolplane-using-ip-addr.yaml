@@ -34,7 +34,7 @@ webhooks:
   - v1beta1
   - v1
   clientConfig:
-    url: https://test.com/inject/cluster/your-cluster-name/net/network1
+    url: https://1.1.1.1:5100/inject/cluster/your-cluster-name/net/network1
   failurePolicy: Fail
   name: rev.namespace.sidecar-injector.istio.io
 - admissionReviewVersions:

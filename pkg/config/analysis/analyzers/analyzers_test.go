@@ -118,8 +118,16 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/externalcontrolplane-missing-urls.yaml"},
 		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
 		expected: []message{
-			{msg.InvalidWebhook, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
-			{msg.InvalidWebhook, "ValidatingWebhookConfiguration istio-validator-external-istiod"},
+			{msg.InvalidExternalControlPlaneConfig, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
+			{msg.InvalidExternalControlPlaneConfig, "ValidatingWebhookConfiguration istio-validator-external-istiod"},
+		},
+	},
+	{
+		name:       "externalControlPlaneUsingIpAddresses",
+		inputFiles: []string{"testdata/externalcontrolplane-using-ip-addr.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.ExternalControlPlaneAddressIsNotAHostname, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
 		},
 	},
 	{
