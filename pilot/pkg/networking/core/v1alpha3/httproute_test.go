@@ -552,6 +552,93 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 	}
 }
 
+func TestSidecarOutboundHTTPRouteConfigWithStatefulsession(t *testing.T) {
+	virtualServiceSpec := &networking.VirtualService{
+		Hosts:    []string{"test-service.default.svc.cluster.local", "test-service.svc.mesh.sfdc.net"},
+		Gateways: []string{"mesh"},
+		Http: []*networking.HTTPRoute{
+			{
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "test-service.default.svc.cluster.local",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	cases := []struct {
+		name                string
+		services            []*model.Service
+		config              []config.Config
+		expectedHosts       map[string][]string
+		expectedDestination map[string]string
+	}{
+		{
+			"session filter with header",
+			[]*model.Service{
+				buildHTTPService("test-service.default.svc.cluster.local", visibility.Public, "", "default", 80),
+			},
+			[]config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme",
+				},
+				Spec: virtualServiceSpec,
+			}},
+			map[string][]string{
+				"allow_any": {"*"},
+				// BUG: test should be below
+				"test.local:80": {"test.local"},
+				"test:80":       {"test"},
+			},
+			map[string]string{
+				"allow_any":     "PassthroughCluster",
+				"test.local:80": "outbound|80||test.local",
+				"test:80":       "outbound|80||test",
+			},
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			// ensure services are ordered
+			t0 := time.Now()
+			for _, svc := range tt.services {
+				svc.CreationTime = t0
+				t0 = t0.Add(time.Minute)
+			}
+			cg := NewConfigGenTest(t, TestOptions{
+				Services: tt.services,
+				Configs:  tt.config,
+			})
+
+			vHostCache := make(map[int][]*route.VirtualHost)
+			resource, _ := cg.ConfigGen.buildSidecarOutboundHTTPRouteConfig(
+				cg.SetupProxy(nil), &model.PushRequest{Push: cg.PushContext()}, "80", vHostCache, nil, nil)
+			routeCfg := &route.RouteConfiguration{}
+			resource.Resource.UnmarshalTo(routeCfg)
+			xdstest.ValidateRouteConfiguration(t, routeCfg)
+
+			got := map[string][]string{}
+			clusters := map[string]string{}
+			for _, vh := range routeCfg.VirtualHosts {
+				got[vh.Name] = vh.Domains
+				clusters[vh.Name] = vh.GetRoutes()[0].GetRoute().GetCluster()
+			}
+
+			if !reflect.DeepEqual(tt.expectedHosts, got) {
+				t.Fatalf("unexpected virtual hosts\n%v, wanted\n%v", got, tt.expectedHosts)
+			}
+
+			if !reflect.DeepEqual(tt.expectedDestination, clusters) {
+				t.Fatalf("unexpected destinations\n%v, wanted\n%v", clusters, tt.expectedDestination)
+			}
+		})
+	}
+}
+
 func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 	services := []*model.Service{
 		buildHTTPService("bookinfo.com", visibility.Public, wildcardIPv4, "default", 9999, 70),
@@ -1664,6 +1751,9 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 			ServiceRegistry: provider.Kubernetes,
 			Namespace:       namespace,
 			ExportTo:        sets.New(v),
+			Labels: map[string]string{
+				"istio.io/persistent-session-header": "x-session-id",
+			},
 		},
 	}
 	if ip == wildcardIPv4 {

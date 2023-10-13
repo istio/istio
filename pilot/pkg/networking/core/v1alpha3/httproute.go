@@ -458,7 +458,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	vhdomains := sets.String{}
 	knownFQDN := sets.String{}
 
-	buildVirtualHost := func(hostname string, vhwrapper istio_route.VirtualHostWrapper, svc *model.Service) *route.VirtualHost {
+	buildVirtualHost := func(hostname string, vhwrapper istio_route.VirtualHostWrapper, svc *model.Service, statefulSvc *model.Service) *route.VirtualHost {
 		name := util.DomainName(hostname, vhwrapper.Port)
 		if vhosts.InsertContains(name) {
 			// This means this virtual host has caused duplicate virtual host name.
@@ -496,7 +496,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		}
 		if len(domains) > 0 {
 			perRouteFilters := map[string]*anypb.Any{}
-			if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(svc); statefulConfig != nil {
+			if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(statefulSvc); statefulConfig != nil {
 				perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
 					Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
 						StatefulSession: statefulConfig,
@@ -531,13 +531,23 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		virtualHosts := make([]*route.VirtualHost, 0, len(virtualHostWrapper.VirtualServiceHosts)+len(virtualHostWrapper.Services))
 
 		for _, hostname := range virtualHostWrapper.VirtualServiceHosts {
-			if vhost := buildVirtualHost(hostname, virtualHostWrapper, nil); vhost != nil {
+			action := virtualHostWrapper.Routes[0].Action.(*route.Route_Route).Route
+			cluster := action.ClusterSpecifier.(*route.RouteAction_Cluster).Cluster
+			_, _, svchost, _ := model.ParseSubsetKey(cluster)
+			var svc *model.Service
+			for _, s := range virtualHostWrapper.Services {
+				if s.Hostname == svchost {
+					svc = s
+					break
+				}
+			}
+			if vhost := buildVirtualHost(hostname, virtualHostWrapper, nil, svc); vhost != nil {
 				virtualHosts = append(virtualHosts, vhost)
 			}
 		}
 
 		for _, svc := range virtualHostWrapper.Services {
-			if vhost := buildVirtualHost(string(svc.Hostname), virtualHostWrapper, svc); vhost != nil {
+			if vhost := buildVirtualHost(string(svc.Hostname), virtualHostWrapper, svc, svc); vhost != nil {
 				virtualHosts = append(virtualHosts, vhost)
 			}
 		}
