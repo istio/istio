@@ -155,7 +155,7 @@ func newSDSService(st security.SecretManager, options *security.Options, pkpConf
 				return err
 			}
 
-			sdsServiceLog.Debugf("Warming workload certificates")
+			sdsServiceLog.Debugf("Warming root certificates")
 			_, err = st.GenerateSecret(security.RootCertReqResourceName)
 			if err != nil {
 				sdsServiceLog.Warnf("failed to warm root certificate: %v", err)
