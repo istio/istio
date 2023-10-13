@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 47341
+releaseNotes:
+- |
+  **Fixed** Issue relying only on `HTTPRoute` to check `ReferenceGrant`
