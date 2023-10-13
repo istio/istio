@@ -145,6 +145,13 @@ spec:
           runAsGroup: 1337
           runAsNonRoot: true
           runAsUser: 1337
+        startupProbe:
+          failureThreshold: 600
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+          periodSeconds: 1
+          timeoutSeconds: 3
         volumeMounts:
         - mountPath: /var/run/secrets/workload-spiffe-uds
           name: workload-socket
