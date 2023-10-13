@@ -133,12 +133,8 @@ func (s *Server) initDNSCerts() error {
 		}
 		// check if signing key file exists the cert dir and if the istio-generated file
 		// exists (only if USE_CACERTS_FOR_SELF_SIGNED_CA is enabled)
-		if !detectedSigningCABundle || (features.UseCacertsForSelfSignedCA && detectedSigningCABundle && istioGenerated) {
-			if !detectedSigningCABundle {
-				log.Infof("No plugged-in cert at %v; self-signed cert is used", fileBundle.SigningKeyFile)
-			} else {
-				log.Infof("Found cert at %v, but is istio-generated; self-signed cert is used", fileBundle.SigningKeyFile)
-			}
+		if !detectedSigningCABundle || (features.UseCacertsForSelfSignedCA && istioGenerated) {
+			log.Infof("Use istio-generated cacerts at %v or istio-ca-secret", fileBundle.SigningKeyFile)
 
 			caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
 			s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
