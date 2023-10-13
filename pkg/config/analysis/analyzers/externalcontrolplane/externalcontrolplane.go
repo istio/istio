@@ -15,7 +15,6 @@
 package externalcontrolplane
 
 import (
-	"fmt"
 	"net"
 	"net/url"
 
@@ -38,7 +37,7 @@ var _ analysis.Analyzer = &ExternalControlPlaneAnalyzer{}
 func (s *ExternalControlPlaneAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
 		Name:        "externalcontrolplane.ExternalControlPlaneAnalyzer",
-		Description: "Checks that the remote IstioOperator resources reference an external controle plane",
+		Description: "Checks that the remote IstioOperator resources reference an external control plane",
 		Inputs: []config.GroupVersionKind{
 			gvk.ValidatingWebhookConfiguration,
 			gvk.MutatingWebhookConfiguration,
@@ -60,14 +59,23 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 				for _, hook := range webhookConfig.Webhooks {
 					if hook.ClientConfig.URL != nil {
 
-						webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL, hook.Name)
-						if webhookLintResults != "" {
-							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidWebhook(resource, webhookLintResults))
+						webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL)
+
+						switch webhookLintResults {
+						case "":
+							return true
+
+						case "is an IP address instead of a hostname":
+							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewExternalControlPlaneAddressIsNotAHostname(resource, *hook.ClientConfig.URL, hook.Name))
+							return false
+
+						default:
+							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, *hook.ClientConfig.URL, hook.Name, webhookLintResults))
 							return false
 						}
 
 					} else {
-						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidWebhook(resource, fmt.Sprintf("The webhook (%v) does not contain a URL.", hook.Name)))
+						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, "", hook.Name, "is blank"))
 						return false
 					}
 				}
@@ -84,14 +92,23 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 				for _, hook := range webhookConfig.Webhooks {
 					if hook.ClientConfig.URL != nil {
 
-						webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL, hook.Name)
-						if webhookLintResults != "" {
-							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidWebhook(resource, webhookLintResults))
+						webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL)
+
+						switch webhookLintResults {
+						case "":
+							return true
+
+						case "is an IP address instead of a hostname":
+							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewExternalControlPlaneAddressIsNotAHostname(resource, *hook.ClientConfig.URL, hook.Name))
+							return false
+
+						default:
+							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, *hook.ClientConfig.URL, hook.Name, webhookLintResults))
 							return false
 						}
 
 					} else {
-						c.Report(gvk.MutatingWebhookConfiguration, msg.NewInvalidWebhook(resource, fmt.Sprintf("The webhook (%v) does not contain a URL.", hook.Name)))
+						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, "", hook.Name, "is blank"))
 						return false
 					}
 				}
@@ -102,20 +119,23 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 	}
 }
 
-func lintWebhookURL(webhookURL string, webhookName string) string {
-	url, err := url.Parse(webhookURL)
+func lintWebhookURL(webhookURL string) string {
+	parsedWebhookURL, err := url.Parse(webhookURL)
 	if err != nil {
-		return fmt.Sprintf("Unable to parse the domain from the URL (%v) set in the webhook (%v).", webhookURL, webhookName)
+		return "was provided in an invalid format"
 	}
 
-	domainName := url.Hostname()
-	ips, err := net.LookupIP(domainName)
-	if err != nil {
-		return fmt.Sprintf("Unable to resolve the domain (%v) associated with the webhook (%v).", domainName, webhookName)
+	parsedHostname := parsedWebhookURL.Hostname()
+	if net.ParseIP(parsedHostname) != nil {
+		return "is an IP address instead of a hostname"
 	}
 
+	ips, err := net.LookupIP(parsedHostname)
+	if err != nil {
+		return "cannot be resolved via a DNS lookup"
+	}
 	if len(ips) == 0 {
-		return fmt.Sprintf("No IP addresses are associated with the domain (%v) assigned to the webhook (%v).", domainName, webhookName)
+		return "resolves with zero IP addresses"
 	}
 
 	return ""
