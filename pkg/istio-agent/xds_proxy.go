@@ -428,6 +428,7 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 	initialRequestsSent := atomic.NewBool(false)
 	go func() {
+		first := true
 		for {
 			// recv xds requests from envoy
 			req, err := con.downstream.Recv()
@@ -437,6 +438,11 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				case <-con.stopChan:
 				}
 				return
+			}
+
+			if first {
+				first = false
+				req.ResponseNonce = ""
 			}
 
 			// forward to istiod
