@@ -230,7 +230,11 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 				}
 			}
 			cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
-			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t)
+			scope := t.ConfigIstio()
+			if c.globalConfig {
+				scope = t.ConfigKube()
+			}
+			scope.YAML("", cfg).ApplyOrFail(t)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
