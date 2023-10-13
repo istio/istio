@@ -2325,7 +2325,7 @@ spec:
 	gatewayListenPort := 80
 	gatewayListenPortName := "http"
 	t.RunTraffic(TrafficTestCase{
-		name:         "gateway",
+		name: "gateway",
 		skip: skip{
 			skip:   t.Clusters().IsMulticluster(),
 			reason: "we need to apply service to all but Istio config to only Istio clusters, which we don't support",
