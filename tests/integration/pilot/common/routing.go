@@ -784,7 +784,7 @@ spec:
       abort:
         percentage:
           value: 100
-        httpStatus: 418`,
+        httpStatus: 404`,
 		opts: echo.CallOptions{
 			Port: echo.Port{
 				Name: "http",
