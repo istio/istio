@@ -784,13 +784,13 @@ spec:
       abort:
         percentage:
           value: 100
-        httpStatus: 404`,
+        httpStatus: 418`,
 		opts: echo.CallOptions{
 			Port: echo.Port{
 				Name: "http",
 			},
 			Count: 1,
-			Check: check.OK(),
+			Check: check.Status(http.StatusTeapot),
 		},
 		workloadAgnostic: true,
 	})
@@ -820,7 +820,7 @@ spec:
 			},
 			Scheme: scheme.GRPC,
 			Count:  1,
-			Check:  check.GRPCStatus(codes.Aborted),
+			Check:  check.GRPCStatus(codes.Unavailable),
 		},
 		workloadAgnostic: true,
 		sourceMatchers:   includeProxyless,
