@@ -790,7 +790,7 @@ spec:
 				Name: "http",
 			},
 			Count: 1,
-			Check: check.Status(http.StatusOK),
+			Check: check.OK(),
 		},
 		workloadAgnostic: true,
 	})
@@ -820,7 +820,7 @@ spec:
 			},
 			Scheme: scheme.GRPC,
 			Count:  1,
-			Check:  check.GRPCStatus(codes.Unavailable),
+			Check:  check.GRPCStatus(codes.Aborted),
 		},
 		workloadAgnostic: true,
 		sourceMatchers:   includeProxyless,
