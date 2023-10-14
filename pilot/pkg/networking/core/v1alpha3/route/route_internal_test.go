@@ -21,6 +21,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
+	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -323,7 +324,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
 		},
 	}
-	expectedCorsPolicy := &route.CorsPolicy{
+	expectedCorsPolicy := &cors.CorsPolicy{
 		AllowOriginStringMatch: []*matcher.StringMatcher{
 			{MatchPattern: &matcher.StringMatcher_Exact{Exact: "exact"}},
 			{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: "prefix"}},
@@ -335,12 +336,10 @@ func TestTranslateCORSPolicy(t *testing.T) {
 				},
 			},
 		},
-		EnabledSpecifier: &route.CorsPolicy_FilterEnabled{
-			FilterEnabled: &core.RuntimeFractionalPercent{
-				DefaultValue: &xdstype.FractionalPercent{
-					Numerator:   100,
-					Denominator: xdstype.FractionalPercent_HUNDRED,
-				},
+		FilterEnabled: &core.RuntimeFractionalPercent{
+			DefaultValue: &xdstype.FractionalPercent{
+				Numerator:   100,
+				Denominator: xdstype.FractionalPercent_HUNDRED,
 			},
 		},
 	}
