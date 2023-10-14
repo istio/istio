@@ -790,7 +790,7 @@ spec:
 				Name: "http",
 			},
 			Count: 1,
-			Check: check.Status(http.StatusTeapot),
+			Check: check.Status(http.StatusOK),
 		},
 		workloadAgnostic: true,
 	})
