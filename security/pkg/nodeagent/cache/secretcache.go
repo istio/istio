@@ -125,13 +125,6 @@ type secretCache struct {
 	certRoot []byte
 }
 
-func (s *secretCache) Clear() {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.workload = nil
-	s.certRoot = nil
-}
-
 // GetRoot returns cached root cert and cert expiration time. This method is thread safe.
 func (s *secretCache) GetRoot() (rootCert []byte) {
 	s.mu.RLock()
@@ -216,13 +209,6 @@ func (sc *SecretManagerClient) OnSecretUpdate(resourceName string) {
 	if sc.secretHandler != nil {
 		sc.secretHandler(resourceName)
 	}
-}
-
-// Reset clears the cache and cancels any pending certificate rotation events.
-func (sc *SecretManagerClient) Reset() {
-	sc.cache.Clear()
-	// cancels all pending events
-	sc.queue.Reset()
 }
 
 // getCachedSecret: retrieve cached Secret Item (workload-certificate/workload-root) from secretManager client
