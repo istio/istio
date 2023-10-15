@@ -193,8 +193,7 @@ type AgentOptions struct {
 	UseExternalWorkloadSDS bool
 
 	// Enable metadata discovery bootstrap extension
-	MetadataDiscovery       bool
-	RegenerateWorkloadCerts bool
+	MetadataDiscovery bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -385,18 +384,6 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 		go a.startFileWatcher(ctx, rootCAForXDS, func() {
 			if err := a.xdsProxy.initIstiodDialOptions(a); err != nil {
 				log.Warnf("Failed to init xds proxy dial options")
-			}
-
-			if a.cfg.RegenerateWorkloadCerts &&
-				// only regenerate workload certs if using istiod cert provider
-				a.secOpts.PilotCertProvider == constants.CertProviderIstiod {
-				if s := a.secretCache; s != nil {
-					log.Info("ROOTCA changed, regenerating certs")
-					s.Reset()
-					_, _ = a.getWorkloadCerts(s)
-					// Force a push to envoy
-					s.OnSecretUpdate(security.WorkloadKeyCertResourceName)
-				}
 			}
 		})
 	}

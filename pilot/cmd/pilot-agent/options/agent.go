@@ -72,7 +72,6 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		DualStack:                   features.EnableDualStack,
 		UseExternalWorkloadSDS:      useExternalWorkloadSDSEnv,
 		MetadataDiscovery:           enableWDSEnv,
-		RegenerateWorkloadCerts:     regenerateWorkloadCertsEnv,
 	}
 	extractXDSHeadersFromEnv(o)
 	return o

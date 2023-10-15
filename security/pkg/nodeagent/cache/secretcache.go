@@ -755,11 +755,13 @@ func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error
 	sc.configTrustBundleMutex.Lock()
 
 	if bytes.Equal(sc.configTrustBundle, trustBundle) {
+		cacheLog.Debugf("skip for same trust bundle")
 		sc.configTrustBundleMutex.Unlock()
 		return nil
 	}
 	sc.configTrustBundle = trustBundle
 	sc.configTrustBundleMutex.Unlock()
+	cacheLog.Debugf("update new trust bundle")
 	sc.OnSecretUpdate(security.RootCertReqResourceName)
 	return nil
 }
