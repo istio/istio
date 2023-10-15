@@ -274,7 +274,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 			if err := nodeagentutil.OutputKeyCertToDir(sc.configOptions.OutputKeyCertToDir, secret.PrivateKey,
 				secret.CertificateChain, secret.RootCert); err != nil {
 				cacheLog.Errorf("error when output the resource: %v", err)
-			} else {
+			} else if sc.configOptions.OutputKeyCertToDir != "" {
 				resourceLog(resourceName).Debugf("output the resource to %v", sc.configOptions.OutputKeyCertToDir)
 			}
 		}
@@ -333,7 +333,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 }
 
 func (sc *SecretManagerClient) addFileWatcher(file string, resourceName string) {
-	// Try adding file watcher and if it fails start a retryloop.
+	// Try adding file watcher and if it fails start a retry loop.
 	if err := sc.tryAddFileWatcher(file, resourceName); err == nil {
 		return
 	}
@@ -355,14 +355,14 @@ func (sc *SecretManagerClient) tryAddFileWatcher(file string, resourceName strin
 	// avoid processing duplicate events for the same file.
 	sc.certMutex.Lock()
 	defer sc.certMutex.Unlock()
-	file, err := filepath.Abs(file)
+	f, err := filepath.Abs(file)
 	if err != nil {
 		cacheLog.Errorf("%v: error finding absolute path of %s, retrying watches: %v", resourceName, file, err)
 		return err
 	}
 	key := FileCert{
 		ResourceName: resourceName,
-		Filename:     file,
+		Filename:     f,
 	}
 	if _, alreadyWatching := sc.fileCerts[key]; alreadyWatching {
 		cacheLog.Debugf("already watching file for %s", file)
@@ -755,11 +755,13 @@ func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error
 	sc.configTrustBundleMutex.Lock()
 
 	if bytes.Equal(sc.configTrustBundle, trustBundle) {
+		cacheLog.Debugf("skip for same trust bundle")
 		sc.configTrustBundleMutex.Unlock()
 		return nil
 	}
 	sc.configTrustBundle = trustBundle
 	sc.configTrustBundleMutex.Unlock()
+	cacheLog.Debugf("update new trust bundle")
 	sc.OnSecretUpdate(security.RootCertReqResourceName)
 	return nil
 }

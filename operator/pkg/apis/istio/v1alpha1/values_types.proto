@@ -274,7 +274,10 @@ message EgressGatewayConfig {
 
   ServiceAccount serviceAccount = 28;
 
-  // Next available 29.
+  repeated string ipFamilies = 29;
+ 
+  string ipFamilyPolicy = 30;
+  // Next available 31.
 }
 
 // Configuration for gateways.
@@ -465,7 +468,11 @@ message GlobalConfig {
   // An empty value means it is a vanilla Kubernetes distribution, therefore no special
   // treatment will be considered.
   string platform = 69;
-  // The next available key is 70
+
+  repeated string ipFamilies = 70;
+ 
+  string ipFamilyPolicy = 71;
+  // The next available key is 72
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -584,7 +591,10 @@ message IngressGatewayConfig {
 
   ServiceAccount serviceAccount = 47;
 
-  // Next available 48.
+  repeated string ipFamilies = 48;
+ 
+  string ipFamilyPolicy = 49;
+  // Next available 50.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
@@ -751,6 +761,10 @@ message PilotConfig {
   repeated google.protobuf.Struct volumeMounts = 49;
 
   repeated google.protobuf.Struct volumes = 51;
+
+  repeated string ipFamilies = 52;
+ 
+  string ipFamilyPolicy = 53;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -955,6 +969,8 @@ message ProxyConfig {
   // Sets the number of successive failed probes before indicating readiness failure.
   uint32 readinessFailureThreshold = 22;
 
+  StartupProbe startupProbe = 41;
+
   // Default port used for the Pilot agent's health checks.
   uint32 statusPort = 23;
 
@@ -977,6 +993,11 @@ message ProxyConfig {
   string includeInboundPorts = 38;
 
   string includeOutboundPorts = 39;
+}
+
+message StartupProbe {
+  google.protobuf.BoolValue enabled = 1;
+  uint32 failureThreshold = 2;
 }
 
 // Specifies which tracer to use.
@@ -1022,23 +1043,12 @@ message SecretVolume {
   string secretName = 3;
 }
 
-// ServiceConfig is described in istio.io documentation.
-message ServiceConfig {
-  google.protobuf.Struct annotations = 1;
-
-  uint32 externalPort = 2;
-
-  string name = 3;
-
-  string type = 18;
-}
-
 // SidecarInjectorConfig is described in istio.io documentation.
 message SidecarInjectorConfig {
   // Enables sidecar auto-injection in namespaces by default.
   google.protobuf.BoolValue enableNamespacesByDefault = 2;
 
-  // Setting this to `IfNeeded` will result in the sidecar injector being run again if additonal mutations occur. Default: Never
+  // Setting this to `IfNeeded` will result in the sidecar injector being run again if additional mutations occur. Default: Never
   string reinvocationPolicy = 3;
 
   // Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.

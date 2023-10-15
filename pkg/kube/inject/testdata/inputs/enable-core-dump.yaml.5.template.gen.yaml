@@ -347,11 +347,17 @@ templates:
         {{- end }}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
-      {{ if $nativeSidecar }}
+      {{ if .Values.global.proxy.startupProbe.enabled }}
         startupProbe:
-      {{ else }}
-        readinessProbe:
+          httpGet:
+            path: /healthz/ready
+            port: 15021
+          initialDelaySeconds: 0
+          periodSeconds: 1
+          timeoutSeconds: 3
+          failureThreshold: {{ .Values.global.proxy.startupProbe.failureThreshold }}
       {{ end }}
+        readinessProbe:
           httpGet:
             path: /healthz/ready
             port: 15021
@@ -1223,7 +1229,11 @@ templates:
             - containerPort: 15090
               protocol: TCP
               name: http-envoy-prom
-            image: {{.ProxyImage}}
+            {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
+            image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+            {{- else }}
+            image: "{{ .ProxyImage }}"
+            {{- end }}
             {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             args:
             - proxy

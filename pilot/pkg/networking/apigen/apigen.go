@@ -96,7 +96,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 
 		b, err := config.PilotConfigToResource(&c)
 		if err != nil {
-			log.WithLabels("resource", config.NamespacedName(c)).Warnf("resource error: %v", err)
+			log.WithLabels("resource", c.NamespacedName()).Warnf("resource error: %v", err)
 			continue
 		}
 		resp = append(resp, &discovery.Resource{
@@ -119,7 +119,7 @@ func (g *APIGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, re
 			c := serviceentry.ServiceToServiceEntry(s, proxy)
 			b, err := config.PilotConfigToResource(c)
 			if err != nil {
-				log.WithLabels("resource", config.NamespacedName(c)).Warnf("resource error: %v", err)
+				log.WithLabels("resource", c.NamespacedName()).Warnf("resource error: %v", err)
 				continue
 			}
 			resp = append(resp, &discovery.Resource{

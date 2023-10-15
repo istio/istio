@@ -277,7 +277,7 @@ func TestVersionManagement(t *testing.T) {
 	expectReconciled := func() {
 		t.Helper()
 		wantReconcile++
-		assert.EventuallyEqual(t, reconciles.Load, wantReconcile, retry.Timeout(time.Second), retry.Message("no reconciliation"))
+		assert.EventuallyEqual(t, reconciles.Load, wantReconcile, retry.Timeout(time.Second*5), retry.Message("no reconciliation"))
 	}
 
 	d.patcher = func(g schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {

@@ -159,6 +159,20 @@ spec:
   - matches:
     - path:
         type: PathPrefix
+        value: /prefix-to-be-removed
+    name: prefix-to-be-removed
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: ""
+    backendRefs:
+    - name: httpbin
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
         value: /full-original
     name: full-path-rewrite
     filters:

@@ -95,9 +95,9 @@ func TestXfccAuthenticator(t *testing.T) {
 		useHttpRequest     bool //nolint
 	}{
 		{
-			name:       "No xfcc header",
-			xfccHeader: "",
-			caller:     nil,
+			name:               "No xfcc header",
+			xfccHeader:         "",
+			authenticateErrMsg: "caller from 127.0.0.1:2301 does not have Xfcc header",
 		},
 		{
 			name:               "junk xfcc header",
@@ -131,10 +131,10 @@ func TestXfccAuthenticator(t *testing.T) {
 			},
 		},
 		{
-			name:           "No xfcc header with http",
-			xfccHeader:     "",
-			caller:         nil,
-			useHttpRequest: true,
+			name:               "No xfcc header with http",
+			xfccHeader:         "",
+			authenticateErrMsg: "caller from 127.0.0.1:2301 does not have Xfcc header",
+			useHttpRequest:     true,
 		},
 		{
 			name:               "junk xfcc header with http",

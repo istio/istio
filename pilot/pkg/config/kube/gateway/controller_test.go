@@ -84,6 +84,7 @@ var AlwaysReady = func(class schema.GroupVersionResource, stop <-chan struct{}) 
 func TestListInvalidGroupVersionKind(t *testing.T) {
 	g := NewWithT(t)
 	clientSet := kube.NewFakeClient()
+	clientSet.RunAndWait(test.NewStop(t))
 	store := memory.NewController(memory.Make(collections.All))
 	controller := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 
@@ -96,6 +97,7 @@ func TestListGatewayResourceType(t *testing.T) {
 	g := NewWithT(t)
 
 	clientSet := kube.NewFakeClient()
+	clientSet.RunAndWait(test.NewStop(t))
 	store := memory.NewController(memory.Make(collections.All))
 	controller := NewController(clientSet, store, AlwaysReady, nil, controller.Options{})
 

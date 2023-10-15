@@ -325,3 +325,20 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 		},
 	}})
 }
+
+func TestAmbientIndex_ServiceEntry_DisableK8SServiceSelectWorkloadEntries(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	test.SetForTest(t, &features.EnableK8SServiceSelectWorkloadEntries, false)
+	s := newAmbientTestServer(t, testC, testNW)
+
+	s.addPods(t, "140.140.0.10", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.addPods(t, "140.140.0.11", "pod2", "sa1", map[string]string{"app": "other"}, nil, true, corev1.PodRunning)
+	s.addWorkloadEntries(t, "240.240.34.56", "name1", "sa1", map[string]string{"app": "a"})
+	s.addWorkloadEntries(t, "240.240.34.57", "name2", "sa1", map[string]string{"app": "other"})
+	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "name1", testNS, map[string]string{"app": "a"}, false)
+	s.clearEvents()
+
+	// Setting the PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES to false shouldn't affect the workloads selected by the service
+	// entry
+	s.assertWorkloads(t, s.addrXdsName("240.240.23.45"), workloadapi.WorkloadStatus_HEALTHY, "pod1", "name1")
+}

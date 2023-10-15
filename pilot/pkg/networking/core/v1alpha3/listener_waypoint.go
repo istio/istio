@@ -163,9 +163,6 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 			}},
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
 		}},
-		TypedPerFilterConfig: map[string]*any.Any{
-			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
-		},
 	}}
 	return lb.buildConnectTerminateListener(routes)
 }
@@ -287,7 +284,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
-			xdsfilters.SetDstAddress,
+			xdsfilters.OriginalDestination,
 			// TODO: This may affect the data path due to the server-first protocols triggering a time-out. Need exception filter.
 			xdsfilters.HTTPInspector,
 		},
@@ -321,7 +318,7 @@ func buildConnectOriginateListener() *listener.Listener {
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
-			xdsfilters.SetDstAddress,
+			xdsfilters.OriginalDestination,
 		},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+  - |
+    **Removed** `forward_downstream_sni`, `tcp_cluster_rewrite`, and `sni_verifier` custom Istio network filters from Envoy build. This functionality can be achieved using the Wasm extensibility.
+

@@ -1532,7 +1532,11 @@ func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 	if filter.Path != nil {
 		switch filter.Path.Type {
 		case k8sbeta.PrefixMatchHTTPPathModifier:
-			rewrite.Uri = *filter.Path.ReplacePrefixMatch
+			rewrite.Uri = strings.TrimSuffix(*filter.Path.ReplacePrefixMatch, "/")
+			if rewrite.Uri == "" {
+				// `/` means removing the prefix
+				rewrite.Uri = "/"
+			}
 		case k8sbeta.FullPathHTTPPathModifier:
 			rewrite.UriRegexRewrite = &istio.RegexRewrite{
 				Match:   "/.*",

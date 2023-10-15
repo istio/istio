@@ -38,6 +38,10 @@ gateways:
     podAnnotations: {}
     type: ClusterIP # change to NodePort or LoadBalancer if need be
 
+    # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+    ipFamilyPolicy: ""
+    ipFamilies: []
+
     secretVolumes:
     - name: egressgateway-certs
       secretName: istio-egressgateway-certs

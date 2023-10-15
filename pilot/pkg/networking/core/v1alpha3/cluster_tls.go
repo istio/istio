@@ -51,7 +51,7 @@ var internalUpstreamSocket = &core.TransportSocket{
 		PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
 			{
 				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
-				Name: "tunnel",
+				Name: util.OriginalDstMetadataKey,
 			},
 			{
 				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
@@ -168,14 +168,14 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
-			if features.MetadataExchange {
+			if features.MetadataExchange && !features.DisableMxALPN {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
 			} else {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
 			}
 		} else {
 			// This is in-mesh cluster, advertise it with ALPN.
-			if features.MetadataExchange {
+			if features.MetadataExchange && !features.DisableMxALPN {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
 			} else {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh

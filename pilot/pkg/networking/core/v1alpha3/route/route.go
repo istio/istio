@@ -16,6 +16,7 @@ package route
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -513,7 +514,18 @@ func applyHTTPRouteDestination(
 				Substitution: regexRewrite.Rewrite,
 			}
 		} else if uri := in.Rewrite.GetUri(); uri != "" {
-			action.PrefixRewrite = uri
+			if model.UseGatewaySemantics(vs) && uri == "/" {
+				// remove the prefix
+				action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
+					Pattern: &matcher.RegexMatcher{
+						Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(out.Match.GetPathSeparatedPrefix())),
+					},
+					// hold `/` in case the entire path is removed
+					Substitution: `/\2`,
+				}
+			} else {
+				action.PrefixRewrite = uri
+			}
 		}
 		if in.Rewrite.GetAuthority() != "" {
 			authority = in.Rewrite.GetAuthority()

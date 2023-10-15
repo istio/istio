@@ -31,13 +31,11 @@ import (
 
 var (
 	// Namespaces
-	echo1NS    namespace.Instance
-	echo2NS    namespace.Instance
-	externalNS namespace.Instance
-	serverNS   namespace.Instance
+	echo1NS  namespace.Instance
+	serverNS namespace.Instance
 
 	// Servers
-	apps             deployment.TwoNamespaceView
+	apps             deployment.SingleNamespaceView
 	authzServer      authz.Server
 	localAuthzServer authz.Server
 	jwtServer        jwt.Server
@@ -81,20 +79,17 @@ meshConfig:
 		// Create namespaces first. This way, echo can correctly configure egress to all namespaces.
 		SetupParallel(
 			namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true}),
-			namespace.Setup(&echo2NS, namespace.Config{Prefix: "echo2", Inject: true}),
-			namespace.Setup(&externalNS, namespace.Config{Prefix: "external", Inject: false}),
-			namespace.Setup(&serverNS, namespace.Config{Prefix: "servers", Inject: true})).
+			namespace.Setup(&serverNS, namespace.Config{Prefix: "servers", Inject: true}),
+		).
 		SetupParallel(
 			jwt.Setup(&jwtServer, namespace.Future(&serverNS)),
 			authz.Setup(&authzServer, namespace.Future(&serverNS)),
 			authz.SetupLocal(&localAuthzServer, namespace.Future(&echo1NS)),
-			deployment.SetupTwoNamespaces(&apps, deployment.Config{
+			deployment.SetupSingleNamespace(&apps, deployment.Config{
 				IncludeExtAuthz: true,
 				Namespaces: []namespace.Getter{
 					namespace.Future(&echo1NS),
-					namespace.Future(&echo2NS),
 				},
-				ExternalNamespace: namespace.Future(&externalNS),
 			})).
 		Run()
 }

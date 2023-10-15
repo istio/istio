@@ -627,11 +627,11 @@ func HandleDNSUDP(
 	}
 
 	if captureAllDNS {
-		// Redirect all TCP dns traffic on port 53 to the agent on port 15053
+		// Redirect all UDP dns traffic on port 53 to the agent on port 15053
 		// This will be useful for the CNI case where pod DNS server address cannot be decided.
 		f.Run("-p", "udp", "--dport", "53", "-j", constants.REDIRECT, "--to-port", constants.IstioAgentDNSListenerPort)
 	} else {
-		// redirect all TCP dns traffic on port 53 to the agent on port 15053 for all servers
+		// redirect all UDP dns traffic on port 53 to the agent on port 15053 for all servers
 		// in etc/resolv.conf
 		// We avoid redirecting all IP ranges to avoid infinite loops when there are local DNS proxies
 		// such as: app -> istio dns server -> dnsmasq -> upstream
@@ -689,7 +689,7 @@ func addConntrackZoneDNSUDP(
 			f.RunV4("-p", "udp", "--dport", "53", "-d", s+"/32",
 				"-j", constants.CT, "--zone", "2")
 			// Mark all UDP dns traffic with src port 53 as zone 1. These are response packets from the DNS resolvers.
-			f.WithChain(constants.PREROUTING).RunV4("-p", "udp", "--sport", "53", "-d", s+"/32",
+			f.WithChain(constants.PREROUTING).RunV4("-p", "udp", "--sport", "53", "-s", s+"/32",
 				"-j", constants.CT, "--zone", "1")
 		}
 		for _, s := range dnsServersV6 {
@@ -697,7 +697,7 @@ func addConntrackZoneDNSUDP(
 			f.RunV6("-p", "udp", "--dport", "53", "-d", s+"/128",
 				"-j", constants.CT, "--zone", "2")
 			// Mark all UDP dns traffic with src port 53 as zone 1. These are response packets from the DNS resolvers.
-			f.WithChain(constants.PREROUTING).RunV6("-p", "udp", "--sport", "53", "-d", s+"/128",
+			f.WithChain(constants.PREROUTING).RunV6("-p", "udp", "--sport", "53", "-s", s+"/128",
 				"-j", constants.CT, "--zone", "1")
 		}
 	}

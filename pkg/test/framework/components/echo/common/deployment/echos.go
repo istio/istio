@@ -278,6 +278,28 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 
 	defaultConfigs = append(defaultConfigs, a, b, cSvc, headless, stateful, naked, tProxy, vmSvc)
 
+	if t.Settings().EnableDualStack {
+		dSvc := echo.Config{
+			Service:         DSvc,
+			ServiceAccount:  true,
+			Ports:           ports.All(),
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: c.IncludeExtAuthz,
+			IPFamilies:      "IPv6, IPv4",
+			IPFamilyPolicy:  "RequireDualStack",
+		}
+		eSvc := echo.Config{
+			Service:         ESvc,
+			ServiceAccount:  true,
+			Ports:           ports.All(),
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: c.IncludeExtAuthz,
+			IPFamilies:      "IPv6",
+			IPFamilyPolicy:  "SingleStack",
+		}
+		defaultConfigs = append(defaultConfigs, dSvc, eSvc)
+	}
+
 	if !skipDeltaXDS(t) {
 		delta := echo.Config{
 			Service:        DeltaSvc,

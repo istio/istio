@@ -27,7 +27,11 @@ func FuzzBuildHTTP(f *testing.F) {
 		bundle := fuzz.Struct[trustdomain.Bundle](fg)
 		push := fuzz.Struct[*model.PushContext](fg, validatePush)
 		node := fuzz.Struct[*model.Proxy](fg)
-		policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Labels)
+		selectionOpts := model.WorkloadSelectionOpts{
+			Namespace:      node.ConfigNamespace,
+			WorkloadLabels: node.Labels,
+		}
+		policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 		option := fuzz.Struct[Option](fg)
 		New(bundle, push, policies, option).BuildHTTP()
 	})
@@ -38,7 +42,11 @@ func FuzzBuildTCP(f *testing.F) {
 		bundle := fuzz.Struct[trustdomain.Bundle](fg)
 		push := fuzz.Struct[*model.PushContext](fg, validatePush)
 		node := fuzz.Struct[*model.Proxy](fg)
-		policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Labels)
+		selectionOpts := model.WorkloadSelectionOpts{
+			Namespace:      node.ConfigNamespace,
+			WorkloadLabels: node.Labels,
+		}
+		policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 		option := fuzz.Struct[Option](fg)
 		New(bundle, push, policies, option).BuildTCP()
 	})

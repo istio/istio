@@ -15,48 +15,69 @@
 package dependencies
 
 import (
-	"bytes"
 	"testing"
+
+	utilversion "k8s.io/apimachinery/pkg/util/version"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestIsXTablesLockError(t *testing.T) {
-	xtableError := []struct {
-		name    string
-		errMsg  string
-		errCode XTablesExittype
-		want    bool
+func TestDetectIptablesVersion(t *testing.T) {
+	cases := []struct {
+		name string
+		ver  string
+		want IptablesVersion
 	}{
 		{
-			name:    "no error",
-			errMsg:  "",
-			errCode: 0,
-			want:    false,
+			name: "jammy nft",
+			ver:  "iptables v1.8.7 (nf_tables)",
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.7"), legacy: false},
 		},
 		{
-			name:    "error message mismatch",
-			errMsg:  "some error",
-			errCode: XTablesResourceProblem,
-			want:    false,
+			name: "jammy legacy",
+			ver:  "iptables v1.8.7 (legacy)",
+
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.7"), legacy: true},
 		},
 		{
-			name:    "error code mismatch",
-			errMsg:  "some error",
-			errCode: XTablesOtherProblem,
-			want:    false,
+			name: "xenial",
+			ver:  "iptables v1.6.0",
+
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.6.0"), legacy: true},
 		},
 		{
-			name:    "is xtables lock error",
-			errMsg:  "Another app is currently holding the xtables lock.",
-			errCode: XTablesResourceProblem,
-			want:    true,
+			name: "bionic",
+			ver:  "iptables v1.6.1",
+
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.6.1"), legacy: true},
+		},
+		{
+			name: "centos 7",
+			ver:  "iptables v1.4.21",
+
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.4.21"), legacy: true},
+		},
+		{
+			name: "centos 8",
+			ver:  "iptables v1.8.4 (nf_tables)",
+
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.4"), legacy: false},
+		},
+		{
+			name: "alpine 3.18",
+			ver:  "iptables v1.8.9 (legacy)",
+
+			want: IptablesVersion{version: utilversion.MustParseGeneric("1.8.9"), legacy: true},
 		},
 	}
-	for _, tt := range xtableError {
+	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			bs := bytes.NewBufferString(tt.errMsg)
-			if got, want := isXTablesLockError(bs, int(tt.errCode)), tt.want; got != want {
-				t.Errorf("xtables lock error got %v, want %v", got, want)
+			got, err := DetectIptablesVersion(tt.ver)
+			if err != nil {
+				t.Fatal(err)
 			}
+			assert.Equal(t, got.version.String(), tt.want.version.String())
+			assert.Equal(t, got.legacy, tt.want.legacy)
 		})
 	}
 }

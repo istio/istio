@@ -109,8 +109,9 @@ func (c *Caller) CallEcho(from echo.Caller, opts echo.CallOptions) (echo.CallRes
 		defer cancel()
 
 		ret, err := c.f.ForwardEcho(ctx, &forwarder.Config{
-			Request: req,
-			Proxy:   opts.HTTP.HTTPProxy,
+			Request:           req,
+			Proxy:             opts.HTTP.HTTPProxy,
+			PropagateResponse: opts.PropagateResponse,
 		})
 		if err != nil {
 			return nil, err

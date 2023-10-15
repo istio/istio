@@ -57,7 +57,7 @@ func TestReachability(t *testing.T) {
 
 			integIstioVersion := cMinIstioVersion
 			var migrationApp echo.Instances
-			// if dual stack is enabled, a dual stack encho config should be added
+			// if dual stack is enabled, a dual stack echo config should be added
 			if !t.Settings().EnableDualStack {
 				// Create a custom echo deployment in NS1 with subsets that allows us to test the
 				// migration of a workload to istio (from no sidecar to sidecar).

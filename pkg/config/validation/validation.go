@@ -47,6 +47,7 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -520,15 +521,14 @@ func validateServer(server *networking.Server) (v Validation) {
 			v = appendValidation(v, validateNamespaceSlashWildcardHostname(hostname, true))
 		}
 	}
-	portErr := validateServerPort(server.Port)
-	if portErr != nil {
-		v = appendValidation(v, portErr)
-	}
+	portErr := validateServerPort(server.Port, server.Bind)
+	v = appendValidation(v, portErr)
+
 	v = appendValidation(v, validateServerBind(server.Port, server.Bind))
 	v = appendValidation(v, validateTLSOptions(server.Tls))
 
 	// If port is HTTPS or TLS, make sure that server has TLS options
-	if portErr == nil {
+	if _, err := portErr.Unwrap(); err == nil {
 		p := protocol.Parse(server.Port.Protocol)
 		if p.IsTLS() && server.Tls == nil {
 			v = appendValidation(v, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
@@ -547,19 +547,23 @@ func validateServer(server *networking.Server) (v Validation) {
 	return v
 }
 
-func validateServerPort(port *networking.Port) (errs error) {
+func validateServerPort(port *networking.Port, bind string) (errs Validation) {
 	if port == nil {
-		return appendErrors(errs, fmt.Errorf("port is required"))
+		return appendValidation(errs, fmt.Errorf("port is required"))
 	}
 	if protocol.Parse(port.Protocol) == protocol.Unsupported {
-		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, GRPC-WEB, MONGO, REDIS, MYSQL, TCP", port.Protocol))
+		errs = appendValidation(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, GRPC-WEB, MONGO, REDIS, MYSQL, TCP", port.Protocol))
 	}
-	if port.Number > 0 {
-		errs = appendErrors(errs, ValidatePort(int(port.Number)))
+	if port.Number > 0 || !strings.HasPrefix(bind, UnixAddressPrefix) {
+		errs = appendValidation(errs, ValidatePort(int(port.Number)))
+	}
+	// nolint: staticcheck
+	if port.TargetPort > 0 {
+		errs = appendValidation(errs, fmt.Errorf("targetPort has no impact on Gateways"))
 	}
 
 	if port.Name == "" {
-		errs = appendErrors(errs, fmt.Errorf("port name must be set: %v", port))
+		errs = appendValidation(errs, fmt.Errorf("port name must be set: %v", port))
 	}
 	return
 }
@@ -1122,6 +1126,11 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				continue
 			}
 
+			// nolint: staticcheck
+			if i.Port.TargetPort > 0 {
+				errs = appendValidation(errs, fmt.Errorf("targetPort has no impact on Sidecars"))
+			}
+
 			bind := i.GetBind()
 			errs = appendValidation(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
@@ -1194,6 +1203,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					continue
 				}
 			} else {
+				// nolint: staticcheck
+				if egress.Port.TargetPort > 0 {
+					errs = appendValidation(errs, fmt.Errorf("targetPort has no impact on Sidecars"))
+				}
 				bind := egress.GetBind()
 				captureMode := egress.GetCaptureMode()
 				errs = appendValidation(errs, validateSidecarEgressPortBindAndCaptureMode(egress.Port, bind, captureMode))
@@ -1282,7 +1295,7 @@ func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) 
 	return
 }
 
-func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
+func validateSidecarEgressPortBindAndCaptureMode(port *networking.SidecarPort, bind string,
 	captureMode networking.CaptureMode,
 ) (errs error) {
 	// Port name is optional. Validate if exists.
@@ -1318,7 +1331,7 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 	return
 }
 
-func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs error) {
+func validateSidecarIngressPortAndBind(port *networking.SidecarPort, bind string) (errs error) {
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
 		errs = appendErrors(errs, ValidatePortName(port.Name))
@@ -3017,21 +3030,23 @@ func validateHTTPFaultInjection(fault *networking.HTTPFaultInjection) (errs erro
 	return
 }
 
-func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort) (errs error) {
+func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort) (errs Validation) {
 	if abort == nil {
 		return
 	}
 
-	errs = appendErrors(errs, validatePercentage(abort.Percentage))
+	errs = appendValidation(errs, validatePercentage(abort.Percentage))
 
 	switch abort.ErrorType.(type) {
 	case *networking.HTTPFaultInjection_Abort_GrpcStatus:
-		errs = appendErrors(errs, validateGRPCStatus(abort.GetGrpcStatus()))
+		errs = appendValidation(errs, validateGRPCStatus(abort.GetGrpcStatus()))
 	case *networking.HTTPFaultInjection_Abort_Http2Error:
 		// TODO: HTTP2 error validation
-		errs = multierror.Append(errs, errors.New("HTTP/2 abort fault injection not supported yet"))
+		errs = appendValidation(errs, errors.New("HTTP/2 abort fault injection not supported yet"))
 	case *networking.HTTPFaultInjection_Abort_HttpStatus:
-		errs = appendErrors(errs, validateHTTPStatus(abort.GetHttpStatus()))
+		errs = appendValidation(errs, validateHTTPStatus(abort.GetHttpStatus()))
+	default:
+		errs = appendWarningf(errs, "abort configured, but error type not set")
 	}
 
 	return
@@ -3646,6 +3661,16 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 	if len(lb.GetDistribute()) > 0 && len(lb.GetFailover()) > 0 {
 		errs = appendValidation(errs, fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'"))
 		return
+	}
+
+	if len(lb.GetFailover()) > 0 && len(lb.GetFailoverPriority()) > 0 {
+		for _, priorityLabel := range lb.GetFailoverPriority() {
+			switch priorityLabel {
+			case label.LabelTopologyRegion, label.LabelTopologyZone, label.LabelTopologySubzone:
+				errs = appendValidation(errs, fmt.Errorf("can not simultaneously set 'failover' and topology label '%s' in 'failover_priority'", priorityLabel))
+				return
+			}
+		}
 	}
 
 	srcLocalities := make([]string, 0, len(lb.GetDistribute()))

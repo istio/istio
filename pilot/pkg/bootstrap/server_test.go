@@ -617,6 +617,7 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 		kubeClient:              kube.NewFakeClient(csr),
 		dnsNames:                []string{"abc.xyz"},
 	}
+	s.kubeClient.RunAndWait(test.NewStop(t))
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -673,6 +674,18 @@ func TestGetDNSNames(t *testing.T) {
 		sans             []string
 	}{
 		{
+			name:             "no customHost",
+			customHost:       "",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "default",
+			sans: []string{
+				"istio-pilot.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
+		},
+		{
 			name:             "default revision",
 			customHost:       "a.com,b.com,c.com",
 			discoveryAddress: "istiod.istio-system.svc.cluster.local",
@@ -685,7 +698,6 @@ func TestGetDNSNames(t *testing.T) {
 				"istiod.istio-system.svc.cluster.local",
 			},
 		},
-
 		{
 			name:             "empty revision",
 			customHost:       "a.com,b.com,c.com",

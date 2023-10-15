@@ -192,7 +192,8 @@ type AgentOptions struct {
 
 	UseExternalWorkloadSDS bool
 
-	RegenerateWorkloadCerts bool
+	// Enable metadata discovery bootstrap extension
+	MetadataDiscovery bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -247,6 +248,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
 		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
 		XDSRootCert:                 a.cfg.XDSRootCerts,
+		MetadataDiscovery:           a.cfg.MetadataDiscovery,
 	})
 }
 

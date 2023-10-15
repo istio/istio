@@ -28,6 +28,7 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pkg/config/constants"
@@ -322,7 +323,8 @@ func (a *AmbientIndexImpl) constructWorkloadFromWorkloadEntry(workloadEntry *v1a
 	}
 
 	workloadServices := map[string]*workloadapi.PortList{}
-	if services := getWorkloadEntryServices(c.services.List(workloadEntryNamespace, klabels.Everything()), workloadEntry); len(services) > 0 {
+	services := getWorkloadEntryServices(c.services.List(workloadEntryNamespace, klabels.Everything()), workloadEntry)
+	if features.EnableK8SServiceSelectWorkloadEntries && len(services) > 0 {
 		for _, svc := range services {
 			ports := &workloadapi.PortList{}
 			for _, port := range svc.Spec.Ports {
