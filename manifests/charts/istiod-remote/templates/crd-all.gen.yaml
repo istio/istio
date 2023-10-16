@@ -57,6 +57,8 @@ spec:
                 type: string
               imagePullSecret:
                 description: Credentials to use for OCI image pulling.
+                maxLength: 253
+                minLength: 1
                 type: string
               match:
                 description: Specifies the criteria to determine which traffic is
@@ -77,9 +79,16 @@ spec:
                       items:
                         properties:
                           number:
+                            maximum: 65535
+                            minimum: 1
                             type: integer
+                        required:
+                        - number
                         type: object
                       type: array
+                      x-kubernetes-list-map-keys:
+                      - number
+                      x-kubernetes-list-type: map
                   type: object
                 type: array
               phase:
@@ -98,6 +107,8 @@ spec:
               pluginName:
                 description: The plugin name to be used in the Envoy configuration
                   (used to be called `rootID`).
+                maxLength: 256
+                minLength: 1
                 type: string
               priority:
                 description: Determines ordering of `WasmPlugins` in the same `phase`.
@@ -117,6 +128,7 @@ spec:
               sha256:
                 description: SHA256 checksum that will be used to verify Wasm module
                   or OCI container.
+                pattern: (^$|^[a-f0-9]{64}$)
                 type: string
               targetRef:
                 properties:
@@ -138,7 +150,14 @@ spec:
                 type: string
               url:
                 description: URL of a Wasm module or OCI container.
+                minLength: 1
                 type: string
+                x-kubernetes-validations:
+                - message: url must have schema one of [http, https, file, oci]
+                  rule: 'isURL(self) ? (url(self).getScheme() in ['''', ''http'',
+                    ''https'', ''oci'', ''file'']) : (isURL(''http://'' + self) &&
+                    url(''http://'' +self).getScheme() in ['''', ''http'', ''https'',
+                    ''oci'', ''file''])'
               verificationKey:
                 type: string
               vmConfig:
@@ -150,25 +169,41 @@ spec:
                     items:
                       properties:
                         name:
-                          description: Required Name of the environment variable.
+                          description: Name of the environment variable.
+                          maxLength: 256
+                          minLength: 1
                           type: string
                         value:
                           description: Value for the environment variable.
+                          maxLength: 2048
                           type: string
                         valueFrom:
-                          description: Required Source for the environment variable's
-                            value.
+                          description: Source for the environment variable's value.
                           enum:
                           - INLINE
                           - HOST
                           type: string
+                      required:
+                      - name
                       type: object
+                      x-kubernetes-validations:
+                      - message: value may only be set when valueFrom is INLINE
+                        rule: '(has(self.valueFrom) ? self.valueFrom : '''') != ''HOST''
+                          || !has(self.value)'
+                    maxItems: 256
                     type: array
+                    x-kubernetes-list-map-keys:
+                    - name
+                    x-kubernetes-list-type: map
                 type: object
+            required:
+            - url
             type: object
           status:
             type: object
             x-kubernetes-preserve-unknown-fields: true
+        required:
+        - spec
         type: object
     served: true
     storage: true
@@ -3502,8 +3537,6 @@ spec:
                   - hosts
                   type: object
                 type: array
-            required:
-            - servers
             type: object
           status:
             type: object
@@ -3648,8 +3681,6 @@ spec:
                   - hosts
                   type: object
                 type: array
-            required:
-            - servers
             type: object
           status:
             type: object
@@ -4114,6 +4145,81 @@ spec:
                   - hosts
                   type: object
                 type: array
+              inboundConnectionPool:
+                description: Settings controlling the volume of connections Envoy
+                  will accept from the network.
+                properties:
+                  http:
+                    description: HTTP connection pool settings.
+                    properties:
+                      h2UpgradePolicy:
+                        description: Specify if http1.1 connection should be upgraded
+                          to http2 for the associated destination.
+                        enum:
+                        - DEFAULT
+                        - DO_NOT_UPGRADE
+                        - UPGRADE
+                        type: string
+                      http1MaxPendingRequests:
+                        description: Maximum number of requests that will be queued
+                          while waiting for a ready connection pool connection.
+                        format: int32
+                        type: integer
+                      http2MaxRequests:
+                        description: Maximum number of active requests to a destination.
+                        format: int32
+                        type: integer
+                      idleTimeout:
+                        description: The idle timeout for upstream connection pool
+                          connections.
+                        type: string
+                      maxRequestsPerConnection:
+                        description: Maximum number of requests per connection to
+                          a backend.
+                        format: int32
+                        type: integer
+                      maxRetries:
+                        description: Maximum number of retries that can be outstanding
+                          to all hosts in a cluster at a given time.
+                        format: int32
+                        type: integer
+                      useClientProtocol:
+                        description: If set to true, client protocol will be preserved
+                          while initiating connection to backend.
+                        type: boolean
+                    type: object
+                  tcp:
+                    description: Settings common to both HTTP and TCP upstream connections.
+                    properties:
+                      connectTimeout:
+                        description: TCP connection timeout.
+                        type: string
+                      maxConnectionDuration:
+                        description: The maximum duration of a connection.
+                        type: string
+                      maxConnections:
+                        description: Maximum number of HTTP1 /TCP connections to a
+                          destination host.
+                        format: int32
+                        type: integer
+                      tcpKeepalive:
+                        description: If set then set SO_KEEPALIVE on the socket to
+                          enable TCP Keepalives.
+                        properties:
+                          interval:
+                            description: The time duration between keep-alive probes.
+                            type: string
+                          probes:
+                            description: Maximum number of keepalive probes to send
+                              without response before deciding the connection is dead.
+                            type: integer
+                          time:
+                            description: The time duration a connection needs to be
+                              idle before keep-alive probes start being sent.
+                            type: string
+                        type: object
+                    type: object
+                type: object
               ingress:
                 description: Ingress specifies the configuration of the sidecar for
                   processing inbound traffic to the attached workload instance.
@@ -4131,6 +4237,86 @@ spec:
                       - IPTABLES
                       - NONE
                       type: string
+                    connectionPool:
+                      description: Settings controlling the volume of connections
+                        Envoy will accept from the network.
+                      properties:
+                        http:
+                          description: HTTP connection pool settings.
+                          properties:
+                            h2UpgradePolicy:
+                              description: Specify if http1.1 connection should be
+                                upgraded to http2 for the associated destination.
+                              enum:
+                              - DEFAULT
+                              - DO_NOT_UPGRADE
+                              - UPGRADE
+                              type: string
+                            http1MaxPendingRequests:
+                              description: Maximum number of requests that will be
+                                queued while waiting for a ready connection pool connection.
+                              format: int32
+                              type: integer
+                            http2MaxRequests:
+                              description: Maximum number of active requests to a
+                                destination.
+                              format: int32
+                              type: integer
+                            idleTimeout:
+                              description: The idle timeout for upstream connection
+                                pool connections.
+                              type: string
+                            maxRequestsPerConnection:
+                              description: Maximum number of requests per connection
+                                to a backend.
+                              format: int32
+                              type: integer
+                            maxRetries:
+                              description: Maximum number of retries that can be outstanding
+                                to all hosts in a cluster at a given time.
+                              format: int32
+                              type: integer
+                            useClientProtocol:
+                              description: If set to true, client protocol will be
+                                preserved while initiating connection to backend.
+                              type: boolean
+                          type: object
+                        tcp:
+                          description: Settings common to both HTTP and TCP upstream
+                            connections.
+                          properties:
+                            connectTimeout:
+                              description: TCP connection timeout.
+                              type: string
+                            maxConnectionDuration:
+                              description: The maximum duration of a connection.
+                              type: string
+                            maxConnections:
+                              description: Maximum number of HTTP1 /TCP connections
+                                to a destination host.
+                              format: int32
+                              type: integer
+                            tcpKeepalive:
+                              description: If set then set SO_KEEPALIVE on the socket
+                                to enable TCP Keepalives.
+                              properties:
+                                interval:
+                                  description: The time duration between keep-alive
+                                    probes.
+                                  type: string
+                                probes:
+                                  description: Maximum number of keepalive probes
+                                    to send without response before deciding the connection
+                                    is dead.
+                                  type: integer
+                                time:
+                                  description: The time duration a connection needs
+                                    to be idle before keep-alive probes start being
+                                    sent.
+                                  type: string
+                              type: object
+                          type: object
+                      type: object
                     defaultEndpoint:
                       description: The IP endpoint or Unix domain socket to which
                         traffic should be forwarded to.
@@ -4331,6 +4517,81 @@ spec:
                   - hosts
                   type: object
                 type: array
+              inboundConnectionPool:
+                description: Settings controlling the volume of connections Envoy
+                  will accept from the network.
+                properties:
+                  http:
+                    description: HTTP connection pool settings.
+                    properties:
+                      h2UpgradePolicy:
+                        description: Specify if http1.1 connection should be upgraded
+                          to http2 for the associated destination.
+                        enum:
+                        - DEFAULT
+                        - DO_NOT_UPGRADE
+                        - UPGRADE
+                        type: string
+                      http1MaxPendingRequests:
+                        description: Maximum number of requests that will be queued
+                          while waiting for a ready connection pool connection.
+                        format: int32
+                        type: integer
+                      http2MaxRequests:
+                        description: Maximum number of active requests to a destination.
+                        format: int32
+                        type: integer
+                      idleTimeout:
+                        description: The idle timeout for upstream connection pool
+                          connections.
+                        type: string
+                      maxRequestsPerConnection:
+                        description: Maximum number of requests per connection to
+                          a backend.
+                        format: int32
+                        type: integer
+                      maxRetries:
+                        description: Maximum number of retries that can be outstanding
+                          to all hosts in a cluster at a given time.
+                        format: int32
+                        type: integer
+                      useClientProtocol:
+                        description: If set to true, client protocol will be preserved
+                          while initiating connection to backend.
+                        type: boolean
+                    type: object
+                  tcp:
+                    description: Settings common to both HTTP and TCP upstream connections.
+                    properties:
+                      connectTimeout:
+                        description: TCP connection timeout.
+                        type: string
+                      maxConnectionDuration:
+                        description: The maximum duration of a connection.
+                        type: string
+                      maxConnections:
+                        description: Maximum number of HTTP1 /TCP connections to a
+                          destination host.
+                        format: int32
+                        type: integer
+                      tcpKeepalive:
+                        description: If set then set SO_KEEPALIVE on the socket to
+                          enable TCP Keepalives.
+                        properties:
+                          interval:
+                            description: The time duration between keep-alive probes.
+                            type: string
+                          probes:
+                            description: Maximum number of keepalive probes to send
+                              without response before deciding the connection is dead.
+                            type: integer
+                          time:
+                            description: The time duration a connection needs to be
+                              idle before keep-alive probes start being sent.
+                            type: string
+                        type: object
+                    type: object
+                type: object
               ingress:
                 description: Ingress specifies the configuration of the sidecar for
                   processing inbound traffic to the attached workload instance.
@@ -4348,6 +4609,86 @@ spec:
                       - IPTABLES
                       - NONE
                       type: string
+                    connectionPool:
+                      description: Settings controlling the volume of connections
+                        Envoy will accept from the network.
+                      properties:
+                        http:
+                          description: HTTP connection pool settings.
+                          properties:
+                            h2UpgradePolicy:
+                              description: Specify if http1.1 connection should be
+                                upgraded to http2 for the associated destination.
+                              enum:
+                              - DEFAULT
+                              - DO_NOT_UPGRADE
+                              - UPGRADE
+                              type: string
+                            http1MaxPendingRequests:
+                              description: Maximum number of requests that will be
+                                queued while waiting for a ready connection pool connection.
+                              format: int32
+                              type: integer
+                            http2MaxRequests:
+                              description: Maximum number of active requests to a
+                                destination.
+                              format: int32
+                              type: integer
+                            idleTimeout:
+                              description: The idle timeout for upstream connection
+                                pool connections.
+                              type: string
+                            maxRequestsPerConnection:
+                              description: Maximum number of requests per connection
+                                to a backend.
+                              format: int32
+                              type: integer
+                            maxRetries:
+                              description: Maximum number of retries that can be outstanding
+                                to all hosts in a cluster at a given time.
+                              format: int32
+                              type: integer
+                            useClientProtocol:
+                              description: If set to true, client protocol will be
+                                preserved while initiating connection to backend.
+                              type: boolean
+                          type: object
+                        tcp:
+                          description: Settings common to both HTTP and TCP upstream
+                            connections.
+                          properties:
+                            connectTimeout:
+                              description: TCP connection timeout.
+                              type: string
+                            maxConnectionDuration:
+                              description: The maximum duration of a connection.
+                              type: string
+                            maxConnections:
+                              description: Maximum number of HTTP1 /TCP connections
+                                to a destination host.
+                              format: int32
+                              type: integer
+                            tcpKeepalive:
+                              description: If set then set SO_KEEPALIVE on the socket
+                                to enable TCP Keepalives.
+                              properties:
+                                interval:
+                                  description: The time duration between keep-alive
+                                    probes.
+                                  type: string
+                                probes:
+                                  description: Maximum number of keepalive probes
+                                    to send without response before deciding the connection
+                                    is dead.
+                                  type: integer
+                                time:
+                                  description: The time duration a connection needs
+                                    to be idle before keep-alive probes start being
+                                    sent.
+                                  type: string
+                              type: object
+                          type: object
+                      type: object
                     defaultEndpoint:
                       description: The IP endpoint or Unix domain socket to which
                         traffic should be forwarded to.
