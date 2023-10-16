@@ -19,7 +19,6 @@ package pilot
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/config/constants"
 	"path"
 	"strings"
 	"testing"
@@ -27,6 +26,7 @@ import (
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/datasets/validation"
 	"istio.io/istio/pkg/test/framework"

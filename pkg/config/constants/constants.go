@@ -155,7 +155,7 @@ const (
 
 	// AlwaysReject is a special internal annotation that is always rejected in the validation webhook. This is used for
 	// testing the validation webhook.
-	AlwaysReject = "internal.istio.io/always-reject"
+	AlwaysReject = "internal.istio.io/webook-always-reject"
 
 	WaypointServiceAccount = "istio.io/for-service-account"
 
