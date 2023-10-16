@@ -2365,19 +2365,19 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 && len(virtualService.Tls) == 0 {
 			errs = appendValidation(errs, errors.New("http, tcp or tls must be provided in virtual service"))
 		}
+		gatewaySemantics := cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
 		for _, httpRoute := range virtualService.Http {
 			if httpRoute == nil {
 				errs = appendValidation(errs, errors.New("http route may not be null"))
 				continue
 			}
-			gatewaySemantics := cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
 			errs = appendValidation(errs, validateHTTPRoute(httpRoute, len(virtualService.Hosts) == 0, gatewaySemantics))
 		}
 		for _, tlsRoute := range virtualService.Tls {
-			errs = appendValidation(errs, validateTLSRoute(tlsRoute, virtualService))
+			errs = appendValidation(errs, validateTLSRoute(tlsRoute, virtualService, gatewaySemantics))
 		}
 		for _, tcpRoute := range virtualService.Tcp {
-			errs = appendValidation(errs, validateTCPRoute(tcpRoute))
+			errs = appendValidation(errs, validateTCPRoute(tcpRoute, gatewaySemantics))
 		}
 
 		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false, false))
@@ -2739,7 +2739,7 @@ func requestName(match any, matchn int) string {
 	return fmt.Sprintf("#%d", matchn)
 }
 
-func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService) (errs Validation) {
+func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService, gatewaySemantics bool) (errs Validation) {
 	if tls == nil {
 		return
 	}
@@ -2752,7 +2752,7 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 	if len(tls.Route) == 0 {
 		errs = appendValidation(errs, errors.New("TLS route is required"))
 	}
-	errs = appendValidation(errs, validateRouteDestinations(tls.Route))
+	errs = appendValidation(errs, validateRouteDestinations(tls.Route, gatewaySemantics))
 	return errs
 }
 
@@ -2800,7 +2800,7 @@ func validateSniHost(sniHost string, context *networking.VirtualService) (errs V
 		sniHost, strings.Join(context.Hosts, ", ")))
 }
 
-func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
+func validateTCPRoute(tcp *networking.TCPRoute, gatewaySemantics bool) (errs error) {
 	if tcp == nil {
 		return nil
 	}
@@ -2810,7 +2810,7 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 	if len(tcp.Route) == 0 {
 		errs = appendErrors(errs, errors.New("TCP route is required"))
 	}
-	errs = appendErrors(errs, validateRouteDestinations(tcp.Route))
+	errs = appendErrors(errs, validateRouteDestinations(tcp.Route, gatewaySemantics))
 	return
 }
 
@@ -2930,6 +2930,7 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination, g
 		}
 
 		if !gatewaySemantics {
+			fmt.Println("validateHTTPRouteDestinations", weight.Destination)
 			errs = appendErrors(errs, validateDestination(weight.Destination))
 		}
 		errs = appendErrors(errs, validateWeight(weight.Weight))
@@ -2941,7 +2942,7 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination, g
 	return
 }
 
-func validateRouteDestinations(weights []*networking.RouteDestination) (errs error) {
+func validateRouteDestinations(weights []*networking.RouteDestination, gatewaySemantics bool) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
 		if weight == nil {
@@ -2951,7 +2952,9 @@ func validateRouteDestinations(weights []*networking.RouteDestination) (errs err
 		if weight.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
-		errs = appendErrors(errs, validateDestination(weight.Destination))
+		if !gatewaySemantics {
+			errs = appendErrors(errs, validateDestination(weight.Destination))
+		}
 		errs = appendErrors(errs, validateWeight(weight.Weight))
 		totalWeight += weight.Weight
 	}

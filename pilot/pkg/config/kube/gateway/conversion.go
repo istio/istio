@@ -244,7 +244,7 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 		case k8sbeta.HTTPRouteFilterRequestRedirect:
 			vs.Redirect = createRedirectFilter(filter.RequestRedirect)
 		case k8sbeta.HTTPRouteFilterRequestMirror:
-			mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, enforceRefGrant)
+			mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, enforceRefGrant, gvk.HTTPRoute)
 			if err != nil {
 				return nil, err
 			}
@@ -340,7 +340,7 @@ func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 			}
 			vs.Headers.Response = h
 		case k8s.GRPCRouteFilterRequestMirror:
-			mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, enforceRefGrant)
+			mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, enforceRefGrant, gvk.GRPCRoute)
 			if err != nil {
 				return nil, err
 			}
@@ -878,6 +878,7 @@ func referenceAllowed(
 			// We are doing a string match here
 			matched := false
 			hostMatched := false
+		out:
 			for _, routeHostname := range hostnames {
 				for _, parentHostNamespace := range parent.Hostnames {
 					spl := strings.Split(parentHostNamespace, "/")
@@ -887,7 +888,7 @@ func referenceAllowed(
 					hostMatched = hostMatched || hostnameMatch
 					if hostnameMatch && namespaceMatch {
 						matched = true
-						break
+						break out
 					}
 				}
 			}
@@ -1148,7 +1149,7 @@ func convertTCPRoute(ctx configContext, r k8s.TCPRouteRule, obj config.Config, e
 			}},
 		}, nil
 	}
-	dest, backendErr, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
+	dest, backendErr, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant, gvk.TCPRoute)
 	if err != nil {
 		return nil, err
 	}
@@ -1172,7 +1173,7 @@ func convertTLSRoute(ctx configContext, r k8s.TLSRouteRule, obj config.Config, e
 			}},
 		}, nil
 	}
-	dest, backendErr, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
+	dest, backendErr, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant, gvk.TLSRoute)
 	if err != nil {
 		return nil, err
 	}
@@ -1187,6 +1188,7 @@ func buildTCPDestination(
 	forwardTo []k8s.BackendRef,
 	ns string,
 	enforceRefGrant bool,
+	k config.GroupVersionKind,
 ) ([]*istio.RouteDestination, *ConfigError, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil, nil
@@ -1209,7 +1211,7 @@ func buildTCPDestination(
 	var invalidBackendErr *ConfigError
 	res := []*istio.RouteDestination{}
 	for i, fwd := range action {
-		dst, err := buildDestination(ctx, fwd, ns, enforceRefGrant)
+		dst, err := buildDestination(ctx, fwd, ns, enforceRefGrant, k)
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1294,7 +1296,7 @@ func buildHTTPDestination(
 	var invalidBackendErr *ConfigError
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		dst, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant)
+		dst, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.HTTPRoute)
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1362,7 +1364,7 @@ func buildGRPCDestination(
 	var invalidBackendErr *ConfigError
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		dst, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant)
+		dst, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.GRPCRoute)
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1404,15 +1406,15 @@ func buildGRPCDestination(
 	return res, invalidBackendErr, nil
 }
 
-func buildDestination(ctx configContext, to k8s.BackendRef, ns string, enforceRefGrant bool) (*istio.Destination, *ConfigError) {
+func buildDestination(ctx configContext, to k8s.BackendRef, ns string, enforceRefGrant bool, k config.GroupVersionKind) (*istio.Destination, *ConfigError) {
 	// check if the reference is allowed
 	if enforceRefGrant {
 		refs := ctx.AllowedReferences
 		if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
-			if !refs.BackendAllowed(gvk.HTTPRoute, to.Name, *toNs, ns) {
+			if !refs.BackendAllowed(k, to.Name, *toNs, ns) {
 				return &istio.Destination{}, &ConfigError{
 					Reason:  InvalidDestinationPermit,
-					Message: fmt.Sprintf("backendRef %v/%v not accessible to a route in namespace %q (missing a ReferenceGrant?)", to.Name, *toNs, ns),
+					Message: fmt.Sprintf("backendRef %v/%v not accessible to a %s in namespace %q (missing a ReferenceGrant?)", to.Name, *toNs, k.Kind, ns),
 				}
 			}
 		}
@@ -1509,7 +1511,9 @@ func headerListToMap(hl []k8s.HTTPHeader) map[string]string {
 	return res
 }
 
-func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, ns string, enforceRefGrant bool) (*istio.HTTPMirrorPolicy, *ConfigError) {
+func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, ns string,
+	enforceRefGrant bool, k config.GroupVersionKind,
+) (*istio.HTTPMirrorPolicy, *ConfigError) {
 	if filter == nil {
 		return nil, nil
 	}
@@ -1517,7 +1521,7 @@ func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, 
 	dst, err := buildDestination(ctx, k8s.BackendRef{
 		BackendObjectReference: filter.BackendRef,
 		Weight:                 &weightOne,
-	}, ns, enforceRefGrant)
+	}, ns, enforceRefGrant, k)
 	if err != nil {
 		return nil, err
 	}
