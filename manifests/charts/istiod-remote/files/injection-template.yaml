@@ -336,11 +336,17 @@ spec:
     {{- end }}
     {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
     {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
-  {{ if $nativeSidecar }}
+  {{ if .Values.global.proxy.startupProbe.enabled }}
     startupProbe:
-  {{ else }}
-    readinessProbe:
+      httpGet:
+        path: /healthz/ready
+        port: 15021
+      initialDelaySeconds: 0
+      periodSeconds: 1
+      timeoutSeconds: 3
+      failureThreshold: {{ .Values.global.proxy.startupProbe.failureThreshold }}
   {{ end }}
+    readinessProbe:
       httpGet:
         path: /healthz/ready
         port: 15021

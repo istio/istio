@@ -886,7 +886,7 @@ spec:
       serviceAccountName: spire-agent
       containers:
         - name: spire-agent
-          image: ghcr.io/spiffe/spire-agent:1.2.3
+          image: ghcr.io/spiffe/spire-agent:1.5.4
           imagePullPolicy: IfNotPresent
           args: ["-config", "/run/spire/config/agent.conf"]
           volumeMounts:

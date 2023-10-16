@@ -1295,7 +1295,7 @@ func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) 
 	return
 }
 
-func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
+func validateSidecarEgressPortBindAndCaptureMode(port *networking.SidecarPort, bind string,
 	captureMode networking.CaptureMode,
 ) (errs error) {
 	// Port name is optional. Validate if exists.
@@ -1331,7 +1331,7 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 	return
 }
 
-func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs error) {
+func validateSidecarIngressPortAndBind(port *networking.SidecarPort, bind string) (errs error) {
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
 		errs = appendErrors(errs, ValidatePortName(port.Name))
