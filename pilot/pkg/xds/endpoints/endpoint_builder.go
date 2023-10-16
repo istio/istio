@@ -493,7 +493,7 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *
 		return false
 	}
 	// Filter out unhealthy endpoints
-	if !features.SendUnhealthyEndpoints.Load() && !(ep.HealthStatus == model.Healthy || ep.HealthStatus == model.UnknownHealthStatus) {
+	if !features.SendUnhealthyEndpoints.Load() && ep.HealthStatus == model.UnHealthy {
 		return false
 	}
 	// Draining endpoints are only sent to 'persistent session' clusters.
