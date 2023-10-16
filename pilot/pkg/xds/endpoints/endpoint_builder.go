@@ -492,6 +492,10 @@ func (b *EndpointBuilder) filterIstioEndpoint(ep *model.IstioEndpoint, svcPort *
 	if ep.Address == "" && (!b.gateways().IsMultiNetworkEnabled() || b.proxy.InNetwork(ep.Network)) {
 		return false
 	}
+	// Filter out unhealthy endpoints
+	if !features.SendUnhealthyEndpoints.Load() && !(ep.HealthStatus == model.Healthy || ep.HealthStatus == model.UnknownHealthStatus) {
+		return false
+	}
 	// Draining endpoints are only sent to 'persistent session' clusters.
 	draining := ep.HealthStatus == model.Draining ||
 		features.DrainingLabel != "" && ep.Labels[features.DrainingLabel] != ""

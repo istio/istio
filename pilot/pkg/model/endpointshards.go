@@ -286,7 +286,7 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	ep.Lock()
 	defer ep.Unlock()
 	newIstioEndpoints := istioEndpoints
-	if features.SendUnhealthyEndpoints.Load() {
+	if true {
 		oldIstioEndpoints := ep.Shards[shard]
 		needPush := false
 		if oldIstioEndpoints == nil {
@@ -320,7 +320,10 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 					// If the endpoint does not exist in shards that means it is a
 					// new endpoint. Always send new endpoints even if they are not healthy.
 					// This is OK since we disable panic threshold when SendUnhealthyEndpoints is enabled.
-					needPush = true
+					// Without SendUnhealthyEndpoints we do not need this; headless services will trigger the push in the Kubernetes controller.
+					if features.SendUnhealthyEndpoints.Load() {
+						needPush = true
+					}
 					newIstioEndpoints = append(newIstioEndpoints, nie)
 				}
 			}
