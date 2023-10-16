@@ -324,8 +324,8 @@ func handleEvent(s *Server) {
 			return
 		}
 
-		// in order to support root ca rotate, we need to make
-		// the new CA bundle contain both old and new CA certs
+		// in order to support root ca rotation, or we are removing the old ca,
+		// we need to make the new CA bundle contain both old and new CA certs
 		if bytes.Contains(currentCABundle, newCABundle) ||
 			bytes.Contains(newCABundle, currentCABundle) {
 			log.Info("Updating new ROOT-CA")
