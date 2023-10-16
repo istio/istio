@@ -447,6 +447,8 @@ type Locality struct {
 type HealthStatus int32
 
 const (
+	// UnknownHealthStatus is set when we do not know the health status.
+	UnknownHealthStatus HealthStatus = 0
 	// Healthy.
 	Healthy HealthStatus = 1
 	// Unhealthy.
