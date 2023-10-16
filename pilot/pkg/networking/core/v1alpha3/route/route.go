@@ -24,6 +24,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
+	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -454,9 +455,14 @@ func translateRoute(
 	out.Decorator = &route.Decorator{
 		Operation: GetRouteOperation(out, virtualService.Name, listenPort),
 	}
-	if in.Fault != nil {
+	if in.Fault != nil || in.CorsPolicy != nil {
 		out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+	}
+	if in.Fault != nil {
 		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(TranslateFault(in.Fault))
+	}
+	if in.CorsPolicy != nil {
+		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(in.CorsPolicy))
 	}
 
 	if opts.IsHTTP3AltSvcHeaderNeeded {
@@ -487,7 +493,6 @@ func applyHTTPRouteDestination(
 		policy = mesh.GetDefaultHttpRetryPolicy()
 	}
 	action := &route.RouteAction{
-		Cors:        TranslateCORSPolicy(in.CorsPolicy),
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
@@ -1067,13 +1072,13 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 }
 
 // TranslateCORSPolicy translates CORS policy
-func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
+func TranslateCORSPolicy(in *networking.CorsPolicy) *cors.CorsPolicy {
 	if in == nil {
 		return nil
 	}
 
 	// CORS filter is enabled by default
-	out := route.CorsPolicy{}
+	out := cors.CorsPolicy{}
 	// nolint: staticcheck
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = util.ConvertToEnvoyMatches(in.AllowOrigins)
@@ -1081,12 +1086,10 @@ func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 		out.AllowOriginStringMatch = util.StringToExactMatch(in.AllowOrigin)
 	}
 
-	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
-		FilterEnabled: &core.RuntimeFractionalPercent{
-			DefaultValue: &xdstype.FractionalPercent{
-				Numerator:   100,
-				Denominator: xdstype.FractionalPercent_HUNDRED,
-			},
+	out.FilterEnabled = &core.RuntimeFractionalPercent{
+		DefaultValue: &xdstype.FractionalPercent{
+			Numerator:   100,
+			Denominator: xdstype.FractionalPercent_HUNDRED,
 		},
 	}
 

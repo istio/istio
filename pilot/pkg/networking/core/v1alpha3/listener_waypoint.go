@@ -525,9 +525,14 @@ func (lb *ListenerBuilder) translateRoute(
 	out.Decorator = &route.Decorator{
 		Operation: istio_route.GetRouteOperation(out, virtualService.Name, listenPort),
 	}
-	if in.Fault != nil {
+	if in.Fault != nil || in.CorsPolicy != nil {
 		out.TypedPerFilterConfig = make(map[string]*any.Any)
+	}
+	if in.Fault != nil {
 		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(istio_route.TranslateFault(in.Fault))
+	}
+	if in.CorsPolicy != nil {
+		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(istio_route.TranslateCORSPolicy(in.CorsPolicy))
 	}
 
 	return out
@@ -540,7 +545,6 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 		policy = lb.push.Mesh.GetDefaultHttpRetryPolicy()
 	}
 	action := &route.RouteAction{
-		Cors:        istio_route.TranslateCORSPolicy(in.CorsPolicy),
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
