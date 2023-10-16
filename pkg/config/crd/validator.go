@@ -24,7 +24,6 @@ import (
 	"strings"
 
 	"github.com/hashicorp/go-multierror"
-	"istio.io/istio/pkg/util/sets"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -42,6 +41,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Validator returns a new validator for custom resources
