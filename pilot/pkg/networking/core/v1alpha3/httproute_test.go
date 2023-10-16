@@ -20,13 +20,20 @@ import (
 	"testing"
 	"time"
 
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	cookiev3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/cookie/v3"
+	headerv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/http/stateful_session/header/v3"
+	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshapi "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -552,9 +559,9 @@ func TestSidecarOutboundHTTPRouteConfigWithDuplicateHosts(t *testing.T) {
 	}
 }
 
-func TestSidecarOutboundHTTPRouteConfigWithStatefulsession(t *testing.T) {
+func TestSidecarStatefulsessionFilter(t *testing.T) {
 	virtualServiceSpec := &networking.VirtualService{
-		Hosts:    []string{"test-service.default.svc.cluster.local", "test-service.svc.mesh.sfdc.net"},
+		Hosts:    []string{"test-service.default.svc.cluster.local", "test-service.svc.mesh.acme.net"},
 		Gateways: []string{"mesh"},
 		Http: []*networking.HTTPRoute{
 			{
@@ -569,15 +576,15 @@ func TestSidecarOutboundHTTPRouteConfigWithStatefulsession(t *testing.T) {
 		},
 	}
 
+	// TODO(ramaraochavali): Add more test cases.
 	cases := []struct {
-		name                string
-		services            []*model.Service
-		config              []config.Config
-		expectedHosts       map[string][]string
-		expectedDestination map[string]string
+		name                  string
+		services              []*model.Service
+		config                []config.Config
+		expectStatefulSession *statefulsession.StatefulSessionPerRoute
 	}{
 		{
-			"session filter with header",
+			"session filter with no labels on service",
 			[]*model.Service{
 				buildHTTPService("test-service.default.svc.cluster.local", visibility.Public, "", "default", 80),
 			},
@@ -588,16 +595,64 @@ func TestSidecarOutboundHTTPRouteConfigWithStatefulsession(t *testing.T) {
 				},
 				Spec: virtualServiceSpec,
 			}},
-			map[string][]string{
-				"allow_any": {"*"},
-				// BUG: test should be below
-				"test.local:80": {"test.local"},
-				"test:80":       {"test"},
+			nil,
+		},
+		{
+			"session filter with header",
+			[]*model.Service{
+				buildHTTPServiceWithLabels("test-service.default.svc.cluster.local", visibility.Public, "", "default",
+					map[string]string{"istio.io/persistent-session-header": "x-session-header"}, 80),
 			},
-			map[string]string{
-				"allow_any":     "PassthroughCluster",
-				"test.local:80": "outbound|80||test.local",
-				"test:80":       "outbound|80||test",
+			[]config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme",
+				},
+				Spec: virtualServiceSpec,
+			}},
+			&statefulsession.StatefulSessionPerRoute{
+				Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
+					StatefulSession: &statefulsession.StatefulSession{
+						SessionState: &core.TypedExtensionConfig{
+							Name: "envoy.http.stateful_session.header",
+							TypedConfig: protoconv.MessageToAny(&headerv3.HeaderBasedSessionState{
+								Name: "x-session-header",
+							}),
+						},
+					},
+				},
+			},
+		},
+		{
+			"session filter with cookie",
+			[]*model.Service{
+				buildHTTPServiceWithLabels("test-service.default.svc.cluster.local", visibility.Public, "", "default",
+					map[string]string{"istio.io/persistent-session": "x-session-id"}, 80),
+			},
+			[]config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.VirtualService,
+					Name:             "acme",
+				},
+				Spec: virtualServiceSpec,
+			}},
+			&statefulsession.StatefulSessionPerRoute{
+				Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
+					StatefulSession: &statefulsession.StatefulSession{
+						SessionState: &core.TypedExtensionConfig{
+							Name: "envoy.http.stateful_session.cookie",
+							TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
+								Cookie: &httpv3.Cookie{
+									Name: "x-session-id",
+									Path: "/",
+									Ttl: &durationpb.Duration{
+										Seconds: 120,
+									},
+								},
+							}),
+						},
+					},
+				},
 			},
 		},
 	}
@@ -621,19 +676,28 @@ func TestSidecarOutboundHTTPRouteConfigWithStatefulsession(t *testing.T) {
 			resource.Resource.UnmarshalTo(routeCfg)
 			xdstest.ValidateRouteConfiguration(t, routeCfg)
 
-			got := map[string][]string{}
-			clusters := map[string]string{}
 			for _, vh := range routeCfg.VirtualHosts {
-				got[vh.Name] = vh.Domains
-				clusters[vh.Name] = vh.GetRoutes()[0].GetRoute().GetCluster()
-			}
-
-			if !reflect.DeepEqual(tt.expectedHosts, got) {
-				t.Fatalf("unexpected virtual hosts\n%v, wanted\n%v", got, tt.expectedHosts)
-			}
-
-			if !reflect.DeepEqual(tt.expectedDestination, clusters) {
-				t.Fatalf("unexpected destinations\n%v, wanted\n%v", clusters, tt.expectedDestination)
+				if vh.Name == "allow_any" {
+					continue
+				}
+				if len(vh.Routes) == 0 {
+					t.Fatalf("expected routes to be found but not %s", vh.Name)
+				}
+				for _, r := range vh.Routes {
+					if tt.expectStatefulSession == nil {
+						if r.TypedPerFilterConfig != nil &&
+							r.TypedPerFilterConfig["envoy.filters.http.stateful_session"] != nil {
+							t.Fatalf("stateful session config is not expected but found for %s, %s", vh.Name, r.Name)
+						}
+					} else {
+						if r.TypedPerFilterConfig == nil && r.TypedPerFilterConfig["envoy.filters.http.stateful_session"] == nil {
+							t.Fatalf("expected stateful session config but not found for %s, %s", vh.Name, r.Name)
+						}
+						incomingStatefulSession := &statefulsession.StatefulSessionPerRoute{}
+						r.TypedPerFilterConfig["envoy.filters.http.stateful_session"].UnmarshalTo(incomingStatefulSession)
+						assert.Equal(t, incomingStatefulSession, tt.expectStatefulSession)
+					}
+				}
 			}
 		})
 	}
@@ -1741,6 +1805,12 @@ func testSidecarRDSVHosts(t *testing.T, services []*model.Service,
 	}
 }
 
+func buildHTTPServiceWithLabels(hostname string, v visibility.Instance, ip, namespace string, labels map[string]string, ports ...int) *model.Service {
+	svc := buildHTTPService(hostname, v, ip, namespace, ports...)
+	svc.Attributes.Labels = labels
+	return svc
+}
+
 func buildHTTPService(hostname string, v visibility.Instance, ip, namespace string, ports ...int) *model.Service {
 	service := &model.Service{
 		CreationTime:   tnow,
@@ -1751,9 +1821,6 @@ func buildHTTPService(hostname string, v visibility.Instance, ip, namespace stri
 			ServiceRegistry: provider.Kubernetes,
 			Namespace:       namespace,
 			ExportTo:        sets.New(v),
-			Labels: map[string]string{
-				"istio.io/persistent-session-header": "x-session-id",
-			},
 		},
 	}
 	if ip == wildcardIPv4 {
