@@ -147,51 +147,138 @@ func ManagedGatewayTest(t framework.TestContext) {
 	t.ConfigIstio().YAML(apps.Namespace.Name(), `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  name: gateway
+  name: gateway-1
 spec:
   gatewayClassName: istio
   listeners:
   - name: default
-    hostname: "*.example.com"
+    hostname: "*.example-1.com"
     port: 80
     protocol: HTTP
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
-  name: http
+  name: http-1
 spec:
   parentRefs:
-  - name: gateway
+  - name: gateway-1
   rules:
   - backendRefs:
     - name: b
       port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway-2
+spec:
+  gatewayClassName: istio
+  listeners:
+  - name: default
+    hostname: "*.example-2.com"
+    port: 8000
+    protocol: HTTP
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-2
+spec:
+  parentRefs:
+  - name: gateway-2
+  rules:
+  - backendRefs:
+    - name: d
+      port: 80
 `).ApplyOrFail(t)
-	apps.B[0].CallOrFail(t, echo.CallOptions{
-		Port:   echo.Port{ServicePort: 80},
-		Scheme: scheme.HTTP,
-		HTTP: echo.HTTP{
-			Headers: headers.New().WithHost("bar.example.com").Build(),
+	testCases := []struct {
+		check   echo.Checker
+		from    echo.Instances
+		host    string
+		port    int
+		gateway string
+	}{
+		{
+			check:   check.OK(),
+			from:    apps.B,
+			host:    "bar.example-1.com",
+			port:    80,
+			gateway: "gateway-1",
 		},
-		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
-		Check:   check.OK(),
-		Retry: echo.Retry{
-			Options: []retry.Option{retry.Timeout(time.Minute)},
+		{
+			check:   check.NotOK(),
+			from:    apps.B,
+			host:    "bar",
+			port:    80,
+			gateway: "gateway-1",
 		},
-	})
-	apps.B[0].CallOrFail(t, echo.CallOptions{
-		Port:   echo.Port{ServicePort: 80},
-		Scheme: scheme.HTTP,
-		HTTP: echo.HTTP{
-			Headers: headers.New().WithHost("bar").Build(),
-		},
-		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
-		Check:   check.NotOK(),
-		Retry: echo.Retry{
-			Options: []retry.Option{retry.Timeout(time.Minute)},
-		},
-	})
+	}
+	if t.Settings().EnableDualStack {
+		additionalTestCases := []struct {
+			check   echo.Checker
+			from    echo.Instances
+			host    string
+			port    int
+			gateway string
+		}{
+			// apps.D hosts a dual-stack service,
+			// apps.E hosts an ipv6 only service and
+			// apps.B hosts an ipv4 only service
+			{
+				check:   check.OK(),
+				from:    apps.D,
+				host:    "bar.example-1.com",
+				port:    80,
+				gateway: "gateway-1",
+			},
+			{
+				check:   check.OK(),
+				from:    apps.E,
+				host:    "bar.example-1.com",
+				port:    80,
+				gateway: "gateway-1",
+			},
+			{
+				check:   check.OK(),
+				from:    apps.E,
+				host:    "foo.example-2.com",
+				port:    8000,
+				gateway: "gateway-2",
+			},
+			{
+				check:   check.OK(),
+				from:    apps.D,
+				host:    "foo.example-2.com",
+				port:    8000,
+				gateway: "gateway-2",
+			},
+			{
+				check:   check.OK(),
+				from:    apps.B,
+				host:    "foo.example-2.com",
+				port:    8000,
+				gateway: "gateway-2",
+			},
+		}
+		testCases = append(testCases, additionalTestCases...)
+	}
+	for _, tc := range testCases {
+		t.NewSubTest(fmt.Sprintf("gateway-connectivity-from-%s", tc.from[0].NamespacedName())).Run(func(t framework.TestContext) {
+			tc.from[0].CallOrFail(t, echo.CallOptions{
+				Port: echo.Port{
+					Protocol:    protocol.HTTP,
+					ServicePort: tc.port,
+				},
+				Scheme: scheme.HTTP,
+				HTTP: echo.HTTP{
+					Headers: headers.New().WithHost(tc.host).Build(),
+				},
+				Address: fmt.Sprintf("%s-istio.%s.svc.cluster.local", tc.gateway, apps.Namespace.Name()),
+				Check:   tc.check,
+			})
+		})
+	}
 }
 
 func ManagedGatewayShortNameTest(t framework.TestContext) {
