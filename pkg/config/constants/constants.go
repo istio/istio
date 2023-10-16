@@ -153,6 +153,10 @@ const (
 	// load balancer, such as an Istio Gateway, is terminating the TLS.
 	CertProviderNone = "none"
 
+	// AlwaysReject is a special internal annotation that is always rejected in the validation webhook. This is used for
+	// testing the validation webhook.
+	AlwaysReject = "internal.istio.io/always-reject"
+
 	WaypointServiceAccount = "istio.io/for-service-account"
 
 	ManagedGatewayLabel               = "gateway.istio.io/managed"

@@ -86,6 +86,31 @@ func MustApplyNamespace(t test.Failer, yamlText, ns string) string {
 	return y
 }
 
+func ApplyAnnotation(yamlText, k, v string) (string, error) {
+	m := make(map[string]any)
+	if err := yaml.Unmarshal([]byte(yamlText), &m); err != nil {
+		return "", err
+	}
+
+	meta, err := ensureChildMap(m, "metadata")
+	if err != nil {
+		return "", err
+	}
+	if meta["annotations"] != nil {
+		meta["annotations"].(map[string]string)[k] = v
+	} else {
+		an := map[string]string{k: v}
+		meta["annotations"] = an
+	}
+
+	by, err := yaml.Marshal(m)
+	if err != nil {
+		return "", err
+	}
+
+	return string(by), nil
+}
+
 func applyNamespace(yamlText, ns string) (string, error) {
 	m := make(map[string]any)
 	if err := yaml.Unmarshal([]byte(yamlText), &m); err != nil {

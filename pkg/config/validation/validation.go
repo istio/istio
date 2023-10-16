@@ -212,18 +212,22 @@ func GetValidateFunc(name string) ValidateFunc {
 }
 
 func registerValidateFunc(name string, f ValidateFunc) ValidateFunc {
-	// Wrap the original validate function with an extra validate function for the annotation "istio.io/dry-run".
-	validate := validateAnnotationDryRun(f)
+	// Wrap the original validate function with an extra validate function for object metadata
+	validate := validateMetadata(f)
 	validateFuncs[name] = validate
 	return validate
 }
 
-func validateAnnotationDryRun(f ValidateFunc) ValidateFunc {
+func validateMetadata(f ValidateFunc) ValidateFunc {
 	return func(config config.Config) (Warning, error) {
+		// Check the annotation "istio.io/dry-run".
 		_, isAuthz := config.Spec.(*security_beta.AuthorizationPolicy)
 		// Only the AuthorizationPolicy supports the annotation "istio.io/dry-run".
 		if err := checkDryRunAnnotation(config, isAuthz); err != nil {
 			return nil, err
+		}
+		if _, f := config.Annotations[constants.AlwaysReject]; f {
+			return nil, fmt.Errorf("%q annotation found, rejecting", constants.AlwaysReject)
 		}
 		return f(config)
 	}
