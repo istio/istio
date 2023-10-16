@@ -189,7 +189,7 @@ func convertVirtualService(r configContext) []config.Config {
 }
 
 func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
-	obj config.Config, pos int, checker refGrantChecker,
+	obj config.Config, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *ConfigError) {
 	// TODO: implement rewrite, timeout, corspolicy, retries
 	vs := &istio.HTTPRoute{}
@@ -244,7 +244,7 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 		case k8sbeta.HTTPRouteFilterRequestRedirect:
 			vs.Redirect = createRedirectFilter(filter.RequestRedirect)
 		case k8sbeta.HTTPRouteFilterRequestMirror:
-			mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, checker)
+			mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, enforceRefGrant, gvk.HTTPRoute)
 			if err != nil {
 				return nil, err
 			}
@@ -285,7 +285,7 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 			Status: 500,
 		}
 	} else {
-		route, backendErr, err := buildHTTPDestination(ctx, r.BackendRefs, obj.Namespace, checker)
+		route, backendErr, err := buildHTTPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
 		if err != nil {
 			return nil, err
 		}
@@ -297,7 +297,7 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 }
 
 func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
-	obj config.Config, pos int, checker refGrantChecker,
+	obj config.Config, pos int, enforceRefGrant bool,
 ) (*istio.HTTPRoute, *ConfigError) {
 	// TODO: implement rewrite, timeout, mirror, corspolicy, retries
 	vs := &istio.HTTPRoute{}
@@ -340,7 +340,7 @@ func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 			}
 			vs.Headers.Response = h
 		case k8s.GRPCRouteFilterRequestMirror:
-			mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, checker)
+			mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, enforceRefGrant, gvk.GRPCRoute)
 			if err != nil {
 				return nil, err
 			}
@@ -359,7 +359,7 @@ func convertGRPCRoute(r k8s.GRPCRouteRule, ctx configContext,
 			Status: 500,
 		}
 	} else {
-		route, backendErr, err := buildGRPCDestination(ctx, r.BackendRefs, obj.Namespace, checker)
+		route, backendErr, err := buildGRPCDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant)
 		if err != nil {
 			return nil, err
 		}
@@ -403,7 +403,6 @@ func buildHTTPVirtualServices(
 	}
 	convertRules := func(mesh bool) conversionResult {
 		res := conversionResult{}
-		checker := newRefGrantChecker(!mesh, gvk.HTTPRoute)
 		for n, r := range route.Rules {
 			// split the rule to make sure each rule has up to one match
 			matches := slices.Reference(r.Matches)
@@ -414,7 +413,7 @@ func buildHTTPVirtualServices(
 				if m != nil {
 					r.Matches = []k8s.HTTPRouteMatch{*m}
 				}
-				vs, err := convertHTTPRoute(r, ctx, obj, n, checker)
+				vs, err := convertHTTPRoute(r, ctx, obj, n, !mesh)
 				// This was a hard error
 				if vs == nil {
 					res.error = err
@@ -613,8 +612,6 @@ func buildGRPCVirtualServices(
 	}
 	convertRules := func(mesh bool) conversionResult {
 		res := conversionResult{}
-		// TODO: Not sure if permission can be obtained via HTTPRoute
-		checker := newRefGrantChecker(!mesh, gvk.GRPCRoute)
 		for n, r := range route.Rules {
 			// split the rule to make sure each rule has up to one match
 			matches := slices.Reference(r.Matches)
@@ -625,7 +622,7 @@ func buildGRPCVirtualServices(
 				if m != nil {
 					r.Matches = []k8s.GRPCRouteMatch{*m}
 				}
-				vs, err := convertGRPCRoute(r, ctx, obj, n, checker)
+				vs, err := convertGRPCRoute(r, ctx, obj, n, !mesh)
 				// This was a hard error
 				if vs == nil {
 					res.error = err
@@ -993,9 +990,8 @@ func buildTCPVirtualService(ctx configContext, obj config.Config) []config.Confi
 	}
 	convertRules := func(mesh bool) conversionResult {
 		res := conversionResult{}
-		checker := newRefGrantChecker(!mesh, gvk.TCPRoute)
 		for _, r := range route.Rules {
-			vs, err := convertTCPRoute(ctx, r, obj, checker)
+			vs, err := convertTCPRoute(ctx, r, obj, !mesh)
 			// This was a hard error
 			if vs == nil {
 				res.error = err
@@ -1072,10 +1068,8 @@ func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Confi
 	}
 	convertRules := func(mesh bool) conversionResult {
 		res := conversionResult{}
-		// TODO: Not sure if permission can be obtained via TCPRoute
-		checker := newRefGrantChecker(!mesh, gvk.TLSRoute)
 		for _, r := range route.Rules {
-			vs, err := convertTLSRoute(ctx, r, obj, checker)
+			vs, err := convertTLSRoute(ctx, r, obj, !mesh)
 			// This was a hard error
 			if vs == nil {
 				res.error = err
@@ -1140,7 +1134,7 @@ func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Confi
 	return vs
 }
 
-func convertTCPRoute(ctx configContext, r k8s.TCPRouteRule, obj config.Config, checker refGrantChecker) (*istio.TCPRoute, *ConfigError) {
+func convertTCPRoute(ctx configContext, r k8s.TCPRouteRule, obj config.Config, enforceRefGrant bool) (*istio.TCPRoute, *ConfigError) {
 	if tcpWeightSum(r.BackendRefs) == 0 {
 		// The spec requires us to reject connections when there are no >0 weight backends
 		// We don't have a great way to do it. TODO: add a fault injection API for TCP?
@@ -1155,7 +1149,7 @@ func convertTCPRoute(ctx configContext, r k8s.TCPRouteRule, obj config.Config, c
 			}},
 		}, nil
 	}
-	dest, backendErr, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace, checker)
+	dest, backendErr, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant, gvk.TCPRoute)
 	if err != nil {
 		return nil, err
 	}
@@ -1164,7 +1158,7 @@ func convertTCPRoute(ctx configContext, r k8s.TCPRouteRule, obj config.Config, c
 	}, backendErr
 }
 
-func convertTLSRoute(ctx configContext, r k8s.TLSRouteRule, obj config.Config, checker refGrantChecker) (*istio.TLSRoute, *ConfigError) {
+func convertTLSRoute(ctx configContext, r k8s.TLSRouteRule, obj config.Config, enforceRefGrant bool) (*istio.TLSRoute, *ConfigError) {
 	if tcpWeightSum(r.BackendRefs) == 0 {
 		// The spec requires us to reject connections when there are no >0 weight backends
 		// We don't have a great way to do it. TODO: add a fault injection API for TCP?
@@ -1179,7 +1173,7 @@ func convertTLSRoute(ctx configContext, r k8s.TLSRouteRule, obj config.Config, c
 			}},
 		}, nil
 	}
-	dest, backendErr, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace, checker)
+	dest, backendErr, err := buildTCPDestination(ctx, r.BackendRefs, obj.Namespace, enforceRefGrant, gvk.TLSRoute)
 	if err != nil {
 		return nil, err
 	}
@@ -1193,7 +1187,8 @@ func buildTCPDestination(
 	ctx configContext,
 	forwardTo []k8s.BackendRef,
 	ns string,
-	checker refGrantChecker,
+	enforceRefGrant bool,
+	k config.GroupVersionKind,
 ) ([]*istio.RouteDestination, *ConfigError, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil, nil
@@ -1216,7 +1211,7 @@ func buildTCPDestination(
 	var invalidBackendErr *ConfigError
 	res := []*istio.RouteDestination{}
 	for i, fwd := range action {
-		dst, err := buildDestination(ctx, fwd, ns, checker)
+		dst, err := buildDestination(ctx, fwd, ns, enforceRefGrant, k)
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1279,7 +1274,7 @@ func buildHTTPDestination(
 	ctx configContext,
 	forwardTo []k8s.HTTPBackendRef,
 	ns string,
-	checker refGrantChecker,
+	enforceRefGrant bool,
 ) ([]*istio.HTTPRouteDestination, *ConfigError, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil, nil
@@ -1301,7 +1296,7 @@ func buildHTTPDestination(
 	var invalidBackendErr *ConfigError
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		dst, err := buildDestination(ctx, fwd.BackendRef, ns, checker)
+		dst, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.HTTPRoute)
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1347,7 +1342,7 @@ func buildGRPCDestination(
 	ctx configContext,
 	forwardTo []k8s.GRPCBackendRef,
 	ns string,
-	checker refGrantChecker,
+	enforceRefGrant bool,
 ) ([]*istio.HTTPRouteDestination, *ConfigError, *ConfigError) {
 	if forwardTo == nil {
 		return nil, nil, nil
@@ -1369,7 +1364,7 @@ func buildGRPCDestination(
 	var invalidBackendErr *ConfigError
 	res := []*istio.HTTPRouteDestination{}
 	for i, fwd := range action {
-		dst, err := buildDestination(ctx, fwd.BackendRef, ns, checker)
+		dst, err := buildDestination(ctx, fwd.BackendRef, ns, enforceRefGrant, gvk.GRPCRoute)
 		if err != nil {
 			if isInvalidBackend(err) {
 				invalidBackendErr = err
@@ -1411,34 +1406,17 @@ func buildGRPCDestination(
 	return res, invalidBackendErr, nil
 }
 
-type refGrantChecker func(ctx configContext, to k8s.BackendRef, ns string) error
-
-func newRefGrantChecker(enforceRefGrant bool, ks ...config.GroupVersionKind) refGrantChecker {
-	if !enforceRefGrant {
-		return func(_ configContext, _ k8s.BackendRef, _ string) error { return nil }
-	}
-	return func(ctx configContext, to k8s.BackendRef, ns string) error {
+func buildDestination(ctx configContext, to k8s.BackendRef, ns string, enforceRefGrant bool, k config.GroupVersionKind) (*istio.Destination, *ConfigError) {
+	// check if the reference is allowed
+	if enforceRefGrant {
 		refs := ctx.AllowedReferences
 		if toNs := to.Namespace; toNs != nil && string(*toNs) != ns {
-			var deniedKinds []string
-			for _, k := range ks {
-				if refs.BackendAllowed(k, to.Name, *toNs, ns) {
-					return nil
+			if !refs.BackendAllowed(k, to.Name, *toNs, ns) {
+				return &istio.Destination{}, &ConfigError{
+					Reason:  InvalidDestinationPermit,
+					Message: fmt.Sprintf("backendRef %v/%v not accessible to a %s in namespace %q (missing a ReferenceGrant?)", to.Name, *toNs, k.Kind, ns),
 				}
-				deniedKinds = append(deniedKinds, k.Kind)
 			}
-			return fmt.Errorf("backendRef %v/%v not accessible to a %s in namespace %q (missing a ReferenceGrant?)", to.Name, *toNs, strings.Join(deniedKinds, "|"), ns)
-		}
-		return nil
-	}
-}
-
-func buildDestination(ctx configContext, to k8s.BackendRef, ns string, check refGrantChecker) (*istio.Destination, *ConfigError) {
-	// check if the reference is allowed
-	if err := check(ctx, to, ns); err != nil {
-		return &istio.Destination{}, &ConfigError{
-			Reason:  InvalidDestinationPermit,
-			Message: err.Error(),
 		}
 	}
 
@@ -1533,7 +1511,9 @@ func headerListToMap(hl []k8s.HTTPHeader) map[string]string {
 	return res
 }
 
-func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, ns string, checker refGrantChecker) (*istio.HTTPMirrorPolicy, *ConfigError) {
+func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, ns string,
+	enforceRefGrant bool, k config.GroupVersionKind,
+) (*istio.HTTPMirrorPolicy, *ConfigError) {
 	if filter == nil {
 		return nil, nil
 	}
@@ -1541,7 +1521,7 @@ func createMirrorFilter(ctx configContext, filter *k8s.HTTPRequestMirrorFilter, 
 	dst, err := buildDestination(ctx, k8s.BackendRef{
 		BackendObjectReference: filter.BackendRef,
 		Weight:                 &weightOne,
-	}, ns, checker)
+	}, ns, enforceRefGrant, k)
 	if err != nil {
 		return nil, err
 	}
