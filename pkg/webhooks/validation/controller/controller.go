@@ -208,7 +208,6 @@ func (c *Controller) readyForFailClose() bool {
 
 const (
 	deniedRequestMessageFragment     = `denied the request`
-	deniedRequestMessageRequired     = `Required value`
 	missingResourceMessageFragment   = `the server could not find the requested resource`
 	unsupportedDryRunMessageFragment = `does not support dry run`
 )
@@ -239,10 +238,6 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 	}
 	// We expect to get deniedRequestMessageFragment (the config was rejected, as expected)
 	if strings.Contains(err.Error(), deniedRequestMessageFragment) {
-		return true, ""
-	}
-	// We expect some error message containing deniedRequestMessageRequired (the config was rejected, as expected)
-	if strings.Contains(err.Error(), deniedRequestMessageRequired) {
 		return true, ""
 	}
 	// If the CRD does not exist, we will get this error. This is to handle when Pilot is run
