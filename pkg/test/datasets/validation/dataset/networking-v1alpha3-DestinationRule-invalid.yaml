@@ -3,6 +3,7 @@ kind: DestinationRule
 metadata:
   name: invalid-destination-rule
 spec:
+  host: "**"
   subsets:
     - name: v1
       labels:

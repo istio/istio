@@ -8,3 +8,5 @@ spec:
       app.kubernetes.io/name: reviews
       app.kubernetes.io/version: "1.3.4"
       ".": "~"
+  template:
+    address: "1.2.3.4"

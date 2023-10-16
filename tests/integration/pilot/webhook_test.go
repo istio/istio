@@ -39,8 +39,6 @@ func TestWebhook(t *testing.T) {
 	framework.NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			t.Skip("Webhook logic is broken after https://github.com/istio/istio/issues/46151, since the " +
-				"config error is not determined by the webhook anymore.")
 			vwcName := "istio-validator"
 			if t.Settings().Revisions.Default() != "" {
 				vwcName = fmt.Sprintf("%s-%s", vwcName, t.Settings().Revisions.Default())

@@ -81,9 +81,12 @@ func TestValidation(t *testing.T) {
 				// from the webhook and the k8s api server as the returned errors are not
 				// k8s typed errors.
 				// Note: this explicitly does NOT catch OpenAPI schema rejections - only validating webhook rejections.
-				return strings.Contains(err.Error(), "denied the request") || strings.Contains(err.Error(), "Required value")
+				return strings.Contains(err.Error(), "denied the request")
 			}
 
+			ns := namespace.NewOrFail(t, t, namespace.Config{
+				Prefix: "validation",
+			})
 			for _, cluster := range t.Clusters().Configs() {
 				for i := range dataset {
 					d := dataset[i]
@@ -98,10 +101,6 @@ func TestValidation(t *testing.T) {
 						if err != nil {
 							t.Fatalf("Unable to load test data: %v", err)
 						}
-
-						ns := namespace.NewOrFail(t, t, namespace.Config{
-							Prefix: "validation",
-						})
 
 						applyFiles := t.WriteYAMLOrFail(t, "apply", ym)
 						dryRunErr := cluster.ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)

@@ -10,9 +10,7 @@ spec:
   rules:
   - from:
     - source:
-        principals: ["cluster.local/ns/default/sa/sleep"]
+        ipBlocks: ["not-ip"]
     to:
     - operation:
         methods: ["GET"]
-    when:
-    - values: ["key is missing"]

@@ -3,8 +3,10 @@ kind: ServiceEntry
 metadata:
   name: invalid-service-entry
 spec:
+  hosts:
+    - test.example.com
   ports:
-  - number: 80
+  - number: -1
     name: http
     protocol: HTTP
   endpoints:
