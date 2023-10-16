@@ -366,37 +366,51 @@ func init() {
 
 func TestConvertResources(t *testing.T) {
 	validator := crdvalidation.NewIstioValidator(t)
+
 	cases := []struct {
 		name string
+		// Some configs are intended to be generated with invalid configs
+		ignoreValidation crdvalidation.IgnoreValidation
 	}{
-		{"http"},
-		{"tcp"},
-		{"tls"},
-		{"grpc"},
-		{"mismatch"},
-		{"weighted"},
-		{"zero"},
-		{"mesh"},
-		{"invalid"},
-		{"multi-gateway"},
-		{"delegated"},
-		{"route-binding"},
-		{"reference-policy-tls"},
-		{"reference-policy-service"},
-		{"reference-policy-tcp"},
-		{"serviceentry"},
-		{"eastwest"},
-		{"eastwest-tlsoption"},
-		{"eastwest-labelport"},
-		{"eastwest-remote"},
-		{"alias"},
-		{"mcs"},
-		{"route-precedence"},
-		{"waypoint"},
+		{name: "http"},
+		{name: "tcp"},
+		{name: "tls"},
+		{name: "grpc"},
+		{name: "mismatch"},
+		{name: "weighted"},
+		{name: "zero"},
+		{name: "mesh"},
+		{
+			name: "invalid",
+			ignoreValidation: crdvalidation.NewIgnoreValidation(
+				"default/^invalid-backendRef-kind-",
+				"default/^invalid-backendRef-mixed-",
+			),
+		},
+		{name: "multi-gateway"},
+		{name: "delegated"},
+		{name: "route-binding"},
+		{name: "reference-policy-tls"},
+		{
+			name: "reference-policy-service",
+			ignoreValidation: crdvalidation.NewIgnoreValidation(
+				"istio-system/^backend-not-allowed-",
+			),
+		},
+		{name: "reference-policy-tcp"},
+		{name: "serviceentry"},
+		{name: "eastwest"},
+		{name: "eastwest-tlsoption"},
+		{name: "eastwest-labelport"},
+		{name: "eastwest-remote"},
+		{name: "alias"},
+		{name: "mcs"},
+		{name: "route-precedence"},
+		{name: "waypoint"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator)
+			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator, nil)
 			// Setup a few preconfigured services
 			instances := []*model.ServiceInstance{}
 			for _, svc := range services {
@@ -432,7 +446,7 @@ func TestConvertResources(t *testing.T) {
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)
 			res := append(output.Gateway, output.VirtualService...)
 			util.CompareContent(t, marshalYaml(t, res), goldenFile)
-			golden := splitOutput(readConfig(t, goldenFile, validator))
+			golden := splitOutput(readConfig(t, goldenFile, validator, tt.ignoreValidation))
 
 			// sort virtual services to make the order deterministic
 			sort.Slice(golden.VirtualService, func(i, j int) bool {
@@ -1091,7 +1105,7 @@ spec:
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			input := readConfigString(t, tt.config, validator)
+			input := readConfigString(t, tt.config, validator, nil)
 			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 			kr := splitInput(t, input)
 			kr.Context = NewGatewayContext(cg.PushContext())
@@ -1190,18 +1204,18 @@ func splitInput(t test.Failer, configs []config.Config) GatewayResources {
 	return out
 }
 
-func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator) []config.Config {
+func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator, iv crdvalidation.IgnoreValidation) []config.Config {
 	t.Helper()
 
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatalf("failed to read input yaml file: %v", err)
 	}
-	return readConfigString(t, string(data), validator)
+	return readConfigString(t, string(data), validator, iv)
 }
 
-func readConfigString(t testing.TB, data string, validator *crdvalidation.Validator) []config.Config {
-	if err := validator.ValidateCustomResourceYAML(data); err != nil {
+func readConfigString(t testing.TB, data string, validator *crdvalidation.Validator, iv crdvalidation.IgnoreValidation) []config.Config {
+	if err := validator.ValidateCustomResourceYAML(data, iv); err != nil {
 		t.Error(err)
 	}
 	c, _, err := crd.ParseInputs(data)
@@ -1317,7 +1331,7 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 	})
 
 	validator := crdvalidation.NewIstioValidator(b)
-	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator)
+	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator, nil)
 	kr := splitInput(b, input)
 	kr.Context = NewGatewayContext(cg.PushContext())
 	ctx := configContext{

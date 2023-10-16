@@ -20,8 +20,11 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
 	"github.com/hashicorp/go-multierror"
+	"istio.io/istio/pkg/util/sets"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -51,12 +54,57 @@ type Validator struct {
 	SkipMissing bool
 }
 
-func (v *Validator) ValidateCustomResourceYAML(data string) error {
+// IgnoreValidation is a map where the key is the namespace and the values are name patterns.
+type IgnoreValidation map[string]sets.String
+
+// NewIgnoreValidation initializes the ignore configs, pairs are in namespace/namePattern format.
+func NewIgnoreValidation(pairs ...string) IgnoreValidation {
+	iv := IgnoreValidation{}
+	for i := range pairs {
+		parts := strings.SplitN(pairs[i], "/", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		iv.Add(parts[0], parts[1])
+	}
+	return iv
+}
+
+func (iv IgnoreValidation) Add(namespace, pattern string) {
+	if iv[namespace] == nil {
+		iv[namespace] = sets.String{}
+	}
+	iv[namespace].Insert(pattern)
+}
+
+// ShouldIgnore checks if a given namespaced name should be ignored based on the patterns.
+func (iv IgnoreValidation) ShouldIgnore(namespace, name string) bool {
+	patterns, exists := iv[namespace]
+	if !exists {
+		return false
+	}
+
+	for _, pattern := range patterns.UnsortedList() {
+		match, err := regexp.MatchString(pattern, name)
+		if err != nil {
+			return false
+		}
+		if match {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *Validator) ValidateCustomResourceYAML(data string, ignore IgnoreValidation) error {
 	var errs *multierror.Error
 	for _, item := range yml.SplitString(data) {
 		obj := &unstructured.Unstructured{}
 		if err := yaml.Unmarshal([]byte(item), obj); err != nil {
 			return err
+		}
+		if ignore.ShouldIgnore(obj.GetNamespace(), obj.GetName()) {
+			continue
 		}
 		errs = multierror.Append(errs, v.ValidateCustomResource(obj))
 	}

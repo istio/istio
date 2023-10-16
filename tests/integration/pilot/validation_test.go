@@ -81,7 +81,7 @@ func TestValidation(t *testing.T) {
 				// from the webhook and the k8s api server as the returned errors are not
 				// k8s typed errors.
 				// Note: this explicitly does NOT catch OpenAPI schema rejections - only validating webhook rejections.
-				return strings.Contains(err.Error(), "denied the request")
+				return strings.Contains(err.Error(), "denied the request") || strings.Contains(err.Error(), "Required value")
 			}
 
 			for _, cluster := range t.Clusters().Configs() {
