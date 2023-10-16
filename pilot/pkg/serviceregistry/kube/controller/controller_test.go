@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -56,6 +57,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -2790,5 +2792,66 @@ func TestStripPodUnusedFields(t *testing.T) {
 	expectPod.Status.Conditions = output.Status.Conditions
 	if !reflect.DeepEqual(expectPod, output) {
 		t.Fatalf("Wanted: %v\n. Got: %v", expectPod, output)
+	}
+}
+
+func TestServiceUpdateNeedsPush(t *testing.T) {
+	newService := func(exportTo visibility.Instance, ports []int) *model.Service {
+		s := &model.Service{
+			Attributes: model.ServiceAttributes{
+				ExportTo: sets.New(exportTo),
+			},
+		}
+		for _, port := range ports {
+			s.Ports = append(s.Ports, &model.Port{
+				Port: port,
+			})
+		}
+		return s
+	}
+
+	tests := []struct {
+		name   string
+		prev   *model.Service
+		curr   *model.Service
+		expect bool
+	}{
+		{
+			name:   "no change",
+			prev:   newService(visibility.Public, []int{80}),
+			curr:   newService(visibility.Public, []int{80}),
+			expect: false,
+		},
+		{
+			name:   "new service",
+			prev:   nil,
+			curr:   newService(visibility.Public, []int{80}),
+			expect: true,
+		},
+		{
+			name:   "new service with none visibility",
+			prev:   nil,
+			curr:   newService(visibility.None, []int{80}),
+			expect: false,
+		},
+		{
+			name:   "public visibility, spec change",
+			prev:   newService(visibility.Public, []int{80}),
+			curr:   newService(visibility.Public, []int{80, 443}),
+			expect: true,
+		},
+		{
+			name:   "none visibility, spec change",
+			prev:   newService(visibility.None, []int{80}),
+			curr:   newService(visibility.None, []int{80, 443}),
+			expect: false,
+		},
+	}
+
+	for _, test := range tests {
+		actual := serviceUpdateNeedsPush(test.prev, test.curr)
+		if actual != test.expect {
+			t.Fatalf("%s: expected %v, got %v", test.name, test.expect, actual)
+		}
 	}
 }

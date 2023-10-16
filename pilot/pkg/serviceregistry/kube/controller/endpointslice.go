@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -348,6 +349,11 @@ func (esc *endpointSliceController) processEndpointEvent(name string, namespace 
 		// otherwise push endpoint updates - needed for NDS output.
 		if svc.Spec.ClusterIP == corev1.ClusterIPNone {
 			for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
+				// skip push if it is not exported
+				if modelSvc.Attributes.ExportTo.Contains(visibility.None) {
+					continue
+				}
+
 				esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 					Full: features.EnableHeadlessService,
 					// TODO: extend and set service instance type, so no need to re-init push context
