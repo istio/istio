@@ -36,6 +36,7 @@ func FuzzBuildHTTP(f *testing.F) {
 		b := New(bundle, push, policies, option)
 		if b == nil {
 			fg.T().Skip()
+			return // To help linter
 		}
 		b.BuildHTTP()
 	})
@@ -55,8 +56,9 @@ func FuzzBuildTCP(f *testing.F) {
 		b := New(bundle, push, policies, option)
 		if b == nil {
 			fg.T().Skip()
+			return // To help linter
 		}
-		b.buildTCP()
+		b.BuildTCP()
 	})
 }
 
