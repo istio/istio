@@ -66,30 +66,26 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://principal
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         exact: spiffe://not-principal
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/ns/.*
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
                           regex: .*/ns/not-ns/.*
             - orIds:
@@ -138,31 +134,27 @@ typedConfig:
                       prefixLen: 32
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/ns/.*
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         safeRegex:
                           regex: .*/ns/not-ns/.*
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://principal
             - notId:
                 orIds:
                   ids:
-                  - filterState:
-                      key: io.istio.peer_principal
-                      stringMatch:
+                  - authenticated:
+                      principalName:
                         exact: spiffe://not-principal
   shadowRulesStatPrefix: istio_dry_run_allow_
   statPrefix: tcp.

@@ -46,6 +46,7 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
+		UseFilterState:  proxy.Type == model.Waypoint,
 	}
 	selectionOpts := model.WorkloadSelectionOpts{
 		Namespace:      proxy.ConfigNamespace,

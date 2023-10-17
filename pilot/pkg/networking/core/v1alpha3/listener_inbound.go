@@ -802,9 +802,6 @@ func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConf
 
 	// Authn
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
-	if !cc.hbone {
-		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
-	}
 
 	// Authz. Since this is HTTP, we only add WASM network filters -- not TCP RBAC, stats, etc.
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)

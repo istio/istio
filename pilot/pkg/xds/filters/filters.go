@@ -186,22 +186,6 @@ var (
 
 	HTTPMx = buildHTTPMxFilter()
 
-	IstioNetworkAuthenticationFilter = &listener.Filter{
-		Name: AuthnFilterName,
-		ConfigType: &listener.Filter_TypedConfig{
-			TypedConfig: protoconv.TypedStruct("type.googleapis.com/io.istio.network.authn.Config"),
-		},
-	}
-
-	IstioNetworkAuthenticationFilterShared = &listener.Filter{
-		Name: AuthnFilterName,
-		ConfigType: &listener.Filter_TypedConfig{
-			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.network.authn.Config",
-				map[string]interface{}{
-					"shared": true,
-				}),
-		},
-	}
 	WaypointDownstreamMetadataFilter = &hcm.HttpFilter{
 		Name: "waypoint_downstream_peer_metadata",
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -338,8 +322,39 @@ var (
 							},
 						},
 						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
-					},
-				},
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: "io.istio.peer_principal",
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%DOWNSTREAM_PEER_URI_SAN%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}, {
+						Key: &sfsvalue.FilterStateValue_ObjectKey{
+							ObjectKey: "io.istio.local_principal",
+						},
+						Value: &sfsvalue.FilterStateValue_FormatString{
+							FormatString: &core.SubstitutionFormatString{
+								Format: &core.SubstitutionFormatString_TextFormatSource{
+									TextFormatSource: &core.DataSource{
+										Specifier: &core.DataSource_InlineString{
+											InlineString: "%DOWNSTREAM_LOCAL_URI_SAN%",
+										},
+									},
+								},
+							},
+						},
+						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
+					}},
 			}),
 		},
 	}

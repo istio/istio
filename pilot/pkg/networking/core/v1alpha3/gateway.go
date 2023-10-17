@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/gateway"
 	"istio.io/istio/pkg/config/host"
@@ -254,7 +253,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 			proxyConfig, istionetworking.ListenerProtocolTCP, builder.push)
 		// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
 		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
-		httpFilterChainOpts.networkFilters = append(httpFilterChainOpts.networkFilters, xdsfilters.IstioNetworkAuthenticationFilter)
 		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
 		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)
 		httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
@@ -273,7 +271,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayTCPBasedFilterChains(
 					routeName, proxyConfig, istionetworking.TransportProtocolTCP, builder.push)
 				// In HTTP, we need to have RBAC, etc. upfront so that they can enforce policies immediately
 				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHN)
-				httpFilterChainOpts.networkFilters = append(httpFilterChainOpts.networkFilters, xdsfilters.IstioNetworkAuthenticationFilter)
 				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_AUTHZ)
 				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_STATS)
 				httpFilterChainOpts.networkFilters = extension.PopAppendNetwork(httpFilterChainOpts.networkFilters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)

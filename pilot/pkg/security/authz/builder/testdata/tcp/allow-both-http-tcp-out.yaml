@@ -15,9 +15,8 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/ns-1/.*
   shadowRulesStatPrefix: istio_dry_run_allow_
