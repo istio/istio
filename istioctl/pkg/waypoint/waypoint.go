@@ -24,7 +24,8 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	gateway "sigs.k8s.io/gateway-api/apis/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/label"
@@ -250,7 +251,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					rev = "default"
 				}
 				for _, cond := range gw.Status.Conditions {
-					if cond.Type == string(gateway.GatewayConditionProgrammed) {
+					if cond.Type == string(gatewayv1.GatewayConditionProgrammed) {
 						programmed = string(cond.Status)
 					}
 				}
