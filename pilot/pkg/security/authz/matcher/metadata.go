@@ -38,31 +38,6 @@ func MetadataStringMatcher(filter, key string, m *matcher.StringMatcher) *matche
 	}
 }
 
-// MetadataStringSubMatcher creates a metadata string matcher for the given filter, key and the
-// string matcher.
-func MetadataStringSubMatcher(filter, key, sub_key string, m *matcher.StringMatcher) *matcher.MetadataMatcher {
-	return &matcher.MetadataMatcher{
-		Filter: filter,
-		Path: []*matcher.MetadataMatcher_PathSegment{
-			{
-				Segment: &matcher.MetadataMatcher_PathSegment_Key{
-					Key: key,
-				},
-			},
-			{
-				Segment: &matcher.MetadataMatcher_PathSegment_Key{
-					Key: sub_key,
-				},
-			},
-		},
-		Value: &matcher.ValueMatcher{
-			MatchPattern: &matcher.ValueMatcher_StringMatch{
-				StringMatch: m,
-			},
-		},
-	}
-}
-
 // MetadataListMatcher creates a metadata list matcher for the given path keys and value.
 func MetadataListMatcher(filter string, keys []string, value *matcher.StringMatcher) *matcher.MetadataMatcher {
 	listMatcher := &matcher.ListMatcher{

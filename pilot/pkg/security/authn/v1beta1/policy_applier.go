@@ -134,14 +134,12 @@ func (a v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filter
 	// nolint: staticcheck
 	p.PrincipalBinding = authn_alpha.PrincipalBinding_USE_ORIGIN
 	// nolint: staticcheck
-	for _, jwt := range a.processedJwtRules {
-		p.Origins = append(p.Origins, &authn_alpha.OriginAuthenticationMethod{
-			Jwt: &authn_alpha.Jwt{
-				// used for getting the filter data, and all other fields are irrelevant.
-				Issuer: jwt.GetIssuer(),
-			},
-		})
-	}
+	p.Origins = append(p.Origins, &authn_alpha.OriginAuthenticationMethod{
+		Jwt: &authn_alpha.Jwt{
+			// used for getting the filter data, and all other fields are irrelevant.
+			Issuer: "payload",
+		},
+	})
 	return config
 }
 
@@ -224,7 +222,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			Audiences:            jwtRule.Audiences,
 			Forward:              jwtRule.ForwardOriginalToken,
 			ForwardPayloadHeader: jwtRule.OutputPayloadToHeader,
-			PayloadInMetadata:    jwtRule.Issuer,
+			PayloadInMetadata:    "payload",
 		}
 
 		for _, claimAndHeader := range jwtRule.OutputClaimToHeaders {
