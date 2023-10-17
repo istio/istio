@@ -886,3 +886,18 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 		})
 	}
 }
+
+func TestAdditionalAddressesForIPv6(t *testing.T) {
+	test.SetForTest(t, &features.EnableAdditionalIpv4OutboundListenerForIpv6Only, true)
+	cg := NewConfigGenTest(t, TestOptions{Services: testServices})
+	proxy := cg.SetupProxy(&model.Proxy{IPAddresses: []string{"1111:2222::1"}})
+
+	listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
+	vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners)
+	if vo == nil {
+		t.Fatalf("didn't find virtual outbound listener")
+	}
+	if vo.AdditionalAddresses == nil || len(vo.AdditionalAddresses) != 1 {
+		t.Fatalf("expected additional ipv4 bind addresse")
+	}
+}
