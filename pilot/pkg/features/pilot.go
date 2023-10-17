@@ -106,7 +106,7 @@ var (
 
 	EnablePersistentSessionFilter = env.Register(
 		"PILOT_ENABLE_PERSISTENT_SESSION_FILTER",
-		true,
+		false,
 		"If enabled, Istiod sets up persistent session filter for listeners, if services have 'PILOT_PERSISTENT_SESSION_LABEL' set.",
 	).Get()
 
