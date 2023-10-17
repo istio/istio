@@ -621,6 +621,8 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 	if ctx.Settings().EnableDualStack {
 		args.AppendSet("values.pilot.env.ISTIO_DUAL_STACK", "true")
 		args.AppendSet("meshConfig.defaultConfig.proxyMetadata.ISTIO_DUAL_STACK", "true")
+		args.AppendSet("values.gateways.istio-ingressgateway.ipFamilyPolicy", "RequireDualStack")
+		args.AppendSet("values.gateways.istio-egressgateway.ipFamilyPolicy", "RequireDualStack")
 	}
 
 	// Include all user-specified values.
