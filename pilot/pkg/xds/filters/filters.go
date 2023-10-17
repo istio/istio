@@ -61,6 +61,9 @@ const (
 	// as the name defined in
 	// https://github.com/istio/proxy/blob/master/src/envoy/http/authn/http_filter_factory.cc#L30
 	AuthnFilterName = "istio_authn"
+
+	// EnvoyJwtFilterName is the name of the Envoy JWT filter.
+	EnvoyJwtFilterName = "envoy.filters.http.jwt_authn"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
