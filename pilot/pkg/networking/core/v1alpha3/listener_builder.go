@@ -394,11 +394,11 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 			}
 		}
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
-		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class, !httpOpts.useFilterState)...)
+		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHZ)
-		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class, !httpOpts.useFilterState)...)
+		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_STATS)
 		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)

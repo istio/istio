@@ -1006,8 +1006,6 @@ type httpListenerOpts struct {
 	port  int
 	hbone bool
 
-	useFilterState bool
-
 	// Waypoint-specific modifications in HCM
 	isWaypoint bool
 }

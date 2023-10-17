@@ -354,8 +354,7 @@ var (
 							},
 						},
 						SharedWithUpstream: sfsvalue.FilterStateValue_ONCE,
-					},
-				},
+					}},
 			}),
 		},
 	}

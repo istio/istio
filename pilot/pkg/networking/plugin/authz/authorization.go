@@ -46,6 +46,7 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
+		UseFilterState:  proxy.Type == model.Waypoint,
 	}
 	selectionOpts := model.WorkloadSelectionOpts{
 		Namespace:      proxy.ConfigNamespace,
@@ -69,7 +70,7 @@ func (b *Builder) BuildTCP() []*listener.Filter {
 	return b.tcpFilters
 }
 
-func (b *Builder) BuildHTTP(class networking.ListenerClass, useAuthenticated bool) []*hcm.HttpFilter {
+func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 	if b == nil || b.builder == nil {
 		return nil
 	}
@@ -81,7 +82,7 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass, useAuthenticated boo
 		return b.httpFilters
 	}
 	b.httpBuilt = true
-	b.httpFilters = b.builder.BuildHTTP(useAuthenticated)
+	b.httpFilters = b.builder.BuildHTTP()
 
 	return b.httpFilters
 }
