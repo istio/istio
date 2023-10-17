@@ -18,7 +18,7 @@ const (
 	// UnspecifiedIP constant for empty IP address
 	UnspecifiedIP = "0.0.0.0"
 	// UnspecifiedIPv6 constant for empty IPv6 address
-	UnspecifiedIPv6 = "::/0"
+	UnspecifiedIPv6 = "::"
 
 	// AuthCertsPath is the path location for mTLS certificates
 	AuthCertsPath = "/etc/certs/"
@@ -164,7 +164,9 @@ const (
 
 	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
-	// TODO formalize this API
+
+	// GatewayNameLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
+	// TODO: Formalize this API
 	GatewayNameLabel = "istio.io/gateway-name"
 
 	// TODO formalize this API

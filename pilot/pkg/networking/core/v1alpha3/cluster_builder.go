@@ -16,8 +16,6 @@ package v1alpha3
 
 import (
 	"fmt"
-	"math"
-	"sort"
 	"time"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
@@ -29,7 +27,6 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
-	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -38,12 +35,11 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	networkutil "istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	istio_cluster "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
-	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/sets"
@@ -158,9 +154,9 @@ func (cb *ClusterBuilder) sidecarProxy() bool {
 	return cb.proxyType == model.SidecarProxy
 }
 
-func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts,
-	destRule *config.Config, subset *networking.Subset, service *model.Service,
-	proxyView model.ProxyView,
+func (cb *ClusterBuilder) buildSubsetCluster(
+	opts buildClusterOpts, destRule *config.Config, subset *networking.Subset, service *model.Service,
+	endpointBuilder *endpoints.EndpointBuilder,
 ) *cluster.Cluster {
 	opts.serviceMTLSMode = cb.req.Push.BestEffortInferServiceMTLSMode(subset.GetTrafficPolicy(), service, opts.port)
 	var subsetClusterName string
@@ -181,14 +177,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts,
 		clusterType = cluster.Cluster_ORIGINAL_DST
 	}
 	if !(isPassthrough || clusterType == cluster.Cluster_EDS) {
-		if len(subset.Labels) != 0 {
-			lbEndpoints = cb.buildLocalityLbEndpoints(proxyView, service, opts.port.Port, subset.Labels)
-		} else {
-			lbEndpoints = cb.buildLocalityLbEndpoints(proxyView, service, opts.port.Port, nil)
-		}
-		if len(lbEndpoints) == 0 {
-			log.Debugf("locality endpoints missing for cluster %s", subsetClusterName)
-		}
+		lbEndpoints = endpointBuilder.WithSubset(subset.Name).FromServiceEndpoints()
 	}
 
 	subsetCluster := cb.buildCluster(subsetClusterName, clusterType, lbEndpoints, model.TrafficDirectionOutbound, opts.port, service, nil)
@@ -201,7 +190,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts,
 	opts.istioMtlsSni = defaultSni
 
 	// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
-	opts.policy = MergeTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
+	opts.policy = util.MergeTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
 
 	if destRule != nil {
 		destinationRule := CastDestinationRule(destRule)
@@ -225,11 +214,11 @@ func (cb *ClusterBuilder) buildSubsetCluster(opts buildClusterOpts,
 // applyDestinationRule applies the destination rule if it exists for the Service.
 // It returns the subset clusters if any created as it applies the destination rule.
 func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode ClusterMode, service *model.Service,
-	port *model.Port, proxyView model.ProxyView, destRule *config.Config, serviceAccounts []string,
+	port *model.Port, eb *endpoints.EndpointBuilder, destRule *config.Config, serviceAccounts []string,
 ) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
-	trafficPolicy := MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
+	trafficPolicy := util.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
 		mesh:           cb.req.Push.Mesh,
 		serviceTargets: cb.serviceTargets,
@@ -260,13 +249,22 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 
 	cb.applyMetadataExchange(opts.mutable.cluster)
 
+	if service.MeshExternal {
+		im := getOrCreateIstioMetadata(mc.cluster)
+		im.Fields["external"] = &structpb.Value{
+			Kind: &structpb.Value_BoolValue{
+				BoolValue: true,
+			},
+		}
+	}
+
 	if destRule != nil {
 		mc.cluster.Metadata = util.AddConfigInfoMetadata(mc.cluster.Metadata, destRule.Meta)
 		mc.cluster.Metadata = util.AddALPNOverrideToMetadata(mc.cluster.Metadata, opts.policy.GetTls().GetMode())
 	}
 	subsetClusters := make([]*cluster.Cluster, 0)
 	for _, subset := range destinationRule.GetSubsets() {
-		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, proxyView)
+		subsetCluster := cb.buildSubsetCluster(opts, destRule, subset, service, eb)
 		if subsetCluster != nil {
 			subsetClusters = append(subsetClusters, subsetCluster)
 		}
@@ -314,6 +312,7 @@ func (cb *ClusterBuilder) buildCluster(name string, discoveryType cluster.Cluste
 		fallthrough
 	case cluster.Cluster_STATIC:
 		if len(localityLbEndpoints) == 0 {
+			log.Debugf("locality endpoints missing for cluster %s", c.Name)
 			cb.req.Push.AddMetric(model.DNSNoEndpointClusters, c.Name, cb.proxyID,
 				fmt.Sprintf("%s cluster without endpoints %s found while pushing CDS", discoveryType.String(), c.Name))
 			return nil
@@ -383,7 +382,7 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		destinationRule := CastDestinationRule(cfg)
 		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
 		if destinationRule.TrafficPolicy != nil {
-			opts.policy = MergeTrafficPolicy(opts.policy, destinationRule.TrafficPolicy, instance.Port.ServicePort)
+			opts.policy = util.MergeTrafficPolicy(opts.policy, destinationRule.TrafficPolicy, instance.Port.ServicePort)
 			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg.Meta)
 		}
 	}
@@ -400,13 +399,13 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 				},
 			},
 		}
-		// There is an usage doc here:
+		// There is a usage doc here:
 		// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/address.proto#config-core-v3-bindconfig
-		// to support the Dual Stack via Envoy bindconfig, and belows are related issue and PR in Envoy:
+		// to support Dual Stack via Envoy BindConfig, and below is the related issue/PR in Envoy:
 		// https://github.com/envoyproxy/envoy/issues/9811
-		// https://github.com/envoyproxy/envoy/pull/22639
-		// the extra source address for UpstreamBindConfig shoulde be added if dual stack is enabled and there are
-		// more than 1 IP for proxy
+		// https://github.com/envoyproxy/envoy/pull/22639.
+		// The extra source address for UpstreamBindConfig should be added if dual stack is enabled and there is
+		// more than one IP for the proxy.
 		if features.EnableDualStack && len(cb.passThroughBindIPs) > 1 {
 			// add extra source addresses to cluster builder
 			var extraSrcAddrs []*core.ExtraSourceAddress
@@ -425,121 +424,6 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		}
 	}
 	return localCluster
-}
-
-func (cb *ClusterBuilder) buildLocalityLbEndpoints(proxyView model.ProxyView, service *model.Service,
-	port int, labels labels.Instance,
-) []*endpoint.LocalityLbEndpoints {
-	if !(service.Resolution == model.DNSLB || service.Resolution == model.DNSRoundRobinLB) {
-		return nil
-	}
-
-	instances := cb.req.Push.ServiceEndpointsByPort(service, port, labels)
-
-	// Determine whether or not the target service is considered local to the cluster
-	// and should, therefore, not be accessed from outside the cluster.
-	isClusterLocal := cb.req.Push.IsClusterLocal(service)
-
-	lbEndpoints := make(map[string][]*endpoint.LbEndpoint)
-	for _, instance := range instances {
-		// Only send endpoints from the networks in the network view requested by the proxy.
-		// The default network view assigned to the Proxy is nil, in that case match any network.
-		if !proxyView.IsVisible(instance) {
-			// Endpoint's network doesn't match the set of networks that the proxy wants to see.
-			continue
-		}
-		// If the downstream service is configured as cluster-local, only include endpoints that
-		// reside in the same cluster.
-		if isClusterLocal && (cb.clusterID != string(instance.Locality.ClusterID)) {
-			continue
-		}
-		// TODO(nmittler): Consider merging discoverability policy with cluster-local
-		// TODO(ramaraochavali): Find a better way here so that we do not have build proxy.
-		// Currently it works because we only determine discoverability only by cluster.
-		if !instance.IsDiscoverableFromProxy(&model.Proxy{Metadata: &model.NodeMetadata{ClusterID: istio_cluster.ID(cb.clusterID)}}) {
-			continue
-		}
-
-		// TODO(stevenctl) share code with EDS to filter this and do multi-network mapping
-		if instance.Address == "" {
-			continue
-		}
-
-		addr := util.BuildAddress(instance.Address, instance.EndpointPort)
-		ep := &endpoint.LbEndpoint{
-			HostIdentifier: &endpoint.LbEndpoint_Endpoint{
-				Endpoint: &endpoint.Endpoint{
-					Address: addr,
-				},
-			},
-			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: instance.GetLoadBalancingWeight(),
-			},
-			Metadata: &core.Metadata{},
-		}
-		var metadata *model.EndpointMetadata
-
-		if features.CanonicalServiceForMeshExternalServiceEntry && service.MeshExternal {
-			svcLabels := service.Attributes.Labels
-			if _, ok := svcLabels[model.IstioCanonicalServiceLabelName]; ok {
-				metadata = instance.MetadataClone()
-				if metadata.Labels == nil {
-					metadata.Labels = make(map[string]string)
-				}
-				metadata.Labels[model.IstioCanonicalServiceLabelName] = svcLabels[model.IstioCanonicalServiceLabelName]
-				metadata.Labels[model.IstioCanonicalServiceRevisionLabelName] = svcLabels[model.IstioCanonicalServiceRevisionLabelName]
-			} else {
-				metadata = instance.Metadata()
-			}
-			metadata.Namespace = service.Attributes.Namespace
-		} else {
-			metadata = instance.Metadata()
-		}
-
-		util.AppendLbEndpointMetadata(metadata, ep.Metadata)
-
-		locality := instance.Locality.Label
-		lbEndpoints[locality] = append(lbEndpoints[locality], ep)
-	}
-
-	localityLbEndpoints := make([]*endpoint.LocalityLbEndpoints, 0, len(lbEndpoints))
-	locs := make([]string, 0, len(lbEndpoints))
-	for k := range lbEndpoints {
-		locs = append(locs, k)
-	}
-	if len(locs) >= 2 {
-		sort.Strings(locs)
-	}
-	for _, locality := range locs {
-		eps := lbEndpoints[locality]
-		var weight uint32
-		var overflowStatus bool
-		for _, ep := range eps {
-			weight, overflowStatus = addUint32(weight, ep.LoadBalancingWeight.GetValue())
-		}
-		if overflowStatus {
-			log.Warnf("Sum of localityLbEndpoints weight is overflow: service:%s, port: %d, locality:%s",
-				service.Hostname, port, locality)
-		}
-		localityLbEndpoints = append(localityLbEndpoints, &endpoint.LocalityLbEndpoints{
-			Locality:    util.ConvertLocality(locality),
-			LbEndpoints: eps,
-			LoadBalancingWeight: &wrappers.UInt32Value{
-				Value: weight,
-			},
-		})
-	}
-
-	return localityLbEndpoints
-}
-
-// addUint32AvoidOverflow returns sum of two uint32 and status. If sum overflows,
-// and returns MaxUint32 and status.
-func addUint32(left, right uint32) (uint32, bool) {
-	if math.MaxUint32-right < left {
-		return math.MaxUint32, true
-	}
-	return left + right, false
 }
 
 // buildInboundPassthroughClusters builds passthrough clusters for inbound.
@@ -852,20 +736,20 @@ func addTelemetryMetadata(cluster *cluster.Cluster,
 	// Add service related metadata. This will be consumed by telemetry v2 filter for metric labels.
 	if direction == model.TrafficDirectionInbound {
 		// For inbound cluster, add all services on the cluster port
-		have := make(map[host.Name]bool)
+		have := sets.New[host.Name]()
 		for _, svc := range inboundServices {
 			if svc.Port.Port != port.Port {
 				// If the service port is different from the port of the cluster that is being built,
 				// skip adding telemetry metadata for the service to the cluster.
 				continue
 			}
-			if _, ok := have[svc.Service.Hostname]; ok {
+			if have.Contains(svc.Service.Hostname) {
 				// Skip adding metadata for instance with the same host name.
 				// This could happen when a service has multiple IPs.
 				continue
 			}
 			svcMetaList.Values = append(svcMetaList.Values, buildServiceMetadata(svc.Service))
-			have[svc.Service.Hostname] = true
+			have.Insert(svc.Service.Hostname)
 		}
 	} else if direction == model.TrafficDirectionOutbound {
 		// For outbound cluster, add telemetry metadata based on the service that the cluster is built for.

@@ -44,7 +44,10 @@ import (
 
 var supportedFilters = []*hcm.HttpFilter{
 	xdsfilters.Fault,
-	xdsfilters.Router,
+	xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       false,
+		SuppressDebugHeaders: false, // No need to set this to true, gRPC doesn't respect it anyways
+	}),
 }
 
 const (
@@ -72,7 +75,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		return nil
 	}
 	var out model.Resources
-	mtlsPolicy := factory.NewMtlsPolicy(push, node.Metadata.Namespace, node.Labels)
+	mtlsPolicy := factory.NewMtlsPolicy(push, node.Metadata.Namespace, node.Labels, node.IsWaypointProxy())
 	serviceInstancesByPort := map[uint32]model.ServiceTarget{}
 	for _, si := range node.ServiceTargets {
 		serviceInstancesByPort[si.Port.TargetPort] = si
@@ -174,7 +177,11 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	fc := []*hcm.HttpFilter{}
 	// See security/authz/builder and grpc internal/xds/rbac
 	// grpc supports ALLOW and DENY actions (fail if it is not one of them), so we can't use the normal generator
-	policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Labels)
+	selectionOpts := model.WorkloadSelectionOpts{
+		Namespace:      node.ConfigNamespace,
+		WorkloadLabels: node.Labels,
+	}
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	if len(policies.Deny)+len(policies.Allow) > 0 {
 		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)
 		if rules != nil && len(rules.Policies) > 0 {
@@ -201,7 +208,10 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	}
 
 	// Must be last
-	fc = append(fc, xdsfilters.Router)
+	fc = append(fc, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       false,
+		SuppressDebugHeaders: false, // No need to set this to true, gRPC doesn't respect it anyways
+	}))
 
 	out := &listener.FilterChain{
 		Name:             "inbound-" + nameSuffix,

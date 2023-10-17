@@ -27,7 +27,6 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	any "google.golang.org/protobuf/types/known/anypb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -50,6 +49,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/wellknown"
 )
 
 func (lb *ListenerBuilder) serviceForHostname(name host.Name) *model.Service {
@@ -73,6 +73,7 @@ func (lb *ListenerBuilder) buildWaypointInbound() []*listener.Listener {
 }
 
 func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) []*listener.Filter {
+	ph := GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	h := &hcm.HttpConnectionManager{
 		StatPrefix: ConnectTerminate,
 		RouteSpecifier: &hcm.HttpConnectionManager_RouteConfig{
@@ -85,15 +86,17 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 				}},
 			},
 		},
-		// Append and forward client cert to backend.
-		ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+		// Append and forward client cert to backend, if configured
+		ForwardClientCertDetails: ph.ForwardedClientCert,
 		SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 			Subject: proto.BoolTrue,
 			Uri:     true,
 			Dns:     true,
 		},
-		ServerName:       EnvoyWaypoint,
-		UseRemoteAddress: proto.BoolFalse,
+		ServerName:                 ph.ServerName,
+		ServerHeaderTransformation: ph.ServerHeaderTransformation,
+		GenerateRequestId:          ph.GenerateRequestID,
+		UseRemoteAddress:           proto.BoolFalse,
 	}
 
 	// Protocol settings
@@ -112,7 +115,10 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 	h.HttpFilters = []*hcm.HttpFilter{
 		xdsfilters.WaypointDownstreamMetadataFilter,
 		xdsfilters.ConnectAuthorityFilter,
-		xdsfilters.Router,
+		xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+			StartChildSpan:       false,
+			SuppressDebugHeaders: ph.SuppressDebugHeaders,
+		}),
 	}
 	return []*listener.Filter{
 		xdsfilters.IstioNetworkAuthenticationFilterShared,
@@ -157,9 +163,6 @@ func (lb *ListenerBuilder) buildWaypointInboundConnectTerminate() *listener.List
 			}},
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
 		}},
-		TypedPerFilterConfig: map[string]*any.Any{
-			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabled,
-		},
 	}}
 	return lb.buildConnectTerminateListener(routes)
 }
@@ -281,7 +284,7 @@ func (lb *ListenerBuilder) buildWaypointInternal(wls []*model.WorkloadInfo, svcs
 		Name:              MainInternalName,
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
-			xdsfilters.SetDstAddress,
+			xdsfilters.OriginalDestination,
 			// TODO: This may affect the data path due to the server-first protocols triggering a time-out. Need exception filter.
 			xdsfilters.HTTPInspector,
 		},
@@ -315,7 +318,7 @@ func buildConnectOriginateListener() *listener.Listener {
 		UseOriginalDst:    wrappers.Bool(false),
 		ListenerSpecifier: &listener.Listener_InternalListener{InternalListener: &listener.Listener_InternalListenerConfig{}},
 		ListenerFilters: []*listener.ListenerFilter{
-			xdsfilters.SetDstAddress,
+			xdsfilters.OriginalDestination,
 		},
 		FilterChains: []*listener.FilterChain{{
 			Filters: []*listener.Filter{{
@@ -343,16 +346,16 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, po
 	cls := istionetworking.ListenerClassSidecarInbound
 	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
 		Class: cls,
-	})
+	}, model.WasmPluginTypeHTTP)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
 	pre = append(pre, lb.authzCustomBuilder.BuildHTTP(cls)...)
-	pre = extension.PopAppend(pre, wasm, extensions.PluginPhase_AUTHN)
+	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHN)
 	pre = append(pre, lb.authnBuilder.BuildHTTP(cls)...)
-	pre = extension.PopAppend(pre, wasm, extensions.PluginPhase_AUTHZ)
+	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHZ)
 	pre = append(pre, lb.authzBuilder.BuildHTTP(cls)...)
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-	post = extension.PopAppend(post, wasm, extensions.PluginPhase_STATS)
-	post = extension.PopAppend(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_STATS)
+	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	post = append(post, xdsfilters.WaypointUpstreamMetadataFilter)
 	post = append(post, lb.push.Telemetry.HTTPFilters(lb.node, cls)...)
 	return
@@ -361,18 +364,22 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, po
 // buildWaypointInboundHTTPFilters builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildWaypointInboundHTTPFilters(svc *model.Service, cc inboundChainConfig, pre, post []*hcm.HttpFilter) []*listener.Filter {
+	ph := GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	var filters []*listener.Filter
 	httpOpts := &httpListenerOpts{
 		routeConfig:      buildWaypointInboundHTTPRouteConfig(lb, svc, cc),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
-			ServerName: EnvoyServerName,
+			ServerName:                 ph.ServerName,
+			ServerHeaderTransformation: ph.ServerHeaderTransformation,
+			GenerateRequestId:          ph.GenerateRequestID,
 		},
-		protocol:   cc.port.Protocol,
-		class:      istionetworking.ListenerClassSidecarInbound,
-		statPrefix: cc.StatPrefix(),
-		isWaypoint: true,
+		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+		protocol:                  cc.port.Protocol,
+		class:                     istionetworking.ListenerClassSidecarInbound,
+		statPrefix:                cc.StatPrefix(),
+		isWaypoint:                true,
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {
@@ -518,9 +525,14 @@ func (lb *ListenerBuilder) translateRoute(
 	out.Decorator = &route.Decorator{
 		Operation: istio_route.GetRouteOperation(out, virtualService.Name, listenPort),
 	}
-	if in.Fault != nil {
+	if in.Fault != nil || in.CorsPolicy != nil {
 		out.TypedPerFilterConfig = make(map[string]*any.Any)
+	}
+	if in.Fault != nil {
 		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(istio_route.TranslateFault(in.Fault))
+	}
+	if in.CorsPolicy != nil {
+		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(istio_route.TranslateCORSPolicy(in.CorsPolicy))
 	}
 
 	return out
@@ -533,7 +545,6 @@ func (lb *ListenerBuilder) routeDestination(out *route.Route, in *networking.HTT
 		policy = lb.push.Mesh.GetDefaultHttpRetryPolicy()
 	}
 	action := &route.RouteAction{
-		Cors:        istio_route.TranslateCORSPolicy(in.CorsPolicy),
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 

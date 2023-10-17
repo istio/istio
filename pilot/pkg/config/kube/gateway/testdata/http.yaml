@@ -159,6 +159,20 @@ spec:
   - matches:
     - path:
         type: PathPrefix
+        value: /prefix-to-be-removed
+    name: prefix-to-be-removed
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: ""
+    backendRefs:
+    - name: httpbin
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
         value: /full-original
     name: full-path-rewrite
     filters:
@@ -215,3 +229,46 @@ spec:
     backendRefs:
     - name: httpbin-bad
       port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-timeout-request
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["timeout.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /get
+    backendRefs:
+    - name: httpbin
+      port: 80
+    timeouts:
+      request: 1ms
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-timeout-backend-request
+  namespace: default
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+  hostnames: ["timeout-backend.domain.example"]
+  rules:
+  - matches:
+    - path:
+        type: PathPrefix
+        value: /get
+    backendRefs:
+    - name: httpbin
+      port: 80
+    timeouts:
+      request: 2ms
+      backendRequest: 1ms

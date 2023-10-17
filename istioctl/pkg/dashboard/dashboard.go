@@ -25,10 +25,12 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
@@ -247,22 +249,19 @@ func zipkinDashCmd(ctx cli.Context) *cobra.Command {
 	return cmd
 }
 
-// port-forward to sidecar Envoy admin port; open browser
-func envoyDashCmd(ctx cli.Context) *cobra.Command {
+type CreateProxyDashCmdConfig struct {
+	CommandUsage   string
+	CommandShort   string
+	CommandLong    string
+	CommandExample string
+}
+
+func createDashCmd(ctx cli.Context, config CreateProxyDashCmdConfig) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "envoy [<type>/]<name>[.<namespace>]",
-		Short: "Open Envoy admin web UI",
-		Long:  `Open the Envoy admin dashboard for a sidecar`,
-		Example: `  # Open Envoy dashboard for the productpage-123-456.default pod
-  istioctl dashboard envoy productpage-123-456.default
-
-  # Open Envoy dashboard for one pod under a deployment
-  istioctl dashboard envoy deployment/productpage-v1
-
-  # with short syntax
-  istioctl dash envoy productpage-123-456.default
-  istioctl d envoy productpage-123-456.default
-`,
+		Use:     config.CommandUsage,
+		Short:   config.CommandShort,
+		Long:    config.CommandLong,
+		Example: config.CommandExample,
 		RunE: func(c *cobra.Command, args []string) error {
 			kubeClient, err := ctx.CLIClient()
 			if err != nil {
@@ -313,6 +312,49 @@ func envoyDashCmd(ctx cli.Context) *cobra.Command {
 	}
 
 	return cmd
+}
+
+// port-forward to sidecar Envoy admin port; open browser
+func envoyDashCmd(ctx cli.Context) *cobra.Command {
+	return createDashCmd(ctx, CreateProxyDashCmdConfig{
+		CommandUsage: "envoy [<type>/]<name>[.<namespace>]",
+		CommandShort: "Open Envoy admin web UI",
+		CommandLong:  `Open the Envoy admin dashboard for a sidecar`,
+		CommandExample: `  # Open Envoy dashboard for the productpage-123-456.default pod
+  istioctl dashboard envoy productpage-123-456.default
+
+  # Open Envoy dashboard for one pod under a deployment
+  istioctl dashboard envoy deployment/productpage-v1
+
+  # with short syntax
+  istioctl dash envoy productpage-123-456.default
+  istioctl d envoy productpage-123-456.default
+`,
+	})
+}
+
+func proxyDashCmd(ctx cli.Context) *cobra.Command {
+	return createDashCmd(ctx, CreateProxyDashCmdConfig{
+		CommandUsage: "proxy [<type>/]<name>[.<namespace>]",
+		CommandShort: "Open admin web UI for a proxy",
+		CommandLong:  `Open the admin dashboard for a proxy, like envoy and ztunnel pods`,
+		CommandExample: `  # Open envoy admin dashboard for the productpage-123-456.default pod
+  istioctl dashboard proxy productpage-123-456.default
+
+  # Open envoy admin dashboard for one pod under a deployment
+  istioctl dashboard proxy deployment/productpage-v1
+
+  # Open dashboard for the ztunnel-bwh89.istio-system pod
+  istioctl dashboard proxy ztunnel-bwh89.istio-system
+
+  # Open dashboard for a waypoint pod
+  istioctl dashboard proxy namespace-istio-waypoint-869b56b69c-7khz4
+
+  # with short syntax
+  istioctl dash proxy ztunnel-bwh89.istio-system
+  istioctl d proxy ztunnel-bwh89.istio-system
+`,
+	})
 }
 
 // port-forward to sidecar ControlZ port; open browser
@@ -552,11 +594,20 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	dashboardCmd.AddCommand(skywalking)
 
 	envoy := envoyDashCmd(cliContext)
+	envoy.Long += fmt.Sprintf("\n\n%s\n", "Note: envoy command is deprecated and can be replaced with proxy command, "+
+		"e.g. `istioctl dashboard proxy --help`")
 	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	envoy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", cliContext.NamespaceOrDefault(""),
+	envoy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", metav1.NamespaceDefault,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 	envoy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", util.DefaultProxyAdminPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(envoy)
+
+	proxy := proxyDashCmd(cliContext)
+	proxy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
+	proxy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", constants.IstioSystemNamespace,
+		"Namespace where the addon is running, if not specified, istio-system would be used")
+	proxy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", util.DefaultProxyAdminPort, "The component dashboard UI port.")
+	dashboardCmd.AddCommand(proxy)
 
 	controlz := controlZDashCmd(cliContext)
 	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")

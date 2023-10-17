@@ -23,12 +23,10 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
 	extauthzhttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/ext_authz/v3"
 	extauthztcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/ext_authz/v3"
 	envoy_type_matcher_v3 "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	envoytypev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -37,32 +35,22 @@ import (
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
-	extAuthzMatchPrefix = "istio-ext-authz"
+	extAuthzMatchPrefix   = "istio-ext-authz"
+	badCustomActionSuffix = `-deny-due-to-bad-CUSTOM-action`
 )
 
-var (
-	rbacPolicyMatchAll = &rbacpb.Policy{
-		Permissions: []*rbacpb.Permission{{Rule: &rbacpb.Permission_Any{Any: true}}},
-		Principals:  []*rbacpb.Principal{{Identifier: &rbacpb.Principal_Any{Any: true}}},
+var supportedStatus = func() []int {
+	var supported []int
+	for code := range envoytypev3.StatusCode_name {
+		supported = append(supported, int(code))
 	}
-	rbacDefaultDenyAll = &rbacpb.RBAC{
-		Action: rbacpb.RBAC_DENY,
-		Policies: map[string]*rbacpb.Policy{
-			"default-deny-all-due-to-bad-CUSTOM-action": rbacPolicyMatchAll,
-		},
-	}
-	supportedStatus = func() []int {
-		var supported []int
-		for code := range envoytypev3.StatusCode_name {
-			supported = append(supported, int(code))
-		}
-		sort.Ints(supported)
-		return supported
-	}()
-)
+	sort.Ints(supported)
+	return supported
+}()
 
 type builtExtAuthz struct {
 	http *extauthzhttp.ExtAuthz

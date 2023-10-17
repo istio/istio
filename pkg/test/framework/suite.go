@@ -552,6 +552,11 @@ func (s *suiteImpl) runSetupFns(ctx SuiteContext) (err error) {
 	// Run all the require functions first, then the setup functions.
 	setupFns := append(append([]resource.SetupFn{}, s.requireFns...), s.setupFns...)
 
+	// don't waste time setting up if already skipped
+	if s.isSkipped(ctx) {
+		return nil
+	}
+
 	start := time.Now()
 	for _, fn := range setupFns {
 		err := s.runSetupFn(fn, ctx)
@@ -561,6 +566,7 @@ func (s *suiteImpl) runSetupFns(ctx SuiteContext) (err error) {
 			return err
 		}
 
+		// setup added a skip
 		if s.isSkipped(ctx) {
 			return nil
 		}

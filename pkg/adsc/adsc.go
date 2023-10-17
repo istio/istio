@@ -36,7 +36,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -60,6 +59,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -210,9 +210,6 @@ type ADSC struct {
 	// restarts.
 	LocalCacheDir string
 
-	// RecvWg is for letting goroutines know when the goroutine handling the ADS stream finishes.
-	RecvWg sync.WaitGroup
-
 	cfg *Config
 
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
@@ -274,7 +271,6 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 		VersionInfo: map[string]string{},
 		url:         discoveryAddr,
 		Received:    map[string]*discovery.DiscoveryResponse{},
-		RecvWg:      sync.WaitGroup{},
 		cfg:         opts,
 		sync:        map[string]time.Time{},
 		errChan:     make(chan error, 10),
@@ -441,10 +437,6 @@ func (a *ADSC) Run() error {
 		}
 		_ = a.Send(r)
 	}
-	// by default, we assume 1 goroutine decrements the waitgroup (go a.handleRecv()).
-	// for synchronizing when the goroutine finishes reading from the gRPC stream.
-
-	a.RecvWg.Add(1)
 
 	go a.handleRecv()
 	return nil
@@ -498,7 +490,6 @@ func (a *ADSC) handleRecv() {
 		var err error
 		msg, err := a.stream.Recv()
 		if err != nil {
-			a.RecvWg.Done()
 			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
 			select {
 			case a.errChan <- err:

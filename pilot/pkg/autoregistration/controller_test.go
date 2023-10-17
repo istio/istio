@@ -18,6 +18,8 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -48,6 +50,43 @@ import (
 
 func init() {
 	features.WorkloadEntryCleanupGracePeriod = 50 * time.Millisecond
+}
+
+var _ connection = &fakeConn{}
+
+type fakeConn struct {
+	sync.RWMutex
+	proxy    *model.Proxy
+	connTime time.Time
+	stopped  bool
+}
+
+func makeConn(proxy *model.Proxy, connTime time.Time) *fakeConn {
+	return &fakeConn{proxy: proxy, connTime: connTime}
+}
+
+func (f *fakeConn) ID() string {
+	return fmt.Sprintf("%s-%v", f.proxy.IPAddresses[0], f.connTime)
+}
+
+func (f *fakeConn) Proxy() *model.Proxy {
+	return f.proxy
+}
+
+func (f *fakeConn) ConnectedAt() time.Time {
+	return f.connTime
+}
+
+func (f *fakeConn) Stop() {
+	f.Lock()
+	defer f.Unlock()
+	f.stopped = true
+}
+
+func (f *fakeConn) Stopped() bool {
+	f.RLock()
+	defer f.RUnlock()
+	return f.stopped
 }
 
 var (
@@ -140,7 +179,7 @@ func TestNonAutoregisteredWorkloads(t *testing.T) {
 	for name, tc := range cases {
 		tc := tc
 		t.Run(name, func(t *testing.T) {
-			c.RegisterWorkload(tc, time.Now())
+			c.OnConnect(makeConn(tc, time.Now()))
 			items := store.List(gvk.WorkloadEntry, model.NamespaceAll)
 			if len(items) != 0 {
 				t.Fatalf("expected 0 WorkloadEntry")
@@ -164,74 +203,79 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 	defer close(stop2)
 	go c1.Run(stop1)
 	go c2.Run(stop2)
+	go store.Run(stop2)
 
 	n := fakeNode("reg1", "zone1", "subzone1")
 
+	var p1conn1, p1conn2 *fakeConn
 	p := fakeProxy("1.2.3.4", wgA, "nw1", "sa-a")
 	p.Locality = n.Locality
 
+	var p2conn1 *fakeConn
 	p2 := fakeProxy("1.2.3.4", wgA, "nw2", "sa-a")
 	p2.Locality = n.Locality
 
+	var p3conn1 *fakeConn
 	p3 := fakeProxy("1.2.3.5", wgA, "nw1", "sa-a")
 	p3.Locality = n.Locality
 
-	// allows associating a Register call with Unregister
-	var origConnTime time.Time
-
 	t.Run("initial registration", func(t *testing.T) {
 		// simply make sure the entry exists after connecting
-		c1.RegisterWorkload(p, time.Now())
+		p1conn1 = makeConn(p, time.Now())
+		c1.OnConnect(p1conn1)
 		checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 	})
 	t.Run("multinetwork same ip", func(t *testing.T) {
 		// make sure we don't overrwrite a similar entry for a different network
-		c2.RegisterWorkload(p2, time.Now())
+		p2conn1 = makeConn(p2, time.Now())
+		c2.OnConnect(p2conn1)
 		checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 		checkEntryOrFail(t, store, wgA, p2, n, c2.instanceID)
+		c2.OnDisconnect(p2conn1) // cleanup for future tests
 	})
 	t.Run("fast reconnect", func(t *testing.T) {
 		t.Run("same instance", func(t *testing.T) {
 			// disconnect, make sure entry is still there with disconnect meta
-			c1.QueueUnregisterWorkload(p, time.Now())
+			c1.OnDisconnect(p1conn1)
 			checkEntryOrFailAfter(t, store, wgA, p, n, "", features.WorkloadEntryCleanupGracePeriod/2)
 			// reconnect, ensure entry is there with the same instance id
-			origConnTime = time.Now()
-			c1.RegisterWorkload(p, origConnTime)
+			p1conn1 = makeConn(p, time.Now())
+			c1.OnConnect(p1conn1)
 			checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 		})
 		t.Run("same instance: connect before disconnect ", func(t *testing.T) {
 			// reconnect, ensure entry is there with the same instance id
-			c1.RegisterWorkload(p, origConnTime.Add(10*time.Millisecond))
+			p1conn2 = makeConn(p, p1conn1.ConnectedAt().Add(10*time.Millisecond))
+			c1.OnConnect(p1conn2)
 			// disconnect (associated with original connect, not the reconnect)
 			// make sure entry is still there with disconnect meta
-			c1.QueueUnregisterWorkload(p, origConnTime)
+			c1.OnDisconnect(p1conn1)
 			checkEntryOrFailAfter(t, store, wgA, p, n, c1.instanceID, features.WorkloadEntryCleanupGracePeriod/2)
 		})
 		t.Run("different instance", func(t *testing.T) {
 			// disconnect, make sure entry is still there with disconnect metadata
-			c1.QueueUnregisterWorkload(p, time.Now())
+			c1.OnDisconnect(p1conn2)
 			checkEntryOrFailAfter(t, store, wgA, p, n, "", features.WorkloadEntryCleanupGracePeriod/2)
 			// reconnect, ensure entry is there with the new instance id
-			origConnTime = time.Now()
-			c2.RegisterWorkload(p, origConnTime)
+			p1conn1 = makeConn(p, time.Now())
+			c2.OnConnect(p1conn1)
 			checkEntryOrFail(t, store, wgA, p, n, c2.instanceID)
 		})
 	})
 	t.Run("slow reconnect", func(t *testing.T) {
 		// disconnect, wait and make sure entry is gone
-		c2.QueueUnregisterWorkload(p, origConnTime)
+		c2.OnDisconnect(p1conn1)
 		retry.UntilSuccessOrFail(t, func() error {
 			return checkNoEntry(store, wgA, p)
 		})
 		// reconnect
-		origConnTime = time.Now()
-		c1.RegisterWorkload(p, origConnTime)
+		p1conn1 = makeConn(p, time.Now())
+		c1.OnConnect(p1conn1)
 		checkEntryOrFail(t, store, wgA, p, n, c1.instanceID)
 	})
 	t.Run("garbage collected if pilot stops after disconnect", func(t *testing.T) {
 		// disconnect, kill the cleanup queue from the first controller
-		c1.QueueUnregisterWorkload(p, origConnTime)
+		c1.OnDisconnect(p1conn1)
 		// stop processing the delayed close queue in c1, forces using periodic cleanup
 		close(stop1)
 		stopped1 = true
@@ -243,27 +287,49 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 
 	t.Run("garbage collected if pilot and workload stops simultaneously before pilot can do anything", func(t *testing.T) {
 		// simulate p3 has been registered long before
-		c2.RegisterWorkload(p3, time.Now().Add(-2*maxConnAge))
+		p3conn1 = makeConn(p3, time.Now().Add(-2*maxConnAge))
+		c2.OnConnect(p3conn1)
 
-		// keep silent to simulate the scenario
+		// keep silent to simulate the scenario (don't OnDisconnect to simulate pilot being down)
 
 		// unfortunately, this retry at worst could be twice as long as the sweep interval
 		retry.UntilSuccessOrFail(t, func() error {
 			return checkNoEntry(store, wgA, p3)
 		}, retry.Timeout(time.Until(time.Now().Add(21*features.WorkloadEntryCleanupGracePeriod))))
+
+		c2.OnDisconnect(p3conn1) // cleanup the state for future tests
 	})
+	t.Run("workload group recreate", func(t *testing.T) {
+		p1conn1 = makeConn(p, time.Now())
+		c2.OnConnect(p1conn1)
+		checkEntryOrFail(t, store, wgA, p, n, c2.instanceID)
+
+		name := strings.Join([]string{wgA.Name, p.IPAddresses[0], string(p.Metadata.Network)}, "-")
+		if err := store.Delete(gvk.WorkloadGroup, wgA.Name, wgA.Namespace, nil); err != nil {
+			t.Fatal(err)
+		}
+		if err := store.Delete(gvk.WorkloadEntry, name, wgA.Namespace, nil); err != nil {
+			t.Fatal(err)
+		}
+		createOrFail(t, store, wgA)
+
+		retry.UntilSuccessOrFail(t, func() error {
+			return checkEntry(store, wgA, p, n, c2.instanceID)
+		})
+	})
+	c2.OnDisconnect(p1conn1) // cleanup the state for future tests
 	t.Run("unverified client", func(t *testing.T) {
 		p := fakeProxy("1.2.3.6", wgA, "nw1", "")
 
 		// Should fail
-		assert.Error(t, c1.RegisterWorkload(p, time.Now()))
+		assert.Error(t, c1.OnConnect(makeConn(p, time.Now())))
 		checkNoEntryOrFail(t, store, wgA, p)
 	})
 	t.Run("wrong SA client", func(t *testing.T) {
 		p := fakeProxy("1.2.3.6", wgA, "nw1", "wrong")
 
 		// Should fail
-		assert.Error(t, c1.RegisterWorkload(p, time.Now()))
+		assert.Error(t, c1.OnConnect(makeConn(p, time.Now())))
 		checkNoEntryOrFail(t, store, wgA, p)
 	})
 	t.Run("wrong NS client", func(t *testing.T) {
@@ -271,7 +337,7 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		p.Metadata.Namespace = "wrong"
 
 		// Should fail
-		assert.Error(t, c1.RegisterWorkload(p, time.Now()))
+		assert.Error(t, c1.OnConnect(makeConn(p, time.Now())))
 		checkNoEntryOrFail(t, store, wgA, p)
 	})
 	t.Run("no SA WG", func(t *testing.T) {
@@ -279,8 +345,8 @@ func TestAutoregistrationLifecycle(t *testing.T) {
 		n := fakeNode("reg0", "zone0", "subzone0")
 		p.Locality = n.Locality
 
-		// Should fail
-		assert.NoError(t, c1.RegisterWorkload(p, time.Now()))
+		// Should not fail
+		assert.NoError(t, c1.OnConnect(makeConn(p, time.Now())))
 		checkEntryOrFail(t, store, wgWithoutSA, p, n, c1.instanceID)
 	})
 	// TODO test garbage collection if pilot stops before disconnect meta is set (relies on heartbeat)
@@ -292,7 +358,8 @@ func TestUpdateHealthCondition(t *testing.T) {
 	go ig.Run(stop)
 	go ig2.Run(stop)
 	p := fakeProxy("1.2.3.4", wgA, "litNw", "sa-a")
-	ig.RegisterWorkload(p, time.Now())
+	p.XdsNode = fakeNode("reg1", "zone1", "subzone1")
+	ig.OnConnect(makeConn(p, time.Now()))
 	t.Run("auto registered healthy health", func(t *testing.T) {
 		ig.QueueWorkloadEntryHealth(p, HealthEvent{
 			Healthy: true,
@@ -392,7 +459,7 @@ func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_WorkloadEntryNotFo
 	// change proxy metadata to make it unsuitable for health checks
 	proxy.Metadata.WorkloadEntry = "non-exisiting-workload-entry"
 
-	err := c.RegisterWorkload(proxy, time.Now())
+	err := c.OnConnect(makeConn(proxy, time.Now()))
 	assert.Error(t, err)
 }
 
@@ -436,7 +503,7 @@ func TestNonAutoregisteredWorkloads_UnsuitableForHealthChecks_ShouldNotBeTreated
 
 			proxy := tc.proxy(we)
 
-			err := c.RegisterWorkload(proxy, time.Now())
+			err := c.OnConnect(makeConn(proxy, time.Now()))
 			assert.NoError(t, err)
 
 			wle := store.Get(gvk.WorkloadEntry, we.Name, we.Namespace)
@@ -469,7 +536,7 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldBeTreatedAsCon
 
 			now := time.Now()
 
-			err := c.RegisterWorkload(proxy, now)
+			err := c.OnConnect(makeConn(proxy, now))
 			assert.NoError(t, err)
 
 			wle := store.Get(gvk.WorkloadEntry, we.Name, we.Namespace)
@@ -503,14 +570,14 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 	t.Run("initial connect", func(t *testing.T) {
 		// connect
 		origConnTime = time.Now()
-		c1.RegisterWorkload(p, origConnTime)
+		c1.OnConnect(makeConn(p, origConnTime))
 		// ensure the entry is connected
 		checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
 	})
 	t.Run("reconnect", func(t *testing.T) {
 		t.Run("same instance: disconnect then connect", func(t *testing.T) {
 			// disconnect
-			c1.QueueUnregisterWorkload(p, origConnTime)
+			c1.OnDisconnect(makeConn(p, origConnTime))
 			// wait until WE get updated asynchronously
 			retry.UntilSuccessOrFail(t, func() error {
 				return checkEntryDisconnected(store, weB)
@@ -519,7 +586,7 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, "")
 			// reconnect
 			origConnTime = time.Now()
-			c1.RegisterWorkload(p, origConnTime)
+			c1.OnConnect(makeConn(p, origConnTime))
 			// ensure the entry is connected
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
 		})
@@ -530,17 +597,17 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 				origConnTime = nextConnTime
 			}()
 			// reconnect
-			c1.RegisterWorkload(p, nextConnTime)
+			c1.OnConnect(makeConn(p, nextConnTime))
 			// ensure the entry is connected
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
 			// disconnect (associated with original connect, not the reconnect)
-			c1.QueueUnregisterWorkload(p, origConnTime)
+			c1.OnDisconnect(makeConn(p, origConnTime))
 			// ensure the entry is connected
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c1.instanceID)
 		})
 		t.Run("different instance: disconnect then connect", func(t *testing.T) {
 			// disconnect
-			c1.QueueUnregisterWorkload(p, origConnTime)
+			c1.OnDisconnect(makeConn(p, origConnTime))
 			// wait until WE get updated asynchronously
 			retry.UntilSuccessOrFail(t, func() error {
 				return checkEntryDisconnected(store, weB)
@@ -549,7 +616,7 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, "")
 			// reconnect
 			origConnTime = time.Now()
-			c2.RegisterWorkload(p, origConnTime)
+			c2.OnConnect(makeConn(p, origConnTime))
 			// ensure the entry is connected to the new instance
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c2.instanceID)
 		})
@@ -560,11 +627,11 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 				origConnTime = nextConnTime
 			}()
 			// reconnect to the new instance
-			c2.RegisterWorkload(p, nextConnTime)
+			c2.OnConnect(makeConn(p, nextConnTime))
 			// ensure the entry is connected to the new instance
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c2.instanceID)
 			// disconnect (associated with original connect, not the reconnect)
-			c2.QueueUnregisterWorkload(p, origConnTime)
+			c2.OnDisconnect(makeConn(p, origConnTime))
 			// ensure the entry is connected to the new instance
 			checkNonAutoRegisteredEntryOrFail(t, store, weB, c2.instanceID)
 		})
@@ -577,7 +644,7 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldSupportLifecyc
 		// ensure health condition has been updated
 		checkHealthOrFail(t, store, p, true)
 		// disconnect
-		c2.QueueUnregisterWorkload(p, origConnTime)
+		c2.OnDisconnect(makeConn(p, origConnTime))
 		// wait until WE get updated asynchronously
 		retry.UntilSuccessOrFail(t, func() error {
 			return checkEntryDisconnected(store, weB)
@@ -602,7 +669,7 @@ func TestNonAutoregisteredWorkloads_SuitableForHealthChecks_ShouldUpdateHealthCo
 
 	p := fakeProxySuitableForHealthChecks(weB)
 
-	c1.RegisterWorkload(p, time.Now())
+	c1.OnConnect(makeConn(p, time.Now()))
 
 	t.Run("healthy", func(t *testing.T) {
 		// report workload is healthy
@@ -769,7 +836,7 @@ func checkNoEntryOrFail(
 }
 
 func checkNoEntryHealth(store model.ConfigStoreController, proxy *model.Proxy) error {
-	name := proxy.WorkloadEntryName
+	name, _ := proxy.WorkloadEntry()
 	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
 	if cfg == nil {
 		return fmt.Errorf("expected WorkloadEntry %s/%s to exist", proxy.Metadata.Namespace, name)
@@ -786,7 +853,7 @@ func checkNoEntryHealth(store model.ConfigStoreController, proxy *model.Proxy) e
 }
 
 func checkEntryHealth(store model.ConfigStoreController, proxy *model.Proxy, healthy bool) (err error) {
-	name := proxy.WorkloadEntryName
+	name, _ := proxy.WorkloadEntry()
 	cfg := store.Get(gvk.WorkloadEntry, name, proxy.Metadata.Namespace)
 	if cfg == nil || cfg.Status == nil {
 		err = multierror.Append(fmt.Errorf("expected workloadEntry %s/%s to exist", name, proxy.Metadata.Namespace))

@@ -102,6 +102,7 @@ func (s *Server) updateNodeProxyEBPF(pod *corev1.Pod, captureDNS bool) error {
 	veth, err := getVethWithDestinationOf(ip)
 	if err != nil {
 		log.Warnf("failed to get device: %v", err)
+		return err
 	}
 	peerIndex, err := getPeerIndex(veth)
 	if err != nil {
@@ -432,9 +433,22 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			"--nfmask", constants.ProxyMask,
 			"--ctmask", constants.ProxyMask,
 		),
+
+		// Mark healthcheck probes from the node IP as skippable, so we don't capture them.
+		//
+		// We consider a packet as "from the host node" if it comes from a local socket in the host netns, and has
+		// the SRC host IP we derived elsewhere.
+		//
+		// Notably, this excludes `kubelet` node traffic from capture, but *not* `kube-proxy` node traffic.
+		// -t mangle -A ztunnel-OUTPUT -m owner --socket-exists -p tcp -m set --match-set ambient-pods dst -j MARK --set-mark 0x220
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelOutput,
+			"-m", "owner",
+			"--socket-exists",
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", Ipset.Name, "dst",
 			"--source", HostIP,
 			"-j", "MARK",
 			"--set-mark", constants.ConnSkipMask,

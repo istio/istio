@@ -38,7 +38,6 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/workloadinstances"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -244,22 +243,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
 
-	if features.EnableAmbientControllers {
-		registerHandlers[*v1.Namespace](
-			c,
-			c.namespaces,
-			"Namespaces",
-			func(old *v1.Namespace, cur *v1.Namespace, event model.Event) error {
-				c.handleSelectedNamespace(cur.Name)
-				return nil
-			},
-			func(old, cur *v1.Namespace) bool {
-				oldLabel := old.Labels[constants.DataplaneMode]
-				newLabel := cur.Labels[constants.DataplaneMode]
-				return oldLabel == newLabel
-			},
-		)
-	}
 	if c.opts.SystemNamespace != "" {
 		registerHandlers[*v1.Namespace](
 			c,
@@ -387,7 +370,7 @@ func (c *Controller) Cleanup() error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) error {
+func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) error {
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.
@@ -446,13 +429,11 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	if curr != nil && curr.Spec.Type == v1.ServiceTypeExternalName {
 		updateEDSCache = true
 	}
-	var prevConv *model.Service
-	// instance conversion is only required when service is added/updated.
+
 	c.Lock()
-	prevConv = c.servicesMap[currConv.Hostname]
+	prevConv := c.servicesMap[currConv.Hostname]
 	c.servicesMap[currConv.Hostname] = currConv
 	c.Unlock()
-
 	// This full push needed to update ALL ends endpoints, even though we do a full push on service add/update
 	// as that full push is only triggered for the specific service.
 	if needsFullPush {
@@ -470,6 +451,11 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 		if len(endpoints) > 0 {
 			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(currConv.Hostname), ns, endpoints)
 		}
+	}
+
+	// filter out same service event
+	if event == model.EventUpdate && !serviceUpdateNeedsPush(prevConv, currConv) {
+		return
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
@@ -781,7 +767,7 @@ func (c *Controller) collectWorkloadInstanceEndpoints(svc *model.Service) []*mod
 	return endpoints
 }
 
-// GetProxyServiceTargets returns service instances co-located with a given proxy
+// GetProxyServiceTargets returns service targets co-located with a given proxy
 // TODO: this code does not return k8s service instances when the proxy's IP is a workload entry
 // To tackle this, we need a ip2instance map like what we have in service entry.
 func (c *Controller) GetProxyServiceTargets(proxy *model.Proxy) []model.ServiceTarget {
@@ -1147,4 +1133,14 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 		return []*model.Service{svc}
 	}
 	return nil
+}
+
+func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
+	if !features.EnableOptimizedServicePush {
+		return true
+	}
+	if prev == nil {
+		return true
+	}
+	return !prev.Equals(curr)
 }

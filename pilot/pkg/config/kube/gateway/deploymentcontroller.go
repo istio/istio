@@ -320,6 +320,12 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	}
 	log.Info("reconciling")
 
+	var ns *corev1.Namespace
+	if d.namespaces != nil {
+		ns = d.namespaces.Get(gw.Namespace, "")
+	}
+	proxyUID, proxyGID := inject.GetProxyIDs(ns)
+
 	defaultName := getDefaultName(gw.Name, &gw.Spec)
 
 	serviceType := gi.defaultServiceType
@@ -333,9 +339,12 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		ServiceAccount: model.GetOrDefault(gw.Annotations[gatewaySAOverride], defaultName),
 		Ports:          extractServicePorts(gw),
 		ClusterID:      d.clusterID.String(),
+
 		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
 		Revision:       d.revision,
 		ServiceType:    serviceType,
+		ProxyUID:       proxyUID,
+		ProxyGID:       proxyGID,
 	}
 
 	if overwriteControllerVersion {
@@ -427,7 +436,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
 
-	labelToMatch := map[string]string{"istio.io/gateway-name": mi.Name}
+	labelToMatch := map[string]string{constants.GatewayNameLabel: mi.Name}
 	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
@@ -530,6 +539,8 @@ type TemplateInput struct {
 	ClusterID      string
 	KubeVersion122 bool
 	Revision       string
+	ProxyUID       int64
+	ProxyGID       int64
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {

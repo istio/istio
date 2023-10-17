@@ -39,9 +39,6 @@ type Context interface {
 	IstioNamespace() string
 	// NamespaceOrDefault returns the namespace specified by the user, or the default namespace if none was specified
 	NamespaceOrDefault(namespace string) string
-	// ConfigureDefaultNamespace sets the default namespace to use for commands that don't specify a namespace.
-	// This should be called before NamespaceOrDefault is called.
-	ConfigureDefaultNamespace()
 }
 
 type instance struct {
@@ -191,9 +188,6 @@ func (f *fakeInstance) Namespace() string {
 
 func (f *fakeInstance) IstioNamespace() string {
 	return f.rootFlags.IstioNamespace()
-}
-
-func (f *fakeInstance) ConfigureDefaultNamespace() {
 }
 
 type NewFakeContextOption struct {

@@ -643,6 +643,161 @@ func TestApplyLocalitySetting(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("FailoverPriority with Failover", func(t *testing.T) {
+		tests := []struct {
+			name             string
+			failoverPriority []string
+			proxyLabels      map[string]string
+			expected         []*endpoint.LocalityLbEndpoints
+		}{
+			{
+				name:             "match all labels",
+				failoverPriority: []string{"topology.istio.io/network", "topology.istio.io/cluster"},
+				proxyLabels: map[string]string{
+					"topology.istio.io/network": "n2",
+					"topology.istio.io/cluster": "c2",
+				},
+				expected: []*endpoint.LocalityLbEndpoints{
+					{
+						Locality: &core.Locality{
+							Region:  "region1",
+							Zone:    "zone1",
+							SubZone: "subzone1",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("1.1.1.1"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 3, // does not match failoverPriority but match locality of the client.
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region1",
+							Zone:    "zone2",
+							SubZone: "subzone2",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("2.2.2.2"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 0, // highest priority because of label matching and same region.
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region2",
+							Zone:    "zone2",
+							SubZone: "subzone2",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("3.3.3.3"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 4, // does not match failoverPriority and locality but mentioned in locality failover settings for the client region.
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("4.4.4.4"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 2, // match the first label of failoverPriority but not the second
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region2",
+							Zone:    "zone2",
+							SubZone: "subzone2",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("5.5.5.5"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 1, // matching the same failoverPriority but different locality.
+					},
+					{
+						Locality: &core.Locality{
+							Region:  "region3",
+							Zone:    "zone3",
+							SubZone: "subzone3",
+						},
+						LbEndpoints: []*endpoint.LbEndpoint{
+							{
+								HostIdentifier: buildEndpoint("6.6.6.6"),
+								LoadBalancingWeight: &wrappers.UInt32Value{
+									Value: 1,
+								},
+							},
+						},
+						LoadBalancingWeight: &wrappers.UInt32Value{
+							Value: 1,
+						},
+						Priority: 5, // does not match any of the priority constructs so least priority.
+					},
+				},
+			},
+		}
+		wrappedEndpoints := buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover()
+		for _, tt := range tests {
+			t.Run(tt.name, func(t *testing.T) {
+				env := buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(tt.failoverPriority)
+				cluster := buildFakeCluster()
+				ApplyLocalityLBSetting(cluster.LoadAssignment, wrappedEndpoints, locality, tt.proxyLabels, env.Mesh().LocalityLbSetting, true)
+
+				if len(cluster.LoadAssignment.Endpoints) != len(tt.expected) {
+					t.Fatalf("expected endpoints %d but got %d", len(cluster.LoadAssignment.Endpoints), len(tt.expected))
+				}
+				for i := range cluster.LoadAssignment.Endpoints {
+					// TODO Below assertions are not robust to ordering changes in cluster.LoadAssignment.Endpoints[i]
+					if cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight.GetValue() != tt.expected[i].LoadBalancingWeight.GetValue() {
+						t.Errorf("Got unexpected lb weight %v expected %v", cluster.LoadAssignment.Endpoints[i].LoadBalancingWeight, tt.expected[i].LoadBalancingWeight)
+					}
+					if cluster.LoadAssignment.Endpoints[i].Priority != tt.expected[i].Priority {
+						t.Errorf("Got unexpected priority %v expected %v", cluster.LoadAssignment.Endpoints[i].Priority, tt.expected[i].Priority)
+					}
+				}
+			})
+		}
+	})
 }
 
 func TestGetLocalityLbSetting(t *testing.T) {
@@ -874,6 +1029,64 @@ func buildEnvForClustersWithFailoverPriority(failoverPriority []string) *model.E
 	return env
 }
 
+func buildEnvForClustersWithMixedFailoverPriorityAndLocalityFailover(failoverPriority []string) *model.Environment {
+	serviceDiscovery := memregistry.NewServiceDiscovery(&model.Service{
+		Hostname:       "test.example.org",
+		DefaultAddress: "1.1.1.1",
+		Ports: model.PortList{
+			&model.Port{
+				Name:     "default",
+				Port:     8080,
+				Protocol: protocol.HTTP,
+			},
+		},
+	})
+
+	meshConfig := &meshconfig.MeshConfig{
+		ConnectTimeout: &durationpb.Duration{
+			Seconds: 10,
+			Nanos:   1,
+		},
+		LocalityLbSetting: &networking.LocalityLoadBalancerSetting{
+			FailoverPriority: failoverPriority,
+			Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+				{
+					From: "region1",
+					To:   "region2",
+				},
+			},
+		},
+	}
+
+	configStore := memory.Make(collections.Pilot)
+
+	env := model.NewEnvironment()
+	env.ServiceDiscovery = serviceDiscovery
+	env.ConfigStore = configStore
+	env.Watcher = mesh.NewFixedWatcher(meshConfig)
+
+	pushContext := model.NewPushContext()
+	env.Init()
+	_ = pushContext.InitContext(env, nil, nil)
+	env.SetPushContext(pushContext)
+	pushContext.SetDestinationRulesForTesting([]config.Config{
+		{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.DestinationRule,
+				Name:             "acme",
+			},
+			Spec: &networking.DestinationRule{
+				Host: "test.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					OutlierDetection: &networking.OutlierDetection{},
+				},
+			},
+		},
+	})
+
+	return env
+}
+
 func buildFakeCluster() *cluster.Cluster {
 	return &cluster.Cluster{
 		Name: "outbound|8080||test.example.org",
@@ -1045,6 +1258,107 @@ func buildSmallClusterForFailOverPriority() *cluster.Cluster {
 	}
 }
 
+func buildSmallClusterForFailOverPriorityWithFailover() *cluster.Cluster {
+	return &cluster.Cluster{
+		Name: "outbound|8080||test.example.org",
+		LoadAssignment: &endpoint.ClusterLoadAssignment{
+			ClusterName: "outbound|8080||test.example.org",
+			Endpoints: []*endpoint.LocalityLbEndpoints{
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone1",
+						SubZone: "subzone1",
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: buildEndpoint("1.1.1.1"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+					},
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region1",
+						Zone:    "zone2",
+						SubZone: "subzone2",
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: buildEndpoint("2.2.2.2"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+					},
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region2",
+						Zone:    "zone2",
+						SubZone: "subzone2",
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: buildEndpoint("3.3.3.3"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+					},
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region3",
+						Zone:    "zone3",
+						SubZone: "subzone3",
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: buildEndpoint("4.4.4.4"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+					},
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region2",
+						Zone:    "zone2",
+						SubZone: "subzone2",
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: buildEndpoint("5.5.5.5"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+					},
+				},
+				{
+					Locality: &core.Locality{
+						Region:  "region3",
+						Zone:    "zone3",
+						SubZone: "subzone3",
+					},
+					LbEndpoints: []*endpoint.LbEndpoint{
+						{
+							HostIdentifier: buildEndpoint("6.6.6.6"),
+							LoadBalancingWeight: &wrappers.UInt32Value{
+								Value: 1,
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
 func buildEndpoint(ip string) *endpoint.LbEndpoint_Endpoint {
 	return &endpoint.LbEndpoint_Endpoint{
 		Endpoint: &endpoint.Endpoint{
@@ -1105,6 +1419,88 @@ func buildWrappedLocalityLbEndpoints() []*WrappedLocalityLbEndpoints {
 				},
 			},
 			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[1],
+		},
+	}
+}
+
+func buildWrappedLocalityLbEndpointsForFailoverPriorityWithFailover() []*WrappedLocalityLbEndpoints {
+	cluster := buildSmallClusterForFailOverPriorityWithFailover()
+	return []*WrappedLocalityLbEndpoints{
+		{
+			IstioEndpoints: []*model.IstioEndpoint{
+				{
+					Labels: map[string]string{
+						"topology.istio.io/network": "n1",
+						"topology.istio.io/cluster": "c1",
+					},
+					Address: "1.1.1.1",
+				},
+			},
+			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[0],
+		},
+		{
+			IstioEndpoints: []*model.IstioEndpoint{
+				{
+					Labels: map[string]string{
+						"key":                       "value",
+						"topology.istio.io/network": "n2",
+						"topology.istio.io/cluster": "c2",
+					},
+					Address: "2.2.2.2",
+				},
+			},
+			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[1],
+		},
+		{
+			IstioEndpoints: []*model.IstioEndpoint{
+				{
+					Labels: map[string]string{
+						"key":                       "value",
+						"topology.istio.io/network": "n1",
+						"topology.istio.io/cluster": "c3",
+					},
+					Address: "3.3.3.3",
+				},
+			},
+			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[2],
+		},
+		{
+			IstioEndpoints: []*model.IstioEndpoint{
+				{
+					Labels: map[string]string{
+						"key":                       "value",
+						"topology.istio.io/network": "n2",
+						"topology.istio.io/cluster": "c4",
+					},
+					Address: "4.4.4.4",
+				},
+			},
+			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[3],
+		},
+		{
+			IstioEndpoints: []*model.IstioEndpoint{
+				{
+					Labels: map[string]string{
+						"topology.istio.io/network": "n2",
+						"topology.istio.io/cluster": "c2",
+					},
+					Address: "5.5.5.5",
+				},
+			},
+			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[4],
+		},
+		{
+			IstioEndpoints: []*model.IstioEndpoint{
+				{
+					Labels: map[string]string{
+						"key":                       "value",
+						"topology.istio.io/network": "n1",
+						"topology.istio.io/cluster": "c6",
+					},
+					Address: "6.6.6.6",
+				},
+			},
+			LocalityLbEndpoints: cluster.LoadAssignment.Endpoints[5],
 		},
 	}
 }

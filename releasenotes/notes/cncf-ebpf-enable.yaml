@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 47257
+releaseNotes:
+  - |
+    **Added** eBPF redirection support for ambient after CNCF established guidance around dual-licensed eBPF bytecode.
+    https://github.com/cncf/foundation/issues/474#issuecomment-1739796978

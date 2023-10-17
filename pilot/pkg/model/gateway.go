@@ -126,7 +126,7 @@ const DisableGatewayPortTranslationLabel = "experimental.istio.io/disable-gatewa
 // Note that today any Servers in the combined gateways listening on the same port must have the same protocol.
 // If servers with different protocols attempt to listen on the same port, one of the protocols will be chosen at random.
 func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContext) *MergedGateway {
-	gatewayPorts := make(map[uint32]bool)
+	gatewayPorts := sets.New[uint32]()
 	nonPlainTextGatewayPortsBindMap := map[uint32]sets.String{}
 	mergedServers := make(map[ServerPort]*MergedServers)
 	mergedQUICServers := make(map[ServerPort]*MergedServers)
@@ -204,7 +204,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 				}
 				serverPort := ServerPort{resolvedPort, s.Port.Protocol, s.Bind}
 				serverProtocol := protocol.Parse(serverPort.Protocol)
-				if gatewayPorts[resolvedPort] {
+				if gatewayPorts.Contains(resolvedPort) {
 					// We have two servers on the same port. Should we merge?
 					// 1. Yes if both servers are plain text and HTTP
 					// 2. Yes if both servers are using TLS
@@ -304,7 +304,7 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 					}
 				} else {
 					// This is a new gateway on this port. Create MergedServers for it.
-					gatewayPorts[resolvedPort] = true
+					gatewayPorts.Insert(resolvedPort)
 					if !gateway.IsTLSServer(s) {
 						plainTextServers[serverPort.Number] = serverPort
 					}

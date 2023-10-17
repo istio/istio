@@ -79,7 +79,7 @@ func NewK8sObject(u *unstructured.Unstructured, json, yaml []byte) *K8sObject {
 // Hash returns a unique, insecure hash based on kind, namespace and name.
 func Hash(kind, namespace, name string) string {
 	switch kind {
-	case names.ClusterRoleStr, names.ClusterRoleBindingStr, names.MeshPolicyStr:
+	case names.ClusterRoleStr, names.ClusterRoleBindingStr:
 		namespace = ""
 	}
 	return strings.Join([]string{kind, namespace, name}, ":")
@@ -117,15 +117,17 @@ func ParseJSONToK8sObject(json []byte) (*K8sObject, error) {
 
 // ParseYAMLToK8sObject parses YAML to an Object.
 func ParseYAMLToK8sObject(yaml []byte) (*K8sObject, error) {
-	r := bytes.NewReader(yaml)
-	decoder := k8syaml.NewYAMLOrJSONDecoder(r, 1024)
-
-	out := &unstructured.Unstructured{}
-	err := decoder.Decode(out)
+	objects, err := ParseK8sObjectsFromYAMLManifest(string(yaml))
 	if err != nil {
-		return nil, fmt.Errorf("error decoding object %v: %v", string(yaml), err)
+		return nil, err
 	}
-	return NewK8sObject(out, nil, yaml), nil
+	if len(objects) > 1 {
+		return nil, fmt.Errorf("expect one object, actually: %d", len(objects))
+	}
+	if len(objects) == 0 || objects[0] == nil {
+		return nil, fmt.Errorf("decoding object %v: %v", string(yaml), "no object found")
+	}
+	return objects[0], nil
 }
 
 // UnstructuredObject exposes the raw object, primarily for testing
@@ -415,17 +417,6 @@ func (o *K8sObject) Equal(other *K8sObject) bool {
 	return util.IsYAMLEqual(string(ay), string(by))
 }
 
-func istioCustomResources(group string) bool {
-	switch group {
-	case names.ConfigAPIGroupName,
-		names.SecurityAPIGroupName,
-		names.AuthenticationAPIGroupName,
-		names.NetworkingAPIGroupName:
-		return true
-	}
-	return false
-}
-
 // DefaultObjectOrder is default sorting function used to sort k8s objects.
 func DefaultObjectOrder() func(o *K8sObject) int {
 	return func(o *K8sObject) int {
@@ -446,9 +437,6 @@ func DefaultObjectOrder() func(o *K8sObject) int {
 			// orphaned validatingwebhookconfiguration that is FAIL-CLOSE.
 		case gk == "admissionregistration.k8s.io/ValidatingWebhookConfiguration":
 			return 3
-
-		case istioCustomResources(o.Group):
-			return 4
 
 			// Pods might need configmap or secrets - avoid backoff by creating them first
 		case gk == "/ConfigMap" || gk == "/Secrets":

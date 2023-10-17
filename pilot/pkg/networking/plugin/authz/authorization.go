@@ -20,7 +20,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/builder"
 	"istio.io/istio/pilot/pkg/security/trustdomain"
 )
@@ -48,10 +47,11 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
 	}
-	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
-	if !util.IsIstioVersionGE117(proxy.IstioVersion) {
-		option.UseAuthenticated = true
+	selectionOpts := model.WorkloadSelectionOpts{
+		Namespace:      proxy.ConfigNamespace,
+		WorkloadLabels: proxy.Labels,
 	}
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}
 }

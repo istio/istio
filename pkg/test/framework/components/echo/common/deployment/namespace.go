@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
 )
 
@@ -29,6 +30,8 @@ const (
 	ASvc             = "a"
 	BSvc             = "b"
 	CSvc             = "c"
+	DSvc             = "d"
+	ESvc             = "e"
 	TproxySvc        = "tproxy"
 	VMSvc            = "vm"
 	HeadlessSvc      = "headless"
@@ -51,6 +54,10 @@ type EchoNamespace struct {
 	B echo.Instances
 	// Standard echo app to be used by tests
 	C echo.Instances
+	// Dual-stack echo app to be used by tests if running in dual-stack mode
+	D echo.Instances
+	// IPv6 only echo app to be used by tests if running in dual-stack mode
+	E echo.Instances
 	// Standard echo app with TPROXY interception mode to be used by tests
 	Tproxy echo.Instances
 	// Headless echo app to be used by tests
@@ -88,6 +95,10 @@ func (n *EchoNamespace) loadValues(t resource.Context, echos echo.Instances, d *
 	n.A = match.ServiceName(echo.NamespacedName{Name: ASvc, Namespace: ns}).GetMatches(echos)
 	n.B = match.ServiceName(echo.NamespacedName{Name: BSvc, Namespace: ns}).GetMatches(echos)
 	n.C = match.ServiceName(echo.NamespacedName{Name: CSvc, Namespace: ns}).GetMatches(echos)
+	if t.Settings().EnableDualStack {
+		n.D = match.ServiceName(echo.NamespacedName{Name: DSvc, Namespace: ns}).GetMatches(echos)
+		n.E = match.ServiceName(echo.NamespacedName{Name: ESvc, Namespace: ns}).GetMatches(echos)
+	}
 	n.Tproxy = match.ServiceName(echo.NamespacedName{Name: TproxySvc, Namespace: ns}).GetMatches(echos)
 	n.Headless = match.ServiceName(echo.NamespacedName{Name: HeadlessSvc, Namespace: ns}).GetMatches(echos)
 	n.StatefulSet = match.ServiceName(echo.NamespacedName{Name: StatefulSetSvc, Namespace: ns}).GetMatches(echos)
@@ -126,11 +137,19 @@ spec:
 	if !t.Settings().DisableDefaultExternalServiceConnectivity {
 		// Create a ServiceEntry to allow apps in this namespace to talk to the external service.
 		if d.External.Namespace != nil {
-			cfg.Eval(ns.Name(), map[string]any{
-				"Namespace": d.External.Namespace.Name(),
-				"Hostname":  ExternalHostname,
-				"Ports":     serviceEntryPorts(),
-			}, `apiVersion: networking.istio.io/v1alpha3
+			DeployExternalServiceEntry(cfg, ns, d.External.Namespace)
+		}
+	}
+
+	return cfg.Apply(apply.NoCleanup)
+}
+
+func DeployExternalServiceEntry(cfg config.Factory, deployedNamespace, externalNamespace namespace.Instance) config.Plan {
+	return cfg.Eval(deployedNamespace.Name(), map[string]any{
+		"Namespace": externalNamespace.Name(),
+		"Hostname":  ExternalHostname,
+		"Ports":     serviceEntryPorts(),
+	}, `apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:
   name: external-service
@@ -157,8 +176,4 @@ spec:
     protocol: "{{$p.Protocol}}"
 {{- end }}
 `)
-		}
-	}
-
-	return cfg.Apply(apply.NoCleanup)
 }

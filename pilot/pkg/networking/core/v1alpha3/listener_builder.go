@@ -22,7 +22,6 @@ import (
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -44,6 +43,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // A stateful listener builder
@@ -137,6 +137,10 @@ func (lb *ListenerBuilder) buildVirtualOutboundListener() *ListenerBuilder {
 	// add extra addresses for the listener
 	if features.EnableDualStack && len(actualWildcards) > 1 {
 		ipTablesListener.AdditionalAddresses = util.BuildAdditionalAddresses(actualWildcards[1:], uint32(lb.push.Mesh.ProxyListenPort))
+	} else if features.EnableAdditionalIpv4OutboundListenerForIpv6Only && (lb.node.GetIPMode() == model.IPv6) {
+		// add an additional IPv4 outbound listener for IPv6 only clusters
+		ipv4Wildcards, _ := getWildcardsAndLocalHost(model.IPv4) // get the IPv4 based wildcards
+		ipTablesListener.AdditionalAddresses = util.BuildAdditionalAddresses(ipv4Wildcards[0:], uint32(lb.push.Mesh.ProxyListenPort))
 	}
 
 	class := model.OutboundListenerClass(lb.node.Type)
@@ -363,14 +367,14 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 	accessLogBuilder.setHTTPAccessLog(lb.push, lb.node, connectionManager, httpOpts.class)
 
-	routerFilterCtx, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
+	startChildSpan, reqIDExtensionCtx := configureTracing(lb.push, lb.node, connectionManager, httpOpts.class)
 
 	filters := []*hcm.HttpFilter{}
 	if !httpOpts.isWaypoint {
 		wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
 			Port:  httpOpts.port,
 			Class: httpOpts.class,
-		})
+		}, model.WasmPluginTypeHTTP)
 
 		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
@@ -379,7 +383,11 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 				if httpOpts.class == istionetworking.ListenerClassSidecarInbound {
 					filters = append(filters, xdsfilters.SidecarInboundMetadataFilter)
 				} else {
-					filters = append(filters, xdsfilters.SidecarOutboundMetadataFilter)
+					if httpOpts.skipIstioMXHeaders {
+						filters = append(filters, xdsfilters.SidecarOutboundMetadataFilterSkipHeaders)
+					} else {
+						filters = append(filters, xdsfilters.SidecarOutboundMetadataFilter)
+					}
 				}
 			} else {
 				filters = append(filters, xdsfilters.HTTPMx)
@@ -387,13 +395,13 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 		}
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
 		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHN)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHN)
 		filters = append(filters, lb.authnBuilder.BuildHTTP(httpOpts.class)...)
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_AUTHZ)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHZ)
 		filters = append(filters, lb.authzBuilder.BuildHTTP(httpOpts.class)...)
 		// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_STATS)
-		filters = extension.PopAppend(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_STATS)
+		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
 	}
 
 	if httpOpts.protocol == protocol.GRPCWeb {
@@ -420,7 +428,10 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 	if features.EnablePersistentSessionFilter && httpOpts.class != istionetworking.ListenerClassSidecarInbound {
 		filters = append(filters, xdsfilters.EmptySessionFilter)
 	}
-	filters = append(filters, xdsfilters.BuildRouterFilter(routerFilterCtx))
+	filters = append(filters, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       startChildSpan,
+		SuppressDebugHeaders: httpOpts.suppressEnvoyDebugHeaders,
+	}))
 
 	connectionManager.HttpFilters = filters
 	connectionManager.RequestIdExtension = requestidextension.BuildUUIDRequestIDExtension(reqIDExtensionCtx)

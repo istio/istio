@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 46625
+releaseNotes:
+- |
+  **Fixed** an issue where the istio-cni plugin was not writing ipv6 ip tables rules for dual stack clusters.

@@ -49,6 +49,7 @@ type Config struct {
 	count                   int
 	headers                 http.Header
 	newConnectionPerRequest bool
+	PropagateResponse       func(req *http.Request, resp *http.Response)
 	forceDNSLookup          bool
 	hostHeader              string
 	urlHost                 string
@@ -60,6 +61,7 @@ type Config struct {
 	hboneClientConfig    func(info *tls.CertificateRequestInfo) (*tls.Certificate, error)
 	hboneHeaders         http.Header
 	proxyProtocolVersion int
+	previousResponse     *http.Response
 }
 
 func (c *Config) fillDefaults() error {

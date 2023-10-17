@@ -23,13 +23,17 @@ import (
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	anypb "github.com/golang/protobuf/ptypes/any"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
 	istio_route "istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
@@ -140,32 +144,16 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	efw *model.EnvoyFilterWrapper,
 	efKeys []string,
 ) (*discovery.Resource, bool) {
+	listenerPort, useSniffing, err := extractListenerPort(routeName)
+	if err != nil && routeName != model.RDSHttpProxy && !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
+		// TODO: This is potentially one place where envoyFilter ADD operation can be helpful if the
+		// user wants to ship a custom RDS. But at this point, the match semantics are murky. We have no
+		// object to match upon. This needs more thought. For now, we will continue to return nil for
+		// unknown routes
+		return nil, false
+	}
+
 	var virtualHosts []*route.VirtualHost
-	listenerPort := 0
-	useSniffing := false
-	var err error
-	if !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
-		index := strings.IndexRune(routeName, ':')
-		if index != -1 {
-			useSniffing = true
-		}
-		listenerPort, err = strconv.Atoi(routeName[index+1:])
-	} else {
-		listenerPort, err = strconv.Atoi(routeName)
-	}
-
-	if err != nil {
-		// we have a port whose name is http_proxy or unix:///foo/bar
-		// check for both.
-		if routeName != model.RDSHttpProxy && !strings.HasPrefix(routeName, model.UnixAddressPrefix) {
-			// TODO: This is potentially one place where envoyFilter ADD operation can be helpful if the
-			// user wants to ship a custom RDS. But at this point, the match semantics are murky. We have no
-			// object to match upon. This needs more thought. For now, we will continue to return nil for
-			// unknown routes
-			return nil, false
-		}
-	}
-
 	var routeCache *istio_route.Cache
 	var resource *discovery.Resource
 
@@ -200,7 +188,8 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	util.SortVirtualHosts(virtualHosts)
 
 	if !useSniffing {
-		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node))
+		includeRequestAttemptCount := GetProxyHeaders(node, req.Push, istionetworking.ListenerClassSidecarOutbound).IncludeRequestAttemptCount
+		virtualHosts = append(virtualHosts, buildCatchAllVirtualHost(node, includeRequestAttemptCount))
 	}
 
 	out := &route.RouteConfiguration{
@@ -224,6 +213,18 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 	}
 
 	return resource, false
+}
+
+func extractListenerPort(routeName string) (int, bool, error) {
+	hasPrefix := strings.HasPrefix(routeName, model.UnixAddressPrefix)
+	index := strings.IndexRune(routeName, ':')
+	if !hasPrefix {
+		routeName = routeName[index+1:]
+	}
+
+	listenerPort, err := strconv.Atoi(routeName)
+	useSniffing := !hasPrefix && index != -1
+	return listenerPort, useSniffing, err
 }
 
 // TODO: merge with IstioEgressListenerWrapper.selectVirtualServices
@@ -290,6 +291,66 @@ func selectVirtualServices(virtualServices []config.Config, servicesByName map[h
 	return out
 }
 
+type ProxyHeaders struct {
+	ServerName                 string
+	ServerHeaderTransformation hcm.HttpConnectionManager_ServerHeaderTransformation
+	ForwardedClientCert        hcm.HttpConnectionManager_ForwardClientCertDetails
+	IncludeRequestAttemptCount bool
+	GenerateRequestID          *wrappers.BoolValue
+	SuppressDebugHeaders       bool
+	SkipIstioMXHeaders         bool
+}
+
+func GetProxyHeaders(node *model.Proxy, push *model.PushContext, class istionetworking.ListenerClass) ProxyHeaders {
+	pc := node.Metadata.ProxyConfigOrDefault(push.Mesh.DefaultConfig)
+	return GetProxyHeadersFromProxyConfig(pc, class)
+}
+
+func GetProxyHeadersFromProxyConfig(pc *meshconfig.ProxyConfig, class istionetworking.ListenerClass) ProxyHeaders {
+	base := ProxyHeaders{
+		ServerName:                 EnvoyServerName,
+		ServerHeaderTransformation: hcm.HttpConnectionManager_OVERWRITE,
+		ForwardedClientCert:        hcm.HttpConnectionManager_APPEND_FORWARD,
+		IncludeRequestAttemptCount: true,
+		SuppressDebugHeaders:       false,
+		GenerateRequestID:          nil, // Envoy default is to enable them, so set nil
+		SkipIstioMXHeaders:         false,
+	}
+	if class == istionetworking.ListenerClassSidecarOutbound {
+		// Likely due to a mistake, outbound uses "envoy" while inbound uses "istio-envoy". Bummer.
+		// We keep it for backwards compatibility.
+		base.ServerName = "" // Envoy default is "envoy" so no need to set it explicitly.
+	}
+	ph := pc.GetProxyHeaders()
+	if ph == nil {
+		return base
+	}
+	if ph.AttemptCount.GetDisabled().GetValue() {
+		base.IncludeRequestAttemptCount = false
+	}
+	if ph.ForwardedClientCert != meshconfig.ForwardClientCertDetails_UNDEFINED {
+		base.ForwardedClientCert = util.MeshConfigToEnvoyForwardClientCertDetails(ph.ForwardedClientCert)
+	}
+	if ph.Server != nil {
+		if ph.Server.Disabled.GetValue() {
+			base.ServerName = ""
+			base.ServerHeaderTransformation = hcm.HttpConnectionManager_PASS_THROUGH
+		} else if ph.Server.Value != "" {
+			base.ServerName = ph.Server.Value
+		}
+	}
+	if ph.RequestId.GetDisabled().GetValue() {
+		base.GenerateRequestID = proto.BoolFalse
+	}
+	if ph.EnvoyDebugHeaders.GetDisabled().GetValue() {
+		base.SuppressDebugHeaders = true
+	}
+	if ph.MetadataExchangeHeaders != nil && ph.MetadataExchangeHeaders.GetMode() == meshconfig.ProxyConfig_ProxyHeaders_IN_MESH {
+		base.SkipIstioMXHeaders = true
+	}
+	return base
+}
+
 func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext,
 	routeName string,
 	listenerPort int,
@@ -323,6 +384,8 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		listenerPort = 0
 	}
 
+	includeRequestAttemptCount := GetProxyHeaders(node, push, istionetworking.ListenerClassSidecarOutbound).IncludeRequestAttemptCount
+
 	servicesByName := make(map[host.Name]*model.Service)
 	for _, svc := range services {
 		if listenerPort == 0 {
@@ -350,32 +413,28 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 	}
 
 	var routeCache *istio_route.Cache
-
-	if listenerPort > 0 {
+	if listenerPort > 0 && features.EnableRDSCaching {
+		// sort services, ensure that routeCache calculation result is stable
 		services = make([]*model.Service, 0, len(servicesByName))
-		// sort services
 		for _, svc := range servicesByName {
 			services = append(services, svc)
 		}
 		sort.SliceStable(services, func(i, j int) bool {
 			return services[i].Hostname <= services[j].Hostname
 		})
-
-		if features.EnableRDSCaching {
-			routeCache = &istio_route.Cache{
-				RouteName:               routeName,
-				ProxyVersion:            node.Metadata.IstioVersion,
-				ClusterID:               string(node.Metadata.ClusterID),
-				DNSDomain:               node.DNSDomain,
-				DNSCapture:              bool(node.Metadata.DNSCapture),
-				DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
-				AllowAny:                util.IsAllowAnyOutbound(node),
-				ListenerPort:            listenerPort,
-				Services:                services,
-				VirtualServices:         virtualServices,
-				DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
-				EnvoyFilterKeys:         efKeys,
-			}
+		routeCache = &istio_route.Cache{
+			RouteName:               routeName,
+			ProxyVersion:            node.Metadata.IstioVersion,
+			ClusterID:               string(node.Metadata.ClusterID),
+			DNSDomain:               node.DNSDomain,
+			DNSCapture:              bool(node.Metadata.DNSCapture),
+			DNSAutoAllocate:         bool(node.Metadata.DNSAutoAllocate),
+			AllowAny:                util.IsAllowAnyOutbound(node),
+			ListenerPort:            listenerPort,
+			Services:                services,
+			VirtualServices:         virtualServices,
+			DelegateVirtualServices: push.DelegateVirtualServices(virtualServices),
+			EnvoyFilterKeys:         efKeys,
 		}
 	}
 
@@ -449,7 +508,7 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 				Name:                       name,
 				Domains:                    domains,
 				Routes:                     vhwrapper.Routes,
-				IncludeRequestAttemptCount: true,
+				IncludeRequestAttemptCount: includeRequestAttemptCount,
 				TypedPerFilterConfig:       perRouteFilters,
 			}
 		}
@@ -700,14 +759,10 @@ func mergeAllVirtualHosts(vHostPortMap map[int][]*route.VirtualHost) []*route.Vi
 			virtualHosts = append(virtualHosts, vhosts...)
 		} else {
 			for _, vhost := range vhosts {
-				var newDomains []string
-				for _, domain := range vhost.Domains {
-					if strings.Contains(domain, ":") {
-						newDomains = append(newDomains, domain)
-					}
-				}
-				if len(newDomains) > 0 {
-					vhost.Domains = newDomains
+				vhost.Domains = slices.FilterInPlace(vhost.Domains, func(domain string) bool {
+					return strings.Contains(domain, ":")
+				})
+				if len(vhost.Domains) > 0 {
 					virtualHosts = append(virtualHosts, vhost)
 				}
 			}
@@ -763,7 +818,7 @@ func getUniqueAndSharedDNSDomain(fqdnHostname, proxyDomain string) (partsUnique 
 	return
 }
 
-func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
+func buildCatchAllVirtualHost(node *model.Proxy, includeRequestAttemptCount bool) *route.VirtualHost {
 	if util.IsAllowAnyOutbound(node) {
 		egressCluster := util.PassthroughCluster
 		notimeout := durationpb.New(0)
@@ -799,7 +854,7 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 					},
 				},
 			},
-			IncludeRequestAttemptCount: true,
+			IncludeRequestAttemptCount: includeRequestAttemptCount,
 		}
 	}
 
@@ -819,7 +874,7 @@ func buildCatchAllVirtualHost(node *model.Proxy) *route.VirtualHost {
 				},
 			},
 		},
-		IncludeRequestAttemptCount: true,
+		IncludeRequestAttemptCount: includeRequestAttemptCount,
 	}
 }
 

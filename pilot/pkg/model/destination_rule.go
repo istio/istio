@@ -37,7 +37,7 @@ import (
 // 2. If the original rule did not have any top level traffic policy, traffic policies from the new rule will be
 // used.
 // 3. If the original rule did not have any exportTo, exportTo settings from the new rule will be used.
-func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleConfig config.Config, exportToMap map[visibility.Instance]bool) {
+func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleConfig config.Config, exportToSet sets.Set[visibility.Instance]) {
 	rule := destRuleConfig.Spec.(*networking.DestinationRule)
 	resolvedHost := ResolveShortnameToFQDN(rule.Host, destRuleConfig.Meta)
 
@@ -74,7 +74,7 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			// This can happen when there are more than one destination rule of same host in one namespace.
 			copied := mdr.rule.DeepCopy()
 			mdr.rule = &copied
-			mdr.from = append(mdr.from, config.NamespacedName(destRuleConfig))
+			mdr.from = append(mdr.from, destRuleConfig.NamespacedName())
 			mergedRule := copied.Spec.(*networking.DestinationRule)
 
 			existingSubset := sets.String{}
@@ -105,8 +105,8 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 			// If there is no exportTo in the existing rule and
 			// the incoming rule has an explicit exportTo, use the
 			// one from the incoming rule.
-			if len(p.exportTo[resolvedHost]) == 0 && len(exportToMap) > 0 {
-				p.exportTo[resolvedHost] = exportToMap
+			if p.exportTo[resolvedHost].IsEmpty() && !exportToSet.IsEmpty() {
+				p.exportTo[resolvedHost] = exportToSet
 			}
 		}
 		if addRuleToProcessedDestRules {
@@ -116,13 +116,13 @@ func (ps *PushContext) mergeDestinationRule(p *consolidatedDestRules, destRuleCo
 	}
 	// DestinationRule does not exist for the resolved host so add it
 	destRules[resolvedHost] = append(destRules[resolvedHost], ConvertConsolidatedDestRule(&destRuleConfig))
-	p.exportTo[resolvedHost] = exportToMap
+	p.exportTo[resolvedHost] = exportToSet
 }
 
 func ConvertConsolidatedDestRule(cfg *config.Config) *ConsolidatedDestRule {
 	return &ConsolidatedDestRule{
 		rule: cfg,
-		from: []types.NamespacedName{config.NamespacedName(cfg)},
+		from: []types.NamespacedName{cfg.NamespacedName()},
 	}
 }
 

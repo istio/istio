@@ -44,7 +44,7 @@ var (
 	// InvalidDropByIptables is the flag to enable invalid drop iptables rule to drop the out of window packets
 	InvalidDropByIptables = env.Register("INVALID_DROP", false,
 		"If set to true, enable the invalid drop iptables rule, default false will cause iptables reset out of window packets")
-	DualStack = env.RegisterBoolVar("ISTIO_DUAL_STACK", false,
+	DualStack = env.Register("ISTIO_DUAL_STACK", false,
 		"If true, Istio will enable the Dual Stack feature.").Get()
 )
 
@@ -67,14 +67,19 @@ var rootCmd = &cobra.Command{
 		if cfg.DryRun {
 			ext = &dep.StdoutStubDependencies{}
 		} else {
+			ipv, err := dep.DetectIptablesVersion(cfg.IPTablesVersion)
+			if err != nil {
+				handleErrorWithCode(err, 1)
+			}
 			ext = &dep.RealDependencies{
 				CNIMode:          cfg.CNIMode,
-				HostNSEnterExec:  cfg.HostNSEnterExec,
 				NetworkNamespace: cfg.NetworkNamespace,
+				IptablesVersion:  ipv,
 			}
 		}
 
 		iptConfigurator := capture.NewIptablesConfigurator(cfg, ext)
+
 		if !cfg.SkipRuleApply {
 			iptConfigurator.Run()
 			if err := capture.ConfigureRoutes(cfg, ext); err != nil {
@@ -83,7 +88,7 @@ var rootCmd = &cobra.Command{
 			}
 		}
 		if cfg.RunValidation {
-			hostIP, _, err := getLocalIP()
+			hostIP, _, err := getLocalIP(cfg.DualStack)
 			if err != nil {
 				// Assume it is not handled by istio-cni and won't reuse the ValidationErrorCode
 				panic(err)
@@ -99,23 +104,6 @@ If installed with 'cni.repair.deletePods=true', this pod should automatically be
 Otherwise, this pod will need to be manually removed so that it is scheduled on a node with istio-cni running, allowing iptables rules to be established.
 `)
 				handleErrorWithCode(msg, constants.ValidationErrorCode)
-			}
-		}
-	},
-}
-
-var configureRoutesCommand = &cobra.Command{
-	Use:    "configure-routes",
-	Short:  "Configures iproute2 rules for the Istio sidecar",
-	PreRun: bindFlags,
-	Run: func(cmd *cobra.Command, args []string) {
-		cfg := constructConfig()
-		if err := cfg.Validate(); err != nil {
-			handleErrorWithCode(err, 1)
-		}
-		if !cfg.SkipRuleApply {
-			if err := capture.ConfigureRoutes(cfg, nil); err != nil {
-				handleErrorWithCode(err, 1)
 			}
 		}
 	},
@@ -153,7 +141,7 @@ func constructConfig() *config.Config {
 		CaptureAllDNS:           viper.GetBool(constants.CaptureAllDNS),
 		NetworkNamespace:        viper.GetString(constants.NetworkNamespace),
 		CNIMode:                 viper.GetBool(constants.CNIMode),
-		HostNSEnterExec:         viper.GetBool(constants.HostNSEnterExec),
+		DualStack:               viper.GetBool(constants.DualStack),
 	}
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
@@ -174,7 +162,7 @@ func constructConfig() *config.Config {
 	}
 
 	// Detect whether IPv6 is enabled by checking if the pod's IP address is IPv4 or IPv6.
-	_, isIPv6, err := getLocalIP()
+	_, isIPv6, err := getLocalIP(cfg.DualStack)
 	if err != nil {
 		panic(err)
 	}
@@ -196,7 +184,7 @@ func constructConfig() *config.Config {
 }
 
 // getLocalIP returns one of the local IP address and it should support IPv6 or not
-func getLocalIP() (netip.Addr, bool, error) {
+func getLocalIP(dualStack bool) (netip.Addr, bool, error) {
 	var isIPv6 bool
 	var ipAddrs []netip.Addr
 	addrs, err := LocalIPAddrs()
@@ -216,7 +204,7 @@ func getLocalIP() (netip.Addr, bool, error) {
 			if !unwrapAddr.IsLoopback() && !unwrapAddr.IsLinkLocalUnicast() && !unwrapAddr.IsLinkLocalMulticast() {
 				isIPv6 = unwrapAddr.Is6()
 				ipAddrs = append(ipAddrs, unwrapAddr)
-				if !DualStack {
+				if !dualStack {
 					return unwrapAddr, isIPv6, nil
 				}
 				if isIPv6 {
@@ -250,164 +238,51 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	// Replace - with _; so that environment variables are looked up correctly.
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
 
-	envoyPort := "15001"
-	inboundPort := "15006"
-	inboundTunnelPort := "15008"
-
-	if err := viper.BindPFlag(constants.EnvoyPort, cmd.Flags().Lookup(constants.EnvoyPort)); err != nil {
-		handleError(err)
+	bind := func(name string, def any) {
+		if err := viper.BindPFlag(name, cmd.Flags().Lookup(name)); err != nil {
+			handleError(err)
+		}
+		viper.SetDefault(name, def)
 	}
-	viper.SetDefault(constants.EnvoyPort, envoyPort)
-
-	if err := viper.BindPFlag(constants.InboundCapturePort, cmd.Flags().Lookup(constants.InboundCapturePort)); err != nil {
-		handleError(err)
+	bindEnv := func(name string, def any) {
+		if err := viper.BindEnv(name); err != nil {
+			handleError(err)
+		}
+		viper.SetDefault(name, def)
 	}
-	viper.SetDefault(constants.InboundCapturePort, inboundPort)
 
-	if err := viper.BindPFlag(constants.InboundTunnelPort, cmd.Flags().Lookup(constants.InboundTunnelPort)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.InboundTunnelPort, inboundTunnelPort)
-
-	if err := viper.BindPFlag(constants.ProxyUID, cmd.Flags().Lookup(constants.ProxyUID)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.ProxyUID, "")
-
-	if err := viper.BindPFlag(constants.ProxyGID, cmd.Flags().Lookup(constants.ProxyGID)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.ProxyGID, "")
-
-	if err := viper.BindPFlag(constants.InboundInterceptionMode, cmd.Flags().Lookup(constants.InboundInterceptionMode)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.InboundInterceptionMode, "")
-
-	if err := viper.BindPFlag(constants.InboundPorts, cmd.Flags().Lookup(constants.InboundPorts)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.InboundPorts, "")
-
-	if err := viper.BindPFlag(constants.LocalExcludePorts, cmd.Flags().Lookup(constants.LocalExcludePorts)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.LocalExcludePorts, "")
-
-	if err := viper.BindPFlag(constants.ExcludeInterfaces, cmd.Flags().Lookup(constants.ExcludeInterfaces)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.ExcludeInterfaces, "")
-
-	if err := viper.BindPFlag(constants.ServiceCidr, cmd.Flags().Lookup(constants.ServiceCidr)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.ServiceCidr, "")
-
-	if err := viper.BindPFlag(constants.ServiceExcludeCidr, cmd.Flags().Lookup(constants.ServiceExcludeCidr)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.ServiceExcludeCidr, "")
-
-	if err := viper.BindEnv(constants.OwnerGroupsInclude.Name); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.OwnerGroupsInclude.Name, constants.OwnerGroupsInclude.DefaultValue)
-
-	if err := viper.BindEnv(constants.OwnerGroupsExclude.Name); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.OwnerGroupsExclude.Name, constants.OwnerGroupsExclude.DefaultValue)
-
-	if err := viper.BindPFlag(constants.OutboundPorts, cmd.Flags().Lookup(constants.OutboundPorts)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.OutboundPorts, "")
-
-	if err := viper.BindPFlag(constants.LocalOutboundPortsExclude, cmd.Flags().Lookup(constants.LocalOutboundPortsExclude)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.LocalOutboundPortsExclude, "")
-
-	if err := viper.BindPFlag(constants.KubeVirtInterfaces, cmd.Flags().Lookup(constants.KubeVirtInterfaces)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.KubeVirtInterfaces, "")
-
-	if err := viper.BindPFlag(constants.InboundTProxyMark, cmd.Flags().Lookup(constants.InboundTProxyMark)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.InboundTProxyMark, "1337")
-
-	if err := viper.BindPFlag(constants.InboundTProxyRouteTable, cmd.Flags().Lookup(constants.InboundTProxyRouteTable)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.InboundTProxyRouteTable, "133")
-
-	if err := viper.BindPFlag(constants.DryRun, cmd.Flags().Lookup(constants.DryRun)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.DryRun, false)
-
-	if err := viper.BindPFlag(constants.TraceLogging, cmd.Flags().Lookup(constants.TraceLogging)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.TraceLogging, false)
-
-	if err := viper.BindPFlag(constants.RestoreFormat, cmd.Flags().Lookup(constants.RestoreFormat)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.RestoreFormat, true)
-
-	if err := viper.BindPFlag(constants.IptablesProbePort, cmd.Flags().Lookup(constants.IptablesProbePort)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.IptablesProbePort, constants.DefaultIptablesProbePort)
-
-	if err := viper.BindPFlag(constants.ProbeTimeout, cmd.Flags().Lookup(constants.ProbeTimeout)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.ProbeTimeout, constants.DefaultProbeTimeout)
-
-	if err := viper.BindPFlag(constants.SkipRuleApply, cmd.Flags().Lookup(constants.SkipRuleApply)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.SkipRuleApply, false)
-
-	if err := viper.BindPFlag(constants.RunValidation, cmd.Flags().Lookup(constants.RunValidation)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.RunValidation, false)
-
-	if err := viper.BindPFlag(constants.RedirectDNS, cmd.Flags().Lookup(constants.RedirectDNS)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.RedirectDNS, dnsCaptureByAgent)
-
-	if err := viper.BindPFlag(constants.DropInvalid, cmd.Flags().Lookup(constants.DropInvalid)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.DropInvalid, InvalidDropByIptables)
-
-	if err := viper.BindPFlag(constants.CaptureAllDNS, cmd.Flags().Lookup(constants.CaptureAllDNS)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.CaptureAllDNS, false)
-
-	if err := viper.BindPFlag(constants.NetworkNamespace, cmd.Flags().Lookup(constants.NetworkNamespace)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.NetworkNamespace, "")
-
-	if err := viper.BindPFlag(constants.CNIMode, cmd.Flags().Lookup(constants.CNIMode)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.CNIMode, false)
-
-	if err := viper.BindPFlag(constants.HostNSEnterExec, cmd.Flags().Lookup(constants.HostNSEnterExec)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.HostNSEnterExec, false)
+	bind(constants.EnvoyPort, "15001")
+	bind(constants.InboundCapturePort, "15006")
+	bind(constants.InboundTunnelPort, "15008")
+	bind(constants.ProxyUID, "")
+	bind(constants.ProxyGID, "")
+	bind(constants.InboundInterceptionMode, "")
+	bind(constants.InboundPorts, "")
+	bind(constants.LocalExcludePorts, "")
+	bind(constants.ExcludeInterfaces, "")
+	bind(constants.ServiceCidr, "")
+	bind(constants.ServiceExcludeCidr, "")
+	bindEnv(constants.OwnerGroupsInclude.Name, constants.OwnerGroupsInclude.DefaultValue)
+	bindEnv(constants.OwnerGroupsExclude.Name, constants.OwnerGroupsExclude.DefaultValue)
+	bind(constants.OutboundPorts, "")
+	bind(constants.LocalOutboundPortsExclude, "")
+	bind(constants.KubeVirtInterfaces, "")
+	bind(constants.InboundTProxyMark, "1337")
+	bind(constants.InboundTProxyRouteTable, "133")
+	bind(constants.DryRun, false)
+	bind(constants.TraceLogging, false)
+	bind(constants.RestoreFormat, true)
+	bind(constants.IptablesProbePort, constants.DefaultIptablesProbePort)
+	bind(constants.ProbeTimeout, constants.DefaultProbeTimeout)
+	bind(constants.SkipRuleApply, false)
+	bind(constants.RunValidation, false)
+	bind(constants.RedirectDNS, dnsCaptureByAgent)
+	bind(constants.DropInvalid, InvalidDropByIptables)
+	bind(constants.CaptureAllDNS, false)
+	bind(constants.NetworkNamespace, "")
+	bind(constants.CNIMode, false)
+	bind(constants.IptablesVersion, "")
+	bind(constants.DualStack, DualStack)
 }
 
 // https://github.com/spf13/viper/issues/233.
@@ -415,7 +290,6 @@ func bindFlags(cmd *cobra.Command, args []string) {
 // Otherwise, the flag with the same name shared across subcommands will be overwritten by the last.
 func init() {
 	bindCmdlineFlags(rootCmd)
-	bindCmdlineFlags(configureRoutesCommand)
 }
 
 func bindCmdlineFlags(rootCmd *cobra.Command) {
@@ -486,6 +360,8 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 
 	rootCmd.Flags().Bool(constants.DropInvalid, InvalidDropByIptables.Get(), "Enable invalid drop in the iptables rules.")
 
+	rootCmd.Flags().Bool(constants.DualStack, DualStack, "Enable ipv4/ipv6 redirects for dual-stack.")
+
 	rootCmd.Flags().Bool(constants.CaptureAllDNS, false,
 		"Instead of only capturing DNS traffic to DNS server IP, capture all DNS traffic at port 53. This setting is only effective when redirect dns is enabled.")
 
@@ -493,19 +369,9 @@ func bindCmdlineFlags(rootCmd *cobra.Command) {
 
 	rootCmd.Flags().Bool(constants.CNIMode, false, "Whether to run as CNI plugin.")
 
-	rootCmd.Flags().Bool(constants.HostNSEnterExec, false, "Instead of using the internal go netns, use the nsenter command for switching network namespaces.")
+	rootCmd.Flags().String(constants.IptablesVersion, "", "version of iptables command. If not set, this is automatically detected.")
 }
 
 func GetCommand() *cobra.Command {
 	return rootCmd
-}
-
-func GetRouteCommand() *cobra.Command {
-	return configureRoutesCommand
-}
-
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		handleError(err)
-	}
 }

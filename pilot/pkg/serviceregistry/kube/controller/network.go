@@ -81,8 +81,12 @@ func initNetworkManager(c *Controller, options Options) *networkManager {
 		gatewaysFromResource:           make(map[types.UID]model.NetworkGatewaySet),
 		discoverRemoteGatewayResources: options.ConfigCluster,
 	}
-	if features.MultiNetworkGatewayAPI {
+	// initialize the gateway resource client when any feature that uses it is enabled
+	if features.MultiNetworkGatewayAPI || features.EnableAmbientControllers {
 		n.gatewayResourceClient = kclient.NewDelayedInformer[*v1beta1.Gateway](c.client, gvr.KubernetesGateway, kubetypes.StandardInformer, kubetypes.Filter{})
+	}
+	if features.MultiNetworkGatewayAPI {
+		// conditionally register this handler
 		registerHandlers(c, n.gatewayResourceClient, "Gateways", n.handleGatewayResource, nil)
 	}
 	return n

@@ -131,12 +131,12 @@ func (s *Server) initDNSCerts() error {
 				istioGenerated = true
 			}
 		}
-		// check if signing key file exists the cert dir and if the istio-generated file exists
-		if !detectedSigningCABundle || (detectedSigningCABundle && istioGenerated) {
+		// check if signing key file exists the cert dir and if the istio-generated file
+		// exists (only if USE_CACERTS_FOR_SELF_SIGNED_CA is enabled)
+		if !detectedSigningCABundle || (features.UseCacertsForSelfSignedCA && detectedSigningCABundle && istioGenerated) {
 			if !detectedSigningCABundle {
 				log.Infof("No plugged-in cert at %v; self-signed cert is used", fileBundle.SigningKeyFile)
 			} else {
-				// TODO(jaellio): Modify to read secret data from file.
 				log.Infof("Found cert at %v, but is istio-generated; self-signed cert is used", fileBundle.SigningKeyFile)
 			}
 

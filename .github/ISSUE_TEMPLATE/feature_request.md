@@ -13,6 +13,7 @@ about: Suggest an idea to improve Istio
 
 [ ] Ambient
 [ ] Docs
+[ ] Dual Stack
 [ ] Installation
 [ ] Networking
 [ ] Performance and Scalability

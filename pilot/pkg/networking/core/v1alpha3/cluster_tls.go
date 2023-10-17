@@ -23,7 +23,6 @@ import (
 	tlsv3 "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	"istio.io/api/mesh/v1alpha1"
@@ -37,6 +36,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/wellknown"
 )
 
 var istioMtlsTransportSocketMatch = &structpb.Struct{
@@ -51,7 +51,7 @@ var internalUpstreamSocket = &core.TransportSocket{
 		PassthroughMetadata: []*internalupstream.InternalUpstreamTransport_MetadataValueSource{
 			{
 				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Host_{}},
-				Name: "tunnel",
+				Name: util.OriginalDstMetadataKey,
 			},
 			{
 				Kind: &metadata.MetadataKind{Kind: &metadata.MetadataKind_Cluster_{
@@ -96,7 +96,7 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *
 
 	if tlsContext != nil {
 		c.cluster.TransportSocket = &core.TransportSocket{
-			Name:       wellknown.TransportSocketTls,
+			Name:       wellknown.TransportSocketTLS,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsContext)},
 		}
 	}
@@ -168,14 +168,14 @@ func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts,
 		// The code has repeated snippets because We want to use predefined alpn strings for efficiency.
 		if cb.isHttp2Cluster(c) {
 			// This is HTTP/2 in-mesh cluster, advertise it with ALPN.
-			if features.MetadataExchange {
+			if features.MetadataExchange && !features.DisableMxALPN {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2WithMxc
 			} else {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshH2
 			}
 		} else {
 			// This is in-mesh cluster, advertise it with ALPN.
-			if features.MetadataExchange {
+			if features.MetadataExchange && !features.DisableMxALPN {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMeshWithMxc
 			} else {
 				tlsContext.CommonTlsContext.AlpnProtocols = util.ALPNInMesh

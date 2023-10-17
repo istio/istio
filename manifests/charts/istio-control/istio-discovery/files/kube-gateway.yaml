@@ -53,7 +53,11 @@ spec:
       serviceAccountName: {{.ServiceAccount | quote}}
       containers:
       - name: istio-proxy
+      {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image) }}
+        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy.image }}"
+      {{- else }}
         image: "{{ .ProxyImage }}"
+      {{- end }}
         {{- if .Values.global.proxy.resources }}
         resources:
           {{- toYaml .Values.global.proxy.resources | nindent 10 }}
@@ -68,8 +72,8 @@ spec:
           allowPrivilegeEscalation: false
           privileged: false
           readOnlyRootFilesystem: true
-          runAsUser: 1337
-          runAsGroup: 1337
+          runAsUser: {{ .ProxyUID | default "1337" }}
+          runAsGroup: {{ .ProxyGID | default "1337" }}
           runAsNonRoot: true
         {{- else }}
           capabilities:

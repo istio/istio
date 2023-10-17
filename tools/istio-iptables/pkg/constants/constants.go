@@ -96,7 +96,6 @@ const (
 	KubeVirtInterfaces        = "kube-virt-interfaces"
 	DryRun                    = "dry-run"
 	TraceLogging              = "iptables-trace-logging"
-	Clean                     = "clean"
 	RestoreFormat             = "restore-format"
 	SkipRuleApply             = "skip-rule-apply"
 	RunValidation             = "run-validation"
@@ -104,10 +103,11 @@ const (
 	ProbeTimeout              = "probe-timeout"
 	RedirectDNS               = "redirect-dns"
 	DropInvalid               = "drop-invalid"
+	DualStack                 = "dual-stack"
 	CaptureAllDNS             = "capture-all-dns"
 	NetworkNamespace          = "network-namespace"
 	CNIMode                   = "cni-mode"
-	HostNSEnterExec           = "host-nsenter-exec"
+	IptablesVersion           = "iptables-version"
 )
 
 // Environment variables that deliberately have no equivalent command-line flags.
@@ -134,13 +134,13 @@ Only applies when traffic from all groups (i.e. "*") is being redirected to Envo
 )
 
 const (
-	DefaultProxyUID = "1337"
+	DefaultProxyUID    = "1337"
+	DefaultProxyUIDInt = int64(1337)
 )
 
 // Constants used in environment variables
 const (
-	DisableRedirectionOnLocalLoopback = "DISABLE_REDIRECTION_ON_LOCAL_LOOPBACK"
-	EnvoyUser                         = "ENVOY_USER"
+	EnvoyUser = "ENVOY_USER"
 )
 
 // Constants for iptables commands
@@ -151,7 +151,6 @@ const (
 	IP6TABLES        = "ip6tables"
 	IP6TABLESRESTORE = "ip6tables-restore"
 	IP6TABLESSAVE    = "ip6tables-save"
-	NSENTER          = "nsenter"
 )
 
 // Constants for syscall
@@ -173,8 +172,4 @@ const (
 // DNS ports
 const (
 	IstioAgentDNSListenerPort = "15053"
-)
-
-const (
-	CommandConfigureRoutes = "configure-routes"
 )

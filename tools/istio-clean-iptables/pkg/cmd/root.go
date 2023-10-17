@@ -105,46 +105,27 @@ func bindFlags(cmd *cobra.Command, args []string) {
 	viper.AutomaticEnv()
 	// Replace - with _; so that environment variables are looked up correctly.
 	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-
-	if err := viper.BindPFlag(constants.DryRun, cmd.Flags().Lookup(constants.DryRun)); err != nil {
-		handleError(err)
+	bind := func(name string, def any) {
+		if err := viper.BindPFlag(name, cmd.Flags().Lookup(name)); err != nil {
+			handleError(err)
+		}
+		viper.SetDefault(name, def)
 	}
-	viper.SetDefault(constants.DryRun, false)
-
-	if err := viper.BindPFlag(constants.ProxyUID, cmd.Flags().Lookup(constants.ProxyUID)); err != nil {
-		handleError(err)
+	bindEnv := func(name string, def any) {
+		if err := viper.BindEnv(name); err != nil {
+			handleError(err)
+		}
+		viper.SetDefault(name, def)
 	}
-	viper.SetDefault(constants.ProxyUID, "")
 
-	if err := viper.BindPFlag(constants.ProxyGID, cmd.Flags().Lookup(constants.ProxyGID)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.ProxyGID, "")
-
-	if err := viper.BindPFlag(constants.RedirectDNS, cmd.Flags().Lookup(constants.RedirectDNS)); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.RedirectDNS, dnsCaptureByAgent)
-
-	if err := viper.BindEnv(constants.OwnerGroupsInclude.Name); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.OwnerGroupsInclude.Name, constants.OwnerGroupsInclude.DefaultValue)
-
-	if err := viper.BindEnv(constants.OwnerGroupsExclude.Name); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.OwnerGroupsExclude.Name, constants.OwnerGroupsExclude.DefaultValue)
-
-	if err := viper.BindEnv(constants.IstioInboundInterceptionMode.Name); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.IstioInboundInterceptionMode.Name, constants.IstioInboundInterceptionMode.DefaultValue)
-
-	if err := viper.BindEnv(constants.IstioInboundTproxyMark.Name); err != nil {
-		handleError(err)
-	}
-	viper.SetDefault(constants.IstioInboundTproxyMark.Name, constants.IstioInboundTproxyMark.DefaultValue)
+	bind(constants.DryRun, false)
+	bind(constants.ProxyUID, "")
+	bind(constants.ProxyGID, "")
+	bind(constants.RedirectDNS, dnsCaptureByAgent)
+	bindEnv(constants.OwnerGroupsInclude.Name, constants.OwnerGroupsInclude.DefaultValue)
+	bindEnv(constants.OwnerGroupsExclude.Name, constants.OwnerGroupsExclude.DefaultValue)
+	bindEnv(constants.IstioInboundInterceptionMode.Name, constants.IstioInboundInterceptionMode.DefaultValue)
+	bindEnv(constants.IstioInboundTproxyMark.Name, constants.IstioInboundTproxyMark.DefaultValue)
 }
 
 // https://github.com/spf13/viper/issues/233.

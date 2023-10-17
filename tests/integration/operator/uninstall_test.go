@@ -87,7 +87,9 @@ func TestReconcileDelete(t *testing.T) {
 				// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
 				applyIop(t, t, cs, "minimal", r)
 
-				checkInstallStatus(cs, r)
+				if err := checkInstallStatus(cs, r); err != nil {
+					t.Errorf("failed to check install status: %v", err)
+				}
 
 				iopName := revName("test-istiocontrolplane", r)
 
@@ -151,7 +153,9 @@ func TestReconcileDelete(t *testing.T) {
 				// later just run `kubectl apply -f newcr.yaml` to apply new installation cr files and verify.
 				applyIop(t, t, cs, "default", r)
 
-				checkInstallStatus(cs, r)
+				if err := checkInstallStatus(cs, r); err != nil {
+					t.Errorf("failed to check install status: %v", err)
+				}
 
 				iopName := revName("test-istiocontrolplane", r)
 

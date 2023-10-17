@@ -24,14 +24,14 @@ import (
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoytype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
-	"google.golang.org/protobuf/types/known/anypb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
+	extensions "istio.io/api/extensions/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // inboundChainConfig defines the configuration for a single inbound filter chain. This may be created
@@ -144,10 +145,6 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
 		}},
-		TypedPerFilterConfig: map[string]*anypb.Any{
-			// Note the difference with the waypoint below in the connect authority filter config.
-			xdsfilters.ConnectAuthorityFilter.Name: xdsfilters.ConnectAuthorityEnabledSidecar,
-		},
 	}}
 	terminate := lb.buildConnectTerminateListener(routes)
 	// Now we have top level listener... but we must have an internal listener for each standard filter chain
@@ -177,9 +174,9 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		l.FilterChains = append(l.FilterChains, chains...)
 	}
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
+	l.ListenerFilters = append(l.ListenerFilters, xdsfilters.OriginalDestination)
 	// TODO: Exclude inspectors from some inbound ports.
-	l.ListenerFilters = populateListenerFilters(lb.node, l, true)
-	l.ListenerFilters = append(l.ListenerFilters, xdsfilters.SetDstAddress)
+	l.ListenerFilters = append(l.ListenerFilters, populateListenerFilters(lb.node, l, true)...)
 	return []*listener.Listener{terminate, l}
 }
 
@@ -607,7 +604,7 @@ func buildTLSInspector(inspectors map[int]enabledInspector) *listener.ListenerFi
 		// Ensure consistent ordering as we are looping over a map
 		sort.Ints(ports)
 		filter := &listener.ListenerFilter{
-			Name:           wellknown.TlsInspector,
+			Name:           wellknown.TLSInspector,
 			ConfigType:     xdsfilters.TLSInspector.ConfigType,
 			FilterDisabled: listenerPredicateExcludePorts(ports),
 		}
@@ -630,7 +627,7 @@ func buildTLSInspector(inspectors map[int]enabledInspector) *listener.ListenerFi
 	// Ensure consistent ordering as we are looping over a map
 	sort.Ints(ports)
 	filter := &listener.ListenerFilter{
-		Name:       wellknown.TlsInspector,
+		Name:       wellknown.TLSInspector,
 		ConfigType: xdsfilters.TLSInspector.ConfigType,
 		// Exclude all disabled ports
 		FilterDisabled: listenerPredicateIncludePorts(ports),
@@ -655,7 +652,7 @@ func buildHTTPInspector(inspectors map[int]enabledInspector) *listener.ListenerF
 	// Ensure consistent ordering as we are looping over a map
 	sort.Ints(ports)
 	filter := &listener.ListenerFilter{
-		Name:       wellknown.HttpInspector,
+		Name:       wellknown.HTTPInspector,
 		ConfigType: xdsfilters.HTTPInspector.ConfigType,
 		// Exclude all disabled ports
 		FilterDisabled: listenerPredicateExcludePorts(ports),
@@ -728,7 +725,7 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	var filters []*listener.Filter
 	if !lb.node.IsAmbient() {
-		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+		filters = append(filters, buildMetadataExchangeNetworkFilters()...)
 	}
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
 	filters = append(filters, &listener.Filter{
@@ -749,25 +746,29 @@ func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 
 // buildSidecarInboundHTTPOpts sets up HTTP options for a given chain.
 func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *httpListenerOpts {
+	ph := GetProxyHeaders(lb.node, lb.push, istionetworking.ListenerClassSidecarInbound)
 	httpOpts := &httpListenerOpts{
 		routeConfig:      buildSidecarInboundHTTPRouteConfig(lb, cc),
 		rds:              "", // no RDS for inbound traffic
 		useRemoteAddress: false,
 		connectionManager: &hcm.HttpConnectionManager{
-			// Append and forward client cert to backend.
-			ForwardClientCertDetails: hcm.HttpConnectionManager_APPEND_FORWARD,
+			// Append and forward client cert to backend, if configured
+			ForwardClientCertDetails: ph.ForwardedClientCert,
 			SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
 				Subject: proto.BoolTrue,
 				Uri:     true,
 				Dns:     true,
 			},
-			ServerName: EnvoyServerName,
+			ServerName:                 ph.ServerName,
+			ServerHeaderTransformation: ph.ServerHeaderTransformation,
+			GenerateRequestId:          ph.GenerateRequestID,
 		},
-		protocol:   cc.port.Protocol,
-		class:      istionetworking.ListenerClassSidecarInbound,
-		port:       int(cc.port.TargetPort),
-		statPrefix: cc.StatPrefix(),
-		hbone:      cc.hbone,
+		suppressEnvoyDebugHeaders: ph.SuppressDebugHeaders,
+		protocol:                  cc.port.Protocol,
+		class:                     istionetworking.ListenerClassSidecarInbound,
+		port:                      int(cc.port.TargetPort),
+		statPrefix:                cc.StatPrefix(),
+		hbone:                     cc.hbone,
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {
@@ -786,16 +787,30 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 // buildInboundNetworkFiltersForHTTP builds the network filters that should be inserted before an HCM.
 // This should only be used with HTTP; see buildInboundNetworkFilters for TCP
 func (lb *ListenerBuilder) buildInboundNetworkFiltersForHTTP(cc inboundChainConfig) []*listener.Filter {
-	var filters []*listener.Filter
+	// Add network level WASM filters if any configured.
+	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
+	wasm := lb.push.WasmPluginsByListenerInfo(lb.node, model.WasmPluginListenerInfo{
+		Port:  httpOpts.port,
+		Class: httpOpts.class,
+	}, model.WasmPluginTypeNetwork)
 
+	var filters []*listener.Filter
+	// Metadata exchange goes first, so RBAC failures, etc can access the state. See https://github.com/istio/istio/issues/41066
 	if !cc.hbone {
-		if util.IsIstioVersionGE117(lb.node.IstioVersion) {
-			filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
-		}
-		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
+		filters = append(filters, buildMetadataExchangeNetworkFilters()...)
 	}
 
-	httpOpts := buildSidecarInboundHTTPOpts(lb, cc)
+	// Authn
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
+	if !cc.hbone {
+		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
+	}
+
+	// Authz. Since this is HTTP, we only add WASM network filters -- not TCP RBAC, stats, etc.
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_STATS)
+	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
+
 	h := lb.buildHTTPConnectionManager(httpOpts)
 	filters = append(filters, &listener.Filter{
 		Name:       wellknown.HTTPConnectionManager,
@@ -817,19 +832,6 @@ func (lb *ListenerBuilder) buildInboundNetworkFilters(fcc inboundChainConfig) []
 		IdleTimeout:      parseDuration(lb.node.Metadata.IdleTimeout),
 	}
 	tcpFilter := setAccessLogAndBuildTCPFilter(lb.push, lb.node, tcpProxy, istionetworking.ListenerClassSidecarInbound)
-
-	var filters []*listener.Filter
-
-	if !fcc.hbone {
-		if util.IsIstioVersionGE117(lb.node.IstioVersion) {
-			filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
-		}
-		filters = append(filters, buildMetadataExchangeNetworkFilters(istionetworking.ListenerClassSidecarInbound)...)
-	}
-	filters = append(filters, lb.authzCustomBuilder.BuildTCP()...)
-	filters = append(filters, lb.authzBuilder.BuildTCP()...)
-	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)
-	filters = append(filters, buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)...)
-
-	return filters
+	networkFilterstack := buildNetworkFiltersStack(fcc.port.Protocol, tcpFilter, statPrefix, fcc.clusterName)
+	return lb.buildCompleteNetworkFilters(istionetworking.ListenerClassSidecarInbound, fcc.port.Port, networkFilterstack, true)
 }

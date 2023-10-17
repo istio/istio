@@ -372,8 +372,8 @@ type Proxy struct {
 	// XdsNode is the xDS node identifier
 	XdsNode *core.Node
 
-	WorkloadEntryName        string
-	WorkloadEntryAutoCreated bool
+	workloadEntryName        string
+	workloadEntryAutoCreated bool
 
 	// LastPushContext stores the most recent push context for this proxy. This will be monotonically
 	// increasing in version. Requests should send config based on this context; not the global latest.
@@ -718,6 +718,9 @@ type NodeMetadata struct {
 	// The istiod address when running ASM Managed Control Plane.
 	CloudrunAddr string `json:"CLOUDRUN_ADDR,omitempty"`
 
+	// Metadata discovery service enablement
+	MetadataDiscovery StringBool `json:"METADATA_DISCOVERY,omitempty"`
+
 	// Contains a copy of the raw metadata. This is needed to lookup arbitrary values.
 	// If a value is known ahead of time it should be added to the struct rather than reading from here,
 	Raw map[string]any `json:"-"`
@@ -1001,6 +1004,10 @@ func (node *Proxy) IsIPv6() bool {
 	return node.ipMode == IPv6
 }
 
+func (node *Proxy) IsDualStack() bool {
+	return node.ipMode == Dual
+}
+
 // GetIPMode returns proxy's ipMode
 func (node *Proxy) GetIPMode() IPMode {
 	return node.ipMode
@@ -1050,7 +1057,7 @@ func ParseServiceNodeWithMetadata(nodeID string, metadata *NodeMetadata) (*Proxy
 	}
 
 	if !IsApplicationNodeType(NodeType(parts[0])) {
-		return out, fmt.Errorf("invalid node type (valid types: sidecar, router in the service node %q", nodeID)
+		return out, fmt.Errorf("invalid node type (valid types: %v) in the service node %q", NodeTypes, nodeID)
 	}
 	out.Type = NodeType(parts[0])
 
@@ -1316,6 +1323,19 @@ func (node *Proxy) WaypointScope() WaypointScope {
 		Namespace:      node.ConfigNamespace,
 		ServiceAccount: node.Metadata.Annotations[constants.WaypointServiceAccount],
 	}
+}
+
+func (node *Proxy) SetWorkloadEntry(name string, create bool) {
+	node.Lock()
+	defer node.Unlock()
+	node.workloadEntryName = name
+	node.workloadEntryAutoCreated = create
+}
+
+func (node *Proxy) WorkloadEntry() (string, bool) {
+	node.RLock()
+	defer node.RUnlock()
+	return node.workloadEntryName, node.workloadEntryAutoCreated
 }
 
 type GatewayController interface {

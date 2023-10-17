@@ -1420,7 +1420,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 	ingress := &networking.IstioIngressListener{
 		CaptureMode:     networking.CaptureMode_NONE,
 		DefaultEndpoint: "127.0.0.1:7020",
-		Port: &networking.Port{
+		Port: &networking.SidecarPort{
 			Number:   7443,
 			Name:     "grpc-core",
 			Protocol: "GRPC",
@@ -1689,6 +1689,120 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			for _, cluster := range clusters {
 				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 				g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(c.expected))
+			}
+		})
+	}
+}
+
+func TestInboundClustersPassThroughBindIPs(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     80,
+		Protocol: protocol.HTTP,
+	}
+
+	service := &model.Service{
+		Hostname:   host.Name("backend.default.svc.cluster.local"),
+		Ports:      model.PortList{servicePort},
+		Resolution: model.Passthrough,
+	}
+	instances := []*model.ServiceInstance{
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "1.1.1.1",
+				EndpointPort: 10001,
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "2001:1::1",
+				EndpointPort: 10001,
+			},
+		},
+	}
+	inboundFilter := func(c *cluster.Cluster) bool {
+		return strings.HasPrefix(c.Name, "inbound|")
+	}
+
+	cases := []struct {
+		name                 string
+		proxy                *model.Proxy
+		dualStack            bool
+		expectedSrcAddr      string
+		expectedExtraSrcAddr string
+	}{
+		{
+			name:                 "all ipv4, dual stack disabled",
+			proxy:                getProxy(),
+			dualStack:            false,
+			expectedSrcAddr:      InboundPassthroughBindIpv4,
+			expectedExtraSrcAddr: "",
+		},
+		{
+			name:                 "all ipv4, dual stack enabled",
+			proxy:                getProxy(),
+			dualStack:            true,
+			expectedSrcAddr:      InboundPassthroughBindIpv4,
+			expectedExtraSrcAddr: "",
+		},
+		{
+			name:                 "all ipv6, dual stack disabled",
+			proxy:                getIPv6Proxy(),
+			dualStack:            false,
+			expectedSrcAddr:      InboundPassthroughBindIpv6,
+			expectedExtraSrcAddr: "",
+		},
+		{
+			name:                 "all ipv6, dual stack enabled",
+			proxy:                getIPv6Proxy(),
+			dualStack:            true,
+			expectedSrcAddr:      InboundPassthroughBindIpv6,
+			expectedExtraSrcAddr: "",
+		},
+		{
+			name:                 "ipv4 and ipv6, dual stack disabled",
+			proxy:                &dualStackProxy,
+			dualStack:            false,
+			expectedSrcAddr:      InboundPassthroughBindIpv4,
+			expectedExtraSrcAddr: "",
+		},
+		{
+			name:                 "ipv4 and ipv6, dual stack enabled",
+			proxy:                &dualStackProxy,
+			dualStack:            true,
+			expectedSrcAddr:      InboundPassthroughBindIpv4,
+			expectedExtraSrcAddr: InboundPassthroughBindIpv6,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableDualStack, c.dualStack)
+			g := NewWithT(t)
+			cg := NewConfigGenTest(t, TestOptions{
+				Services:  []*model.Service{service},
+				Instances: instances,
+				Configs:   []config.Config{},
+			})
+			clusters := cg.Clusters(cg.SetupProxy(c.proxy))
+			xdstest.ValidateClusters(t, clusters)
+
+			clusters = xdstest.FilterClusters(clusters, inboundFilter)
+			g.Expect(len(clusters)).ShouldNot(Equal(0))
+
+			for _, cluster := range clusters {
+				g.Expect(cluster.UpstreamBindConfig.SourceAddress.Address).To(Equal(c.expectedSrcAddr))
+				if c.expectedExtraSrcAddr != "" {
+					g.Expect(len(cluster.UpstreamBindConfig.ExtraSourceAddresses)).To(Equal(1))
+					g.Expect(cluster.UpstreamBindConfig.ExtraSourceAddresses[0].Address.Address).To(Equal(c.expectedExtraSrcAddr))
+				} else {
+					g.Expect(len(cluster.UpstreamBindConfig.ExtraSourceAddresses)).To(Equal(0))
+				}
+
 			}
 		})
 	}

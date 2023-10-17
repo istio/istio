@@ -15,24 +15,23 @@
 package mesh
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
 	"istio.io/api/operator/v1alpha1"
+	"istio.io/istio/istioctl/pkg/cli"
 	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/pkg/kube"
 )
 
 type operatorRemoveArgs struct {
-	// kubeConfigPath is the path to kube config file.
-	kubeConfigPath string
-	// context is the cluster context in the kube config.
-	context string
 	// skipConfirmation determines whether the user is prompted for confirmation.
 	// If set to true, the user is not prompted and a Yes response is assumed in all cases.
 	skipConfirmation bool
@@ -47,8 +46,6 @@ type operatorRemoveArgs struct {
 }
 
 func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
-	cmd.PersistentFlags().StringVarP(&oiArgs.kubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr)
-	cmd.PersistentFlags().StringVar(&oiArgs.context, "context", "", ContextFlagHelpStr)
 	cmd.PersistentFlags().BoolVarP(&oiArgs.skipConfirmation, "skip-confirmation", "y", false, skipConfirmationFlagHelpStr)
 	cmd.PersistentFlags().BoolVar(&oiArgs.force, "force", false, ForceFlagHelpStr)
 	cmd.PersistentFlags().StringVar(&oiArgs.operatorNamespace, "operatorNamespace", operatorDefaultNamespace, OperatorNamespaceHelpstr)
@@ -56,38 +53,55 @@ func addOperatorRemoveFlags(cmd *cobra.Command, oiArgs *operatorRemoveArgs) {
 	cmd.PersistentFlags().BoolVar(&oiArgs.purge, "purge", false, AllOperatorRevFlagHelpStr)
 }
 
-func operatorRemoveCmd(rootArgs *RootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
+func operatorRemoveCmd(ctx cli.Context, rootArgs *RootArgs, orArgs *operatorRemoveArgs) *cobra.Command {
 	return &cobra.Command{
 		Use:   "remove",
 		Short: "Removes the Istio operator controller from the cluster.",
 		Long:  "The remove subcommand removes the Istio operator controller from the cluster.",
-		Args:  cobra.ExactArgs(0),
-		Run: func(cmd *cobra.Command, args []string) {
+		Args: func(cmd *cobra.Command, args []string) error {
+			if orArgs.revision == "" && !orArgs.purge {
+				return fmt.Errorf("at least one of the --revision or --purge flags must be set")
+			}
+			if len(args) > 0 {
+				return fmt.Errorf("istioctl operator remove does not take arguments")
+			}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := ctx.CLIClient()
+			if err != nil {
+				return err
+			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.OutOrStderr(), installerScope)
-			operatorRemove(cmd, rootArgs, orArgs, l)
+			operatorRemove(cmd, client, rootArgs, orArgs, l)
+			return nil
 		},
 	}
 }
 
 // operatorRemove removes the Istio operator controller from the cluster.
-func operatorRemove(cmd *cobra.Command, args *RootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
+func operatorRemove(cmd *cobra.Command, cliClient kube.CLIClient, args *RootArgs, orArgs *operatorRemoveArgs, l clog.Logger) {
 	initLogsOrExit(args)
 
-	kubeClient, client, err := KubernetesClients(orArgs.kubeConfigPath, orArgs.context, l)
+	kubeClient, client, err := KubernetesClients(cliClient, l)
 	if err != nil {
 		l.LogAndFatal(err)
 	}
 
-	// If the user is performing purge but also specified a revision, an error message
-	// should be displayed and do nothing
+	// If the user is performing purge but also specified a revision, we should warn
+	// that the purge will still remove all resources
 	if orArgs.purge && orArgs.revision != "" {
 		orArgs.revision = ""
-		l.LogAndFatal("At most one of the --revision or --purge flags could be set\n")
-	} else if orArgs.revision == "default" {
-		orArgs.revision = ""
+		l.LogAndPrint("Purge remove will remove all Istio operator controller, ignoring the specified revision\n")
 	}
 
-	installed, err := isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, orArgs.revision)
+	var installed bool
+	if orArgs.revision == "default" {
+		installed, err = isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, "")
+	} else {
+		installed, err = isControllerInstalled(kubeClient.Kube(), orArgs.operatorNamespace, orArgs.revision)
+	}
+
 	if installed && err != nil {
 		l.LogAndFatal(err)
 	}
