@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -1010,7 +1011,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready bool) {
 	t.Helper()
 
-	fromSame := k8sbeta.NamespacesFromSame
+	fromSame := k8sv1.NamespacesFromSame
 	gatewaySpec := k8sbeta.GatewaySpec{
 		GatewayClassName: constants.WaypointGatewayClassName,
 		Listeners: []k8sbeta.Listener{
@@ -1050,7 +1051,7 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready
 			// addresses:
 			// - type: IPAddress
 			//   value: 10.96.59.188
-			Addresses: []k8sbeta.GatewayStatusAddress{
+			Addresses: []k8sv1.GatewayStatusAddress{
 				{
 					Type:  &addrType,
 					Value: ip,
