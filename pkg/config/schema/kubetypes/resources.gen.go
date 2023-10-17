@@ -15,7 +15,7 @@ import (
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimeshv1alpha1 "istio.io/api/mesh/v1alpha1"
@@ -65,15 +65,15 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 		return gvk.Gateway
 	case *apiistioioapinetworkingv1alpha3.Gateway:
 		return gvk.Gateway
-	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
+	case *sigsk8siogatewayapiapisv1.GatewayClass:
 		return gvk.GatewayClass
-	case *sigsk8siogatewayapiapisv1beta1.HTTPRoute:
+	case *sigsk8siogatewayapiapisv1.HTTPRoute:
 		return gvk.HTTPRoute
 	case *k8sioapinetworkingv1.Ingress:
 		return gvk.Ingress
 	case *k8sioapinetworkingv1.IngressClass:
 		return gvk.IngressClass
-	case *sigsk8siogatewayapiapisv1beta1.Gateway:
+	case *sigsk8siogatewayapiapisv1.Gateway:
 		return gvk.KubernetesGateway
 	case *k8sioapicoordinationv1.Lease:
 		return gvk.Lease
@@ -97,7 +97,7 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 		return gvk.ProxyConfig
 	case *apiistioioapinetworkingv1beta1.ProxyConfig:
 		return gvk.ProxyConfig
-	case *sigsk8siogatewayapiapisv1beta1.ReferenceGrant:
+	case *sigsk8siogatewayapiapisv1.ReferenceGrant:
 		return gvk.ReferenceGrant
 	case *istioioapisecurityv1beta1.RequestAuthentication:
 		return gvk.RequestAuthentication

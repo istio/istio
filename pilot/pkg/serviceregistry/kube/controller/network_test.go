@@ -24,7 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -155,45 +155,45 @@ func removeLabeledServiceGateway(t *testing.T, c *FakeController) {
 // creates a gateway that exposes 2 ports that are valid auto-passthrough ports
 // and it does so on an IP and a hostname
 func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int) {
-	passthroughMode := v1beta1.TLSModePassthrough
-	ipType := v1beta1.IPAddressType
-	hostnameType := v1beta1.HostnameAddressType
-	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).CreateOrUpdate(&v1beta1.Gateway{
+	passthroughMode := k8sv1.TLSModePassthrough
+	ipType := k8sv1.IPAddressType
+	hostnameType := k8sv1.HostnameAddressType
+	clienttest.Wrap(t, kclient.New[*k8sv1.Gateway](c.client)).CreateOrUpdate(&k8sv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "eastwest-gwapi",
 			Namespace: "istio-system",
 			Labels:    map[string]string{label.TopologyNetwork.Name: "nw2"},
 		},
-		Spec: v1beta1.GatewaySpec{
+		Spec: k8sv1.GatewaySpec{
 			GatewayClassName: "istio",
-			Addresses: []v1beta1.GatewayAddress{
+			Addresses: []k8sv1.GatewayAddress{
 				{Type: &ipType, Value: "1.2.3.4"},
 				{Type: &hostnameType, Value: "some hostname"},
 			},
-			Listeners: []v1beta1.Listener{
+			Listeners: []k8sv1.Listener{
 				{
 					Name: "detected-by-options",
-					TLS: &v1beta1.GatewayTLSConfig{
+					TLS: &k8sv1.GatewayTLSConfig{
 						Mode: &passthroughMode,
-						Options: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{
+						Options: map[k8sv1.AnnotationKey]k8sv1.AnnotationValue{
 							constants.ListenerModeOption: constants.ListenerModeAutoPassthrough,
 						},
 					},
-					Port: v1beta1.PortNumber(customPort),
+					Port: k8sv1.PortNumber(customPort),
 				},
 				{
 					Name: "detected-by-number",
-					TLS:  &v1beta1.GatewayTLSConfig{Mode: &passthroughMode},
+					TLS:  &k8sv1.GatewayTLSConfig{Mode: &passthroughMode},
 					Port: 15443,
 				},
 			},
 		},
-		Status: v1beta1.GatewayStatus{},
+		Status: k8sv1.GatewayStatus{},
 	})
 }
 
 func removeGatewayResource(t *testing.T, c *FakeController) {
-	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).Delete("eastwest-gwapi", "istio-system")
+	clienttest.Wrap(t, kclient.New[*k8sv1.Gateway](c.client)).Delete("eastwest-gwapi", "istio-system")
 }
 
 func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher mesh.NetworksWatcher) {

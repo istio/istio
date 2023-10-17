@@ -20,7 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	apiistioioapiextensionsv1alpha1 "istio.io/client-go/pkg/apis/extensions/v1alpha1"
 	apiistioioapinetworkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -57,15 +57,15 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1alpha3.Gateway:
 		return c.Istio().NetworkingV1alpha3().Gateways(namespace).(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
+	case *sigsk8siogatewayapiapisv1.GatewayClass:
 		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1beta1.HTTPRoute:
+	case *sigsk8siogatewayapiapisv1.HTTPRoute:
 		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapinetworkingv1.Ingress:
 		return c.Kube().NetworkingV1().Ingresses(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapinetworkingv1.IngressClass:
 		return c.Kube().NetworkingV1().IngressClasses().(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1beta1.Gateway:
+	case *sigsk8siogatewayapiapisv1.Gateway:
 		return c.GatewayAPI().GatewayV1beta1().Gateways(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapicoordinationv1.Lease:
 		return c.Kube().CoordinationV1().Leases(namespace).(ktypes.WriteAPI[T])
@@ -81,7 +81,7 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().CoreV1().Pods(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1beta1.ProxyConfig:
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(namespace).(ktypes.WriteAPI[T])
-	case *sigsk8siogatewayapiapisv1beta1.ReferenceGrant:
+	case *sigsk8siogatewayapiapisv1.ReferenceGrant:
 		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapisecurityv1beta1.RequestAuthentication:
 		return c.Istio().SecurityV1beta1().RequestAuthentications(namespace).(ktypes.WriteAPI[T])
@@ -142,15 +142,15 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.GatewayAPI().GatewayV1alpha2().GRPCRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1alpha3.Gateway:
 		return c.Istio().NetworkingV1alpha3().Gateways(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1beta1.GatewayClass:
+	case *sigsk8siogatewayapiapisv1.GatewayClass:
 		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1beta1.HTTPRoute:
+	case *sigsk8siogatewayapiapisv1.HTTPRoute:
 		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapinetworkingv1.Ingress:
 		return c.Kube().NetworkingV1().Ingresses(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapinetworkingv1.IngressClass:
 		return c.Kube().NetworkingV1().IngressClasses().(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1beta1.Gateway:
+	case *sigsk8siogatewayapiapisv1.Gateway:
 		return c.GatewayAPI().GatewayV1beta1().Gateways(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapicoordinationv1.Lease:
 		return c.Kube().CoordinationV1().Leases(namespace).(ktypes.ReadWriteAPI[T, TL])
@@ -166,7 +166,7 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().CoreV1().Pods(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1beta1.ProxyConfig:
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(namespace).(ktypes.ReadWriteAPI[T, TL])
-	case *sigsk8siogatewayapiapisv1beta1.ReferenceGrant:
+	case *sigsk8siogatewayapiapisv1.ReferenceGrant:
 		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapisecurityv1beta1.RequestAuthentication:
 		return c.Istio().SecurityV1beta1().RequestAuthentications(namespace).(ktypes.ReadWriteAPI[T, TL])
@@ -228,15 +228,15 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 	case gvr.Gateway:
 		return &apiistioioapinetworkingv1alpha3.Gateway{}
 	case gvr.GatewayClass:
-		return &sigsk8siogatewayapiapisv1beta1.GatewayClass{}
+		return &sigsk8siogatewayapiapisv1.GatewayClass{}
 	case gvr.HTTPRoute:
-		return &sigsk8siogatewayapiapisv1beta1.HTTPRoute{}
+		return &sigsk8siogatewayapiapisv1.HTTPRoute{}
 	case gvr.Ingress:
 		return &k8sioapinetworkingv1.Ingress{}
 	case gvr.IngressClass:
 		return &k8sioapinetworkingv1.IngressClass{}
 	case gvr.KubernetesGateway:
-		return &sigsk8siogatewayapiapisv1beta1.Gateway{}
+		return &sigsk8siogatewayapiapisv1.Gateway{}
 	case gvr.Lease:
 		return &k8sioapicoordinationv1.Lease{}
 	case gvr.MutatingWebhookConfiguration:
@@ -252,7 +252,7 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 	case gvr.ProxyConfig:
 		return &apiistioioapinetworkingv1beta1.ProxyConfig{}
 	case gvr.ReferenceGrant:
-		return &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{}
+		return &sigsk8siogatewayapiapisv1.ReferenceGrant{}
 	case gvr.RequestAuthentication:
 		return &apiistioioapisecurityv1beta1.RequestAuthentication{}
 	case gvr.Secret:

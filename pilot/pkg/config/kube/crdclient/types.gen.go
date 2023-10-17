@@ -23,7 +23,7 @@ import (
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
+	sigsk8siogatewayapiapisv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	istioioapiextensionsv1alpha1 "istio.io/api/extensions/v1alpha1"
 	istioioapimetav1alpha1 "istio.io/api/meta/v1alpha1"
@@ -66,19 +66,19 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.Gateway)),
 		}, metav1.CreateOptions{})
 	case gvk.GatewayClass:
-		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().Create(context.TODO(), &sigsk8siogatewayapiapisv1beta1.GatewayClass{
+		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().Create(context.TODO(), &sigsk8siogatewayapiapisv1.GatewayClass{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.GatewayClassSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.GatewayClassSpec)),
 		}, metav1.CreateOptions{})
 	case gvk.HTTPRoute:
-		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1beta1.HTTPRoute{
+		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.HTTPRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.HTTPRouteSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.HTTPRouteSpec)),
 		}, metav1.CreateOptions{})
 	case gvk.KubernetesGateway:
-		return c.GatewayAPI().GatewayV1beta1().Gateways(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1beta1.Gateway{
+		return c.GatewayAPI().GatewayV1beta1().Gateways(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.Gateway{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.GatewaySpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.GatewaySpec)),
 		}, metav1.CreateOptions{})
 	case gvk.PeerAuthentication:
 		return c.Istio().SecurityV1beta1().PeerAuthentications(cfg.Namespace).Create(context.TODO(), &apiistioioapisecurityv1beta1.PeerAuthentication{
@@ -91,9 +91,9 @@ func create(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1beta1.ProxyConfig)),
 		}, metav1.CreateOptions{})
 	case gvk.ReferenceGrant:
-		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
+		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(cfg.Namespace).Create(context.TODO(), &sigsk8siogatewayapiapisv1.ReferenceGrant{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.ReferenceGrantSpec)),
 		}, metav1.CreateOptions{})
 	case gvk.RequestAuthentication:
 		return c.Istio().SecurityV1beta1().RequestAuthentications(cfg.Namespace).Create(context.TODO(), &apiistioioapisecurityv1beta1.RequestAuthentication{
@@ -183,19 +183,19 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1alpha3.Gateway)),
 		}, metav1.UpdateOptions{})
 	case gvk.GatewayClass:
-		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().Update(context.TODO(), &sigsk8siogatewayapiapisv1beta1.GatewayClass{
+		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().Update(context.TODO(), &sigsk8siogatewayapiapisv1.GatewayClass{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.GatewayClassSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.GatewayClassSpec)),
 		}, metav1.UpdateOptions{})
 	case gvk.HTTPRoute:
-		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1beta1.HTTPRoute{
+		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.HTTPRoute{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.HTTPRouteSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.HTTPRouteSpec)),
 		}, metav1.UpdateOptions{})
 	case gvk.KubernetesGateway:
-		return c.GatewayAPI().GatewayV1beta1().Gateways(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1beta1.Gateway{
+		return c.GatewayAPI().GatewayV1beta1().Gateways(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.Gateway{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.GatewaySpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.GatewaySpec)),
 		}, metav1.UpdateOptions{})
 	case gvk.PeerAuthentication:
 		return c.Istio().SecurityV1beta1().PeerAuthentications(cfg.Namespace).Update(context.TODO(), &apiistioioapisecurityv1beta1.PeerAuthentication{
@@ -208,9 +208,9 @@ func update(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (metav1
 			Spec:       *(cfg.Spec.(*istioioapinetworkingv1beta1.ProxyConfig)),
 		}, metav1.UpdateOptions{})
 	case gvk.ReferenceGrant:
-		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
+		return c.GatewayAPI().GatewayV1beta1().ReferenceGrants(cfg.Namespace).Update(context.TODO(), &sigsk8siogatewayapiapisv1.ReferenceGrant{
 			ObjectMeta: objMeta,
-			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
+			Spec:       *(cfg.Spec.(*sigsk8siogatewayapiapisv1.ReferenceGrantSpec)),
 		}, metav1.UpdateOptions{})
 	case gvk.RequestAuthentication:
 		return c.Istio().SecurityV1beta1().RequestAuthentications(cfg.Namespace).Update(context.TODO(), &apiistioioapisecurityv1beta1.RequestAuthentication{
@@ -300,19 +300,19 @@ func updateStatus(c kube.Client, cfg config.Config, objMeta metav1.ObjectMeta) (
 			Status:     *(cfg.Status.(*istioioapimetav1alpha1.IstioStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.GatewayClass:
-		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1beta1.GatewayClass{
+		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1.GatewayClass{
 			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1beta1.GatewayClassStatus)),
+			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1.GatewayClassStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.HTTPRoute:
-		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1beta1.HTTPRoute{
+		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1.HTTPRoute{
 			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1beta1.HTTPRouteStatus)),
+			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1.HTTPRouteStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.KubernetesGateway:
-		return c.GatewayAPI().GatewayV1beta1().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1beta1.Gateway{
+		return c.GatewayAPI().GatewayV1beta1().Gateways(cfg.Namespace).UpdateStatus(context.TODO(), &sigsk8siogatewayapiapisv1.Gateway{
 			ObjectMeta: objMeta,
-			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1beta1.GatewayStatus)),
+			Status:     *(cfg.Status.(*sigsk8siogatewayapiapisv1.GatewayStatus)),
 		}, metav1.UpdateOptions{})
 	case gvk.PeerAuthentication:
 		return c.Istio().SecurityV1beta1().PeerAuthentications(cfg.Namespace).UpdateStatus(context.TODO(), &apiistioioapisecurityv1beta1.PeerAuthentication{
@@ -465,13 +465,13 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		return c.Istio().NetworkingV1alpha3().Gateways(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.GatewayClass:
-		oldRes := &sigsk8siogatewayapiapisv1beta1.GatewayClass{
+		oldRes := &sigsk8siogatewayapiapisv1.GatewayClass{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1beta1.GatewayClassSpec)),
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1.GatewayClassSpec)),
 		}
-		modRes := &sigsk8siogatewayapiapisv1beta1.GatewayClass{
+		modRes := &sigsk8siogatewayapiapisv1.GatewayClass{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1beta1.GatewayClassSpec)),
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1.GatewayClassSpec)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -480,13 +480,13 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		return c.GatewayAPI().GatewayV1beta1().GatewayClasses().
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.HTTPRoute:
-		oldRes := &sigsk8siogatewayapiapisv1beta1.HTTPRoute{
+		oldRes := &sigsk8siogatewayapiapisv1.HTTPRoute{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1beta1.HTTPRouteSpec)),
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1.HTTPRouteSpec)),
 		}
-		modRes := &sigsk8siogatewayapiapisv1beta1.HTTPRoute{
+		modRes := &sigsk8siogatewayapiapisv1.HTTPRoute{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1beta1.HTTPRouteSpec)),
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1.HTTPRouteSpec)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -495,13 +495,13 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		return c.GatewayAPI().GatewayV1beta1().HTTPRoutes(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.KubernetesGateway:
-		oldRes := &sigsk8siogatewayapiapisv1beta1.Gateway{
+		oldRes := &sigsk8siogatewayapiapisv1.Gateway{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1beta1.GatewaySpec)),
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1.GatewaySpec)),
 		}
-		modRes := &sigsk8siogatewayapiapisv1beta1.Gateway{
+		modRes := &sigsk8siogatewayapiapisv1.Gateway{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1beta1.GatewaySpec)),
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1.GatewaySpec)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -540,13 +540,13 @@ func patch(c kube.Client, orig config.Config, origMeta metav1.ObjectMeta, mod co
 		return c.Istio().NetworkingV1beta1().ProxyConfigs(orig.Namespace).
 			Patch(context.TODO(), orig.Name, typ, patchBytes, metav1.PatchOptions{FieldManager: "pilot-discovery"})
 	case gvk.ReferenceGrant:
-		oldRes := &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
+		oldRes := &sigsk8siogatewayapiapisv1.ReferenceGrant{
 			ObjectMeta: origMeta,
-			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
+			Spec:       *(orig.Spec.(*sigsk8siogatewayapiapisv1.ReferenceGrantSpec)),
 		}
-		modRes := &sigsk8siogatewayapiapisv1beta1.ReferenceGrant{
+		modRes := &sigsk8siogatewayapiapisv1.ReferenceGrant{
 			ObjectMeta: modMeta,
-			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrantSpec)),
+			Spec:       *(mod.Spec.(*sigsk8siogatewayapiapisv1.ReferenceGrantSpec)),
 		}
 		patchBytes, err := genPatchBytes(oldRes, modRes, typ)
 		if err != nil {
@@ -985,7 +985,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 	gvk.GatewayClass: func(r runtime.Object) config.Config {
-		obj := r.(*sigsk8siogatewayapiapisv1beta1.GatewayClass)
+		obj := r.(*sigsk8siogatewayapiapisv1.GatewayClass)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.GatewayClass,
@@ -1004,7 +1004,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 	gvk.HTTPRoute: func(r runtime.Object) config.Config {
-		obj := r.(*sigsk8siogatewayapiapisv1beta1.HTTPRoute)
+		obj := r.(*sigsk8siogatewayapiapisv1.HTTPRoute)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.HTTPRoute,
@@ -1060,7 +1060,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 	gvk.KubernetesGateway: func(r runtime.Object) config.Config {
-		obj := r.(*sigsk8siogatewayapiapisv1beta1.Gateway)
+		obj := r.(*sigsk8siogatewayapiapisv1.Gateway)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.KubernetesGateway,
@@ -1207,7 +1207,7 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 		}
 	},
 	gvk.ReferenceGrant: func(r runtime.Object) config.Config {
-		obj := r.(*sigsk8siogatewayapiapisv1beta1.ReferenceGrant)
+		obj := r.(*sigsk8siogatewayapiapisv1.ReferenceGrant)
 		return config.Config{
 			Meta: config.Meta{
 				GroupVersionKind:  gvk.ReferenceGrant,

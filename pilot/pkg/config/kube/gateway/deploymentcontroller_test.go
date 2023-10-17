@@ -26,8 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
-	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
 	istioio_networking_v1beta1 "istio.io/api/networking/v1beta1"
@@ -56,11 +56,11 @@ import (
 
 func TestConfigureIstioGateway(t *testing.T) {
 	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
-	customClass := &v1beta1.GatewayClass{
+	customClass := &k8sv1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "custom",
 		},
-		Spec: v1beta1.GatewayClassSpec{
+		Spec: k8sv1.GatewayClassSpec{
 			ControllerName: constants.ManagedGatewayController,
 		},
 	}
@@ -88,13 +88,13 @@ func TestConfigureIstioGateway(t *testing.T) {
 	proxyConfig := model.GetProxyConfigs(store, mesh.DefaultMeshConfig())
 	tests := []struct {
 		name    string
-		gw      v1beta1.Gateway
+		gw      k8sv1.Gateway
 		objects []runtime.Object
 		pcs     *model.ProxyConfigs
 	}{
 		{
 			name: "simple",
-			gw: v1beta1.Gateway{
+			gw: k8sv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -107,7 +107,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "manual-sa",
-			gw: v1beta1.Gateway{
+			gw: k8sv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
@@ -121,16 +121,16 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "manual-ip",
-			gw: v1beta1.Gateway{
+			gw: k8sv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
 					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
-				Spec: v1beta1.GatewaySpec{
+				Spec: k8sv1.GatewaySpec{
 					GatewayClassName: defaultClassName,
-					Addresses: []v1beta1.GatewayAddress{{
-						Type:  func() *v1beta1.AddressType { x := v1beta1.IPAddressType; return &x }(),
+					Addresses: []k8sv1.GatewayAddress{{
+						Type:  func() *k8sv1.AddressType { x := k8sv1.IPAddressType; return &x }(),
 						Value: "1.2.3.4",
 					}},
 				},
@@ -139,7 +139,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "cluster-ip",
-			gw: v1beta1.Gateway{
+			gw: k8sv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -148,12 +148,12 @@ func TestConfigureIstioGateway(t *testing.T) {
 						gatewayNameOverride:                "default",
 					},
 				},
-				Spec: v1beta1.GatewaySpec{
+				Spec: k8sv1.GatewaySpec{
 					GatewayClassName: defaultClassName,
-					Listeners: []v1beta1.Listener{{
+					Listeners: []k8sv1.Listener{{
 						Name:     "http",
-						Port:     v1beta1.PortNumber(80),
-						Protocol: v1beta1.HTTPProtocolType,
+						Port:     k8sv1.PortNumber(80),
+						Protocol: k8sv1.HTTPProtocolType,
 					}},
 				},
 			},
@@ -161,19 +161,19 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "multinetwork",
-			gw: v1beta1.Gateway{
+			gw: k8sv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:        "default",
 					Namespace:   "default",
 					Labels:      map[string]string{"topology.istio.io/network": "network-1"},
 					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
-				Spec: v1beta1.GatewaySpec{
+				Spec: k8sv1.GatewaySpec{
 					GatewayClassName: defaultClassName,
-					Listeners: []v1beta1.Listener{{
+					Listeners: []k8sv1.Listener{{
 						Name:     "http",
-						Port:     v1beta1.PortNumber(80),
-						Protocol: v1beta1.HTTPProtocolType,
+						Port:     k8sv1.PortNumber(80),
+						Protocol: k8sv1.HTTPProtocolType,
 					}},
 				},
 			},
@@ -181,7 +181,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "waypoint",
-			gw: v1beta1.Gateway{
+			gw: k8sv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "namespace",
 					Namespace: "default",
@@ -189,11 +189,11 @@ func TestConfigureIstioGateway(t *testing.T) {
 						"topology.istio.io/network": "network-1",
 					},
 				},
-				Spec: v1beta1.GatewaySpec{
+				Spec: k8sv1.GatewaySpec{
 					GatewayClassName: constants.WaypointGatewayClassName,
-					Listeners: []v1beta1.Listener{{
+					Listeners: []k8sv1.Listener{{
 						Name:     "mesh",
-						Port:     v1beta1.PortNumber(15008),
+						Port:     k8sv1.PortNumber(15008),
 						Protocol: "ALL",
 					}},
 				},
@@ -202,7 +202,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "proxy-config-crd",
-			gw: v1beta1.Gateway{
+			gw: k8sv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
@@ -216,13 +216,13 @@ func TestConfigureIstioGateway(t *testing.T) {
 		},
 		{
 			name: "custom-class",
-			gw: v1beta1.Gateway{
+			gw: k8sv1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "default",
 					Namespace: "default",
 				},
-				Spec: v1beta1.GatewaySpec{
-					GatewayClassName: v1beta1.ObjectName(customClass.Name),
+				Spec: k8sv1.GatewaySpec{
+					GatewayClassName: k8sv1.ObjectName(customClass.Name),
 				},
 			},
 			objects: defaultObjects,
@@ -232,8 +232,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
 			client := kube.NewFakeClient(tt.objects...)
-			kclient.NewWriteClient[*v1beta1.GatewayClass](client).Create(customClass)
-			kclient.NewWriteClient[*v1beta1.Gateway](client).Create(&tt.gw)
+			kclient.NewWriteClient[*k8sv1.GatewayClass](client).Create(customClass)
+			kclient.NewWriteClient[*k8sv1.Gateway](client).Create(&tt.gw)
 			stop := test.NewStop(t)
 			env := model.NewEnvironment()
 			env.PushContext().ProxyConfigs = tt.pcs
@@ -300,12 +300,12 @@ func TestVersionManagement(t *testing.T) {
 	c.RunAndWait(stop)
 	kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 	// Create a gateway, we should mark our ownership
-	defaultGateway := &v1beta1.Gateway{
+	defaultGateway := &k8sv1.Gateway{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "gw",
 			Namespace: "default",
 		},
-		Spec: v1beta1.GatewaySpec{GatewayClassName: defaultClassName},
+		Spec: k8sv1.GatewaySpec{GatewayClassName: defaultClassName},
 	}
 	gws.Create(defaultGateway)
 	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
@@ -385,7 +385,7 @@ global:
 }
 
 func buildPatch(version int) string {
-	return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1beta1
+	return fmt.Sprintf(`apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   annotations:

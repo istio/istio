@@ -17,7 +17,7 @@ package crd
 import (
 	"testing"
 
-	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
+	gateway "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pilot/test/mock"
