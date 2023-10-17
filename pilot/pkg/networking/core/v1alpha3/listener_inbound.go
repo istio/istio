@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/extension"
+	"istio.io/istio/pilot/pkg/networking/plugin/authz"
 	"istio.io/istio/pilot/pkg/networking/telemetry"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
@@ -156,6 +157,9 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		ContinueOnListenerFiltersTimeout: true,
 	}
 
+	// Flush authz cache since we need filter state for the principal.
+	oldBuilder := lb.authzBuilder
+	lb.authzBuilder = authz.NewBuilder(authz.Local, lb.push, lb.node, true)
 	inboundChainConfigs := lb.buildInboundChainConfigs()
 	for _, cc := range inboundChainConfigs {
 		cc.hbone = true
@@ -173,6 +177,7 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 		}
 		l.FilterChains = append(l.FilterChains, chains...)
 	}
+	lb.authzBuilder = oldBuilder
 	accessLogBuilder.setListenerAccessLog(lb.push, lb.node, l, istionetworking.ListenerClassSidecarInbound)
 	l.ListenerFilters = append(l.ListenerFilters, xdsfilters.OriginalDestination)
 	// TODO: Exclude inspectors from some inbound ports.
