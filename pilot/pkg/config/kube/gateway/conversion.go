@@ -26,8 +26,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	istio "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -223,7 +223,7 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 	}
 	for _, filter := range r.Filters {
 		switch filter.Type {
-		case k8sbeta.HTTPRouteFilterRequestHeaderModifier:
+		case k8sv1.HTTPRouteFilterRequestHeaderModifier:
 			h := createHeadersFilter(filter.RequestHeaderModifier)
 			if h == nil {
 				continue
@@ -232,7 +232,7 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 				vs.Headers = &istio.Headers{}
 			}
 			vs.Headers.Request = h
-		case k8sbeta.HTTPRouteFilterResponseHeaderModifier:
+		case k8sv1.HTTPRouteFilterResponseHeaderModifier:
 			h := createHeadersFilter(filter.ResponseHeaderModifier)
 			if h == nil {
 				continue
@@ -241,15 +241,15 @@ func convertHTTPRoute(r k8s.HTTPRouteRule, ctx configContext,
 				vs.Headers = &istio.Headers{}
 			}
 			vs.Headers.Response = h
-		case k8sbeta.HTTPRouteFilterRequestRedirect:
+		case k8sv1.HTTPRouteFilterRequestRedirect:
 			vs.Redirect = createRedirectFilter(filter.RequestRedirect)
-		case k8sbeta.HTTPRouteFilterRequestMirror:
+		case k8sv1.HTTPRouteFilterRequestMirror:
 			mirror, err := createMirrorFilter(ctx, filter.RequestMirror, obj.Namespace, enforceRefGrant)
 			if err != nil {
 				return nil, err
 			}
 			vs.Mirrors = append(vs.Mirrors, mirror)
-		case k8sbeta.HTTPRouteFilterURLRewrite:
+		case k8sv1.HTTPRouteFilterURLRewrite:
 			vs.Rewrite = createRewriteFilter(filter.URLRewrite)
 		default:
 			return nil, &ConfigError{
@@ -525,7 +525,7 @@ func buildMeshAndGatewayRoutes[T any](parentRefs []routeParentReference, convert
 	return meshResult, gwResult
 }
 
-func augmentPortMatch(routes []*istio.HTTPRoute, port k8sbeta.PortNumber) []*istio.HTTPRoute {
+func augmentPortMatch(routes []*istio.HTTPRoute, port k8sv1.PortNumber) []*istio.HTTPRoute {
 	res := make([]*istio.HTTPRoute, 0, len(routes))
 	for _, r := range routes {
 		r = r.DeepCopy()
@@ -542,7 +542,7 @@ func augmentPortMatch(routes []*istio.HTTPRoute, port k8sbeta.PortNumber) []*ist
 	return res
 }
 
-func augmentTCPPortMatch(routes []*istio.TCPRoute, port k8sbeta.PortNumber) []*istio.TCPRoute {
+func augmentTCPPortMatch(routes []*istio.TCPRoute, port k8sv1.PortNumber) []*istio.TCPRoute {
 	res := make([]*istio.TCPRoute, 0, len(routes))
 	for _, r := range routes {
 		r = r.DeepCopy()
@@ -559,7 +559,7 @@ func augmentTCPPortMatch(routes []*istio.TCPRoute, port k8sbeta.PortNumber) []*i
 	return res
 }
 
-func augmentTLSPortMatch(routes []*istio.TLSRoute, port *k8sbeta.PortNumber) ([]*istio.TLSRoute, []*istio.TCPRoute) {
+func augmentTLSPortMatch(routes []*istio.TLSRoute, port *k8sv1.PortNumber) ([]*istio.TLSRoute, []*istio.TCPRoute) {
 	res := make([]*istio.TLSRoute, 0, len(routes))
 	tcpRes := make([]*istio.TCPRoute, 0, len(routes))
 	for _, r := range routes {
@@ -1309,7 +1309,7 @@ func buildHTTPDestination(
 		}
 		for _, filter := range fwd.Filters {
 			switch filter.Type {
-			case k8sbeta.HTTPRouteFilterRequestHeaderModifier:
+			case k8sv1.HTTPRouteFilterRequestHeaderModifier:
 				h := createHeadersFilter(filter.RequestHeaderModifier)
 				if h == nil {
 					continue
@@ -1318,7 +1318,7 @@ func buildHTTPDestination(
 					rd.Headers = &istio.Headers{}
 				}
 				rd.Headers.Request = h
-			case k8sbeta.HTTPRouteFilterResponseHeaderModifier:
+			case k8sv1.HTTPRouteFilterResponseHeaderModifier:
 				h := createHeadersFilter(filter.ResponseHeaderModifier)
 				if h == nil {
 					continue
@@ -1531,13 +1531,13 @@ func createRewriteFilter(filter *k8s.HTTPURLRewriteFilter) *istio.HTTPRewrite {
 	rewrite := &istio.HTTPRewrite{}
 	if filter.Path != nil {
 		switch filter.Path.Type {
-		case k8sbeta.PrefixMatchHTTPPathModifier:
+		case k8sv1.PrefixMatchHTTPPathModifier:
 			rewrite.Uri = strings.TrimSuffix(*filter.Path.ReplacePrefixMatch, "/")
 			if rewrite.Uri == "" {
 				// `/` means removing the prefix
 				rewrite.Uri = "/"
 			}
-		case k8sbeta.FullPathHTTPPathModifier:
+		case k8sv1.FullPathHTTPPathModifier:
 			rewrite.UriRegexRewrite = &istio.RegexRewrite{
 				Match:   "/.*",
 				Rewrite: *filter.Path.ReplaceFullPath,
@@ -1584,9 +1584,9 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 	}
 	if filter.Path != nil {
 		switch filter.Path.Type {
-		case k8sbeta.FullPathHTTPPathModifier:
+		case k8sv1.FullPathHTTPPathModifier:
 			resp.Uri = *filter.Path.ReplaceFullPath
-		case k8sbeta.PrefixMatchHTTPPathModifier:
+		case k8sv1.PrefixMatchHTTPPathModifier:
 			resp.Uri = fmt.Sprintf("%%PREFIX()%%%s", *filter.Path.ReplacePrefixMatch)
 		}
 	}
@@ -1617,16 +1617,16 @@ func createMethodMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigErr
 func createQueryParamsMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch, *ConfigError) {
 	res := map[string]*istio.StringMatch{}
 	for _, qp := range match.QueryParams {
-		tp := k8sbeta.QueryParamMatchExact
+		tp := k8sv1.QueryParamMatchExact
 		if qp.Type != nil {
 			tp = *qp.Type
 		}
 		switch tp {
-		case k8sbeta.QueryParamMatchExact:
+		case k8sv1.QueryParamMatchExact:
 			res[string(qp.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: qp.Value},
 			}
-		case k8sbeta.QueryParamMatchRegularExpression:
+		case k8sv1.QueryParamMatchRegularExpression:
 			res[string(qp.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Regex{Regex: qp.Value},
 			}
@@ -1645,16 +1645,16 @@ func createQueryParamsMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringM
 func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch, *ConfigError) {
 	res := map[string]*istio.StringMatch{}
 	for _, header := range match.Headers {
-		tp := k8sbeta.HeaderMatchExact
+		tp := k8sv1.HeaderMatchExact
 		if header.Type != nil {
 			tp = *header.Type
 		}
 		switch tp {
-		case k8sbeta.HeaderMatchExact:
+		case k8sv1.HeaderMatchExact:
 			res[string(header.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: header.Value},
 			}
-		case k8sbeta.HeaderMatchRegularExpression:
+		case k8sv1.HeaderMatchRegularExpression:
 			res[string(header.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Regex{Regex: header.Value},
 			}
@@ -1673,16 +1673,16 @@ func createHeadersMatch(match k8s.HTTPRouteMatch) (map[string]*istio.StringMatch
 func createGRPCHeadersMatch(match k8s.GRPCRouteMatch) (map[string]*istio.StringMatch, *ConfigError) {
 	res := map[string]*istio.StringMatch{}
 	for _, header := range match.Headers {
-		tp := k8sbeta.HeaderMatchExact
+		tp := k8sv1.HeaderMatchExact
 		if header.Type != nil {
 			tp = *header.Type
 		}
 		switch tp {
-		case k8sbeta.HeaderMatchExact:
+		case k8sv1.HeaderMatchExact:
 			res[string(header.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Exact{Exact: header.Value},
 			}
-		case k8sbeta.HeaderMatchRegularExpression:
+		case k8sv1.HeaderMatchRegularExpression:
 			res[string(header.Name)] = &istio.StringMatch{
 				MatchType: &istio.StringMatch_Regex{Regex: header.Value},
 			}
@@ -1699,7 +1699,7 @@ func createGRPCHeadersMatch(match k8s.GRPCRouteMatch) (map[string]*istio.StringM
 }
 
 func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError) {
-	tp := k8sbeta.PathMatchPathPrefix
+	tp := k8sv1.PathMatchPathPrefix
 	if match.Path.Type != nil {
 		tp = *match.Path.Type
 	}
@@ -1708,7 +1708,7 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 		dest = *match.Path.Value
 	}
 	switch tp {
-	case k8sbeta.PathMatchPathPrefix:
+	case k8sv1.PathMatchPathPrefix:
 		// "When specified, a trailing `/` is ignored."
 		if dest != "/" {
 			dest = strings.TrimSuffix(dest, "/")
@@ -1716,11 +1716,11 @@ func createURIMatch(match k8s.HTTPRouteMatch) (*istio.StringMatch, *ConfigError)
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Prefix{Prefix: dest},
 		}, nil
-	case k8sbeta.PathMatchExact:
+	case k8sv1.PathMatchExact:
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Exact{Exact: dest},
 		}, nil
-	case k8sbeta.PathMatchRegularExpression:
+	case k8sv1.PathMatchRegularExpression:
 		return &istio.StringMatch{
 			MatchType: &istio.StringMatch_Regex{Regex: dest},
 		}, nil
@@ -1820,7 +1820,7 @@ type parentReference struct {
 	parentKey
 
 	SectionName k8s.SectionName
-	Port        k8sbeta.PortNumber
+	Port        k8sv1.PortNumber
 }
 
 var meshGVK = config.GroupVersionKind{
@@ -1863,7 +1863,7 @@ type parentInfo struct {
 	// actually store the attached route count in the status
 	ReportAttachedRoutes func()
 	SectionName          k8s.SectionName
-	Port                 k8sbeta.PortNumber
+	Port                 k8sv1.PortNumber
 }
 
 // routeParentReference holds information about a route's parent reference
@@ -2066,27 +2066,27 @@ func reportGatewayStatus(
 	// be tied to listeners, so this is always accepted
 	// Programmed: is the data plane "ready" (note: eventually consistent)
 	gatewayConditions := map[string]*condition{
-		string(k8sbeta.GatewayConditionAccepted): {
-			reason:  string(k8sbeta.GatewayReasonAccepted),
+		string(k8sv1.GatewayConditionAccepted): {
+			reason:  string(k8sv1.GatewayReasonAccepted),
 			message: "Resource accepted",
 		},
-		string(k8sbeta.GatewayConditionProgrammed): {
-			reason:  string(k8sbeta.GatewayReasonProgrammed),
+		string(k8sv1.GatewayConditionProgrammed): {
+			reason:  string(k8sv1.GatewayReasonProgrammed),
 			message: "Resource programmed",
 		},
 	}
 
 	if gatewayErr != nil {
-		gatewayConditions[string(k8sbeta.GatewayConditionAccepted)].error = gatewayErr
+		gatewayConditions[string(k8sv1.GatewayConditionAccepted)].error = gatewayErr
 	}
 
 	if len(internal) > 0 {
 		msg := fmt.Sprintf("Resource programmed, assigned to service(s) %s", humanReadableJoin(internal))
-		gatewayConditions[string(k8sbeta.GatewayReasonProgrammed)].message = msg
+		gatewayConditions[string(k8sv1.GatewayReasonProgrammed)].message = msg
 	}
 
 	if len(gatewayServices) == 0 {
-		gatewayConditions[string(k8sbeta.GatewayReasonProgrammed)].error = &ConfigError{
+		gatewayConditions[string(k8sv1.GatewayReasonProgrammed)].error = &ConfigError{
 			Reason:  InvalidAddress,
 			Message: "Failed to assign to any requested addresses",
 		}
@@ -2098,9 +2098,9 @@ func reportGatewayStatus(
 		} else {
 			msg = fmt.Sprintf("Failed to assign to any requested addresses: %s", strings.Join(warnings, "; "))
 		}
-		gatewayConditions[string(k8sbeta.GatewayConditionProgrammed)].error = &ConfigError{
+		gatewayConditions[string(k8sv1.GatewayConditionProgrammed)].error = &ConfigError{
 			// TODO: this only checks Service ready, we should also check Deployment ready?
-			Reason:  string(k8sbeta.GatewayReasonAddressNotAssigned),
+			Reason:  string(k8sv1.GatewayReasonAddressNotAssigned),
 			Message: msg,
 		}
 	}
@@ -2125,14 +2125,14 @@ func reportGatewayStatus(
 		}
 		// Do not report an address until we are ready. But once we are ready, never remove the address.
 		if len(addressesToReport) > 0 {
-			gs.Addresses = make([]k8sbeta.GatewayStatusAddress, 0, len(addressesToReport))
+			gs.Addresses = make([]k8sv1.GatewayStatusAddress, 0, len(addressesToReport))
 			for _, addr := range addressesToReport {
 				if _, err := netip.ParseAddr(addr); err == nil {
 					addrType = k8s.IPAddressType
 				} else {
 					addrType = k8s.HostnameAddressType
 				}
-				gs.Addresses = append(gs.Addresses, k8sbeta.GatewayStatusAddress{
+				gs.Addresses = append(gs.Addresses, k8sv1.GatewayStatusAddress{
 					Value: addr,
 					Type:  &addrType,
 				})
@@ -2243,21 +2243,21 @@ func getNamespaceLabelReferences(routes *k8s.AllowedRoutes) []string {
 
 func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerIndex int, controllerName k8s.GatewayController) (*istio.Server, bool) {
 	listenerConditions := map[string]*condition{
-		string(k8sbeta.ListenerConditionAccepted): {
-			reason:  string(k8sbeta.ListenerReasonAccepted),
+		string(k8sv1.ListenerConditionAccepted): {
+			reason:  string(k8sv1.ListenerReasonAccepted),
 			message: "No errors found",
 		},
-		string(k8sbeta.ListenerConditionProgrammed): {
-			reason:  string(k8sbeta.ListenerReasonProgrammed),
+		string(k8sv1.ListenerConditionProgrammed): {
+			reason:  string(k8sv1.ListenerReasonProgrammed),
 			message: "No errors found",
 		},
-		string(k8sbeta.ListenerConditionConflicted): {
-			reason:  string(k8sbeta.ListenerReasonNoConflicts),
+		string(k8sv1.ListenerConditionConflicted): {
+			reason:  string(k8sv1.ListenerReasonNoConflicts),
 			message: "No errors found",
 			status:  kstatus.StatusFalse,
 		},
-		string(k8sbeta.ListenerConditionResolvedRefs): {
-			reason:  string(k8sbeta.ListenerReasonResolvedRefs),
+		string(k8sv1.ListenerConditionResolvedRefs): {
+			reason:  string(k8sv1.ListenerReasonResolvedRefs),
 			message: "No errors found",
 		},
 	}
@@ -2266,7 +2266,7 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 
 	tls, err := buildTLS(r, l.TLS, obj, kube.IsAutoPassthrough(obj.Labels, l))
 	if err != nil {
-		listenerConditions[string(k8sbeta.ListenerConditionResolvedRefs)].error = err
+		listenerConditions[string(k8sv1.ListenerConditionResolvedRefs)].error = err
 		return nil, false
 	}
 	hostnames := buildHostnameMatch(obj.Namespace, r.GatewayResources, l)
@@ -2282,8 +2282,8 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 	}
 	if controllerName == constants.ManagedGatewayMeshController {
 		if unexpectedWaypointListener(l) {
-			listenerConditions[string(k8sbeta.ListenerConditionAccepted)].error = &ConfigError{
-				Reason:  string(k8sbeta.ListenerReasonUnsupportedProtocol),
+			listenerConditions[string(k8sv1.ListenerConditionAccepted)].error = &ConfigError{
+				Reason:  string(k8sv1.ListenerReasonUnsupportedProtocol),
 				Message: `Expected a single listener on port 15008 with protocol "HBONE"`,
 			}
 		}
@@ -2306,13 +2306,13 @@ func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 	out := &istio.ServerTLSSettings{
 		HttpsRedirect: false,
 	}
-	mode := k8sbeta.TLSModeTerminate
+	mode := k8sv1.TLSModeTerminate
 	if tls.Mode != nil {
 		mode = *tls.Mode
 	}
 	namespace := gw.Namespace
 	switch mode {
-	case k8sbeta.TLSModeTerminate:
+	case k8sv1.TLSModeTerminate:
 		out.Mode = istio.ServerTLSSettings_SIMPLE
 		if tls.Options != nil && tls.Options[gatewayTLSTerminateModeKey] == "MUTUAL" {
 			out.Mode = istio.ServerTLSSettings_MUTUAL
@@ -2337,7 +2337,7 @@ func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 			}
 		}
 		out.CredentialName = cred
-	case k8sbeta.TLSModePassthrough:
+	case k8sv1.TLSModePassthrough:
 		out.Mode = istio.ServerTLSSettings_PASSTHROUGH
 		if isAutoPassthrough {
 			out.Mode = istio.ServerTLSSettings_AUTO_PASSTHROUGH
@@ -2423,10 +2423,10 @@ func buildHostnameMatch(localNamespace string, r GatewayResources, l k8s.Listene
 // namespacesFromSelector determines a list of allowed namespaces for a given AllowedRoutes
 func namespacesFromSelector(localNamespace string, r GatewayResources, lr *k8s.AllowedRoutes) []string {
 	// Default is to allow only the same namespace
-	if lr == nil || lr.Namespaces == nil || lr.Namespaces.From == nil || *lr.Namespaces.From == k8sbeta.NamespacesFromSame {
+	if lr == nil || lr.Namespaces == nil || lr.Namespaces.From == nil || *lr.Namespaces.From == k8sv1.NamespacesFromSame {
 		return []string{localNamespace}
 	}
-	if *lr.Namespaces.From == k8sbeta.NamespacesFromAll {
+	if *lr.Namespaces.From == k8sv1.NamespacesFromAll {
 		return []string{"*"}
 	}
 

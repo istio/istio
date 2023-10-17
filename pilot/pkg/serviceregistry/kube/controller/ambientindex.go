@@ -24,7 +24,7 @@ import (
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/api/networking/v1alpha3"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -720,7 +720,7 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 }
 
 func (a *AmbientIndexImpl) handleKubeGateway(_, newObj any, isDelete bool, c *Controller) {
-	gateway := controllers.Extract[*k8sbeta.Gateway](newObj)
+	gateway := controllers.Extract[*k8sv1.Gateway](newObj)
 
 	// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 	// ignore Kubernetes Gateways which aren't waypoints
@@ -730,7 +730,7 @@ func (a *AmbientIndexImpl) handleKubeGateway(_, newObj any, isDelete bool, c *Co
 
 		waypointPort := uint32(15008)
 		for _, l := range gateway.Spec.Listeners {
-			if l.Protocol == k8sbeta.ProtocolType(protocol.HBONE) {
+			if l.Protocol == k8sv1.ProtocolType(protocol.HBONE) {
 				waypointPort = uint32(l.Port)
 			}
 		}

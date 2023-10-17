@@ -26,7 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
@@ -976,7 +976,7 @@ type ambientTestServer struct {
 	fx         *xdsfake.Updater
 	pc         clienttest.TestClient[*corev1.Pod]
 	sc         clienttest.TestClient[*corev1.Service]
-	grc        clienttest.TestClient[*k8sbeta.Gateway]
+	grc        clienttest.TestClient[*k8sv1.Gateway]
 }
 
 func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.ID) *ambientTestServer {
@@ -991,7 +991,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	controller.network = networkID
 	pc := clienttest.Wrap(t, controller.podsClient)
 	sc := clienttest.Wrap(t, controller.services)
-	grc := clienttest.Wrap(t, kclient.NewFiltered[*k8sbeta.Gateway](controller.client, kubetypes.Filter{}))
+	grc := clienttest.Wrap(t, kclient.NewFiltered[*k8sv1.Gateway](controller.client, kubetypes.Filter{}))
 	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
 	cfg.RegisterEventHandler(gvk.PeerAuthentication, controller.PeerAuthenticationHandler)
 
@@ -1010,16 +1010,16 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready bool) {
 	t.Helper()
 
-	fromSame := k8sbeta.NamespacesFromSame
-	gatewaySpec := k8sbeta.GatewaySpec{
+	fromSame := k8sv1.NamespacesFromSame
+	gatewaySpec := k8sv1.GatewaySpec{
 		GatewayClassName: constants.WaypointGatewayClassName,
-		Listeners: []k8sbeta.Listener{
+		Listeners: []k8sv1.Listener{
 			{
 				Name:     "mesh",
 				Port:     15008,
 				Protocol: "HBONE",
-				AllowedRoutes: &k8sbeta.AllowedRoutes{
-					Namespaces: &k8sbeta.RouteNamespaces{
+				AllowedRoutes: &k8sv1.AllowedRoutes{
+					Namespaces: &k8sv1.RouteNamespaces{
 						From: &fromSame,
 					},
 				},
@@ -1027,7 +1027,7 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready
 		},
 	}
 
-	gateway := k8sbeta.Gateway{
+	gateway := k8sv1.Gateway{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       gvk.KubernetesGateway.Kind,
 			APIVersion: gvk.KubernetesGateway.GroupVersion(),
@@ -1037,7 +1037,7 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready
 			Namespace: testNS,
 		},
 		Spec:   gatewaySpec,
-		Status: k8sbeta.GatewayStatus{},
+		Status: k8sv1.GatewayStatus{},
 	}
 	if sa != "" {
 		annotations := make(map[string]string, 1)
@@ -1045,12 +1045,12 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready
 		gateway.Annotations = annotations
 	}
 	if ready {
-		addrType := k8sbeta.IPAddressType
-		gateway.Status = k8sbeta.GatewayStatus{
+		addrType := k8sv1.IPAddressType
+		gateway.Status = k8sv1.GatewayStatus{
 			// addresses:
 			// - type: IPAddress
 			//   value: 10.96.59.188
-			Addresses: []k8sbeta.GatewayStatusAddress{
+			Addresses: []k8sv1.GatewayStatusAddress{
 				{
 					Type:  &addrType,
 					Value: ip,
