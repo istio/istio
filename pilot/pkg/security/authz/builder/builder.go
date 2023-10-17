@@ -46,7 +46,6 @@ var rbacPolicyMatchNever = &rbacpb.Policy{
 // General setting to control behavior
 type Option struct {
 	IsCustomBuilder bool
-	UseFilterState  bool
 }
 
 // Builder builds Istio authorization policy to Envoy filters.
@@ -95,12 +94,12 @@ func New(trustDomainBundle trustdomain.Bundle, push *model.PushContext, policies
 }
 
 // BuildHTTP returns the HTTP filters built from the authorization policy.
-func (b Builder) BuildHTTP() []*hcm.HttpFilter {
+func (b Builder) BuildHTTP(useAuthenticated bool) []*hcm.HttpFilter {
 	b.logger = &AuthzLogger{}
 	defer b.logger.Report()
 	if b.option.IsCustomBuilder {
 		// Use the DENY action so that a HTTP rule is properly handled when generating for TCP filter chain.
-		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, false); configs != nil {
+		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, false, useAuthenticated); configs != nil {
 			b.logger.AppendDebugf("built %d HTTP filters for CUSTOM action", len(configs.http))
 			return configs.http
 		}
@@ -108,15 +107,15 @@ func (b Builder) BuildHTTP() []*hcm.HttpFilter {
 	}
 
 	var filters []*hcm.HttpFilter
-	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, false); configs != nil {
+	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, false, useAuthenticated); configs != nil {
 		b.logger.AppendDebugf("built %d HTTP filters for AUDIT action", len(configs.http))
 		filters = append(filters, configs.http...)
 	}
-	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, false); configs != nil {
+	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, false, useAuthenticated); configs != nil {
 		b.logger.AppendDebugf("built %d HTTP filters for DENY action", len(configs.http))
 		filters = append(filters, configs.http...)
 	}
-	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, false); configs != nil {
+	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, false, useAuthenticated); configs != nil {
 		b.logger.AppendDebugf("built %d HTTP filters for ALLOW action", len(configs.http))
 		filters = append(filters, configs.http...)
 	}
@@ -128,7 +127,7 @@ func (b Builder) BuildTCP() []*listener.Filter {
 	b.logger = &AuthzLogger{}
 	defer b.logger.Report()
 	if b.option.IsCustomBuilder {
-		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, true); configs != nil {
+		if configs := b.build(b.customPolicies, rbacpb.RBAC_DENY, true, true); configs != nil {
 			b.logger.AppendDebugf("built %d TCP filters for CUSTOM action", len(configs.tcp))
 			return configs.tcp
 		}
@@ -136,15 +135,15 @@ func (b Builder) BuildTCP() []*listener.Filter {
 	}
 
 	var filters []*listener.Filter
-	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, true); configs != nil {
+	if configs := b.build(b.auditPolicies, rbacpb.RBAC_LOG, true, true); configs != nil {
 		b.logger.AppendDebugf("built %d TCP filters for AUDIT action", len(configs.tcp))
 		filters = append(filters, configs.tcp...)
 	}
-	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, true); configs != nil {
+	if configs := b.build(b.denyPolicies, rbacpb.RBAC_DENY, true, true); configs != nil {
 		b.logger.AppendDebugf("built %d TCP filters for DENY action", len(configs.tcp))
 		filters = append(filters, configs.tcp...)
 	}
-	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, true); configs != nil {
+	if configs := b.build(b.allowPolicies, rbacpb.RBAC_ALLOW, true, true); configs != nil {
 		b.logger.AppendDebugf("built %d TCP filters for ALLOW action", len(configs.tcp))
 		filters = append(filters, configs.tcp...)
 	}
@@ -179,7 +178,7 @@ func shadowRuleStatPrefix(rule *rbacpb.RBAC) string {
 	}
 }
 
-func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_Action, forTCP bool) *builtConfigs {
+func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_Action, forTCP, useAuthenticated bool) *builtConfigs {
 	if len(policies) == 0 {
 		return nil
 	}
@@ -227,7 +226,7 @@ func (b Builder) build(policies []model.AuthorizationPolicy, action rbacpb.RBAC_
 			if len(b.trustDomainBundle.TrustDomains) > 1 {
 				b.logger.AppendDebugf("patched source principal with trust domain aliases %v", b.trustDomainBundle.TrustDomains)
 			}
-			generated, err := m.Generate(forTCP, !b.option.UseFilterState, action)
+			generated, err := m.Generate(forTCP, useAuthenticated, action)
 			if err != nil {
 				b.logger.AppendDebugf("skipped rule %s on TCP filter chain: %v", name, err)
 				continue

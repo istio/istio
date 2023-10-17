@@ -266,7 +266,7 @@ func TestGenerator_GenerateHTTP(t *testing.T) {
 			if g == nil {
 				t.Fatalf("failed to create generator")
 			}
-			got := g.BuildHTTP()
+			got := g.BuildHTTP(true)
 			verify(t, convertHTTP(got), baseDir, tc.want, false /* forTCP */)
 		})
 	}

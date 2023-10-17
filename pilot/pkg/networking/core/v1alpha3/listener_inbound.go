@@ -142,7 +142,6 @@ func (lb *ListenerBuilder) buildInboundHBONEListeners() []*listener.Listener {
 				UpgradeType:   ConnectUpgradeType,
 				ConnectConfig: &route.RouteAction_UpgradeConfig_ConnectConfig{},
 			}},
-
 			ClusterSpecifier: &route.RouteAction_Cluster{Cluster: MainInternalName},
 		}},
 	}}
@@ -769,6 +768,7 @@ func buildSidecarInboundHTTPOpts(lb *ListenerBuilder, cc inboundChainConfig) *ht
 		port:                      int(cc.port.TargetPort),
 		statPrefix:                cc.StatPrefix(),
 		hbone:                     cc.hbone,
+		useFilterState:            cc.hbone,
 	}
 	// See https://github.com/grpc/grpc-web/tree/master/net/grpc/gateway/examples/helloworld#configure-the-proxy
 	if cc.port.Protocol.IsHTTP2() {

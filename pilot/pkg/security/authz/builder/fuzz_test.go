@@ -38,7 +38,7 @@ func FuzzBuildHTTP(f *testing.F) {
 			fg.T().Skip()
 			return // To help linter
 		}
-		b.BuildHTTP()
+		b.BuildHTTP(true)
 	})
 }
 

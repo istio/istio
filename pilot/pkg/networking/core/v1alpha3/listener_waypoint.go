@@ -347,11 +347,11 @@ func (lb *ListenerBuilder) buildWaypointHTTPFilters() (pre []*hcm.HttpFilter, po
 		Class: cls,
 	}, model.WasmPluginTypeHTTP)
 	// TODO: how to deal with ext-authz? It will be in the ordering twice
-	pre = append(pre, lb.authzCustomBuilder.BuildHTTP(cls)...)
+	pre = append(pre, lb.authzCustomBuilder.BuildHTTP(cls, false)...)
 	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHN)
 	pre = append(pre, lb.authnBuilder.BuildHTTP(cls)...)
 	pre = extension.PopAppendHTTP(pre, wasm, extensions.PluginPhase_AUTHZ)
-	pre = append(pre, lb.authzBuilder.BuildHTTP(cls)...)
+	pre = append(pre, lb.authzBuilder.BuildHTTP(cls, false)...)
 	// TODO: these feel like the wrong place to insert, but this retains backwards compatibility with the original implementation
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_STATS)
 	post = extension.PopAppendHTTP(post, wasm, extensions.PluginPhase_UNSPECIFIED_PHASE)
