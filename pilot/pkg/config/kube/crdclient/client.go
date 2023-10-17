@@ -71,6 +71,8 @@ type Client struct {
 	kinds   map[config.GroupVersionKind]kclient.Untyped
 	kindsMu sync.RWMutex
 	queue   queue.Instance
+	// a flag indicates whether this client has been run, it is to prevent run queue twice
+	started bool
 
 	// handlers defines a list of event handlers per-type
 	handlers map[config.GroupVersionKind][]model.EventHandler
@@ -138,6 +140,10 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler mod
 
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
+	if cl.started {
+		return
+	}
+
 	t0 := time.Now()
 	cl.logger.Infof("Starting Pilot K8S CRD controller")
 
@@ -146,7 +152,8 @@ func (cl *Client) Run(stop <-chan struct{}) {
 		return
 	}
 	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
-
+	cl.started = true
+	cl.queue.HasSynced()
 	cl.queue.Run(stop)
 	cl.logger.Infof("controller terminated")
 }
