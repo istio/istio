@@ -978,7 +978,7 @@ func TestReferencePolicy(t *testing.T) {
 	}{
 		{
 			name: "simple",
-			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+			config: `apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
@@ -1003,7 +1003,7 @@ spec:
 		},
 		{
 			name: "multiple in one",
-			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+			config: `apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
@@ -1028,7 +1028,7 @@ spec:
 		},
 		{
 			name: "multiple",
-			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+			config: `apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
   name: ns1
@@ -1042,7 +1042,7 @@ spec:
   - group: ""
     kind: Secret
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
   name: ns2
@@ -1064,7 +1064,7 @@ spec:
 		},
 		{
 			name: "same namespace",
-			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+			config: `apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
@@ -1086,7 +1086,7 @@ spec:
 		},
 		{
 			name: "same name",
-			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+			config: `apiVersion: gateway.networking.k8s.io/v1
 kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets

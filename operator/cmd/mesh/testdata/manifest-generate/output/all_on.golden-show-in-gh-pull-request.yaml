@@ -9748,7 +9748,7 @@ data:
           name: {{.DeploymentName | quote}}
           namespace: {{.Namespace | quote}}
           ownerReferences:
-          - apiVersion: gateway.networking.k8s.io/v1alpha2
+          - apiVersion: gateway.networking.k8s.io/v1
             kind: Gateway
             name: {{.Name}}
             uid: {{.UID}}
