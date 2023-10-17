@@ -88,7 +88,6 @@ type Redirect struct {
 	dnsRedirect          bool
 	dualStack            bool
 	invalidDrop          bool
-	hostNSEnterExec      bool
 }
 
 type annotationValidationFunc func(value string) error

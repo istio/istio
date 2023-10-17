@@ -16,7 +16,6 @@ package capture
 import (
 	"fmt"
 	"net"
-	"os"
 	"strconv"
 
 	"github.com/containernetworking/plugins/pkg/ns"
@@ -95,11 +94,6 @@ func ConfigureRoutes(cfg *config.Config, ext dep.Dependencies) error {
 		return nil
 	}
 	if ext != nil && cfg.CNIMode {
-		if cfg.HostNSEnterExec {
-			command := os.Args[0]
-			return ext.Run(command, nil, constants.CommandConfigureRoutes)
-		}
-
 		nsContainer, err := ns.GetNS(cfg.NetworkNamespace)
 		if err != nil {
 			return err

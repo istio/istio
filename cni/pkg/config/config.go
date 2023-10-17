@@ -85,9 +85,6 @@ type InstallConfig struct {
 
 	// Whether ebpf is enabled
 	EbpfEnabled bool
-
-	// Use the external nsenter command for network namespace switching
-	HostNSEnterExec bool
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -149,7 +146,6 @@ func (c InstallConfig) String() string {
 	b.WriteString("SkipCNIBinaries: " + fmt.Sprint(c.SkipCNIBinaries) + "\n")
 	b.WriteString("MonitoringPort: " + fmt.Sprint(c.MonitoringPort) + "\n")
 	b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
-	b.WriteString("HostNSEnterExec: " + fmt.Sprint(c.HostNSEnterExec) + "\n")
 
 	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")
 
