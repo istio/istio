@@ -286,61 +286,59 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 	ep.Lock()
 	defer ep.Unlock()
 	newIstioEndpoints := istioEndpoints
-	if true {
-		oldIstioEndpoints := ep.Shards[shard]
-		needPush := false
-		if oldIstioEndpoints == nil {
-			// If there are no old endpoints, we should push with incoming endpoints as there is nothing to compare.
-			needPush = true
-		} else {
-			newIstioEndpoints = make([]*IstioEndpoint, 0, len(istioEndpoints))
-			// Check if new Endpoints are ready to be pushed. This check
-			// will ensure that if a new pod comes with a non ready endpoint,
-			// we do not unnecessarily push that config to Envoy.
-			// Please note that address is not a unique key. So this may not accurately
-			// identify based on health status and push too many times - which is ok since its an optimization.
-			emap := make(map[string]*IstioEndpoint, len(oldIstioEndpoints))
-			nmap := make(map[string]*IstioEndpoint, len(newIstioEndpoints))
-			// Add new endpoints only if they are ever ready once to shards
-			// so that full push does not send them from shards.
-			for _, oie := range oldIstioEndpoints {
-				emap[oie.Address] = oie
-			}
-			for _, nie := range istioEndpoints {
-				nmap[nie.Address] = nie
-			}
-			for _, nie := range istioEndpoints {
-				if oie, exists := emap[nie.Address]; exists {
-					// If endpoint exists already, we should push if it's health status changes.
-					if oie.HealthStatus != nie.HealthStatus {
-						needPush = true
-					}
-					newIstioEndpoints = append(newIstioEndpoints, nie)
-				} else {
-					// If the endpoint does not exist in shards that means it is a
-					// new endpoint. Always send new endpoints even if they are not healthy.
-					// This is OK since we disable panic threshold when SendUnhealthyEndpoints is enabled.
-					// Without SendUnhealthyEndpoints we do not need this; headless services will trigger the push in the Kubernetes controller.
-					if features.SendUnhealthyEndpoints.Load() {
-						needPush = true
-					}
-					newIstioEndpoints = append(newIstioEndpoints, nie)
-				}
-			}
-			// Next, check for endpoints that were in old but no longer exist. If there are any, there is a
-			// removal so we need to push an update.
-			for _, oie := range oldIstioEndpoints {
-				if _, f := nmap[oie.Address]; !f {
+
+	oldIstioEndpoints := ep.Shards[shard]
+	needPush := false
+	if oldIstioEndpoints == nil {
+		// If there are no old endpoints, we should push with incoming endpoints as there is nothing to compare.
+		needPush = true
+	} else {
+		newIstioEndpoints = make([]*IstioEndpoint, 0, len(istioEndpoints))
+		// Check if new Endpoints are ready to be pushed. This check
+		// will ensure that if a new pod comes with a non ready endpoint,
+		// we do not unnecessarily push that config to Envoy.
+		// Please note that address is not a unique key. So this may not accurately
+		// identify based on health status and push too many times - which is ok since its an optimization.
+		emap := make(map[string]*IstioEndpoint, len(oldIstioEndpoints))
+		nmap := make(map[string]*IstioEndpoint, len(newIstioEndpoints))
+		// Add new endpoints only if they are ever ready once to shards
+		// so that full push does not send them from shards.
+		for _, oie := range oldIstioEndpoints {
+			emap[oie.Address] = oie
+		}
+		for _, nie := range istioEndpoints {
+			nmap[nie.Address] = nie
+		}
+		for _, nie := range istioEndpoints {
+			if oie, exists := emap[nie.Address]; exists {
+				// If endpoint exists already, we should push if it's health status changes.
+				if oie.HealthStatus != nie.HealthStatus {
 					needPush = true
 				}
+				newIstioEndpoints = append(newIstioEndpoints, nie)
+			} else {
+				// If the endpoint does not exist in shards that means it is a
+				// new endpoint. Always send new endpoints even if they are not healthy.
+				// This is OK since we disable panic threshold when SendUnhealthyEndpoints is enabled.
+				// Without SendUnhealthyEndpoints we do not need this; headless services will trigger the push in the Kubernetes controller.
+				if features.SendUnhealthyEndpoints.Load() {
+					needPush = true
+				}
+				newIstioEndpoints = append(newIstioEndpoints, nie)
 			}
 		}
-
-		if pushType != FullPush && !needPush {
-			log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
-			pushType = NoPush
+		// Next, check for endpoints that were in old but no longer exist. If there are any, there is a
+		// removal so we need to push an update.
+		for _, oie := range oldIstioEndpoints {
+			if _, f := nmap[oie.Address]; !f {
+				needPush = true
+			}
 		}
+	}
 
+	if pushType != FullPush && !needPush {
+		log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
+		pushType = NoPush
 	}
 
 	ep.Shards[shard] = newIstioEndpoints

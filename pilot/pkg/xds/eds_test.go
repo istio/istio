@@ -409,7 +409,6 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			}
 			adscon.WaitClear()
 
-			t.Log("blah")
 			// Set additional unhealthy endpoint and validate Eds update is not triggered.
 			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
 				[]*model.IstioEndpoint{
