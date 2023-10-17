@@ -18,39 +18,32 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://td1/ns/rule[0]/sa/from[0]-principal[0]
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://cluster.local/ns/rule[0]/sa/from[0]-principal[0]
         - andIds:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://td1/ns/rule[0]/sa/from[1]-principal[0]
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://cluster.local/ns/rule[0]/sa/from[1]-principal[0]
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://td1/ns/rule[0]/sa/from[1]-principal[1]
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://cluster.local/ns/rule[0]/sa/from[1]-principal[1]
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/rule[0]-from[1]-ns[0]/.*
       ns[foo]-policy[httpbin]-rule[1]:
@@ -68,12 +61,10 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://td1/ns/rule[1]/sa/from[0]-principal[0]
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://cluster.local/ns/rule[1]/sa/from[0]-principal[0]
   shadowRulesStatPrefix: istio_dry_run_allow_

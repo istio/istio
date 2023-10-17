@@ -3200,7 +3200,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
 				{
 					NetworkFilters: []string{
-						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 						wellknown.HTTPConnectionManager,
 					},
 					HTTPFilters: []string{
@@ -3254,7 +3253,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
 				{
 					NetworkFilters: []string{
-						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 						wellknown.TCPProxy,
 					},
 					HTTPFilters: []string{},
@@ -3304,7 +3302,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
 				{
 					NetworkFilters: []string{
-						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 						wellknown.TCPProxy,
 					},
 					HTTPFilters: []string{},
@@ -3355,7 +3352,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					NetworkFilters: []string{
 						xdsfilters.TCPListenerMx.GetName(),
-						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 						wellknown.TCPProxy,
 					},
 					HTTPFilters: []string{},
@@ -3436,7 +3432,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					{
 						TotalMatch: true, // there must be only 1 `istio_authn` network filter
 						NetworkFilters: []string{
-							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 							wellknown.HTTPConnectionManager,
 						},
 						HTTPFilters: []string{
@@ -3450,7 +3445,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 						TotalMatch: true, // there must be only 1 `istio_authn` network filter
 						NetworkFilters: []string{
 							xdsfilters.TCPListenerMx.GetName(),
-							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 							wellknown.TCPProxy,
 						},
 						HTTPFilters: []string{},
@@ -3479,7 +3473,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				FilterChains: []listenertest.FilterChainTest{
 					{
 						NetworkFilters: []string{
-							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 							wellknown.HTTPConnectionManager,
 						},
 						HTTPFilters: []string{
@@ -3540,7 +3533,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				FilterChains: []listenertest.FilterChainTest{
 					{
 						NetworkFilters: []string{
-							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 							wellknown.TCPProxy,
 						},
 						HTTPFilters: []string{},
@@ -3599,7 +3591,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					{
 						TotalMatch: true,
 						NetworkFilters: []string{
-							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 							wellknown.RoleBasedAccessControl,
 							xds.StatsFilterName,
 							wellknown.TCPProxy,
@@ -3691,7 +3682,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							wellknown.RoleBasedAccessControl,
 							wellknown.ExternalAuthorization,
 							"istio-system.wasm-authn",
-							xdsfilters.AuthnFilterName,
 							"istio-system.wasm-authz",
 							wellknown.RoleBasedAccessControl,
 							"istio-system.wasm-stats",
@@ -3798,7 +3788,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 						TotalMatch: true,
 						NetworkFilters: []string{
 							"istio-system.wasm-network-authn",
-							xdsfilters.AuthnFilterName,
 							"istio-system.wasm-network-authz",
 							"istio-system.wasm-network-stats",
 							wellknown.HTTPConnectionManager,

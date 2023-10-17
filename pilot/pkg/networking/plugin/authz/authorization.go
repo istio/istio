@@ -42,10 +42,11 @@ type Builder struct {
 	builder     *builder.Builder
 }
 
-func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy) *Builder {
+func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy, useFilterState bool) *Builder {
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
+		UseFilterState:  useFilterState,
 	}
 	selectionOpts := model.WorkloadSelectionOpts{
 		Namespace:      proxy.ConfigNamespace,
