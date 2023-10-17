@@ -22,7 +22,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
-	"istio.io/istio/pilot/pkg/xds/filters"
+	"istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -156,7 +156,8 @@ func (requestPrincipalGenerator) principal(key, value string, forTCP bool, _ boo
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
+	iss, sub, _ := strings.Cut(key, "/")
+	m := matcher.MetadataStringSubMatcher(model.EnvoyJwtFilterName, iss, sub, matcher.StringMatcher(value))
 	return principalMetadata(m), nil
 }
 
