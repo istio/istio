@@ -2943,7 +2943,7 @@ func TestValidateRouteDestination(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateRouteDestinations(tc.routes); (err == nil) != tc.valid {
+			if err := validateRouteDestinations(tc.routes, false); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})

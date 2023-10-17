@@ -36,6 +36,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/keycertbundle"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
@@ -221,6 +222,12 @@ func (c *Controller) isDryRunOfInvalidConfigRejected() (rejected bool, reason st
 			// Must ensure that this is the revision validating the known-bad config
 			Labels: map[string]string{
 				label.IoIstioRev.Name: c.o.Revision,
+			},
+			Annotations: map[string]string{
+				// Add always-reject annotation. For now, we are invalid for two reasons: missing `spec.servers`, and this
+				// annotation. In the future, the CRD will reject a missing `spec.servers` before we hit the webhook, so we will
+				// only have that annotation. For backwards compatibility, we keep both methods for some time.
+				constants.AlwaysReject: "true",
 			},
 		},
 		Spec: networking.Gateway{},
