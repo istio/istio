@@ -159,39 +159,98 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
-  name: http
+  name: http-1
 spec:
   parentRefs:
   - name: gateway
+  hostnames: ["bar.example.com"]
   rules:
   - backendRefs:
     - name: b
       port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-2
+spec:
+  parentRefs:
+  - name: gateway
+  hostnames: ["foo.example.com"]
+  rules:
+  - backendRefs:
+    - name: d
+      port: 80
 `).ApplyOrFail(t)
-	apps.B[0].CallOrFail(t, echo.CallOptions{
-		Port:   echo.Port{ServicePort: 80},
-		Scheme: scheme.HTTP,
-		HTTP: echo.HTTP{
-			Headers: headers.New().WithHost("bar.example.com").Build(),
+	testCases := []struct {
+		check echo.Checker
+		from  echo.Instances
+		host  string
+	}{
+		{
+			check: check.OK(),
+			from:  apps.B,
+			host:  "bar.example.com",
 		},
-		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
-		Check:   check.OK(),
-		Retry: echo.Retry{
-			Options: []retry.Option{retry.Timeout(time.Minute)},
+		{
+			check: check.NotOK(),
+			from:  apps.B,
+			host:  "bar",
 		},
-	})
-	apps.B[0].CallOrFail(t, echo.CallOptions{
-		Port:   echo.Port{ServicePort: 80},
-		Scheme: scheme.HTTP,
-		HTTP: echo.HTTP{
-			Headers: headers.New().WithHost("bar").Build(),
-		},
-		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
-		Check:   check.NotOK(),
-		Retry: echo.Retry{
-			Options: []retry.Option{retry.Timeout(time.Minute)},
-		},
-	})
+	}
+	if t.Settings().EnableDualStack {
+		additionalTestCases := []struct {
+			check echo.Checker
+			from  echo.Instances
+			host  string
+		}{
+			// apps.D hosts a dual-stack service,
+			// apps.E hosts an ipv6 only service and
+			// apps.B hosts an ipv4 only service
+			{
+				check: check.OK(),
+				from:  apps.D,
+				host:  "bar.example.com",
+			},
+			{
+				check: check.OK(),
+				from:  apps.E,
+				host:  "bar.example.com",
+			},
+			{
+				check: check.OK(),
+				from:  apps.E,
+				host:  "foo.example.com",
+			},
+			{
+				check: check.OK(),
+				from:  apps.D,
+				host:  "foo.example.com",
+			},
+			{
+				check: check.OK(),
+				from:  apps.B,
+				host:  "foo.example.com",
+			},
+		}
+		testCases = append(testCases, additionalTestCases...)
+	}
+	for _, tc := range testCases {
+		t.NewSubTest(fmt.Sprintf("gateway-connectivity-from-%s", tc.from[0].NamespacedName())).Run(func(t framework.TestContext) {
+			tc.from[0].CallOrFail(t, echo.CallOptions{
+				Port: echo.Port{
+					Protocol:    protocol.HTTP,
+					ServicePort: 80,
+				},
+				Scheme: scheme.HTTP,
+				HTTP: echo.HTTP{
+					Headers: headers.New().WithHost(tc.host).Build(),
+				},
+				Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+				Check:   tc.check,
+			})
+		})
+	}
 }
 
 func ManagedGatewayShortNameTest(t framework.TestContext) {
