@@ -445,13 +445,13 @@ func translateRoute(
 		authority = operations.Authority
 	}
 
-	var hostname host.Name
+	var hostnames []host.Name
 	if in.Redirect != nil {
 		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
 		ApplyDirectResponse(out, in.DirectResponse)
 	} else {
-		hostname = applyHTTPRouteDestination(out, node, virtualService, in, opts.Mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		hostnames = applyHTTPRouteDestination(out, node, virtualService, in, opts.Mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -466,18 +466,21 @@ func translateRoute(
 	if in.CorsPolicy != nil {
 		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(in.CorsPolicy))
 	}
-	if hostname.IsSet() {
-		statefulSvc := serviceRegistry[hostname]
-		if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(statefulSvc); statefulConfig != nil {
-			if out.TypedPerFilterConfig == nil {
-				out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+	if len(hostnames) > 0 {
+		for _, hostname := range hostnames {
+			statefulSvc := serviceRegistry[hostname]
+			if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(statefulSvc); statefulConfig != nil {
+				if out.TypedPerFilterConfig == nil {
+					out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+				}
+				perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
+					Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
+						StatefulSession: statefulConfig,
+					},
+				}
+				out.TypedPerFilterConfig[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
+				break
 			}
-			perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
-				Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
-					StatefulSession: statefulConfig,
-				},
-			}
-			out.TypedPerFilterConfig[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
 		}
 	}
 
@@ -502,7 +505,7 @@ func applyHTTPRouteDestination(
 	serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
 	hashByDestination DestinationHashMap,
-) host.Name {
+) []host.Name {
 	policy := in.Retries
 	if policy == nil {
 		// No VS policy set, use mesh defaults
@@ -571,9 +574,9 @@ func applyHTTPRouteDestination(
 		}
 	}
 
-	var hostname host.Name
+	var hostnames []host.Name
 	if len(in.Route) == 1 {
-		hostname = processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action)
+		hostnames = append(hostnames, processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action))
 	} else {
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 		for _, dst := range in.Route {
@@ -581,8 +584,9 @@ func applyHTTPRouteDestination(
 				// Ignore 0 weighted clusters if there are other clusters in the route.
 				continue
 			}
-			destinationweight, _ := processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action)
+			destinationweight, hostname := processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action)
 			weighted = append(weighted, destinationweight)
+			hostnames = append(hostnames, hostname)
 		}
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
@@ -590,7 +594,7 @@ func applyHTTPRouteDestination(
 			},
 		}
 	}
-	return hostname
+	return hostnames
 }
 
 func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,

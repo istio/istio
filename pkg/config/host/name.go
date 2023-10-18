@@ -93,7 +93,3 @@ func (n Name) IsWildCarded() bool {
 func (n Name) String() string {
 	return string(n)
 }
-
-func (n Name) IsSet() bool {
-	return len(n) > 0
-}
