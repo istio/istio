@@ -1707,7 +1707,16 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 }
 
 func TestDualStackInboundClustersDefaultEndpoint(t *testing.T) {
-	dsProxy := &dualStackProxy
+	dsProxy := model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1", "1111:2222::1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
+		Metadata: &model.NodeMetadata{
+			Namespace: "not-default",
+		},
+		ConfigNamespace: "not-default",
+	}
 
 	inboundFilter := func(c *cluster.Cluster) bool {
 		return strings.HasPrefix(c.Name, "inbound|")
@@ -1724,7 +1733,7 @@ func TestDualStackInboundClustersDefaultEndpoint(t *testing.T) {
 		{
 			name:            "dual stack disabled, defaultEndpoint set to [::1]:7073",
 			isDual:          false,
-			proxy:           dsProxy,
+			proxy:           &dsProxy,
 			defaultEndpoint: "[::1]:7073",
 			expectedAddr:    "127.0.0.1",
 			expectedPort:    7073,
@@ -1732,7 +1741,7 @@ func TestDualStackInboundClustersDefaultEndpoint(t *testing.T) {
 		{
 			name:            "dual stack enabled, defaultEndpoint set to 127.0.0.1:7072",
 			isDual:          true,
-			proxy:           dsProxy,
+			proxy:           &dsProxy,
 			defaultEndpoint: "127.0.0.1:7072",
 			expectedAddr:    "127.0.0.1",
 			expectedPort:    7072,
@@ -1740,7 +1749,7 @@ func TestDualStackInboundClustersDefaultEndpoint(t *testing.T) {
 		{
 			name:            "dual stack enabled, defaultEndpoint set to [::1]:7073",
 			isDual:          true,
-			proxy:           dsProxy,
+			proxy:           &dsProxy,
 			defaultEndpoint: "[::1]:7073",
 			expectedAddr:    "::1",
 			expectedPort:    7073,
