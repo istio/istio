@@ -15,6 +15,7 @@
 package model
 
 import (
+	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -29,10 +30,10 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
-
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
@@ -1280,4 +1282,204 @@ func TestGetInterval(t *testing.T) {
 			assert.Equal(t, tc.expected, actual)
 		})
 	}
+}
+
+func Test_appendApplicableTelemetries(t *testing.T) {
+	namespacedName := types.NamespacedName{
+		Name:      "my-telemetry",
+		Namespace: "my-namespace",
+	}
+	emptyStackDriverTracing := &tpb.Tracing{
+		Match: &tpb.Tracing_TracingSelector{
+			Mode: tpb.WorkloadMode_CLIENT,
+		},
+		Providers: []*tpb.ProviderRef{
+			{
+				Name: "stackdriver",
+			},
+		},
+	}
+	prometheusMetrics := &tpb.Metrics{
+		Providers:         []*tpb.ProviderRef{{Name: "prometheus"}},
+		ReportingInterval: durationpb.New(15 * time.Second),
+	}
+	emptyEnvoyLogging := &tpb.AccessLogging{
+		Providers: []*tpb.ProviderRef{
+			{
+				Name: "envoy",
+			},
+		},
+	}
+	testComputeAccessLogging := &ComputedAccessLogging{
+		TelemetryKey: TelemetryKey{
+			Workload: namespacedName,
+		},
+		Logging: []*tpb.AccessLogging{
+			emptyEnvoyLogging,
+		},
+	}
+	validTelemetryConfigurationWithTargetRef := &tpb.Telemetry{
+		TargetRef: &v1beta1.PolicyTargetReference{
+			Group: gvk.KubernetesGateway.Group,
+			Kind:  gvk.KubernetesGateway.Kind,
+			Name:  "my-gateway",
+		},
+		Tracing: []*tpb.Tracing{
+			emptyStackDriverTracing,
+		},
+		Metrics: []*tpb.Metrics{
+			prometheusMetrics,
+		},
+		AccessLogging: []*tpb.AccessLogging{
+			emptyEnvoyLogging,
+		},
+	}
+	validTelemetryConfiguration := &tpb.Telemetry{
+		Tracing: []*tpb.Tracing{
+			emptyStackDriverTracing,
+		},
+		Metrics: []*tpb.Metrics{
+			prometheusMetrics,
+		},
+		AccessLogging: []*tpb.AccessLogging{
+			emptyEnvoyLogging,
+		},
+	}
+	type args struct {
+		ct   *ComputedTelemetries
+		tel  Telemetry
+		spec *tpb.Telemetry
+	}
+
+	tests := []struct {
+		name string
+		args args
+		want *ComputedTelemetries
+	}{
+		{
+			name: "empty telemetry configuration",
+			args: args{
+				ct:   &ComputedTelemetries{},
+				tel:  Telemetry{},
+				spec: &tpb.Telemetry{},
+			},
+			want: &ComputedTelemetries{},
+		},
+		{
+			name: "targetRef is defined, telemetry configurations are added to empty computed telemetries",
+			args: args{
+				ct: &ComputedTelemetries{},
+				tel: Telemetry{
+					Name:      "my-telemetry",
+					Namespace: "my-namespace",
+					Spec:      validTelemetryConfigurationWithTargetRef,
+				},
+				spec: validTelemetryConfigurationWithTargetRef,
+			},
+			want: &ComputedTelemetries{
+				TelemetryKey: TelemetryKey{Workload: namespacedName},
+				Metrics:      []*tpb.Metrics{prometheusMetrics},
+				Logging:      []*ComputedAccessLogging{testComputeAccessLogging},
+				Tracing:      []*tpb.Tracing{emptyStackDriverTracing},
+			},
+		},
+		{
+			name: "targetRef is not defined, telemetry configurations are added to empty computed telemetries",
+			args: args{
+				ct: &ComputedTelemetries{},
+				tel: Telemetry{
+					Name:      "my-telemetry",
+					Namespace: "my-namespace",
+					Spec:      validTelemetryConfiguration,
+				},
+				spec: validTelemetryConfiguration,
+			},
+			want: &ComputedTelemetries{
+				TelemetryKey: TelemetryKey{
+					Workload: namespacedName,
+				},
+				Metrics: []*tpb.Metrics{prometheusMetrics},
+				Logging: []*ComputedAccessLogging{testComputeAccessLogging},
+				Tracing: []*tpb.Tracing{emptyStackDriverTracing},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := appendApplicableTelemetries(tt.args.ct, tt.args.tel, tt.args.spec); !cmp.Equal(got, tt.want) {
+				t.Errorf("appendApplicableTelemetries() = want %v", cmp.Diff(got, tt.want))
+			}
+		})
+	}
+}
+
+// Equal compares two ComputedTelemetries for equality. Because of the nature of the structs being compared, it is safer to use cmp.Equal as
+// opposed to reflect.DeepEqual. Also, because of the way the structs are generated, it is not possible to use cmpopts.IgnoreUnexported without
+// risking flakiness if those third party types that are relied on change. Next best thing is to use a custom comparer as defined below.
+// When cmp.Equal is called on this type, this will be used instead of the default cmp.Equal, see https://godoc.org/github.com/google/go-cmp/cmp#Equal
+// for more info.
+func (ct *ComputedTelemetries) Equal(other *ComputedTelemetries) bool {
+	if len(ct.Metrics) != len(other.Metrics) || len(ct.Logging) != len(other.Logging) || len(ct.Tracing) != len(other.Tracing) {
+		return false
+	}
+	if ct == nil && other == nil {
+		return true
+	}
+	if ct != nil && other == nil || ct == nil && other != nil {
+		return false
+	}
+	// Sort each slice so that we can compare them in order. Comparison is on the fields that are used in the test cases.
+	sort.SliceStable(ct.Metrics, func(i, j int) bool {
+		return ct.Metrics[i].Providers[0].Name < ct.Metrics[j].Providers[0].Name
+	})
+	for i := range ct.Metrics {
+		if ct.Metrics[i] != nil && other.Metrics[i] == nil || ct.Metrics[i] == nil && other.Metrics[i] != nil {
+			return false
+		}
+		if ct.Metrics[i].ReportingInterval != nil && other.Metrics[i].ReportingInterval != nil {
+			if ct.Metrics[i].ReportingInterval.AsDuration() != other.Metrics[i].ReportingInterval.AsDuration() {
+				return false
+			}
+		}
+		if ct.Metrics[i].Providers != nil && other.Metrics[i].Providers != nil {
+			if ct.Metrics[i].Providers[0].Name != other.Metrics[i].Providers[0].Name {
+				return false
+			}
+		}
+	}
+	sort.SliceStable(ct.Logging, func(i, j int) bool {
+		return ct.Logging[i].TelemetryKey.Root.Name < ct.Logging[j].TelemetryKey.Root.Name
+	})
+	for i := range ct.Logging {
+		if ct.Logging[i] != nil && other.Logging[i] == nil || ct.Logging[i] == nil && other.Logging[i] != nil {
+			return false
+		}
+		if ct.Logging[i].TelemetryKey != other.Logging[i].TelemetryKey {
+			return false
+		}
+		if ct.Logging[i].Logging != nil && other.Logging[i].Logging != nil {
+			if ct.Logging[i].Logging[0].Providers[0].Name != other.Logging[i].Logging[0].Providers[0].Name {
+				return false
+			}
+		}
+	}
+	sort.SliceStable(ct.Tracing, func(i, j int) bool {
+		return ct.Tracing[i].Providers[0].Name < ct.Tracing[j].Providers[0].Name
+	})
+	for i := range ct.Tracing {
+		if ct.Tracing[i] != nil && other.Tracing[i] == nil || ct.Tracing[i] == nil && other.Tracing[i] != nil {
+			return false
+		}
+		if ct.Tracing[i].Match != nil && other.Tracing[i].Match != nil {
+			if ct.Tracing[i].Match.Mode != other.Tracing[i].Match.Mode {
+				return false
+			}
+		}
+		if ct.Tracing[i].Providers != nil && other.Tracing[i].Providers != nil {
+			if ct.Tracing[i].Providers[0].Name != other.Tracing[i].Providers[0].Name {
+				return false
+			}
+		}
+	}
+	return true
 }
