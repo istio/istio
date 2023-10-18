@@ -102,15 +102,22 @@ func Test_SecretController(t *testing.T) {
 	clientset := kube.NewFakeClient()
 
 	var (
-		secret0                        = makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0-0")})
-		secret0UpdateKubeconfigChanged = makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0-1")})
-		secret0UpdateKubeconfigSame    = makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0-1")})
-		secret0AddCluster              = makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
-		secret0DeleteCluster           = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
-		secret0ReAddCluster            = makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
-		secret0ReDeleteCluster         = secret0UpdateKubeconfigChanged // "c0-1" cluster re-deleted
-		secret1                        = makeSecret(secretNamespace, "s1", clusterCredential{"c1", []byte("kubeconfig1-0")})
-		otherNSSecret                  = makeSecret("some-other-namespace", "s2", clusterCredential{"c1", []byte("kubeconfig1-0")})
+		secret0 = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-0")})
+		secret0UpdateKubeconfigChanged = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")})
+		secret0UpdateKubeconfigSame = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")})
+		secret0AddCluster = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
+		secret0DeleteCluster = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
+		secret0ReAddCluster  = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
+		secret0ReDeleteCluster = secret0UpdateKubeconfigChanged // "c0-1" cluster re-deleted
+		secret1                = makeSecret(secretNamespace, "s1",
+			clusterCredential{"c1", []byte("kubeconfig1-0")})
+		otherNSSecret = makeSecret("some-other-namespace", "s2",
+			clusterCredential{"c1", []byte("kubeconfig1-0")})
 	)
 
 	secret0UpdateKubeconfigSame.Annotations = map[string]string{"foo": "bar"}
