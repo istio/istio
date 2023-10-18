@@ -32,7 +32,7 @@ spec:
       - name: cert
         namespace: cert
 ---
-apiVersion: gateway.networking.k8s.io/v1
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: allow-cert
