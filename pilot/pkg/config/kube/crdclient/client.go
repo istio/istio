@@ -28,6 +28,7 @@ import (
 	"time"
 
 	jsonmerge "github.com/evanphx/json-patch/v5"
+	"go.uber.org/atomic"
 	"gomodules.xyz/jsonpatch/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -72,7 +73,7 @@ type Client struct {
 	kindsMu sync.RWMutex
 	queue   queue.Instance
 	// a flag indicates whether this client has been run, it is to prevent run queue twice
-	started bool
+	started *atomic.Bool
 
 	// handlers defines a list of event handlers per-type
 	handlers map[config.GroupVersionKind][]model.EventHandler
@@ -117,6 +118,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		schemasByCRDName: schemasByCRDName,
 		revision:         opts.Revision,
 		queue:            queue.NewQueue(1 * time.Second),
+		started:          atomic.NewBool(false),
 		kinds:            map[config.GroupVersionKind]kclient.Untyped{},
 		handlers:         map[config.GroupVersionKind][]model.EventHandler{},
 		client:           client,
@@ -140,7 +142,7 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler mod
 
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
-	if cl.started {
+	if cl.started.Load() {
 		return
 	}
 
@@ -152,8 +154,7 @@ func (cl *Client) Run(stop <-chan struct{}) {
 		return
 	}
 	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
-	cl.started = true
-	cl.queue.HasSynced()
+	cl.started.Store(true)
 	cl.queue.Run(stop)
 	cl.logger.Infof("controller terminated")
 }
