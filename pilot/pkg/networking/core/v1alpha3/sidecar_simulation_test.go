@@ -1638,7 +1638,7 @@ func (args vsArgs) Config(t *testing.T, variant string) string {
 	}
 	switch variant {
 	case "httproute":
-		return tmpl.MustEvaluate(`apiVersion: gateway.networking.k8s.io/v1
+		return tmpl.MustEvaluate(`apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: "{{.Namespace}}{{.Match | replace "*" "wild"}}{{.Dest}}"
