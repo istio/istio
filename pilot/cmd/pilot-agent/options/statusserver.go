@@ -37,8 +37,5 @@ func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyCon
 		TriggerDrain: func() {
 			agent.DrainNow()
 		},
-		DisableDrain: func() {
-			agent.DisableDraining()
-		},
 	}
 }

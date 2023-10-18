@@ -132,7 +132,6 @@ type Options struct {
 	PrometheusRegistry prometheus.Gatherer
 	Shutdown           context.CancelFunc
 	TriggerDrain       func()
-	DisableDrain       func()
 }
 
 // Server provides an endpoint for handling status probes.
@@ -220,8 +219,6 @@ func NewServer(config Options) (*Server, error) {
 		enableProfiling:       config.EnableProfiling,
 		registry:              registry,
 		shutdown: func() {
-			// Disable draining, as we want to shutdown immediately
-			config.DisableDrain()
 			config.Shutdown()
 		},
 		drain: config.TriggerDrain,

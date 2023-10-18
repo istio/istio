@@ -1440,11 +1440,8 @@ func TestHandleQuit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			drain, shutdown := make(chan struct{}), make(chan struct{})
+			shutdown := make(chan struct{})
 			s := NewTestServer(t, Options{
-				DisableDrain: func() {
-					close(drain)
-				},
 				Shutdown: func() {
 					close(shutdown)
 				},
@@ -1466,21 +1463,11 @@ func TestHandleQuit(t *testing.T) {
 
 			if tt.expected == http.StatusOK {
 				select {
-				case <-drain:
-				case <-time.After(time.Second):
-					t.Fatalf("Failed to receive expected drain")
-				}
-				select {
 				case <-shutdown:
 				case <-time.After(time.Second):
 					t.Fatalf("Failed to receive expected shutdown")
 				}
 			} else {
-				select {
-				case <-drain:
-					t.Fatalf("unexpected drain")
-				default:
-				}
 				select {
 				case <-shutdown:
 					t.Fatalf("unexpected shutdown")

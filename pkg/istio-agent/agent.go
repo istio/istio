@@ -854,7 +854,3 @@ func (a *Agent) GRPCBootstrapPath() string {
 func (a *Agent) DrainNow() {
 	a.envoyAgent.DrainNow()
 }
-
-func (a *Agent) DisableDraining() {
-	a.envoyAgent.DisableDraining()
-}
