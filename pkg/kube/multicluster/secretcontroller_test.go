@@ -110,7 +110,7 @@ func Test_SecretController(t *testing.T) {
 		secret0ReAddCluster            = makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
 		secret0ReDeleteCluster         = secret0UpdateKubeconfigChanged // "c0-1" cluster re-deleted
 		secret1                        = makeSecret(secretNamespace, "s1", clusterCredential{"c1", []byte("kubeconfig1-0")})
-		otherNSSecret                  = makeSecret("test", "s2", clusterCredential{"c1", []byte("kubeconfig1-0")})
+		otherNSSecret                  = makeSecret("some-other-namespace", "s2", clusterCredential{"c1", []byte("kubeconfig1-0")})
 	)
 
 	secret0UpdateKubeconfigSame.Annotations = map[string]string{"foo": "bar"}
