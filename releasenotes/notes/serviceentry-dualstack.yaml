@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 46743
+  - 47406
+releaseNotes:
+  - |
+    **Fixed** clients being able to communicate with hosts defined in ServiceEntries over IPv6 when installed in dual-stack mode.
