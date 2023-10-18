@@ -91,7 +91,6 @@ const (
 
 	// WorkloadKeyCertResourceName is the resource name of the discovery request for workload
 	// identity.
-	// TODO: change all the pilot one reference definition here instead.
 	WorkloadKeyCertResourceName = "default"
 
 	// GCE is Credential fetcher type of Google plugin

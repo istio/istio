@@ -649,11 +649,16 @@ func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 	sc.cache.SetWorkload(&item)
 	resourceLog(item.ResourceName).Debugf("scheduled certificate for rotation in %v", delay)
 	sc.queue.PushDelayed(func() error {
-		resourceLog(item.ResourceName).Debugf("rotating certificate")
-		// Clear the cache so the next call generates a fresh certificate
-		sc.cache.SetWorkload(nil)
-
-		sc.OnSecretUpdate(item.ResourceName)
+		// In case `UpdateConfigTrustBundle` called, it will resign workload cert.
+		// Check if this is a stale scheduled rotating task.
+		if cached := sc.cache.GetWorkload(); cached != nil {
+			if cached.CreatedTime == item.CreatedTime {
+				resourceLog(item.ResourceName).Debugf("rotating certificate")
+				// Clear the cache so the next call generates a fresh certificate
+				sc.cache.SetWorkload(nil)
+				sc.OnSecretUpdate(item.ResourceName)
+			}
+		}
 		return nil
 	}, delay)
 }
@@ -749,6 +754,8 @@ func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error
 	sc.configTrustBundleMutex.Unlock()
 	cacheLog.Debugf("update new trust bundle")
 	sc.OnSecretUpdate(security.RootCertReqResourceName)
+	sc.cache.SetWorkload(nil)
+	sc.OnSecretUpdate(security.WorkloadKeyCertResourceName)
 	return nil
 }
 
