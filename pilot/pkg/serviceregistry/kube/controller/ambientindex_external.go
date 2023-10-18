@@ -205,22 +205,15 @@ func (c *Controller) getWorkloadEntriesInPolicy(ns string, sel map[string]string
 		ns = metav1.NamespaceAll
 	}
 
-	workloadEntries := c.getSelectedWorkloadEntries(ns, sel)
+	return c.getSelectedWorkloadEntries(ns, sel)
+}
 
-	// Include workload entries inlined in service entries (endpoints)
-	allServiceEntries := c.configController.List(gvk.ServiceEntry, ns)
-	for _, se := range allServiceEntries {
-		for _, wl := range serviceentry.ConvertServiceEntry(se).Endpoints {
-			if labels.Instance(sel).SubsetOf(wl.Labels) || (len(wl.Labels) == 0 && labels.Instance(sel).SubsetOf(se.Labels)) {
-				workloadEntries = append(workloadEntries, &apiv1alpha3.WorkloadEntry{
-					ObjectMeta: se.ToObjectMeta(),
-					Spec:       *wl.DeepCopy(),
-				})
-			}
-		}
+func (c *Controller) getServiceEntriesInPolicy(ns string, sel map[string]string) []*apiv1alpha3.ServiceEntry {
+	if ns == c.meshWatcher.Mesh().GetRootNamespace() {
+		ns = metav1.NamespaceAll
 	}
 
-	return workloadEntries
+	return c.getSelectedServiceEntries(ns, sel)
 }
 
 // NOTE: Mutex is locked prior to being called.
@@ -536,6 +529,42 @@ func (c *Controller) getControllerWorkloadEntries(ns string) []*apiv1alpha3.Work
 	return allWorkloadEntries
 }
 
+func (c *Controller) getSelectedServiceEntries(ns string, selector map[string]string) []*apiv1alpha3.ServiceEntry {
+	// skip WLE for non config clusters
+	if !c.configCluster {
+		return nil
+	}
+	if len(selector) == 0 {
+		// k8s services and service entry workloadSelector with empty selectors match nothing, not everything.
+		return nil
+	}
+	allServiceEntries := c.getControllerServiceEntries(ns)
+	var serviceEntries []*apiv1alpha3.ServiceEntry
+	for _, se := range allServiceEntries {
+		if len(se.Spec.Endpoints) > 0 && labels.Instance(selector).SubsetOf(se.Labels) {
+			serviceEntries = append(serviceEntries, se)
+		}
+	}
+	return serviceEntries
+}
+
+func (c *Controller) getControllerServiceEntries(ns string) []*apiv1alpha3.ServiceEntry {
+	var allServiceEntries []*apiv1alpha3.ServiceEntry
+	allUnstructuredServiceEntries := c.configController.List(gvk.ServiceEntry, ns)
+	for _, se := range allUnstructuredServiceEntries {
+		conv := serviceentry.ConvertServiceEntry(se)
+		if conv == nil {
+			continue
+		}
+		c := &apiv1alpha3.ServiceEntry{
+			ObjectMeta: se.ToObjectMeta(),
+			Spec:       *conv.DeepCopy(),
+		}
+		allServiceEntries = append(allServiceEntries, c)
+	}
+	return allServiceEntries
+}
+
 // name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>
 // if the WorkloadEntry is inlined in the ServiceEntry, we may need section name. caller should use generateServiceEntryUID
 func (c *Controller) generateWorkloadEntryUID(wkEntryNamespace, wkEntryName string) string {
@@ -563,13 +592,13 @@ func (a *AmbientIndexImpl) cleanupOldWorkloadEntriesInlinedOnServiceEntry(svcEnt
 	if oldServiceEntry, f := a.servicesMap[nsName]; f {
 		for _, oldWe := range oldServiceEntry.Spec.Endpoints {
 			oldUID := c.generateServiceEntryUID(nsName.Namespace, nsName.Name, oldWe.Address)
-			if we, found := a.byUID[oldUID]; found {
+			we, found := a.byUID[oldUID]
+			if found {
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: we.ResourceName()})
 				for _, networkAddr := range networkAddressFromWorkload(we) {
 					delete(a.byWorkloadEntry, networkAddr)
 				}
 				delete(a.byUID, oldUID)
-				delete(a.byUID, c.generateWorkloadEntryUID(oldServiceEntry.GetNamespace(), oldServiceEntry.GetName()))
 			}
 		}
 	}

@@ -452,7 +452,7 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 		}
 	}
 
-	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, c)
+	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, []*apiv1alpha3.ServiceEntry{}, c)
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
@@ -467,7 +467,7 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 //
 // NOTE: As an interface method of AmbientIndex, this locks the index.
 func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
-	workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, c *Controller,
+	workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, serviceEntries []*apiv1alpha3.ServiceEntry, c *Controller,
 ) map[model.ConfigKey]struct{} {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -496,6 +496,19 @@ func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
 			}
 			a.byUID[c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())] = newWl
 			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
+		}
+	}
+
+	for _, svcEntry := range serviceEntries {
+		for _, we := range svcEntry.Spec.Endpoints {
+			wli := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
+			if wli != nil {
+				for _, networkAddr := range networkAddressFromWorkload(wli) {
+					a.byWorkloadEntry[networkAddr] = wli
+				}
+				a.byUID[c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), we.GetAddress())] = wli
+				updates[model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()}] = struct{}{}
+			}
 		}
 	}
 
@@ -566,7 +579,16 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 		}
 	}
 
-	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, c)
+	// 3. only process service entries in config cluster with endpoints
+	serviceEntries := []*apiv1alpha3.ServiceEntry{}
+	if c.configCluster {
+		serviceEntries = append(serviceEntries, c.getServiceEntriesInPolicy(obj.Namespace, sel)...)
+		if oldSel != nil {
+			serviceEntries = append(serviceEntries, c.getServiceEntriesInPolicy(obj.Namespace, oldSel)...)
+		}
+	}
+
+	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, serviceEntries, c)
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{

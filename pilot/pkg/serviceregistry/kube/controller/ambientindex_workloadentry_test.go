@@ -315,13 +315,12 @@ func TestAmbientIndex_InlinedWorkloadEntries(t *testing.T) {
 
 	s.addPolicy(t, "selector", "ns1", map[string]string{"app": "a"}, gvk.AuthorizationPolicy, nil)
 	assert.Equal(t,
-		s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),
+		s.lookup(s.seIPXdsName("se1", "127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),
 		[]string{"ns1/selector"})
 
 	_ = s.cfg.Delete(gvk.AuthorizationPolicy, "selector", "ns1", nil)
-	s.assertEvent(t, s.wleXdsName("se1"))
 	assert.Equal(t,
-		s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),
+		s.lookup(s.seIPXdsName("se1", "127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),
 		nil)
 
 	s.deleteServiceEntry(t, "se1", testNS)
