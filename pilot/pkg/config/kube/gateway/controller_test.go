@@ -22,8 +22,8 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
-	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -52,7 +52,7 @@ var (
 				Name:          "default",
 				Port:          9009,
 				Protocol:      "HTTP",
-				AllowedRoutes: &k8s.AllowedRoutes{Namespaces: &k8s.RouteNamespaces{From: func() *k8s.FromNamespaces { x := k8sbeta.NamespacesFromAll; return &x }()}},
+				AllowedRoutes: &k8s.AllowedRoutes{Namespaces: &k8s.RouteNamespaces{From: func() *k8s.FromNamespaces { x := k8sv1.NamespacesFromAll; return &x }()}},
 			},
 		},
 	}

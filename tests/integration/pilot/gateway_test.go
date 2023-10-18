@@ -26,7 +26,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8s "sigs.k8s.io/gateway-api/apis/v1beta1"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
@@ -118,7 +118,7 @@ spec:
 		if gw == nil {
 			return fmt.Errorf("failed to find gateway")
 		}
-		cond := kstatus.GetCondition(gw.Status.Conditions, string(k8s.GatewayConditionProgrammed))
+		cond := kstatus.GetCondition(gw.Status.Conditions, string(k8sv1.GatewayConditionProgrammed))
 		if cond.Status != metav1.ConditionTrue {
 			return fmt.Errorf("failed to find programmed condition: %+v", cond)
 		}
@@ -560,7 +560,7 @@ spec:
 					if err != nil {
 						return err
 					}
-					if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted)).Status; s != metav1.ConditionTrue {
+					if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8sv1.GatewayClassConditionStatusAccepted)).Status; s != metav1.ConditionTrue {
 						return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
 					}
 					return nil
@@ -604,7 +604,7 @@ func StatusGatewayTest(t framework.TestContext) {
 		if gwc == nil {
 			return fmt.Errorf("failed to find GatewayClass istio")
 		}
-		cond := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted))
+		cond := kstatus.GetCondition(gwc.Status.Conditions, string(k8sv1.GatewayClassConditionStatusAccepted))
 		if cond.Status != metav1.ConditionTrue {
 			return fmt.Errorf("failed to find accepted condition: %+v", cond)
 		}
