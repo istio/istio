@@ -2322,7 +2322,7 @@ spec:
       consistentHash:
         httpCookie:
           name: session-cookie
-          ttl: 3600s
+          ttl: 0s
 `, svcName, svcName)
 
 			cookieWithoutTTLDest := fmt.Sprintf(`
@@ -2392,6 +2392,8 @@ spec:
 						for _, cookie := range res.Cookies() {
 							if cookie.Name == "session-cookie" {
 								sessionCookie = cookie
+								scopes.Framework.Infof("setting the request cookie back in the request: %v %b",
+									sessionCookie.Value, sessionCookie.Expires)
 								break
 							}
 						}
