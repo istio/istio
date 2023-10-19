@@ -15,6 +15,7 @@
 package waypoint
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"strings"
@@ -222,14 +223,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				return nil
 			}
 			w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-			slices.SortFunc(gws.Items, func(i, j gateway.Gateway) bool {
-				if i.Namespace <= j.Namespace {
-					return true
+			slices.SortFunc(gws.Items, func(i, j gateway.Gateway) int {
+				if r := cmp.Compare(i.Namespace, j.Namespace); r != 0 {
+					return r
 				}
-				if i.Namespace > j.Namespace {
-					return false
-				}
-				return i.Name < j.Name
+				return cmp.Compare(i.Name, j.Name)
 			})
 			filteredGws := make([]gateway.Gateway, 0)
 			for _, gw := range gws.Items {

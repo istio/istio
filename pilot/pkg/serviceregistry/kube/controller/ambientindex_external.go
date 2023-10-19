@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net/netip"
 
-	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubelabels "istio.io/istio/pkg/kube/labels"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
