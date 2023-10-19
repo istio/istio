@@ -2392,13 +2392,15 @@ spec:
 						for _, cookie := range res.Cookies() {
 							if cookie.Name == "session-cookie" {
 								sessionCookie = cookie
-								scopes.Framework.Infof("setting the request cookie back in the request: %v %b",
-									sessionCookie.Value, sessionCookie.Expires)
 								break
 							}
 						}
 						if sessionCookie != nil {
+							scopes.Framework.Infof("setting the request cookie back in the request: %v %b",
+								sessionCookie.Value, sessionCookie.Expires)
 							req.AddCookie(sessionCookie)
+						} else {
+							scopes.Framework.Infof("no session cookie found in the response")
 						}
 					}
 				},
