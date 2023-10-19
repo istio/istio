@@ -30,6 +30,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
@@ -42,7 +44,6 @@ import (
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 var (
