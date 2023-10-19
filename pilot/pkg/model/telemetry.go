@@ -82,8 +82,8 @@ type Telemetries struct {
 	mu                     sync.Mutex
 }
 
-// TelemetryKey defines a key into the computedMetricsFilters cache.
-type TelemetryKey struct {
+// telemetryKey defines a key into the computedMetricsFilters cache.
+type telemetryKey struct {
 	// Root stores the Telemetry in the root namespace, if any
 	Root types.NamespacedName
 	// Namespace stores the Telemetry in the root namespace, if any
@@ -94,14 +94,14 @@ type TelemetryKey struct {
 
 // loggingKey defines a key into the computedLoggingConfig cache.
 type loggingKey struct {
-	TelemetryKey
+	telemetryKey
 	Class    networking.ListenerClass
 	Protocol networking.ListenerProtocol
 }
 
 // metricsKey defines a key into the computedMetricsFilters cache.
 type metricsKey struct {
-	TelemetryKey
+	telemetryKey
 	Class     networking.ListenerClass
 	Protocol  networking.ListenerProtocol
 	ProxyType NodeType
@@ -179,20 +179,20 @@ type tagOverride struct {
 	Value  string
 }
 
-// ComputedTelemetries contains the various Telemetry configurations in scope for a given proxy.
+// computedTelemetries contains the various Telemetry configurations in scope for a given proxy.
 // This can include the root namespace, namespace, and workload Telemetries combined
-type ComputedTelemetries struct {
-	TelemetryKey
+type computedTelemetries struct {
+	telemetryKey
 	Metrics []*tpb.Metrics
-	Logging []*ComputedAccessLogging
+	Logging []*computedAccessLogging
 	Tracing []*tpb.Tracing
 }
 
-// ComputedAccessLogging contains the various AccessLogging configurations in scope for a given proxy,
+// computedAccessLogging contains the various AccessLogging configurations in scope for a given proxy,
 // include combined configurations for one of the following levels: 1. the root namespace level
 // 2. namespace level 3. workload level combined.
-type ComputedAccessLogging struct {
-	TelemetryKey
+type computedAccessLogging struct {
+	telemetryKey
 	Logging []*tpb.AccessLogging
 }
 
@@ -248,7 +248,7 @@ func (t *Telemetries) AccessLogging(push *PushContext, proxy *Proxy, class netwo
 	}
 
 	key := loggingKey{
-		TelemetryKey: ct.TelemetryKey,
+		telemetryKey: ct.telemetryKey,
 		Class:        class,
 	}
 	t.mu.Lock()
@@ -390,25 +390,25 @@ func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass) [
 }
 
 // applicableTelemetries fetches the relevant telemetry configurations for a given proxy
-func (t *Telemetries) applicableTelemetries(proxy *Proxy) ComputedTelemetries {
+func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 	if t == nil {
-		return ComputedTelemetries{}
+		return computedTelemetries{}
 	}
 
 	namespace := proxy.ConfigNamespace
 	// Order here matters. The latter elements will override the first elements
 	ms := []*tpb.Metrics{}
-	ls := []*ComputedAccessLogging{}
+	ls := []*computedAccessLogging{}
 	ts := []*tpb.Tracing{}
-	key := TelemetryKey{}
+	key := telemetryKey{}
 	if t.RootNamespace != "" {
 		telemetry := t.namespaceWideTelemetryConfig(t.RootNamespace)
 		if telemetry != (Telemetry{}) {
 			key.Root = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
 			if len(telemetry.Spec.GetAccessLogging()) != 0 {
-				ls = append(ls, &ComputedAccessLogging{
-					TelemetryKey: TelemetryKey{
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
 						Root: key.Root,
 					},
 					Logging: telemetry.Spec.GetAccessLogging(),
@@ -424,8 +424,8 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) ComputedTelemetries {
 			key.Namespace = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
 			ms = append(ms, telemetry.Spec.GetMetrics()...)
 			if len(telemetry.Spec.GetAccessLogging()) != 0 {
-				ls = append(ls, &ComputedAccessLogging{
-					TelemetryKey: TelemetryKey{
+				ls = append(ls, &computedAccessLogging{
+					telemetryKey: telemetryKey{
 						Namespace: key.Namespace,
 					},
 					Logging: telemetry.Spec.GetAccessLogging(),
@@ -435,8 +435,8 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) ComputedTelemetries {
 		}
 	}
 
-	ct := &ComputedTelemetries{
-		TelemetryKey: key,
+	ct := &computedTelemetries{
+		telemetryKey: key,
 		Metrics:      ms,
 		Logging:      ls,
 		Tracing:      ts,
@@ -470,12 +470,12 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) ComputedTelemetries {
 	return *ct
 }
 
-func appendApplicableTelemetries(ct *ComputedTelemetries, tel Telemetry, spec *tpb.Telemetry) *ComputedTelemetries {
-	ct.TelemetryKey.Workload = types.NamespacedName{Name: tel.Name, Namespace: tel.Namespace}
+func appendApplicableTelemetries(ct *computedTelemetries, tel Telemetry, spec *tpb.Telemetry) *computedTelemetries {
+	ct.telemetryKey.Workload = types.NamespacedName{Name: tel.Name, Namespace: tel.Namespace}
 	ct.Metrics = append(ct.Metrics, spec.GetMetrics()...)
 	if len(tel.Spec.GetAccessLogging()) != 0 {
-		ct.Logging = append(ct.Logging, &ComputedAccessLogging{
-			TelemetryKey: TelemetryKey{
+		ct.Logging = append(ct.Logging, &computedAccessLogging{
+			telemetryKey: telemetryKey{
 				Workload: types.NamespacedName{Name: tel.Name, Namespace: tel.Namespace},
 			},
 			Logging: tel.Spec.GetAccessLogging(),
@@ -498,7 +498,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	c := t.applicableTelemetries(proxy)
 
 	key := metricsKey{
-		TelemetryKey: c.TelemetryKey,
+		telemetryKey: c.telemetryKey,
 		Class:        class,
 		Protocol:     protocol,
 		ProxyType:    proxy.Type,
@@ -587,7 +587,7 @@ func getInterval(input, defaultValue time.Duration) *durationpb.Duration {
 
 // mergeLogs returns the set of providers for the given logging configuration.
 // The provider names are mapped to any applicable access logging filter that has been applied in provider configuration.
-func mergeLogs(logs []*ComputedAccessLogging, mesh *meshconfig.MeshConfig, mode tpb.WorkloadMode) map[string]loggingSpec {
+func mergeLogs(logs []*computedAccessLogging, mesh *meshconfig.MeshConfig, mode tpb.WorkloadMode) map[string]loggingSpec {
 	providers := map[string]loggingSpec{}
 
 	if len(logs) == 0 {
