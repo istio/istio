@@ -209,6 +209,10 @@ func EnvoyAccessLogServiceTCPKeepalive(value *networkingAPI.ConnectionPoolSettin
 	return newTCPKeepaliveOption("envoy_accesslog_service_tcp_keepalive", value)
 }
 
+func EnvoyResourceMonitorDownstreamConnections(value int) Instance {
+	return newOption("max_active_downstream_connections", value)
+}
+
 func EnvoyExtraStatTags(value []string) Instance {
 	return newStringArrayOptionOrSkipIfEmpty("extraStatTags", value)
 }
