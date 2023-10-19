@@ -1210,6 +1210,9 @@ func (ct *computedTelemetries) Equal(other *computedTelemetries) bool {
 	sort.SliceStable(ct.Metrics, func(i, j int) bool {
 		return ct.Metrics[i].Providers[0].Name < ct.Metrics[j].Providers[0].Name
 	})
+	sort.SliceStable(other.Metrics, func(i, j int) bool {
+		return other.Metrics[i].Providers[0].Name < other.Metrics[j].Providers[0].Name
+	})
 	for i := range ct.Metrics {
 		if ct.Metrics[i].ReportingInterval != nil && other.Metrics[i].ReportingInterval != nil {
 			if ct.Metrics[i].ReportingInterval.AsDuration() != other.Metrics[i].ReportingInterval.AsDuration() {
@@ -1225,6 +1228,9 @@ func (ct *computedTelemetries) Equal(other *computedTelemetries) bool {
 	sort.SliceStable(ct.Logging, func(i, j int) bool {
 		return ct.Logging[i].telemetryKey.Root.Name < ct.Logging[j].telemetryKey.Root.Name
 	})
+	sort.SliceStable(other.Logging, func(i, j int) bool {
+		return other.Logging[i].telemetryKey.Root.Name < other.Logging[j].telemetryKey.Root.Name
+	})
 	for i := range ct.Logging {
 		if ct.Logging[i].telemetryKey != other.Logging[i].telemetryKey {
 			return false
@@ -1237,6 +1243,9 @@ func (ct *computedTelemetries) Equal(other *computedTelemetries) bool {
 	}
 	sort.SliceStable(ct.Tracing, func(i, j int) bool {
 		return ct.Tracing[i].Providers[0].Name < ct.Tracing[j].Providers[0].Name
+	})
+	sort.SliceStable(other.Tracing, func(i, j int) bool {
+		return other.Tracing[i].Providers[0].Name < other.Tracing[j].Providers[0].Name
 	})
 	for i := range ct.Tracing {
 		if ct.Tracing[i].Match != nil && other.Tracing[i].Match != nil {
