@@ -1311,8 +1311,8 @@ func Test_appendApplicableTelemetries(t *testing.T) {
 			},
 		},
 	}
-	testComputeAccessLogging := &ComputedAccessLogging{
-		TelemetryKey: TelemetryKey{
+	testComputeAccessLogging := &computedAccessLogging{
+		telemetryKey: telemetryKey{
 			Workload: namespacedName,
 		},
 		Logging: []*tpb.AccessLogging{
@@ -1347,7 +1347,7 @@ func Test_appendApplicableTelemetries(t *testing.T) {
 		},
 	}
 	type args struct {
-		ct   *ComputedTelemetries
+		ct   *computedTelemetries
 		tel  Telemetry
 		spec *tpb.Telemetry
 	}
@@ -1355,21 +1355,21 @@ func Test_appendApplicableTelemetries(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *ComputedTelemetries
+		want *computedTelemetries
 	}{
 		{
 			name: "empty telemetry configuration",
 			args: args{
-				ct:   &ComputedTelemetries{},
+				ct:   &computedTelemetries{},
 				tel:  Telemetry{},
 				spec: &tpb.Telemetry{},
 			},
-			want: &ComputedTelemetries{},
+			want: &computedTelemetries{},
 		},
 		{
 			name: "targetRef is defined, telemetry configurations are added to empty computed telemetries",
 			args: args{
-				ct: &ComputedTelemetries{},
+				ct: &computedTelemetries{},
 				tel: Telemetry{
 					Name:      "my-telemetry",
 					Namespace: "my-namespace",
@@ -1377,17 +1377,17 @@ func Test_appendApplicableTelemetries(t *testing.T) {
 				},
 				spec: validTelemetryConfigurationWithTargetRef,
 			},
-			want: &ComputedTelemetries{
-				TelemetryKey: TelemetryKey{Workload: namespacedName},
+			want: &computedTelemetries{
+				telemetryKey: telemetryKey{Workload: namespacedName},
 				Metrics:      []*tpb.Metrics{prometheusMetrics},
-				Logging:      []*ComputedAccessLogging{testComputeAccessLogging},
+				Logging:      []*computedAccessLogging{testComputeAccessLogging},
 				Tracing:      []*tpb.Tracing{emptyStackDriverTracing},
 			},
 		},
 		{
 			name: "targetRef is not defined, telemetry configurations are added to empty computed telemetries",
 			args: args{
-				ct: &ComputedTelemetries{},
+				ct: &computedTelemetries{},
 				tel: Telemetry{
 					Name:      "my-telemetry",
 					Namespace: "my-namespace",
@@ -1395,12 +1395,12 @@ func Test_appendApplicableTelemetries(t *testing.T) {
 				},
 				spec: validTelemetryConfiguration,
 			},
-			want: &ComputedTelemetries{
-				TelemetryKey: TelemetryKey{
+			want: &computedTelemetries{
+				telemetryKey: telemetryKey{
 					Workload: namespacedName,
 				},
 				Metrics: []*tpb.Metrics{prometheusMetrics},
-				Logging: []*ComputedAccessLogging{testComputeAccessLogging},
+				Logging: []*computedAccessLogging{testComputeAccessLogging},
 				Tracing: []*tpb.Tracing{emptyStackDriverTracing},
 			},
 		},
@@ -1419,7 +1419,7 @@ func Test_appendApplicableTelemetries(t *testing.T) {
 // risking flakiness if those third party types that are relied on change. Next best thing is to use a custom comparer as defined below.
 // When cmp.Equal is called on this type, this will be used instead of the default cmp.Equal, see https://godoc.org/github.com/google/go-cmp/cmp#Equal
 // for more info.
-func (ct *ComputedTelemetries) Equal(other *ComputedTelemetries) bool {
+func (ct *computedTelemetries) Equal(other *computedTelemetries) bool {
 	if len(ct.Metrics) != len(other.Metrics) || len(ct.Logging) != len(other.Logging) || len(ct.Tracing) != len(other.Tracing) {
 		return false
 	}
@@ -1449,13 +1449,13 @@ func (ct *ComputedTelemetries) Equal(other *ComputedTelemetries) bool {
 		}
 	}
 	sort.SliceStable(ct.Logging, func(i, j int) bool {
-		return ct.Logging[i].TelemetryKey.Root.Name < ct.Logging[j].TelemetryKey.Root.Name
+		return ct.Logging[i].telemetryKey.Root.Name < ct.Logging[j].telemetryKey.Root.Name
 	})
 	for i := range ct.Logging {
 		if ct.Logging[i] != nil && other.Logging[i] == nil || ct.Logging[i] == nil && other.Logging[i] != nil {
 			return false
 		}
-		if ct.Logging[i].TelemetryKey != other.Logging[i].TelemetryKey {
+		if ct.Logging[i].telemetryKey != other.Logging[i].telemetryKey {
 			return false
 		}
 		if ct.Logging[i].Logging != nil && other.Logging[i].Logging != nil {
