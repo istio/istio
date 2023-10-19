@@ -55,6 +55,8 @@ const (
 
 	lightstepAccessTokenBase = "lightstep_access_token.txt"
 
+	globalDownstreamMaxConnections = 2147483647
+
 	// required stats are used by readiness checks.
 	requiredEnvoyStatsMatcherInclusionPrefixes = "cluster_manager,listener_manager,server,cluster.xds-grpc,wasm"
 
@@ -308,8 +310,7 @@ var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABL
 func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
 	// Setup defaults
 	runtimeFlags := map[string]any{
-		"overload.global_downstream_max_connections": "2147483647",
-		"re2.max_program_size.error_level":           "32768",
+		"re2.max_program_size.error_level": "32768",
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
 	}
@@ -458,6 +459,9 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 			option.EnvoyAccessLogServiceTLS(config.EnvoyAccessLogService.TlsSettings, metadata),
 			option.EnvoyAccessLogServiceTCPKeepalive(config.EnvoyAccessLogService.TcpKeepalive))
 	}
+
+	// Add resource monitors
+	opts = append(opts, option.EnvoyResourceMonitorDownstreamConnections(globalDownstreamMaxConnections))
 
 	return opts, nil
 }
