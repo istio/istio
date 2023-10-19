@@ -1190,3 +1190,65 @@ func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryF
 func disableHostHeaderFallback(class networking.ListenerClass) bool {
 	return class == networking.ListenerClassSidecarInbound || class == networking.ListenerClassGateway
 }
+
+// Equal compares two computedTelemetries for equality. This was created to help with testing. Because of the nature of the structs being compared,
+// it is safer to use cmp.Equal as opposed to reflect.DeepEqual. Also, because of the way the structs are generated, it is not possible to use
+// cmpopts.IgnoreUnexported without risking flakiness if those third party types that are relied on change. Next best thing is to use a custom
+// comparer as defined below. When cmp.Equal is called on this type, this will be leveraged by cmp.Equal to do the comparison see
+// https://godoc.org/github.com/google/go-cmp/cmp#Equal for more info.
+func (ct *computedTelemetries) Equal(other *computedTelemetries) bool {
+	if ct == nil && other == nil {
+		return true
+	}
+	if ct != nil && other == nil || ct == nil && other != nil {
+		return false
+	}
+	if len(ct.Metrics) != len(other.Metrics) || len(ct.Logging) != len(other.Logging) || len(ct.Tracing) != len(other.Tracing) {
+		return false
+	}
+	// Sort each slice so that we can compare them in order. Comparison is on the fields that are used in the test cases.
+	sort.SliceStable(ct.Metrics, func(i, j int) bool {
+		return ct.Metrics[i].Providers[0].Name < ct.Metrics[j].Providers[0].Name
+	})
+	for i := range ct.Metrics {
+		if ct.Metrics[i].ReportingInterval != nil && other.Metrics[i].ReportingInterval != nil {
+			if ct.Metrics[i].ReportingInterval.AsDuration() != other.Metrics[i].ReportingInterval.AsDuration() {
+				return false
+			}
+		}
+		if ct.Metrics[i].Providers != nil && other.Metrics[i].Providers != nil {
+			if ct.Metrics[i].Providers[0].Name != other.Metrics[i].Providers[0].Name {
+				return false
+			}
+		}
+	}
+	sort.SliceStable(ct.Logging, func(i, j int) bool {
+		return ct.Logging[i].telemetryKey.Root.Name < ct.Logging[j].telemetryKey.Root.Name
+	})
+	for i := range ct.Logging {
+		if ct.Logging[i].telemetryKey != other.Logging[i].telemetryKey {
+			return false
+		}
+		if ct.Logging[i].Logging != nil && other.Logging[i].Logging != nil {
+			if ct.Logging[i].Logging[0].Providers[0].Name != other.Logging[i].Logging[0].Providers[0].Name {
+				return false
+			}
+		}
+	}
+	sort.SliceStable(ct.Tracing, func(i, j int) bool {
+		return ct.Tracing[i].Providers[0].Name < ct.Tracing[j].Providers[0].Name
+	})
+	for i := range ct.Tracing {
+		if ct.Tracing[i].Match != nil && other.Tracing[i].Match != nil {
+			if ct.Tracing[i].Match.Mode != other.Tracing[i].Match.Mode {
+				return false
+			}
+		}
+		if ct.Tracing[i].Providers != nil && other.Tracing[i].Providers != nil {
+			if ct.Tracing[i].Providers[0].Name != other.Tracing[i].Providers[0].Name {
+				return false
+			}
+		}
+	}
+	return true
+}

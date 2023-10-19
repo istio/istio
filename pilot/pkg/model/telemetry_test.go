@@ -15,7 +15,6 @@
 package model
 
 import (
-	"sort"
 	"strings"
 	"testing"
 	"time"
@@ -1414,73 +1413,298 @@ func Test_appendApplicableTelemetries(t *testing.T) {
 	}
 }
 
-// Equal compares two ComputedTelemetries for equality. Because of the nature of the structs being compared, it is safer to use cmp.Equal as
-// opposed to reflect.DeepEqual. Also, because of the way the structs are generated, it is not possible to use cmpopts.IgnoreUnexported without
-// risking flakiness if those third party types that are relied on change. Next best thing is to use a custom comparer as defined below.
-// When cmp.Equal is called on this type, this will be used instead of the default cmp.Equal, see https://godoc.org/github.com/google/go-cmp/cmp#Equal
-// for more info.
-func (ct *computedTelemetries) Equal(other *computedTelemetries) bool {
-	if len(ct.Metrics) != len(other.Metrics) || len(ct.Logging) != len(other.Logging) || len(ct.Tracing) != len(other.Tracing) {
-		return false
+func Test_computedTelemetries_Equal(t *testing.T) {
+	type args struct {
+		other *computedTelemetries
 	}
-	if ct == nil && other == nil {
-		return true
+
+	tests := []struct {
+		name                string
+		computedTelemetries *computedTelemetries
+		args                args
+		want                bool
+	}{
+		{
+			name:                "nil",
+			computedTelemetries: nil,
+			args: args{
+				other: nil,
+			},
+			want: true,
+		},
+		{
+			name:                "empty",
+			computedTelemetries: &computedTelemetries{},
+			args: args{
+				other: &computedTelemetries{},
+			},
+			want: true,
+		},
+		{
+			name:                "computedTelemetries is nil and other computedTelemetries is not",
+			computedTelemetries: nil,
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "other computedTelemetries is nil and computedTelemetries is not",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+					},
+				},
+			},
+			args: args{
+				other: nil,
+			},
+			want: false,
+		},
+		{
+			name: "different length in metrics slice comparison",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different length in tracing slice comparison",
+			computedTelemetries: &computedTelemetries{
+				Tracing: []*tpb.Tracing{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Tracing: []*tpb.Tracing{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						},
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different length in logging slice comparison",
+			computedTelemetries: &computedTelemetries{
+				Logging: []*computedAccessLogging{
+					{
+						Logging: []*tpb.AccessLogging{
+							{
+								Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Logging: []*computedAccessLogging{
+						{
+							Logging: []*tpb.AccessLogging{
+								{
+									Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+								},
+							},
+						},
+						{
+							Logging: []*tpb.AccessLogging{
+								{
+									Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different metrics",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different metrics reporting interval",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						ReportingInterval: &durationpb.Duration{
+							Seconds: 10,
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+							ReportingInterval: &durationpb.Duration{
+								Seconds: 15,
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different tracing providers",
+			computedTelemetries: &computedTelemetries{
+				Tracing: []*tpb.Tracing{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Tracing: []*tpb.Tracing{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different tracing match",
+			computedTelemetries: &computedTelemetries{
+				Tracing: []*tpb.Tracing{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						Match: &tpb.Tracing_TracingSelector{
+							Mode: tpb.WorkloadMode_CLIENT,
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Tracing: []*tpb.Tracing{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+							Match: &tpb.Tracing_TracingSelector{
+								Mode: tpb.WorkloadMode_SERVER,
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different logging providers",
+			computedTelemetries: &computedTelemetries{
+				Logging: []*computedAccessLogging{
+					{
+						Logging: []*tpb.AccessLogging{
+							{
+								Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Logging: []*computedAccessLogging{
+						{
+							Logging: []*tpb.AccessLogging{
+								{
+									Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different logging telemetryKey",
+			computedTelemetries: &computedTelemetries{
+				Logging: []*computedAccessLogging{
+					{
+						telemetryKey: telemetryKey{
+							Workload: types.NamespacedName{
+								Name:      "my-telemetry",
+								Namespace: "my-namespace",
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Logging: []*computedAccessLogging{
+						{
+							telemetryKey: telemetryKey{
+								Workload: types.NamespacedName{
+									Name:      "my-telemetry",
+									Namespace: "my-namespace-2",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
 	}
-	if ct != nil && other == nil || ct == nil && other != nil {
-		return false
-	}
-	// Sort each slice so that we can compare them in order. Comparison is on the fields that are used in the test cases.
-	sort.SliceStable(ct.Metrics, func(i, j int) bool {
-		return ct.Metrics[i].Providers[0].Name < ct.Metrics[j].Providers[0].Name
-	})
-	for i := range ct.Metrics {
-		if ct.Metrics[i] != nil && other.Metrics[i] == nil || ct.Metrics[i] == nil && other.Metrics[i] != nil {
-			return false
-		}
-		if ct.Metrics[i].ReportingInterval != nil && other.Metrics[i].ReportingInterval != nil {
-			if ct.Metrics[i].ReportingInterval.AsDuration() != other.Metrics[i].ReportingInterval.AsDuration() {
-				return false
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.computedTelemetries.Equal(tt.args.other); got != tt.want {
+				t.Errorf("computedTelemetries.Equal() = %v, want %v", got, tt.want)
 			}
-		}
-		if ct.Metrics[i].Providers != nil && other.Metrics[i].Providers != nil {
-			if ct.Metrics[i].Providers[0].Name != other.Metrics[i].Providers[0].Name {
-				return false
-			}
-		}
+		})
 	}
-	sort.SliceStable(ct.Logging, func(i, j int) bool {
-		return ct.Logging[i].telemetryKey.Root.Name < ct.Logging[j].telemetryKey.Root.Name
-	})
-	for i := range ct.Logging {
-		if ct.Logging[i] != nil && other.Logging[i] == nil || ct.Logging[i] == nil && other.Logging[i] != nil {
-			return false
-		}
-		if ct.Logging[i].telemetryKey != other.Logging[i].telemetryKey {
-			return false
-		}
-		if ct.Logging[i].Logging != nil && other.Logging[i].Logging != nil {
-			if ct.Logging[i].Logging[0].Providers[0].Name != other.Logging[i].Logging[0].Providers[0].Name {
-				return false
-			}
-		}
-	}
-	sort.SliceStable(ct.Tracing, func(i, j int) bool {
-		return ct.Tracing[i].Providers[0].Name < ct.Tracing[j].Providers[0].Name
-	})
-	for i := range ct.Tracing {
-		if ct.Tracing[i] != nil && other.Tracing[i] == nil || ct.Tracing[i] == nil && other.Tracing[i] != nil {
-			return false
-		}
-		if ct.Tracing[i].Match != nil && other.Tracing[i].Match != nil {
-			if ct.Tracing[i].Match.Mode != other.Tracing[i].Match.Mode {
-				return false
-			}
-		}
-		if ct.Tracing[i].Providers != nil && other.Tracing[i].Providers != nil {
-			if ct.Tracing[i].Providers[0].Name != other.Tracing[i].Providers[0].Name {
-				return false
-			}
-		}
-	}
-	return true
 }
