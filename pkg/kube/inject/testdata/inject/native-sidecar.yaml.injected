@@ -144,6 +144,15 @@ spec:
     - name: ISTIO_KUBE_APP_PROBERS
       value: '{"/app-health/other-sidecar/readyz":{"httpGet":{"port":3333}}}'
     image: gcr.io/istio-testing/proxyv2:latest
+    lifecycle:
+      preStop:
+        exec:
+          command:
+          - pilot-agent
+          - request
+          - --debug-port=15020
+          - POST
+          - drain
     name: istio-proxy
     ports:
     - containerPort: 15090
