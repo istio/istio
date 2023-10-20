@@ -1468,7 +1468,7 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 // resolveServiceAliases walks this 'graph' of services and updates the Alias field in-place.
 func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[ConfigKey]) {
 	// rawAlias builds a map of Service -> AliasFor. So this will be ExternalName -> Service.
-	// In an edge case, we can have ExternalName -> ExternalName; we resolve that below
+	// In an edge case, we can have ExternalName -> ExternalName; we resolve that below.
 	rawAlias := map[NamespacedHostname]host.Name{}
 	for _, s := range allServices {
 		if s.Resolution != Alias {
@@ -1480,6 +1480,7 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 		}
 		rawAlias[nh] = host.Name(s.Attributes.K8sAttributes.ExternalName)
 	}
+
 	// unnamespacedRawAlias is like rawAlias but without namespaces.
 	// This is because an `ExternalName` isn't namespaced. If there is a conflict, the behavior is undefined.
 	// This is split from above as a minor optimization to right-size the map
@@ -1518,15 +1519,19 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 	}
 
 	// aliasesForService builds a map of Concrete -> []Aliases
+	// This basically reverses our resolvedAliased map, which is Alias -> Concrete,
 	aliasesForService := map[host.Name][]NamespacedHostname{}
 	for alias, concrete := range resolvedAliases {
-		ak := ConfigKey{
+		aliasesForService[concrete] = append(aliasesForService[concrete], alias)
+
+		// We also need to update configsUpdated, such that any "alias" updated also marks the concrete service as updated.
+		aliasKey := ConfigKey{
 			Kind:      kind.ServiceEntry,
 			Name:      alias.Hostname.String(),
 			Namespace: alias.Namespace,
 		}
 		// Alias. We should mark all the concrete services as updated as well.
-		if configsUpdated.Contains(ak) {
+		if configsUpdated.Contains(aliasKey) {
 			// We only have the hostname, but we need the namespace...
 			for _, svc := range allServices {
 				if svc.Hostname == concrete {
@@ -1538,8 +1543,8 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 				}
 			}
 		}
-		aliasesForService[concrete] = append(aliasesForService[concrete], alias)
 	}
+	// Sort aliases so order is deterministic.
 	for _, v := range aliasesForService {
 		slices.SortFunc(v, func(a, b NamespacedHostname) bool {
 			if a.Hostname == b.Hostname {
@@ -1548,6 +1553,8 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 			return a.Hostname < b.Hostname
 		})
 	}
+
+	// Finally, we can traverse all services and update the ones that have aliases
 	for i, s := range allServices {
 		if aliases, f := aliasesForService[s.Hostname]; f {
 			// This service has an alias; set it. We need to make a copy since the underlying Service is shared
