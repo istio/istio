@@ -501,7 +501,7 @@ func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
 	}
 
 	for svcEntry, weSet := range seEndpoints {
-		for we, _ := range weSet {
+		for we := range weSet {
 			wli := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
 			if wli != nil {
 				for _, networkAddr := range networkAddressFromWorkload(wli) {

@@ -1184,7 +1184,8 @@ func generateServiceEntry(host string, addresses []string, labels map[string]str
 				Labels:  labels,
 				Ports: map[string]uint32{
 					"http": 8081, // we will override the SE http port
-				}})
+				},
+			})
 		}
 	}
 
