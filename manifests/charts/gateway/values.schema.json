@@ -227,6 +227,9 @@
     },
     "terminationGracePeriodSeconds": {
       "type": "number"
+    },
+    "priorityClassName": {
+      "type": "string"
     }
   }
 }
