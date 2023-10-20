@@ -52,7 +52,10 @@ type AmbientIndex interface {
 	All() []*model.AddressInfo
 	WorkloadsForWaypoint(scope model.WaypointScope) []*model.WorkloadInfo
 	Waypoint(scope model.WaypointScope) []netip.Addr
-	CalculateUpdatedWorkloads(pods map[string]*v1.Pod, workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, c *Controller) map[model.ConfigKey]struct{}
+	CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
+		workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry,
+		seEndpoints map[*apiv1alpha3.ServiceEntry]*v1alpha3.WorkloadEntry,
+		c *Controller) map[model.ConfigKey]struct{}
 	HandleSelectedNamespace(ns string, pods []*v1.Pod, c *Controller)
 }
 
