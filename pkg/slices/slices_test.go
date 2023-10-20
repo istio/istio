@@ -322,7 +322,7 @@ func makeRandomStructs(n int) []*myStruct {
 	rand.Seed(42) // nolint: staticcheck
 	structs := make([]*myStruct, n)
 	for i := 0; i < n; i++ {
-		structs[i] = &myStruct{n: rand.Intn(n)}  // nolint: gosec
+		structs[i] = &myStruct{n: rand.Intn(n)} // nolint: gosec
 	}
 	return structs
 }
