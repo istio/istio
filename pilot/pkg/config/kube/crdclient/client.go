@@ -142,7 +142,8 @@ func (cl *Client) RegisterEventHandler(kind config.GroupVersionKind, handler mod
 
 // Run the queue and all informers. Callers should  wait for HasSynced() before depending on results.
 func (cl *Client) Run(stop <-chan struct{}) {
-	if cl.started.Load() {
+	if cl.started.Swap(true) {
+		// was already started by other thread
 		return
 	}
 
@@ -154,7 +155,6 @@ func (cl *Client) Run(stop <-chan struct{}) {
 		return
 	}
 	cl.logger.Infof("Pilot K8S CRD controller synced in %v", time.Since(t0))
-	cl.started.Store(true)
 	cl.queue.Run(stop)
 	cl.logger.Infof("controller terminated")
 }
