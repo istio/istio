@@ -19,7 +19,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-	"unsafe"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/filewatcher"
@@ -51,8 +50,10 @@ type MultiWatcher struct {
 }
 
 func NewMultiWatcher(config *meshconfig.MeshConfig) *MultiWatcher {
+	iw := internalWatcher{}
+	iw.MeshConfig.Store(config)
 	return &MultiWatcher{
-		internalWatcher: internalWatcher{MeshConfig: config},
+		internalWatcher: iw,
 	}
 }
 
@@ -62,7 +63,7 @@ type internalWatcher struct {
 	mutex    sync.Mutex
 	handlers []func()
 	// Current merged mesh config
-	MeshConfig *meshconfig.MeshConfig
+	MeshConfig atomic.Pointer[meshconfig.MeshConfig]
 
 	userMeshConfig string
 	revMeshConfig  string
@@ -71,9 +72,9 @@ type internalWatcher struct {
 // NewFixedWatcher creates a new Watcher that always returns the given mesh config. It will never
 // fire any events, since the config never changes.
 func NewFixedWatcher(mesh *meshconfig.MeshConfig) Watcher {
-	return &internalWatcher{
-		MeshConfig: mesh,
-	}
+	iw := internalWatcher{}
+	iw.MeshConfig.Store(mesh)
+	return &iw
 }
 
 // NewFileWatcher creates a new Watcher for changes to the given mesh config file. Returns an error
@@ -90,9 +91,9 @@ func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string, multiW
 	}
 
 	w := &internalWatcher{
-		MeshConfig:    meshConfig,
 		revMeshConfig: meshConfigYaml,
 	}
+	w.MeshConfig.Store(meshConfig)
 
 	// Watch the config file for changes and reload if it got modified
 	addFileWatcher(fileWatcher, filename, func() {
@@ -118,7 +119,7 @@ func NewFileWatcher(fileWatcher filewatcher.FileWatcher, filename string, multiW
 
 // Mesh returns the latest mesh config.
 func (w *internalWatcher) Mesh() *meshconfig.MeshConfig {
-	return (*meshconfig.MeshConfig)(atomic.LoadPointer((*unsafe.Pointer)(unsafe.Pointer(&w.MeshConfig))))
+	return w.MeshConfig.Load()
 }
 
 // AddMeshHandler registers a callback handler for changes to the mesh config.
@@ -184,14 +185,15 @@ func (w *internalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 func (w *internalWatcher) handleMeshConfigInternal(meshConfig *meshconfig.MeshConfig) {
 	var handlers []func()
 
-	if !reflect.DeepEqual(meshConfig, w.MeshConfig) {
+	current := w.MeshConfig.Load()
+	if !reflect.DeepEqual(meshConfig, current) {
 		log.Infof("mesh configuration updated to: %s", PrettyFormatOfMeshConfig(meshConfig))
-		if !reflect.DeepEqual(meshConfig.ConfigSources, w.MeshConfig.ConfigSources) {
+		if !reflect.DeepEqual(meshConfig.ConfigSources, current.ConfigSources) {
 			log.Info("mesh configuration sources have changed")
 			// TODO Need to recreate or reload initConfigController()
 		}
 
-		atomic.StorePointer((*unsafe.Pointer)(unsafe.Pointer(&w.MeshConfig)), unsafe.Pointer(meshConfig))
+		w.MeshConfig.Store(meshConfig)
 		handlers = append(handlers, w.handlers...)
 	}
 

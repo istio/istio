@@ -29,8 +29,9 @@ type TestWatcher struct {
 
 func NewTestWatcher(meshConfig *meshconfig.MeshConfig) *TestWatcher {
 	w := &TestWatcher{
-		internalWatcher: internalWatcher{MeshConfig: meshConfig},
+		internalWatcher: internalWatcher{},
 	}
+	w.internalWatcher.MeshConfig.Store(meshConfig)
 	w.doneCh = make(chan struct{}, 1)
 	w.AddMeshHandler(func() {
 		w.doneCh <- struct{}{}
