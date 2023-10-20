@@ -2396,11 +2396,17 @@ spec:
 							}
 						}
 						if sessionCookie != nil {
+							scopes.Framework.Infof("setting the request cookie back in the request: %v %b",
+								sessionCookie.Value, sessionCookie.Expires)
 							req.AddCookie(sessionCookie)
+						} else {
+							scopes.Framework.Infof("no session cookie found in the response")
 						}
 					}
 				},
 			}
+			cookieWithoutTTLCallOpts := cookieCallOpts
+			cookieWithoutTTLCallOpts.HTTP.Headers = headers.New().With("Cookie", "session-cookie=somecookie").Build()
 			tcpCallopts := echo.CallOptions{
 				Count:   10,
 				Address: svcName,
@@ -2454,7 +2460,7 @@ spec:
 				name:   "http cookie without ttl" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(cookieWithoutTTLDest, ""),
 				call:   c.CallOrFail,
-				opts:   cookieCallOpts,
+				opts:   cookieWithoutTTLCallOpts,
 			})
 		}
 	}
