@@ -22,7 +22,7 @@ cni:
   cniConfFileName: ""
   # This directory must exist on the node, if it does not, consult your container runtime
   # documentation for the appropriate path.
-  cniNetnsDir: # Defaults to '/var/run/netns', in minikube/docker/others can be '/run/docker/netns'.
+  cniNetnsDir: # Defaults to '/var/run/netns', in minikube/docker/others can be '/var/run/docker/netns'.
 
 
   excludeNamespaces:
