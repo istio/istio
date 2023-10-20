@@ -208,7 +208,7 @@ func (c *Controller) getWorkloadEntriesInPolicy(ns string, sel map[string]string
 	return c.getSelectedWorkloadEntries(ns, sel)
 }
 
-func (c *Controller) getServiceEntriesInPolicy(ns string, sel map[string]string) []*apiv1alpha3.ServiceEntry {
+func (c *Controller) getServiceEntryEndpointsInPolicy(ns string, sel map[string]string) map[*apiv1alpha3.ServiceEntry]*v1alpha3.WorkloadEntry {
 	if ns == c.meshWatcher.Mesh().GetRootNamespace() {
 		ns = metav1.NamespaceAll
 	}
@@ -529,7 +529,7 @@ func (c *Controller) getControllerWorkloadEntries(ns string) []*apiv1alpha3.Work
 	return allWorkloadEntries
 }
 
-func (c *Controller) getSelectedServiceEntries(ns string, selector map[string]string) []*apiv1alpha3.ServiceEntry {
+func (c *Controller) getSelectedServiceEntries(ns string, selector map[string]string) map[*apiv1alpha3.ServiceEntry]*v1alpha3.WorkloadEntry {
 	// skip WLE for non config clusters
 	if !c.configCluster {
 		return nil
@@ -539,13 +539,15 @@ func (c *Controller) getSelectedServiceEntries(ns string, selector map[string]st
 		return nil
 	}
 	allServiceEntries := c.getControllerServiceEntries(ns)
-	var serviceEntries []*apiv1alpha3.ServiceEntry
+	seEndpoints := map[*apiv1alpha3.ServiceEntry]*v1alpha3.WorkloadEntry{}
 	for _, se := range allServiceEntries {
-		if len(se.Spec.Endpoints) > 0 && labels.Instance(selector).SubsetOf(se.Labels) {
-			serviceEntries = append(serviceEntries, se)
+		for _, we := range se.Spec.Endpoints {
+			if labels.Instance(selector).SubsetOf(we.Labels) {
+				seEndpoints[se] = we
+			}
 		}
 	}
-	return serviceEntries
+	return seEndpoints
 }
 
 func (c *Controller) getControllerServiceEntries(ns string) []*apiv1alpha3.ServiceEntry {
