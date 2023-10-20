@@ -735,7 +735,7 @@ func matchingService(importedHosts hostClassification, service *Service, ilw *Is
 	return nil
 }
 
-// Return the original service or a trimmed service which has a subset of the ports in original service.
+// matchingAliasService the original service or a trimmed service which has a subset of aliases, based on imports from sidecar
 func matchingAliasService(importedHosts hostClassification, service *Service) *Service {
 	if service == nil {
 		return nil
