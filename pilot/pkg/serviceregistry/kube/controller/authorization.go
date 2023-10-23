@@ -507,7 +507,7 @@ func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
 				for _, networkAddr := range networkAddressFromWorkload(wli) {
 					a.byWorkloadEntry[networkAddr] = wli
 				}
-				a.byUID[c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), we.GetAddress())] = wli
+				a.byUID[wli.Uid] = wli
 				updates[model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()}] = struct{}{}
 			}
 		}
