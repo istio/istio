@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+- 47505
+releaseNotes:
+- |
+  **Added** support for allowing missing EDS endpoints in file config dump in `istioctl proxy-config` command.
