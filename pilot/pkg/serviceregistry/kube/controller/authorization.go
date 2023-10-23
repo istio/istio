@@ -468,7 +468,7 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 //
 // NOTE: As an interface method of AmbientIndex, this locks the index.
 func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
-	workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, seEndpoints map[*apiv1alpha3.ServiceEntry]*v1alpha3.WorkloadEntry, c *Controller,
+	workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, seEndpoints map[*apiv1alpha3.ServiceEntry]sets.Set[*v1alpha3.WorkloadEntry], c *Controller,
 ) map[model.ConfigKey]struct{} {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -500,14 +500,16 @@ func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
 		}
 	}
 
-	for svcEntry, we := range seEndpoints {
-		wli := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
-		if wli != nil {
-			for _, networkAddr := range networkAddressFromWorkload(wli) {
-				a.byWorkloadEntry[networkAddr] = wli
+	for svcEntry, weSet := range seEndpoints {
+		for we := range weSet {
+			wli := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
+			if wli != nil {
+				for _, networkAddr := range networkAddressFromWorkload(wli) {
+					a.byWorkloadEntry[networkAddr] = wli
+				}
+				a.byUID[wli.Uid] = wli
+				updates[model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()}] = struct{}{}
 			}
-			a.byUID[c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), we.GetAddress())] = wli
-			updates[model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()}] = struct{}{}
 		}
 	}
 
@@ -579,7 +581,7 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 	}
 
 	// 3. only process service entries in config cluster with endpoints
-	seEndpoints := map[*apiv1alpha3.ServiceEntry]*v1alpha3.WorkloadEntry{}
+	seEndpoints := map[*apiv1alpha3.ServiceEntry]sets.Set[*v1alpha3.WorkloadEntry]{}
 	if c.configCluster {
 		for se, we := range c.getServiceEntryEndpointsInPolicy(obj.Namespace, sel) {
 			seEndpoints[se] = we
