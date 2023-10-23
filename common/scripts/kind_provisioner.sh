@@ -130,7 +130,7 @@ function cleanup_kind_cluster() {
 # check_default_cluster_yaml checks the presence of default cluster YAML
 # It returns 1 if it is not present
 function check_default_cluster_yaml() {
-  if [[ -z "${DEFAULT_CLUSTER_YAML}" ]]; then
+  if [[ -z "${DEFAULT_CLUSTER_YAML:-}" ]]; then
     echo 'DEFAULT_CLUSTER_YAML file must be specified. Exiting...'
     return 1
   fi
@@ -148,11 +148,11 @@ function setup_kind_cluster_retry() {
 # This function returns 0 when everything goes well, or 1 otherwise
 # If Kind cluster was already created then it would be cleaned up in case of errors
 function setup_kind_cluster() {
-  NAME="${1:-istio-testing}"
-  IMAGE="${2:-"${DEFAULT_KIND_IMAGE}"}"
-  CONFIG="${3:-}"
-  NOMETALBINSTALL="${4:-}"
-  CLEANUP="${5:-true}"
+  local NAME="${1:-istio-testing}"
+  local IMAGE="${2:-"${DEFAULT_KIND_IMAGE}"}"
+  local CONFIG="${3:-}"
+  local NOMETALBINSTALL="${4:-}"
+  local CLEANUP="${5:-true}"
 
   check_default_cluster_yaml
 
@@ -192,7 +192,7 @@ EOF
 
   # If metrics server configuration directory is specified then deploy in
   # the cluster just created
-  if [[ -n ${METRICS_SERVER_CONFIG_DIR} ]]; then
+  if [[ -n ${METRICS_SERVER_CONFIG_DIR:-} ]]; then
     retry kubectl apply -f "${METRICS_SERVER_CONFIG_DIR}"
   fi
 

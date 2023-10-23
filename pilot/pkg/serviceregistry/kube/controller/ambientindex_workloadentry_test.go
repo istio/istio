@@ -309,18 +309,45 @@ func TestAmbientIndex_InlinedWorkloadEntries(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	s := newAmbientTestServer(t, testC, testNW)
 
-	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "se1", testNS, map[string]string{"app": "a"}, true)
+	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "se1", testNS, map[string]string{"app": "a"}, "127.0.0.2")
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "se1")
-	s.assertEvent(t, s.seIPXdsName("se1", "127.0.0.1"), "ns1/se.istio.io")
+	s.assertEvent(t, s.seIPXdsName("se1", "127.0.0.2"), "ns1/se.istio.io")
 
 	s.addPolicy(t, "selector", "ns1", map[string]string{"app": "a"}, gvk.AuthorizationPolicy, nil)
 	assert.Equal(t,
-		s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),
+		s.lookup(s.seIPXdsName("se1", "127.0.0.2"))[0].GetWorkload().GetAuthorizationPolicies(),
 		[]string{"ns1/selector"})
 
 	_ = s.cfg.Delete(gvk.AuthorizationPolicy, "selector", "ns1", nil)
-	s.assertEvent(t, s.wleXdsName("se1"))
 	assert.Equal(t,
-		s.lookup(s.addrXdsName("127.0.0.1"))[0].GetWorkload().GetAuthorizationPolicies(),
+		s.lookup(s.seIPXdsName("se1", "127.0.0.2"))[0].GetWorkload().GetAuthorizationPolicies(),
 		nil)
+
+	s.deleteServiceEntry(t, "se1", testNS)
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY) // Asserting no WE residual
+}
+
+func TestAmbientIndex_WorkloadEntries_DisableK8SServiceSelectWorkloadEntries(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	test.SetForTest(t, &features.EnableK8SServiceSelectWorkloadEntries, false)
+	s := newAmbientTestServer(t, testC, testNW)
+
+	s.addWorkloadEntries(t, "127.0.0.1", "name1", "sa1", map[string]string{"app": "a"})
+	s.addWorkloadEntries(t, "127.0.0.2", "name2", "sa2", map[string]string{"app": "a", "other": "label"})
+	s.addWorkloadEntries(t, "127.0.0.3", "name3", "sa3", map[string]string{"app": "other"})
+	s.addPods(t, "127.0.0.201", "pod1", "pod1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+
+	s.addService(t, "svc1", map[string]string{}, // labels
+		map[string]string{}, // annotations
+		[]int32{80},
+		map[string]string{"app": "a"}, // selector
+		"10.0.0.1",
+	)
+
+	s.clearEvents()
+	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3", "pod1")
+
+	// Setting the PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES to false shouldn't include workload entries when
+	// looking up by the k8s service address
+	s.assertWorkloads(t, s.addrXdsName("10.0.0.1"), workloadapi.WorkloadStatus_HEALTHY, "pod1")
 }

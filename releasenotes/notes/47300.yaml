@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Fixed** An issue where waypoint proxies were not injected with the correct image if `values.global.proxy.image` was set to a custom image.

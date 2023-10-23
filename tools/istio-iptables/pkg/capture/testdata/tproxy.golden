@@ -39,7 +39,7 @@ iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --uid-owner 1337 -j CT -
 iptables -t raw -A OUTPUT -p udp --dport 53 -m owner --gid-owner 1337 -j CT --zone 1
 iptables -t raw -A OUTPUT -p udp --sport 15053 -m owner --gid-owner 1337 -j CT --zone 2
 iptables -t raw -A OUTPUT -p udp --dport 53 -d 127.0.0.53/32 -j CT --zone 2
-iptables -t raw -A PREROUTING -p udp --sport 53 -d 127.0.0.53/32 -j CT --zone 1
+iptables -t raw -A PREROUTING -p udp --sport 53 -s 127.0.0.53/32 -j CT --zone 1
 iptables -t mangle -A PREROUTING -p tcp -m mark --mark 1337 -j CONNMARK --save-mark
 iptables -t mangle -A OUTPUT -p tcp -o lo -m mark --mark 1337 -j RETURN
 iptables -t mangle -A OUTPUT ! -d 127.0.0.1/32 -p tcp -o lo -m owner --uid-owner 1337 -j MARK --set-mark 1338

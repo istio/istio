@@ -1420,7 +1420,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 	ingress := &networking.IstioIngressListener{
 		CaptureMode:     networking.CaptureMode_NONE,
 		DefaultEndpoint: "127.0.0.1:7020",
-		Port: &networking.Port{
+		Port: &networking.SidecarPort{
 			Number:   7443,
 			Name:     "grpc-core",
 			Protocol: "GRPC",

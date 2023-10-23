@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -1010,7 +1011,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready bool) {
 	t.Helper()
 
-	fromSame := k8sbeta.NamespacesFromSame
+	fromSame := k8sv1.NamespacesFromSame
 	gatewaySpec := k8sbeta.GatewaySpec{
 		GatewayClassName: constants.WaypointGatewayClassName,
 		Listeners: []k8sbeta.Listener{
@@ -1050,7 +1051,7 @@ func (s *ambientTestServer) addWaypoint(t *testing.T, ip, name, sa string, ready
 			// addresses:
 			// - type: IPAddress
 			//   value: 10.96.59.188
-			Addresses: []k8sbeta.GatewayStatusAddress{
+			Addresses: []k8sv1.GatewayStatusAddress{
 				{
 					Type:  &addrType,
 					Value: ip,
@@ -1141,14 +1142,14 @@ func (s *ambientTestServer) deleteWorkloadEntry(t *testing.T, name string) {
 	_ = s.cfg.Delete(gvk.WorkloadEntry, name, "ns1", nil)
 }
 
-func (s *ambientTestServer) addServiceEntry(t *testing.T, hostStr string, addresses []string, name, ns string, labels map[string]string, inlined bool) {
+func (s *ambientTestServer) addServiceEntry(t *testing.T, hostStr string, addresses []string, name, ns string, labels map[string]string, epAddress string) {
 	t.Helper()
 
 	_, _ = s.controller.client.Kube().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{"istio.io/dataplane-mode": "ambient"}},
 	}, metav1.CreateOptions{})
 
-	serviceEntry := generateServiceEntry(hostStr, addresses, labels, inlined)
+	serviceEntry := generateServiceEntry(hostStr, addresses, labels, epAddress)
 	w := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.ServiceEntry,
@@ -1167,18 +1168,18 @@ func (s *ambientTestServer) addServiceEntry(t *testing.T, hostStr string, addres
 	}
 }
 
-func generateServiceEntry(host string, addresses []string, labels map[string]string, inlined bool) *v1alpha3.ServiceEntry {
+func generateServiceEntry(host string, addresses []string, labels map[string]string, epAddress string) *v1alpha3.ServiceEntry {
 	var endpoints []*v1alpha3.WorkloadEntry
 	var workloadSelector *v1alpha3.WorkloadSelector
 
-	if !inlined {
+	if epAddress == "" {
 		workloadSelector = &v1alpha3.WorkloadSelector{
 			Labels: labels,
 		}
 	} else {
 		endpoints = []*v1alpha3.WorkloadEntry{
 			{
-				Address: "127.0.0.1",
+				Address: epAddress,
 				Labels:  labels,
 				Ports: map[string]uint32{
 					"http": 8081, // we will override the SE http port

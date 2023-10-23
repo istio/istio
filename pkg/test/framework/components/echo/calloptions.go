@@ -182,6 +182,8 @@ type CallOptions struct {
 	// determine which version (1 or 2), and send the header.
 	// https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 	ProxyProtocolVersion int
+
+	PropagateResponse func(req *http.Request, resp *http.Response)
 }
 
 // GetHost returns the best default host for the call. Returns the first host defined from the following

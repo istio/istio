@@ -52,7 +52,7 @@ var (
 
 var (
 	prime  = 65011     // Used for secondary hash function.
-	maxIPs = 255 * 255 // Maximum possible IPs for address allocation.
+	maxIPs = 256 * 254 // Maximum possible IPs for address allocation.
 )
 
 // instancesKey acts as a key to identify all instances for a given hostname/namespace pair
@@ -363,7 +363,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	currentServiceEntry := curr.Spec.(*networking.ServiceEntry)
 	cs := convertServices(curr)
 	configsUpdated := sets.New[model.ConfigKey]()
-	key := config.NamespacedName(curr)
+	key := curr.NamespacedName()
 
 	s.mutex.Lock()
 	// If it is add/delete event we should always do a full push. If it is update event, we should do full push,
@@ -538,7 +538,7 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 		// Case 2 : The labelsChanged and the new wi is still a subset of se
 		// Case 3 : The labelsChanged and the new wi is NOT a subset of se anymore
 
-		seNamespacedName := config.NamespacedName(cfg)
+		seNamespacedName := cfg.NamespacedName()
 		services := s.services.getServices(seNamespacedName)
 		currInstance := convertWorkloadInstanceToServiceInstance(wi, services, se)
 
@@ -880,11 +880,12 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// so that we can deterministically allocate an IP.
 	// We use "Double Hashning" for collision detection.
 	// The hash algorithm is
-	// - h1(k) = Sum32 hash of the host name.
+	// - h1(k) = Sum32 hash of the service key (namespace + "/" + hostname)
 	// - Check if we have an empty slot for h1(x) % MAXIPS. Use it if available.
 	// - If there is a collision, apply second hash i.e. h2(x) = PRIME - (Key % PRIME)
 	//   where PRIME is the max prime number below MAXIPS.
 	// - Calculate new hash iteratively till we find an empty slot with (h1(k) + i*h2(k)) % MAXIPS
+	j := 0
 	for _, svc := range services {
 		// we can allocate IPs only if
 		// 1. the service has resolution set to static/dns. We cannot allocate
@@ -893,11 +894,15 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
+			if j >= maxIPs {
+				log.Errorf("out of IPs to allocate for service entries. maxips:= %d", maxIPs)
+				break
+			}
+			// First hash is calculated by hashing the service key i.e. (namespace + "/" + hostname).
 			hash.Write([]byte(makeServiceKey(svc)))
-			// First hash is calculated by
 			s := hash.Sum32()
 			firstHash := s % uint32(maxIPs)
-			// Check if there is no service with this hash first. If there is no service
+			// Check if there is a service with this hash first. If there is no service
 			// at this location - then we can safely assign this position for this service.
 			if hashedServices[firstHash] == nil {
 				hashedServices[firstHash] = svc
@@ -906,7 +911,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 				i := uint32(1)
 				secondHash := uint32(prime) - (s % uint32(prime))
 				for {
-					nh := (s + i*secondHash) % uint32(maxIPs)
+					nh := (s + i*secondHash) % uint32(maxIPs-1)
 					if hashedServices[nh] == nil {
 						hashedServices[nh] = svc
 						break
@@ -915,25 +920,17 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 				}
 			}
 			hash.Reset()
+			j++
 		}
 	}
-	// i is everything from 240.240.0.(j) to 240.240.255.(j)
-	// j is everything from 240.240.(i).1 to 240.240.(i).254
-	// we can capture this in one integer variable.
-	// given X, we can compute i by X/255, and j is X%255
-	// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
-	// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
-	// So we bump X to 511, so that the resulting IP is 240.240.2.1
+
 	x := 0
+	y := 0
 	hnMap := make(map[string]octetPair)
-	allocated := 0
 	for _, svc := range hashedServices {
 		if svc == nil {
 			// There is no service in the slot. Just increment x and move forward.
 			x++
-			if x%255 == 0 {
-				x++
-			}
 			continue
 		}
 		n := makeServiceKey(svc)
@@ -941,16 +938,29 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			log.Debugf("Reuse IP for domain %s", n)
 			setAutoAllocatedIPs(svc, v)
 		} else {
-			x++
-			if x%255 == 0 {
+			var thirdOctect, fourthOctect int
+			if x/255 < 255 {
+				// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
+				// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
+				// So we bump X to 511, so that the resulting IP is 240.240.2.1
 				x++
+				if x%255 == 0 {
+					x++
+				}
 			}
-			if allocated >= maxIPs {
-				log.Errorf("out of IPs to allocate for service entries. x:= %d, maxips:= %d", x, maxIPs)
-				return services
+			thirdOctect = x / 255
+			// When we reach thirdOctect 255, we need to just increment the fourthOctect
+			// keeping the thirdOctect as 255.
+			if thirdOctect >= 255 {
+				y++
+				thirdOctect = 255
+				fourthOctect = y
+			} else {
+				thirdOctect = x / 255
+				fourthOctect = x % 255
 			}
-			allocated++
-			pair := octetPair{x / 255, x % 255}
+
+			pair := octetPair{thirdOctect, fourthOctect}
 			setAutoAllocatedIPs(svc, pair)
 			hnMap[n] = pair
 		}

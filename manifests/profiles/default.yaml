@@ -66,9 +66,12 @@ spec:
         privileged: false
         enableCoreDump: false
         statusPort: 15020
-        readinessInitialDelaySeconds: 1
-        readinessPeriodSeconds: 2
-        readinessFailureThreshold: 30
+        readinessInitialDelaySeconds: 0
+        readinessPeriodSeconds: 15
+        readinessFailureThreshold: 4
+        startupProbe:
+          enabled: true
+          failureThreshold: 600
         includeIPRanges: "*"
         excludeIPRanges: ""
         excludeOutboundPorts: ""

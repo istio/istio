@@ -1,0 +1,85 @@
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: Gateway
+metadata:
+  name: gateway
+  namespace: istio-system
+spec:
+  addresses:
+  - value: istio-ingressgateway
+    type: Hostname
+  gatewayClassName: istio
+  listeners:
+  - name: my-svc
+    port: 34000
+    protocol: TCP
+    allowedRoutes:
+      namespaces:
+        from: All
+  - name: echo
+    port: 34001
+    protocol: TCP
+    allowedRoutes:
+      namespaces:
+        from: All
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-service-tcp
+  namespace: service
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: TCPRoute
+    namespace: istio-system
+  to:
+  - group: ""
+    kind: Service
+    name: my-svc
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-service-http
+  namespace: default
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: HTTPRoute
+    namespace: istio-system
+  to:
+  - group: ""
+    kind: Service
+    name: echo
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: allowed-my-svc
+  namespace: istio-system
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: my-svc
+  rules:
+  - backendRefs:
+    - name: my-svc
+      namespace: service
+      port: 34000
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: not-allowed-echo
+  namespace: istio-system
+spec:
+  parentRefs:
+  - name: gateway
+    namespace: istio-system
+    sectionName: echo
+  rules:
+  - backendRefs:
+    - name: echo
+      namespace: default
+      port: 34001

@@ -26,19 +26,39 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
+// TestCRDWatcherRace tests for a previous bug where callbacks may be skipped if added during a handler
+func TestCRDWatcherRace(t *testing.T) {
+	stop := test.NewStop(t)
+	c := kube.NewFakeClient()
+	ctl := c.CrdWatcher()
+	vsCalls := atomic.NewInt32(0)
+
+	// Race callback and CRD creation
+	go func() {
+		if ctl.KnownOrCallback(gvr.VirtualService, func(s <-chan struct{}) {
+			assert.Equal(t, s, stop)
+			// Happened async
+			vsCalls.Inc()
+		}) {
+			// Happened sync
+			vsCalls.Inc()
+		}
+	}()
+	clienttest.MakeCRD(t, c, gvr.VirtualService)
+	c.RunAndWait(stop)
+	assert.EventuallyEqual(t, vsCalls.Load, 1)
+}
+
 func TestCRDWatcher(t *testing.T) {
 	stop := test.NewStop(t)
 	c := kube.NewFakeClient()
-
-	clienttest.MakeCRD(t, c, gvr.WasmPlugin)
-	wasmCalls := atomic.NewInt32(0)
 
 	clienttest.MakeCRD(t, c, gvr.VirtualService)
 	vsCalls := atomic.NewInt32(0)
 
 	clienttest.MakeCRD(t, c, gvr.GatewayClass)
 
-	ctl := kube.NewCrdWatcher(c)
+	ctl := c.CrdWatcher()
 	// Created before informer runs
 	assert.Equal(t, ctl.KnownOrCallback(gvr.VirtualService, func(s <-chan struct{}) {
 		assert.Equal(t, s, stop)
@@ -46,18 +66,7 @@ func TestCRDWatcher(t *testing.T) {
 	}), false)
 
 	c.RunAndWait(stop)
-	// Created before run
-	assert.Equal(t, ctl.KnownOrCallback(gvr.WasmPlugin, func(s <-chan struct{}) {
-		assert.Equal(t, s, stop)
-		wasmCalls.Inc()
-	}), false)
-	assert.Equal(t, vsCalls.Load(), 0)
-	assert.Equal(t, wasmCalls.Load(), 0)
-	ctl.Run(stop)
-	kube.WaitForCacheSync("test", stop, ctl.HasSynced)
-
 	assert.EventuallyEqual(t, vsCalls.Load, 1)
-	assert.EventuallyEqual(t, wasmCalls.Load, 1)
 
 	// created once running
 	assert.Equal(t, ctl.KnownOrCallback(gvr.GatewayClass, func(s <-chan struct{}) {

@@ -116,9 +116,6 @@ func (lb *ListenerBuilder) buildCompleteNetworkFilters(
 
 	// Authn
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHN)
-	if class != istionetworking.ListenerClassSidecarOutbound {
-		filters = append(filters, xdsfilters.IstioNetworkAuthenticationFilter)
-	}
 
 	// Authz
 	filters = extension.PopAppendNetwork(filters, wasm, extensions.PluginPhase_AUTHZ)

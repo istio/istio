@@ -26,6 +26,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
@@ -153,7 +154,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Listeners: []v1beta1.Listener{{
 						Name:     "http",
 						Port:     v1beta1.PortNumber(80),
-						Protocol: v1beta1.HTTPProtocolType,
+						Protocol: k8sv1.HTTPProtocolType,
 					}},
 				},
 			},
@@ -173,7 +174,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Listeners: []v1beta1.Listener{{
 						Name:     "http",
 						Port:     v1beta1.PortNumber(80),
-						Protocol: v1beta1.HTTPProtocolType,
+						Protocol: k8sv1.HTTPProtocolType,
 					}},
 				},
 			},
@@ -277,7 +278,7 @@ func TestVersionManagement(t *testing.T) {
 	expectReconciled := func() {
 		t.Helper()
 		wantReconcile++
-		assert.EventuallyEqual(t, reconciles.Load, wantReconcile, retry.Timeout(time.Second), retry.Message("no reconciliation"))
+		assert.EventuallyEqual(t, reconciles.Load, wantReconcile, retry.Timeout(time.Second*5), retry.Message("no reconciliation"))
 	}
 
 	d.patcher = func(g schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {

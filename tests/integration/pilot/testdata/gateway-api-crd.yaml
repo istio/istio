@@ -1,10 +1,10 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=v0.8.0"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=37d81593e5a965ed76582dbc1a2f56bbd57c0622"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2245
-    gateway.networking.k8s.io/bundle-version: v0.8.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
+    gateway.networking.k8s.io/bundle-version: v1.0.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: gatewayclasses.gateway.networking.k8s.io
@@ -35,10 +35,7 @@ spec:
       name: Description
       priority: 1
       type: string
-    deprecated: true
-    deprecationWarning: The v1alpha2 version of GatewayClass has been deprecated and
-      will be removed in a future release of the API. Please upgrade to v1beta1.
-    name: v1alpha2
+    name: v1
     schema:
       openAPIV3Schema:
         description: "GatewayClass describes a class of Gateways available to the
@@ -221,11 +218,40 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              supportedFeatures:
+                description: 'SupportedFeatures is the set of features the GatewayClass
+                  support. It MUST be sorted in ascending alphabetical order. '
+                items:
+                  description: SupportedFeature is used to describe distinct features
+                    that are covered by conformance tests.
+                  enum:
+                  - Gateway
+                  - GatewayPort8080
+                  - GatewayStaticAddresses
+                  - HTTPRoute
+                  - HTTPRouteDestinationPortMatching
+                  - HTTPRouteHostRewrite
+                  - HTTPRouteMethodMatching
+                  - HTTPRoutePathRedirect
+                  - HTTPRoutePathRewrite
+                  - HTTPRoutePortRedirect
+                  - HTTPRouteQueryParamMatching
+                  - HTTPRouteRequestMirror
+                  - HTTPRouteRequestMultipleMirrors
+                  - HTTPRouteResponseHeaderModification
+                  - HTTPRouteSchemeRedirect
+                  - Mesh
+                  - ReferenceGrant
+                  - TLSRoute
+                  type: string
+                maxItems: 64
+                type: array
+                x-kubernetes-list-type: set
             type: object
         required:
         - spec
         type: object
-    served: false
+    served: true
     storage: false
     subresources:
       status: {}
@@ -426,6 +452,35 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              supportedFeatures:
+                description: 'SupportedFeatures is the set of features the GatewayClass
+                  support. It MUST be sorted in ascending alphabetical order. '
+                items:
+                  description: SupportedFeature is used to describe distinct features
+                    that are covered by conformance tests.
+                  enum:
+                  - Gateway
+                  - GatewayPort8080
+                  - GatewayStaticAddresses
+                  - HTTPRoute
+                  - HTTPRouteDestinationPortMatching
+                  - HTTPRouteHostRewrite
+                  - HTTPRouteMethodMatching
+                  - HTTPRoutePathRedirect
+                  - HTTPRoutePathRewrite
+                  - HTTPRoutePortRedirect
+                  - HTTPRouteQueryParamMatching
+                  - HTTPRouteRequestMirror
+                  - HTTPRouteRequestMultipleMirrors
+                  - HTTPRouteResponseHeaderModification
+                  - HTTPRouteSchemeRedirect
+                  - Mesh
+                  - ReferenceGrant
+                  - TLSRoute
+                  type: string
+                maxItems: 64
+                type: array
+                x-kubernetes-list-type: set
             type: object
         required:
         - spec
@@ -445,8 +500,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2245
-    gateway.networking.k8s.io/bundle-version: v0.8.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
+    gateway.networking.k8s.io/bundle-version: v1.0.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: gateways.gateway.networking.k8s.io
@@ -476,10 +531,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    deprecated: true
-    deprecationWarning: The v1alpha2 version of Gateway has been deprecated and will
-      be removed in a future release of the API. Please upgrade to v1beta1.
-    name: v1alpha2
+    name: v1
     schema:
       openAPIV3Schema:
         description: Gateway represents an instance of a service-traffic handling
@@ -509,14 +561,12 @@ spec:
                   for the address(es) on the \"outside of the Gateway\", that traffic
                   bound for this Gateway will use. This could be the IP address or
                   hostname of an external load balancer or other networking infrastructure,
-                  or some other address that traffic will be sent to. \n The .listener.hostname
-                  field is used to route traffic that has already arrived at the Gateway
-                  to the correct in-cluster destination. \n If no Addresses are specified,
-                  the implementation MAY schedule the Gateway in an implementation-specific
-                  manner, assigning an appropriate set of Addresses. \n The implementation
-                  MUST bind all Listeners to every GatewayAddress that it assigns
-                  to the Gateway and add a corresponding entry in GatewayStatus.Addresses.
-                  \n Support: Extended \n "
+                  or some other address that traffic will be sent to. \n If no Addresses
+                  are specified, the implementation MAY schedule the Gateway in an
+                  implementation-specific manner, assigning an appropriate set of
+                  Addresses. \n The implementation MUST bind all Listeners to every
+                  GatewayAddress that it assigns to the Gateway and add a corresponding
+                  entry in GatewayStatus.Addresses. \n Support: Extended \n "
                 items:
                   description: GatewayAddress describes an address that can be bound
                     to a Gateway.
@@ -572,39 +622,134 @@ spec:
                 maxLength: 253
                 minLength: 1
                 type: string
+              infrastructure:
+                description: "Infrastructure defines infrastructure level attributes
+                  about this Gateway instance. \n Support: Core \n "
+                properties:
+                  annotations:
+                    additionalProperties:
+                      description: AnnotationValue is the value of an annotation in
+                        Gateway API. This is used for validation of maps such as TLS
+                        options. This roughly matches Kubernetes annotation validation,
+                        although the length validation in that case is based on the
+                        entire size of the annotations struct.
+                      maxLength: 4096
+                      minLength: 0
+                      type: string
+                    description: "Annotations that SHOULD be applied to any resources
+                      created in response to this Gateway. \n For implementations
+                      creating other Kubernetes objects, this should be the `metadata.annotations`
+                      field on resources. For other implementations, this refers to
+                      any relevant (implementation specific) \"annotations\" concepts.
+                      \n An implementation may chose to add additional implementation-specific
+                      annotations as they see fit. \n Support: Extended"
+                    maxProperties: 8
+                    type: object
+                  labels:
+                    additionalProperties:
+                      description: AnnotationValue is the value of an annotation in
+                        Gateway API. This is used for validation of maps such as TLS
+                        options. This roughly matches Kubernetes annotation validation,
+                        although the length validation in that case is based on the
+                        entire size of the annotations struct.
+                      maxLength: 4096
+                      minLength: 0
+                      type: string
+                    description: "Labels that SHOULD be applied to any resources created
+                      in response to this Gateway. \n For implementations creating
+                      other Kubernetes objects, this should be the `metadata.labels`
+                      field on resources. For other implementations, this refers to
+                      any relevant (implementation specific) \"labels\" concepts.
+                      \n An implementation may chose to add additional implementation-specific
+                      labels as they see fit. \n Support: Extended"
+                    maxProperties: 8
+                    type: object
+                type: object
               listeners:
                 description: "Listeners associated with this Gateway. Listeners define
                   logical endpoints that are bound on this Gateway's addresses. At
-                  least one Listener MUST be specified. \n Each listener in a Gateway
-                  must have a unique combination of Hostname, Port, and Protocol.
-                  \n Within the HTTP Conformance Profile, the below combinations of
-                  port and protocol are considered Core and MUST be supported: \n
-                  1. Port: 80, Protocol: HTTP 2. Port: 443, Protocol: HTTPS \n Within
-                  the TLS Conformance Profile, the below combinations of port and
-                  protocol are considered Core and MUST be supported: \n 1. Port:
-                  443, Protocol: TLS \n Port and protocol combinations not listed
-                  above are considered Extended. \n An implementation MAY group Listeners
-                  by Port and then collapse each group of Listeners into a single
-                  Listener if the implementation determines that the Listeners in
-                  the group are \"compatible\". An implementation MAY also group together
-                  and collapse compatible Listeners belonging to different Gateways.
-                  \n For example, an implementation might consider Listeners to be
-                  compatible with each other if all of the following conditions are
-                  met: \n 1. Either each Listener within the group specifies the \"HTTP\"
-                  Protocol or each Listener within the group specifies either the
-                  \"HTTPS\" or \"TLS\" Protocol. \n 2. Each Listener within the group
-                  specifies a Hostname that is unique within the group. \n 3. As a
-                  special case, one Listener within a group may omit Hostname, in
-                  which case this Listener matches when no other Listener matches.
-                  \n If the implementation does collapse compatible Listeners, the
-                  hostname provided in the incoming client request MUST be matched
-                  to a Listener to find the correct set of Routes. The incoming hostname
-                  MUST be matched using the Hostname field for each Listener in order
-                  of most to least specific. That is, exact matches must be processed
-                  before wildcard matches. \n If this field specifies multiple Listeners
-                  that have the same Port value but are not compatible, the implementation
-                  must raise a \"Conflicted\" condition in the Listener status. \n
-                  Support: Core"
+                  least one Listener MUST be specified. \n Each Listener in a set
+                  of Listeners (for example, in a single Gateway) MUST be _distinct_,
+                  in that a traffic flow MUST be able to be assigned to exactly one
+                  listener. (This section uses \"set of Listeners\" rather than \"Listeners
+                  in a single Gateway\" because implementations MAY merge configuration
+                  from multiple Gateways onto a single data plane, and these rules
+                  _also_ apply in that case). \n Practically, this means that each
+                  listener in a set MUST have a unique combination of Port, Protocol,
+                  and, if supported by the protocol, Hostname. \n Some combinations
+                  of port, protocol, and TLS settings are considered Core support
+                  and MUST be supported by implementations based on their targeted
+                  conformance profile: \n HTTP Profile \n 1. HTTPRoute, Port: 80,
+                  Protocol: HTTP 2. HTTPRoute, Port: 443, Protocol: HTTPS, TLS Mode:
+                  Terminate, TLS keypair provided \n TLS Profile \n 1. TLSRoute, Port:
+                  443, Protocol: TLS, TLS Mode: Passthrough \n \"Distinct\" Listeners
+                  have the following property: \n The implementation can match inbound
+                  requests to a single distinct Listener. When multiple Listeners
+                  share values for fields (for example, two Listeners with the same
+                  Port value), the implementation can match requests to only one of
+                  the Listeners using other Listener fields. \n For example, the following
+                  Listener scenarios are distinct: \n 1. Multiple Listeners with the
+                  same Port that all use the \"HTTP\" Protocol that all have unique
+                  Hostname values. 2. Multiple Listeners with the same Port that use
+                  either the \"HTTPS\" or \"TLS\" Protocol that all have unique Hostname
+                  values. 3. A mixture of \"TCP\" and \"UDP\" Protocol Listeners,
+                  where no Listener with the same Protocol has the same Port value.
+                  \n Some fields in the Listener struct have possible values that
+                  affect whether the Listener is distinct. Hostname is particularly
+                  relevant for HTTP or HTTPS protocols. \n When using the Hostname
+                  value to select between same-Port, same-Protocol Listeners, the
+                  Hostname value must be different on each Listener for the Listener
+                  to be distinct. \n When the Listeners are distinct based on Hostname,
+                  inbound request hostnames MUST match from the most specific to least
+                  specific Hostname values to choose the correct Listener and its
+                  associated set of Routes. \n Exact matches must be processed before
+                  wildcard matches, and wildcard matches must be processed before
+                  fallback (empty Hostname value) matches. For example, `\"foo.example.com\"`
+                  takes precedence over `\"*.example.com\"`, and `\"*.example.com\"`
+                  takes precedence over `\"\"`. \n Additionally, if there are multiple
+                  wildcard entries, more specific wildcard entries must be processed
+                  before less specific wildcard entries. For example, `\"*.foo.example.com\"`
+                  takes precedence over `\"*.example.com\"`. The precise definition
+                  here is that the higher the number of dots in the hostname to the
+                  right of the wildcard character, the higher the precedence. \n The
+                  wildcard character will match any number of characters _and dots_
+                  to the left, however, so `\"*.example.com\"` will match both `\"foo.bar.example.com\"`
+                  _and_ `\"bar.example.com\"`. \n If a set of Listeners contains Listeners
+                  that are not distinct, then those Listeners are Conflicted, and
+                  the implementation MUST set the \"Conflicted\" condition in the
+                  Listener Status to \"True\". \n Implementations MAY choose to accept
+                  a Gateway with some Conflicted Listeners only if they only accept
+                  the partial Listener set that contains no Conflicted Listeners.
+                  To put this another way, implementations may accept a partial Listener
+                  set only if they throw out *all* the conflicting Listeners. No picking
+                  one of the conflicting listeners as the winner. This also means
+                  that the Gateway must have at least one non-conflicting Listener
+                  in this case, otherwise it violates the requirement that at least
+                  one Listener must be present. \n The implementation MUST set a \"ListenersNotValid\"
+                  condition on the Gateway Status when the Gateway contains Conflicted
+                  Listeners whether or not they accept the Gateway. That Condition
+                  SHOULD clearly indicate in the Message which Listeners are conflicted,
+                  and which are Accepted. Additionally, the Listener status for those
+                  listeners SHOULD indicate which Listeners are conflicted and not
+                  Accepted. \n A Gateway's Listeners are considered \"compatible\"
+                  if: \n 1. They are distinct. 2. The implementation can serve them
+                  in compliance with the Addresses requirement that all Listeners
+                  are available on all assigned addresses. \n Compatible combinations
+                  in Extended support are expected to vary across implementations.
+                  A combination that is compatible for one implementation may not
+                  be compatible for another. \n For example, an implementation that
+                  cannot serve both TCP and UDP listeners on the same address, or
+                  cannot mix HTTPS and generic TLS listens on the same port would
+                  not consider those cases compatible, even though they are distinct.
+                  \n Note that requests SHOULD match at most one Listener. For example,
+                  if Listeners are defined for \"foo.example.com\" and \"*.example.com\",
+                  a request to \"foo.example.com\" SHOULD only be routed using routes
+                  attached to the \"foo.example.com\" Listener (and not the \"*.example.com\"
+                  Listener). This concept is known as \"Listener Isolation\". Implementations
+                  that do not support Listener Isolation MUST clearly document this.
+                  \n Implementations MAY merge separate Gateways onto a single set
+                  of Addresses if all Listeners across all Gateways are compatible.
+                  \n Support: Core"
                 items:
                   description: Listener embodies the concept of a logical endpoint
                     where a Gateway accepts network connections.
@@ -853,14 +998,14 @@ spec:
                                 minLength: 1
                                 type: string
                               namespace:
-                                description: "Namespace is the namespace of the backend.
-                                  When unspecified, the local namespace is inferred.
-                                  \n Note that when a namespace different than the
-                                  local namespace is specified, a ReferenceGrant object
-                                  is required in the referent namespace to allow that
-                                  namespace's owner to accept the reference. See the
-                                  ReferenceGrant documentation for details. \n Support:
-                                  Core"
+                                description: "Namespace is the namespace of the referenced
+                                  object. When unspecified, the local namespace is
+                                  inferred. \n Note that when a namespace different
+                                  than the local namespace is specified, a ReferenceGrant
+                                  object is required in the referent namespace to
+                                  allow that namespace's owner to accept the reference.
+                                  See the ReferenceGrant documentation for details.
+                                  \n Support: Core"
                                 maxLength: 63
                                 minLength: 1
                                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -941,7 +1086,7 @@ spec:
                     for each listener
                   rule: 'self.all(l1, self.exists_one(l2, l1.port == l2.port && l1.protocol
                     == l2.protocol && (has(l1.hostname) && has(l2.hostname) ? l1.hostname
-                    == l2.hostname : true)))'
+                    == l2.hostname : !has(l1.hostname) && !has(l2.hostname))))'
             required:
             - gatewayClassName
             - listeners
@@ -962,13 +1107,15 @@ spec:
             description: Status defines the current state of Gateway.
             properties:
               addresses:
-                description: "Addresses lists the IP addresses that have actually
-                  been bound to the Gateway. These addresses may differ from the addresses
-                  in the Spec, e.g. if the Gateway automatically assigns an address
-                  from a reserved pool. \n "
+                description: "Addresses lists the network addresses that have been
+                  bound to the Gateway. \n This list may differ from the addresses
+                  provided in the spec under some conditions: \n * no addresses are
+                  specified, all addresses are dynamically assigned * a combination
+                  of specified and dynamic addresses are assigned * a specified address
+                  was unusable (e.g. already in use) \n "
                 items:
-                  description: GatewayStatusAddress describes an address that is bound
-                    to a Gateway.
+                  description: GatewayStatusAddress describes a network address that
+                    is bound to a Gateway.
                   oneOf:
                   - properties:
                       type:
@@ -1104,8 +1251,23 @@ spec:
                   description: ListenerStatus is the status associated with a Listener.
                   properties:
                     attachedRoutes:
-                      description: AttachedRoutes represents the total number of accepted
+                      description: "AttachedRoutes represents the total number of
                         Routes that have been successfully attached to this Listener.
+                        \n Successful attachment of a Route to a Listener is based
+                        solely on the combination of the AllowedRoutes field on the
+                        corresponding Listener and the Route's ParentRefs field. A
+                        Route is successfully attached to a Listener when it is selected
+                        by the Listener's AllowedRoutes field AND the Route has a
+                        valid ParentRef selecting the whole Gateway resource or a
+                        specific Listener as a parent resource (more detail on attachment
+                        semantics can be found in the documentation on the various
+                        Route kinds ParentRefs fields). Listener or Route status does
+                        not impact successful attachment, i.e. the AttachedRoutes
+                        field count MUST be set for Listeners with condition Accepted:
+                        false and MUST count successfully attached Routes that may
+                        themselves have Accepted: false conditions. \n Uses for this
+                        field include troubleshooting Route attachment and measuring
+                        blast radius/impact of changes to a Listener."
                       format: int32
                       type: integer
                     conditions:
@@ -1240,7 +1402,7 @@ spec:
         required:
         - spec
         type: object
-    served: false
+    served: true
     storage: false
     subresources:
       status: {}
@@ -1287,14 +1449,12 @@ spec:
                   for the address(es) on the \"outside of the Gateway\", that traffic
                   bound for this Gateway will use. This could be the IP address or
                   hostname of an external load balancer or other networking infrastructure,
-                  or some other address that traffic will be sent to. \n The .listener.hostname
-                  field is used to route traffic that has already arrived at the Gateway
-                  to the correct in-cluster destination. \n If no Addresses are specified,
-                  the implementation MAY schedule the Gateway in an implementation-specific
-                  manner, assigning an appropriate set of Addresses. \n The implementation
-                  MUST bind all Listeners to every GatewayAddress that it assigns
-                  to the Gateway and add a corresponding entry in GatewayStatus.Addresses.
-                  \n Support: Extended \n "
+                  or some other address that traffic will be sent to. \n If no Addresses
+                  are specified, the implementation MAY schedule the Gateway in an
+                  implementation-specific manner, assigning an appropriate set of
+                  Addresses. \n The implementation MUST bind all Listeners to every
+                  GatewayAddress that it assigns to the Gateway and add a corresponding
+                  entry in GatewayStatus.Addresses. \n Support: Extended \n "
                 items:
                   description: GatewayAddress describes an address that can be bound
                     to a Gateway.
@@ -1350,39 +1510,134 @@ spec:
                 maxLength: 253
                 minLength: 1
                 type: string
+              infrastructure:
+                description: "Infrastructure defines infrastructure level attributes
+                  about this Gateway instance. \n Support: Core \n "
+                properties:
+                  annotations:
+                    additionalProperties:
+                      description: AnnotationValue is the value of an annotation in
+                        Gateway API. This is used for validation of maps such as TLS
+                        options. This roughly matches Kubernetes annotation validation,
+                        although the length validation in that case is based on the
+                        entire size of the annotations struct.
+                      maxLength: 4096
+                      minLength: 0
+                      type: string
+                    description: "Annotations that SHOULD be applied to any resources
+                      created in response to this Gateway. \n For implementations
+                      creating other Kubernetes objects, this should be the `metadata.annotations`
+                      field on resources. For other implementations, this refers to
+                      any relevant (implementation specific) \"annotations\" concepts.
+                      \n An implementation may chose to add additional implementation-specific
+                      annotations as they see fit. \n Support: Extended"
+                    maxProperties: 8
+                    type: object
+                  labels:
+                    additionalProperties:
+                      description: AnnotationValue is the value of an annotation in
+                        Gateway API. This is used for validation of maps such as TLS
+                        options. This roughly matches Kubernetes annotation validation,
+                        although the length validation in that case is based on the
+                        entire size of the annotations struct.
+                      maxLength: 4096
+                      minLength: 0
+                      type: string
+                    description: "Labels that SHOULD be applied to any resources created
+                      in response to this Gateway. \n For implementations creating
+                      other Kubernetes objects, this should be the `metadata.labels`
+                      field on resources. For other implementations, this refers to
+                      any relevant (implementation specific) \"labels\" concepts.
+                      \n An implementation may chose to add additional implementation-specific
+                      labels as they see fit. \n Support: Extended"
+                    maxProperties: 8
+                    type: object
+                type: object
               listeners:
                 description: "Listeners associated with this Gateway. Listeners define
                   logical endpoints that are bound on this Gateway's addresses. At
-                  least one Listener MUST be specified. \n Each listener in a Gateway
-                  must have a unique combination of Hostname, Port, and Protocol.
-                  \n Within the HTTP Conformance Profile, the below combinations of
-                  port and protocol are considered Core and MUST be supported: \n
-                  1. Port: 80, Protocol: HTTP 2. Port: 443, Protocol: HTTPS \n Within
-                  the TLS Conformance Profile, the below combinations of port and
-                  protocol are considered Core and MUST be supported: \n 1. Port:
-                  443, Protocol: TLS \n Port and protocol combinations not listed
-                  above are considered Extended. \n An implementation MAY group Listeners
-                  by Port and then collapse each group of Listeners into a single
-                  Listener if the implementation determines that the Listeners in
-                  the group are \"compatible\". An implementation MAY also group together
-                  and collapse compatible Listeners belonging to different Gateways.
-                  \n For example, an implementation might consider Listeners to be
-                  compatible with each other if all of the following conditions are
-                  met: \n 1. Either each Listener within the group specifies the \"HTTP\"
-                  Protocol or each Listener within the group specifies either the
-                  \"HTTPS\" or \"TLS\" Protocol. \n 2. Each Listener within the group
-                  specifies a Hostname that is unique within the group. \n 3. As a
-                  special case, one Listener within a group may omit Hostname, in
-                  which case this Listener matches when no other Listener matches.
-                  \n If the implementation does collapse compatible Listeners, the
-                  hostname provided in the incoming client request MUST be matched
-                  to a Listener to find the correct set of Routes. The incoming hostname
-                  MUST be matched using the Hostname field for each Listener in order
-                  of most to least specific. That is, exact matches must be processed
-                  before wildcard matches. \n If this field specifies multiple Listeners
-                  that have the same Port value but are not compatible, the implementation
-                  must raise a \"Conflicted\" condition in the Listener status. \n
-                  Support: Core"
+                  least one Listener MUST be specified. \n Each Listener in a set
+                  of Listeners (for example, in a single Gateway) MUST be _distinct_,
+                  in that a traffic flow MUST be able to be assigned to exactly one
+                  listener. (This section uses \"set of Listeners\" rather than \"Listeners
+                  in a single Gateway\" because implementations MAY merge configuration
+                  from multiple Gateways onto a single data plane, and these rules
+                  _also_ apply in that case). \n Practically, this means that each
+                  listener in a set MUST have a unique combination of Port, Protocol,
+                  and, if supported by the protocol, Hostname. \n Some combinations
+                  of port, protocol, and TLS settings are considered Core support
+                  and MUST be supported by implementations based on their targeted
+                  conformance profile: \n HTTP Profile \n 1. HTTPRoute, Port: 80,
+                  Protocol: HTTP 2. HTTPRoute, Port: 443, Protocol: HTTPS, TLS Mode:
+                  Terminate, TLS keypair provided \n TLS Profile \n 1. TLSRoute, Port:
+                  443, Protocol: TLS, TLS Mode: Passthrough \n \"Distinct\" Listeners
+                  have the following property: \n The implementation can match inbound
+                  requests to a single distinct Listener. When multiple Listeners
+                  share values for fields (for example, two Listeners with the same
+                  Port value), the implementation can match requests to only one of
+                  the Listeners using other Listener fields. \n For example, the following
+                  Listener scenarios are distinct: \n 1. Multiple Listeners with the
+                  same Port that all use the \"HTTP\" Protocol that all have unique
+                  Hostname values. 2. Multiple Listeners with the same Port that use
+                  either the \"HTTPS\" or \"TLS\" Protocol that all have unique Hostname
+                  values. 3. A mixture of \"TCP\" and \"UDP\" Protocol Listeners,
+                  where no Listener with the same Protocol has the same Port value.
+                  \n Some fields in the Listener struct have possible values that
+                  affect whether the Listener is distinct. Hostname is particularly
+                  relevant for HTTP or HTTPS protocols. \n When using the Hostname
+                  value to select between same-Port, same-Protocol Listeners, the
+                  Hostname value must be different on each Listener for the Listener
+                  to be distinct. \n When the Listeners are distinct based on Hostname,
+                  inbound request hostnames MUST match from the most specific to least
+                  specific Hostname values to choose the correct Listener and its
+                  associated set of Routes. \n Exact matches must be processed before
+                  wildcard matches, and wildcard matches must be processed before
+                  fallback (empty Hostname value) matches. For example, `\"foo.example.com\"`
+                  takes precedence over `\"*.example.com\"`, and `\"*.example.com\"`
+                  takes precedence over `\"\"`. \n Additionally, if there are multiple
+                  wildcard entries, more specific wildcard entries must be processed
+                  before less specific wildcard entries. For example, `\"*.foo.example.com\"`
+                  takes precedence over `\"*.example.com\"`. The precise definition
+                  here is that the higher the number of dots in the hostname to the
+                  right of the wildcard character, the higher the precedence. \n The
+                  wildcard character will match any number of characters _and dots_
+                  to the left, however, so `\"*.example.com\"` will match both `\"foo.bar.example.com\"`
+                  _and_ `\"bar.example.com\"`. \n If a set of Listeners contains Listeners
+                  that are not distinct, then those Listeners are Conflicted, and
+                  the implementation MUST set the \"Conflicted\" condition in the
+                  Listener Status to \"True\". \n Implementations MAY choose to accept
+                  a Gateway with some Conflicted Listeners only if they only accept
+                  the partial Listener set that contains no Conflicted Listeners.
+                  To put this another way, implementations may accept a partial Listener
+                  set only if they throw out *all* the conflicting Listeners. No picking
+                  one of the conflicting listeners as the winner. This also means
+                  that the Gateway must have at least one non-conflicting Listener
+                  in this case, otherwise it violates the requirement that at least
+                  one Listener must be present. \n The implementation MUST set a \"ListenersNotValid\"
+                  condition on the Gateway Status when the Gateway contains Conflicted
+                  Listeners whether or not they accept the Gateway. That Condition
+                  SHOULD clearly indicate in the Message which Listeners are conflicted,
+                  and which are Accepted. Additionally, the Listener status for those
+                  listeners SHOULD indicate which Listeners are conflicted and not
+                  Accepted. \n A Gateway's Listeners are considered \"compatible\"
+                  if: \n 1. They are distinct. 2. The implementation can serve them
+                  in compliance with the Addresses requirement that all Listeners
+                  are available on all assigned addresses. \n Compatible combinations
+                  in Extended support are expected to vary across implementations.
+                  A combination that is compatible for one implementation may not
+                  be compatible for another. \n For example, an implementation that
+                  cannot serve both TCP and UDP listeners on the same address, or
+                  cannot mix HTTPS and generic TLS listens on the same port would
+                  not consider those cases compatible, even though they are distinct.
+                  \n Note that requests SHOULD match at most one Listener. For example,
+                  if Listeners are defined for \"foo.example.com\" and \"*.example.com\",
+                  a request to \"foo.example.com\" SHOULD only be routed using routes
+                  attached to the \"foo.example.com\" Listener (and not the \"*.example.com\"
+                  Listener). This concept is known as \"Listener Isolation\". Implementations
+                  that do not support Listener Isolation MUST clearly document this.
+                  \n Implementations MAY merge separate Gateways onto a single set
+                  of Addresses if all Listeners across all Gateways are compatible.
+                  \n Support: Core"
                 items:
                   description: Listener embodies the concept of a logical endpoint
                     where a Gateway accepts network connections.
@@ -1631,14 +1886,14 @@ spec:
                                 minLength: 1
                                 type: string
                               namespace:
-                                description: "Namespace is the namespace of the backend.
-                                  When unspecified, the local namespace is inferred.
-                                  \n Note that when a namespace different than the
-                                  local namespace is specified, a ReferenceGrant object
-                                  is required in the referent namespace to allow that
-                                  namespace's owner to accept the reference. See the
-                                  ReferenceGrant documentation for details. \n Support:
-                                  Core"
+                                description: "Namespace is the namespace of the referenced
+                                  object. When unspecified, the local namespace is
+                                  inferred. \n Note that when a namespace different
+                                  than the local namespace is specified, a ReferenceGrant
+                                  object is required in the referent namespace to
+                                  allow that namespace's owner to accept the reference.
+                                  See the ReferenceGrant documentation for details.
+                                  \n Support: Core"
                                 maxLength: 63
                                 minLength: 1
                                 pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -1719,7 +1974,7 @@ spec:
                     for each listener
                   rule: 'self.all(l1, self.exists_one(l2, l1.port == l2.port && l1.protocol
                     == l2.protocol && (has(l1.hostname) && has(l2.hostname) ? l1.hostname
-                    == l2.hostname : true)))'
+                    == l2.hostname : !has(l1.hostname) && !has(l2.hostname))))'
             required:
             - gatewayClassName
             - listeners
@@ -1740,13 +1995,15 @@ spec:
             description: Status defines the current state of Gateway.
             properties:
               addresses:
-                description: "Addresses lists the IP addresses that have actually
-                  been bound to the Gateway. These addresses may differ from the addresses
-                  in the Spec, e.g. if the Gateway automatically assigns an address
-                  from a reserved pool. \n "
+                description: "Addresses lists the network addresses that have been
+                  bound to the Gateway. \n This list may differ from the addresses
+                  provided in the spec under some conditions: \n * no addresses are
+                  specified, all addresses are dynamically assigned * a combination
+                  of specified and dynamic addresses are assigned * a specified address
+                  was unusable (e.g. already in use) \n "
                 items:
-                  description: GatewayStatusAddress describes an address that is bound
-                    to a Gateway.
+                  description: GatewayStatusAddress describes a network address that
+                    is bound to a Gateway.
                   oneOf:
                   - properties:
                       type:
@@ -1882,8 +2139,23 @@ spec:
                   description: ListenerStatus is the status associated with a Listener.
                   properties:
                     attachedRoutes:
-                      description: AttachedRoutes represents the total number of accepted
+                      description: "AttachedRoutes represents the total number of
                         Routes that have been successfully attached to this Listener.
+                        \n Successful attachment of a Route to a Listener is based
+                        solely on the combination of the AllowedRoutes field on the
+                        corresponding Listener and the Route's ParentRefs field. A
+                        Route is successfully attached to a Listener when it is selected
+                        by the Listener's AllowedRoutes field AND the Route has a
+                        valid ParentRef selecting the whole Gateway resource or a
+                        specific Listener as a parent resource (more detail on attachment
+                        semantics can be found in the documentation on the various
+                        Route kinds ParentRefs fields). Listener or Route status does
+                        not impact successful attachment, i.e. the AttachedRoutes
+                        field count MUST be set for Listeners with condition Accepted:
+                        false and MUST count successfully attached Routes that may
+                        themselves have Accepted: false conditions. \n Uses for this
+                        field include troubleshooting Route attachment and measuring
+                        blast radius/impact of changes to a Listener."
                       format: int32
                       type: integer
                     conditions:
@@ -2033,8 +2305,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2245
-    gateway.networking.k8s.io/bundle-version: v0.8.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
+    gateway.networking.k8s.io/bundle-version: v1.0.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: grpcroutes.gateway.networking.k8s.io
@@ -2165,30 +2437,41 @@ spec:
                   for governing ParentRefs to Services - it is not possible to create
                   a \"producer\" route for a Service in a different namespace from
                   the Route. \n There are two kinds of parent resources with \"Core\"
-                  support: \n * Gateway (Gateway conformance profile) * Service (Mesh
-                  conformance profile, experimental, ClusterIP Services only) \n This
+                  support: \n * Gateway (Gateway conformance profile)  * Service (Mesh
+                  conformance profile, experimental, ClusterIP Services only)  This
                   API may be extended in the future to support additional kinds of
-                  parent resources. \n It is invalid to reference an identical parent
-                  more than once. It is valid to reference multiple distinct sections
-                  within the same parent resource, such as two separate Listeners
-                  on the same Gateway or two separate ports on the same Service. \n
-                  It is possible to separately reference multiple distinct objects
-                  that may be collapsed by an implementation. For example, some implementations
-                  may choose to merge compatible Gateway Listeners together. If that
-                  is the case, the list of routes attached to those resources should
-                  also be merged. \n Note that for ParentRefs that cross namespace
-                  boundaries, there are specific rules. Cross-namespace references
-                  are only valid if they are explicitly allowed by something in the
-                  namespace they are referring to. For example, Gateway has the AllowedRoutes
-                  field, and ReferenceGrant provides a generic way to enable other
-                  kinds of cross-namespace reference. \n ParentRefs from a Route to
-                  a Service in the same namespace are \"producer\" routes, which apply
-                  default routing rules to inbound connections from any namespace
-                  to the Service. \n ParentRefs from a Route to a Service in a different
-                  namespace are \"consumer\" routes, and these routing rules are only
-                  applied to outbound connections originating from the same namespace
-                  as the Route, for which the intended destination of the connections
-                  are a Service targeted as a ParentRef of the Route. \n "
+                  parent resources. \n ParentRefs must be _distinct_. This means either
+                  that: \n * They select different objects.  If this is the case,
+                  then parentRef entries are distinct. In terms of fields, this means
+                  that the multi-part key defined by `group`, `kind`, `namespace`,
+                  and `name` must be unique across all parentRef entries in the Route.
+                  * They do not select different objects, but for each optional field
+                  used, each ParentRef that selects the same object must set the same
+                  set of optional fields to different values. If one ParentRef sets
+                  a combination of optional fields, all must set the same combination.
+                  \n Some examples: \n * If one ParentRef sets `sectionName`, all
+                  ParentRefs referencing the same object must also set `sectionName`.
+                  * If one ParentRef sets `port`, all ParentRefs referencing the same
+                  object must also set `port`. * If one ParentRef sets `sectionName`
+                  and `port`, all ParentRefs referencing the same object must also
+                  set `sectionName` and `port`. \n It is possible to separately reference
+                  multiple distinct objects that may be collapsed by an implementation.
+                  For example, some implementations may choose to merge compatible
+                  Gateway Listeners together. If that is the case, the list of routes
+                  attached to those resources should also be merged. \n Note that
+                  for ParentRefs that cross namespace boundaries, there are specific
+                  rules. Cross-namespace references are only valid if they are explicitly
+                  allowed by something in the namespace they are referring to. For
+                  example, Gateway has the AllowedRoutes field, and ReferenceGrant
+                  provides a generic way to enable other kinds of cross-namespace
+                  reference. \n  ParentRefs from a Route to a Service in the same
+                  namespace are \"producer\" routes, which apply default routing rules
+                  to inbound connections from any namespace to the Service. \n ParentRefs
+                  from a Route to a Service in a different namespace are \"consumer\"
+                  routes, and these routing rules are only applied to outbound connections
+                  originating from the same namespace as the Route, for which the
+                  intended destination of the connections are a Service targeted as
+                  a ParentRef of the Route.  \n "
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -2236,7 +2519,7 @@ spec:
                         the namespace they are referring to. For example: Gateway
                         has the AllowedRoutes field, and ReferenceGrant provides a
                         generic way to enable any other kind of cross-namespace reference.
-                        \n ParentRefs from a Route to a Service in the same namespace
+                        \n  ParentRefs from a Route to a Service in the same namespace
                         are \"producer\" routes, which apply default routing rules
                         to inbound connections from any namespace to the Service.
                         \n ParentRefs from a Route to a Service in a different namespace
@@ -2244,7 +2527,7 @@ spec:
                         applied to outbound connections originating from the same
                         namespace as the Route, for which the intended destination
                         of the connections are a Service targeted as a ParentRef of
-                        the Route. \n Support: Core"
+                        the Route.  \n Support: Core"
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -2259,11 +2542,11 @@ spec:
                         a Route must apply to a specific port as opposed to a listener(s)
                         whose port(s) may be changed. When both Port and SectionName
                         are specified, the name and port of the selected listener
-                        must match both specified values. \n When the parent resource
+                        must match both specified values. \n  When the parent resource
                         is a Service, this targets a specific port in the Service
                         spec. When both Port (experimental) and SectionName are specified,
                         the name and port of the selected port must match both specified
-                        values. \n Implementations MAY choose to support other parent
+                        values.  \n Implementations MAY choose to support other parent
                         resources. Implementations supporting other types of parent
                         resources MUST clearly document how/if Port is interpreted.
                         \n For the purpose of status, an attachment is considered
@@ -2315,16 +2598,13 @@ spec:
                 - message: sectionName or port must be specified when parentRefs includes
                     2 or more references to the same parent
                   rule: 'self.all(p1, self.all(p2, p1.group == p2.group && p1.kind
-                    == p2.kind && p1.name == p2.name && ( ( (!has(p1.__namespace__)
+                    == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '''') && (!has(p2.__namespace__) || p2.__namespace__
-                    == '''') ) || ( has(p1.__namespace__) && has(p2.__namespace__)
-                    && p1.__namespace__ == p2.__namespace__ ) ) ? ( ( ( (!has(p1.sectionName)
-                    || p1.sectionName == '''') && (!has(p2.sectionName) || p2.sectionName
-                    == '''') && (!has(p1.port) || p1.port == 0) && (!has(p2.port)
-                    || p2.port == 0) ) || ( ( (has(p1.sectionName) && p1.sectionName
-                    != '''') || (has(p1.port) && p1.port != 0) ) && ( (has(p2.sectionName)
-                    && p2.sectionName != '''') || (has(p2.port) && p2.port != 0) )
-                    ) ) ): true ))'
+                    == '''')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
+                    p1.__namespace__ == p2.__namespace__)) ? ((!has(p1.sectionName)
+                    || p1.sectionName == '''') == (!has(p2.sectionName) || p2.sectionName
+                    == '''') && (!has(p1.port) || p1.port == 0) == (!has(p2.port)
+                    || p2.port == 0)): true))'
                 - message: sectionName or port must be unique when parentRefs includes
                     2 or more references to the same parent
                   rule: self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind
@@ -2365,8 +2645,25 @@ spec:
                         Service \n Support: Implementation-specific for any other
                         resource \n Support for weight: Core"
                       items:
-                        description: GRPCBackendRef defines how a GRPCRoute forwards
-                          a gRPC request.
+                        description: "GRPCBackendRef defines how a GRPCRoute forwards
+                          a gRPC request. \n Note that when a namespace different
+                          than the local namespace is specified, a ReferenceGrant
+                          object is required in the referent namespace to allow that
+                          namespace's owner to accept the reference. See the ReferenceGrant
+                          documentation for details. \n <gateway:experimental:description>
+                          \n When the BackendRef points to a Kubernetes Service, implementations
+                          SHOULD honor the appProtocol field if it is set for the
+                          target Service Port. \n Implementations supporting appProtocol
+                          SHOULD recognize the Kubernetes Standard Application Protocols
+                          defined in KEP-3726. \n If a Service appProtocol isn't specified,
+                          an implementation MAY infer the backend protocol through
+                          its own means. Implementations MAY infer the protocol from
+                          the Route type referring to the backend Service. \n If a
+                          Route is not able to send traffic to the backend using the
+                          specified protocol then the backend is considered invalid.
+                          Implementations MUST set the \"ResolvedRefs\" condition
+                          to \"False\" with the \"UnsupportedProtocol\" reason. \n
+                          </gateway:experimental:description>"
                         properties:
                           filters:
                             description: "Filters defined at this level MUST be executed
@@ -3632,7 +3929,7 @@ spec:
                             in the namespace they are referring to. For example: Gateway
                             has the AllowedRoutes field, and ReferenceGrant provides
                             a generic way to enable any other kind of cross-namespace
-                            reference. \n ParentRefs from a Route to a Service in
+                            reference. \n  ParentRefs from a Route to a Service in
                             the same namespace are \"producer\" routes, which apply
                             default routing rules to inbound connections from any
                             namespace to the Service. \n ParentRefs from a Route to
@@ -3640,7 +3937,7 @@ spec:
                             and these routing rules are only applied to outbound connections
                             originating from the same namespace as the Route, for
                             which the intended destination of the connections are
-                            a Service targeted as a ParentRef of the Route. \n Support:
+                            a Service targeted as a ParentRef of the Route.  \n Support:
                             Core"
                           maxLength: 63
                           minLength: 1
@@ -3657,11 +3954,11 @@ spec:
                             a specific port as opposed to a listener(s) whose port(s)
                             may be changed. When both Port and SectionName are specified,
                             the name and port of the selected listener must match
-                            both specified values. \n When the parent resource is
+                            both specified values. \n  When the parent resource is
                             a Service, this targets a specific port in the Service
                             spec. When both Port (experimental) and SectionName are
                             specified, the name and port of the selected port must
-                            match both specified values. \n Implementations MAY choose
+                            match both specified values.  \n Implementations MAY choose
                             to support other parent resources. Implementations supporting
                             other types of parent resources MUST clearly document
                             how/if Port is interpreted. \n For the purpose of status,
@@ -3735,8 +4032,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2245
-    gateway.networking.k8s.io/bundle-version: v0.8.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
+    gateway.networking.k8s.io/bundle-version: v1.0.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: httproutes.gateway.networking.k8s.io
@@ -3758,10 +4055,7 @@ spec:
     - jsonPath: .metadata.creationTimestamp
       name: Age
       type: date
-    deprecated: true
-    deprecationWarning: The v1alpha2 version of HTTPRoute has been deprecated and
-      will be removed in a future release of the API. Please upgrade to v1beta1.
-    name: v1alpha2
+    name: v1
     schema:
       openAPIV3Schema:
         description: HTTPRoute provides a way to route HTTP requests. This includes
@@ -3854,30 +4148,41 @@ spec:
                   for governing ParentRefs to Services - it is not possible to create
                   a \"producer\" route for a Service in a different namespace from
                   the Route. \n There are two kinds of parent resources with \"Core\"
-                  support: \n * Gateway (Gateway conformance profile) * Service (Mesh
-                  conformance profile, experimental, ClusterIP Services only) \n This
+                  support: \n * Gateway (Gateway conformance profile)  * Service (Mesh
+                  conformance profile, experimental, ClusterIP Services only)  This
                   API may be extended in the future to support additional kinds of
-                  parent resources. \n It is invalid to reference an identical parent
-                  more than once. It is valid to reference multiple distinct sections
-                  within the same parent resource, such as two separate Listeners
-                  on the same Gateway or two separate ports on the same Service. \n
-                  It is possible to separately reference multiple distinct objects
-                  that may be collapsed by an implementation. For example, some implementations
-                  may choose to merge compatible Gateway Listeners together. If that
-                  is the case, the list of routes attached to those resources should
-                  also be merged. \n Note that for ParentRefs that cross namespace
-                  boundaries, there are specific rules. Cross-namespace references
-                  are only valid if they are explicitly allowed by something in the
-                  namespace they are referring to. For example, Gateway has the AllowedRoutes
-                  field, and ReferenceGrant provides a generic way to enable other
-                  kinds of cross-namespace reference. \n ParentRefs from a Route to
-                  a Service in the same namespace are \"producer\" routes, which apply
-                  default routing rules to inbound connections from any namespace
-                  to the Service. \n ParentRefs from a Route to a Service in a different
-                  namespace are \"consumer\" routes, and these routing rules are only
-                  applied to outbound connections originating from the same namespace
-                  as the Route, for which the intended destination of the connections
-                  are a Service targeted as a ParentRef of the Route. \n "
+                  parent resources. \n ParentRefs must be _distinct_. This means either
+                  that: \n * They select different objects.  If this is the case,
+                  then parentRef entries are distinct. In terms of fields, this means
+                  that the multi-part key defined by `group`, `kind`, `namespace`,
+                  and `name` must be unique across all parentRef entries in the Route.
+                  * They do not select different objects, but for each optional field
+                  used, each ParentRef that selects the same object must set the same
+                  set of optional fields to different values. If one ParentRef sets
+                  a combination of optional fields, all must set the same combination.
+                  \n Some examples: \n * If one ParentRef sets `sectionName`, all
+                  ParentRefs referencing the same object must also set `sectionName`.
+                  * If one ParentRef sets `port`, all ParentRefs referencing the same
+                  object must also set `port`. * If one ParentRef sets `sectionName`
+                  and `port`, all ParentRefs referencing the same object must also
+                  set `sectionName` and `port`. \n It is possible to separately reference
+                  multiple distinct objects that may be collapsed by an implementation.
+                  For example, some implementations may choose to merge compatible
+                  Gateway Listeners together. If that is the case, the list of routes
+                  attached to those resources should also be merged. \n Note that
+                  for ParentRefs that cross namespace boundaries, there are specific
+                  rules. Cross-namespace references are only valid if they are explicitly
+                  allowed by something in the namespace they are referring to. For
+                  example, Gateway has the AllowedRoutes field, and ReferenceGrant
+                  provides a generic way to enable other kinds of cross-namespace
+                  reference. \n  ParentRefs from a Route to a Service in the same
+                  namespace are \"producer\" routes, which apply default routing rules
+                  to inbound connections from any namespace to the Service. \n ParentRefs
+                  from a Route to a Service in a different namespace are \"consumer\"
+                  routes, and these routing rules are only applied to outbound connections
+                  originating from the same namespace as the Route, for which the
+                  intended destination of the connections are a Service targeted as
+                  a ParentRef of the Route.  \n "
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -3925,7 +4230,7 @@ spec:
                         the namespace they are referring to. For example: Gateway
                         has the AllowedRoutes field, and ReferenceGrant provides a
                         generic way to enable any other kind of cross-namespace reference.
-                        \n ParentRefs from a Route to a Service in the same namespace
+                        \n  ParentRefs from a Route to a Service in the same namespace
                         are \"producer\" routes, which apply default routing rules
                         to inbound connections from any namespace to the Service.
                         \n ParentRefs from a Route to a Service in a different namespace
@@ -3933,7 +4238,7 @@ spec:
                         applied to outbound connections originating from the same
                         namespace as the Route, for which the intended destination
                         of the connections are a Service targeted as a ParentRef of
-                        the Route. \n Support: Core"
+                        the Route.  \n Support: Core"
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -3948,11 +4253,11 @@ spec:
                         a Route must apply to a specific port as opposed to a listener(s)
                         whose port(s) may be changed. When both Port and SectionName
                         are specified, the name and port of the selected listener
-                        must match both specified values. \n When the parent resource
+                        must match both specified values. \n  When the parent resource
                         is a Service, this targets a specific port in the Service
                         spec. When both Port (experimental) and SectionName are specified,
                         the name and port of the selected port must match both specified
-                        values. \n Implementations MAY choose to support other parent
+                        values.  \n Implementations MAY choose to support other parent
                         resources. Implementations supporting other types of parent
                         resources MUST clearly document how/if Port is interpreted.
                         \n For the purpose of status, an attachment is considered
@@ -4004,16 +4309,13 @@ spec:
                 - message: sectionName or port must be specified when parentRefs includes
                     2 or more references to the same parent
                   rule: 'self.all(p1, self.all(p2, p1.group == p2.group && p1.kind
-                    == p2.kind && p1.name == p2.name && ( ( (!has(p1.__namespace__)
+                    == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '''') && (!has(p2.__namespace__) || p2.__namespace__
-                    == '''') ) || ( has(p1.__namespace__) && has(p2.__namespace__)
-                    && p1.__namespace__ == p2.__namespace__ ) ) ? ( ( ( (!has(p1.sectionName)
-                    || p1.sectionName == '''') && (!has(p2.sectionName) || p2.sectionName
-                    == '''') && (!has(p1.port) || p1.port == 0) && (!has(p2.port)
-                    || p2.port == 0) ) || ( ( (has(p1.sectionName) && p1.sectionName
-                    != '''') || (has(p1.port) && p1.port != 0) ) && ( (has(p2.sectionName)
-                    && p2.sectionName != '''') || (has(p2.port) && p2.port != 0) )
-                    ) ) ): true ))'
+                    == '''')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
+                    p1.__namespace__ == p2.__namespace__)) ? ((!has(p1.sectionName)
+                    || p1.sectionName == '''') == (!has(p2.sectionName) || p2.sectionName
+                    == '''') && (!has(p1.port) || p1.port == 0) == (!has(p2.port)
+                    || p2.port == 0)): true))'
                 - message: sectionName or port must be unique when parentRefs includes
                     2 or more references to the same parent
                   rule: self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind
@@ -4059,8 +4361,25 @@ spec:
                         for Kubernetes ServiceImport \n Support: Implementation-specific
                         for any other resource \n Support for weight: Core"
                       items:
-                        description: HTTPBackendRef defines how a HTTPRoute should
-                          forward an HTTP request.
+                        description: "HTTPBackendRef defines how a HTTPRoute forwards
+                          a HTTP request. \n Note that when a namespace different
+                          than the local namespace is specified, a ReferenceGrant
+                          object is required in the referent namespace to allow that
+                          namespace's owner to accept the reference. See the ReferenceGrant
+                          documentation for details. \n <gateway:experimental:description>
+                          \n When the BackendRef points to a Kubernetes Service, implementations
+                          SHOULD honor the appProtocol field if it is set for the
+                          target Service Port. \n Implementations supporting appProtocol
+                          SHOULD recognize the Kubernetes Standard Application Protocols
+                          defined in KEP-3726. \n If a Service appProtocol isn't specified,
+                          an implementation MAY infer the backend protocol through
+                          its own means. Implementations MAY infer the protocol from
+                          the Route type referring to the backend Service. \n If a
+                          Route is not able to send traffic to the backend using the
+                          specified protocol then the backend is considered invalid.
+                          Implementations MUST set the \"ResolvedRefs\" condition
+                          to \"False\" with the \"UnsupportedProtocol\" reason. \n
+                          </gateway:experimental:description>"
                         properties:
                           filters:
                             description: "Filters defined at this level should be
@@ -5846,6 +6165,48 @@ spec:
                         type: object
                       maxItems: 8
                       type: array
+                    timeouts:
+                      description: "Timeouts defines the timeouts that can be configured
+                        for an HTTP request. \n Support: Extended \n "
+                      properties:
+                        backendRequest:
+                          description: "BackendRequest specifies a timeout for an
+                            individual request from the gateway to a backend. This
+                            covers the time from when the request first starts being
+                            sent from the gateway to when the full response has been
+                            received from the backend. \n An entire client HTTP transaction
+                            with a gateway, covered by the Request timeout, may result
+                            in more than one call from the gateway to the destination
+                            backend, for example, if automatic retries are supported.
+                            \n Because the Request timeout encompasses the BackendRequest
+                            timeout, the value of BackendRequest must be <= the value
+                            of Request timeout. \n Support: Extended"
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                        request:
+                          description: "Request specifies the maximum duration for
+                            a gateway to respond to an HTTP request. If the gateway
+                            has not been able to respond before this deadline is met,
+                            the gateway MUST return a timeout error. \n For example,
+                            setting the `rules.timeouts.request` field to the value
+                            `10s` in an `HTTPRoute` will cause a timeout if a client
+                            request is taking longer than 10 seconds to complete.
+                            \n This timeout is intended to cover as close to the whole
+                            request-response transaction as possible although an implementation
+                            MAY choose to start the timeout after the entire request
+                            stream has been received instead of immediately after
+                            the transaction is initiated by the client. \n When this
+                            field is unspecified, request timeout behavior is implementation-specific.
+                            \n Support: Extended"
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: backendRequest timeout cannot be longer than request
+                          timeout
+                        rule: '!(has(self.request) && has(self.backendRequest) &&
+                          duration(self.request) != duration(''0s'') && duration(self.backendRequest)
+                          > duration(self.request))'
                   type: object
                   x-kubernetes-validations:
                   - message: RequestRedirect filter must not be used together with
@@ -6059,7 +6420,7 @@ spec:
                             in the namespace they are referring to. For example: Gateway
                             has the AllowedRoutes field, and ReferenceGrant provides
                             a generic way to enable any other kind of cross-namespace
-                            reference. \n ParentRefs from a Route to a Service in
+                            reference. \n  ParentRefs from a Route to a Service in
                             the same namespace are \"producer\" routes, which apply
                             default routing rules to inbound connections from any
                             namespace to the Service. \n ParentRefs from a Route to
@@ -6067,7 +6428,7 @@ spec:
                             and these routing rules are only applied to outbound connections
                             originating from the same namespace as the Route, for
                             which the intended destination of the connections are
-                            a Service targeted as a ParentRef of the Route. \n Support:
+                            a Service targeted as a ParentRef of the Route.  \n Support:
                             Core"
                           maxLength: 63
                           minLength: 1
@@ -6084,11 +6445,11 @@ spec:
                             a specific port as opposed to a listener(s) whose port(s)
                             may be changed. When both Port and SectionName are specified,
                             the name and port of the selected listener must match
-                            both specified values. \n When the parent resource is
+                            both specified values. \n  When the parent resource is
                             a Service, this targets a specific port in the Service
                             spec. When both Port (experimental) and SectionName are
                             specified, the name and port of the selected port must
-                            match both specified values. \n Implementations MAY choose
+                            match both specified values.  \n Implementations MAY choose
                             to support other parent resources. Implementations supporting
                             other types of parent resources MUST clearly document
                             how/if Port is interpreted. \n For the purpose of status,
@@ -6149,7 +6510,7 @@ spec:
         required:
         - spec
         type: object
-    served: false
+    served: true
     storage: false
     subresources:
       status: {}
@@ -6253,30 +6614,41 @@ spec:
                   for governing ParentRefs to Services - it is not possible to create
                   a \"producer\" route for a Service in a different namespace from
                   the Route. \n There are two kinds of parent resources with \"Core\"
-                  support: \n * Gateway (Gateway conformance profile) * Service (Mesh
-                  conformance profile, experimental, ClusterIP Services only) \n This
+                  support: \n * Gateway (Gateway conformance profile)  * Service (Mesh
+                  conformance profile, experimental, ClusterIP Services only)  This
                   API may be extended in the future to support additional kinds of
-                  parent resources. \n It is invalid to reference an identical parent
-                  more than once. It is valid to reference multiple distinct sections
-                  within the same parent resource, such as two separate Listeners
-                  on the same Gateway or two separate ports on the same Service. \n
-                  It is possible to separately reference multiple distinct objects
-                  that may be collapsed by an implementation. For example, some implementations
-                  may choose to merge compatible Gateway Listeners together. If that
-                  is the case, the list of routes attached to those resources should
-                  also be merged. \n Note that for ParentRefs that cross namespace
-                  boundaries, there are specific rules. Cross-namespace references
-                  are only valid if they are explicitly allowed by something in the
-                  namespace they are referring to. For example, Gateway has the AllowedRoutes
-                  field, and ReferenceGrant provides a generic way to enable other
-                  kinds of cross-namespace reference. \n ParentRefs from a Route to
-                  a Service in the same namespace are \"producer\" routes, which apply
-                  default routing rules to inbound connections from any namespace
-                  to the Service. \n ParentRefs from a Route to a Service in a different
-                  namespace are \"consumer\" routes, and these routing rules are only
-                  applied to outbound connections originating from the same namespace
-                  as the Route, for which the intended destination of the connections
-                  are a Service targeted as a ParentRef of the Route. \n "
+                  parent resources. \n ParentRefs must be _distinct_. This means either
+                  that: \n * They select different objects.  If this is the case,
+                  then parentRef entries are distinct. In terms of fields, this means
+                  that the multi-part key defined by `group`, `kind`, `namespace`,
+                  and `name` must be unique across all parentRef entries in the Route.
+                  * They do not select different objects, but for each optional field
+                  used, each ParentRef that selects the same object must set the same
+                  set of optional fields to different values. If one ParentRef sets
+                  a combination of optional fields, all must set the same combination.
+                  \n Some examples: \n * If one ParentRef sets `sectionName`, all
+                  ParentRefs referencing the same object must also set `sectionName`.
+                  * If one ParentRef sets `port`, all ParentRefs referencing the same
+                  object must also set `port`. * If one ParentRef sets `sectionName`
+                  and `port`, all ParentRefs referencing the same object must also
+                  set `sectionName` and `port`. \n It is possible to separately reference
+                  multiple distinct objects that may be collapsed by an implementation.
+                  For example, some implementations may choose to merge compatible
+                  Gateway Listeners together. If that is the case, the list of routes
+                  attached to those resources should also be merged. \n Note that
+                  for ParentRefs that cross namespace boundaries, there are specific
+                  rules. Cross-namespace references are only valid if they are explicitly
+                  allowed by something in the namespace they are referring to. For
+                  example, Gateway has the AllowedRoutes field, and ReferenceGrant
+                  provides a generic way to enable other kinds of cross-namespace
+                  reference. \n  ParentRefs from a Route to a Service in the same
+                  namespace are \"producer\" routes, which apply default routing rules
+                  to inbound connections from any namespace to the Service. \n ParentRefs
+                  from a Route to a Service in a different namespace are \"consumer\"
+                  routes, and these routing rules are only applied to outbound connections
+                  originating from the same namespace as the Route, for which the
+                  intended destination of the connections are a Service targeted as
+                  a ParentRef of the Route.  \n "
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -6324,7 +6696,7 @@ spec:
                         the namespace they are referring to. For example: Gateway
                         has the AllowedRoutes field, and ReferenceGrant provides a
                         generic way to enable any other kind of cross-namespace reference.
-                        \n ParentRefs from a Route to a Service in the same namespace
+                        \n  ParentRefs from a Route to a Service in the same namespace
                         are \"producer\" routes, which apply default routing rules
                         to inbound connections from any namespace to the Service.
                         \n ParentRefs from a Route to a Service in a different namespace
@@ -6332,7 +6704,7 @@ spec:
                         applied to outbound connections originating from the same
                         namespace as the Route, for which the intended destination
                         of the connections are a Service targeted as a ParentRef of
-                        the Route. \n Support: Core"
+                        the Route.  \n Support: Core"
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -6347,11 +6719,11 @@ spec:
                         a Route must apply to a specific port as opposed to a listener(s)
                         whose port(s) may be changed. When both Port and SectionName
                         are specified, the name and port of the selected listener
-                        must match both specified values. \n When the parent resource
+                        must match both specified values. \n  When the parent resource
                         is a Service, this targets a specific port in the Service
                         spec. When both Port (experimental) and SectionName are specified,
                         the name and port of the selected port must match both specified
-                        values. \n Implementations MAY choose to support other parent
+                        values.  \n Implementations MAY choose to support other parent
                         resources. Implementations supporting other types of parent
                         resources MUST clearly document how/if Port is interpreted.
                         \n For the purpose of status, an attachment is considered
@@ -6403,16 +6775,13 @@ spec:
                 - message: sectionName or port must be specified when parentRefs includes
                     2 or more references to the same parent
                   rule: 'self.all(p1, self.all(p2, p1.group == p2.group && p1.kind
-                    == p2.kind && p1.name == p2.name && ( ( (!has(p1.__namespace__)
+                    == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '''') && (!has(p2.__namespace__) || p2.__namespace__
-                    == '''') ) || ( has(p1.__namespace__) && has(p2.__namespace__)
-                    && p1.__namespace__ == p2.__namespace__ ) ) ? ( ( ( (!has(p1.sectionName)
-                    || p1.sectionName == '''') && (!has(p2.sectionName) || p2.sectionName
-                    == '''') && (!has(p1.port) || p1.port == 0) && (!has(p2.port)
-                    || p2.port == 0) ) || ( ( (has(p1.sectionName) && p1.sectionName
-                    != '''') || (has(p1.port) && p1.port != 0) ) && ( (has(p2.sectionName)
-                    && p2.sectionName != '''') || (has(p2.port) && p2.port != 0) )
-                    ) ) ): true ))'
+                    == '''')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
+                    p1.__namespace__ == p2.__namespace__)) ? ((!has(p1.sectionName)
+                    || p1.sectionName == '''') == (!has(p2.sectionName) || p2.sectionName
+                    == '''') && (!has(p1.port) || p1.port == 0) == (!has(p2.port)
+                    || p2.port == 0)): true))'
                 - message: sectionName or port must be unique when parentRefs includes
                     2 or more references to the same parent
                   rule: self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind
@@ -6458,8 +6827,25 @@ spec:
                         for Kubernetes ServiceImport \n Support: Implementation-specific
                         for any other resource \n Support for weight: Core"
                       items:
-                        description: HTTPBackendRef defines how a HTTPRoute should
-                          forward an HTTP request.
+                        description: "HTTPBackendRef defines how a HTTPRoute forwards
+                          a HTTP request. \n Note that when a namespace different
+                          than the local namespace is specified, a ReferenceGrant
+                          object is required in the referent namespace to allow that
+                          namespace's owner to accept the reference. See the ReferenceGrant
+                          documentation for details. \n <gateway:experimental:description>
+                          \n When the BackendRef points to a Kubernetes Service, implementations
+                          SHOULD honor the appProtocol field if it is set for the
+                          target Service Port. \n Implementations supporting appProtocol
+                          SHOULD recognize the Kubernetes Standard Application Protocols
+                          defined in KEP-3726. \n If a Service appProtocol isn't specified,
+                          an implementation MAY infer the backend protocol through
+                          its own means. Implementations MAY infer the protocol from
+                          the Route type referring to the backend Service. \n If a
+                          Route is not able to send traffic to the backend using the
+                          specified protocol then the backend is considered invalid.
+                          Implementations MUST set the \"ResolvedRefs\" condition
+                          to \"False\" with the \"UnsupportedProtocol\" reason. \n
+                          </gateway:experimental:description>"
                         properties:
                           filters:
                             description: "Filters defined at this level should be
@@ -8245,6 +8631,48 @@ spec:
                         type: object
                       maxItems: 8
                       type: array
+                    timeouts:
+                      description: "Timeouts defines the timeouts that can be configured
+                        for an HTTP request. \n Support: Extended \n "
+                      properties:
+                        backendRequest:
+                          description: "BackendRequest specifies a timeout for an
+                            individual request from the gateway to a backend. This
+                            covers the time from when the request first starts being
+                            sent from the gateway to when the full response has been
+                            received from the backend. \n An entire client HTTP transaction
+                            with a gateway, covered by the Request timeout, may result
+                            in more than one call from the gateway to the destination
+                            backend, for example, if automatic retries are supported.
+                            \n Because the Request timeout encompasses the BackendRequest
+                            timeout, the value of BackendRequest must be <= the value
+                            of Request timeout. \n Support: Extended"
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                        request:
+                          description: "Request specifies the maximum duration for
+                            a gateway to respond to an HTTP request. If the gateway
+                            has not been able to respond before this deadline is met,
+                            the gateway MUST return a timeout error. \n For example,
+                            setting the `rules.timeouts.request` field to the value
+                            `10s` in an `HTTPRoute` will cause a timeout if a client
+                            request is taking longer than 10 seconds to complete.
+                            \n This timeout is intended to cover as close to the whole
+                            request-response transaction as possible although an implementation
+                            MAY choose to start the timeout after the entire request
+                            stream has been received instead of immediately after
+                            the transaction is initiated by the client. \n When this
+                            field is unspecified, request timeout behavior is implementation-specific.
+                            \n Support: Extended"
+                          pattern: ^([0-9]{1,5}(h|m|s|ms)){1,4}$
+                          type: string
+                      type: object
+                      x-kubernetes-validations:
+                      - message: backendRequest timeout cannot be longer than request
+                          timeout
+                        rule: '!(has(self.request) && has(self.backendRequest) &&
+                          duration(self.request) != duration(''0s'') && duration(self.backendRequest)
+                          > duration(self.request))'
                   type: object
                   x-kubernetes-validations:
                   - message: RequestRedirect filter must not be used together with
@@ -8458,7 +8886,7 @@ spec:
                             in the namespace they are referring to. For example: Gateway
                             has the AllowedRoutes field, and ReferenceGrant provides
                             a generic way to enable any other kind of cross-namespace
-                            reference. \n ParentRefs from a Route to a Service in
+                            reference. \n  ParentRefs from a Route to a Service in
                             the same namespace are \"producer\" routes, which apply
                             default routing rules to inbound connections from any
                             namespace to the Service. \n ParentRefs from a Route to
@@ -8466,7 +8894,7 @@ spec:
                             and these routing rules are only applied to outbound connections
                             originating from the same namespace as the Route, for
                             which the intended destination of the connections are
-                            a Service targeted as a ParentRef of the Route. \n Support:
+                            a Service targeted as a ParentRef of the Route.  \n Support:
                             Core"
                           maxLength: 63
                           minLength: 1
@@ -8483,11 +8911,11 @@ spec:
                             a specific port as opposed to a listener(s) whose port(s)
                             may be changed. When both Port and SectionName are specified,
                             the name and port of the selected listener must match
-                            both specified values. \n When the parent resource is
+                            both specified values. \n  When the parent resource is
                             a Service, this targets a specific port in the Service
                             spec. When both Port (experimental) and SectionName are
                             specified, the name and port of the selected port must
-                            match both specified values. \n Implementations MAY choose
+                            match both specified values.  \n Implementations MAY choose
                             to support other parent resources. Implementations supporting
                             other types of parent resources MUST clearly document
                             how/if Port is interpreted. \n For the purpose of status,
@@ -8563,8 +8991,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2245
-    gateway.networking.k8s.io/bundle-version: v0.8.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
+    gateway.networking.k8s.io/bundle-version: v1.0.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: referencegrants.gateway.networking.k8s.io
@@ -8849,8 +9277,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2245
-    gateway.networking.k8s.io/bundle-version: v0.8.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
+    gateway.networking.k8s.io/bundle-version: v1.0.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: tcproutes.gateway.networking.k8s.io
@@ -8903,30 +9331,41 @@ spec:
                   for governing ParentRefs to Services - it is not possible to create
                   a \"producer\" route for a Service in a different namespace from
                   the Route. \n There are two kinds of parent resources with \"Core\"
-                  support: \n * Gateway (Gateway conformance profile) * Service (Mesh
-                  conformance profile, experimental, ClusterIP Services only) \n This
+                  support: \n * Gateway (Gateway conformance profile)  * Service (Mesh
+                  conformance profile, experimental, ClusterIP Services only)  This
                   API may be extended in the future to support additional kinds of
-                  parent resources. \n It is invalid to reference an identical parent
-                  more than once. It is valid to reference multiple distinct sections
-                  within the same parent resource, such as two separate Listeners
-                  on the same Gateway or two separate ports on the same Service. \n
-                  It is possible to separately reference multiple distinct objects
-                  that may be collapsed by an implementation. For example, some implementations
-                  may choose to merge compatible Gateway Listeners together. If that
-                  is the case, the list of routes attached to those resources should
-                  also be merged. \n Note that for ParentRefs that cross namespace
-                  boundaries, there are specific rules. Cross-namespace references
-                  are only valid if they are explicitly allowed by something in the
-                  namespace they are referring to. For example, Gateway has the AllowedRoutes
-                  field, and ReferenceGrant provides a generic way to enable other
-                  kinds of cross-namespace reference. \n ParentRefs from a Route to
-                  a Service in the same namespace are \"producer\" routes, which apply
-                  default routing rules to inbound connections from any namespace
-                  to the Service. \n ParentRefs from a Route to a Service in a different
-                  namespace are \"consumer\" routes, and these routing rules are only
-                  applied to outbound connections originating from the same namespace
-                  as the Route, for which the intended destination of the connections
-                  are a Service targeted as a ParentRef of the Route. \n "
+                  parent resources. \n ParentRefs must be _distinct_. This means either
+                  that: \n * They select different objects.  If this is the case,
+                  then parentRef entries are distinct. In terms of fields, this means
+                  that the multi-part key defined by `group`, `kind`, `namespace`,
+                  and `name` must be unique across all parentRef entries in the Route.
+                  * They do not select different objects, but for each optional field
+                  used, each ParentRef that selects the same object must set the same
+                  set of optional fields to different values. If one ParentRef sets
+                  a combination of optional fields, all must set the same combination.
+                  \n Some examples: \n * If one ParentRef sets `sectionName`, all
+                  ParentRefs referencing the same object must also set `sectionName`.
+                  * If one ParentRef sets `port`, all ParentRefs referencing the same
+                  object must also set `port`. * If one ParentRef sets `sectionName`
+                  and `port`, all ParentRefs referencing the same object must also
+                  set `sectionName` and `port`. \n It is possible to separately reference
+                  multiple distinct objects that may be collapsed by an implementation.
+                  For example, some implementations may choose to merge compatible
+                  Gateway Listeners together. If that is the case, the list of routes
+                  attached to those resources should also be merged. \n Note that
+                  for ParentRefs that cross namespace boundaries, there are specific
+                  rules. Cross-namespace references are only valid if they are explicitly
+                  allowed by something in the namespace they are referring to. For
+                  example, Gateway has the AllowedRoutes field, and ReferenceGrant
+                  provides a generic way to enable other kinds of cross-namespace
+                  reference. \n  ParentRefs from a Route to a Service in the same
+                  namespace are \"producer\" routes, which apply default routing rules
+                  to inbound connections from any namespace to the Service. \n ParentRefs
+                  from a Route to a Service in a different namespace are \"consumer\"
+                  routes, and these routing rules are only applied to outbound connections
+                  originating from the same namespace as the Route, for which the
+                  intended destination of the connections are a Service targeted as
+                  a ParentRef of the Route.  \n "
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -8974,7 +9413,7 @@ spec:
                         the namespace they are referring to. For example: Gateway
                         has the AllowedRoutes field, and ReferenceGrant provides a
                         generic way to enable any other kind of cross-namespace reference.
-                        \n ParentRefs from a Route to a Service in the same namespace
+                        \n  ParentRefs from a Route to a Service in the same namespace
                         are \"producer\" routes, which apply default routing rules
                         to inbound connections from any namespace to the Service.
                         \n ParentRefs from a Route to a Service in a different namespace
@@ -8982,7 +9421,7 @@ spec:
                         applied to outbound connections originating from the same
                         namespace as the Route, for which the intended destination
                         of the connections are a Service targeted as a ParentRef of
-                        the Route. \n Support: Core"
+                        the Route.  \n Support: Core"
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -8997,11 +9436,11 @@ spec:
                         a Route must apply to a specific port as opposed to a listener(s)
                         whose port(s) may be changed. When both Port and SectionName
                         are specified, the name and port of the selected listener
-                        must match both specified values. \n When the parent resource
+                        must match both specified values. \n  When the parent resource
                         is a Service, this targets a specific port in the Service
                         spec. When both Port (experimental) and SectionName are specified,
                         the name and port of the selected port must match both specified
-                        values. \n Implementations MAY choose to support other parent
+                        values.  \n Implementations MAY choose to support other parent
                         resources. Implementations supporting other types of parent
                         resources MUST clearly document how/if Port is interpreted.
                         \n For the purpose of status, an attachment is considered
@@ -9053,16 +9492,13 @@ spec:
                 - message: sectionName or port must be specified when parentRefs includes
                     2 or more references to the same parent
                   rule: 'self.all(p1, self.all(p2, p1.group == p2.group && p1.kind
-                    == p2.kind && p1.name == p2.name && ( ( (!has(p1.__namespace__)
+                    == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '''') && (!has(p2.__namespace__) || p2.__namespace__
-                    == '''') ) || ( has(p1.__namespace__) && has(p2.__namespace__)
-                    && p1.__namespace__ == p2.__namespace__ ) ) ? ( ( ( (!has(p1.sectionName)
-                    || p1.sectionName == '''') && (!has(p2.sectionName) || p2.sectionName
-                    == '''') && (!has(p1.port) || p1.port == 0) && (!has(p2.port)
-                    || p2.port == 0) ) || ( ( (has(p1.sectionName) && p1.sectionName
-                    != '''') || (has(p1.port) && p1.port != 0) ) && ( (has(p2.sectionName)
-                    && p2.sectionName != '''') || (has(p2.port) && p2.port != 0) )
-                    ) ) ): true ))'
+                    == '''')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
+                    p1.__namespace__ == p2.__namespace__)) ? ((!has(p1.sectionName)
+                    || p1.sectionName == '''') == (!has(p2.sectionName) || p2.sectionName
+                    == '''') && (!has(p1.port) || p1.port == 0) == (!has(p2.port)
+                    || p2.port == 0)): true))'
                 - message: sectionName or port must be unique when parentRefs includes
                     2 or more references to the same parent
                   rule: self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind
@@ -9097,7 +9533,24 @@ spec:
                           namespace different than the local namespace is specified,
                           a ReferenceGrant object is required in the referent namespace
                           to allow that namespace's owner to accept the reference.
-                          See the ReferenceGrant documentation for details."
+                          See the ReferenceGrant documentation for details. \n <gateway:experimental:description>
+                          \n When the BackendRef points to a Kubernetes Service, implementations
+                          SHOULD honor the appProtocol field if it is set for the
+                          target Service Port. \n Implementations supporting appProtocol
+                          SHOULD recognize the Kubernetes Standard Application Protocols
+                          defined in KEP-3726. \n If a Service appProtocol isn't specified,
+                          an implementation MAY infer the backend protocol through
+                          its own means. Implementations MAY infer the protocol from
+                          the Route type referring to the backend Service. \n If a
+                          Route is not able to send traffic to the backend using the
+                          specified protocol then the backend is considered invalid.
+                          Implementations MUST set the \"ResolvedRefs\" condition
+                          to \"False\" with the \"UnsupportedProtocol\" reason. \n
+                          </gateway:experimental:description> \n Note that when the
+                          BackendTLSPolicy object is enabled by the implementation,
+                          there are some extra rules about validity to consider here.
+                          See the fields where this struct is used for more information
+                          about the exact behavior."
                         properties:
                           group:
                             default: ""
@@ -9357,7 +9810,7 @@ spec:
                             in the namespace they are referring to. For example: Gateway
                             has the AllowedRoutes field, and ReferenceGrant provides
                             a generic way to enable any other kind of cross-namespace
-                            reference. \n ParentRefs from a Route to a Service in
+                            reference. \n  ParentRefs from a Route to a Service in
                             the same namespace are \"producer\" routes, which apply
                             default routing rules to inbound connections from any
                             namespace to the Service. \n ParentRefs from a Route to
@@ -9365,7 +9818,7 @@ spec:
                             and these routing rules are only applied to outbound connections
                             originating from the same namespace as the Route, for
                             which the intended destination of the connections are
-                            a Service targeted as a ParentRef of the Route. \n Support:
+                            a Service targeted as a ParentRef of the Route.  \n Support:
                             Core"
                           maxLength: 63
                           minLength: 1
@@ -9382,11 +9835,11 @@ spec:
                             a specific port as opposed to a listener(s) whose port(s)
                             may be changed. When both Port and SectionName are specified,
                             the name and port of the selected listener must match
-                            both specified values. \n When the parent resource is
+                            both specified values. \n  When the parent resource is
                             a Service, this targets a specific port in the Service
                             spec. When both Port (experimental) and SectionName are
                             specified, the name and port of the selected port must
-                            match both specified values. \n Implementations MAY choose
+                            match both specified values.  \n Implementations MAY choose
                             to support other parent resources. Implementations supporting
                             other types of parent resources MUST clearly document
                             how/if Port is interpreted. \n For the purpose of status,
@@ -9462,8 +9915,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2245
-    gateway.networking.k8s.io/bundle-version: v0.8.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
+    gateway.networking.k8s.io/bundle-version: v1.0.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: tlsroutes.gateway.networking.k8s.io
@@ -9562,30 +10015,41 @@ spec:
                   for governing ParentRefs to Services - it is not possible to create
                   a \"producer\" route for a Service in a different namespace from
                   the Route. \n There are two kinds of parent resources with \"Core\"
-                  support: \n * Gateway (Gateway conformance profile) * Service (Mesh
-                  conformance profile, experimental, ClusterIP Services only) \n This
+                  support: \n * Gateway (Gateway conformance profile)  * Service (Mesh
+                  conformance profile, experimental, ClusterIP Services only)  This
                   API may be extended in the future to support additional kinds of
-                  parent resources. \n It is invalid to reference an identical parent
-                  more than once. It is valid to reference multiple distinct sections
-                  within the same parent resource, such as two separate Listeners
-                  on the same Gateway or two separate ports on the same Service. \n
-                  It is possible to separately reference multiple distinct objects
-                  that may be collapsed by an implementation. For example, some implementations
-                  may choose to merge compatible Gateway Listeners together. If that
-                  is the case, the list of routes attached to those resources should
-                  also be merged. \n Note that for ParentRefs that cross namespace
-                  boundaries, there are specific rules. Cross-namespace references
-                  are only valid if they are explicitly allowed by something in the
-                  namespace they are referring to. For example, Gateway has the AllowedRoutes
-                  field, and ReferenceGrant provides a generic way to enable other
-                  kinds of cross-namespace reference. \n ParentRefs from a Route to
-                  a Service in the same namespace are \"producer\" routes, which apply
-                  default routing rules to inbound connections from any namespace
-                  to the Service. \n ParentRefs from a Route to a Service in a different
-                  namespace are \"consumer\" routes, and these routing rules are only
-                  applied to outbound connections originating from the same namespace
-                  as the Route, for which the intended destination of the connections
-                  are a Service targeted as a ParentRef of the Route. \n "
+                  parent resources. \n ParentRefs must be _distinct_. This means either
+                  that: \n * They select different objects.  If this is the case,
+                  then parentRef entries are distinct. In terms of fields, this means
+                  that the multi-part key defined by `group`, `kind`, `namespace`,
+                  and `name` must be unique across all parentRef entries in the Route.
+                  * They do not select different objects, but for each optional field
+                  used, each ParentRef that selects the same object must set the same
+                  set of optional fields to different values. If one ParentRef sets
+                  a combination of optional fields, all must set the same combination.
+                  \n Some examples: \n * If one ParentRef sets `sectionName`, all
+                  ParentRefs referencing the same object must also set `sectionName`.
+                  * If one ParentRef sets `port`, all ParentRefs referencing the same
+                  object must also set `port`. * If one ParentRef sets `sectionName`
+                  and `port`, all ParentRefs referencing the same object must also
+                  set `sectionName` and `port`. \n It is possible to separately reference
+                  multiple distinct objects that may be collapsed by an implementation.
+                  For example, some implementations may choose to merge compatible
+                  Gateway Listeners together. If that is the case, the list of routes
+                  attached to those resources should also be merged. \n Note that
+                  for ParentRefs that cross namespace boundaries, there are specific
+                  rules. Cross-namespace references are only valid if they are explicitly
+                  allowed by something in the namespace they are referring to. For
+                  example, Gateway has the AllowedRoutes field, and ReferenceGrant
+                  provides a generic way to enable other kinds of cross-namespace
+                  reference. \n  ParentRefs from a Route to a Service in the same
+                  namespace are \"producer\" routes, which apply default routing rules
+                  to inbound connections from any namespace to the Service. \n ParentRefs
+                  from a Route to a Service in a different namespace are \"consumer\"
+                  routes, and these routing rules are only applied to outbound connections
+                  originating from the same namespace as the Route, for which the
+                  intended destination of the connections are a Service targeted as
+                  a ParentRef of the Route.  \n "
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -9633,7 +10097,7 @@ spec:
                         the namespace they are referring to. For example: Gateway
                         has the AllowedRoutes field, and ReferenceGrant provides a
                         generic way to enable any other kind of cross-namespace reference.
-                        \n ParentRefs from a Route to a Service in the same namespace
+                        \n  ParentRefs from a Route to a Service in the same namespace
                         are \"producer\" routes, which apply default routing rules
                         to inbound connections from any namespace to the Service.
                         \n ParentRefs from a Route to a Service in a different namespace
@@ -9641,7 +10105,7 @@ spec:
                         applied to outbound connections originating from the same
                         namespace as the Route, for which the intended destination
                         of the connections are a Service targeted as a ParentRef of
-                        the Route. \n Support: Core"
+                        the Route.  \n Support: Core"
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -9656,11 +10120,11 @@ spec:
                         a Route must apply to a specific port as opposed to a listener(s)
                         whose port(s) may be changed. When both Port and SectionName
                         are specified, the name and port of the selected listener
-                        must match both specified values. \n When the parent resource
+                        must match both specified values. \n  When the parent resource
                         is a Service, this targets a specific port in the Service
                         spec. When both Port (experimental) and SectionName are specified,
                         the name and port of the selected port must match both specified
-                        values. \n Implementations MAY choose to support other parent
+                        values.  \n Implementations MAY choose to support other parent
                         resources. Implementations supporting other types of parent
                         resources MUST clearly document how/if Port is interpreted.
                         \n For the purpose of status, an attachment is considered
@@ -9712,16 +10176,13 @@ spec:
                 - message: sectionName or port must be specified when parentRefs includes
                     2 or more references to the same parent
                   rule: 'self.all(p1, self.all(p2, p1.group == p2.group && p1.kind
-                    == p2.kind && p1.name == p2.name && ( ( (!has(p1.__namespace__)
+                    == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '''') && (!has(p2.__namespace__) || p2.__namespace__
-                    == '''') ) || ( has(p1.__namespace__) && has(p2.__namespace__)
-                    && p1.__namespace__ == p2.__namespace__ ) ) ? ( ( ( (!has(p1.sectionName)
-                    || p1.sectionName == '''') && (!has(p2.sectionName) || p2.sectionName
-                    == '''') && (!has(p1.port) || p1.port == 0) && (!has(p2.port)
-                    || p2.port == 0) ) || ( ( (has(p1.sectionName) && p1.sectionName
-                    != '''') || (has(p1.port) && p1.port != 0) ) && ( (has(p2.sectionName)
-                    && p2.sectionName != '''') || (has(p2.port) && p2.port != 0) )
-                    ) ) ): true ))'
+                    == '''')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
+                    p1.__namespace__ == p2.__namespace__)) ? ((!has(p1.sectionName)
+                    || p1.sectionName == '''') == (!has(p2.sectionName) || p2.sectionName
+                    == '''') && (!has(p1.port) || p1.port == 0) == (!has(p2.port)
+                    || p2.port == 0)): true))'
                 - message: sectionName or port must be unique when parentRefs includes
                     2 or more references to the same parent
                   rule: self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind
@@ -9759,7 +10220,24 @@ spec:
                           namespace different than the local namespace is specified,
                           a ReferenceGrant object is required in the referent namespace
                           to allow that namespace's owner to accept the reference.
-                          See the ReferenceGrant documentation for details."
+                          See the ReferenceGrant documentation for details. \n <gateway:experimental:description>
+                          \n When the BackendRef points to a Kubernetes Service, implementations
+                          SHOULD honor the appProtocol field if it is set for the
+                          target Service Port. \n Implementations supporting appProtocol
+                          SHOULD recognize the Kubernetes Standard Application Protocols
+                          defined in KEP-3726. \n If a Service appProtocol isn't specified,
+                          an implementation MAY infer the backend protocol through
+                          its own means. Implementations MAY infer the protocol from
+                          the Route type referring to the backend Service. \n If a
+                          Route is not able to send traffic to the backend using the
+                          specified protocol then the backend is considered invalid.
+                          Implementations MUST set the \"ResolvedRefs\" condition
+                          to \"False\" with the \"UnsupportedProtocol\" reason. \n
+                          </gateway:experimental:description> \n Note that when the
+                          BackendTLSPolicy object is enabled by the implementation,
+                          there are some extra rules about validity to consider here.
+                          See the fields where this struct is used for more information
+                          about the exact behavior."
                         properties:
                           group:
                             default: ""
@@ -10019,7 +10497,7 @@ spec:
                             in the namespace they are referring to. For example: Gateway
                             has the AllowedRoutes field, and ReferenceGrant provides
                             a generic way to enable any other kind of cross-namespace
-                            reference. \n ParentRefs from a Route to a Service in
+                            reference. \n  ParentRefs from a Route to a Service in
                             the same namespace are \"producer\" routes, which apply
                             default routing rules to inbound connections from any
                             namespace to the Service. \n ParentRefs from a Route to
@@ -10027,7 +10505,7 @@ spec:
                             and these routing rules are only applied to outbound connections
                             originating from the same namespace as the Route, for
                             which the intended destination of the connections are
-                            a Service targeted as a ParentRef of the Route. \n Support:
+                            a Service targeted as a ParentRef of the Route.  \n Support:
                             Core"
                           maxLength: 63
                           minLength: 1
@@ -10044,11 +10522,11 @@ spec:
                             a specific port as opposed to a listener(s) whose port(s)
                             may be changed. When both Port and SectionName are specified,
                             the name and port of the selected listener must match
-                            both specified values. \n When the parent resource is
+                            both specified values. \n  When the parent resource is
                             a Service, this targets a specific port in the Service
                             spec. When both Port (experimental) and SectionName are
                             specified, the name and port of the selected port must
-                            match both specified values. \n Implementations MAY choose
+                            match both specified values.  \n Implementations MAY choose
                             to support other parent resources. Implementations supporting
                             other types of parent resources MUST clearly document
                             how/if Port is interpreted. \n For the purpose of status,
@@ -10124,8 +10602,8 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2245
-    gateway.networking.k8s.io/bundle-version: v0.8.0
+    api-approved.kubernetes.io: https://github.com/kubernetes-sigs/gateway-api/pull/2466
+    gateway.networking.k8s.io/bundle-version: v1.0.0-rc1
     gateway.networking.k8s.io/channel: experimental
   creationTimestamp: null
   name: udproutes.gateway.networking.k8s.io
@@ -10178,30 +10656,41 @@ spec:
                   for governing ParentRefs to Services - it is not possible to create
                   a \"producer\" route for a Service in a different namespace from
                   the Route. \n There are two kinds of parent resources with \"Core\"
-                  support: \n * Gateway (Gateway conformance profile) * Service (Mesh
-                  conformance profile, experimental, ClusterIP Services only) \n This
+                  support: \n * Gateway (Gateway conformance profile)  * Service (Mesh
+                  conformance profile, experimental, ClusterIP Services only)  This
                   API may be extended in the future to support additional kinds of
-                  parent resources. \n It is invalid to reference an identical parent
-                  more than once. It is valid to reference multiple distinct sections
-                  within the same parent resource, such as two separate Listeners
-                  on the same Gateway or two separate ports on the same Service. \n
-                  It is possible to separately reference multiple distinct objects
-                  that may be collapsed by an implementation. For example, some implementations
-                  may choose to merge compatible Gateway Listeners together. If that
-                  is the case, the list of routes attached to those resources should
-                  also be merged. \n Note that for ParentRefs that cross namespace
-                  boundaries, there are specific rules. Cross-namespace references
-                  are only valid if they are explicitly allowed by something in the
-                  namespace they are referring to. For example, Gateway has the AllowedRoutes
-                  field, and ReferenceGrant provides a generic way to enable other
-                  kinds of cross-namespace reference. \n ParentRefs from a Route to
-                  a Service in the same namespace are \"producer\" routes, which apply
-                  default routing rules to inbound connections from any namespace
-                  to the Service. \n ParentRefs from a Route to a Service in a different
-                  namespace are \"consumer\" routes, and these routing rules are only
-                  applied to outbound connections originating from the same namespace
-                  as the Route, for which the intended destination of the connections
-                  are a Service targeted as a ParentRef of the Route. \n "
+                  parent resources. \n ParentRefs must be _distinct_. This means either
+                  that: \n * They select different objects.  If this is the case,
+                  then parentRef entries are distinct. In terms of fields, this means
+                  that the multi-part key defined by `group`, `kind`, `namespace`,
+                  and `name` must be unique across all parentRef entries in the Route.
+                  * They do not select different objects, but for each optional field
+                  used, each ParentRef that selects the same object must set the same
+                  set of optional fields to different values. If one ParentRef sets
+                  a combination of optional fields, all must set the same combination.
+                  \n Some examples: \n * If one ParentRef sets `sectionName`, all
+                  ParentRefs referencing the same object must also set `sectionName`.
+                  * If one ParentRef sets `port`, all ParentRefs referencing the same
+                  object must also set `port`. * If one ParentRef sets `sectionName`
+                  and `port`, all ParentRefs referencing the same object must also
+                  set `sectionName` and `port`. \n It is possible to separately reference
+                  multiple distinct objects that may be collapsed by an implementation.
+                  For example, some implementations may choose to merge compatible
+                  Gateway Listeners together. If that is the case, the list of routes
+                  attached to those resources should also be merged. \n Note that
+                  for ParentRefs that cross namespace boundaries, there are specific
+                  rules. Cross-namespace references are only valid if they are explicitly
+                  allowed by something in the namespace they are referring to. For
+                  example, Gateway has the AllowedRoutes field, and ReferenceGrant
+                  provides a generic way to enable other kinds of cross-namespace
+                  reference. \n  ParentRefs from a Route to a Service in the same
+                  namespace are \"producer\" routes, which apply default routing rules
+                  to inbound connections from any namespace to the Service. \n ParentRefs
+                  from a Route to a Service in a different namespace are \"consumer\"
+                  routes, and these routing rules are only applied to outbound connections
+                  originating from the same namespace as the Route, for which the
+                  intended destination of the connections are a Service targeted as
+                  a ParentRef of the Route.  \n "
                 items:
                   description: "ParentReference identifies an API object (usually
                     a Gateway) that can be considered a parent of this resource (usually
@@ -10249,7 +10738,7 @@ spec:
                         the namespace they are referring to. For example: Gateway
                         has the AllowedRoutes field, and ReferenceGrant provides a
                         generic way to enable any other kind of cross-namespace reference.
-                        \n ParentRefs from a Route to a Service in the same namespace
+                        \n  ParentRefs from a Route to a Service in the same namespace
                         are \"producer\" routes, which apply default routing rules
                         to inbound connections from any namespace to the Service.
                         \n ParentRefs from a Route to a Service in a different namespace
@@ -10257,7 +10746,7 @@ spec:
                         applied to outbound connections originating from the same
                         namespace as the Route, for which the intended destination
                         of the connections are a Service targeted as a ParentRef of
-                        the Route. \n Support: Core"
+                        the Route.  \n Support: Core"
                       maxLength: 63
                       minLength: 1
                       pattern: ^[a-z0-9]([-a-z0-9]*[a-z0-9])?$
@@ -10272,11 +10761,11 @@ spec:
                         a Route must apply to a specific port as opposed to a listener(s)
                         whose port(s) may be changed. When both Port and SectionName
                         are specified, the name and port of the selected listener
-                        must match both specified values. \n When the parent resource
+                        must match both specified values. \n  When the parent resource
                         is a Service, this targets a specific port in the Service
                         spec. When both Port (experimental) and SectionName are specified,
                         the name and port of the selected port must match both specified
-                        values. \n Implementations MAY choose to support other parent
+                        values.  \n Implementations MAY choose to support other parent
                         resources. Implementations supporting other types of parent
                         resources MUST clearly document how/if Port is interpreted.
                         \n For the purpose of status, an attachment is considered
@@ -10328,16 +10817,13 @@ spec:
                 - message: sectionName or port must be specified when parentRefs includes
                     2 or more references to the same parent
                   rule: 'self.all(p1, self.all(p2, p1.group == p2.group && p1.kind
-                    == p2.kind && p1.name == p2.name && ( ( (!has(p1.__namespace__)
+                    == p2.kind && p1.name == p2.name && (((!has(p1.__namespace__)
                     || p1.__namespace__ == '''') && (!has(p2.__namespace__) || p2.__namespace__
-                    == '''') ) || ( has(p1.__namespace__) && has(p2.__namespace__)
-                    && p1.__namespace__ == p2.__namespace__ ) ) ? ( ( ( (!has(p1.sectionName)
-                    || p1.sectionName == '''') && (!has(p2.sectionName) || p2.sectionName
-                    == '''') && (!has(p1.port) || p1.port == 0) && (!has(p2.port)
-                    || p2.port == 0) ) || ( ( (has(p1.sectionName) && p1.sectionName
-                    != '''') || (has(p1.port) && p1.port != 0) ) && ( (has(p2.sectionName)
-                    && p2.sectionName != '''') || (has(p2.port) && p2.port != 0) )
-                    ) ) ): true ))'
+                    == '''')) || (has(p1.__namespace__) && has(p2.__namespace__) &&
+                    p1.__namespace__ == p2.__namespace__)) ? ((!has(p1.sectionName)
+                    || p1.sectionName == '''') == (!has(p2.sectionName) || p2.sectionName
+                    == '''') && (!has(p1.port) || p1.port == 0) == (!has(p2.port)
+                    || p2.port == 0)): true))'
                 - message: sectionName or port must be unique when parentRefs includes
                     2 or more references to the same parent
                   rule: self.all(p1, self.exists_one(p2, p1.group == p2.group && p1.kind
@@ -10372,7 +10858,24 @@ spec:
                           namespace different than the local namespace is specified,
                           a ReferenceGrant object is required in the referent namespace
                           to allow that namespace's owner to accept the reference.
-                          See the ReferenceGrant documentation for details."
+                          See the ReferenceGrant documentation for details. \n <gateway:experimental:description>
+                          \n When the BackendRef points to a Kubernetes Service, implementations
+                          SHOULD honor the appProtocol field if it is set for the
+                          target Service Port. \n Implementations supporting appProtocol
+                          SHOULD recognize the Kubernetes Standard Application Protocols
+                          defined in KEP-3726. \n If a Service appProtocol isn't specified,
+                          an implementation MAY infer the backend protocol through
+                          its own means. Implementations MAY infer the protocol from
+                          the Route type referring to the backend Service. \n If a
+                          Route is not able to send traffic to the backend using the
+                          specified protocol then the backend is considered invalid.
+                          Implementations MUST set the \"ResolvedRefs\" condition
+                          to \"False\" with the \"UnsupportedProtocol\" reason. \n
+                          </gateway:experimental:description> \n Note that when the
+                          BackendTLSPolicy object is enabled by the implementation,
+                          there are some extra rules about validity to consider here.
+                          See the fields where this struct is used for more information
+                          about the exact behavior."
                         properties:
                           group:
                             default: ""
@@ -10632,7 +11135,7 @@ spec:
                             in the namespace they are referring to. For example: Gateway
                             has the AllowedRoutes field, and ReferenceGrant provides
                             a generic way to enable any other kind of cross-namespace
-                            reference. \n ParentRefs from a Route to a Service in
+                            reference. \n  ParentRefs from a Route to a Service in
                             the same namespace are \"producer\" routes, which apply
                             default routing rules to inbound connections from any
                             namespace to the Service. \n ParentRefs from a Route to
@@ -10640,7 +11143,7 @@ spec:
                             and these routing rules are only applied to outbound connections
                             originating from the same namespace as the Route, for
                             which the intended destination of the connections are
-                            a Service targeted as a ParentRef of the Route. \n Support:
+                            a Service targeted as a ParentRef of the Route.  \n Support:
                             Core"
                           maxLength: 63
                           minLength: 1
@@ -10657,11 +11160,11 @@ spec:
                             a specific port as opposed to a listener(s) whose port(s)
                             may be changed. When both Port and SectionName are specified,
                             the name and port of the selected listener must match
-                            both specified values. \n When the parent resource is
+                            both specified values. \n  When the parent resource is
                             a Service, this targets a specific port in the Service
                             spec. When both Port (experimental) and SectionName are
                             specified, the name and port of the selected port must
-                            match both specified values. \n Implementations MAY choose
+                            match both specified values.  \n Implementations MAY choose
                             to support other parent resources. Implementations supporting
                             other types of parent resources MUST clearly document
                             how/if Port is interpreted. \n For the purpose of status,

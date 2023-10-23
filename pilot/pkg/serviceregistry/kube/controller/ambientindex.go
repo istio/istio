@@ -28,6 +28,7 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
@@ -51,7 +52,10 @@ type AmbientIndex interface {
 	All() []*model.AddressInfo
 	WorkloadsForWaypoint(scope model.WaypointScope) []*model.WorkloadInfo
 	Waypoint(scope model.WaypointScope) []netip.Addr
-	CalculateUpdatedWorkloads(pods map[string]*v1.Pod, workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, c *Controller) map[model.ConfigKey]struct{}
+	CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
+		workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry,
+		seEndpoints map[*apiv1alpha3.ServiceEntry]*v1alpha3.WorkloadEntry,
+		c *Controller) map[model.ConfigKey]struct{}
 	HandleSelectedNamespace(ns string, pods []*v1.Pod, c *Controller)
 }
 
@@ -666,24 +670,26 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 		}
 	}
 
-	workloadEntries := c.getSelectedWorkloadEntries(svc.GetNamespace(), svc.Spec.Selector)
-	for _, w := range workloadEntries {
-		wl := a.extractWorkloadEntry(w, c)
-		// Can be nil if the WorkloadEntry IP has not been mapped yet
-		//
-		// Note: this is a defensive check that mimics the logic for
-		// pods above. WorkloadEntries are mapped by their IP address
-		// in the following cases:
-		// 1. WorkloadEntry add/update
-		// 2. AuthorizationPolicy add/update
-		// 3. Namespace Ambient label add/update
-		if wl != nil {
-			// Update the WorkloadEntry, since it now has new VIP info
-			for _, networkAddr := range networkAddressFromWorkload(wl) {
-				a.byWorkloadEntry[networkAddr] = wl
+	if features.EnableK8SServiceSelectWorkloadEntries {
+		workloadEntries := c.getSelectedWorkloadEntries(svc.GetNamespace(), svc.Spec.Selector)
+		for _, w := range workloadEntries {
+			wl := a.extractWorkloadEntry(w, c)
+			// Can be nil if the WorkloadEntry IP has not been mapped yet
+			//
+			// Note: this is a defensive check that mimics the logic for
+			// pods above. WorkloadEntries are mapped by their IP address
+			// in the following cases:
+			// 1. WorkloadEntry add/update
+			// 2. AuthorizationPolicy add/update
+			// 3. Namespace Ambient label add/update
+			if wl != nil {
+				// Update the WorkloadEntry, since it now has new VIP info
+				for _, networkAddr := range networkAddressFromWorkload(wl) {
+					a.byWorkloadEntry[networkAddr] = wl
+				}
+				a.byUID[wl.Uid] = wl
+				wls[wl.Uid] = wl
 			}
-			a.byUID[wl.Uid] = wl
-			wls[wl.Uid] = wl
 		}
 	}
 

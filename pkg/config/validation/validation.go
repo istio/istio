@@ -47,6 +47,7 @@ import (
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	type_beta "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/util/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/gateway"
@@ -211,18 +212,22 @@ func GetValidateFunc(name string) ValidateFunc {
 }
 
 func registerValidateFunc(name string, f ValidateFunc) ValidateFunc {
-	// Wrap the original validate function with an extra validate function for the annotation "istio.io/dry-run".
-	validate := validateAnnotationDryRun(f)
+	// Wrap the original validate function with an extra validate function for object metadata
+	validate := validateMetadata(f)
 	validateFuncs[name] = validate
 	return validate
 }
 
-func validateAnnotationDryRun(f ValidateFunc) ValidateFunc {
+func validateMetadata(f ValidateFunc) ValidateFunc {
 	return func(config config.Config) (Warning, error) {
+		// Check the annotation "istio.io/dry-run".
 		_, isAuthz := config.Spec.(*security_beta.AuthorizationPolicy)
 		// Only the AuthorizationPolicy supports the annotation "istio.io/dry-run".
 		if err := checkDryRunAnnotation(config, isAuthz); err != nil {
 			return nil, err
+		}
+		if _, f := config.Annotations[constants.AlwaysReject]; f {
+			return nil, fmt.Errorf("%q annotation found, rejecting", constants.AlwaysReject)
 		}
 		return f(config)
 	}
@@ -520,15 +525,14 @@ func validateServer(server *networking.Server) (v Validation) {
 			v = appendValidation(v, validateNamespaceSlashWildcardHostname(hostname, true))
 		}
 	}
-	portErr := validateServerPort(server.Port)
-	if portErr != nil {
-		v = appendValidation(v, portErr)
-	}
+	portErr := validateServerPort(server.Port, server.Bind)
+	v = appendValidation(v, portErr)
+
 	v = appendValidation(v, validateServerBind(server.Port, server.Bind))
 	v = appendValidation(v, validateTLSOptions(server.Tls))
 
 	// If port is HTTPS or TLS, make sure that server has TLS options
-	if portErr == nil {
+	if _, err := portErr.Unwrap(); err == nil {
 		p := protocol.Parse(server.Port.Protocol)
 		if p.IsTLS() && server.Tls == nil {
 			v = appendValidation(v, fmt.Errorf("server must have TLS settings for HTTPS/TLS protocols"))
@@ -547,19 +551,23 @@ func validateServer(server *networking.Server) (v Validation) {
 	return v
 }
 
-func validateServerPort(port *networking.Port) (errs error) {
+func validateServerPort(port *networking.Port, bind string) (errs Validation) {
 	if port == nil {
-		return appendErrors(errs, fmt.Errorf("port is required"))
+		return appendValidation(errs, fmt.Errorf("port is required"))
 	}
 	if protocol.Parse(port.Protocol) == protocol.Unsupported {
-		errs = appendErrors(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, GRPC-WEB, MONGO, REDIS, MYSQL, TCP", port.Protocol))
+		errs = appendValidation(errs, fmt.Errorf("invalid protocol %q, supported protocols are HTTP, HTTP2, GRPC, GRPC-WEB, MONGO, REDIS, MYSQL, TCP", port.Protocol))
 	}
-	if port.Number > 0 {
-		errs = appendErrors(errs, ValidatePort(int(port.Number)))
+	if port.Number > 0 || !strings.HasPrefix(bind, UnixAddressPrefix) {
+		errs = appendValidation(errs, ValidatePort(int(port.Number)))
+	}
+	// nolint: staticcheck
+	if port.TargetPort > 0 {
+		errs = appendValidation(errs, fmt.Errorf("targetPort has no impact on Gateways"))
 	}
 
 	if port.Name == "" {
-		errs = appendErrors(errs, fmt.Errorf("port name must be set: %v", port))
+		errs = appendValidation(errs, fmt.Errorf("port name must be set: %v", port))
 	}
 	return
 }
@@ -1122,6 +1130,11 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 				continue
 			}
 
+			// nolint: staticcheck
+			if i.Port.TargetPort > 0 {
+				errs = appendValidation(errs, fmt.Errorf("targetPort has no impact on Sidecars"))
+			}
+
 			bind := i.GetBind()
 			errs = appendValidation(errs, validateSidecarIngressPortAndBind(i.Port, bind))
 
@@ -1194,6 +1207,10 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 					continue
 				}
 			} else {
+				// nolint: staticcheck
+				if egress.Port.TargetPort > 0 {
+					errs = appendValidation(errs, fmt.Errorf("targetPort has no impact on Sidecars"))
+				}
 				bind := egress.GetBind()
 				captureMode := egress.GetCaptureMode()
 				errs = appendValidation(errs, validateSidecarEgressPortBindAndCaptureMode(egress.Port, bind, captureMode))
@@ -1282,7 +1299,7 @@ func validateSidecarOutboundTrafficPolicy(tp *networking.OutboundTrafficPolicy) 
 	return
 }
 
-func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind string,
+func validateSidecarEgressPortBindAndCaptureMode(port *networking.SidecarPort, bind string,
 	captureMode networking.CaptureMode,
 ) (errs error) {
 	// Port name is optional. Validate if exists.
@@ -1318,7 +1335,7 @@ func validateSidecarEgressPortBindAndCaptureMode(port *networking.Port, bind str
 	return
 }
 
-func validateSidecarIngressPortAndBind(port *networking.Port, bind string) (errs error) {
+func validateSidecarIngressPortAndBind(port *networking.SidecarPort, bind string) (errs error) {
 	// Port name is optional. Validate if exists.
 	if len(port.Name) > 0 {
 		errs = appendErrors(errs, ValidatePortName(port.Name))
@@ -2352,19 +2369,19 @@ var ValidateVirtualService = registerValidateFunc("ValidateVirtualService",
 		if len(virtualService.Http) == 0 && len(virtualService.Tcp) == 0 && len(virtualService.Tls) == 0 {
 			errs = appendValidation(errs, errors.New("http, tcp or tls must be provided in virtual service"))
 		}
+		gatewaySemantics := cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
 		for _, httpRoute := range virtualService.Http {
 			if httpRoute == nil {
 				errs = appendValidation(errs, errors.New("http route may not be null"))
 				continue
 			}
-			gatewaySemantics := cfg.Annotations[constants.InternalRouteSemantics] == constants.RouteSemanticsGateway
 			errs = appendValidation(errs, validateHTTPRoute(httpRoute, len(virtualService.Hosts) == 0, gatewaySemantics))
 		}
 		for _, tlsRoute := range virtualService.Tls {
-			errs = appendValidation(errs, validateTLSRoute(tlsRoute, virtualService))
+			errs = appendValidation(errs, validateTLSRoute(tlsRoute, virtualService, gatewaySemantics))
 		}
 		for _, tcpRoute := range virtualService.Tcp {
-			errs = appendValidation(errs, validateTCPRoute(tcpRoute))
+			errs = appendValidation(errs, validateTCPRoute(tcpRoute, gatewaySemantics))
 		}
 
 		errs = appendValidation(errs, validateExportTo(cfg.Namespace, virtualService.ExportTo, false, false))
@@ -2726,7 +2743,7 @@ func requestName(match any, matchn int) string {
 	return fmt.Sprintf("#%d", matchn)
 }
 
-func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService) (errs Validation) {
+func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualService, gatewaySemantics bool) (errs Validation) {
 	if tls == nil {
 		return
 	}
@@ -2739,7 +2756,7 @@ func validateTLSRoute(tls *networking.TLSRoute, context *networking.VirtualServi
 	if len(tls.Route) == 0 {
 		errs = appendValidation(errs, errors.New("TLS route is required"))
 	}
-	errs = appendValidation(errs, validateRouteDestinations(tls.Route))
+	errs = appendValidation(errs, validateRouteDestinations(tls.Route, gatewaySemantics))
 	return errs
 }
 
@@ -2787,7 +2804,7 @@ func validateSniHost(sniHost string, context *networking.VirtualService) (errs V
 		sniHost, strings.Join(context.Hosts, ", ")))
 }
 
-func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
+func validateTCPRoute(tcp *networking.TCPRoute, gatewaySemantics bool) (errs error) {
 	if tcp == nil {
 		return nil
 	}
@@ -2797,7 +2814,7 @@ func validateTCPRoute(tcp *networking.TCPRoute) (errs error) {
 	if len(tcp.Route) == 0 {
 		errs = appendErrors(errs, errors.New("TCP route is required"))
 	}
-	errs = appendErrors(errs, validateRouteDestinations(tcp.Route))
+	errs = appendErrors(errs, validateRouteDestinations(tcp.Route, gatewaySemantics))
 	return
 }
 
@@ -2917,6 +2934,7 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination, g
 		}
 
 		if !gatewaySemantics {
+			fmt.Println("validateHTTPRouteDestinations", weight.Destination)
 			errs = appendErrors(errs, validateDestination(weight.Destination))
 		}
 		errs = appendErrors(errs, validateWeight(weight.Weight))
@@ -2928,7 +2946,7 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination, g
 	return
 }
 
-func validateRouteDestinations(weights []*networking.RouteDestination) (errs error) {
+func validateRouteDestinations(weights []*networking.RouteDestination, gatewaySemantics bool) (errs error) {
 	var totalWeight int32
 	for _, weight := range weights {
 		if weight == nil {
@@ -2938,7 +2956,9 @@ func validateRouteDestinations(weights []*networking.RouteDestination) (errs err
 		if weight.Destination == nil {
 			errs = multierror.Append(errs, errors.New("destination is required"))
 		}
-		errs = appendErrors(errs, validateDestination(weight.Destination))
+		if !gatewaySemantics {
+			errs = appendErrors(errs, validateDestination(weight.Destination))
+		}
 		errs = appendErrors(errs, validateWeight(weight.Weight))
 		totalWeight += weight.Weight
 	}
@@ -3017,21 +3037,23 @@ func validateHTTPFaultInjection(fault *networking.HTTPFaultInjection) (errs erro
 	return
 }
 
-func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort) (errs error) {
+func validateHTTPFaultInjectionAbort(abort *networking.HTTPFaultInjection_Abort) (errs Validation) {
 	if abort == nil {
 		return
 	}
 
-	errs = appendErrors(errs, validatePercentage(abort.Percentage))
+	errs = appendValidation(errs, validatePercentage(abort.Percentage))
 
 	switch abort.ErrorType.(type) {
 	case *networking.HTTPFaultInjection_Abort_GrpcStatus:
-		errs = appendErrors(errs, validateGRPCStatus(abort.GetGrpcStatus()))
+		errs = appendValidation(errs, validateGRPCStatus(abort.GetGrpcStatus()))
 	case *networking.HTTPFaultInjection_Abort_Http2Error:
 		// TODO: HTTP2 error validation
-		errs = multierror.Append(errs, errors.New("HTTP/2 abort fault injection not supported yet"))
+		errs = appendValidation(errs, errors.New("HTTP/2 abort fault injection not supported yet"))
 	case *networking.HTTPFaultInjection_Abort_HttpStatus:
-		errs = appendErrors(errs, validateHTTPStatus(abort.GetHttpStatus()))
+		errs = appendValidation(errs, validateHTTPStatus(abort.GetHttpStatus()))
+	default:
+		errs = appendWarningf(errs, "abort configured, but error type not set")
 	}
 
 	return
@@ -3646,6 +3668,16 @@ func validateLocalityLbSetting(lb *networking.LocalityLoadBalancerSetting, outli
 	if len(lb.GetDistribute()) > 0 && len(lb.GetFailover()) > 0 {
 		errs = appendValidation(errs, fmt.Errorf("can not simultaneously specify 'distribute' and 'failover'"))
 		return
+	}
+
+	if len(lb.GetFailover()) > 0 && len(lb.GetFailoverPriority()) > 0 {
+		for _, priorityLabel := range lb.GetFailoverPriority() {
+			switch priorityLabel {
+			case label.LabelTopologyRegion, label.LabelTopologyZone, label.LabelTopologySubzone:
+				errs = appendValidation(errs, fmt.Errorf("can not simultaneously set 'failover' and topology label '%s' in 'failover_priority'", priorityLabel))
+				return
+			}
+		}
 	}
 
 	srcLocalities := make([]string, 0, len(lb.GetDistribute()))

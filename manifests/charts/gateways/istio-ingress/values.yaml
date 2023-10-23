@@ -48,6 +48,10 @@ gateways:
     loadBalancerSourceRanges: []
     serviceAnnotations: {}
 
+    # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+    ipFamilyPolicy: ""
+    ipFamilies: []
+
     # To generate an internal load balancer:
     # --set serviceAnnotations.cloud.google.com/load-balancer-type=internal
     #serviceAnnotations:
