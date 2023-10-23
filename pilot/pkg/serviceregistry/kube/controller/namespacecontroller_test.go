@@ -48,7 +48,7 @@ func TestNamespaceController(t *testing.T) {
 	meshWatcher := mesh.NewTestWatcher(&meshconfig.MeshConfig{})
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
 		kclient.New[*v1.Namespace](client),
-		meshWatcher.MeshConfig.DiscoverySelectors,
+		meshWatcher.Mesh().DiscoverySelectors,
 	)
 	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
 	stop := test.NewStop(t)
@@ -141,7 +141,7 @@ func TestNamespaceControllerDiscovery(t *testing.T) {
 	})
 	discoveryNamespacesFilter := filter.NewDiscoveryNamespacesFilter(
 		kclient.New[*v1.Namespace](client),
-		meshWatcher.MeshConfig.DiscoverySelectors,
+		meshWatcher.Mesh().DiscoverySelectors,
 	)
 	nc := NewNamespaceController(client, watcher, discoveryNamespacesFilter)
 	stop := test.NewStop(t)
