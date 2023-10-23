@@ -623,24 +623,26 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 				if endpointAddress == "" {
 					endpointAddress = model.LocalhostIPv6AddressPrefix
 				}
-			} else if features.EnableDualStack {
-				if hostIP == model.LocalhostAddressPrefix {
-					for _, host := range actualLocalHosts {
-						if netutil.IsIPv4Address(host) {
-							endpointAddress = host
-							break
-						}
-					}
-				} else if hostIP == model.LocalhostIPv6AddressPrefix {
-					for _, host := range actualLocalHosts {
-						if netutil.IsIPv6Address(host) {
-							endpointAddress = host
-							break
-						}
+			} else if hostIP == model.LocalhostAddressPrefix {
+				for _, host := range actualLocalHosts {
+					if netutil.IsIPv4Address(host) {
+						endpointAddress = host
+						break
 					}
 				}
-			} else if hostIP == model.LocalhostAddressPrefix || hostIP == model.LocalhostIPv6AddressPrefix {
-				endpointAddress = actualLocalHosts[0]
+				if endpointAddress == "" {
+					endpointAddress = actualLocalHosts[0]
+				}
+			} else if hostIP == model.LocalhostIPv6AddressPrefix {
+				for _, host := range actualLocalHosts {
+					if netutil.IsIPv6Address(host) {
+						endpointAddress = host
+						break
+					}
+				}
+				if endpointAddress == "" {
+					endpointAddress = actualLocalHosts[0]
+				}
 			}
 		}
 		// Find the service instance that corresponds to this ingress listener by looking
