@@ -12,11 +12,11 @@ spec:
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
   - issuer: "test-issuer-2@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
----
+--- 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
 metadata:
-  name: valid-authz-gateway-{{ .To.ServiceName }}
+  name: authz-gateway-{{ .To.ServiceName }}
 spec:
   targetRef:
     name: {{ .To.ServiceName }}-gateway
@@ -24,12 +24,9 @@ spec:
     group: gateway.networking.k8s.io
   action: ALLOW
   rules:
-    - to:
-      - operation:
-          ports: [ "{{ (.To.PortForName `http`).ServicePort }}" ]
-          paths: [ "/allow" ]
-          methods: [ "GET" ]
-          hosts:
+  - to:
+    - operation:
+        hosts:
 {{- range $svc := .Services }}
         - "example.{{ $svc.ServiceName }}.com"
 {{- end }}

@@ -248,6 +248,18 @@ func TestGatewayAPIAuthorizationPolicy(t *testing.T) {
 							opts.Check = check.Status(http.StatusForbidden)
 						},
 					},
+					{
+						name: "deny based on unacceptable HTTP path",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/deny"
+							opts.HTTP.Method = "GET"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								WithAuthz(jwt.TokenIssuer1).
+								Build()
+							opts.Check = check.Status(http.StatusForbidden)
+						},
+					},
 				}
 
 				newTrafficTest(t, apps.A.Append(apps.B)).
