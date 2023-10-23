@@ -242,11 +242,11 @@ var (
 
 	// ReferencedInternalGateway defines a diag.MessageType for message "ReferencedInternalGateway".
 	// Description: VirtualServices should not reference internal Gateways.
-	ReferencedInternalGateway = diag.NewMessageType(diag.Error, "IST0163", "Gateway reference in VirtualService %s is to an implementation-generated internal Gateway: %s.")
+	ReferencedInternalGateway = diag.NewMessageType(diag.Error, "IST0165", "Gateway reference in VirtualService %s is to an implementation-generated internal Gateway: %s.")
 
 	// ReferencedK8sGateway defines a diag.MessageType for message "ReferencedK8sGateway".
 	// Description: Attaching VirtualServices to Gateway API Gateways should be done sparingly.
-	ReferencedK8sGateway = diag.NewMessageType(diag.Warning, "IST0164", "Gateway reference in VirtualService %s is to a Gateway API Gateway: %s.")
+	ReferencedK8sGateway = diag.NewMessageType(diag.Warning, "IST0166", "Gateway reference in VirtualService %s is to a Gateway API Gateway: %s.")
 )
 
 // All returns a list of all known message types.
