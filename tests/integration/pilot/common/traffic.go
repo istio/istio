@@ -267,13 +267,13 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 			}
 		})
 	}
-	RunSkipAmbient("jwt-claim-route", jwtClaimRoute, "ingress needed")
+	RunCase("jwt-claim-route", jwtClaimRoute)
 	RunCase("virtualservice", virtualServiceCases)
 	RunCase("sniffing", protocolSniffingCases)
 	RunCase("selfcall", selfCallsCases)
 	RunSkipAmbient("serverfirst", serverFirstTestCases, "Expected success cases time out")
 	RunCase("gateway", gatewayCases)
-	RunSkipAmbient("autopassthrough", autoPassthroughCases, "ingress needed")
+	RunCase("autopassthrough", autoPassthroughCases)
 	RunSkipAmbient("loop", trafficLoopCases, "does not error (waypoint -> waypoint)")
 	RunSkipAmbient("tls-origination", tlsOriginationCases, "not workload agnostic")
 	RunSkipAmbient("instanceip", instanceIPTests, "not supported")

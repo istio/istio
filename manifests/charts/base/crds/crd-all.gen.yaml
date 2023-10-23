@@ -309,6 +309,9 @@ spec:
                                   description: The idle timeout for upstream connection
                                     pool connections.
                                   type: string
+                                maxConcurrentStreams:
+                                  format: int32
+                                  type: integer
                                 maxRequestsPerConnection:
                                   description: Maximum number of requests per connection
                                     to a backend.
@@ -590,6 +593,9 @@ spec:
                                         description: The idle timeout for upstream
                                           connection pool connections.
                                         type: string
+                                      maxConcurrentStreams:
+                                        format: int32
+                                        type: integer
                                       maxRequestsPerConnection:
                                         description: Maximum number of requests per
                                           connection to a backend.
@@ -1003,6 +1009,9 @@ spec:
                             description: The idle timeout for upstream connection
                               pool connections.
                             type: string
+                          maxConcurrentStreams:
+                            format: int32
+                            type: integer
                           maxRequestsPerConnection:
                             description: Maximum number of requests per connection
                               to a backend.
@@ -1279,6 +1288,9 @@ spec:
                                   description: The idle timeout for upstream connection
                                     pool connections.
                                   type: string
+                                maxConcurrentStreams:
+                                  format: int32
+                                  type: integer
                                 maxRequestsPerConnection:
                                   description: Maximum number of requests per connection
                                     to a backend.
@@ -1744,6 +1756,9 @@ spec:
                                   description: The idle timeout for upstream connection
                                     pool connections.
                                   type: string
+                                maxConcurrentStreams:
+                                  format: int32
+                                  type: integer
                                 maxRequestsPerConnection:
                                   description: Maximum number of requests per connection
                                     to a backend.
@@ -2025,6 +2040,9 @@ spec:
                                         description: The idle timeout for upstream
                                           connection pool connections.
                                         type: string
+                                      maxConcurrentStreams:
+                                        format: int32
+                                        type: integer
                                       maxRequestsPerConnection:
                                         description: Maximum number of requests per
                                           connection to a backend.
@@ -2438,6 +2456,9 @@ spec:
                             description: The idle timeout for upstream connection
                               pool connections.
                             type: string
+                          maxConcurrentStreams:
+                            format: int32
+                            type: integer
                           maxRequestsPerConnection:
                             description: Maximum number of requests per connection
                               to a backend.
@@ -2714,6 +2735,9 @@ spec:
                                   description: The idle timeout for upstream connection
                                     pool connections.
                                   type: string
+                                maxConcurrentStreams:
+                                  format: int32
+                                  type: integer
                                 maxRequestsPerConnection:
                                   description: Maximum number of requests per connection
                                     to a backend.
@@ -4172,6 +4196,9 @@ spec:
                         description: The idle timeout for upstream connection pool
                           connections.
                         type: string
+                      maxConcurrentStreams:
+                        format: int32
+                        type: integer
                       maxRequestsPerConnection:
                         description: Maximum number of requests per connection to
                           a backend.
@@ -4265,6 +4292,9 @@ spec:
                               description: The idle timeout for upstream connection
                                 pool connections.
                               type: string
+                            maxConcurrentStreams:
+                              format: int32
+                              type: integer
                             maxRequestsPerConnection:
                               description: Maximum number of requests per connection
                                 to a backend.
@@ -4544,6 +4574,9 @@ spec:
                         description: The idle timeout for upstream connection pool
                           connections.
                         type: string
+                      maxConcurrentStreams:
+                        format: int32
+                        type: integer
                       maxRequestsPerConnection:
                         description: Maximum number of requests per connection to
                           a backend.
@@ -4637,6 +4670,9 @@ spec:
                               description: The idle timeout for upstream connection
                                 pool connections.
                               type: string
+                            maxConcurrentStreams:
+                              format: int32
+                              type: integer
                             maxRequestsPerConnection:
                               description: Maximum number of requests per connection
                                 to a backend.

@@ -1,0 +1,14 @@
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: logs
+spec:
+  targetRef:
+    name: {{ .TargetGatewayName }}
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  accessLogging:
+  - providers:
+    - name: envoy
+    disabled: {{ .DisableLogs }}
+    

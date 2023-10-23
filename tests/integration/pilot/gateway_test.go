@@ -26,7 +26,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8s "sigs.k8s.io/gateway-api/apis/v1beta1"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
@@ -118,7 +118,7 @@ spec:
 		if gw == nil {
 			return fmt.Errorf("failed to find gateway")
 		}
-		cond := kstatus.GetCondition(gw.Status.Conditions, string(k8s.GatewayConditionProgrammed))
+		cond := kstatus.GetCondition(gw.Status.Conditions, string(k8sv1.GatewayConditionProgrammed))
 		if cond.Status != metav1.ConditionTrue {
 			return fmt.Errorf("failed to find programmed condition: %+v", cond)
 		}
@@ -560,7 +560,7 @@ spec:
 					if err != nil {
 						return err
 					}
-					if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted)).Status; s != metav1.ConditionTrue {
+					if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8sv1.GatewayClassConditionStatusAccepted)).Status; s != metav1.ConditionTrue {
 						return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
 					}
 					return nil
@@ -604,7 +604,7 @@ func StatusGatewayTest(t framework.TestContext) {
 		if gwc == nil {
 			return fmt.Errorf("failed to find GatewayClass istio")
 		}
-		cond := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted))
+		cond := kstatus.GetCondition(gwc.Status.Conditions, string(k8sv1.GatewayClassConditionStatusAccepted))
 		if cond.Status != metav1.ConditionTrue {
 			return fmt.Errorf("failed to find accepted condition: %+v", cond)
 		}
@@ -624,7 +624,7 @@ func StatusGatewayTest(t framework.TestContext) {
 }
 
 // Verify that the envoy readiness probes are reachable at
-// https://GatewayPodIP:15021/healthz/ready . This is being explicitly done
+// https://GatewaySvcIP:15021/healthz/ready . This is being explicitly done
 // to make sure, in dual-stack scenarios both v4 and v6 probes are reachable.
 func TestGatewayReadinessProbes(t *testing.T) {
 	// nolint: staticcheck
@@ -634,14 +634,15 @@ func TestGatewayReadinessProbes(t *testing.T) {
 		Features("traffic.gateway.readiness").
 		Run(func(t framework.TestContext) {
 			c := t.Clusters().Default()
-			podIPs, err := i.PodIPsFor(c, "app=istio-ingressgateway")
+			var svc *corev1.Service
+			svc, _, err := testKube.WaitUntilServiceEndpointsAreReady(c.Kube(), "istio-system", "istio-ingressgateway")
 			if err != nil {
-				t.Fatalf("error getting ingress gateway pod ips: %v", err)
+				t.Fatalf("error getting ingress gateway svc ips: %v", err)
 			}
-			for _, ip := range podIPs {
-				t.NewSubTest("gateway-readiness-probe-" + ip.IP).Run(func(t framework.TestContext) {
+			for _, ip := range svc.Spec.ClusterIPs {
+				t.NewSubTest("gateway-readiness-probe-" + ip).Run(func(t framework.TestContext) {
 					apps.External.All[0].CallOrFail(t, echo.CallOptions{
-						Address: ip.IP,
+						Address: ip,
 						Port:    echo.Port{ServicePort: 15021},
 						Scheme:  scheme.HTTP,
 						HTTP: echo.HTTP{
