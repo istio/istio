@@ -103,6 +103,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 `, "")
 			res = strings.ReplaceAll(res, `status: {}
 `, "")
+			// stripping infrastructure introduced in Gateway v1 if empty
+			res = strings.ReplaceAll(res, `  infrastructure: {}
+`, "")
 			fmt.Fprint(cmd.OutOrStdout(), res)
 			return nil
 		},
@@ -130,7 +133,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = gwc.Patch(context.Background(), gw.Name, types.ApplyPatchType, b, metav1.PatchOptions{
+			// stripping infrastructure introduced in Gateway v1 if empty
+			res := strings.ReplaceAll(string(b), `  infrastructure: {}
+`, "")
+			_, err = gwc.Patch(context.Background(), gw.Name, types.ApplyPatchType, []byte(res), metav1.PatchOptions{
 				Force:        nil,
 				FieldManager: "istioctl",
 			})
