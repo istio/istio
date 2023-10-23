@@ -222,7 +222,7 @@ func setupPodConfigdumpWriter(podName, podNamespace string, includeEds bool, out
 	if err != nil {
 		return nil, err
 	}
-	return setupConfigdumpEnvoyConfigWriter(debug, out)
+	return setupConfigdumpEnvoyConfigWriter(debug, out, !includeEds)
 }
 
 func readFile(filename string) ([]byte, error) {
@@ -255,7 +255,7 @@ func setupFileConfigdumpWriter(filename string, out io.Writer) (*configdump.Conf
 	if err != nil {
 		return nil, err
 	}
-	return setupConfigdumpEnvoyConfigWriter(data, out)
+	return setupConfigdumpEnvoyConfigWriter(data, out, true)
 }
 
 func setupConfigdumpZtunnelConfigWriter(debug []byte, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
@@ -267,8 +267,11 @@ func setupConfigdumpZtunnelConfigWriter(debug []byte, out io.Writer) (*ztunnelDu
 	return cw, nil
 }
 
-func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer) (*configdump.ConfigWriter, error) {
-	cw := &configdump.ConfigWriter{Stdout: out}
+func setupConfigdumpEnvoyConfigWriter(debug []byte, out io.Writer, allowMissingEds bool) (*configdump.ConfigWriter, error) {
+	cw := &configdump.ConfigWriter{
+		Stdout:          out,
+		AllowMissingEds: allowMissingEds,
+	}
 	err := cw.Prime(debug)
 	if err != nil {
 		return nil, err

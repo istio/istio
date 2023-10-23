@@ -30,8 +30,9 @@ import (
 
 // ConfigWriter is a writer for processing responses from the Envoy Admin config_dump endpoint
 type ConfigWriter struct {
-	Stdout     io.Writer
-	configDump *configdump.Wrapper
+	Stdout          io.Writer
+	configDump      *configdump.Wrapper
+	AllowMissingEds bool
 }
 
 // Prime loads the config dump into the writer ready for printing
