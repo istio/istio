@@ -141,9 +141,12 @@ func (c *ConfigWriter) retrieveSortedEndpointsSlice(filter EndpointFilter) ([]*e
 	if c.configDump == nil {
 		return nil, fmt.Errorf("config writer has not been primed")
 	}
-	dump, err := c.configDump.GetEndpointsConfigDump()
+	dump, err := c.configDump.GetEndpointsConfigDump(c.AllowMissingEds)
 	if err != nil {
 		return nil, err
+	}
+	if dump == nil {
+		return nil, nil
 	}
 	endpoints := make([]*endpoint.ClusterLoadAssignment, 0, len(dump.DynamicEndpointConfigs))
 	for _, e := range dump.GetDynamicEndpointConfigs() {
