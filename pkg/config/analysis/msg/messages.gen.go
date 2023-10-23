@@ -232,7 +232,7 @@ var (
 	// Description: Gateway port not exposed by service
 	GatewayPortNotDefinedOnService = diag.NewMessageType(diag.Warning, "IST0162", "The gateway is listening on a target port (port %d) that is not defined in the Service associated with its workload instances (Pod selector %s). If you need to access the gateway port through the gateway Service, it will not be available.")
 
-		// InvalidExternalControlPlaneConfig defines a diag.MessageType for message "InvalidExternalControlPlaneConfig".
+	// InvalidExternalControlPlaneConfig defines a diag.MessageType for message "InvalidExternalControlPlaneConfig".
 	// Description: Address for the ingress gateway on the external control plane is not valid
 	InvalidExternalControlPlaneConfig = diag.NewMessageType(diag.Warning, "IST0163", "The hostname (%s) that was provided for the webhook (%s) to reach the ingress gateway on the external control plane cluster %s. Traffic may not flow properly.")
 

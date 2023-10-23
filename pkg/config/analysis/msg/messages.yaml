@@ -613,6 +613,7 @@ messages:
       - name: webhook
         type: string
       - name: msg
+        type: string
 
   - name: "ExternalControlPlaneAddressIsNotAHostname"
     code: IST0164
