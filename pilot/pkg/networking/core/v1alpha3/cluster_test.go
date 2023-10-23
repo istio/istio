@@ -1808,7 +1808,7 @@ func TestInboundClustersPassThroughBindIPs(t *testing.T) {
 	}
 }
 
-func TestDualStackInboundClustersDefaultEndpoint(t *testing.T) {
+func TestInboundClustersDefaultEndpoint(t *testing.T) {
 	dsProxy := model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1", "1111:2222::1"},
@@ -1826,31 +1826,34 @@ func TestDualStackInboundClustersDefaultEndpoint(t *testing.T) {
 
 	cases := []struct {
 		name            string
-		isDual          bool
 		proxy           *model.Proxy
 		defaultEndpoint string
 		expectedAddr    string
 		expectedPort    uint32
 	}{
 		{
-			name:            "dual stack disabled, defaultEndpoint set to [::1]:7073",
-			isDual:          false,
+			name:            "defaultEndpoint set to 127.0.0.1:7073",
 			proxy:           &dsProxy,
-			defaultEndpoint: "[::1]:7073",
+			defaultEndpoint: "127.0.0.1:7073",
 			expectedAddr:    "127.0.0.1",
 			expectedPort:    7073,
 		},
 		{
-			name:            "dual stack enabled, defaultEndpoint set to 127.0.0.1:7072",
-			isDual:          true,
+			name:            "defaultEndpoint set to [::1]:7073",
+			proxy:           &dsProxy,
+			defaultEndpoint: "[::1]:7073",
+			expectedAddr:    "::1",
+			expectedPort:    7073,
+		},
+		{
+			name:            "defaultEndpoint set to 127.0.0.1:7072",
 			proxy:           &dsProxy,
 			defaultEndpoint: "127.0.0.1:7072",
 			expectedAddr:    "127.0.0.1",
 			expectedPort:    7072,
 		},
 		{
-			name:            "dual stack enabled, defaultEndpoint set to [::1]:7073",
-			isDual:          true,
+			name:            "defaultEndpoint set to [::1]:7073",
 			proxy:           &dsProxy,
 			defaultEndpoint: "[::1]:7073",
 			expectedAddr:    "::1",
@@ -1860,7 +1863,6 @@ func TestDualStackInboundClustersDefaultEndpoint(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableDualStack, c.isDual)
 			g := NewWithT(t)
 			cg := NewConfigGenTest(t, TestOptions{})
 			proxy := cg.SetupProxy(c.proxy)
