@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/constants"
 	istiolog "istio.io/istio/pkg/log"
 )
@@ -71,8 +72,15 @@ func (t Bundle) ReplaceTrustDomainAliases(principals []string) []string {
 			// Generate configuration for trust domain and trust domain aliases.
 			principalsIncludingAliases = append(principalsIncludingAliases, t.replaceTrustDomains(principal, trustDomainFromPrincipal)...)
 		} else {
-			authzLog.Warnf("Trust domain %s from principal %s does not match the current trust "+
+			msg := fmt.Sprintf("Trust domain %s from principal %s does not match the current trust "+
 				"domain or its aliases", trustDomainFromPrincipal, principal)
+			// when SkipValidateTrustDomain is being used the message isn't very meaningful so we'll log it at a lower level
+			// logging it at this level may help users who are looking to disable skipping validation understand if it's safe
+			if !features.SkipValidateTrustDomain {
+				authzLog.Warn(msg)
+			} else {
+				authzLog.Debug(msg)
+			}
 			// If the trust domain from the existing doesn't match with the new trust domain aliases or "cluster.local",
 			// keep the policy as it is.
 			principalsIncludingAliases = append(principalsIncludingAliases, principal)

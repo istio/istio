@@ -485,6 +485,10 @@ var (
 		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
 	).Get()
 
+	DisableMxALPN = env.Register("PILOT_DISABLE_MX_ALPN", false,
+		"If true, pilot will not put istio-peer-exchange ALPN into TLS handshake configuration.",
+	).Get()
+
 	ALPNFilter = env.Register("PILOT_ENABLE_ALPN_FILTER", true,
 		"If true, pilot will add Istio ALPN filters, required for proper protocol sniffing.",
 	).Get()
@@ -685,6 +689,10 @@ var (
 	// Also see https://github.com/istio/istio/issues/46719 why this flag is required
 	EnableAdditionalIpv4OutboundListenerForIpv6Only = env.RegisterBoolVar("ISTIO_ENABLE_IPV4_OUTBOUND_LISTENER_FOR_IPV6_CLUSTERS", false,
 		"If true, pilot will configure an additional IPv4 listener for outbound traffic in IPv6 only clusters, e.g. AWS EKS IPv6 only clusters.").Get()
+
+	UseCacertsForSelfSignedCA = env.Register("USE_CACERTS_FOR_SELF_SIGNED_CA", false,
+		"If enabled, istiod will use a secret named cacerts to store its self-signed istio-"+
+			"generated root certificate.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

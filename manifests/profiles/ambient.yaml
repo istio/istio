@@ -24,9 +24,10 @@ spec:
       enabled: false
 
   values:
-    global:
+    ztunnel:
       variant: distroless
     pilot:
+      variant: distroless
       env:
         # Setup more secure default that is off in 'default' only for backwards compatibility
         VERIFY_CERTIFICATE_AT_CLIENT: "true"

@@ -79,6 +79,13 @@ const (
 
 var _ ready.Prober = &Agent{}
 
+type LifecycleEvent string
+
+const (
+	DrainLifecycleEvent LifecycleEvent = "drain"
+	ExitLifecycleEvent  LifecycleEvent = "exit"
+)
+
 // Agent contains the configuration of the agent, based on the injected
 // environment:
 // - SDS hostPath if node-agent was used
@@ -191,6 +198,9 @@ type AgentOptions struct {
 	DualStack bool
 
 	UseExternalWorkloadSDS bool
+
+	// Enable metadata discovery bootstrap extension
+	MetadataDiscovery bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -245,6 +255,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
 		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
 		XDSRootCert:                 a.cfg.XDSRootCerts,
+		MetadataDiscovery:           a.cfg.MetadataDiscovery,
 	})
 }
 
@@ -838,4 +849,8 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 // GRPCBootstrapPath returns the most recently generated gRPC bootstrap or nil if there is none.
 func (a *Agent) GRPCBootstrapPath() string {
 	return a.cfg.GRPCBootstrapPath
+}
+
+func (a *Agent) DrainNow() {
+	a.envoyAgent.DrainNow()
 }

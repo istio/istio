@@ -2308,6 +2308,37 @@ spec:
       consistentHash:
         {{. | indent 8}}
 `, svcName, svcName)
+
+			cookieWithTTLDest := fmt.Sprintf(`
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: session-cookie
+          ttl: 3600s
+`, svcName, svcName)
+
+			cookieWithoutTTLDest := fmt.Sprintf(`
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: session-cookie
+`, svcName, svcName)
 			// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
 			// and could be broken by having only 1 pod so its good to have this check in place
 			t.RunTraffic(TrafficTestCase{
@@ -2343,6 +2374,39 @@ spec:
 					ConsistentHostChecker,
 				),
 			}
+			cookieCallOpts := echo.CallOptions{
+				Count:   10,
+				Address: svcName,
+				HTTP: echo.HTTP{
+					Path:    "/?some-query-param=bar",
+					Headers: headers.New().With("x-some-header", "baz").Build(),
+				},
+				Port: echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
+				Check: check.And(
+					check.OK(),
+					ConsistentHostChecker,
+				),
+				PropagateResponse: func(req *http.Request, res *http.Response) {
+					if res != nil && res.Cookies() != nil {
+						var sessionCookie *http.Cookie
+						for _, cookie := range res.Cookies() {
+							if cookie.Name == "session-cookie" {
+								sessionCookie = cookie
+								break
+							}
+						}
+						if sessionCookie != nil {
+							scopes.Framework.Infof("setting the request cookie back in the request: %v %b",
+								sessionCookie.Value, sessionCookie.Expires)
+							req.AddCookie(sessionCookie)
+						} else {
+							scopes.Framework.Infof("no session cookie found in the response")
+						}
+					}
+				},
+			}
+			cookieWithoutTTLCallOpts := cookieCallOpts
+			cookieWithoutTTLCallOpts.HTTP.Headers = headers.New().With("Cookie", "session-cookie=somecookie").Build()
 			tcpCallopts := echo.CallOptions{
 				Count:   10,
 				Address: svcName,
@@ -2385,6 +2449,18 @@ spec:
 					skip:   c.Config().WorkloadClass() == echo.Proxyless,
 					reason: "", // TODO: is this a bug or WAI?
 				},
+			})
+			t.RunTraffic(TrafficTestCase{
+				name:   "http cookie with ttl" + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(cookieWithTTLDest, ""),
+				call:   c.CallOrFail,
+				opts:   cookieCallOpts,
+			})
+			t.RunTraffic(TrafficTestCase{
+				name:   "http cookie without ttl" + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(cookieWithoutTTLDest, ""),
+				call:   c.CallOrFail,
+				opts:   cookieWithoutTTLCallOpts,
 			})
 		}
 	}
@@ -3338,7 +3414,7 @@ spec:
       claim: "wrong_claim"
 ---
 `
-	podB := []match.Matcher{match.ServiceName(t.Apps.B.NamespacedName())}
+	matchers := []match.Matcher{match.Or(match.ServiceName(t.Apps.B.NamespacedName()), match.WaypointService(), match.CapturedService())}
 	headersWithToken := map[string][]string{
 		"Host":          {"foo.bar"},
 		"Authorization": {"Bearer " + jwt.TokenIssuer1WithNestedClaims1},
@@ -3373,7 +3449,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with nested claim using claim to header:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3398,7 +3474,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with nested claim and single claim using claim to header:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3426,7 +3502,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with wrong claim and added header:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3456,7 +3532,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with nested claims:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3481,7 +3557,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with single claim:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3506,7 +3582,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched multiple claims with regex:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3534,7 +3610,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched multiple claims:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3562,7 +3638,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched without claim:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3587,7 +3663,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched without claim:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3612,7 +3688,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched both with and without claims with regex:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3641,7 +3717,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched multiple claims:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3669,7 +3745,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched token:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3694,7 +3770,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with invalid token:401",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3719,7 +3795,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no token:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3744,7 +3820,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no token but same header:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3770,7 +3846,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no request authentication:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configRoute,
@@ -3800,7 +3876,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched with nested claims:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3825,7 +3901,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched with single claim:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3850,7 +3926,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched multiple claims with regex:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3878,7 +3954,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched multiple claims:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3906,7 +3982,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched without claim:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3931,7 +4007,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched without claim:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3956,7 +4032,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched both with and without claims with regex:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3985,7 +4061,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched multiple claims:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4013,7 +4089,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched token:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4038,7 +4114,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with invalid token:401",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4063,7 +4139,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no token:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4088,7 +4164,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no token but same header:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4114,7 +4190,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no request authentication:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configRoute,
@@ -4140,7 +4216,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched with simple collision-resistant claim name:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4166,7 +4242,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with simple collision-resistant claim name:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4192,7 +4268,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched with nested collision-resistant claim name:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4218,7 +4294,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with nested collision-resistant claim name:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,

@@ -208,6 +208,14 @@ func (c *Controller) getWorkloadEntriesInPolicy(ns string, sel map[string]string
 	return c.getSelectedWorkloadEntries(ns, sel)
 }
 
+func (c *Controller) getServiceEntryEndpointsInPolicy(ns string, sel map[string]string) map[*apiv1alpha3.ServiceEntry]sets.Set[*v1alpha3.WorkloadEntry] {
+	if ns == c.meshWatcher.Mesh().GetRootNamespace() {
+		ns = metav1.NamespaceAll
+	}
+
+	return c.getSelectedServiceEntries(ns, sel)
+}
+
 // NOTE: Mutex is locked prior to being called.
 func (a *AmbientIndexImpl) extractWorkloadEntry(w *apiv1alpha3.WorkloadEntry, c *Controller) *model.WorkloadInfo {
 	if w == nil {
@@ -501,20 +509,6 @@ func (c *Controller) getSelectedWorkloadEntries(ns string, selector map[string]s
 			workloadEntries = append(workloadEntries, wl)
 		}
 	}
-
-	// Include workload entries inlined in service entries (endpoints)
-	allServiceEntries := c.configController.List(gvk.ServiceEntry, ns)
-	for _, se := range allServiceEntries {
-		for _, wl := range serviceentry.ConvertServiceEntry(se).Endpoints {
-			if labels.Instance(selector).SubsetOf(wl.Labels) || (len(wl.Labels) == 0 && labels.Instance(selector).SubsetOf(se.Labels)) {
-				workloadEntries = append(workloadEntries, &apiv1alpha3.WorkloadEntry{
-					ObjectMeta: se.ToObjectMeta(),
-					Spec:       *wl.DeepCopy(),
-				})
-			}
-		}
-	}
-
 	return workloadEntries
 }
 
@@ -533,6 +527,47 @@ func (c *Controller) getControllerWorkloadEntries(ns string) []*apiv1alpha3.Work
 		allWorkloadEntries = append(allWorkloadEntries, c)
 	}
 	return allWorkloadEntries
+}
+
+func (c *Controller) getSelectedServiceEntries(ns string, selector map[string]string) map[*apiv1alpha3.ServiceEntry]sets.Set[*v1alpha3.WorkloadEntry] {
+	// skip WLE for non config clusters
+	if !c.configCluster {
+		return nil
+	}
+	if len(selector) == 0 {
+		// k8s services and service entry workloadSelector with empty selectors match nothing, not everything.
+		return nil
+	}
+	allServiceEntries := c.getControllerServiceEntries(ns)
+	seEndpoints := map[*apiv1alpha3.ServiceEntry]sets.Set[*v1alpha3.WorkloadEntry]{}
+	for _, se := range allServiceEntries {
+		for _, we := range se.Spec.Endpoints {
+			if labels.Instance(selector).SubsetOf(we.Labels) {
+				if seEndpoints[se] == nil {
+					seEndpoints[se] = sets.New[*v1alpha3.WorkloadEntry]()
+				}
+				seEndpoints[se].Insert(we)
+			}
+		}
+	}
+	return seEndpoints
+}
+
+func (c *Controller) getControllerServiceEntries(ns string) []*apiv1alpha3.ServiceEntry {
+	var allServiceEntries []*apiv1alpha3.ServiceEntry
+	allUnstructuredServiceEntries := c.configController.List(gvk.ServiceEntry, ns)
+	for _, se := range allUnstructuredServiceEntries {
+		conv := serviceentry.ConvertServiceEntry(se)
+		if conv == nil {
+			continue
+		}
+		c := &apiv1alpha3.ServiceEntry{
+			ObjectMeta: se.ToObjectMeta(),
+			Spec:       *conv.DeepCopy(),
+		}
+		allServiceEntries = append(allServiceEntries, c)
+	}
+	return allServiceEntries
 }
 
 // name format: <cluster>/<group>/<kind>/<namespace>/<name></section-name>

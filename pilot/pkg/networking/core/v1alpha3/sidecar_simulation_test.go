@@ -194,7 +194,7 @@ func TestInboundClusters(t *testing.T) {
 				{
 					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
 					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
-						Port: &networking.Port{
+						Port: &networking.SidecarPort{
 							Number:   80,
 							Protocol: "HTTP",
 							Name:     "http",
@@ -213,7 +213,7 @@ func TestInboundClusters(t *testing.T) {
 				{
 					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
 					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
-						Port: &networking.Port{
+						Port: &networking.SidecarPort{
 							Number:   80,
 							Protocol: "HTTP",
 							Name:     "http",
@@ -232,7 +232,7 @@ func TestInboundClusters(t *testing.T) {
 				{
 					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
 					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
-						Port: &networking.Port{
+						Port: &networking.SidecarPort{
 							Number:   80,
 							Protocol: "HTTP",
 							Name:     "http",
@@ -251,7 +251,7 @@ func TestInboundClusters(t *testing.T) {
 				{
 					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
 					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
-						Port: &networking.Port{
+						Port: &networking.SidecarPort{
 							Number:   80,
 							Protocol: "HTTP",
 							Name:     "http",
@@ -269,7 +269,7 @@ func TestInboundClusters(t *testing.T) {
 				{
 					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
 					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{{
-						Port: &networking.Port{
+						Port: &networking.SidecarPort{
 							Number:   80,
 							Protocol: "HTTP",
 							Name:     "http",
@@ -289,7 +289,7 @@ func TestInboundClusters(t *testing.T) {
 					Meta: config.Meta{GroupVersionKind: gvk.Sidecar, Namespace: "default", Name: "sidecar"},
 					Spec: &networking.Sidecar{Ingress: []*networking.IstioIngressListener{
 						{
-							Port: &networking.Port{
+							Port: &networking.SidecarPort{
 								Number:   80,
 								Protocol: "HTTP",
 								Name:     "http",
@@ -297,7 +297,7 @@ func TestInboundClusters(t *testing.T) {
 							DefaultEndpoint: "127.0.0.1:8080",
 						},
 						{
-							Port: &networking.Port{
+							Port: &networking.SidecarPort{
 								Number:   81,
 								Protocol: "HTTP",
 								Name:     "http",
@@ -1638,7 +1638,7 @@ func (args vsArgs) Config(t *testing.T, variant string) string {
 	}
 	switch variant {
 	case "httproute":
-		return tmpl.MustEvaluate(`apiVersion: gateway.networking.k8s.io/v1alpha2
+		return tmpl.MustEvaluate(`apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: "{{.Namespace}}{{.Match | replace "*" "wild"}}{{.Dest}}"

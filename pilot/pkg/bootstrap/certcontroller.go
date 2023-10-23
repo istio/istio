@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"istio.io/istio/pilot/pkg/features"
+	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
@@ -131,12 +132,12 @@ func (s *Server) initDNSCerts() error {
 				istioGenerated = true
 			}
 		}
-		// check if signing key file exists the cert dir and if the istio-generated file exists
-		if !detectedSigningCABundle || (detectedSigningCABundle && istioGenerated) {
+		// check if signing key file exists the cert dir and if the istio-generated file
+		// exists (only if USE_CACERTS_FOR_SELF_SIGNED_CA is enabled)
+		if !detectedSigningCABundle || (features.UseCacertsForSelfSignedCA && detectedSigningCABundle && istioGenerated) {
 			if !detectedSigningCABundle {
 				log.Infof("No plugged-in cert at %v; self-signed cert is used", fileBundle.SigningKeyFile)
 			} else {
-				// TODO(jaellio): Modify to read secret data from file.
 				log.Infof("Found cert at %v, but is istio-generated; self-signed cert is used", fileBundle.SigningKeyFile)
 			}
 
@@ -218,6 +219,19 @@ func (s *Server) updatePluggedinRootCertAndGenKeyCert() error {
 	certChain, keyPEM, err := s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
 	if err != nil {
 		return err
+	}
+
+	if features.MultiRootMesh {
+		// Trigger trust anchor update, this will send PCDS to all sidecars.
+		log.Debugf("Update trust anchor with new root cert")
+		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
+			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(caBundle)}},
+			Source:            tb.SourceIstioCA,
+		})
+		if err != nil {
+			log.Errorf("failed to update trust anchor from source Istio CA, err: %v", err)
+			return err
+		}
 	}
 
 	s.istiodCertBundleWatcher.SetAndNotify(keyPEM, certChain, caBundle)

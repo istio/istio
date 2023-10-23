@@ -30,9 +30,10 @@ kind: AuthorizationPolicy
 metadata:
   name: authz-gateway-{{ .To.ServiceName }}
 spec:
-  selector:
-    matchLabels:
-      istio.io/gateway-name: {{ .To.ServiceName }}-gateway # TODO: Replace this with a targetRef after https://github.com/istio/istio/pull/46560 merges
+  targetRef:
+    name: {{ .To.ServiceName }}-gateway
+    kind: Gateway
+    group: gateway.networking.k8s.io
   rules:
   - to:
     - operation:

@@ -23,6 +23,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -62,6 +63,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
+	gatewayapiv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
@@ -76,7 +78,6 @@ import (
 	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
-	"istio.io/istio/operator/pkg/apis"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/informerfactory"
@@ -186,6 +187,9 @@ type CLIClient interface {
 
 	// ApplyYAMLFiles applies the resources in the given YAML files.
 	ApplyYAMLFiles(namespace string, yamlFiles ...string) error
+
+	// ApplyYAMLContents applies the resources in the given YAML strings.
+	ApplyYAMLContents(namespace string, yamls ...string) error
 
 	// ApplyYAMLFilesDryRun performs a dry run for applying the resource in the given YAML files
 	ApplyYAMLFilesDryRun(namespace string, yamlFiles ...string) error
@@ -724,7 +728,8 @@ func (c *client) AllDiscoveryDo(ctx context.Context, istiodNamespace, path strin
 
 	result := map[string][]byte{}
 	for _, istiod := range istiods {
-		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, 15014)
+		monitoringPort := findIstiodMonitoringPort(&istiod)
+		res, err := c.portForwardRequest(ctx, istiod.Name, istiod.Namespace, http.MethodGet, path, monitoringPort)
 		if err != nil {
 			return nil, err
 		}
@@ -824,22 +829,24 @@ func (c *client) GetIstioVersions(ctx context.Context, namespace string) (*versi
 			Revision:  pod.GetLabels()[label.IoIstioRev.Name],
 		}
 
-		// :15014/version returns something like
-		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
-		result, err := c.kube.CoreV1().Pods(pod.Namespace).ProxyGet("", pod.Name, "15014", "/version", nil).DoRaw(ctx)
+		monitoringPort := findIstiodMonitoringPort(&pod)
+		result, err := c.portForwardRequest(ctx, pod.Name, pod.Namespace, http.MethodGet, "/version", monitoringPort)
 		if err != nil {
-			bi, execErr := c.getIstioVersionUsingExec(&pod)
-			if execErr != nil {
-				errs = multierror.Append(errs,
-					fmt.Errorf("error port-forwarding into %s.%s: %v", pod.Namespace, pod.Name, err),
-					execErr,
-				)
-				continue
-			}
-			server.Info = *bi
+			errs = multierror.Append(errs,
+				fmt.Errorf("error port-forwarding into %s.%s: %v", pod.Namespace, pod.Name, err),
+				err,
+			)
+			continue
+		}
+		var v version.Version
+		err = json.Unmarshal(result, &v)
+		if err == nil && v.ClientVersion.Version != "" {
+			server.Info = *v.ClientVersion
 			res = append(res, server)
 			continue
 		}
+		// :15014/version returns something like
+		// 1.7-alpha.9c900ba74d10a1affe7c23557ef0eebd6103b03c-9c900ba74d10a1affe7c23557ef0eebd6103b03c-Clean
 		if len(result) > 0 {
 			setServerInfoWithIstiodVersionInfo(&server.Info, string(result))
 			// (Golang version not available through :15014/version endpoint)
@@ -899,38 +906,6 @@ func (c *client) GetProxyPods(ctx context.Context, limit int64, token string) (*
 	return list, nil
 }
 
-func (c *client) getIstioVersionUsingExec(pod *v1.Pod) (*version.BuildInfo, error) {
-	// exclude data plane components from control plane list
-	labelToPodDetail := map[string]struct {
-		binary    string
-		container string
-	}{
-		"pilot":  {"/usr/local/bin/pilot-discovery", "discovery"},
-		"istiod": {"/usr/local/bin/pilot-discovery", "discovery"},
-	}
-
-	component := pod.Labels["istio"]
-
-	detail, ok := labelToPodDetail[component]
-	if !ok {
-		return nil, fmt.Errorf("unknown Istio component %q", component)
-	}
-
-	stdout, stderr, err := c.PodExec(pod.Name, pod.Namespace, detail.container,
-		fmt.Sprintf("%s version -o json", detail.binary))
-	if err != nil {
-		return nil, fmt.Errorf("error exec'ing into %s %s container: %w", pod.Name, detail.container, err)
-	}
-
-	var v version.Version
-	err = json.Unmarshal([]byte(stdout), &v)
-	if err == nil && v.ClientVersion.Version != "" {
-		return v.ClientVersion, nil
-	}
-
-	return nil, fmt.Errorf("error reading %s %s container version: %v", pod.Name, detail.container, stderr)
-}
-
 func (c *client) NewPortForwarder(podName, ns, localAddress string, localPort int, podPort int) (PortForwarder, error) {
 	return newPortForwarder(c, podName, ns, localAddress, localPort, podPort)
 }
@@ -948,6 +923,20 @@ func (c *client) ApplyYAMLFiles(namespace string, yamlFiles ...string) error {
 		g.Go(func() error {
 			return c.ssapplyYAMLFile(namespace, false, f)
 		})
+	}
+	return g.Wait()
+}
+
+func (c *client) ApplyYAMLContents(namespace string, yamls ...string) error {
+	g, _ := errgroup.WithContext(context.TODO())
+	for _, yaml := range yamls {
+		cfgs := yml.SplitString(yaml)
+		for _, cfg := range cfgs {
+			cfg := cfg
+			g.Go(func() error {
+				return c.ssapplyYAML(cfg, namespace, false)
+			})
+		}
 	}
 	return g.Wait()
 }
@@ -1177,7 +1166,7 @@ func istioScheme() *runtime.Scheme {
 	utilruntime.Must(clientextensions.AddToScheme(scheme))
 	utilruntime.Must(gatewayapi.AddToScheme(scheme))
 	utilruntime.Must(gatewayapibeta.AddToScheme(scheme))
-	utilruntime.Must(apis.AddToScheme(scheme))
+	utilruntime.Must(gatewayapiv1.AddToScheme(scheme))
 	utilruntime.Must(apiextensionsv1.AddToScheme(scheme))
 	return scheme
 }
@@ -1208,4 +1197,13 @@ func SetRevisionForTest(c CLIClient, rev string) CLIClient {
 	tc := c.(*client)
 	tc.revision = rev
 	return tc
+}
+
+func findIstiodMonitoringPort(pod *v1.Pod) int {
+	if v, ok := pod.GetAnnotations()["prometheus.io/port"]; ok {
+		if port, err := strconv.Atoi(v); err == nil {
+			return port
+		}
+	}
+	return 15014
 }

@@ -42,12 +42,17 @@ type Builder struct {
 	builder     *builder.Builder
 }
 
-func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy) *Builder {
+func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Proxy, useFilterState bool) *Builder {
 	tdBundle := trustdomain.NewBundle(push.Mesh.TrustDomain, push.Mesh.TrustDomainAliases)
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
+		UseFilterState:  useFilterState,
 	}
-	policies := push.AuthzPolicies.ListAuthorizationPolicies(proxy.ConfigNamespace, proxy.Labels)
+	selectionOpts := model.WorkloadSelectionOpts{
+		Namespace:      proxy.ConfigNamespace,
+		WorkloadLabels: proxy.Labels,
+	}
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	b := builder.New(tdBundle, push, policies, option)
 	return &Builder{builder: b}
 }

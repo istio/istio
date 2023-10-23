@@ -113,15 +113,7 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 	g := e.NewGroup()
 	for index := 0; index < cfg.count; index++ {
 		index := index
-		if throttle != nil {
-			select {
-			case <-ctx.Done():
-				break
-			case <-throttle.C:
-			}
-		}
-
-		g.Go(ctx, func() error {
+		workFn := func() error {
 			st := time.Now()
 			resp, err := doReq(ctx, cfg, index)
 			if err != nil {
@@ -135,7 +127,20 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 			responseTimes[index] = time.Since(st)
 			responsesMu.Unlock()
 			return nil
-		})
+		}
+		if throttle != nil {
+			select {
+			case <-ctx.Done():
+				break
+			case <-throttle.C:
+			}
+		}
+
+		if cfg.PropagateResponse != nil {
+			workFn() // nolint: errcheck
+		} else {
+			g.Go(ctx, workFn)
+		}
 	}
 
 	// Convert the result of the wait into a channel.

@@ -674,6 +674,18 @@ func TestGetDNSNames(t *testing.T) {
 		sans             []string
 	}{
 		{
+			name:             "no customHost",
+			customHost:       "",
+			discoveryAddress: "istiod.istio-system.svc.cluster.local",
+			revision:         "default",
+			sans: []string{
+				"istio-pilot.istio-system.svc",
+				"istiod-remote.istio-system.svc",
+				"istiod.istio-system.svc",
+				"istiod.istio-system.svc.cluster.local",
+			},
+		},
+		{
 			name:             "default revision",
 			customHost:       "a.com,b.com,c.com",
 			discoveryAddress: "istiod.istio-system.svc.cluster.local",
@@ -686,7 +698,6 @@ func TestGetDNSNames(t *testing.T) {
 				"istiod.istio-system.svc.cluster.local",
 			},
 		},
-
 		{
 			name:             "empty revision",
 			customHost:       "a.com,b.com,c.com",
