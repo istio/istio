@@ -2934,7 +2934,6 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination, g
 		}
 
 		if !gatewaySemantics {
-			fmt.Println("validateHTTPRouteDestinations", weight.Destination)
 			errs = appendErrors(errs, validateDestination(weight.Destination))
 		}
 		errs = appendErrors(errs, validateWeight(weight.Weight))
