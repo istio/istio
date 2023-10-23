@@ -978,7 +978,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 	return parentRefs
 }
 
-func stringToHostnameList(s []string) []k8sbeta.Hostname {
+func stringToHostnameList(s []string) []k8sv1.Hostname {
 	return slices.Map(s, func(e string) k8s.Hostname {
 		return k8s.Hostname(e)
 	})

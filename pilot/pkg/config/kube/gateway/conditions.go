@@ -343,7 +343,7 @@ func generateSupportedKinds(l k8s.Listener) ([]k8s.RouteGroupKind, bool) {
 		// We need to filter down to only ones we actually support
 		intersection := []k8s.RouteGroupKind{}
 		for _, kind := range l.AllowedRoutes.Kinds {
-			if kind.Kind == k8sbeta.Kind(gvk.VirtualService.Kind) && getGroup(kind) == k8sbeta.Group(gvk.VirtualService.Group) {
+			if kind.Kind == k8sv1.Kind(gvk.VirtualService.Kind) && getGroup(kind) == k8sv1.Group(gvk.VirtualService.Group) {
 				// We only allow VirtualService extensions if explicitly configured in the Gateway's allowedRoutes
 				intersection = append(intersection, kind)
 			} else {
