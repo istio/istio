@@ -1808,7 +1808,7 @@ func TestInboundClustersPassThroughBindIPs(t *testing.T) {
 	}
 }
 
-func TestInboundClustersDefaultEndpoint(t *testing.T) {
+func TestInboundClustersLocalhostDefaultEndpoint(t *testing.T) {
 	dsProxy := model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1", "1111:2222::1"},
@@ -1837,20 +1837,6 @@ func TestInboundClustersDefaultEndpoint(t *testing.T) {
 			defaultEndpoint: "127.0.0.1:7073",
 			expectedAddr:    "127.0.0.1",
 			expectedPort:    7073,
-		},
-		{
-			name:            "defaultEndpoint set to [::1]:7073",
-			proxy:           &dsProxy,
-			defaultEndpoint: "[::1]:7073",
-			expectedAddr:    "::1",
-			expectedPort:    7073,
-		},
-		{
-			name:            "defaultEndpoint set to 127.0.0.1:7072",
-			proxy:           &dsProxy,
-			defaultEndpoint: "127.0.0.1:7072",
-			expectedAddr:    "127.0.0.1",
-			expectedPort:    7072,
 		},
 		{
 			name:            "defaultEndpoint set to [::1]:7073",

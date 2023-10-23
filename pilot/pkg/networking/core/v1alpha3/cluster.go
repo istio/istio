@@ -610,18 +610,12 @@ func buildInboundClustersFromSidecar(cb *ClusterBuilder, proxy *model.Proxy,
 						break
 					}
 				}
-				if endpointAddress == "" {
-					endpointAddress = actualLocalHosts[0]
-				}
 			} else if hostIP == model.LocalhostIPv6AddressPrefix {
 				for _, host := range actualLocalHosts {
 					if netutil.IsIPv6Address(host) {
 						endpointAddress = host
 						break
 					}
-				}
-				if endpointAddress == "" {
-					endpointAddress = actualLocalHosts[0]
 				}
 			}
 		}
