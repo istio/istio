@@ -605,7 +605,7 @@ messages:
   - name: "MultiClusterInconsistentService"
     code: IST0163
     level: Warning
-    description: "The services lived in different clusters under multi-cluster deployment model are inconsistent"
+    description: "The services live in different clusters under multi-cluster deployment model are inconsistent"
     template: "The service %v in namespace %q is inconsistent across clusters %q, which can lead to undefined behaviors. The inconsistent behaviors are: %v."
     args:
       - name: serviceName
