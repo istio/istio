@@ -21,9 +21,12 @@ import (
 )
 
 // GetEndpointsConfigDump retrieves the listener config dump from the ConfigDump
-func (w *Wrapper) GetEndpointsConfigDump() (*admin.EndpointsConfigDump, error) {
+func (w *Wrapper) GetEndpointsConfigDump(allowMissingEds bool) (*admin.EndpointsConfigDump, error) {
 	endpointsDumpAny, err := w.getSection(endpoints)
 	if err != nil {
+		if allowMissingEds {
+			return nil, nil
+		}
 		return nil, fmt.Errorf("endpoints not found (was include_eds=true used?): %v", err)
 	}
 	endpointsDump := &admin.EndpointsConfigDump{}
