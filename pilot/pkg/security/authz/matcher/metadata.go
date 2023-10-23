@@ -63,8 +63,21 @@ func MetadataListMatcher(filter string, keys []string, value *matcher.StringMatc
 		Filter: filter,
 		Path:   paths,
 		Value: &matcher.ValueMatcher{
-			MatchPattern: &matcher.ValueMatcher_ListMatch{
-				ListMatch: listMatcher,
+			MatchPattern: &matcher.ValueMatcher_OrMatch{
+				OrMatch: &matcher.OrMatcher{
+					ValueMatchers: []*matcher.ValueMatcher{
+						{
+							MatchPattern: &matcher.ValueMatcher_ListMatch{
+								ListMatch: listMatcher,
+							},
+						},
+						{
+							MatchPattern: &matcher.ValueMatcher_StringMatch{
+								StringMatch: value,
+							},
+						},
+					},
+				},
 			},
 		},
 	}

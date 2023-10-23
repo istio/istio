@@ -736,183 +736,251 @@ typedConfig:
             - orIds:
                 ids:
                 - metadata:
-                    filter: istio_authn
+                    filter: envoy.filters.http.jwt_authn
                     path:
-                    - key: request.auth.claims
+                    - key: payload
                     - key: iss
                     value:
-                      listMatch:
-                        oneOf:
-                          stringMatch:
+                      orMatch:
+                        valueMatchers:
+                        - listMatch:
+                            oneOf:
+                              stringMatch:
+                                exact: iss
+                        - stringMatch:
                             exact: iss
                 - metadata:
-                    filter: istio_authn
+                    filter: envoy.filters.http.jwt_authn
                     path:
-                    - key: request.auth.claims
+                    - key: payload
                     - key: iss
                     value:
-                      listMatch:
-                        oneOf:
-                          stringMatch:
+                      orMatch:
+                        valueMatchers:
+                        - listMatch:
+                            oneOf:
+                              stringMatch:
+                                prefix: iss-prefix-
+                        - stringMatch:
                             prefix: iss-prefix-
                 - metadata:
-                    filter: istio_authn
+                    filter: envoy.filters.http.jwt_authn
                     path:
-                    - key: request.auth.claims
+                    - key: payload
                     - key: iss
                     value:
-                      listMatch:
-                        oneOf:
-                          stringMatch:
+                      orMatch:
+                        valueMatchers:
+                        - listMatch:
+                            oneOf:
+                              stringMatch:
+                                suffix: -suffix-iss
+                        - stringMatch:
                             suffix: -suffix-iss
                 - metadata:
-                    filter: istio_authn
+                    filter: envoy.filters.http.jwt_authn
                     path:
-                    - key: request.auth.claims
+                    - key: payload
                     - key: iss
                     value:
-                      listMatch:
-                        oneOf:
-                          stringMatch:
+                      orMatch:
+                        valueMatchers:
+                        - listMatch:
+                            oneOf:
+                              stringMatch:
+                                safeRegex:
+                                  regex: .+
+                        - stringMatch:
                             safeRegex:
                               regex: .+
             - notId:
                 orIds:
                   ids:
                   - metadata:
-                      filter: istio_authn
+                      filter: envoy.filters.http.jwt_authn
                       path:
-                      - key: request.auth.claims
+                      - key: payload
                       - key: iss
                       value:
-                        listMatch:
-                          oneOf:
-                            stringMatch:
+                        orMatch:
+                          valueMatchers:
+                          - listMatch:
+                              oneOf:
+                                stringMatch:
+                                  exact: not-iss
+                          - stringMatch:
                               exact: not-iss
                   - metadata:
-                      filter: istio_authn
+                      filter: envoy.filters.http.jwt_authn
                       path:
-                      - key: request.auth.claims
+                      - key: payload
                       - key: iss
                       value:
-                        listMatch:
-                          oneOf:
-                            stringMatch:
+                        orMatch:
+                          valueMatchers:
+                          - listMatch:
+                              oneOf:
+                                stringMatch:
+                                  prefix: not-iss-prefix-
+                          - stringMatch:
                               prefix: not-iss-prefix-
                   - metadata:
-                      filter: istio_authn
+                      filter: envoy.filters.http.jwt_authn
                       path:
-                      - key: request.auth.claims
+                      - key: payload
                       - key: iss
                       value:
-                        listMatch:
-                          oneOf:
-                            stringMatch:
+                        orMatch:
+                          valueMatchers:
+                          - listMatch:
+                              oneOf:
+                                stringMatch:
+                                  suffix: -not-suffix-iss
+                          - stringMatch:
                               suffix: -not-suffix-iss
                   - metadata:
-                      filter: istio_authn
+                      filter: envoy.filters.http.jwt_authn
                       path:
-                      - key: request.auth.claims
+                      - key: payload
                       - key: iss
                       value:
-                        listMatch:
-                          oneOf:
-                            stringMatch:
+                        orMatch:
+                          valueMatchers:
+                          - listMatch:
+                              oneOf:
+                                stringMatch:
+                                  safeRegex:
+                                    regex: .+
+                          - stringMatch:
                               safeRegex:
                                 regex: .+
             - orIds:
                 ids:
                 - metadata:
-                    filter: istio_authn
+                    filter: envoy.filters.http.jwt_authn
                     path:
-                    - key: request.auth.claims
+                    - key: payload
                     - key: nested1
                     - key: nested2
                     value:
-                      listMatch:
-                        oneOf:
-                          stringMatch:
+                      orMatch:
+                        valueMatchers:
+                        - listMatch:
+                            oneOf:
+                              stringMatch:
+                                exact: nested
+                        - stringMatch:
                             exact: nested
                 - metadata:
-                    filter: istio_authn
+                    filter: envoy.filters.http.jwt_authn
                     path:
-                    - key: request.auth.claims
+                    - key: payload
                     - key: nested1
                     - key: nested2
                     value:
-                      listMatch:
-                        oneOf:
-                          stringMatch:
+                      orMatch:
+                        valueMatchers:
+                        - listMatch:
+                            oneOf:
+                              stringMatch:
+                                prefix: nested-prefix-
+                        - stringMatch:
                             prefix: nested-prefix-
                 - metadata:
-                    filter: istio_authn
+                    filter: envoy.filters.http.jwt_authn
                     path:
-                    - key: request.auth.claims
+                    - key: payload
                     - key: nested1
                     - key: nested2
                     value:
-                      listMatch:
-                        oneOf:
-                          stringMatch:
+                      orMatch:
+                        valueMatchers:
+                        - listMatch:
+                            oneOf:
+                              stringMatch:
+                                suffix: -suffix-nested
+                        - stringMatch:
                             suffix: -suffix-nested
                 - metadata:
-                    filter: istio_authn
+                    filter: envoy.filters.http.jwt_authn
                     path:
-                    - key: request.auth.claims
+                    - key: payload
                     - key: nested1
                     - key: nested2
                     value:
-                      listMatch:
-                        oneOf:
-                          stringMatch:
+                      orMatch:
+                        valueMatchers:
+                        - listMatch:
+                            oneOf:
+                              stringMatch:
+                                safeRegex:
+                                  regex: .+
+                        - stringMatch:
                             safeRegex:
                               regex: .+
             - notId:
                 orIds:
                   ids:
                   - metadata:
-                      filter: istio_authn
+                      filter: envoy.filters.http.jwt_authn
                       path:
-                      - key: request.auth.claims
+                      - key: payload
                       - key: nested1
                       - key: nested2
                       value:
-                        listMatch:
-                          oneOf:
-                            stringMatch:
+                        orMatch:
+                          valueMatchers:
+                          - listMatch:
+                              oneOf:
+                                stringMatch:
+                                  exact: not-nested
+                          - stringMatch:
                               exact: not-nested
                   - metadata:
-                      filter: istio_authn
+                      filter: envoy.filters.http.jwt_authn
                       path:
-                      - key: request.auth.claims
+                      - key: payload
                       - key: nested1
                       - key: nested2
                       value:
-                        listMatch:
-                          oneOf:
-                            stringMatch:
+                        orMatch:
+                          valueMatchers:
+                          - listMatch:
+                              oneOf:
+                                stringMatch:
+                                  prefix: not-nested-prefix-
+                          - stringMatch:
                               prefix: not-nested-prefix-
                   - metadata:
-                      filter: istio_authn
+                      filter: envoy.filters.http.jwt_authn
                       path:
-                      - key: request.auth.claims
+                      - key: payload
                       - key: nested1
                       - key: nested2
                       value:
-                        listMatch:
-                          oneOf:
-                            stringMatch:
+                        orMatch:
+                          valueMatchers:
+                          - listMatch:
+                              oneOf:
+                                stringMatch:
+                                  suffix: -not-suffix-nested
+                          - stringMatch:
                               suffix: -not-suffix-nested
                   - metadata:
-                      filter: istio_authn
+                      filter: envoy.filters.http.jwt_authn
                       path:
-                      - key: request.auth.claims
+                      - key: payload
                       - key: nested1
                       - key: nested2
                       value:
-                        listMatch:
-                          oneOf:
-                            stringMatch:
+                        orMatch:
+                          valueMatchers:
+                          - listMatch:
+                              oneOf:
+                                stringMatch:
+                                  safeRegex:
+                                    regex: .+
+                          - stringMatch:
                               safeRegex:
                                 regex: .+
   shadowRulesStatPrefix: istio_dry_run_allow_
