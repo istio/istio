@@ -107,7 +107,7 @@ func run(c *cobra.Command, ctx cli.Context, args []string) error {
 		return fmt.Errorf("failed to create k8s client: %v", err)
 	}
 
-	pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app=prometheus")
+	pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app.kubernetes.io/name=prometheus")
 	if err != nil {
 		return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 	}
