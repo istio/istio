@@ -16,6 +16,7 @@ package envoyfilter
 
 import (
 	"fmt"
+	"strings"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -737,6 +738,12 @@ func filterChainMatch(listener *listener.Listener, fc *listener.FilterChain, lp 
 
 	if match.TransportProtocol != "" {
 		if fc.FilterChainMatch == nil || fc.FilterChainMatch.TransportProtocol != match.TransportProtocol {
+			return false
+		}
+	}
+
+	if match.ApplicationProtocols != "" {
+		if fc.FilterChainMatch == nil || strings.Join(fc.FilterChainMatch.ApplicationProtocols, ",") != match.ApplicationProtocols {
 			return false
 		}
 	}
