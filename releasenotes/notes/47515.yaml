@@ -5,4 +5,4 @@ issue:
 - 47505
 releaseNotes:
 - |
-  **Added** support for allowing missing EDS endpoints in file config dump in `istioctl proxy-config` command.
+  **Fixed** an issue where `istioctl proxy-config` fails to process a config dump from file if EDS endpoints were not provided.
