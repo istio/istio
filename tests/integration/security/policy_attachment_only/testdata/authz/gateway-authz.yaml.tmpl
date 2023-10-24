@@ -10,8 +10,6 @@ spec:
   jwtRules:
   - issuer: "test-issuer-1@istio.io"
     jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
-  - issuer: "test-issuer-2@istio.io"
-    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
 --- 
 apiVersion: security.istio.io/v1beta1
 kind: AuthorizationPolicy
@@ -33,5 +31,3 @@ spec:
     from:
     - source:
         requestPrincipals: ["test-issuer-1@istio.io/sub-1"]
-    - source:
-        requestPrincipals: ["test-issuer-3@istio.io/sub-1"]
