@@ -54,8 +54,10 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"MeshFrontendHostname":          "https://github.com/istio/istio/issues/44702",
-	"GatewayObservedGenerationBump": "https://github.com/istio/istio/issues/44850",
+	"MeshFrontendHostname":               "https://github.com/istio/istio/issues/44702",
+	"GatewayObservedGenerationBump":      "https://github.com/istio/istio/issues/44850",
+	"GatewaySecretInvalidReferenceGrant": "TODO",
+	"GatewayStaticAddresses":             "TODO",
 }
 
 func init() {

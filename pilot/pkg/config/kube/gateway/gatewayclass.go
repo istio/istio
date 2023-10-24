@@ -19,6 +19,7 @@ import (
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -107,11 +108,11 @@ func GetClassStatus(existing *k8s.GatewayClassStatus, gen int64) k8s.GatewayClas
 		existing = &k8s.GatewayClassStatus{}
 	}
 	existing.Conditions = kstatus.UpdateConditionIfChanged(existing.Conditions, metav1.Condition{
-		Type:               string(gateway.GatewayClassConditionStatusAccepted),
+		Type:               string(k8sv1.GatewayClassConditionStatusAccepted),
 		Status:             kstatus.StatusTrue,
 		ObservedGeneration: gen,
 		LastTransitionTime: metav1.Now(),
-		Reason:             string(gateway.GatewayClassConditionStatusAccepted),
+		Reason:             string(k8sv1.GatewayClassConditionStatusAccepted),
 		Message:            "Handled by Istio controller",
 	})
 	return *existing

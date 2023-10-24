@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
@@ -120,12 +121,12 @@ func makeGateway(name, namespace, sa string, programmed, isWaypoint bool) *gatew
 	conditions := make([]metav1.Condition, 0)
 	if programmed {
 		conditions = append(conditions, metav1.Condition{
-			Type:   string(gateway.GatewayConditionProgrammed),
+			Type:   string(gatewayv1.GatewayConditionProgrammed),
 			Status: kstatus.StatusTrue,
 		})
 	} else {
 		conditions = append(conditions, metav1.Condition{
-			Type:   string(gateway.GatewayConditionProgrammed),
+			Type:   string(gatewayv1.GatewayConditionProgrammed),
 			Status: kstatus.StatusFalse,
 		})
 	}
