@@ -569,7 +569,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 		t.Errorf("failed to generate certificate for trustAnchor test case")
 	}
 	// Ensure Root cert call back gets invoked once
-	u.Expect(map[string]int{security.RootCertReqResourceName: 1})
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
 	u.Reset()
 
 	caClientRootCert := []byte(strings.TrimRight(fakeCACli.GeneratedCerts[0][2], "\n"))
@@ -639,6 +639,35 @@ func TestProxyConfigAnchors(t *testing.T) {
 		ResourceName: sc.existingCertificateFile.GetRootResourceName(),
 		RootCert:     rootCert,
 	})
+}
+
+func TestProxyConfigAnchorsTriggerWorkloadCertUpdate(t *testing.T) {
+	cacheLog.SetOutputLevel(log.DebugLevel)
+	fakeCACli, err := mock.NewMockCAClient(time.Millisecond*100, false)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	u := NewUpdateTracker(t)
+	sc := createCache(t, fakeCACli, u.Callback, security.Options{WorkloadRSAKeySize: 2048})
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	if err != nil {
+		t.Errorf("failed to generate certificate for trustAnchor test case")
+	}
+	// Ensure Root cert call back gets invoked once
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1})
+	u.Reset()
+
+	rootCert, err := os.ReadFile(filepath.Join("./testdata", "root-cert.pem"))
+	if err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+	// Update the proxyConfig with certs
+	sc.UpdateConfigTrustBundle(rootCert)
+
+	time.Sleep(100 * time.Millisecond)
+	// Ensure Callback gets invoked when updating proxyConfig trust bundle
+	// The rotation task actually will not call `OnSecretUpdate`, otherwise the WorkloadKeyCertResourceName event number should be 2
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
 }
 
 func TestOSCACertGenerateSecret(t *testing.T) {
