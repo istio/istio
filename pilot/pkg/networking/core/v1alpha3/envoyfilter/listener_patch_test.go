@@ -903,7 +903,7 @@ func TestApplyListenerPatches(t *testing.T) {
 				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
 					Listener: &networking.EnvoyFilter_ListenerMatch{
 						PortNumber:  12345,
-						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{ApplicationProtocols: "http/1.1,h2c"},
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{ApplicationProtocols: "http/1.1"},
 					},
 				},
 			},

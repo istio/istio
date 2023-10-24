@@ -743,8 +743,13 @@ func filterChainMatch(listener *listener.Listener, fc *listener.FilterChain, lp 
 	}
 
 	if match.ApplicationProtocols != "" {
-		if fc.FilterChainMatch == nil || strings.Join(fc.FilterChainMatch.ApplicationProtocols, ",") != match.ApplicationProtocols {
+		if fc.FilterChainMatch == nil {
 			return false
+		}
+		for _, p := range strings.Split(match.ApplicationProtocols, ",") {
+			if !slices.Contains(fc.FilterChainMatch.ApplicationProtocols, p) {
+				return false
+			}
 		}
 	}
 
