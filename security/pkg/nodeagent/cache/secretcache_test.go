@@ -643,7 +643,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 
 func TestProxyConfigAnchorsTriggerWorkloadCertUpdate(t *testing.T) {
 	cacheLog.SetOutputLevel(log.DebugLevel)
-	fakeCACli, err := mock.NewMockCAClient(time.Millisecond*100, false)
+	fakeCACli, err := mock.NewMockCAClient(time.Millisecond*1000, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
 	}
@@ -664,7 +664,6 @@ func TestProxyConfigAnchorsTriggerWorkloadCertUpdate(t *testing.T) {
 	// Update the proxyConfig with certs
 	sc.UpdateConfigTrustBundle(rootCert)
 
-	time.Sleep(100 * time.Millisecond)
 	// Ensure Callback gets invoked when updating proxyConfig trust bundle
 	// The rotation task actually will not call `OnSecretUpdate`, otherwise the WorkloadKeyCertResourceName event number should be 2
 	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
