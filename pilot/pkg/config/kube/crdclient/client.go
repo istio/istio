@@ -29,7 +29,6 @@ import (
 
 	jsonmerge "github.com/evanphx/json-patch/v5"
 	"go.uber.org/atomic"
-	"golang.org/x/exp/maps"
 	"gomodules.xyz/jsonpatch/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -50,6 +49,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/queue"
 )
 
