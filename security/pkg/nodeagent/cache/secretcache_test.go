@@ -569,7 +569,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 		t.Errorf("failed to generate certificate for trustAnchor test case")
 	}
 	// Ensure Root cert call back gets invoked once
-	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1})
 	u.Reset()
 
 	caClientRootCert := []byte(strings.TrimRight(fakeCACli.GeneratedCerts[0][2], "\n"))
@@ -588,7 +588,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	sc.UpdateConfigTrustBundle(rootCert)
 
 	// Ensure Callback gets invoked when updating proxyConfig trust bundle
-	u.Expect(map[string]int{security.RootCertReqResourceName: 1})
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
 	u.Reset()
 
 	concatCerts := func(certs ...string) []byte {
