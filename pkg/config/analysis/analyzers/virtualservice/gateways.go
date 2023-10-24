@@ -23,8 +23,8 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	kubeconfig "istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/host"
-	kubeconfig "istio.io/istio/pkg/config/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
