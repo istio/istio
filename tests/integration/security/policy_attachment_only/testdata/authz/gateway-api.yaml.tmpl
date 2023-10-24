@@ -6,6 +6,7 @@ spec:
   gatewayClassName: istio
   listeners:
   - name: http
+    # Exposing port 80 isn't the recommended security practice 
     port: 80
     protocol: HTTP
     hostname: "*.{{ .To.ServiceName }}.com"
