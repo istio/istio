@@ -188,13 +188,6 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 		// Draining tracking is only enabled if persistent sessions is enabled.
 		// If we start using them for other features, this can be adjusted.
 		healthStatus := endpointHealthStatus(svc, e)
-		if !features.SendUnhealthyEndpoints.Load() {
-			if healthStatus == model.UnHealthy {
-				// Ignore not ready endpoints. Draining endpoints are tracked, but not returned
-				// except for persistent-session clusters.
-				continue
-			}
-		}
 		for _, a := range e.Addresses {
 			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
 			if pod == nil && expectedPod {
