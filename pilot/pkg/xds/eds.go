@@ -121,10 +121,13 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 	ep.Lock()
 	defer ep.Unlock()
 	newIstioEndpoints := istioEndpoints
-	if features.SendUnhealthyEndpoints.Load() {
-		oldIstioEndpoints := ep.Shards[shard]
+	oldIstioEndpoints := ep.Shards[shard]
+	needPush := false
+	if oldIstioEndpoints == nil {
+		// If there are no old endpoints, we should push with incoming endpoints as there is nothing to compare.
+		needPush = true
+	} else {
 		newIstioEndpoints = make([]*model.IstioEndpoint, 0, len(istioEndpoints))
-
 		// Check if new Endpoints are ready to be pushed. This check
 		// will ensure that if a new pod comes with a non ready endpoint,
 		// we do not unnecessarily push that config to Envoy.
@@ -140,7 +143,6 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 		for _, nie := range istioEndpoints {
 			nmap[nie.Address] = nie
 		}
-		needPush := false
 		for _, nie := range istioEndpoints {
 			if oie, exists := emap[nie.Address]; exists {
 				// If endpoint exists already, we should push if it's health status changes.
@@ -148,11 +150,14 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 					needPush = true
 				}
 				newIstioEndpoints = append(newIstioEndpoints, nie)
-			} else if nie.HealthStatus == model.Healthy {
+			} else {
 				// If the endpoint does not exist in shards that means it is a
-				// new endpoint. Only send if it is healthy to avoid pushing endpoints
-				// that are not ready to start with.
-				needPush = true
+				// new endpoint. Always send new endpoints even if they are not healthy.
+				// This is OK since we disable panic threshold when SendUnhealthyEndpoints is enabled.
+				// Without SendUnhealthyEndpoints we do not need this; headless services will trigger the push in the Kubernetes controller.
+				if features.SendUnhealthyEndpoints.Load() {
+					needPush = true
+				}
 				newIstioEndpoints = append(newIstioEndpoints, nie)
 			}
 		}
@@ -163,12 +168,11 @@ func (s *DiscoveryServer) edsCacheUpdate(shard model.ShardKey, hostname string, 
 				needPush = true
 			}
 		}
+	}
 
-		if pushType != FullPush && !needPush {
-			log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
-			pushType = NoPush
-		}
-
+	if pushType != FullPush && !needPush {
+		log.Debugf("No push, either old endpoint health status did not change or new endpoint came with unhealthy status, %v", hostname)
+		pushType = NoPush
 	}
 
 	ep.Shards[shard] = newIstioEndpoints

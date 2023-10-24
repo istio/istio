@@ -289,6 +289,10 @@ func (b *EndpointBuilder) buildLocalityLbEndpointsFromShards(
 			if !subsetLabels.SubsetOf(ep.Labels) {
 				continue
 			}
+			// Filter out unhealthy endpoints
+			if !features.SendUnhealthyEndpoints.Load() && ep.HealthStatus == model.UnHealthy {
+				continue
+			}
 			// Draining endpoints are only sent to 'persistent session' clusters.
 			draining := ep.HealthStatus == model.Draining ||
 				features.DrainingLabel != "" && ep.Labels[features.DrainingLabel] != ""
