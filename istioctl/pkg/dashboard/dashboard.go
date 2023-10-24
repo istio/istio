@@ -123,7 +123,7 @@ func grafanaDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=grafana")
+			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app.kubernetes.io/name=grafana")
 			if err != nil {
 				return fmt.Errorf("not able to locate Grafana pod: %v", err)
 			}
