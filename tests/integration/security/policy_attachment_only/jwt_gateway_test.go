@@ -233,7 +233,7 @@ func TestGatewayAPIAuthorizationPolicy(t *testing.T) {
 							opts.HTTP.Headers = headers.New().
 								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
 								Build()
-							opts.Check = check.Status(http.StatusUnauthorized)
+							opts.Check = check.Status(http.StatusForbidden)
 						},
 					},
 					{
@@ -245,7 +245,7 @@ func TestGatewayAPIAuthorizationPolicy(t *testing.T) {
 								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
 								WithAuthz(jwt.TokenIssuer1).
 								Build()
-							opts.Check = check.Status(http.StatusForbidden)
+							opts.Check = check.Status(http.StatusNotFound)
 						},
 					},
 					{
@@ -257,7 +257,7 @@ func TestGatewayAPIAuthorizationPolicy(t *testing.T) {
 								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
 								WithAuthz(jwt.TokenIssuer1).
 								Build()
-							opts.Check = check.Status(http.StatusForbidden)
+							opts.Check = check.Status(http.StatusNotFound)
 						},
 					},
 				}
