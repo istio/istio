@@ -51,3 +51,23 @@ if [ ! -f "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" ]; then
 fi
 rm -f "${ROOTDIR}/manifests/charts/base/crds/crd-all.gen.yaml"
 cp "${API_TMP}/kubernetes/customresourcedefinitions.gen.yaml" "${ROOTDIR}/manifests/charts/base/crds/crd-all.gen.yaml"
+
+cd "${ROOTDIR}"
+
+GATEWAY_VERSION=$(grep "gateway-api" go.mod | awk '{ print $2 }')
+if [[ ${GATEWAY_VERSION} == *"-"* && ! ${GATEWAY_VERSION} =~ -rc[0-9]$ ]]; then
+  # not an official release or release candidate, so get the commit sha
+  SHORT_SHA=$(echo "${GATEWAY_VERSION}" | awk -F '-' '{ print $NF }')
+  GATEWAY_VERSION=$(curl -s -L -H "Accept: application/vnd.github+json" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/kubernetes-sigs/gateway-api/commits/${SHORT_SHA}" | jq -r .sha)
+fi
+if [ -z "${GATEWAY_VERSION}" ]; then
+  fail "Unable to retrieve the gateway-api version from go.mod file. Not updating the CRD file.";
+fi
+
+echo "# Generated with \`kubectl kustomize \"https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=${GATEWAY_VERSION}\"\`" > "${API_TMP}/gateway-api-crd.yaml"
+if ! kubectl kustomize "github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=${GATEWAY_VERSION}" >> "${API_TMP}/gateway-api-crd.yaml"; then
+  fail "Unable to generate the CRDs for ${GATEWAY_VERSION}. Not updating the CRD file.";
+fi
+
+rm -f "${ROOTDIR}/tests/integration/pilot/testdata/gateway-api-crd.yaml"
+cp "${API_TMP}/gateway-api-crd.yaml" "${ROOTDIR}/tests/integration/pilot/testdata/gateway-api-crd.yaml"
