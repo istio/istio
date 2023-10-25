@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -82,7 +82,7 @@ var AlwaysReady = func(class schema.GroupVersionResource, stop <-chan struct{}) 
 }
 
 func TestListInvalidGroupVersionKind(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	clientSet := kube.NewFakeClient()
 	clientSet.RunAndWait(test.NewStop(t))
 	store := memory.NewController(memory.Make(collections.All))
@@ -90,11 +90,11 @@ func TestListInvalidGroupVersionKind(t *testing.T) {
 
 	typ := config.GroupVersionKind{Kind: "wrong-kind"}
 	c := controller.List(typ, "ns1")
-	g.Expect(c).To(HaveLen(0))
+	g.Expect(c).To(gomega.HaveLen(0))
 }
 
 func TestListGatewayResourceType(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	clientSet := kube.NewFakeClient()
 	clientSet.RunAndWait(test.NewStop(t))
@@ -129,14 +129,14 @@ func TestListGatewayResourceType(t *testing.T) {
 	})
 
 	cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
-	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(HaveOccurred())
+	g.Expect(controller.Reconcile(cg.PushContext())).ToNot(gomega.HaveOccurred())
 	cfg := controller.List(gvk.Gateway, "ns1")
-	g.Expect(cfg).To(HaveLen(1))
+	g.Expect(cfg).To(gomega.HaveLen(1))
 	for _, c := range cfg {
-		g.Expect(c.GroupVersionKind).To(Equal(gvk.Gateway))
-		g.Expect(c.Name).To(Equal("gwspec" + "-" + constants.KubernetesGatewayName + "-default"))
-		g.Expect(c.Namespace).To(Equal("ns1"))
-		g.Expect(c.Spec).To(Equal(expectedgw))
+		g.Expect(c.GroupVersionKind).To(gomega.Equal(gvk.Gateway))
+		g.Expect(c.Name).To(gomega.Equal("gwspec" + "-" + constants.KubernetesGatewayName + "-default"))
+		g.Expect(c.Namespace).To(gomega.Equal("ns1"))
+		g.Expect(c.Spec).To(gomega.Equal(expectedgw))
 	}
 }
 

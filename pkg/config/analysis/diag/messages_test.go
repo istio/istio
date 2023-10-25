@@ -17,13 +17,13 @@ package diag
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/url"
 )
 
 func TestMessages_Sort(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
@@ -56,11 +56,11 @@ func TestMessages_Sort(t *testing.T) {
 
 	msgs.Sort()
 
-	g.Expect(msgs).To(Equal(expectedMsgs))
+	g.Expect(msgs).To(gomega.Equal(expectedMsgs))
 }
 
 func TestMessages_SortWithNilOrigin(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
@@ -83,11 +83,11 @@ func TestMessages_SortWithNilOrigin(t *testing.T) {
 
 	msgs.Sort()
 
-	g.Expect(msgs).To(Equal(expectedMsgs))
+	g.Expect(msgs).To(gomega.Equal(expectedMsgs))
 }
 
 func TestMessages_SortedCopy(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
@@ -111,11 +111,11 @@ func TestMessages_SortedCopy(t *testing.T) {
 
 	newMsgs := msgs.SortedDedupedCopy()
 
-	g.Expect(newMsgs).To(Equal(expectedMsgs))
+	g.Expect(newMsgs).To(gomega.Equal(expectedMsgs))
 }
 
 func TestMessages_SetRefDoc(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
@@ -135,12 +135,12 @@ func TestMessages_SetRefDoc(t *testing.T) {
 		return msg.Unstructured(false)["documentationUrl"].(string)
 	}
 
-	g.Expect(getDocURL(msgs[0])).To(Equal(url.ConfigAnalysis + "/b1/?ref=istioctl-awesome"))
-	g.Expect(getDocURL(msgs[1])).To(Equal(url.ConfigAnalysis + "/c1/?ref=istioctl-awesome"))
+	g.Expect(getDocURL(msgs[0])).To(gomega.Equal(url.ConfigAnalysis + "/b1/?ref=istioctl-awesome"))
+	g.Expect(getDocURL(msgs[1])).To(gomega.Equal(url.ConfigAnalysis + "/c1/?ref=istioctl-awesome"))
 }
 
 func TestMessages_Filter(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Error, "B1", "Template: %q"),
@@ -162,11 +162,11 @@ func TestMessages_Filter(t *testing.T) {
 	filteredMsgs := msgs.FilterOutLowerThan(Warning)
 	expectedMsgs := Messages{firstMsg, thirdMsg}
 
-	g.Expect(filteredMsgs).To(Equal(expectedMsgs))
+	g.Expect(filteredMsgs).To(gomega.Equal(expectedMsgs))
 }
 
 func TestMessages_FilterOutAll(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	firstMsg := NewMessage(
 		NewMessageType(Info, "A1", "Template: %q"),
@@ -183,5 +183,5 @@ func TestMessages_FilterOutAll(t *testing.T) {
 	filteredMsgs := msgs.FilterOutLowerThan(Error)
 	expectedMsgs := Messages{}
 
-	g.Expect(filteredMsgs).To(Equal(expectedMsgs))
+	g.Expect(filteredMsgs).To(gomega.Equal(expectedMsgs))
 }

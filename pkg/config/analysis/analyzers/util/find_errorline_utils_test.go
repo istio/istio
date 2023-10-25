@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
@@ -47,24 +47,24 @@ var fieldMap = map[string]int{
 }
 
 func TestExtractLabelFromSelectorString(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	s := "label=test"
-	g.Expect(ExtractLabelFromSelectorString(s)).To(Equal("label"))
+	g.Expect(ExtractLabelFromSelectorString(s)).To(gomega.Equal("label"))
 }
 
 func TestErrorLine(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	r := &resource.Instance{Origin: &kube2.Origin{FieldsMap: fieldMap}}
 	test1, err1 := ErrorLine(r, "{.metadata.name}")
 	test2, err2 := ErrorLine(r, "{.metadata.fake}")
-	g.Expect(test1).To(Equal(1))
-	g.Expect(err1).To(Equal(true))
-	g.Expect(test2).To(Equal(0))
-	g.Expect(err2).To(Equal(false))
+	g.Expect(test1).To(gomega.Equal(1))
+	g.Expect(err1).To(gomega.Equal(true))
+	g.Expect(test2).To(gomega.Equal(0))
+	g.Expect(err2).To(gomega.Equal(false))
 }
 
 func TestConstants(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	constantsPath := []string{
 		fmt.Sprintf(DestinationHost, "test", 0, 0),
@@ -89,6 +89,6 @@ func TestConstants(t *testing.T) {
 	}
 
 	for _, v := range constantsPath {
-		g.Expect(fieldMap[v]).To(Equal(1))
+		g.Expect(fieldMap[v]).To(gomega.Equal(1))
 	}
 }

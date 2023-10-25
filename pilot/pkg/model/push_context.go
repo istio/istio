@@ -1441,16 +1441,15 @@ func (ps *PushContext) initServiceRegistry(env *Environment) {
 				continue
 			} else if s.Attributes.ExportTo.Contains(visibility.None) {
 				continue
-			} else {
-				// . or other namespaces
-				for exportTo := range s.Attributes.ExportTo {
-					if exportTo == visibility.Private || string(exportTo) == ns {
-						// exportTo with same namespace is effectively private
-						ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
-					} else {
-						// exportTo is a specific target namespace
-						ps.ServiceIndex.exportedToNamespace[string(exportTo)] = append(ps.ServiceIndex.exportedToNamespace[string(exportTo)], s)
-					}
+			}
+			// . or other namespaces
+			for exportTo := range s.Attributes.ExportTo {
+				if exportTo == visibility.Private || string(exportTo) == ns {
+					// exportTo with same namespace is effectively private
+					ps.ServiceIndex.privateByNamespace[ns] = append(ps.ServiceIndex.privateByNamespace[ns], s)
+				} else {
+					// exportTo is a specific target namespace
+					ps.ServiceIndex.exportedToNamespace[string(exportTo)] = append(ps.ServiceIndex.exportedToNamespace[string(exportTo)], s)
 				}
 			}
 		}

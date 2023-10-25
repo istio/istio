@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/clientcmd/api"
@@ -209,18 +209,18 @@ func Test_SecretController(t *testing.T) {
 		resetCallbackData()
 
 		t.Run(step.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			switch {
 			case step.add != nil:
 				_, err := clientset.Kube().CoreV1().Secrets(step.add.Namespace).Create(context.TODO(), step.add, metav1.CreateOptions{})
-				g.Expect(err).Should(BeNil())
+				g.Expect(err).Should(gomega.BeNil())
 			case step.update != nil:
 				_, err := clientset.Kube().CoreV1().Secrets(step.update.Namespace).Update(context.TODO(), step.update, metav1.UpdateOptions{})
-				g.Expect(err).Should(BeNil())
+				g.Expect(err).Should(gomega.BeNil())
 			case step.delete != nil:
 				g.Expect(clientset.Kube().CoreV1().Secrets(step.delete.Namespace).Delete(context.TODO(), step.delete.Name, metav1.DeleteOptions{})).
-					Should(Succeed())
+					Should(gomega.Succeed())
 			}
 
 			switch {
@@ -229,25 +229,25 @@ func Test_SecretController(t *testing.T) {
 					mu.Lock()
 					defer mu.Unlock()
 					return added
-				}, 10*time.Second).Should(Equal(step.wantAdded))
+				}, 10*time.Second).Should(gomega.Equal(step.wantAdded))
 			case step.wantUpdated != "":
 				g.Eventually(func() cluster.ID {
 					mu.Lock()
 					defer mu.Unlock()
 					return updated
-				}, 10*time.Second).Should(Equal(step.wantUpdated))
+				}, 10*time.Second).Should(gomega.Equal(step.wantUpdated))
 			case step.wantDeleted != "":
 				g.Eventually(func() cluster.ID {
 					mu.Lock()
 					defer mu.Unlock()
 					return deleted
-				}, 10*time.Second).Should(Equal(step.wantDeleted))
+				}, 10*time.Second).Should(gomega.Equal(step.wantDeleted))
 			default:
 				g.Consistently(func() bool {
 					mu.Lock()
 					defer mu.Unlock()
 					return added == "" && updated == "" && deleted == ""
-				}).Should(Equal(true))
+				}).Should(gomega.Equal(true))
 			}
 		})
 	}

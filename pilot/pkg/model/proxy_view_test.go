@@ -17,7 +17,7 @@ package model_test
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/network"
@@ -58,7 +58,7 @@ func TestProxyView(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			view := (&model.Proxy{
 				Metadata: &model.NodeMetadata{
@@ -70,7 +70,7 @@ func TestProxyView(t *testing.T) {
 				Network: network.ID(c.network),
 			})
 
-			g.Expect(actual).To(Equal(c.visible))
+			g.Expect(actual).To(gomega.Equal(c.visible))
 		})
 	}
 }

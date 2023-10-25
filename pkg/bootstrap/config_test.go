@@ -20,7 +20,7 @@ import (
 	"reflect"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"k8s.io/kubectl/pkg/util/fieldpath"
 
 	"istio.io/api/mesh/v1alpha1"
@@ -108,14 +108,14 @@ func TestGetNodeMetaData(t *testing.T) {
 		ExitOnZeroActiveConnections: true,
 	})
 
-	g := NewWithT(t)
-	g.Expect(err).Should(BeNil())
-	g.Expect(node.Metadata.Owner).To(Equal(expectOwner))
-	g.Expect(node.Metadata.WorkloadName).To(Equal(expectWorkloadName))
-	g.Expect(node.Metadata.ExitOnZeroActiveConnections).To(Equal(expectExitOnZeroActiveConnections))
-	g.Expect(node.RawMetadata["OWNER"]).To(Equal(expectOwner))
-	g.Expect(node.RawMetadata["WORKLOAD_NAME"]).To(Equal(expectWorkloadName))
-	g.Expect(node.Metadata.Labels[model.LocalityLabel]).To(Equal("region/zone/subzone"))
+	g := gomega.NewWithT(t)
+	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(node.Metadata.Owner).To(gomega.Equal(expectOwner))
+	g.Expect(node.Metadata.WorkloadName).To(gomega.Equal(expectWorkloadName))
+	g.Expect(node.Metadata.ExitOnZeroActiveConnections).To(gomega.Equal(expectExitOnZeroActiveConnections))
+	g.Expect(node.RawMetadata["OWNER"]).To(gomega.Equal(expectOwner))
+	g.Expect(node.RawMetadata["WORKLOAD_NAME"]).To(gomega.Equal(expectWorkloadName))
+	g.Expect(node.Metadata.Labels[model.LocalityLabel]).To(gomega.Equal("region/zone/subzone"))
 }
 
 func TestSetIstioVersion(t *testing.T) {

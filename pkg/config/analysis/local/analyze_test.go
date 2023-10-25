@@ -20,7 +20,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -73,17 +73,17 @@ func (a *testAnalyzer) Analyze(ctx analysis.Context) {
 }
 
 func TestAbortWithNoSources(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	cancel := make(chan struct{})
 
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 	_, err := sa.Analyze(cancel)
-	g.Expect(err).To(Not(BeNil()))
+	g.Expect(err).To(gomega.Not(gomega.BeNil()))
 }
 
 func TestAnalyzersRun(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	cancel := make(chan struct{})
 
@@ -103,17 +103,17 @@ func TestAnalyzersRun(t *testing.T) {
 
 	sa := NewSourceAnalyzer(analysis.Combine("a", a), "", "", cr)
 	err := sa.AddReaderKubeSource(nil)
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(gomega.BeNil())
 
 	result, err := sa.Analyze(cancel)
-	g.Expect(err).To(BeNil())
-	g.Expect(result.Messages).To(ConsistOf(m))
-	g.Expect(collectionAccessed).To(Equal(K8SCollection1.GroupVersionKind()))
-	g.Expect(result.ExecutedAnalyzers).To(ConsistOf(a.Metadata().Name))
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(result.Messages).To(gomega.ConsistOf(m))
+	g.Expect(collectionAccessed).To(gomega.Equal(K8SCollection1.GroupVersionKind()))
+	g.Expect(result.ExecutedAnalyzers).To(gomega.ConsistOf(a.Metadata().Name))
 }
 
 func TestFilterOutputByNamespace(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	cancel := make(chan struct{})
 
@@ -130,27 +130,27 @@ func TestFilterOutputByNamespace(t *testing.T) {
 
 	sa := NewSourceAnalyzer(analysis.Combine("a", a), "ns1", "", nil)
 	err := sa.AddReaderKubeSource(nil)
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(gomega.BeNil())
 
 	result, err := sa.Analyze(cancel)
-	g.Expect(err).To(BeNil())
-	g.Expect(result.Messages).To(ConsistOf(msg1))
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(result.Messages).To(gomega.ConsistOf(msg1))
 }
 
 func TestAddInMemorySource(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
 	src := model.NewFakeStore()
 	sa.AddSource(dfCache{ConfigStore: src})
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
-	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
-	g.Expect(sa.stores).To(HaveLen(1))
+	g.Expect(sa.meshNetworks.Networks).To(gomega.HaveLen(0))
+	g.Expect(sa.stores).To(gomega.HaveLen(1))
 }
 
 func TestAddRunningKubeSource(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	mk := kube.NewFakeClient()
 
@@ -158,13 +158,13 @@ func TestAddRunningKubeSource(t *testing.T) {
 
 	sa.AddRunningKubeSource(mk)
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
-	g.Expect(sa.meshNetworks.Networks).To(HaveLen(0))
+	g.Expect(sa.meshNetworks.Networks).To(gomega.HaveLen(0))
 	// We have a store for Istio configs and one for service discovery K8S resources.
-	g.Expect(sa.stores).To(HaveLen(2))
+	g.Expect(sa.stores).To(gomega.HaveLen(2))
 }
 
 func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	istioNamespace := resource.Namespace("istio-system")
 
@@ -188,14 +188,14 @@ func TestAddRunningKubeSourceWithIstioMeshConfigMap(t *testing.T) {
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", istioNamespace, nil)
 
 	sa.AddRunningKubeSource(mk)
-	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace))
-	g.Expect(sa.meshNetworks.Networks).To(HaveLen(2))
+	g.Expect(sa.meshCfg.RootNamespace).To(gomega.Equal(testRootNamespace))
+	g.Expect(sa.meshNetworks.Networks).To(gomega.HaveLen(2))
 	// We have a store for Istio configs and one for service discovery K8S resources.
-	g.Expect(sa.stores).To(HaveLen(2))
+	g.Expect(sa.stores).To(gomega.HaveLen(2))
 }
 
 func TestAddReaderKubeSource(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
@@ -203,9 +203,9 @@ func TestAddReaderKubeSource(t *testing.T) {
 	defer os.Remove(tmpfile.Name())
 
 	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(gomega.BeNil())
 	assert.Equal(t, sa.meshCfg, mesh.DefaultMeshConfig()) // Base default meshcfg
-	g.Expect(sa.stores).To(HaveLen(0))
+	g.Expect(sa.stores).To(gomega.HaveLen(0))
 
 	// Note that a blank file for mesh cfg is equivalent to specifying all the defaults
 	testRootNamespace := "testNamespace"
@@ -213,12 +213,12 @@ func TestAddReaderKubeSource(t *testing.T) {
 	defer func() { _ = os.Remove(tmpMeshFile.Name()) }()
 
 	err = sa.AddFileKubeMeshConfig(tmpMeshFile.Name())
-	g.Expect(err).To(BeNil())
-	g.Expect(sa.meshCfg.RootNamespace).To(Equal(testRootNamespace)) // Should be mesh config from the file now
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(sa.meshCfg.RootNamespace).To(gomega.Equal(testRootNamespace)) // Should be mesh config from the file now
 }
 
 func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
@@ -226,7 +226,7 @@ func TestAddReaderKubeSourceSkipsBadEntries(t *testing.T) {
 	defer func() { _ = os.Remove(tmpfile.Name()) }()
 
 	err := sa.AddReaderKubeSource([]ReaderSource{{Reader: tmpfile}})
-	g.Expect(err).To(Not(BeNil()))
+	g.Expect(err).To(gomega.Not(gomega.BeNil()))
 }
 
 const (
@@ -256,7 +256,7 @@ func JoinString(parts ...string) string {
 }
 
 func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	sa := NewSourceAnalyzer(blankCombinedAnalyzer, "", "", nil)
 
@@ -265,18 +265,18 @@ func TestDefaultResourcesRespectsMeshConfig(t *testing.T) {
 	defer func() { _ = os.Remove(ingressOffMeshCfg.Name()) }()
 
 	err := sa.AddFileKubeMeshConfig(ingressOffMeshCfg.Name())
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(gomega.BeNil())
 	sa.AddDefaultResources()
-	g.Expect(sa.stores).To(BeEmpty())
+	g.Expect(sa.stores).To(gomega.BeEmpty())
 
 	// With ingress on, though, we should.
 	ingressStrictMeshCfg := tempFileFromString(t, "ingressControllerMode: 'STRICT'")
 	defer func() { _ = os.Remove(ingressStrictMeshCfg.Name()) }()
 
 	err = sa.AddFileKubeMeshConfig(ingressStrictMeshCfg.Name())
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(gomega.BeNil())
 	sa.AddDefaultResources()
-	g.Expect(sa.stores).To(HaveLen(0))
+	g.Expect(sa.stores).To(gomega.HaveLen(0))
 }
 
 func TestEmptyContext(t *testing.T) {

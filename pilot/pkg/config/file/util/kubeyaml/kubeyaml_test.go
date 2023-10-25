@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 var joinCases = []struct {
@@ -83,7 +83,7 @@ yaml: foo`,
 func TestJoinBytes(t *testing.T) {
 	for i, c := range joinCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			var by [][]byte
 			for _, s := range c.split {
@@ -91,7 +91,7 @@ func TestJoinBytes(t *testing.T) {
 			}
 			actual := Join(by...)
 
-			g.Expect(actual).To(Equal([]byte(c.merged)))
+			g.Expect(actual).To(gomega.Equal([]byte(c.merged)))
 		})
 	}
 }
@@ -99,11 +99,11 @@ func TestJoinBytes(t *testing.T) {
 func TestJoinString(t *testing.T) {
 	for i, c := range joinCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			actual := JoinString(c.split...)
 
-			g.Expect(actual).To(Equal(c.merged))
+			g.Expect(actual).To(gomega.Equal(c.merged))
 		})
 	}
 }
@@ -128,7 +128,7 @@ func TestLineNumber(t *testing.T) {
 	}
 	for i, tc := range testCases {
 		t.Run(fmt.Sprintf("%d", i), func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			reader := bufio.NewReader(strings.NewReader(tc.input))
 			decoder := NewYAMLReader(reader)
@@ -140,7 +140,7 @@ func TestLineNumber(t *testing.T) {
 				}
 				expectedLineNumbers = append(expectedLineNumbers, line)
 			}
-			g.Expect(expectedLineNumbers).To(Equal(tc.lineNumbers))
+			g.Expect(expectedLineNumbers).To(gomega.Equal(tc.lineNumbers))
 		})
 	}
 }
