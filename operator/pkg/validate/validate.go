@@ -73,7 +73,7 @@ func Validate2(validations map[string]ValidatorFunc, iop *v1alpha1.IstioOperator
 	for path, validator := range validations {
 		v, f, _ := tpath.GetFromStructPath(iop, path)
 		if f {
-			errs = append(errs, validator(util.PathFromString(path), v)...)
+			errs = util.AppendErrs(errs, validator(util.PathFromString(path), v))
 		}
 	}
 	return
@@ -224,9 +224,9 @@ func validateGatewayName(path util.Path, val any) (errs util.Errors) {
 	v := val.([]*v1alpha1.GatewaySpec)
 	for _, n := range v {
 		if n == nil {
-			errs = append(errs, util.NewErrs(errors.New("badly formatted gateway configuration")))
+			errs = util.AppendErrs(errs, util.NewErrs(errors.New("badly formatted gateway configuration")))
 		} else {
-			errs = append(errs, validateWithRegex(path, n.Name, ObjectNameRegexp)...)
+			errs = util.AppendErrs(errs, validateWithRegex(path, n.Name, ObjectNameRegexp))
 		}
 	}
 	return
