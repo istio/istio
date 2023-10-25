@@ -114,7 +114,7 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 				}
 			}
 
-			// external name service, we should return the address of the referenced service address if exists
+			// Handle external name service, we should return the address of the referenced service address if exists.
 			if svc.Attributes.ExternalName != "" {
 				if referredSvc := cfg.Node.SidecarScope.GetService(host.Name(svc.Attributes.ExternalName)); referredSvc != nil {
 					svcAddress := referredSvc.GetAddressForProxy(cfg.Node)
