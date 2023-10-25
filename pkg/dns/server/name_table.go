@@ -20,6 +20,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/host"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 	netutil "istio.io/istio/pkg/util/net"
 )
@@ -46,7 +47,8 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 	out := &dnsProto.NameTable{
 		Table: make(map[string]*dnsProto.NameTable_NameInfo),
 	}
-	for _, svc := range cfg.Node.SidecarScope.Services() {
+	services := cfg.Node.SidecarScope.Services()
+	for _, svc := range services {
 		svcAddress := svc.GetAddressForProxy(cfg.Node)
 		var addressList []string
 		hostName := svc.Hostname
@@ -111,6 +113,20 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 					addressList = append(addressList, instance.Address)
 				}
 			}
+
+			// external name service, we should return the address of the referenced service address if exists
+			if svc.Attributes.ExternalName != "" {
+				if referredSvc := cfg.Node.SidecarScope.GetService(host.Name(svc.Attributes.ExternalName)); referredSvc != nil {
+					svcAddress := referredSvc.GetAddressForProxy(cfg.Node)
+					// Filter out things we cannot parse as IP. Generally this means CIDRs, as anything else
+					// should be caught in validation.
+					if !netutil.IsValidIPAddress(svcAddress) {
+						continue
+					}
+					addressList = append(addressList, svcAddress)
+				}
+			}
+
 			if len(addressList) == 0 {
 				// could not reliably determine the addresses of endpoints of headless service
 				// or this is not a k8s service
