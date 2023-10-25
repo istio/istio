@@ -87,7 +87,7 @@ func promDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=prometheus")
+			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app.kubernetes.io/name=prometheus")
 			if err != nil {
 				return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 			}
