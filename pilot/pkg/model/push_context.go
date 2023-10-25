@@ -15,6 +15,7 @@
 package model
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -1545,11 +1546,11 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 	}
 	// Sort aliases so order is deterministic.
 	for _, v := range aliasesForService {
-		slices.SortFunc(v, func(a, b NamespacedHostname) bool {
-			if a.Hostname == b.Hostname {
-				return a.Namespace < b.Namespace
+		slices.SortFunc(v, func(a, b NamespacedHostname) int {
+			if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {
+				return r
 			}
-			return a.Hostname < b.Hostname
+			return cmp.Compare(a.Hostname, b.Hostname)
 		})
 	}
 
