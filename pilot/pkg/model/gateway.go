@@ -272,19 +272,20 @@ func MergeGateways(gateways []gatewayWithInstances, proxy *Proxy, ps *PushContex
 							serversByRouteName[routeName] = []*networking.Server{s}
 						}
 						// build the port bind map for none plain text protocol, thus can avoid protocol conflict if it's different bind
-						if bindsPortMap, ok := nonPlainTextGatewayPortsBindMap[resolvedPort]; ok && !bindsPortMap.Contains(serverPort.Bind) {
-							bindsPortMap.Insert(serverPort.Bind)
+						var newBind bool
+						if bindsPortMap, ok := nonPlainTextGatewayPortsBindMap[resolvedPort]; ok {
+							newBind = !bindsPortMap.InsertContains(serverPort.Bind)
 						} else {
-							bindsPortMap := sets.String{}
-							bindsPortMap.Insert(serverPort.Bind)
-							nonPlainTextGatewayPortsBindMap[resolvedPort] = bindsPortMap
+							nonPlainTextGatewayPortsBindMap[resolvedPort] = sets.New(serverPort.Bind)
+							newBind = true
 						}
 						// If the bind/port combination is not being used as non-plaintext, they are different
 						// listeners and won't get conflicted even with same port different protocol
 						// i.e 0.0.0.0:443:GRPC/1.0.0.1:443:GRPC/1.0.0.2:443:HTTPS they are not conflicted, otherwise
 						// We have another TLS server on the same port. Can differentiate servers using SNI
-						if s.Tls == nil && !nonPlainTextGatewayPortsBindMap[resolvedPort].Contains(serverPort.Bind) {
+						if s.Tls == nil && !newBind {
 							log.Warnf("TLS server without TLS options %s %s", gatewayName, s.String())
+							RecordRejectedConfig(gatewayName)
 							continue
 						}
 						if mergedServers[serverPort] == nil {
