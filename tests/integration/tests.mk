@@ -126,5 +126,5 @@ test.integration.kube.environment: | $(JUNIT_REPORT) check-go-tag
 ifeq (${JOB_TYPE},postsubmit)
 	$(call run-test,./tests/integration/...)
 else
-	$(call run-test,./tests/integration/...)
+	$(call run-test,./tests/integration/security/ ./tests/integration/pilot,-run="TestReachability|TestTraffic|TestGatewayConformance")
 endif
