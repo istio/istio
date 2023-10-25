@@ -27,7 +27,7 @@ DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
 TMP=$(mktemp -d)
 LOKI_VERSION=${LOKI_VERSION:-"4.8.0"}
-GRAFANA_VERSION=${GRAFANA_VERSION:-"6.57.4"}
+GRAFANA_VERSION=${GRAFANA_VERSION:-"6.61.1"}
 
 # Set up kiali
 {
