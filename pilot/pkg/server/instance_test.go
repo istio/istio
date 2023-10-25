@@ -19,14 +19,14 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"go.uber.org/atomic"
 
 	"istio.io/istio/pilot/pkg/server"
 )
 
 func TestStartWithError(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	inst := server.New()
 	expected := errors.New("fake")
@@ -36,11 +36,11 @@ func TestStartWithError(t *testing.T) {
 
 	stop := newReclosableChannel()
 	t.Cleanup(stop.Close)
-	g.Expect(inst.Start(stop.c)).To(Equal(expected))
+	g.Expect(inst.Start(stop.c)).To(gomega.Equal(expected))
 }
 
 func TestStartWithNoError(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	inst := server.New()
 	c := newFakeComponent(0)
@@ -48,8 +48,8 @@ func TestStartWithNoError(t *testing.T) {
 
 	stop := newReclosableChannel()
 	t.Cleanup(stop.Close)
-	g.Expect(inst.Start(stop.c)).To(BeNil())
-	g.Expect(c.started.Load()).To(BeTrue())
+	g.Expect(inst.Start(stop.c)).To(gomega.BeNil())
+	g.Expect(c.started.Load()).To(gomega.BeTrue())
 }
 
 func TestRunComponentsAfterStart(t *testing.T) {
@@ -87,12 +87,12 @@ func TestRunComponentsAfterStart(t *testing.T) {
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			stop := newReclosableChannel()
 			t.Cleanup(stop.Close)
 			inst := server.New()
-			g.Expect(inst.Start(stop.c)).To(BeNil())
+			g.Expect(inst.Start(stop.c)).To(gomega.BeNil())
 
 			go func() {
 				component := c.c.Run
@@ -110,7 +110,7 @@ func TestRunComponentsAfterStart(t *testing.T) {
 			// Ensure that the component is started.
 			g.Eventually(func() bool {
 				return c.c.started.Load()
-			}).Should(BeTrue())
+			}).Should(gomega.BeTrue())
 
 			// Stop before the tasks end.
 			stop.Close()
@@ -119,9 +119,9 @@ func TestRunComponentsAfterStart(t *testing.T) {
 				totalWaitTime := shortDuration + (1 * time.Second)
 				g.Eventually(func() bool {
 					return c.c.completed.Load()
-				}, totalWaitTime).Should(BeTrue())
+				}, totalWaitTime).Should(gomega.BeTrue())
 			} else {
-				g.Expect(c.c.completed.Load()).Should(BeFalse())
+				g.Expect(c.c.completed.Load()).Should(gomega.BeFalse())
 			}
 		})
 	}

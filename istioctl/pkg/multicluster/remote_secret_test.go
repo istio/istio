@@ -24,7 +24,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"github.com/spf13/pflag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -733,7 +733,7 @@ users:
 }
 
 func TestRemoteSecretOptions(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	ctx := cli.NewFakeContext(nil)
 	o := RemoteSecretOptions{}
@@ -742,8 +742,8 @@ func TestRemoteSecretOptions(t *testing.T) {
 	g.Expect(flags.Parse([]string{
 		"--name",
 		"valid-name",
-	})).Should(Succeed())
-	g.Expect(o.prepare(ctx)).Should(Succeed())
+	})).Should(gomega.Succeed())
+	g.Expect(o.prepare(ctx)).Should(gomega.Succeed())
 
 	o = RemoteSecretOptions{}
 	flags = pflag.NewFlagSet("test", pflag.ContinueOnError)
@@ -751,6 +751,6 @@ func TestRemoteSecretOptions(t *testing.T) {
 	g.Expect(flags.Parse([]string{
 		"--name",
 		"?-invalid-name",
-	})).Should(Succeed())
-	g.Expect(o.prepare(ctx)).Should(Not(Succeed()))
+	})).Should(gomega.Succeed())
+	g.Expect(o.prepare(ctx)).Should(gomega.Not(gomega.Succeed()))
 }

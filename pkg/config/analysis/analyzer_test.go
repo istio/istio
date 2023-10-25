@@ -17,7 +17,7 @@ package analysis
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -55,7 +55,7 @@ func (ctx *context) Canceled() bool                                             
 func (ctx *context) SetAnalyzer(_ string)                                               {}
 
 func TestCombinedAnalyzer(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	col1 := newSchema("col1")
 	col2 := newSchema("col2")
@@ -68,19 +68,19 @@ func TestCombinedAnalyzer(t *testing.T) {
 	a4 := &analyzer{name: "a4", inputs: []config.GroupVersionKind{col4.GroupVersionKind()}}
 
 	a := Combine("combined", a1, a2, a3, a4)
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.GroupVersionKind(), col2.GroupVersionKind(), col3.GroupVersionKind(), col4.GroupVersionKind()))
+	g.Expect(a.Metadata().Inputs).To(gomega.ConsistOf(col1.GroupVersionKind(), col2.GroupVersionKind(), col3.GroupVersionKind(), col4.GroupVersionKind()))
 
 	removed := a.RemoveSkipped(collection.NewSchemasBuilder().MustAdd(col1).MustAdd(col2).Build())
 
-	g.Expect(removed).To(ConsistOf(a3.Metadata().Name, a4.Metadata().Name))
-	g.Expect(a.Metadata().Inputs).To(ConsistOf(col1.GroupVersionKind(), col2.GroupVersionKind()))
+	g.Expect(removed).To(gomega.ConsistOf(a3.Metadata().Name, a4.Metadata().Name))
+	g.Expect(a.Metadata().Inputs).To(gomega.ConsistOf(col1.GroupVersionKind(), col2.GroupVersionKind()))
 
 	a.Analyze(&context{})
 
-	g.Expect(a1.ran).To(BeTrue())
-	g.Expect(a2.ran).To(BeTrue())
-	g.Expect(a3.ran).To(BeFalse())
-	g.Expect(a4.ran).To(BeFalse())
+	g.Expect(a1.ran).To(gomega.BeTrue())
+	g.Expect(a2.ran).To(gomega.BeTrue())
+	g.Expect(a3.ran).To(gomega.BeFalse())
+	g.Expect(a4.ran).To(gomega.BeFalse())
 }
 
 func newSchema(name string) resource2.Schema {

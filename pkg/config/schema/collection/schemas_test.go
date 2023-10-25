@@ -17,7 +17,7 @@ package collection_test
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	_ "google.golang.org/protobuf/types/known/emptypb"
 	_ "google.golang.org/protobuf/types/known/structpb"
 
@@ -43,18 +43,18 @@ var (
 )
 
 func TestSchemas_Basic(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	schemas := collection.SchemasFor(emptyResource)
-	g.Expect(schemas.All()).To(HaveLen(1))
-	g.Expect(schemas.All()[0]).To(Equal(emptyResource))
+	g.Expect(schemas.All()).To(gomega.HaveLen(1))
+	g.Expect(schemas.All()[0]).To(gomega.Equal(emptyResource))
 }
 
 func TestSchemas_MustAdd(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	defer func() {
 		r := recover()
-		g.Expect(r).To(BeNil())
+		g.Expect(r).To(gomega.BeNil())
 	}()
 	b := collection.NewSchemasBuilder()
 
@@ -62,10 +62,10 @@ func TestSchemas_MustAdd(t *testing.T) {
 }
 
 func TestSchemas_MustRegister_Panic(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	defer func() {
 		r := recover()
-		g.Expect(r).NotTo(BeNil())
+		g.Expect(r).NotTo(gomega.BeNil())
 	}()
 	b := collection.NewSchemasBuilder()
 
@@ -74,7 +74,7 @@ func TestSchemas_MustRegister_Panic(t *testing.T) {
 }
 
 func TestSchema_FindByGroupVersionKind(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	s := resource.Builder{
 		ProtoPackage: "github.com/gogo/protobuf/types",
@@ -92,25 +92,25 @@ func TestSchema_FindByGroupVersionKind(t *testing.T) {
 		Version: "v1",
 		Kind:    "Empty",
 	})
-	g.Expect(found).To(BeTrue())
-	g.Expect(s2).To(Equal(s))
+	g.Expect(found).To(gomega.BeTrue())
+	g.Expect(s2).To(gomega.Equal(s))
 
 	_, found = schemas.FindByGroupVersionKind(config.GroupVersionKind{
 		Group:   "fake",
 		Version: "v1",
 		Kind:    "Empty",
 	})
-	g.Expect(found).To(BeFalse())
+	g.Expect(found).To(gomega.BeFalse())
 }
 
 func TestSchemas_Kinds(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	s := collection.SchemasFor(emptyResource, structResource)
 
 	actual := s.Kinds()
 	expected := []string{emptyResource.Kind(), structResource.Kind()}
-	g.Expect(actual).To(Equal(expected))
+	g.Expect(actual).To(gomega.Equal(expected))
 }
 
 func TestSchemas_Validate(t *testing.T) {
@@ -139,23 +139,23 @@ func TestSchemas_Validate(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			b := collection.NewSchemasBuilder()
 			for _, s := range c.schemas {
 				b.MustAdd(s)
 			}
 			err := b.Build().Validate()
 			if c.expectError {
-				g.Expect(err).ToNot(BeNil())
+				g.Expect(err).ToNot(gomega.BeNil())
 			} else {
-				g.Expect(err).To(BeNil())
+				g.Expect(err).To(gomega.BeNil())
 			}
 		})
 	}
 }
 
 func TestSchemas_Validate_Error(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	b := collection.NewSchemasBuilder()
 
 	s1 := resource.Builder{
@@ -166,7 +166,7 @@ func TestSchemas_Validate_Error(t *testing.T) {
 	b.MustAdd(s1)
 
 	err := b.Build().Validate()
-	g.Expect(err).NotTo(BeNil())
+	g.Expect(err).NotTo(gomega.BeNil())
 }
 
 func TestSchemas_ForEach(t *testing.T) {
@@ -205,26 +205,26 @@ func TestSchemas_ForEach(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			actual := c.actual()
-			g.Expect(actual).To(Equal(c.expected))
+			g.Expect(actual).To(gomega.Equal(c.expected))
 		})
 	}
 }
 
 func TestSchemas_Remove(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	schemas := collection.SchemasFor(emptyResource, structResource)
-	g.Expect(schemas.Remove(structResource)).To(Equal(collection.SchemasFor(emptyResource)))
-	g.Expect(schemas.Remove(emptyResource, structResource)).To(Equal(collection.SchemasFor()))
-	g.Expect(schemas).To(Equal(collection.SchemasFor(emptyResource, structResource)))
+	g.Expect(schemas.Remove(structResource)).To(gomega.Equal(collection.SchemasFor(emptyResource)))
+	g.Expect(schemas.Remove(emptyResource, structResource)).To(gomega.Equal(collection.SchemasFor()))
+	g.Expect(schemas).To(gomega.Equal(collection.SchemasFor(emptyResource, structResource)))
 }
 
 func TestSchemas_Add(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	schemas := collection.SchemasFor(emptyResource)
-	g.Expect(schemas.Add(structResource)).To(Equal(collection.SchemasFor(emptyResource, structResource)))
-	g.Expect(schemas).To(Equal(collection.SchemasFor(emptyResource)))
+	g.Expect(schemas.Add(structResource)).To(gomega.Equal(collection.SchemasFor(emptyResource, structResource)))
+	g.Expect(schemas).To(gomega.Equal(collection.SchemasFor(emptyResource)))
 }

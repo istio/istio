@@ -187,12 +187,11 @@ func chooseClientFlag(ctrzClient *ControlzClient, reset bool, outputLogLevel, st
 			client:          ctrzClient,
 			stackTraceLevel: stackTraceLevel,
 		}}
-	} else {
-		return &istiodConfigLog{state: &getAllLogLevelsState{
-			client:       ctrzClient,
-			outputFormat: outputFormat,
-		}}
 	}
+	return &istiodConfigLog{state: &getAllLogLevelsState{
+		client:       ctrzClient,
+		outputFormat: outputFormat,
+	}}
 }
 
 type ScopeInfo struct {

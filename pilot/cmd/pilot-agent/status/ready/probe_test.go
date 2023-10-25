@@ -19,7 +19,7 @@ import (
 	"net"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/status/testserver"
 )
@@ -32,7 +32,7 @@ var (
 )
 
 func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	server := testserver.CreateAndStartServer(liveServerStats)
 	defer server.Close()
@@ -43,11 +43,11 @@ func TestEnvoyStatsCompleteAndSuccessful(t *testing.T) {
 
 	err := probe.Check()
 
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 }
 
 func TestEnvoyDraining(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	server := testserver.CreateAndStartServer(liveServerStats)
 	defer server.Close()
@@ -57,7 +57,7 @@ func TestEnvoyDraining(t *testing.T) {
 
 	err := probe.isEnvoyReady()
 
-	g.Expect(err).To(HaveOccurred())
+	g.Expect(err).To(gomega.HaveOccurred())
 }
 
 func TestEnvoyStats(t *testing.T) {
@@ -133,7 +133,7 @@ server.state: 0`,
 }
 
 func TestEnvoyInitializing(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	server := testserver.CreateAndStartServer(initServerStats)
 	defer server.Close()
@@ -143,11 +143,11 @@ func TestEnvoyInitializing(t *testing.T) {
 	probe.Context = ctx
 	err := probe.Check()
 
-	g.Expect(err).To(HaveOccurred())
+	g.Expect(err).To(gomega.HaveOccurred())
 }
 
 func TestEnvoyNoClusterManagerStats(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	server := testserver.CreateAndStartServer(onlyServerStats)
 	defer server.Close()
@@ -157,11 +157,11 @@ func TestEnvoyNoClusterManagerStats(t *testing.T) {
 	probe.Context = ctx
 	err := probe.Check()
 
-	g.Expect(err).To(HaveOccurred())
+	g.Expect(err).To(gomega.HaveOccurred())
 }
 
 func TestEnvoyNoServerStats(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	server := testserver.CreateAndStartServer(noServerStats)
 	defer server.Close()
@@ -171,11 +171,11 @@ func TestEnvoyNoServerStats(t *testing.T) {
 	probe.Context = ctx
 	err := probe.Check()
 
-	g.Expect(err).To(HaveOccurred())
+	g.Expect(err).To(gomega.HaveOccurred())
 }
 
 func TestEnvoyReadinessCache(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	server := testserver.CreateAndStartServer(noServerStats)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -183,28 +183,28 @@ func TestEnvoyReadinessCache(t *testing.T) {
 	probe := Probe{AdminPort: uint16(server.Listener.Addr().(*net.TCPAddr).Port)}
 	probe.Context = ctx
 	err := probe.Check()
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(probe.atleastOnceReady).Should(BeFalse())
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(gomega.BeFalse())
 	err = probe.Check()
-	g.Expect(err).To(HaveOccurred())
-	g.Expect(probe.atleastOnceReady).Should(BeFalse())
+	g.Expect(err).To(gomega.HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(gomega.BeFalse())
 	server.Close()
 
 	server = testserver.CreateAndStartServer(liveServerStats)
 	probe.AdminPort = uint16(server.Listener.Addr().(*net.TCPAddr).Port)
 	err = probe.Check()
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(gomega.BeTrue())
 	server.Close()
 
 	server = testserver.CreateAndStartServer(noServerStats)
 	probe.AdminPort = uint16(server.Listener.Addr().(*net.TCPAddr).Port)
 	err = probe.Check()
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(gomega.BeTrue())
 	server.Close()
 
 	err = probe.Check()
-	g.Expect(err).NotTo(HaveOccurred())
-	g.Expect(probe.atleastOnceReady).Should(BeTrue())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(probe.atleastOnceReady).Should(gomega.BeTrue())
 }
