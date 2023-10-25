@@ -372,6 +372,10 @@ func (c *Controller) Cleanup() error {
 }
 
 func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) error {
+	if !features.EnableExternalNameService && curr.Spec.Type == v1.ServiceTypeExternalName {
+		return nil
+	}
+
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.

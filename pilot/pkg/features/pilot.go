@@ -693,6 +693,9 @@ var (
 	UseCacertsForSelfSignedCA = env.Register("USE_CACERTS_FOR_SELF_SIGNED_CA", false,
 		"If enabled, istiod will use a secret named cacerts to store its self-signed istio-"+
 			"generated root certificate.").Get()
+
+	EnableExternalNameService = env.Register("ENABLE_EXTERNAL_NAME_SERVICE", true,
+		"If true, kubernetes ExternalName typed service will be managed by istio, and the ports will be respected by istio while in kubernetes it is meaningless").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
