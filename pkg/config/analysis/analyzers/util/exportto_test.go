@@ -17,24 +17,24 @@ package util
 import (
 	"testing"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 )
 
 func TestIsExportToAllNamespaces(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	// Empty array
-	g.Expect(IsExportToAllNamespaces(nil)).To(gomega.Equal(true))
+	g.Expect(IsExportToAllNamespaces(nil)).To(Equal(true))
 
 	// Array with "*"
-	g.Expect(IsExportToAllNamespaces([]string{"*"})).To(gomega.Equal(true))
+	g.Expect(IsExportToAllNamespaces([]string{"*"})).To(Equal(true))
 
 	// Array with "."
-	g.Expect(IsExportToAllNamespaces([]string{"."})).To(gomega.Equal(false))
+	g.Expect(IsExportToAllNamespaces([]string{"."})).To(Equal(false))
 
 	// Array with "." & "*"
-	g.Expect(IsExportToAllNamespaces([]string{".", "*"})).To(gomega.Equal(true))
+	g.Expect(IsExportToAllNamespaces([]string{".", "*"})).To(Equal(true))
 
 	// Array with "bogus"
-	g.Expect(IsExportToAllNamespaces([]string{"bogus"})).To(gomega.Equal(false))
+	g.Expect(IsExportToAllNamespaces([]string{"bogus"})).To(Equal(false))
 }

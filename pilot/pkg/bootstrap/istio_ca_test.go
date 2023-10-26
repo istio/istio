@@ -19,7 +19,7 @@ import (
 	"path"
 	"testing"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -33,7 +33,7 @@ import (
 const testNamespace = "istio-system"
 
 func TestRemoteCerts(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	dir := t.TempDir()
 
@@ -47,29 +47,29 @@ func TestRemoteCerts(t *testing.T) {
 
 	// Should do nothing because cacerts doesn't exist.
 	err := s.loadCACerts(caOpts, dir)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).Should(BeNil())
 
 	_, err = os.Stat(path.Join(dir, "root-cert.pem"))
-	g.Expect(os.IsNotExist(err)).Should(gomega.Equal(true))
+	g.Expect(os.IsNotExist(err)).Should(Equal(true))
 
 	// Should load remote cacerts successfully.
 	createCASecret(t, s.kubeClient)
 
 	err = s.loadCACerts(caOpts, dir)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).Should(BeNil())
 
 	expectedRoot, err := readSampleCertFromFile("root-cert.pem")
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).Should(BeNil())
 
-	g.Expect(os.ReadFile(path.Join(dir, "root-cert.pem"))).Should(gomega.Equal(expectedRoot))
+	g.Expect(os.ReadFile(path.Join(dir, "root-cert.pem"))).Should(Equal(expectedRoot))
 
 	// Should do nothing because certs already exist locally.
 	err = s.loadCACerts(caOpts, dir)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).Should(BeNil())
 }
 
 func TestRemoteTLSCerts(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	dir := t.TempDir()
 
@@ -83,25 +83,25 @@ func TestRemoteTLSCerts(t *testing.T) {
 
 	// Should do nothing because cacerts doesn't exist.
 	err := s.loadCACerts(caOpts, dir)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).Should(BeNil())
 
 	_, err = os.Stat(path.Join(dir, "ca.crt"))
-	g.Expect(os.IsNotExist(err)).Should(gomega.Equal(true))
+	g.Expect(os.IsNotExist(err)).Should(Equal(true))
 
 	// Should load remote cacerts successfully.
 	createCATLSSecret(t, s.kubeClient)
 
 	err = s.loadCACerts(caOpts, dir)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).Should(BeNil())
 
 	expectedRoot, err := readSampleCertFromFile("root-cert.pem")
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).Should(BeNil())
 
-	g.Expect(os.ReadFile(path.Join(dir, "ca.crt"))).Should(gomega.Equal(expectedRoot))
+	g.Expect(os.ReadFile(path.Join(dir, "ca.crt"))).Should(Equal(expectedRoot))
 
 	// Should do nothing because certs already exist locally.
 	err = s.loadCACerts(caOpts, dir)
-	g.Expect(err).Should(gomega.BeNil())
+	g.Expect(err).Should(BeNil())
 }
 
 func createCATLSSecret(t test.Failer, client kube.Client) {

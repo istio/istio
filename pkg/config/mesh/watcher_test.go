@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -31,9 +31,9 @@ import (
 )
 
 func TestNewWatcherWithBadInputShouldFail(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 	_, err := mesh.NewFileWatcher(filewatcher.NewWatcher(), "", false)
-	g.Expect(err).ToNot(gomega.BeNil())
+	g.Expect(err).ToNot(BeNil())
 }
 
 func TestWatcherShouldNotifyHandlers(t *testing.T) {
