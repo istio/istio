@@ -550,11 +550,8 @@ func (sc *SidecarScope) InboundConnectionPoolForPort(port int) *networking.Conne
 		}
 	}
 
-	if sc.Sidecar.GetInboundConnectionPool() != nil {
-		return sc.Sidecar.InboundConnectionPool
-	}
-
-	return nil
+	// if set, it'll be non-nil and have values (guaranteed by validation); or if unset it'll be nil
+	return sc.Sidecar.GetInboundConnectionPool()
 }
 
 // Services returns the list of services imported by this egress listener
