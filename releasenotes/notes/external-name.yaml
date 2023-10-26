@@ -16,7 +16,7 @@ upgradeNotes:
       Kubernetes `ExternalName` `Service`s allow users to create new DNS entries. For example, you can create an `example` service
       that points to `example.com`. This is implemented by a DNS `CNAME` redirect.
       
-      In Istio, the implementation of `ExternalName`, historically, was a substantially different. Each `ExternalName` represented its own
+      In Istio, the implementation of `ExternalName`, historically, was substantially different. Each `ExternalName` represented its own
       service, and traffic matching the service was sent to the configured DNS name.
       
       This caused a few issues:
