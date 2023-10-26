@@ -125,10 +125,10 @@ function build_images() {
     # TODO(https://github.com/istio/istio/issues/38224)
 #    nonDistrolessTargets+="docker.app_sidecar_rockylinux_8 "
   fi
-  if [[ "${SELECT_TEST}" == "test.integration.operator.kube" || "${SELECT_TEST}" == "test.integration.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
+  if [[ "${SELECT_TEST}" == "test.integration.operator.kube" || "${SELECT_TEST}" == "test.integration.kube" || "${JOB_TYPE:-postsubmit}" == "presubmit" ]]; then
     targets+="docker.operator "
   fi
-  if [[ "${SELECT_TEST}" == "test.integration.ambient.kube" || "${SELECT_TEST}" == "test.integration.kube" || "${JOB_TYPE:-postsubmit}" == "postsubmit" ]]; then
+  if [[ "${SELECT_TEST}" == "test.integration.ambient.kube" || "${SELECT_TEST}" == "test.integration.kube" || "${JOB_TYPE:-postsubmit}" == "presubmit" ]]; then
     targets+="docker.ztunnel "
   fi
   targets+="docker.install-cni "
