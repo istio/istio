@@ -365,7 +365,8 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {
-	out := delegate
+	// nolint: govet
+	out := *delegate
 	if out.Name == "" {
 		out.Name = root.Name
 	} else if root.Name != "" {
@@ -410,7 +411,7 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 	if len(out.StatPrefix) == 0 {
 		out.StatPrefix = root.StatPrefix
 	}
-	return out
+	return &out
 }
 
 func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {
