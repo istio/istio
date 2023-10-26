@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/file"
 )
 
@@ -41,8 +42,8 @@ type External struct {
 	All echo.Instances
 }
 
-func (e External) build(b deployment.Builder) deployment.Builder {
-	return b.WithConfig(echo.Config{
+func (e External) build(t resource.Context, b deployment.Builder) deployment.Builder {
+	config := echo.Config{
 		Service:           ExternalSvc,
 		Namespace:         e.Namespace,
 		DefaultHostHeader: ExternalHostname,
@@ -67,7 +68,12 @@ func (e External) build(b deployment.Builder) deployment.Builder {
 				},
 			},
 		},
-	})
+	}
+	if t.Settings().EnableDualStack {
+		config.IPFamilies = "IPv6, IPv4"
+		config.IPFamilyPolicy = "RequireDualStack"
+	}
+	return b.WithConfig(config)
 }
 
 func (e *External) loadValues(echos echo.Instances) error {
