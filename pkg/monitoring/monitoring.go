@@ -25,8 +25,6 @@ import (
 	otelprom "go.opentelemetry.io/otel/exporters/prometheus"
 	api "go.opentelemetry.io/otel/metric"
 	"go.opentelemetry.io/otel/sdk/metric"
-	"go.opentelemetry.io/otel/sdk/metric/aggregation"
-
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
@@ -289,7 +287,7 @@ func (d *metrics) toHistogramViews() []metric.Option {
 		// for each histogram metric (i.e. those with bounds), set up a view explicitly defining those buckets.
 		v := metric.WithView(metric.NewView(
 			metric.Instrument{Name: name},
-			metric.Stream{Aggregation: aggregation.ExplicitBucketHistogram{
+			metric.Stream{Aggregation: metric.AggregationExplicitBucketHistogram{
 				Boundaries: def.Bounds,
 			}},
 		))
