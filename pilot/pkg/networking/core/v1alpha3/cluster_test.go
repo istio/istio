@@ -266,9 +266,12 @@ func TestConnectionPoolSettings(t *testing.T) {
 				} else {
 					// verify TCP settings
 					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive).NotTo(gomega.BeNil())
-					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes.Value).To(gomega.Equal(expected.Tcp.TcpKeepalive.Probes))
-					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).To(gomega.Equal(uint32(expected.Tcp.TcpKeepalive.Time.Seconds)))
-					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval.Value).To(gomega.Equal(uint32(expected.Tcp.TcpKeepalive.Interval.Seconds)))
+					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes.Value).
+						To(gomega.Equal(expected.Tcp.TcpKeepalive.Probes))
+					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).
+						To(gomega.Equal(uint32(expected.Tcp.TcpKeepalive.Time.Seconds)))
+					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval.Value).
+						To(gomega.Equal(uint32(expected.Tcp.TcpKeepalive.Interval.Seconds)))
 					g.Expect(cluster.ConnectTimeout).NotTo(gomega.BeNil())
 					g.Expect(cluster.ConnectTimeout.Seconds).To(gomega.Equal(expected.Tcp.ConnectTimeout.Seconds))
 
@@ -284,7 +287,8 @@ func TestConnectionPoolSettings(t *testing.T) {
 					g.Expect(anyOptions).NotTo(gomega.BeNil())
 					httpProtocolOptions := &http.HttpProtocolOptions{}
 					anyOptions.UnmarshalTo(httpProtocolOptions)
-					g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue()).To(gomega.Equal(uint32(expected.Http.MaxRequestsPerConnection)))
+					g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue()).
+						To(gomega.Equal(uint32(expected.Http.MaxRequestsPerConnection)))
 					g.Expect(thresholds.MaxRetries).NotTo(gomega.BeNil())
 					g.Expect(thresholds.MaxRetries.Value).To(gomega.Equal(uint32(expected.Http.MaxRetries)))
 				}
