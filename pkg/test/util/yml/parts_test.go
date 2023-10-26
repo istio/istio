@@ -17,21 +17,21 @@ package yml_test
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/test/util/yml"
 )
 
 func TestEmptyDoc(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	yaml := `
 `
 	parts := yml.SplitString(yaml)
-	g.Expect(len(parts)).To(Equal(0))
+	g.Expect(len(parts)).To(gomega.Equal(0))
 
 	yaml = yml.JoinString(parts...)
-	g.Expect(yaml).To(Equal(""))
+	g.Expect(yaml).To(gomega.Equal(""))
 }
 
 func TestSplitWithEmptyPart(t *testing.T) {
@@ -83,8 +83,8 @@ b
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			parts := yml.SplitString(c.doc)
-			g := NewWithT(t)
-			g.Expect(parts).To(Equal(expected))
+			g := gomega.NewWithT(t)
+			g.Expect(parts).To(gomega.Equal(expected))
 		})
 	}
 }
@@ -103,9 +103,9 @@ b
     b2`,
 	}
 
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	parts := yml.SplitString(doc)
-	g.Expect(parts).To(Equal(expected))
+	g.Expect(parts).To(gomega.Equal(expected))
 }
 
 func TestJoinRemovesEmptyParts(t *testing.T) {
@@ -129,7 +129,7 @@ b
 ---
 b`
 
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	doc := yml.JoinString(parts...)
-	g.Expect(doc).To(Equal(expected))
+	g.Expect(doc).To(gomega.Equal(expected))
 }

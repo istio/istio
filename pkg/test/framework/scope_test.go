@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/test/framework/resource"
 )
@@ -55,15 +55,15 @@ func TestGet_Struct(t *testing.T) {
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			scope := tt.setup()
 			var got OtherInterface
 			err := scope.get(&got)
 			if tt.expError == nil {
-				g.Expect(err).To(BeNil())
-				g.Expect(got).To(Equal(res))
+				g.Expect(err).To(gomega.BeNil())
+				g.Expect(got).To(gomega.Equal(res))
 			} else {
-				g.Expect(err).To(Equal(tt.expError))
+				g.Expect(err).To(gomega.Equal(tt.expError))
 			}
 		})
 	}
@@ -81,16 +81,16 @@ func TestGet_Slice(t *testing.T) {
 		},
 	}
 
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	parent := newScope("parent", nil)
 	parent.add(exp[1], &resourceID{id: exp[1].IDValue})
 	child := newScope("child", parent)
 	child.add(exp[0], &resourceID{id: exp[0].IDValue})
 	var got []OtherInterface
 	err := child.get(&got)
-	g.Expect(err).To(BeNil())
-	g.Expect(got).To(HaveLen(len(exp)))
+	g.Expect(err).To(gomega.BeNil())
+	g.Expect(got).To(gomega.HaveLen(len(exp)))
 	for i, res := range exp {
-		g.Expect(got[i]).To(Equal(res))
+		g.Expect(got[i]).To(gomega.Equal(res))
 	}
 }

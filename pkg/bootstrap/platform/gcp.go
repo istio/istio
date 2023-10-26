@@ -58,7 +58,6 @@ var GCPStaticMetadata = func() map[string]string {
 		return map[string]string{}
 	}
 	md := map[string]string{}
-	log.Infof("Extract GCP metadata from env variable GCP_METADATA: %v", gcpm)
 	parts := strings.Split(gcpm, "|")
 	if len(parts) == 4 {
 		md[GCPProject] = parts[0]

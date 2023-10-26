@@ -73,8 +73,8 @@ func (t *T) ConditionallyTo(filters ...CombinationFilter) *T {
 
 // WithDefaultFilters applies common filters that work for most tests.
 // Example:
-//   - The full set of apps is a, b, c, headless, naked, and vm (one simple pod).
-//   - Only a, headless, naked and vm are used as sources.
+//   - The full set of apps is a, b, c, d, e, headless, naked, and vm (one simple pod).
+//   - Only a, d, e, headless, naked and vm are used as sources. (d and e applicable are only for dual-stack mode)
 //   - Subtests are generated only for reachable destinations.
 //   - Pod a will not be in destinations, but b will (one simpe pod not in sources)
 func (t *T) WithDefaultFilters(minimumFrom, minimumTo int) *T {
@@ -97,9 +97,9 @@ func (t *T) applyCombinationFilters(from echo.Instance, to echo.Instances) echo.
 // other "regular" pods that aren't part of the same Service. Pods that are part of the same Service but are in a
 // different cluster or revision will still be included.
 // Example:
-//   - The full set of apps is a, b, c, headless, naked, and vm.
+//   - The full set of apps is a, b, c, d, e, headless, naked, and vm.
 //   - The plain-pods are a, b and c.
-//   - This filter would result in a, headless, naked and vm.
+//   - This filter would result in a, d, e, headless, naked and vm.
 //
 // TODO this name is not good
 func SimplePodServiceAndAllSpecial(min int, exclude ...echo.Instance) Filter {

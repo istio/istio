@@ -22,6 +22,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/pkg/config/analysis/analyzers/envoyfilter"
+	"istio.io/istio/pkg/config/analysis/analyzers/externalcontrolplane"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/pkg/config/analysis/analyzers/multicluster"
@@ -43,6 +44,7 @@ func All() []analysis.Analyzer {
 		&deployment.ServiceAssociationAnalyzer{},
 		&deployment.ApplicationUIDAnalyzer{},
 		&deprecation.FieldAnalyzer{},
+		&externalcontrolplane.ExternalControlPlaneAnalyzer{},
 		&gateway.IngressGatewayPortAnalyzer{},
 		&gateway.CertificateAnalyzer{},
 		&gateway.SecretAnalyzer{},

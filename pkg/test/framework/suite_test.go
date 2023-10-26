@@ -20,7 +20,7 @@ import (
 	"sync"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/test/framework/components/environment/kube"
 	"istio.io/istio/pkg/test/framework/label"
@@ -62,7 +62,7 @@ func newTestSuite(testID string, fn mRunFn, osExit func(int), getSettingsFn getS
 
 func TestSuite_Basic(t *testing.T) {
 	defer cleanupRT()
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	var runCalled bool
 	var runSkipped bool
@@ -79,14 +79,14 @@ func TestSuite_Basic(t *testing.T) {
 	s := newTestSuite("tid", runFn, exitFn, defaultSettingsFn)
 	s.Run()
 
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
-	g.Expect(exitCode).To(Equal(-1))
+	g.Expect(runCalled).To(gomega.BeTrue())
+	g.Expect(runSkipped).To(gomega.BeFalse())
+	g.Expect(exitCode).To(gomega.Equal(-1))
 }
 
 func TestSuite_Label_SuiteFilter(t *testing.T) {
 	defer cleanupRT()
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	var runSkipped bool
 	runFn := func(ctx *suiteContext) int {
@@ -95,7 +95,7 @@ func TestSuite_Label_SuiteFilter(t *testing.T) {
 	}
 
 	sel, err := label.ParseSelector("-customsetup")
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(gomega.BeNil())
 	settings := resource.DefaultSettings()
 	settings.Selector = sel
 
@@ -103,12 +103,12 @@ func TestSuite_Label_SuiteFilter(t *testing.T) {
 	s.Label(label.CustomSetup)
 	s.Run()
 
-	g.Expect(runSkipped).To(BeTrue())
+	g.Expect(runSkipped).To(gomega.BeTrue())
 }
 
 func TestSuite_Label_SuiteAllow(t *testing.T) {
 	defer cleanupRT()
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	var runCalled bool
 	var runSkipped bool
@@ -119,7 +119,7 @@ func TestSuite_Label_SuiteAllow(t *testing.T) {
 	}
 
 	sel, err := label.ParseSelector("+postsubmit")
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(gomega.BeNil())
 	settings := resource.DefaultSettings()
 	settings.Selector = sel
 
@@ -127,8 +127,8 @@ func TestSuite_Label_SuiteAllow(t *testing.T) {
 	s.Label(label.CustomSetup)
 	s.Run()
 
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
+	g.Expect(runCalled).To(gomega.BeTrue())
+	g.Expect(runSkipped).To(gomega.BeFalse())
 }
 
 func TestSuite_RequireMinMaxClusters(t *testing.T) {
@@ -200,7 +200,7 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			defer cleanupRT()
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			var runCalled bool
 			var runSkipped bool
@@ -224,11 +224,11 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 			s.RequireMaxClusters(c.max)
 			s.Run()
 
-			g.Expect(runCalled).To(BeTrue())
+			g.Expect(runCalled).To(gomega.BeTrue())
 			if c.expectSkip {
-				g.Expect(runSkipped).To(BeTrue())
+				g.Expect(runSkipped).To(gomega.BeTrue())
 			} else {
-				g.Expect(runSkipped).To(BeFalse())
+				g.Expect(runSkipped).To(gomega.BeFalse())
 			}
 		})
 	}
@@ -236,7 +236,7 @@ func TestSuite_RequireMinMaxClusters(t *testing.T) {
 
 func TestSuite_Setup(t *testing.T) {
 	defer cleanupRT()
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	var runCalled bool
 	var runSkipped bool
@@ -255,14 +255,14 @@ func TestSuite_Setup(t *testing.T) {
 	})
 	s.Run()
 
-	g.Expect(setupCalled).To(BeTrue())
-	g.Expect(runCalled).To(BeTrue())
-	g.Expect(runSkipped).To(BeFalse())
+	g.Expect(setupCalled).To(gomega.BeTrue())
+	g.Expect(runCalled).To(gomega.BeTrue())
+	g.Expect(runSkipped).To(gomega.BeFalse())
 }
 
 func TestSuite_SetupFail(t *testing.T) {
 	defer cleanupRT()
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	var runCalled bool
 	runFn := func(ctx *suiteContext) int {
@@ -279,13 +279,13 @@ func TestSuite_SetupFail(t *testing.T) {
 	})
 	s.Run()
 
-	g.Expect(setupCalled).To(BeTrue())
-	g.Expect(runCalled).To(BeFalse())
+	g.Expect(setupCalled).To(gomega.BeTrue())
+	g.Expect(runCalled).To(gomega.BeFalse())
 }
 
 func TestSuite_SetupFail_Dump(t *testing.T) {
 	defer cleanupRT()
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	var runCalled bool
 	runFn := func(_ *suiteContext) int {
@@ -305,14 +305,14 @@ func TestSuite_SetupFail_Dump(t *testing.T) {
 	})
 	s.Run()
 
-	g.Expect(setupCalled).To(BeTrue())
-	g.Expect(runCalled).To(BeFalse())
+	g.Expect(setupCalled).To(gomega.BeTrue())
+	g.Expect(runCalled).To(gomega.BeFalse())
 }
 
 func TestSuite_Cleanup(t *testing.T) {
 	t.Run("cleanup", func(t *testing.T) {
 		defer cleanupRT()
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 
 		var cleanupCalled bool
 		var conditionalCleanupCalled bool
@@ -338,12 +338,12 @@ func TestSuite_Cleanup(t *testing.T) {
 		s.Run()
 		waitForRun1.Wait()
 
-		g.Expect(cleanupCalled).To(BeTrue())
-		g.Expect(conditionalCleanupCalled).To(BeTrue())
+		g.Expect(cleanupCalled).To(gomega.BeTrue())
+		g.Expect(conditionalCleanupCalled).To(gomega.BeTrue())
 	})
 	t.Run("nocleanup", func(t *testing.T) {
 		defer cleanupRT()
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 
 		var cleanupCalled bool
 		var conditionalCleanupCalled bool
@@ -369,14 +369,14 @@ func TestSuite_Cleanup(t *testing.T) {
 		s.Run()
 		waitForRun1.Wait()
 
-		g.Expect(cleanupCalled).To(BeTrue())
-		g.Expect(conditionalCleanupCalled).To(BeFalse())
+		g.Expect(cleanupCalled).To(gomega.BeTrue())
+		g.Expect(conditionalCleanupCalled).To(gomega.BeFalse())
 	})
 }
 
 func TestSuite_DoubleInit_Error(t *testing.T) {
 	defer cleanupRT()
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	var waitForRun1 sync.WaitGroup
 	waitForRun1.Add(1)
@@ -418,9 +418,9 @@ func TestSuite_DoubleInit_Error(t *testing.T) {
 	waitForTestCompletion.Done()
 	waitForExit1Call.Wait()
 
-	g.Expect(exit2Called).To(Equal(true))
-	g.Expect(errCode1).To(Equal(0))
-	g.Expect(errCode2).NotTo(Equal(0))
+	g.Expect(exit2Called).To(gomega.Equal(true))
+	g.Expect(errCode1).To(gomega.Equal(0))
+	g.Expect(errCode2).NotTo(gomega.Equal(0))
 }
 
 func TestSuite_GetResource(t *testing.T) {
@@ -442,39 +442,39 @@ func TestSuite_GetResource(t *testing.T) {
 	}
 
 	t.Run("struct reference", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 		var ref *resource.FakeResource
 		tracked := &resource.FakeResource{IDValue: "1"}
 		// notice that we pass **fakeCluster:
 		// GetResource requires *T where T implements resource.Resource.
 		// *fakeCluster implements it but fakeCluster does not.
 		err := act(&ref, tracked)
-		g.Expect(err).To(BeNil())
-		g.Expect(tracked).To(Equal(ref))
+		g.Expect(err).To(gomega.BeNil())
+		g.Expect(tracked).To(gomega.Equal(ref))
 	})
 	t.Run("interface reference", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 		var ref OtherInterface
 		tracked := &resource.FakeResource{IDValue: "1"}
 		err := act(&ref, tracked)
-		g.Expect(err).To(BeNil())
-		g.Expect(tracked).To(Equal(ref))
+		g.Expect(err).To(gomega.BeNil())
+		g.Expect(tracked).To(gomega.Equal(ref))
 	})
 	t.Run("slice reference", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 		existing := &resource.FakeResource{IDValue: "1"}
 		tracked := &resource.FakeResource{IDValue: "2"}
 		ref := []OtherInterface{existing}
 		err := act(&ref, tracked)
-		g.Expect(err).To(BeNil())
-		g.Expect(ref).To(HaveLen(2))
-		g.Expect(existing).To(Equal(ref[0]))
-		g.Expect(tracked).To(Equal(ref[1]))
+		g.Expect(err).To(gomega.BeNil())
+		g.Expect(ref).To(gomega.HaveLen(2))
+		g.Expect(existing).To(gomega.Equal(ref[0]))
+		g.Expect(tracked).To(gomega.Equal(ref[1]))
 	})
 	t.Run("non pointer ref", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 		err := act(resource.FakeResource{}, &resource.FakeResource{})
-		g.Expect(err).NotTo(BeNil())
+		g.Expect(err).NotTo(gomega.BeNil())
 	})
 }
 
@@ -507,9 +507,9 @@ func TestDeriveSuiteName(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.caller, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			actual := deriveSuiteName(c.caller)
-			g.Expect(actual).To(Equal(c.expected))
+			g.Expect(actual).To(gomega.Equal(c.expected))
 		})
 	}
 }

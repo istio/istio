@@ -29,7 +29,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
@@ -186,7 +186,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestManifestGenerateComponentHubTag(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	objs, err := runManifestCommands("component_hub_tag", "", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
@@ -223,7 +223,7 @@ func TestManifestGenerateComponentHubTag(t *testing.T) {
 }
 
 func TestManifestGenerateGateways(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	flags := "-s components.ingressGateways.[0].k8s.resources.requests.memory=999Mi " +
 		"-s components.ingressGateways.[name:user-ingressgateway].k8s.resources.requests.cpu=555m"
@@ -234,12 +234,12 @@ func TestManifestGenerateGateways(t *testing.T) {
 	}
 
 	for _, objs := range objss {
-		g.Expect(objs.kind(name.HPAStr).size()).Should(Equal(3))
-		g.Expect(objs.kind(name.PDBStr).size()).Should(Equal(3))
-		g.Expect(objs.kind(name.ServiceStr).labels("istio=ingressgateway").size()).Should(Equal(3))
-		g.Expect(objs.kind(name.RoleStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
-		g.Expect(objs.kind(name.RoleBindingStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
-		g.Expect(objs.kind(name.SAStr).nameMatches(".*gateway.*").size()).Should(Equal(3))
+		g.Expect(objs.kind(name.HPAStr).size()).Should(gomega.Equal(3))
+		g.Expect(objs.kind(name.PDBStr).size()).Should(gomega.Equal(3))
+		g.Expect(objs.kind(name.ServiceStr).labels("istio=ingressgateway").size()).Should(gomega.Equal(3))
+		g.Expect(objs.kind(name.RoleStr).nameMatches(".*gateway.*").size()).Should(gomega.Equal(3))
+		g.Expect(objs.kind(name.RoleBindingStr).nameMatches(".*gateway.*").size()).Should(gomega.Equal(3))
+		g.Expect(objs.kind(name.SAStr).nameMatches(".*gateway.*").size()).Should(gomega.Equal(3))
 
 		dobj := mustGetDeployment(g, objs, "istio-ingressgateway")
 		d := dobj.Unstructured()
@@ -283,22 +283,22 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	testCases := []struct {
 		name       string
 		force      bool
-		assertFunc func(g *WithT, objs *ObjectSet, err error)
+		assertFunc func(g *gomega.WithT, objs *ObjectSet, err error)
 	}{
 		{
 			name:  "Duplicate MutatingWebhookConfiguration should be allowed when --force is enabled",
 			force: true,
-			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
-				g.Expect(err).Should(BeNil())
-				g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(Equal(2))
+			assertFunc: func(g *gomega.WithT, objs *ObjectSet, err error) {
+				g.Expect(err).Should(gomega.BeNil())
+				g.Expect(objs.kind(name.MutatingWebhookConfigurationStr).size()).Should(gomega.Equal(2))
 			},
 		},
 		{
 			name:  "Duplicate MutatingWebhookConfiguration should not be allowed when --force is disabled",
 			force: false,
-			assertFunc: func(g *WithT, objs *ObjectSet, err error) {
-				g.Expect(err.Error()).To(ContainSubstring("Webhook overlaps with others"))
-				g.Expect(objs).Should(BeNil())
+			assertFunc: func(g *gomega.WithT, objs *ObjectSet, err error) {
+				g.Expect(err.Error()).To(gomega.ContainSubstring("Webhook overlaps with others"))
+				g.Expect(objs).Should(gomega.BeNil())
 			},
 		},
 	}
@@ -324,7 +324,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			objs, err := fakeControllerReconcile(testResourceFile, tmpCharts, &helmreconciler.Options{Force: tc.force, SkipPrune: true})
 			tc.assertFunc(g, objs, err)
 		})
@@ -332,7 +332,7 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 }
 
 func TestManifestGenerateIstiodRemote(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	objss, err := runManifestCommands("istiod_remote", "", liveCharts, nil)
 	if err != nil {
@@ -341,16 +341,16 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 
 	for _, objs := range objss {
 		// check core CRDs exists
-		g.Expect(objs.kind(name.CRDStr).nameEquals("destinationrules.networking.istio.io")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.CRDStr).nameEquals("sidecars.networking.istio.io")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.CRDStr).nameEquals("virtualservices.networking.istio.io")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(BeNil())
-		g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("destinationrules.networking.istio.io")).Should(gomega.Not(gomega.BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("gateways.networking.istio.io")).Should(gomega.Not(gomega.BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("sidecars.networking.istio.io")).Should(gomega.Not(gomega.BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("virtualservices.networking.istio.io")).Should(gomega.Not(gomega.BeNil()))
+		g.Expect(objs.kind(name.CRDStr).nameEquals("adapters.config.istio.io")).Should(gomega.BeNil())
+		g.Expect(objs.kind(name.CRDStr).nameEquals("authorizationpolicies.security.istio.io")).Should(gomega.Not(gomega.BeNil()))
 
-		g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(Not(BeNil()))
-		g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(Not(BeNil()))
+		g.Expect(objs.kind(name.CMStr).nameEquals("istio-sidecar-injector")).Should(gomega.Not(gomega.BeNil()))
+		g.Expect(objs.kind(name.ServiceStr).nameEquals("istiod")).Should(gomega.Not(gomega.BeNil()))
+		g.Expect(objs.kind(name.SAStr).nameEquals("istio-reader-service-account")).Should(gomega.Not(gomega.BeNil()))
 
 		mwc := mustGetMutatingWebhookConfiguration(g, objs, "istio-sidecar-injector").Unstructured()
 		g.Expect(mwc).Should(HavePathValueEqual(PathValue{"webhooks.[0].clientConfig.url", "https://xxx:15017/inject"}))
@@ -364,7 +364,7 @@ func TestManifestGenerateIstiodRemote(t *testing.T) {
 }
 
 func TestManifestGenerateAllOff(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	m, _, err := generateManifest("all_off", "", liveCharts, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -373,11 +373,11 @@ func TestManifestGenerateAllOff(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	g.Expect(objs.size()).Should(Equal(0))
+	g.Expect(objs.size()).Should(gomega.Equal(0))
 }
 
 func TestManifestGenerateFlagsMinimalProfile(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	// Change profile from empty to minimal using flag.
 	m, _, err := generateManifest("empty", "-s profile=minimal", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
@@ -392,7 +392,7 @@ func TestManifestGenerateFlagsMinimalProfile(t *testing.T) {
 }
 
 func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	m, _, err := generateManifest("minimal", "-s hub=foo -s tag=bar", liveCharts, []string{"templates/deployment.yaml"})
 	if err != nil {
 		t.Fatal(err)
@@ -409,7 +409,7 @@ func TestManifestGenerateFlagsSetHubTag(t *testing.T) {
 }
 
 func TestManifestGenerateFlagsSetValues(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	m, _, err := generateManifest("default", "-s values.global.proxy.image=myproxy -s values.global.proxy.includeIPRanges=172.30.0.0/16,172.21.0.0/16", liveCharts,
 		[]string{"templates/deployment.yaml", "templates/istiod-injector-configmap.yaml"})
 	if err != nil {

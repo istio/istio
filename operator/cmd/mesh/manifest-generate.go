@@ -116,9 +116,13 @@ func ManifestGenerateCmd(ctx cli.Context, rootArgs *RootArgs, mgArgs *ManifestGe
 			if kubeClientFunc == nil {
 				kubeClientFunc = ctx.CLIClient
 			}
-			kubeClient, err := kubeClientFunc()
-			if err != nil {
-				return err
+			var kubeClient kube.CLIClient
+			if mgArgs.EnableClusterSpecific {
+				kc, err := kubeClientFunc()
+				if err != nil {
+					return err
+				}
+				kubeClient = kc
 			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			return ManifestGenerate(kubeClient, rootArgs, mgArgs, logOpts, l)
@@ -129,13 +133,6 @@ func ManifestGenerateCmd(ctx cli.Context, rootArgs *RootArgs, mgArgs *ManifestGe
 func ManifestGenerate(kubeClient kube.CLIClient, args *RootArgs, mgArgs *ManifestGenerateArgs, logopts *log.Options, l clog.Logger) error {
 	if err := configLogs(logopts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
-	}
-	if mgArgs.EnableClusterSpecific {
-		kc, _, err := KubernetesClients(kubeClient, l)
-		if err != nil {
-			return err
-		}
-		kubeClient = kc
 	}
 
 	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),

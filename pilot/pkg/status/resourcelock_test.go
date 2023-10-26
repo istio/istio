@@ -19,7 +19,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/api/meta/v1alpha1"
@@ -27,7 +27,7 @@ import (
 )
 
 func TestResourceLock_Lock(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := gomega.NewGomegaWithT(t)
 	r1 := Resource{
 		GroupVersionResource: schema.GroupVersionResource{
 			Group:   "r1",
@@ -83,6 +83,6 @@ func TestResourceLock_Lock(t *testing.T) {
 	}
 	<-y
 	result := atomic.LoadInt32(&runCount)
-	g.Expect(result).To(Equal(int32(3)))
+	g.Expect(result).To(gomega.Equal(int32(3)))
 	cancel()
 }

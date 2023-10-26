@@ -287,11 +287,23 @@ global:
     #If set to true, istio-proxy container will have privileged securityContext
     privileged: false
     # The number of successive failed probes before indicating readiness failure.
-    readinessFailureThreshold: 30
+    readinessFailureThreshold: 4
     # The initial delay for readiness probes in seconds.
-    readinessInitialDelaySeconds: 1
+    readinessInitialDelaySeconds: 0
     # The period between readiness probes.
-    readinessPeriodSeconds: 2
+    readinessPeriodSeconds: 15
+    # Enables or disables a startup probe.
+    # For optimal startup times, changing this should be tied to the readiness probe values.
+    #
+    # If the probe is enabled, it is recommended to have delay=0s,period=15s,failureThreshold=4.
+    # This ensures the pod is marked ready immediately after the startup probe passes (which has a 1s poll interval),
+    # and doesn't spam the readiness endpoint too much
+    #
+    # If the probe is disabled, it is recommended to have delay=1s,period=2s,failureThreshold=30.
+    # This ensures the startup is reasonable fast (polling every 2s). 1s delay is used since the startup is not often ready instantly.
+    startupProbe:
+      enabled: true
+      failureThreshold: 600 # 10 minutes
     # Resources for the sidecar.
     resources:
       requests:

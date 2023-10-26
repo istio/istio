@@ -4,10 +4,10 @@ apiVersion: v1
 kind: ServiceAccount
 metadata:
   labels:
-    helm.sh/chart: grafana-6.57.4
+    helm.sh/chart: grafana-6.61.1
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "9.5.5"
+    app.kubernetes.io/version: "10.1.5"
     app.kubernetes.io/managed-by: Helm
   name: grafana
   namespace: istio-system
@@ -19,10 +19,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.57.4
+    helm.sh/chart: grafana-6.61.1
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "9.5.5"
+    app.kubernetes.io/version: "10.1.5"
     app.kubernetes.io/managed-by: Helm
 data:
   grafana.ini: |
@@ -85,10 +85,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.57.4
+    helm.sh/chart: grafana-6.61.1
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "9.5.5"
+    app.kubernetes.io/version: "10.1.5"
     app.kubernetes.io/managed-by: Helm
 spec:
   type: ClusterIP
@@ -108,10 +108,10 @@ metadata:
   name: grafana
   namespace: istio-system
   labels:
-    helm.sh/chart: grafana-6.57.4
+    helm.sh/chart: grafana-6.61.1
     app.kubernetes.io/name: grafana
     app.kubernetes.io/instance: grafana
-    app.kubernetes.io/version: "9.5.5"
+    app.kubernetes.io/version: "10.1.5"
     app.kubernetes.io/managed-by: Helm
 spec:
   replicas: 1
@@ -127,10 +127,9 @@ spec:
       labels:
         app.kubernetes.io/name: grafana
         app.kubernetes.io/instance: grafana
-        app: grafana
         sidecar.istio.io/inject: "false"
       annotations:
-        checksum/config: aec3d18ca2ea82d1d48f8965db1440aba0680ed2f32c5a29e6cdb5e7afc8b395
+        checksum/config: e6dc57066020dcc7ec73db1b5e39370203985e5071b47f1f1414ee5c42679d46
         checksum/dashboards-json-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
         checksum/sc-dashboard-provider-config: 01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b
         kubectl.kubernetes.io/default-container: grafana
@@ -138,15 +137,10 @@ spec:
       
       serviceAccountName: grafana
       automountServiceAccountToken: true
-      securityContext:
-        fsGroup: 472
-        runAsGroup: 472
-        runAsNonRoot: true
-        runAsUser: 472
       enableServiceLinks: true
       containers:
         - name: grafana
-          image: "docker.io/grafana/grafana:9.5.5"
+          image: "docker.io/grafana/grafana:10.1.5"
           imagePullPolicy: IfNotPresent
           securityContext:
             allowPrivilegeEscalation: false

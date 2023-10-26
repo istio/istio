@@ -107,12 +107,11 @@ spec:
           name: http-envoy-prom
           protocol: TCP
         readinessProbe:
-          failureThreshold: 30
+          failureThreshold: 4
           httpGet:
             path: /healthz/ready
             port: 15021
-          initialDelaySeconds: 1
-          periodSeconds: 2
+          periodSeconds: 15
           timeoutSeconds: 3
         resources: {}
         securityContext:

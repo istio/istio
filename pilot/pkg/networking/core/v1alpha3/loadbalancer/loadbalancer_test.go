@@ -21,7 +21,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -82,7 +82,7 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 
 	t.Run("Failover: all priorities", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildFakeCluster()
 		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
@@ -90,25 +90,25 @@ func TestApplyLocalitySetting(t *testing.T) {
 			if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
 					if localityEndpoint.Locality.SubZone == locality.SubZone {
-						g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
+						g.Expect(localityEndpoint.Priority).To(gomega.Equal(uint32(0)))
 						continue
 					}
-					g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+					g.Expect(localityEndpoint.Priority).To(gomega.Equal(uint32(1)))
 					continue
 				}
-				g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
+				g.Expect(localityEndpoint.Priority).To(gomega.Equal(uint32(2)))
 				continue
 			}
 			if localityEndpoint.Locality.Region == "region2" {
-				g.Expect(localityEndpoint.Priority).To(Equal(uint32(3)))
+				g.Expect(localityEndpoint.Priority).To(gomega.Equal(uint32(3)))
 			} else {
-				g.Expect(localityEndpoint.Priority).To(Equal(uint32(4)))
+				g.Expect(localityEndpoint.Priority).To(gomega.Equal(uint32(4)))
 			}
 		}
 	})
 
 	t.Run("Failover: priorities with gaps", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallCluster()
 		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
@@ -119,14 +119,14 @@ func TestApplyLocalitySetting(t *testing.T) {
 						t.Errorf("Should not exist")
 						continue
 					}
-					g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
+					g.Expect(localityEndpoint.Priority).To(gomega.Equal(uint32(0)))
 					continue
 				}
 				t.Errorf("Should not exist")
 				continue
 			}
 			if localityEndpoint.Locality.Region == "region2" {
-				g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+				g.Expect(localityEndpoint.Priority).To(gomega.Equal(uint32(1)))
 			} else {
 				t.Errorf("Should not exist")
 			}
@@ -134,26 +134,26 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 
 	t.Run("Failover: priorities with some nil localities", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 		env := buildEnvForClustersWithFailover()
 		cluster := buildSmallClusterWithNilLocalities()
 		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, env.Mesh().LocalityLbSetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
 			if localityEndpoint.Locality == nil {
-				g.Expect(localityEndpoint.Priority).To(Equal(uint32(2)))
+				g.Expect(localityEndpoint.Priority).To(gomega.Equal(uint32(2)))
 			} else if localityEndpoint.Locality.Region == locality.Region {
 				if localityEndpoint.Locality.Zone == locality.Zone {
 					if localityEndpoint.Locality.SubZone == locality.SubZone {
 						t.Errorf("Should not exist")
 						continue
 					}
-					g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
+					g.Expect(localityEndpoint.Priority).To(gomega.Equal(uint32(0)))
 					continue
 				}
 				t.Errorf("Should not exist")
 				continue
 			} else if localityEndpoint.Locality.Region == "region2" {
-				g.Expect(localityEndpoint.Priority).To(Equal(uint32(1)))
+				g.Expect(localityEndpoint.Priority).To(gomega.Equal(uint32(1)))
 			} else {
 				t.Errorf("Should not exist")
 			}
@@ -161,14 +161,14 @@ func TestApplyLocalitySetting(t *testing.T) {
 	})
 
 	t.Run("Failover: with locality lb disabled", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 		cluster := buildSmallClusterWithNilLocalities()
 		lbsetting := &networking.LocalityLoadBalancerSetting{
 			Enabled: &wrappers.BoolValue{Value: false},
 		}
 		ApplyLocalityLBSetting(cluster.LoadAssignment, nil, locality, nil, lbsetting, true)
 		for _, localityEndpoint := range cluster.LoadAssignment.Endpoints {
-			g.Expect(localityEndpoint.Priority).To(Equal(uint32(0)))
+			g.Expect(localityEndpoint.Priority).To(gomega.Equal(uint32(0)))
 		}
 	})
 

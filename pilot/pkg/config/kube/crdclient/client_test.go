@@ -408,11 +408,11 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 		kube.WaitForCacheSync("test", stop, store.HasSynced)
 
 		// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
-		sortFunc := func(a, b config.Config) bool {
-			return a.Key() < b.Key()
+		sortFunc := func(a config.Config) string {
+			return a.Key()
 		}
-		slices.SortFunc(cfgsAdded, sortFunc)
-		slices.SortFunc(expected, sortFunc)
+		slices.SortBy(cfgsAdded, sortFunc)
+		slices.SortBy(expected, sortFunc)
 
 		assert.Equal(t, expected, cfgsAdded)
 	}

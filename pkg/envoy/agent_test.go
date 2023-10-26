@@ -70,7 +70,7 @@ func (tp TestProxy) Run(stop <-chan error) error {
 	return tp.run(stop)
 }
 
-func (tp TestProxy) Drain() error {
+func (tp TestProxy) Drain(bool) error {
 	tp.blockChannel <- "unblock"
 	return nil
 }

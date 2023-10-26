@@ -21,7 +21,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/pkg/config/analysis/analyzers/envoyfilter"
+	"istio.io/istio/pkg/config/analysis/analyzers/externalcontrolplane"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
@@ -110,6 +111,31 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.Deprecated, "VirtualService foo/productpage"},
 			{msg.Deprecated, "Sidecar default/no-selector"},
+		},
+	},
+	{
+		name:       "externalControlPlaneMissingWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-missing-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.InvalidExternalControlPlaneConfig, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
+			{msg.InvalidExternalControlPlaneConfig, "ValidatingWebhookConfiguration istio-validator-external-istiod"},
+		},
+	},
+	{
+		name:       "externalControlPlaneUsingIpAddresses",
+		inputFiles: []string{"testdata/externalcontrolplane-using-ip-addr.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.ExternalControlPlaneAddressIsNotAHostname, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
+		},
+	},
+	{
+		name:       "externalControlPlaneValidWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-valid-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
 		},
 	},
 	{
@@ -842,7 +868,7 @@ func TestAnalyzers(t *testing.T) {
 	for _, tc := range testGrid {
 		tc := tc // Capture range variable so subtests work correctly
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			// Set up a hook to record which collections are accessed by each analyzer
 			analyzerName := tc.analyzer.Metadata().Name
@@ -865,14 +891,14 @@ func TestAnalyzers(t *testing.T) {
 				t.Fatalf("Error running analysis on testcase %s: %v", tc.name, err)
 			}
 
-			g.Expect(extractFields(result.Messages)).To(ConsistOf(tc.expected), "%v", prettyPrintMessages(result.Messages))
+			g.Expect(extractFields(result.Messages)).To(gomega.ConsistOf(tc.expected), "%v", prettyPrintMessages(result.Messages))
 		})
 	}
 
 	// Verify that the collections actually accessed during testing actually match
 	// the collections declared as inputs for each of the analyzers
 	t.Run("CheckMetadataInputs", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 	outer:
 		for _, a := range All() {
 			analyzerName := a.Metadata().Name
@@ -893,7 +919,7 @@ func TestAnalyzers(t *testing.T) {
 				requestedInputs = append(requestedInputs, col)
 			}
 
-			g.Expect(a.Metadata().Inputs).To(ConsistOf(requestedInputs), fmt.Sprintf(
+			g.Expect(a.Metadata().Inputs).To(gomega.ConsistOf(requestedInputs), fmt.Sprintf(
 				"Metadata inputs for analyzer %q don't match actual collections accessed during testing. "+
 					"Either the metadata is wrong or the test cases for the analyzer are insufficient.", analyzerName))
 		}
@@ -902,7 +928,7 @@ func TestAnalyzers(t *testing.T) {
 
 // Verify that all of the analyzers tested here are also registered in All()
 func TestAnalyzersInAll(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	var allNames []string
 	for _, a := range All() {
@@ -911,13 +937,13 @@ func TestAnalyzersInAll(t *testing.T) {
 
 	for _, tc := range testGrid {
 		if !tc.skipAll {
-			g.Expect(allNames).To(ContainElement(tc.analyzer.Metadata().Name))
+			g.Expect(allNames).To(gomega.ContainElement(tc.analyzer.Metadata().Name))
 		}
 	}
 }
 
 func TestAnalyzersHaveUniqueNames(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	existingNames := sets.New[string]()
 	for _, a := range All() {
@@ -926,7 +952,7 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 		if existingNames.Contains(n) && n == "schema.ValidationAnalyzer.ServiceEntry" {
 			continue
 		}
-		g.Expect(existingNames.Contains(n)).To(BeFalse(), fmt.Sprintf("Analyzer name %q is used more than once. "+
+		g.Expect(existingNames.Contains(n)).To(gomega.BeFalse(), fmt.Sprintf("Analyzer name %q is used more than once. "+
 			"Analyzers should be registered in All() exactly once and have a unique name.", n))
 
 		existingNames.Insert(n)
@@ -934,10 +960,10 @@ func TestAnalyzersHaveUniqueNames(t *testing.T) {
 }
 
 func TestAnalyzersHaveDescription(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	for _, a := range All() {
-		g.Expect(a.Metadata().Description).ToNot(Equal(""))
+		g.Expect(a.Metadata().Description).ToNot(gomega.Equal(""))
 	}
 }
 

@@ -18,7 +18,7 @@ import (
 	"testing"
 
 	"github.com/hashicorp/go-multierror"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
@@ -32,14 +32,14 @@ import (
 )
 
 func TestCorrectArgs(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	m1 := &v1alpha3.VirtualService{}
 
 	testSchema := schemaWithValidateFn(func(cfg config.Config) (warnings validation.Warning, errs error) {
-		g.Expect(cfg.Name).To(Equal("name"))
-		g.Expect(cfg.Namespace).To(Equal("ns"))
-		g.Expect(cfg.Spec).To(Equal(m1))
+		g.Expect(cfg.Name).To(gomega.Equal("name"))
+		g.Expect(cfg.Namespace).To(gomega.Equal("ns"))
+		g.Expect(cfg.Spec).To(gomega.Equal(m1))
 		return nil, nil
 	})
 	ctx := &fixtures.Context{
@@ -80,12 +80,12 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	a := ValidationAnalyzer{s: testSchema}
 
 	t.Run("CheckMetadataInputs", func(t *testing.T) {
-		g := NewWithT(t)
-		g.Expect(a.Metadata().Inputs).To(ConsistOf(testCol))
+		g := gomega.NewWithT(t)
+		g.Expect(a.Metadata().Inputs).To(gomega.ConsistOf(testCol))
 	})
 
 	t.Run("NoErrors", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 		ctx := &fixtures.Context{
 			Resources: []*resource.Instance{
 				{
@@ -94,11 +94,11 @@ func TestSchemaValidationWrapper(t *testing.T) {
 			},
 		}
 		a.Analyze(ctx)
-		g.Expect(ctx.Reports).To(BeEmpty())
+		g.Expect(ctx.Reports).To(gomega.BeEmpty())
 	})
 
 	t.Run("SingleError", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 
 		ctx := &fixtures.Context{
 			Resources: []*resource.Instance{
@@ -109,12 +109,12 @@ func TestSchemaValidationWrapper(t *testing.T) {
 			},
 		}
 		a.Analyze(ctx)
-		g.Expect(ctx.Reports).To(HaveLen(1))
-		g.Expect(ctx.Reports[0].Type).To(Equal(msg.SchemaValidationError))
+		g.Expect(ctx.Reports).To(gomega.HaveLen(1))
+		g.Expect(ctx.Reports[0].Type).To(gomega.Equal(msg.SchemaValidationError))
 	})
 
 	t.Run("MultiError", func(t *testing.T) {
-		g := NewWithT(t)
+		g := gomega.NewWithT(t)
 		ctx := &fixtures.Context{
 			Resources: []*resource.Instance{
 				{
@@ -124,9 +124,9 @@ func TestSchemaValidationWrapper(t *testing.T) {
 			},
 		}
 		a.Analyze(ctx)
-		g.Expect(ctx.Reports).To(HaveLen(2))
-		g.Expect(ctx.Reports[0].Type).To(Equal(msg.SchemaValidationError))
-		g.Expect(ctx.Reports[1].Type).To(Equal(msg.SchemaValidationError))
+		g.Expect(ctx.Reports).To(gomega.HaveLen(2))
+		g.Expect(ctx.Reports[0].Type).To(gomega.Equal(msg.SchemaValidationError))
+		g.Expect(ctx.Reports[1].Type).To(gomega.Equal(msg.SchemaValidationError))
 	})
 }
 

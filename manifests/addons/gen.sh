@@ -27,7 +27,7 @@ DASHBOARDS="${WD}/dashboards"
 mkdir -p "${ADDONS}"
 TMP=$(mktemp -d)
 LOKI_VERSION=${LOKI_VERSION:-"4.8.0"}
-GRAFANA_VERSION=${GRAFANA_VERSION:-"6.57.4"}
+GRAFANA_VERSION=${GRAFANA_VERSION:-"6.61.1"}
 
 # Set up kiali
 {
@@ -46,7 +46,7 @@ helm3 template kiali-server \
 # Set up prometheus
 helm3 template prometheus prometheus \
   --namespace istio-system \
-  --version 19.6.1 \
+  --version 25.2.0 \
   --repo https://prometheus-community.github.io/helm-charts \
   -f "${WD}/values-prometheus.yaml" \
   > "${ADDONS}/prometheus.yaml"

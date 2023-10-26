@@ -52,7 +52,7 @@ func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts Work
 	targetRef := policy.GetTargetRef()
 	if isGatewayAPI && targetRef == nil && policy.GetSelector() != nil {
 		if opts.IsWaypoint || !features.EnableSelectorBasedK8sGatewayPolicy {
-			log.Warnf("Ignoring workload-scoped %s/%s %s.%s for gateway %s because it has no targetRef", kind.Group, kind.Kind, opts.Namespace, policyName, gatewayName)
+			log.Debugf("Ignoring workload-scoped %s/%s %s.%s for gateway %s because it has no targetRef", kind.Group, kind.Kind, opts.Namespace, policyName, gatewayName)
 			return policyMatchIgnore
 		}
 	}

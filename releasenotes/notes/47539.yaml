@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** support for deleting multiple waypoints at once via `istioctl x waypoint delete <waypoint1> <waypoint2> ...`

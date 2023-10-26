@@ -17,7 +17,7 @@ package model_test
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
@@ -146,13 +146,13 @@ func TestIsClusterLocal(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			env := &model.Environment{Watcher: mesh.NewFixedWatcher(c.m)}
 			env.Init()
 
 			clusterLocal := env.ClusterLocal().GetClusterLocalHosts().IsClusterLocal(host.Name(c.host))
-			g.Expect(clusterLocal).To(Equal(c.expected))
+			g.Expect(clusterLocal).To(gomega.Equal(c.expected))
 		})
 	}
 }

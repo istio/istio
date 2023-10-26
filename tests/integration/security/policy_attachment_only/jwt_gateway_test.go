@@ -190,6 +190,98 @@ func TestGatewayAPIRequestAuthentication(t *testing.T) {
 		})
 }
 
+func TestGatewayAPIAuthorizationPolicy(t *testing.T) {
+	framework.NewTest(t).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/35835
+		Features("security.authorization.policy-attachment").
+		Run(func(t framework.TestContext) {
+			crd.DeployGatewayAPIOrSkip(t)
+			config.New(t).
+				Source(config.File("testdata/authz/gateway-api.yaml.tmpl").WithParams(param.Params{
+					param.Namespace.String(): apps.Namespace,
+				})).
+				Source(config.File("testdata/authz/gateway-authz.yaml.tmpl").WithParams(param.Params{
+					param.Namespace.String(): apps.Namespace,
+					"Services":               apps.A.Append(apps.B).Services(),
+				})).
+				BuildAll(nil, apps.A.Append(apps.B).Services()).
+				Apply()
+
+			t.NewSubTest("gateway-authz-policy-attachment-only").Run(func(t framework.TestContext) {
+				test.SetForTest(t, &features.EnableSelectorBasedK8sGatewayPolicy, false)
+				cases := []struct {
+					name          string
+					customizeCall func(opts *echo.CallOptions, to echo.Target)
+				}{
+					{
+						name: "allow with sub-1 token",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/allow"
+							opts.HTTP.Method = "GET"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								WithAuthz(jwt.TokenIssuer1).
+								Build()
+							opts.Check = check.OK()
+						},
+					},
+					{
+						name: "deny without token",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/allow"
+							opts.HTTP.Method = "GET"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								Build()
+							opts.Check = check.Status(http.StatusForbidden)
+						},
+					},
+					{
+						name: "deny based on unacceptable HTTP method",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/allow"
+							opts.HTTP.Method = "POST"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								WithAuthz(jwt.TokenIssuer1).
+								Build()
+							opts.Check = check.Status(http.StatusNotFound)
+						},
+					},
+					{
+						name: "deny based on unacceptable HTTP path",
+						customizeCall: func(opts *echo.CallOptions, to echo.Target) {
+							opts.HTTP.Path = "/deny"
+							opts.HTTP.Method = "GET"
+							opts.HTTP.Headers = headers.New().
+								WithHost(fmt.Sprintf("example.%s.com", to.ServiceName())).
+								WithAuthz(jwt.TokenIssuer1).
+								Build()
+							opts.Check = check.Status(http.StatusNotFound)
+						},
+					},
+				}
+
+				newTrafficTest(t, apps.A.Append(apps.B)).
+					RunViaGatewayIngress("istio", func(t framework.TestContext, from ingress.Instance, to echo.Target) {
+						for _, c := range cases {
+							t.NewSubTest(c.name).Run(func(t framework.TestContext) {
+								opts := echo.CallOptions{
+									Port: echo.Port{
+										Protocol: protocol.HTTP,
+									},
+								}
+
+								c.customizeCall(&opts, to)
+
+								from.CallOrFail(t, opts)
+							})
+						}
+					})
+			})
+		})
+}
+
 func newTrafficTest(t framework.TestContext, echos ...echo.Instances) *echotest.T {
 	var all []echo.Instance
 	for _, e := range echos {

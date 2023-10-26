@@ -21,7 +21,7 @@ import (
 
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/priority/previous_priorities/v3"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -34,15 +34,15 @@ func TestRetry(t *testing.T) {
 	testCases := []struct {
 		name       string
 		route      *networking.HTTPRoute
-		assertFunc func(g *WithT, policy *envoyroute.RetryPolicy)
+		assertFunc func(g *gomega.WithT, policy *envoyroute.RetryPolicy)
 	}{
 		{
 			name: "TestNilRetryShouldReturnDefault",
 			// Create a route where no retry policy has been explicitly set.
 			route: &networking.HTTPRoute{},
-			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
-				g.Expect(policy).To(Not(BeNil()))
-				g.Expect(policy).To(Equal(retry.DefaultPolicy()))
+			assertFunc: func(g *gomega.WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(gomega.Not(gomega.BeNil()))
+				g.Expect(policy).To(gomega.Equal(retry.DefaultPolicy()))
 			},
 		},
 		{
@@ -54,8 +54,8 @@ func TestRetry(t *testing.T) {
 					Attempts: 0,
 				},
 			},
-			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
-				g.Expect(policy).To(BeNil())
+			assertFunc: func(g *gomega.WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(gomega.BeNil())
 			},
 		},
 		{
@@ -68,15 +68,15 @@ func TestRetry(t *testing.T) {
 					PerTryTimeout: durationpb.New(time.Second * 3),
 				},
 			},
-			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
-				g.Expect(policy).To(Not(BeNil()))
-				g.Expect(policy.RetryOn).To(Equal("some,fake,conditions"))
-				g.Expect(policy.PerTryTimeout).To(Equal(durationpb.New(time.Second * 3)))
-				g.Expect(policy.NumRetries.Value).To(Equal(uint32(2)))
-				g.Expect(policy.RetriableStatusCodes).To(Equal(make([]uint32, 0)))
-				g.Expect(policy.RetryPriority).To(BeNil())
-				g.Expect(policy.HostSelectionRetryMaxAttempts).To(Equal(retry.DefaultPolicy().HostSelectionRetryMaxAttempts))
-				g.Expect(policy.RetryHostPredicate).To(Equal(retry.DefaultPolicy().RetryHostPredicate))
+			assertFunc: func(g *gomega.WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(gomega.Not(gomega.BeNil()))
+				g.Expect(policy.RetryOn).To(gomega.Equal("some,fake,conditions"))
+				g.Expect(policy.PerTryTimeout).To(gomega.Equal(durationpb.New(time.Second * 3)))
+				g.Expect(policy.NumRetries.Value).To(gomega.Equal(uint32(2)))
+				g.Expect(policy.RetriableStatusCodes).To(gomega.Equal(make([]uint32, 0)))
+				g.Expect(policy.RetryPriority).To(gomega.BeNil())
+				g.Expect(policy.HostSelectionRetryMaxAttempts).To(gomega.Equal(retry.DefaultPolicy().HostSelectionRetryMaxAttempts))
+				g.Expect(policy.RetryHostPredicate).To(gomega.Equal(retry.DefaultPolicy().RetryHostPredicate))
 			},
 		},
 		{
@@ -89,10 +89,10 @@ func TestRetry(t *testing.T) {
 					RetryOn:  "some,fake,conditions,,,",
 				},
 			},
-			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
-				g.Expect(policy).To(Not(BeNil()))
-				g.Expect(policy.RetryOn).To(Equal("some,fake,conditions"))
-				g.Expect(policy.RetriableStatusCodes).To(Equal([]uint32{}))
+			assertFunc: func(g *gomega.WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(gomega.Not(gomega.BeNil()))
+				g.Expect(policy.RetryOn).To(gomega.Equal("some,fake,conditions"))
+				g.Expect(policy.RetriableStatusCodes).To(gomega.Equal([]uint32{}))
 			},
 		},
 		{
@@ -105,10 +105,10 @@ func TestRetry(t *testing.T) {
 					RetryOn:  "gateway-error,retriable-status-codes,503",
 				},
 			},
-			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
-				g.Expect(policy).To(Not(BeNil()))
-				g.Expect(policy.RetryOn).To(Equal("gateway-error,retriable-status-codes"))
-				g.Expect(policy.RetriableStatusCodes).To(Equal([]uint32{503}))
+			assertFunc: func(g *gomega.WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(gomega.Not(gomega.BeNil()))
+				g.Expect(policy.RetryOn).To(gomega.Equal("gateway-error,retriable-status-codes"))
+				g.Expect(policy.RetriableStatusCodes).To(gomega.Equal([]uint32{503}))
 			},
 		},
 		{
@@ -121,10 +121,10 @@ func TestRetry(t *testing.T) {
 					RetryOn:  " some,	,fake ,	conditions, ,",
 				},
 			},
-			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
-				g.Expect(policy).To(Not(BeNil()))
-				g.Expect(policy.RetryOn).To(Equal("some,fake,conditions"))
-				g.Expect(policy.RetriableStatusCodes).To(Equal([]uint32{}))
+			assertFunc: func(g *gomega.WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(gomega.Not(gomega.BeNil()))
+				g.Expect(policy.RetryOn).To(gomega.Equal("some,fake,conditions"))
+				g.Expect(policy.RetriableStatusCodes).To(gomega.Equal([]uint32{}))
 			},
 		},
 		{
@@ -136,10 +136,10 @@ func TestRetry(t *testing.T) {
 					RetryOn:  "some,fake,5xx,404,conditions,503",
 				},
 			},
-			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
-				g.Expect(policy).To(Not(BeNil()))
-				g.Expect(policy.RetryOn).To(Equal("some,fake,5xx,conditions,retriable-status-codes"))
-				g.Expect(policy.RetriableStatusCodes).To(Equal([]uint32{404, 503}))
+			assertFunc: func(g *gomega.WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(gomega.Not(gomega.BeNil()))
+				g.Expect(policy.RetryOn).To(gomega.Equal("some,fake,5xx,conditions,retriable-status-codes"))
+				g.Expect(policy.RetriableStatusCodes).To(gomega.Equal([]uint32{404, 503}))
 			},
 		},
 		{
@@ -151,10 +151,10 @@ func TestRetry(t *testing.T) {
 					RetryOn:  "some,fake,conditions,1000",
 				},
 			},
-			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
-				g.Expect(policy).To(Not(BeNil()))
-				g.Expect(policy.RetryOn).To(Equal("some,fake,conditions,1000"))
-				g.Expect(policy.RetriableStatusCodes).To(Equal([]uint32{}))
+			assertFunc: func(g *gomega.WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(gomega.Not(gomega.BeNil()))
+				g.Expect(policy.RetryOn).To(gomega.Equal("some,fake,conditions,1000"))
+				g.Expect(policy.RetriableStatusCodes).To(gomega.Equal([]uint32{}))
 			},
 		},
 		{
@@ -165,10 +165,10 @@ func TestRetry(t *testing.T) {
 					Attempts: 2,
 				},
 			},
-			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
-				g.Expect(policy).To(Not(BeNil()))
-				g.Expect(policy.RetryOn).To(Equal(retry.DefaultPolicy().RetryOn))
-				g.Expect(policy.RetriableStatusCodes).To(Equal(retry.DefaultPolicy().RetriableStatusCodes))
+			assertFunc: func(g *gomega.WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(gomega.Not(gomega.BeNil()))
+				g.Expect(policy.RetryOn).To(gomega.Equal(retry.DefaultPolicy().RetryOn))
+				g.Expect(policy.RetriableStatusCodes).To(gomega.Equal(retry.DefaultPolicy().RetriableStatusCodes))
 			},
 		},
 		{
@@ -179,9 +179,9 @@ func TestRetry(t *testing.T) {
 					Attempts: 2,
 				},
 			},
-			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
-				g.Expect(policy).To(Not(BeNil()))
-				g.Expect(policy.PerTryTimeout).To(BeNil())
+			assertFunc: func(g *gomega.WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(gomega.Not(gomega.BeNil()))
+				g.Expect(policy.PerTryTimeout).To(gomega.BeNil())
 			},
 		},
 		{
@@ -195,10 +195,10 @@ func TestRetry(t *testing.T) {
 					},
 				},
 			},
-			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
-				g.Expect(policy).To(Not(BeNil()))
-				g.Expect(policy.RetryOn).To(Equal(retry.DefaultPolicy().RetryOn))
-				g.Expect(policy.RetriableStatusCodes).To(Equal(retry.DefaultPolicy().RetriableStatusCodes))
+			assertFunc: func(g *gomega.WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy).To(gomega.Not(gomega.BeNil()))
+				g.Expect(policy.RetryOn).To(gomega.Equal(retry.DefaultPolicy().RetryOn))
+				g.Expect(policy.RetriableStatusCodes).To(gomega.Equal(retry.DefaultPolicy().RetriableStatusCodes))
 
 				previousPrioritiesConfig := &previouspriorities.PreviousPrioritiesConfig{
 					UpdateFrequency: int32(2),
@@ -217,7 +217,7 @@ func TestRetry(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			policy := retry.ConvertPolicy(tc.route.Retries)
 			if tc.assertFunc != nil {
 				tc.assertFunc(g, policy)

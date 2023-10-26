@@ -352,171 +352,187 @@ func TestEDSOverlapping(t *testing.T) {
 }
 
 func TestEDSUnhealthyEndpoints(t *testing.T) {
-	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, true)
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-	addUnhealthyCluster(s)
-	s.EnsureSynced(t)
-	adscon := s.Connect(nil, nil, watchEds)
-	_, err := adscon.Wait(5 * time.Second)
-	if err != nil {
-		t.Fatalf("Error in push %v", err)
-	}
-
-	validateEndpoints := func(expectPush bool, healthy []string, unhealthy []string) {
-		t.Helper()
-		// Normalize lists to make comparison easier
-		if healthy == nil {
-			healthy = []string{}
-		}
-		if unhealthy == nil {
-			unhealthy = []string{}
-		}
-		sort.Strings(healthy)
-		sort.Strings(unhealthy)
-		if expectPush {
-			upd, _ := adscon.Wait(5*time.Second, v3.EndpointType)
-
-			if len(upd) > 0 && !slices.Contains(upd, v3.EndpointType) {
-				t.Fatalf("Expecting EDS push as endpoint health is changed. But received %v", upd)
+	for _, sendUnhealthy := range []bool{true, false} {
+		t.Run(fmt.Sprint(sendUnhealthy), func(t *testing.T) {
+			test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, sendUnhealthy)
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+			addUnhealthyCluster(s)
+			s.EnsureSynced(t)
+			adscon := s.Connect(nil, nil, watchEds)
+			_, err := adscon.Wait(5 * time.Second)
+			if err != nil {
+				t.Fatalf("Error in push %v", err)
 			}
-		} else {
-			upd, _ := adscon.Wait(50*time.Millisecond, v3.EndpointType)
-			if slices.Contains(upd, v3.EndpointType) {
-				t.Fatalf("Expected no EDS push, got %v", upd)
+
+			validateEndpoints := func(expectPush bool, healthy []string, unhealthy []string) {
+				t.Helper()
+				// Normalize lists to make comparison easier
+				if healthy == nil {
+					healthy = []string{}
+				}
+				if unhealthy == nil {
+					unhealthy = []string{}
+				}
+				sort.Strings(healthy)
+				sort.Strings(unhealthy)
+				if expectPush {
+					upd, _ := adscon.Wait(5*time.Second, v3.EndpointType)
+
+					if len(upd) > 0 && !slices.Contains(upd, v3.EndpointType) {
+						t.Fatalf("Expecting EDS push as endpoint health is changed. But received %v", upd)
+					}
+				} else {
+					upd, _ := adscon.Wait(50*time.Millisecond, v3.EndpointType)
+					if slices.Contains(upd, v3.EndpointType) {
+						t.Fatalf("Expected no EDS push, got %v", upd)
+					}
+				}
+
+				// Validate that endpoints are pushed.
+				lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
+				eh, euh := xdstest.ExtractHealthEndpoints(lbe)
+				gotHealthy := sets.SortedList(sets.New(eh...))
+				gotUnhealthy := sets.SortedList(sets.New(euh...))
+				if !reflect.DeepEqual(gotHealthy, healthy) {
+					t.Fatalf("did not get expected endpoints: got %v, want %v", gotHealthy, healthy)
+				}
+				if !reflect.DeepEqual(gotUnhealthy, unhealthy) {
+					t.Fatalf("did not get expected unhealthy endpoints: got %v, want %v", gotUnhealthy, unhealthy)
+				}
 			}
-		}
 
-		// Validate that endpoints are pushed.
-		lbe := adscon.GetEndpoints()["outbound|53||unhealthy.svc.cluster.local"]
-		eh, euh := xdstest.ExtractHealthEndpoints(lbe)
-		gotHealthy := sets.SortedList(sets.New(eh...))
-		gotUnhealthy := sets.SortedList(sets.New(euh...))
-		if !reflect.DeepEqual(gotHealthy, healthy) {
-			t.Fatalf("did not get expected endpoints: got %v, want %v", gotHealthy, healthy)
-		}
-		if !reflect.DeepEqual(gotUnhealthy, unhealthy) {
-			t.Fatalf("did not get expected unhealthy endpoints: got %v, want %v", gotUnhealthy, unhealthy)
-		}
+			// Validate that we do send initial unhealthy endpoints.
+			if sendUnhealthy {
+				validateEndpoints(true, nil, []string{"10.0.0.53:53"})
+			} else {
+				validateEndpoints(true, nil, nil)
+			}
+			adscon.WaitClear()
+
+			// Set additional unhealthy endpoint and validate Eds update is not triggered.
+			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+				[]*model.IstioEndpoint{
+					{
+						Address:         "10.0.0.53",
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.UnHealthy,
+					},
+					{
+						Address:         "10.0.0.54",
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.UnHealthy,
+					},
+				})
+
+			// Validate that endpoint is pushed.
+			if sendUnhealthy {
+				validateEndpoints(true, nil, []string{"10.0.0.53:53", "10.0.0.54:53"})
+			} else {
+				validateEndpoints(false, nil, nil)
+			}
+
+			// Change the status of endpoint to Healthy and validate Eds is pushed.
+			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+				[]*model.IstioEndpoint{
+					{
+						Addresses:       []string{"10.0.0.53"},
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Healthy,
+					},
+					{
+						Addresses:       []string{"10.0.0.54"},
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Healthy,
+					},
+				})
+
+			// Validate that endpoints are pushed.
+			validateEndpoints(true, []string{"10.0.0.53:53", "10.0.0.54:53"}, nil)
+
+			// Set to exact same endpoints
+			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+				[]*model.IstioEndpoint{
+					{
+						Addresses:       []string{"10.0.0.53"},
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Healthy,
+					},
+					{
+						Addresses:       []string{"10.0.0.54"},
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Healthy,
+					},
+				})
+			// Validate that endpoint is not pushed.
+			validateEndpoints(false, []string{"10.0.0.53:53", "10.0.0.54:53"}, nil)
+
+			// Now change the status of endpoint to UnHealthy and validate Eds is pushed.
+			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+				[]*model.IstioEndpoint{
+					{
+						Address:         "10.0.0.53",
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.UnHealthy,
+					},
+					{
+						Address:         "10.0.0.54",
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Healthy,
+					},
+			})
+
+			// Validate that endpoints are pushed.
+			if sendUnhealthy {
+				validateEndpoints(true, []string{"10.0.0.54:53"}, []string{"10.0.0.53:53"})
+			} else {
+				validateEndpoints(true, []string{"10.0.0.54:53"}, nil)
+			}
+
+			// Change the status of endpoint to Healthy and validate Eds is pushed.
+			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+				[]*model.IstioEndpoint{
+					{
+						Addresses:       []string{"10.0.0.53"},
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Healthy,
+					},
+					{
+						Addresses:       []string{"10.0.0.54"},
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Healthy,
+					},
+			})
+
+			validateEndpoints(true, []string{"10.0.0.54:53", "10.0.0.53:53"}, nil)
+
+			// Remove a healthy endpoint
+			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+				[]*model.IstioEndpoint{
+					{
+						Addresses:       []string{"10.0.0.53"},
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Healthy,
+					},
+			})
+
+			validateEndpoints(true, []string{"10.0.0.53:53"}, nil)
+
+			// Remove last healthy endpoint
+			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "", []*model.IstioEndpoint{})
+			validateEndpoints(true, nil, nil)
+		})
 	}
-
-	// Validate that we do  send initial unhealthy endpoints.
-	validateEndpoints(true, nil, []string{"10.0.0.53:53"})
-	adscon.WaitClear()
-
-	// Set additional unhealthy endpoint and validate Eds update is not triggered.
-	s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
-		[]*model.IstioEndpoint{
-			{
-				Addresses:       []string{"10.0.0.53"},
-				EndpointPort:    53,
-				ServicePortName: "tcp-dns",
-				HealthStatus:    model.UnHealthy,
-			},
-			{
-				Addresses:       []string{"10.0.0.54"},
-				EndpointPort:    53,
-				ServicePortName: "tcp-dns",
-				HealthStatus:    model.UnHealthy,
-			},
-		})
-
-	// Validate that endpoint is pushed.
-	validateEndpoints(true, nil, []string{"10.0.0.53:53", "10.0.0.54:53"})
-
-	// Change the status of endpoint to Healthy and validate Eds is pushed.
-	s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
-		[]*model.IstioEndpoint{
-			{
-				Addresses:       []string{"10.0.0.53"},
-				EndpointPort:    53,
-				ServicePortName: "tcp-dns",
-				HealthStatus:    model.Healthy,
-			},
-			{
-				Addresses:       []string{"10.0.0.54"},
-				EndpointPort:    53,
-				ServicePortName: "tcp-dns",
-				HealthStatus:    model.Healthy,
-			},
-		})
-
-	// Validate that endpoints are pushed.
-	validateEndpoints(true, []string{"10.0.0.53:53", "10.0.0.54:53"}, nil)
-
-	// Set to exact same endpoints
-	s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
-		[]*model.IstioEndpoint{
-			{
-				Addresses:       []string{"10.0.0.53"},
-				EndpointPort:    53,
-				ServicePortName: "tcp-dns",
-				HealthStatus:    model.Healthy,
-			},
-			{
-				Addresses:       []string{"10.0.0.54"},
-				EndpointPort:    53,
-				ServicePortName: "tcp-dns",
-				HealthStatus:    model.Healthy,
-			},
-		})
-	// Validate that endpoint is not pushed.
-	validateEndpoints(false, []string{"10.0.0.53:53", "10.0.0.54:53"}, nil)
-
-	// Now change the status of endpoint to UnHealthy and validate Eds is pushed.
-	s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
-		[]*model.IstioEndpoint{
-			{
-				Addresses:       []string{"10.0.0.53"},
-				EndpointPort:    53,
-				ServicePortName: "tcp-dns",
-				HealthStatus:    model.UnHealthy,
-			},
-			{
-				Addresses:       []string{"10.0.0.54"},
-				EndpointPort:    53,
-				ServicePortName: "tcp-dns",
-				HealthStatus:    model.Healthy,
-			},
-		})
-
-	// Validate that endpoints are pushed.
-	validateEndpoints(true, []string{"10.0.0.54:53"}, []string{"10.0.0.53:53"})
-
-	// Change the status of endpoint to Healthy and validate Eds is pushed.
-	s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
-		[]*model.IstioEndpoint{
-			{
-				Addresses:       []string{"10.0.0.53"},
-				EndpointPort:    53,
-				ServicePortName: "tcp-dns",
-				HealthStatus:    model.Healthy,
-			},
-			{
-				Addresses:       []string{"10.0.0.54"},
-				EndpointPort:    53,
-				ServicePortName: "tcp-dns",
-				HealthStatus:    model.Healthy,
-			},
-		})
-
-	validateEndpoints(true, []string{"10.0.0.54:53", "10.0.0.53:53"}, nil)
-
-	// Remove a healthy endpoint
-	s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
-		[]*model.IstioEndpoint{
-			{
-				Addresses:       []string{"10.0.0.53"},
-				EndpointPort:    53,
-				ServicePortName: "tcp-dns",
-				HealthStatus:    model.Healthy,
-			},
-		})
-
-	validateEndpoints(true, []string{"10.0.0.53:53"}, nil)
-
-	// Remove last healthy endpoint
-	s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "", []*model.IstioEndpoint{})
-	validateEndpoints(true, nil, nil)
 }
 
 // Validates the behavior when Service resolution type is updated after initial EDS push.

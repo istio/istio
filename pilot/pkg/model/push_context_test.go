@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -1213,7 +1213,7 @@ func TestWasmPlugins(t *testing.T) {
 }
 
 func TestServiceIndex(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	env := NewEnvironment()
 	env.ConfigStore = NewFakeStore()
 	env.ServiceDiscovery = &localServiceDiscovery{
@@ -1278,18 +1278,18 @@ func TestServiceIndex(t *testing.T) {
 	si := pc.ServiceIndex
 
 	// Should have all 5 services
-	g.Expect(si.instancesByPort).To(HaveLen(5))
-	g.Expect(si.HostnameAndNamespace).To(HaveLen(5))
+	g.Expect(si.instancesByPort).To(gomega.HaveLen(5))
+	g.Expect(si.HostnameAndNamespace).To(gomega.HaveLen(5))
 
 	// Should just have "namespace"
-	g.Expect(si.exportedToNamespace).To(HaveLen(1))
-	g.Expect(serviceNames(si.exportedToNamespace["namespace"])).To(Equal([]string{"svc-namespace"}))
+	g.Expect(si.exportedToNamespace).To(gomega.HaveLen(1))
+	g.Expect(serviceNames(si.exportedToNamespace["namespace"])).To(gomega.Equal([]string{"svc-namespace"}))
 
-	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public", "svc-unset"}))
+	g.Expect(serviceNames(si.public)).To(gomega.Equal([]string{"svc-public", "svc-unset"}))
 
 	// Should just have "test1"
-	g.Expect(si.privateByNamespace).To(HaveLen(1))
-	g.Expect(serviceNames(si.privateByNamespace["test1"])).To(Equal([]string{"svc-private"}))
+	g.Expect(si.privateByNamespace).To(gomega.HaveLen(1))
+	g.Expect(serviceNames(si.privateByNamespace["test1"])).To(gomega.Equal([]string{"svc-private"}))
 }
 
 func TestIsServiceVisible(t *testing.T) {
@@ -1442,8 +1442,8 @@ func TestIsServiceVisible(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			isVisible := c.pushContext.IsServiceVisible(c.service, targetNamespace)
 
-			g := NewWithT(t)
-			g.Expect(isVisible).To(Equal(c.expect))
+			g := gomega.NewWithT(t)
+			g.Expect(isVisible).To(gomega.Equal(c.expect))
 		})
 	}
 }

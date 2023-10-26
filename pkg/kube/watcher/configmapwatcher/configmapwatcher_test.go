@@ -21,7 +21,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
@@ -106,25 +106,25 @@ func Test_ConfigMapWatcher(t *testing.T) {
 		resetCalled()
 
 		t.Run(fmt.Sprintf("[%v]", i), func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			switch {
 			case step.added != nil:
 				_, err := cms.Create(context.TODO(), step.added, metav1.CreateOptions{})
-				g.Expect(err).Should(BeNil())
+				g.Expect(err).Should(gomega.BeNil())
 			case step.updated != nil:
 				_, err := cms.Update(context.TODO(), step.updated, metav1.UpdateOptions{})
-				g.Expect(err).Should(BeNil())
+				g.Expect(err).Should(gomega.BeNil())
 			case step.deleted != nil:
 				g.Expect(cms.Delete(context.TODO(), step.deleted.Name, metav1.DeleteOptions{})).
-					Should(Succeed())
+					Should(gomega.Succeed())
 			}
 
 			if step.expectCalled {
-				g.Eventually(getCalled, time.Second).Should(Equal(true))
-				g.Eventually(getCM, time.Second).Should(Equal(newCM))
+				g.Eventually(getCalled, time.Second).Should(gomega.Equal(true))
+				g.Eventually(getCM, time.Second).Should(gomega.Equal(newCM))
 			} else {
-				g.Consistently(getCalled).Should(Equal(false))
+				g.Consistently(getCalled).Should(gomega.Equal(false))
 			}
 		})
 	}

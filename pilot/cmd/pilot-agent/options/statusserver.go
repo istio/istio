@@ -34,5 +34,8 @@ func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyCon
 		NoEnvoy:        agent.EnvoyDisabled(),
 		FetchDNS:       agent.GetDNSTable,
 		GRPCBootstrap:  agent.GRPCBootstrapPath(),
+		TriggerDrain: func() {
+			agent.DrainNow()
+		},
 	}
 }

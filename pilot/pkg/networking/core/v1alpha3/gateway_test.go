@@ -2899,6 +2899,67 @@ func TestBuildGatewayListeners(t *testing.T) {
 			[]string{"10.0.0.1_443", "10.0.0.2_443", "0.0.0.0_443"},
 		},
 		{
+			"gateway with HTTPS/TCP invalid configuration",
+			&pilot_model.Proxy{},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: "gateway1", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"*.1.example.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 443, Protocol: "TCP"},
+								Hosts: []string{"*.1.example.com"},
+							},
+						},
+					},
+				},
+				{
+					Meta: config.Meta{Name: "gateway2", Namespace: "testns", GroupVersionKind: gvk.Gateway},
+					Spec: &networking.Gateway{
+						Servers: []*networking.Server{
+							{
+								Port:  &networking.Port{Name: "https", Number: 443, Protocol: "HTTPS"},
+								Hosts: []string{"*.2.example.com"},
+								Tls:   &networking.ServerTLSSettings{CredentialName: "test", Mode: networking.ServerTLSSettings_SIMPLE},
+							},
+							{
+								Port:  &networking.Port{Name: "tcp", Number: 443, Protocol: "TCP"},
+								Hosts: []string{"*.2.example.com"},
+							},
+						},
+					},
+				},
+			},
+			[]config.Config{
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway1"},
+						Hosts:    []string{"*"},
+						Tcp: []*networking.TCPRoute{{
+							Route: []*networking.RouteDestination{{Destination: &networking.Destination{Host: "example.com"}}},
+						}},
+					},
+				},
+				{
+					Meta: config.Meta{Name: uuid.NewString(), Namespace: uuid.NewString(), GroupVersionKind: gvk.VirtualService},
+					Spec: &networking.VirtualService{
+						Gateways: []string{"testns/gateway2"},
+						Hosts:    []string{"*"},
+						Tcp: []*networking.TCPRoute{{
+							Route: []*networking.RouteDestination{{Destination: &networking.Destination{Host: "example.com"}}},
+						}},
+					},
+				},
+			},
+			[]string{"0.0.0.0_443"},
+		},
+		{
 			"gateway with multiple HTTPS servers with bind and same host",
 			&pilot_model.Proxy{},
 			[]config.Config{
@@ -3200,7 +3261,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
 				{
 					NetworkFilters: []string{
-						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 						wellknown.HTTPConnectionManager,
 					},
 					HTTPFilters: []string{
@@ -3254,7 +3314,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
 				{
 					NetworkFilters: []string{
-						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 						wellknown.TCPProxy,
 					},
 					HTTPFilters: []string{},
@@ -3304,7 +3363,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 			expectedListener: listenertest.ListenerTest{FilterChains: []listenertest.FilterChainTest{
 				{
 					NetworkFilters: []string{
-						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 						wellknown.TCPProxy,
 					},
 					HTTPFilters: []string{},
@@ -3355,7 +3413,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				{
 					NetworkFilters: []string{
 						xdsfilters.TCPListenerMx.GetName(),
-						xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 						wellknown.TCPProxy,
 					},
 					HTTPFilters: []string{},
@@ -3436,7 +3493,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					{
 						TotalMatch: true, // there must be only 1 `istio_authn` network filter
 						NetworkFilters: []string{
-							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 							wellknown.HTTPConnectionManager,
 						},
 						HTTPFilters: []string{
@@ -3450,7 +3506,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 						TotalMatch: true, // there must be only 1 `istio_authn` network filter
 						NetworkFilters: []string{
 							xdsfilters.TCPListenerMx.GetName(),
-							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 							wellknown.TCPProxy,
 						},
 						HTTPFilters: []string{},
@@ -3479,7 +3534,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				FilterChains: []listenertest.FilterChainTest{
 					{
 						NetworkFilters: []string{
-							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 							wellknown.HTTPConnectionManager,
 						},
 						HTTPFilters: []string{
@@ -3540,7 +3594,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 				FilterChains: []listenertest.FilterChainTest{
 					{
 						NetworkFilters: []string{
-							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 							wellknown.TCPProxy,
 						},
 						HTTPFilters: []string{},
@@ -3599,7 +3652,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 					{
 						TotalMatch: true,
 						NetworkFilters: []string{
-							xdsfilters.IstioNetworkAuthenticationFilter.GetName(),
 							wellknown.RoleBasedAccessControl,
 							xds.StatsFilterName,
 							wellknown.TCPProxy,
@@ -3691,7 +3743,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 							wellknown.RoleBasedAccessControl,
 							wellknown.ExternalAuthorization,
 							"istio-system.wasm-authn",
-							xdsfilters.AuthnFilterName,
 							"istio-system.wasm-authz",
 							wellknown.RoleBasedAccessControl,
 							"istio-system.wasm-stats",
@@ -3798,7 +3849,6 @@ func TestBuildGatewayListenersFilters(t *testing.T) {
 						TotalMatch: true,
 						NetworkFilters: []string{
 							"istio-system.wasm-network-authn",
-							xdsfilters.AuthnFilterName,
 							"istio-system.wasm-network-authz",
 							"istio-system.wasm-network-stats",
 							wellknown.HTTPConnectionManager,
