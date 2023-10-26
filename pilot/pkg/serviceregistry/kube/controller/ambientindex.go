@@ -21,6 +21,7 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -953,6 +954,17 @@ func (c *Controller) AdditionalPodSubscriptions(
 	}
 
 	return shouldSubscribe
+}
+
+// syncAllWorkloads refreshes all ambient workloads.
+func (c *Controller) syncAllWorkloads() {
+	if c.ambientIndex != nil {
+		namespaces := c.namespaces.List(metav1.NamespaceAll, klabels.Everything())
+		for _, cns := range namespaces {
+			pods := c.podsClient.List(cns.GetName(), klabels.Everything())
+			c.ambientIndex.HandleSelectedNamespace(cns.GetName(), pods, c)
+		}
+	}
 }
 
 func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {

@@ -915,15 +915,6 @@ func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event)
 		// network changed, rarely happen
 		// refresh pods/endpoints/services
 		c.onNetworkChange()
-
-		// refresh all ambient workloads
-		if features.EnableAmbientControllers && c.ambientIndex != nil {
-			namespaces := c.namespaces.List(metav1.NamespaceAll, klabels.Everything())
-			for _, cns := range namespaces {
-				pods := c.podsClient.List(cns.GetName(), klabels.Everything())
-				c.ambientIndex.HandleSelectedNamespace(cns.GetName(), pods, c)
-			}
-		}
 	}
 	return nil
 }
