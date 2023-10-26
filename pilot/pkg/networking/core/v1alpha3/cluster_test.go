@@ -80,65 +80,213 @@ func testMesh() *meshconfig.MeshConfig {
 	}
 }
 
-func TestHTTPCircuitBreakerThresholds(t *testing.T) {
-	checkClusters := []string{"outbound|8080||*.example.org", "inbound|10001||"}
-	settings := []*networking.ConnectionPoolSettings{
-		nil,
-		{
-			Http: &networking.ConnectionPoolSettings_HTTPSettings{
-				Http1MaxPendingRequests:  1,
-				Http2MaxRequests:         2,
-				MaxRequestsPerConnection: 3,
-				MaxRetries:               4,
+func TestConnectionPoolSettings(t *testing.T) {
+	basicSettings := &networking.ConnectionPoolSettings{
+		Http: &networking.ConnectionPoolSettings_HTTPSettings{
+			Http1MaxPendingRequests:  1,
+			Http2MaxRequests:         2,
+			MaxRequestsPerConnection: 3,
+			MaxRetries:               4,
+		},
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+			MaxConnections: 1,
+			ConnectTimeout: durationpb.New(2 * time.Second),
+			TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+				Probes:   3,
+				Time:     durationpb.New(4 * time.Second),
+				Interval: durationpb.New(5 * time.Second),
 			},
+			MaxConnectionDuration: durationpb.New(6 * time.Second),
 		},
 	}
 
-	for _, s := range settings {
-		testName := "default"
-		if s != nil {
-			testName = "override"
-		}
-		t.Run(testName, func(t *testing.T) {
+	overrideSettings := &networking.ConnectionPoolSettings{
+		Http: &networking.ConnectionPoolSettings_HTTPSettings{
+			Http1MaxPendingRequests:  5,
+			Http2MaxRequests:         6,
+			MaxRequestsPerConnection: 7,
+			MaxRetries:               8,
+		},
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+			MaxConnections: 4,
+			ConnectTimeout: durationpb.New(5 * time.Second),
+			TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+				Probes:   6,
+				Time:     durationpb.New(7 * time.Second),
+				Interval: durationpb.New(8 * time.Second),
+			},
+			MaxConnectionDuration: durationpb.New(9 * time.Second),
+		},
+	}
+
+	cases := map[string]struct {
+		sidecar  *networking.Sidecar
+		destrule *networking.DestinationRule
+		// port -> expected settings
+		want map[string]*networking.ConnectionPoolSettings
+	}{
+		"no settings": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": nil,
+				"inbound|10001||":              nil,
+				"inbound|10002||":              nil,
+			},
+		},
+		"destination rule settings no sidecar": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: basicSettings,
+				},
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": basicSettings,
+				"inbound|10001||":              basicSettings,
+				"inbound|10002||":              basicSettings,
+			},
+		},
+		"sidecar settings no destination rule": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+			},
+			sidecar: &networking.Sidecar{
+				InboundConnectionPool: basicSettings,
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": nil,
+				"inbound|10001||":              basicSettings,
+				"inbound|10002||":              basicSettings,
+			},
+		},
+		"sidecar overrides destination rule for inbound listeners": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: basicSettings,
+				},
+			},
+			sidecar: &networking.Sidecar{
+				InboundConnectionPool: overrideSettings,
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": basicSettings,
+				"inbound|10001||":              overrideSettings,
+				"inbound|10002||":              overrideSettings,
+			},
+		},
+		"sidecar per-port rules override top-level rules": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+			},
+			sidecar: &networking.Sidecar{
+				InboundConnectionPool: basicSettings,
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   10001,
+							Protocol: string(protocol.HTTP),
+						},
+						ConnectionPool: overrideSettings,
+					},
+					{
+						Port: &networking.SidecarPort{
+							Number:   10002,
+							Protocol: string(protocol.Unsupported),
+						},
+					},
+				},
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": nil,
+				"inbound|10001||":              overrideSettings,
+				"inbound|10002||":              basicSettings,
+			},
+		},
+		"sidecar per-port rules with destination rule default": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: basicSettings,
+				},
+			},
+			sidecar: &networking.Sidecar{
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   10001,
+							Protocol: string(protocol.HTTP),
+						},
+						ConnectionPool: overrideSettings,
+					},
+					{
+						Port: &networking.SidecarPort{
+							Number:   10002,
+							Protocol: string(protocol.Unsupported),
+						},
+					},
+				},
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": basicSettings,
+				"inbound|10001||":              overrideSettings,
+				"inbound|10002||":              basicSettings,
+			},
+		},
+	}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
 			g := gomega.NewWithT(t)
+
 			clusters := xdstest.ExtractClusters(buildTestClusters(clusterTest{
 				t:               t,
 				serviceHostname: "*.example.org",
 				nodeType:        model.SidecarProxy,
 				mesh:            testMesh(),
-				destRule: &networking.DestinationRule{
-					Host: "*.example.org",
-					TrafficPolicy: &networking.TrafficPolicy{
-						ConnectionPool: s,
-					},
-				},
+				destRule:        tt.destrule,
+				sidecar:         tt.sidecar,
 			}))
 
-			for _, c := range checkClusters {
-				cluster := clusters[c]
-				if cluster == nil {
-					t.Fatalf("cluster %v not found", c)
+			for c, expected := range tt.want {
+				cluster, ok := clusters[c]
+				if !ok {
+					names := make([]string, 0, len(clusters))
+					for n := range clusters {
+						names = append(names, n)
+					}
+					t.Fatalf("cluster %v not found; have: %s", c, strings.Join(names, ", "))
 				}
 				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(gomega.Equal(1))
 				thresholds := cluster.CircuitBreakers.Thresholds[0]
 
-				if s == nil {
-					// Assume the correct defaults for this direction.
+				if expected == nil {
 					g.Expect(thresholds).To(gomega.Equal(getDefaultCircuitBreakerThresholds()))
 				} else {
-					// Verify that the values were set correctly.
-					g.Expect(thresholds.MaxPendingRequests).To(gomega.Not(gomega.BeNil()))
-					g.Expect(thresholds.MaxPendingRequests.Value).To(gomega.Equal(uint32(s.Http.Http1MaxPendingRequests)))
-					g.Expect(thresholds.MaxRequests).To(gomega.Not(gomega.BeNil()))
-					g.Expect(thresholds.MaxRequests.Value).To(gomega.Equal(uint32(s.Http.Http2MaxRequests)))
-					g.Expect(cluster.TypedExtensionProtocolOptions).To(gomega.Not(gomega.BeNil()))
+					// verify TCP settings
+					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive).NotTo(gomega.BeNil())
+					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes.Value).To(gomega.Equal(expected.Tcp.TcpKeepalive.Probes))
+					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).To(gomega.Equal(uint32(expected.Tcp.TcpKeepalive.Time.Seconds)))
+					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval.Value).To(gomega.Equal(uint32(expected.Tcp.TcpKeepalive.Interval.Seconds)))
+					g.Expect(cluster.ConnectTimeout).NotTo(gomega.BeNil())
+					g.Expect(cluster.ConnectTimeout.Seconds).To(gomega.Equal(expected.Tcp.ConnectTimeout.Seconds))
+
+					g.Expect(thresholds.MaxConnections).NotTo(gomega.BeNil())
+					g.Expect(thresholds.MaxConnections.Value).To(gomega.Equal(uint32(expected.Tcp.MaxConnections)))
+
+					// and HTTP settings
+					g.Expect(thresholds.MaxPendingRequests.Value).To(gomega.Equal(uint32(expected.Http.Http1MaxPendingRequests)))
+					g.Expect(thresholds.MaxRequests).NotTo(gomega.BeNil())
+					g.Expect(thresholds.MaxRequests.Value).To(gomega.Equal(uint32(expected.Http.Http2MaxRequests)))
+					g.Expect(cluster.TypedExtensionProtocolOptions).NotTo(gomega.BeNil())
 					anyOptions := cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
-					g.Expect(anyOptions).To(gomega.Not(gomega.BeNil()))
+					g.Expect(anyOptions).NotTo(gomega.BeNil())
 					httpProtocolOptions := &http.HttpProtocolOptions{}
 					anyOptions.UnmarshalTo(httpProtocolOptions)
-					g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue()).To(gomega.Equal(uint32(s.Http.MaxRequestsPerConnection)))
-					g.Expect(thresholds.MaxRetries).To(gomega.Not(gomega.BeNil()))
-					g.Expect(thresholds.MaxRetries.Value).To(gomega.Equal(uint32(s.Http.MaxRetries)))
+					g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue()).To(gomega.Equal(uint32(expected.Http.MaxRequestsPerConnection)))
+					g.Expect(thresholds.MaxRetries).NotTo(gomega.BeNil())
+					g.Expect(thresholds.MaxRetries.Value).To(gomega.Equal(uint32(expected.Http.MaxRetries)))
 				}
 			}
 		})
@@ -244,6 +392,7 @@ type clusterTest struct {
 	locality          *core.Locality
 	mesh              *meshconfig.MeshConfig
 	destRule          proto.Message
+	sidecar           *networking.Sidecar
 	peerAuthn         *authn_beta.PeerAuthentication
 	externalService   bool
 
@@ -362,6 +511,15 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 				Name:             "acme",
 			},
 			Spec: c.destRule,
+		})
+	}
+	if c.sidecar != nil {
+		configs = append(configs, config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.Sidecar,
+				Name:             "default",
+			},
+			Spec: c.sidecar,
 		})
 	}
 	if c.peerAuthn != nil {

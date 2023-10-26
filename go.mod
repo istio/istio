@@ -108,8 +108,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.13.1
-	istio.io/api v1.19.0-alpha.1.0.20231025161828-8716c2d77491
-	istio.io/client-go v1.19.0-alpha.1.0.20231025162628-18b8989cc87a
+	istio.io/api v1.20.0-beta.0
+	istio.io/client-go v1.20.0-beta.0
 	k8s.io/api v0.28.3
 	k8s.io/apiextensions-apiserver v0.28.3
 	k8s.io/apimachinery v0.28.3
@@ -249,6 +249,3 @@ require (
 	sigs.k8s.io/kustomize/kyaml v0.14.3 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.3.0 // indirect
 )
-
-// TODO: remove & update istio.io/api version when sidecar-cluster-connectionpool is merged
-replace istio.io/api => github.com/ZackButcher/api v0.0.0-20231011203019-14b7abb62996
