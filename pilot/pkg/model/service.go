@@ -613,8 +613,8 @@ func (ep *IstioEndpoint) SortIstioEndpointByAddresses() []string {
 	return addrSlice
 }
 
-// GetIstioEndpointKey returns the key of IstioEndpoint based on its addresses
-func (ep *IstioEndpoint) GetIstioEndpointKey() string {
+// Key returns the key of IstioEndpoint based on its addresses
+func (ep *IstioEndpoint) Key() string {
 	if ep == nil {
 		return ""
 	}

@@ -1662,7 +1662,7 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 	sort.Slice(instances, func(i, j int) bool {
 		if instances[i].Service.Hostname == instances[j].Service.Hostname {
 			if instances[i].Endpoint.EndpointPort == instances[j].Endpoint.EndpointPort {
-				if instances[i].Endpoint.GetIstioEndpointKey() == instances[j].Endpoint.GetIstioEndpointKey() {
+				if instances[i].Endpoint.Key() == instances[j].Endpoint.Key() {
 					if len(instances[i].Endpoint.Labels) == len(instances[j].Endpoint.Labels) {
 						iLabels := labelsToSlice(instances[i].Endpoint.Labels)
 						jLabels := labelsToSlice(instances[j].Endpoint.Labels)
@@ -1674,7 +1674,7 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 					}
 					return len(instances[i].Endpoint.Labels) < len(instances[j].Endpoint.Labels)
 				}
-				return instances[i].Endpoint.GetIstioEndpointKey() < instances[j].Endpoint.GetIstioEndpointKey()
+				return instances[i].Endpoint.Key() < instances[j].Endpoint.Key()
 			}
 			return instances[i].Endpoint.EndpointPort < instances[j].Endpoint.EndpointPort
 		}
@@ -1694,7 +1694,7 @@ func sortEndpoints(endpoints []*model.IstioEndpoint) {
 
 	sort.Slice(endpoints, func(i, j int) bool {
 		if endpoints[i].EndpointPort == endpoints[j].EndpointPort {
-			if endpoints[i].GetIstioEndpointKey() == endpoints[j].GetIstioEndpointKey() {
+			if endpoints[i].Key() == endpoints[j].Key() {
 				if len(endpoints[i].Labels) == len(endpoints[j].Labels) {
 					iLabels := labelsToSlice(endpoints[i].Labels)
 					jLabels := labelsToSlice(endpoints[j].Labels)
@@ -1706,7 +1706,7 @@ func sortEndpoints(endpoints []*model.IstioEndpoint) {
 				}
 				return len(endpoints[i].Labels) < len(endpoints[j].Labels)
 			}
-			return endpoints[i].GetIstioEndpointKey() < endpoints[j].GetIstioEndpointKey()
+			return endpoints[i].Key() < endpoints[j].Key()
 		}
 		return endpoints[i].EndpointPort < endpoints[j].EndpointPort
 	})

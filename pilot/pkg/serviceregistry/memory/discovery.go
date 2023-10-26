@@ -156,7 +156,7 @@ func (sd *ServiceDiscovery) AddInstance(instance *model.ServiceInstance) {
 		instance.Endpoint.ServicePortName = instance.ServicePort.Name
 	}
 	instance.Service = svc
-	sd.ip2instance[instance.Endpoint.GetIstioEndpointKey()] = append(sd.ip2instance[instance.Endpoint.GetIstioEndpointKey()], instance)
+	sd.ip2instance[instance.Endpoint.Key()] = append(sd.ip2instance[instance.Endpoint.Key()], instance)
 
 	key := fmt.Sprintf("%s:%d", service, instance.ServicePort.Port)
 	instanceList := sd.instancesByPortNum[key]
@@ -240,7 +240,7 @@ func (sd *ServiceDiscovery) SetEndpoints(service string, namespace string, endpo
 			},
 			Endpoint: e,
 		}
-		sd.ip2instance[instance.Endpoint.GetIstioEndpointKey()] = []*model.ServiceInstance{instance}
+		sd.ip2instance[instance.Endpoint.Key()] = []*model.ServiceInstance{instance}
 
 		key := fmt.Sprintf("%s:%d", service, instance.ServicePort.Port)
 
