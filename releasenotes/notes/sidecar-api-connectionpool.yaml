@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 32130
+  - 41235
+
+docs:
+  - '[reference] https://istio.io/latest/docs/reference/config/networking/sidecar/#Sidecar-inbound_connection_pool'
+
+releaseNotes:
+  - |
+    **Added** Connection pool settings to the `Sidecar` API to enable configuring the inbound connection pool for sidecars in the mesh. Previously the `DestinationRule`'s connection pool settings applied to both clients' and server sidecars. Using the updated `Sidecar` API, it's now possible to configure the server's connection pool separately from clients' in the mesh.
