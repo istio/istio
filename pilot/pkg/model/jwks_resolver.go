@@ -168,7 +168,8 @@ type JwksResolver struct {
 }
 
 // NewJwksResolver creates new instance of JwksResolver.
-func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration, createFakeJwksFunc CreateFakeJwksFunc) *JwksResolver {
+func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration,
+	createFakeJwksFunc CreateFakeJwksFunc) *JwksResolver {
 	return newJwksResolverWithCABundlePaths(
 		evictionDuration,
 		refreshDefaultInterval,
