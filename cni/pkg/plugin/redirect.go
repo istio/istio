@@ -292,7 +292,7 @@ func NewRedirect(pi *PodInfo) (*Redirect, error) {
 			log.Warnf("cannot parse dual stack environment variable %v", valErr)
 		}
 	}
-	if v, found := pi.ProxyEnvironments[cmd.InvalidDropByIptables.Name]; found {
+	if v, found := pi.ProxyEnvironments[cmd.InvalidDropByIptables]; found {
 		// parse and set the bool value of invalidDrop
 		redir.invalidDrop, valErr = strconv.ParseBool(v)
 		if valErr != nil {
