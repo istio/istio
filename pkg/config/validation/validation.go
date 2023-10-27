@@ -1189,7 +1189,8 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 			errs = appendValidation(errs, validateConnectionPool(i.ConnectionPool))
 			if i.ConnectionPool != nil && i.ConnectionPool.Http != nil && i.Port != nil && !protocol.Parse(i.Port.Protocol).IsHTTP() {
 				errs = appendWarningf(errs,
-					"sidecar: HTTP connection pool settings are configured but this port's protocol is not HTTP (%s); only TCP settings will apply", i.Port.Protocol)
+					"sidecar: HTTP connection pool settings are configured for port %d (%q) but its protocol is not HTTP (%s); only TCP settings will apply",
+					i.Port.Number, i.Port.Name, i.Port.Protocol)
 			}
 		}
 
