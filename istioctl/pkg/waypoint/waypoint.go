@@ -15,15 +15,19 @@
 package waypoint
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"text/tabwriter"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 	"sigs.k8s.io/yaml"
 
@@ -156,38 +160,51 @@ func Cmd(ctx cli.Context) *cobra.Command {
   # Delete a waypoint by name, which can obtain from istioctl x waypoint list 
   istioctl x waypoint delete waypoint-name --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if len(args) > 1 {
-				return fmt.Errorf("too many arguments, expected 0 or 1")
-			}
 			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
-			if len(args) == 1 {
-				name := args[0]
-				ns := ctx.NamespaceOrDefault(ctx.Namespace())
-				gw, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
-				if err != nil {
-					if errors.IsNotFound(err) {
-						fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", ns, name)
-						return nil
-					}
-					return err
-				}
-				if err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).
+			if len(args) == 0 {
+				gw := makeGateway(true)
+				if err = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
 					Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
 					return err
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v deleted\n", ns, name)
+				fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v deleted\n", gw.Namespace, gw.Name)
 				return nil
 			}
-			gw := makeGateway(true)
-			if err = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
-				Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
-				return err
+			ns := ctx.NamespaceOrDefault(ctx.Namespace())
+
+			wg := sync.WaitGroup{}
+			var mu sync.Mutex
+			multiErr := &multierror.Error{}
+			for _, name := range args {
+				wg.Add(1)
+				go func(name string) {
+					defer wg.Done()
+					gw, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
+					if err != nil {
+						if errors.IsNotFound(err) {
+							fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", ns, name)
+							return
+						}
+						mu.Lock()
+						multiErr = multierror.Append(multiErr, err)
+						mu.Unlock()
+						return
+					}
+					if err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).
+						Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
+						mu.Lock()
+						multiErr = multierror.Append(multiErr, err)
+						mu.Unlock()
+						return
+					}
+					fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v deleted\n", ns, name)
+				}(name)
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v deleted\n", gw.Namespace, gw.Name)
-			return nil
+			wg.Wait()
+			return multiErr.ErrorOrNil()
 		},
 	}
 	waypointListCmd := &cobra.Command{
@@ -221,14 +238,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				return nil
 			}
 			w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
-			slices.SortFunc(gws.Items, func(i, j gateway.Gateway) bool {
-				if i.Namespace <= j.Namespace {
-					return true
+			slices.SortFunc(gws.Items, func(i, j gateway.Gateway) int {
+				if r := cmp.Compare(i.Namespace, j.Namespace); r != 0 {
+					return r
 				}
-				if i.Namespace > j.Namespace {
-					return false
-				}
-				return i.Name < j.Name
+				return cmp.Compare(i.Name, j.Name)
 			})
 			filteredGws := make([]gateway.Gateway, 0)
 			for _, gw := range gws.Items {
@@ -250,7 +264,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					rev = "default"
 				}
 				for _, cond := range gw.Status.Conditions {
-					if cond.Type == string(gateway.GatewayConditionProgrammed) {
+					if cond.Type == string(gatewayv1.GatewayConditionProgrammed) {
 						programmed = string(cond.Status)
 					}
 				}

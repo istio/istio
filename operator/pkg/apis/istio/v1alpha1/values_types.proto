@@ -62,6 +62,8 @@ message CNIConfig {
 
   string cniConfFileName = 8;
 
+  string cniNetnsDir = 31;
+
   repeated string excludeNamespaces = 9;
 
   google.protobuf.Struct affinity = 20;

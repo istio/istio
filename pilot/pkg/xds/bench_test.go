@@ -127,6 +127,11 @@ var testCases = []ConfigInput{
 		OnlyRunType: v3.ListenerType,
 	},
 
+	{
+		Name:     "externalname",
+		Services: 100,
+	},
+
 	// Test usage of various APIs
 	{
 		Name:     "telemetry-api",
@@ -381,7 +386,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.20.0",
+			IstioVersion: "1.21.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
@@ -450,7 +455,7 @@ func getConfigsWithCache(t testing.TB, input ConfigInput) ([]config.Config, stri
 	if err != nil {
 		t.Fatalf("failed to read config: %v", err)
 	}
-	scrt, count := parseSecrets(inputYAML)
+	k8sTypes, count := parseKubernetesTypes(inputYAML)
 	if len(badKinds) != count {
 		t.Fatalf("Got unknown resources: %v", badKinds)
 	}
@@ -462,15 +467,19 @@ func getConfigsWithCache(t testing.TB, input ConfigInput) ([]config.Config, stri
 		configs[i] = c
 	}
 	configCache[input] = configs
-	k8sConfigCache[input] = scrt
-	return configs, scrt
+	k8sConfigCache[input] = k8sTypes
+	return configs, k8sTypes
 }
 
-func parseSecrets(inputs string) (string, int) {
+func parseKubernetesTypes(inputs string) (string, int) {
 	matches := 0
 	sb := strings.Builder{}
 	for _, text := range strings.Split(inputs, "\n---") {
 		if strings.Contains(text, "kind: Secret") {
+			sb.WriteString(text + "\n---\n")
+			matches++
+		}
+		if strings.Contains(text, "kind: Service\n") {
 			sb.WriteString(text + "\n---\n")
 			matches++
 		}

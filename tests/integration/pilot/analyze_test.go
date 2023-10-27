@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/istioctl/pkg/analyze"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -53,7 +53,7 @@ func TestEmptyCluster(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -65,7 +65,7 @@ func TestEmptyCluster(t *testing.T) {
 			// For a clean istio install with injection enabled, expect no validation errors
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
 			expectNoMessages(t, g, output)
-			g.Expect(err).To(BeNil())
+			g.Expect(err).To(gomega.BeNil())
 		})
 }
 
@@ -75,7 +75,7 @@ func TestFileOnly(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -87,12 +87,12 @@ func TestFileOnly(t *testing.T) {
 			// Validation error if we have a virtual service with subset not defined.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, virtualServiceFile)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+			g.Expect(err).To(gomega.BeIdenticalTo(analyzerFoundIssuesError))
 
 			// Error goes away if we define the subset in the destination rule.
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, destinationRuleFile)
 			expectNoMessages(t, g, output)
-			g.Expect(err).To(BeNil())
+			g.Expect(err).To(gomega.BeNil())
 		})
 }
 
@@ -102,7 +102,7 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -117,7 +117,7 @@ func TestDirectoryWithoutRecursion(t *testing.T) {
 			// UnknownAnnotation as well).
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=false", dirWithConfig)
 			expectMessages(t, g, output, msg.SchemaValidationError)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+			g.Expect(err).To(gomega.BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
 
@@ -127,7 +127,7 @@ func TestDirectoryWithRecursion(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -139,7 +139,7 @@ func TestDirectoryWithRecursion(t *testing.T) {
 			// Recursive is true, so we should see one error (SchemaValidationError).
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, "--recursive=true", dirWithConfig)
 			expectMessages(t, g, output, msg.SchemaValidationError)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+			g.Expect(err).To(gomega.BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
 
@@ -149,7 +149,7 @@ func TestInvalidFileError(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -160,22 +160,22 @@ func TestInvalidFileError(t *testing.T) {
 
 			// Skip the file with invalid extension and produce no errors.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), false, invalidExtensionFile)
-			g.Expect(output[0]).To(ContainSubstring(fmt.Sprintf("Skipping file %v, recognized file extensions are: [.json .yaml .yml]", invalidExtensionFile)))
-			g.Expect(err).To(BeNil())
+			g.Expect(output[0]).To(gomega.ContainSubstring(fmt.Sprintf("Skipping file %v, recognized file extensions are: [.json .yaml .yml]", invalidExtensionFile)))
+			g.Expect(err).To(gomega.BeNil())
 
 			// Parse error as the yaml file itself is not valid yaml.
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile)
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("Error(s) adding files"))
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
+			g.Expect(strings.Join(output, "\n")).To(gomega.ContainSubstring("Error(s) adding files"))
+			g.Expect(strings.Join(output, "\n")).To(gomega.ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
 
-			g.Expect(err).To(MatchError(analyze.FileParseError{}))
+			g.Expect(err).To(gomega.MatchError(analyze.FileParseError{}))
 
 			// Parse error as the yaml file itself is not valid yaml, but ignore.
 			output, err = istioctlSafe(t, istioCtl, ns.Name(), false, invalidFile, "--ignore-unknown=true")
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("Error(s) adding files"))
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
+			g.Expect(strings.Join(output, "\n")).To(gomega.ContainSubstring("Error(s) adding files"))
+			g.Expect(strings.Join(output, "\n")).To(gomega.ContainSubstring(fmt.Sprintf("errors parsing content \"%s\"", invalidFile)))
 
-			g.Expect(err).To(BeNil())
+			g.Expect(err).To(gomega.BeNil())
 		})
 }
 
@@ -185,7 +185,7 @@ func TestJsonInputFile(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -198,7 +198,7 @@ func TestJsonInputFile(t *testing.T) {
 			applyFileOrFail(t, ns.Name(), jsonGatewayFile)
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+			g.Expect(err).To(gomega.BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
 
@@ -208,7 +208,7 @@ func TestJsonOutput(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -221,13 +221,13 @@ func TestJsonOutput(t *testing.T) {
 				applyFileOrFail(t, ns.Name(), jsonGatewayFile)
 				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), true, jsonOutput)
 				expectJSONMessages(t, g, stdout, msg.ReferencedResourceNotFound)
-				g.Expect(err).To(BeNil())
+				g.Expect(err).To(gomega.BeNil())
 			})
 
 			t.NewSubTest("invalid file does not output error in stdout").Run(func(t framework.TestContext) {
 				stdout, _, err := istioctlWithStderr(t, istioCtl, ns.Name(), false, invalidExtensionFile, jsonOutput)
 				expectJSONMessages(t, g, stdout)
-				g.Expect(err).To(BeNil())
+				g.Expect(err).To(gomega.BeNil())
 			})
 		})
 }
@@ -238,7 +238,7 @@ func TestKubeOnly(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -252,7 +252,7 @@ func TestKubeOnly(t *testing.T) {
 			// Validation error if we have a gateway with invalid selector.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true)
 			expectMessages(t, g, output, msg.ReferencedResourceNotFound)
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+			g.Expect(err).To(gomega.BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
 
@@ -262,7 +262,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -277,7 +277,7 @@ func TestFileAndKubeCombined(t *testing.T) {
 			// fix the error and thus see no message
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, destinationRuleFile)
 			expectNoMessages(t, g, output)
-			g.Expect(err).To(BeNil())
+			g.Expect(err).To(gomega.BeNil())
 		})
 }
 
@@ -287,7 +287,7 @@ func TestAllNamespaces(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns1 := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze-1",
@@ -314,28 +314,28 @@ func TestAllNamespaces(t *testing.T) {
 			for _, line := range output {
 				if strings.Contains(line, ns1.Name()) {
 					if strings.Contains(line, msg.ReferencedResourceNotFound.Code()) {
-						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+						g.Expect(line).To(gomega.ContainSubstring(msg.ReferencedResourceNotFound.Code()))
 						foundCount++
 					}
 					// There are 2 conflictings can be detected, A to B and B to A
 					if strings.Contains(line, msg.ConflictingGateways.Code()) {
-						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
+						g.Expect(line).To(gomega.ContainSubstring(msg.ConflictingGateways.Code()))
 						foundCount++
 					}
 				}
 				if strings.Contains(line, ns2.Name()) {
 					if strings.Contains(line, msg.ReferencedResourceNotFound.Code()) {
-						g.Expect(line).To(ContainSubstring(msg.ReferencedResourceNotFound.Code()))
+						g.Expect(line).To(gomega.ContainSubstring(msg.ReferencedResourceNotFound.Code()))
 						foundCount++
 					}
 					// There are 2 conflictings can be detected, B to A and A to B
 					if strings.Contains(line, msg.ConflictingGateways.Code()) {
-						g.Expect(line).To(ContainSubstring(msg.ConflictingGateways.Code()))
+						g.Expect(line).To(gomega.ContainSubstring(msg.ConflictingGateways.Code()))
 						foundCount++
 					}
 				}
 			}
-			g.Expect(foundCount).To(Equal(6))
+			g.Expect(foundCount).To(gomega.Equal(6))
 		})
 }
 
@@ -346,7 +346,7 @@ func TestTimeout(t *testing.T) {
 		NewTest(t).
 		RequiresSingleCluster().
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -357,7 +357,7 @@ func TestTimeout(t *testing.T) {
 
 			// We should time out immediately.
 			_, err := istioctlSafe(t, istioCtl, ns.Name(), true, "--timeout=0s")
-			g.Expect(err.Error()).To(ContainSubstring("timed out"))
+			g.Expect(err.Error()).To(gomega.ContainSubstring("timed out"))
 		})
 }
 
@@ -369,7 +369,7 @@ func TestErrorLine(t *testing.T) {
 		RequiresSingleCluster().
 		Features("usability.observability.analysis.line-numbers").
 		Run(func(t framework.TestContext) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			ns := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "istioctl-analyze",
@@ -381,37 +381,37 @@ func TestErrorLine(t *testing.T) {
 			// Validation error if we have a gateway with invalid selector.
 			output, err := istioctlSafe(t, istioCtl, ns.Name(), true, gatewayFile, virtualServiceFile)
 
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/gateway.yaml:9"))
-			g.Expect(strings.Join(output, "\n")).To(ContainSubstring("testdata/virtualservice.yaml:11"))
-			g.Expect(err).To(BeIdenticalTo(analyzerFoundIssuesError))
+			g.Expect(strings.Join(output, "\n")).To(gomega.ContainSubstring("testdata/gateway.yaml:9"))
+			g.Expect(strings.Join(output, "\n")).To(gomega.ContainSubstring("testdata/virtualservice.yaml:11"))
+			g.Expect(err).To(gomega.BeIdenticalTo(analyzerFoundIssuesError))
 		})
 }
 
 // Verify the output contains messages of the expected type, in order, followed by boilerplate lines
-func expectMessages(t test.Failer, g *GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
+func expectMessages(t test.Failer, g *gomega.GomegaWithT, outputLines []string, expected ...*diag.MessageType) {
 	t.Helper()
 
 	// The boilerplate lines that appear if any issues are found
 	boilerplateLines := strings.Split(analyzerFoundIssuesError.Error(), "\n")
 
-	g.Expect(outputLines).To(HaveLen(len(expected) + len(boilerplateLines)))
+	g.Expect(outputLines).To(gomega.HaveLen(len(expected) + len(boilerplateLines)))
 
 	for i, line := range outputLines {
 		if i < len(expected) {
-			g.Expect(line).To(ContainSubstring(expected[i].Code()))
+			g.Expect(line).To(gomega.ContainSubstring(expected[i].Code()))
 		} else {
-			g.Expect(line).To(ContainSubstring(boilerplateLines[i-len(expected)]))
+			g.Expect(line).To(gomega.ContainSubstring(boilerplateLines[i-len(expected)]))
 		}
 	}
 }
 
-func expectNoMessages(t test.Failer, g *GomegaWithT, output []string) {
+func expectNoMessages(t test.Failer, g *gomega.GomegaWithT, output []string) {
 	t.Helper()
-	g.Expect(output).To(HaveLen(1))
-	g.Expect(output[0]).To(ContainSubstring("No validation issues found when analyzing"))
+	g.Expect(output).To(gomega.HaveLen(1))
+	g.Expect(output[0]).To(gomega.ContainSubstring("No validation issues found when analyzing"))
 }
 
-func expectJSONMessages(t test.Failer, g *GomegaWithT, output string, expected ...*diag.MessageType) {
+func expectJSONMessages(t test.Failer, g *gomega.GomegaWithT, output string, expected ...*diag.MessageType) {
 	t.Helper()
 
 	var j []map[string]any
@@ -419,11 +419,11 @@ func expectJSONMessages(t test.Failer, g *GomegaWithT, output string, expected .
 		t.Fatal(err, output)
 	}
 
-	g.Expect(j).To(HaveLen(len(expected)))
+	g.Expect(j).To(gomega.HaveLen(len(expected)))
 
 	for i, m := range j {
-		g.Expect(m["level"]).To(Equal(expected[i].Level().String()))
-		g.Expect(m["code"]).To(Equal(expected[i].Code()))
+		g.Expect(m["level"]).To(gomega.Equal(expected[i].Level().String()))
+		g.Expect(m["code"]).To(gomega.Equal(expected[i].Code()))
 	}
 }
 

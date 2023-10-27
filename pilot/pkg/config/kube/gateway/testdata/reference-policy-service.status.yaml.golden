@@ -66,8 +66,8 @@ status:
       status: "True"
       type: Accepted
     - lastTransitionTime: fake
-      message: backendRef httpbin/default not accessible to a route in namespace "istio-system"
-        (missing a ReferenceGrant?)
+      message: backendRef httpbin/default not accessible to a HTTPRoute in namespace
+        "istio-system" (missing a ReferenceGrant?)
       reason: RefNotPermitted
       status: "False"
       type: ResolvedRefs

@@ -17,14 +17,14 @@ package formatting
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/url"
 )
 
 func TestFormatter_PrintLog(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	firstMsg := diag.NewMessage(
 		diag.NewMessageType(diag.Error, "B1", "Explosion accident: %v"),
@@ -40,14 +40,14 @@ func TestFormatter_PrintLog(t *testing.T) {
 	msgs := diag.Messages{firstMsg, secondMsg}
 	output, _ := Print(msgs, LogFormat, false)
 
-	g.Expect(output).To(Equal(
+	g.Expect(output).To(gomega.Equal(
 		"Error [B1] (SoapBubble) Explosion accident: the bubble is too big\n" +
 			"Warning [C1] (GrandCastle) Collapse danger: the castle is too old",
 	))
 }
 
 func TestFormatter_PrintLogWithColor(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	firstMsg := diag.NewMessage(
 		diag.NewMessageType(diag.Error, "B1", "Explosion accident: %v"),
@@ -63,14 +63,14 @@ func TestFormatter_PrintLogWithColor(t *testing.T) {
 	msgs := diag.Messages{firstMsg, secondMsg}
 	output, _ := Print(msgs, LogFormat, true)
 
-	g.Expect(output).To(Equal(
+	g.Expect(output).To(gomega.Equal(
 		"\033[1;31mError\033[0m [B1] (SoapBubble) Explosion accident: the bubble is too big\n" +
 			"\033[33mWarning\033[0m [C1] (GrandCastle) Collapse danger: the castle is too old",
 	))
 }
 
 func TestFormatter_PrintJSON(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	firstMsg := diag.NewMessage(
 		diag.NewMessageType(diag.Error, "B1", "Explosion accident: %v"),
@@ -103,11 +103,11 @@ func TestFormatter_PrintJSON(t *testing.T) {
 	}
 ]`
 
-	g.Expect(output).To(Equal(expectedOutput))
+	g.Expect(output).To(gomega.Equal(expectedOutput))
 }
 
 func TestFormatter_PrintYAML(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	firstMsg := diag.NewMessage(
 		diag.NewMessageType(diag.Error, "B1", "Explosion accident: %v"),
@@ -135,20 +135,20 @@ func TestFormatter_PrintYAML(t *testing.T) {
   origin: GrandCastle
 `
 
-	g.Expect(output).To(Equal(expectedOutput))
+	g.Expect(output).To(gomega.Equal(expectedOutput))
 }
 
 func TestFormatter_PrintEmpty(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	msgs := diag.Messages{}
 
 	logOutput, _ := Print(msgs, LogFormat, false)
-	g.Expect(logOutput).To(Equal(""))
+	g.Expect(logOutput).To(gomega.Equal(""))
 
 	jsonOutput, _ := Print(msgs, JSONFormat, false)
-	g.Expect(jsonOutput).To(Equal("[]"))
+	g.Expect(jsonOutput).To(gomega.Equal("[]"))
 
 	yamlOutput, _ := Print(msgs, YAMLFormat, false)
-	g.Expect(yamlOutput).To(Equal("[]\n"))
+	g.Expect(yamlOutput).To(gomega.Equal("[]\n"))
 }

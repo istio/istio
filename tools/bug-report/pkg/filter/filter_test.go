@@ -17,7 +17,7 @@ package filter
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"sigs.k8s.io/yaml"
 
 	cluster2 "istio.io/istio/tools/bug-report/pkg/cluster"
@@ -107,7 +107,7 @@ func init() {
 }
 
 func TestGetMatchingPaths(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	tests := []struct {
 		name    string
@@ -240,13 +240,13 @@ include:
 			if err != nil {
 				t.Fatal(err)
 			}
-			g.Expect(paths).Should(ConsistOf(tt.want))
+			g.Expect(paths).Should(gomega.ConsistOf(tt.want))
 		})
 	}
 }
 
 func TestGetMatchingPathsMultiple(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	tests := []struct {
 		name    string
@@ -316,13 +316,13 @@ include:
 			if err != nil {
 				t.Fatal(err)
 			}
-			g.Expect(paths).Should(ConsistOf(tt.want))
+			g.Expect(paths).Should(gomega.ConsistOf(tt.want))
 		})
 	}
 }
 
 func TestGetMatchingPathsExclude(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	tests := []struct {
 		name    string
@@ -458,7 +458,7 @@ exclude:
 			if err != nil {
 				t.Fatal(err)
 			}
-			g.Expect(paths).Should(ConsistOf(tt.want))
+			g.Expect(paths).Should(gomega.ConsistOf(tt.want))
 		})
 	}
 }

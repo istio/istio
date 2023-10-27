@@ -25,16 +25,16 @@ import (
 	"testing"
 
 	"github.com/fsnotify/fsnotify"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 func newWatchFile(t *testing.T) string {
-	g := NewGomegaWithT(t)
+	g := gomega.NewGomegaWithT(t)
 
 	watchDir := t.TempDir()
 	watchFile := path.Join(watchDir, "test.conf")
 	err := os.WriteFile(watchFile, []byte("foo: bar\n"), 0o640)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return watchFile
 }
@@ -49,17 +49,17 @@ func newWatchFileThatDoesNotExist(t *testing.T) string {
 
 // newTwoWatchFile returns with two watch files that exist in the same base dir.
 func newTwoWatchFile(t *testing.T) (string, string) {
-	g := NewGomegaWithT(t)
+	g := gomega.NewGomegaWithT(t)
 
 	watchDir := t.TempDir()
 
 	watchFile1 := path.Join(watchDir, "test1.conf")
 	err := os.WriteFile(watchFile1, []byte("foo: bar\n"), 0o640)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	watchFile2 := path.Join(watchDir, "test2.conf")
 	err = os.WriteFile(watchFile2, []byte("foo: baz\n"), 0o640)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	return watchFile1, watchFile2
 }
@@ -78,18 +78,18 @@ func newTwoWatchFile(t *testing.T) (string, string) {
 //
 // <watchDir>/data1/test.conf
 func newSymlinkedWatchFile(t *testing.T) (string, string) {
-	g := NewGomegaWithT(t)
+	g := gomega.NewGomegaWithT(t)
 
 	watchDir := t.TempDir()
 
 	dataDir1 := path.Join(watchDir, "data1")
 	err := os.Mkdir(dataDir1, 0o777)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	realTestFile := path.Join(dataDir1, "test.conf")
 	t.Logf("Real test file location: %s\n", realTestFile)
 	err = os.WriteFile(realTestFile, []byte("foo: bar\n"), 0o640)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Now, symlink the tmp `data1` dir to `data` in the baseDir
 	os.Symlink(dataDir1, path.Join(watchDir, "data"))
@@ -102,12 +102,12 @@ func newSymlinkedWatchFile(t *testing.T) (string, string) {
 
 func TestWatchFile(t *testing.T) {
 	t.Run("file content changed", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := gomega.NewGomegaWithT(t)
 
 		// Given a file being watched
 		watchFile := newWatchFile(t)
 		_, err := os.Stat(watchFile)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		w := NewWatcher()
 		w.Add(watchFile)
@@ -122,7 +122,7 @@ func TestWatchFile(t *testing.T) {
 
 		// Overwriting the file and waiting its event to be received.
 		err = os.WriteFile(watchFile, []byte("foo: baz\n"), 0o640)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 		wg.Wait()
 
 		_ = w.Close()
@@ -133,7 +133,7 @@ func TestWatchFile(t *testing.T) {
 		if runtime.GOOS != "linux" {
 			t.Skipf("Skipping test as symlink replacements don't work on non-linux environment...")
 		}
-		g := NewGomegaWithT(t)
+		g := gomega.NewGomegaWithT(t)
 
 		watchDir, watchFile := newSymlinkedWatchFile(t)
 
@@ -151,15 +151,15 @@ func TestWatchFile(t *testing.T) {
 		// Link to another `test.conf` file
 		dataDir2 := path.Join(watchDir, "data2")
 		err := os.Mkdir(dataDir2, 0o777)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		watchFile2 := path.Join(dataDir2, "test.conf")
 		err = os.WriteFile(watchFile2, []byte("foo: baz\n"), 0o640)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// change the symlink using the `ln -sfn` command
 		err = exec.Command("ln", "-sfn", dataDir2, path.Join(watchDir, "data")).Run()
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 
 		// Wait its event to be received.
 		wg.Wait()
@@ -168,7 +168,7 @@ func TestWatchFile(t *testing.T) {
 	})
 
 	t.Run("file added later", func(t *testing.T) {
-		g := NewGomegaWithT(t)
+		g := gomega.NewGomegaWithT(t)
 
 		// Given a file being watched
 		watchFile := newWatchFileThatDoesNotExist(t)
@@ -186,7 +186,7 @@ func TestWatchFile(t *testing.T) {
 
 		// Overwriting the file and waiting its event to be received.
 		err := os.WriteFile(watchFile, []byte("foo: baz\n"), 0o640)
-		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(err).NotTo(gomega.HaveOccurred())
 		wg.Wait()
 
 		_ = w.Close()
@@ -194,7 +194,7 @@ func TestWatchFile(t *testing.T) {
 }
 
 func TestWatcherLifecycle(t *testing.T) {
-	g := NewGomegaWithT(t)
+	g := gomega.NewGomegaWithT(t)
 
 	watchFile1, watchFile2 := newTwoWatchFile(t)
 
@@ -202,45 +202,45 @@ func TestWatcherLifecycle(t *testing.T) {
 
 	// Validate Add behavior
 	err := w.Add(watchFile1)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	err = w.Add(watchFile2)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 
 	// Validate events and errors channel are fulfilled.
 	events1 := w.Events(watchFile1)
-	g.Expect(events1).NotTo(BeNil())
+	g.Expect(events1).NotTo(gomega.BeNil())
 	events2 := w.Events(watchFile2)
-	g.Expect(events2).NotTo(BeNil())
+	g.Expect(events2).NotTo(gomega.BeNil())
 
 	errors1 := w.Errors(watchFile1)
-	g.Expect(errors1).NotTo(BeNil())
+	g.Expect(errors1).NotTo(gomega.BeNil())
 	errors2 := w.Errors(watchFile2)
-	g.Expect(errors2).NotTo(BeNil())
+	g.Expect(errors2).NotTo(gomega.BeNil())
 
 	// Validate Remove behavior
 	err = w.Remove(watchFile1)
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	events1 = w.Events(watchFile1)
-	g.Expect(events1).To(BeNil())
+	g.Expect(events1).To(gomega.BeNil())
 	errors1 = w.Errors(watchFile1)
-	g.Expect(errors1).To(BeNil())
+	g.Expect(errors1).To(gomega.BeNil())
 	events2 = w.Events(watchFile2)
-	g.Expect(events2).NotTo(BeNil())
+	g.Expect(events2).NotTo(gomega.BeNil())
 	errors2 = w.Errors(watchFile2)
-	g.Expect(errors2).NotTo(BeNil())
+	g.Expect(errors2).NotTo(gomega.BeNil())
 
 	fmt.Printf("2\n")
 	// Validate Close behavior
 	err = w.Close()
-	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	events1 = w.Events(watchFile1)
-	g.Expect(events1).To(BeNil())
+	g.Expect(events1).To(gomega.BeNil())
 	errors1 = w.Errors(watchFile1)
-	g.Expect(errors1).To(BeNil())
+	g.Expect(errors1).To(gomega.BeNil())
 	events2 = w.Events(watchFile2)
-	g.Expect(events2).To(BeNil())
+	g.Expect(events2).To(gomega.BeNil())
 	errors2 = w.Errors(watchFile2)
-	g.Expect(errors2).To(BeNil())
+	g.Expect(errors2).To(gomega.BeNil())
 }
 
 func TestErrors(t *testing.T) {

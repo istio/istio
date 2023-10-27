@@ -17,7 +17,7 @@ package strcase
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 func TestCamelCase(t *testing.T) {
@@ -40,10 +40,10 @@ func TestCamelCase(t *testing.T) {
 
 	for k, v := range cases {
 		t.Run(k, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			a := CamelCase(k)
-			g.Expect(a).To(Equal(v))
+			g.Expect(a).To(gomega.Equal(v))
 		})
 	}
 }
@@ -60,10 +60,10 @@ func TestCamelCaseToKebabCase(t *testing.T) {
 
 	for k, v := range cases {
 		t.Run(k, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			a := CamelCaseToKebabCase(k)
-			g.Expect(a).To(Equal(v))
+			g.Expect(a).To(gomega.Equal(v))
 		})
 	}
 }

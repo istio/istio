@@ -33,7 +33,12 @@ func FuzzBuildHTTP(f *testing.F) {
 		}
 		policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 		option := fuzz.Struct[Option](fg)
-		New(bundle, push, policies, option).BuildHTTP()
+		b := New(bundle, push, policies, option)
+		if b == nil {
+			fg.T().Skip()
+			return // To help linter
+		}
+		b.BuildHTTP()
 	})
 }
 
@@ -48,7 +53,12 @@ func FuzzBuildTCP(f *testing.F) {
 		}
 		policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 		option := fuzz.Struct[Option](fg)
-		New(bundle, push, policies, option).BuildTCP()
+		b := New(bundle, push, policies, option)
+		if b == nil {
+			fg.T().Skip()
+			return // To help linter
+		}
+		b.BuildTCP()
 	})
 }
 

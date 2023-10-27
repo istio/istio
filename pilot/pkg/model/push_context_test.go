@@ -26,7 +26,7 @@ import (
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -1213,7 +1213,7 @@ func TestWasmPlugins(t *testing.T) {
 }
 
 func TestServiceIndex(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	env := NewEnvironment()
 	env.ConfigStore = NewFakeStore()
 	env.ServiceDiscovery = &localServiceDiscovery{
@@ -1278,18 +1278,18 @@ func TestServiceIndex(t *testing.T) {
 	si := pc.ServiceIndex
 
 	// Should have all 5 services
-	g.Expect(si.instancesByPort).To(HaveLen(5))
-	g.Expect(si.HostnameAndNamespace).To(HaveLen(5))
+	g.Expect(si.instancesByPort).To(gomega.HaveLen(5))
+	g.Expect(si.HostnameAndNamespace).To(gomega.HaveLen(5))
 
 	// Should just have "namespace"
-	g.Expect(si.exportedToNamespace).To(HaveLen(1))
-	g.Expect(serviceNames(si.exportedToNamespace["namespace"])).To(Equal([]string{"svc-namespace"}))
+	g.Expect(si.exportedToNamespace).To(gomega.HaveLen(1))
+	g.Expect(serviceNames(si.exportedToNamespace["namespace"])).To(gomega.Equal([]string{"svc-namespace"}))
 
-	g.Expect(serviceNames(si.public)).To(Equal([]string{"svc-public", "svc-unset"}))
+	g.Expect(serviceNames(si.public)).To(gomega.Equal([]string{"svc-public", "svc-unset"}))
 
 	// Should just have "test1"
-	g.Expect(si.privateByNamespace).To(HaveLen(1))
-	g.Expect(serviceNames(si.privateByNamespace["test1"])).To(Equal([]string{"svc-private"}))
+	g.Expect(si.privateByNamespace).To(gomega.HaveLen(1))
+	g.Expect(serviceNames(si.privateByNamespace["test1"])).To(gomega.Equal([]string{"svc-private"}))
 }
 
 func TestIsServiceVisible(t *testing.T) {
@@ -1442,8 +1442,8 @@ func TestIsServiceVisible(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			isVisible := c.pushContext.IsServiceVisible(c.service, targetNamespace)
 
-			g := NewWithT(t)
-			g.Expect(isVisible).To(Equal(c.expect))
+			g := gomega.NewWithT(t)
+			g.Expect(isVisible).To(gomega.Equal(c.expect))
 		})
 	}
 }
@@ -2805,7 +2805,7 @@ func TestServiceWithExportTo(t *testing.T) {
 		services: []*Service{svc1, svc2, svc3, svc4},
 	}
 	ps.initDefaultExportMaps()
-	ps.initServiceRegistry(env)
+	ps.initServiceRegistry(env, nil)
 
 	cases := []struct {
 		proxyNs   string
@@ -3011,4 +3011,99 @@ func (l *localServiceDiscovery) NetworkGateways() []NetworkGateway {
 
 func (l *localServiceDiscovery) MCSServices() []MCSServiceInfo {
 	return nil
+}
+
+func TestResolveServiceAliases(t *testing.T) {
+	type service struct {
+		Name         host.Name
+		Aliases      host.Names
+		ExternalName string
+	}
+	tests := []struct {
+		name   string
+		input  []service
+		output []service
+	}{
+		{
+			name:   "no aliases",
+			input:  []service{{Name: "test"}},
+			output: []service{{Name: "test"}},
+		},
+		{
+			name: "simple alias",
+			input: []service{
+				{Name: "concrete"},
+				{Name: "alias", ExternalName: "concrete"},
+			},
+			output: []service{
+				{Name: "concrete", Aliases: host.Names{"alias"}},
+				{Name: "alias", ExternalName: "concrete"},
+			},
+		},
+		{
+			name: "multiple alias",
+			input: []service{
+				{Name: "concrete"},
+				{Name: "alias1", ExternalName: "concrete"},
+				{Name: "alias2", ExternalName: "concrete"},
+			},
+			output: []service{
+				{Name: "concrete", Aliases: host.Names{"alias1", "alias2"}},
+				{Name: "alias1", ExternalName: "concrete"},
+				{Name: "alias2", ExternalName: "concrete"},
+			},
+		},
+		{
+			name: "chained alias",
+			input: []service{
+				{Name: "concrete"},
+				{Name: "alias1", ExternalName: "alias2"},
+				{Name: "alias2", ExternalName: "concrete"},
+			},
+			output: []service{
+				{Name: "concrete", Aliases: host.Names{"alias1", "alias2"}},
+				{Name: "alias1", ExternalName: "alias2"},
+				{Name: "alias2", ExternalName: "concrete"},
+			},
+		},
+		{
+			name: "looping alias",
+			input: []service{
+				{Name: "alias1", ExternalName: "alias2"},
+				{Name: "alias2", ExternalName: "alias1"},
+			},
+			output: []service{
+				{Name: "alias1", ExternalName: "alias2"},
+				{Name: "alias2", ExternalName: "alias1"},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inps := slices.Map(tt.input, func(e service) *Service {
+				resolution := ClientSideLB
+				if e.ExternalName != "" {
+					resolution = Alias
+				}
+				return &Service{
+					Resolution: resolution,
+					Attributes: ServiceAttributes{
+						K8sAttributes: K8sAttributes{ExternalName: e.ExternalName},
+					},
+					Hostname: e.Name,
+				}
+			})
+			resolveServiceAliases(inps, nil)
+			out := slices.Map(inps, func(e *Service) service {
+				return service{
+					Name: e.Hostname,
+					Aliases: slices.Map(e.Attributes.Aliases, func(e NamespacedHostname) host.Name {
+						return e.Hostname
+					}),
+					ExternalName: e.Attributes.K8sAttributes.ExternalName,
+				}
+			})
+			assert.Equal(t, tt.output, out)
+		})
+	}
 }

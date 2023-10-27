@@ -23,6 +23,8 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/atomic"
+
 	"istio.io/istio/pkg/http"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
@@ -54,6 +56,7 @@ func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Durat
 		adminPort:                   adminPort,
 		localhost:                   localhost,
 		knownIstioListeners:         knownIstioListeners,
+		skipDrain:                   atomic.NewBool(false),
 	}
 }
 
@@ -63,7 +66,7 @@ type Proxy interface {
 	Run(<-chan error) error
 
 	// Drains the envoy process.
-	Drain() error
+	Drain(skipExit bool) error
 
 	// Cleanup command for cleans up the proxy.
 	Cleanup()
@@ -91,6 +94,8 @@ type Agent struct {
 	knownIstioListeners sets.String
 
 	exitOnZeroActiveConnections bool
+
+	skipDrain *atomic.Bool
 }
 
 type exitStatus struct {
@@ -98,6 +103,15 @@ type exitStatus struct {
 }
 
 // Run starts the envoy and waits until it terminates.
+// There are a few exit paths:
+//  1. Envoy exits. In this case, we simply log and exit.
+//  2. /quitquitquit (on agent, not Envoy) is called. We will set skipDrain and cancel the context, which triggers us to exit immediately.
+//  3. SIGTERM. We will drain, wait termination drain duration, then exit. This is the standard pod shutdown; SIGTERM arrives when pod shutdown starts.
+//     If the pod's terminationGracePeriod is shorter than our drain duration (rare), we may be a SIGKILL.
+//  4. /drain + SIGTERM. This is the shutdown when using Kubernetes native sidecars.
+//     /drain is called when the pod shutdown starts. We start draining, forever.
+//     Once the app containers shutdown, we get a SIGTERM. We have no use to run anymore, so shutdown immediately.
+//     If somehow we do not shutdown from the SIGTERM fast enough, we may get a SIGKILL later.
 func (a *Agent) Run(ctx context.Context) {
 	log.Info("Starting proxy agent")
 	go a.runWait(a.abortCh)
@@ -125,11 +139,32 @@ func (a *Agent) Run(ctx context.Context) {
 	}
 }
 
+func (a *Agent) DisableDraining() {
+	a.skipDrain.Store(true)
+}
+
+func (a *Agent) DrainNow() {
+	log.Infof("Agent draining proxy")
+	err := a.proxy.Drain(true)
+	if err != nil {
+		log.Warnf("Error in invoking drain listeners endpoint: %v", err)
+	}
+	// If we drained now, skip draining + waiting later
+	// When we terminate, we will instead exit immediately
+	a.DisableDraining()
+}
+
+// terminate starts exiting the process.
 func (a *Agent) terminate() {
-	log.Infof("Agent draining Proxy")
-	e := a.proxy.Drain()
+	log.Infof("Agent draining Proxy for termination")
+	if a.skipDrain.Load() {
+		log.Infof("Agent already drained, exiting immediately")
+		a.abortCh <- errAbort
+		return
+	}
+	e := a.proxy.Drain(false)
 	if e != nil {
-		log.Warnf("Error in invoking drain listeners endpoint %v", e)
+		log.Warnf("Error in invoking drain listeners endpoint: %v", e)
 	}
 	// If exitOnZeroActiveConnections is enabled, always sleep minimumDrainDuration then exit
 	// after min(all connections close, terminationGracePeriodSeconds-minimumDrainDuration).

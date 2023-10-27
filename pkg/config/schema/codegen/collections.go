@@ -168,9 +168,8 @@ func toGetter(protoPackage string) string {
 		return "GatewayAPI"
 	} else if strings.Contains(protoPackage, "k8s.io/apiextensions-apiserver") {
 		return "Ext"
-	} else {
-		return "Kube"
 	}
+	return "Kube"
 }
 
 func toGroup(protoPackage string) string {

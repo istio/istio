@@ -121,7 +121,6 @@ func (lb *ListenerBuilder) buildHCMConnectTerminateChain(routes []*route.Route) 
 		}),
 	}
 	return []*listener.Filter{
-		xdsfilters.IstioNetworkAuthenticationFilterShared,
 		{
 			Name:       wellknown.HTTPConnectionManager,
 			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(h)},

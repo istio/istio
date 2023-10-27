@@ -31,17 +31,18 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
 
 func TestGatewayHostnames(t *testing.T) {
 	test.SetForTest(t, &model.MinGatewayTTL, 30*time.Millisecond)
-	ttl := uint32(1) // second
+	ttl := uint32(0) // second
 
 	gwHost := "test.gw.istio.io"
-	workingDNSServer := newFakeDNSServer(":15353", ttl, sets.New(gwHost))
-	failingDNSServer := newFakeDNSServer(":25353", ttl, sets.NewWithLength[string](0))
+	workingDNSServer := newFakeDNSServer(ttl, sets.New(gwHost))
+	failingDNSServer := newFakeDNSServer(ttl, sets.NewWithLength[string](0))
 	failingDNSServer.setFailure(true)
 	model.NetworkGatewayTestDNSServers = []string{
 		// try resolving with the failing server first to make sure the next upstream is retried
@@ -84,59 +85,55 @@ func TestGatewayHostnames(t *testing.T) {
 		}
 	})
 
-	if !testing.Short() {
-		t.Run("re-resolve after TTL", func(t *testing.T) {
-			// after the update, we should see the next gateway. Since TTL is low we don't know the exact IP, but we know it should change from
-			// the original
-			retry.UntilOrFail(t, func() bool {
-				return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
-			}, retry.Timeout(2*time.Duration(ttl)*time.Second))
-			xdsUpdater.WaitOrFail(t, "xds full")
-		})
+	t.Run("re-resolve after TTL", func(t *testing.T) {
+		// after the update, we should see the next gateway. Since TTL is low we don't know the exact IP, but we know it should change from
+		// the original
+		assert.EventuallyEqual(t, env.NetworkManager.AllGateways, gateways)
+		xdsUpdater.WaitOrFail(t, "xds full")
+	})
 
-		workingDNSServer.setFailure(true)
-		gateways = env.NetworkManager.AllGateways()
-		t.Run("resolution failed", func(t *testing.T) {
-			xdsUpdater.AssertEmpty(t, 2*time.Duration(ttl)*time.Second)
-			// the gateways should remain
-			currentGateways := env.NetworkManager.AllGateways()
-			if len(currentGateways) == 0 || !reflect.DeepEqual(currentGateways, gateways) {
-				t.Fatalf("unexpected network: %v", currentGateways)
-			}
-			if !env.NetworkManager.IsMultiNetworkEnabled() {
-				t.Fatalf("multi network is not enabled")
-			}
-		})
+	workingDNSServer.setFailure(true)
+	gateways = env.NetworkManager.AllGateways()
+	t.Run("resolution failed", func(t *testing.T) {
+		xdsUpdater.AssertEmpty(t, 10*model.MinGatewayTTL)
+		// the gateways should remain
+		currentGateways := env.NetworkManager.AllGateways()
+		if len(currentGateways) == 0 || !reflect.DeepEqual(currentGateways, gateways) {
+			t.Fatalf("unexpected network: %v", currentGateways)
+		}
+		if !env.NetworkManager.IsMultiNetworkEnabled() {
+			t.Fatalf("multi network is not enabled")
+		}
+	})
 
-		workingDNSServer.setFailure(false)
-		t.Run("resolution recovered", func(t *testing.T) {
-			// addresses should be updated
-			retry.UntilOrFail(t, func() bool {
-				return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
-			}, retry.Timeout(2*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
-			xdsUpdater.WaitOrFail(t, "xds full")
-		})
+	workingDNSServer.setFailure(false)
+	t.Run("resolution recovered", func(t *testing.T) {
+		// addresses should be updated
+		retry.UntilOrFail(t, func() bool {
+			return !reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
+		}, retry.Timeout(10*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
+		xdsUpdater.WaitOrFail(t, "xds full")
+	})
 
-		workingDNSServer.setHosts(make(sets.Set[string]))
-		t.Run("no answer", func(t *testing.T) {
-			retry.UntilOrFail(t, func() bool {
-				return len(env.NetworkManager.AllGateways()) == 0
-			}, retry.Timeout(2*time.Duration(ttl)*time.Second))
-			xdsUpdater.WaitOrFail(t, "xds full")
-			if env.NetworkManager.IsMultiNetworkEnabled() {
-				t.Fatalf("multi network should not be enabled when there are no gateways")
-			}
-		})
+	workingDNSServer.setHosts(make(sets.Set[string]))
+	t.Run("no answer", func(t *testing.T) {
+		assert.EventuallyEqual(t, func() int {
+			return len(env.NetworkManager.AllGateways())
+		}, 0, retry.Timeout(10*model.MinGatewayTTL))
+		xdsUpdater.WaitOrFail(t, "xds full")
+		if env.NetworkManager.IsMultiNetworkEnabled() {
+			t.Fatalf("multi network should not be enabled when there are no gateways")
+		}
+	})
 
-		workingDNSServer.setHosts(sets.New(gwHost))
-		t.Run("new answer", func(t *testing.T) {
-			retry.UntilOrFail(t, func() bool {
-				return len(env.NetworkManager.AllGateways()) != 0 &&
-					!reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
-			}, retry.Timeout(2*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
-			xdsUpdater.WaitOrFail(t, "xds full")
-		})
-	}
+	workingDNSServer.setHosts(sets.New(gwHost))
+	t.Run("new answer", func(t *testing.T) {
+		retry.UntilOrFail(t, func() bool {
+			return len(env.NetworkManager.AllGateways()) != 0 &&
+				!reflect.DeepEqual(env.NetworkManager.AllGateways(), gateways)
+		}, retry.Timeout(10*model.MinGatewayTTL), retry.Delay(time.Millisecond*10))
+		xdsUpdater.WaitOrFail(t, "xds full")
+	})
 
 	t.Run("forget", func(t *testing.T) {
 		meshNetworks.SetNetworks(nil)
@@ -157,11 +154,11 @@ type fakeDNSServer struct {
 	hosts map[string]int
 }
 
-func newFakeDNSServer(addr string, ttl uint32, hosts sets.String) *fakeDNSServer {
+func newFakeDNSServer(ttl uint32, hosts sets.String) *fakeDNSServer {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	s := &fakeDNSServer{
-		Server: &dns.Server{Addr: addr, Net: "udp", NotifyStartedFunc: wg.Done},
+		Server: &dns.Server{Addr: ":0", Net: "udp", NotifyStartedFunc: wg.Done},
 		ttl:    ttl,
 		hosts:  make(map[string]int, len(hosts)),
 	}

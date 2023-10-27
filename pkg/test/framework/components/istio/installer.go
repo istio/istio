@@ -79,7 +79,7 @@ func (i *installer) Install(c cluster.Cluster, args installArgs) error {
 	if i.ctx.Settings().Ambient {
 		iArgs.InFilenames = append(iArgs.InFilenames, filepath.Join(testenv.IstioSrc, IntegrationTestAmbientDefaultsIOP))
 	}
-	if i.ctx.Settings().PeerMetadataDiscovery {
+	if i.ctx.Settings().PeerMetadataDiscovery && len(args.ComponentName) == 0 {
 		iArgs.InFilenames = append(iArgs.InFilenames, filepath.Join(testenv.IstioSrc, IntegrationTestPeerMetadataDiscoveryDefaultsIOP))
 	}
 

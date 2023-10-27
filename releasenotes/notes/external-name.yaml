@@ -1,0 +1,38 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issues:
+  - 37331
+releaseNotes:
+  - |
+    **Improved** support for `ExternalName` services. See Upgrade Notes for more information
+upgradeNotes:
+  - title: "Upcoming `ExternalName` support changes"
+    content: |
+      Below describes *upcoming* changes to `ExternalName`.
+      In this release, there is no behavioral changes by default.
+      However, you can explicitly opt-in to the new behavior early if desired, and prepare your environments for the upcoming change.
+      
+      Kubernetes `ExternalName` `Service`s allow users to create new DNS entries. For example, you can create an `example` service
+      that points to `example.com`. This is implemented by a DNS `CNAME` redirect.
+      
+      In Istio, the implementation of `ExternalName`, historically, was substantially different. Each `ExternalName` represented its own
+      service, and traffic matching the service was sent to the configured DNS name.
+      
+      This caused a few issues:
+      * Ports are required in Istio, but not in Kubernetes. This can result in broken traffic if ports are not configured as Istio expects, despite them working without Istio.
+      * Ports not declared as `HTTP` would match *all* traffic on that port, making it easy to accidentally send all traffic on a port to the wrong place.
+      * Because the destination DNS name is treated as opaque, we cannot apply Istio policies to it as expected. For example, if I point
+        an external name at another in-cluster Service (for example, `example.default.svc.cluster.local`), mTLS would not be used.
+      
+      `ExternalName` support has been revamped to fix these problems. `ExternalName`s are now simply treated as aliases.
+      Wherever we would match `Host: <concrete service>` we additionally will match `Host: <external name service>`.
+      Note that the primary implementation of `ExternalName` -- DNS -- is handled outside of Istio in the Kubernetes DNS implementation, and remains unchanged.
+      
+      If you are using `ExternalName` with Istio, please be advised of the following behavioral changes:
+      * The `ports` field is no longer needed, matching Kubernetes behavior. If it is set, it will have no impact.
+      * `VirtualServices` that match on an `ExternalName` service will generally no longer match. Instead, the match should be rewritten to the referenced service.
+      * `DestinationRule` can no longer apply to `ExternalName` services. Instead, create rules where the `host` references service.
+      
+      These changes are off-by-default in this release, but will be on-by-default in the near future.
+      To opt-in early, the `ENABLE_EXTERNAL_NAME_ALIAS=true` environment variable can be set.

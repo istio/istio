@@ -17,7 +17,7 @@ package resource
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/types/known/emptypb"
 
@@ -75,13 +75,13 @@ func TestValidate(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			err := c.b.BuildNoValidate().Validate()
 			if c.expectError {
-				g.Expect(err).ToNot(BeNil())
+				g.Expect(err).ToNot(gomega.BeNil())
 			} else {
-				g.Expect(err).To(BeNil())
+				g.Expect(err).To(gomega.BeNil())
 			}
 		})
 	}
@@ -137,13 +137,13 @@ func TestBuild(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			_, err := c.b.Build()
 			if c.expectError {
-				g.Expect(err).ToNot(BeNil())
+				g.Expect(err).ToNot(gomega.BeNil())
 			} else {
-				g.Expect(err).To(BeNil())
+				g.Expect(err).To(gomega.BeNil())
 			}
 		})
 	}
@@ -183,8 +183,8 @@ func TestCanonicalName(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
-			g.Expect(c.s.GroupVersionKind().String()).To(Equal(c.expected))
+			g := gomega.NewWithT(t)
+			g.Expect(c.s.GroupVersionKind().String()).To(gomega.Equal(c.expected))
 		})
 	}
 }
@@ -203,10 +203,10 @@ func TestNewProtoInstance(t *testing.T) {
 }
 
 func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	defer func() {
 		r := recover()
-		g.Expect(r).NotTo(BeNil())
+		g.Expect(r).NotTo(gomega.BeNil())
 	}()
 	old := protoMessageType
 	defer func() {
@@ -226,7 +226,7 @@ func TestMustNewProtoInstance_Panic_Nil(t *testing.T) {
 }
 
 func TestString(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	s := Builder{
 		Kind:         "Empty",
@@ -235,5 +235,5 @@ func TestString(t *testing.T) {
 		Proto:        "google.protobuf.Empty",
 	}.MustBuild()
 
-	g.Expect(s.String()).To(Equal(`[Schema](Empty, "github.com/gogo/protobuf/types", google.protobuf.Empty)`))
+	g.Expect(s.String()).To(gomega.Equal(`[Schema](Empty, "github.com/gogo/protobuf/types", google.protobuf.Empty)`))
 }

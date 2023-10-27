@@ -231,6 +231,14 @@ var (
 	// GatewayPortNotDefinedOnService defines a diag.MessageType for message "GatewayPortNotDefinedOnService".
 	// Description: Gateway port not exposed by service
 	GatewayPortNotDefinedOnService = diag.NewMessageType(diag.Warning, "IST0162", "The gateway is listening on a target port (port %d) that is not defined in the Service associated with its workload instances (Pod selector %s). If you need to access the gateway port through the gateway Service, it will not be available.")
+
+	// InvalidExternalControlPlaneConfig defines a diag.MessageType for message "InvalidExternalControlPlaneConfig".
+	// Description: Address for the ingress gateway on the external control plane is not valid
+	InvalidExternalControlPlaneConfig = diag.NewMessageType(diag.Warning, "IST0163", "The hostname (%s) that was provided for the webhook (%s) to reach the ingress gateway on the external control plane cluster %s. Traffic may not flow properly.")
+
+	// ExternalControlPlaneAddressIsNotAHostname defines a diag.MessageType for message "ExternalControlPlaneAddressIsNotAHostname".
+	// Description: Address for the ingress gateway on the external control plane is an IP address and not a hostname
+	ExternalControlPlaneAddressIsNotAHostname = diag.NewMessageType(diag.Info, "IST0164", "The address (%s) that was provided for the webhook (%s) to reach the ingress gateway on the external control plane cluster is an IP address. This is not recommended for a production environment.")
 )
 
 // All returns a list of all known message types.
@@ -292,6 +300,8 @@ func All() []*diag.MessageType {
 		MultipleTelemetriesWithoutWorkloadSelectors,
 		InvalidGatewayCredential,
 		GatewayPortNotDefinedOnService,
+		InvalidExternalControlPlaneConfig,
+		ExternalControlPlaneAddressIsNotAHostname,
 	}
 }
 
@@ -843,5 +853,26 @@ func NewGatewayPortNotDefinedOnService(r *resource.Instance, port int, selector 
 		r,
 		port,
 		selector,
+	)
+}
+
+// NewInvalidExternalControlPlaneConfig returns a new diag.Message based on InvalidExternalControlPlaneConfig.
+func NewInvalidExternalControlPlaneConfig(r *resource.Instance, hostname string, webhook string, msg string) diag.Message {
+	return diag.NewMessage(
+		InvalidExternalControlPlaneConfig,
+		r,
+		hostname,
+		webhook,
+		msg,
+	)
+}
+
+// NewExternalControlPlaneAddressIsNotAHostname returns a new diag.Message based on ExternalControlPlaneAddressIsNotAHostname.
+func NewExternalControlPlaneAddressIsNotAHostname(r *resource.Instance, hostname string, webhook string) diag.Message {
+	return diag.NewMessage(
+		ExternalControlPlaneAddressIsNotAHostname,
+		r,
+		hostname,
+		webhook,
 	)
 }

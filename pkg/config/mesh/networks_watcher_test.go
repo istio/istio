@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config/mesh"
@@ -26,13 +26,13 @@ import (
 )
 
 func TestNewNetworksWatcherWithBadInputShouldFail(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	_, err := mesh.NewNetworksWatcher(filewatcher.NewWatcher(), "")
-	g.Expect(err).ToNot(BeNil())
+	g.Expect(err).ToNot(gomega.BeNil())
 }
 
 func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	path := newTempFile(t)
 	defer removeSilent(path)
@@ -43,7 +43,7 @@ func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
 	writeMessage(t, path, &n)
 
 	w := newNetworksWatcher(t, path)
-	g.Expect(w.Networks()).To(Equal(&n))
+	g.Expect(w.Networks()).To(gomega.Equal(&n))
 
 	doneCh := make(chan struct{}, 1)
 
@@ -59,8 +59,8 @@ func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
 
 	select {
 	case <-doneCh:
-		g.Expect(newN).To(Equal(&n))
-		g.Expect(w.Networks()).To(Equal(newN))
+		g.Expect(newN).To(gomega.Equal(&n))
+		g.Expect(w.Networks()).To(gomega.Equal(newN))
 		break
 	case <-time.After(time.Second * 5):
 		t.Fatal("timed out waiting for update")

@@ -17,7 +17,7 @@ package param_test
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/test/framework/components/echo/config/param"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -66,8 +66,8 @@ func TestContains(t *testing.T) {
 			tpl := param.Parse(tmpl.ParseOrFail(t, c.template))
 			actual := tpl.ContainsWellKnown(param.To)
 
-			g := NewWithT(t)
-			g.Expect(actual).To(Equal(c.expectFound))
+			g := gomega.NewWithT(t)
+			g.Expect(actual).To(gomega.Equal(c.expectFound))
 		})
 	}
 }

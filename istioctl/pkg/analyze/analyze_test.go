@@ -18,7 +18,7 @@ import (
 	"strings"
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/util/testutil"
@@ -26,7 +26,7 @@ import (
 )
 
 func TestErrorOnIssuesFound(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	msgs := []diag.Message{
 		diag.NewMessage(
@@ -43,11 +43,11 @@ func TestErrorOnIssuesFound(t *testing.T) {
 
 	err := errorIfMessagesExceedThreshold(msgs)
 
-	g.Expect(err).To(BeIdenticalTo(AnalyzerFoundIssuesError{}))
+	g.Expect(err).To(gomega.BeIdenticalTo(AnalyzerFoundIssuesError{}))
 }
 
 func TestNoErrorIfMessageLevelsBelowThreshold(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	msgs := []diag.Message{
 		diag.NewMessage(
@@ -64,7 +64,7 @@ func TestNoErrorIfMessageLevelsBelowThreshold(t *testing.T) {
 
 	err := errorIfMessagesExceedThreshold(msgs)
 
-	g.Expect(err).To(BeNil())
+	g.Expect(err).To(gomega.BeNil())
 }
 
 func TestSkipPodsInFiles(t *testing.T) {

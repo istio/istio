@@ -4,12 +4,12 @@ kind: IstioOperator
 metadata:
   name: install
 spec:
+  meshConfig:
+    defaultConfig:
+      proxyMetadata:
+        PEER_METADATA_DISCOVERY: "true"
   values:
     pilot:
       env:
         PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
         PILOT_DISABLE_MX_ALPN: "true"
-    meshConfig:
-      defaultConfig:
-        proxyMetadata:
-          PEER_METADATA_DISCOVERY: "true"

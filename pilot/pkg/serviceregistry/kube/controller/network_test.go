@@ -24,6 +24,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
@@ -155,7 +156,7 @@ func removeLabeledServiceGateway(t *testing.T, c *FakeController) {
 // creates a gateway that exposes 2 ports that are valid auto-passthrough ports
 // and it does so on an IP and a hostname
 func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int) {
-	passthroughMode := v1beta1.TLSModePassthrough
+	passthroughMode := k8sv1.TLSModePassthrough
 	ipType := v1beta1.IPAddressType
 	hostnameType := v1beta1.HostnameAddressType
 	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).CreateOrUpdate(&v1beta1.Gateway{

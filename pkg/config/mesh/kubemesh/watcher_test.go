@@ -22,7 +22,7 @@ import (
 	"time"
 
 	"github.com/google/go-cmp/cmp"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"go.uber.org/atomic"
 	"google.golang.org/protobuf/testing/protocmp"
 	v1 "k8s.io/api/core/v1"
@@ -235,18 +235,18 @@ func TestNewConfigMapWatcher(t *testing.T) {
 
 	for i, step := range steps {
 		t.Run(fmt.Sprintf("[%v]", i), func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			switch {
 			case step.added != nil:
 				_, err := cms.Create(context.TODO(), step.added, metav1.CreateOptions{})
-				g.Expect(err).Should(BeNil())
+				g.Expect(err).Should(gomega.BeNil())
 			case step.updated != nil:
 				_, err := cms.Update(context.TODO(), step.updated, metav1.UpdateOptions{})
-				g.Expect(err).Should(BeNil())
+				g.Expect(err).Should(gomega.BeNil())
 			case step.deleted != nil:
 				g.Expect(cms.Delete(context.TODO(), step.deleted.Name, metav1.DeleteOptions{})).
-					Should(Succeed())
+					Should(gomega.Succeed())
 			}
 
 			retry.UntilOrFail(t, func() bool { return cmp.Equal(w.Mesh(), step.expect, protocmp.Transform()) })

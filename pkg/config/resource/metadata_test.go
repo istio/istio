@@ -17,11 +17,11 @@ package resource
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 func TestMetadata_Clone_NilMaps(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	m := Metadata{
 		FullName: NewFullName("ns1", "rs1"),
@@ -29,11 +29,11 @@ func TestMetadata_Clone_NilMaps(t *testing.T) {
 	}
 
 	c := m.Clone()
-	g.Expect(m).To(Equal(c))
+	g.Expect(m).To(gomega.Equal(c))
 }
 
 func TestMetadata_Clone_NonNilMaps(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	m := Metadata{
 		FullName:    NewFullName("ns1", "rs1"),
@@ -43,5 +43,5 @@ func TestMetadata_Clone_NonNilMaps(t *testing.T) {
 	}
 
 	c := m.Clone()
-	g.Expect(m).To(Equal(c))
+	g.Expect(m).To(gomega.Equal(c))
 }

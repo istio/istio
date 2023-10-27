@@ -179,6 +179,16 @@ func (w *workload) Address() string {
 	return ip
 }
 
+func (w *workload) Addresses() []string {
+	w.mutex.Lock()
+	var addresses []string
+	for _, podIP := range w.pod.Status.PodIPs {
+		addresses = append(addresses, podIP.IP)
+	}
+	w.mutex.Unlock()
+	return addresses
+}
+
 func (w *workload) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequest) (echoClient.Responses, error) {
 	w.mutex.Lock()
 	c := w.client

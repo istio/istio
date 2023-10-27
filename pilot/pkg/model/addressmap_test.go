@@ -17,7 +17,7 @@ package model_test
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/cluster"
@@ -68,14 +68,14 @@ func TestAddressMapLen(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
-			g.Expect(c.newMap().Len()).To(Equal(c.expected))
+			g := gomega.NewWithT(t)
+			g.Expect(c.newMap().Len()).To(gomega.Equal(c.expected))
 		})
 	}
 }
 
 func TestAddressMapGetAddressesFor(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	m := model.AddressMap{
 		Addresses: map[cluster.ID][]string{
@@ -84,33 +84,33 @@ func TestAddressMapGetAddressesFor(t *testing.T) {
 		},
 	}
 
-	g.Expect(m.GetAddressesFor(c1ID)).To(Equal(c1Addresses))
-	g.Expect(m.GetAddressesFor(c2ID)).To(Equal(c2Addresses))
+	g.Expect(m.GetAddressesFor(c1ID)).To(gomega.Equal(c1Addresses))
+	g.Expect(m.GetAddressesFor(c2ID)).To(gomega.Equal(c2Addresses))
 }
 
 func TestAddressMapSetAddressesFor(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	m := model.AddressMap{}
 	m.SetAddressesFor(c1ID, c1Addresses)
 	m.SetAddressesFor(c2ID, c2Addresses)
 
-	g.Expect(m.GetAddressesFor(c1ID)).To(Equal(c1Addresses))
-	g.Expect(m.GetAddressesFor(c2ID)).To(Equal(c2Addresses))
+	g.Expect(m.GetAddressesFor(c1ID)).To(gomega.Equal(c1Addresses))
+	g.Expect(m.GetAddressesFor(c2ID)).To(gomega.Equal(c2Addresses))
 }
 
 func TestAddressMapAddAddressesFor(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	m := model.AddressMap{}
 	m.SetAddressesFor(c1ID, c1Addresses)
 	m.AddAddressesFor(c1ID, []string{"1.1.1.3", "1.1.1.4"})
 
-	g.Expect(m.GetAddressesFor(c1ID)).To(Equal([]string{"1.1.1.1", "1.1.1.2", "1.1.1.3", "1.1.1.4"}))
+	g.Expect(m.GetAddressesFor(c1ID)).To(gomega.Equal([]string{"1.1.1.1", "1.1.1.2", "1.1.1.3", "1.1.1.4"}))
 }
 
 func TestAddressMapForEach(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	m := model.AddressMap{
 		Addresses: map[cluster.ID][]string{
@@ -124,6 +124,6 @@ func TestAddressMapForEach(t *testing.T) {
 		found[id] = addrs
 	})
 
-	g.Expect(found[c1ID]).To(Equal(c1Addresses))
-	g.Expect(found[c2ID]).To(Equal(c2Addresses))
+	g.Expect(found[c1ID]).To(gomega.Equal(c1Addresses))
+	g.Expect(found[c2ID]).To(gomega.Equal(c2Addresses))
 }

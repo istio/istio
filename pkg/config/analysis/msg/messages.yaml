@@ -601,3 +601,27 @@ messages:
         type: int
       - name: selector
         type: string
+
+  - name: "InvalidExternalControlPlaneConfig"
+    code: IST0163
+    level: Warning
+    description: "Address for the ingress gateway on the external control plane is not valid"
+    template: "The hostname (%s) that was provided for the webhook (%s) to reach the ingress gateway on the external control plane cluster %s. Traffic may not flow properly."
+    args:
+      - name: hostname
+        type: string
+      - name: webhook
+        type: string
+      - name: msg
+        type: string
+
+  - name: "ExternalControlPlaneAddressIsNotAHostname"
+    code: IST0164
+    level: Info
+    description: "Address for the ingress gateway on the external control plane is an IP address and not a hostname"
+    template: "The address (%s) that was provided for the webhook (%s) to reach the ingress gateway on the external control plane cluster is an IP address. This is not recommended for a production environment."
+    args:
+      - name: hostname
+        type: string
+      - name: webhook
+        type: string

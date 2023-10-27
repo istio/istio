@@ -263,7 +263,6 @@ func TestInboundListenerConfig(t *testing.T) {
 		httpNetworkFilters := []string{
 			xdsfilters.MxFilterName,
 			"istio-system.wasm-network-authn",
-			xdsfilters.AuthnFilterName,
 			"istio-system.wasm-network-authz",
 			"istio-system.wasm-network-stats",
 			wellknown.HTTPConnectionManager,
@@ -274,7 +273,6 @@ func TestInboundListenerConfig(t *testing.T) {
 			wellknown.RoleBasedAccessControl,
 			wellknown.ExternalAuthorization,
 			"istio-system.wasm-network-authn",
-			xdsfilters.AuthnFilterName,
 			"istio-system.wasm-network-authz",
 			wellknown.RoleBasedAccessControl,
 			"istio-system.wasm-network-stats",
@@ -2675,8 +2673,8 @@ func verifyFilterChainMatch(t *testing.T, listener *listener.Listener) {
 		xdsfilters.Cors.Name,
 		wellknown.Router,
 	}
-	httpNetworkFilters := []string{xdsfilters.MxFilterName, xdsfilters.AuthnFilterName, wellknown.HTTPConnectionManager}
-	tcpNetworkFilters := []string{xdsfilters.MxFilterName, xdsfilters.AuthnFilterName, wellknown.TCPProxy}
+	httpNetworkFilters := []string{xdsfilters.MxFilterName, wellknown.HTTPConnectionManager}
+	tcpNetworkFilters := []string{xdsfilters.MxFilterName, wellknown.TCPProxy}
 	verifyInboundFilterChains(t, listener, httpFilters, httpNetworkFilters, tcpNetworkFilters)
 }
 

@@ -83,8 +83,8 @@ func NewListenerBuilder(node *model.Proxy, push *model.PushContext) *ListenerBui
 		push: push,
 	}
 	builder.authnBuilder = authn.NewBuilder(push, node)
-	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node)
-	builder.authzCustomBuilder = authz.NewBuilder(authz.Custom, push, node)
+	builder.authzBuilder = authz.NewBuilder(authz.Local, push, node, node.Type == model.Waypoint)
+	builder.authzCustomBuilder = authz.NewBuilder(authz.Custom, push, node, node.Type == model.Waypoint)
 	return builder
 }
 

@@ -8,4 +8,4 @@ opentracing==1.2.2
 opentracing-instrumentation==2.4.3
 prometheus-client==0.17.0
 simplejson==3.19.1
-urllib3==2.0.6
+urllib3==2.0.7

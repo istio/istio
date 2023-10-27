@@ -28,7 +28,7 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	"github.com/google/go-cmp/cmp"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/testing/protocmp"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -100,7 +100,7 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 			testName = "override"
 		}
 		t.Run(testName, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			clusters := xdstest.ExtractClusters(buildTestClusters(clusterTest{
 				t:               t,
 				serviceHostname: "*.example.org",
@@ -119,26 +119,26 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 				if cluster == nil {
 					t.Fatalf("cluster %v not found", c)
 				}
-				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(Equal(1))
+				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(gomega.Equal(1))
 				thresholds := cluster.CircuitBreakers.Thresholds[0]
 
 				if s == nil {
 					// Assume the correct defaults for this direction.
-					g.Expect(thresholds).To(Equal(getDefaultCircuitBreakerThresholds()))
+					g.Expect(thresholds).To(gomega.Equal(getDefaultCircuitBreakerThresholds()))
 				} else {
 					// Verify that the values were set correctly.
-					g.Expect(thresholds.MaxPendingRequests).To(Not(BeNil()))
-					g.Expect(thresholds.MaxPendingRequests.Value).To(Equal(uint32(s.Http.Http1MaxPendingRequests)))
-					g.Expect(thresholds.MaxRequests).To(Not(BeNil()))
-					g.Expect(thresholds.MaxRequests.Value).To(Equal(uint32(s.Http.Http2MaxRequests)))
-					g.Expect(cluster.TypedExtensionProtocolOptions).To(Not(BeNil()))
+					g.Expect(thresholds.MaxPendingRequests).To(gomega.Not(gomega.BeNil()))
+					g.Expect(thresholds.MaxPendingRequests.Value).To(gomega.Equal(uint32(s.Http.Http1MaxPendingRequests)))
+					g.Expect(thresholds.MaxRequests).To(gomega.Not(gomega.BeNil()))
+					g.Expect(thresholds.MaxRequests.Value).To(gomega.Equal(uint32(s.Http.Http2MaxRequests)))
+					g.Expect(cluster.TypedExtensionProtocolOptions).To(gomega.Not(gomega.BeNil()))
 					anyOptions := cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
-					g.Expect(anyOptions).To(Not(BeNil()))
+					g.Expect(anyOptions).To(gomega.Not(gomega.BeNil()))
 					httpProtocolOptions := &http.HttpProtocolOptions{}
 					anyOptions.UnmarshalTo(httpProtocolOptions)
-					g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue()).To(Equal(uint32(s.Http.MaxRequestsPerConnection)))
-					g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
-					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))
+					g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue()).To(gomega.Equal(uint32(s.Http.MaxRequestsPerConnection)))
+					g.Expect(thresholds.MaxRetries).To(gomega.Not(gomega.BeNil()))
+					g.Expect(thresholds.MaxRetries.Value).To(gomega.Equal(uint32(s.Http.MaxRetries)))
 				}
 			}
 		})
@@ -198,7 +198,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		}
 		testName := fmt.Sprintf("%s-%s-%s", tc.clusterName, settingsName, tc.proxyType)
 		t.Run(testName, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			clusters := xdstest.ExtractClusters(buildTestClusters(clusterTest{
 				t: t, serviceHostname: "*.example.org", nodeType: tc.proxyType, mesh: testMesh(),
 				destRule: &networking.DestinationRule{
@@ -208,7 +208,7 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 					},
 				},
 			}))
-			g.Expect(len(clusters)).To(Equal(tc.clusters))
+			g.Expect(len(clusters)).To(gomega.Equal(tc.clusters))
 			c := clusters[tc.clusterName]
 
 			anyOptions := c.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
@@ -228,8 +228,8 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 			}
 
 			// Verify that the values were set correctly.
-			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Not(BeNil()))
-			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(Equal(durationpb.New(time.Duration(15000000000))))
+			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(gomega.Not(gomega.BeNil()))
+			g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.IdleTimeout).To(gomega.Equal(durationpb.New(time.Duration(15000000000))))
 		})
 	}
 }
@@ -441,7 +441,7 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 
@@ -468,9 +468,9 @@ func TestBuildGatewayClustersWithRingHashLb(t *testing.T) {
 					},
 				}))
 
-			g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_RING_HASH))
-			g.Expect(c.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(Equal(uint64(tt.expectedRingSize)))
-			g.Expect(c.ConnectTimeout).To(Equal(durationpb.New(time.Duration(10000000001))))
+			g.Expect(c.LbPolicy).To(gomega.Equal(cluster.Cluster_RING_HASH))
+			g.Expect(c.GetRingHashLbConfig().GetMinimumRingSize().GetValue()).To(gomega.Equal(uint64(tt.expectedRingSize)))
+			g.Expect(c.ConnectTimeout).To(gomega.Equal(durationpb.New(time.Duration(10000000001))))
 		})
 	}
 }
@@ -662,10 +662,10 @@ func TestBuildSidecarClustersWithIstioMutualAndSNI(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.sni, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 
 			c := xdstest.ExtractCluster("outbound|8080|foobar|foo.example.org", buildSniTestClustersForSidecar(t, tt.sni))
-			g.Expect(getTLSContext(t, c).GetSni()).To(Equal(tt.expected))
+			g.Expect(getTLSContext(t, c).GetSni()).To(gomega.Equal(tt.expected))
 		})
 	}
 }
@@ -675,7 +675,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	expectedClientCertPath := "/clientCertFromNodeMetadata.pem"
 	expectedRootCertPath := "/clientRootCertFromNodeMetadata.pem"
 
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	envoyMetadata := &model.NodeMetadata{
 		TLSClientCertChain: expectedClientCertPath,
@@ -723,7 +723,7 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 
 	// per the docs: default values will be applied to fields omitted in port-level traffic policies rather than inheriting
 	// settings specified at the destination level
-	g.Expect(getTLSContext(t, xdstest.ExtractCluster("outbound|8080|foobar|foo.example.org", clusters))).To(BeNil())
+	g.Expect(getTLSContext(t, xdstest.ExtractCluster("outbound|8080|foobar|foo.example.org", clusters))).To(gomega.BeNil())
 
 	expected := []string{
 		"outbound|8080||foo.example.org",
@@ -733,14 +733,14 @@ func TestBuildClustersWithMutualTlsAndNodeMetadataCertfileOverrides(t *testing.T
 	for _, e := range expected {
 		c := xdstest.ExtractCluster(e, clusters)
 		tlsContext := getTLSContext(t, c)
-		g.Expect(tlsContext).NotTo(BeNil())
+		g.Expect(tlsContext).NotTo(gomega.BeNil())
 
 		rootSdsConfig := tlsContext.CommonTlsContext.GetCombinedValidationContext().GetValidationContextSdsSecretConfig()
-		g.Expect(rootSdsConfig.GetName()).To(Equal("file-root:/clientRootCertFromNodeMetadata.pem"))
+		g.Expect(rootSdsConfig.GetName()).To(gomega.Equal("file-root:/clientRootCertFromNodeMetadata.pem"))
 
 		certSdsConfig := tlsContext.CommonTlsContext.GetTlsCertificateSdsSecretConfigs()
-		g.Expect(certSdsConfig).To(HaveLen(1))
-		g.Expect(certSdsConfig[0].GetName()).To(Equal("file-cert:/clientCertFromNodeMetadata.pem~/clientKeyFromNodeMetadata.pem"))
+		g.Expect(certSdsConfig).To(gomega.HaveLen(1))
+		g.Expect(certSdsConfig[0].GetName()).To(gomega.Equal("file-cert:/clientCertFromNodeMetadata.pem~/clientKeyFromNodeMetadata.pem"))
 	}
 }
 
@@ -880,7 +880,7 @@ func buildTestClustersWithTCPKeepalive(t testing.TB, configType ConfigType) []*c
 }
 
 func TestClusterMetadata(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	destRule := &networking.DestinationRule{
 		Host: "*.example.org",
@@ -905,59 +905,59 @@ func TestClusterMetadata(t *testing.T) {
 	for _, cluster := range clusters {
 		if strings.HasPrefix(cluster.Name, "outbound") || strings.HasPrefix(cluster.Name, "inbound") {
 			clustersWithMetadata++
-			g.Expect(cluster.Metadata).NotTo(BeNil())
+			g.Expect(cluster.Metadata).NotTo(gomega.BeNil())
 			md := cluster.Metadata
-			g.Expect(md.FilterMetadata[util.IstioMetadataKey]).NotTo(BeNil())
+			g.Expect(md.FilterMetadata[util.IstioMetadataKey]).NotTo(gomega.BeNil())
 			istio := md.FilterMetadata[util.IstioMetadataKey]
-			g.Expect(istio.Fields["config"]).NotTo(BeNil())
+			g.Expect(istio.Fields["config"]).NotTo(gomega.BeNil())
 			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
+			g.Expect(dr.GetStringValue()).To(gomega.Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
 			if strings.Contains(cluster.Name, "Subset") {
 				foundSubset = true
 				sub := istio.Fields["subset"]
-				g.Expect(sub.GetStringValue()).To(HavePrefix("Subset "))
+				g.Expect(sub.GetStringValue()).To(gomega.HavePrefix("Subset "))
 			} else {
 				_, ok := istio.Fields["subset"]
-				g.Expect(ok).To(Equal(false))
+				g.Expect(ok).To(gomega.Equal(false))
 			}
 		} else {
-			g.Expect(cluster.Metadata).To(BeNil())
+			g.Expect(cluster.Metadata).To(gomega.BeNil())
 		}
 	}
 
-	g.Expect(foundSubset).To(Equal(true))
-	g.Expect(clustersWithMetadata).To(Equal(len(destRule.Subsets) + 6)) // outbound  outbound subsets  inbound
+	g.Expect(foundSubset).To(gomega.Equal(true))
+	g.Expect(clustersWithMetadata).To(gomega.Equal(len(destRule.Subsets) + 6)) // outbound  outbound subsets  inbound
 
 	sniClusters := buildSniDnatTestClustersForGateway(t, "test-sni")
 
 	foundSNISubset := false
 	for _, cluster := range sniClusters {
 		if strings.HasPrefix(cluster.Name, "outbound") {
-			g.Expect(cluster.Metadata).NotTo(BeNil())
+			g.Expect(cluster.Metadata).NotTo(gomega.BeNil())
 			md := cluster.Metadata
-			g.Expect(md.FilterMetadata[util.IstioMetadataKey]).NotTo(BeNil())
+			g.Expect(md.FilterMetadata[util.IstioMetadataKey]).NotTo(gomega.BeNil())
 			istio := md.FilterMetadata[util.IstioMetadataKey]
-			g.Expect(istio.Fields["config"]).NotTo(BeNil())
+			g.Expect(istio.Fields["config"]).NotTo(gomega.BeNil())
 			dr := istio.Fields["config"]
-			g.Expect(dr.GetStringValue()).To(Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
+			g.Expect(dr.GetStringValue()).To(gomega.Equal("/apis/networking.istio.io/v1alpha3/namespaces//destination-rule/acme"))
 			if strings.Contains(cluster.Name, "foobar") {
 				foundSNISubset = true
 				sub := istio.Fields["subset"]
-				g.Expect(sub.GetStringValue()).To(Equal("foobar"))
+				g.Expect(sub.GetStringValue()).To(gomega.Equal("foobar"))
 			} else {
 				_, ok := istio.Fields["subset"]
-				g.Expect(ok).To(Equal(false))
+				g.Expect(ok).To(gomega.Equal(false))
 			}
 		} else {
-			g.Expect(cluster.Metadata).To(BeNil())
+			g.Expect(cluster.Metadata).To(gomega.BeNil())
 		}
 	}
 
-	g.Expect(foundSNISubset).To(Equal(true))
+	g.Expect(foundSNISubset).To(gomega.Equal(true))
 }
 
 func TestDisablePanicThresholdAsDefault(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	outliers := []*networking.OutlierDetection{
 		// Unset MinHealthPercent
@@ -980,13 +980,13 @@ func TestDisablePanicThresholdAsDefault(t *testing.T) {
 					},
 				},
 			}))
-		g.Expect(c.CommonLbConfig.HealthyPanicThreshold).To(Not(BeNil()))
-		g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(0)))
+		g.Expect(c.CommonLbConfig.HealthyPanicThreshold).To(gomega.Not(gomega.BeNil()))
+		g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(gomega.Equal(float64(0)))
 	}
 }
 
 func TestApplyOutlierDetection(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	tests := []struct {
 		name string
@@ -1092,13 +1092,13 @@ func TestApplyOutlierDetection(t *testing.T) {
 						},
 					},
 				}))
-			g.Expect(c.OutlierDetection).To(Equal(tt.o))
+			g.Expect(c.OutlierDetection).To(gomega.Equal(tt.o))
 		})
 	}
 }
 
 func TestStatNamePattern(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	statConfigMesh := &meshconfig.MeshConfig{
 		ConnectTimeout: &durationpb.Duration{
@@ -1119,8 +1119,8 @@ func TestStatNamePattern(t *testing.T) {
 			Host: "*.example.org",
 		},
 	})
-	g.Expect(xdstest.ExtractCluster("outbound|8080||*.example.org", clusters).AltStatName).To(Equal("*.example.org_default_8080"))
-	g.Expect(xdstest.ExtractCluster("inbound|10001||", clusters).AltStatName).To(Equal("LocalService_*.example.org"))
+	g.Expect(xdstest.ExtractCluster("outbound|8080||*.example.org", clusters).AltStatName).To(gomega.Equal("*.example.org_default_8080"))
+	g.Expect(xdstest.ExtractCluster("inbound|10001||", clusters).AltStatName).To(gomega.Equal("LocalService_*.example.org"))
 }
 
 func TestDuplicateClusters(t *testing.T) {
@@ -1134,7 +1134,7 @@ func TestDuplicateClusters(t *testing.T) {
 }
 
 func TestSidecarLocalityLB(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	// Distribute locality loadbalancing setting
 	mesh := testMesh()
 	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
@@ -1170,21 +1170,21 @@ func TestSidecarLocalityLB(t *testing.T) {
 	if c.CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", c)
 	}
-	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(gomega.Equal(float64(10)))
 
-	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
+	g.Expect(len(c.LoadAssignment.Endpoints)).To(gomega.Equal(3))
 	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
 		locality := localityLbEndpoint.Locality
 		if locality.Region == "region1" && locality.SubZone == "subzone1" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(34)))
-			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(34)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(40)))
 		} else if locality.Region == "region1" && locality.SubZone == "subzone2" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(17)))
-			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(17)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(20)))
 		} else if locality.Region == "region2" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(50)))
-			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
-			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(50)))
+			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(gomega.Equal(1))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(40)))
 		}
 	}
 
@@ -1213,23 +1213,23 @@ func TestSidecarLocalityLB(t *testing.T) {
 	if c.CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", c)
 	}
-	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(gomega.Equal(float64(10)))
 
-	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
+	g.Expect(len(c.LoadAssignment.Endpoints)).To(gomega.Equal(3))
 	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
 		locality := localityLbEndpoint.Locality
 		if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone1" {
-			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(0)))
+			g.Expect(localityLbEndpoint.Priority).To(gomega.Equal(uint32(0)))
 		} else if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone2" {
-			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(1)))
+			g.Expect(localityLbEndpoint.Priority).To(gomega.Equal(uint32(1)))
 		} else if locality.Region == "region2" {
-			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(2)))
+			g.Expect(localityLbEndpoint.Priority).To(gomega.Equal(uint32(2)))
 		}
 	}
 }
 
 func TestLocalityLBDestinationRuleOverride(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	mesh := testMesh()
 	// Distribute locality loadbalancing setting
 	mesh.LocalityLbSetting = &networking.LocalityLoadBalancerSetting{
@@ -1276,27 +1276,27 @@ func TestLocalityLBDestinationRuleOverride(t *testing.T) {
 	if c.CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", c)
 	}
-	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(gomega.Equal(float64(10)))
 
-	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
+	g.Expect(len(c.LoadAssignment.Endpoints)).To(gomega.Equal(3))
 	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
 		locality := localityLbEndpoint.Locality
 		if locality.Region == "region1" && locality.SubZone == "subzone1" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
-			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(40)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(40)))
 		} else if locality.Region == "region1" && locality.SubZone == "subzone2" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
-			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(20)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(20)))
 		} else if locality.Region == "region2" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
-			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
-			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(40)))
+			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(gomega.Equal(1))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(40)))
 		}
 	}
 }
 
 func TestGatewayLocalityLB(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	// Test distribute
 	// Distribute locality loadbalancing setting
@@ -1337,20 +1337,20 @@ func TestGatewayLocalityLB(t *testing.T) {
 	if c.CommonLbConfig == nil {
 		t.Errorf("CommonLbConfig should be set for cluster %+v", c)
 	}
-	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
-	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(gomega.Equal(float64(10)))
+	g.Expect(len(c.LoadAssignment.Endpoints)).To(gomega.Equal(3))
 	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
 		locality := localityLbEndpoint.Locality
 		if locality.Region == "region1" && locality.SubZone == "subzone1" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(34)))
-			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(34)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(40)))
 		} else if locality.Region == "region1" && locality.SubZone == "subzone2" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(17)))
-			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(20)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(17)))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(20)))
 		} else if locality.Region == "region2" {
-			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(Equal(uint32(50)))
-			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(Equal(1))
-			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(Equal(uint32(40)))
+			g.Expect(localityLbEndpoint.LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(50)))
+			g.Expect(len(localityLbEndpoint.LbEndpoints)).To(gomega.Equal(1))
+			g.Expect(localityLbEndpoint.LbEndpoints[0].LoadBalancingWeight.GetValue()).To(gomega.Equal(uint32(40)))
 		}
 	}
 
@@ -1380,17 +1380,17 @@ func TestGatewayLocalityLB(t *testing.T) {
 	if c.CommonLbConfig == nil {
 		t.Fatalf("CommonLbConfig should be set for cluster %+v", c)
 	}
-	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(Equal(float64(10)))
+	g.Expect(c.CommonLbConfig.HealthyPanicThreshold.GetValue()).To(gomega.Equal(float64(10)))
 
-	g.Expect(len(c.LoadAssignment.Endpoints)).To(Equal(3))
+	g.Expect(len(c.LoadAssignment.Endpoints)).To(gomega.Equal(3))
 	for _, localityLbEndpoint := range c.LoadAssignment.Endpoints {
 		locality := localityLbEndpoint.Locality
 		if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone1" {
-			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(0)))
+			g.Expect(localityLbEndpoint.Priority).To(gomega.Equal(uint32(0)))
 		} else if locality.Region == "region1" && locality.Zone == "zone1" && locality.SubZone == "subzone2" {
-			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(1)))
+			g.Expect(localityLbEndpoint.Priority).To(gomega.Equal(uint32(1)))
 		} else if locality.Region == "region2" {
-			g.Expect(localityLbEndpoint.Priority).To(Equal(uint32(2)))
+			g.Expect(localityLbEndpoint.Priority).To(gomega.Equal(uint32(2)))
 		}
 	}
 }
@@ -1436,7 +1436,7 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 }
 
 func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	clusters := buildTestClusters(clusterTest{
 		t:                 t,
@@ -1458,12 +1458,12 @@ func TestClusterDiscoveryTypeAndLbPolicyRoundRobin(t *testing.T) {
 
 	c := xdstest.ExtractCluster("outbound|8080||*.example.org",
 		clusters)
-	g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_CLUSTER_PROVIDED))
-	g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
+	g.Expect(c.LbPolicy).To(gomega.Equal(cluster.Cluster_CLUSTER_PROVIDED))
+	g.Expect(c.GetClusterDiscoveryType()).To(gomega.Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
 }
 
 func TestSlowStartConfig(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 	testcases := []struct {
 		name                string
 		lbType              networking.LoadBalancerSettings_SimpleLB
@@ -1494,15 +1494,15 @@ func TestSlowStartConfig(t *testing.T) {
 				clusters)
 
 			if !test.enableSlowStartMode {
-				g.Expect(c.GetLbConfig()).To(BeNil())
+				g.Expect(c.GetLbConfig()).To(gomega.BeNil())
 			} else {
 				switch c.LbPolicy {
 				case cluster.Cluster_ROUND_ROBIN:
-					g.Expect(c.GetRoundRobinLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(15)))
+					g.Expect(c.GetRoundRobinLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(gomega.Equal(int64(15)))
 				case cluster.Cluster_LEAST_REQUEST:
-					g.Expect(c.GetLeastRequestLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(Equal(int64(15)))
+					g.Expect(c.GetLeastRequestLbConfig().GetSlowStartConfig().GetSlowStartWindow().Seconds).To(gomega.Equal(int64(15)))
 				default:
-					g.Expect(c.GetLbConfig()).To(BeNil())
+					g.Expect(c.GetLbConfig()).To(gomega.BeNil())
 				}
 			}
 		})
@@ -1525,7 +1525,7 @@ func getSlowStartTrafficPolicy(slowStartEnabled bool, lbType networking.LoadBala
 }
 
 func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	clusters := buildTestClusters(clusterTest{
 		t:                 t,
@@ -1546,9 +1546,9 @@ func TestClusterDiscoveryTypeAndLbPolicyPassthrough(t *testing.T) {
 	})
 
 	c := xdstest.ExtractCluster("outbound|8080||*.example.org", clusters)
-	g.Expect(c.LbPolicy).To(Equal(cluster.Cluster_CLUSTER_PROVIDED))
-	g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
-	g.Expect(c.EdsClusterConfig).To(BeNil())
+	g.Expect(c.LbPolicy).To(gomega.Equal(cluster.Cluster_CLUSTER_PROVIDED))
+	g.Expect(c.GetClusterDiscoveryType()).To(gomega.Equal(&cluster.Cluster_Type{Type: cluster.Cluster_ORIGINAL_DST}))
+	g.Expect(c.EdsClusterConfig).To(gomega.BeNil())
 }
 
 func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
@@ -1662,7 +1662,7 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			cfgs := []config.Config{}
 			if c.destRule != nil {
 				cfgs = append(cfgs, config.Config{
@@ -1684,11 +1684,11 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			if c.filter != nil {
 				clusters = xdstest.FilterClusters(clusters, c.filter)
 			}
-			g.Expect(len(clusters)).ShouldNot(Equal(0))
+			g.Expect(len(clusters)).ShouldNot(gomega.Equal(0))
 
 			for _, cluster := range clusters {
-				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
-				g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(c.expected))
+				g.Expect(cluster.CircuitBreakers).NotTo(gomega.BeNil())
+				g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(gomega.Equal(c.expected))
 			}
 		})
 	}
@@ -1782,7 +1782,7 @@ func TestInboundClustersPassThroughBindIPs(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			test.SetForTest(t, &features.EnableDualStack, c.dualStack)
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			cg := NewConfigGenTest(t, TestOptions{
 				Services:  []*model.Service{service},
 				Instances: instances,
@@ -1792,15 +1792,15 @@ func TestInboundClustersPassThroughBindIPs(t *testing.T) {
 			xdstest.ValidateClusters(t, clusters)
 
 			clusters = xdstest.FilterClusters(clusters, inboundFilter)
-			g.Expect(len(clusters)).ShouldNot(Equal(0))
+			g.Expect(len(clusters)).ShouldNot(gomega.Equal(0))
 
 			for _, cluster := range clusters {
-				g.Expect(cluster.UpstreamBindConfig.SourceAddress.Address).To(Equal(c.expectedSrcAddr))
+				g.Expect(cluster.UpstreamBindConfig.SourceAddress.Address).To(gomega.Equal(c.expectedSrcAddr))
 				if c.expectedExtraSrcAddr != "" {
-					g.Expect(len(cluster.UpstreamBindConfig.ExtraSourceAddresses)).To(Equal(1))
-					g.Expect(cluster.UpstreamBindConfig.ExtraSourceAddresses[0].Address.Address).To(Equal(c.expectedExtraSrcAddr))
+					g.Expect(len(cluster.UpstreamBindConfig.ExtraSourceAddresses)).To(gomega.Equal(1))
+					g.Expect(cluster.UpstreamBindConfig.ExtraSourceAddresses[0].Address.Address).To(gomega.Equal(c.expectedExtraSrcAddr))
 				} else {
-					g.Expect(len(cluster.UpstreamBindConfig.ExtraSourceAddresses)).To(Equal(0))
+					g.Expect(len(cluster.UpstreamBindConfig.ExtraSourceAddresses)).To(gomega.Equal(0))
 				}
 
 			}
@@ -1858,7 +1858,7 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 			test.SetForTest(t, &features.EnableRedisFilter, tt.redisEnabled)
 			cg := NewConfigGenTest(t, TestOptions{Services: []*model.Service{service}})
@@ -1866,14 +1866,14 @@ func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 			xdstest.ValidateClusters(t, clusters)
 
 			c := xdstest.ExtractCluster("outbound|6379||redis.com", clusters)
-			g.Expect(c.LbPolicy).To(Equal(tt.lbType))
-			g.Expect(c.GetClusterDiscoveryType()).To(Equal(&cluster.Cluster_Type{Type: tt.discoveryType}))
+			g.Expect(c.LbPolicy).To(gomega.Equal(tt.lbType))
+			g.Expect(c.GetClusterDiscoveryType()).To(gomega.Equal(&cluster.Cluster_Type{Type: tt.discoveryType}))
 		})
 	}
 }
 
 func TestAutoMTLSClusterSubsets(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	destRule := &networking.DestinationRule{
 		Host: TestServiceNHostname,
@@ -1908,18 +1908,18 @@ func TestAutoMTLSClusterSubsets(t *testing.T) {
 	clusters := buildTestClusters(clusterTest{t: t, serviceHostname: TestServiceNHostname, nodeType: model.SidecarProxy, mesh: mesh, destRule: destRule})
 
 	tlsContext := getTLSContext(t, clusters[1])
-	g.Expect(tlsContext).ToNot(BeNil())
-	g.Expect(tlsContext.GetSni()).To(Equal("custom.sni.com"))
-	g.Expect(clusters[1].TransportSocketMatches).To(HaveLen(0))
+	g.Expect(tlsContext).ToNot(gomega.BeNil())
+	g.Expect(tlsContext.GetSni()).To(gomega.Equal("custom.sni.com"))
+	g.Expect(clusters[1].TransportSocketMatches).To(gomega.HaveLen(0))
 
 	for _, i := range []int{0, 2, 3} {
-		g.Expect(getTLSContext(t, clusters[i])).To(BeNil())
-		g.Expect(clusters[i].TransportSocketMatches).To(HaveLen(2))
+		g.Expect(getTLSContext(t, clusters[i])).To(gomega.BeNil())
+		g.Expect(clusters[i].TransportSocketMatches).To(gomega.HaveLen(2))
 	}
 }
 
 func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	destRule := &networking.DestinationRule{
 		Host: TestServiceNHostname,
@@ -1969,16 +1969,16 @@ func TestAutoMTLSClusterIgnoreWorkloadLevelPeerAuthn(t *testing.T) {
 	// No policy visible, auto-mTLS should set to PERMISSIVE.
 	// For port 8080, (m)TLS settings is automatically added, thus its cluster should have TLS context.
 	// TlsContext is nil because we use socket match instead
-	g.Expect(getTLSContext(t, clusters[0])).To(BeNil())
-	g.Expect(clusters[0].TransportSocketMatches).To(HaveLen(2))
+	g.Expect(getTLSContext(t, clusters[0])).To(gomega.BeNil())
+	g.Expect(clusters[0].TransportSocketMatches).To(gomega.HaveLen(2))
 
 	// For 9090, use the TLS settings are explicitly specified in DR (which disable TLS)
-	g.Expect(getTLSContext(t, clusters[1])).To(BeNil())
+	g.Expect(getTLSContext(t, clusters[1])).To(gomega.BeNil())
 
 	// Sanity check: make sure TLS is not accidentally added to other clusters.
 	for i := 2; i < len(clusters); i++ {
 		cluster := clusters[i]
-		g.Expect(getTLSContext(t, cluster)).To(BeNil())
+		g.Expect(getTLSContext(t, cluster)).To(gomega.BeNil())
 	}
 }
 
@@ -2088,7 +2088,7 @@ func TestApplyLoadBalancer(t *testing.T) {
 }
 
 func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	service := &model.Service{
 		Hostname: host.Name("static.test"),
@@ -2112,7 +2112,8 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	xdstest.ValidateClusters(t, clusters)
 
 	// Expect to ignore STRICT_DNS cluster without endpoints.
-	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster"}))
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).
+		To(gomega.Equal([]string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster"}))
 }
 
 func TestEnvoyFilterPatching(t *testing.T) {
@@ -2775,7 +2776,7 @@ func TestVerifyCertAtClient(t *testing.T) {
 }
 
 func TestBuildDeltaClusters(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	testService1 := &model.Service{
 		Hostname: host.Name("test.com"),
@@ -3222,14 +3223,14 @@ func TestBuildDeltaClusters(t *testing.T) {
 			if delta != tc.usedDelta {
 				t.Errorf("un expected delta, want %v got %v", tc.usedDelta, delta)
 			}
-			g.Expect(removed).To(Equal(tc.removedClusters))
-			g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal(tc.expectedClusters))
+			g.Expect(removed).To(gomega.Equal(tc.removedClusters))
+			g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(gomega.Equal(tc.expectedClusters))
 		})
 	}
 }
 
 func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
-	g := NewWithT(t)
+	g := gomega.NewWithT(t)
 
 	service := &model.Service{
 		Hostname: host.Name("static.test"),
@@ -3256,7 +3257,7 @@ func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
 	// Expect sds_external cluster be added if credentialSocket exists
 	clusters := cg.Clusters(proxy)
 	xdstest.ValidateClusters(t, clusters)
-	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(gomega.Equal([]string{
 		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", security.SDSExternalClusterName,
 	}))
 
@@ -3264,7 +3265,7 @@ func TestBuildStaticClusterWithCredentialSocket(t *testing.T) {
 	proxy = cg.SetupProxy(nil)
 	clusters = cg.Clusters(proxy)
 	xdstest.ValidateClusters(t, clusters)
-	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(gomega.Equal([]string{
 		"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
 	}))
 }

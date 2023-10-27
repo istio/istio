@@ -17,7 +17,7 @@ package namespace
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 func TestConfigRevisionOverwrite(t *testing.T) {
@@ -63,8 +63,8 @@ func TestConfigRevisionOverwrite(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			tc.cfg.overwriteRevisionIfEmpty(tc.revision)
-			g := NewWithT(t)
-			g.Expect(tc.cfg.Revision).Should(Equal(tc.wantRevision))
+			g := gomega.NewWithT(t)
+			g.Expect(tc.cfg.Revision).Should(gomega.Equal(tc.wantRevision))
 		})
 	}
 }

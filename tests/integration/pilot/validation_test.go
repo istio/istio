@@ -18,6 +18,7 @@
 package pilot
 
 import (
+	"fmt"
 	"path"
 	"strings"
 	"testing"
@@ -25,6 +26,7 @@ import (
 	"gopkg.in/square/go-jose.v2/json"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/test/datasets/validation"
 	"istio.io/istio/pkg/test/framework"
@@ -34,14 +36,6 @@ import (
 )
 
 type testData string
-
-func (t testData) isValid() bool {
-	return !strings.HasSuffix(string(t), "-invalid.yaml")
-}
-
-func (t testData) isSkipped() bool {
-	return strings.HasSuffix(string(t), "-skipped.yaml")
-}
 
 func (t testData) load() (string, error) {
 	by, err := validation.FS.ReadFile(path.Join("dataset", string(t)))
@@ -87,52 +81,55 @@ func TestValidation(t *testing.T) {
 			for _, cluster := range t.Clusters().Configs() {
 				for i := range dataset {
 					d := dataset[i]
-
-					t.NewSubTest(string(d)).RunParallel(func(t framework.TestContext) {
-						if d.isSkipped() {
-							t.SkipNow()
-							return
-						}
-
-						ym, err := d.load()
-						if err != nil {
-							t.Fatalf("Unable to load test data: %v", err)
-						}
-
-						ns := namespace.NewOrFail(t, t, namespace.Config{
-							Prefix: "validation",
-						})
-
-						applyFiles := t.WriteYAMLOrFail(t, "apply", ym)
-						dryRunErr := cluster.ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
-
-						switch {
-						case dryRunErr != nil && d.isValid():
-							if denied(dryRunErr) {
-								t.Fatalf("got unexpected for valid config: %v", dryRunErr)
-							} else {
-								t.Fatalf("got unexpected unknown error for valid config: %v", dryRunErr)
+					for _, valid := range []bool{true, false} {
+						t.NewSubTest(string(d) + "-" + fmt.Sprint(valid)).Run(func(t framework.TestContext) {
+							ym, err := d.load()
+							if err != nil {
+								t.Fatalf("Unable to load test data: %v", err)
 							}
-						case dryRunErr == nil && !d.isValid():
-							t.Fatalf("got unexpected success for invalid config")
-						case dryRunErr != nil && !d.isValid():
-							if !denied(dryRunErr) {
-								t.Fatalf("config request denied for wrong reason: %v", dryRunErr)
+
+							if !valid {
+								ym, err = yml.ApplyAnnotation(ym, constants.AlwaysReject, "true")
+								if err != nil {
+									t.Fatal(err)
+								}
 							}
-						}
 
-						wetRunErr := cluster.ApplyYAMLFiles(ns.Name(), applyFiles...)
-						t.CleanupConditionally(func() {
-							cluster.DeleteYAMLFiles(ns.Name(), applyFiles...)
+							ns := namespace.NewOrFail(t, t, namespace.Config{
+								Prefix: "validation",
+							})
+
+							applyFiles := t.WriteYAMLOrFail(t, "apply", ym)
+							dryRunErr := cluster.ApplyYAMLFilesDryRun(ns.Name(), applyFiles...)
+
+							switch {
+							case dryRunErr != nil && valid:
+								if denied(dryRunErr) {
+									t.Fatalf("got unexpected for valid config: %v", dryRunErr)
+								} else {
+									t.Fatalf("got unexpected unknown error for valid config: %v", dryRunErr)
+								}
+							case dryRunErr == nil && !valid:
+								t.Fatalf("got unexpected success for invalid config")
+							case dryRunErr != nil && !valid:
+								if !denied(dryRunErr) {
+									t.Fatalf("config request denied for wrong reason: %v", dryRunErr)
+								}
+							}
+
+							wetRunErr := cluster.ApplyYAMLFiles(ns.Name(), applyFiles...)
+							t.CleanupConditionally(func() {
+								cluster.DeleteYAMLFiles(ns.Name(), applyFiles...)
+							})
+
+							if dryRunErr != nil && wetRunErr == nil {
+								t.Fatalf("dry run returned error, but wet run returned none: %v", dryRunErr)
+							}
+							if dryRunErr == nil && wetRunErr != nil {
+								t.Fatalf("wet run returned errors, but dry run returned none: %v", wetRunErr)
+							}
 						})
-
-						if dryRunErr != nil && wetRunErr == nil {
-							t.Fatalf("dry run returned error, but wet run returned none: %v", dryRunErr)
-						}
-						if dryRunErr == nil && wetRunErr != nil {
-							t.Fatalf("wet run returned errors, but dry run returned none: %v", wetRunErr)
-						}
-					})
+					}
 				}
 			}
 		})
@@ -173,21 +170,21 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 			}
 			// These CRDs are validated outside of Istio
 			for _, gvk := range []string{
-				"gateway.networking.k8s.io/v1alpha2/Gateway",
+				"gateway.networking.k8s.io/v1/Gateway",
 				"gateway.networking.k8s.io/v1beta1/Gateway",
-				"gateway.networking.k8s.io/v1alpha2/GatewayClass",
+				"gateway.networking.k8s.io/v1/GatewayClass",
 				"gateway.networking.k8s.io/v1beta1/GatewayClass",
-				"gateway.networking.k8s.io/v1alpha2/HTTPRoute",
+				"gateway.networking.k8s.io/v1/HTTPRoute",
 				"gateway.networking.k8s.io/v1beta1/HTTPRoute",
 				"gateway.networking.k8s.io/v1alpha2/TCPRoute",
 				"gateway.networking.k8s.io/v1alpha2/TLSRoute",
-				"gateway.networking.k8s.io/v1alpha2/ReferencePolicy",
+				"gateway.networking.k8s.io/v1beta1/ReferenceGrant",
+				"gateway.networking.k8s.io/v1alpha2/ReferenceGrant",
 			} {
 				recognized.Delete(gvk)
 			}
 
-			testedValid := sets.New[string]()
-			testedInvalid := sets.New[string]()
+			tested := sets.New[string]()
 			for _, te := range loadTestData(t) {
 				yamlBatch, err := te.load()
 				yamlParts := yml.SplitString(yamlBatch)
@@ -209,11 +206,7 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 					kind := m["kind"].(string)
 
 					key := strings.Join([]string{apiVersion, kind}, "/")
-					if te.isValid() {
-						testedValid.Insert(key)
-					} else {
-						testedInvalid.Insert(key)
-					}
+					tested.Insert(key)
 				}
 			}
 
@@ -221,23 +214,14 @@ func TestEnsureNoMissingCRDs(t *testing.T) {
 				if ignored.Contains(rec) {
 					continue
 				}
-
-				if !testedValid.Contains(rec) {
-					t.Errorf("CRD does not have a positive validation test: %v", rec)
-				}
-				if !testedInvalid.Contains(rec) {
-					t.Errorf("CRD does not have a negative validation test: %v", rec)
+				if !tested.Contains(rec) {
+					t.Errorf("CRD does not have a validation test: %v", rec)
 				}
 			}
 
-			for tst := range testedValid {
+			for tst := range tested {
 				if _, found := recognized[tst]; !found {
-					t.Errorf("Unrecognized positive validation test data found: %v", tst)
-				}
-			}
-			for tst := range testedInvalid {
-				if _, found := recognized[tst]; !found {
-					t.Errorf("Unrecognized negative validation test data found: %v", tst)
+					t.Errorf("Unrecognized validation test data found: %v", tst)
 				}
 			}
 		})

@@ -42,6 +42,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
@@ -426,7 +427,7 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	}
 
 	// For ExternalName, we need to update the EndpointIndex, as we will store endpoints just based on the Service.
-	if curr != nil && curr.Spec.Type == v1.ServiceTypeExternalName {
+	if !features.EnableExternalNameAlias && curr != nil && curr.Spec.Type == v1.ServiceTypeExternalName {
 		updateEDSCache = true
 	}
 
@@ -468,7 +469,9 @@ func (c *Controller) buildEndpointsForService(svc *model.Service, updateCache bo
 		fep := c.collectWorkloadInstanceEndpoints(svc)
 		endpoints = append(endpoints, fep...)
 	}
-	endpoints = append(endpoints, kube.ExternalNameEndpoints(svc)...)
+	if !features.EnableExternalNameAlias {
+		endpoints = append(endpoints, kube.ExternalNameEndpoints(svc)...)
+	}
 	return endpoints
 }
 
@@ -1140,7 +1143,12 @@ func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
 		return true
 	}
 	if prev == nil {
-		return true
+		return !curr.Attributes.ExportTo.Contains(visibility.None)
+	}
+	// if service are not exported, no need to push
+	if prev.Attributes.ExportTo.Contains(visibility.None) &&
+		curr.Attributes.ExportTo.Contains(visibility.None) {
+		return false
 	}
 	return !prev.Equals(curr)
 }

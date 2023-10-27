@@ -17,7 +17,7 @@ package ast
 import (
 	"testing"
 
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega"
 )
 
 func TestParse(t *testing.T) {
@@ -56,10 +56,10 @@ resources:
 
 	for _, c := range cases {
 		t.Run("", func(t *testing.T) {
-			g := NewWithT(t)
+			g := gomega.NewWithT(t)
 			actual, err := Parse(c.input)
-			g.Expect(err).To(BeNil())
-			g.Expect(actual).To(Equal(c.expected))
+			g.Expect(err).To(gomega.BeNil())
+			g.Expect(actual).To(gomega.Equal(c.expected))
 		})
 	}
 }
