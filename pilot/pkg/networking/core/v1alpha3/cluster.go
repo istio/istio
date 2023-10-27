@@ -290,6 +290,9 @@ func (configgen *ConfigGeneratorImpl) buildOutboundClusters(cb *ClusterBuilder, 
 	efKeys := cp.efw.KeysApplyingTo(networking.EnvoyFilter_CLUSTER)
 	hit, miss := 0, 0
 	for _, service := range services {
+		if service.Resolution == model.Alias {
+			continue
+		}
 		for _, port := range service.Ports {
 			if port.Protocol == protocol.UDP {
 				continue

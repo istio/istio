@@ -89,6 +89,8 @@ type TrafficTestCase struct {
 
 	// If set, a datapath with no L7 proxies can run this test
 	RequiresL4 bool
+	// If set, will apply config to all clusters, not just the local one
+	globalConfig bool
 }
 
 func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances, namespace string) {
@@ -144,7 +146,11 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				}
 				cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
 				// we only apply to config clusters
-				return t.ConfigIstio().YAML("", cfg).Apply()
+				scope := t.ConfigIstio()
+				if c.globalConfig {
+					scope = t.ConfigKube()
+				}
+				return scope.YAML("", cfg).Apply()
 			}).
 			FromMatch(match.And(c.sourceMatchers...)).
 			// TODO mainly testing proxyless features as a client for now
@@ -224,7 +230,11 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 				}
 			}
 			cfg := yml.MustApplyNamespace(t, tmpl.MustEvaluate(c.config, tmplData), namespace)
-			t.ConfigIstio().YAML("", cfg).ApplyOrFail(t)
+			scope := t.ConfigIstio()
+			if c.globalConfig {
+				scope = t.ConfigKube()
+			}
+			scope.YAML("", cfg).ApplyOrFail(t)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
@@ -278,6 +288,7 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 	RunSkipAmbient("tls-origination", tlsOriginationCases, "not workload agnostic")
 	RunSkipAmbient("instanceip", instanceIPTests, "not supported")
 	RunCase("services", serviceCases)
+	RunSkipAmbient("externalname", externalNameCases, "Relies on X-Forwarded-Client-Cert in checker")
 	RunSkipAmbient("host", hostCases, "Relies on X-Forwarded-Client-Cert in checker")
 	RunSkipAmbient("envoyfilter", envoyFilterCases, "not supported")
 	RunSkipAmbient("consistent-hash", consistentHashCases, "likey the same issue as https://github.com/istio/istio/issues/43161")

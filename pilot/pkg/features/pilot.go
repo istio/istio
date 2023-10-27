@@ -654,6 +654,14 @@ var (
 	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
 		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
 
+	EnableExternalNameAlias = env.Register("ENABLE_EXTERNAL_NAME_ALIAS", false,
+		"If enabled, ExternalName Services will be treated as simple aliases: anywhere where we would match the concrete service, "+
+			"we also match the ExternalName. In general, this mirrors Kubernetes behavior more closely. However, it means that policies (routes and DestinationRule) "+
+			"cannot be applied to the ExternalName service. "+
+			"If disabled, ExternalName behaves in fairly unexpected manner. Port matters, while it does not in Kubernetes. If it is a TCP port, "+
+			"all traffic on that port will be matched, which can have disastrous consequences. Additionally, the destination is seen as an opaque destination; "+
+			"even if it is another service in the mesh, policies such as mTLS and load balancing will not be used when connecting to it.").Get()
+
 	// This is an experimental feature flag, can be removed once it became stable, and should introduced to Telemetry API.
 	MetricRotationInterval = env.Register("METRIC_ROTATION_INTERVAL", 0*time.Second,
 		"Metric scope rotation interval, set to 0 to disable the metric scope rotation").Get()

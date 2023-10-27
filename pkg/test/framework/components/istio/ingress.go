@@ -214,16 +214,14 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 
 	// Even if they set ServicePort, when load balancer is disabled, we may need to switch to NodePort, so replace it.
 	opts.Port.ServicePort = port
-	if len(opts.Address) == 0 {
-		// Default address based on port
-		opts.Address = addr
-	}
 	if opts.HTTP.Headers == nil {
 		opts.HTTP.Headers = map[string][]string{}
 	}
 	if host := opts.GetHost(); len(host) > 0 {
 		opts.HTTP.Headers.Set(headers.Host, host)
 	}
+	// Default address based on port
+	opts.Address = addr
 	if len(c.cluster.HTTPProxy()) > 0 && !c.cluster.ProxyKubectlOnly() {
 		opts.HTTP.HTTPProxy = c.cluster.HTTPProxy()
 	}

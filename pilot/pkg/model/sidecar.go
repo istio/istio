@@ -61,6 +61,21 @@ type hostClassification struct {
 	allHosts   []host.Name
 }
 
+func (hc hostClassification) Matches(h host.Name) bool {
+	// exact lookup is fast, so check that first
+	if hc.exactHosts.Contains(h) {
+		return true
+	}
+	// exactHosts not found, fallback to loop allHosts
+	for _, importedHost := range hc.allHosts {
+		// Check if the hostnames match per usual hostname matching rules
+		if h.SubsetOf(importedHost) {
+			return true
+		}
+	}
+	return false
+}
+
 // SidecarScope is a wrapper over the Sidecar resource with some
 // preprocessed data to determine the list of services, virtualServices,
 // and destinationRules that are accessible to a given
@@ -674,13 +689,13 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 
 		// Check if there is an explicit import of form ns/* or ns/host
 		if importedHosts, nsFound := hostsByNamespace[configNamespace]; nsFound {
-			if svc := matchingService(importedHosts, s, ilw); svc != nil {
+			if svc := matchingAliasService(importedHosts, matchingService(importedHosts, s, ilw)); svc != nil {
 				importedServices = append(importedServices, svc)
 				continue
 			}
 		}
 		if wnsFound { // Check if there is an import of form */host or */*
-			if svc := matchingService(wildcardHosts, s, ilw); svc != nil {
+			if svc := matchingAliasService(wildcardHosts, matchingService(wildcardHosts, s, ilw)); svc != nil {
 				importedServices = append(importedServices, svc)
 			}
 		}
@@ -711,25 +726,33 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 func matchingService(importedHosts hostClassification, service *Service, ilw *IstioEgressListenerWrapper) *Service {
 	matchPort := needsPortMatch(ilw)
 
-	// first, check exactHosts
-	if importedHosts.exactHosts.Contains(service.Hostname) {
+	if importedHosts.Matches(service.Hostname) {
 		if matchPort {
 			return serviceMatchingListenerPort(service, ilw)
 		}
 		return service
 	}
+	return nil
+}
 
-	// exactHosts not found, fallback to loop allHosts
-	for _, importedHost := range importedHosts.allHosts {
-		// Check if the hostnames match per usual hostname matching rules
-		if service.Hostname.SubsetOf(importedHost) {
-			if matchPort {
-				return serviceMatchingListenerPort(service, ilw)
-			}
-			return service
+// matchingAliasService the original service or a trimmed service which has a subset of aliases, based on imports from sidecar
+func matchingAliasService(importedHosts hostClassification, service *Service) *Service {
+	if service == nil {
+		return nil
+	}
+	matched := make([]NamespacedHostname, 0, len(service.Attributes.Aliases))
+	for _, alias := range service.Attributes.Aliases {
+		if importedHosts.Matches(alias.Hostname) {
+			matched = append(matched, alias)
 		}
 	}
-	return nil
+
+	if len(matched) == len(service.Attributes.Aliases) {
+		return service
+	}
+	service = service.DeepCopy()
+	service.Attributes.Aliases = matched
+	return service
 }
 
 // serviceMatchingListenerPort constructs service with listener port.
