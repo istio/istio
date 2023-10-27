@@ -37,6 +37,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/monitoring"
 )
