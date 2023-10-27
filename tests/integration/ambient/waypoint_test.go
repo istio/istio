@@ -18,8 +18,11 @@ package ambient
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strings"
 	"testing"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1"
@@ -27,6 +30,9 @@ import (
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/framework/components/namespace"
+	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -59,5 +65,133 @@ func TestWaypointStatus(t *testing.T) {
 			client.Update(context.Background(), gwc, metav1.UpdateOptions{})
 			// It should be added back
 			retry.UntilSuccessOrFail(t, check)
+		})
+}
+
+func TestWaypoint(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("traffic.ambient").
+		Run(func(t framework.TestContext) {
+			nsConfig, err := namespace.New(t, namespace.Config{
+				Prefix: "waypoint",
+				Inject: false,
+				Labels: map[string]string{
+					constants.DataplaneMode: "ambient",
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+				"x",
+				"waypoint",
+				"apply",
+				"--namespace",
+				nsConfig.Name(),
+			})
+			retry.UntilSuccessOrFail(t, func() error {
+				fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"namespace")
+				if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
+					return fmt.Errorf("gateway is not ready: %v", err)
+				}
+				return nil
+			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
+
+			saSet := []string{"sa1", "sa2", "sa3"}
+			for _, sa := range []string{"sa1", "sa2", "sa3"} {
+				istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+					"x",
+					"waypoint",
+					"apply",
+					"--namespace",
+					nsConfig.Name(),
+					"--service-account",
+					sa,
+				})
+				retry.UntilSuccessOrFail(t, func() error {
+					fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+sa)
+					if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
+						return fmt.Errorf("gateway is not ready: %v", err)
+					}
+					return nil
+				}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
+			}
+
+			output, _ := istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+				"x",
+				"waypoint",
+				"list",
+				"--namespace",
+				nsConfig.Name(),
+			})
+			for _, sa := range saSet {
+				if !strings.Contains(output, sa) {
+					t.Fatalf("unexpected output: ", output)
+				}
+			}
+
+			output, _ = istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+				"x",
+				"waypoint",
+				"list",
+				"-A",
+			})
+			for _, sa := range saSet {
+				if !strings.Contains(output, sa) {
+					t.Fatalf("unexpected output: ", output)
+				}
+			}
+
+			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+				"x",
+				"waypoint",
+				"-n",
+				nsConfig.Name(),
+				"delete",
+			})
+			retry.UntilSuccessOrFail(t, func() error {
+				fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"namespace")
+				// after deletion, the pod should not be found
+				if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
+					if errors.Is(err, kubetest.ErrNoPodsFetched) {
+						return nil
+					}
+					return fmt.Errorf("gateway is not ready: %v", err)
+				}
+				return fmt.Errorf("gateway is not cleaned up")
+			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
+
+			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+				"x",
+				"waypoint",
+				"-n",
+				nsConfig.Name(),
+				"delete",
+				"sa1",
+				"sa2",
+			})
+			retry.UntilSuccessOrFail(t, func() error {
+				fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"sa1")
+				// after deletion, the pod should not be found
+				if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
+					if !errors.Is(err, kubetest.ErrNoPodsFetched) {
+						return fmt.Errorf("gateway is not ready: %v", err)
+					}
+				} else if err == nil {
+					return fmt.Errorf("gateway is not cleaned up")
+				}
+				fetch = kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"sa2")
+				// after deletion, the pod should not be found
+				if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
+					if !errors.Is(err, kubetest.ErrNoPodsFetched) {
+						return fmt.Errorf("gateway is not ready: %v", err)
+					}
+				} else if err == nil {
+					return fmt.Errorf("gateway is not cleaned up")
+				}
+				return nil
+			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
 		})
 }
