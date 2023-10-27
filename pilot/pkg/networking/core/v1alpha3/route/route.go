@@ -474,8 +474,9 @@ func translateRoute(
 	}
 	if len(hostnames) > 0 {
 		for _, hostname := range hostnames {
-			statefulSvc := serviceRegistry[hostname]
-			if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(statefulSvc); statefulConfig != nil {
+			svc := serviceRegistry[hostname]
+			// Build stateful set config if the svc has appropriate labels attached.
+			if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(svc); statefulConfig != nil {
 				if out.TypedPerFilterConfig == nil {
 					out.TypedPerFilterConfig = make(map[string]*anypb.Any)
 				}
@@ -603,6 +604,9 @@ func applyHTTPRouteDestination(
 	return hostnames
 }
 
+// processDestination processes a single destination in a route. It specifies to which cluster the route should
+// routed to. It also sets the headers and hash policy if specified.
+// Returns the hostname of the destination.
 func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
 	hashByDestination DestinationHashMap,

@@ -22,8 +22,10 @@ import (
 	"strings"
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -499,11 +501,21 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 			push.AddMetric(model.DuplicatedDomains, name, node.ID, msg)
 		}
 		if len(domains) > 0 {
+			pervirtualHostFilters := map[string]*anypb.Any{}
+			if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(svc); statefulConfig != nil {
+				perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
+					Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
+						StatefulSession: statefulConfig,
+					},
+				}
+				pervirtualHostFilters[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
+			}
 			return &route.VirtualHost{
 				Name:                       name,
 				Domains:                    domains,
 				Routes:                     vhwrapper.Routes,
 				IncludeRequestAttemptCount: includeRequestAttemptCount,
+				TypedPerFilterConfig:       pervirtualHostFilters,
 			}
 		}
 
