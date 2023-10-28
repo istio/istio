@@ -15,8 +15,6 @@
 package v1beta1
 
 import (
-	"encoding/base64"
-	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -49,14 +47,6 @@ import (
 	istiotest "istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
-
-func testCreateFakeJwks() string {
-	// Create a fake jwksURI
-	fakeJwksURI := "Error-IstiodFailedToFetchJwksUri"
-	// Encode jwksURI with base64 to make dynamic n in jwks
-	encodedString := base64.RawURLEncoding.EncodeToString([]byte(fakeJwksURI))
-	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"%s"}]}`, encodedString)
-}
 
 func TestJwtFilter(t *testing.T) {
 	ms, err := test.StartNewServer()
@@ -697,7 +687,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: testCreateFakeJwks(),
+												InlineString: model.CreateFakeJwks(),
 											},
 										},
 									},
@@ -928,7 +918,7 @@ func TestJwtFilter(t *testing.T) {
 	push := model.NewPushContext()
 	push.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond, testCreateFakeJwks)
+		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond)
 
 	defer push.JwtKeyResolver.Close()
 
@@ -1177,7 +1167,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: testCreateFakeJwks(),
+									InlineString: model.CreateFakeJwks(),
 								},
 							},
 						},
@@ -1232,7 +1222,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: testCreateFakeJwks(),
+									InlineString: model.CreateFakeJwks(),
 								},
 							},
 						},
@@ -1248,7 +1238,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 	push := &model.PushContext{}
 	push.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond, testCreateFakeJwks)
+		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond)
 	defer push.JwtKeyResolver.Close()
 
 	for _, c := range cases {

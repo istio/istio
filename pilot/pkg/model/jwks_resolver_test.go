@@ -15,7 +15,6 @@
 package model
 
 import (
-	"encoding/base64"
 	"fmt"
 	"sync/atomic"
 	"testing"
@@ -28,16 +27,8 @@ import (
 
 const testRetryInterval = time.Millisecond * 10
 
-func testCreateFakeJwks() string {
-	// Create a fake jwksURI
-	fakeJwksURI := "Error-IstiodFailedToFetchJwksUri"
-	// Encode jwksURI with base64 to make dynamic n in jwks
-	encodedString := base64.RawURLEncoding.EncodeToString([]byte(fakeJwksURI))
-	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"%s"}]}`, encodedString)
-}
-
 func TestResolveJwksURIUsingOpenID(t *testing.T) {
-	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval, testCreateFakeJwks)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
 	defer r.Close()
 
 	ms, err := test.StartNewServer()
@@ -89,7 +80,7 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 }
 
 func TestGetPublicKey(t *testing.T) {
-	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval, testCreateFakeJwks)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
 	defer r.Close()
 
 	ms, err := test.StartNewServer()
@@ -130,7 +121,7 @@ func TestGetPublicKey(t *testing.T) {
 }
 
 func TestGetPublicKeyReorderedKey(t *testing.T) {
-	r := NewJwksResolver(JwtPubKeyEvictionDuration, testRetryInterval*20, testRetryInterval*10, testRetryInterval, testCreateFakeJwks)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, testRetryInterval*20, testRetryInterval*10, testRetryInterval)
 	defer r.Close()
 
 	ms, err := test.StartNewServer()
@@ -179,7 +170,6 @@ func TestGetPublicKeyUsingTLS(t *testing.T) {
 		JwtPubKeyRefreshIntervalOnFailure,
 		testRetryInterval,
 		[]string{"./test/testcert/cert.pem"},
-		testCreateFakeJwks,
 	)
 	defer r.Close()
 
@@ -206,7 +196,6 @@ func TestGetPublicKeyUsingTLSBadCert(t *testing.T) {
 		testRetryInterval,
 		testRetryInterval,
 		[]string{"./test/testcert/cert2.pem"},
-		testCreateFakeJwks,
 	)
 	defer r.Close()
 
@@ -230,7 +219,6 @@ func TestGetPublicKeyUsingTLSWithoutCABundles(t *testing.T) {
 		testRetryInterval,
 		testRetryInterval,
 		[]string{},
-		testCreateFakeJwks,
 	)
 	defer r.Close()
 
@@ -253,7 +241,6 @@ func TestJwtPubKeyEvictionForNotUsed(t *testing.T) {
 		2*time.Millisecond,   /*RefreshInterval*/
 		2*time.Millisecond,   /*RefreshIntervalOnFailure*/
 		testRetryInterval,
-		testCreateFakeJwks,
 	)
 	defer r.Close()
 
@@ -282,7 +269,6 @@ func TestJwtPubKeyEvictionForNotRefreshed(t *testing.T) {
 		10*time.Millisecond,  /*RefreshInterval*/
 		10*time.Millisecond,  /*RefreshIntervalOnFailure*/
 		testRetryInterval,    /*RetryInterval*/
-		testCreateFakeJwks,
 	)
 	defer r.Close()
 
@@ -337,7 +323,6 @@ func TestJwtPubKeyLastRefreshedTime(t *testing.T) {
 		2*time.Millisecond, /*RefreshInterval*/
 		2*time.Millisecond, /*RefreshIntervalOnFailure*/
 		testRetryInterval,  /*RetryInterval*/
-		testCreateFakeJwks,
 	)
 	defer r.Close()
 
@@ -358,7 +343,6 @@ func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
 		time.Second, /*RefreshInterval*/
 		time.Second, /*RefreshIntervalOnFailure*/
 		testRetryInterval,
-		testCreateFakeJwks,
 	)
 	defer r.Close()
 
@@ -378,7 +362,7 @@ func TestJwtPubKeyRefreshWithNetworkError(t *testing.T) {
 func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 	defaultRefreshInterval := 50 * time.Millisecond
 	refreshIntervalOnFail := 2 * time.Millisecond
-	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond, testCreateFakeJwks)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
 
 	ms := startMockServer(t)
 	defer ms.Stop()
@@ -417,7 +401,7 @@ func TestJwtRefreshIntervalRecoverFromInitialFailOnFirstHit(t *testing.T) {
 func TestJwtRefreshIntervalRecoverFromFail(t *testing.T) {
 	defaultRefreshInterval := 50 * time.Millisecond
 	refreshIntervalOnFail := 2 * time.Millisecond
-	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond, testCreateFakeJwks)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
 
 	ms := startMockServer(t)
 	defer ms.Stop()
@@ -447,7 +431,7 @@ func TestJwtPubKeyMetric(t *testing.T) {
 	mt := monitortest.New(t)
 	defaultRefreshInterval := 50 * time.Millisecond
 	refreshIntervalOnFail := 2 * time.Millisecond
-	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond, testCreateFakeJwks)
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, defaultRefreshInterval, refreshIntervalOnFail, 1*time.Millisecond)
 	defer r.Close()
 
 	ms := startMockServer(t)

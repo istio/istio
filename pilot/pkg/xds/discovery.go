@@ -186,8 +186,7 @@ func (s *DiscoveryServer) initJwksResolver() {
 	}
 	s.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
-		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval,
-		model.CreateFakeJwks)
+		model.JwtPubKeyRefreshIntervalOnFailure, model.JwtPubKeyRetryInterval)
 
 	// Flush cached discovery responses when detecting jwt public key change.
 	s.JwtKeyResolver.PushFunc = func() {

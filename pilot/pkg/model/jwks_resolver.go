@@ -22,6 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 	"io"
 	"net/http"
 	"net/url"
@@ -36,11 +37,11 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
-	"github.com/lestrrat-go/jwx/v2/jwk"
-
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/monitoring"
 )
+
+var fakeJwksRSAKey, _ = rsa.GenerateKey(rand.Reader, 2048)
 
 const (
 	// https://openid.net/specs/openid-connect-discovery-1_0.html
@@ -117,17 +118,6 @@ type jwtKey struct {
 	issuer  string
 }
 
-type CreateFakeJwksFunc func() string
-
-// CreateFakeJwks is a helper function to make a fake jwks when istiod failed to fetch it.
-func CreateFakeJwks() string {
-	raw, _ := rsa.GenerateKey(rand.Reader, 2048)
-	key, _ := jwk.FromRaw(raw)
-	rsaKey, _ := key.(jwk.RSAPrivateKey)
-	res, _ := json.Marshal(rsaKey)
-	return fmt.Sprintf(`{"keys":[ %s]}`, string(res))
-}
-
 // JwksResolver is resolver for jwksURI and jwt public key.
 type JwksResolver struct {
 	// Callback function to invoke when detecting jwt public key change.
@@ -163,21 +153,15 @@ type JwksResolver struct {
 
 	// Whenever istiod fails to fetch the pubkey from jwksuri in main flow this variable becomes true for background trigger
 	jwksUribackgroundChannel bool
-
-	createFakeJwksFunc CreateFakeJwksFunc
 }
 
-// NewJwksResolver creates new instance of JwksResolver.
-func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration,
-	createFakeJwksFunc CreateFakeJwksFunc,
-) *JwksResolver {
+func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration) *JwksResolver {
 	return newJwksResolverWithCABundlePaths(
 		evictionDuration,
 		refreshDefaultInterval,
 		refreshIntervalOnFailure,
 		retryInterval,
 		[]string{jwksExtraRootCABundlePath},
-		createFakeJwksFunc,
 	)
 }
 
@@ -187,7 +171,6 @@ func newJwksResolverWithCABundlePaths(
 	refreshIntervalOnFailure,
 	retryInterval time.Duration,
 	caBundlePaths []string,
-	createFakeJwksFunc CreateFakeJwksFunc,
 ) *JwksResolver {
 	ret := &JwksResolver{
 		evictionDuration:         evictionDuration,
@@ -202,7 +185,6 @@ func newJwksResolverWithCABundlePaths(
 				DisableKeepAlives: true,
 			},
 		},
-		createFakeJwksFunc: createFakeJwksFunc,
 	}
 
 	caCertPool, err := x509.SystemCertPool()
@@ -303,7 +285,7 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 			log.Infof("The JWKS key is not yet fetched for issuer %s (%s), using a fake JWKS for now", jwtIssuer, jwksURI)
 			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 			// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
-			jwtPubKey = r.createFakeJwksFunc()
+			jwtPubKey = CreateFakeJwks()
 		}
 	}
 	return &envoy_jwt.JwtProvider_LocalJwks{
@@ -313,6 +295,14 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 			},
 		},
 	}
+}
+
+// CreateFakeJwks is a helper function to make a fake jwks when istiod failed to fetch it.
+func CreateFakeJwks() string {
+	key, _ := jwk.FromRaw(fakeJwksRSAKey)
+	rsaKey, _ := key.(jwk.RSAPrivateKey)
+	res, _ := json.Marshal(rsaKey)
+	return fmt.Sprintf(`{"keys":[ %s]}`, string(res))
 }
 
 // Resolve jwks_uri through openID discovery.
