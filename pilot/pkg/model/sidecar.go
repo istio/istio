@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -714,14 +715,16 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 				continue
 			}
 		}
-		if wnsFound { // Check if there is an import of form */host or */*
+
+		// Check if there is an import of form */host or */*
+		if wnsFound {
 			if svc := matchingAliasService(wildcardHosts, matchingService(wildcardHosts, s, ilw)); svc != nil {
 				importedServices = append(importedServices, svc)
 			}
 		}
 	}
 
-	validServices := make(map[host.Name]string)
+	validServices := make(map[host.Name]string, len(importedServices))
 	for _, svc := range importedServices {
 		_, f := validServices[svc.Hostname]
 		// Select a single namespace for a given hostname.
@@ -732,14 +735,10 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 		}
 	}
 
-	filteredServices := make([]*Service, 0)
 	// Filter down to just instances in scope for the service
-	for _, svc := range importedServices {
-		if validServices[svc.Hostname] == svc.Attributes.Namespace {
-			filteredServices = append(filteredServices, svc)
-		}
-	}
-	return filteredServices
+	return slices.FilterInPlace(importedServices, func(svc *Service) bool {
+		return validServices[svc.Hostname] == svc.Attributes.Namespace
+	})
 }
 
 // Return the original service or a trimmed service which has a subset of the ports in original service.
