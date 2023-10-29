@@ -38,7 +38,6 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 
 	addVirtualService := func(vs config.Config, hosts hostClassification) {
 		key := vs.NamespacedName()
-
 		if vsset.Contains(key) {
 			return
 		}
@@ -64,6 +63,7 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 		}
 	}
 
+	wnsImportedHosts, wnsFound := hostsByNamespace[wildcardNamespace]
 	loopAndAdd := func(vses []config.Config) {
 		for _, c := range vses {
 			configNamespace := c.Namespace
@@ -78,8 +78,8 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 			}
 
 			// Check if there is an import of form */host or */*
-			if importedHosts, wnsFound := hostsByNamespace[wildcardNamespace]; wnsFound {
-				addVirtualService(c, importedHosts)
+			if wnsFound {
+				addVirtualService(c, wnsImportedHosts)
 			}
 		}
 	}
