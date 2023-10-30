@@ -92,7 +92,6 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 		addMeshNetworksFromRegistryGateway(t, c, meshNetworks)
 		expectGateways(t, 2)
 	})
-	fmt.Println(c.NetworkGateways())
 	t.Run("add labeled service", func(t *testing.T) {
 		addLabeledServiceGateway(t, c, "nw0")
 		expectGateways(t, 3)

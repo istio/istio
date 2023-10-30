@@ -51,8 +51,12 @@ func ConvertService(svc corev1.Service, domainSuffix string, clusterID cluster.I
 	nodeLocal := false
 
 	if svc.Spec.Type == corev1.ServiceTypeExternalName && svc.Spec.ExternalName != "" {
-		resolution = model.DNSLB
 		externalName = svc.Spec.ExternalName
+		if features.EnableExternalNameAlias {
+			resolution = model.Alias
+		} else {
+			resolution = model.DNSLB
+		}
 	}
 	if svc.Spec.InternalTrafficPolicy != nil && *svc.Spec.InternalTrafficPolicy == corev1.ServiceInternalTrafficPolicyLocal {
 		nodeLocal = true

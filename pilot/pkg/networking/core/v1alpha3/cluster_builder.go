@@ -386,6 +386,16 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg.Meta)
 		}
 	}
+	// If there's a connection pool set on the Sidecar then override any settings derived from the DestinationRule
+	// with those set by Sidecar resource. This allows the user to resolve any ambiguity, e.g. in the case that
+	// multiple services are listening on the same port.
+	if sidecarConnPool := proxy.SidecarScope.InboundConnectionPoolForPort(clusterPort); sidecarConnPool != nil {
+		if opts.policy == nil {
+			// There was no destination rule, so no inbound traffic policy; we'll create a default
+			opts.policy = &networking.TrafficPolicy{}
+		}
+		opts.policy.ConnectionPool = sidecarConnPool
+	}
 	cb.applyTrafficPolicy(opts)
 
 	if bind != LocalhostAddress && bind != LocalhostIPv6Address {

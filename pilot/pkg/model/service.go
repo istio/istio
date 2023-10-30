@@ -146,6 +146,8 @@ const (
 	Passthrough
 	// DNSRoundRobinLB implies that the proxy will resolve a DNS address and forward to the resolved address
 	DNSRoundRobinLB
+	// Alias defines a Service that is an alias for another.
+	Alias
 )
 
 // String converts Resolution in to String.
@@ -721,6 +723,11 @@ type ServiceAttributes struct {
 	// Applicable to both Kubernetes and ServiceEntries.
 	LabelSelectors map[string]string
 
+	// Aliases is the resolved set of aliases for this service. This is computed based on a global view of all Service's `AliasFor`
+	// fields.
+	// For example, if I had two Services with `externalName: foo`, "a" and "b", then the "foo" service would have Aliases=[a,b].
+	Aliases []NamespacedHostname
+
 	// For Kubernetes platform
 
 	// ClusterExternalAddresses is a mapping between a cluster name and the external
@@ -737,6 +744,11 @@ type ServiceAttributes struct {
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
 
 	K8sAttributes
+}
+
+type NamespacedHostname struct {
+	Hostname  host.Name
+	Namespace string
 }
 
 type K8sAttributes struct {
@@ -793,6 +805,8 @@ func (s *ServiceAttributes) DeepCopy() ServiceAttributes {
 		}
 	}
 
+	out.Aliases = slices.Clone(s.Aliases)
+
 	// AddressMap contains a mutex, which is safe to return a copy in this case.
 	// nolint: govet
 	return out
@@ -816,6 +830,10 @@ func (s *ServiceAttributes) Equals(other *ServiceAttributes) bool {
 	}
 
 	if !maps.Equal(s.ExportTo, other.ExportTo) {
+		return false
+	}
+
+	if !slices.Equal(s.Aliases, other.Aliases) {
 		return false
 	}
 
