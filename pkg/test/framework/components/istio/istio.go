@@ -101,7 +101,7 @@ type Instance interface {
 	// cluster.
 	InternalDiscoveryAddressFor(cluster cluster.Cluster) (string, error)
 
-	// Return POD IPs for the pod with the specified label in the system namespace
+	// Return POD IPs for the pod with the specified label in the specified namespace
 	PodIPsFor(cluster cluster.Cluster, namespace string, label string) ([]corev1.PodIP, error)
 
 	// Values returns the operator values for the installed control plane.
