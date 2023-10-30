@@ -25,6 +25,7 @@ pilot:
   # Additional container arguments
   extraContainerArgs: []
   env: {}
+  affinity: {}
   cpu:
     targetAverageUtilization: 80
   # Additional volumeMounts to the istiod container
