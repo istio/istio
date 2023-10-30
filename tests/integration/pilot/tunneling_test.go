@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/tests/integration/pilot/forwardproxy"
 )
@@ -116,8 +115,10 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 			applyForwardProxyConfigMaps(ctx, externalNs)
 			ctx.ConfigIstio().File(externalNs, "testdata/external-forward-proxy-deployment.yaml").ApplyOrFail(ctx)
 			applyForwardProxyService(ctx, externalNs)
-			waitForPodsReadyOrFail(ctx, externalNs, "external-forward-proxy")
-			externalForwardProxyIP := getPodIP(ctx, externalNs, "external-forward-proxy")
+			externalForwardProxyIPs, err := i.PodIPsFor(ctx.Clusters().Default(), externalNs, "app=external-forward-proxy")
+			if err != nil {
+				t.Fatalf("error getting external forward proxy ips: %v", err)
+			}
 
 			for _, proxyConfig := range forwardProxyConfigurations {
 				templateParams := map[string]any{
@@ -148,7 +149,7 @@ func TestTunnelingOutboundTraffic(t *testing.T) {
 								if err := testConnectivity(client, target, spec.protocol, spec.port, testName); err != nil {
 									return err
 								}
-								if err := verifyThatRequestWasTunneled(target, externalForwardProxyIP, testName); err != nil {
+								if err := verifyThatRequestWasTunneled(target, externalForwardProxyIPs, testName); err != nil {
 									return err
 								}
 								return nil
@@ -192,7 +193,7 @@ func testConnectivity(from, to echo.Instance, p protocol.Instance, port echo.Por
 	return nil
 }
 
-func verifyThatRequestWasTunneled(target echo.Instance, expectedSourceIP, expectedPath string) error {
+func verifyThatRequestWasTunneled(target echo.Instance, expectedSourceIPs []corev1.PodIP, expectedPath string) error {
 	workloads, err := target.Workloads()
 	if err != nil {
 		return fmt.Errorf("failed to get workloads of %s: %s", target.ServiceName(), err)
@@ -206,9 +207,16 @@ func verifyThatRequestWasTunneled(target echo.Instance, expectedSourceIP, expect
 		logs.WriteString(workloadLogs)
 	}
 
-	expectedLog := fmt.Sprintf("remoteAddr=%s method=GET url=/%s", expectedSourceIP, expectedPath)
-	if !strings.Contains(logs.String(), expectedLog) {
-		return fmt.Errorf("failed to find expected log: %s in logs of %s", expectedLog, target.ServiceName())
+	expectedTunnelLogFound := false
+	for _, expectedSourceIP := range expectedSourceIPs {
+		expectedLog := fmt.Sprintf("remoteAddr=%s method=GET url=/%s", expectedSourceIP.IP, expectedPath)
+		if strings.Contains(logs.String(), expectedLog) {
+			expectedTunnelLogFound = true
+			break
+		}
+	}
+	if !expectedTunnelLogFound {
+		return fmt.Errorf("failed to find expected tunnel log in logs of %s", target.ServiceName())
 	}
 	return nil
 }
@@ -267,12 +275,6 @@ func selectPortName(httpVersion string) string {
 	return "http2-connect"
 }
 
-func getPodIP(ctx framework.TestContext, ns, appSelector string) string {
-	return getPodStringProperty(ctx, ns, appSelector, func(pod corev1.Pod) string {
-		return pod.Status.PodIP
-	})
-}
-
 func getPodName(ctx framework.TestContext, ns, appSelector string) string {
 	return getPodStringProperty(ctx, ns, appSelector, func(pod corev1.Pod) string {
 		return pod.Name
@@ -294,16 +296,6 @@ func getPodStringProperty(ctx framework.TestContext, ns, selector string, getPod
 		return nil
 	}, retry.Timeout(30*time.Second))
 	return podProperty
-}
-
-func waitForPodsReadyOrFail(ctx framework.TestContext, ns, appSelector string) {
-	kubeClient := ctx.Clusters().Kube().Default()
-	retry.UntilSuccessOrFail(ctx, func() error {
-		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(kubeClient, ns, "app="+appSelector)); err != nil {
-			return fmt.Errorf("pods app=%s are not ready: %v", appSelector, err)
-		}
-		return nil
-	}, retry.Timeout(1*time.Minute), retry.Delay(500*time.Millisecond))
 }
 
 func waitUntilTunnelingConfigurationIsRemovedOrFail(ctx framework.TestContext, meshNs string, egressNs string, egressLabel string) {
