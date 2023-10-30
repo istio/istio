@@ -238,7 +238,7 @@ func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uni
 		} else if rev != "" && err != nil {
 			needConfirmation = true
 			message += fmt.Sprintf("Unable to find any proxies pointing to the %s control plane. "+
-				"This may be becuase the control plane cannot be connected or there is no %s control plane.\n", rev, rev)
+				"This may be because the control plane cannot be connected or there is no %s control plane.\n", rev, rev)
 		}
 		if gwList != "" {
 			needConfirmation = true
