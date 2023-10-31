@@ -627,9 +627,9 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	}, nil
 }
 
-func (sc *SecretManagerClient) rotateTime(secret security.SecretItem) time.Duration {
+var rotateTime = func(secret security.SecretItem, graceRatio float64) time.Duration {
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
-	gracePeriod := time.Duration((sc.configOptions.SecretRotationGracePeriodRatio) * float64(secretLifeTime))
+	gracePeriod := time.Duration((graceRatio) * float64(secretLifeTime))
 	delay := time.Until(secret.ExpireTime.Add(-gracePeriod))
 	if delay < 0 {
 		delay = 0
@@ -638,7 +638,7 @@ func (sc *SecretManagerClient) rotateTime(secret security.SecretItem) time.Durat
 }
 
 func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
-	delay := sc.rotateTime(item)
+	delay := rotateTime(item, sc.configOptions.SecretRotationGracePeriodRatio)
 	certExpirySeconds.ValueFrom(func() float64 { return time.Until(item.ExpireTime).Seconds() }, ResourceName.Value(item.ResourceName))
 	item.ResourceName = security.WorkloadKeyCertResourceName
 	// In case there are two calls to GenerateSecret at once, we don't want both to be concurrently registered

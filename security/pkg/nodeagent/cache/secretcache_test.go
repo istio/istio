@@ -241,7 +241,7 @@ func TestRotateTime(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			sc := &SecretManagerClient{configOptions: &security.Options{SecretRotationGracePeriodRatio: tt.gracePeriod}}
-			got := sc.rotateTime(security.SecretItem{CreatedTime: tt.created, ExpireTime: tt.expire})
+			got := rotateTime(security.SecretItem{CreatedTime: tt.created, ExpireTime: tt.expire}, sc.configOptions.SecretRotationGracePeriodRatio)
 			if !almostEqual(got, tt.expected) {
 				t.Fatalf("expected %v got %v", tt.expected, got)
 			}
@@ -670,6 +670,9 @@ func TestProxyConfigAnchorsTriggerWorkloadCertUpdate(t *testing.T) {
 	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
 	u.Reset()
 
+	rotateTime = func(item security.SecretItem, gracePeriodRatio float64) time.Duration {
+		return time.Millisecond * 200
+	}
 	fakeCACli, err = mock.NewMockCAClient(time.Millisecond*200, false)
 	if err != nil {
 		t.Fatalf("Error creating Mock CA client: %v", err)
