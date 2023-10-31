@@ -541,7 +541,7 @@ func (configgen *ConfigGeneratorImpl) buildInboundClusters(cb *ClusterBuilder, p
 					endpointAddress = model.LocalhostIPv6AddressPrefix
 				}
 			} else if hostIP == model.LocalhostAddressPrefix {
-				// prefer 127.0.0.1 to :;1, but if given no option choose ::1
+				// prefer 127.0.0.1 to ::1, but if given no option choose ::1
 				ipV6EndpointAddress := ""
 				for _, host := range actualLocalHosts {
 					if netutil.IsIPv4Address(host) {
