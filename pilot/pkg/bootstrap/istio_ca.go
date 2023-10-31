@@ -442,7 +442,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 
 	if !detectedSigningCABundle || (features.UseCacertsForSelfSignedCA && istioGenerated) {
 		if features.UseCacertsForSelfSignedCA && istioGenerated {
-			log.Infof("%s secret found is IstioGenerated, use it as the CA certificate", ca.CACertsSecret)
+			log.Infof("IstioGenerated %s secret found, use it as the CA certificate", ca.CACertsSecret)
 
 			// TODO(jaellio): Currently, when the USE_CACERTS_FOR_SELF_SIGNED_CA flag is true istiod
 			// handles loading and updating the "cacerts" secret with the "istio-generated" key the
@@ -451,9 +451,8 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 			// will watch the file mount instead.
 		}
 
-		// Either the secret is not mounted because it is named istio-ca-secret,
-		// it is named cacarts and is "istio-generated" but not yet mounted,
-		// or it is mounted but the "istio-generated" key is used.
+		// Either the secret is not mounted because it is named `istio-ca-secret`,
+		// or it is `cacerts` secret mounted with "istio-generated" key set.
 		caOpts, err = s.createSelfSignedCACertificateOptions(&fileBundle, opts)
 		if err != nil {
 			return nil, err
