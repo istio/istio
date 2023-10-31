@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - https://github.com/istio/istio/issues/46844
+releaseNotes:
+- |
+  **Added** the capability to attach Telemetry to Kubernetes `Gateway` resources via the `targetRef` field.
