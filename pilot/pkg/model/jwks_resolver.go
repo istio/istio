@@ -15,9 +15,10 @@
 package model
 
 import (
+	"crypto/rand"
+	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,6 +36,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoy_jwt "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/jwt_authn/v3"
+	"github.com/lestrrat-go/jwx/v2/jwk"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/monitoring"
@@ -152,7 +154,6 @@ type JwksResolver struct {
 	jwksUribackgroundChannel bool
 }
 
-// NewJwksResolver creates new instance of JwksResolver.
 func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOnFailure, retryInterval time.Duration) *JwksResolver {
 	return newJwksResolverWithCABundlePaths(
 		evictionDuration,
@@ -283,7 +284,7 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 			log.Infof("The JWKS key is not yet fetched for issuer %s (%s), using a fake JWKS for now", jwtIssuer, jwksURI)
 			// This is a temporary workaround to reject a request with JWT token by using a fake jwks when istiod failed to fetch it.
 			// TODO(xulingqing): Find a better way to reject the request without using the fake jwks.
-			jwtPubKey = CreateFakeJwks(jwksURI)
+			jwtPubKey = CreateFakeJwks()
 		}
 	}
 	return &envoy_jwt.JwtProvider_LocalJwks{
@@ -295,13 +296,19 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 	}
 }
 
+var fakeJwks string
+
 // CreateFakeJwks is a helper function to make a fake jwks when istiod failed to fetch it.
-func CreateFakeJwks(jwksURI string) string {
-	// Create a fake jwksURI
-	fakeJwksURI := "Error-IstiodFailedToFetchJwksUri-" + jwksURI
-	// Encode jwksURI with base64 to make dynamic n in jwks
-	encodedString := base64.RawURLEncoding.EncodeToString([]byte(fakeJwksURI))
-	return fmt.Sprintf(`{"keys":[ {"e":"AQAB","kid":"abc","kty":"RSA","n":"%s"}]}`, encodedString)
+func CreateFakeJwks() string {
+	if fakeJwks == "" {
+		fakeJwksRSAKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+		key, _ := jwk.FromRaw(fakeJwksRSAKey)
+		rsaKey, _ := key.(jwk.RSAPrivateKey)
+		res, _ := json.Marshal(rsaKey)
+		fakeJwks = fmt.Sprintf(`{"keys":[ %s]}`, string(res))
+	}
+
+	return fakeJwks
 }
 
 // Resolve jwks_uri through openID discovery.
