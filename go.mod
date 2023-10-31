@@ -69,7 +69,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.45.0
-	github.com/prometheus/prometheus v0.47.2-0.20231031114904-16c8d445fd41
+	github.com/prometheus/prometheus v0.48.0-rc.1
 	github.com/quic-go/quic-go v0.39.1
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spaolacci/murmur3 v1.1.0
