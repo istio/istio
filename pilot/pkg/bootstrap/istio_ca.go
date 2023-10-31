@@ -227,7 +227,7 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 	tlsSigningFile := path.Join(LocalCertDir.Get(), ca.TLSSecretCACertFile)
 
 	// looking for tls file format (tls.crt)
-	if _, err := os.Stat(tlsSigningFile); !os.IsNotExist(err) {
+	if _, err := os.Stat(tlsSigningFile); err == nil {
 		log.Info("Using kubernetes.io/tls secret type for signing ca files")
 		return ca.SigningCAFileBundle{
 			RootCertFile: path.Join(LocalCertDir.Get(), ca.TLSSecretRootCertFile),
@@ -238,11 +238,10 @@ func detectSigningCABundle() (ca.SigningCAFileBundle, error) {
 			SigningCertFile: tlsSigningFile,
 			SigningKeyFile:  path.Join(LocalCertDir.Get(), ca.TLSSecretCAPrivateKeyFile),
 		}, nil
-	} else if os.IsNotExist(err) {
-		// noop, file does not exist, move on
-	} else if err != nil {
+	} else if !os.IsNotExist(err) {
 		return ca.SigningCAFileBundle{}, err
 	}
+
 	log.Info("Using istiod file format for signing ca files")
 	// default ca file format
 	return ca.SigningCAFileBundle{
@@ -311,7 +310,6 @@ func handleEvent(s *Server) {
 		return
 	}
 	newCABundle, err = os.ReadFile(fileBundle.RootCertFile)
-
 	if err != nil {
 		log.Errorf("failed reading root-cert.pem: %v", err)
 		return
@@ -435,11 +433,6 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to determine signing file format %v", err)
 	}
-	if _, err := os.Stat(fileBundle.RootCertFile); err != nil {
-		// In Citadel, normal self-signed doesn't use a root-cert.pem file for additional roots.
-		// In Istiod, it is possible to provide one via "cacerts" secret in both cases, for consistency.
-		fileBundle.RootCertFile = ""
-	}
 	if _, err := os.Stat(fileBundle.SigningKeyFile); err == nil {
 		detectedSigningCABundle = true
 		if _, err := os.Stat(path.Join(LocalCertDir.Get(), ca.IstioGenerated)); err == nil {
@@ -481,10 +474,6 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		return nil, fmt.Errorf("failed to create an istiod CA: %v", err)
 	}
 
-	// TODO: provide an endpoint returning all the roots. SDS can only pull a single root in current impl.
-	// ca.go saves or uses the secret, but also writes to the configmap "istio-security", under caTLSRootCert
-	// rootCertRotatorChan channel accepts signals to stop root cert rotator for
-	// self-signed CA.
 	// Start root cert rotator in a separate goroutine.
 	istioCA.Run(s.internalStop)
 	return istioCA, nil
