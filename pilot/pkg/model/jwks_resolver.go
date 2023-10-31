@@ -309,7 +309,6 @@ func CreateFakeJwks() string {
 	}
 
 	return fakeJwks
-
 }
 
 // Resolve jwks_uri through openID discovery.
