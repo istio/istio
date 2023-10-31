@@ -1742,7 +1742,7 @@ func TestInboundClustersLocalhostDefaultEndpoint(t *testing.T) {
 		{
 			name:            "ipv4 host: defaultEndpoint set to [::1]:7073",
 			proxy:           ipv4Proxy,
-			defaultEndpoint: "127.0.0.1:7073",
+			defaultEndpoint: "[::1]:7073",
 			expectedAddr:    "127.0.0.1",
 			expectedPort:    7073,
 		},
