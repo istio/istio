@@ -197,9 +197,8 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			}
 			pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
 			return nil
-		} else {
-			return err
 		}
+		return err
 	})
 	caOpts.RotatorConfig.secretName = caCertName
 	return caOpts, err
