@@ -42,8 +42,6 @@ import (
 	"istio.io/istio/pkg/monitoring"
 )
 
-var fakeJwksRSAKey, _ = rsa.GenerateKey(rand.Reader, 2048)
-
 const (
 	// https://openid.net/specs/openid-connect-discovery-1_0.html
 	// OpenID Providers supporting Discovery MUST make a JSON document available at the path
@@ -298,12 +296,20 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 	}
 }
 
+var fakeJwks string
+
 // CreateFakeJwks is a helper function to make a fake jwks when istiod failed to fetch it.
 func CreateFakeJwks() string {
-	key, _ := jwk.FromRaw(fakeJwksRSAKey)
-	rsaKey, _ := key.(jwk.RSAPrivateKey)
-	res, _ := json.Marshal(rsaKey)
-	return fmt.Sprintf(`{"keys":[ %s]}`, string(res))
+	if fakeJwks == "" {
+		fakeJwksRSAKey, _ := rsa.GenerateKey(rand.Reader, 2048)
+		key, _ := jwk.FromRaw(fakeJwksRSAKey)
+		rsaKey, _ := key.(jwk.RSAPrivateKey)
+		res, _ := json.Marshal(rsaKey)
+		fakeJwks = fmt.Sprintf(`{"keys":[ %s]}`, string(res))
+	}
+
+	return fakeJwks
+
 }
 
 // Resolve jwks_uri through openID discovery.
