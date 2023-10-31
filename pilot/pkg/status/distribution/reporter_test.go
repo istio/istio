@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"k8s.io/utils/clock"
 
 	"istio.io/istio/pilot/pkg/status"
@@ -36,16 +36,16 @@ func TestStatusMaps(t *testing.T) {
 	r.processEvent("conB", typ, "a")
 	r.processEvent("conC", typ, "c")
 	r.processEvent("conD", typ, "d")
-	gomega.RegisterTestingT(t)
+	RegisterTestingT(t)
 	x := struct{}{}
-	gomega.Expect(r.status).To(gomega.Equal(map[string]string{"conA~": "a", "conB~": "a", "conC~": "c", "conD~": "d"}))
-	gomega.Expect(r.reverseStatus).To(gomega.Equal(map[string]sets.String{"a": {"conA~": x, "conB~": x}, "c": {"conC~": x}, "d": {"conD~": x}}))
+	Expect(r.status).To(Equal(map[string]string{"conA~": "a", "conB~": "a", "conC~": "c", "conD~": "d"}))
+	Expect(r.reverseStatus).To(Equal(map[string]sets.String{"a": {"conA~": x, "conB~": x}, "c": {"conC~": x}, "d": {"conD~": x}}))
 	r.processEvent("conA", typ, "d")
-	gomega.Expect(r.status).To(gomega.Equal(map[string]string{"conA~": "d", "conB~": "a", "conC~": "c", "conD~": "d"}))
-	gomega.Expect(r.reverseStatus).To(gomega.Equal(map[string]sets.String{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x, "conA~": x}}))
+	Expect(r.status).To(Equal(map[string]string{"conA~": "d", "conB~": "a", "conC~": "c", "conD~": "d"}))
+	Expect(r.reverseStatus).To(Equal(map[string]sets.String{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x, "conA~": x}}))
 	r.RegisterDisconnect("conA", []xds.EventType{typ})
-	gomega.Expect(r.status).To(gomega.Equal(map[string]string{"conB~": "a", "conC~": "c", "conD~": "d"}))
-	gomega.Expect(r.reverseStatus).To(gomega.Equal(map[string]sets.String{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x}}))
+	Expect(r.status).To(Equal(map[string]string{"conB~": "a", "conC~": "c", "conD~": "d"}))
+	Expect(r.reverseStatus).To(Equal(map[string]sets.String{"a": {"conB~": x}, "c": {"conC~": x}, "d": {"conD~": x}}))
 }
 
 func initReporterWithoutStarting() (out Reporter) {
@@ -61,7 +61,7 @@ func initReporterWithoutStarting() (out Reporter) {
 }
 
 func TestBuildReport(t *testing.T) {
-	gomega.RegisterTestingT(t)
+	RegisterTestingT(t)
 	r := initReporterWithoutStarting()
 	r.ledger = ledger.Make(time.Minute)
 	resources := []*config.Config{
@@ -118,11 +118,11 @@ func TestBuildReport(t *testing.T) {
 	// build a report, which should have only two dataplanes, with 50% acking v2 of config
 	rpt, prunes := r.buildReport()
 	r.removeCompletedResource(prunes)
-	gomega.Expect(rpt.DataPlaneCount).To(gomega.Equal(2))
-	gomega.Expect(rpt.InProgressResources).To(gomega.Equal(map[string]int{
+	Expect(rpt.DataPlaneCount).To(Equal(2))
+	Expect(rpt.InProgressResources).To(Equal(map[string]int{
 		myResources[0].String(): 2,
 		myResources[1].String(): 1,
 		myResources[2].String(): 2,
 	}))
-	gomega.Expect(r.inProgressResources).NotTo(gomega.ContainElement(resources[0]))
+	Expect(r.inProgressResources).NotTo(ContainElement(resources[0]))
 }

@@ -18,7 +18,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"gopkg.in/yaml.v2"
 
 	"istio.io/istio/pilot/pkg/status"
@@ -36,11 +36,11 @@ func TestReportSerialization(t *testing.T) {
 		},
 	}
 	outbytes, err := yaml.Marshal(in)
-	gomega.RegisterTestingT(t)
-	gomega.Expect(err).To(gomega.BeNil())
+	RegisterTestingT(t)
+	Expect(err).To(BeNil())
 	out := Report{}
 	err = yaml.Unmarshal(outbytes, &out)
-	gomega.Expect(err).To(gomega.BeNil())
+	Expect(err).To(BeNil())
 	if !reflect.DeepEqual(out, in) {
 		t.Errorf("Report Serialization mutated the Report. got = %v, want %v", out, in)
 	}
