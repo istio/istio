@@ -237,14 +237,14 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 
 	s := newAmbientTestServer(t, testC, "")
 
-	createOrUpdateNamespace(t, s.controller, testNS, "")
-	createOrUpdateNamespace(t, s.controller, systemNS, "")
-
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
 
 	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, s.addrXdsName("127.0.0.2"), "pod2")
+
+	createOrUpdateNamespace(t, s.controller, testNS, "")
+	createOrUpdateNamespace(t, s.controller, systemNS, "")
 
 	expectWorkloadNetwork := func(t *testing.T, c *FakeController, network string) {
 		podNames := sets.New[string]("pod1", "pod2")
