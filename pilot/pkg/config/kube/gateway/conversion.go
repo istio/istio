@@ -1944,10 +1944,8 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 		for i, l := range kgw.Listeners {
 			i := i
 			namespaceLabelReferences.InsertAll(getNamespaceLabelReferences(l.AllowedRoutes)...)
-			server, ok := buildListener(r, obj, l, i, controllerName)
-			if !ok {
-				continue
-			}
+			server, programmed := buildListener(r, obj, l, i, controllerName)
+
 			servers = append(servers, server)
 			if controllerName == constants.ManagedGatewayMeshController {
 				// Waypoint doesn't actually convert the routes to VirtualServices
@@ -1991,7 +1989,10 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 				reportListenerAttachedRoutes(i, obj, pri.AttachedRoutes)
 			}
 			gwMap[ref] = append(gwMap[ref], pri)
-			result = append(result, gatewayConfig)
+
+			if programmed {
+				result = append(result, gatewayConfig)
+			}
 		}
 
 		// If "gateway.istio.io/alias-for" annotation is present, any Route
@@ -2266,12 +2267,15 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 		},
 	}
 
-	defer reportListenerCondition(listenerIndex, l, obj, listenerConditions)
-
+	ok := true
 	tls, err := buildTLS(r, l.TLS, obj, kube.IsAutoPassthrough(obj.Labels, l))
 	if err != nil {
 		listenerConditions[string(k8sv1.ListenerConditionResolvedRefs)].error = err
-		return nil, false
+		listenerConditions[string(k8sv1.GatewayConditionProgrammed)].error = &ConfigError{
+			Reason:  string(k8sv1.GatewayReasonInvalid),
+			Message: "Bad TLS configuration",
+		}
+		ok = false
 	}
 	hostnames := buildHostnameMatch(obj.Namespace, r.GatewayResources, l)
 	server := &istio.Server{
@@ -2293,7 +2297,8 @@ func buildListener(r configContext, obj config.Config, l k8s.Listener, listenerI
 		}
 	}
 
-	return server, true
+	reportListenerCondition(listenerIndex, l, obj, listenerConditions)
+	return server, ok
 }
 
 func listenerProtocolToIstio(protocol k8s.ProtocolType) string {
@@ -2323,16 +2328,16 @@ func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 		}
 		if len(tls.CertificateRefs) != 1 {
 			// This is required in the API, should be rejected in validation
-			return nil, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
+			return out, &ConfigError{Reason: InvalidTLS, Message: "exactly 1 certificateRefs should be present for TLS termination"}
 		}
 		cred, err := buildSecretReference(ctx, tls.CertificateRefs[0], gw)
 		if err != nil {
-			return nil, err
+			return out, err
 		}
 		credNs := ptr.OrDefault((*string)(tls.CertificateRefs[0].Namespace), namespace)
 		sameNamespace := credNs == namespace
 		if !sameNamespace && !ctx.AllowedReferences.SecretAllowed(creds.ToResourceName(cred), namespace) {
-			return nil, &ConfigError{
+			return out, &ConfigError{
 				Reason: InvalidListenerRefNotPermitted,
 				Message: fmt.Sprintf(
 					"certificateRef %v/%v not accessible to a Gateway in namespace %q (missing a ReferenceGrant?)",

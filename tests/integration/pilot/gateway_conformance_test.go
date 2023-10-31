@@ -54,10 +54,10 @@ var conformanceNamespaces = []string{
 }
 
 var skippedTests = map[string]string{
-	"MeshFrontendHostname":               "https://github.com/istio/istio/issues/44702",
-	"GatewayObservedGenerationBump":      "https://github.com/istio/istio/issues/44850",
-	"GatewaySecretInvalidReferenceGrant": "TODO",
-	"GatewayStaticAddresses":             "TODO",
+	"MeshFrontendHostname":          "https://github.com/istio/istio/issues/44702",
+	"GatewayObservedGenerationBump": "https://github.com/istio/istio/issues/44850",
+	"GatewayStaticAddresses":        "https://github.com/istio/istio/issues/47467",
+	"GatewayWithAttachedRoutes":     "https://github.com/kubernetes-sigs/gateway-api/pull/2548"
 }
 
 func init() {
