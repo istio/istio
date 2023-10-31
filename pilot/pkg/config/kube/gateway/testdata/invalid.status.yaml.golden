@@ -327,9 +327,9 @@ status:
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
       type: Programmed
     - lastTransitionTime: fake
       message: 'invalid certificate reference /Secret/malformed., the certificate
