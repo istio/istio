@@ -53,8 +53,9 @@ var conformanceNamespaces = []string{
 
 var skippedTests = map[string]string{
 	// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/1996) scope this skip more
-	"MeshConsumerRoute":      "This requires an egress waypoint which is not yet implemented",
-	"GatewayStaticAddresses": "https://github.com/istio/istio/issues/47467",
+	"MeshConsumerRoute":         "This requires an egress waypoint which is not yet implemented",
+	"GatewayStaticAddresses":    "https://github.com/istio/istio/issues/47467",
+	"GatewayWithAttachedRoutes": "https://github.com/kubernetes-sigs/gateway-api/pull/2548",
 }
 
 func init() {
