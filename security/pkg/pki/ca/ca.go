@@ -175,21 +175,24 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 			}
 			pemCert, pemKey, ckErr := util.GenCertKeyFromOptions(options)
 			if ckErr != nil {
+				pkiCaLog.Warnf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
 				return fmt.Errorf("unable to generate CA cert and key for self-signed CA (%v)", ckErr)
 			}
 
 			rootCerts, err := util.AppendRootCerts(pemCert, rootCertFile)
 			if err != nil {
+				pkiCaLog.Warnf("failed to append root certificates (%v)", err)
 				return fmt.Errorf("failed to append root certificates (%v)", err)
 			}
 			if caOpts.KeyCertBundle, err = util.NewVerifiedKeyCertBundleFromPem(pemCert, pemKey, nil, rootCerts); err != nil {
+				pkiCaLog.Warnf("failed to create CA KeyCertBundle (%v)", err)
 				return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 			}
 			// Write the key/cert back to secret, so they will be persistent when CA restarts.
 			secret := BuildSecret(caCertName, namespace, nil, nil, pemCert, pemCert, pemKey, istioCASecretType)
 			_, err = client.Secrets(namespace).Create(context.TODO(), secret, metav1.CreateOptions{})
 			if err != nil {
-				pkiCaLog.Debugf("Failed to create secret %s (%v)", caCertName, err)
+				pkiCaLog.Warnf("Failed to create secret %s (%v)", caCertName, err)
 				return err
 			}
 			pkiCaLog.Infof("Using self-generated public key: %v", string(rootCerts))
