@@ -32,6 +32,8 @@ pilot:
 
   env: {}
 
+  affinity: {}
+
   cpu:
     targetAverageUtilization: 80
 
