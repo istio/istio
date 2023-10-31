@@ -160,7 +160,7 @@ func (c *Controller) onNetworkChange() {
 	// This is to ensure the ambient workloads are updated dynamically, aligning them with the current network settings.
 	// With this, the pod do not need to restart when the network configuration changes.
 	if features.EnableAmbientControllers {
-		c.syncAllWorkloads()
+		c.syncAllWorkloadsForAmbient()
 	}
 }
 

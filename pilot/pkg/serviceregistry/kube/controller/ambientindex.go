@@ -956,13 +956,20 @@ func (c *Controller) AdditionalPodSubscriptions(
 	return shouldSubscribe
 }
 
-// syncAllWorkloads refreshes all ambient workloads.
-func (c *Controller) syncAllWorkloads() {
+// syncAllWorkloadsForAmbient refreshes all ambient workloads.
+func (c *Controller) syncAllWorkloadsForAmbient() {
 	if c.ambientIndex != nil {
 		namespaces := c.namespaces.List(metav1.NamespaceAll, klabels.Everything())
-		for _, cns := range namespaces {
-			pods := c.podsClient.List(cns.GetName(), klabels.Everything())
-			c.ambientIndex.HandleSelectedNamespace(cns.GetName(), pods, c)
+		discoveryNamespaces := make([]string, 0, len(namespaces))
+		for _, ns := range namespaces {
+			if c.opts.DiscoveryNamespacesFilter != nil &&
+				c.opts.DiscoveryNamespacesFilter.Filter(ns.GetName()) {
+				discoveryNamespaces = append(discoveryNamespaces, ns.GetName())
+			}
+		}
+		for _, ns := range discoveryNamespaces {
+			pods := c.podsClient.List(ns, klabels.Everything())
+			c.ambientIndex.HandleSelectedNamespace(ns, pods, c)
 		}
 	}
 }
