@@ -69,7 +69,7 @@ require (
 	github.com/prometheus/client_golang v1.17.0
 	github.com/prometheus/client_model v0.5.0
 	github.com/prometheus/common v0.45.0
-	github.com/prometheus/prometheus v0.47.2
+	github.com/prometheus/prometheus v0.47.2-0.20231031114904-16c8d445fd41
 	github.com/quic-go/quic-go v0.39.1
 	github.com/ryanuber/go-glob v1.0.0
 	github.com/spaolacci/murmur3 v1.1.0
@@ -168,7 +168,7 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
-	github.com/google/pprof v0.0.0-20230705174524-200ffdc848b8 // indirect
+	github.com/google/pprof v0.0.0-20230926050212-f7f687d19a98 // indirect
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.1 // indirect
 	github.com/googleapis/gax-go/v2 v2.12.0 // indirect
@@ -182,7 +182,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.17.0 // indirect
+	github.com/klauspost/compress v1.17.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.2 // indirect
