@@ -1697,6 +1697,8 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 }
 
 func TestInboundClustersLocalhostDefaultEndpoint(t *testing.T) {
+	ipv4Proxy := getProxy()
+	ipv6Proxy := getIPv6Proxy()
 	dsProxy := model.Proxy{
 		Type:        model.SidecarProxy,
 		IPAddresses: []string{"1.1.1.1", "1111:2222::1"},
@@ -1719,15 +1721,45 @@ func TestInboundClustersLocalhostDefaultEndpoint(t *testing.T) {
 		expectedAddr    string
 		expectedPort    uint32
 	}{
+		// ipv4 use cases
 		{
-			name:            "defaultEndpoint set to 127.0.0.1:7073",
+			name:            "ipv4 host: defaultEndpoint set to 127.0.0.1:7073",
+			proxy:           ipv4Proxy,
+			defaultEndpoint: "127.0.0.1:7073",
+			expectedAddr:    "127.0.0.1",
+			expectedPort:    7073,
+		},
+		{
+			name:            "ipv4 host: defaultEndpoint set to [::1]:7073",
+			proxy:           ipv4Proxy,
+			defaultEndpoint: "127.0.0.1:7073",
+			expectedAddr:    "127.0.0.1",
+			expectedPort:    7073,
+		},
+		// ipv6 use cases
+		{
+			name:            "ipv6 host: defaultEndpoint set to 127.0.0.1:7073",
+			proxy:           ipv6Proxy,
+			defaultEndpoint: "127.0.0.1:7073",
+			expectedAddr:    "::1",
+			expectedPort:    7073,
+		},
+		{
+			name:            "ipv6 host: defaultEndpoint set to [::1]:7073",
+			proxy:           ipv6Proxy,
+			defaultEndpoint: "[::1]:7073",
+			expectedAddr:    "::1",
+			expectedPort:    7073,
+		}, // dual-stack use cases
+		{
+			name:            "dual-stack host: defaultEndpoint set to 127.0.0.1:7073",
 			proxy:           &dsProxy,
 			defaultEndpoint: "127.0.0.1:7073",
 			expectedAddr:    "127.0.0.1",
 			expectedPort:    7073,
 		},
 		{
-			name:            "defaultEndpoint set to [::1]:7073",
+			name:            "dual-stack host: defaultEndpoint set to [::1]:7073",
 			proxy:           &dsProxy,
 			defaultEndpoint: "[::1]:7073",
 			expectedAddr:    "::1",
