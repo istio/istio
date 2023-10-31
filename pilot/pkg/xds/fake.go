@@ -501,7 +501,7 @@ func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 		}
 		o, _, err := decode([]byte(s), nil, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed deserializing kubernetes object: %v", err)
+			return nil, fmt.Errorf("failed deserializing kubernetes object: %v (%v)", err, s)
 		}
 		objects = append(objects, o)
 	}

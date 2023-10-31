@@ -15,6 +15,7 @@
 package route
 
 import (
+	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
@@ -85,18 +86,38 @@ func (r *Cache) Cacheable() bool {
 	return true
 }
 
+func extractNamespaceForKubernetesService(hostname string) (string, error) {
+	ih := strings.Index(hostname, ".svc.")
+	if ih < 0 {
+		return "", fmt.Errorf("hostname is a not a Kubernetes name, missing .svc: %v", hostname)
+	}
+	nsI := strings.Index(hostname, ".")
+	if nsI+1 >= len(hostname) || nsI+1 > ih {
+		// Invalid domain
+		return "", fmt.Errorf("hostname is a not a Kubernetes name, missing namespace: %v", hostname)
+	}
+	ns := hostname[nsI+1 : ih]
+	if len(ns) == 0 {
+		return "", fmt.Errorf("namespace not found")
+	}
+	return ns, nil
+}
+
 func (r *Cache) DependentConfigs() []model.ConfigHash {
 	size := len(r.Services) + len(r.VirtualServices) + len(r.DelegateVirtualServices) + len(r.EnvoyFilterKeys)
 	for _, mergedDR := range r.DestinationRules {
 		size += len(mergedDR.GetFrom())
 	}
 	configs := make([]model.ConfigHash, 0, size)
-
 	for _, svc := range r.Services {
 		configs = append(configs, model.ConfigKey{
-			Kind: kind.ServiceEntry,
-			Name: string(svc.Hostname), Namespace: svc.Attributes.Namespace,
+			Kind:      kind.ServiceEntry,
+			Name:      string(svc.Hostname),
+			Namespace: svc.Attributes.Namespace,
 		}.HashCode())
+		for _, alias := range svc.Attributes.Aliases {
+			configs = append(configs, model.ConfigKey{Kind: kind.ServiceEntry, Name: alias.Hostname.String(), Namespace: alias.Namespace}.HashCode())
+		}
 	}
 	for _, vs := range r.VirtualServices {
 		for _, cfg := range model.VirtualServiceDependencies(vs) {
