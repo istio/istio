@@ -160,8 +160,9 @@ const (
 )
 
 const (
-	DefaultIptablesProbePort = "15002"
-	DefaultProbeTimeout      = 5 * time.Second
+	DefaultIptablesProbePort     = "15002"
+	DefaultIptablesProbePortUint = 15002
+	DefaultProbeTimeout          = 5 * time.Second
 )
 
 const (
