@@ -20,6 +20,10 @@ spec:
             resource:
               name: cpu
               targetAverageUtilization: 444
+          - type: Resource
+            resource:
+              name: memory
+              targetAverageUtilization: 444
     ingressGateways:
     - namespace: istio-system
       name: istio-ingressgateway

@@ -817,8 +817,8 @@ func (x *ResourceQuotas) GetPods() int64 {
 	return 0
 }
 
-// Configuration for CPU target utilization for HorizontalPodAutoscaler target.
-type CPUTargetUtilizationConfig struct {
+// Configuration for CPU or memory target utilization for HorizontalPodAutoscaler target.
+type TargetUtilizationConfig struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
@@ -829,8 +829,8 @@ type CPUTargetUtilizationConfig struct {
 	TargetAverageUtilization int32 `protobuf:"varint,1,opt,name=targetAverageUtilization,proto3" json:"targetAverageUtilization,omitempty"`
 }
 
-func (x *CPUTargetUtilizationConfig) Reset() {
-	*x = CPUTargetUtilizationConfig{}
+func (x *TargetUtilizationConfig) Reset() {
+	*x = TargetUtilizationConfig{}
 	if protoimpl.UnsafeEnabled {
 		mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[5]
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -838,13 +838,13 @@ func (x *CPUTargetUtilizationConfig) Reset() {
 	}
 }
 
-func (x *CPUTargetUtilizationConfig) String() string {
+func (x *TargetUtilizationConfig) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CPUTargetUtilizationConfig) ProtoMessage() {}
+func (*TargetUtilizationConfig) ProtoMessage() {}
 
-func (x *CPUTargetUtilizationConfig) ProtoReflect() protoreflect.Message {
+func (x *TargetUtilizationConfig) ProtoReflect() protoreflect.Message {
 	mi := &file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[5]
 	if protoimpl.UnsafeEnabled && x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -856,12 +856,12 @@ func (x *CPUTargetUtilizationConfig) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use CPUTargetUtilizationConfig.ProtoReflect.Descriptor instead.
-func (*CPUTargetUtilizationConfig) Descriptor() ([]byte, []int) {
+// Deprecated: Use TargetUtilizationConfig.ProtoReflect.Descriptor instead.
+func (*TargetUtilizationConfig) Descriptor() ([]byte, []int) {
 	return file_pkg_apis_istio_v1alpha1_values_types_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *CPUTargetUtilizationConfig) GetTargetAverageUtilization() int32 {
+func (x *TargetUtilizationConfig) GetTargetAverageUtilization() int32 {
 	if x != nil {
 		return x.TargetAverageUtilization
 	}
@@ -1091,8 +1091,8 @@ type EgressGatewayConfig struct {
 	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-	Cpu           *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	CustomService *wrapperspb.BoolValue       `protobuf:"bytes,6,opt,name=customService,proto3" json:"customService,omitempty"`
+	Cpu           *TargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	CustomService *wrapperspb.BoolValue    `protobuf:"bytes,6,opt,name=customService,proto3" json:"customService,omitempty"`
 	// Controls whether an egress gateway is enabled.
 	Enabled *wrapperspb.BoolValue `protobuf:"bytes,7,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Environment variables passed to the proxy container.
@@ -1234,7 +1234,7 @@ func (x *EgressGatewayConfig) GetAutoscaleMin() uint32 {
 }
 
 // Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-func (x *EgressGatewayConfig) GetCpu() *CPUTargetUtilizationConfig {
+func (x *EgressGatewayConfig) GetCpu() *TargetUtilizationConfig {
 	if x != nil {
 		return x.Cpu
 	}
@@ -2170,8 +2170,8 @@ type IngressGatewayConfig struct {
 	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-	Cpu           *CPUTargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
-	CustomService *wrapperspb.BoolValue       `protobuf:"bytes,6,opt,name=customService,proto3" json:"customService,omitempty"`
+	Cpu           *TargetUtilizationConfig `protobuf:"bytes,5,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	CustomService *wrapperspb.BoolValue    `protobuf:"bytes,6,opt,name=customService,proto3" json:"customService,omitempty"`
 	// Controls whether an ingress gateway is enabled.
 	Enabled *wrapperspb.BoolValue `protobuf:"bytes,10,opt,name=enabled,proto3" json:"enabled,omitempty"`
 	// Environment variables passed to the proxy container.
@@ -2298,7 +2298,7 @@ func (x *IngressGatewayConfig) GetAutoscaleMin() uint32 {
 }
 
 // Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-func (x *IngressGatewayConfig) GetCpu() *CPUTargetUtilizationConfig {
+func (x *IngressGatewayConfig) GetCpu() *TargetUtilizationConfig {
 	if x != nil {
 		return x.Cpu
 	}
@@ -2748,7 +2748,7 @@ type PilotConfig struct {
 	// See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 	//
 	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-	Cpu *CPUTargetUtilizationConfig `protobuf:"bytes,11,opt,name=cpu,proto3" json:"cpu,omitempty"`
+	Cpu *TargetUtilizationConfig `protobuf:"bytes,11,opt,name=cpu,proto3" json:"cpu,omitempty"`
 	// K8s node selector.
 	//
 	// See https://kubernetes.io/docs/concepts/configuration/assign-pod-node/#nodeselector
@@ -2935,7 +2935,7 @@ func (x *PilotConfig) GetConfigNamespace() string {
 }
 
 // Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
-func (x *PilotConfig) GetCpu() *CPUTargetUtilizationConfig {
+func (x *PilotConfig) GetCpu() *TargetUtilizationConfig {
 	if x != nil {
 		return x.Cpu
 	}
@@ -6535,7 +6535,7 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_goTypes = []interface{}{
 	(*CNIAmbientConfig)(nil),                           // 6: v1alpha1.CNIAmbientConfig
 	(*CNIRepairConfig)(nil),                            // 7: v1alpha1.CNIRepairConfig
 	(*ResourceQuotas)(nil),                             // 8: v1alpha1.ResourceQuotas
-	(*CPUTargetUtilizationConfig)(nil),                 // 9: v1alpha1.CPUTargetUtilizationConfig
+	(*TargetUtilizationConfig)(nil),                    // 9: v1alpha1.TargetUtilizationConfig
 	(*Resources)(nil),                                  // 10: v1alpha1.Resources
 	(*ServiceAccount)(nil),                             // 11: v1alpha1.ServiceAccount
 	(*DefaultPodDisruptionBudgetConfig)(nil),           // 12: v1alpha1.DefaultPodDisruptionBudgetConfig
@@ -6613,7 +6613,7 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
 	57,  // 19: v1alpha1.DefaultPodDisruptionBudgetConfig.enabled:type_name -> google.protobuf.BoolValue
 	38,  // 20: v1alpha1.DefaultResourcesConfig.requests:type_name -> v1alpha1.ResourcesRequestsConfig
 	57,  // 21: v1alpha1.EgressGatewayConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
-	9,   // 22: v1alpha1.EgressGatewayConfig.cpu:type_name -> v1alpha1.CPUTargetUtilizationConfig
+	9,   // 22: v1alpha1.EgressGatewayConfig.cpu:type_name -> v1alpha1.TargetUtilizationConfig
 	57,  // 23: v1alpha1.EgressGatewayConfig.customService:type_name -> google.protobuf.BoolValue
 	57,  // 24: v1alpha1.EgressGatewayConfig.enabled:type_name -> google.protobuf.BoolValue
 	59,  // 25: v1alpha1.EgressGatewayConfig.env:type_name -> google.protobuf.Struct
@@ -6664,7 +6664,7 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
 	57,  // 70: v1alpha1.GlobalConfig.autoscalingv2API:type_name -> google.protobuf.BoolValue
 	57,  // 71: v1alpha1.IstiodConfig.enableAnalysis:type_name -> google.protobuf.BoolValue
 	57,  // 72: v1alpha1.IngressGatewayConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
-	9,   // 73: v1alpha1.IngressGatewayConfig.cpu:type_name -> v1alpha1.CPUTargetUtilizationConfig
+	9,   // 73: v1alpha1.IngressGatewayConfig.cpu:type_name -> v1alpha1.TargetUtilizationConfig
 	57,  // 74: v1alpha1.IngressGatewayConfig.customService:type_name -> google.protobuf.BoolValue
 	57,  // 75: v1alpha1.IngressGatewayConfig.enabled:type_name -> google.protobuf.BoolValue
 	59,  // 76: v1alpha1.IngressGatewayConfig.env:type_name -> google.protobuf.Struct
@@ -6694,7 +6694,7 @@ var file_pkg_apis_istio_v1alpha1_values_types_proto_depIdxs = []int32{
 	57,  // 100: v1alpha1.PilotConfig.autoscaleEnabled:type_name -> google.protobuf.BoolValue
 	59,  // 101: v1alpha1.PilotConfig.autoscaleBehavior:type_name -> google.protobuf.Struct
 	10,  // 102: v1alpha1.PilotConfig.resources:type_name -> v1alpha1.Resources
-	9,   // 103: v1alpha1.PilotConfig.cpu:type_name -> v1alpha1.CPUTargetUtilizationConfig
+	9,   // 103: v1alpha1.PilotConfig.cpu:type_name -> v1alpha1.TargetUtilizationConfig
 	59,  // 104: v1alpha1.PilotConfig.nodeSelector:type_name -> google.protobuf.Struct
 	60,  // 105: v1alpha1.PilotConfig.keepaliveMaxServerConnectionAge:type_name -> google.protobuf.Duration
 	59,  // 106: v1alpha1.PilotConfig.deploymentLabels:type_name -> google.protobuf.Struct
@@ -6857,7 +6857,7 @@ func file_pkg_apis_istio_v1alpha1_values_types_proto_init() {
 			}
 		}
 		file_pkg_apis_istio_v1alpha1_values_types_proto_msgTypes[5].Exporter = func(v interface{}, i int) interface{} {
-			switch v := v.(*CPUTargetUtilizationConfig); i {
+			switch v := v.(*TargetUtilizationConfig); i {
 			case 0:
 				return &v.state
 			case 1:

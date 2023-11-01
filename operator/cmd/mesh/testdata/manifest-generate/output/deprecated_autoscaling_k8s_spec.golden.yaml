@@ -44,6 +44,10 @@ spec:
       name: cpu
       targetAverageUtilization: 444
     type: Resource
+  - resource:
+      name: memory
+      targetAverageUtilization: 444
+    type: Resource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
