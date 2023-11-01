@@ -303,6 +303,7 @@ func (r *JwksResolver) BuildLocalJwks(jwksURI, jwtIssuer, jwtPubKey string) *env
 */
 // it should be static across different instances and versions.
 // more details can be found: https://github.com/istio/istio/pull/47661.
+// nolint: lll
 const FakeJwks = `{
   "keys": [
     {
