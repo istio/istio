@@ -1779,7 +1779,7 @@ func TestInboundClustersLocalhostDefaultEndpoint(t *testing.T) {
 						{
 							CaptureMode:     networking.CaptureMode_NONE,
 							DefaultEndpoint: c.defaultEndpoint,
-							Port: &networking.SidecarPort{
+							Port: &networking.Port{
 								Number:   7443,
 								Name:     "http",
 								Protocol: "HTTP",
