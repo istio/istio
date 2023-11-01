@@ -1706,6 +1706,114 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 	}
 }
 
+func TestInboundClustersLocalhostDefaultEndpoint(t *testing.T) {
+	ipv4Proxy := getProxy()
+	ipv6Proxy := getIPv6Proxy()
+	dsProxy := model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1", "1111:2222::1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
+		Metadata: &model.NodeMetadata{
+			Namespace: "not-default",
+		},
+		ConfigNamespace: "not-default",
+	}
+
+	inboundFilter := func(c *cluster.Cluster) bool {
+		return strings.HasPrefix(c.Name, "inbound|")
+	}
+
+	cases := []struct {
+		name            string
+		proxy           *model.Proxy
+		defaultEndpoint string
+		expectedAddr    string
+		expectedPort    uint32
+	}{
+		// ipv4 use cases
+		{
+			name:            "ipv4 host: defaultEndpoint set to 127.0.0.1:7073",
+			proxy:           ipv4Proxy,
+			defaultEndpoint: "127.0.0.1:7073",
+			expectedAddr:    "127.0.0.1",
+			expectedPort:    7073,
+		},
+		{
+			name:            "ipv4 host: defaultEndpoint set to [::1]:7073",
+			proxy:           ipv4Proxy,
+			defaultEndpoint: "[::1]:7073",
+			expectedAddr:    "127.0.0.1",
+			expectedPort:    7073,
+		},
+		// ipv6 use cases
+		{
+			name:            "ipv6 host: defaultEndpoint set to 127.0.0.1:7073",
+			proxy:           ipv6Proxy,
+			defaultEndpoint: "127.0.0.1:7073",
+			expectedAddr:    "::1",
+			expectedPort:    7073,
+		},
+		{
+			name:            "ipv6 host: defaultEndpoint set to [::1]:7073",
+			proxy:           ipv6Proxy,
+			defaultEndpoint: "[::1]:7073",
+			expectedAddr:    "::1",
+			expectedPort:    7073,
+		}, // dual-stack use cases
+		{
+			name:            "dual-stack host: defaultEndpoint set to 127.0.0.1:7073",
+			proxy:           &dsProxy,
+			defaultEndpoint: "127.0.0.1:7073",
+			expectedAddr:    "127.0.0.1",
+			expectedPort:    7073,
+		},
+		{
+			name:            "dual-stack host: defaultEndpoint set to [::1]:7073",
+			proxy:           &dsProxy,
+			defaultEndpoint: "[::1]:7073",
+			expectedAddr:    "::1",
+			expectedPort:    7073,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			g := NewWithT(t)
+			cg := NewConfigGenTest(t, TestOptions{})
+			proxy := cg.SetupProxy(c.proxy)
+			proxy.Metadata.InterceptionMode = model.InterceptionNone
+			proxy.SidecarScope = &model.SidecarScope{
+				Sidecar: &networking.Sidecar{
+					Ingress: []*networking.IstioIngressListener{
+						{
+							CaptureMode:     networking.CaptureMode_NONE,
+							DefaultEndpoint: c.defaultEndpoint,
+							Port: &networking.Port{
+								Number:   7443,
+								Name:     "http",
+								Protocol: "HTTP",
+							},
+						},
+					},
+				},
+			}
+
+			clusters := cg.Clusters(proxy)
+			xdstest.ValidateClusters(t, clusters)
+
+			clusters = xdstest.FilterClusters(clusters, inboundFilter)
+			g.Expect(len(clusters)).ShouldNot(Equal(0))
+
+			for _, cluster := range clusters {
+				socket := cluster.GetLoadAssignment().GetEndpoints()[0].LbEndpoints[0].GetEndpoint().GetAddress().GetSocketAddress()
+				g.Expect(socket.GetAddress()).To(Equal(c.expectedAddr))
+				g.Expect(socket.GetPortValue()).To(Equal(c.expectedPort))
+			}
+		})
+	}
+}
+
 func TestRedisProtocolWithPassThroughResolutionAtGateway(t *testing.T) {
 	servicePort := &model.Port{
 		Name:     "redis-port",
