@@ -18,7 +18,7 @@ const (
 	// UnspecifiedIP constant for empty IP address
 	UnspecifiedIP = "0.0.0.0"
 	// UnspecifiedIPv6 constant for empty IPv6 address
-	UnspecifiedIPv6 = "::/0"
+	UnspecifiedIPv6 = "::"
 
 	// AuthCertsPath is the path location for mTLS certificates
 	AuthCertsPath = "/etc/certs/"
