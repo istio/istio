@@ -72,8 +72,8 @@ func NewPolicyApplier(rootNamespace string,
 
 	// Sort the jwt rules by the issuer alphabetically to make the later-on generated filter
 	// config deterministic.
-	slices.SortFunc(processedJwtRules, func(a, b *v1beta1.JWTRule) bool {
-		return a.GetIssuer() < b.GetIssuer()
+	slices.SortBy(processedJwtRules, func(a *v1beta1.JWTRule) string {
+		return a.GetIssuer()
 	})
 
 	return v1beta1PolicyApplier{
