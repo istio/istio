@@ -16,6 +16,7 @@ package envoyfilter
 
 import (
 	"fmt"
+	"strings"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
@@ -29,6 +30,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/runtime"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -93,13 +95,9 @@ func patchListeners(
 		}
 	}
 	if listenersRemoved {
-		tempArray := make([]*listener.Listener, 0, len(listeners))
-		for _, l := range listeners {
-			if l.Name != "" {
-				tempArray = append(tempArray, l)
-			}
-		}
-		return tempArray
+		return slices.FilterInPlace(listeners, func(l *listener.Listener) bool {
+			return l.Name != ""
+		})
 	}
 	return listeners
 }
@@ -218,13 +216,9 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 			if !hasListenerFilterMatch(lp) {
 				continue
 			}
-			tempListenerFilters := []*listener.ListenerFilter{}
-			for _, filter := range lis.ListenerFilters {
-				if !listenerFilterMatch(filter, lp) {
-					tempListenerFilters = append(tempListenerFilters, filter)
-				}
-			}
-			lis.ListenerFilters = tempListenerFilters
+			lis.ListenerFilters = slices.FilterInPlace(lis.ListenerFilters, func(filter *listener.ListenerFilter) bool {
+				return !listenerFilterMatch(filter, lp)
+			})
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, applied)
 	}
@@ -260,13 +254,9 @@ func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if filterChainsRemoved {
-		tempArray := make([]*listener.FilterChain, 0, len(lis.FilterChains))
-		for _, fc := range lis.FilterChains {
-			if fc.Filters != nil {
-				tempArray = append(tempArray, fc)
-			}
-		}
-		lis.FilterChains = tempArray
+		lis.FilterChains = slices.FilterInPlace(lis.FilterChains, func(fc *listener.FilterChain) bool {
+			return fc.Filters != nil
+		})
 	}
 }
 
@@ -432,14 +422,9 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 			if !hasNetworkFilterMatch(lp) {
 				continue
 			}
-
-			var tempFilters []*listener.Filter
-			for _, filter := range fc.Filters {
-				if !networkFilterMatch(filter, lp) {
-					tempFilters = append(tempFilters, filter)
-				}
-			}
-			fc.Filters = tempFilters
+			fc.Filters = slices.FilterInPlace(fc.Filters, func(filter *listener.Filter) bool {
+				return !networkFilterMatch(filter, lp)
+			})
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, applied)
 	}
@@ -609,13 +594,9 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 			if !hasHTTPFilterMatch(lp) {
 				continue
 			}
-			var httpFilters []*hcm.HttpFilter
-			for _, h := range httpconn.HttpFilters {
-				if !httpFilterMatch(h, lp) {
-					httpFilters = append(httpFilters, h)
-				}
-			}
-			httpconn.HttpFilters = httpFilters
+			httpconn.HttpFilters = slices.FilterInPlace(httpconn.HttpFilters, func(h *hcm.HttpFilter) bool {
+				return !httpFilterMatch(h, lp)
+			})
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 	}
@@ -758,6 +739,17 @@ func filterChainMatch(listener *listener.Listener, fc *listener.FilterChain, lp 
 	if match.TransportProtocol != "" {
 		if fc.FilterChainMatch == nil || fc.FilterChainMatch.TransportProtocol != match.TransportProtocol {
 			return false
+		}
+	}
+
+	if match.ApplicationProtocols != "" {
+		if fc.FilterChainMatch == nil {
+			return false
+		}
+		for _, p := range strings.Split(match.ApplicationProtocols, ",") {
+			if !slices.Contains(fc.FilterChainMatch.ApplicationProtocols, p) {
+				return false
+			}
 		}
 	}
 

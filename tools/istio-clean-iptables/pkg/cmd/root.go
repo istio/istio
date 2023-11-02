@@ -15,150 +15,54 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"os/user"
-	"strings"
-
-	"github.com/miekg/dns"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 
-	"istio.io/istio/pkg/env"
-	"istio.io/istio/pkg/log"
-	netutil "istio.io/istio/pkg/util/net"
+	"istio.io/istio/pkg/flag"
 	"istio.io/istio/tools/istio-clean-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
-var (
-	envoyUserVar = env.Register(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
-	// Enable interception of DNS.
-	dnsCaptureByAgent = env.Register("ISTIO_META_DNS_CAPTURE", false,
-		"If set to true, enable the capture of outgoing DNS packets on port 53, redirecting to istio-agent on :15053").Get()
-)
+func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
+	fs := cmd.Flags()
+	flag.BindEnv(fs, constants.DryRun, "n", "Do not call any external dependencies like iptables.",
+		&cfg.DryRun)
 
-var rootCmd = &cobra.Command{
-	Use:    "istio-clean-iptables",
-	Short:  "Clean up iptables rules for Istio Sidecar",
-	Long:   "Script responsible for cleaning up iptables rules",
-	PreRun: bindFlags,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		cfg := constructConfig()
-		if err := cfg.Validate(); err != nil {
-			return err
-		}
-		ext := NewDependencies(cfg)
-		cleaner := NewIptablesCleaner(cfg, ext)
-		cleaner.Run()
-		return nil
-	},
-}
+	flag.BindEnv(fs, constants.ProxyUID, "u",
+		"Specify the UID of the user for which the redirection is not applied. Typically, this is the UID of the proxy container.",
+		&cfg.ProxyUID)
 
-func constructConfig() *config.Config {
-	cfg := &config.Config{
-		DryRun:                  viper.GetBool(constants.DryRun),
-		ProxyUID:                viper.GetString(constants.ProxyUID),
-		ProxyGID:                viper.GetString(constants.ProxyGID),
-		RedirectDNS:             viper.GetBool(constants.RedirectDNS),
-		CaptureAllDNS:           viper.GetBool(constants.CaptureAllDNS),
-		OwnerGroupsInclude:      viper.GetString(constants.OwnerGroupsInclude.Name),
-		OwnerGroupsExclude:      viper.GetString(constants.OwnerGroupsExclude.Name),
-		InboundInterceptionMode: viper.GetString(constants.IstioInboundInterceptionMode.Name),
-		InboundTProxyMark:       viper.GetString(constants.IstioInboundTproxyMark.Name),
-	}
+	flag.BindEnv(fs, constants.ProxyGID, "g",
+		"Specify the GID of the user for which the redirection is not applied (same default value as -u param).",
+		&cfg.ProxyGID)
 
-	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
-	if cfg.ProxyUID == "" {
-		usr, err := user.Lookup(envoyUserVar.Get())
-		var userID string
-		// Default to the UID of ENVOY_USER
-		if err != nil {
-			userID = constants.DefaultProxyUID
-		} else {
-			userID = usr.Uid
-		}
-		cfg.ProxyUID = userID
-	}
-	// For TPROXY as its uid and gid are same.
-	if cfg.ProxyGID == "" {
-		cfg.ProxyGID = cfg.ProxyUID
-	}
+	flag.BindEnv(fs, constants.RedirectDNS, "", "Enable capture of dns traffic by istio-agent.", &cfg.RedirectDNS)
+	// Allow binding to a different var, for consistency with other components
+	flag.AdditionalEnv(fs, constants.RedirectDNS, "ISTIO_META_DNS_CAPTURE")
 
-	// Lookup DNS nameservers. We only do this if DNS is enabled in case of some obscure theoretical
-	// case where reading /etc/resolv.conf could fail.
-	if cfg.RedirectDNS {
-		dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-		if err != nil {
-			panic(fmt.Sprintf("failed to load /etc/resolv.conf: %v", err))
-		}
-		cfg.DNSServersV4, cfg.DNSServersV6 = netutil.IPsSplitV4V6(dnsConfig.Servers)
-	}
+	flag.BindEnv(fs, constants.InboundInterceptionMode, "m",
+		"The mode used to redirect inbound connections to Envoy, either \"REDIRECT\" or \"TPROXY\".",
+		&cfg.InboundInterceptionMode)
 
-	return cfg
-}
-
-// https://github.com/spf13/viper/issues/233.
-// Any viper mutation and binding should be placed in `PreRun` since they should be dynamically bound to the subcommand being executed.
-func bindFlags(cmd *cobra.Command, args []string) {
-	// Read in all environment variables
-	viper.AutomaticEnv()
-	// Replace - with _; so that environment variables are looked up correctly.
-	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-	bind := func(name string, def any) {
-		if err := viper.BindPFlag(name, cmd.Flags().Lookup(name)); err != nil {
-			handleError(err)
-		}
-		viper.SetDefault(name, def)
-	}
-	bindEnv := func(name string, def any) {
-		if err := viper.BindEnv(name); err != nil {
-			handleError(err)
-		}
-		viper.SetDefault(name, def)
-	}
-
-	bind(constants.DryRun, false)
-	bind(constants.ProxyUID, "")
-	bind(constants.ProxyGID, "")
-	bind(constants.RedirectDNS, dnsCaptureByAgent)
-	bindEnv(constants.OwnerGroupsInclude.Name, constants.OwnerGroupsInclude.DefaultValue)
-	bindEnv(constants.OwnerGroupsExclude.Name, constants.OwnerGroupsExclude.DefaultValue)
-	bindEnv(constants.IstioInboundInterceptionMode.Name, constants.IstioInboundInterceptionMode.DefaultValue)
-	bindEnv(constants.IstioInboundTproxyMark.Name, constants.IstioInboundTproxyMark.DefaultValue)
-}
-
-// https://github.com/spf13/viper/issues/233.
-// Only adding flags in `init()` while moving its binding to Viper and value defaulting as part of the command execution.
-// Otherwise, the flag with the same name shared across subcommands will be overwritten by the last.
-func init() {
-	rootCmd.Flags().BoolP(constants.DryRun, "n", false, "Do not call any external dependencies like iptables")
-
-	rootCmd.Flags().StringP(constants.ProxyUID, "u", "",
-		"Specify the UID of the user for which the redirection is not applied. Typically, this is the UID of the proxy container")
-
-	rootCmd.Flags().StringP(constants.ProxyGID, "g", "",
-		"Specify the GID of the user for which the redirection is not applied. (same default value as -u param)")
-
-	rootCmd.Flags().Bool(constants.RedirectDNS, dnsCaptureByAgent, "Enable capture of dns traffic by istio-agent")
-
-	rootCmd.Flags().StringP(constants.InboundInterceptionMode, "m", "",
-		"The mode used to redirect inbound connections to Envoy, either \"REDIRECT\" or \"TPROXY\"")
-
-	rootCmd.Flags().StringP(constants.InboundTProxyMark, "t", "", "")
+	flag.BindEnv(fs, constants.InboundTProxyMark, "t", "", &cfg.InboundTProxyMark)
 }
 
 func GetCommand() *cobra.Command {
-	return rootCmd
-}
-
-func Execute() {
-	if err := rootCmd.Execute(); err != nil {
-		handleError(err)
+	cfg := config.DefaultConfig()
+	cmd := &cobra.Command{
+		Use:   "istio-clean-iptables",
+		Short: "Clean up iptables rules for Istio Sidecar",
+		Long:  "Script responsible for cleaning up iptables rules",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg.FillConfigFromEnvironment()
+			if err := cfg.Validate(); err != nil {
+				return err
+			}
+			ext := NewDependencies(cfg)
+			cleaner := NewIptablesCleaner(cfg, ext)
+			cleaner.Run()
+			return nil
+		},
 	}
-}
-
-func handleError(err error) {
-	log.Error(err)
-	os.Exit(1)
+	bindCmdlineFlags(cfg, cmd)
+	return cmd
 }

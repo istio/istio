@@ -29,10 +29,12 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
@@ -1278,6 +1280,431 @@ func TestGetInterval(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			actual := getInterval(tc.input, tc.defaultVal)
 			assert.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
+func Test_appendApplicableTelemetries(t *testing.T) {
+	namespacedName := types.NamespacedName{
+		Name:      "my-telemetry",
+		Namespace: "my-namespace",
+	}
+	emptyStackDriverTracing := &tpb.Tracing{
+		Match: &tpb.Tracing_TracingSelector{
+			Mode: tpb.WorkloadMode_CLIENT,
+		},
+		Providers: []*tpb.ProviderRef{
+			{
+				Name: "stackdriver",
+			},
+		},
+	}
+	prometheusMetrics := &tpb.Metrics{
+		Providers:         []*tpb.ProviderRef{{Name: "prometheus"}},
+		ReportingInterval: durationpb.New(15 * time.Second),
+	}
+	emptyEnvoyLogging := &tpb.AccessLogging{
+		Providers: []*tpb.ProviderRef{
+			{
+				Name: "envoy",
+			},
+		},
+	}
+	testComputeAccessLogging := &computedAccessLogging{
+		telemetryKey: telemetryKey{
+			Workload: namespacedName,
+		},
+		Logging: []*tpb.AccessLogging{
+			emptyEnvoyLogging,
+		},
+	}
+	validTelemetryConfigurationWithTargetRef := &tpb.Telemetry{
+		TargetRef: &v1beta1.PolicyTargetReference{
+			Group: gvk.KubernetesGateway.Group,
+			Kind:  gvk.KubernetesGateway.Kind,
+			Name:  "my-gateway",
+		},
+		Tracing: []*tpb.Tracing{
+			emptyStackDriverTracing,
+		},
+		Metrics: []*tpb.Metrics{
+			prometheusMetrics,
+		},
+		AccessLogging: []*tpb.AccessLogging{
+			emptyEnvoyLogging,
+		},
+	}
+	validTelemetryConfiguration := &tpb.Telemetry{
+		Tracing: []*tpb.Tracing{
+			emptyStackDriverTracing,
+		},
+		Metrics: []*tpb.Metrics{
+			prometheusMetrics,
+		},
+		AccessLogging: []*tpb.AccessLogging{
+			emptyEnvoyLogging,
+		},
+	}
+	type args struct {
+		ct   *computedTelemetries
+		tel  Telemetry
+		spec *tpb.Telemetry
+	}
+
+	tests := []struct {
+		name string
+		args args
+		want *computedTelemetries
+	}{
+		{
+			name: "empty telemetry configuration",
+			args: args{
+				ct:   &computedTelemetries{},
+				tel:  Telemetry{},
+				spec: &tpb.Telemetry{},
+			},
+			want: &computedTelemetries{},
+		},
+		{
+			name: "targetRef is defined, telemetry configurations are added to empty computed telemetries",
+			args: args{
+				ct: &computedTelemetries{},
+				tel: Telemetry{
+					Name:      "my-telemetry",
+					Namespace: "my-namespace",
+					Spec:      validTelemetryConfigurationWithTargetRef,
+				},
+				spec: validTelemetryConfigurationWithTargetRef,
+			},
+			want: &computedTelemetries{
+				telemetryKey: telemetryKey{Workload: namespacedName},
+				Metrics:      []*tpb.Metrics{prometheusMetrics},
+				Logging:      []*computedAccessLogging{testComputeAccessLogging},
+				Tracing:      []*tpb.Tracing{emptyStackDriverTracing},
+			},
+		},
+		{
+			name: "targetRef is not defined, telemetry configurations are added to empty computed telemetries",
+			args: args{
+				ct: &computedTelemetries{},
+				tel: Telemetry{
+					Name:      "my-telemetry",
+					Namespace: "my-namespace",
+					Spec:      validTelemetryConfiguration,
+				},
+				spec: validTelemetryConfiguration,
+			},
+			want: &computedTelemetries{
+				telemetryKey: telemetryKey{
+					Workload: namespacedName,
+				},
+				Metrics: []*tpb.Metrics{prometheusMetrics},
+				Logging: []*computedAccessLogging{testComputeAccessLogging},
+				Tracing: []*tpb.Tracing{emptyStackDriverTracing},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := appendApplicableTelemetries(tt.args.ct, tt.args.tel, tt.args.spec); !cmp.Equal(got, tt.want) {
+				t.Errorf("appendApplicableTelemetries() = want %v", cmp.Diff(got, tt.want))
+			}
+		})
+	}
+}
+
+func Test_computedTelemetries_Equal(t *testing.T) {
+	type args struct {
+		other *computedTelemetries
+	}
+
+	tests := []struct {
+		name                string
+		computedTelemetries *computedTelemetries
+		args                args
+		want                bool
+	}{
+		{
+			name:                "nil",
+			computedTelemetries: nil,
+			args: args{
+				other: nil,
+			},
+			want: true,
+		},
+		{
+			name:                "empty",
+			computedTelemetries: &computedTelemetries{},
+			args: args{
+				other: &computedTelemetries{},
+			},
+			want: true,
+		},
+		{
+			name:                "computedTelemetries is nil and other computedTelemetries is not",
+			computedTelemetries: nil,
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "other computedTelemetries is nil and computedTelemetries is not",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+					},
+				},
+			},
+			args: args{
+				other: nil,
+			},
+			want: false,
+		},
+		{
+			name: "different length in metrics slice comparison",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different length in tracing slice comparison",
+			computedTelemetries: &computedTelemetries{
+				Tracing: []*tpb.Tracing{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Tracing: []*tpb.Tracing{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						},
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different length in logging slice comparison",
+			computedTelemetries: &computedTelemetries{
+				Logging: []*computedAccessLogging{
+					{
+						Logging: []*tpb.AccessLogging{
+							{
+								Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Logging: []*computedAccessLogging{
+						{
+							Logging: []*tpb.AccessLogging{
+								{
+									Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+								},
+							},
+						},
+						{
+							Logging: []*tpb.AccessLogging{
+								{
+									Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different metrics",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different metrics reporting interval",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						ReportingInterval: &durationpb.Duration{
+							Seconds: 10,
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+							ReportingInterval: &durationpb.Duration{
+								Seconds: 15,
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different tracing providers",
+			computedTelemetries: &computedTelemetries{
+				Tracing: []*tpb.Tracing{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Tracing: []*tpb.Tracing{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different tracing match",
+			computedTelemetries: &computedTelemetries{
+				Tracing: []*tpb.Tracing{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						Match: &tpb.Tracing_TracingSelector{
+							Mode: tpb.WorkloadMode_CLIENT,
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Tracing: []*tpb.Tracing{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+							Match: &tpb.Tracing_TracingSelector{
+								Mode: tpb.WorkloadMode_SERVER,
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different logging providers",
+			computedTelemetries: &computedTelemetries{
+				Logging: []*computedAccessLogging{
+					{
+						Logging: []*tpb.AccessLogging{
+							{
+								Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Logging: []*computedAccessLogging{
+						{
+							Logging: []*tpb.AccessLogging{
+								{
+									Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different logging telemetryKey",
+			computedTelemetries: &computedTelemetries{
+				Logging: []*computedAccessLogging{
+					{
+						telemetryKey: telemetryKey{
+							Workload: types.NamespacedName{
+								Name:      "my-telemetry",
+								Namespace: "my-namespace",
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Logging: []*computedAccessLogging{
+						{
+							telemetryKey: telemetryKey{
+								Workload: types.NamespacedName{
+									Name:      "my-telemetry",
+									Namespace: "my-namespace-2",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.computedTelemetries.Equal(tt.args.other); got != tt.want {
+				t.Errorf("computedTelemetries.Equal() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

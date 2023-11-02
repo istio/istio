@@ -161,6 +161,20 @@ var Waypoint Matcher = func(i echo.Instance) bool {
 
 var NotWaypoint = Not(Waypoint)
 
+// add a "waypointed service" matcher
+func WaypointService() Matcher {
+	return func(i echo.Instance) bool {
+		return Waypoint(i)
+	}
+}
+
+// add a new matcher for "captured service -> service"
+func CapturedService() Matcher {
+	return func(i echo.Instance) bool {
+		return i.Config().ZTunnelCaptured()
+	}
+}
+
 // RegularPod matches echos that don't meet any of the following criteria:
 // - VM
 // - Naked

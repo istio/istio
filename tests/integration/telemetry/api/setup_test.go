@@ -30,6 +30,7 @@ import (
 func TestMain(m *testing.M) {
 	framework.NewSuite(m).
 		Label(label.CustomSetup).
+		// TODO: Remove this restriction once we validate our prometheus helm chart version is high enough
 		Label(label.IPv4). // https://github.com/istio/istio/issues/35915
 		Setup(istio.Setup(common.GetIstioInstance(), setupConfig)).
 		Setup(func(ctx resource.Context) error {

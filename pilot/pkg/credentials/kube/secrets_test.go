@@ -360,7 +360,9 @@ func allowIdentities(c kube.Client, identities ...string) {
 
 func TestForCluster(t *testing.T) {
 	localClient := kube.NewFakeClient()
+	localClient.RunAndWait(test.NewStop(t))
 	remoteClient := kube.NewFakeClient()
+	remoteClient.RunAndWait(test.NewStop(t))
 	sc := NewMulticluster("local")
 	sc.ClusterAdded(&multicluster.Cluster{ID: "local", Client: localClient}, nil)
 	sc.ClusterAdded(&multicluster.Cluster{ID: "remote", Client: remoteClient}, nil)
@@ -386,7 +388,9 @@ func TestForCluster(t *testing.T) {
 
 func TestAuthorize(t *testing.T) {
 	localClient := kube.NewFakeClient()
+	localClient.RunAndWait(test.NewStop(t))
 	remoteClient := kube.NewFakeClient()
+	remoteClient.RunAndWait(test.NewStop(t))
 	allowIdentities(localClient, "system:serviceaccount:ns-local:sa-allowed")
 	allowIdentities(remoteClient, "system:serviceaccount:ns-remote:sa-allowed")
 	sc := NewMulticluster("local")

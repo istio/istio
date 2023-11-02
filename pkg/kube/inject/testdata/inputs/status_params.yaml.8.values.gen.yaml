@@ -70,6 +70,10 @@
           "memory": "128Mi"
         }
       },
+      "startupProbe": {
+        "enabled": true,
+        "failureThreshold": 600
+      },
       "statusPort": 123,
       "tracer": "zipkin"
     },

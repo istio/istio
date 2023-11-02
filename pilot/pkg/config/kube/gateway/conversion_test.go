@@ -59,6 +59,11 @@ var ports = []*model.Port{
 		Port:     34000,
 		Protocol: "TCP",
 	},
+	{
+		Name:     "tcp-other",
+		Port:     34001,
+		Protocol: "TCP",
+	},
 }
 
 var services = []*model.Service{
@@ -363,34 +368,54 @@ func TestConvertResources(t *testing.T) {
 	validator := crdvalidation.NewIstioValidator(t)
 	cases := []struct {
 		name string
+		// Some configs are intended to be generated with invalid configs, and since they will be validated
+		// by the validator, we need to ignore the validation errors to prevent the test from failing.
+		validationIgnorer *crdvalidation.ValidationIgnorer
 	}{
-		{"http"},
-		{"tcp"},
-		{"tls"},
-		{"grpc"},
-		{"mismatch"},
-		{"weighted"},
-		{"zero"},
-		{"mesh"},
-		{"invalid"},
-		{"multi-gateway"},
-		{"delegated"},
-		{"route-binding"},
-		{"reference-policy-tls"},
-		{"reference-policy-service"},
-		{"serviceentry"},
-		{"eastwest"},
-		{"eastwest-tlsoption"},
-		{"eastwest-labelport"},
-		{"eastwest-remote"},
-		{"alias"},
-		{"mcs"},
-		{"route-precedence"},
-		{"waypoint"},
+		{name: "http"},
+		{name: "tcp"},
+		{name: "tls"},
+		{name: "grpc"},
+		{name: "mismatch"},
+		{name: "weighted"},
+		{name: "zero"},
+		{name: "mesh"},
+		{
+			name: "invalid",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"default/^invalid-backendRef-kind-",
+				"default/^invalid-backendRef-mixed-",
+			),
+		},
+		{name: "multi-gateway"},
+		{name: "delegated"},
+		{name: "route-binding"},
+		{name: "reference-policy-tls"},
+		{
+			name: "reference-policy-service",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"istio-system/^backend-not-allowed-",
+			),
+		},
+		{
+			name: "reference-policy-tcp",
+			validationIgnorer: crdvalidation.NewValidationIgnorer(
+				"istio-system/^not-allowed-echo-",
+			),
+		},
+		{name: "serviceentry"},
+		{name: "eastwest"},
+		{name: "eastwest-tlsoption"},
+		{name: "eastwest-labelport"},
+		{name: "eastwest-remote"},
+		{name: "alias"},
+		{name: "mcs"},
+		{name: "route-precedence"},
+		{name: "waypoint"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator)
+			input := readConfig(t, fmt.Sprintf("testdata/%s.yaml", tt.name), validator, nil)
 			// Setup a few preconfigured services
 			instances := []*model.ServiceInstance{}
 			for _, svc := range services {
@@ -401,6 +426,10 @@ func TestConvertResources(t *testing.T) {
 				}, &model.ServiceInstance{
 					Service:     svc,
 					ServicePort: ports[1],
+					Endpoint:    &model.IstioEndpoint{},
+				}, &model.ServiceInstance{
+					Service:     svc,
+					ServicePort: ports[2],
 					Endpoint:    &model.IstioEndpoint{},
 				})
 			}
@@ -422,7 +451,7 @@ func TestConvertResources(t *testing.T) {
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)
 			res := append(output.Gateway, output.VirtualService...)
 			util.CompareContent(t, marshalYaml(t, res), goldenFile)
-			golden := splitOutput(readConfig(t, goldenFile, validator))
+			golden := splitOutput(readConfig(t, goldenFile, validator, tt.validationIgnorer))
 
 			// sort virtual services to make the order deterministic
 			sort.Slice(golden.VirtualService, func(i, j int) bool {
@@ -949,7 +978,7 @@ func TestReferencePolicy(t *testing.T) {
 	}{
 		{
 			name: "simple",
-			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
@@ -974,7 +1003,7 @@ spec:
 		},
 		{
 			name: "multiple in one",
-			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
@@ -999,7 +1028,7 @@ spec:
 		},
 		{
 			name: "multiple",
-			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: ns1
@@ -1013,7 +1042,7 @@ spec:
   - group: ""
     kind: Secret
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: ns2
@@ -1035,7 +1064,7 @@ spec:
 		},
 		{
 			name: "same namespace",
-			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
@@ -1057,7 +1086,7 @@ spec:
 		},
 		{
 			name: "same name",
-			config: `apiVersion: gateway.networking.k8s.io/v1alpha2
+			config: `apiVersion: gateway.networking.k8s.io/v1beta1
 kind: ReferenceGrant
 metadata:
   name: allow-gateways-to-ref-secrets
@@ -1081,7 +1110,7 @@ spec:
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			input := readConfigString(t, tt.config, validator)
+			input := readConfigString(t, tt.config, validator, nil)
 			cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
 			kr := splitInput(t, input)
 			kr.Context = NewGatewayContext(cg.PushContext())
@@ -1180,18 +1209,19 @@ func splitInput(t test.Failer, configs []config.Config) GatewayResources {
 	return out
 }
 
-func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator) []config.Config {
+func readConfig(t testing.TB, filename string, validator *crdvalidation.Validator, ignorer *crdvalidation.ValidationIgnorer) []config.Config {
 	t.Helper()
 
 	data, err := os.ReadFile(filename)
 	if err != nil {
 		t.Fatalf("failed to read input yaml file: %v", err)
 	}
-	return readConfigString(t, string(data), validator)
+	return readConfigString(t, string(data), validator, ignorer)
 }
 
-func readConfigString(t testing.TB, data string, validator *crdvalidation.Validator) []config.Config {
-	if err := validator.ValidateCustomResourceYAML(data); err != nil {
+func readConfigString(t testing.TB, data string, validator *crdvalidation.Validator, ignorer *crdvalidation.ValidationIgnorer,
+) []config.Config {
+	if err := validator.ValidateCustomResourceYAML(data, ignorer); err != nil {
 		t.Error(err)
 	}
 	c, _, err := crd.ParseInputs(data)
@@ -1307,7 +1337,7 @@ func BenchmarkBuildHTTPVirtualServices(b *testing.B) {
 	})
 
 	validator := crdvalidation.NewIstioValidator(b)
-	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator)
+	input := readConfig(b, "testdata/benchmark-httproute.yaml", validator, nil)
 	kr := splitInput(b, input)
 	kr.Context = NewGatewayContext(cg.PushContext())
 	ctx := configContext{

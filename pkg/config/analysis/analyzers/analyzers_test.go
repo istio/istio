@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/pkg/config/analysis/analyzers/envoyfilter"
+	"istio.io/istio/pkg/config/analysis/analyzers/externalcontrolplane"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
@@ -110,6 +111,31 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.Deprecated, "VirtualService foo/productpage"},
 			{msg.Deprecated, "Sidecar default/no-selector"},
+		},
+	},
+	{
+		name:       "externalControlPlaneMissingWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-missing-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.InvalidExternalControlPlaneConfig, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
+			{msg.InvalidExternalControlPlaneConfig, "ValidatingWebhookConfiguration istio-validator-external-istiod"},
+		},
+	},
+	{
+		name:       "externalControlPlaneUsingIpAddresses",
+		inputFiles: []string{"testdata/externalcontrolplane-using-ip-addr.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.ExternalControlPlaneAddressIsNotAHostname, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
+		},
+	},
+	{
+		name:       "externalControlPlaneValidWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-valid-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
 		},
 	},
 	{

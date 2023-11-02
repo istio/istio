@@ -171,9 +171,9 @@ func (i *istioImpl) CustomIngressFor(c cluster.Cluster, service types.Namespaced
 	return i.ingress[c.Name()][labelSelector]
 }
 
-func (i *istioImpl) PodIPsFor(c cluster.Cluster, label string) ([]corev1.PodIP, error) {
-	// Find the pod with the specified label in the system namespace
-	fetchFn := testKube.NewSinglePodFetch(c, i.cfg.SystemNamespace, label)
+func (i *istioImpl) PodIPsFor(c cluster.Cluster, namespace string, label string) ([]corev1.PodIP, error) {
+	// Find the pod with the specified label in the specified namespace
+	fetchFn := testKube.NewSinglePodFetch(c, namespace, label)
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err
@@ -621,6 +621,8 @@ func commonInstallArgs(ctx resource.Context, cfg Config, c cluster.Cluster, defa
 	if ctx.Settings().EnableDualStack {
 		args.AppendSet("values.pilot.env.ISTIO_DUAL_STACK", "true")
 		args.AppendSet("meshConfig.defaultConfig.proxyMetadata.ISTIO_DUAL_STACK", "true")
+		args.AppendSet("values.gateways.istio-ingressgateway.ipFamilyPolicy", "RequireDualStack")
+		args.AppendSet("values.gateways.istio-egressgateway.ipFamilyPolicy", "RequireDualStack")
 	}
 
 	// Include all user-specified values.

@@ -48,6 +48,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/config/visibility"
 	kubelib "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -56,6 +57,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -1667,25 +1669,54 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 }
 
 func TestExternalNameServiceInstances(t *testing.T) {
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
-	createExternalNameService(controller, "svc5", "nsA",
-		[]int32{1, 2, 3}, "foo.co", t, fx)
+	t.Run("alias", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableExternalNameAlias, true)
+		controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+		createExternalNameService(controller, "svc5", "nsA",
+			[]int32{1, 2, 3}, "foo.co", t, fx)
 
-	converted := controller.Services()
-	if len(converted) != 1 {
-		t.Fatalf("failed to get services (%v)s", converted)
-	}
-	eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
-	assert.Equal(t, len(eps), 1)
-	assert.Equal(t, eps[0], &model.IstioEndpoint{
-		Address:               "foo.co",
-		ServicePortName:       "tcp-port-1",
-		EndpointPort:          1,
-		DiscoverabilityPolicy: model.AlwaysDiscoverable,
+		converted := controller.Services()
+		assert.Equal(t, len(converted), 1)
+
+		eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
+		assert.Equal(t, len(eps), 0)
+		assert.Equal(t, converted[0].Attributes, model.ServiceAttributes{
+			ServiceRegistry:          "Kubernetes",
+			Name:                     "svc5",
+			Namespace:                "nsA",
+			Labels:                   nil,
+			ExportTo:                 nil,
+			LabelSelectors:           nil,
+			Aliases:                  nil,
+			ClusterExternalAddresses: nil,
+			ClusterExternalPorts:     nil,
+			K8sAttributes: model.K8sAttributes{
+				Type:         string(corev1.ServiceTypeExternalName),
+				ExternalName: "foo.co",
+			},
+		})
+	})
+	t.Run("no alias", func(t *testing.T) {
+		test.SetForTest(t, &features.EnableExternalNameAlias, false)
+		controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+		createExternalNameService(controller, "svc5", "nsA",
+			[]int32{1, 2, 3}, "foo.co", t, fx)
+
+		converted := controller.Services()
+		assert.Equal(t, len(converted), 1)
+		eps := GetEndpointsForPort(converted[0], controller.Endpoints, 1)
+		assert.Equal(t, len(eps), 1)
+		assert.Equal(t, eps[0], &model.IstioEndpoint{
+			Address:               "foo.co",
+			ServicePortName:       "tcp-port-1",
+			EndpointPort:          1,
+			DiscoverabilityPolicy: model.AlwaysDiscoverable,
+		})
 	})
 }
 
 func TestController_ExternalNameService(t *testing.T) {
+	test.SetForTest(t, &features.EnableExternalNameAlias, false)
 	deleteWg := sync.WaitGroup{}
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
 		ServiceHandler: func(_, _ *model.Service, e model.Event) {
@@ -2055,7 +2086,11 @@ func createExternalNameService(controller *FakeController, name, namespace strin
 	}
 
 	clienttest.Wrap(t, controller.services).Create(service)
-	xdsEvents.MatchOrFail(t, xdsfake.Event{Type: "service"}, xdsfake.Event{Type: "eds cache"})
+	if features.EnableExternalNameAlias {
+		xdsEvents.MatchOrFail(t, xdsfake.Event{Type: "service"})
+	} else {
+		xdsEvents.MatchOrFail(t, xdsfake.Event{Type: "service"}, xdsfake.Event{Type: "eds cache"})
+	}
 	return service
 }
 
@@ -2790,5 +2825,66 @@ func TestStripPodUnusedFields(t *testing.T) {
 	expectPod.Status.Conditions = output.Status.Conditions
 	if !reflect.DeepEqual(expectPod, output) {
 		t.Fatalf("Wanted: %v\n. Got: %v", expectPod, output)
+	}
+}
+
+func TestServiceUpdateNeedsPush(t *testing.T) {
+	newService := func(exportTo visibility.Instance, ports []int) *model.Service {
+		s := &model.Service{
+			Attributes: model.ServiceAttributes{
+				ExportTo: sets.New(exportTo),
+			},
+		}
+		for _, port := range ports {
+			s.Ports = append(s.Ports, &model.Port{
+				Port: port,
+			})
+		}
+		return s
+	}
+
+	tests := []struct {
+		name   string
+		prev   *model.Service
+		curr   *model.Service
+		expect bool
+	}{
+		{
+			name:   "no change",
+			prev:   newService(visibility.Public, []int{80}),
+			curr:   newService(visibility.Public, []int{80}),
+			expect: false,
+		},
+		{
+			name:   "new service",
+			prev:   nil,
+			curr:   newService(visibility.Public, []int{80}),
+			expect: true,
+		},
+		{
+			name:   "new service with none visibility",
+			prev:   nil,
+			curr:   newService(visibility.None, []int{80}),
+			expect: false,
+		},
+		{
+			name:   "public visibility, spec change",
+			prev:   newService(visibility.Public, []int{80}),
+			curr:   newService(visibility.Public, []int{80, 443}),
+			expect: true,
+		},
+		{
+			name:   "none visibility, spec change",
+			prev:   newService(visibility.None, []int{80}),
+			curr:   newService(visibility.None, []int{80, 443}),
+			expect: false,
+		},
+	}
+
+	for _, test := range tests {
+		actual := serviceUpdateNeedsPush(test.prev, test.curr)
+		if actual != test.expect {
+			t.Fatalf("%s: expected %v, got %v", test.name, test.expect, actual)
+		}
 	}
 }

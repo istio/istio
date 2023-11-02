@@ -25,6 +25,7 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -86,7 +87,7 @@ func promDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=prometheus")
+			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app.kubernetes.io/name=prometheus")
 			if err != nil {
 				return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 			}
@@ -122,7 +123,7 @@ func grafanaDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=grafana")
+			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app.kubernetes.io/name=grafana")
 			if err != nil {
 				return fmt.Errorf("not able to locate Grafana pod: %v", err)
 			}
@@ -596,7 +597,7 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	envoy.Long += fmt.Sprintf("\n\n%s\n", "Note: envoy command is deprecated and can be replaced with proxy command, "+
 		"e.g. `istioctl dashboard proxy --help`")
 	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	envoy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", cliContext.NamespaceOrDefault(""),
+	envoy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", metav1.NamespaceDefault,
 		"Namespace where the addon is running, if not specified, istio-system would be used")
 	envoy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", util.DefaultProxyAdminPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(envoy)

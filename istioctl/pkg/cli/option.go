@@ -77,6 +77,9 @@ func (r *RootFlags) IstioNamespace() string {
 
 // DefaultNamespace returns the default namespace to use.
 func (r *RootFlags) DefaultNamespace() string {
+	if r.defaultNamespace == "" {
+		r.ConfigureDefaultNamespace()
+	}
 	return r.defaultNamespace
 }
 

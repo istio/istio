@@ -717,7 +717,7 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 				Sidecar: &networking.Sidecar{
 					Ingress: []*networking.IstioIngressListener{
 						{
-							Port: &networking.Port{Name: "https-port", Protocol: "https", Number: 80},
+							Port: &networking.SidecarPort{Name: "https-port", Protocol: "https", Number: 80},
 							Tls: &networking.ServerTLSSettings{
 								Mode:              networking.ServerTLSSettings_SIMPLE,
 								ServerCertificate: "cert.pem",
@@ -752,7 +752,7 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 				Sidecar: &networking.Sidecar{
 					Ingress: []*networking.IstioIngressListener{
 						{
-							Port: &networking.Port{Name: "https-port", Protocol: "https", Number: 80},
+							Port: &networking.SidecarPort{Name: "https-port", Protocol: "https", Number: 80},
 							Tls: &networking.ServerTLSSettings{
 								Mode:              networking.ServerTLSSettings_SIMPLE,
 								ServerCertificate: "cert.pem",
@@ -771,7 +771,7 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 				Sidecar: &networking.Sidecar{
 					Ingress: []*networking.IstioIngressListener{
 						{
-							Port: &networking.Port{Name: "https-port", Protocol: "https", Number: 80},
+							Port: &networking.SidecarPort{Name: "https-port", Protocol: "https", Number: 80},
 							Tls: &networking.ServerTLSSettings{
 								Mode:              networking.ServerTLSSettings_SIMPLE,
 								ServerCertificate: "cert.pem",
@@ -884,5 +884,20 @@ func TestHCMInternalAddressConfig(t *testing.T) {
 				t.Errorf("unexpected internal address config, expected: %v, got :%v", tt.expectedconfig, httpConnManager.InternalAddressConfig)
 			}
 		})
+	}
+}
+
+func TestAdditionalAddressesForIPv6(t *testing.T) {
+	test.SetForTest(t, &features.EnableAdditionalIpv4OutboundListenerForIpv6Only, true)
+	cg := NewConfigGenTest(t, TestOptions{Services: testServices})
+	proxy := cg.SetupProxy(&model.Proxy{IPAddresses: []string{"1111:2222::1"}})
+
+	listeners := buildListeners(t, TestOptions{Services: testServices}, proxy)
+	vo := xdstest.ExtractListener(model.VirtualOutboundListenerName, listeners)
+	if vo == nil {
+		t.Fatalf("didn't find virtual outbound listener")
+	}
+	if vo.AdditionalAddresses == nil || len(vo.AdditionalAddresses) != 1 {
+		t.Fatalf("expected additional ipv4 bind addresse")
 	}
 }

@@ -144,11 +144,27 @@ spec:
     - name: ISTIO_KUBE_APP_PROBERS
       value: '{"/app-health/other-sidecar/readyz":{"httpGet":{"port":3333}}}'
     image: gcr.io/istio-testing/proxyv2:latest
+    lifecycle:
+      preStop:
+        exec:
+          command:
+          - pilot-agent
+          - request
+          - --debug-port=15020
+          - POST
+          - drain
     name: istio-proxy
     ports:
     - containerPort: 15090
       name: http-envoy-prom
       protocol: TCP
+    readinessProbe:
+      failureThreshold: 4
+      httpGet:
+        path: /healthz/ready
+        port: 15021
+      periodSeconds: 15
+      timeoutSeconds: 3
     resources:
       limits:
         cpu: "2"
@@ -168,12 +184,11 @@ spec:
       runAsNonRoot: true
       runAsUser: 1337
     startupProbe:
-      failureThreshold: 30
+      failureThreshold: 600
       httpGet:
         path: /healthz/ready
         port: 15021
-      initialDelaySeconds: 1
-      periodSeconds: 2
+      periodSeconds: 1
       timeoutSeconds: 3
     volumeMounts:
     - mountPath: /var/run/secrets/workload-spiffe-uds

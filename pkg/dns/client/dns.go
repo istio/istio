@@ -507,7 +507,7 @@ func generateAltHosts(hostname string, nameinfo *dnsProto.NameTable_NameInfo, pr
 // If it is not part of the registry, return nil so that caller queries upstream. If it is part
 // of registry, we will look it up in one of our tables, failing which we will return NXDOMAIN.
 func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, bool) {
-	question := host.Name(hostname)
+	question := string(host.Name(hostname))
 	wildcard := false
 	// First check if host exists in all hosts.
 	hostFound := table.allHosts.Contains(hostname)
@@ -531,16 +531,21 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 	}
 
 	var out []dns.RR
+	var ipAnswers []dns.RR
+	var wcAnswers []dns.RR
+	var cnAnswers []dns.RR
+
 	// Odds are, the first query will always be an expanded hostname
 	// (productpage.ns1.svc.cluster.local.ns1.svc.cluster.local)
 	// So lookup the cname table first
-	cn := table.cname[hostname]
-	if len(cn) > 0 {
+	for _, cn := range table.cname[hostname] {
 		// this was a cname match
-		hostname = cn[0].(*dns.CNAME).Target
+		copied := dns.Copy(cn).(*dns.CNAME)
+		copied.Header().Name = question
+		cnAnswers = append(cnAnswers, copied)
+		hostname = copied.Target
 	}
-	var ipAnswers []dns.RR
-	var wcAnswers []dns.RR
+
 	switch qtype {
 	case dns.TypeA:
 		ipAnswers = table.name4[hostname]
@@ -556,16 +561,23 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 		if wildcard {
 			for _, answer := range ipAnswers {
 				copied := dns.Copy(answer)
-				copied.Header().Name = string(question)
+				/// If there is a CNAME record for the wildcard host, we will sent a chained response of CNAME + A/AAAA pointer
+				/// Otherwhise we expand the wildcard to the original question domain
+				if len(cnAnswers) > 0 {
+					copied.Header().Name = hostname
+				} else {
+					copied.Header().Name = question
+				}
 				wcAnswers = append(wcAnswers, copied)
 			}
 		}
+
 		// We will return a chained response. In a chained response, the first entry is the cname record,
 		// and the second one is the A/AAAA record itself. Some clients do not follow cname redirects
 		// with additional DNS queries. Instead, they expect all the resolved records to be in the same
 		// big DNS response (presumably assuming that a recursive DNS query should do the deed, resolve
 		// cname et al and return the composite response).
-		out = append(out, cn...)
+		out = append(out, cnAnswers...)
 		if wildcard {
 			out = append(out, wcAnswers...)
 		} else {

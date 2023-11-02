@@ -16,6 +16,7 @@ package route
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
+	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -291,6 +293,12 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		// only happens when the gateway-api BackendRef is invalid
 		return "UnknownService"
 	}
+	h := host.Name(destination.Host)
+	// If this is an Alias, point to the concrete service
+	// TODO: this will not work if we have Alias -> Alias -> Concrete service.
+	if service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
+		h = host.Name(service.Attributes.K8sAttributes.ExternalName)
+	}
 	port := listenerPort
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
@@ -304,7 +312,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, h, port)
 }
 
 type RouteOptions struct {
@@ -453,9 +461,14 @@ func translateRoute(
 	out.Decorator = &route.Decorator{
 		Operation: GetRouteOperation(out, virtualService.Name, listenPort),
 	}
-	if in.Fault != nil {
+	if in.Fault != nil || in.CorsPolicy != nil {
 		out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+	}
+	if in.Fault != nil {
 		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(TranslateFault(in.Fault))
+	}
+	if in.CorsPolicy != nil {
+		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(in.CorsPolicy))
 	}
 
 	if opts.IsHTTP3AltSvcHeaderNeeded {
@@ -486,7 +499,6 @@ func applyHTTPRouteDestination(
 		policy = mesh.GetDefaultHttpRetryPolicy()
 	}
 	action := &route.RouteAction{
-		Cors:        TranslateCORSPolicy(in.CorsPolicy),
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
@@ -513,7 +525,18 @@ func applyHTTPRouteDestination(
 				Substitution: regexRewrite.Rewrite,
 			}
 		} else if uri := in.Rewrite.GetUri(); uri != "" {
-			action.PrefixRewrite = uri
+			if model.UseGatewaySemantics(vs) && uri == "/" {
+				// remove the prefix
+				action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
+					Pattern: &matcher.RegexMatcher{
+						Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(out.Match.GetPathSeparatedPrefix())),
+					},
+					// hold `/` in case the entire path is removed
+					Substitution: `/\2`,
+				}
+			} else {
+				action.PrefixRewrite = uri
+			}
 		}
 		if in.Rewrite.GetAuthority() != "" {
 			authority = in.Rewrite.GetAuthority()
@@ -1055,13 +1078,13 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 }
 
 // TranslateCORSPolicy translates CORS policy
-func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
+func TranslateCORSPolicy(in *networking.CorsPolicy) *cors.CorsPolicy {
 	if in == nil {
 		return nil
 	}
 
 	// CORS filter is enabled by default
-	out := route.CorsPolicy{}
+	out := cors.CorsPolicy{}
 	// nolint: staticcheck
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = util.ConvertToEnvoyMatches(in.AllowOrigins)
@@ -1069,12 +1092,10 @@ func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 		out.AllowOriginStringMatch = util.StringToExactMatch(in.AllowOrigin)
 	}
 
-	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
-		FilterEnabled: &core.RuntimeFractionalPercent{
-			DefaultValue: &xdstype.FractionalPercent{
-				Numerator:   100,
-				Denominator: xdstype.FractionalPercent_HUNDRED,
-			},
+	out.FilterEnabled = &core.RuntimeFractionalPercent{
+		DefaultValue: &xdstype.FractionalPercent{
+			Numerator:   100,
+			Denominator: xdstype.FractionalPercent_HUNDRED,
 		},
 	}
 

@@ -1,11 +1,11 @@
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: GatewayClass
 metadata:
   name: istio
 spec:
   controllerName: istio.io/gateway-controller
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
   name: gateway
@@ -24,7 +24,7 @@ spec:
       namespaces:
         from: All
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: http
@@ -60,7 +60,7 @@ spec:
     - name: httpbin
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: http2
@@ -86,7 +86,7 @@ spec:
     - name: httpbin-wildcard
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: redirect
@@ -106,7 +106,7 @@ spec:
           type: ReplaceFullPath
           replaceFullPath: /replace-full
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: redirect-prefix-replace
@@ -131,7 +131,7 @@ spec:
           type: ReplacePrefixMatch
           replacePrefixMatch: /replacement
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: rewrite
@@ -159,6 +159,20 @@ spec:
   - matches:
     - path:
         type: PathPrefix
+        value: /prefix-to-be-removed
+    name: prefix-to-be-removed
+    filters:
+    - type: URLRewrite
+      urlRewrite:
+        path:
+          type: ReplacePrefixMatch
+          replacePrefixMatch: ""
+    backendRefs:
+    - name: httpbin
+      port: 80
+  - matches:
+    - path:
+        type: PathPrefix
         value: /full-original
     name: full-path-rewrite
     filters:
@@ -172,7 +186,7 @@ spec:
     - name: httpbin
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: mirror
@@ -197,7 +211,7 @@ spec:
     - name: httpbin
       port: 80
 ---
-apiVersion: gateway.networking.k8s.io/v1alpha2
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
   name: http-not-selected

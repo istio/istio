@@ -513,7 +513,13 @@ func TestMatchListener(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.desc, func(t *testing.T) {
-			got := tc.wasmPlugin.MatchListener(tc.proxyLabels, tc.listenerInfo)
+			opts := WorkloadSelectionOpts{
+				RootNamespace:  "root",
+				Namespace:      "ns",
+				WorkloadLabels: tc.proxyLabels,
+				IsWaypoint:     false,
+			}
+			got := tc.wasmPlugin.MatchListener(opts, tc.listenerInfo)
 			if tc.want != got {
 				t.Errorf("MatchListener got %v want %v", got, tc.want)
 			}

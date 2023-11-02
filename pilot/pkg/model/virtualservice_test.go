@@ -1063,6 +1063,82 @@ func TestMergeHttpRoutes(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "multiple header merge",
+			root: &networking.HTTPRoute{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Headers: map[string]*networking.StringMatch{
+							"header1": {
+								MatchType: &networking.StringMatch_Regex{
+									Regex: "regex",
+								},
+							},
+						},
+					},
+					{
+						Headers: map[string]*networking.StringMatch{
+							"header2": {
+								MatchType: &networking.StringMatch_Exact{
+									Exact: "exact",
+								},
+							},
+						},
+					},
+				},
+				Delegate: &networking.Delegate{
+					Name:      "delegate",
+					Namespace: "default",
+				},
+			},
+			delegate: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/",
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: []*networking.HTTPRoute{
+				{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/",
+								},
+							},
+							Headers: map[string]*networking.StringMatch{
+								"header1": {
+									MatchType: &networking.StringMatch_Regex{
+										Regex: "regex",
+									},
+								},
+							},
+						},
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/",
+								},
+							},
+							Headers: map[string]*networking.StringMatch{
+								"header2": {
+									MatchType: &networking.StringMatch_Exact{
+										Exact: "exact",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range cases {

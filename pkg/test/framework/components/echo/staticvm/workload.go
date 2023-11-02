@@ -32,8 +32,9 @@ var _ echo.Workload = &workload{}
 
 type workload struct {
 	*echoClient.Client
-	cluster cluster.Cluster
-	address string
+	cluster   cluster.Cluster
+	address   string
+	addresses []string
 }
 
 func newWorkloads(address []string, grpcPort int, tls *common.TLSSettings, c cluster.Cluster) (echo.Workloads, error) {
@@ -80,6 +81,10 @@ func (w *workload) PodName() string {
 
 func (w *workload) Address() string {
 	return w.address
+}
+
+func (w *workload) Addresses() []string {
+	return w.addresses
 }
 
 func (w *workload) Cluster() cluster.Cluster {

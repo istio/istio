@@ -52,7 +52,11 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
 		// expect the same from server. This  is so that secure metadata exchange
 		// transfer can take place between sidecars for TCP with mTLS.
-		ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstreamWithMxc
+		if features.DisableMxALPN {
+			ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstream
+		} else {
+			ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstreamWithMxc
+		}
 	} else {
 		// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
 		// which is used to differentiate between service mesh and legacy traffic.

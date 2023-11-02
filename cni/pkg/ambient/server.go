@@ -69,7 +69,9 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 	}
 
 	s.iptablesCommand = lazy.New(func() (string, error) {
-		return s.detectIptablesCommand(), nil
+		mode := detectIptablesCommand()
+		log.Infof("running with iptables command %q", mode)
+		return mode, nil
 	})
 
 	switch args.RedirectMode {

@@ -43,5 +43,14 @@ spec:
       port: {{ $app.port }}
       name: {{ $app.name }}
   {{- end }}
+{{- if $gateway.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ $gateway.ipFamilyPolicy }}
+{{- end }}
+{{- if $gateway.ipFamilies }}
+  ipFamilies:
+{{- range $gateway.ipFamilies }}
+  - {{ . }}
+{{- end }}
+{{- end }}
 ---
 {{ end }}

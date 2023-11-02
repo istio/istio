@@ -66,42 +66,57 @@ type AuthorizationPoliciesResult struct {
 }
 
 // ListAuthorizationPolicies returns authorization policies applied to the workload in the given namespace.
-func (policy *AuthorizationPolicies) ListAuthorizationPolicies(namespace string, workload labels.Instance) AuthorizationPoliciesResult {
-	ret := AuthorizationPoliciesResult{}
+func (policy *AuthorizationPolicies) ListAuthorizationPolicies(selectionOpts WorkloadSelectionOpts) AuthorizationPoliciesResult {
+	configs := AuthorizationPoliciesResult{}
 	if policy == nil {
-		return ret
+		return configs
+	}
+	rootNamespace := policy.RootNamespace
+	namespace := selectionOpts.Namespace
+	workloadLabels := selectionOpts.WorkloadLabels
+	var lookupInNamespaces []string
+
+	if namespace != rootNamespace {
+		// Only check the root namespace if the (workload) namespace is not already the root namespace
+		// to avoid double inclusion.
+		lookupInNamespaces = []string{rootNamespace, namespace}
+	} else {
+		lookupInNamespaces = []string{namespace}
 	}
 
-	var namespaces []string
-	if policy.RootNamespace != "" {
-		namespaces = append(namespaces, policy.RootNamespace)
-	}
-	// To prevent duplicate policies in case root namespace equals proxy's namespace.
-	if namespace != policy.RootNamespace {
-		namespaces = append(namespaces, namespace)
-	}
-
-	for _, ns := range namespaces {
+	for _, ns := range lookupInNamespaces {
 		for _, config := range policy.NamespaceToPolicies[ns] {
 			spec := config.Spec
-			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-			if selector.SubsetOf(workload) {
-				switch config.Spec.GetAction() {
-				case authpb.AuthorizationPolicy_ALLOW:
-					ret.Allow = append(ret.Allow, config)
-				case authpb.AuthorizationPolicy_DENY:
-					ret.Deny = append(ret.Deny, config)
-				case authpb.AuthorizationPolicy_AUDIT:
-					ret.Audit = append(ret.Audit, config)
-				case authpb.AuthorizationPolicy_CUSTOM:
-					ret.Custom = append(ret.Custom, config)
-				default:
-					log.Errorf("ignored authorization policy %s.%s with unsupported action: %s",
-						config.Namespace, config.Name, config.Spec.GetAction())
+			switch getPolicyMatcher(gvk.AuthorizationPolicy, config.Name, selectionOpts, spec) {
+			case policyMatchSelector:
+				selector := labels.Instance(spec.GetSelector().GetMatchLabels())
+				if selector.SubsetOf(workloadLabels) {
+					configs = updateAuthorizationPoliciesResult(configs, config)
 				}
+			case policyMatchDirect:
+				configs = updateAuthorizationPoliciesResult(configs, config)
 			}
 		}
 	}
 
-	return ret
+	return configs
+}
+
+func updateAuthorizationPoliciesResult(configs AuthorizationPoliciesResult, config AuthorizationPolicy) AuthorizationPoliciesResult {
+	log.Infof("applying authorization policy %s.%s",
+		config.Namespace, config.Name)
+	switch config.Spec.GetAction() {
+	case authpb.AuthorizationPolicy_ALLOW:
+		configs.Allow = append(configs.Allow, config)
+	case authpb.AuthorizationPolicy_DENY:
+		configs.Deny = append(configs.Deny, config)
+	case authpb.AuthorizationPolicy_AUDIT:
+		configs.Audit = append(configs.Audit, config)
+	case authpb.AuthorizationPolicy_CUSTOM:
+		configs.Custom = append(configs.Custom, config)
+	default:
+		log.Errorf("ignored authorization policy %s.%s with unsupported action: %s",
+			config.Namespace, config.Name, config.Spec.GetAction())
+	}
+	return configs
 }

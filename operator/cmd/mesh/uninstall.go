@@ -211,9 +211,6 @@ func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uni
 	rev string, resourcesList []*unstructured.UnstructuredList, objectsList object.K8sObjects, l *clog.ConsoleLogger, dryRun bool,
 ) {
 	pids, err := proxyinfo.GetIDsFromProxyInfo(kubeClient, istioNamespace)
-	if err != nil {
-		l.LogAndError(err.Error())
-	}
 	needConfirmation, message := false, ""
 	if uiArgs.purge {
 		needConfirmation = true
@@ -238,6 +235,10 @@ func preCheckWarnings(cmd *cobra.Command, kubeClient kube.CLIClient, uiArgs *uni
 			}
 			message += "If you proceed with the uninstall, these proxies will become detached from any control plane" +
 				" and will not function correctly.\n"
+		} else if rev != "" && err != nil {
+			needConfirmation = true
+			message += fmt.Sprintf("Unable to find any proxies pointing to the %s control plane. "+
+				"This may be because the control plane cannot be connected or there is no %s control plane.\n", rev, rev)
 		}
 		if gwList != "" {
 			needConfirmation = true

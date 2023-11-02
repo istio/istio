@@ -166,7 +166,7 @@ func TestServiceEntryDuplicatedHostname(t *testing.T) {
 				{
 					Name: "HTTP call",
 					Call: simulation.Call{
-						Address:    "240.240.21.222",
+						Address:    "240.240.91.120",
 						Port:       80,
 						HostHeader: "istio.io",
 						Protocol:   simulation.HTTP,
@@ -179,14 +179,14 @@ func TestServiceEntryDuplicatedHostname(t *testing.T) {
 				{
 					Name: "HTTPS call",
 					Call: simulation.Call{
-						Address:    "240.240.21.222",
+						Address:    "240.240.91.120",
 						Port:       443,
 						HostHeader: "istio.io",
 						Protocol:   simulation.HTTP,
 						TLS:        simulation.TLS,
 					},
 					Result: simulation.Result{
-						ListenerMatched: "240.240.21.222_443",
+						ListenerMatched: "240.240.91.120_443",
 						ClusterMatched:  "outbound|443||istio.io",
 					},
 				},

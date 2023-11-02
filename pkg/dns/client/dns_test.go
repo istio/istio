@@ -182,6 +182,12 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 			expected: a("a.b.wildcard.", []netip.Addr{netip.MustParseAddr("11.11.11.11")}),
 		},
 		{
+			name: "success: wild card with with search namespace chained pointer correctly",
+			host: "foo.wildcard.ns1.svc.cluster.local.",
+			expected: append(cname("foo.wildcard.ns1.svc.cluster.local.", "*.wildcard."),
+				a("*.wildcard.", []netip.Addr{netip.MustParseAddr("10.10.10.10")})...),
+		},
+		{
 			name:     "success: wild card with domain returns A record correctly",
 			host:     "foo.svc.mesh.company.net.",
 			expected: a("foo.svc.mesh.company.net.", []netip.Addr{netip.MustParseAddr("10.1.2.3")}),
@@ -194,8 +200,8 @@ func testDNS(t *testing.T, d *LocalDNSServer) {
 		{
 			name: "success: wild card with search domain returns A record correctly",
 			host: "foo.svc.mesh.company.net.ns1.svc.cluster.local.",
-			expected: append(cname("*.svc.mesh.company.net.ns1.svc.cluster.local.", "*.svc.mesh.company.net."),
-				a("foo.svc.mesh.company.net.ns1.svc.cluster.local.", []netip.Addr{netip.MustParseAddr("10.1.2.3")})...),
+			expected: append(cname("foo.svc.mesh.company.net.ns1.svc.cluster.local.", "*.svc.mesh.company.net."),
+				a("*.svc.mesh.company.net.", []netip.Addr{netip.MustParseAddr("10.1.2.3")})...),
 		},
 		{
 			name:      "success: TypeAAAA query returns AAAA records only",

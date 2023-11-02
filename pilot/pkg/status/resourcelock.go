@@ -23,6 +23,7 @@ import (
 
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Task to be performed.
@@ -92,11 +93,11 @@ func (wq *WorkQueue) Push(target Resource, ctl *Controller, progress any) {
 }
 
 // Pop returns the first item in the queue not in exclusion, along with it's latest progress
-func (wq *WorkQueue) Pop(exclusion map[lockResource]struct{}) (target Resource, progress map[*Controller]any) {
+func (wq *WorkQueue) Pop(exclusion sets.Set[lockResource]) (target Resource, progress map[*Controller]any) {
 	wq.lock.Lock()
 	defer wq.lock.Unlock()
 	for i := 0; i < len(wq.tasks); i++ {
-		if _, ok := exclusion[wq.tasks[i]]; !ok {
+		if !exclusion.Contains(wq.tasks[i]) {
 			// remove from tasks
 			t, ok := wq.cache[wq.tasks[i]]
 			wq.tasks = append(wq.tasks[:i], wq.tasks[i+1:]...)
@@ -133,7 +134,7 @@ type WorkerPool struct {
 	workerCount uint
 	// maximum worker routine count
 	maxWorkers       uint
-	currentlyWorking map[lockResource]struct{}
+	currentlyWorking sets.Set[lockResource]
 	lock             sync.Mutex
 }
 
@@ -142,7 +143,7 @@ func NewWorkerPool(write func(*config.Config, any), get func(Resource) *config.C
 		write:            write,
 		get:              get,
 		maxWorkers:       maxWorkers,
-		currentlyWorking: make(map[lockResource]struct{}),
+		currentlyWorking: sets.New[lockResource](),
 		q: WorkQueue{
 			tasks:  make([]lockResource, 0),
 			cache:  make(map[lockResource]cacheEntry),
@@ -197,7 +198,7 @@ func (wp *WorkerPool) maybeAddWorker() {
 				continue
 			}
 			wp.q.Delete(target)
-			wp.currentlyWorking[convert(target)] = struct{}{}
+			wp.currentlyWorking.Insert(convert(target))
 			wp.lock.Unlock()
 			// work should be done without holding the lock
 			cfg := wp.get(target)
@@ -217,7 +218,7 @@ func (wp *WorkerPool) maybeAddWorker() {
 				}
 			}
 			wp.lock.Lock()
-			delete(wp.currentlyWorking, convert(target))
+			wp.currentlyWorking.Delete(convert(target))
 			wp.lock.Unlock()
 		}
 	}()

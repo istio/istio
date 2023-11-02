@@ -276,6 +276,24 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			},
 			enableDualStack: true,
 		},
+		{
+			name: "alias",
+			service: &model.Service{
+				Hostname:     "foo.local.campus.net",
+				MeshExternal: false,
+				Attributes:   model.ServiceAttributes{Aliases: []model.NamespacedHostname{{Hostname: "alias.local.campus.net", Namespace: "ns"}}},
+			},
+			port: 80,
+			node: &model.Proxy{
+				DNSDomain: "local.campus.net",
+			},
+			want: []string{
+				"foo.local.campus.net",
+				"foo",
+				"alias.local.campus.net",
+				"alias",
+			},
+		},
 	}
 
 	testFn := func(t test.Failer, service *model.Service, port int, node *model.Proxy, want []string) {
@@ -572,7 +590,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						// A port that is not in any of the services
 						Number:   9000,
 						Protocol: "HTTP",
@@ -582,7 +600,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 					Hosts: []string{"*/bookinfo.com"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						// Unix domain socket listener
 						Number:   0,
 						Protocol: "HTTP",
@@ -592,7 +610,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 					Hosts: []string{"*/bookinfo.com"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						// Unix domain socket listener
 						Number:   0,
 						Protocol: "HTTP",
@@ -602,7 +620,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 					Hosts: []string{"*/test-headless.com"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						// A port that is in one of the services
 						Number:   8080,
 						Protocol: "HTTP",
@@ -626,7 +644,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "HTTP",
 						Name:     "something",
@@ -645,7 +663,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "HTTP_PROXY",
 						Name:     "something",
@@ -664,7 +682,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						// A port that is not in any of the services
 						Number:   9000,
 						Protocol: "HTTP",
@@ -674,7 +692,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 					Hosts: []string{"*/bookinfo.com"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						// Unix domain socket listener
 						Number:   0,
 						Protocol: "HTTP",
@@ -684,7 +702,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 					Hosts: []string{"*/bookinfo.com"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   0,
 						Protocol: "HTTP",
 						Name:     "something",
@@ -693,7 +711,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 					Hosts: []string{"*/test-headless.com"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   18888,
 						Protocol: "HTTP",
 						Name:     "foo",
@@ -719,7 +737,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						// A port that is not in any of the services
 						Number:   9000,
 						Protocol: "HTTP",
@@ -729,7 +747,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 					Hosts: []string{"*/bookinfo.com"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						// Unix domain socket listener
 						Number:   0,
 						Protocol: "HTTP",
@@ -739,7 +757,7 @@ func TestSidecarOutboundHTTPRouteConfig(t *testing.T) {
 					Hosts: []string{"*/bookinfo.com"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						// A port that is in one of the services
 						Number:   8080,
 						Protocol: "HTTP",

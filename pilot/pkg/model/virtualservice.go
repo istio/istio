@@ -34,35 +34,36 @@ import (
 // This function is used by sidecar converter.
 func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, hostsByNamespace map[string]hostClassification) []config.Config {
 	importedVirtualServices := make([]config.Config, 0)
+	vsset := sets.New[types.NamespacedName]()
 
-	vsset := sets.New[string]()
 	addVirtualService := func(vs config.Config, hosts hostClassification) {
-		vsname := vs.Name + "/" + vs.Namespace
+		key := vs.NamespacedName()
+		if vsset.Contains(key) {
+			return
+		}
+
 		rule := vs.Spec.(*networking.VirtualService)
-
 		for _, vh := range rule.Hosts {
-			if vsset.Contains(vsname) {
-				break
-			}
-
 			// first, check exactHosts
 			if hosts.exactHosts.Contains(host.Name(vh)) {
 				importedVirtualServices = append(importedVirtualServices, vs)
-				vsset.Insert(vsname)
-				break
+				vsset.Insert(key)
+				return
 			}
 
 			// exactHosts not found, fallback to loop allHosts
 			for _, ah := range hosts.allHosts {
 				if vsHostMatches(vh, ah, vs) {
 					importedVirtualServices = append(importedVirtualServices, vs)
-					vsset.Insert(vsname)
-					break
+					vsset.Insert(key)
+					// break both loops
+					return
 				}
 			}
 		}
 	}
 
+	wnsImportedHosts, wnsFound := hostsByNamespace[wildcardNamespace]
 	loopAndAdd := func(vses []config.Config) {
 		for _, c := range vses {
 			configNamespace := c.Namespace
@@ -77,8 +78,8 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 			}
 
 			// Check if there is an import of form */host or */*
-			if importedHosts, wnsFound := hostsByNamespace[wildcardNamespace]; wnsFound {
-				addVirtualService(c, importedHosts)
+			if wnsFound {
+				addVirtualService(c, wnsImportedHosts)
 			}
 		}
 	}
@@ -190,7 +191,7 @@ func mergeVirtualServicesIfNeeded(
 		rule := vs.Spec.(*networking.VirtualService)
 		// it is delegate, add it to the indexer cache along with the exportTo for the delegate
 		if len(rule.Hosts) == 0 {
-			delegatesMap[config.NamespacedName(vs)] = vs
+			delegatesMap[vs.NamespacedName()] = vs
 			var exportToSet sets.Set[visibility.Instance]
 			if len(rule.ExportTo) == 0 {
 				// No exportTo in virtualService. Use the global default
@@ -212,7 +213,7 @@ func mergeVirtualServicesIfNeeded(
 					}
 				}
 			}
-			delegatesExportToMap[config.NamespacedName(vs)] = exportToSet
+			delegatesExportToMap[vs.NamespacedName()] = exportToSet
 
 			continue
 		}
@@ -380,7 +381,8 @@ func mergeHTTPMatchRequests(root, delegate []*networking.HTTPMatchRequest) (out 
 }
 
 func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *networking.HTTPMatchRequest {
-	out := delegate
+	// nolint: govet
+	out := *delegate
 	if out.Name == "" {
 		out.Name = root.Name
 	} else if root.Name != "" {
@@ -425,7 +427,7 @@ func mergeHTTPMatchRequest(root, delegate *networking.HTTPMatchRequest) *network
 	if len(out.StatPrefix) == 0 {
 		out.StatPrefix = root.StatPrefix
 	}
-	return out
+	return &out
 }
 
 func hasConflict(root, leaf *networking.HTTPMatchRequest) bool {

@@ -897,6 +897,21 @@ func TestApplyListenerPatches(t *testing.T) {
 			},
 		},
 		{
+			ApplyTo: networking.EnvoyFilter_FILTER_CHAIN,
+			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
+				ObjectTypes: &networking.EnvoyFilter_EnvoyConfigObjectMatch_Listener{
+					Listener: &networking.EnvoyFilter_ListenerMatch{
+						PortNumber:  12345,
+						FilterChain: &networking.EnvoyFilter_ListenerMatch_FilterChainMatch{ApplicationProtocols: "http/1.1"},
+					},
+				},
+			},
+			Patch: &networking.EnvoyFilter_Patch{
+				Operation: networking.EnvoyFilter_Patch_REMOVE,
+			},
+		},
+		{
 			ApplyTo: networking.EnvoyFilter_LISTENER_FILTER,
 			Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
 				Context: networking.EnvoyFilter_SIDECAR_OUTBOUND,
@@ -1180,6 +1195,12 @@ func TestApplyListenerPatches(t *testing.T) {
 						},
 					},
 					Filters: []*listener.Filter{{Name: "envoy.transport_sockets.tls"}},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{ApplicationProtocols: []string{"http/1.1", "h2c"}},
+					Filters: []*listener.Filter{
+						{Name: "filter1"},
+					},
 				},
 				{
 					Filters: []*listener.Filter{
@@ -1673,6 +1694,12 @@ func TestApplyListenerPatches(t *testing.T) {
 						},
 					},
 					Filters: []*listener.Filter{{Name: "envoy.transport_sockets.tls"}},
+				},
+				{
+					FilterChainMatch: &listener.FilterChainMatch{ApplicationProtocols: []string{"http/1.1", "h2c"}},
+					Filters: []*listener.Filter{
+						{Name: "filter1"},
+					},
 				},
 				{
 					Filters: []*listener.Filter{

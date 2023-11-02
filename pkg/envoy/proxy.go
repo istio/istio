@@ -103,10 +103,10 @@ func splitComponentLog(level string) (string, []string) {
 	return logLevel, componentLogs
 }
 
-func (e *envoy) Drain() error {
+func (e *envoy) Drain(skipExit bool) error {
 	adminPort := uint32(e.AdminPort)
 
-	err := DrainListeners(adminPort, e.Sidecar)
+	err := DrainListeners(adminPort, e.Sidecar, skipExit)
 	if err != nil {
 		log.Infof("failed draining listeners for Envoy on port %d: %v", adminPort, err)
 	}

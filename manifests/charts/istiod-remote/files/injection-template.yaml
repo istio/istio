@@ -65,7 +65,9 @@ metadata:
 {{- end }}
   }
 spec:
-  {{- $holdProxy := or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts }}
+  {{- $holdProxy := and
+      (or .ProxyConfig.HoldApplicationUntilProxyStarts.GetValue .Values.global.proxy.holdApplicationUntilProxyStarts)
+      (not $nativeSidecar) }}
   initContainers:
   {{ if ne (annotation .ObjectMeta `sidecar.istio.io/interceptionMode` .ProxyConfig.InterceptionMode) `NONE` }}
   {{ if .Values.istio_cni.enabled -}}
@@ -223,6 +225,17 @@ spec:
           command:
           - pilot-agent
           - wait
+  {{- else if $nativeSidecar }}
+    {{- /* preStop is called when the pod starts shutdown. Initialize drain. We will get SIGTERM once applications are torn down. */}}
+    lifecycle:
+      preStop:
+        exec:
+          command:
+          - pilot-agent
+          - request
+          - --debug-port={{(annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort)}}
+          - POST
+          - drain
   {{- end }}
     env:
     {{- if eq (env "PILOT_ENABLE_INBOUND_PASSTHROUGH" "true") "false" }}
@@ -336,11 +349,17 @@ spec:
     {{- end }}
     {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
     {{ if ne (annotation .ObjectMeta `status.sidecar.istio.io/port` .Values.global.proxy.statusPort) `0` }}
-  {{ if $nativeSidecar }}
+  {{ if .Values.global.proxy.startupProbe.enabled }}
     startupProbe:
-  {{ else }}
-    readinessProbe:
+      httpGet:
+        path: /healthz/ready
+        port: 15021
+      initialDelaySeconds: 0
+      periodSeconds: 1
+      timeoutSeconds: 3
+      failureThreshold: {{ .Values.global.proxy.startupProbe.failureThreshold }}
   {{ end }}
+    readinessProbe:
       httpGet:
         path: /healthz/ready
         port: 15021

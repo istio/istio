@@ -195,7 +195,7 @@ func (c *Controller) setupAutoRecreate() {
 
 	c.store.RegisterEventHandler(gvk.WorkloadGroup, func(_ config.Config, cfg config.Config, event model.Event) {
 		if event == model.EventAdd {
-			c.lateRegistrationQueue.Add(config.NamespacedName(cfg))
+			c.lateRegistrationQueue.Add(cfg.NamespacedName())
 		}
 	})
 }

@@ -24,12 +24,9 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"os/signal"
 	"reflect"
 	"strconv"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
@@ -204,26 +201,39 @@ func TestNewServer(t *testing.T) {
 	}
 }
 
-func TestPprof(t *testing.T) {
-	pprofPath := "/debug/pprof/cmdline"
-	// Starts the pilot agent status server.
-	server, err := NewServer(Options{StatusPort: 0, EnableProfiling: true, PrometheusRegistry: TestingRegistry(t)})
+func NewTestServer(t test.Failer, o Options) *Server {
+	if o.PrometheusRegistry == nil {
+		o.PrometheusRegistry = TestingRegistry(t)
+	}
+	server, err := NewServer(o)
 	if err != nil {
 		t.Fatalf("failed to create status server %v", err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	t.Cleanup(cancel)
 	go server.Run(ctx)
 
-	var statusPort uint16
-	for statusPort == 0 {
+	if err := retry.UntilSuccess(func() error {
 		server.mutex.RLock()
-		statusPort = server.statusPort
+		statusPort := server.statusPort
 		server.mutex.RUnlock()
+		if statusPort == 0 {
+			return fmt.Errorf("no port allocated")
+		}
+		return nil
+	}, retry.Delay(time.Microsecond)); err != nil {
+		t.Fatalf("failed to getport: %v", err)
 	}
 
+	return server
+}
+
+func TestPprof(t *testing.T) {
+	pprofPath := "/debug/pprof/cmdline"
+	// Starts the pilot agent status server.
+	server := NewTestServer(t, Options{EnableProfiling: true})
 	client := http.Client{}
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v/%s", statusPort, pprofPath), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v/%s", server.statusPort, pprofPath), nil)
 	if err != nil {
 		t.Fatalf("[%v] failed to create request", pprofPath)
 	}
@@ -871,34 +881,18 @@ func TestAppProbe(t *testing.T) {
 			t.Fatalf("invalid app probers")
 		}
 		config := Options{
-			StatusPort:         0,
-			PrometheusRegistry: TestingRegistry(t),
-			KubeAppProbers:     string(appProber),
-			PodIP:              tc.podIP,
-			IPv6:               tc.ipv6,
+			KubeAppProbers: string(appProber),
+			PodIP:          tc.podIP,
+			IPv6:           tc.ipv6,
 		}
+		server := NewTestServer(t, config)
 		// Starts the pilot agent status server.
-		server, err := NewServer(config)
-		if err != nil {
-			t.Fatalf("failed to create status server %v", err)
-		}
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-		go server.Run(ctx)
-
 		if tc.ipv6 {
 			server.upstreamLocalAddress = &net.TCPAddr{IP: net.ParseIP("::1")} // required because ::6 is NOT a loopback address (IPv6 only has ::1)
 		}
 
-		var statusPort uint16
-		for statusPort == 0 {
-			server.mutex.RLock()
-			statusPort = server.statusPort
-			server.mutex.RUnlock()
-		}
-
 		client := http.Client{}
-		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v/%s", statusPort, tc.probePath), nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v/%s", server.statusPort, tc.probePath), nil)
 		if err != nil {
 			t.Fatalf("[%v] failed to create request", tc.probePath)
 		}
@@ -979,31 +973,11 @@ func TestHttpsAppProbe(t *testing.T) {
 		appPort := listener.Addr().(*net.TCPAddr).Port
 
 		// Starts the pilot agent status server.
-		server, err := NewServer(Options{
-			StatusPort:         0,
-			PrometheusRegistry: TestingRegistry(t),
+		server := NewTestServer(t, Options{
 			KubeAppProbers: fmt.Sprintf(`{"/app-health/hello-world/readyz": {"httpGet": {"path": "/hello/sunnyvale", "port": %v, "scheme": "HTTPS"}},
 "/app-health/hello-world/livez": {"httpGet": {"port": %v, "scheme": "HTTPS"}}}`, appPort, appPort),
 		})
-		if err != nil {
-			t.Fatalf("failed to create status server %v", err)
-		}
-		go server.Run(context.Background())
-
-		var statusPort uint16
-		if err := retry.UntilSuccess(func() error {
-			server.mutex.RLock()
-			statusPort = server.statusPort
-			server.mutex.RUnlock()
-			if statusPort == 0 {
-				return fmt.Errorf("no port allocated")
-			}
-			return nil
-		}); err != nil {
-			t.Fatalf("failed to getport: %v", err)
-		}
-		t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
-		return statusPort, h.lastAlpn.Load
+		return server.statusPort, h.lastAlpn.Load
 	}
 	testCases := []struct {
 		name             string
@@ -1105,9 +1079,7 @@ func TestGRPCAppProbe(t *testing.T) {
 
 	appPort := listener.Addr().(*net.TCPAddr).Port
 	// Starts the pilot agent status server.
-	server, err := NewServer(Options{
-		StatusPort:         0,
-		PrometheusRegistry: TestingRegistry(t),
+	server := NewTestServer(t, Options{
 		KubeAppProbers: fmt.Sprintf(`
 {
     "/app-health/foo/livez": {
@@ -1140,24 +1112,7 @@ func TestGRPCAppProbe(t *testing.T) {
     }
 }`, appPort, appPort, appPort, appPort),
 	})
-	if err != nil {
-		t.Errorf("failed to create status server %v", err)
-		return
-	}
-	go server.Run(context.Background())
-
-	var statusPort uint16
-	if err := retry.UntilSuccess(func() error {
-		server.mutex.RLock()
-		statusPort = server.statusPort
-		server.mutex.RUnlock()
-		if statusPort == 0 {
-			return fmt.Errorf("no port allocated")
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("failed to getport: %v", err)
-	}
+	statusPort := server.statusPort
 	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 
 	testCases := []struct {
@@ -1227,11 +1182,9 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 
 	appPort := listener.Addr().(*net.TCPAddr).Port
 	// Starts the pilot agent status server.
-	server, err := NewServer(Options{
-		StatusPort:         0,
-		IPv6:               true,
-		PodIP:              "::1",
-		PrometheusRegistry: TestingRegistry(t),
+	server := NewTestServer(t, Options{
+		IPv6:  true,
+		PodIP: "::1",
 		KubeAppProbers: fmt.Sprintf(`
 {
     "/app-health/foo/livez": {
@@ -1264,27 +1217,8 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
     }
 }`, appPort, appPort, appPort, appPort),
 	})
-	if err != nil {
-		t.Errorf("failed to create status server %v", err)
-		return
-	}
 
 	server.upstreamLocalAddress = &net.TCPAddr{IP: net.ParseIP("::1")} // required because ::6 is NOT a loopback address (IPv6 only has ::1)
-	go server.Run(context.Background())
-
-	var statusPort uint16
-	if err := retry.UntilSuccess(func() error {
-		server.mutex.RLock()
-		statusPort = server.statusPort
-		server.mutex.RUnlock()
-		if statusPort == 0 {
-			return fmt.Errorf("no port allocated")
-		}
-		return nil
-	}); err != nil {
-		t.Fatalf("failed to getport: %v", err)
-	}
-	t.Logf("status server starts at port %v, app starts at port %v", statusPort, appPort)
 
 	testCases := []struct {
 		name       string
@@ -1293,27 +1227,27 @@ func TestGRPCAppProbeWithIPV6(t *testing.T) {
 	}{
 		{
 			name:       "bad-path-should-be-disallowed",
-			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", statusPort),
+			probePath:  fmt.Sprintf(":%v/bad-path-should-be-disallowed", server.statusPort),
 			statusCode: http.StatusNotFound,
 		},
 		{
 			name:       "foo-livez",
-			probePath:  fmt.Sprintf(":%v/app-health/foo/livez", statusPort),
+			probePath:  fmt.Sprintf(":%v/app-health/foo/livez", server.statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "foo-readyz",
-			probePath:  fmt.Sprintf(":%v/app-health/foo/readyz", statusPort),
+			probePath:  fmt.Sprintf(":%v/app-health/foo/readyz", server.statusPort),
 			statusCode: http.StatusInternalServerError,
 		},
 		{
 			name:       "bar-livez",
-			probePath:  fmt.Sprintf(":%v/app-health/bar/livez", statusPort),
+			probePath:  fmt.Sprintf(":%v/app-health/bar/livez", server.statusPort),
 			statusCode: http.StatusOK,
 		},
 		{
 			name:       "bar-readyz",
-			probePath:  fmt.Sprintf(":%v/app-health/bar/readyz", statusPort),
+			probePath:  fmt.Sprintf(":%v/app-health/bar/readyz", server.statusPort),
 			statusCode: http.StatusInternalServerError,
 		},
 	}
@@ -1450,28 +1384,12 @@ func TestProbeHeader(t *testing.T) {
 				t.Fatalf("invalid app probers")
 			}
 			config := Options{
-				StatusPort:         0,
-				PrometheusRegistry: TestingRegistry(t),
-				KubeAppProbers:     string(appProber),
+				KubeAppProbers: string(appProber),
 			}
 			// Starts the pilot agent status server.
-			server, err := NewServer(config)
-			if err != nil {
-				t.Fatal("failed to create status server: ", err)
-			}
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-			go server.Run(ctx)
-
-			var statusPort uint16
-			for statusPort == 0 {
-				server.mutex.RLock()
-				statusPort = server.statusPort
-				server.mutex.RUnlock()
-			}
-
+			server := NewTestServer(t, config)
 			client := http.Client{}
-			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v%s", statusPort, probePath), nil)
+			req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://localhost:%v%s", server.statusPort, probePath), nil)
 			if err != nil {
 				t.Fatal("failed to create request: ", err)
 			}
@@ -1489,12 +1407,6 @@ func TestProbeHeader(t *testing.T) {
 }
 
 func TestHandleQuit(t *testing.T) {
-	statusPort := 15020
-	s, err := NewServer(Options{StatusPort: uint16(statusPort), PrometheusRegistry: TestingRegistry(t)})
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	tests := []struct {
 		name       string
 		method     string
@@ -1528,18 +1440,19 @@ func TestHandleQuit(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Need to stop SIGTERM from killing the whole test run
-			termChannel := make(chan os.Signal, 1)
-			signal.Notify(termChannel, syscall.SIGTERM)
-			defer signal.Reset(syscall.SIGTERM)
-
+			shutdown := make(chan struct{})
+			s := NewTestServer(t, Options{
+				Shutdown: func() {
+					close(shutdown)
+				},
+			})
 			req, err := http.NewRequest(tt.method, "/quitquitquit", nil)
 			if err != nil {
 				t.Fatal(err)
 			}
 
 			if tt.remoteAddr != "" {
-				req.RemoteAddr = tt.remoteAddr + ":15020"
+				req.RemoteAddr = tt.remoteAddr + ":" + fmt.Sprint(s.statusPort)
 			}
 
 			resp := httptest.NewRecorder()
@@ -1550,12 +1463,16 @@ func TestHandleQuit(t *testing.T) {
 
 			if tt.expected == http.StatusOK {
 				select {
-				case <-termChannel:
+				case <-shutdown:
 				case <-time.After(time.Second):
-					t.Fatalf("Failed to receive expected SIGTERM")
+					t.Fatalf("Failed to receive expected shutdown")
 				}
-			} else if len(termChannel) != 0 {
-				t.Fatalf("A SIGTERM was sent when it should not have been")
+			} else {
+				select {
+				case <-shutdown:
+					t.Fatalf("unexpected shutdown")
+				default:
+				}
 			}
 		})
 	}
@@ -1589,9 +1506,8 @@ func TestAdditionalProbes(t *testing.T) {
 	defer testServer.Close()
 	for _, tc := range testCases {
 		server, err := NewServer(Options{
-			Probes:             tc.probes,
-			PrometheusRegistry: TestingRegistry(t),
-			AdminPort:          uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
+			Probes:    tc.probes,
+			AdminPort: uint16(testServer.Listener.Addr().(*net.TCPAddr).Port),
 		})
 		if err != nil {
 			t.Errorf("failed to construct server")

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: 
+  - 47148
+releaseNotes:
+  - |
+    **Fixed** An issue where multiple header matches in root virtual service generates incorrect routes.

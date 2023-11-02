@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+releaseNotes:
+- |
+  **Added** xDS workload metadata discovery to TCP metadata exchange filter as a fallback. This requires enabling `PEER_METADATA_DISCOVERY` flag on the proxy, and `PILOT_ENABLE_AMBIENT_CONTROLLERS` on the control plane.
+  **Added** a flag `PILOT_DISABLE_MX_ALPN` on the control plane to disable advertising TCP metadata exchange ALPN token `istio-peer-exchange`.

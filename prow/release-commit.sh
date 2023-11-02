@@ -36,7 +36,7 @@ docker run --rm --privileged "${DOCKER_HUB}/qemu-user-static" --reset -p yes
 export ISTIO_DOCKER_QEMU=true
 
 # Use a pinned version in case breaking changes are needed
-BUILDER_SHA=00f7e078c8f40211b0c450a0e48e9bb27c99b556
+BUILDER_SHA=aa112ec6b6eff14eb35c72e5727865f380f34a86
 
 # Reference to the next minor version of Istio
 # This will create a version like 1.4-alpha.sha
@@ -107,6 +107,6 @@ release-builder validate --release "${WORK_DIR}/out"
 
 if [[ -z "${DRY_RUN:-}" ]]; then
   release-builder publish --release "${WORK_DIR}/out" \
-    --gcsbucket "${GCS_BUCKET}" --gcsaliases "${NEXT_VERSION}-dev,latest" \
-    --dockerhub "${DOCKER_HUB}" --dockertags "${VERSION},${NEXT_VERSION}-dev,latest"
+    --gcsbucket "${GCS_BUCKET}" --gcsaliases "${TAG},${NEXT_VERSION}-dev,latest" \
+    --dockerhub "${DOCKER_HUB}" --dockertags "${TAG},${VERSION},${NEXT_VERSION}-dev,latest"
 fi

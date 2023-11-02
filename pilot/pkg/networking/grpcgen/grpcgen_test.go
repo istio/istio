@@ -204,7 +204,10 @@ func TestGRPC(t *testing.T) {
 			grpcOptions = append(grpcOptions, xdsgrpc.BootstrapContentsForTesting(bootstrapB))
 
 			// Replaces: grpc NewServer
-			grpcServer := xdsgrpc.NewGRPCServer(grpcOptions...)
+			grpcServer, err := xdsgrpc.NewGRPCServer(grpcOptions...)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			testRBAC(t, grpcServer, xdsresolver, "echo-rbac-mtls", port, lis)
 		})

@@ -56,6 +56,8 @@ func (s *Server) OnSecretUpdate(resourceName string) {
 	if s.workloadSds == nil {
 		return
 	}
+
+	sdsServiceLog.Debugf("Trigger on secret update, resource name: %s", resourceName)
 	s.workloadSds.XdsServer.Push(&model.PushRequest{
 		Full:           false,
 		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: resourceName}),

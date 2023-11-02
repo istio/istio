@@ -81,7 +81,11 @@ func (s *grpcInstance) newServer(opts ...grpc.ServerOption) grpcServer {
 			opts = append(opts, xds.BootstrapContentsForTesting(s.Port.XDSTestBootstrap))
 		}
 		epLog.Infof("Using xDS for serverside gRPC on %d", s.Port.Port)
-		return xds.NewGRPCServer(opts...)
+		grpcServer, err := xds.NewGRPCServer(opts...)
+		if err != nil {
+			return nil
+		}
+		return grpcServer
 	}
 	return grpc.NewServer(opts...)
 }

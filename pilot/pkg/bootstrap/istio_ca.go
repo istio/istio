@@ -319,8 +319,20 @@ func handleEvent(s *Server) {
 
 	// Only updating intermediate CA is supported now
 	if !bytes.Equal(currentCABundle, newCABundle) {
-		log.Info("Updating new ROOT-CA not supported")
-		return
+		if !features.MultiRootMesh {
+			log.Warn("Multi root is disabled, updating new ROOT-CA not supported")
+			return
+		}
+
+		// in order to support root ca rotation, or we are removing the old ca,
+		// we need to make the new CA bundle contain both old and new CA certs
+		if bytes.Contains(currentCABundle, newCABundle) ||
+			bytes.Contains(newCABundle, currentCABundle) {
+			log.Info("Updating new ROOT-CA")
+		} else {
+			log.Warn("Updating new ROOT-CA not supported")
+			return
+		}
 	}
 
 	err = s.CA.GetCAKeyCertBundle().UpdateVerifiedKeyCertBundleFromFile(
@@ -435,18 +447,20 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		}
 	}
 
-	if !detectedSigningCABundle || (detectedSigningCABundle && istioGenerated) {
-		if detectedSigningCABundle && istioGenerated {
+	if !detectedSigningCABundle || (features.UseCacertsForSelfSignedCA && istioGenerated) {
+		if features.UseCacertsForSelfSignedCA && istioGenerated {
 			log.Infof("%s secret found is IstioGenerated, use it as the CA certificate", ca.CACertsSecret)
 
-			// TODO(jaellio): Currently, istiod handles a "cacerts" secret with the "istio-generated" key the same way
-			// it handles the "istio-ca-secret" secret. Even though "cacerts" is file mounted, istiod will only watch the
-			// secret. If an "istio-ca-secret" exists in the control plane ns, it will be used instead of a "cacerts"
-			// secret with the "istio-generated" key.
-			// This will change in the future, and istiod will watch the file mount instead.
+			// TODO(jaellio): Currently, when the USE_CACERTS_FOR_SELF_SIGNED_CA flag is true istiod
+			// handles loading and updating the "cacerts" secret with the "istio-generated" key the
+			// same way it handles the "istio-ca-secret" secret. Isitod utilizes a secret watch instead
+			// of file watch to check for secret updates. This may change in the future, and istiod
+			// will watch the file mount instead.
 		}
 
-		// Either the secret is not mounted, or it is mounted but the "istio-generated" key is used.
+		// Either the secret is not mounted because it is named istio-ca-secret,
+		// it is named cacarts and is "istio-generated" but not yet mounted,
+		// or it is mounted but the "istio-generated" key is used.
 		caOpts, err = s.createSelfSignedCACertificateOptions(&fileBundle, opts)
 		if err != nil {
 			return nil, err
@@ -491,7 +505,7 @@ func (s *Server) createSelfSignedCACertificateOptions(fileBundle *ca.SigningCAFi
 		caOpts, err = ca.NewSelfSignedIstioCAOptions(ctx,
 			selfSignedRootCertGracePeriodPercentile.Get(), SelfSignedCACertTTL.Get(),
 			selfSignedRootCertCheckInterval.Get(), workloadCertTTL.Get(),
-			maxWorkloadCertTTL.Get(), opts.TrustDomain, true,
+			maxWorkloadCertTTL.Get(), opts.TrustDomain, features.UseCacertsForSelfSignedCA, true,
 			opts.Namespace, s.kubeClient.Kube().CoreV1(), fileBundle.RootCertFile,
 			enableJitterForRootCertRotator.Get(), caRSAKeySize.Get())
 	} else {

@@ -26,12 +26,15 @@ import (
 
 // DrainListeners drains inbound listeners of Envoy so that inflight requests
 // can gracefully finish and even continue making outbound calls as needed.
-func DrainListeners(adminPort uint32, inboundonly bool) error {
+func DrainListeners(adminPort uint32, inboundonly bool, skipExit bool) error {
 	var drainURL string
 	if inboundonly {
 		drainURL = "drain_listeners?inboundonly&graceful"
 	} else {
 		drainURL = "drain_listeners?graceful"
+	}
+	if skipExit {
+		drainURL += "&skip_exit"
 	}
 	res, err := doEnvoyPost(drainURL, "", "", adminPort)
 	log.Debugf("Drain listener endpoint response : %s", res.String())

@@ -12,7 +12,8 @@ kubectl -n <namespace> apply -f ../otel.yaml
 
 In this example, we use `otel-collector` as the namespace to deploy the `otel-collector` backend:
 
-```ba
+```bash
+kubectl create namespace otel-collector
 kubectl -n otel-collector apply -f ../otel.yaml
 ```
 
@@ -66,7 +67,7 @@ You may also choose any existing tracing system if you have, and you should chan
 
 You may also choose to use your own otel collector if you have, and the key part is to have the `otlp` grpc protocol receiver to receive the traces. One important thing is to make sure your otel collector service's grpc port starts with `grpc-` prefix, which is like:
 
-```ya
+```yaml
 spec:
   ports:
     - name: grpc-otlp
@@ -102,8 +103,15 @@ Make sure the service name matches the one you deployed if you select a differen
 
 Next, add a Telemetry resource that tells Istio to send trace records to the OpenTelemetry collector.
 
-```yaml
-kubectl -n otel-collector apply -f ./telemetry.yaml
+```bash
+kubectl -n <namespace> apply -f ./telemetry.yaml
+```
+
+In this example, we deploy it to the default namespace, which is where the sample apps
+from the [getting started](https://istio.io/latest/docs/setup/getting-started) are also deployed.
+
+```bash
+kubectl apply -f ./telemetry.yaml
 ```
 
 The core config is:

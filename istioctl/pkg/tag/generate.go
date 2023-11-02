@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
@@ -193,7 +192,7 @@ func fixWhConfig(client kube.Client, whConfig *tagWebhookConfig) (*tagWebhookCon
 
 // Create applies the given tag manifests.
 func Create(client kube.CLIClient, manifests, ns string) error {
-	if err := applyYAML(client, manifests, ns); err != nil {
+	if err := client.ApplyYAMLContents(ns, manifests); err != nil {
 		return fmt.Errorf("failed to apply tag manifests to cluster: %v", err)
 	}
 	return nil
@@ -377,32 +376,4 @@ func tagWebhookConfigFromCanonicalWebhook(wh admitv1.MutatingWebhookConfiguratio
 		Annotations:    wh.Annotations,
 		FailurePolicy:  map[string]*admitv1.FailurePolicyType{},
 	}, nil
-}
-
-// applyYAML taken from remote_secret.go
-func applyYAML(client kube.CLIClient, yamlContent, ns string) error {
-	yamlFile, err := writeToTempFile(yamlContent)
-	if err != nil {
-		return fmt.Errorf("failed creating manifest file: %w", err)
-	}
-
-	// Apply the YAML to the cluster.
-	if err := client.ApplyYAMLFiles(ns, yamlFile); err != nil {
-		return fmt.Errorf("failed applying manifest %s: %v", yamlFile, err)
-	}
-	return nil
-}
-
-// writeToTempFile taken from remote_secret.go
-func writeToTempFile(content string) (string, error) {
-	outFile, err := os.CreateTemp("", "revision-tag-manifest-*")
-	if err != nil {
-		return "", fmt.Errorf("failed creating temp file for manifest: %w", err)
-	}
-	defer func() { _ = outFile.Close() }()
-
-	if _, err := outFile.WriteString(content); err != nil {
-		return "", fmt.Errorf("failed writing manifest file: %w", err)
-	}
-	return outFile.Name(), nil
 }

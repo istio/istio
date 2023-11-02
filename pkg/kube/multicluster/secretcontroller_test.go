@@ -41,11 +41,11 @@ type clusterCredential struct {
 	kubeconfig []byte
 }
 
-func makeSecret(secret string, clusterConfigs ...clusterCredential) *v1.Secret {
+func makeSecret(namespace string, secret string, clusterConfigs ...clusterCredential) *v1.Secret {
 	s := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secret,
-			Namespace: secretNamespace,
+			Namespace: namespace,
 			Labels: map[string]string{
 				MultiClusterSecretLabel: "true",
 			},
@@ -102,15 +102,24 @@ func Test_SecretController(t *testing.T) {
 	clientset := kube.NewFakeClient()
 
 	var (
-		secret0                        = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-0")})
-		secret0UpdateKubeconfigChanged = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")})
-		secret0UpdateKubeconfigSame    = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")})
-		secret0AddCluster              = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
-		secret0DeleteCluster           = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
-		secret0ReAddCluster            = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
-		secret0ReDeleteCluster         = secret0UpdateKubeconfigChanged // "c0-1" cluster re-deleted
-		secret1                        = makeSecret("s1", clusterCredential{"c1", []byte("kubeconfig1-0")})
+		secret0 = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-0")})
+		secret0UpdateKubeconfigChanged = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")})
+		secret0UpdateKubeconfigSame = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")})
+		secret0AddCluster = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
+		secret0DeleteCluster = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
+		secret0ReAddCluster  = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
+		secret0ReDeleteCluster = secret0UpdateKubeconfigChanged // "c0-1" cluster re-deleted
+		secret1                = makeSecret(secretNamespace, "s1",
+			clusterCredential{"c1", []byte("kubeconfig1-0")})
+		otherNSSecret = makeSecret("some-other-namespace", "s2",
+			clusterCredential{"c1", []byte("kubeconfig1-0")})
 	)
+
 	secret0UpdateKubeconfigSame.Annotations = map[string]string{"foo": "bar"}
 
 	steps := []struct {
@@ -178,6 +187,10 @@ func Test_SecretController(t *testing.T) {
 			delete:      secret1,
 			wantDeleted: "c1",
 		},
+		{
+			name: "Add secret from another namespace",
+			add:  otherNSSecret,
+		},
 	}
 
 	// Start the secret controller and sleep to allow secret process to start.
@@ -200,13 +213,13 @@ func Test_SecretController(t *testing.T) {
 
 			switch {
 			case step.add != nil:
-				_, err := clientset.Kube().CoreV1().Secrets(secretNamespace).Create(context.TODO(), step.add, metav1.CreateOptions{})
+				_, err := clientset.Kube().CoreV1().Secrets(step.add.Namespace).Create(context.TODO(), step.add, metav1.CreateOptions{})
 				g.Expect(err).Should(BeNil())
 			case step.update != nil:
-				_, err := clientset.Kube().CoreV1().Secrets(secretNamespace).Update(context.TODO(), step.update, metav1.UpdateOptions{})
+				_, err := clientset.Kube().CoreV1().Secrets(step.update.Namespace).Update(context.TODO(), step.update, metav1.UpdateOptions{})
 				g.Expect(err).Should(BeNil())
 			case step.delete != nil:
-				g.Expect(clientset.Kube().CoreV1().Secrets(secretNamespace).Delete(context.TODO(), step.delete.Name, metav1.DeleteOptions{})).
+				g.Expect(clientset.Kube().CoreV1().Secrets(step.delete.Namespace).Delete(context.TODO(), step.delete.Name, metav1.DeleteOptions{})).
 					Should(Succeed())
 			}
 

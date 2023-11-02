@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 
+	"istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -452,7 +453,7 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 		}
 	}
 
-	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, c)
+	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, nil, c)
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
@@ -467,7 +468,7 @@ func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Con
 //
 // NOTE: As an interface method of AmbientIndex, this locks the index.
 func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
-	workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, c *Controller,
+	workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry, seEndpoints map[*apiv1alpha3.ServiceEntry]sets.Set[*v1alpha3.WorkloadEntry], c *Controller,
 ) map[model.ConfigKey]struct{} {
 	a.mu.Lock()
 	defer a.mu.Unlock()
@@ -496,6 +497,19 @@ func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
 			}
 			a.byUID[c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())] = newWl
 			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
+		}
+	}
+
+	for svcEntry, weSet := range seEndpoints {
+		for we := range weSet {
+			wli := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
+			if wli != nil {
+				for _, networkAddr := range networkAddressFromWorkload(wli) {
+					a.byWorkloadEntry[networkAddr] = wli
+				}
+				a.byUID[wli.Uid] = wli
+				updates[model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()}] = struct{}{}
+			}
 		}
 	}
 
@@ -566,7 +580,20 @@ func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Co
 		}
 	}
 
-	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, c)
+	// 3. only process service entries in config cluster with endpoints
+	seEndpoints := map[*apiv1alpha3.ServiceEntry]sets.Set[*v1alpha3.WorkloadEntry]{}
+	if c.configCluster {
+		for se, we := range c.getServiceEntryEndpointsInPolicy(obj.Namespace, sel) {
+			seEndpoints[se] = we
+		}
+		if oldSel != nil {
+			for se, we := range c.getServiceEntryEndpointsInPolicy(obj.Namespace, oldSel) {
+				seEndpoints[se] = we
+			}
+		}
+	}
+
+	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, seEndpoints, c)
 
 	if len(updates) > 0 {
 		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{

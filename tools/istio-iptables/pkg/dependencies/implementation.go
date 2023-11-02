@@ -15,12 +15,14 @@
 package dependencies
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
+
+	utilversion "k8s.io/apimachinery/pkg/util/version"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
@@ -61,10 +63,51 @@ var XTablesCmds = sets.New(
 	constants.IP6TABLESSAVE,
 )
 
+// XTablesWriteCmds contains all xtables commands that do write actions (and thus need a lock)
+var XTablesWriteCmds = sets.New(
+	constants.IPTABLES,
+	constants.IP6TABLES,
+	constants.IPTABLESRESTORE,
+	constants.IP6TABLESRESTORE,
+)
+
 // RealDependencies implementation of interface Dependencies, which is used in production
 type RealDependencies struct {
+	IptablesVersion  IptablesVersion
 	NetworkNamespace string
 	CNIMode          bool
+}
+
+const iptablesVersionPattern = `v([0-9]+(\.[0-9]+)+)`
+
+type IptablesVersion struct {
+	// the actual version
+	version *utilversion.Version
+	// true if legacy mode, false if nf_tables
+	legacy bool
+}
+
+func DetectIptablesVersion(ver string) (IptablesVersion, error) {
+	if ver == "" {
+		var err error
+		verb, err := exec.Command("iptables", "--version").CombinedOutput()
+		if err != nil {
+			return IptablesVersion{}, err
+		}
+		ver = string(verb)
+	}
+	// Legacy will have no marking or 'legacy', so just look for nf_tables
+	nft := strings.Contains(ver, "nf_tables")
+	versionMatcher := regexp.MustCompile(iptablesVersionPattern)
+	match := versionMatcher.FindStringSubmatch(ver)
+	if match == nil {
+		return IptablesVersion{}, fmt.Errorf("no iptables version found: %q", ver)
+	}
+	version, err := utilversion.ParseGeneric(match[1])
+	if err != nil {
+		return IptablesVersion{}, fmt.Errorf("iptables version %q is not a valid version string: %v", match[1], err)
+	}
+	return IptablesVersion{version: version, legacy: !nft}, nil
 }
 
 // transformToXTablesErrorMessage returns an updated error message with explicit xtables error hints, if applicable.
@@ -93,37 +136,6 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 	}
 
 	return stderr
-}
-
-func isXTablesLockError(stderr *bytes.Buffer, exitcode int) bool {
-	// xtables lock acquire failure maps to resource problem exit code.
-	// https://git.netfilter.org/iptables/tree/iptables/iptables.c?h=v1.6.0#n1769
-	if exitcode != int(XTablesResourceProblem) {
-		return false
-	}
-
-	// check stderr output and see if there is `xtables lock` in it.
-	// https://git.netfilter.org/iptables/tree/iptables/iptables.c?h=v1.6.0#n1763
-	if strings.Contains(stderr.String(), "xtables lock") {
-		return true
-	}
-
-	return false
-}
-
-func exitCode(err error) (int, bool) {
-	if err == nil {
-		return 0, false
-	}
-
-	ee, ok := err.(*exec.ExitError)
-	if !ok {
-		// Not common, but can happen if file not found error, etc
-		return 0, false
-	}
-
-	exitcode := ee.ExitCode()
-	return exitcode, true
 }
 
 // RunOrFail runs a command and exits with an error message, if it fails

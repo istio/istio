@@ -583,7 +583,7 @@ func (p *XdsProxy) forwardToTap(resp *discovery.DiscoveryResponse) {
 }
 
 func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
-	if !v3.IsEnvoyType(resp.TypeUrl) {
+	if !v3.IsEnvoyType(resp.TypeUrl) && resp.TypeUrl != v3.WorkloadType {
 		proxyLog.Errorf("Skipping forwarding type url %s to Envoy as is not a valid Envoy type", resp.TypeUrl)
 		return
 	}

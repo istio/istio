@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -165,7 +167,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   9000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -209,7 +211,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -228,7 +230,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -247,7 +249,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -255,7 +257,7 @@ var (
 					Hosts: []string{"foo/*"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -273,7 +275,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   23145,
 						Protocol: "TCP",
 						Name:     "outbound-tcp",
@@ -301,7 +303,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "GRPC",
 						Name:     "listener-grpc-tls",
@@ -319,7 +321,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "GRPC",
 						Name:     "grpc-tls",
@@ -327,7 +329,7 @@ var (
 					Hosts: []string{"*/*"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7442,
 						Protocol: "HTTP",
 						Name:     "http-tls",
@@ -345,7 +347,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -363,7 +365,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -381,7 +383,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -399,7 +401,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -417,7 +419,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "GRPC",
 						Name:     "grpc-tls",
@@ -425,7 +427,7 @@ var (
 					Hosts: []string{"*/*"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7442,
 						Protocol: "HTTP",
 						Name:     "http-tls",
@@ -446,7 +448,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http",
 						Name:     "grpc-tls",
@@ -532,7 +534,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8031,
 						Protocol: "TCP",
 						Name:     "tcp-ipc1",
@@ -540,7 +542,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8032,
 						Protocol: "TCP",
 						Name:     "tcp-ipc2",
@@ -548,7 +550,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8033,
 						Protocol: "TCP",
 						Name:     "tcp-ipc3",
@@ -556,7 +558,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8034,
 						Protocol: "TCP",
 						Name:     "tcp-ipc4",
@@ -564,7 +566,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8035,
 						Protocol: "TCP",
 						Name:     "tcp-ipc5",
@@ -2510,6 +2512,163 @@ outboundTrafficPolicy:
 			if !reflect.DeepEqual(test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy) {
 				t.Errorf("Unexpected sidecar outbound traffic, want %v, found %v",
 					test.outboundTrafficPolicy, sidecarScope.OutboundTrafficPolicy)
+			}
+		})
+	}
+}
+
+func TestInboundConnectionPoolForPort(t *testing.T) {
+	connectionPoolSettings := &networking.ConnectionPoolSettings{
+		Http: &networking.ConnectionPoolSettings_HTTPSettings{
+			Http1MaxPendingRequests:  1024,
+			Http2MaxRequests:         1024,
+			MaxRequestsPerConnection: 1024,
+			MaxRetries:               1024,
+			IdleTimeout:              durationpb.New(5 * time.Second),
+			H2UpgradePolicy:          networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
+		},
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+			MaxConnections: 1024,
+			ConnectTimeout: durationpb.New(6 * time.Second),
+			TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+				Probes:   3,
+				Time:     durationpb.New(7 * time.Second),
+				Interval: durationpb.New(8 * time.Second),
+			},
+			MaxConnectionDuration: durationpb.New(9 * time.Second),
+		},
+	}
+
+	overrideConnectionPool := &networking.ConnectionPoolSettings{
+		Http: &networking.ConnectionPoolSettings_HTTPSettings{
+			Http1MaxPendingRequests:  1,
+			Http2MaxRequests:         2,
+			MaxRequestsPerConnection: 3,
+			MaxRetries:               4,
+			IdleTimeout:              durationpb.New(1 * time.Second),
+			H2UpgradePolicy:          networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE,
+		},
+	}
+
+	tests := map[string]struct {
+		sidecar *networking.Sidecar
+		// port to settings map
+		want map[int]*networking.ConnectionPoolSettings
+	}{
+		"no settings": {
+			sidecar: &networking.Sidecar{},
+			want: map[int]*networking.ConnectionPoolSettings{
+				22:  nil,
+				80:  nil,
+				443: nil,
+			},
+		},
+		"no settings multiple ports": {
+			sidecar: &networking.Sidecar{
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+					},
+					{
+						Port: &networking.SidecarPort{
+							Number:   443,
+							Protocol: "HTTPS",
+							Name:     "https",
+						},
+					},
+				},
+			},
+			want: map[int]*networking.ConnectionPoolSettings{
+				22:  nil,
+				80:  nil,
+				443: nil,
+			},
+		},
+		"single port with settings": {
+			sidecar: &networking.Sidecar{
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						ConnectionPool: connectionPoolSettings,
+					},
+				},
+			},
+			want: map[int]*networking.ConnectionPoolSettings{
+				22:  nil,
+				80:  connectionPoolSettings,
+				443: nil,
+			},
+		},
+		"top level settings": {
+			sidecar: &networking.Sidecar{
+				InboundConnectionPool: connectionPoolSettings,
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+					},
+				},
+			},
+			want: map[int]*networking.ConnectionPoolSettings{
+				// with a default setting on the sidecar, we'll return it for any port we're asked about
+				22:  connectionPoolSettings,
+				80:  connectionPoolSettings,
+				443: connectionPoolSettings,
+			},
+		},
+		"port settings override top level": {
+			sidecar: &networking.Sidecar{
+				InboundConnectionPool: connectionPoolSettings,
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						ConnectionPool: overrideConnectionPool,
+					},
+				},
+			},
+			want: map[int]*networking.ConnectionPoolSettings{
+				// with a default setting on the sidecar, we'll return it for any port we're asked about
+				22:  connectionPoolSettings,
+				80:  overrideConnectionPool,
+				443: connectionPoolSettings,
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			ps := NewPushContext()
+			ps.Mesh = mesh.DefaultMeshConfig()
+
+			sidecar := &config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Sidecar,
+					Name:             "sidecar",
+					Namespace:        strings.Replace(name, " ", "-", -1),
+				},
+				Spec: tt.sidecar,
+			}
+			scope := ConvertToSidecarScope(ps, sidecar, sidecar.Namespace)
+
+			for port, expected := range tt.want {
+				actual := scope.InboundConnectionPoolForPort(port)
+				if !reflect.DeepEqual(actual, expected) {
+					t.Errorf("for port %d, wanted %#v but got: %#v", port, expected, actual)
+				}
 			}
 		})
 	}

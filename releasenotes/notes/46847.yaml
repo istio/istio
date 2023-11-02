@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/istio/istio/issues/46847
+releaseNotes:
+- |
+  **Added** the capability to attach `AuthorizationPolicy` to Kubernetes `Gateway` resources via the `targetRef` field.

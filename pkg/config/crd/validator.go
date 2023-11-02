@@ -20,6 +20,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
+	"sync"
 
 	"github.com/hashicorp/go-multierror"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -39,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/yml"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // Validator returns a new validator for custom resources
@@ -51,12 +55,66 @@ type Validator struct {
 	SkipMissing bool
 }
 
-func (v *Validator) ValidateCustomResourceYAML(data string) error {
+type ValidationIgnorer struct {
+	mu                  sync.RWMutex
+	patternsByNamespace map[string]sets.String
+}
+
+// NewValidationIgnorer initializes the ignorer for the validatior, pairs are in namespace/namePattern format.
+func NewValidationIgnorer(pairs ...string) *ValidationIgnorer {
+	vi := &ValidationIgnorer{
+		patternsByNamespace: make(map[string]sets.String),
+	}
+	for _, pair := range pairs {
+		parts := strings.SplitN(pair, "/", 2)
+		if len(parts) != 2 {
+			continue
+		}
+		vi.Add(parts[0], parts[1])
+	}
+	return vi
+}
+
+func (iv *ValidationIgnorer) Add(namespace, pattern string) {
+	iv.mu.Lock()
+	defer iv.mu.Unlock()
+	if iv.patternsByNamespace[namespace] == nil {
+		iv.patternsByNamespace[namespace] = sets.String{}
+	}
+	iv.patternsByNamespace[namespace].Insert(pattern)
+}
+
+// ShouldIgnore checks if a given namespaced name should be ignored based on the patterns.
+func (iv *ValidationIgnorer) ShouldIgnore(namespace, name string) bool {
+	iv.mu.RLock()
+	defer iv.mu.RUnlock()
+
+	patterns, exists := iv.patternsByNamespace[namespace]
+	if !exists {
+		return false
+	}
+
+	for _, pattern := range patterns.UnsortedList() {
+		match, err := regexp.MatchString(pattern, name)
+		if err != nil {
+			continue
+		}
+		if match {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *Validator) ValidateCustomResourceYAML(data string, ignorer *ValidationIgnorer) error {
 	var errs *multierror.Error
 	for _, item := range yml.SplitString(data) {
 		obj := &unstructured.Unstructured{}
 		if err := yaml.Unmarshal([]byte(item), obj); err != nil {
 			return err
+		}
+		if ignorer != nil && ignorer.ShouldIgnore(obj.GetNamespace(), obj.GetName()) {
+			continue
 		}
 		errs = multierror.Append(errs, v.ValidateCustomResource(obj))
 	}

@@ -117,7 +117,7 @@ func (cr *store) List(typ config.GroupVersionKind, namespace string) []config.Co
 	for _, store := range cr.stores[typ] {
 		storeConfigs := store.List(typ, namespace)
 		for _, cfg := range storeConfigs {
-			if !configMap.InsertContains(config.NamespacedName(cfg)) {
+			if !configMap.InsertContains(cfg.NamespacedName()) {
 				configs = append(configs, cfg)
 			}
 		}

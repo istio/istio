@@ -365,6 +365,13 @@ func (c Config) GetNamespace() string {
 	return c.Namespace
 }
 
+func (c Config) NamespacedName() kubetypes.NamespacedName {
+	return kubetypes.NamespacedName{
+		Namespace: c.Namespace,
+		Name:      c.Name,
+	}
+}
+
 var _ fmt.Stringer = GroupVersionKind{}
 
 type GroupVersionKind struct {
@@ -412,9 +419,9 @@ type Namer interface {
 	GetNamespace() string
 }
 
-func NamespacedName(n Namer) kubetypes.NamespacedName {
+func NamespacedName(o metav1.Object) kubetypes.NamespacedName {
 	return kubetypes.NamespacedName{
-		Namespace: n.GetNamespace(),
-		Name:      n.GetName(),
+		Namespace: o.GetNamespace(),
+		Name:      o.GetName(),
 	}
 }

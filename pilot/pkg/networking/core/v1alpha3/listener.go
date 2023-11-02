@@ -126,7 +126,11 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	} else if transportProtocol == istionetworking.TransportProtocolTCP &&
 		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL &&
 		gatewayTCPServerWithTerminatingTLS {
-		alpnByTransport = util.ALPNDownstreamWithMxc
+		if features.DisableMxALPN {
+			alpnByTransport = util.ALPNDownstream
+		} else {
+			alpnByTransport = util.ALPNDownstreamWithMxc
+		}
 	}
 
 	ctx := &auth.DownstreamTlsContext{
@@ -766,6 +770,10 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundListenerOpts,
 	listenerMap map[listenerKey]*outboundListenerEntry, virtualServices []config.Config, actualWildcards []string,
 ) {
+	// Alias services do not get listeners generated
+	if listenerOpts.service.Resolution == model.Alias {
+		return
+	}
 	// TODO: remove actualWildcard
 	var currentListenerEntry *outboundListenerEntry
 
@@ -796,7 +804,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundLis
 			}
 
 			// For dualstack proxies we need to add the unspecifed ipv6 address to the list of extra listen addresses
-			if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsDual() &&
+			if listenerOpts.service.Attributes.ServiceRegistry == provider.External && listenerOpts.proxy.IsDualStack() &&
 				svcListenAddress == constants.UnspecifiedIP {
 				svcExtraListenAddresses = append(svcExtraListenAddresses, constants.UnspecifiedIPv6)
 			}

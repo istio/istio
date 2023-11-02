@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 46719
+releaseNotes:
+  - |
+    **Added** gated flag `ISTIO_ENABLE_IPV4_OUTBOUND_LISTENER_FOR_IPV6_CLUSTERS` to manage an additional outbound listener for IPv6-only clusters to deal with IPv4 NAT outbound traffic.
+    This is useful for IPv6-only cluster environments such as EKS which manages both egress-only IPv4 as well as IPv6 IPs.

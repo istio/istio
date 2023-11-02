@@ -125,6 +125,9 @@ var (
 	enableBootstrapXdsEnv = env.Register("BOOTSTRAP_XDS_AGENT", false,
 		"If set to true, agent retrieves the bootstrap configuration prior to starting Envoy").Get()
 
+	enableWDSEnv = env.Register("PEER_METADATA_DISCOVERY", false,
+		"If set to true, enable the peer metadata discovery extension in Envoy").Get()
+
 	envoyStatusPortEnv = env.Register("ENVOY_STATUS_PORT", 15021,
 		"Envoy health status port value").Get()
 	envoyPrometheusPortEnv = env.Register("ENVOY_PROMETHEUS_PORT", 15090,

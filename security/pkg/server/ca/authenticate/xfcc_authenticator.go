@@ -45,7 +45,7 @@ func (xff XfccAuthenticator) Authenticate(ctx security.AuthContext) (*security.C
 	remoteAddr := ctx.RemoteAddress()
 	xfccHeader := ctx.Header(xfccparser.ForwardedClientCertHeader)
 	if len(remoteAddr) == 0 || len(xfccHeader) == 0 {
-		return nil, nil
+		return nil, fmt.Errorf("caller from %s does not have Xfcc header", remoteAddr)
 	}
 	// First check if client is trusted client so that we can "trust" the Xfcc Header.
 	if !isTrustedAddress(remoteAddr, features.TrustedGatewayCIDR) {

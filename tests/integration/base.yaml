@@ -12,11 +12,15 @@ spec:
       proxyMetadata:
         ISTIO_META_DNS_CAPTURE: "true"
   values:
+    ztunnel:
+      variant: "" # we decide variant in framework
     pilot:
+      variant: "" # we decide variant in framework
       # Lower the reconnect time so we test reconnects. The default of 30min means we almost never trigger in tests.
       keepaliveMaxServerConnectionAge: 120s
       autoscaleEnabled: false
       env:
+        ENABLE_EXTERNAL_NAME_ALIAS: true
         UNSAFE_ENABLE_ADMIN_ENDPOINTS: true
         PILOT_REMOTE_CLUSTER_TIMEOUT: 15s
         PILOT_ENABLE_ALPHA_GATEWAY_API: "true"

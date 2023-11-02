@@ -472,8 +472,9 @@ func buildOutOfMeshServerQuery(sourceCluster string) prometheus.Query {
 		// to fill in workload labels. To limit size of endpoint resource, we only populate
 		// workload name and namespace, canonical service name and version in endpoint metadata.
 		// Thus destination_app and destination_version labels are unknown.
-		"destination_app":                "unknown",
-		"destination_version":            "unknown",
+		// However, they are known with WDS, so we can relax this check.
+		// "destination_app":                "unknown",
+		// "destination_version":            "unknown",
 		"destination_service":            "naked." + ns.Name() + ".svc.cluster.local",
 		"destination_service_name":       "naked",
 		"destination_workload_namespace": ns.Name(),
@@ -521,7 +522,8 @@ func buildGatewayTCPServerQuery(sourceCluster string) (destinationQuery promethe
 		"destination_canonical_revision": "latest",
 		"destination_canonical_service":  "istio-egressgateway",
 		"destination_app":                "istio-egressgateway",
-		"destination_version":            "unknown",
+		// Does not play well with canonical revision which defaults to "latest".
+		// "destination_version":            "unknown",
 		"destination_workload_namespace": "istio-system",
 		"destination_service_namespace":  "istio-system",
 		"source_app":                     "a",

@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/google/go-containerregistry/pkg/authn"
 	"github.com/google/go-containerregistry/pkg/name"
 	"github.com/google/go-containerregistry/pkg/v1/remote"
 	"github.com/google/go-containerregistry/pkg/v1/remote/transport"
@@ -31,7 +32,7 @@ func Exists(image string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("parsing reference %q: %w", image, err)
 	}
-	_, err = remote.Get(ref)
+	_, err = remote.Get(ref, remote.WithAuthFromKeychain(authn.DefaultKeychain))
 	if err == nil {
 		// image exists
 		return true, nil

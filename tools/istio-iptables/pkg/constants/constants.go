@@ -107,6 +107,7 @@ const (
 	CaptureAllDNS             = "capture-all-dns"
 	NetworkNamespace          = "network-namespace"
 	CNIMode                   = "cni-mode"
+	IptablesVersion           = "iptables-version"
 )
 
 // Environment variables that deliberately have no equivalent command-line flags.
@@ -159,8 +160,9 @@ const (
 )
 
 const (
-	DefaultIptablesProbePort = "15002"
-	DefaultProbeTimeout      = 5 * time.Second
+	DefaultIptablesProbePort     = "15002"
+	DefaultIptablesProbePortUint = 15002
+	DefaultProbeTimeout          = 5 * time.Second
 )
 
 const (
