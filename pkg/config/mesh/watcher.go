@@ -45,12 +45,12 @@ type Watcher interface {
 
 // MultiWatcher is a struct wrapping the internal injector to let users know that both
 type MultiWatcher struct {
-	internalWatcher
+	*internalWatcher
 	internalNetworkWatcher
 }
 
 func NewMultiWatcher(config *meshconfig.MeshConfig) *MultiWatcher {
-	iw := internalWatcher{}
+	iw := &internalWatcher{}
 	iw.MeshConfig.Store(config)
 	return &MultiWatcher{
 		internalWatcher: iw,
