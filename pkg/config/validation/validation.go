@@ -3485,6 +3485,9 @@ var ValidateServiceEntry = registerValidateFunc("ValidateServiceEntry",
 			servicePortNumbers[port.Number] = true
 			if port.TargetPort != 0 {
 				errs = appendValidation(errs, ValidatePort(int(port.TargetPort)))
+				if serviceEntry.Resolution == networking.ServiceEntry_NONE {
+					errs = appendWarningf(errs, "targetPort has no effect when resolution mode is NONE")
+				}
 			}
 			if len(serviceEntry.Addresses) == 0 {
 				if port.Protocol == "" || port.Protocol == "TCP" {
