@@ -197,7 +197,7 @@ func (configgen *ConfigGeneratorImpl) buildSidecarOutboundHTTPRouteConfig(
 		VirtualHosts:                   virtualHosts,
 		ValidateClusters:               proto.BoolFalse,
 		MaxDirectResponseBodySizeBytes: istio_route.DefaultMaxDirectResponseBodySizeBytes,
-		IgnorePortInHostMatching:       IgnorePortInHostMatching(listenerPort, node),
+		IgnorePortInHostMatching:       IgnorePortInHostMatching(routeName, listenerPort, node),
 	}
 
 	// apply envoy filter patches
@@ -609,18 +609,26 @@ func getVirtualHostsForSniffedServicePort(vhosts []*route.VirtualHost, routeName
 	return virtualHosts
 }
 
-func SidecarIgnorePort(node *model.Proxy) bool {
-	return !node.IsProxylessGrpc()
+func IgnorePortInHostMatching(routeName string, listenerPort int, node *model.Proxy) bool {
+	// When generating RDS for ports created via the SidecarScope, we treat ports as HTTP proxy style ports
+	// if ports protocol is HTTP_PROXY.
+	egressListener := node.SidecarScope.GetEgressListenerForRDS(listenerPort, routeName)
+	if egressListener != nil && egressListener.IstioListener != nil && egressListener.IstioListener.Port != nil &&
+		protocol.Parse(egressListener.IstioListener.Port.Protocol) == protocol.HTTP_PROXY {
+		listenerPort = 0
+	}
+
+	return listenerPort != 0 && SidecarIgnorePort(node)
 }
 
-func IgnorePortInHostMatching(listenerPort int, node *model.Proxy) bool {
-	return listenerPort != 0 && SidecarIgnorePort(node)
+func SidecarIgnorePort(node *model.Proxy) bool {
+	return !node.IsProxylessGrpc()
 }
 
 // generateVirtualHostDomains generates the set of domain matches for a service being accessed from
 // a proxy node
 func generateVirtualHostDomains(service *model.Service, listenerPort int, port int, node *model.Proxy) ([]string, []string) {
-	if IgnorePortInHostMatching(listenerPort, node) {
+	if SidecarIgnorePort(node) && listenerPort != 0 {
 		// Indicate we do not need port, as we will set IgnorePortInHostMatching
 		port = portNoAppendPortSuffix
 	}
