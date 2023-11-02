@@ -240,6 +240,13 @@ func getIstioRevisions(resources *cluster2.Resources) []string {
 			}
 		}
 	}
+	for _, podAnnotations := range resources.Annotations {
+		for annotation, value := range podAnnotations {
+			if annotation == label2.IoIstioRev.Name {
+				revMap.Insert(value)
+			}
+		}
+	}
 	return sets.SortedList(revMap)
 }
 
