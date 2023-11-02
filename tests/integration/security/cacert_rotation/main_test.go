@@ -120,6 +120,7 @@ func TestReachability(t *testing.T) {
 			retry.UntilOrFail(t, func() bool {
 				updateTime, err := getWorkloadCertLastUpdateTime(t, from[0], istioCtl)
 				if err != nil {
+					t.Logf("failed to get workload cert last update time: %v", err)
 					return false
 				}
 
@@ -169,13 +170,14 @@ func getWorkloadCertLastUpdateTime(t framework.TestContext, i echo.Instance, ctl
 		t.Errorf("failed to unmarshal secret dump: %v", err)
 	}
 
+	t.Logf("dump: %v", dump)
 	for _, s := range dump.DynamicActiveSecrets {
 		if s.Name == security.WorkloadKeyCertResourceName {
 			return s.LastUpdated.AsTime(), nil
 		}
 	}
 
-	return time.Now(), errors.New("failed to get workload cert last update time")
+	return time.Now(), errors.New("failed to find workload cert")
 }
 
 func getPodID(i echo.Instance) (string, error) {
