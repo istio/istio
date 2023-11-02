@@ -43,9 +43,7 @@ import (
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
 
-var (
-	apps deployment.SingleNamespaceView
-)
+var apps deployment.SingleNamespaceView
 
 func TestMain(m *testing.M) {
 	framework.
@@ -163,7 +161,7 @@ func getWorkloadCertLastUpdateTime(t framework.TestContext, i echo.Instance, ctl
 	podName := fmt.Sprintf("%s.%s", podID, i.NamespaceName())
 	out, _, err := ctl.Invoke([]string{"pc", "s", podName, "-o", "json"})
 	if err != nil {
-		t.Errorf("failed to retrive pod secret from %s, err: %v", podName, err)
+		t.Errorf("failed to retrieve pod secret from %s, err: %v", podName, err)
 	}
 
 	dump := &admin.SecretsConfigDump{}
