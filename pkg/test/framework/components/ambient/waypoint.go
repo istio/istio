@@ -17,18 +17,22 @@ package ambient
 import (
 	"fmt"
 	"io"
+	"sync"
 
+	"golang.org/x/sync/errgroup"
 	v1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/config/constants"
 	istioKube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/resource"
 	testKube "istio.io/istio/pkg/test/kube"
+	"istio.io/istio/pkg/test/scopes"
 )
 
 var _ io.Closer = &kubeComponent{}
@@ -41,6 +45,8 @@ type kubeComponent struct {
 	inbound  istioKube.PortForwarder
 	outbound istioKube.PortForwarder
 	pod      v1.Pod
+
+	perCluster map[string]*kubeComponent
 }
 
 func (k kubeComponent) Namespace() namespace.Instance {
@@ -61,6 +67,23 @@ func (k kubeComponent) Inbound() string {
 
 func (k kubeComponent) Outbound() string {
 	return k.outbound.Address()
+}
+
+func (k kubeComponent) ForCluster(c cluster.Cluster) WaypointProxy {
+	pc, ok := k.perCluster[c.Name()]
+	if !ok {
+		scopes.Framework.Warnf("failed to find waypoint %s for cluster %s", k.ServiceAccount(), c.Name())
+		return nil
+	}
+	return pc
+}
+
+func (k kubeComponent) ForEachCluster(ctx resource.Context, fn func(proxy WaypointProxy)) {
+	for _, c := range ctx.Clusters() {
+		if wp := k.ForCluster(c); wp != nil {
+			fn(wp)
+		}
+	}
 }
 
 func (k kubeComponent) ID() resource.ID {
@@ -84,66 +107,43 @@ type WaypointProxy interface {
 	Inbound() string
 	Outbound() string
 	PodIP() string
+	ForCluster(cluster.Cluster) WaypointProxy
 }
 
 // NewWaypointProxy creates a new WaypointProxy.
+// TODO: detect from UseWaypointProxy in echo.Config?
 func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (WaypointProxy, error) {
-	server := &kubeComponent{
-		ns: ns,
-		sa: sa,
-	}
-	server.id = ctx.TrackResource(server)
 	if err := crd.DeployGatewayAPI(ctx); err != nil {
 		return nil, err
 	}
 
-	// TODO support multicluster
-	ik, err := istioctl.New(ctx, istioctl.Config{})
-	if err != nil {
-		return nil, err
+	errG := errgroup.Group{}
+	servers := make(map[string]*kubeComponent, len(ctx.Clusters()))
+	mu := sync.Mutex{}
+	for _, c := range ctx.Clusters() {
+		c := c
+		errG.Go(func() error {
+			res, err := deploy(ctx, ns, sa, c)
+			if err != nil {
+				return err
+			}
+			mu.Lock()
+			defer mu.Unlock()
+			servers[c.Name()] = res
+			return nil
+		})
 	}
-	// TODO: detect from UseWaypointProxy in echo.Config
-	_, _, err = ik.Invoke([]string{
-		"x",
-		"waypoint",
-		"apply",
-		"--namespace",
-		ns.Name(),
-		"--service-account",
-		sa,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	cls := ctx.Clusters().Kube().Default()
-	// Find the Prometheus pod and service, and start forwarding a local port.
-	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", constants.GatewayNameLabel, sa))
-	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
-	if err != nil {
-		return nil, err
-	}
-	pod := pods[0]
-	inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15008)
-	if err != nil {
+	if err := errG.Wait(); err != nil {
 		return nil, err
 	}
 
-	if err := inbound.Start(); err != nil {
-		return nil, err
+	root := servers[ctx.Clusters().Default().Name()]
+	root.id = ctx.TrackResource(root)
+	for _, component := range servers {
+		component.id = root.id
+		component.perCluster = servers
 	}
-	outbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15001)
-	if err != nil {
-		return nil, err
-	}
-
-	if err := outbound.Start(); err != nil {
-		return nil, err
-	}
-	server.inbound = inbound
-	server.outbound = outbound
-	server.pod = pod
-	return server, nil
+	return root, nil
 }
 
 // NewWaypointProxyOrFail calls NewWaypointProxy and fails if an error occurs.
@@ -183,4 +183,55 @@ func WaypointForInstanceOrFail(t framework.TestContext, instance echo.Instance) 
 		t.Fatal(err)
 	}
 	return out
+}
+
+func deploy(ctx resource.Context, ns namespace.Instance, sa string, cls cluster.Cluster) (*kubeComponent, error) {
+	ik, err := istioctl.New(ctx, istioctl.Config{Cluster: cls})
+	if err != nil {
+		return nil, err
+	}
+	_, _, err = ik.Invoke([]string{
+		"x",
+		"waypoint",
+		"apply",
+		"--namespace",
+		ns.Name(),
+		"--service-account",
+		sa,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Find the Waypoint pod and service, and start forwarding a local port.
+	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", constants.GatewayNameLabel, sa))
+	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
+	if err != nil {
+		return nil, err
+	}
+	pod := pods[0]
+	inbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15008)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := inbound.Start(); err != nil {
+		return nil, err
+	}
+	outbound, err := cls.NewPortForwarder(pod.Name, pod.Namespace, "", 0, 15001)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := outbound.Start(); err != nil {
+		return nil, err
+	}
+
+	return &kubeComponent{
+		ns:       ns,
+		sa:       sa,
+		inbound:  inbound,
+		outbound: outbound,
+		pod:      pod,
+	}, nil
 }
