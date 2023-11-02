@@ -225,6 +225,8 @@ func tagListCommand() *cobra.Command {
 		},
 	}
 
+	cmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", util.TableFormat, "Output format for tag description "+
+		"(available formats: table,json)")
 	return cmd
 }
 
