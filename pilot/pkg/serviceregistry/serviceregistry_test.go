@@ -1159,8 +1159,8 @@ func expectServiceEndpointsFromIndex(t *testing.T, ei *model.EndpointIndex, svc 
 				Port:    e.EndpointPort,
 			}
 		})
-		slices.SortFunc(got, func(a, b EndpointResponse) bool {
-			return a.Address < b.Address
+		slices.SortBy(got, func(a EndpointResponse) string {
+			return a.Address
 		})
 		return assert.Compare(got, expected)
 	}, retry.Converge(2), retry.Timeout(time.Second*2), retry.Delay(time.Millisecond*10))

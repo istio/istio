@@ -299,8 +299,8 @@ func TestLabelPods(t *testing.T) {
 
 			assert.EventuallyEqual(t, func() map[string]string {
 				havePods := c.pods.List(metav1.NamespaceAll, klabels.Everything())
-				slices.SortFunc(havePods, func(a, b *corev1.Pod) bool {
-					return a.Name < b.Name
+				slices.SortBy(havePods, func(a *corev1.Pod) string {
+					return a.Name
 				})
 				return makePodLabelMap(havePods)
 			}, tt.wantLabels)
@@ -363,8 +363,8 @@ func TestDeletePods(t *testing.T) {
 
 			assert.EventuallyEqual(t, func() []*corev1.Pod {
 				havePods := c.pods.List(metav1.NamespaceAll, klabels.Everything())
-				slices.SortFunc(havePods, func(a, b *corev1.Pod) bool {
-					return a.Name < b.Name
+				slices.SortBy(havePods, func(a *corev1.Pod) string {
+					return a.Name
 				})
 				return havePods
 			}, tt.wantPods)

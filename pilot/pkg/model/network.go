@@ -15,10 +15,10 @@
 package model
 
 import (
+	"cmp"
 	"fmt"
 	"net"
 	"sort"
-	"strings"
 	"sync"
 	"time"
 
@@ -320,11 +320,11 @@ func networkAndClusterFor(nw network.ID, c cluster.ID) networkAndCluster {
 
 // SortGateways sorts the array so that it's stable.
 func SortGateways(gws []NetworkGateway) []NetworkGateway {
-	return slices.SortFunc(gws, func(a, b NetworkGateway) bool {
-		if strings.Compare(a.Addr, b.Addr) < 0 {
-			return true
+	return slices.SortFunc(gws, func(a, b NetworkGateway) int {
+		if r := cmp.Compare(a.Addr, b.Addr); r != 0 {
+			return r
 		}
-		return a.Port < b.Port
+		return cmp.Compare(a.Port, b.Port)
 	})
 }
 

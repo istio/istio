@@ -1547,11 +1547,11 @@ func resolveServiceAliases(allServices []*Service, configsUpdated sets.Set[Confi
 	}
 	// Sort aliases so order is deterministic.
 	for _, v := range aliasesForService {
-		slices.SortFunc(v, func(a, b NamespacedHostname) bool {
-			if r := cmp.Compare(a.Namespace, b.Namespace); r == -1 {
-				return true
+		slices.SortFunc(v, func(a, b NamespacedHostname) int {
+			if r := cmp.Compare(a.Namespace, b.Namespace); r != 0 {
+				return r
 			}
-			return cmp.Compare(a.Hostname, b.Hostname) == -1
+			return cmp.Compare(a.Hostname, b.Hostname)
 		})
 	}
 

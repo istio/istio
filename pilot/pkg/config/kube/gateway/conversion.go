@@ -967,8 +967,8 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 		}
 	}
 	// Ensure stable order
-	slices.SortFunc(parentRefs, func(a, b routeParentReference) bool {
-		return parentRefString(a.OriginalReference) < parentRefString(b.OriginalReference)
+	slices.SortBy(parentRefs, func(a routeParentReference) string {
+		return parentRefString(a.OriginalReference)
 	})
 	return parentRefs
 }

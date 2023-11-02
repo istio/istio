@@ -24,6 +24,14 @@ linters-settings:
             desc: "use istio.io/istio/pkg/ptr"
           - pkg: go.opencensus.io
             desc: "do not use OpenCensus; use OpenTelemetry instead"
+          - pkg: golang.org/x/exp/maps
+            desc: "do not use golang.org/x/exp/maps; use istio.io/istio/pkg/maps instead"
+          - pkg: maps
+            desc: "do not use maps; use istio.io/istio/pkg/maps instead"
+          - pkg: golang.org/x/exp/slices
+            desc: "do not use golang.org/x/exp/slices; use istio.io/istio/pkg/slices instead"
+          - pkg: slices
+            desc: "do not use slices; use istio.io/istio/pkg/slices instead"
       DenyOperatorAndIstioctl:
         files:
           # Tests can do anything
