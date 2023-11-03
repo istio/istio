@@ -18,7 +18,6 @@ import (
 	"reflect"
 	"sort"
 
-	"golang.org/x/exp/slices"
 	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pkg/cluster"
@@ -27,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -125,7 +125,7 @@ func findInconsistencies(services map[cluster.ID]*resource.Instance) (clusters [
 	if len(inconsistentClusters) > 0 {
 		inconsistentClusters.Insert(firstCluster.String())
 	}
-	slices.Sort[string](inconsistentReasons.UnsortedList())
+	slices.Sort(inconsistentReasons.UnsortedList())
 	errStr := ""
 	for i, err := range inconsistentReasons.UnsortedList() {
 		errStr += err

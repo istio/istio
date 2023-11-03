@@ -357,7 +357,7 @@ func (sa *IstiodAnalyzer) GetFiltersByGVK() map[config.GroupVersionKind]kubetype
 	}
 }
 
-func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string, multicluster bool) {
+func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, revision string, remote bool) {
 	// This makes the assumption we don't care about Helm secrets or SA token secrets - two common
 	// large secrets in clusters.
 	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
@@ -375,6 +375,10 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 
 	// TODO: are either of these string constants intended to vary?
 	// We gets Istio CRD resources with a specific revision.
+	krs := sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...)
+	if remote {
+		krs = krs.Remove(kuberesource.DefaultRemoteClusterExcludedSchemas().All()...)
+	}
 	store := crdclient.NewForSchemas(c, crdclient.Option{
 		Revision:     revision,
 		DomainSuffix: "cluster.local",
@@ -385,10 +389,14 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 				ObjectFilter: isIstioConfigMap,
 			},
 		},
-	}, sa.kubeResources.Remove(kuberesource.DefaultExcludedSchemas().All()...))
+	}, krs)
 	sa.stores = append(sa.stores, store)
 
 	// We gets service discovery resources without a specific revision.
+	krs = sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas())
+	if remote {
+		krs = krs.Remove(kuberesource.DefaultRemoteClusterExcludedSchemas().All()...)
+	}
 	store = crdclient.NewForSchemas(c, crdclient.Option{
 		DomainSuffix: "cluster.local",
 		Identifier:   "analysis-controller",
@@ -409,9 +417,9 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 				FieldSelector: generalSelectors,
 			},
 		},
-	}, sa.kubeResources.Intersect(kuberesource.DefaultExcludedSchemas()))
+	}, krs)
 	// RunAndWait must be called after NewForSchema so that the informers are all created and started.
-	if multicluster {
+	if remote {
 		clusterID := c.ClusterID()
 		if clusterID == "" {
 			clusterID = "default"
