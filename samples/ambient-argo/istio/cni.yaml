@@ -23,7 +23,7 @@ spec:
         valuesObject:
           revision: rapid
           cni:
-            cniBinDir:  "/home/kubernetes/bin"
+            cniBinDir: "/home/kubernetes/bin"
         valueFiles:
           - >-
             $values/manifests/charts/istio-cni/ambient-values.yaml
