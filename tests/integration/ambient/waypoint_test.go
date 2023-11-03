@@ -128,7 +128,7 @@ func TestWaypoint(t *testing.T) {
 			})
 			for _, sa := range saSet {
 				if !strings.Contains(output, sa) {
-					t.Fatalf("unexpected output: ", output)
+					t.Fatalf("expect to find %s in output: %s", sa, output)
 				}
 			}
 
@@ -140,7 +140,7 @@ func TestWaypoint(t *testing.T) {
 			})
 			for _, sa := range saSet {
 				if !strings.Contains(output, sa) {
-					t.Fatalf("unexpected output: ", output)
+					t.Fatalf("expect to find %s in output: %s", sa, output)
 				}
 			}
 
@@ -158,9 +158,9 @@ func TestWaypoint(t *testing.T) {
 					if errors.Is(err, kubetest.ErrNoPodsFetched) {
 						return nil
 					}
-					return fmt.Errorf("gateway is not ready: %v", err)
+					return fmt.Errorf("failed to check gateway status: %v", err)
 				}
-				return fmt.Errorf("gateway is not cleaned up")
+				return fmt.Errorf("failed to clean up gateway in namespace: %s", nsConfig.Name())
 			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
 
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
@@ -177,19 +177,19 @@ func TestWaypoint(t *testing.T) {
 				// after deletion, the pod should not be found
 				if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
 					if !errors.Is(err, kubetest.ErrNoPodsFetched) {
-						return fmt.Errorf("gateway is not ready: %v", err)
+						return fmt.Errorf("failed to check gateway status: %v", err)
 					}
 				} else if err == nil {
-					return fmt.Errorf("gateway is not cleaned up")
+					return fmt.Errorf("failed to delete multiple gateways: %s not cleaned up", "sa1")
 				}
 				fetch = kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"sa2")
 				// after deletion, the pod should not be found
 				if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
 					if !errors.Is(err, kubetest.ErrNoPodsFetched) {
-						return fmt.Errorf("gateway is not ready: %v", err)
+						return fmt.Errorf("failed to check gateway status: %v", err)
 					}
 				} else if err == nil {
-					return fmt.Errorf("gateway is not cleaned up")
+					return fmt.Errorf("failed to delete multiple gateways: %s not cleaned up", "sa2")
 				}
 				return nil
 			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
