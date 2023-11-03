@@ -66,6 +66,8 @@ spec:
       affinity:
 {{- toYaml . | nindent 8 }}
 {{- end }}
+      os:
+        name: linux
 {{- with .Values.pilot.tolerations }}
       tolerations:
 {{- toYaml . | nindent 8 }}
