@@ -30,4 +30,4 @@ spec:
               revision: "1-18-5"
             rapid:
               revision: "1-19-3"
-          ztshim: "1-18-5"
+          istiodservice: "1-18-5" # This can be removed once ztunnel is on 1.20
