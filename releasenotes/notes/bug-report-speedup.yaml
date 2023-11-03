@@ -20,7 +20,7 @@ kind: feature
 # - installation
 # - istioctl
 # - documentation
-area: telemetry
+area: istioctl
 
 # releaseNotes is a markdown listing of any user facing changes. This will appear in the
 # release notes.
