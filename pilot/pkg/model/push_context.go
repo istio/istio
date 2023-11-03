@@ -1407,7 +1407,7 @@ func (ps *PushContext) updateContext(
 func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.Set[ConfigKey]) {
 	// Sort the services in order of creation.
 	allServices := SortServicesByCreationTime(env.Services())
-	if features.EnableExternalNameAlias {
+	if features.EnableExternalNameService && features.EnableExternalNameAlias {
 		resolveServiceAliases(allServices, configsUpdate)
 	}
 

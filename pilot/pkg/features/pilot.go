@@ -654,6 +654,10 @@ var (
 	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
 		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
 
+	EnableExternalNameService = env.Register("ENABLE_EXTERNAL_NAME_SERVICE", true,
+		"If true, kubernetes ExternalName typed service will be managed by istio, "+
+			"and the ports will be respected by istio while in kubernetes it is meaningless").Get()
+
 	EnableExternalNameAlias = env.Register("ENABLE_EXTERNAL_NAME_ALIAS", true,
 		"If enabled, ExternalName Services will be treated as simple aliases: anywhere where we would match the concrete service, "+
 			"we also match the ExternalName. In general, this mirrors Kubernetes behavior more closely. However, it means that policies (routes and DestinationRule) "+
