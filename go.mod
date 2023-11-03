@@ -68,6 +68,7 @@ require (
 	github.com/prometheus/client_golang v1.16.0
 	github.com/prometheus/client_model v0.4.0
 	github.com/prometheus/common v0.44.0
+	github.com/prometheus/procfs v0.11.1
 	github.com/prometheus/prometheus v0.45.0
 	github.com/quic-go/quic-go v0.37.4
 	github.com/ryanuber/go-glob v1.0.0
@@ -212,7 +213,6 @@ require (
 	github.com/pelletier/go-toml/v2 v2.0.8 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/pkg/errors v0.9.1 // indirect
-	github.com/prometheus/procfs v0.11.1 // indirect
 	github.com/quic-go/qpack v0.4.0 // indirect
 	github.com/quic-go/qtls-go1-20 v0.3.1 // indirect
 	github.com/rivo/uniseg v0.4.3 // indirect
