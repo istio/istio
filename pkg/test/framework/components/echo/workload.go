@@ -45,6 +45,9 @@ type Workload interface {
 	// Address returns the network address of the endpoint.
 	Address() string
 
+	// Addresses returns the network addresses of the endpoint.
+	Addresses() []string
+
 	// Sidecar if one was specified.
 	Sidecar() Sidecar
 
@@ -70,7 +73,7 @@ func (ws Workloads) Len() int {
 func (ws Workloads) Addresses() []string {
 	out := make([]string, 0, len(ws))
 	for _, w := range ws {
-		out = append(out, w.Address())
+		out = append(out, w.Addresses()...)
 	}
 	return out
 }

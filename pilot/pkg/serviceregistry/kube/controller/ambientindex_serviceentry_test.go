@@ -32,7 +32,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 
 	// test code path where service entry creates a workload entry via `ServiceEntry.endpoints`
 	// and the inlined WE has a port override
-	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "name1", testNS, nil, "127.0.0.1")
+	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "name1", testNS, nil, []string{"127.0.0.1"})
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "name1")
 	s.assertEvent(t, s.seIPXdsName("name1", "127.0.0.1"), "ns1/se.istio.io")
 	s.controller.ambientIndex.(*AmbientIndexImpl).mu.RLock()
@@ -141,7 +141,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1", "name2")
 
 	// a service entry should not be able to select across namespaces
-	s.addServiceEntry(t, "mismatched.istio.io", []string{"240.240.23.45"}, "name1", "mismatched-ns", map[string]string{"app": "a"}, "")
+	s.addServiceEntry(t, "mismatched.istio.io", []string{"240.240.23.45"}, "name1", "mismatched-ns", map[string]string{"app": "a"}, nil)
 	s.assertEvent(t, "mismatched-ns/mismatched.istio.io")
 	assert.Equal(t, s.lookup(s.addrXdsName("140.140.0.10")), []*model.AddressInfo{{
 		Address: &workloadapi.Address{
@@ -186,7 +186,7 @@ func TestAmbientIndex_ServiceEntry(t *testing.T) {
 		},
 	}})
 
-	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "name1", testNS, map[string]string{"app": "a"}, "")
+	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "name1", testNS, map[string]string{"app": "a"}, nil)
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "pod1", "pod2", "name1", "name2")
 	// we should see an update for the workloads selected by the service entry
 	// do not expect event for pod2 since it is not selected by the service entry
@@ -335,7 +335,7 @@ func TestAmbientIndex_ServiceEntry_DisableK8SServiceSelectWorkloadEntries(t *tes
 	s.addPods(t, "140.140.0.11", "pod2", "sa1", map[string]string{"app": "other"}, nil, true, corev1.PodRunning)
 	s.addWorkloadEntries(t, "240.240.34.56", "name1", "sa1", map[string]string{"app": "a"})
 	s.addWorkloadEntries(t, "240.240.34.57", "name2", "sa1", map[string]string{"app": "other"})
-	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "name1", testNS, map[string]string{"app": "a"}, "")
+	s.addServiceEntry(t, "se.istio.io", []string{"240.240.23.45"}, "name1", testNS, map[string]string{"app": "a"}, nil)
 	s.clearEvents()
 
 	// Setting the PILOT_ENABLE_K8S_SELECT_WORKLOAD_ENTRIES to false shouldn't affect the workloads selected by the service

@@ -770,6 +770,10 @@ func buildSidecarOutboundTCPListenerOpts(opts outboundListenerOpts, virtualServi
 func (lb *ListenerBuilder) buildSidecarOutboundListener(listenerOpts outboundListenerOpts,
 	listenerMap map[listenerKey]*outboundListenerEntry, virtualServices []config.Config, actualWildcards []string,
 ) {
+	// Alias services do not get listeners generated
+	if listenerOpts.service.Resolution == model.Alias {
+		return
+	}
 	// TODO: remove actualWildcard
 	var currentListenerEntry *outboundListenerEntry
 

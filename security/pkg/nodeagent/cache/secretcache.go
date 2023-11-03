@@ -627,9 +627,9 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	}, nil
 }
 
-func (sc *SecretManagerClient) rotateTime(secret security.SecretItem) time.Duration {
+var rotateTime = func(secret security.SecretItem, graceRatio float64) time.Duration {
 	secretLifeTime := secret.ExpireTime.Sub(secret.CreatedTime)
-	gracePeriod := time.Duration((sc.configOptions.SecretRotationGracePeriodRatio) * float64(secretLifeTime))
+	gracePeriod := time.Duration((graceRatio) * float64(secretLifeTime))
 	delay := time.Until(secret.ExpireTime.Add(-gracePeriod))
 	if delay < 0 {
 		delay = 0
@@ -638,7 +638,7 @@ func (sc *SecretManagerClient) rotateTime(secret security.SecretItem) time.Durat
 }
 
 func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
-	delay := sc.rotateTime(item)
+	delay := rotateTime(item, sc.configOptions.SecretRotationGracePeriodRatio)
 	certExpirySeconds.ValueFrom(func() float64 { return time.Until(item.ExpireTime).Seconds() }, ResourceName.Value(item.ResourceName))
 	item.ResourceName = security.WorkloadKeyCertResourceName
 	// In case there are two calls to GenerateSecret at once, we don't want both to be concurrently registered
@@ -649,11 +649,16 @@ func (sc *SecretManagerClient) registerSecret(item security.SecretItem) {
 	sc.cache.SetWorkload(&item)
 	resourceLog(item.ResourceName).Debugf("scheduled certificate for rotation in %v", delay)
 	sc.queue.PushDelayed(func() error {
-		resourceLog(item.ResourceName).Debugf("rotating certificate")
-		// Clear the cache so the next call generates a fresh certificate
-		sc.cache.SetWorkload(nil)
-
-		sc.OnSecretUpdate(item.ResourceName)
+		// In case `UpdateConfigTrustBundle` called, it will resign workload cert.
+		// Check if this is a stale scheduled rotating task.
+		if cached := sc.cache.GetWorkload(); cached != nil {
+			if cached.CreatedTime == item.CreatedTime {
+				resourceLog(item.ResourceName).Debugf("rotating certificate")
+				// Clear the cache so the next call generates a fresh certificate
+				sc.cache.SetWorkload(nil)
+				sc.OnSecretUpdate(item.ResourceName)
+			}
+		}
 		return nil
 	}, delay)
 }
@@ -749,6 +754,8 @@ func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error
 	sc.configTrustBundleMutex.Unlock()
 	cacheLog.Debugf("update new trust bundle")
 	sc.OnSecretUpdate(security.RootCertReqResourceName)
+	sc.cache.SetWorkload(nil)
+	sc.OnSecretUpdate(security.WorkloadKeyCertResourceName)
 	return nil
 }
 

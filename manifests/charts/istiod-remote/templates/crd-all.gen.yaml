@@ -8067,6 +8067,7 @@ spec:
                         properties:
                           name:
                             description: Required.
+                            minLength: 1
                             type: string
                         required:
                         - name
@@ -8102,6 +8103,7 @@ spec:
                             properties:
                               customMetric:
                                 description: Allows free-form specification of a metric.
+                                minLength: 1
                                 type: string
                               metric:
                                 description: One of the well-known Istio Standard
@@ -8143,6 +8145,13 @@ spec:
                                     is `UPSERT`.
                                   type: string
                               type: object
+                              x-kubernetes-validations:
+                              - message: value must be set when operation is UPSERT
+                                rule: '((has(self.operation) ? self.operation : '''')
+                                  == ''UPSERT'') ? self.value != '''' : true'
+                              - message: value must not be set when operation is REMOVE
+                                rule: '((has(self.operation) ? self.operation : '''')
+                                  == ''REMOVE'') ? !has(self.value) : true'
                             description: Optional.
                             type: object
                         type: object
@@ -8153,6 +8162,7 @@ spec:
                         properties:
                           name:
                             description: Required.
+                            minLength: 1
                             type: string
                         required:
                         - name
@@ -8216,7 +8226,10 @@ spec:
                               name:
                                 description: Name of the environment variable from
                                   which to extract the tag value.
+                                minLength: 1
                                 type: string
+                            required:
+                            - name
                             type: object
                           header:
                             description: RequestHeader adds the value of an header
@@ -8228,7 +8241,10 @@ spec:
                               name:
                                 description: Name of the header from which to extract
                                   the tag value.
+                                minLength: 1
                                 type: string
+                            required:
+                            - name
                             type: object
                           literal:
                             description: Literal adds the same, hard-coded value to
@@ -8236,7 +8252,10 @@ spec:
                             properties:
                               value:
                                 description: The tag value to use.
+                                minLength: 1
                                 type: string
+                            required:
+                            - value
                             type: object
                         type: object
                       description: Optional.
@@ -8264,6 +8283,7 @@ spec:
                         properties:
                           name:
                             description: Required.
+                            minLength: 1
                             type: string
                         required:
                         - name
@@ -8272,6 +8292,8 @@ spec:
                     randomSamplingPercentage:
                       description: Controls the rate at which traffic will be selected
                         for tracing if no prior sampling decision has been made.
+                      maximum: 100
+                      minimum: 0
                       nullable: true
                       type: number
                     useRequestIdForTraceSampling:

@@ -91,7 +91,6 @@ const (
 
 	// WorkloadKeyCertResourceName is the resource name of the discovery request for workload
 	// identity.
-	// TODO: change all the pilot one reference definition here instead.
 	WorkloadKeyCertResourceName = "default"
 
 	// GCE is Credential fetcher type of Google plugin
@@ -591,9 +590,8 @@ func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig
 			return SdsCertificateConfig{}, false
 		}
 		return SdsCertificateConfig{"", "", split[0]}, true
-	} else {
-		return SdsCertificateConfig{}, false
 	}
+	return SdsCertificateConfig{}, false
 }
 
 // SdsCertificateConfigFromResourceNameForOSCACert converts the OS resource name into a SdsCertificateConfig

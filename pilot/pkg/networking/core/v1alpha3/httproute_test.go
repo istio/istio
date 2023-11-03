@@ -276,6 +276,24 @@ func TestGenerateVirtualHostDomains(t *testing.T) {
 			},
 			enableDualStack: true,
 		},
+		{
+			name: "alias",
+			service: &model.Service{
+				Hostname:     "foo.local.campus.net",
+				MeshExternal: false,
+				Attributes:   model.ServiceAttributes{Aliases: []model.NamespacedHostname{{Hostname: "alias.local.campus.net", Namespace: "ns"}}},
+			},
+			port: 80,
+			node: &model.Proxy{
+				DNSDomain: "local.campus.net",
+			},
+			want: []string{
+				"foo.local.campus.net",
+				"foo",
+				"alias.local.campus.net",
+				"alias",
+			},
+		},
 	}
 
 	testFn := func(t test.Failer, service *model.Service, port int, node *model.Proxy, want []string) {

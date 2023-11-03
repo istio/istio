@@ -78,9 +78,8 @@ func (p *Probe) checkConfigStatus() error {
 		return fmt.Errorf("config not received from XDS server (is Istiod running?): %s", s.String())
 	} else if s.LDSUpdatesRejection > 0 || s.CDSUpdatesRejection > 0 {
 		return fmt.Errorf("config received from XDS server, but was rejected: %s", s.String())
-	} else {
-		return fmt.Errorf("config not fully received from XDS server: %s", s.String())
 	}
+	return fmt.Errorf("config not fully received from XDS server: %s", s.String())
 }
 
 // isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.

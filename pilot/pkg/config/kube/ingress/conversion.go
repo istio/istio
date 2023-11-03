@@ -364,9 +364,8 @@ func getIngressGatewaySelector(ingressSelector, ingressService string) map[strin
 		// to be the same, so this removes the need for two configurations
 		// However, if its istio-ingressgateway we need to use the old values for backwards compatibility
 		return labels.Instance{constants.IstioLabel: ingressService}
-	} else {
-		// If we have neither an explicitly defined ingressSelector or ingressService then use a selector
-		// pointing to the ingressgateway from the default installation
-		return labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue}
 	}
+	// If we have neither an explicitly defined ingressSelector or ingressService then use a selector
+	// pointing to the ingressgateway from the default installation
+	return labels.Instance{constants.IstioLabel: constants.IstioIngressLabelValue}
 }

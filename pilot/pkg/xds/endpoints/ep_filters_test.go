@@ -28,7 +28,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
-	. "istio.io/istio/pilot/pkg/xds/endpoints"
+	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -603,13 +603,13 @@ func runNetworkFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []net
 		t.Run(tt.name, func(t *testing.T) {
 			cn := fmt.Sprintf("outbound|80|%s|example.ns.svc.cluster.local", subset)
 			proxy := ds.SetupProxy(tt.proxy)
-			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
+			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
 			filtered := b.BuildClusterLoadAssignment(testShards()).Endpoints
 			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
 
-			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
+			b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
 			filtered2 := b2.BuildClusterLoadAssignment(testShards()).Endpoints
-			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
+			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
 			}
 		})
@@ -657,13 +657,13 @@ func runMTLSFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networ
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := ds.SetupProxy(tt.proxy)
 			cn := fmt.Sprintf("outbound_.80_.%s_.example.ns.svc.cluster.local", subset)
-			b := NewEndpointBuilder(cn, proxy, ds.PushContext())
+			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
 			filtered := b.BuildClusterLoadAssignment(testShards()).Endpoints
 			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
 
-			b2 := NewEndpointBuilder(cn, proxy, ds.PushContext())
+			b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
 			filtered2 := b2.BuildClusterLoadAssignment(testShards()).Endpoints
-			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(LocalityEndpoints{})); diff != "" {
+			if diff := cmp.Diff(filtered2, filtered, protocmp.Transform(), cmpopts.IgnoreUnexported(endpoints.LocalityEndpoints{})); diff != "" {
 				t.Fatalf("output of EndpointsByNetworkFilter is non-deterministic: %v", diff)
 			}
 		})
