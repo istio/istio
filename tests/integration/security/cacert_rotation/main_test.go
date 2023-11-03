@@ -160,7 +160,7 @@ func getWorkloadCertLastUpdateTime(t framework.TestContext, i echo.Instance, ctl
 		t.Fatalf("Could not get Pod ID: %v", err)
 	}
 	podName := fmt.Sprintf("%s.%s", podID, i.NamespaceName())
-	out, errOut, err := ctl.Invoke([]string{"pc", "s", podName, "-o", "yaml"})
+	out, errOut, err := ctl.Invoke([]string{"pc", "s", podName, "-o", "json"})
 	if err != nil || errOut != "" {
 		t.Errorf("failed to retrieve pod secret from %s, err: %v errOut: %s", podName, err, errOut)
 	}
