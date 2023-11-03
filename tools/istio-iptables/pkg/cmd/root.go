@@ -199,7 +199,9 @@ func ProgramIptables(cfg *config.Config) error {
 	iptConfigurator := capture.NewIptablesConfigurator(cfg, ext)
 
 	if !cfg.SkipRuleApply {
-		iptConfigurator.Run()
+		if err := iptConfigurator.Run(); err != nil {
+			return err
+		}
 		if err := capture.ConfigureRoutes(cfg); err != nil {
 			return fmt.Errorf("failed to configure routes: %v", err)
 		}
