@@ -112,7 +112,7 @@ func TestReachability(t *testing.T) {
 			// Rotate CA cert
 			if err := cert.CreateCustomCASecret(t,
 				"ca-cert.pem", "ca-key.pem",
-				"cert-chain.pem", "root-cert.pem"); err != nil {
+				"cert-chain.pem", "root-cert-combined.pem"); err != nil {
 				t.Errorf("failed to update combined CA secret: %v", err)
 			}
 

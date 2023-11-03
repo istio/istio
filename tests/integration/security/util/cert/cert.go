@@ -73,8 +73,7 @@ func CreateCASecret(ctx resource.Context) error {
 		"cert-chain.pem", "root-cert.pem")
 }
 
-func CreateCustomCASecret(ctx resource.Context,
-	caCertFile, caKeyFile, certChainFile, rootCertFile string) error {
+func CreateCustomCASecret(ctx resource.Context, caCertFile, caKeyFile, certChainFile, rootCertFile string) error {
 	name := "cacerts"
 	systemNs, err := istio.ClaimSystemNamespace(ctx)
 	if err != nil {
