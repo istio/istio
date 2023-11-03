@@ -52,7 +52,6 @@ import (
 
 const (
 	bugReportDefaultTimeout = 30 * time.Minute
-	defaultRPSLimit         = 100
 )
 
 var (
