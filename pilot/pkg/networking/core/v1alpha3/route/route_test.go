@@ -21,7 +21,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	envoyroute "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
-	"github.com/onsi/gomega"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 
@@ -316,12 +315,12 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		routes, err = route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithPresentMatchingOnHeader2,
 			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
-		g.Expect(err).NotTo(gomega.HaveOccurred())
+		g.Expect(err).NotTo(HaveOccurred())
 		xdstest.ValidateRoutes(t, routes)
-		g.Expect(len(routes)).To(gomega.Equal(1))
-		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(gomega.Equal("FOO-HEADER"))
-		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(gomega.Equal(true))
-		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(gomega.Equal(false))
+		g.Expect(len(routes)).To(Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(Equal("FOO-HEADER"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(Equal(true))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(Equal(false))
 	})
 
 	t.Run("for virtual service with presence matching on header and without_header", func(t *testing.T) {
