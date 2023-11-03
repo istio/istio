@@ -22,8 +22,10 @@ import (
 	"time"
 
 	appsv1 "k8s.io/api/apps/v1"
+	"k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
 	apiextensions "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -49,6 +51,7 @@ const (
 type deployment struct {
 	replicaSets *appsv1.ReplicaSet
 	deployment  *appsv1.Deployment
+	hpa         *v2beta2.HorizontalPodAutoscaler
 }
 
 // WaitForResources polls to get the current status of all pods, PVCs, and Services
@@ -120,9 +123,17 @@ func waitForResources(objects object.K8sObjects, cs kubernetes.Interface, l *pro
 			if err != nil || newReplicaSet == nil {
 				return false, nil, nil, err
 			}
+			hpa, err := cs.AutoscalingV2beta2().HorizontalPodAutoscalers(o.Namespace).Get(context.TODO(), o.Name, metav1.GetOptions{})
+			if err != nil {
+				// Not all deployments have HPA, Ignore not find HPA
+				if !errors.IsNotFound(err) {
+					return false, nil, nil, err
+				}
+			}
 			newDeployment := deployment{
 				newReplicaSet,
 				currentDeployment,
+				hpa,
 			}
 			deployments = append(deployments, newDeployment)
 		case name.DaemonSetStr:
@@ -241,8 +252,10 @@ func deploymentsReady(cs kubernetes.Interface, deployments []deployment, info ma
 	var notReady []string
 	for _, v := range deployments {
 		if v.replicaSets.Status.ReadyReplicas >= *v.deployment.Spec.Replicas {
-			// Ready
-			continue
+			if v.hpa == nil || v.hpa.Status.CurrentReplicas >= *v.deployment.Spec.Replicas {
+				// Ready
+				continue
+			}
 		}
 		id := "Deployment/" + v.deployment.Namespace + "/" + v.deployment.Name
 		notReady = append(notReady, id)
