@@ -2,14 +2,14 @@
 
 This repo contains a reference architecture for operating Istio Ambient Mesh with ArgoCD using GitOps.  It demonstrates best practices for leveraging Istio as part of an application platform.
 
-### :boom: DISCLAIMER
+## :boom: DISCLAIMER
 
 Istio Ambient Mesh is still in Alpha, and is not suitable for production use.  Likewise, this reference architecture is of Alpha quality, and includes several rough edges, including:
  * Cluster-Scoped upgrades cause known traffic loss, and have wide blast radius.
  * The tag chart is forked from the primary istio repo, and needs to be merged and published
  * CRDs are not currently upgraded
 
-### Getting Started
+## Getting Started
 
 This reference architecture assumes that you have an ArgoCD installation with:
  * A [connected cluster](https://argo-cd.readthedocs.io/en/stable/user-guide/commands/argocd_cluster/) named `ambient-cluster`
@@ -24,7 +24,7 @@ find . \( -type d -name .git -prune \) -o -type f -name '*.yaml' -print0 | xargs
 argocd create application -f meta-application.json
 ```
 
-### Repository Layout
+## Repository Layout
 
 The meta-application.yaml file is an App-of-Apps that references all other applications needed for running Istio and the demo application via ArgoCD.  The diagram below demonstrates the deployment mechanism for each part of the platform.
 
