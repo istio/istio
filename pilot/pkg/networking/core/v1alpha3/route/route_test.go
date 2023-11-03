@@ -312,6 +312,15 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(Equal("FOO-HEADER"))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(Equal(true))
 		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(Equal(false))
+
+		routes, err = route.BuildHTTPRoutesForVirtualService(node(cg), virtualServiceWithPresentMatchingOnHeader2,
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		g.Expect(err).NotTo(HaveOccurred())
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(len(routes)).To(Equal(1))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetName()).To(Equal("FOO-HEADER"))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetPresentMatch()).To(Equal(true))
+		g.Expect(routes[0].GetMatch().GetHeaders()[0].GetInvertMatch()).To(Equal(false))
 	})
 
 	t.Run("for virtual service with presence matching on header and without_header", func(t *testing.T) {
@@ -2204,6 +2213,34 @@ var virtualServiceWithPresentMatchingOnHeader = config.Config{
 						Name: "presence",
 						Headers: map[string]*networking.StringMatch{
 							"FOO-HEADER": nil,
+						},
+					},
+				},
+				Redirect: &networking.HTTPRedirect{
+					Uri:          "example.org",
+					Authority:    "some-authority.default.svc.cluster.local",
+					RedirectCode: 308,
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithPresentMatchingOnHeader2 = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "acme",
+	},
+	Spec: &networking.VirtualService{
+		Hosts:    []string{},
+		Gateways: []string{"some-gateway"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "presence",
+						Headers: map[string]*networking.StringMatch{
+							"FOO-HEADER": {},
 						},
 					},
 				},
