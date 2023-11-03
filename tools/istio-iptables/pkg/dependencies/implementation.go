@@ -17,14 +17,12 @@ package dependencies
 import (
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
 
 	utilversion "k8s.io/apimachinery/pkg/util/version"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
@@ -136,20 +134,6 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 	}
 
 	return stderr
-}
-
-// RunOrFail runs a command and exits with an error message, if it fails
-func (r *RealDependencies) RunOrFail(cmd string, stdin io.ReadSeeker, args ...string) {
-	var err error
-	if XTablesCmds.Contains(cmd) {
-		err = r.executeXTables(cmd, false, stdin, args...)
-	} else {
-		err = r.execute(cmd, false, stdin, args...)
-	}
-	if err != nil {
-		log.Errorf("Failed to execute: %s %s, %v", cmd, strings.Join(args, " "), err)
-		os.Exit(-1)
-	}
 }
 
 // Run runs a command

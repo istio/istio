@@ -20,11 +20,10 @@ import (
 	"fmt"
 
 	"github.com/containernetworking/plugins/pkg/ns"
-	"github.com/spf13/viper"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/cmd"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
+	"istio.io/istio/tools/istio-iptables/pkg/config"
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
@@ -34,25 +33,27 @@ var getNs = ns.GetNS
 // Program defines a method which programs iptables based on the parameters
 // provided in Redirect.
 func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
-	viper.Set(constants.CNIMode, true)
-	viper.Set(constants.NetworkNamespace, netns)
-	viper.Set(constants.EnvoyPort, rdrct.targetPort)
-	viper.Set(constants.ProxyUID, rdrct.noRedirectUID)
-	viper.Set(constants.ProxyGID, rdrct.noRedirectGID)
-	viper.Set(constants.InboundInterceptionMode, rdrct.redirectMode)
-	viper.Set(constants.ServiceCidr, rdrct.includeIPCidrs)
-	viper.Set(constants.LocalExcludePorts, rdrct.excludeInboundPorts)
-	viper.Set(constants.InboundPorts, rdrct.includeInboundPorts)
-	viper.Set(constants.ExcludeInterfaces, rdrct.excludeInterfaces)
-	viper.Set(constants.LocalOutboundPortsExclude, rdrct.excludeOutboundPorts)
-	viper.Set(constants.OutboundPorts, rdrct.includeOutboundPorts)
-	viper.Set(constants.ServiceExcludeCidr, rdrct.excludeIPCidrs)
-	viper.Set(constants.KubeVirtInterfaces, rdrct.kubevirtInterfaces)
-	viper.Set(constants.DryRun, dependencies.DryRunFilePath.Get() != "")
-	viper.Set(constants.RedirectDNS, rdrct.dnsRedirect)
-	viper.Set(constants.CaptureAllDNS, rdrct.dnsRedirect)
-	viper.Set(constants.DropInvalid, rdrct.invalidDrop)
-	viper.Set(constants.DualStack, rdrct.dualStack)
+	cfg := config.DefaultConfig()
+	cfg.CNIMode = true
+	cfg.NetworkNamespace = netns
+	cfg.ProxyPort = rdrct.targetPort
+	cfg.ProxyUID = rdrct.noRedirectUID
+	cfg.ProxyGID = rdrct.noRedirectGID
+	cfg.InboundInterceptionMode = rdrct.redirectMode
+	cfg.OutboundIPRangesInclude = rdrct.includeIPCidrs
+	cfg.InboundPortsExclude = rdrct.excludeInboundPorts
+	cfg.InboundPortsInclude = rdrct.includeInboundPorts
+	cfg.ExcludeInterfaces = rdrct.excludeInterfaces
+	cfg.OutboundPortsExclude = rdrct.excludeOutboundPorts
+	cfg.OutboundPortsInclude = rdrct.includeOutboundPorts
+	cfg.OutboundIPRangesExclude = rdrct.excludeIPCidrs
+	cfg.KubeVirtInterfaces = rdrct.kubevirtInterfaces
+	cfg.DryRun = dependencies.DryRunFilePath.Get() != ""
+	cfg.RedirectDNS = rdrct.dnsRedirect
+	cfg.CaptureAllDNS = rdrct.dnsRedirect
+	cfg.DropInvalid = rdrct.invalidDrop
+	cfg.DualStack = rdrct.dualStack
+	cfg.FillConfigFromEnvironment()
 
 	netNs, err := getNs(netns)
 	if err != nil {
@@ -61,17 +62,9 @@ func (ipt *iptables) Program(podName, netns string, rdrct *Redirect) error {
 	}
 	defer netNs.Close()
 
-	if err = netNs.Do(func(_ ns.NetNS) error {
-		iptablesCmd := cmd.GetCommand()
+	return netNs.Do(func(_ ns.NetNS) error {
 		log.Infof("============= Start iptables configuration for %v =============", podName)
 		defer log.Infof("============= End iptables configuration for %v =============", podName)
-		if err := iptablesCmd.Execute(); err != nil {
-			return err
-		}
-		return nil
-	}); err != nil {
-		return err
-	}
-
-	return nil
+		return cmd.ProgramIptables(cfg)
+	})
 }

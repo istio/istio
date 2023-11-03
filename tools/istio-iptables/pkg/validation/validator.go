@@ -100,11 +100,11 @@ func genListenerAddress(ip netip.Addr, ports []string) []string {
 	return addresses
 }
 
-func NewValidator(config *config.Config, hostIP netip.Addr) *Validator {
+func NewValidator(config *config.Config) *Validator {
 	// It's tricky here:
 	// Connect to 127.0.0.6 will redirect to 127.0.0.1
 	// Connect to ::6       will redirect to ::1
-	isIPv6 := hostIP.Is6()
+	isIPv6 := config.HostIP.Is6()
 	listenIP, _ := netip.AddrFromSlice([]byte{127, 0, 0, 1})
 	serverIP, _ := netip.AddrFromSlice([]byte{127, 0, 0, 6})
 	if isIPv6 {
