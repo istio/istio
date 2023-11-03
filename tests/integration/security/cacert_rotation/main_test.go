@@ -18,7 +18,6 @@
 package cacertrotation
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"testing"
@@ -39,6 +38,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/integration/security/util/cert"
 	"istio.io/istio/tests/integration/security/util/reachability"
 )
@@ -160,17 +160,16 @@ func getWorkloadCertLastUpdateTime(t framework.TestContext, i echo.Instance, ctl
 		t.Fatalf("Could not get Pod ID: %v", err)
 	}
 	podName := fmt.Sprintf("%s.%s", podID, i.NamespaceName())
-	out, _, err := ctl.Invoke([]string{"pc", "s", podName, "-o", "json"})
-	if err != nil {
-		t.Errorf("failed to retrieve pod secret from %s, err: %v", podName, err)
+	out, errOut, err := ctl.Invoke([]string{"pc", "s", podName, "-o", "yaml"})
+	if err != nil || errOut != "" {
+		t.Errorf("failed to retrieve pod secret from %s, err: %v errOut: %s", podName, err, errOut)
 	}
 
 	dump := &admin.SecretsConfigDump{}
-	if err := json.Unmarshal([]byte(out), dump); err != nil {
+	if err := protomarshal.Unmarshal([]byte(out), dump); err != nil {
 		t.Errorf("failed to unmarshal secret dump: %v", err)
 	}
 
-	t.Logf("dump: %v", dump)
 	for _, s := range dump.DynamicActiveSecrets {
 		if s.Name == security.WorkloadKeyCertResourceName {
 			return s.LastUpdated.AsTime(), nil
