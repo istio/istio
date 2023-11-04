@@ -1,0 +1,31 @@
+{{- if ((.Values.base.tags.default).revision) }}
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Pilot"
+    app: istiod
+    istio: pilot
+    release: {{ .Release.Name }}
+  name: istiod
+  namespace: istio-system
+spec:
+  ports:
+    - name: grpc-xds
+      port: 15010
+      protocol: TCP
+    - name: https-dns
+      port: 15012
+      protocol: TCP
+    - name: https-webhook
+      port: 443
+      protocol: TCP
+      targetPort: 15017
+    - name: http-monitoring
+      port: 15014
+      protocol: TCP
+  selector:
+    app: istiod
+    istio.io/rev: {{ .Values.base.istiodservice }}
+{{- end }}
