@@ -76,7 +76,7 @@ values:
 
 func TestReachability(t *testing.T) {
 	framework.NewTest(t).
-		Features("security.peer.multiple-root").
+		Features("security.peer.cacert-rotation").
 		Run(func(t framework.TestContext) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
@@ -130,8 +130,7 @@ func TestReachability(t *testing.T) {
 					return true
 				}
 
-				t.Logf("workload cert is not updated, last update time: %v", lastUpdateTime)
-				return true
+				return false
 			}, retry.Timeout(30*time.Second), retry.Delay(1*time.Second))
 
 			// Verify traffic works between a and b after cert rotation
