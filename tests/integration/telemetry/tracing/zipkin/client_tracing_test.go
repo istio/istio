@@ -40,7 +40,7 @@ func TestClientTracing(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
 			// Ensure DNS propagation for the test
-			time.Sleep(time.Minute)
+			time.Sleep(5 * time.Minute)
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
 				cluster := cluster
 				t.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
