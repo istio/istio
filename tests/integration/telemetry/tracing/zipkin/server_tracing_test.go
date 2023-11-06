@@ -38,6 +38,8 @@ func TestServerTracing(t *testing.T) {
 		Features("observability.telemetry.tracing.server").
 		Run(func(t framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
+			// Ensure DNS propagation for the test
+			time.Sleep(time.Minute)
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
 				t.NewSubTest(cluster.StableName()).Run(func(t framework.TestContext) {
 					retry.UntilSuccessOrFail(t, func() error {

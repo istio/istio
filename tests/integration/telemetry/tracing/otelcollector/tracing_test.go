@@ -44,6 +44,8 @@ func TestProxyTracingOpenCensusMeshConfig(t *testing.T) {
 		Features("observability.telemetry.tracing.server").
 		Run(func(t framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
+			// Ensure DNS propagation for the test
+			time.Sleep(time.Minute)
 			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
 				cluster := cluster
