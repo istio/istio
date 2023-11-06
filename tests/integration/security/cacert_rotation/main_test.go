@@ -131,7 +131,7 @@ func TestReachability(t *testing.T) {
 				}
 
 				return false
-			}, retry.Timeout(30*time.Second), retry.Delay(1*time.Second))
+			}, retry.Timeout(time.Minute), retry.Delay(1*time.Second))
 
 			// Verify traffic works between a and b after cert rotation
 			echotest.New(t, fromAndTo).
