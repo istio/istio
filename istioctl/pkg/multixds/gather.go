@@ -80,7 +80,7 @@ var DefaultOptions = Options{
 
 // RequestAndProcessXds merges XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // Deprecated This method makes multiple responses appear to come from a single control plane;
-// consider using AllRequestAndProcessXds or FirstRequestAndProcessXds
+// consider using AllRequestAndProcessXds
 // nolint: lll
 func RequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.CLIClient) (*discovery.DiscoveryResponse, error) {
 	responses, err := MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace,
@@ -280,15 +280,6 @@ func AllRequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts cliopti
 	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
 ) (map[string]*discovery.DiscoveryResponse, error) {
 	return MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient, options)
-}
-
-// FirstRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers,
-// stopping after the first response that returns any resources.
-// nolint: lll
-func FirstRequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
-	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
-) (map[string]*discovery.DiscoveryResponse, error) {
-	return MultiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient, options)
 }
 
 type xdsAddr struct {

@@ -162,7 +162,6 @@ debug and diagnose their Istio mesh.
 
 	xdsBasedTroubleshooting := []*cobra.Command{
 		version.XdsVersionCommand(ctx),
-		proxystatus.XdsStatusCommand(ctx),
 	}
 	debugBasedTroubleshooting := []*cobra.Command{
 		version.NewVersionCommand(ctx),
