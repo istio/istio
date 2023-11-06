@@ -40,7 +40,7 @@ const (
 	// configured as the ratio of the certificate TTL.
 	defaultCertGracePeriodRatio = 0.5
 
-	// the interval polling root cert and re sign istiod cert when it changes.
+	// the interval polling root cert and resign istiod cert when it changes.
 	rootCertPollingInterval = 60 * time.Second
 
 	// Default CA certificate path
@@ -52,12 +52,6 @@ const (
 // If the certificate creation fails - for example no support in K8S - returns an error.
 // Will use the mesh.yaml DiscoveryAddress to find the default expected address of the control plane,
 // with an environment variable allowing override.
-//
-// Controlled by features.IstiodService env variable, which defines the name of the service to use in the DNS
-// cert, or empty for disabling this feature.
-//
-// TODO: If the discovery address in mesh.yaml is set to port 15012 (XDS-with-DNS-certs) and the name
-// matches the k8s namespace, failure to start DNS server is a fatal error.
 func (s *Server) initDNSCerts() error {
 	var certChain, keyPEM, caBundle []byte
 	var err error
@@ -87,7 +81,7 @@ func (s *Server) initDNSCerts() error {
 			}
 		})
 
-		s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
+		s.addStartFunc("istiod server certificate rotation", func(stop <-chan struct{}) error {
 			go func() {
 				// Track TTL of DNS cert and renew cert in accordance to grace period.
 				s.RotateDNSCertForK8sCA(stop, "", signerName, true, SelfSignedCACertTTL.Get())
@@ -106,7 +100,7 @@ func (s *Server) initDNSCerts() error {
 			return fmt.Errorf("failed reading %s: %v", defaultCACertPath, err)
 		}
 
-		s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
+		s.addStartFunc("istiod server certificate rotation", func(stop <-chan struct{}) error {
 			go func() {
 				// Track TTL of DNS cert and renew cert in accordance to grace period.
 				s.RotateDNSCertForK8sCA(stop, defaultCACertPath, "", true, SelfSignedCACertTTL.Get())
@@ -138,7 +132,7 @@ func (s *Server) initDNSCerts() error {
 			log.Infof("Use istio-generated cacerts at %v or istio-ca-secret", fileBundle.SigningKeyFile)
 
 			caBundle = s.CA.GetCAKeyCertBundle().GetRootCertPem()
-			s.addStartFunc("certificate rotation", func(stop <-chan struct{}) error {
+			s.addStartFunc("istiod server certificate rotation", func(stop <-chan struct{}) error {
 				go func() {
 					// regenerate istiod key cert when root cert changes.
 					s.watchRootCertAndGenKeyCert(stop)
@@ -146,7 +140,7 @@ func (s *Server) initDNSCerts() error {
 				return nil
 			})
 		} else {
-			log.Infof("Use plugged-in cert at %v", fileBundle.SigningKeyFile)
+			log.Infof("DNS certs use plugged-in cert at %v", fileBundle.SigningKeyFile)
 
 			caBundle, err = os.ReadFile(fileBundle.RootCertFile)
 			if err != nil {
