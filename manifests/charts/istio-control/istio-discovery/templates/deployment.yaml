@@ -58,8 +58,9 @@ spec:
 {{ toYaml .Values.pilot.podAnnotations | indent 8 }}
         {{- end }}
     spec:
-{{- if .Values.pilot.nodeSelector }}
       nodeSelector:
+        kubernetes.io/os: linux
+{{- if .Values.pilot.nodeSelector }}
 {{ toYaml .Values.pilot.nodeSelector | indent 8 }}
 {{- end }}
 {{- with .Values.pilot.affinity }}
