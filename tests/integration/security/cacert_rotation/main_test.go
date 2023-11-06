@@ -49,7 +49,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		Setup(istio.Setup(nil, setupConfig)).
+		Setup(istio.Setup(nil, setupConfig, cert.CreateCASecret)).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(ctx resource.Context) error {
 			return reachability.CreateCustomInstances(&apps)
