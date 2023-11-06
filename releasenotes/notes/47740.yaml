@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Removed** the experimental `istioctl` command: `proxy-status`. Usage of `istioctl proxy-status` is recommended instead.
