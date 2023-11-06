@@ -3,4 +3,4 @@ kind: feature
 area: traffic-management
 releaseNotes:
 - |
-  **Added** `ENABLE_EXTERNAL_NAME_SERVICE` feature flag, which allows istio to skip processing ExternalName service, it can be used to get rid of ExternalName service's influence completely.
+  **Added** `ENABLE_EXTERNAL_NAME_SERVICE` feature flag, which defaults to true conserving the current behavior processing the ExternalName service. It can be set to false removing the ExternalName service's influence completely.
