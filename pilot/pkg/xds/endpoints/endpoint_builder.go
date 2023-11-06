@@ -607,9 +607,14 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	// This change can support multiple addresses for an endpoint, then there are some use cases for it, such as
 	// 1. An endpoint can have both ipv4 or ipv6
 	// 2. An endpoint can be represented a serviceentry/workload instance with multiple IP addresses
-	// Please refer to
-	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/endpoint/v3/endpoint_components.proto#config-endpoint-v3-endpoint-additionaladdress
-	// for more information.
+	// When the additional_addresses field is populated for EDS in Envoy configuration, there would be a Happy Eyeballs
+	// algorithm to instantiate for the Endpoint, first attempt connecting to the IP address in the address field.
+	// Thereafter it will interleave IP addresses in the `additional_addresses` field based on IP version, as described in rfc8305,
+	// and attempt connections with them with a delay of 300ms each. The first connection to succeed will be used.
+	// Note: it uses Hash Based Load Balancing Policies for multiple addresses support Endpoint, and only the first address of the
+	// endpoint will be used as the hash key for the ring or maglev list, however, the upstream address that load balancer ends up
+	// connecting to will depend on the one that ends up "winning" using the Happy Eyeballs algorithm.
+	// Please refer to https://docs.google.com/document/d/1AjmTcMWwb7nia4rAgqE-iqIbSbfiXCI4h1vk-FONFdM/ for more details.
 	var additionalAddrs []*endpoint.Endpoint_AdditionalAddress
 	for _, itemAddr := range e.Addresses[1:] {
 		coreAddr := util.BuildAddress(itemAddr, e.EndpointPort)
@@ -674,7 +679,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	// Just checking the last address support tunneling or not if currenct endpoint has multiple addresses
+	// Checking all addresses that if there is any IP address support tunneling or not if currenct endpoint has multiple addresses
 	supportTunnelAddr := addresses[0]
 	for _, addr := range addresses {
 		if b.push.SupportsTunnel(e.Network, addr) {

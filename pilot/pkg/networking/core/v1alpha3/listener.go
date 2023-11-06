@@ -508,9 +508,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// Skip build outbound listener to the node itself,
 							// as when app access itself by pod ip will not flow through this listener.
 							// Simultaneously, it will be duplicate with inbound listener.
-							nodeAddrs := node.IPAddresses
-							sort.Sort(sort.Reverse(sort.StringSlice(nodeAddrs)))
-							nodeKey := strings.Join(nodeAddrs, ",")
+							nodeKey := strings.Join(node.IPAddresses, ",")
 							if instance.Key() == nodeKey {
 								continue
 							}
