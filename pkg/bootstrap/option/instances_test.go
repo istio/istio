@@ -18,7 +18,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshAPI "istio.io/api/mesh/v1alpha1"
@@ -677,19 +677,19 @@ func TestOptions(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.testName, func(t *testing.T) {
-			g := gomega.NewWithT(t)
+			g := NewWithT(t)
 
 			params, err := option.NewTemplateParams(c.option)
 			if c.expectError {
-				g.Expect(err).ToNot(gomega.BeNil())
+				g.Expect(err).ToNot(BeNil())
 			} else {
-				g.Expect(err).To(gomega.BeNil())
+				g.Expect(err).To(BeNil())
 				actual, ok := params[c.key]
 				if c.expected == nil {
-					g.Expect(ok).To(gomega.BeFalse())
+					g.Expect(ok).To(BeFalse())
 				} else {
-					g.Expect(ok).To(gomega.BeTrue())
-					g.Expect(actual).To(gomega.Equal(c.expected))
+					g.Expect(ok).To(BeTrue())
+					g.Expect(actual).To(Equal(c.expected))
 				}
 			}
 		})

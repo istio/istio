@@ -158,7 +158,7 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			input: &PodInfo{
 				Containers:        sets.New("test", "istio-proxy", "istio-validate"),
 				Annotations:       map[string]string{annotation.SidecarStatus.Name: "true"},
-				ProxyEnvironments: map[string]string{cmd.InvalidDropByIptables.Name: "true"},
+				ProxyEnvironments: map[string]string{cmd.InvalidDropByIptables: "true"},
 			},
 			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/invalid-drop.txt.golden"),
 		},

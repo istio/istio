@@ -34,12 +34,14 @@ type Controller struct {
 	pods   kclient.Client[*corev1.Pod]
 	queue  controllers.Queue
 	cfg    config.RepairConfig
+	events kclient.EventRecorder
 }
 
 func NewRepairController(client kube.Client, cfg config.RepairConfig) (*Controller, error) {
 	c := &Controller{
 		cfg:    cfg,
 		client: client,
+		events: kclient.NewEventRecorder(client, "cni-repair"),
 	}
 	fieldSelectors := []string{}
 	if cfg.FieldSelectors != "" {
@@ -87,6 +89,11 @@ func (c *Controller) ReconcilePod(pod *corev1.Pod) (err error) {
 	return nil
 }
 
+const (
+	ReasonDeleteBrokenPod = "DeleteBrokenPod"
+	ReasonLabelBrokenPod  = "LabelBrokenPod"
+)
+
 func (c *Controller) deleteBrokenPod(pod *corev1.Pod) error {
 	m := podsRepaired.With(typeLabel.Value(deleteType))
 	// Added for safety, to make sure no healthy pods get labeled. Could occur if pod changes since we enqueued
@@ -105,9 +112,11 @@ func (c *Controller) deleteBrokenPod(pod *corev1.Pod) error {
 		Preconditions: preconditions,
 	})
 	if err != nil {
+		c.events.Write(pod, corev1.EventTypeWarning, ReasonDeleteBrokenPod, "pod detected as broken, but failed to delete: %v", err)
 		m.With(resultLabel.Value(resultFail)).Increment()
 		return err
 	}
+	c.events.Write(pod, corev1.EventTypeWarning, ReasonDeleteBrokenPod, "pod detected as broken, deleted")
 	m.With(resultLabel.Value(resultSuccess)).Increment()
 	return nil
 }
@@ -135,9 +144,11 @@ func (c *Controller) labelBrokenPod(pod *corev1.Pod) error {
 		[]byte(patchBytes), metav1.PatchOptions{})
 	if err != nil {
 		repairLog.Errorf("Failed to update pod: %s", err)
+		c.events.Write(pod, corev1.EventTypeWarning, ReasonLabelBrokenPod, "pod detected as broken, but failed to label: %v", err)
 		m.With(resultLabel.Value(resultFail)).Increment()
 		return err
 	}
+	c.events.Write(pod, corev1.EventTypeWarning, ReasonLabelBrokenPod, "pod detected as broken, labeled")
 	m.With(resultLabel.Value(resultSuccess)).Increment()
 	return nil
 }

@@ -687,7 +687,7 @@ func TestJwtFilter(t *testing.T) {
 									JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 										LocalJwks: &core.DataSource{
 											Specifier: &core.DataSource_InlineString{
-												InlineString: model.CreateFakeJwks("http://site.not.exist"),
+												InlineString: model.FakeJwks,
 											},
 										},
 									},
@@ -919,6 +919,7 @@ func TestJwtFilter(t *testing.T) {
 	push.JwtKeyResolver = model.NewJwksResolver(
 		model.JwtPubKeyEvictionDuration, model.JwtPubKeyRefreshInterval,
 		model.JwtPubKeyRefreshIntervalOnFailure, 10*time.Millisecond)
+
 	defer push.JwtKeyResolver.Close()
 
 	push.ServiceIndex.HostnameAndNamespace[host.Name("jwt-token-issuer.mesh")] = map[string]*model.Service{}
@@ -1166,7 +1167,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: model.CreateFakeJwks(""),
+									InlineString: model.FakeJwks,
 								},
 							},
 						},
@@ -1221,7 +1222,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 						JwksSourceSpecifier: &envoy_jwt.JwtProvider_LocalJwks{
 							LocalJwks: &core.DataSource{
 								Specifier: &core.DataSource_InlineString{
-									InlineString: model.CreateFakeJwks("http://site.not.exist"),
+									InlineString: model.FakeJwks,
 								},
 							},
 						},

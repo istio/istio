@@ -1607,9 +1607,6 @@ func TestServicesDiff(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		if tt.name != "same config with additional endpoint" {
-			continue
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			as := convertServices(*tt.current)
 			bs := convertServices(*tt.new)

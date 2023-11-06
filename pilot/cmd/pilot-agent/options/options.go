@@ -150,7 +150,7 @@ var (
 
 	minimumDrainDurationEnv = env.Register("MINIMUM_DRAIN_DURATION",
 		5*time.Second,
-		"The minimum duration for which agent waits before it checks for active connections and terminates proxy"+
+		"The minimum duration for which agent waits before it checks for active connections and terminates proxy "+
 			"when number of active connections become zero").Get()
 
 	exitOnZeroActiveConnectionsEnv = env.Register("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",

@@ -256,9 +256,19 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 			for _, c := range p.Spec.Containers {
 				out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
 			}
+			for _, c := range p.Spec.InitContainers {
+				if c.Name == inject.ProxyContainerName {
+					out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
+				}
+			}
 		} else if daemonset != "" {
 			for _, c := range p.Spec.Containers {
 				out.insertContainer(p.Namespace, daemonset, p.Name, c.Name)
+			}
+			for _, c := range p.Spec.InitContainers {
+				if c.Name == inject.ProxyContainerName {
+					out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
+				}
 			}
 		}
 

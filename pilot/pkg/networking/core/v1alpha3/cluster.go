@@ -603,8 +603,36 @@ func buildInboundClustersFromSidecar(cb *ClusterBuilder, proxy *model.Proxy,
 				if endpointAddress == "" {
 					endpointAddress = model.LocalhostIPv6AddressPrefix
 				}
-			} else if hostIP == model.LocalhostAddressPrefix || hostIP == model.LocalhostIPv6AddressPrefix {
-				endpointAddress = actualLocalHosts[0]
+			} else if hostIP == model.LocalhostAddressPrefix {
+				// prefer 127.0.0.1 to ::1, but if given no option choose ::1
+				ipV6EndpointAddress := ""
+				for _, host := range actualLocalHosts {
+					if netutil.IsIPv4Address(host) {
+						endpointAddress = host
+						break
+					}
+					if netutil.IsIPv6Address(host) {
+						ipV6EndpointAddress = host
+					}
+				}
+				if endpointAddress == "" {
+					endpointAddress = ipV6EndpointAddress
+				}
+			} else if hostIP == model.LocalhostIPv6AddressPrefix {
+				// prefer ::1 to 127.0.0.1, but if given no option choose 127.0.0.1
+				ipV4EndpointAddress := ""
+				for _, host := range actualLocalHosts {
+					if netutil.IsIPv6Address(host) {
+						endpointAddress = host
+						break
+					}
+					if netutil.IsIPv4Address(host) {
+						ipV4EndpointAddress = host
+					}
+				}
+				if endpointAddress == "" {
+					endpointAddress = ipV4EndpointAddress
+				}
 			}
 		}
 		// Find the service instance that corresponds to this ingress listener by looking
