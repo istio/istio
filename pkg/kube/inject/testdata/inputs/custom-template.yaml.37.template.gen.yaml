@@ -292,8 +292,6 @@ templates:
                  {{ protoToJSON .ProxyConfig }}
         - name: GRPC_TRACE
           value: "all"
-        - name: GRPC_VERBOSITY
-          value: "debug"
         - name: ISTIO_META_POD_PORTS
           value: |-
             [
