@@ -2495,6 +2495,7 @@ spec:
 					}
 					if res.Cookies() == nil {
 						scopes.Framework.Infof("no cookies")
+						return
 					}
 					var sessionCookie *http.Cookie
 					for _, cookie := range res.Cookies() {
