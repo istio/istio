@@ -1127,10 +1127,6 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		if features.EnableDualStack && len(opts.extraBind) > 0 {
 			res.AdditionalAddresses = util.BuildAdditionalAddresses(opts.extraBind, uint32(opts.port))
 		}
-
-		if opts.proxy.Type != model.Router {
-			res.ListenerFiltersTimeout = opts.push.Mesh.ProtocolDetectionTimeout
-		}
 	case istionetworking.TransportProtocolQUIC:
 		// TODO: switch on TransportProtocolQUIC is in too many places now. Once this is a bit
 		//       mature, refactor some of these to an interface so that they kick off the process
