@@ -31,7 +31,7 @@ var (
 
 	failures = monitoring.NewSum(
 		"dns_upstream_failures_total",
-		"Total number of DNS requests forwarded to upstream.",
+		"Total number of DNS failures.",
 	)
 
 	requestDuration = monitoring.NewDistribution(
