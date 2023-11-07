@@ -1591,7 +1591,11 @@ func createRedirectFilter(filter *k8s.HTTPRequestRedirectFilter) *istio.HTTPRedi
 		case k8sv1.FullPathHTTPPathModifier:
 			resp.Uri = *filter.Path.ReplaceFullPath
 		case k8sv1.PrefixMatchHTTPPathModifier:
-			resp.Uri = fmt.Sprintf("%%PREFIX()%%%s", *filter.Path.ReplacePrefixMatch)
+			resp.Uri = strings.TrimSuffix(*filter.Path.ReplacePrefixMatch, "/")
+			if resp.Uri == "" {
+				// `/` means removing the prefix
+				resp.Uri = "/"
+			}
 		}
 	}
 	return resp
