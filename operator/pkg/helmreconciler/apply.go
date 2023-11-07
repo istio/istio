@@ -46,7 +46,7 @@ type AppliedResult struct {
 
 // Succeed returns true if the apply operation succeeded.
 func (r AppliedResult) Succeed() bool {
-	return len(r.processedObjects) > 0 && r.deployed > 0
+	return len(r.processedObjects) > 0 || r.deployed > 0
 }
 
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
