@@ -59,6 +59,10 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			IPAddresses: []string{"1.1.1.1"},
 			ID:          "someID",
 			DNSDomain:   "foo.com",
+			IstioVersion: &model.IstioVersion{
+				Major: 1,
+				Minor: 20,
+			},
 		})
 	}
 

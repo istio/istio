@@ -100,7 +100,11 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 		return nil
 	}
 	if b.proxy.SupportsEnvoyExtendedJwt() {
-		return []*hcm.HttpFilter{b.applier.JwtFilter(true, b.proxy.Type != model.SidecarProxy)}
+		filter := b.applier.JwtFilter(true, b.proxy.Type != model.SidecarProxy)
+		if filter != nil {
+			return []*hcm.HttpFilter{filter}
+		}
+		return nil
 	}
 	res := []*hcm.HttpFilter{}
 	if filter := b.applier.JwtFilter(false, false); filter != nil {
