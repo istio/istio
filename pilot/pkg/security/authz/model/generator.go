@@ -154,10 +154,10 @@ func (requestPrincipalGenerator) principal(key, value string, forTCP bool, _ boo
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
-	if value == "*" {
-		return principalAny(), nil
-	}
 	iss, sub, _ := strings.Cut(value, "/")
+	if value == "*" {
+		iss, sub = "*", "*"
+	}
 	im := MetadataMatcherForJWTClaims([]string{"iss"}, matcher.StringMatcher(iss))
 	sm := MetadataMatcherForJWTClaims([]string{"sub"}, matcher.StringMatcher(sub))
 	return principalAnd([]*rbacpb.Principal{principalMetadata(im), principalMetadata(sm)}), nil
