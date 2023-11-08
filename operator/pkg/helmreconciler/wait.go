@@ -252,7 +252,7 @@ func deploymentsReady(cs kubernetes.Interface, deployments []deployment, info ma
 	var notReady []string
 	for _, v := range deployments {
 		if v.replicaSets.Status.ReadyReplicas >= *v.deployment.Spec.Replicas {
-			if v.hpa == nil || v.hpa.Status.CurrentReplicas >= *v.deployment.Spec.Replicas {
+			if v.hpa == nil || v.replicaSets.Status.ReadyReplicas >= v.hpa.Status.DesiredReplicas {
 				// Ready
 				continue
 			}
