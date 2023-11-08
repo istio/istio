@@ -106,7 +106,7 @@ func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
 		case strings.HasPrefix(k, attrRequestHeader):
 			basePrincipal.appendLast(requestHeaderGenerator{}, k, when.Values, when.NotValues)
 		case strings.HasPrefix(k, attrRequestClaims):
-			basePrincipal.appendLast(requestClaimGenerator{}, k, when.Values, when.NotValues)
+			basePrincipal.appendLast(requestClaimGenerator{useExtendedJwt: useExtendedJwt}, k, when.Values, when.NotValues)
 		default:
 			return nil, fmt.Errorf("unknown attribute %s", when.Key)
 		}
