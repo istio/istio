@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
-	"istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pkg/spiffe"
 )
 
@@ -156,8 +155,11 @@ func (requestPrincipalGenerator) principal(key, value string, forTCP bool, _ boo
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 
-	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
-	return principalMetadata(m), nil
+	iss, sub, _ := strings.Cut(value, "/")
+
+	im := MetadataMatcherForJWTClaims([]string{"iss"}, matcher.StringMatcher(iss))
+	sm := MetadataMatcherForJWTClaims([]string{"sub"}, matcher.StringMatcher(sub))
+	return principalAnd([]*rbacpb.Principal{principalMetadata(im), principalMetadata(sm)}), nil
 }
 
 type requestAudiencesGenerator struct{}
@@ -167,7 +169,10 @@ func (requestAudiencesGenerator) permission(key, value string, forTCP bool) (*rb
 }
 
 func (requestAudiencesGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
-	return requestPrincipalGenerator{}.principal(key, value, forTCP, useAuthenticated)
+	if forTCP {
+		return nil, fmt.Errorf("%q is HTTP only", key)
+	}
+	return principalMetadata(MetadataMatcherForJWTClaims([]string{"aud"}, matcher.StringMatcher(value))), nil
 }
 
 type requestPresenterGenerator struct{}
@@ -177,7 +182,10 @@ func (requestPresenterGenerator) permission(key, value string, forTCP bool) (*rb
 }
 
 func (requestPresenterGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
-	return requestPrincipalGenerator{}.principal(key, value, forTCP, useAuthenticated)
+	if forTCP {
+		return nil, fmt.Errorf("%q is HTTP only", key)
+	}
+	return principalMetadata(MetadataMatcherForJWTClaims([]string{"azp"}, matcher.StringMatcher(value))), nil
 }
 
 type requestHeaderGenerator struct{}

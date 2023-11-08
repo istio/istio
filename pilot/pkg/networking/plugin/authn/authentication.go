@@ -100,13 +100,15 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 		return nil
 	}
 	res := []*hcm.HttpFilter{}
-	if filter := b.applier.JwtFilter(); filter != nil {
+	if filter := b.applier.JwtFilter(b.proxy.Type != model.SidecarProxy); filter != nil {
 		res = append(res, filter)
 	}
-	forSidecar := b.proxy.Type == model.SidecarProxy
-	if filter := b.applier.AuthNFilter(forSidecar); filter != nil {
-		res = append(res, filter)
-	}
+	/*
+		forSidecar := b.proxy.Type == model.SidecarProxy
+		if filter := b.applier.AuthNFilter(forSidecar); filter != nil {
+			res = append(res, filter)
+		}
+	*/
 
 	return res
 }
