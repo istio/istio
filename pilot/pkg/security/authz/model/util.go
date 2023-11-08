@@ -73,6 +73,9 @@ func extractNameInNestedBrackets(s string) ([]string, error) {
 }
 
 // MetadataMatcherForJWTClaims is a convenient method for generating metadata matcher for JWT claims.
-func MetadataMatcherForJWTClaims(claims []string, value *matcherpb.StringMatcher) *matcherpb.MetadataMatcher {
-	return matcher.MetadataListMatcher(filters.EnvoyJwtFilterName, append([]string{"payload"}, claims...), value)
+func MetadataMatcherForJWTClaims(claims []string, value *matcherpb.StringMatcher, useExtendedJwt bool) *matcherpb.MetadataMatcher {
+	if useExtendedJwt {
+		return matcher.MetadataListMatcher(filters.EnvoyJwtFilterName, append([]string{filters.EnvoyJwtFilterPayload}, claims...), value, true)
+	}
+	return matcher.MetadataListMatcher(filters.AuthnFilterName, append([]string{attrRequestClaims}, claims...), value, false)
 }

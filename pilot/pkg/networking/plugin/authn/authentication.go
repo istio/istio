@@ -99,16 +99,17 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 		// Only applies to inbound and gateways
 		return nil
 	}
+	if b.proxy.SupportsEnvoyExtendedJwt() {
+		return []*hcm.HttpFilter{b.applier.JwtFilter(true, b.proxy.Type != model.SidecarProxy)}
+	}
 	res := []*hcm.HttpFilter{}
-	if filter := b.applier.JwtFilter(b.proxy.Type != model.SidecarProxy); filter != nil {
+	if filter := b.applier.JwtFilter(false, false); filter != nil {
 		res = append(res, filter)
 	}
-	/*
-		forSidecar := b.proxy.Type == model.SidecarProxy
-		if filter := b.applier.AuthNFilter(forSidecar); filter != nil {
-			res = append(res, filter)
-		}
-	*/
+	forSidecar := b.proxy.Type == model.SidecarProxy
+	if filter := b.applier.AuthNFilter(forSidecar); filter != nil {
+		res = append(res, filter)
+	}
 
 	return res
 }

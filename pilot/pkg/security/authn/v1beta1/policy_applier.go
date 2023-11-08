@@ -83,12 +83,12 @@ func NewPolicyApplier(rootNamespace string,
 	}
 }
 
-func (a v1beta1PolicyApplier) JwtFilter(clearRouteCache bool) *hcm.HttpFilter {
+func (a v1beta1PolicyApplier) JwtFilter(useExtendedJwt, clearRouteCache bool) *hcm.HttpFilter {
 	if len(a.processedJwtRules) == 0 {
 		return nil
 	}
 
-	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules, a.push, clearRouteCache)
+	filterConfigProto := convertToEnvoyJwtConfig(a.processedJwtRules, a.push, useExtendedJwt, clearRouteCache)
 
 	if filterConfigProto == nil {
 		return nil
@@ -134,12 +134,14 @@ func (a v1beta1PolicyApplier) setAuthnFilterForRequestAuthn(config *authn_filter
 	// nolint: staticcheck
 	p.PrincipalBinding = authn_alpha.PrincipalBinding_USE_ORIGIN
 	// nolint: staticcheck
-	p.Origins = append(p.Origins, &authn_alpha.OriginAuthenticationMethod{
-		Jwt: &authn_alpha.Jwt{
-			// used for getting the filter data, and all other fields are irrelevant.
-			Issuer: "payload",
-		},
-	})
+	for _, jwt := range a.processedJwtRules {
+		p.Origins = append(p.Origins, &authn_alpha.OriginAuthenticationMethod{
+			Jwt: &authn_alpha.Jwt{
+				// used for getting the filter data, and all other fields are irrelevant.
+				Issuer: jwt.GetIssuer(),
+			},
+		})
+	}
 	return config
 }
 
@@ -201,7 +203,7 @@ func (a v1beta1PolicyApplier) InboundMTLSSettings(
 // Each rule is expected corresponding to one JWT issuer (provider).
 // The behavior of the filter should reject all requests with invalid token. On the other hand,
 // if no token provided, the request is allowed.
-func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContext, clearRouteCache bool) *envoy_jwt.JwtAuthentication {
+func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContext, useExtendedJwt, clearRouteCache bool) *envoy_jwt.JwtAuthentication {
 	if len(jwtRules) == 0 {
 		return nil
 	}
@@ -222,11 +224,14 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			Audiences:            jwtRule.Audiences,
 			Forward:              jwtRule.ForwardOriginalToken,
 			ForwardPayloadHeader: jwtRule.OutputPayloadToHeader,
-			PayloadInMetadata:    "payload",
-			NormalizePayloadInMetadata: &envoy_jwt.JwtProvider_NormalizePayload{
+			PayloadInMetadata:    jwtRule.Issuer,
+		}
+		if useExtendedJwt {
+			provider.PayloadInMetadata = filters.EnvoyJwtFilterPayload
+			provider.NormalizePayloadInMetadata = &envoy_jwt.JwtProvider_NormalizePayload{
 				SpaceDelimitedClaims: []string{"scope", "permission"},
-			},
-			ClearRouteCache: clearRouteCache,
+			}
+			provider.ClearRouteCache = clearRouteCache
 		}
 
 		for _, claimAndHeader := range jwtRule.OutputClaimToHeaders {

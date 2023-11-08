@@ -64,6 +64,9 @@ const (
 
 	// EnvoyJwtFilterName is the name of the Envoy JWT filter.
 	EnvoyJwtFilterName = "envoy.filters.http.jwt_authn"
+
+	// EnvoyJwtFilterPayload is the struct field for the payload in dynamic metadata in Envoy JWT filter.
+	EnvoyJwtFilterPayload = "payload"
 )
 
 // Define static filters to be reused across the codebase. This avoids duplicate marshaling/unmarshaling
