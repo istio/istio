@@ -118,7 +118,7 @@ func New(r *authzpb.Rule, useExtendedJwt bool) (*Model, error) {
 			merged.insertFront(srcIPGenerator{}, attrSrcIP, s.IpBlocks, s.NotIpBlocks)
 			merged.insertFront(remoteIPGenerator{}, attrRemoteIP, s.RemoteIpBlocks, s.NotRemoteIpBlocks)
 			merged.insertFront(srcNamespaceGenerator{}, attrSrcNamespace, s.Namespaces, s.NotNamespaces)
-			merged.insertFront(requestPrincipalGenerator{}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
+			merged.insertFront(requestPrincipalGenerator{useExtendedJwt: useExtendedJwt}, attrRequestPrincipal, s.RequestPrincipals, s.NotRequestPrincipals)
 			merged.insertFront(srcPrincipalGenerator{}, attrSrcPrincipal, s.Principals, s.NotPrincipals)
 		}
 		m.principals = append(m.principals, merged)

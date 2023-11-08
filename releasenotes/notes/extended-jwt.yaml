@@ -3,5 +3,5 @@ kind: feature
 area: security
 releaseNotes:
 - |
-  **Changed** request JWT authentication to use the upstream Envoy JWT filter instead of the custom Istio Proxy filter. This feature is only enabled on the proxies that support it.
+  **Improved** request JWT authentication to use the upstream Envoy JWT filter instead of the custom Istio Proxy filter. This feature is only enabled on the proxies that support it.
 
