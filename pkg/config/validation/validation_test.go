@@ -5105,6 +5105,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "repeat target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
+				Resolution:       networking.ServiceEntry_DNS,
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 80},
@@ -5116,6 +5117,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "valid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
+				Resolution:       networking.ServiceEntry_DNS,
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
@@ -5126,12 +5128,24 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "invalid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
+				Resolution:       networking.ServiceEntry_DNS,
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 65536},
 				},
 			},
 			valid: false,
+		},
+		{
+			name: "warn target port", in: &networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 1234},
+				},
+			},
+			valid:   true,
+			warning: true,
 		},
 		{
 			name: "valid endpoint port", in: &networking.ServiceEntry{
@@ -7252,6 +7266,98 @@ func TestValidateSidecar(t *testing.T) {
 						Mode:           networking.ServerTLSSettings_SIMPLE,
 						CredentialName: "secret-name",
 					},
+				},
+			},
+		}, false, false},
+		// We're using the same validation code as DestinationRule, so we're really trusting the TrafficPolicy
+		// validation code's testing. Here we just want to exercise the edge cases around Sidecar specifically.
+		{"valid inbound connection pool", &networking.Sidecar{
+			InboundConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http1MaxPendingRequests:  1024,
+					Http2MaxRequests:         1024,
+					MaxRequestsPerConnection: 1024,
+					MaxRetries:               1024,
+				},
+			},
+		}, true, false},
+		{"valid port-level connection pool with top level default", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							Http1MaxPendingRequests:  1024,
+							Http2MaxRequests:         1024,
+							MaxRequestsPerConnection: 1024,
+							MaxRetries:               1024,
+						},
+					},
+				},
+			},
+			InboundConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http1MaxPendingRequests:  1024,
+					Http2MaxRequests:         1024,
+					MaxRequestsPerConnection: 1024,
+					MaxRetries:               1024,
+				},
+			},
+		}, true, false},
+		{"valid port-level connection pool without a top level default", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							Http1MaxPendingRequests:  1024,
+							Http2MaxRequests:         1024,
+							MaxRequestsPerConnection: 1024,
+							MaxRetries:               1024,
+						},
+					},
+				},
+			},
+		}, true, false},
+		{"warn http connection settings on tcp port", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							Http1MaxPendingRequests:  1024,
+							Http2MaxRequests:         1024,
+							MaxRequestsPerConnection: 1024,
+							MaxRetries:               1024,
+						},
+					},
+				},
+			},
+		}, true, true},
+		{"invalid top level connection pool", &networking.Sidecar{
+			InboundConnectionPool: &networking.ConnectionPoolSettings{},
+		}, false, false},
+		{"invalid port-level connection pool", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{},
 				},
 			},
 		}, false, false},

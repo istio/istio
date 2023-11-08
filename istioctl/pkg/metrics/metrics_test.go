@@ -80,7 +80,7 @@ func TestMetrics(t *testing.T) {
 			Name:      "prometheus",
 			Namespace: "istio-system",
 			Labels: map[string]string{
-				"app": "prometheus",
+				"app.kubernetes.io/name": "prometheus",
 			},
 		},
 	}, metav1.CreateOptions{})

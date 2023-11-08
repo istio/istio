@@ -14,7 +14,7 @@
 
 package maps
 
-import "golang.org/x/exp/maps"
+import "maps" // nolint: depguard
 
 // Equal reports whether two maps contain the same key/value pairs.
 // Values are compared using ==.
@@ -31,13 +31,21 @@ func Clone[M ~map[K]V, K comparable, V any](m M) M {
 // Values returns the values of the map m.
 // The values will be in an indeterminate order.
 func Values[M ~map[K]V, K comparable, V any](m M) []V {
-	return maps.Values(m)
+	r := make([]V, 0, len(m))
+	for _, v := range m {
+		r = append(r, v)
+	}
+	return r
 }
 
 // Keys returns the keys of the map m.
 // The keys will be in an indeterminate order.
 func Keys[M ~map[K]V, K comparable, V any](m M) []K {
-	return maps.Keys(m)
+	r := make([]K, 0, len(m))
+	for k := range m {
+		r = append(r, k)
+	}
+	return r
 }
 
 // MergeCopy creates a new map by merging all key/value pairs from base and override.

@@ -1549,16 +1549,6 @@ func TestServicesDiff(t *testing.T) {
 			unchanged: stringsToHosts(updatedHTTPDNS.Spec.(*networking.ServiceEntry).Hosts),
 		},
 		{
-			name:    "same config with different name",
-			current: updatedHTTPDNS,
-			new: func() *config.Config {
-				c := updatedHTTPDNS.DeepCopy()
-				c.Name = "httpDNS1"
-				return &c
-			}(),
-			unchanged: stringsToHosts(updatedHTTPDNS.Spec.(*networking.ServiceEntry).Hosts),
-		},
-		{
 			name:    "different resolution",
 			current: updatedHTTPDNS,
 			new: func() *config.Config {
@@ -1607,9 +1597,6 @@ func TestServicesDiff(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		if tt.name != "same config with additional endpoint" {
-			continue
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			as := convertServices(*tt.current)
 			bs := convertServices(*tt.new)

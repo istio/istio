@@ -17,17 +17,17 @@ package app
 import (
 	"testing"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pilot/pkg/model"
 )
 
 func TestPilotDefaultDomainKubernetes(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 	role := &model.Proxy{}
 	role.DNSDomain = ""
 
 	domain := getDNSDomain("default", role.DNSDomain)
 
-	g.Expect(domain).To(gomega.Equal("default.svc.cluster.local"))
+	g.Expect(domain).To(Equal("default.svc.cluster.local"))
 }

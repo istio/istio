@@ -174,8 +174,8 @@ type BugReportConfig struct {
 	// calculating the error heuristic for a log.
 	IgnoredErrors []string `json:"ignoredErrors,omitempty"`
 
-	// RequestsPerSecondLimit controls the RPS limit to the API server.
-	RequestsPerSecondLimit int `json:"requestsPerSecondLimit,omitempty"`
+	// RequestConcurrency controls the request concurrency limit to the API server.
+	RequestConcurrency int `json:"requestConcurrency,omitempty"`
 }
 
 func (b *BugReportConfig) String() string {

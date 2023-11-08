@@ -320,7 +320,8 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 		}
 	}
 
-	if extauthz, err := getExtAuthz(b.extensions, providers); err != nil {
+	extauthz, err := getExtAuthz(b.extensions, providers)
+	if err != nil {
 		b.logger.AppendError(multierror.Prefix(err, "failed to process CUSTOM action, will generate deny configs for the specified rules:"))
 		rbac := &rbactcp.RBAC{
 			Rules:      getBadCustomDenyRules(rules),
@@ -335,22 +336,22 @@ func (b Builder) buildTCP(rules *rbacpb.RBAC, shadowRules *rbacpb.RBAC, provider
 	} else if extauthz.tcp == nil {
 		b.logger.AppendDebugf("ignored CUSTOM action with HTTP provider on TCP filter chain")
 		return nil
-	} else {
-		rbac := &rbactcp.RBAC{
-			ShadowRules:           rules,
-			StatPrefix:            authzmodel.RBACTCPFilterStatPrefix,
-			ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
-		}
-		return []*listener.Filter{
-			{
-				Name:       wellknown.RoleBasedAccessControl,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
-			},
-			{
-				Name:       wellknown.ExternalAuthorization,
-				ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.tcp)},
-			},
-		}
+	}
+
+	rbac := &rbactcp.RBAC{
+		ShadowRules:           rules,
+		StatPrefix:            authzmodel.RBACTCPFilterStatPrefix,
+		ShadowRulesStatPrefix: authzmodel.RBACExtAuthzShadowRulesStatPrefix,
+	}
+	return []*listener.Filter{
+		{
+			Name:       wellknown.RoleBasedAccessControl,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(rbac)},
+		},
+		{
+			Name:       wellknown.ExternalAuthorization,
+			ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(extauthz.tcp)},
+		},
 	}
 }
 

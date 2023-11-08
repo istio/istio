@@ -48,6 +48,7 @@ Makefile*                                                        @istio/wg-test-
 /releasenotes/notes
 /samples/                                                        @istio/wg-docs-maintainers-english
 /samples/addons                                                  @istio/wg-policies-and-telemetry-maintainers @istio/wg-environments-maintainers
+/samples/ambient-argo                                            @istio/wg-user-experience-maintainers
 /samples/multicluster                                            @istio/wg-networking-maintainers
 /security/                                                       @istio/wg-security-maintainers
 /tests/                                                          @istio/wg-test-and-release-maintainers

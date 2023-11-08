@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pkg/kube"
@@ -27,7 +27,7 @@ import (
 )
 
 func TestProfileList(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 	args := []string{"profile", "list", "--dry-run", "--manifests", filepath.Join(env.IstioSrc, "manifests")}
 
 	kubeClientFunc = func() (kube.CLIClient, error) {
@@ -47,6 +47,6 @@ func TestProfileList(t *testing.T) {
 	output := out.String()
 	expectedProfiles := []string{"default", "demo", "empty", "minimal", "openshift", "preview", "remote", "external"}
 	for _, prof := range expectedProfiles {
-		g.Expect(output).To(gomega.ContainSubstring(prof))
+		g.Expect(output).To(ContainSubstring(prof))
 	}
 }

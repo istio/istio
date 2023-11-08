@@ -22,6 +22,7 @@ import (
 	fuzz "github.com/google/gofuzz"
 
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
@@ -514,6 +515,42 @@ func TestServicesEqual(t *testing.T) {
 			},
 			shouldEq: false,
 			name:     "different internal traffic policies",
+		},
+		{
+			first:    &Service{Hostname: host.Name("foo.com")},
+			other:    &Service{Hostname: host.Name("foo1.com")},
+			shouldEq: false,
+			name:     "different hostname",
+		},
+		{
+			first:    &Service{DefaultAddress: constants.UnspecifiedIPv6},
+			other:    &Service{DefaultAddress: constants.UnspecifiedIP},
+			shouldEq: false,
+			name:     "different default address",
+		},
+		{
+			first:    &Service{AutoAllocatedIPv4Address: "240.240.0.100"},
+			other:    &Service{AutoAllocatedIPv4Address: "240.240.0.101"},
+			shouldEq: false,
+			name:     "different auto allocated IPv4 addresses",
+		},
+		{
+			first:    &Service{AutoAllocatedIPv6Address: "2001:2::f0f0:e351"},
+			other:    &Service{AutoAllocatedIPv6Address: "2001:2::f0f1:e351"},
+			shouldEq: false,
+			name:     "different auto allocated IPv6 addresses",
+		},
+		{
+			first:    &Service{Resolution: ClientSideLB},
+			other:    &Service{Resolution: Passthrough},
+			shouldEq: false,
+			name:     "different resolution",
+		},
+		{
+			first:    &Service{MeshExternal: true},
+			other:    &Service{MeshExternal: false},
+			shouldEq: false,
+			name:     "different mesh external setting",
 		},
 	}
 

@@ -17,10 +17,23 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"os/user"
 
+	"github.com/miekg/dns"
+
+	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
+	netutil "istio.io/istio/pkg/util/net"
 	types "istio.io/istio/tools/istio-iptables/pkg/config"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
+
+func DefaultConfig() *Config {
+	return &Config{
+		OwnerGroupsInclude: constants.OwnerGroupsInclude.DefaultValue,
+		OwnerGroupsExclude: constants.OwnerGroupsExclude.DefaultValue,
+	}
+}
 
 // Command line options
 // nolint: maligned
@@ -61,4 +74,42 @@ func (c *Config) Print() {
 
 func (c *Config) Validate() error {
 	return types.ValidateOwnerGroups(c.OwnerGroupsInclude, c.OwnerGroupsExclude)
+}
+
+var envoyUserVar = env.Register(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
+
+func (c *Config) FillConfigFromEnvironment() {
+	// Fill in env-var only options
+	c.OwnerGroupsInclude = constants.OwnerGroupsInclude.Get()
+	c.OwnerGroupsExclude = constants.OwnerGroupsExclude.Get()
+	c.InboundInterceptionMode = constants.IstioInboundInterceptionMode.Get()
+	c.InboundTProxyMark = constants.IstioInboundTproxyMark.Get()
+	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
+	if c.ProxyUID == "" {
+		usr, err := user.Lookup(envoyUserVar.Get())
+		var userID string
+		// Default to the UID of ENVOY_USER
+		if err != nil {
+			userID = constants.DefaultProxyUID
+		} else {
+			userID = usr.Uid
+		}
+		c.ProxyUID = userID
+	}
+
+	// For TPROXY as its uid and gid are same.
+	if c.ProxyGID == "" {
+		c.ProxyGID = c.ProxyUID
+	}
+	// Lookup DNS nameservers. We only do this if DNS is enabled in case of some obscure theoretical
+	// case where reading /etc/resolv.conf could fail.
+	// If capture all DNS option is enabled, we don't need to read from the dns resolve conf. All
+	// traffic to port 53 will be captured.
+	if c.RedirectDNS && !c.CaptureAllDNS {
+		dnsConfig, err := dns.ClientConfigFromFile("/etc/resolv.conf")
+		if err != nil {
+			log.Fatalf("failed to load /etc/resolv.conf: %v", err)
+		}
+		c.DNSServersV4, c.DNSServersV6 = netutil.IPsSplitV4V6(dnsConfig.Servers)
+	}
 }

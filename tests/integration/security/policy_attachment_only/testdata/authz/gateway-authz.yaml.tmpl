@@ -1,0 +1,33 @@
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: default-{{ .To.ServiceName }}
+spec:
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: {{ .To.ServiceName }}-gateway
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+--- 
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: authz-gateway-{{ .To.ServiceName }}
+spec:
+  targetRef:
+    name: {{ .To.ServiceName }}-gateway
+    kind: Gateway
+    group: gateway.networking.k8s.io
+  action: ALLOW
+  rules:
+  - to:
+    - operation:
+        hosts:
+{{- range $svc := .Services }}
+        - "example.{{ $svc.ServiceName }}.com"
+{{- end }}
+    from:
+    - source:
+        requestPrincipals: ["test-issuer-1@istio.io/sub-1"]
