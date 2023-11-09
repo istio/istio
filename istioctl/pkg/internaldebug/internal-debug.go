@@ -125,18 +125,17 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 					Err: fmt.Errorf("debug type is required"),
 				}
 			}
-			var xdsRequest discovery.DiscoveryRequest
+			var xdsRequest *discovery.DiscoveryRequest
 			var namespace, serviceAccount string
 
-			xdsRequest = discovery.DiscoveryRequest{
-				ResourceNames: []string{args[0]},
+			xdsRequest = &discovery.DiscoveryRequest{
 				Node: &core.Node{
 					Id: "debug~0.0.0.0~istioctl~cluster.local",
 				},
-				TypeUrl: v3.DebugType,
+				TypeUrl: v3.DebugType + "/" + args[0],
 			}
 
-			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, &xdsRequest, centralOpts, ctx.IstioNamespace(),
+			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, xdsRequest, centralOpts, ctx.IstioNamespace(),
 				namespace, serviceAccount, kubeClient, multixds.DefaultOptions)
 			if err != nil {
 				return err
