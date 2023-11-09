@@ -91,7 +91,8 @@ func TestPiggyback(t *testing.T) {
 					"internal-debug",
 					"syncz",
 					"--plaintext",
-					"--xds-address", pf.Address()}
+					"--xds-address", pf.Address(),
+				}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
 					return err
