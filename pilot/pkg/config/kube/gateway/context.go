@@ -139,7 +139,8 @@ func (gc GatewayContext) ResolveGatewayInstances(
 		}
 	}
 	sort.Strings(warnings)
-	return sets.SortedList(foundInternal), sets.SortedList(foundInternalIP), sets.SortedList(foundExternal), sets.SortedList(foundPending), warnings, !foundUnusable
+	return sets.SortedList(foundInternal), sets.SortedList(foundInternalIP), sets.SortedList(foundExternal), sets.SortedList(foundPending),
+		warnings, !foundUnusable
 }
 
 func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {
