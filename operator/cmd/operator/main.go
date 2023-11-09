@@ -17,8 +17,9 @@ package main
 import (
 	"os"
 
-	"istio.io/istio/pkg/log"
 	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
+
+	"istio.io/istio/pkg/log"
 )
 
 func main() {
