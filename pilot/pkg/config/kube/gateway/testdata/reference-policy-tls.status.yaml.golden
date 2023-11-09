@@ -30,7 +30,7 @@ status:
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: port 443 not found for
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
-    reason: AddressNotAssigned
+    reason: AddressNotUsable
     status: "False"
     type: Programmed
   listeners:
