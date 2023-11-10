@@ -16,6 +16,7 @@ package v1alpha3
 
 import (
 	"fmt"
+	"net/url"
 	"sort"
 	"strconv"
 
@@ -224,7 +225,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 				model.IncLookupClusterFailures("opentelemetry")
 				return nil, fmt.Errorf("could not find cluster for tracing provider %q: %v", provider, err)
 			}
-			return otelConfig(serviceCluster, hostname, clusterName)
+			return otelConfig(serviceCluster, hostname, clusterName, provider.Opentelemetry)
 		}
 		// Providers without any tracing support
 		// Explicitly list to be clear what does and does not support tracing
@@ -265,19 +266,52 @@ func datadogConfig(serviceName, hostname, cluster string) (*anypb.Any, error) {
 	return protoconv.MessageToAnyWithError(dc)
 }
 
-func otelConfig(serviceName, hostname, cluster string) (*anypb.Any, error) {
-	dc := &tracingcfg.OpenTelemetryConfig{
-		GrpcService: &core.GrpcService{
-			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-					ClusterName: cluster,
-					Authority:   hostname,
+func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider) (*anypb.Any, error) {
+	var oc *tracingcfg.OpenTelemetryConfig
+
+	if otelProvider.GetHttp() == nil {
+		oc = &tracingcfg.OpenTelemetryConfig{
+			GrpcService: &core.GrpcService{
+				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+						ClusterName: cluster,
+						Authority:   hostname,
+					},
 				},
 			},
-		},
-		ServiceName: serviceName,
+		}
+	} else {
+		httpService := otelProvider.GetHttp()
+		te, err := url.JoinPath(hostname, httpService.GetPath())
+		if err != nil {
+			return nil, fmt.Errorf("could not parse otlp/http traces endpoint: %v", err)
+		}
+		oc = &tracingcfg.OpenTelemetryConfig{
+			HttpService: &core.HttpService{
+				HttpUri: &core.HttpUri{
+					Uri: te,
+					HttpUpstreamType: &core.HttpUri_Cluster{
+						Cluster: cluster,
+					},
+					Timeout: httpService.GetTimeout(),
+				},
+			},
+		}
+
+		for _, h := range httpService.GetHeaders() {
+			hvo := &core.HeaderValueOption{
+				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				Header: &core.HeaderValue{
+					Key:   h.GetName(),
+					Value: h.GetValue(),
+				},
+			}
+			oc.GetHttpService().RequestHeadersToAdd = append(oc.GetHttpService().GetRequestHeadersToAdd(), hvo)
+		}
 	}
-	return anypb.New(dc)
+
+	oc.ServiceName = serviceName
+	return anypb.New(oc)
 }
 
 func opencensusConfig(opencensusProvider *meshconfig.MeshConfig_ExtensionProvider_OpenCensusAgentTracingProvider) (*anypb.Any, error) {

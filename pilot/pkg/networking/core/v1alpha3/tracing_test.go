@@ -24,6 +24,7 @@ import (
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -171,6 +172,22 @@ func TestConfigureTracing(t *testing.T) {
 			want:               fakeTracingConfig(fakeSkywalkingProvider(clusterName, authority), 99.999, 0, append(defaultTracingTags(), fakeEnvTag)),
 			wantStartChildSpan: true,
 			wantReqIDExtCtx:    &requestidextension.UUIDRequestIDExtensionContext{UseRequestIDForTraceSampling: false},
+		},
+		{
+			name:               "basic config (with opentelemetry provider via grpc)",
+			inSpec:             fakeTracingSpec(fakeOpenTelemetryGrpc(), 99.999, false, true),
+			opts:               fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI(),
+			want:               fakeTracingConfig(fakeOpenTelemetryGrpcProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantStartChildSpan: false,
+			wantReqIDExtCtx:    &defaultUUIDExtensionCtx,
+		},
+		{
+			name:               "basic config (with opentelemetry provider via http)",
+			inSpec:             fakeTracingSpec(fakeOpenTelemetryHttp(), 99.999, false, true),
+			opts:               fakeOptsOnlyOpenTelemetryHttpTelemetryAPI(),
+			want:               fakeTracingConfig(fakeOpenTelemetryHttpProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantStartChildSpan: false,
+			wantReqIDExtCtx:    &defaultUUIDExtensionCtx,
 		},
 		{
 			name:               "client-only config for server",
@@ -530,6 +547,106 @@ func fakeOptsOnlySkywalkingTelemetryAPI() gatewayListenerOpts {
 	return opts
 }
 
+func fakeOpenTelemetryGrpc() *meshconfig.MeshConfig_ExtensionProvider {
+	return &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "opentelemetry",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+			Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service:      "otel-collector",
+				Port:         4317,
+				MaxTagLength: 256,
+			},
+		},
+	}
+}
+
+func fakeOpenTelemetryHttp() *meshconfig.MeshConfig_ExtensionProvider {
+	return &meshconfig.MeshConfig_ExtensionProvider{
+		Name: "opentelemetry",
+		Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+			Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+				Service:      "my-o11y-backend",
+				Port:         443,
+				MaxTagLength: 256,
+				Http: &meshconfig.MeshConfig_ExtensionProvider_HttpService{
+					Path:    "/v1/traces",
+					Timeout: &durationpb.Duration{Seconds: 3},
+					Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+						{
+							Name:  "custom-header",
+							Value: "custom-value",
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {
+	var opts gatewayListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "opentelemetry",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+						Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+							Service:      "otel-collector",
+							Port:         4317,
+							MaxTagLength: 256,
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
+		},
+	}
+
+	return opts
+}
+
+func fakeOptsOnlyOpenTelemetryHttpTelemetryAPI() gatewayListenerOpts {
+	var opts gatewayListenerOpts
+	opts.push = &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			ExtensionProviders: []*meshconfig.MeshConfig_ExtensionProvider{
+				{
+					Name: "opentelemetry",
+					Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
+						Opentelemetry: &meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider{
+							Service:      "otel-collector",
+							Port:         4317,
+							MaxTagLength: 256,
+							Http: &meshconfig.MeshConfig_ExtensionProvider_HttpService{
+								Path:    "/v1/traces",
+								Timeout: &durationpb.Duration{Seconds: 3},
+								Headers: []*meshconfig.MeshConfig_ExtensionProvider_HttpHeader{
+									{
+										Name:  "custom-header",
+										Value: "custom-value",
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+	opts.proxy = &model.Proxy{
+		Metadata: &model.NodeMetadata{
+			ProxyConfig: &model.NodeMetaProxyConfig{},
+		},
+	}
+
+	return opts
+}
+
 func fakeInboundOptsOnlySkywalkingTelemetryAPI() gatewayListenerOpts {
 	opts := fakeOptsOnlySkywalkingTelemetryAPI()
 	return opts
@@ -702,5 +819,51 @@ func fakeDatadogProvider(expectServcieName, expectHostName, expectClusterName st
 	return &tracingcfg.Tracing_Http{
 		Name:       envoyDatadog,
 		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeAny},
+	}
+}
+
+func fakeOpenTelemetryGrpcProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
+	fakeOTelGrpcProviderConfig := &tracingcfg.OpenTelemetryConfig{
+		GrpcService: &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: expectClusterName,
+					Authority:   expectAuthority,
+				},
+			},
+		},
+	}
+	fakeOtelGrpcAny := protoconv.MessageToAny(fakeOTelGrpcProviderConfig)
+	return &tracingcfg.Tracing_Http{
+		Name:       envoyOpenTelemetry,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelGrpcAny},
+	}
+}
+
+func fakeOpenTelemetryHttpProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
+	fakeOTelHttpProviderConfig := &tracingcfg.OpenTelemetryConfig{
+		HttpService: &core.HttpService{
+			HttpUri: &core.HttpUri{
+				Uri: expectAuthority + "/v1/traces",
+				HttpUpstreamType: &core.HttpUri_Cluster{
+					Cluster: expectClusterName,
+				},
+				Timeout: &durationpb.Duration{Seconds: 3},
+			},
+			RequestHeadersToAdd: []*core.HeaderValueOption{
+				{
+					Header: &core.HeaderValue{
+						Key:   "custom-header",
+						Value: "custom-value",
+					},
+					AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				},
+			},
+		},
+	}
+	fakeOtelHttpAny := protoconv.MessageToAny(fakeOTelHttpProviderConfig)
+	return &tracingcfg.Tracing_Http{
+		Name:       envoyOpenTelemetry,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelHttpAny},
 	}
 }
