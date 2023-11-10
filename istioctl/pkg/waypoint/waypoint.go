@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/slices"
 )
 
@@ -45,6 +46,8 @@ var (
 	revision = ""
 
 	allNamespaces bool
+
+	deleteAll bool
 )
 
 func Cmd(ctx cli.Context) *cobra.Command {
@@ -147,6 +150,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			return nil
 		},
 	}
+
 	waypointDeleteCmd := &cobra.Command{
 		Use:   "delete",
 		Short: "Delete a waypoint configuration",
@@ -158,12 +162,38 @@ func Cmd(ctx cli.Context) *cobra.Command {
   istioctl x waypoint delete --service-account something --namespace default
 
   # Delete a waypoint by name, which can obtain from istioctl x waypoint list 
-  istioctl x waypoint delete waypoint-name --namespace default`,
+  istioctl x waypoint delete waypoint-name --namespace default
+
+  # Delete several waypoints by name
+  istioctl x waypoint delete waypoint-name1 waypoint-name2 --namespace default
+
+  # Delete all waypoints in a specific namespace
+  istioctl x waypoint delete --all --namespace default`,
+		Args: func(cmd *cobra.Command, args []string) error {
+			if deleteAll && len(args) > 0 {
+				return fmt.Errorf("cannot specify waypoint names when deleting all waypoints")
+			}
+			if deleteAll && waypointServiceAccount != "" {
+				return fmt.Errorf("cannot specify service account when deleting all waypoints")
+			}
+			if len(args) > 0 && waypointServiceAccount != "" {
+				return fmt.Errorf("cannot specify service account when deleting by name")
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := ctx.CLIClient()
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
+			ns := ctx.NamespaceOrDefault(ctx.Namespace())
+
+			// Delete all waypoints if the --all flag is set
+			if deleteAll {
+				return deleteWaypoints(cmd, kubeClient, ns, nil)
+			}
+
+			// Delete waypoints by service account if provided
 			if len(args) == 0 {
 				gw := makeGateway(true)
 				if err = kubeClient.GatewayAPI().GatewayV1beta1().Gateways(gw.Namespace).
@@ -173,40 +203,13 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v deleted\n", gw.Namespace, gw.Name)
 				return nil
 			}
-			ns := ctx.NamespaceOrDefault(ctx.Namespace())
 
-			wg := sync.WaitGroup{}
-			var mu sync.Mutex
-			multiErr := &multierror.Error{}
-			for _, name := range args {
-				wg.Add(1)
-				go func(name string) {
-					defer wg.Done()
-					gw, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).Get(context.Background(), name, metav1.GetOptions{})
-					if err != nil {
-						if errors.IsNotFound(err) {
-							fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", ns, name)
-							return
-						}
-						mu.Lock()
-						multiErr = multierror.Append(multiErr, err)
-						mu.Unlock()
-						return
-					}
-					if err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ns).
-						Delete(context.Background(), gw.Name, metav1.DeleteOptions{}); err != nil {
-						mu.Lock()
-						multiErr = multierror.Append(multiErr, err)
-						mu.Unlock()
-						return
-					}
-					fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v deleted\n", ns, name)
-				}(name)
-			}
-			wg.Wait()
-			return multiErr.ErrorOrNil()
+			// Delete waypoints by names if provided
+			return deleteWaypoints(cmd, kubeClient, ns, args)
 		},
 	}
+	waypointDeleteCmd.Flags().BoolVar(&deleteAll, "all", false, "Delete all waypoints in the namespace")
+
 	waypointListCmd := &cobra.Command{
 		Use:   "list",
 		Short: "List managed waypoint configurations",
@@ -321,4 +324,44 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	})
 
 	return waypointCmd
+}
+
+// deleteWaypoints handles the deletion of waypoints based on the provided names, or all if names is nil
+func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace string, names []string) error {
+	var multiErr *multierror.Error
+	if names == nil {
+		// If names is nil, delete all waypoints
+		waypoints, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(namespace).
+			List(context.Background(), metav1.ListOptions{})
+		if err != nil {
+			return err
+		}
+		for _, gw := range waypoints.Items {
+			names = append(names, gw.Name)
+		}
+	}
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	for _, name := range names {
+		wg.Add(1)
+		go func(name string) {
+			defer wg.Done()
+			if err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(namespace).
+				Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
+				if errors.IsNotFound(err) {
+					fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
+				} else {
+					mu.Lock()
+					multiErr = multierror.Append(multiErr, err)
+					mu.Unlock()
+				}
+			} else {
+				fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v deleted\n", namespace, name)
+			}
+		}(name)
+	}
+
+	wg.Wait()
+	return multiErr.ErrorOrNil()
 }
