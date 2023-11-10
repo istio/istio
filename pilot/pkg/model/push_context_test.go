@@ -3112,7 +3112,7 @@ func BenchmarkInitServiceAccounts(b *testing.B) {
 	ps := NewPushContext()
 	index := NewEndpointIndex(DisabledCache{})
 	env := &Environment{EndpointIndex: index}
-	ps.Mesh = env.Mesh()
+	ps.Mesh = &meshconfig.MeshConfig{TrustDomainAliases: []string{"td1", "td2"}}
 
 	services := []*Service{
 		{
