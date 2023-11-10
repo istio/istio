@@ -1600,7 +1600,11 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 					shard.RUnlock()
 				}
 				if len(svc.ServiceAccounts) > 0 {
-					accounts = accounts.InsertAll(svc.ServiceAccounts...)
+					if accounts == nil {
+						accounts = sets.New(svc.ServiceAccounts...)
+					} else {
+						accounts = accounts.InsertAll(svc.ServiceAccounts...)
+					}
 				}
 				sa := sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
 				key := serviceAccountKey{
