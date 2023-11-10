@@ -73,16 +73,13 @@ func TestWaypoint(t *testing.T) {
 		NewTest(t).
 		Features("traffic.ambient").
 		Run(func(t framework.TestContext) {
-			nsConfig, err := namespace.New(t, namespace.Config{
+			nsConfig := namespace.NewOrFail(t, t, namespace.Config{
 				Prefix: "waypoint",
 				Inject: false,
 				Labels: map[string]string{
 					constants.DataplaneMode: "ambient",
 				},
 			})
-			if err != nil {
-				t.Fatal(err)
-			}
 
 			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 				"x",
@@ -92,15 +89,14 @@ func TestWaypoint(t *testing.T) {
 				nsConfig.Name(),
 			})
 			retry.UntilSuccessOrFail(t, func() error {
-				fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"namespace")
-				if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
+				if err := checkWaypointIsReady(t, nsConfig.Name(), "namespace"); err != nil {
 					return fmt.Errorf("gateway is not ready: %v", err)
 				}
 				return nil
 			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
 
 			saSet := []string{"sa1", "sa2", "sa3"}
-			for _, sa := range []string{"sa1", "sa2", "sa3"} {
+			for _, sa := range saSet {
 				istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
 					"x",
 					"waypoint",
@@ -110,9 +106,10 @@ func TestWaypoint(t *testing.T) {
 					"--service-account",
 					sa,
 				})
+			}
+			for _, sa := range saSet {
 				retry.UntilSuccessOrFail(t, func() error {
-					fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+sa)
-					if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
+					if err := checkWaypointIsReady(t, nsConfig.Name(), sa); err != nil {
 						return fmt.Errorf("gateway is not ready: %v", err)
 					}
 					return nil
@@ -152,9 +149,7 @@ func TestWaypoint(t *testing.T) {
 				"delete",
 			})
 			retry.UntilSuccessOrFail(t, func() error {
-				fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"namespace")
-				// after deletion, the pod should not be found
-				if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
+				if err := checkWaypointIsReady(t, nsConfig.Name(), "namespace"); err != nil {
 					if errors.Is(err, kubetest.ErrNoPodsFetched) {
 						return nil
 					}
@@ -173,25 +168,22 @@ func TestWaypoint(t *testing.T) {
 				"sa2",
 			})
 			retry.UntilSuccessOrFail(t, func() error {
-				fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"sa1")
-				// after deletion, the pod should not be found
-				if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
-					if !errors.Is(err, kubetest.ErrNoPodsFetched) {
-						return fmt.Errorf("failed to check gateway status: %v", err)
+				for _, sa := range []string{"sa1", "sa2"} {
+					if err := checkWaypointIsReady(t, nsConfig.Name(), sa); err != nil {
+						if !errors.Is(err, kubetest.ErrNoPodsFetched) {
+							return fmt.Errorf("failed to check gateway status: %v", err)
+						}
+					} else if err == nil {
+						return fmt.Errorf("failed to delete multiple gateways: %s not cleaned up", sa)
 					}
-				} else if err == nil {
-					return fmt.Errorf("failed to delete multiple gateways: %s not cleaned up", "sa1")
-				}
-				fetch = kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"sa2")
-				// after deletion, the pod should not be found
-				if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
-					if !errors.Is(err, kubetest.ErrNoPodsFetched) {
-						return fmt.Errorf("failed to check gateway status: %v", err)
-					}
-				} else if err == nil {
-					return fmt.Errorf("failed to delete multiple gateways: %s not cleaned up", "sa2")
 				}
 				return nil
 			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
 		})
+}
+
+func checkWaypointIsReady(t framework.TestContext, ns, name string) error {
+	fetch := kubetest.NewPodFetch(t.AllClusters()[0], ns, constants.GatewayNameLabel+"="+name)
+	_, err := kubetest.CheckPodsAreReady(fetch)
+	return err
 }
