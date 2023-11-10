@@ -1594,11 +1594,13 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 				shard, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
 				if f {
 					shard.RLock()
-					defer shard.RUnlock()
-					accounts = shard.ServiceAccounts
+					// copy here to reduce the lock time, the copy cost can be ignored
+					// endpoints could update frequently, so the longer it locks, the more likely it will block other threads.
+					accounts = shard.ServiceAccounts.Copy()
+					shard.RUnlock()
 				}
 				if len(svc.ServiceAccounts) > 0 {
-					accounts = accounts.Copy().InsertAll(svc.ServiceAccounts...)
+					accounts = accounts.InsertAll(svc.ServiceAccounts...)
 				}
 				sa := sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
 				key := serviceAccountKey{
