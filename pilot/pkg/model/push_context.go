@@ -187,7 +187,6 @@ func newGatewayIndex() gatewayIndex {
 type serviceAccountKey struct {
 	hostname  host.Name
 	namespace string
-	port      int
 }
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -1588,6 +1587,7 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 			if port.Protocol == protocol.UDP {
 				continue
 			}
+
 			var accounts sets.String
 			func() {
 				// First get endpoint level service accounts
@@ -1604,10 +1604,10 @@ func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service
 				key := serviceAccountKey{
 					hostname:  svc.Hostname,
 					namespace: svc.Attributes.Namespace,
-					port:      port.Port,
 				}
 				ps.serviceAccounts[key] = sa
 			}()
+			break
 		}
 	}
 }
@@ -2300,11 +2300,10 @@ func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceNa
 	return false
 }
 
-func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, port int) []string {
+func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string) []string {
 	return ps.serviceAccounts[serviceAccountKey{
 		hostname:  hostname,
 		namespace: namespace,
-		port:      port,
 	}]
 }
 

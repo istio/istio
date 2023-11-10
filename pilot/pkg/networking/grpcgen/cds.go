@@ -233,7 +233,7 @@ func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.Traffic
 	case networking.ClientTLSSettings_MUTUAL:
 		// TODO support this
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
-		tlsCtx := buildUpstreamTLSContext(b.push.ServiceAccounts(b.hostname, b.svc.Attributes.Namespace, b.portNum))
+		tlsCtx := buildUpstreamTLSContext(b.push.ServiceAccounts(b.hostname, b.svc.Attributes.Namespace))
 		c.TransportSocket = &core.TransportSocket{
 			Name:       transportSocketName,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsCtx)},
