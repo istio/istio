@@ -167,6 +167,9 @@ type IstioEgressListenerWrapper struct {
 	// nil if this is for the default sidecar scope.
 	IstioListener *networking.IstioEgressListener
 
+	// Specifies whether matching ports is required.
+	matchPort bool
+
 	// List of services imported by this egress listener above.
 	// This will be used by LDS and RDS code when
 	// building the set of virtual hosts or the tcp filterchain matches for
@@ -362,7 +365,6 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 			out.AddConfigDependencies(delegate)
 		}
 
-		matchPort := needsPortMatch(listener)
 		// Infer more possible destinations from virtual services
 		// Services chosen here will not override services explicitly requested in listener.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
@@ -378,7 +380,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
 					var vss *Service
-					if matchPort {
+					if listener.matchPort {
 						vss = serviceMatchingListenerPort(s, listener)
 					} else {
 						vss = serviceMatchingVirtualServicePorts(s, ports)
@@ -409,7 +411,7 @@ func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 						// Pick first namespace alphabetically
 						// This won't overwrite hostnames that have already been found eg because they were requested in hosts
 						var vss *Service
-						if matchPort {
+						if listener.matchPort {
 							vss = serviceMatchingListenerPort(byNamespace[ns[0]], listener)
 						} else {
 							vss = serviceMatchingVirtualServicePorts(byNamespace[ns[0]], ports)
@@ -466,6 +468,7 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 ) *IstioEgressListenerWrapper {
 	out := &IstioEgressListenerWrapper{
 		IstioListener: istioListener,
+		matchPort:     needsPortMatch(istioListener),
 	}
 
 	hostsByNamespace := make(map[string]hostClassification)
@@ -743,10 +746,8 @@ func (ilw *IstioEgressListenerWrapper) selectServices(services []*Service, confi
 
 // Return the original service or a trimmed service which has a subset of the ports in original service.
 func matchingService(importedHosts hostClassification, service *Service, ilw *IstioEgressListenerWrapper) *Service {
-	matchPort := needsPortMatch(ilw)
-
 	if importedHosts.Matches(service.Hostname) {
-		if matchPort {
+		if ilw.matchPort {
 			return serviceMatchingListenerPort(service, ilw)
 		}
 		return service
@@ -820,9 +821,9 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[i
 	return nil
 }
 
-func needsPortMatch(ilw *IstioEgressListenerWrapper) bool {
+func needsPortMatch(l *networking.IstioEgressListener) bool {
 	// If a listener is defined with a port, we should match services with port except in the following case.
 	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
-	return ilw.IstioListener != nil && ilw.IstioListener.Port.GetNumber() != 0 &&
-		protocol.Parse(ilw.IstioListener.Port.Protocol) != protocol.HTTP_PROXY
+	return l != nil && l.Port.GetNumber() != 0 &&
+		protocol.Parse(l.Port.Protocol) != protocol.HTTP_PROXY
 }
