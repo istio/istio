@@ -114,6 +114,9 @@ By default it will use the default serviceAccount from (istio-system) namespace 
   # Retrieve syncz information via XDS from specific control plane in multi-control plane in-cluster configuration
   # (Select a specific control plane in an in-cluster canary Istio configuration.)
   istioctl x internal-debug syncz --xds-label istio.io/rev=default
+
+  # Retrieve config dump for a single proxy
+  istioctl x internal-debug config_dump istio-ingressgateway-59585c5b9c-ndc59.istio-system
 `,
 		RunE: func(c *cobra.Command, args []string) error {
 			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
@@ -128,7 +131,16 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 			var xdsRequest *discovery.DiscoveryRequest
 			var namespace, serviceAccount string
 
+			var resourceNames []string
+			if len(args) > 1 {
+				name, ns, err := ctx.InferPodInfoFromTypedResource(args[1], ctx.NamespaceOrDefault(ctx.Namespace()))
+				if err != nil {
+					return err
+				}
+				resourceNames = append(resourceNames, fmt.Sprintf("%s.%s", name, ns))
+			}
 			xdsRequest = &discovery.DiscoveryRequest{
+				ResourceNames: resourceNames,
 				Node: &core.Node{
 					Id: "debug~0.0.0.0~istioctl~cluster.local",
 				},
