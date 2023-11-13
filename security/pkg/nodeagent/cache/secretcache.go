@@ -283,7 +283,7 @@ func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *secu
 	t0 := time.Now()
 	sc.generateMutex.Lock()
 	defer sc.generateMutex.Unlock()
-
+	cacheLog.Infof("===== %v enter lock", resourceName)
 	// Now that we got the lock, look at cache again before sending request to avoid overwhelming CA
 	ns = sc.getCachedSecret(resourceName)
 	if ns != nil {
@@ -756,6 +756,7 @@ func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error
 	sc.configTrustBundleMutex.Unlock()
 	cacheLog.Debugf("update new trust bundle")
 	sc.OnSecretUpdate(security.RootCertReqResourceName)
+	cacheLog.Infof("======clear cache")
 	sc.cache.SetWorkload(nil)
 	sc.OnSecretUpdate(security.WorkloadKeyCertResourceName)
 	return nil

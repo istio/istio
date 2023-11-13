@@ -171,6 +171,8 @@ func getWorkloadCertLastUpdateTime(t framework.TestContext, i echo.Instance, ctl
 
 	for _, s := range dump.DynamicActiveSecrets {
 		if s.Name == security.WorkloadKeyCertResourceName {
+			secret, _ := protomarshal.ToJSONWithIndent(s.Secret, "   ")
+			t.Logf("== default secret last updated %v, %s", s.LastUpdated, secret)
 			return s.LastUpdated.AsTime(), nil
 		}
 	}
