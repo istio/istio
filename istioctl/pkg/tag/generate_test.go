@@ -15,8 +15,8 @@
 package tag
 
 import (
+	"context"
 	"fmt"
-	"path/filepath"
 	"testing"
 
 	admitv1 "k8s.io/api/admissionregistration/v1"
@@ -26,7 +26,6 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/test/env"
 )
 
 var (
@@ -88,6 +87,25 @@ var (
 			},
 		},
 	}
+	revisionCanonicalValidatingWebhook = admitv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-validator-revision",
+			Labels: map[string]string{label.IoIstioRev.Name: "revision"},
+		},
+		Webhooks: []admitv1.ValidatingWebhook{
+			{
+				Name: istioValidatingWebhookSuffix,
+				ClientConfig: admitv1.WebhookClientConfig{
+					Service: &admitv1.ServiceReference{
+						Namespace: "default",
+						Name:      "istiod-revision",
+						Path:      &samplePath,
+					},
+					CABundle: []byte("ca"),
+				},
+			},
+		},
+	}
 	remoteInjectionURL             = "https://random.host.com/inject/cluster/cluster1/net/net1"
 	revisionCanonicalWebhookRemote = admitv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
@@ -111,22 +129,64 @@ var (
 			},
 		},
 	}
-	remoteValidationURL = "https://random.host.com/validate"
+	remoteValidationURL                      = "https://random.host.com/validate"
+	revisionCanonicalValidatingWebhookRemote = admitv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   "istio-validator-revision",
+			Labels: map[string]string{label.IoIstioRev.Name: "revision"},
+		},
+		Webhooks: []admitv1.ValidatingWebhook{
+			{
+				Name: istioValidatingWebhookSuffix,
+				ClientConfig: admitv1.WebhookClientConfig{
+					URL:      &remoteValidationURL,
+					CABundle: []byte("ca"),
+				},
+			},
+		},
+	}
+
+	failPolicy                                   = admitv1.Fail
+	revisionCanonicalDefaultTagValidatingWebhook = admitv1.ValidatingWebhookConfiguration{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: vwhBaseTemplateName,
+			Labels: map[string]string{
+				label.IoIstioRev.Name: "revision",
+				IstioTagLabel:         "default",
+			},
+		},
+		Webhooks: []admitv1.ValidatingWebhook{
+			{
+				Name: istioValidatingWebhookSuffix,
+				ClientConfig: admitv1.WebhookClientConfig{
+					URL:      &samplePath,
+					CABundle: []byte("ca"),
+				},
+				FailurePolicy: &failPolicy,
+			},
+		},
+	}
 )
 
 func TestGenerateValidatingWebhook(t *testing.T) {
 	tcs := []struct {
-		name           string
-		istioNamespace string
-		webhook        admitv1.MutatingWebhookConfiguration
-		whURL          string
-		whSVC          string
-		whCA           string
+		name                 string
+		istioNamespace       string
+		webhook              admitv1.ValidatingWebhookConfiguration
+		tagName              string
+		revision             string
+		whURL                string
+		whSVC                string
+		whCA                 string
+		overwrite            bool
+		wantNilFailurePolicy bool
 	}{
 		{
 			name:           "webhook-pointing-to-service",
 			istioNamespace: "istio-system",
-			webhook:        revisionCanonicalWebhook,
+			webhook:        revisionCanonicalValidatingWebhook,
+			tagName:        "canary",
+			revision:       "revision",
 			whURL:          "",
 			whSVC:          "istiod-revision",
 			whCA:           "ca",
@@ -134,7 +194,9 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 		{
 			name:           "webhook-custom-istio-namespace",
 			istioNamespace: "istio-system-blue",
-			webhook:        revisionCanonicalWebhook,
+			webhook:        revisionCanonicalValidatingWebhook,
+			tagName:        "canary",
+			revision:       "revision",
 			whURL:          "",
 			whSVC:          "istiod-revision",
 			whCA:           "ca",
@@ -142,70 +204,52 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 		{
 			name:           "webhook-pointing-to-url",
 			istioNamespace: "istio-system",
-			webhook:        revisionCanonicalWebhookRemote,
+			webhook:        revisionCanonicalValidatingWebhookRemote,
+			tagName:        "canary",
+			revision:       "revision",
 			whURL:          remoteValidationURL,
 			whSVC:          "",
 			whCA:           "ca",
 		},
 		{
-			name:           "webhook-process-failure-policy",
-			istioNamespace: "istio-system",
-			webhook:        revisionCanonicalWebhook,
-			whURL:          "",
-			whSVC:          "istiod-revision",
-			whCA:           "ca",
+			name:                 "webhook-pointing-to-default-tag",
+			istioNamespace:       "istio-system",
+			webhook:              revisionCanonicalValidatingWebhook,
+			tagName:              "default",
+			revision:             "revision",
+			whURL:                "",
+			whSVC:                "istiod-revision",
+			whCA:                 "ca",
+			overwrite:            true,
+			wantNilFailurePolicy: true,
 		},
 	}
 	scheme := runtime.NewScheme()
 	codecFactory := serializer.NewCodecFactory(scheme)
 	deserializer := codecFactory.UniversalDeserializer()
 
-	fail := admitv1.Fail
-	fakeClient := kube.NewFakeClient(&admitv1.ValidatingWebhookConfiguration{
-		TypeMeta: metav1.TypeMeta{},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "istiod-default-validator",
-		},
-		Webhooks: []admitv1.ValidatingWebhook{
-			{
-				Name: "random",
-			},
-			{
-				FailurePolicy: &fail,
-				Name:          "validation.istio.io",
-			},
-		},
-	})
 	for _, tc := range tcs {
 		t.Run(tc.name, func(t *testing.T) {
-			webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, "default", tc.istioNamespace)
+			client := kube.NewFakeClient(&tc.webhook, &revisionCanonicalDefaultTagValidatingWebhook)
+			opts := &GenerateOptions{Tag: tc.tagName, Revision: tc.revision, Overwrite: tc.overwrite}
+			webhookYAML, err := GenerateValidatingWebhook(context.Background(), client, opts, tc.istioNamespace)
 			if err != nil {
-				t.Fatalf("webhook parsing failed with error: %v", err)
+				t.Fatalf("tag validating webhook YAML generation failed with error: %v", err)
 			}
-			webhookConfig, err = fixWhConfig(fakeClient, webhookConfig)
-			if err != nil {
-				t.Fatalf("webhook fixing failed with error: %v", err)
-			}
-			opts := &GenerateOptions{
-				ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
-			}
-			webhookYAML, err := generateValidatingWebhook(webhookConfig, opts)
-			if err != nil {
-				t.Fatalf("tag webhook YAML generation failed with error: %v", err)
-			}
-
 			vwhObject, _, err := deserializer.Decode([]byte(webhookYAML), nil, &admitv1.ValidatingWebhookConfiguration{})
 			if err != nil {
-				t.Fatalf("could not parse webhook from generated YAML: %s", vwhObject)
+				t.Fatalf("could not parse validating webhook from generated YAML: %s", vwhObject)
 			}
 			wh := vwhObject.(*admitv1.ValidatingWebhookConfiguration)
 
 			for _, webhook := range wh.Webhooks {
 				validationWhConf := webhook.ClientConfig
 
-				// this is nil since we've already have one with failed FailurePolicy in the fake client
-				if webhook.FailurePolicy != nil {
-					t.Fatalf("expected FailurePolicy to be nil, got %v", *webhook.FailurePolicy)
+				if tc.wantNilFailurePolicy {
+					// this is nil since we've already have one with failed FailurePolicy in the fake client
+					if webhook.FailurePolicy != nil {
+						t.Fatalf("expected FailurePolicy to be nil, got %v", *webhook.FailurePolicy)
+					}
 				}
 
 				if tc.whSVC != "" {
@@ -242,6 +286,7 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 		name        string
 		webhook     admitv1.MutatingWebhookConfiguration
 		tagName     string
+		revision    string
 		whURL       string
 		whSVC       string
 		whCA        string
@@ -251,6 +296,7 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 			name:        "webhook-pointing-to-service",
 			webhook:     revisionCanonicalWebhook,
 			tagName:     "canary",
+			revision:    "revision",
 			whURL:       "",
 			whSVC:       "istiod-revision",
 			whCA:        "ca",
@@ -260,6 +306,7 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 			name:        "webhook-pointing-to-url",
 			webhook:     revisionCanonicalWebhookRemote,
 			tagName:     "canary",
+			revision:    "revision",
 			whURL:       remoteInjectionURL,
 			whSVC:       "",
 			whCA:        "ca",
@@ -269,6 +316,7 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 			name:        "webhook-pointing-to-default-revision",
 			webhook:     defaultRevisionCanonicalWebhook,
 			tagName:     "canary",
+			revision:    "default",
 			whURL:       "",
 			whSVC:       "istiod",
 			whCA:        "ca",
@@ -278,6 +326,7 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 			name:        "webhook-pointing-to-default-revision",
 			webhook:     defaultRevisionCanonicalWebhook,
 			tagName:     "default",
+			revision:    "default",
 			whURL:       "",
 			whSVC:       "istiod",
 			whCA:        "ca",
@@ -289,16 +338,9 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 	deserializer := codecFactory.UniversalDeserializer()
 
 	for _, tc := range tcs {
-		webhookConfig, err := tagWebhookConfigFromCanonicalWebhook(tc.webhook, tc.tagName, "istio-system")
-		if err != nil {
-			t.Fatalf("webhook parsing failed with error: %v", err)
-		}
-		webhookYAML, err := generateMutatingWebhook(webhookConfig, &GenerateOptions{
-			WebhookName:          "",
-			ManifestsPath:        filepath.Join(env.IstioSrc, "manifests"),
-			AutoInjectNamespaces: false,
-			CustomLabels:         nil,
-		})
+		client := kube.NewFakeClient(&tc.webhook)
+		opts := &GenerateOptions{Tag: tc.tagName, Revision: tc.revision}
+		webhookYAML, err := GenerateMutatingWebhook(context.Background(), client, opts, "default")
 		if err != nil {
 			t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 		}

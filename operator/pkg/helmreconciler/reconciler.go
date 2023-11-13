@@ -622,11 +622,12 @@ func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator,
 		}
 
 		o := &revtag.GenerateOptions{
-			Tag:                  revtag.DefaultRevisionName,
-			Revision:             rev,
-			Overwrite:            true,
-			AutoInjectNamespaces: autoInjectNamespaces,
-			CustomLabels:         ignorePruneLabel,
+			Tag:                     revtag.DefaultRevisionName,
+			Revision:                rev,
+			Overwrite:               true,
+			AutoInjectNamespaces:    autoInjectNamespaces,
+			CustomLabels:            ignorePruneLabel,
+			DisableConfigValidation: !enableConfigValidation(iop),
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)
@@ -706,4 +707,22 @@ func validateEnableNamespacesByDefault(iop *istioV1Alpha1.IstioOperator) bool {
 	}
 
 	return autoInjectNamespaces
+}
+
+// enableConfigValidation returns .Values.global.configValidation from the Istio Operator.
+func enableConfigValidation(iop *istioV1Alpha1.IstioOperator) bool {
+	if iop == nil || iop.Spec == nil || iop.Spec.Values == nil {
+		return false
+	}
+	globalValues := iop.Spec.Values.AsMap()["global"]
+	globalMap, ok := globalValues.(map[string]any)
+	if !ok {
+		return false
+	}
+	enableConfigValidation, ok := globalMap["configValidation"].(bool)
+	if !ok {
+		return false
+	}
+
+	return enableConfigValidation
 }

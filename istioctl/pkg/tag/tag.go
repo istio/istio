@@ -48,20 +48,22 @@ overwrite existing revision tags.`
 	tagCreatedStr   = `Revision tag %q created, referencing control plane revision %q. To enable injection using this
 revision tag, use 'kubectl label namespace <NAMESPACE> istio.io/rev=%s'
 `
-	webhookNameHelpStr          = "Name to use for a revision tag's mutating webhook configuration."
-	autoInjectNamespacesHelpStr = "If set to true, the sidecars should be automatically injected into all namespaces by default"
+	webhookNameHelpStr             = "Name to use for a revision tag's mutating webhook configuration."
+	autoInjectNamespacesHelpStr    = "If set to true, the sidecars should be automatically injected into all namespaces by default"
+	disableConfigValidationHelpStr = "If set to true, will skip to generate the ValidatingWebhook for the revision tag"
 )
 
 // options for CLI
 var (
 	// revision to point tag webhook at
-	revision             = ""
-	manifestsPath        = ""
-	overwrite            = false
-	skipConfirmation     = false
-	webhookName          = ""
-	autoInjectNamespaces = false
-	outputFormat         = util.TableFormat
+	revision                = ""
+	manifestsPath           = ""
+	overwrite               = false
+	skipConfirmation        = false
+	webhookName             = ""
+	autoInjectNamespaces    = false
+	outputFormat            = util.TableFormat
+	disableConfigValidation = false
 )
 
 type tagDescription struct {
@@ -153,6 +155,7 @@ injection labels.`,
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
 	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
+	cmd.PersistentFlags().BoolVar(&disableConfigValidation, "disable-config-validation", false, disableConfigValidationHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -201,6 +204,7 @@ injection labels.`,
 	cmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", revisionHelpStr)
 	cmd.PersistentFlags().StringVarP(&webhookName, "webhook-name", "", "", webhookNameHelpStr)
 	cmd.PersistentFlags().BoolVar(&autoInjectNamespaces, "auto-inject-namespaces", false, autoInjectNamespacesHelpStr)
+	cmd.PersistentFlags().BoolVar(&disableConfigValidation, "disable-config-validation", false, disableConfigValidationHelpStr)
 	_ = cmd.MarkPersistentFlagRequired("revision")
 
 	return cmd
@@ -272,14 +276,15 @@ revision tag before removing using the "istioctl tag list" command.
 // setTag creates or modifies a revision tag.
 func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, istioNS string, generate bool, w, stderr io.Writer) error {
 	opts := &GenerateOptions{
-		Tag:                  tagName,
-		Revision:             revision,
-		WebhookName:          webhookName,
-		ManifestsPath:        manifestsPath,
-		Generate:             generate,
-		Overwrite:            overwrite,
-		AutoInjectNamespaces: autoInjectNamespaces,
-		UserManaged:          true,
+		Tag:                     tagName,
+		Revision:                revision,
+		WebhookName:             webhookName,
+		ManifestsPath:           manifestsPath,
+		Generate:                generate,
+		Overwrite:               overwrite,
+		AutoInjectNamespaces:    autoInjectNamespaces,
+		UserManaged:             true,
+		DisableConfigValidation: disableConfigValidation,
 	}
 	tagWhYAML, err := Generate(ctx, kubeClient, opts, istioNS)
 	if err != nil {
@@ -394,11 +399,11 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 	}
 	tags := make([]tagDescription, 0)
 	for _, wh := range tagWebhooks {
-		tagName, err := GetWebhookTagName(wh)
+		tagName, err := GetWebhookTagName(wh.ObjectMeta)
 		if err != nil {
 			return fmt.Errorf("error parsing tag name from webhook %q: %v", wh.Name, err)
 		}
-		tagRevision, err := GetWebhookRevision(wh)
+		tagRevision, err := GetWebhookRevision(wh.ObjectMeta)
 		if err != nil {
 			return fmt.Errorf("error parsing revision from webhook %q: %v", wh.Name, err)
 		}

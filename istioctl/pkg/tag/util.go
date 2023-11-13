@@ -62,6 +62,28 @@ func GetWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, r
 	return webhooks.Items, nil
 }
 
+func GetValidatingWebhooksWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]admitv1.ValidatingWebhookConfiguration, error) {
+	webhooks, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", IstioTagLabel, tag),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return webhooks.Items, nil
+}
+
+// GetValidatingWebhooksWithRevision returns validating webhooks tagged with istio.io/rev=<rev> and NOT TAGGED with istio.io/tag.
+// this retrieves the webhook created at revision installation rather than tag webhooks
+func GetValidatingWebhooksWithRevision(ctx context.Context, client kubernetes.Interface, rev string) ([]admitv1.ValidatingWebhookConfiguration, error) {
+	webhooks, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s,!%s", label.IoIstioRev.Name, rev, IstioTagLabel),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return webhooks.Items, nil
+}
+
 // GetNamespacesWithTag retrieves all namespaces pointed at the given tag.
 func GetNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag string) ([]string, error) {
 	namespaces, err := client.CoreV1().Namespaces().List(ctx, metav1.ListOptions{
@@ -79,16 +101,16 @@ func GetNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag 
 }
 
 // GetWebhookTagName extracts tag name from webhook object.
-func GetWebhookTagName(wh admitv1.MutatingWebhookConfiguration) (string, error) {
-	if tagName, ok := wh.ObjectMeta.Labels[IstioTagLabel]; ok {
+func GetWebhookTagName(whMeta metav1.ObjectMeta) (string, error) {
+	if tagName, ok := whMeta.Labels[IstioTagLabel]; ok {
 		return tagName, nil
 	}
 	return "", fmt.Errorf("could not extract tag name from webhook")
 }
 
 // GetWebhookRevision extracts tag target revision from webhook object.
-func GetWebhookRevision(wh admitv1.MutatingWebhookConfiguration) (string, error) {
-	if tagName, ok := wh.ObjectMeta.Labels[label.IoIstioRev.Name]; ok {
+func GetWebhookRevision(whMeta metav1.ObjectMeta) (string, error) {
+	if tagName, ok := whMeta.Labels[label.IoIstioRev.Name]; ok {
 		return tagName, nil
 	}
 	return "", fmt.Errorf("could not extract tag revision from webhook")
@@ -100,10 +122,19 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag str
 	if err != nil {
 		return err
 	}
+	validatingWebhooks, err := GetValidatingWebhooksWithTag(ctx, client, tag)
+	if err != nil {
+		return err
+	}
+
 	var result error
 	for _, wh := range webhooks {
 		result = multierror.Append(result, client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
 	}
+	for _, wh := range validatingWebhooks {
+		result = multierror.Append(result, client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
+	}
+
 	return result
 }
 
