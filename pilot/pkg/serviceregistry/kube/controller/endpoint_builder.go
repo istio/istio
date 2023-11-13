@@ -109,7 +109,7 @@ func NewEndpointBuilderFromMetadata(c controllerInterface, proxy *model.Proxy) *
 }
 
 func (b *EndpointBuilder) buildIstioEndpoint(
-	endpointAddress string,
+	endpointAddresses []string,
 	endpointPort int32,
 	svcPortName string,
 	discoverabilityPolicy model.EndpointDiscoverabilityPolicy,
@@ -122,7 +122,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 	// in case pod is not found when init EndpointBuilder.
 	networkID := network.ID(b.labels[label.TopologyNetwork.Name])
 	if networkID == "" {
-		networkID = b.endpointNetwork(endpointAddress)
+		networkID = b.endpointNetwork(endpointAddresses[0])
 		b.labels[label.TopologyNetwork.Name] = string(networkID)
 	}
 
@@ -131,7 +131,7 @@ func (b *EndpointBuilder) buildIstioEndpoint(
 		ServiceAccount:        b.serviceAccount,
 		Locality:              b.locality,
 		TLSMode:               b.tlsMode,
-		Addresses:             []string{endpointAddress},
+		Addresses:             endpointAddresses,
 		EndpointPort:          uint32(endpointPort),
 		ServicePortName:       svcPortName,
 		Network:               networkID,

@@ -188,26 +188,24 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 		// Draining tracking is only enabled if persistent sessions is enabled.
 		// If we start using them for other features, this can be adjusted.
 		healthStatus := endpointHealthStatus(svc, e)
-		for _, a := range e.Addresses {
-			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
-			if pod == nil && expectedPod {
-				continue
+		pod, expectedPod := getPod(esc.c, e.Addresses[0], &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
+		if pod == nil && expectedPod {
+			continue
+		}
+		builder := NewEndpointBuilder(esc.c, pod)
+		// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
+		for _, port := range slice.Ports {
+			var portNum int32
+			if port.Port != nil {
+				portNum = *port.Port
 			}
-			builder := NewEndpointBuilder(esc.c, pod)
-			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
-			for _, port := range slice.Ports {
-				var portNum int32
-				if port.Port != nil {
-					portNum = *port.Port
-				}
-				var portName string
-				if port.Name != nil {
-					portName = *port.Name
-				}
+			var portName string
+			if port.Name != nil {
+				portName = *port.Name
+			}
 
-				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus)
-				endpoints = append(endpoints, istioEndpoint)
-			}
+			istioEndpoint := builder.buildIstioEndpoint(e.Addresses, portNum, portName, discoverabilityPolicy, healthStatus)
+			endpoints = append(endpoints, istioEndpoint)
 		}
 	}
 	esc.endpointCache.Update(hostName, slice.Name, endpoints)

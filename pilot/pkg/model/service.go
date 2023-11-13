@@ -636,8 +636,10 @@ func (ep *IstioEndpoint) Key() string {
 		return ""
 	}
 
-	key := strings.Join(ep.Addresses, ",")
-	return key
+	if len(ep.Addresses) == 0 {
+		return ""
+	}
+	return ep.Addresses[0]
 }
 
 // EndpointMetadata represents metadata set on Envoy LbEndpoint used for telemetry purposes.
