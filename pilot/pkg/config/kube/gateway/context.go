@@ -53,7 +53,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 	namespace string,
 	gwsvcs []string,
 	servers []*networking.Server,
-) (internal, internalIP, external, pending, warns []string) {
+) (internal, internalIP, external, pending, warns []string, allUsable bool) {
 	ports := map[int]struct{}{}
 	for _, s := range servers {
 		ports[int(s.Port.Number)] = struct{}{}
@@ -63,6 +63,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 	foundExternal := sets.New[string]()
 	foundPending := sets.New[string]()
 	warnings := []string{}
+	foundUnusable := false
 	log.Debugf("Resolving gateway instances for %v in namespace %s", gwsvcs, namespace)
 	for _, g := range gwsvcs {
 		svc, f := gc.ps.ServiceIndex.HostnameAndNamespace[host.Name(g)][namespace]
@@ -78,6 +79,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 			} else {
 				warnings = append(warnings, fmt.Sprintf("hostname %q not found", g))
 			}
+			foundUnusable = true
 			continue
 		}
 		svcKey := svc.Key()
@@ -114,6 +116,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 						warnings = append(warnings, fmt.Sprintf(
 							"port %d not found for hostname %q (hint: the service port should be specified, not the workload port. Did you mean one of these ports: %v?)",
 							port, g, sets.SortedList(hintPort)))
+						foundUnusable = true
 					} else {
 						_, isManaged := svc.Attributes.Labels[constants.ManagedGatewayLabel]
 						var portExistsOnService bool
@@ -128,6 +131,7 @@ func (gc GatewayContext) ResolveGatewayInstances(
 						// in this case as long as the port exists on the `Service` object.
 						if !isManaged || !portExistsOnService {
 							warnings = append(warnings, fmt.Sprintf("port %d not found for hostname %q", port, g))
+							foundUnusable = true
 						}
 					}
 				}
@@ -135,7 +139,8 @@ func (gc GatewayContext) ResolveGatewayInstances(
 		}
 	}
 	sort.Strings(warnings)
-	return sets.SortedList(foundInternal), sets.SortedList(foundInternalIP), sets.SortedList(foundExternal), sets.SortedList(foundPending), warnings
+	return sets.SortedList(foundInternal), sets.SortedList(foundInternalIP), sets.SortedList(foundExternal), sets.SortedList(foundPending),
+		warnings, !foundUnusable
 }
 
 func (gc GatewayContext) GetService(hostname, namespace string) *model.Service {

@@ -268,7 +268,7 @@ func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest str
 		Name:    name.IstioOperatorComponentName,
 		Content: manifest,
 	}
-	_, _, err := reconciler.ApplyManifest(m, false)
+	_, err := reconciler.ApplyManifest(m, false)
 	return err
 }
 
