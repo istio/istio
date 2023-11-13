@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/proto"
 
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
+	"istio.io/istio/pkg/slices"
 )
 
 // ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.
@@ -202,4 +204,120 @@ func hostContains(hosts []host.Name, service host.Name) bool {
 		}
 	}
 	return false
+}
+
+func patchTransportSockerMatchs(patchContext networking.EnvoyFilter_PatchContext,
+	patches []*model.EnvoyFilterConfigPatchWrapper,
+	hosts []host.Name,
+	cluster *cluster.Cluster,
+) {
+	for _, p := range patches {
+		if !commonConditionMatch(patchContext, p) ||
+			!clusterMatch(cluster, p, hosts) {
+			IncrementEnvoyFilterMetric(p.Key(), Cluster, false)
+			continue
+		}
+		applied := false
+		if p.Operation == networking.EnvoyFilter_Patch_ADD {
+			cluster.TransportSocketMatches = append(cluster.TransportSocketMatches, proto.Clone(p.Value).(*clusterv3.Cluster_TransportSocketMatch))
+			applied = true
+		} else if p.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
+			cluster.TransportSocketMatches = append([]*clusterv3.Cluster_TransportSocketMatch{proto.Clone(p.Value).(*clusterv3.Cluster_TransportSocketMatch)}, cluster.TransportSocketMatches...)
+			applied = true
+		} else if p.Operation == networking.EnvoyFilter_Patch_INSERT_AFTER {
+			// Insert after without a tsm match is same as ADD in the end
+			if !hasTransportSocketMatch(p) {
+				cluster.TransportSocketMatches = append(cluster.TransportSocketMatches, proto.Clone(p.Value).(*clusterv3.Cluster_TransportSocketMatch))
+				applied = true
+				continue
+			}
+
+			// find the matching tsm first
+			insertPosition := -1
+			for i := 0; i < len(cluster.TransportSocketMatches); i++ {
+				if transportSocketMatch(cluster.TransportSocketMatches[i], p) {
+					insertPosition = i + 1
+					break
+				}
+			}
+
+			if insertPosition == -1 {
+				continue
+			}
+			applied = true
+			clonedVal := proto.Clone(p.Value).(*clusterv3.Cluster_TransportSocketMatch)
+			cluster.TransportSocketMatches = append(cluster.TransportSocketMatches, clonedVal)
+			if insertPosition < len(cluster.TransportSocketMatches)-1 {
+				copy(cluster.TransportSocketMatches[insertPosition+1:], cluster.TransportSocketMatches[insertPosition:])
+				cluster.TransportSocketMatches[insertPosition] = clonedVal
+			}
+		} else if p.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+			// insert before without a tsm match is same as insert in the beginning
+			if !hasTransportSocketMatch(p) {
+				cluster.TransportSocketMatches = append(cluster.TransportSocketMatches, proto.Clone(p.Value).(*clusterv3.Cluster_TransportSocketMatch))
+				continue
+			}
+			// find the matching tsm first
+			insertPosition := -1
+			for i := 0; i < len(cluster.TransportSocketMatches); i++ {
+				if transportSocketMatch(cluster.TransportSocketMatches[i], p) {
+					insertPosition = i
+					break
+				}
+			}
+
+			// If matching tsm is not found, then don't insert and continue.
+			if insertPosition == -1 {
+				continue
+			}
+			applied = true
+			clonedVal := proto.Clone(p.Value).(*clusterv3.Cluster_TransportSocketMatch)
+			cluster.TransportSocketMatches = append(cluster.TransportSocketMatches, clonedVal)
+			copy(cluster.TransportSocketMatches[insertPosition+1:], cluster.TransportSocketMatches[insertPosition:])
+			cluster.TransportSocketMatches[insertPosition] = clonedVal
+		} else if p.Operation == networking.EnvoyFilter_Patch_REPLACE {
+			if !hasTransportSocketMatch(p) {
+				continue
+			}
+			// find the matching tsm first
+			replacePosition := -1
+			for i := 0; i < len(cluster.TransportSocketMatches); i++ {
+				if transportSocketMatch(cluster.TransportSocketMatches[i], p) {
+					replacePosition = i
+					break
+				}
+			}
+			if replacePosition == -1 {
+				continue
+			}
+			applied = true
+			cluster.TransportSocketMatches[replacePosition] = proto.Clone(p.Value).(*clusterv3.Cluster_TransportSocketMatch)
+		} else if p.Operation == networking.EnvoyFilter_Patch_REMOVE {
+			if !hasTransportSocketMatch(p) {
+				continue
+			}
+			cluster.TransportSocketMatches = slices.FilterInPlace(cluster.TransportSocketMatches, func(tsm *clusterv3.Cluster_TransportSocketMatch) bool {
+				return !transportSocketMatch(tsm, p)
+			})
+		}
+		IncrementEnvoyFilterMetric(p.Key(), TransportSocketMatch, applied)
+	}
+}
+
+func hasTransportSocketMatch(p *model.EnvoyFilterConfigPatchWrapper) bool {
+	cMatch := p.Match.GetCluster()
+	if cMatch == nil {
+		return false
+	}
+
+	return cMatch.TransportSocketMatchName != ""
+}
+
+// We assume that the parent cluster has already been matched
+func transportSocketMatch(tsm *clusterv3.Cluster_TransportSocketMatch, cp *model.EnvoyFilterConfigPatchWrapper) bool {
+	if !hasTransportSocketMatch(cp) {
+		return true
+	}
+
+	return cp.Match.GetCluster().TransportSocketMatchName == tsm.Name
 }
