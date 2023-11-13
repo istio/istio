@@ -17,7 +17,6 @@ package envoyfilter
 import (
 	"fmt"
 
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	clusterv3 "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"google.golang.org/protobuf/proto"
@@ -34,8 +33,8 @@ import (
 
 // ApplyClusterMerge processes the MERGE operation and merges the supplied configuration to the matched clusters.
 func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper,
-	c *cluster.Cluster, hosts []host.Name,
-) (out *cluster.Cluster) {
+	c *clusterv3.Cluster, hosts []host.Name,
+) (out *clusterv3.Cluster) {
 	defer runtime.HandleCrash(runtime.LogPanic, func(any) {
 		log.Errorf("clusters patch %s/%s caused panic, so the patches did not take effect", efw.Namespace, efw.Name)
 		IncrementEnvoyFilterErrorMetric(Cluster)
@@ -65,14 +64,16 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 		}
 		IncrementEnvoyFilterMetric(cp.Key(), Cluster, applied)
 	}
+
+	patchTransportSocketMatches(pctx, efw.Patches[networking.EnvoyFilter_TRANSPORT_SOCKET_MATCH], hosts, c)
 	return c
 }
 
 // Test if the patch contains a config for TransportSocket
 // Returns a boolean indicating if the merge was handled by this function; if false, it should still be called
 // outside of this function.
-func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (merged bool, err error) {
-	cpValueCast, okCpCast := (cp.Value).(*cluster.Cluster)
+func mergeTransportSocketCluster(c *clusterv3.Cluster, cp *model.EnvoyFilterConfigPatchWrapper) (merged bool, err error) {
+	cpValueCast, okCpCast := (cp.Value).(*clusterv3.Cluster)
 	if !okCpCast {
 		return false, fmt.Errorf("cast of cp.Value failed: %v", okCpCast)
 	}
@@ -126,7 +127,7 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 }
 
 // ShouldKeepCluster checks if there is a REMOVE patch on the cluster, returns false if there is one so that it is removed.
-func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *cluster.Cluster, hosts []host.Name) bool {
+func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper, c *clusterv3.Cluster, hosts []host.Name) bool {
 	if efw == nil {
 		return true
 	}
@@ -142,11 +143,11 @@ func ShouldKeepCluster(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 }
 
 // InsertedClusters collects all clusters that are added via ADD operation and match the patch context.
-func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) []*cluster.Cluster {
+func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.EnvoyFilterWrapper) []*clusterv3.Cluster {
 	if efw == nil {
 		return nil
 	}
-	var result []*cluster.Cluster
+	var result []*clusterv3.Cluster
 	// Add cluster if the operation is add, and patch context matches
 	for _, cp := range efw.Patches[networking.EnvoyFilter_CLUSTER] {
 		if cp.Operation == networking.EnvoyFilter_Patch_ADD {
@@ -156,14 +157,14 @@ func InsertedClusters(pctx networking.EnvoyFilter_PatchContext, efw *model.Envoy
 				continue
 			}
 			if commonConditionMatch(pctx, cp) {
-				result = append(result, proto.Clone(cp.Value).(*cluster.Cluster))
+				result = append(result, proto.Clone(cp.Value).(*clusterv3.Cluster))
 			}
 		}
 	}
 	return result
 }
 
-func clusterMatch(cluster *cluster.Cluster, cp *model.EnvoyFilterConfigPatchWrapper, hosts []host.Name) bool {
+func clusterMatch(cluster *clusterv3.Cluster, cp *model.EnvoyFilterConfigPatchWrapper, hosts []host.Name) bool {
 	cMatch := cp.Match.GetCluster()
 	if cMatch == nil {
 		return true
@@ -206,10 +207,10 @@ func hostContains(hosts []host.Name, service host.Name) bool {
 	return false
 }
 
-func patchTransportSockerMatchs(patchContext networking.EnvoyFilter_PatchContext,
+func patchTransportSocketMatches(patchContext networking.EnvoyFilter_PatchContext,
 	patches []*model.EnvoyFilterConfigPatchWrapper,
 	hosts []host.Name,
-	cluster *cluster.Cluster,
+	cluster *clusterv3.Cluster,
 ) {
 	for _, p := range patches {
 		if !commonConditionMatch(patchContext, p) ||
