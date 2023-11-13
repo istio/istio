@@ -226,6 +226,7 @@ func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *sec
 			cacheLog.WithLabels("ttl", time.Until(c.ExpireTime)).Info("returned workload trust anchor from cache")
 
 		} else {
+			cacheLog.Infof("====== get cached cert %s", resourceName)
 			ns = &security.SecretItem{
 				ResourceName:     resourceName,
 				CertificateChain: c.CertificateChain,
@@ -243,7 +244,7 @@ func (sc *SecretManagerClient) getCachedSecret(resourceName string) (secret *sec
 
 // GenerateSecret passes the cached secret to SDS.StreamSecrets and SDS.FetchSecret.
 func (sc *SecretManagerClient) GenerateSecret(resourceName string) (secret *security.SecretItem, err error) {
-	cacheLog.Debugf("generate secret %q", resourceName)
+	cacheLog.Infof("generate secret %q", resourceName)
 	// Setup the call to store generated secret to disk
 	defer func() {
 		if secret == nil || err != nil {
@@ -589,6 +590,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	if err == nil {
 		trustBundlePEM, err = sc.caClient.GetRootCertBundle()
 	}
+	cacheLog.Infof("======= generated new cert %s", resourceName)
 	csrLatency := float64(time.Since(timeBeforeCSR).Nanoseconds()) / float64(time.Millisecond)
 	outgoingLatency.With(RequestType.Value(monitoring.CSR)).Record(csrLatency)
 	if err != nil {
