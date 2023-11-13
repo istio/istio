@@ -46,6 +46,8 @@ const (
 	istioInjectionWebhookSuffix = "sidecar-injector.istio.io"
 
 	vwhBaseTemplateName = "istiod-default-validator"
+
+	operatorNamespace = "operator.istio.io"
 )
 
 // tagWebhookConfig holds config needed to render a tag webhook.
@@ -82,6 +84,9 @@ type GenerateOptions struct {
 	AutoInjectNamespaces bool
 	// CustomLabels are labels to add to the generated webhook.
 	CustomLabels map[string]string
+	// UserManaged indicates whether the revision tag is user managed.
+	// If true, the revision tag will not be affected by the installer.
+	UserManaged bool
 }
 
 // Generate generates the manifests for a revision tag pointed the given revision.
@@ -147,7 +152,7 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 			return "", fmt.Errorf("failed to create validating webhook config: %w", err)
 		}
 
-		vwhYAML, err := generateValidatingWebhook(validationWhConfig, opts.ManifestsPath, opts.CustomLabels)
+		vwhYAML, err := generateValidatingWebhook(validationWhConfig, opts)
 		if err != nil {
 			return "", fmt.Errorf("failed to create validating webhook: %w", err)
 		}
@@ -200,8 +205,8 @@ func Create(client kube.CLIClient, manifests, ns string) error {
 }
 
 // generateValidatingWebhook renders a validating webhook configuration from the given tagWebhookConfig.
-func generateValidatingWebhook(config *tagWebhookConfig, chartPath string, customLabels map[string]string) (string, error) {
-	r := helm.NewHelmRenderer(chartPath, defaultChart, "Pilot", config.IstioNamespace, nil)
+func generateValidatingWebhook(config *tagWebhookConfig, opts *GenerateOptions) (string, error) {
+	r := helm.NewHelmRenderer(opts.ManifestsPath, defaultChart, "Pilot", config.IstioNamespace, nil)
 
 	if err := r.Run(); err != nil {
 		return "", fmt.Errorf("failed running Helm renderer: %v", err)
@@ -240,8 +245,7 @@ base:
 	for i := range decodedWh.Webhooks {
 		decodedWh.Webhooks[i].ClientConfig.CABundle = []byte(config.CABundle)
 	}
-	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, config.Labels)
-	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, customLabels)
+	decodedWh.Labels = generateLabels(decodedWh.Labels, config.Labels, opts.CustomLabels, opts.UserManaged)
 	decodedWh.Annotations = maps.MergeCopy(decodedWh.Annotations, config.Annotations)
 	for i := range decodedWh.Webhooks {
 		if failurePolicy, ok := config.FailurePolicy[decodedWh.Webhooks[i].Name]; ok {
@@ -255,6 +259,19 @@ base:
 	}
 
 	return whBuf.String(), nil
+}
+
+func generateLabels(whLabels, curLabels, customLabels map[string]string, userManaged bool) map[string]string {
+	whLabels = maps.MergeCopy(whLabels, curLabels)
+	whLabels = maps.MergeCopy(whLabels, customLabels)
+	if userManaged {
+		for _, label := range whLabels {
+			if strings.Contains(label, operatorNamespace) {
+				delete(whLabels, label)
+			}
+		}
+	}
+	return whLabels
 }
 
 // generateMutatingWebhook renders a mutating webhook configuration from the given tagWebhookConfig.
@@ -311,8 +328,7 @@ istiodRemote:
 	if opts.WebhookName != "" {
 		decodedWh.Name = opts.WebhookName
 	}
-	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, config.Labels)
-	decodedWh.Labels = maps.MergeCopy(decodedWh.Labels, opts.CustomLabels)
+	decodedWh.Labels = generateLabels(decodedWh.Labels, config.Labels, opts.CustomLabels, opts.UserManaged)
 	decodedWh.Annotations = maps.MergeCopy(decodedWh.Annotations, config.Annotations)
 	whBuf := new(bytes.Buffer)
 	if err = serializer.Encode(decodedWh, whBuf); err != nil {
