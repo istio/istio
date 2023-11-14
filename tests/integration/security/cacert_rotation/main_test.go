@@ -131,7 +131,7 @@ func TestReachability(t *testing.T) {
 				}
 
 				return false
-			}, retry.Timeout(2*time.Minute), // Need more time for waiting
+			}, retry.Timeout(5*time.Minute), // Need more time for waiting, see https://github.com/istio/istio/pull/47839#issuecomment-1809510888
 				retry.Delay(1*time.Second))
 
 			// Verify traffic works between a and b after cert rotation
