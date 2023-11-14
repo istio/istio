@@ -1022,7 +1022,7 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 // isCatchAllStringMatch determines if the given matcher is matched with all strings or not.
 // Currently, if the regex has "*" value, it returns true
 func isCatchAllStringMatch(in *networking.StringMatch) bool {
-	if in == nil {
+	if in == nil || in.MatchType == nil {
 		return true
 	}
 
