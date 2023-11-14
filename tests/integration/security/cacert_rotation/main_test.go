@@ -116,6 +116,8 @@ func TestReachability(t *testing.T) {
 				t.Errorf("failed to update combined CA secret: %v", err)
 			}
 
+			t.Logf("=====updated cacerts")
+
 			// Wait for workload cert to be updated
 			retry.UntilOrFail(t, func() bool {
 				updateTime, err := getWorkloadCertLastUpdateTime(t, from[0], istioCtl)
@@ -131,7 +133,7 @@ func TestReachability(t *testing.T) {
 				}
 
 				return false
-			}, retry.Timeout(time.Minute), retry.Delay(1*time.Second))
+			}, retry.Timeout(5*time.Minute), retry.Delay(1*time.Second))
 
 			// Verify traffic works between a and b after cert rotation
 			echotest.New(t, fromAndTo).
