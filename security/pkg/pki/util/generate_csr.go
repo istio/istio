@@ -117,7 +117,7 @@ func AppendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 	if len(rootCertFile) > 0 {
 		log.Debugf("append root certificates from %v", rootCertFile)
 		certBytes, err := os.ReadFile(rootCertFile)
-		if err != nil {
+		if err != nil && !os.IsNotExist(err) {
 			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
 		}
 		rootCerts = AppendCertByte(pemCert, certBytes)
