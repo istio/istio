@@ -121,7 +121,7 @@ func (s *Server) Reconcile(input any) error {
 			s.AddPodToMesh(pod)
 		}
 	case controllers.EventUpdate:
-		return s.handleUpdate(event)
+		return s.handleUpdate(event, log)
 	case controllers.EventDelete:
 		s.DelPodFromMesh(pod, event)
 	}
@@ -132,6 +132,7 @@ func (s *Server) handleUpdate(event controllers.Event) error {
 	// For update, we just need to handle opt outs
 	newPod := event.New.(*corev1.Pod)
 	oldPod := event.Old.(*corev1.Pod)
+	log := log.WithLabels("type", event.Event, "pod", config.NamespacedName(newPod))
 	ns := s.namespaces.Get(newPod.Namespace, "")
 	if ns == nil {
 		return fmt.Errorf("failed to find namespace %v", ns)
