@@ -674,7 +674,7 @@ func (r *RedirectServer) dumpZtunnelInfo() (*mapInfo, error) {
 	return &info, nil
 }
 
-func (r *RedirectServer) DumpAppIPs() sets.Set[string] {
+func (r *RedirectServer) DumpAppIPs() sets.String {
 	var keyOut [4]byte
 	var valueOut mapInfo
 	m := sets.New[string]()

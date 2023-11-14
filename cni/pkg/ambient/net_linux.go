@@ -1309,7 +1309,7 @@ func (s *Server) cleanupNode() {
 	}
 }
 
-func (s *Server) getEnrolledIPSets() sets.Set[string] {
+func (s *Server) getEnrolledIPSets() sets.String {
 	pods := sets.New[string]()
 	switch s.redirectMode {
 	case IptablesMode:

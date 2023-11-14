@@ -338,3 +338,18 @@ func TestMapOfSet(t *testing.T) {
 	DeleteCleanupLast(m, 1, "not found")
 	assert.Equal(t, m, map[int]String{2: New("c")})
 }
+
+func TestSetString(t *testing.T) {
+	elements := []string{"a", "b", "c"}
+	set := New(elements...)
+
+	// in stringSet, we are pretty sure there will be three elements
+	stringSet := String{}
+	for i := 0; i < 1000; i++ {
+		stringSet.Insert(set.String())
+		if stringSet.Len() == 3 {
+			break
+		}
+	}
+	assert.Equal(t, stringSet.Len(), 3)
+}
