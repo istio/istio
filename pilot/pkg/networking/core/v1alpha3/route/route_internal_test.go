@@ -550,6 +550,8 @@ func TestTranslateMetadataMatch(t *testing.T) {
 		name string
 		in   *networking.StringMatch
 		want *matcher.MetadataMatcher
+
+		useExtended bool
 	}{
 		{
 			name: "@request.auth.claims",
@@ -633,10 +635,17 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
 			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io", "key1"}, authzmatcher.StringMatcher("exact"), false),
 		},
+		{
+			name: "@request.auth.claims[test-issuer-2@istio.io][key1]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io", "key1"}, authzmatcher.StringMatcher("exact"), true),
+
+			useExtended: true,
+		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := translateMetadataMatch(tc.name, tc.in, false)
+			got := translateMetadataMatch(tc.name, tc.in, tc.useExtended)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("Unexpected metadata matcher want %v, got %v", tc.want, got)
 			}
