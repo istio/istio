@@ -189,7 +189,7 @@ func (s *Server) RotateDNSCertForK8sCA(stop <-chan struct{},
 ) {
 	certUtil := certutil.NewCertUtil(int(defaultCertGracePeriodRatio * 100))
 	for {
-		waitTime, _ := certUtil.GetWaitTime(s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem, time.Now(), time.Duration(0))
+		waitTime, _ := certUtil.GetWaitTime(s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem, time.Now())
 		if !sleep.Until(stop, waitTime) {
 			return
 		}
