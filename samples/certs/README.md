@@ -8,6 +8,7 @@ The included sample files are:
 
 - `root-cert.pem`: root CA certificate.
 - `root-cert-alt.pem`: alternative CA certificate.
+- `root-cert-combined.pem`: combine `root-cert.pem` and `root-cert-alt.pem` into a single file.
 - `ca-[cert|key].pem`: Citadel intermediate certificate and corresponding private key.
 - `ca-[cert-alt|key-alt].pem`: alternative intermediate certificate and corresponding private key.
 - `cert-chain.pem`: certificate trust chain.

@@ -52,7 +52,13 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 			}
 
 			// exactHosts not found, fallback to loop allHosts
+			vhIsWildCard := host.Name(vh).IsWildCarded()
 			for _, ah := range hosts.allHosts {
+				// If both are exact hosts, then fallback is not needed.
+				// In this scenario it should be determined by exact lookup.
+				if !vhIsWildCard && !ah.IsWildCarded() {
+					continue
+				}
 				if vsHostMatches(vh, ah, vs) {
 					importedVirtualServices = append(importedVirtualServices, vs)
 					vsset.Insert(key)

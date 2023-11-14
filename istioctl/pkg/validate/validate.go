@@ -233,7 +233,8 @@ func GetTemplateLabels(u *unstructured.Unstructured) (map[string]string, error) 
 	return nil, nil
 }
 
-func (v *validator) validateFile(istioNamespace *string, defaultNamespace string, reader io.Reader, writer io.Writer) (validation.Warning, error) {
+func (v *validator) validateFile(path string, istioNamespace *string, defaultNamespace string, reader io.Reader, writer io.Writer,
+) (validation.Warning, error) {
 	decoder := yaml.NewDecoder(reader)
 	decoder.SetStrict(true)
 	var errs error
@@ -246,7 +247,7 @@ func (v *validator) validateFile(istioNamespace *string, defaultNamespace string
 			return warnings, errs
 		}
 		if err != nil {
-			errs = multierror.Append(errs, err)
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("failed to decode file %s: ", path)))
 			return warnings, errs
 		}
 		if len(raw) == 0 {
@@ -293,7 +294,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 				return
 			}
 		}
-		warning, err := v.validateFile(istioNamespace, defaultNamespace, reader, writer)
+		warning, err := v.validateFile(path, istioNamespace, defaultNamespace, reader, writer)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}

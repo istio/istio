@@ -28,6 +28,11 @@ rules:
     verbs: ["update"]
     # TODO: should be on just */status but wildcard is not supported
     resources: ["*"]
+
+  # Needed because status reporter sets the config map owner reference to the istiod pod
+  - apiGroups: [""]
+    verbs: ["update"]
+    resources: ["pods/finalizers"]
 {{- end }}
   - apiGroups: ["networking.istio.io"]
     verbs: [ "get", "watch", "list", "update", "patch", "create", "delete" ]

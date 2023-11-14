@@ -35,21 +35,33 @@ import (
 
 const fieldOwnerOperator = "istio-operator"
 
+// AppliedResult is the result of applying a Manifest.
+type AppliedResult struct {
+	// processedObjects is the list of objects that were processed in this apply operation.
+	processedObjects object.K8sObjects
+	// deployed is the number of objects have been deployed which means
+	// it's in the cache and it's not changed from the cache.
+	deployed int
+}
+
+// Succeed returns true if the apply operation succeeded.
+func (r AppliedResult) Succeed() bool {
+	return len(r.processedObjects) > 0 || r.deployed > 0
+}
+
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
 // objects and the number of objects in the manifests.
-func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply bool) (object.K8sObjects, int, error) {
-	var processedObjects object.K8sObjects
-	var deployedObjects int
+func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply bool) (result AppliedResult, _ error) {
 	cname := string(manifest.Name)
 	crHash, err := h.getCRHash(cname)
 	if err != nil {
-		return nil, 0, err
+		return result, err
 	}
 
 	scope.Infof("Processing resources from manifest: %s for CR %s", cname, crHash)
 	allObjects, err := object.ParseK8sObjectsFromYAMLManifest(manifest.Content)
 	if err != nil {
-		return nil, 0, err
+		return result, err
 	}
 
 	objectCache := cache.GetCache(crHash)
@@ -71,7 +83,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply b
 		if co, ok := objectCache.Cache[oh]; ok && obj.Equal(co) {
 			// Object is in the cache and unchanged.
 			metrics.AddResource(obj.FullName(), obj.GroupVersionKind().GroupKind())
-			deployedObjects++
+			result.deployed++
 			continue
 		}
 		changedObjects = append(changedObjects, obj)
@@ -96,15 +108,15 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply b
 		for _, obj := range objList {
 			obju := obj.UnstructuredObject()
 			if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
-				return nil, 0, err
+				return result, err
 			}
 			if err := h.ApplyObject(obj.UnstructuredObject(), serverSideApply); err != nil {
 				plog.ReportError(err.Error())
-				return processedObjects, 0, err
+				return result, err
 			}
 			plog.ReportProgress()
 			metrics.AddResource(obj.FullName(), obj.GroupVersionKind().GroupKind())
-			processedObjects = append(processedObjects, obj)
+			result.processedObjects = append(result.processedObjects, obj)
 			// Update the cache with the latest object.
 			objectCache.Cache[obj.Hash()] = obj
 		}
@@ -123,17 +135,17 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply b
 	}
 
 	if len(changedObjectKeys) > 0 {
-		err := WaitForResources(processedObjects, h.kubeClient,
+		err := WaitForResources(result.processedObjects, h.kubeClient,
 			h.opts.WaitTimeout, h.opts.DryRun, plog)
 		if err != nil {
 			werr := fmt.Errorf("failed to wait for resource: %v", err)
 			plog.ReportError(werr.Error())
-			return processedObjects, 0, werr
+			return result, werr
 		}
 		plog.ReportFinished()
 
 	}
-	return processedObjects, deployedObjects, nil
+	return result, nil
 }
 
 // ApplyObject creates or updates an object in the API server depending on whether it already exists.
