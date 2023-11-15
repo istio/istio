@@ -378,21 +378,23 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 
 		// Metadata exchange filter needs to be added before any other HTTP filters are added. This is done to
 		// ensure that mx filter comes before HTTP RBAC filter. This is related to https://github.com/istio/istio/issues/41066
-		if features.MetadataExchange && !httpOpts.hbone && !lb.node.IsAmbient() {
-			if features.NativeMetadataExchange && util.IsIstioVersionGE119(lb.node.IstioVersion) {
-				if httpOpts.class == istionetworking.ListenerClassSidecarInbound {
-					filters = append(filters, xdsfilters.SidecarInboundMetadataFilter)
-				} else {
-					if httpOpts.skipIstioMXHeaders {
-						filters = append(filters, xdsfilters.SidecarOutboundMetadataFilterSkipHeaders)
+		/*
+			if features.MetadataExchange && !httpOpts.hbone && !lb.node.IsAmbient() {
+				if features.NativeMetadataExchange && util.IsIstioVersionGE119(lb.node.IstioVersion) {
+					if httpOpts.class == istionetworking.ListenerClassSidecarInbound {
+						filters = append(filters, xdsfilters.SidecarInboundMetadataFilter)
 					} else {
-						filters = append(filters, xdsfilters.SidecarOutboundMetadataFilter)
+						if httpOpts.skipIstioMXHeaders {
+							filters = append(filters, xdsfilters.SidecarOutboundMetadataFilterSkipHeaders)
+						} else {
+							filters = append(filters, xdsfilters.SidecarOutboundMetadataFilter)
+						}
 					}
+				} else {
+					filters = append(filters, xdsfilters.HTTPMx)
 				}
-			} else {
-				filters = append(filters, xdsfilters.HTTPMx)
 			}
-		}
+		*/
 		// TODO: how to deal with ext-authz? It will be in the ordering twice
 		filters = append(filters, lb.authzCustomBuilder.BuildHTTP(httpOpts.class)...)
 		filters = extension.PopAppendHTTP(filters, wasm, extensions.PluginPhase_AUTHN)
