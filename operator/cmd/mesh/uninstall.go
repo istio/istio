@@ -200,6 +200,21 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 	if err := h.DeleteControlPlaneByManifests(manifestMap, iop.Spec.Revision, uiArgs.purge); err != nil {
 		return fmt.Errorf("failed to delete control plane by manifests: %v", err)
 	}
+	iopName := savedIOPName(iop)
+	ioplist := h.GetIstioOperatorCR()
+	for _, item := range ioplist.Items {
+		if item.GetName() == iopName {
+			err = h.DeleteObjectsList([]*unstructured.UnstructuredList{
+				{
+					Items: []unstructured.Unstructured{item},
+				},
+			}, "")
+			if err != nil {
+				return fmt.Errorf("failed to delete IstioOperator CR: %v", err)
+			}
+			break
+		}
+	}
 	opts.ProgressLog.SetState(progress.StateUninstallComplete)
 	return nil
 }

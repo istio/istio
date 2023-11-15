@@ -249,12 +249,12 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	gvkList := append(resources, ClusterCPResources...)
 	if includeClusterResources {
 		gvkList = append(resources, AllClusterResources...)
-		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
+		if ioplist := h.GetIstioOperatorCR(); ioplist.Items != nil {
 			usList = append(usList, ioplist)
 		}
 	} else if componentName == "" {
 		// Remove Istio operator CR with specified revision if it is uninstalled
-		ioplist := h.getIstioOperatorCR()
+		ioplist := h.GetIstioOperatorCR()
 		if ioplist.Items != nil {
 			for _, iop := range ioplist.Items {
 				revisionIop := getIstioOperatorCRName(revision)
@@ -313,10 +313,10 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	return usList, nil
 }
 
-// getIstioOperatorCR is a helper function to get IstioOperator CR during purge,
+// GetIstioOperatorCR is a helper function to get IstioOperator CR during purge,
 // otherwise the resources would be reconciled back later if there is in-cluster operator deployment.
 // And it is needed to remove the IstioOperator CRD.
-func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
+func (h *HelmReconciler) GetIstioOperatorCR() *unstructured.UnstructuredList {
 	objects := &unstructured.UnstructuredList{}
 	objects.SetGroupVersionKind(schema.GroupVersionKind{
 		Group:   "install.istio.io",
