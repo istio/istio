@@ -153,7 +153,7 @@ func (s *Server) handleUpdate(event controllers.Event) error {
 	case removeFromMesh:
 		log.Debugf("Pod no longer matches, removing from mesh")
 		s.DelPodFromMesh(newPod, event)
-	case joinMesh || meshedPodNotInIpset:
+	case joinMesh:
 		log.Debugf("Pod now matches, adding to mesh")
 		s.AddPodToMesh(newPod)
 	case meshedPodNotInIpset:
