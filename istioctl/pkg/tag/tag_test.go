@@ -36,7 +36,6 @@ func TestTagList(t *testing.T) {
 		webhooks       admitv1.MutatingWebhookConfigurationList
 		namespaces     corev1.NamespaceList
 		outputMatches  []string
-		outputExcludes []string
 		error          string
 	}{
 		{
@@ -57,11 +56,10 @@ func TestTagList(t *testing.T) {
 			},
 			namespaces:     corev1.NamespaceList{},
 			outputMatches:  []string{"sample", "sample-revision"},
-			outputExcludes: []string{},
 			error:          "",
 		},
 		{
-			name: "TestNonTagWebhooksExcluded",
+			name: "TestNonTagWebhooksIncluded",
 			webhooks: admitv1.MutatingWebhookConfigurationList{
 				Items: []admitv1.MutatingWebhookConfiguration{
 					{
@@ -73,8 +71,7 @@ func TestTagList(t *testing.T) {
 				},
 			},
 			namespaces:     corev1.NamespaceList{},
-			outputMatches:  []string{},
-			outputExcludes: []string{"test"},
+			outputMatches:  []string{"test"},
 			error:          "",
 		},
 		{
@@ -103,7 +100,6 @@ func TestTagList(t *testing.T) {
 				},
 			},
 			outputMatches:  []string{"test", "revision", "dependent"},
-			outputExcludes: []string{},
 			error:          "",
 		},
 	}
@@ -129,11 +125,6 @@ func TestTagList(t *testing.T) {
 			commandOutput := out.String()
 			for _, s := range tc.outputMatches {
 				if !strings.Contains(commandOutput, s) {
-					t.Fatalf("expected \"%s\" in command output, got %s", s, commandOutput)
-				}
-			}
-			for _, s := range tc.outputExcludes {
-				if strings.Contains(commandOutput, s) {
 					t.Fatalf("expected \"%s\" in command output, got %s", s, commandOutput)
 				}
 			}
