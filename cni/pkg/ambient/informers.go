@@ -121,7 +121,7 @@ func (s *Server) Reconcile(input any) error {
 			s.AddPodToMesh(pod)
 		}
 	case controllers.EventUpdate:
-		return s.handleUpdate(event, log)
+		return s.handleUpdate(event)
 	case controllers.EventDelete:
 		s.DelPodFromMesh(pod, event)
 	}
@@ -133,24 +133,22 @@ func (s *Server) handleUpdate(event controllers.Event) error {
 	newPod := event.New.(*corev1.Pod)
 	oldPod := event.Old.(*corev1.Pod)
 	log := log.WithLabels("type", event.Event, "pod", config.NamespacedName(newPod))
+
 	ns := s.namespaces.Get(newPod.Namespace, "")
 	if ns == nil {
 		return fmt.Errorf("failed to find namespace %v", ns)
 	}
+
 	wasEnabled := oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 	nowEnabled := PodRedirectionEnabled(ns, newPod)
 
 	noBusiness := !wasEnabled && !nowEnabled
-	podIsDeleting := newPod.DeletionTimestamp != nil
 	podNeedRemoveToMesh := wasEnabled && !nowEnabled
 	podIsJoiningMesh := !wasEnabled && nowEnabled
 	meshedPodNotInIpset := nowEnabled && !IsPodInIpset(newPod)
 
 	switch {
 	case noBusiness: // no business with ambient mesh
-		return nil
-	case podIsDeleting:
-		log.Debugf("Pod is being deleted, waiting for the delete event")
 		return nil
 	case podNeedRemoveToMesh:
 		log.Debugf("Pod no longer matches, removing from mesh")
