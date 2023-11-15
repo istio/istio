@@ -171,7 +171,11 @@ func (rpg requestPrincipalGenerator) principal(key, value string, forTCP bool, _
 			matchSub = matchAny
 		case strings.HasPrefix(value, "*"):
 			if found {
-				matchIss = matcher.StringMatcherSuffix(strings.TrimPrefix(iss, "*"), false)
+				if iss == "*" {
+					matchIss = matchAny
+				} else {
+					matchIss = matcher.StringMatcherSuffix(strings.TrimPrefix(iss, "*"), false)
+				}
 				matchSub = matcher.StringMatcherExact(sub, false)
 			} else {
 				matchIss = matchAny
@@ -180,7 +184,11 @@ func (rpg requestPrincipalGenerator) principal(key, value string, forTCP bool, _
 		case strings.HasSuffix(value, "*"):
 			if found {
 				matchIss = matcher.StringMatcherExact(iss, false)
-				matchSub = matcher.StringMatcherPrefix(strings.TrimSuffix(sub, "*"), false)
+				if sub == "*" {
+					matchSub = matchAny
+				} else {
+					matchSub = matcher.StringMatcherPrefix(strings.TrimSuffix(sub, "*"), false)
+				}
 			} else {
 				matchIss = matcher.StringMatcherPrefix(strings.TrimSuffix(value, "*"), false)
 				matchSub = matchAny
@@ -189,8 +197,8 @@ func (rpg requestPrincipalGenerator) principal(key, value string, forTCP bool, _
 			matchSub = matcher.StringMatcherExact(sub, false)
 			matchIss = matcher.StringMatcherExact(iss, false)
 		}
-		im := MetadataMatcherForJWTClaims([]string{"iss"}, matchIss, true)
-		sm := MetadataMatcherForJWTClaims([]string{"sub"}, matchSub, true)
+		im := MetadataStringMatcherForJWTClaim("iss", matchIss)
+		sm := MetadataStringMatcherForJWTClaim("sub", matchSub)
 		return principalAnd([]*rbacpb.Principal{principalMetadata(im), principalMetadata(sm)}), nil
 	}
 	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
@@ -210,7 +218,7 @@ func (rag requestAudiencesGenerator) principal(key, value string, forTCP bool, u
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 	if rag.useExtendedJwt {
-		return principalMetadata(MetadataMatcherForJWTClaims([]string{"aud"}, matcher.StringMatcher(value), true)), nil
+		return principalMetadata(MetadataStringMatcherForJWTClaim("aud", matcher.StringMatcher(value))), nil
 	}
 	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
 	return principalMetadata(m), nil
