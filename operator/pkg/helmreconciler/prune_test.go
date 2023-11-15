@@ -54,7 +54,7 @@ var (
 
 func TestHelmReconciler_DeleteControlPlaneByManifest(t *testing.T) {
 	t.Run("deleteControlPlaneByManifest", func(t *testing.T) {
-		cl := fake.NewClientBuilder().Build()
+		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
 		df := filepath.Join(env.IstioSrc, "manifests/profiles/default.yaml")
 		iopStr, err := os.ReadFile(df)
 		if err != nil {
@@ -127,7 +127,7 @@ func applyResourcesIntoCluster(t *testing.T, h *HelmReconciler, manifestMap name
 func TestHelmReconciler_GetPrunedResources(t *testing.T) {
 	t.Run("get gateway pruned resources", func(t *testing.T) {
 		var h1 *HelmReconciler
-		cl := fake.NewClientBuilder().Build()
+		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
 		// init two custom gateways with revision
 		gateways := [][]byte{iopTestGwData1, iopTestGwData2}
 		for i, data := range gateways {
@@ -175,7 +175,7 @@ func TestHelmReconciler_GetPrunedResources(t *testing.T) {
 
 func TestPilotExist(t *testing.T) {
 	t.Run("exist", func(t *testing.T) {
-		cl := fake.NewClientBuilder().Build()
+		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
 		iop := &v1alpha1.IstioOperator{}
 		h := &HelmReconciler{
 			client:     cl,
@@ -204,7 +204,7 @@ func TestPilotExist(t *testing.T) {
 	})
 
 	t.Run("non-exist", func(t *testing.T) {
-		cl := fake.NewClientBuilder().Build()
+		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
 		iop := &v1alpha1.IstioOperator{}
 		kc := kube.NewFakeClientWithVersion("24")
 		h := &HelmReconciler{

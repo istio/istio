@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
@@ -255,31 +254,7 @@ func (h *HelmReconciler) CheckSSAEnabled() bool {
 	if TestMode {
 		return false // our unit test setup doesn't work with SSA
 	}
-	if h.kubeClient != nil {
-		// SSA went GA in k8s 1.22
-		if kube.IsAtLeastVersion(h.kubeClient, 22) {
-			return true
-		}
-		// For versions greater than 1.18, detect if SSA is enabled.
-		// There is a known issue with this detection logic for k8s clusters that were upgraded.
-		// See: https://github.com/istio/istio/issues/37946#issuecomment-1072875625
-		if kube.IsAtLeastVersion(h.kubeClient, 18) {
-			// todo(kebe7jun) a more general test method
-			// API Server does not support detecting whether ServerSideApply is enabled
-			// through the API for the time being.
-			ns, err := h.kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), constants.KubeSystemNamespace, metav1.GetOptions{})
-			if err != nil {
-				scope.Warnf("failed to get namespace: %v", err)
-				return false
-			}
-			if ns.ManagedFields == nil {
-				scope.Infof("k8s support ServerSideApply but was manually disabled")
-				return false
-			}
-			return true
-		}
-	}
-	return false
+	return true
 }
 
 // Delete resources associated with the custom resource instance
