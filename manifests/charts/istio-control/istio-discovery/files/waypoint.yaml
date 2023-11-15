@@ -126,6 +126,12 @@ spec:
         - name: PROXY_CONFIG
           value: |
                  {{ protoToJSON .ProxyConfig }}
+        {{- if .ProxyConfig.ProxyMetadata }}
+        {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- end }}
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
