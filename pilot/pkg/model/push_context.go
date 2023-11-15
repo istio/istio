@@ -37,7 +37,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
-	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
@@ -187,7 +186,6 @@ func newGatewayIndex() gatewayIndex {
 type serviceAccountKey struct {
 	hostname  host.Name
 	namespace string
-	port      int
 }
 
 // PushContext tracks the status of a push - metrics and errors.
@@ -1584,31 +1582,29 @@ func SortServicesByCreationTime(services []*Service) []*Service {
 // Caches list of service accounts in the registry
 func (ps *PushContext) initServiceAccounts(env *Environment, services []*Service) {
 	for _, svc := range services {
-		for _, port := range svc.Ports {
-			if port.Protocol == protocol.UDP {
-				continue
-			}
-			var accounts sets.String
-			func() {
-				// First get endpoint level service accounts
-				shard, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
-				if f {
-					shard.RLock()
-					defer shard.RUnlock()
-					accounts = shard.ServiceAccounts
-				}
-				if len(svc.ServiceAccounts) > 0 {
-					accounts = accounts.Copy().InsertAll(svc.ServiceAccounts...)
-				}
-				sa := sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
-				key := serviceAccountKey{
-					hostname:  svc.Hostname,
-					namespace: svc.Attributes.Namespace,
-					port:      port.Port,
-				}
-				ps.serviceAccounts[key] = sa
-			}()
+		var accounts sets.String
+		// First get endpoint level service accounts
+		shard, f := env.EndpointIndex.ShardsForService(string(svc.Hostname), svc.Attributes.Namespace)
+		if f {
+			shard.RLock()
+			// copy here to reduce the lock time
+			// endpoints could update frequently, so the longer it locks, the more likely it will block other threads.
+			accounts = shard.ServiceAccounts.Copy()
+			shard.RUnlock()
 		}
+		if len(svc.ServiceAccounts) > 0 {
+			if accounts == nil {
+				accounts = sets.New(svc.ServiceAccounts...)
+			} else {
+				accounts = accounts.InsertAll(svc.ServiceAccounts...)
+			}
+		}
+		sa := sets.SortedList(spiffe.ExpandWithTrustDomains(accounts, ps.Mesh.TrustDomainAliases))
+		key := serviceAccountKey{
+			hostname:  svc.Hostname,
+			namespace: svc.Attributes.Namespace,
+		}
+		ps.serviceAccounts[key] = sa
 	}
 }
 
@@ -2300,11 +2296,10 @@ func (ps *PushContext) ReferenceAllowed(kind config.GroupVersionKind, resourceNa
 	return false
 }
 
-func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string, port int) []string {
+func (ps *PushContext) ServiceAccounts(hostname host.Name, namespace string) []string {
 	return ps.serviceAccounts[serviceAccountKey{
 		hostname:  hostname,
 		namespace: namespace,
-		port:      port,
 	}]
 }
 

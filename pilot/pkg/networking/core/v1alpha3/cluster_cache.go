@@ -203,7 +203,7 @@ func buildClusterKey(service *model.Service, port *model.Port, cb *ClusterBuilde
 		envoyFilterKeys: efKeys,
 		metadataCerts:   cb.metadataCerts,
 		peerAuthVersion: cb.req.Push.AuthnPolicies.GetVersion(),
-		serviceAccounts: cb.req.Push.ServiceAccounts(service.Hostname, service.Attributes.Namespace, port.Port),
+		serviceAccounts: cb.req.Push.ServiceAccounts(service.Hostname, service.Attributes.Namespace),
 		endpointBuilder: eb,
 	}
 }

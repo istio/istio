@@ -67,8 +67,15 @@ func (hc hostClassification) Matches(h host.Name) bool {
 	if hc.exactHosts.Contains(h) {
 		return true
 	}
+
 	// exactHosts not found, fallback to loop allHosts
+	hIsWildCarded := h.IsWildCarded()
 	for _, importedHost := range hc.allHosts {
+		// If both are exact hosts, then fallback is not needed.
+		// In this scenario it should be determined by exact lookup.
+		if !hIsWildCarded && !importedHost.IsWildCarded() {
+			continue
+		}
 		// Check if the hostnames match per usual hostname matching rules
 		if h.SubsetOf(importedHost) {
 			return true
