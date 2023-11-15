@@ -278,7 +278,7 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 	}
 
 	if !pi.Containers.Contains(ISTIOPROXY) {
-		log.Infof("excluded because it does not have istio-proxy container (have %s)", sets.SortedList(pi.Containers))
+		log.Infof("excluded because it does not have istio-proxy container (have %v)", sets.SortedList(pi.Containers))
 		return nil
 	}
 
