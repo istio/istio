@@ -25,6 +25,8 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -45,7 +47,6 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 type InstallArgs struct {

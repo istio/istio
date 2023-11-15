@@ -22,6 +22,15 @@ import (
 	"path/filepath"
 	"strings"
 
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/version"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/envtest"
+
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
@@ -33,14 +42,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/version"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 )
 
 // cmdType is one of the commands used to generate and optionally apply a manifest.
@@ -216,7 +217,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 	if err != nil {
 		return nil, err
 	}
-	if err := fakeInstallOperator(reconciler, chartSource, iop); err != nil {
+	if err := fakeInstallOperator(reconciler, chartSource); err != nil {
 		return nil, err
 	}
 
@@ -230,7 +231,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 // fakeInstallOperator installs the operator manifest resources into a cluster using the given reconciler.
 // The installation is for testing with a kubebuilder fake cluster only, since no functional Deployment will be
 // created.
-func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType, iop *v1alpha1.IstioOperator) error {
+func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType) error {
 	ocArgs := &operatorCommonArgs{
 		manifestsPath:     string(chartSource),
 		istioNamespace:    constants.IstioSystemNamespace,

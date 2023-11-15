@@ -48,8 +48,6 @@ const (
 	IstioComponentLabelStr = name.OperatorAPINamespace + "/component"
 	// istioVersionLabelStr indicates the Istio version of the installation.
 	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
-	// istioOperatorInstallPrefix indicates the name of resource istiooperators.install.istio.io for Istio operator installation.
-	istioOperatorsInstallPrefix = "installed-state"
 )
 
 var (
