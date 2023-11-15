@@ -29,9 +29,9 @@ import (
 	"istio.io/istio/istioctl/pkg/util"
 )
 
-func GetTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admitv1.MutatingWebhookConfiguration, error) {
+func GetRevisionWebhooks(ctx context.Context, client kubernetes.Interface) ([]admitv1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
-		LabelSelector: IstioTagLabel,
+		LabelSelector: label.IoIstioRev.Name,
 	})
 	if err != nil {
 		return nil, err
@@ -79,11 +79,8 @@ func GetNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag 
 }
 
 // GetWebhookTagName extracts tag name from webhook object.
-func GetWebhookTagName(wh admitv1.MutatingWebhookConfiguration) (string, error) {
-	if tagName, ok := wh.ObjectMeta.Labels[IstioTagLabel]; ok {
-		return tagName, nil
-	}
-	return "", fmt.Errorf("could not extract tag name from webhook")
+func GetWebhookTagName(wh admitv1.MutatingWebhookConfiguration) string {
+	return wh.ObjectMeta.Labels[IstioTagLabel]
 }
 
 // GetWebhookRevision extracts tag target revision from webhook object.
