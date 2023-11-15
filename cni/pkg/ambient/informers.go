@@ -143,17 +143,17 @@ func (s *Server) handleUpdate(event controllers.Event) error {
 	nowEnabled := PodRedirectionEnabled(ns, newPod)
 
 	noBusiness := !wasEnabled && !nowEnabled
-	podNeedRemoveToMesh := wasEnabled && !nowEnabled
-	podIsJoiningMesh := !wasEnabled && nowEnabled
+	removeFromMesh := wasEnabled && !nowEnabled
+	joinMesh := !wasEnabled && nowEnabled
 	meshedPodNotInIpset := nowEnabled && !IsPodInIpset(newPod)
 
 	switch {
 	case noBusiness: // no business with ambient mesh
 		return nil
-	case podNeedRemoveToMesh:
+	case removeFromMesh:
 		log.Debugf("Pod no longer matches, removing from mesh")
 		s.DelPodFromMesh(newPod, event)
-	case podIsJoiningMesh:
+	case joinMesh || meshedPodNotInIpset:
 		log.Debugf("Pod now matches, adding to mesh")
 		s.AddPodToMesh(newPod)
 	case meshedPodNotInIpset:
