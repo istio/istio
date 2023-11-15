@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
@@ -155,17 +156,41 @@ func (requestPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permis
 	return nil, fmt.Errorf("unimplemented")
 }
 
+var matchAny = matcher.StringMatcherRegex(".+")
+
 func (rpg requestPrincipalGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
 	if rpg.useExtendedJwt {
-		iss, sub, _ := strings.Cut(value, "/")
-		if value == "*" {
-			iss, sub = "*", "*"
+		iss, sub, found := strings.Cut(value, "/")
+		var matchIss, matchSub *matcherpb.StringMatcher
+		switch {
+		case value == "*":
+			matchIss = matchAny
+			matchSub = matchAny
+		case strings.HasPrefix(value, "*"):
+			if found {
+				matchIss = matcher.StringMatcherSuffix(strings.TrimPrefix(iss, "*"), false)
+				matchSub = matcher.StringMatcherExact(sub, false)
+			} else {
+				matchIss = matchAny
+				matchSub = matcher.StringMatcherSuffix(strings.TrimPrefix(value, "*"), false)
+			}
+		case strings.HasSuffix(value, "*"):
+			if found {
+				matchIss = matcher.StringMatcherExact(iss, false)
+				matchSub = matcher.StringMatcherPrefix(strings.TrimSuffix(sub, "*"), false)
+			} else {
+				matchIss = matcher.StringMatcherPrefix(strings.TrimSuffix(value, "*"), false)
+				matchSub = matchAny
+			}
+		default:
+			matchSub = matcher.StringMatcherExact(sub, false)
+			matchIss = matcher.StringMatcherExact(iss, false)
 		}
-		im := MetadataMatcherForJWTClaims([]string{"iss"}, matcher.StringMatcher(iss), true)
-		sm := MetadataMatcherForJWTClaims([]string{"sub"}, matcher.StringMatcher(sub), true)
+		im := MetadataMatcherForJWTClaims([]string{"iss"}, matchIss, true)
+		sm := MetadataMatcherForJWTClaims([]string{"sub"}, matchSub, true)
 		return principalAnd([]*rbacpb.Principal{principalMetadata(im), principalMetadata(sm)}), nil
 	}
 	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
