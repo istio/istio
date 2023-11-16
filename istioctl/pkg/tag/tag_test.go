@@ -32,11 +32,11 @@ import (
 
 func TestTagList(t *testing.T) {
 	tcs := []struct {
-		name           string
-		webhooks       admitv1.MutatingWebhookConfigurationList
-		namespaces     corev1.NamespaceList
-		outputMatches  []string
-		error          string
+		name          string
+		webhooks      admitv1.MutatingWebhookConfigurationList
+		namespaces    corev1.NamespaceList
+		outputMatches []string
+		error         string
 	}{
 		{
 			name: "TestBasicTag",
@@ -54,9 +54,9 @@ func TestTagList(t *testing.T) {
 					},
 				},
 			},
-			namespaces:     corev1.NamespaceList{},
-			outputMatches:  []string{"sample", "sample-revision"},
-			error:          "",
+			namespaces:    corev1.NamespaceList{},
+			outputMatches: []string{"sample", "sample-revision"},
+			error:         "",
 		},
 		{
 			name: "TestNonTagWebhooksIncluded",
@@ -70,9 +70,9 @@ func TestTagList(t *testing.T) {
 					},
 				},
 			},
-			namespaces:     corev1.NamespaceList{},
-			outputMatches:  []string{"test"},
-			error:          "",
+			namespaces:    corev1.NamespaceList{},
+			outputMatches: []string{"test"},
+			error:         "",
 		},
 		{
 			name: "TestNamespacesIncluded",
@@ -99,8 +99,8 @@ func TestTagList(t *testing.T) {
 					},
 				},
 			},
-			outputMatches:  []string{"test", "revision", "dependent"},
-			error:          "",
+			outputMatches: []string{"test", "revision", "dependent"},
+			error:         "",
 		},
 	}
 
