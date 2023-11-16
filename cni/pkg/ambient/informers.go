@@ -139,16 +139,19 @@ func (s *Server) handleUpdate(event controllers.Event) error {
 		return fmt.Errorf("failed to find namespace %v", ns)
 	}
 
+	// wasEnabled can safely assume that if constants.AmbientRedirection was on OldPod
+	// by only this annotation.
 	wasEnabled := oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
+	// nowEnabled is checked by more precise PodRedirectionEnabled
 	nowEnabled := PodRedirectionEnabled(ns, newPod)
 
-	noBusiness := !wasEnabled && !nowEnabled
+	notAmbientPod := !wasEnabled && !nowEnabled
 	removeFromMesh := wasEnabled && !nowEnabled
 	joinMesh := !wasEnabled && nowEnabled
 	meshedPodNotInIpset := nowEnabled && !IsPodInIpset(newPod)
 
 	switch {
-	case noBusiness: // no business with ambient mesh
+	case notAmbientPod:
 		return nil
 	case removeFromMesh:
 		log.Debugf("Pod no longer matches, removing from mesh")
