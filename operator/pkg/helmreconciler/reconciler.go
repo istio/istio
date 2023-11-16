@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -91,17 +90,10 @@ type Options struct {
 	SkipPrune bool
 }
 
-var (
-	defaultOptions = &Options{
-		Log:         clog.NewDefaultLogger(),
-		ProgressLog: progress.NewLog(),
-	}
-	conflictBackoff = wait.Backoff{
-		Duration: time.Millisecond * 10,
-		Factor:   2,
-		Steps:    3,
-	}
-)
+var defaultOptions = &Options{
+	Log:         clog.NewDefaultLogger(),
+	ProgressLog: progress.NewLog(),
+}
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
 func NewHelmReconciler(client client.Client, kubeClient kube.Client, iop *istioV1Alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
@@ -191,8 +183,6 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	// wg waits for all manifest processing goroutines to finish
 	var wg sync.WaitGroup
 
-	serverSideApply := h.CheckSSAEnabled()
-
 	for c, ms := range manifests {
 		c, ms := c, ms
 		wg.Add(1)
@@ -218,7 +208,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 					Name:    c,
 					Content: name.MergeManifestSlices(ms),
 				}
-				appliedResult, err = h.ApplyManifest(m, serverSideApply)
+				appliedResult, err = h.ApplyManifest(m)
 				if err != nil {
 					status = v1alpha1.InstallStatus_ERROR
 				} else if appliedResult.Succeed() {
@@ -247,14 +237,6 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	}
 
 	return out
-}
-
-// CheckSSAEnabled is a helper function to check whether ServerSideApply should be used when applying manifests.
-func (h *HelmReconciler) CheckSSAEnabled() bool {
-	if TestMode {
-		return false // our unit test setup doesn't work with SSA
-	}
-	return true
 }
 
 // Delete resources associated with the custom resource instance

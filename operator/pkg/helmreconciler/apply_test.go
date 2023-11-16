@@ -37,7 +37,13 @@ import (
 	"istio.io/istio/operator/pkg/object"
 )
 
-var interceptorFunc = interceptor.Funcs{Patch: func(ctx context.Context, clnt client.WithWatch, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
+var interceptorFunc = interceptor.Funcs{Patch: func(
+	ctx context.Context,
+	clnt client.WithWatch,
+	obj client.Object,
+	patch client.Patch,
+	opts ...client.PatchOption,
+) error {
 	// Apply patches are supposed to upsert, but fake client fails if the object doesn't exist,
 	// if an apply patch occurs for an object that doesn't yet exist, create it.
 	if patch.Type() != types.ApplyPatchType {

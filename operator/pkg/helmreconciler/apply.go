@@ -20,7 +20,6 @@ import (
 	"strings"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
-	kubectlutil "k8s.io/kubectl/pkg/util"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/istio/operator/pkg/cache"
@@ -49,7 +48,7 @@ func (r AppliedResult) Succeed() bool {
 
 // ApplyManifest applies the manifest to create or update resources. It returns the processed (created or updated)
 // objects and the number of objects in the manifests.
-func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply bool) (result AppliedResult, _ error) {
+func (h *HelmReconciler) ApplyManifest(manifest name.Manifest) (result AppliedResult, _ error) {
 	cname := string(manifest.Name)
 	crHash, err := h.getCRHash(cname)
 	if err != nil {
@@ -108,7 +107,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply b
 			if err := h.applyLabelsAndAnnotations(obju, cname); err != nil {
 				return result, err
 			}
-			if err := h.ApplyObject(obj.UnstructuredObject(), serverSideApply); err != nil {
+			if err := h.ApplyObject(obj.UnstructuredObject()); err != nil {
 				plog.ReportError(err.Error())
 				return result, err
 			}
@@ -148,7 +147,7 @@ func (h *HelmReconciler) ApplyManifest(manifest name.Manifest, serverSideApply b
 
 // ApplyObject creates or updates an object in the API server depending on whether it already exists.
 // It mutates obj.
-func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideApply bool) error {
+func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured) error {
 	if obj.GetKind() == "List" {
 		var errs util.Errors
 		list, err := obj.ToList()
@@ -157,18 +156,12 @@ func (h *HelmReconciler) ApplyObject(obj *unstructured.Unstructured, serverSideA
 			return err
 		}
 		for _, item := range list.Items {
-			err = h.ApplyObject(&item, serverSideApply)
+			err = h.ApplyObject(&item)
 			if err != nil {
 				errs = util.AppendErr(errs, err)
 			}
 		}
 		return errs.ToError()
-	}
-
-	if !serverSideApply {
-		if err := kubectlutil.CreateApplyAnnotation(obj, unstructured.UnstructuredJSONScheme); err != nil {
-			scope.Errorf("unexpected error adding apply annotation to object: %s", err)
-		}
 	}
 
 	objectStr := fmt.Sprintf("%s/%s/%s", obj.GetKind(), obj.GetNamespace(), obj.GetName())
