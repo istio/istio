@@ -21,7 +21,6 @@ import (
 
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
@@ -959,15 +958,11 @@ func (c *Controller) AdditionalPodSubscriptions(
 // syncAllWorkloadsForAmbient refreshes all ambient workloads.
 func (c *Controller) syncAllWorkloadsForAmbient() {
 	if c.ambientIndex != nil {
-		namespaces := c.namespaces.List(metav1.NamespaceAll, klabels.Everything())
-		discoveryNamespaces := make([]string, 0, len(namespaces))
-		for _, ns := range namespaces {
-			if c.opts.DiscoveryNamespacesFilter != nil &&
-				c.opts.DiscoveryNamespacesFilter.Filter(ns.GetName()) {
-				discoveryNamespaces = append(discoveryNamespaces, ns.GetName())
-			}
+		var namespaces []string
+		if c.opts.DiscoveryNamespacesFilter != nil {
+			namespaces = c.opts.DiscoveryNamespacesFilter.GetMembers().UnsortedList()
 		}
-		for _, ns := range discoveryNamespaces {
+		for _, ns := range namespaces {
 			pods := c.podsClient.List(ns, klabels.Everything())
 			c.ambientIndex.HandleSelectedNamespace(ns, pods, c)
 		}
