@@ -192,6 +192,8 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(experimentalCmd)
 	rootCmd.AddCommand(proxyconfig.ProxyConfig(ctx))
 	rootCmd.AddCommand(admin.Cmd(ctx))
+	rootCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
+
 	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
 	rootCmd.AddCommand(install.NewVerifyCommand(ctx))
@@ -207,7 +209,8 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(revision.Cmd(ctx))
 	experimentalCmd.AddCommand(internaldebug.DebugCommand(ctx))
 	experimentalCmd.AddCommand(precheck.Cmd(ctx))
-	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
+	// TODO: remove this later
+	experimentalCmd.AddCommand(softGraduatedCmd(proxyconfig.StatsConfigCmd(ctx)))
 	experimentalCmd.AddCommand(checkinject.Cmd(ctx))
 	experimentalCmd.AddCommand(waypoint.Cmd(ctx))
 
@@ -318,4 +321,18 @@ func seeExperimentalCmd(name string) *cobra.Command {
 			return errors.New(msg)
 		},
 	}
+}
+
+// softGraduatedCmd is used for commands that have graduated, but we still want the old invocation to work.
+func softGraduatedCmd(cmd *cobra.Command) *cobra.Command {
+	msg := fmt.Sprintf("(%s has graduated. Use `istioctl %s`)", cmd.Name(), cmd.Name())
+
+	newCmd := *cmd
+	newCmd.Short = fmt.Sprintf("%s %s", cmd.Short, msg)
+	newCmd.RunE = func(c *cobra.Command, args []string) error {
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr(), msg)
+		return cmd.RunE(c, args)
+	}
+
+	return &newCmd
 }
