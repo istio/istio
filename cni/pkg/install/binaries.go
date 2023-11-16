@@ -24,8 +24,8 @@ import (
 
 // Copies/mirrors any files present in a single source dir to N number of target dirs
 // and returns a set of the filenames copied.
-func copyBinaries(srcDir string, targetDirs []string) (sets.Set[string], error) {
-	copiedFilenames := sets.Set[string]{}
+func copyBinaries(srcDir string, targetDirs []string) (sets.String, error) {
+	copiedFilenames := sets.String{}
 	srcFiles, err := os.ReadDir(srcDir)
 	if err != nil {
 		return copiedFilenames, err

@@ -115,7 +115,7 @@ func TestGatewayHostnames(t *testing.T) {
 		xdsUpdater.WaitOrFail(t, "xds full")
 	})
 
-	workingDNSServer.setHosts(make(sets.Set[string]))
+	workingDNSServer.setHosts(make(sets.String))
 	t.Run("no answer", func(t *testing.T) {
 		assert.EventuallyEqual(t, func() int {
 			return len(env.NetworkManager.AllGateways())
