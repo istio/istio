@@ -472,23 +472,28 @@ func translateRoute(
 	if in.CorsPolicy != nil {
 		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(in.CorsPolicy))
 	}
-	if len(hostnames) > 0 {
-		for _, hostname := range hostnames {
-			svc := serviceRegistry[hostname]
-			// Build stateful set config if the svc has appropriate labels attached.
-			if statefulConfig := util.MaybeBuildStatefulSessionFilterConfig(svc); statefulConfig != nil {
-				if out.TypedPerFilterConfig == nil {
-					out.TypedPerFilterConfig = make(map[string]*anypb.Any)
-				}
-				perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
-					Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
-						StatefulSession: statefulConfig,
-					},
-				}
-				out.TypedPerFilterConfig[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
-				break
-			}
+	var statefulConfig *statefulsession.StatefulSession
+	for _, hostname := range hostnames {
+		perSvcStatefulConfig := util.MaybeBuildStatefulSessionFilterConfig(serviceRegistry[hostname])
+		// This means we have more than one stateful config for the same route because of weighed destinations.
+		// We should just pick the first and give a warning.
+		if perSvcStatefulConfig != nil && statefulConfig != nil {
+			log.Warnf("More than one stateful config for the same route %s. Picking the first one.", routeName)
+			break
 		}
+		statefulConfig = perSvcStatefulConfig
+	}
+	// Build stateful set config if the svc has appropriate labels attached.
+	if statefulConfig != nil {
+		if out.TypedPerFilterConfig == nil {
+			out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+		}
+		perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
+			Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
+				StatefulSession: statefulConfig,
+			},
+		}
+		out.TypedPerFilterConfig[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
 	}
 
 	if opts.IsHTTP3AltSvcHeaderNeeded {
@@ -605,7 +610,7 @@ func applyHTTPRouteDestination(
 }
 
 // processDestination processes a single destination in a route. It specifies to which cluster the route should
-// routed to. It also sets the headers and hash policy if specified.
+// be routed to. It also sets the headers and hash policy if specified.
 // Returns the hostname of the destination.
 func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
@@ -642,6 +647,9 @@ func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry ma
 	return hostname
 }
 
+// processWeightedDestination processes a weighted destination in a route. It specifies to which cluster the route should
+// be routed to. It also sets the headers and hash policy if specified.
+// Returns the hostname of the destination along with its weight.
 func processWeightedDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
 	hashByDestination DestinationHashMap,
