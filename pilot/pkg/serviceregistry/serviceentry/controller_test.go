@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -756,6 +757,49 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
 		)
 	})
+
+	t.Run("update", func(t *testing.T) {
+		updated := func() *config.Config {
+			d := wle.DeepCopy()
+			we := d.Spec.(*networking.WorkloadEntry)
+			we.Address = "9.9.9.9"
+			return &d
+		}()
+		// Update the configs
+		createConfigs([]*config.Config{updated}, store, t)
+		instances := []*model.ServiceInstance{
+			makeInstanceWithServiceAccount(selector, "9.9.9.9", 444,
+				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selector, "9.9.9.9", 445,
+				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selector.Name
+		}
+		// Old IP is gone
+		expectProxyInstances(t, sd, nil, "2.2.2.2")
+		expectProxyInstances(t, sd, instances, "9.9.9.9")
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectEvents(t, events,
+			Event{Type: "proxy", ID: "9.9.9.9"},
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
+		)
+	})
+
+	t.Run("cleanup", func(t *testing.T) {
+		deleteConfigs([]*config.Config{wle, selector, dnsSelector, dnsWle, wle3}, store, t)
+		assertControllerEmpty(t, sd)
+	})
+}
+
+func assertControllerEmpty(t *testing.T, sd *Controller) {
+	assert.Equal(t, len(sd.services.servicesBySE), 0)
+	assert.Equal(t, len(sd.serviceInstances.ip2instance), 0)
+	assert.Equal(t, len(sd.serviceInstances.instances), 0)
+	assert.Equal(t, len(sd.serviceInstances.instancesBySE), 0)
+	assert.Equal(t, len(sd.serviceInstances.instancesByHostAndPort), 0)
+	assert.Equal(t, sd.workloadInstances.Empty(), true)
 }
 
 func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
