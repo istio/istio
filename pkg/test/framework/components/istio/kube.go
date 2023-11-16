@@ -171,9 +171,9 @@ func (i *istioImpl) CustomIngressFor(c cluster.Cluster, service types.Namespaced
 	return i.ingress[c.Name()][labelSelector]
 }
 
-func (i *istioImpl) PodIPsFor(c cluster.Cluster, label string) ([]corev1.PodIP, error) {
-	// Find the pod with the specified label in the system namespace
-	fetchFn := testKube.NewSinglePodFetch(c, i.cfg.SystemNamespace, label)
+func (i *istioImpl) PodIPsFor(c cluster.Cluster, namespace string, label string) ([]corev1.PodIP, error) {
+	// Find the pod with the specified label in the specified namespace
+	fetchFn := testKube.NewSinglePodFetch(c, namespace, label)
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
 		return nil, err

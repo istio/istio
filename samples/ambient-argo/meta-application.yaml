@@ -1,0 +1,31 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: meta-application
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  destination:
+    name: in-cluster
+    namespace: argocd
+    server: ''
+  sources:
+  - path: istio
+    repoURL: '{repo-placeholder}'
+    targetRevision: HEAD
+  - path: application
+    repoURL: '{repo-placeholder}'
+    targetRevision: HEAD
+    directory:
+      include: application.yaml
+  project: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    retry:
+      limit: 2
+      backoff:
+        duration: 5s
+        maxDuration: 3m0s
+        factor: 2

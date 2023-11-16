@@ -862,7 +862,7 @@ type AmbientIndexes interface {
 		proxy *Proxy,
 		allAddresses sets.String,
 		currentSubs sets.String,
-	) sets.Set[string]
+	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []*security.Authorization
 	Waypoint(scope WaypointScope) []netip.Addr
 	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo
@@ -1241,7 +1241,8 @@ func (s *Service) Equals(other *Service) bool {
 	}
 
 	return s.DefaultAddress == other.DefaultAddress && s.AutoAllocatedIPv4Address == other.AutoAllocatedIPv4Address &&
-		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname && s.MeshExternal == other.MeshExternal
+		s.AutoAllocatedIPv6Address == other.AutoAllocatedIPv6Address && s.Hostname == other.Hostname &&
+		s.Resolution == other.Resolution && s.MeshExternal == other.MeshExternal
 }
 
 // DeepCopy creates a clone of IstioEndpoint.

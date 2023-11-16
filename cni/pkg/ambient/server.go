@@ -91,7 +91,7 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 		s.ebpfServer.Start(ctx.Done())
 	}
 
-	log.Infof("Ambient enrolled IPs before reconciling: %+v", s.getEnrolledIPSets())
+	log.Infof("Ambient enrolled IPs before reconciling: %s", s.getEnrolledIPSets())
 
 	s.setupHandlers()
 

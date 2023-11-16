@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
 	labels2 "k8s.io/apimachinery/pkg/labels"
 
@@ -157,55 +157,55 @@ func hasLabel(o *object.K8sObject, label, value string) bool {
 }
 
 // mustGetService returns the service with the given name or fails if it's not found in objs.
-func mustGetService(g *gomega.WithT, objs *ObjectSet, name string) *object.K8sObject {
+func mustGetService(g *WithT, objs *ObjectSet, name string) *object.K8sObject {
 	obj := objs.kind(name2.ServiceStr).nameEquals(name)
-	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(obj).Should(Not(BeNil()))
 	return obj
 }
 
 // mustGetDeployment returns the deployment with the given name or fails if it's not found in objs.
-func mustGetDeployment(g *gomega.WithT, objs *ObjectSet, deploymentName string) *object.K8sObject {
+func mustGetDeployment(g *WithT, objs *ObjectSet, deploymentName string) *object.K8sObject {
 	obj := objs.kind(name2.DeploymentStr).nameEquals(deploymentName)
-	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(obj).Should(Not(BeNil()))
 	return obj
 }
 
 // mustGetClusterRole returns the clusterRole with the given name or fails if it's not found in objs.
-func mustGetClusterRole(g *gomega.WithT, objs *ObjectSet, name string) *object.K8sObject {
+func mustGetClusterRole(g *WithT, objs *ObjectSet, name string) *object.K8sObject {
 	obj := objs.kind(name2.ClusterRoleStr).nameEquals(name)
-	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(obj).Should(Not(BeNil()))
 	return obj
 }
 
 // mustGetRole returns the role with the given name or fails if it's not found in objs.
-func mustGetRole(g *gomega.WithT, objs *ObjectSet, name string) *object.K8sObject {
+func mustGetRole(g *WithT, objs *ObjectSet, name string) *object.K8sObject {
 	obj := objs.kind(name2.RoleStr).nameEquals(name)
-	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(obj).Should(Not(BeNil()))
 	return obj
 }
 
 // mustGetContainer returns the container tree with the given name in the deployment with the given name.
-func mustGetContainer(g *gomega.WithT, objs *ObjectSet, deploymentName, containerName string) map[string]any {
+func mustGetContainer(g *WithT, objs *ObjectSet, deploymentName, containerName string) map[string]any {
 	obj := mustGetDeployment(g, objs, deploymentName)
 	container := obj.Container(containerName)
-	g.Expect(container).Should(gomega.Not(gomega.BeNil()), fmt.Sprintf("Expected to get container %s in deployment %s", containerName, deploymentName))
+	g.Expect(container).Should(Not(BeNil()), fmt.Sprintf("Expected to get container %s in deployment %s", containerName, deploymentName))
 	return container
 }
 
 // mustGetEndpoint returns the endpoint tree with the given name in the deployment with the given name.
-func mustGetEndpoint(g *gomega.WithT, objs *ObjectSet, endpointName string) *object.K8sObject {
+func mustGetEndpoint(g *WithT, objs *ObjectSet, endpointName string) *object.K8sObject {
 	obj := objs.kind(name2.EndpointStr).nameEquals(endpointName)
 	if obj == nil {
 		return nil
 	}
-	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(obj).Should(Not(BeNil()))
 	return obj
 }
 
 // mustGetMutatingWebhookConfiguration returns the mutatingWebhookConfiguration with the given name or fails if it's not found in objs.
-func mustGetMutatingWebhookConfiguration(g *gomega.WithT, objs *ObjectSet, mutatingWebhookConfigurationName string) *object.K8sObject {
+func mustGetMutatingWebhookConfiguration(g *WithT, objs *ObjectSet, mutatingWebhookConfigurationName string) *object.K8sObject {
 	obj := objs.kind(name2.MutatingWebhookConfigurationStr).nameEquals(mutatingWebhookConfigurationName)
-	g.Expect(obj).Should(gomega.Not(gomega.BeNil()))
+	g.Expect(obj).Should(Not(BeNil()))
 	return obj
 }
 
@@ -417,10 +417,10 @@ func findObject(objs object.K8sObjects, name, kind string) *object.K8sObject {
 
 // mustGetValueAtPath returns the value at the given path in the unstructured tree t. Fails if the path is not found
 // in the tree.
-func mustGetValueAtPath(g *gomega.WithT, t map[string]any, path string) any {
+func mustGetValueAtPath(g *WithT, t map[string]any, path string) any {
 	got, f, err := tpath.GetPathContext(t, util.PathFromString(path), false)
-	g.Expect(err).Should(gomega.BeNil(), "path %s should exist (%s)", path, err)
-	g.Expect(f).Should(gomega.BeTrue(), "path %s should exist", path)
+	g.Expect(err).Should(BeNil(), "path %s should exist (%s)", path, err)
+	g.Expect(f).Should(BeTrue(), "path %s should exist", path)
 	return got.Node
 }
 
@@ -472,7 +472,7 @@ func portVal(name string, port, targetPort int64) map[string]any {
 }
 
 // checkRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
-func checkRoleBindingsReferenceRoles(g *gomega.WithT, objs *ObjectSet) {
+func checkRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
 	for _, o := range objs.kind(name2.RoleBindingStr).objSlice {
 		ou := o.Unstructured()
 		rrname := mustGetValueAtPath(g, ou, "roleRef.name")
@@ -481,7 +481,7 @@ func checkRoleBindingsReferenceRoles(g *gomega.WithT, objs *ObjectSet) {
 }
 
 // checkClusterRoleBindingsReferenceRoles fails if any RoleBinding in objs references a Role that isn't found in objs.
-func checkClusterRoleBindingsReferenceRoles(g *gomega.WithT, objs *ObjectSet) {
+func checkClusterRoleBindingsReferenceRoles(g *WithT, objs *ObjectSet) {
 	for _, o := range objs.kind(name2.ClusterRoleBindingStr).objSlice {
 		ou := o.Unstructured()
 		rrname := mustGetValueAtPath(g, ou, "roleRef.name")

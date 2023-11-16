@@ -315,6 +315,8 @@ issues:
       linters:
         - errcheck
         - maligned
+    - path: _test\.go$
+      text: "dot-imports: should not use dot imports"
     # We need to use the deprecated module since the jsonpb replacement is not backwards compatible.
     - linters:
         - staticcheck

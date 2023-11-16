@@ -502,7 +502,7 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 	return nil
 }
 
-func (d *DeploymentController) HandleTagChange(newTags sets.Set[string]) {
+func (d *DeploymentController) HandleTagChange(newTags sets.String) {
 	for _, gw := range d.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 		d.queue.AddObject(gw)
 	}

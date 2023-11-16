@@ -23,8 +23,6 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/time/rate"
-
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
@@ -33,8 +31,8 @@ import (
 )
 
 const (
-	// maxRequestsPerSecond is the max rate of requests to the API server.
-	defaultMaxRequestsPerSecond = 10
+	// The default number of in-flight requests allowed for the runner.
+	defaultActiveRequestLimit = 32
 
 	// reportInterval controls how frequently to output progress reports on running tasks.
 	reportInterval = 30 * time.Second
@@ -43,26 +41,23 @@ const (
 type Runner struct {
 	Client kube.CLIClient
 
-	requestLimiter *rate.Limiter
-	// logFetchLimitCh limits the number of concurrent requests to fetch pod logs, this is separate
-	// to requestLimiter as these can be very large.
-	logFetchLimitCh chan struct{}
+	// Used to limit the number of concurrent tasks.
+	taskSem chan struct{}
 
 	// runningTasks tracks the in-flight fetch operations for user feedback.
-	runningTasks   sets.Set[string]
+	runningTasks   sets.String
 	runningTasksMu sync.RWMutex
 
 	// runningTasksTicker is the report interval for running tasks.
 	runningTasksTicker *time.Ticker
 }
 
-func NewRunner(rpsLimit int) *Runner {
-	if rpsLimit <= 0 {
-		rpsLimit = defaultMaxRequestsPerSecond
+func NewRunner(activeRqLimit int) *Runner {
+	if activeRqLimit <= 0 {
+		activeRqLimit = defaultActiveRequestLimit
 	}
 	return &Runner{
-		requestLimiter:     rate.NewLimiter(rate.Limit(rpsLimit), rpsLimit),
-		logFetchLimitCh:    make(chan struct{}, rpsLimit),
+		taskSem:            make(chan struct{}, activeRqLimit),
 		runningTasks:       sets.New[string](),
 		runningTasksMu:     sync.RWMutex{},
 		runningTasksTicker: time.NewTicker(reportInterval),
@@ -111,11 +106,6 @@ func (r *Runner) Logs(namespace, pod, container string, previous, dryRun bool) (
 		return fmt.Sprintf("Dry run: would be running client.PodLogs(%s, %s, %s)", pod, namespace, container), nil
 	}
 	// ignore cancellation errors since this is subject to global timeout.
-	_ = r.requestLimiter.Wait(context.TODO())
-	r.logFetchLimitCh <- struct{}{}
-	defer func() {
-		<-r.logFetchLimitCh
-	}()
 	task := fmt.Sprintf("PodLogs %s/%s/%s", namespace, pod, container)
 	r.addRunningTask(task)
 	defer r.removeRunningTask(task)
@@ -127,7 +117,6 @@ func (r *Runner) EnvoyGet(namespace, pod, url string, dryRun bool) (string, erro
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running client.EnvoyDo(%s, %s, %s)", pod, namespace, url), nil
 	}
-	_ = r.requestLimiter.Wait(context.TODO())
 	task := fmt.Sprintf("ProxyGet %s/%s:%s", namespace, pod, url)
 	r.addRunningTask(task)
 	defer r.removeRunningTask(task)
@@ -141,11 +130,6 @@ func (r *Runner) Cat(namespace, pod, container, path string, dryRun bool) (strin
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
 	}
-	_ = r.requestLimiter.Wait(context.TODO())
-	r.logFetchLimitCh <- struct{}{}
-	defer func() {
-		<-r.logFetchLimitCh
-	}()
 	task := fmt.Sprintf("PodExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
 	r.addRunningTask(task)
 	defer r.removeRunningTask(task)
@@ -162,7 +146,6 @@ func (r *Runner) Exec(namespace, pod, container, cmdStr string, dryRun bool) (st
 	if dryRun {
 		return fmt.Sprintf("Dry run: would be running podExec %s/%s/%s:%s", pod, namespace, container, cmdStr), nil
 	}
-	_ = r.requestLimiter.Wait(context.TODO())
 	task := fmt.Sprintf("PodExec %s/%s/%s:%s", namespace, pod, container, cmdStr)
 	r.addRunningTask(task)
 	defer r.removeRunningTask(task)
@@ -214,7 +197,6 @@ func (r *Runner) Run(subcmds []string, opts *Options) (string, error) {
 		return "", nil
 	}
 
-	_ = r.requestLimiter.Wait(context.TODO())
 	task := fmt.Sprintf("kubectl %s", cmdStr)
 	r.addRunningTask(task)
 	defer r.removeRunningTask(task)
@@ -240,6 +222,9 @@ func (r *Runner) printRunningTasks() {
 }
 
 func (r *Runner) addRunningTask(task string) {
+	// Limit the concurrency of running tasks.
+	r.taskSem <- struct{}{}
+
 	r.runningTasksMu.Lock()
 	defer r.runningTasksMu.Unlock()
 	log.Infof("STARTING %s", task)
@@ -247,6 +232,11 @@ func (r *Runner) addRunningTask(task string) {
 }
 
 func (r *Runner) removeRunningTask(task string) {
+	defer func() {
+		// Free up a slot for another running task.
+		<-r.taskSem
+	}()
+
 	r.runningTasksMu.Lock()
 	defer r.runningTasksMu.Unlock()
 	log.Infof("COMPLETED %s", task)

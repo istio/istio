@@ -82,7 +82,7 @@ status:
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "fake-service.com"
       not found'
-    reason: AddressNotAssigned
+    reason: AddressNotUsable
     status: "False"
     type: Programmed
   listeners:
@@ -134,7 +134,7 @@ status:
       hostname "istio-ingressgateway.istio-system.svc.domain.suffix" (hint: the service
       port should be specified, not the workload port. Did you mean one of these ports:
       [80]?)'
-    reason: AddressNotAssigned
+    reason: AddressNotUsable
     status: "False"
     type: Programmed
   listeners:
@@ -195,6 +195,9 @@ metadata:
   namespace: istio-system
 spec: null
 status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -202,7 +205,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34000
     reason: Programmed
     status: "True"
     type: Programmed
@@ -220,9 +223,9 @@ status:
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
       type: Programmed
     - lastTransitionTime: fake
       message: invalid certificate reference core/unknown/my-cert-http., only secret
@@ -245,6 +248,9 @@ metadata:
   namespace: istio-system
 spec: null
 status:
+  addresses:
+  - type: IPAddress
+    value: 1.2.3.4
   conditions:
   - lastTransitionTime: fake
     message: Resource accepted
@@ -252,7 +258,7 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed
+    message: Resource programmed, assigned to service(s) istio-ingressgateway.istio-system.svc.domain.suffix:34001
     reason: Programmed
     status: "True"
     type: Programmed
@@ -270,9 +276,9 @@ status:
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
       type: Programmed
     - lastTransitionTime: fake
       message: invalid certificate reference /Secret/nonexistent., secret istio-system/nonexistent
@@ -302,9 +308,10 @@ status:
     status: "True"
     type: Accepted
   - lastTransitionTime: fake
-    message: Resource programmed
-    reason: Programmed
-    status: "True"
+    message: 'Failed to assign to any requested addresses: port 34002 not found for
+      hostname "istio-ingressgateway.istio-system.svc.domain.suffix"'
+    reason: AddressNotUsable
+    status: "False"
     type: Programmed
   listeners:
   - attachedRoutes: 0
@@ -320,9 +327,9 @@ status:
       status: "False"
       type: Conflicted
     - lastTransitionTime: fake
-      message: No errors found
-      reason: Programmed
-      status: "True"
+      message: Bad TLS configuration
+      reason: Invalid
+      status: "False"
       type: Programmed
     - lastTransitionTime: fake
       message: 'invalid certificate reference /Secret/malformed., the certificate

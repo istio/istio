@@ -278,7 +278,7 @@ func configureIPv6Addresses(cfg *config.Config) error {
 	return nil
 }
 
-func (cfg *IptablesConfigurator) Run() {
+func (cfg *IptablesConfigurator) Run() error {
 	defer func() {
 		// Best effort since we don't know if the commands exist
 		_ = cfg.ext.Run(constants.IPTABLESSAVE, nil)
@@ -292,16 +292,16 @@ func (cfg *IptablesConfigurator) Run() {
 	// in order to not to fail
 	ipv4RangesExclude, ipv6RangesExclude, err := cfg.separateV4V6(cfg.cfg.OutboundIPRangesExclude)
 	if err != nil {
-		panic(err)
+		return err
 	}
 	if ipv4RangesExclude.IsWildcard {
-		panic("Invalid value for OUTBOUND_IP_RANGES_EXCLUDE")
+		return fmt.Errorf("invalid value for OUTBOUND_IP_RANGES_EXCLUDE")
 	}
 	// FixMe: Do we need similar check for ipv6RangesExclude as well ??
 
 	ipv4RangesInclude, ipv6RangesInclude, err := cfg.separateV4V6(cfg.cfg.OutboundIPRangesInclude)
 	if err != nil {
-		panic(err)
+		return err
 	}
 
 	redirectDNS := cfg.cfg.RedirectDNS
@@ -542,7 +542,7 @@ func (cfg *IptablesConfigurator) Run() {
 		cfg.iptables.InsertRule(iptableslog.UndefinedCommand, constants.ISTIOINBOUND, constants.MANGLE, 3,
 			"-p", constants.TCP, "-i", "lo", "-m", "mark", "!", "--mark", outboundMark, "-j", constants.RETURN)
 	}
-	cfg.executeCommands()
+	return cfg.executeCommands()
 }
 
 type UDPRuleApplier struct {
@@ -727,17 +727,22 @@ func (cfg *IptablesConfigurator) handleCaptureByOwnerGroup(filter config.Interce
 	}
 }
 
-func (cfg *IptablesConfigurator) executeIptablesCommands(commands [][]string) {
+func (cfg *IptablesConfigurator) executeIptablesCommands(commands [][]string) error {
 	for _, cmd := range commands {
 		if len(cmd) > 1 {
-			cfg.ext.RunOrFail(cmd[0], nil, cmd[1:]...)
+			if err := cfg.ext.Run(cmd[0], nil, cmd[1:]...); err != nil {
+				return err
+			}
 		} else {
-			cfg.ext.RunOrFail(cmd[0], nil)
+			if err := cfg.ext.Run(cmd[0], nil); err != nil {
+				return err
+			}
 		}
 	}
+	return nil
 }
 
-func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(isIpv4 bool) {
+func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(isIpv4 bool) error {
 	var data, cmd string
 	if isIpv4 {
 		data = cfg.iptables.BuildV4Restore()
@@ -749,20 +754,28 @@ func (cfg *IptablesConfigurator) executeIptablesRestoreCommand(isIpv4 bool) {
 
 	log.Infof("Running %s with the following input:\n%v", cmd, strings.TrimSpace(data))
 	// --noflush to prevent flushing/deleting previous contents from table
-	cfg.ext.RunOrFail(cmd, strings.NewReader(data), "--noflush")
+	return cfg.ext.Run(cmd, strings.NewReader(data), "--noflush")
 }
 
-func (cfg *IptablesConfigurator) executeCommands() {
+func (cfg *IptablesConfigurator) executeCommands() error {
 	if cfg.cfg.RestoreFormat {
 		// Execute iptables-restore
-		cfg.executeIptablesRestoreCommand(true)
+		if err := cfg.executeIptablesRestoreCommand(true); err != nil {
+			return err
+		}
 		// Execute ip6tables-restore
-		cfg.executeIptablesRestoreCommand(false)
+		if err := cfg.executeIptablesRestoreCommand(false); err != nil {
+			return err
+		}
 	} else {
 		// Execute iptables commands
-		cfg.executeIptablesCommands(cfg.iptables.BuildV4())
+		if err := cfg.executeIptablesCommands(cfg.iptables.BuildV4()); err != nil {
+			return err
+		}
 		// Execute ip6tables commands
-		cfg.executeIptablesCommands(cfg.iptables.BuildV6())
-
+		if err := cfg.executeIptablesCommands(cfg.iptables.BuildV6()); err != nil {
+			return err
+		}
 	}
+	return nil
 }

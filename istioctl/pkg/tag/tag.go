@@ -227,6 +227,8 @@ func tagListCommand(ctx cli.Context) *cobra.Command {
 		},
 	}
 
+	cmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", util.TableFormat, "Output format for tag description "+
+		"(available formats: table,json)")
 	return cmd
 }
 
@@ -277,6 +279,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 		Generate:             generate,
 		Overwrite:            overwrite,
 		AutoInjectNamespaces: autoInjectNamespaces,
+		UserManaged:          true,
 	}
 	tagWhYAML, err := Generate(ctx, kubeClient, opts, istioNS)
 	if err != nil {

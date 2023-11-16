@@ -59,7 +59,7 @@ func (s *Server) Run(stop <-chan struct{}) {
 	<-stop
 }
 
-func (s *Server) ReconcileNamespaces() sets.Set[string] {
+func (s *Server) ReconcileNamespaces() sets.String {
 	processed := sets.New[string]()
 	for _, ns := range s.namespaces.List(metav1.NamespaceAll, klabels.Everything()) {
 		processed.Merge(s.enqueueNamespace(ns))
@@ -73,7 +73,7 @@ func (s *Server) EnqueueNamespace(o controllers.Object) {
 	s.enqueueNamespace(o)
 }
 
-func (s *Server) enqueueNamespace(o controllers.Object) sets.Set[string] {
+func (s *Server) enqueueNamespace(o controllers.Object) sets.String {
 	namespace := o.GetName()
 	matchAmbient := o.GetLabels()[constants.DataplaneMode] == constants.DataplaneModeAmbient
 	processed := sets.New[string]()

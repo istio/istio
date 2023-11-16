@@ -17,42 +17,42 @@ package resource
 import (
 	"testing"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 func TestInstance_IsEmpty_False(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	e := Instance{
 		Message: &emptypb.Empty{},
 	}
 
-	g.Expect(e.IsEmpty()).To(gomega.BeFalse())
+	g.Expect(e.IsEmpty()).To(BeFalse())
 }
 
 func TestInstance_IsEmpty_True(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 	e := Instance{}
 
-	g.Expect(e.IsEmpty()).To(gomega.BeTrue())
+	g.Expect(e.IsEmpty()).To(BeTrue())
 }
 
 func TestInstance_Clone_Empty(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 	e := &Instance{}
 
 	c := e.Clone()
-	g.Expect(c).To(gomega.Equal(e))
+	g.Expect(c).To(Equal(e))
 }
 
 func TestInstance_Clone_NonEmpty(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	e := &Instance{
 		Message: &emptypb.Empty{},
 	}
 
 	c := e.Clone()
-	g.Expect(c).To(gomega.Equal(e))
+	g.Expect(c).To(Equal(e))
 }

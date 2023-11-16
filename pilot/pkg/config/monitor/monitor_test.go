@@ -19,7 +19,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
@@ -73,7 +73,7 @@ var updateConfigSet = []*config.Config{
 }
 
 func TestMonitorForChange(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	store := memory.Make(collection.SchemasFor(collections.Gateway))
 
@@ -124,7 +124,7 @@ func TestMonitorForChange(t *testing.T) {
 		}
 
 		return nil
-	}).Should(gomega.Succeed())
+	}).Should(Succeed())
 
 	g.Eventually(func() error {
 		c := store.List(gvk.Gateway, "")
@@ -138,11 +138,11 @@ func TestMonitorForChange(t *testing.T) {
 		}
 
 		return nil
-	}).Should(gomega.Succeed())
+	}).Should(Succeed())
 
 	g.Eventually(func() []config.Config {
 		return store.List(gvk.Gateway, "")
-	}).Should(gomega.HaveLen(0))
+	}).Should(HaveLen(0))
 }
 
 func TestMonitorFileSnapshot(t *testing.T) {
@@ -163,7 +163,7 @@ func TestMonitorFileSnapshot(t *testing.T) {
 }
 
 func TestMonitorForError(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	store := memory.Make(collection.SchemasFor(collections.Gateway))
 
@@ -223,5 +223,5 @@ func TestMonitorForError(t *testing.T) {
 		}
 
 		return nil
-	}).Should(gomega.Succeed())
+	}).Should(Succeed())
 }
