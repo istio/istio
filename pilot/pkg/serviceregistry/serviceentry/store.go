@@ -63,8 +63,16 @@ func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*mode
 		ikey := makeInstanceKey(i)
 		hostPort := hostPort{ikey.hostname.String(), i.ServicePort.Port}
 		s.instancesByHostAndPort.Delete(hostPort)
-		delete(s.instances[makeInstanceKey(i)], key)
+		oldInstances := s.instances[ikey][key]
+		delete(s.instances[ikey], key)
+		if len(s.instances[ikey]) == 0 {
+			delete(s.instances, ikey)
+		}
 		delete(s.ip2instance, i.Endpoint.Address)
+		// Cleanup stale IPs, if the IPs changed
+		for _, oi := range oldInstances {
+			delete(s.ip2instance, oi.Endpoint.Address)
+		}
 	}
 }
 
@@ -119,6 +127,9 @@ func (s *serviceInstancesStore) updateServiceEntryInstancesPerConfig(key types.N
 
 func (s *serviceInstancesStore) deleteServiceEntryInstances(key types.NamespacedName, cKey configKey) {
 	delete(s.instancesBySE[key], cKey)
+	if len(s.instancesBySE[key]) == 0 {
+		delete(s.instancesBySE, key)
+	}
 }
 
 func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key types.NamespacedName) {
