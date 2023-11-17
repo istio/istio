@@ -115,7 +115,7 @@ func (s *Server) Reconcile(input any) error {
 		}
 		// Typically, a pod Add is handled by the CNI plugin.
 		// But if CNI restarts, we clear the rules, so this can happen due to CNI restart as well
-		if PodRedirectionEnabled(ns, pod) && !IsPodInIpset(pod) {
+		if PodRedirectionEnabled(ns, pod) && !s.IsPodEnrolledInAmbient(pod) {
 			log.Debugf("Pod added not in ipset, adding")
 			s.AddPodToMesh(pod)
 		}
@@ -135,7 +135,7 @@ func (s *Server) Reconcile(input any) error {
 		} else if !wasEnabled && nowEnabled {
 			log.Debugf("Pod now matches, adding to mesh")
 			s.AddPodToMesh(pod)
-		} else if nowEnabled && !IsPodInIpset(pod) {
+		} else if nowEnabled && !s.IsPodEnrolledInAmbient(pod) {
 			// This can happen if a node cleanup happens as part of a ztunnel recycle,
 			// cleaning up the node-level ipset with all the pod IPs
 			// If this happens we re-queue everything for reconciliation, and need to
