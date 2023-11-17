@@ -48,8 +48,6 @@ const (
 	IstioComponentLabelStr = name.OperatorAPINamespace + "/component"
 	// istioVersionLabelStr indicates the Istio version of the installation.
 	istioVersionLabelStr = name.OperatorAPINamespace + "/version"
-	// istioOperatorInstallPrefix indicates the name of resource istiooperators.install.istio.io for Istio operator installation.
-	istioOperatorsInstallPrefix = "installed-state"
 )
 
 var (
@@ -196,13 +194,4 @@ func saveClusterIP(current, overlay *unstructured.Unstructured) error {
 		}
 	}
 	return nil
-}
-
-// getIstioOperatorCRName get the Istio operator crd name based on specified revision
-func getIstioOperatorCRName(revision string) string {
-	name := istioOperatorsInstallPrefix
-	if revision == "" || revision == "default" {
-		return name
-	}
-	return name + "-" + revision
 }

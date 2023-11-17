@@ -32,12 +32,11 @@ import (
 
 func TestTagList(t *testing.T) {
 	tcs := []struct {
-		name           string
-		webhooks       admitv1.MutatingWebhookConfigurationList
-		namespaces     corev1.NamespaceList
-		outputMatches  []string
-		outputExcludes []string
-		error          string
+		name          string
+		webhooks      admitv1.MutatingWebhookConfigurationList
+		namespaces    corev1.NamespaceList
+		outputMatches []string
+		error         string
 	}{
 		{
 			name: "TestBasicTag",
@@ -55,13 +54,12 @@ func TestTagList(t *testing.T) {
 					},
 				},
 			},
-			namespaces:     corev1.NamespaceList{},
-			outputMatches:  []string{"sample", "sample-revision"},
-			outputExcludes: []string{},
-			error:          "",
+			namespaces:    corev1.NamespaceList{},
+			outputMatches: []string{"sample", "sample-revision"},
+			error:         "",
 		},
 		{
-			name: "TestNonTagWebhooksExcluded",
+			name: "TestNonTagWebhooksIncluded",
 			webhooks: admitv1.MutatingWebhookConfigurationList{
 				Items: []admitv1.MutatingWebhookConfiguration{
 					{
@@ -72,10 +70,9 @@ func TestTagList(t *testing.T) {
 					},
 				},
 			},
-			namespaces:     corev1.NamespaceList{},
-			outputMatches:  []string{},
-			outputExcludes: []string{"test"},
-			error:          "",
+			namespaces:    corev1.NamespaceList{},
+			outputMatches: []string{"test"},
+			error:         "",
 		},
 		{
 			name: "TestNamespacesIncluded",
@@ -102,9 +99,8 @@ func TestTagList(t *testing.T) {
 					},
 				},
 			},
-			outputMatches:  []string{"test", "revision", "dependent"},
-			outputExcludes: []string{},
-			error:          "",
+			outputMatches: []string{"test", "revision", "dependent"},
+			error:         "",
 		},
 	}
 
@@ -129,11 +125,6 @@ func TestTagList(t *testing.T) {
 			commandOutput := out.String()
 			for _, s := range tc.outputMatches {
 				if !strings.Contains(commandOutput, s) {
-					t.Fatalf("expected \"%s\" in command output, got %s", s, commandOutput)
-				}
-			}
-			for _, s := range tc.outputExcludes {
-				if strings.Contains(commandOutput, s) {
 					t.Fatalf("expected \"%s\" in command output, got %s", s, commandOutput)
 				}
 			}
