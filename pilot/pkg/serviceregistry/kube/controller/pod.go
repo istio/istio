@@ -276,20 +276,20 @@ func (pc *PodCache) proxyUpdates(ip string) {
 	}
 }
 
-func (pc *PodCache) getPodKeys(addr string) sets.Set[types.NamespacedName] {
+func (pc *PodCache) getPodKeys(addr string) []types.NamespacedName {
 	pc.RLock()
 	defer pc.RUnlock()
-	return pc.podsByIP[addr]
+	return pc.podsByIP[addr].UnsortedList()
 }
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred
 func (pc *PodCache) getPodsByIP(addr string) []*v1.Pod {
 	keys := pc.getPodKeys(addr)
-	if keys.IsEmpty() {
+	if keys == nil {
 		return nil
 	}
 	res := make([]*v1.Pod, 0, len(keys))
-	for key := range keys {
+	for _, key := range keys {
 		res = append(res, pc.getPodByKey(key))
 	}
 	return res
