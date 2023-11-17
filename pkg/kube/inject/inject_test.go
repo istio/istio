@@ -1074,7 +1074,7 @@ func TestProxyImage(t *testing.T) {
 			want: "private-repo/istio/odd_name:1.12",
 		},
 		{
-			desc: "proxy.image is the image url if it contains '/'",
+			desc: "proxy.image is directly returned as the image url if it contains '/'",
 			v:    val("private-repo/istio", "docker.io/istio/proxyv2:1.12-distroless", "1.12"),
 			want: "docker.io/istio/proxyv2:1.12-distroless",
 		},
