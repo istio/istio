@@ -25,12 +25,10 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 )
@@ -52,10 +50,6 @@ var (
 
 	// label selector
 	labelSelector = ""
-
-	addonNamespace = ""
-
-	envoyDashNs = ""
 
 	proxyAdminPort int
 )
@@ -87,7 +81,7 @@ func promDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app.kubernetes.io/name=prometheus")
+			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app.kubernetes.io/name=prometheus")
 			if err != nil {
 				return fmt.Errorf("not able to locate Prometheus pod: %v", err)
 			}
@@ -97,7 +91,7 @@ func promDashCmd(ctx cli.Context) *cobra.Command {
 			}
 
 			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, addonNamespace, "Prometheus",
+			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "Prometheus",
 				"http://%s", bindAddress, promPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
@@ -123,7 +117,7 @@ func grafanaDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app.kubernetes.io/name=grafana")
+			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app.kubernetes.io/name=grafana")
 			if err != nil {
 				return fmt.Errorf("not able to locate Grafana pod: %v", err)
 			}
@@ -133,7 +127,7 @@ func grafanaDashCmd(ctx cli.Context) *cobra.Command {
 			}
 
 			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, addonNamespace, "Grafana",
+			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "Grafana",
 				"http://%s", bindAddress, grafanaPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
@@ -159,7 +153,7 @@ func kialiDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=kiali")
+			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app=kiali")
 			if err != nil {
 				return fmt.Errorf("not able to locate Kiali pod: %v", err)
 			}
@@ -169,7 +163,7 @@ func kialiDashCmd(ctx cli.Context) *cobra.Command {
 			}
 
 			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, addonNamespace, "Kiali",
+			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "Kiali",
 				"http://%s/kiali", bindAddress, kialiPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
@@ -195,7 +189,7 @@ func jaegerDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=jaeger")
+			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app=jaeger")
 			if err != nil {
 				return fmt.Errorf("not able to locate Jaeger pod: %v", err)
 			}
@@ -205,7 +199,7 @@ func jaegerDashCmd(ctx cli.Context) *cobra.Command {
 			}
 
 			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, addonNamespace, "Jaeger",
+			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "Jaeger",
 				"http://%s", bindAddress, jaegerPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
@@ -231,7 +225,7 @@ func zipkinDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=zipkin")
+			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app=zipkin")
 			if err != nil {
 				return fmt.Errorf("not able to locate Zipkin pod: %v", err)
 			}
@@ -241,7 +235,7 @@ func zipkinDashCmd(ctx cli.Context) *cobra.Command {
 			}
 
 			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, addonNamespace, "Zipkin",
+			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "Zipkin",
 				"http://%s", bindAddress, zipkinPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
@@ -283,7 +277,7 @@ func createDashCmd(ctx cli.Context, config CreateProxyDashCmdConfig) *cobra.Comm
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := kubeClient.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(envoyDashNs), labelSelector)
+				pl, err := kubeClient.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.Namespace()), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -300,7 +294,7 @@ func createDashCmd(ctx cli.Context, config CreateProxyDashCmdConfig) *cobra.Comm
 				podName = pl.Items[0].Name
 				ns = pl.Items[0].Namespace
 			} else {
-				podName, ns, err = ctx.InferPodInfoFromTypedResource(args[0], envoyDashNs)
+				podName, ns, err = ctx.InferPodInfoFromTypedResource(args[0], ctx.NamespaceOrDefault(ctx.Namespace()))
 				if err != nil {
 					return err
 				}
@@ -395,7 +389,7 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
 
 			var podName, ns string
 			if labelSelector != "" {
-				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(addonNamespace), labelSelector)
+				pl, err := client.PodsForSelector(context.TODO(), ctx.NamespaceOrDefault(ctx.IstioNamespace()), labelSelector)
 				if err != nil {
 					return fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
 				}
@@ -412,7 +406,7 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
 				podName = pl.Items[0].Name
 				ns = pl.Items[0].Namespace
 			} else {
-				podName, ns, err = ctx.InferPodInfoFromTypedResource(args[0], addonNamespace)
+				podName, ns, err = ctx.InferPodInfoFromTypedResource(args[0], ctx.IstioNamespace())
 				if err != nil {
 					return err
 				}
@@ -444,7 +438,7 @@ func skywalkingDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), addonNamespace, "app=skywalking-ui")
+			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app=skywalking-ui")
 			if err != nil {
 				return fmt.Errorf("not able to locate SkyWalking UI pod: %v", err)
 			}
@@ -454,7 +448,7 @@ func skywalkingDashCmd(ctx cli.Context) *cobra.Command {
 			}
 
 			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, addonNamespace, "SkyWalking",
+			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "SkyWalking",
 				"http://%s", bindAddress, skywalkingPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
@@ -566,8 +560,6 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	dashboardCmd.PersistentFlags().BoolVar(&browser, "browser", true,
 		"When --browser is supplied as false, istioctl dashboard will not open the browser. "+
 			"Default is true which means istioctl dashboard will always open a browser to view the dashboard.")
-	dashboardCmd.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", "istio-system",
-		"Namespace where the addon is running, if not specified, istio-system would be used")
 
 	kiali := kialiDashCmd(cliContext)
 	kiali.PersistentFlags().IntVar(&kialiPort, "ui-port", defaultKialiPort, "The component dashboard UI port.")
@@ -597,23 +589,17 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	envoy.Long += fmt.Sprintf("\n\n%s\n", "Note: envoy command is deprecated and can be replaced with proxy command, "+
 		"e.g. `istioctl dashboard proxy --help`")
 	envoy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	envoy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", metav1.NamespaceDefault,
-		"Namespace where the addon is running, if not specified, istio-system would be used")
 	envoy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", util.DefaultProxyAdminPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(envoy)
 
 	proxy := proxyDashCmd(cliContext)
 	proxy.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	proxy.PersistentFlags().StringVarP(&envoyDashNs, "namespace", "n", constants.IstioSystemNamespace,
-		"Namespace where the addon is running, if not specified, istio-system would be used")
 	proxy.PersistentFlags().IntVar(&proxyAdminPort, "ui-port", util.DefaultProxyAdminPort, "The component dashboard UI port.")
 	dashboardCmd.AddCommand(proxy)
 
 	controlz := controlZDashCmd(cliContext)
 	controlz.PersistentFlags().IntVar(&controlZport, "ctrlz_port", 9876, "ControlZ port")
 	controlz.PersistentFlags().StringVarP(&labelSelector, "selector", "l", "", "Label selector")
-	controlz.PersistentFlags().StringVarP(&addonNamespace, "namespace", "n", "istio-system",
-		"Namespace where the addon is running, if not specified, istio-system would be used")
 	dashboardCmd.AddCommand(controlz)
 
 	return dashboardCmd
