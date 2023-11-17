@@ -302,8 +302,16 @@ func injectRequired(ignored []string, config *Config, podSpec *corev1.PodSpec, m
 // ProxyImage constructs image url in a backwards compatible way.
 // values based name => {{ .Values.global.hub }}/{{ .Values.global.proxy.image }}:{{ .Values.global.tag }}
 func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotations map[string]string) string {
-	imageName := "proxyv2"
 	global := values.GetGlobal()
+
+	imageName := "proxyv2"
+	if global.GetProxy() != nil && global.GetProxy().GetImage() != "" {
+		imageName = global.GetProxy().GetImage()
+		if strings.Contains(imageName, "/") {
+			// here we handle both proxy.image and proxy_init.image. This can happen when proxy_init.image is not set, but proxy.image is
+			return imageName
+		}
+	}
 
 	tag := ""
 	if global.GetTag() != nil { // Tag is an interface but we need the string form.
@@ -313,10 +321,6 @@ func ProxyImage(values *opconfig.Values, image *proxyConfig.ProxyImage, annotati
 	imageType := ""
 	if image != nil {
 		imageType = image.ImageType
-	}
-
-	if global.GetProxy() != nil && global.GetProxy().GetImage() != "" {
-		imageName = global.GetProxy().GetImage()
 	}
 
 	if it, ok := annotations[annotation.SidecarProxyImageType.Name]; ok {

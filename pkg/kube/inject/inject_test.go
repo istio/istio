@@ -962,12 +962,15 @@ func Test_updateClusterEnvs(t *testing.T) {
 }
 
 func TestProxyImage(t *testing.T) {
-	val := func(hub string, tag any) *opconfig.Values {
+	val := func(hub string, image string, tag any) *opconfig.Values {
 		t, _ := structpb.NewValue(tag)
 		return &opconfig.Values{
 			Global: &opconfig.GlobalConfig{
 				Hub: hub,
 				Tag: t,
+				Proxy: &opconfig.ProxyConfig{
+					Image: image,
+				},
 			},
 		}
 	}
@@ -995,75 +998,85 @@ func TestProxyImage(t *testing.T) {
 	}{
 		{
 			desc: "vals-only-int-tag",
-			v:    val("docker.io/istio", 11),
+			v:    val("docker.io/istio", "", 11),
 			want: "docker.io/istio/proxyv2:11",
 		},
 		{
 			desc: "pc overrides imageType - float tag",
-			v:    val("docker.io/istio", 1.12),
+			v:    val("docker.io/istio", "", 1.12),
 			pc:   pc("distroless"),
 			want: "docker.io/istio/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "annotation overrides imageType",
-			v:    val("gcr.io/gke-release/asm", "1.11.2-asm.17"),
+			v:    val("gcr.io/gke-release/asm", "", "1.11.2-asm.17"),
 			ann:  ann("distroless"),
 			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17-distroless",
 		},
 		{
 			desc: "pc and annotation overrides imageType",
-			v:    val("gcr.io/gke-release/asm", "1.11.2-asm.17"),
+			v:    val("gcr.io/gke-release/asm", "", "1.11.2-asm.17"),
 			pc:   pc("distroless"),
 			ann:  ann("debug"),
 			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17-debug",
 		},
 		{
 			desc: "pc and annotation overrides imageType, ann is default",
-			v:    val("gcr.io/gke-release/asm", "1.11.2-asm.17"),
+			v:    val("gcr.io/gke-release/asm", "", "1.11.2-asm.17"),
 			pc:   pc("debug"),
 			ann:  ann("default"),
 			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17",
 		},
 		{
 			desc: "pc overrides imageType with default, tag also has image type",
-			v:    val("gcr.io/gke-release/asm", "1.11.2-asm.17-distroless"),
+			v:    val("gcr.io/gke-release/asm", "", "1.11.2-asm.17-distroless"),
 			pc:   pc("default"),
 			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17",
 		},
 		{
 			desc: "ann overrides imageType with default, tag also has image type",
-			v:    val("gcr.io/gke-release/asm", "1.11.2-asm.17-distroless"),
+			v:    val("gcr.io/gke-release/asm", "", "1.11.2-asm.17-distroless"),
 			ann:  ann("default"),
 			want: "gcr.io/gke-release/asm/proxyv2:1.11.2-asm.17",
 		},
 		{
 			desc: "pc overrides imageType, tag also has image type",
-			v:    val("docker.io/istio", "1.12-debug"),
+			v:    val("docker.io/istio", "", "1.12-debug"),
 			pc:   pc("distroless"),
 			want: "docker.io/istio/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "annotation overrides imageType, tag also has the same image type",
-			v:    val("docker.io/istio", "1.12-distroless"),
+			v:    val("docker.io/istio", "", "1.12-distroless"),
 			ann:  ann("distroless"),
 			want: "docker.io/istio/proxyv2:1.12-distroless",
 		},
 		{
 			desc: "unusual tag should work",
-			v:    val("private-repo/istio", "1.12-this-is-unusual-tag"),
+			v:    val("private-repo/istio", "", "1.12-this-is-unusual-tag"),
 			want: "private-repo/istio/proxyv2:1.12-this-is-unusual-tag",
 		},
 		{
 			desc: "unusual tag should work, default override",
-			v:    val("private-repo/istio", "1.12-this-is-unusual-tag-distroless"),
+			v:    val("private-repo/istio", "", "1.12-this-is-unusual-tag-distroless"),
 			pc:   pc("default"),
 			want: "private-repo/istio/proxyv2:1.12-this-is-unusual-tag",
 		},
 		{
 			desc: "annotation overrides imageType with unusual tag",
-			v:    val("private-repo/istio", "1.12-this-is-unusual-tag"),
+			v:    val("private-repo/istio", "", "1.12-this-is-unusual-tag"),
 			ann:  ann("distroless"),
 			want: "private-repo/istio/proxyv2:1.12-this-is-unusual-tag-distroless",
+		},
+		{
+			desc: "proxy.image overrides default image name if set and does not contain '/'",
+			v:    val("private-repo/istio", "odd_name", "1.12"),
+			want: "private-repo/istio/odd_name:1.12",
+		},
+		{
+			desc: "proxy.image is the image url if it contains '/'",
+			v:    val("private-repo/istio", "docker.io/istio/proxyv2:1.12-distroless", "1.12"),
+			want: "docker.io/istio/proxyv2:1.12-distroless",
 		},
 	} {
 		t.Run(tt.desc, func(t *testing.T) {
