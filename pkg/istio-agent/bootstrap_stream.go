@@ -21,6 +21,7 @@ import (
 
 	bootstrapv3 "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -37,29 +38,8 @@ type bootstrapDiscoveryStream struct {
 }
 
 // Send refers to a request from the xDS proxy.
+// This should be no called.
 func (b *bootstrapDiscoveryStream) Send(resp *discovery.DiscoveryResponse) error {
-	if resp.TypeUrl == v3.BootstrapType && !b.received {
-		b.received = true
-		if len(resp.Resources) != 1 {
-			sendToChannelWithoutBlock(b.errCh, fmt.Errorf("unexpected number of bootstraps: %d", len(resp.Resources)))
-			return nil
-		}
-		var bs bootstrapv3.Bootstrap
-		if err := resp.Resources[0].UnmarshalTo(&bs); err != nil {
-			sendToChannelWithoutBlock(b.errCh, fmt.Errorf("failed to unmarshal bootstrap: %v", err))
-			return nil
-		}
-		by, err := protomarshal.MarshalIndent(&bs, "  ")
-		if err != nil {
-			sendToChannelWithoutBlock(b.errCh, fmt.Errorf("failed to marshal bootstrap as JSON: %v", err))
-			return nil
-		}
-		if err := b.envoyUpdate(by); err != nil {
-			sendToChannelWithoutBlock(b.errCh, fmt.Errorf("failed to update bootstrap from discovery: %v", err))
-			return nil
-		}
-		close(b.errCh)
-	}
 	return nil
 }
 
@@ -83,4 +63,26 @@ func sendToChannelWithoutBlock(errCh chan error, err error) {
 	case errCh <- err:
 	default:
 	}
+}
+
+func (b *bootstrapDiscoveryStream) bootStrapHandler(resp *anypb.Any) error {
+	if !b.received {
+		b.received = true
+		var bs bootstrapv3.Bootstrap
+		if err := resp.UnmarshalTo(&bs); err != nil {
+			sendToChannelWithoutBlock(b.errCh, fmt.Errorf("failed to unmarshal bootstrap: %v", err))
+			return nil
+		}
+		by, err := protomarshal.MarshalIndent(&bs, "  ")
+		if err != nil {
+			sendToChannelWithoutBlock(b.errCh, fmt.Errorf("failed to marshal bootstrap as JSON: %v", err))
+			return nil
+		}
+		if err := b.envoyUpdate(by); err != nil {
+			sendToChannelWithoutBlock(b.errCh, fmt.Errorf("failed to update bootstrap from discovery: %v", err))
+			return nil
+		}
+		close(b.errCh)
+	}
+	return nil
 }
