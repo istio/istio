@@ -96,6 +96,7 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 
 	log.Infof("Ambient enrolled IPs before reconciling: %s", s.getEnrolledIPSets())
 
+	s.podReconcileHandler = s
 	s.setupHandlers()
 
 	s.UpdateConfig()
