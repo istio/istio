@@ -338,3 +338,9 @@ func TestMapOfSet(t *testing.T) {
 	DeleteCleanupLast(m, 1, "not found")
 	assert.Equal(t, m, map[int]String{2: New("c")})
 }
+
+func TestSetString(t *testing.T) {
+	elements := []string{"a"}
+	set := New(elements...)
+	assert.Equal(t, "[a]", set.String())
+}

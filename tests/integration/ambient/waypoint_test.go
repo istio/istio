@@ -179,6 +179,25 @@ func TestWaypoint(t *testing.T) {
 				}
 				return nil
 			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
+
+			// delete all waypoints in namespace, so sa3 should be deleted
+			istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+				"x",
+				"waypoint",
+				"-n",
+				nsConfig.Name(),
+				"delete",
+				"--all",
+			})
+			retry.UntilSuccessOrFail(t, func() error {
+				if err := checkWaypointIsReady(t, nsConfig.Name(), "sa3"); err != nil {
+					if errors.Is(err, kubetest.ErrNoPodsFetched) {
+						return nil
+					}
+					return fmt.Errorf("failed to check gateway status: %v", err)
+				}
+				return fmt.Errorf("failed to clean up gateway in namespace: %s", nsConfig.Name())
+			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
 		})
 }
 

@@ -26,6 +26,7 @@ import (
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
 	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -450,12 +451,13 @@ func translateRoute(
 		authority = operations.Authority
 	}
 
+	var hostnames []host.Name
 	if in.Redirect != nil {
 		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
 		ApplyDirectResponse(out, in.DirectResponse)
 	} else {
-		applyHTTPRouteDestination(out, node, virtualService, in, opts.Mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		hostnames = applyHTTPRouteDestination(out, node, virtualService, in, opts.Mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
@@ -469,6 +471,29 @@ func translateRoute(
 	}
 	if in.CorsPolicy != nil {
 		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(in.CorsPolicy))
+	}
+	var statefulConfig *statefulsession.StatefulSession
+	for _, hostname := range hostnames {
+		perSvcStatefulConfig := util.MaybeBuildStatefulSessionFilterConfig(serviceRegistry[hostname])
+		// This means we have more than one stateful config for the same route because of weighed destinations.
+		// We should just pick the first and give a warning.
+		if perSvcStatefulConfig != nil && statefulConfig != nil {
+			log.Warnf("More than one stateful config for the same route %s. Picking the first one.", routeName)
+			break
+		}
+		statefulConfig = perSvcStatefulConfig
+	}
+	// Build stateful set config if the svc has appropriate labels attached.
+	if statefulConfig != nil {
+		if out.TypedPerFilterConfig == nil {
+			out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+		}
+		perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
+			Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
+				StatefulSession: statefulConfig,
+			},
+		}
+		out.TypedPerFilterConfig[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
 	}
 
 	if opts.IsHTTP3AltSvcHeaderNeeded {
@@ -492,7 +517,7 @@ func applyHTTPRouteDestination(
 	serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
 	hashByDestination DestinationHashMap,
-) {
+) []host.Name {
 	policy := in.Retries
 	if policy == nil {
 		// No VS policy set, use mesh defaults
@@ -561,8 +586,9 @@ func applyHTTPRouteDestination(
 		}
 	}
 
+	var hostnames []host.Name
 	if len(in.Route) == 1 {
-		processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action)
+		hostnames = append(hostnames, processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action))
 	} else {
 		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
 		for _, dst := range in.Route {
@@ -570,7 +596,9 @@ func applyHTTPRouteDestination(
 				// Ignore 0 weighted clusters if there are other clusters in the route.
 				continue
 			}
-			weighted = append(weighted, processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action))
+			destinationweight, hostname := processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action)
+			weighted = append(weighted, destinationweight)
+			hostnames = append(hostnames, hostname)
 		}
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
@@ -578,14 +606,18 @@ func applyHTTPRouteDestination(
 			},
 		}
 	}
+	return hostnames
 }
 
+// processDestination processes a single destination in a route. It specifies to which cluster the route should
+// be routed to. It also sets the headers and hash policy if specified.
+// Returns the hostname of the destination.
 func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
 	hashByDestination DestinationHashMap,
 	out *route.Route,
 	action *route.RouteAction,
-) {
+) host.Name {
 	hostname := host.Name(dst.GetDestination().GetHost())
 	action.ClusterSpecifier = &route.RouteAction_Cluster{
 		Cluster: GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
@@ -612,13 +644,17 @@ func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry ma
 	if hashPolicy != nil {
 		action.HashPolicy = append(action.HashPolicy, hashPolicy)
 	}
+	return hostname
 }
 
+// processWeightedDestination processes a weighted destination in a route. It specifies to which cluster the route should
+// be routed to. It also sets the headers and hash policy if specified.
+// Returns the hostname of the destination along with its weight.
 func processWeightedDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
 	hashByDestination DestinationHashMap,
 	action *route.RouteAction,
-) *route.WeightedCluster_ClusterWeight {
+) (*route.WeightedCluster_ClusterWeight, host.Name) {
 	hostname := host.Name(dst.GetDestination().GetHost())
 	clusterWeight := &route.WeightedCluster_ClusterWeight{
 		Name:   GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
@@ -642,7 +678,7 @@ func processWeightedDestination(dst *networking.HTTPRouteDestination, serviceReg
 	if hashPolicy != nil {
 		action.HashPolicy = append(action.HashPolicy, hashPolicy)
 	}
-	return clusterWeight
+	return clusterWeight, hostname
 }
 
 func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, isTLS bool, useGatewaySemantics bool) {

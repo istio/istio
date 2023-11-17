@@ -36,7 +36,7 @@ func TestTagWatcher(t *testing.T) {
 	stop := test.NewStop(t)
 	c.RunAndWait(stop)
 	track := assert.NewTracker[string](t)
-	tw.AddHandler(func(s sets.Set[string]) {
+	tw.AddHandler(func(s sets.String) {
 		track.Record(strings.Join(sets.SortedList(s), ","))
 	})
 	go tw.Run(stop)
