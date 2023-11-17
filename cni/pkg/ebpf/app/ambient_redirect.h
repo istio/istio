@@ -70,3 +70,5 @@ struct app_info {
 struct host_info {
     __u32 addr[4];
 };
+
+#endif // __AMBIENT_REDIRECT_H__
