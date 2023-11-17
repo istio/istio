@@ -1326,6 +1326,16 @@ func (s *Server) getEnrolledIPSets() sets.String {
 	return pods
 }
 
+func (s *Server) IsPodEnrolledInDp(pod *corev1.Pod) bool {
+	switch s.redirectMode {
+	case IptablesMode:
+		return IsPodInIpset(pod)
+	case EbpfMode:
+		return s.ebpfServer.IsPodIPEnrolled(pod.Status.PodIP)
+	}
+	return false
+}
+
 func addTProxyMarkRule() error {
 	// Set up tproxy marks
 	var rules []*netlink.Rule
