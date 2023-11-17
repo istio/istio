@@ -5,4 +5,4 @@ issue:
 - 47901
 releaseNotes:
 - |
-**Fixed** multi-cluster leader election cannot prioritize local over remote leader.
+    **Fixed** multi-cluster leader election cannot prioritize local over remote leader.
