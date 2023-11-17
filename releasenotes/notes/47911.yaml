@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+issue:
+  - 47911
+releaseNotes:
+  - |
+    **Fixed** when proxy.image is an image URL and proxy_init.image is unset
+    sidecar injection no longer creates an invalid URL for the istio-init image,
+    but falls back to proxy.image
