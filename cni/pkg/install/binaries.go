@@ -15,6 +15,8 @@
 package install
 
 import (
+	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -40,13 +42,11 @@ func copyBinaries(srcDir string, targetDirs []string) (sets.String, error) {
 		srcFilepath := filepath.Join(srcDir, filename)
 
 		for _, targetDir := range targetDirs {
-			if err := file.IsDirWriteable(targetDir); err != nil {
-				installLog.Infof("Directory %s is not writable, skipping.", targetDir)
-				continue
-			}
-
 			err := file.AtomicCopy(srcFilepath, targetDir, filename)
-			if err != nil {
+			if errors.Is(err, fs.ErrPermission) {
+				installLog.Warnf("Insufficient permissions to write to directory %s", targetDir)
+				continue
+			} else if err != nil {
 				return copiedFilenames, err
 			}
 			installLog.Infof("Copied %s to %s.", filename, targetDir)
