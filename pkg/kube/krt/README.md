@@ -42,6 +42,7 @@ While more could be expressed, there are currently three forms implemented.
   * This generates a one-to-one mapping of input to output. An example would be a transformation from a `Pod` type to a generic `Workload` type.
 * `func(input I) []O` via `NewManyCollection`
   * This generates a one-to-many mapping of input to output. An example would be a transformation from a `Service` to a _set_ of `Endpoint` types.
+  * The order of the response does not matter. Each response must have a unique key.
 
 The form used and input type only represent the _primary dependencies_, indicating the cardinality.
 Each transformation can additionally include an arbitrary number of dependencies, fetching data from other collections.
@@ -61,11 +62,79 @@ In the above example, the provided function will be called (at least) every time
 The `ConfigMapCount` collection will produce events only when the count changes.
 The framework will automatically suppress events when nothing has changed.
 
+### Picking a collection type
+
+There are a variety of collection types available.
+Picking these is about simplicity, usability, and performance.
+
+The `NewSingleton` form (`func() *O`), in theory, could be used universally.
+Consider a transformation from `Pod` to `SimplePod`:
+
+```go
+SimplePods := krt.NewSingleton[SimplePod](func(ctx krt.HandlerContext) *[]SimplePod {
+    res := []SimplePod{}
+    for _, pod := range krt.Fetch(ctx, Pod) {
+        res = append(res, SimplePod{Name: pod.Name})
+    }
+    return &res
+}) // Results in a Collection[[]SimplePod]
+```
+
+While this *works*, it is inefficient and complex to write.
+Consumers of SimplePod can only query the entire list at once.
+Anytime *any* `Pod` changes, *all* `SimplePod`s must be recomputed.
+
+A better approach would be to lift `Pod` into a primary dependency:
+
+```go
+SimplePods := krt.NewCollection[SimplePod](func(ctx krt.HandlerContext, pod *v1.Pod) *SimplePod {
+    return &SimplePod{Name: pod.Name})
+}) // Results in a Collection[SimplePod]
+```
+
+Not only is this simpler to write, its far more efficient.
+Consumers can more efficiently query for `SimplePod`s using label selectors, filters, etc.
+Additionally, if a single `Pod` changes we only recompute one `SimplePod`.
+
+Above we have a one-to-one mapping of input and output.
+We may have one-to-many mappings, though.
+In these cases, usually its best to use a `ManyCollection`.
+Like the above examples, its *possible* to express these as normal `Collection`s, but likely inefficient.
+
+Example computing a list of all container names across all pods:
+```go
+ContainerNames := krt.NewManyCollection[string](func(ctx krt.HandlerContext, pod *v1.Pod) (res []string) {
+    for _, c := range pod.Spec.Containers {
+      res = append(res, c.Name)
+    }
+    return res
+}) // Results in a Collection[string]
+```
+
+Example computing a list of service endpoints.
+```go
+Endpoints := krt.NewManyCollection[Endpoint](func(ctx krt.HandlerContext, svc *v1.Service) (res []Endpoint) {
+    for _, c := range krt.Fetch(ctx, Pods, krt.FilterLabel(svc.Spec.Selector)) {
+      res = append(res, Endpoint{Service: svc.Name, Pod: pod.Name, IP: pod.status.PodIP})
+    }
+    return res
+}) // Results in a Collection[Endpoint]
+```
+
+As a rule of thumb, if your `Collection` type is a list, you most likely should be using a different type to flatten the list.
+An exception to this would be if the list represents an atomic set of items that are never queried independently;
+in these cases, however, it is probably best to wrap it in a struct.
+For example, to represent the set of containers in a pod, we may make a `type PodContainers struct { Name string, Containers []string }` and have a
+`Collection[PodContainers]` rather than a `Collection[[]string]`.
+
+In theory, other forms could be expressed such as `func(input1 I1, input2 I2) *O`.
+However, there haven't yet been use cases for these more complex forms.
+
 ### Transformation constraints
 
 In order for the framework to properly handle dependencies and events, transformation functions must adhere by a few properties.
 
-Basically, Transformations must be stateless.
+Basically, Transformations must be stateless and idempotent.
 * Any querying of other `Collection`s _must_ be done through `krt.Fetch`.
 * Querying other data stores that may change is not permitted.
 * Querying external state (e.g. making HTTP calls) is not permitted.
@@ -83,6 +152,6 @@ The following filters are provided
 * `FilterLabel(labels)`: filters to only objects that match these labels.
 * `FilterSelects(labels)`: filters to only objects that **select** these labels. An empty selector matches everything.
 * `FilterSelectsNonEmpty(labels)`: filters to only objects that **select** these labels. An empty selector matches nothing.
-* `FilterGeneric(func)`: filters by an arbitrary function.
+* `FilterGeneric(func(any) bool)`: filters by an arbitrary function.
 
 Note that most filters may only be used if the objects being `Fetch`ed implement appropriate functions to extract the fields filtered against.
