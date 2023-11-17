@@ -168,6 +168,9 @@ func (s Set[T]) SupersetOf(s2 Set[T]) bool {
 
 // UnsortedList returns the slice with contents in random order.
 func (s Set[T]) UnsortedList() []T {
+	if len(s) == 0 {
+		return nil
+	}
 	res := make([]T, 0, s.Len())
 	for key := range s {
 		res = append(res, key)

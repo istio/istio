@@ -126,10 +126,10 @@ func TestHostNetworkPod(t *testing.T) {
 	}
 
 	createPod("128.0.0.1", "pod1")
-	assert.Equal(t, c.pods.getPodKeys("128.0.0.1"), sets.New(types.NamespacedName{Name: "pod1", Namespace: "ns"}))
+	assert.Equal(t, c.pods.getPodKeys("128.0.0.1"), []types.NamespacedName{{Name: "pod1", Namespace: "ns"}})
 
 	createPod("128.0.0.1", "pod2")
-	assert.Equal(t, c.pods.getPodKeys("128.0.0.1"), sets.New(
+	assert.Equal(t, sets.New(c.pods.getPodKeys("128.0.0.1")...), sets.New(
 		types.NamespacedName{Name: "pod1", Namespace: "ns"},
 		types.NamespacedName{Name: "pod2", Namespace: "ns"},
 	))
@@ -161,25 +161,25 @@ func TestIPReuse(t *testing.T) {
 	}
 
 	createPod("128.0.0.1", "pod")
-	assert.Equal(t, c.pods.getPodKeys("128.0.0.1"), sets.New(types.NamespacedName{Name: "pod", Namespace: "ns"}))
+	assert.Equal(t, c.pods.getPodKeys("128.0.0.1"), []types.NamespacedName{{Name: "pod", Namespace: "ns"}})
 
 	// Change the pod IP. This can happen if the pod moves to another node, for example.
 	createPod("128.0.0.2", "pod")
-	assert.Equal(t, c.pods.getPodKeys("128.0.0.2"), sets.New(types.NamespacedName{Name: "pod", Namespace: "ns"}))
+	assert.Equal(t, c.pods.getPodKeys("128.0.0.2"), []types.NamespacedName{{Name: "pod", Namespace: "ns"}})
 	assert.Equal(t, c.pods.getPodKeys("128.0.0.1"), nil)
 
 	// A new pod is created with the old IP. We should get new-pod, not pod
 	createPod("128.0.0.1", "new-pod")
-	assert.Equal(t, c.pods.getPodKeys("128.0.0.1"), sets.New(types.NamespacedName{Name: "new-pod", Namespace: "ns"}))
+	assert.Equal(t, c.pods.getPodKeys("128.0.0.1"), []types.NamespacedName{{Name: "new-pod", Namespace: "ns"}})
 
 	// A new pod is created with the same IP. This happens with hostNetwork, or maybe we miss an update somehow.
 	createPod("128.0.0.1", "another-pod")
-	assert.Equal(t, c.pods.getPodKeys("128.0.0.1"), sets.New(
+	assert.Equal(t, sets.New(c.pods.getPodKeys("128.0.0.1")...), sets.New(
 		types.NamespacedName{Name: "new-pod", Namespace: "ns"},
 		types.NamespacedName{Name: "another-pod", Namespace: "ns"},
 	))
 
-	fetch := func() sets.Set[types.NamespacedName] { return c.pods.getPodKeys("128.0.0.1") }
+	fetch := func() sets.Set[types.NamespacedName] { return sets.New(c.pods.getPodKeys("128.0.0.1")...) }
 	pods.Delete("another-pod", "ns")
 	assert.EventuallyEqual(t, fetch, sets.New(types.NamespacedName{Name: "new-pod", Namespace: "ns"}))
 
@@ -290,7 +290,7 @@ func TestPodCacheEvents(t *testing.T) {
 	if handled != 1 {
 		t.Errorf("notified workload handler %d times, want %d", handled, 1)
 	}
-	assert.Equal(t, c.pods.getPodKeys(ip), sets.New(types.NamespacedName{Name: "pod1", Namespace: "default"}))
+	assert.Equal(t, c.pods.getPodKeys(ip), []types.NamespacedName{{Name: "pod1", Namespace: "default"}})
 
 	if err := f(nil,
 		&v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{Conditions: readyCondition, PodIP: ip, Phase: v1.PodFailed}}, model.EventUpdate); err != nil {
@@ -318,7 +318,7 @@ func TestPodCacheEvents(t *testing.T) {
 	if handled != 3 {
 		t.Errorf("notified workload handler %d times, want %d", handled, 3)
 	}
-	assert.Equal(t, c.pods.getPodKeys(ip), sets.New(types.NamespacedName{Name: "pod2", Namespace: "default"}))
+	assert.Equal(t, sets.New(c.pods.getPodKeys(ip)...), sets.New(types.NamespacedName{Name: "pod2", Namespace: "default"}))
 
 	if err := f(nil, &v1.Pod{ObjectMeta: pod1, Status: v1.PodStatus{PodIP: ip, Phase: v1.PodFailed}}, model.EventDelete); err != nil {
 		t.Error(err)
@@ -326,7 +326,7 @@ func TestPodCacheEvents(t *testing.T) {
 	if handled != 3 {
 		t.Errorf("notified workload handler %d times, want %d", handled, 3)
 	}
-	assert.Equal(t, c.pods.getPodKeys(ip), sets.New(types.NamespacedName{Name: "pod2", Namespace: "default"}))
+	assert.Equal(t, sets.New(c.pods.getPodKeys(ip)...), sets.New(types.NamespacedName{Name: "pod2", Namespace: "default"}))
 
 	if err := f(nil, &v1.Pod{ObjectMeta: pod2, Spec: v1.PodSpec{
 		RestartPolicy: v1.RestartPolicyOnFailure,
