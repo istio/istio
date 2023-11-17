@@ -317,7 +317,7 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	getFromCluster(content.GetClusterInfo, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetNodeInfo, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
-	getFromCluster(content.GetDescribePods, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
+	getFromCluster(content.GetPodInfo, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
 
 	common.LogAndPrintf("\nFetching CNI logs from cluster.\n\n")
 	for _, cniPod := range resources.CniPod {
