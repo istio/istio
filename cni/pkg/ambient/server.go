@@ -50,6 +50,9 @@ type Server struct {
 	iptablesCommand lazy.Lazy[string]
 	redirectMode    RedirectMode
 	ebpfServer      *ebpf.RedirectServer
+
+	// podReconcileHandler is implemented by Server, but it can be overridden by tests.
+	podReconcileHandler podReconcileHandler
 }
 
 type AmbientConfigFile struct {
@@ -154,7 +157,7 @@ func (s *Server) UpdateConfig() {
 
 var ztunnelLabels = labels.ValidatedSetSelector(labels.Set{"app": "ztunnel"})
 
-func (s *Server) UpdateActiveNodeProxy() error {
+func (s *Server) updateActiveNodeProxy() error {
 	pods := s.pods.List(metav1.NamespaceAll, ztunnelLabels)
 	var activePod *corev1.Pod
 	for _, p := range pods {

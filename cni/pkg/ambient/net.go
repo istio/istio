@@ -235,7 +235,7 @@ func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
 	return "", nil
 }
 
-func (s *Server) AddPodToMesh(pod *corev1.Pod) {
+func (s *Server) addPodToMesh(pod *corev1.Pod) {
 	switch s.redirectMode {
 	case IptablesMode:
 		// This is used for pods already running - we can't block, but we
@@ -255,7 +255,7 @@ func (s *Server) AddPodToMesh(pod *corev1.Pod) {
 	}
 }
 
-func (s *Server) DelPodFromMesh(pod *corev1.Pod, event controllers.Event) {
+func (s *Server) delPodFromMesh(pod *corev1.Pod, event controllers.Event) {
 	log.Debugf("Pod %s/%s is now stopped or opt out... cleaning up.", pod.Namespace, pod.Name)
 	switch s.redirectMode {
 	case IptablesMode:
