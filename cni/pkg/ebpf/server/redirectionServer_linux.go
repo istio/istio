@@ -692,7 +692,9 @@ func (r *RedirectServer) IsPodIPEnrolled(ip string) bool {
 	if err != nil {
 		return false
 	}
-	err = r.obj.AppInfo.Lookup(ipAddr.As4(), &valueOut)
+	if err = r.obj.AppInfo.Lookup(ipAddr.As4(), &valueOut); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+		log.Errorf("failed to look up AppInfo: %w", err)
+	}
 
 	return err == nil
 }
