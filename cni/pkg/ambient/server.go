@@ -51,7 +51,7 @@ type Server struct {
 	redirectMode    RedirectMode
 	ebpfServer      *ebpf.RedirectServer
 
-	// podReconcileHandler is implemented by Server, but it can be overridden by tests.
+	// podReconcileHandler can be overridden by tests.
 	podReconcileHandler podReconcileHandler
 }
 
@@ -96,6 +96,7 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 
 	log.Infof("Ambient enrolled IPs before reconciling: %s", s.getEnrolledIPSets())
 
+	// podReconcileHandle is implemented by the server, but can be overridden by tests.
 	s.podReconcileHandler = s
 	s.setupHandlers()
 

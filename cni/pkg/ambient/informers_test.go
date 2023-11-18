@@ -80,7 +80,6 @@ func TestServerReconcilePod(t *testing.T) {
 						Namespace: testNamespace,
 					},
 				}, metav1.CreateOptions{})
-				time.Sleep(1 * time.Second)
 				return err
 			},
 			expectedEvents: []expectedEvent{
