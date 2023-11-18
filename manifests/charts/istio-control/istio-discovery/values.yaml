@@ -369,7 +369,7 @@ global:
         cpu: 100m
         memory: 128Mi
       limits:
-        cpu: 2000m
+        # cpu: 2000m
         memory: 1024Mi
 
     # Default port for Pilot agent health checks. A value of 0 will disable health checking.
