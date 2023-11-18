@@ -35,13 +35,20 @@ spec:
             "prometheus.io/scrape" "true"
           ) | nindent 8 }}
       labels:
+        {{- $requiredLabels := .Labels }}
+        {{- $network := valueOrDefault (index .Labels `topology.istio.io/network`) .Values.global.network }}
+        {{- if $network }}
+        {{- $requiredLabels = mergeMaps $requiredLabels (strdict
+            "topology.istio.io/network" $network
+        )}}
+        {{- end }}
         {{- toJsonMap
           (strdict
             "sidecar.istio.io/inject" "false"
             "service.istio.io/canonical-name" .DeploymentName
             "service.istio.io/canonical-revision" "latest"
            )
-          .Labels
+          $requiredLabels
           (strdict
             "istio.io/gateway-name" .Name
             "gateway.istio.io/managed" "istio.io-mesh-controller"
@@ -126,6 +133,12 @@ spec:
         - name: PROXY_CONFIG
           value: |
                  {{ protoToJSON .ProxyConfig }}
+        {{- if .ProxyConfig.ProxyMetadata }}
+        {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- end }}
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:

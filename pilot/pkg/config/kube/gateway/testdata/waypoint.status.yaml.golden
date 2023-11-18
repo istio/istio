@@ -15,7 +15,7 @@ status:
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "namespace-istio-waypoint.ns.svc.domain.suffix"
       not found'
-    reason: AddressNotAssigned
+    reason: AddressNotUsable
     status: "False"
     type: Programmed
   listeners:
@@ -61,7 +61,7 @@ status:
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "invalid-istio-waypoint.ns.svc.domain.suffix"
       not found'
-    reason: AddressNotAssigned
+    reason: AddressNotUsable
     status: "False"
     type: Programmed
   listeners:

@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/istioctl/pkg/precheck"
 	"istio.io/istio/istioctl/pkg/proxyconfig"
 	"istio.io/istio/istioctl/pkg/proxystatus"
-	"istio.io/istio/istioctl/pkg/revision"
 	"istio.io/istio/istioctl/pkg/root"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util"
@@ -204,7 +203,6 @@ debug and diagnose their Istio mesh.
 	experimentalCmd.AddCommand(wait.Cmd(ctx))
 	experimentalCmd.AddCommand(config.Cmd())
 	experimentalCmd.AddCommand(workload.Cmd(ctx))
-	experimentalCmd.AddCommand(revision.Cmd(ctx))
 	experimentalCmd.AddCommand(internaldebug.DebugCommand(ctx))
 	experimentalCmd.AddCommand(precheck.Cmd(ctx))
 	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))

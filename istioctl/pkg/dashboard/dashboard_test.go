@@ -100,17 +100,13 @@ func TestDashboard(t *testing.T) {
 			ExpectedRegexp: regexp.MustCompile(".*Error: name cannot be provided when a selector is specified"),
 			WantException:  true,
 		},
-		{ // case 15
-			Args:           strings.Split("-n istio-system", " "),
-			ExpectedRegexp: regexp.MustCompile("Access to Istio web UIs"),
-		},
 		{ // case 16
-			Args:           strings.Split("controlz --browser=false pod-123456-7890 -n istio-system", " "),
+			Args:           strings.Split("controlz --browser=false pod-123456-7890", " "),
 			ExpectedRegexp: regexp.MustCompile(".*http://localhost:3456"),
 			WantException:  false,
 		},
 		{ // case 17
-			Args:           strings.Split("envoy --browser=false pod-123456-7890 -n istio-system", " "),
+			Args:           strings.Split("envoy --browser=false pod-123456-7890", " "),
 			ExpectedRegexp: regexp.MustCompile("http://localhost:3456"),
 			WantException:  false,
 		},

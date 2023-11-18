@@ -15,7 +15,7 @@ status:
   - lastTransitionTime: fake
     message: 'Failed to assign to any requested addresses: hostname "gateway-istio.istio-system.svc.domain.suffix"
       not found'
-    reason: AddressNotAssigned
+    reason: AddressNotUsable
     status: "False"
     type: Programmed
   listeners:

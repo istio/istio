@@ -101,7 +101,7 @@ var (
 )
 
 func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options) error {
-	runner := kubectlcmd.NewRunner(gConfig.RequestsPerSecondLimit)
+	runner := kubectlcmd.NewRunner(gConfig.RequestConcurrency)
 	runner.ReportRunningTasks()
 	if err := configLogs(logOpts); err != nil {
 		return err
@@ -124,7 +124,7 @@ func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options
 	common.LogAndPrintf("\nTarget cluster context: %s\n", clusterCtxStr)
 	common.LogAndPrintf("Running with the following config: \n\n%s\n\n", config)
 
-	restConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context, gConfig.RequestsPerSecondLimit)
+	restConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}

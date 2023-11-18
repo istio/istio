@@ -281,7 +281,7 @@ func SetProc(path string, value string) error {
 	return os.WriteFile(path, []byte(value), 0o644)
 }
 
-func (s *Server) cleanStaleIPs(stales sets.Set[string]) {
+func (s *Server) cleanStaleIPs(stales sets.String) {
 	log.Infof("Ambient stale Pod IPs to be cleaned: %s", stales)
 	switch s.redirectMode {
 	case IptablesMode:

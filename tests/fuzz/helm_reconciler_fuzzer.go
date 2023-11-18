@@ -58,6 +58,6 @@ func FuzzHelmReconciler(data []byte) int {
 	}
 	_ = h.ApplyObject(obj, false)
 	_, _ = h.Reconcile()
-	_, _, _ = h.ApplyManifest(m, false)
+	_, _ = h.ApplyManifest(m, false)
 	return 1
 }

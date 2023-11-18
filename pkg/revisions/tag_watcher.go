@@ -32,11 +32,11 @@ type TagWatcher interface {
 	Run(stopCh <-chan struct{})
 	HasSynced() bool
 	AddHandler(handler TagHandler)
-	GetMyTags() sets.Set[string]
+	GetMyTags() sets.String
 }
 
 // TagHandler is a callback for when the tags revision change.
-type TagHandler func(sets.Set[string])
+type TagHandler func(sets.String)
 
 type tagWatcher struct {
 	revision string

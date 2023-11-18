@@ -161,6 +161,7 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 			LeaseMeta: metav1.ObjectMeta{Namespace: l.namespace, Name: l.electionID},
 			Client:    l.client.CoordinationV1(),
 			// Note: Key is NOT used. This is not implemented in the library for Lease nor needed, since this is already per-revision.
+			// See below, where we disable KeyComparison
 			LockConfig: k8sresourcelock.ResourceLockConfig{
 				Identity: l.name,
 			},
@@ -177,10 +178,16 @@ func (l *LeaderElection) create() (*k8sleaderelection.LeaderElector, error) {
 		// to instances are both considered the leaders. As such, if this is intended to be use for mission-critical
 		// usages (rather than avoiding duplication of work), this may need to be re-evaluated.
 		ReleaseOnCancel: true,
+	}
+	if !l.perRevision {
 		// Function to use to decide whether this leader should steal the existing lock.
-		KeyComparison: func(leaderKey string) bool {
+		// This is disable when perRevision is used, as this enables the Lease. Lease doesn't have a holderKey field to place our key
+		// as holderKey is an Istio specific fork.
+		// While its possible to make it work with Lease as well (via an annotation to store it), we don't ever need prioritized
+		// for these per-revision ones anyways, since the prioritization is about preferring one revision over others.
+		config.KeyComparison = func(leaderKey string) bool {
 			return LocationPrioritizedComparison(leaderKey, l)
-		},
+		}
 	}
 
 	return k8sleaderelection.NewLeaderElector(config)
@@ -219,7 +226,7 @@ func NewPerRevisionLeaderElection(namespace, name, electionID, revision string, 
 }
 
 func NewLeaderElectionMulticluster(namespace, name, electionID, revision string, remote bool, client kube.Client) *LeaderElection {
-	return newLeaderElection(namespace, name, electionID, revision, false, true, client)
+	return newLeaderElection(namespace, name, electionID, revision, false, remote, client)
 }
 
 func newLeaderElection(namespace, name, electionID, revision string, perRevision bool, remote bool, client kube.Client) *LeaderElection {

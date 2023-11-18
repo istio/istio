@@ -186,7 +186,10 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			if err != nil {
 				t.Fatalf("webhook fixing failed with error: %v", err)
 			}
-			webhookYAML, err := generateValidatingWebhook(webhookConfig, filepath.Join(env.IstioSrc, "manifests"), nil)
+			opts := &GenerateOptions{
+				ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
+			}
+			webhookYAML, err := generateValidatingWebhook(webhookConfig, opts)
 			if err != nil {
 				t.Fatalf("tag webhook YAML generation failed with error: %v", err)
 			}
