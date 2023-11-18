@@ -75,6 +75,12 @@ const (
 
 	// jwksExtraRootCABundlePath is the path to any additional CA certificates pilot should accept when resolving JWKS URIs
 	jwksExtraRootCABundlePath = "/cacerts/extra.pem"
+
+	// jwksClientCertPath is the path to a client certificate pilot should use when communicating with JWKS URIs
+	jwksClientCertPath = "/certs/tls.crt"
+
+	// jwksClientKeyPath is the path to a client key pilot should use when communicating with JWKS URIs
+	jwksClientKeyPath = "/certs/tls.key"
 )
 
 var (
@@ -158,6 +164,8 @@ func NewJwksResolver(evictionDuration, refreshDefaultInterval, refreshIntervalOn
 		refreshIntervalOnFailure,
 		retryInterval,
 		[]string{jwksExtraRootCABundlePath},
+		jwksClientCertPath,
+		jwksClientKeyPath,
 	)
 }
 
@@ -167,6 +175,8 @@ func newJwksResolverWithCABundlePaths(
 	refreshIntervalOnFailure,
 	retryInterval time.Duration,
 	caBundlePaths []string,
+	certPath,
+	keyPath string,
 ) *JwksResolver {
 	ret := &JwksResolver{
 		evictionDuration:         evictionDuration,
@@ -181,6 +191,32 @@ func newJwksResolverWithCABundlePaths(
 				DisableKeepAlives: true,
 			},
 		},
+	}
+
+	tlsConfig := getSecureTLSConfig(caBundlePaths, certPath, keyPath)
+	if tlsConfig != nil {
+		ret.secureHTTPClient = &http.Client{
+			Timeout: jwksHTTPTimeOutInSec * time.Second,
+			Transport: &http.Transport{
+				Proxy:             http.ProxyFromEnvironment,
+				DisableKeepAlives: true,
+				TLSClientConfig:   tlsConfig,
+			},
+		}
+	}
+
+	atomic.StoreUint64(&ret.refreshJobKeyChangedCount, 0)
+	atomic.StoreUint64(&ret.refreshJobFetchFailedCount, 0)
+	go ret.refresher()
+
+	return ret
+}
+
+func getSecureTLSConfig(caBundlePaths []string, certPath, keyPath string) *tls.Config {
+	tlsConfig := &tls.Config{
+		InsecureSkipVerify: features.JwksResolverInsecureSkipVerify,
+		MinVersion:         tls.VersionTLS12,
+		Renegotiation:      getTLSRenegotiation(),
 	}
 
 	caCertPool, err := x509.SystemCertPool()
@@ -199,27 +235,24 @@ func newJwksResolverWithCABundlePaths(
 		}
 	}
 
-	if caCertsFound {
-		ret.secureHTTPClient = &http.Client{
-			Timeout: jwksHTTPTimeOutInSec * time.Second,
-			Transport: &http.Transport{
-				Proxy:             http.ProxyFromEnvironment,
-				DisableKeepAlives: true,
-				TLSClientConfig: &tls.Config{
-					// nolint: gosec // user explicitly opted into insecure
-					InsecureSkipVerify: features.JwksResolverInsecureSkipVerify,
-					RootCAs:            caCertPool,
-					MinVersion:         tls.VersionTLS12,
-				},
-			},
+	tlsConfig.RootCAs = caCertPool
+	if features.JwksResolverUseClientCerts {
+		cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+		if err != nil {
+			log.Errorf("Failed to load client certificate/key")
+		} else {
+			tlsConfig.Certificates = []tls.Certificate{cert}
 		}
 	}
 
-	atomic.StoreUint64(&ret.refreshJobKeyChangedCount, 0)
-	atomic.StoreUint64(&ret.refreshJobFetchFailedCount, 0)
-	go ret.refresher()
+	return tlsConfig
+}
 
-	return ret
+func getTLSRenegotiation() tls.RenegotiationSupport {
+	if features.JwksResolverRenegotiateTLS {
+		return tls.RenegotiateOnceAsClient
+	}
+	return tls.RenegotiateNever
 }
 
 var errEmptyPubKeyFoundInCache = errors.New("empty public key found in cache")

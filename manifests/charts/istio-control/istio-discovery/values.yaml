@@ -56,6 +56,9 @@ pilot:
   # JWKS URIs.
   jwksResolverExtraRootCA: ""
 
+  jwksResolverCert: ""
+  jwksResolverKey: ""
+
   # This is used to set the source of configuration for
   # the associated address in configSource, if nothing is specified
   # the default MCP is assumed.
