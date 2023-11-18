@@ -141,12 +141,23 @@ func (b *clusterBuilder) build() []*cluster.Cluster {
 		}
 	}
 
+	envoyFilterPatches := b.push.EnvoyFilters(b.node)
+	cp := corexds.ClusterPatcher{Efw: envoyFilterPatches, Pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
+
 	subsetClusters := b.applyDestinationRule(defaultCluster)
 	out := make([]*cluster.Cluster, 0, 1+len(subsetClusters))
-	if defaultCluster != nil {
-		out = append(out, defaultCluster)
+
+	if patched := cp.DoPatch(nil, defaultCluster); patched != nil {
+		out = append(out, patched)
 	}
-	return append(out, subsetClusters...)
+
+	for _, ss := range subsetClusters {
+		if patched := cp.DoPatch(nil, ss); patched != nil {
+			out = append(out, patched)
+		}
+	}
+
+	return out
 }
 
 // edsCluster creates a simple cluster to read endpoints from ads/eds.
