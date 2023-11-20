@@ -15,8 +15,6 @@
 package install
 
 import (
-	"errors"
-	"io/fs"
 	"os"
 	"path/filepath"
 
@@ -27,6 +25,8 @@ import (
 // Copies/mirrors any files present in a single source dir to N number of target dirs
 // and returns a set of the filenames copied.
 func copyBinaries(srcDir string, targetDirs []string) (sets.String, error) {
+	installLog.Infof("@tallen TARGET DIRS: %v", targetDirs)
+
 	copiedFilenames := sets.String{}
 	srcFiles, err := os.ReadDir(srcDir)
 	if err != nil {
@@ -34,6 +34,7 @@ func copyBinaries(srcDir string, targetDirs []string) (sets.String, error) {
 	}
 
 	for _, f := range srcFiles {
+		installLog.Infof("@tallen src file: %s", f.Name())
 		if f.IsDir() {
 			continue
 		}
@@ -42,11 +43,10 @@ func copyBinaries(srcDir string, targetDirs []string) (sets.String, error) {
 		srcFilepath := filepath.Join(srcDir, filename)
 
 		for _, targetDir := range targetDirs {
-			err := file.AtomicCopy(srcFilepath, targetDir, filename)
-			if errors.Is(err, fs.ErrPermission) {
-				installLog.Warnf("Insufficient permissions to write to directory %s", targetDir)
-				continue
-			} else if err != nil {
+			installLog.Infof("@tallen src path: %s", srcFilepath)
+			installLog.Infof("@tallen target dir: %s", targetDir)
+			if err := file.AtomicCopy(srcFilepath, targetDir, filename); err != nil {
+				installLog.Errorf("Failed write to directory %s: %s", targetDir, err.Error())
 				return copiedFilenames, err
 			}
 			installLog.Infof("Copied %s to %s.", filename, targetDir)
