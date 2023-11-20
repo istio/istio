@@ -16,9 +16,11 @@ package krt
 
 import (
 	"fmt"
+
+	"istio.io/istio/pkg/ptr"
 )
 
-func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...DepOption) *T {
+func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *T {
 	res := Fetch[T](ctx, c, opts...)
 	switch len(res) {
 	case 0:
@@ -30,10 +32,10 @@ func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...DepOption) *T 
 	}
 }
 
-func Fetch[T any](ctx HandlerContext, c Collection[T], opts ...DepOption) []T {
+func Fetch[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) []T {
 	// First, set up the dependency. On first run, this will be new.
 	// One subsequent runs, we just validate
-	h := ctx.(depper)
+	h := ctx.(registerDependency)
 	d := dependency{
 		collection: eraseCollection(c),
 	}
@@ -51,7 +53,7 @@ func Fetch[T any](ctx HandlerContext, c Collection[T], opts ...DepOption) []T {
 		}
 	}
 	if log.DebugEnabled() {
-		log.WithLabels("type", GetType[T](), "filter", d.filter, "size", len(res)).Debugf("Fetch")
+		log.WithLabels("type", ptr.TypeName[T](), "filter", d.filter, "size", len(res)).Debugf("Fetch")
 	}
 	return res
 }

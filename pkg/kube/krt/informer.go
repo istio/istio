@@ -16,6 +16,7 @@ package krt
 
 import (
 	"fmt"
+	"strings"
 
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -47,7 +48,7 @@ func (i informer[I]) List(namespace string) []I {
 }
 
 func (i informer[I]) GetKey(k Key[I]) *I {
-	ns, n := SplitKeyFunc(string(k))
+	ns, n := splitKeyFunc(string(k))
 	if got := i.inf.Get(n, ns); !controllers.IsNil(got) {
 		return &got
 	}
@@ -55,7 +56,7 @@ func (i informer[I]) GetKey(k Key[I]) *I {
 }
 
 func (i informer[I]) Register(f func(o Event[I])) {
-	batchedRegister[I](i, f)
+	registerHandlerAsBatched[I](i, f)
 }
 
 func (i informer[I]) RegisterBatch(f func(o []Event[I])) {
@@ -101,4 +102,18 @@ func NewInformer[I controllers.ComparableObject](c kube.Client) Collection[I] {
 
 func NewInformerFiltered[I controllers.ComparableObject](c kube.Client, filter kubetypes.Filter) Collection[I] {
 	return WrapClient[I](kclient.NewFiltered[I](c, filter))
+}
+
+func splitKeyFunc(key string) (namespace, name string) {
+	parts := strings.Split(key, "/")
+	switch len(parts) {
+	case 1:
+		// name only, no namespace
+		return "", parts[0]
+	case 2:
+		// namespace and name
+		return parts[0], parts[1]
+	}
+
+	return "", ""
 }

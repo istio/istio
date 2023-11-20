@@ -148,7 +148,7 @@ func (h *manyCollection[I, O]) onUpdate(items []Event[I]) {
 				oldRes, oldExists := h.collectionState.outputs[key]
 				e := Event[O]{}
 				if newExists && oldExists {
-					if Equal(newRes, oldRes) {
+					if equal(newRes, oldRes) {
 						// NOP change, skip
 						continue
 					}
@@ -330,8 +330,8 @@ func (h *manyCollection[I, O]) List(namespace string) (res []O) {
 		slices.SortBy(res, GetKey[O])
 	} else {
 		// TODO: implement properly using collectionState.namespace
-		res = Filter(maps.Values(h.collectionState.outputs), func(o O) bool {
-			return GetNamespace(o) == namespace
+		res = slices.FilterInPlace(maps.Values(h.collectionState.outputs), func(o O) bool {
+			return getNamespace(o) == namespace
 		})
 		slices.SortBy(res, GetKey[O])
 		return
@@ -340,7 +340,7 @@ func (h *manyCollection[I, O]) List(namespace string) (res []O) {
 }
 
 func (h *manyCollection[I, O]) Register(f func(o Event[O])) {
-	batchedRegister[O](h, f)
+	registerHandlerAsBatched[O](h, f)
 }
 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) {

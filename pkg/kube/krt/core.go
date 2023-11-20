@@ -15,107 +15,51 @@
 package krt
 
 import (
-	"reflect"
-
-	"google.golang.org/protobuf/proto"
-
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/slices"
 )
 
 var log = istiolog.RegisterScope("krt", "")
 
+// Collection is the core resource type for krt, representing a collection of objects. Items can be listed, or fetched
+// directly. Most importantly, consumers can subscribe to events when objects change.
 type Collection[T any] interface {
+	// GetKey returns an object by it's key, if present. Otherwise, nil is returned.
 	GetKey(k Key[T]) *T
+	// List returns all objects in the queried namespace.
+	// Note: not all T types have a "Namespace"; a non-empty namespace is only valid for types that do have a namespace.
 	List(namespace string) []T
+	// Register adds an event watcher to the collection. Any time an item in the collection changes, the handler will be
+	// called. Typically, usage of Register is done internally in krt via composition of Collections with Transformations
+	// (NewCollection, NewManyCollection, NewSingleton); however, at boundaries of the system (connecting to something not
+	// using krt), registering directly is expected.
 	Register(f func(o Event[T]))
+	// RegisterBatch registers a handler that accepts multiple events at once. This can be useful as an optimization.
+	// Otherwise, behaves the same as Register.
 	RegisterBatch(f func(o []Event[T]))
 }
 
+// Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,
+// but when using directly offer a more ergonomic API
 type Singleton[T any] interface {
+	// Get returns the object, or nil if there is none.
 	Get() *T
+	// Register adds an event watcher to the object. Any time it changes, the handler will be called
 	Register(f func(o Event[T]))
 	AsCollection() Collection[T]
 }
 
-func batchedRegister[T any](c Collection[T], f func(o Event[T])) {
-	c.RegisterBatch(func(events []Event[T]) {
-		for _, o := range events {
-			f(o)
-		}
-	})
-}
-
-// erasedCollection is a Collection[T] that has been type-erased so it can be stored in collections
-// that do not have type information.
-type erasedCollection struct {
-	// original stores the original typed Collection
-	original any
-	// registerFunc registers any Event[any] handler. These will be mapped to Event[T] when connected to the original collection.
-	registerFunc func(f func(o []Event[any]))
-	// TODO: since we erase things, we lose a lot of context. We should add some ID() or Name() to Collections.
-}
-
-func (e erasedCollection) register(f func(o []Event[any])) {
-	e.registerFunc(f)
-}
-
-func eraseCollection[T any](c Collection[T]) erasedCollection {
-	return erasedCollection{
-		original: c,
-		registerFunc: func(f func(o []Event[any])) {
-			c.RegisterBatch(func(o []Event[T]) {
-				f(slices.Map(o, castEvent[T, any]))
-			})
-		},
-	}
-}
-
-// castEvent converts an Event[I] to Event[O].
-// Caller is responsible for making sure these can be type converted.
-// Typically this is converting to or from `any`.
-func castEvent[I, O any](o Event[I]) Event[O] {
-	e := Event[O]{
-		Event: o.Event,
-	}
-	if o.Old != nil {
-		e.Old = ptr.Of(any(*o.Old).(O))
-	}
-	if o.New != nil {
-		e.New = ptr.Of(any(*o.New).(O))
-	}
-	return e
-}
-
-// Key is a string, but with a type associated to avoid mixing up keys
-type Key[O any] string
-
-type resourceNamer interface {
-	ResourceName() string
-}
-
-// dependency is a specific thing that can be depdnended on
-type dependency struct {
-	// The actual collection containing this
-	collection erasedCollection
-	// Filter over the collection
-	filter filter
-}
-
-type depper interface {
-	// Registers a dependency, returning true if it is finalized
-	registerDependency(dependency)
-}
-
+// Event represents a point in time change for a collection.
 type Event[T any] struct {
-	// The Old event, on Update or Delete
-	Old   *T
-	New   *T
+	// Old object, set on Update or Delete.
+	Old *T
+	// New object, set on Add or Update
+	New *T
+	// Event is the change type
 	Event controllers.EventType
 }
 
+// Items returns both the Old and New object, if present.
 func (e Event[T]) Items() []T {
 	res := make([]T, 0, 2)
 	if e.Old != nil {
@@ -127,6 +71,7 @@ func (e Event[T]) Items() []T {
 	return res
 }
 
+// Latest returns only the latest object (New for add/update, Old for delete).
 func (e Event[T]) Latest() T {
 	if e.New != nil {
 		return *e.New
@@ -134,41 +79,67 @@ func (e Event[T]) Latest() T {
 	return *e.Old
 }
 
+// HandlerContext is an opaque type passed into transformation functions.
+// This can be used with Fetch to dynamically query for resources.
+// Note: this doesn't expose Fetch as a method, as Go generics do not support arbitrary generic types on methods.
 type HandlerContext interface {
 	_internalHandler()
 }
 
-type (
-	DepOption func(*dependency)
-	Option    func(map[untypedCollection]dependency)
-)
+// FetchOption is a functional argument type that can be passed to Fetch.
+// These are all created by the various Filter* functions
+type FetchOption func(*dependency)
 
+// Transformations represent functions that derive some output types from an input type.
 type (
-	TransformationEmpty[T any]     func(ctx HandlerContext) *T
+	// TransformationEmpty represents a singleton operation. There is always a single output.
+	// Note this can still depend on other types, via Fetch.
+	TransformationEmpty[T any] func(ctx HandlerContext) *T
+	// TransformationSingle represents a one-to-one relationship between I and O.
 	TransformationSingle[I, O any] func(ctx HandlerContext, i I) *O
-	TransformationMulti[I, O any]  func(ctx HandlerContext, i I) []O
+	// TransformationSingle represents a one-to-many relationship between I and O.
+	TransformationMulti[I, O any] func(ctx HandlerContext, i I) []O
 )
 
+// Key is a string, but with a type associated to avoid mixing up keys
+type Key[O any] string
+
+// ResourceNamer is an optional interface that can be implemented by collection types.
+// If implemented, this can be used to determine the Key for an object
+type ResourceNamer interface {
+	ResourceName() string
+}
+
+// Equaler is an optional interface that can be implemented by collection types.
+// If implemented, this will be used to determine if an object changed.
 type Equaler[K any] interface {
 	Equals(k K) bool
 }
 
-func Equal[O any](a, b O) bool {
-	ak, ok := any(a).(Equaler[O])
-	if ok {
-		return ak.Equals(b)
-	}
-	ao, ok := any(a).(controllers.Object)
-	if ok {
-		return ao.GetResourceVersion() == any(b).(controllers.Object).GetResourceVersion()
-	}
-	ap, ok := any(a).(proto.Message)
-	if ok {
-		if reflect.TypeOf(ap.ProtoReflect().Interface()) == reflect.TypeOf(ap) {
-			return proto.Equal(ap, any(b).(proto.Message))
-		}
-		// If not, this is an embedded proto! Sneaky.
-		// TODO: panic? I don't think reflect.DeepEqual on proto is good
-	}
-	return reflect.DeepEqual(a, b)
+// LabelSelectorer is an optional interface that can be implemented by collection types.
+// If implemented, this will be used to determine an objects' LabelSelectors
+type LabelSelectorer interface {
+	GetLabelSelector() map[string]string
+}
+
+// Labeler is an optional interface that can be implemented by collection types.
+// If implemented, this will be used to determine an objects' Labels
+type Labeler interface {
+	GetLabels() map[string]string
+}
+
+// Namer is an optional interface that can be implemented by collection types.
+// If implemented, this will be used to determine an objects' Name.
+type Namer interface {
+	GetName() string
+}
+
+// Namespacer is an optional interface that can be implemented by collection types.
+// If implemented, this will be used to determine an objects' Namespace.
+type Namespacer interface {
+	GetNamespace() string
+}
+
+type labeler interface {
+	GetLabels() map[string]string
 }

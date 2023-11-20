@@ -60,46 +60,46 @@ func (f filter) String() string {
 	return fmt.Sprintf("{%s}", res)
 }
 
-func FilterName(name, namespace string) DepOption {
+func FilterName(name, namespace string) FetchOption {
 	return func(h *dependency) {
 		h.filter.name = name
 		h.filter.namespace = namespace
 	}
 }
 
-func FilterKey(k string) DepOption {
+func FilterKey(k string) FetchOption {
 	return func(h *dependency) {
 		h.filter.key = k
 	}
 }
 
-func FilterNamespace(namespace string) DepOption {
+func FilterNamespace(namespace string) FetchOption {
 	return func(h *dependency) {
 		h.filter.namespace = namespace
 	}
 }
 
 // FilterSelects only includes objects that select this label. If the selector is empty, it is a match.
-func FilterSelects(lbls map[string]string) DepOption {
+func FilterSelects(lbls map[string]string) FetchOption {
 	return func(h *dependency) {
 		h.filter.selects = lbls
 	}
 }
 
 // FilterSelectsNonEmpty only includes objects that select this label. If the selector is empty, it is not a match.
-func FilterSelectsNonEmpty(lbls map[string]string) DepOption {
+func FilterSelectsNonEmpty(lbls map[string]string) FetchOption {
 	return func(h *dependency) {
 		h.filter.selectsNonEmpty = lbls
 	}
 }
 
-func FilterLabel(lbls map[string]string) DepOption {
+func FilterLabel(lbls map[string]string) FetchOption {
 	return func(h *dependency) {
 		h.filter.labels = lbls
 	}
 }
 
-func FilterGeneric(f func(any) bool) DepOption {
+func FilterGeneric(f func(any) bool) FetchOption {
 	return func(h *dependency) {
 		h.filter.generic = f
 	}
@@ -110,24 +110,24 @@ func (f filter) Matches(object any) bool {
 		log.Debugf("no match key: %q vs %q", f.key, string(GetKey[any](object)))
 		return false
 	}
-	if f.name != "" && f.name != GetName(object) {
-		log.Debugf("no match name: %q vs %q", f.name, GetName(object))
+	if f.name != "" && f.name != getName(object) {
+		log.Debugf("no match name: %q vs %q", f.name, getName(object))
 		return false
 	}
-	if f.namespace != "" && f.namespace != GetNamespace(object) {
-		log.Debugf("no match namespace: %q vs %q", f.namespace, GetNamespace(object))
+	if f.namespace != "" && f.namespace != getNamespace(object) {
+		log.Debugf("no match namespace: %q vs %q", f.namespace, getNamespace(object))
 		return false
 	}
-	if f.selects != nil && !labels.Instance(GetLabelSelector(object)).SubsetOf(f.selects) {
-		log.Debugf("no match selects: %q vs %q", f.selects, GetLabelSelector(object))
+	if f.selects != nil && !labels.Instance(getLabelSelector(object)).SubsetOf(f.selects) {
+		log.Debugf("no match selects: %q vs %q", f.selects, getLabelSelector(object))
 		return false
 	}
-	if f.selectsNonEmpty != nil && !labels.Instance(GetLabelSelector(object)).Match(f.selectsNonEmpty) {
-		log.Debugf("no match selectsNonEmpty: %q vs %q", f.selectsNonEmpty, GetLabelSelector(object))
+	if f.selectsNonEmpty != nil && !labels.Instance(getLabelSelector(object)).Match(f.selectsNonEmpty) {
+		log.Debugf("no match selectsNonEmpty: %q vs %q", f.selectsNonEmpty, getLabelSelector(object))
 		return false
 	}
-	if f.labels != nil && !labels.Instance(f.labels).SubsetOf(GetLabels(object)) {
-		log.Debugf("no match labels: %q vs %q", f.labels, GetLabels(object))
+	if f.labels != nil && !labels.Instance(f.labels).SubsetOf(getLabels(object)) {
+		log.Debugf("no match labels: %q vs %q", f.labels, getLabels(object))
 		return false
 	}
 	if f.generic != nil && !f.generic(object) {

@@ -55,7 +55,7 @@ var _ Collection[any] = &singletonAdapter[any]{}
 func (h *singleton[T]) execute() {
 	res := h.handle(h)
 	oldRes := h.state.Swap(res)
-	updated := !Equal(res, oldRes)
+	updated := !equal(res, oldRes)
 	if updated {
 		for _, handler := range h.handlers {
 			event := controllers.EventUpdate
@@ -95,27 +95,27 @@ func NewSingleton[T any](hf TransformationEmpty[T]) Singleton[T] {
 				switch o.Event {
 				case controllers.EventAdd:
 					if dep.filter.Matches(*o.New) {
-						log.Debugf("Add match %v", GetName(*o.New))
+						log.Debugf("Add match %v", getName(*o.New))
 						matched = true
 						break
 					} else {
-						log.Debugf("Add no match %v", GetName(*o.New))
+						log.Debugf("Add no match %v", getName(*o.New))
 					}
 				case controllers.EventDelete:
 					if dep.filter.Matches(*o.Old) {
-						log.Debugf("delete match %v", GetName(*o.Old))
+						log.Debugf("delete match %v", getName(*o.Old))
 						matched = true
 						break
 					} else {
-						log.Debugf("Add no match %v", GetName(*o.Old))
+						log.Debugf("Add no match %v", getName(*o.Old))
 					}
 				case controllers.EventUpdate:
 					if dep.filter.Matches(*o.New) {
-						log.Debugf("Update match %v", GetName(*o.New))
+						log.Debugf("Update match %v", getName(*o.New))
 						matched = true
 						break
 					} else if dep.filter.Matches(*o.Old) {
-						log.Debugf("Update no match, but used to %v", GetName(*o.New))
+						log.Debugf("Update no match, but used to %v", getName(*o.New))
 						matched = true
 						break
 					} else {
@@ -147,7 +147,7 @@ func (h *singleton[T]) AsCollection() Collection[T] {
 }
 
 func (h *singleton[T]) Register(f func(o Event[T])) {
-	batchedRegister[T](h, f)
+	registerHandlerAsBatched[T](h, f)
 }
 
 func (h *singleton[T]) RegisterBatch(f func(o []Event[T])) {

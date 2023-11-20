@@ -51,7 +51,7 @@ func NewModern(c kube.Client, events chan string, stop <-chan struct{}) {
 		}
 		services := krt.Fetch(ctx, Services, krt.FilterNamespace(p.Namespace), krt.FilterSelectsNonEmpty(p.GetLabels()))
 		return &Workload{
-			Named:        krt.NewNamed(p.ObjectMeta),
+			Named:        krt.NewNamed(p),
 			IP:           p.Status.PodIP,
 			ServiceNames: slices.Map(services, func(e *v1.Service) string { return e.Name }),
 		}
@@ -100,7 +100,7 @@ func (l *legacy) Reconcile(key types.NamespacedName) error {
 	allServices := l.services.List(pod.Namespace, klabels.Everything())
 	services := getPodServices(allServices, pod)
 	wl := &Workload{
-		Named:        krt.NewNamed(pod.ObjectMeta),
+		Named:        krt.NewNamed(pod),
 		IP:           pod.Status.PodIP,
 		ServiceNames: slices.Map(services, func(e *v1.Service) string { return e.Name }),
 	}
