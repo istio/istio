@@ -572,7 +572,7 @@ func inferPodMeta(ctx cli.Context, client kube.CLIClient, labelSelector string) 
 	for _, ns := range []string{ctx.IstioNamespace(), ctx.NamespaceOrDefault(ctx.Namespace())} {
 		pl, err := client.PodsForSelector(context.TODO(), ns, labelSelector)
 		if err != nil {
-			return "", "", fmt.Errorf("not able to locate pod with selector %s: %v", labelSelector, err)
+			continue
 		}
 		if len(pl.Items) > 0 {
 			return pl.Items[0].Name, pl.Items[0].Namespace, nil
