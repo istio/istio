@@ -76,7 +76,7 @@ func (h *singleton[T]) execute() {
 	}
 }
 
-func NewSingleton[T any](hf HandleEmpty[T]) Singleton[T] {
+func NewSingleton[T any](hf TransformationEmpty[T]) Singleton[T] {
 	h := &singleton[T]{
 		handle: hf,
 		deps: dependencies{
@@ -144,7 +144,7 @@ func NewSingleton[T any](hf HandleEmpty[T]) Singleton[T] {
 
 type singleton[T any] struct {
 	deps       dependencies
-	handle     HandleEmpty[T]
+	handle     TransformationEmpty[T]
 	handlersMu sync.RWMutex
 	handlers   []func(o []Event[T])
 	state      *atomic.Pointer[T]

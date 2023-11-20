@@ -28,39 +28,39 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+// manyCollection builds a mapping from I->O.
+// This can be built from transformation functions of I->*O or I->[]O; both are implemented by this same struct.
 type manyCollection[I, O any] struct {
+	// parent is the input collection we are building off of.
 	parent Collection[I]
-	log    *istiolog.Scope
+
+	// log is a logger for the collection, with additional labels already added to identify it.
+	log *istiolog.Scope
 
 	// mu protects all items grouped below
 	mu              sync.Mutex
 	collectionState multiIndex[I, O]
-	dependencies    sets.String
+	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
+	// These are keyed by the internal hash() function on collections.
+	// Note this does not include `parent`, which is the *primary* dependency declared outside of transformation functions.
+	collectionDependencies sets.String
 	// Stores a map of I -> Things depending on it
 	objectRelations map[Key[I]]dependencies
 
 	handlersMu sync.RWMutex
-	handlers   []func(o []Event[O])
+	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
+	eventHandlers []func(o []Event[O])
 
-	handle HandleMulti[I, O]
+	handle TransformationMulti[I, O]
 }
 
+// multiIndex stores input and output objects.
+// Each input and output can be looked up by its key.
+// Additionally, a mapping of input key -> output keys stores the transformation.
 type multiIndex[I, O any] struct {
-	objects  map[Key[O]]O
-	inputs   map[Key[I]]sets.Set[Key[O]]
-	inputObj map[Key[I]]I
-}
-
-type dump interface {
-	Dump()
-}
-
-func Dump[O any](c Collection[O]) {
-	if d, ok := c.(dump); ok {
-		d.Dump()
-	} else {
-		log.Warnf("cannot dump collection %T", c)
-	}
+	outputs  map[Key[O]]O
+	inputs   map[Key[I]]I
+	mappings map[Key[I]]sets.Set[Key[O]]
 }
 
 func (h *manyCollection[I, O]) Dump() {
@@ -72,10 +72,10 @@ func (h *manyCollection[I, O]) Dump() {
 			h.log.Errorf("Dependencies for: %v: %v -> %v (%v)", k, kk, vv.key, vv.filter)
 		}
 	}
-	for i, os := range h.collectionState.inputs {
+	for i, os := range h.collectionState.mappings {
 		h.log.Errorf("Input %v -> %v", i, os.UnsortedList())
 	}
-	for os, o := range h.collectionState.objects {
+	for os, o := range h.collectionState.outputs {
 		h.log.Errorf("Output %v -> %v", os, o)
 	}
 	h.log.Errorf("<<< END DUMP")
@@ -102,8 +102,8 @@ func (h *manyCollection[I, O]) onUpdate(items []Event[any]) {
 		}
 		// Give them a context for this specific input
 		if a.Event == controllers.EventDelete {
-			for oKey := range h.collectionState.inputs[iKey] {
-				oldRes, f := h.collectionState.objects[oKey]
+			for oKey := range h.collectionState.mappings[iKey] {
+				oldRes, f := h.collectionState.outputs[oKey]
 				if !f {
 					// Typically happens when O has multiple parents
 					log.WithLabels("okey", oKey).Errorf("BUG, inconsistent")
@@ -114,13 +114,13 @@ func (h *manyCollection[I, O]) onUpdate(items []Event[any]) {
 					Old:   &oldRes,
 				}
 				events = append(events, e)
-				delete(h.collectionState.objects, oKey)
+				delete(h.collectionState.outputs, oKey)
 				log.WithLabels("res", oKey).Debugf("handled delete")
 			}
 			// TODO: we need to clean up h.collectionState.objects somehow. We don't know if we have exclusive
 			// mapping from I -> O I think
+			delete(h.collectionState.mappings, iKey)
 			delete(h.collectionState.inputs, iKey)
-			delete(h.collectionState.inputObj, iKey)
 			h.mu.Unlock()
 		} else {
 			h.mu.Unlock()
@@ -129,9 +129,9 @@ func (h *manyCollection[I, O]) onUpdate(items []Event[any]) {
 			results := slices.GroupUnique(h.handle(ctx, i), GetKey[O])
 			h.mu.Lock()
 			newKeys := sets.New(maps.Keys(results)...)
-			oldKeys := h.collectionState.inputs[iKey]
-			h.collectionState.inputs[iKey] = newKeys
-			h.collectionState.inputObj[iKey] = i
+			oldKeys := h.collectionState.mappings[iKey]
+			h.collectionState.mappings[iKey] = newKeys
+			h.collectionState.inputs[iKey] = i
 			allKeys := newKeys.Copy().Merge(oldKeys)
 			// We have now built up a set of I -> []O
 			// and found the previous I -> []O mapping
@@ -139,7 +139,7 @@ func (h *manyCollection[I, O]) onUpdate(items []Event[any]) {
 				// Find new O object
 				newRes, newExists := results[key]
 				// Find the old O object
-				oldRes, oldExists := h.collectionState.objects[key]
+				oldRes, oldExists := h.collectionState.outputs[key]
 				e := Event[O]{}
 				if newExists && oldExists {
 					if Equal(newRes, oldRes) {
@@ -149,15 +149,15 @@ func (h *manyCollection[I, O]) onUpdate(items []Event[any]) {
 					e.Event = controllers.EventUpdate
 					e.New = &newRes
 					e.Old = &oldRes
-					h.collectionState.objects[key] = newRes
+					h.collectionState.outputs[key] = newRes
 				} else if newExists {
 					e.Event = controllers.EventAdd
 					e.New = &newRes
-					h.collectionState.objects[key] = newRes
+					h.collectionState.outputs[key] = newRes
 				} else {
 					e.Event = controllers.EventDelete
 					e.Old = &oldRes
-					delete(h.collectionState.objects, key)
+					delete(h.collectionState.outputs, key)
 				}
 
 				log.WithLabels("res", key, "type", e.Event).Debugf("handled")
@@ -170,7 +170,7 @@ func (h *manyCollection[I, O]) onUpdate(items []Event[any]) {
 		return
 	}
 	h.handlersMu.RLock()
-	handlers := slices.Clone(h.handlers)
+	handlers := slices.Clone(h.eventHandlers)
 	h.handlersMu.RUnlock()
 
 	h.log.WithLabels("events", len(events), "handlers", len(handlers)).Debugf("calling handlers")
@@ -179,7 +179,11 @@ func (h *manyCollection[I, O]) onUpdate(items []Event[any]) {
 	}
 }
 
-func NewCollection[I, O any](c Collection[I], hf HandleSingle[I, O]) Collection[O] {
+// NewCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
+// This applies for one-to-one relationships between I and O.
+// For zero-to-one, use NewSingleton. For one-to-many, use NewManyCollection.
+func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O]) Collection[O] {
+	// For implementation simplicity, represent TransformationSingle as a TransformationMulti so we can share an implementation.
 	hm := func(ctx HandlerContext, i I) []O {
 		res := hf(ctx, i)
 		if res == nil {
@@ -190,22 +194,25 @@ func NewCollection[I, O any](c Collection[I], hf HandleSingle[I, O]) Collection[
 	return newManyCollection[I, O](c, hm, fmt.Sprintf("Collection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]()))
 }
 
-func NewManyCollection[I, O any](c Collection[I], hf HandleMulti[I, O]) Collection[O] {
+// NewManyCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
+// This applies for one-to-many relationships between I and O.
+// For zero-to-one, use NewSingleton. For one-to-one, use NewCollection.
+func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O]) Collection[O] {
 	return newManyCollection[I, O](c, hf, fmt.Sprintf("ManyCollection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]()))
 }
 
-func newManyCollection[I, O any](c Collection[I], hf HandleMulti[I, O], name string) Collection[O] {
-	// We need a set of handlers
+func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], name string) Collection[O] {
+
 	h := &manyCollection[I, O]{
-		handle:          hf,
-		log:             log.WithLabels("owner", name),
-		parent:          c,
-		dependencies:    sets.New[string](),
-		objectRelations: map[Key[I]]dependencies{},
+		handle:                 hf,
+		log:                    log.WithLabels("owner", name),
+		parent:                 c,
+		collectionDependencies: sets.New[string](),
+		objectRelations:        map[Key[I]]dependencies{},
 		collectionState: multiIndex[I, O]{
-			objects:  map[Key[O]]O{},
-			inputs:   map[Key[I]]sets.Set[Key[O]]{},
-			inputObj: map[Key[I]]I{},
+			inputs:   map[Key[I]]I{},
+			outputs:  map[Key[O]]O{},
+			mappings: map[Key[I]]sets.Set[Key[O]]{},
 		},
 	}
 	// TODO: wait for dependencies to be ready
@@ -218,8 +225,10 @@ func newManyCollection[I, O any](c Collection[I], hf HandleMulti[I, O], name str
 	}))
 	// Setup primary manyCollection. On any change, trigger only that one
 	c.RegisterBatch(func(events []Event[I]) {
-		log := h.log.WithLabels("dep", "primary")
-		log.WithLabels("batch", len(events)).Debugf("got event")
+		if log.DebugEnabled() {
+			log := h.log.WithLabels("dep", "primary")
+			log.WithLabels("batch", len(events)).Debugf("got event")
+		}
 		h.onUpdate(slices.Map(events, castEvent[I, any]))
 	})
 	return h
@@ -272,8 +281,8 @@ func (h *manyCollection[I, O]) onDependencyEvent(events []Event[any]) {
 		ii := h.parent.GetKey(i)
 		if ii == nil {
 			h.log.Debugf("parent deletion %v", i)
-			for oKey := range h.collectionState.inputs[i] {
-				_, f := h.collectionState.objects[oKey]
+			for oKey := range h.collectionState.mappings[i] {
+				_, f := h.collectionState.outputs[oKey]
 				if !f {
 					// Typically happens when O has multiple parents
 					log.WithLabels("ikey", i, "okey", oKey).Errorf("BUG, inconsistent")
@@ -281,7 +290,7 @@ func (h *manyCollection[I, O]) onDependencyEvent(events []Event[any]) {
 				}
 				e := Event[any]{
 					Event: controllers.EventDelete,
-					Old:   ptr.Of(any(h.collectionState.inputObj[i])),
+					Old:   ptr.Of(any(h.collectionState.inputs[i])),
 				}
 				toRun = append(toRun, e)
 			}
@@ -304,7 +313,7 @@ func (h *manyCollection[I, O]) _internalHandler() {
 func (h *manyCollection[I, O]) GetKey(k Key[O]) (res *O) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	rf, f := h.collectionState.objects[k]
+	rf, f := h.collectionState.outputs[k]
 	if f {
 		return &rf
 	}
@@ -315,11 +324,11 @@ func (h *manyCollection[I, O]) List(namespace string) (res []O) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if namespace == "" {
-		res = maps.Values(h.collectionState.objects)
+		res = maps.Values(h.collectionState.outputs)
 		slices.SortBy(res, GetKey[O])
 	} else {
 		// TODO: implement properly using collectionState.namespace
-		res = Filter(maps.Values(h.collectionState.objects), func(o O) bool {
+		res = Filter(maps.Values(h.collectionState.outputs), func(o O) bool {
 			return GetNamespace(o) == namespace
 		})
 		slices.SortBy(res, GetKey[O])
@@ -336,7 +345,7 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) {
 	h.handlersMu.Lock()
 	defer h.handlersMu.Unlock()
 	// TODO: locking here is probably not reliable to avoid duplicate events
-	h.handlers = append(h.handlers, f)
+	h.eventHandlers = append(h.eventHandlers, f)
 	// Send all existing objects through handler
 	objs := slices.Map(h.List(metav1.NamespaceAll), func(t O) Event[O] {
 		return Event[O]{
@@ -368,7 +377,7 @@ func (i *indexedManyCollection[I, O]) registerDependency(d dependency) bool {
 	}
 	i.d.dependencies[d.key] = d
 	c := d.collection
-	if !i.h.dependencies.InsertContains(c.hash()) {
+	if !i.h.collectionDependencies.InsertContains(c.hash()) {
 		i.h.log.Debugf("register manyCollection %T", c)
 		i.h.mu.Unlock()
 		c.register(i.h.onDependencyEvent)

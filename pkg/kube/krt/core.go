@@ -78,6 +78,9 @@ func eraseCollection[T any](c Collection[T]) erasedCollection {
 	}
 }
 
+// castEvent converts an Event[I] to Event[O].
+// Caller is responsible for making sure these can be type converted.
+// Typically this is converting to or from `any`.
 func castEvent[I, O any](o Event[I]) Event[O] {
 	e := Event[O]{
 		Event: o.Event,
@@ -166,9 +169,9 @@ type (
 )
 
 type (
-	HandleEmpty[T any]     func(ctx HandlerContext) *T
-	HandleSingle[I, O any] func(ctx HandlerContext, i I) *O
-	HandleMulti[I, O any]  func(ctx HandlerContext, i I) []O
+	TransformationEmpty[T any]     func(ctx HandlerContext) *T
+	TransformationSingle[I, O any] func(ctx HandlerContext, i I) *O
+	TransformationMulti[I, O any]  func(ctx HandlerContext, i I) []O
 )
 
 type Equaler[K any] interface {
