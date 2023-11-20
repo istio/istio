@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/kube/kubetypes"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/slices"
 )
 
 type informer[I controllers.ComparableObject] struct {
@@ -44,7 +43,6 @@ func (i informer[I]) Name() string {
 
 func (i informer[I]) List(namespace string) []I {
 	res := i.inf.List(namespace, klabels.Everything())
-	slices.SortBy(res, GetKey[I])
 	return res
 }
 
