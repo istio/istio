@@ -90,7 +90,7 @@ func (p *Params) SetContainer(container string) *Params {
 // GetK8sResources returns all k8s cluster resources.
 func GetK8sResources(p *Params) (map[string]string, error) {
 	out, err := p.Runner.RunCmd("get --all-namespaces "+
-		"all,namespaces,jobs,ingresses,endpoints,endpointslices,customresourcedefinitions,configmaps,events,"+
+		"all,nodes,namespaces,jobs,ingresses,endpoints,endpointslices,customresourcedefinitions,configmaps,events,"+
 		"mutatingwebhookconfigurations,validatingwebhookconfigurations,networkpolicies "+
 		"-o yaml", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	return map[string]string{
