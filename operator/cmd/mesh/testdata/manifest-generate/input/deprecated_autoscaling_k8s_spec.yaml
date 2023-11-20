@@ -38,3 +38,7 @@ spec:
             object:
               metricName: cpu
               averageValue: 111
+          - type: Resource
+            object:
+              metricName: memory
+              averageValue: 111

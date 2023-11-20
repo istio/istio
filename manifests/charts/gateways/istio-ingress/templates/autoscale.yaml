@@ -24,10 +24,12 @@ spec:
     resource:
       name: cpu
       targetAverageUtilization: {{ $gateway.cpu.targetAverageUtilization }}
+  {{- if $gateway.memory.targetAverageUtilization }}
   - type: Resource
     resource:
       name: memory
       targetAverageUtilization: {{ $gateway.memory.targetAverageUtilization }}
+  {{- end }}
 ---
 {{- else }}
 {{- if (semverCompare ">=1.23-0" .Capabilities.KubeVersion.GitVersion)}}
