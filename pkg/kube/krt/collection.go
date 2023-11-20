@@ -82,10 +82,10 @@ func (h *manyCollection[I, O]) Dump() {
 }
 
 // onUpdate takes a list of I's that changed and reruns the handler over them.
-func (h *manyCollection[I, O]) onUpdate(items []Event[any]) {
+func (h *manyCollection[I, O]) onUpdate(items []Event[I]) {
 	var events []Event[O]
 	for _, a := range items {
-		i := a.Latest().(I)
+		i := a.Latest()
 
 		iKey := GetKey(i)
 		log := h.log.WithLabels("key", iKey)
@@ -202,7 +202,6 @@ func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O]) 
 }
 
 func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], name string) Collection[O] {
-
 	h := &manyCollection[I, O]{
 		handle:                 hf,
 		log:                    log.WithLabels("owner", name),
@@ -217,9 +216,9 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 	}
 	// TODO: wait for dependencies to be ready
 	// Build up the initial state
-	h.onUpdate(slices.Map(c.List(metav1.NamespaceAll), func(t I) Event[any] {
-		return Event[any]{
-			New:   ptr.Of(any(t)),
+	h.onUpdate(slices.Map(c.List(metav1.NamespaceAll), func(t I) Event[I] {
+		return Event[I]{
+			New:   &t,
 			Event: controllers.EventAdd,
 		}
 	}))
@@ -229,7 +228,7 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 			log := h.log.WithLabels("dep", "primary")
 			log.WithLabels("batch", len(events)).Debugf("got event")
 		}
-		h.onUpdate(slices.Map(events, castEvent[I, any]))
+		h.onUpdate(events)
 	})
 	return h
 }
@@ -276,7 +275,7 @@ func (h *manyCollection[I, O]) onDependencyEvent(events []Event[any]) {
 		}
 	}
 	h.log.Debugf("manyCollection event size %v, trigger %v dependencies", len(events), len(ks))
-	toRun := make([]Event[any], 0, len(ks))
+	toRun := make([]Event[I], 0, len(ks))
 	for i := range ks {
 		ii := h.parent.GetKey(i)
 		if ii == nil {
@@ -288,17 +287,17 @@ func (h *manyCollection[I, O]) onDependencyEvent(events []Event[any]) {
 					log.WithLabels("ikey", i, "okey", oKey).Errorf("BUG, inconsistent")
 					continue
 				}
-				e := Event[any]{
+				e := Event[I]{
 					Event: controllers.EventDelete,
-					Old:   ptr.Of(any(h.collectionState.inputs[i])),
+					Old:   ptr.Of(h.collectionState.inputs[i]),
 				}
 				toRun = append(toRun, e)
 			}
 		} else {
-			toRun = append(toRun, Event[any]{
+			toRun = append(toRun, Event[I]{
 				Event: controllers.EventUpdate,
 				// TODO: is Update without old legal?
-				New: ptr.Of(any(*ii)),
+				New: ii,
 				// Old: Ptr(any(*ev.Old)),
 			})
 		}

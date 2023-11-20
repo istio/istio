@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
@@ -66,7 +67,7 @@ func TestNewInformer(t *testing.T) {
 
 	cmt.Create(cmB)
 	tt.WaitOrdered("add/ns/b")
-	assert.Equal(t, ConfigMaps.List(""), []*corev1.ConfigMap{cmA2, cmB})
+	assert.Equal(t, slices.SortBy(ConfigMaps.List(""), func(a *corev1.ConfigMap) string { return a.Name }), []*corev1.ConfigMap{cmA2, cmB})
 
 	assert.Equal(t, ConfigMaps.GetKey("ns/b"), &cmB)
 	assert.Equal(t, ConfigMaps.GetKey("ns/a"), &cmA2)

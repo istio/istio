@@ -59,32 +59,31 @@ func (i informer[I]) Register(f func(o Event[I])) {
 }
 
 func (i informer[I]) RegisterBatch(f func(o []Event[I])) {
-	i.inf.AddEventHandler(EventHandler(func(o Event[any]) {
-		i.log.WithLabels("key", GetKey(o.Latest()), "type", o.Event).Debugf("handling event")
-		defer func() {
-			i.log.WithLabels("key", GetKey(o.Latest()), "type", o.Event).Debugf("done handling event")
-		}()
-		f([]Event[I]{castEvent[any, I](o)})
+	i.inf.AddEventHandler(EventHandler(func(o Event[I]) {
+		if i.log.DebugEnabled() {
+			i.log.WithLabels("key", GetKey(o.Latest()), "type", o.Event).Debugf("handling event")
+		}
+		f([]Event[I]{o})
 	}))
 }
 
-func EventHandler(handler func(o Event[any])) cache.ResourceEventHandler {
-	return cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) {
-			handler(Event[any]{
+func EventHandler[I controllers.ComparableObject](handler func(o Event[I])) cache.ResourceEventHandler {
+	return controllers.EventHandler[I]{
+		AddFunc: func(obj I) {
+			handler(Event[I]{
 				New:   &obj,
 				Event: controllers.EventAdd,
 			})
 		},
-		UpdateFunc: func(oldInterface, newInterface any) {
-			handler(Event[any]{
-				Old:   &oldInterface,
-				New:   &newInterface,
+		UpdateFunc: func(oldObj, newObj I) {
+			handler(Event[I]{
+				Old:   &oldObj,
+				New:   &newObj,
 				Event: controllers.EventUpdate,
 			})
 		},
-		DeleteFunc: func(obj any) {
-			handler(Event[any]{
+		DeleteFunc: func(obj I) {
+			handler(Event[I]{
 				Old:   &obj,
 				Event: controllers.EventDelete,
 			})
