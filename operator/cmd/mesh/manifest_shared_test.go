@@ -144,6 +144,8 @@ var interceptorFunc = interceptor.Funcs{Patch: func(
 		if err := clnt.Create(ctx, check); err != nil {
 			return fmt.Errorf("could not inject object creation for fake: %w", err)
 		}
+	} else if err != nil {
+		return err
 	}
 	obj.SetResourceVersion(check.GetResourceVersion())
 	return clnt.Update(ctx, obj)
@@ -289,7 +291,7 @@ func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest str
 		Name:    name.IstioOperatorComponentName,
 		Content: manifest,
 	}
-	_, err := reconciler.ApplyManifest(m, false)
+	_, err := reconciler.ApplyManifest(m)
 	return err
 }
 

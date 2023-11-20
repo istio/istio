@@ -57,6 +57,8 @@ var interceptorFunc = interceptor.Funcs{Patch: func(
 		if err := clnt.Create(ctx, check); err != nil {
 			return fmt.Errorf("could not inject object creation for fake: %w", err)
 		}
+	} else if err != nil {
+		return err
 	}
 	obj.SetResourceVersion(check.GetResourceVersion())
 	return clnt.Update(ctx, obj)
@@ -121,7 +123,7 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 				countLock:     &sync.Mutex{},
 				prunedKindSet: map[schema.GroupKind]struct{}{},
 			}
-			if err := h.ApplyObject(obj.UnstructuredObject(), false); (err != nil) != tt.wantErr {
+			if err := h.ApplyObject(obj.UnstructuredObject()); (err != nil) != tt.wantErr {
 				t.Errorf("HelmReconciler.ApplyObject() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
