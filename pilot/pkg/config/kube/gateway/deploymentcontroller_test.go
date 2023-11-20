@@ -269,7 +269,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 			go tw.Run(stop)
 			d := NewDeploymentController(
 				client, cluster.ID(features.ClusterName), env, testInjectionConfig(t, tt.values), func(fn func()) {
-				}, tw, "")
+				}, tw, "", nil)
 			d.patcher = func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 				b, err := yaml.JSONToYAML(data)
 				if err != nil {
@@ -299,7 +299,7 @@ func TestVersionManagement(t *testing.T) {
 	})
 	tw := revisions.NewTagWatcher(c, "default")
 	env := &model.Environment{}
-	d := NewDeploymentController(c, "", env, testInjectionConfig(t, ""), func(fn func()) {}, tw, "")
+	d := NewDeploymentController(c, "", env, testInjectionConfig(t, ""), func(fn func()) {}, tw, "", nil)
 	reconciles := atomic.NewInt32(0)
 	wantReconcile := int32(0)
 	expectReconciled := func() {
