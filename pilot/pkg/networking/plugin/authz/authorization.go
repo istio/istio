@@ -47,6 +47,7 @@ func NewBuilder(actionType ActionType, push *model.PushContext, proxy *model.Pro
 	option := builder.Option{
 		IsCustomBuilder: actionType == Custom,
 		UseFilterState:  useFilterState,
+		UseExtendedJwt:  proxy.SupportsEnvoyExtendedJwt(),
 	}
 	selectionOpts := model.WorkloadSelectionOpts{
 		Namespace:      proxy.ConfigNamespace,

@@ -433,7 +433,7 @@ func translateRoute(
 
 	out := &route.Route{
 		Name:     routeName,
-		Match:    TranslateRouteMatch(virtualService, match),
+		Match:    TranslateRouteMatch(virtualService, match, node.SupportsEnvoyExtendedJwt()),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 
@@ -956,7 +956,7 @@ func TranslateHeadersOperations(headers *networking.Headers) HeadersOperations {
 }
 
 // TranslateRouteMatch translates match condition
-func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
+func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest, useExtendedJwt bool) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
@@ -964,7 +964,7 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest) *rou
 
 	for name, stringMatch := range in.Headers {
 		// The metadata matcher takes precedence over the header matcher.
-		if metadataMatcher := translateMetadataMatch(name, stringMatch); metadataMatcher != nil {
+		if metadataMatcher := translateMetadataMatch(name, stringMatch, useExtendedJwt); metadataMatcher != nil {
 			out.DynamicMetadata = append(out.DynamicMetadata, metadataMatcher)
 		} else {
 			matcher := translateHeaderMatch(name, stringMatch)
@@ -973,7 +973,7 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest) *rou
 	}
 
 	for name, stringMatch := range in.WithoutHeaders {
-		if metadataMatcher := translateMetadataMatch(name, stringMatch); metadataMatcher != nil {
+		if metadataMatcher := translateMetadataMatch(name, stringMatch, useExtendedJwt); metadataMatcher != nil {
 			metadataMatcher.Invert = true
 			out.DynamicMetadata = append(out.DynamicMetadata, metadataMatcher)
 		} else {
@@ -1085,12 +1085,12 @@ func isCatchAllStringMatch(in *networking.StringMatch) bool {
 // Examples using `[]` as a separator:
 // - `@request.auth.claims[admin]` matches the claim "admin".
 // - `@request.auth.claims[group][id]` matches the nested claims "group" and "id".
-func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.MetadataMatcher {
+func translateMetadataMatch(name string, in *networking.StringMatch, useExtendedJwt bool) *matcher.MetadataMatcher {
 	rc := jwt.ToRoutingClaim(name)
 	if !rc.Match {
 		return nil
 	}
-	return authz.MetadataMatcherForJWTClaims(rc.Claims, util.ConvertToEnvoyMatch(in))
+	return authz.MetadataMatcherForJWTClaims(rc.Claims, util.ConvertToEnvoyMatch(in), useExtendedJwt)
 }
 
 // translateHeaderMatch translates to HeaderMatcher
@@ -1191,7 +1191,7 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 	}
 	val := &route.Route{
-		Match: TranslateRouteMatch(config.Config{}, nil),
+		Match: TranslateRouteMatch(config.Config{}, nil, true),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
