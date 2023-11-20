@@ -246,8 +246,7 @@ func TestClient(t *testing.T) {
 	tester.Delete(obj3.Name, obj3.Namespace)
 	tester.Delete(obj2.Name, obj2.Namespace)
 	tester.Delete(obj1.Name, obj1.Namespace)
-	tracker.WaitOrdered("delete/2")
-	tracker.WaitOrdered("delete/1")
+	tracker.WaitOrdered("delete/2", "delete/1")
 	assert.Equal(t, tester.List(obj1.Namespace, klabels.Everything()), nil)
 
 	// Create some more objects again
