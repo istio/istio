@@ -193,6 +193,8 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 		return fmt.Errorf("could not configure logs: %s", err)
 	}
 
+	iop.Name = savedIOPName(iop)
+
 	// Detect whether previous installation exists prior to performing the installation.
 	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
 	if err := InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l); err != nil {
@@ -258,9 +260,24 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 		return fmt.Errorf("errors occurred during operation")
 	}
 
+	// Previously we may install IOP file from the old version of istioctl. Now since we won't install IOP file
+	// anymore, and it didn't provide much value, we can delete it if it exists.
+	reconciler.DeleteIOPInClusterIfExists(iop)
+
 	opts.ProgressLog.SetState(progress.StateComplete)
 
 	return nil
+}
+
+func savedIOPName(iop *v1alpha12.IstioOperator) string {
+	ret := "installed-state"
+	if iop.Name != "" {
+		ret += "-" + iop.Name
+	}
+	if iop.Spec.Revision != "" {
+		ret += "-" + iop.Spec.Revision
+	}
+	return ret
 }
 
 // detectIstioVersionDiff will show warning if istioctl version and control plane version are different
