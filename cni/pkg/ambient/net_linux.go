@@ -245,12 +245,11 @@ func getDeviceWithDestinationOf(ip string) (string, error) {
 	return link.Attrs().Name, nil
 }
 
-func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
+func GetIndexAndPeerMac(podIfName, nspath string) (int, net.HardwareAddr, error) {
 	var hostIfIndex int
 	var hwAddr net.HardwareAddr
 
-	ns = filepath.Base(ns)
-	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
+	err := netns.WithNetNSPath(nspath, func(netns.NetNS) error {
 		link, err := netlink.LinkByName(podIfName)
 		if err != nil {
 			return err
@@ -271,18 +270,18 @@ func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
 		return nil
 	})
 	if err != nil {
-		return 0, nil, fmt.Errorf("failed to get info for if(%s) in ns(%s): %v", podIfName, ns, err)
+		return 0, nil, fmt.Errorf("failed to get info for if(%s) in ns(%s): %v", podIfName, nspath, err)
 	}
 
 	return hostIfIndex, hwAddr, nil
 }
 
-func getMacFromNsIdx(ns string, ifIndex int) (net.HardwareAddr, error) {
+func getMacFromNsIdx(nsName string, ifIndex int) (net.HardwareAddr, error) {
 	var hwAddr net.HardwareAddr
-	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
+	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", nsName), func(netns.NetNS) error {
 		link, err := netlink.LinkByIndex(ifIndex)
 		if err != nil {
-			return fmt.Errorf("failed to get link(%d) in ns(%s): %v", ifIndex, ns, err)
+			return fmt.Errorf("failed to get link(%d) in ns(%s): %v", ifIndex, nsName, err)
 		}
 		hwAddr = link.Attrs().HardwareAddr
 		return nil
@@ -1324,6 +1323,16 @@ func (s *Server) getEnrolledIPSets() sets.String {
 		pods = s.ebpfServer.DumpAppIPs()
 	}
 	return pods
+}
+
+func (s *Server) IsPodEnrolledInAmbient(pod *corev1.Pod) bool {
+	switch s.redirectMode {
+	case IptablesMode:
+		return IsPodInIpset(pod)
+	case EbpfMode:
+		return s.ebpfServer.IsPodIPEnrolled(pod.Status.PodIP)
+	}
+	return false
 }
 
 func addTProxyMarkRule() error {

@@ -131,7 +131,7 @@ func EBPFTProxySupport() bool {
 		return true
 	}
 	if errors.Is(err, ebpf.ErrNotSupported) {
-		log.Infof("FnSkAssign (Linux 5.7 or later) is not supported in current kernel")
+		log.Debugf("FnSkAssign (Linux 5.7 or later) is not supported in current kernel")
 	} else {
 		log.Errorf("failed to query ebpf helper availability: %v", err)
 	}
@@ -263,7 +263,7 @@ func (r *RedirectServer) initBpfObjects() error {
 	}
 	r.ztunnelIngressProgName = ztunnelIngressInfo.Name
 
-	log.Infof("ztunnelIngressProgName: %s", r.ztunnelIngressProgName)
+	log.Debugf("ztunnelIngressProgName: %s", r.ztunnelIngressProgName)
 
 	r.inboundFd = uint32(r.obj.AppInbound.FD())
 	inboundInfo, err := r.obj.AppInbound.Info()
@@ -684,6 +684,19 @@ func (r *RedirectServer) DumpAppIPs() sets.String {
 		m.Insert(ipAddr.String())
 	}
 	return m
+}
+
+func (r *RedirectServer) IsPodIPEnrolled(ip string) bool {
+	var valueOut mapInfo
+	ipAddr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return false
+	}
+	if err = r.obj.AppInfo.Lookup(ipAddr.As4(), &valueOut); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+		log.Errorf("failed to look up AppInfo: %w", err)
+	}
+
+	return err == nil
 }
 
 func htons(a uint16) uint16 {

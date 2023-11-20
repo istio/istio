@@ -155,9 +155,6 @@ spec:
             port: 8080
           initialDelaySeconds: 1
           periodSeconds: 2
-        securityContext:
-          runAsGroup: 1338
-          runAsUser: 1338
         startupProbe:
           failureThreshold: 10
           periodSeconds: 1

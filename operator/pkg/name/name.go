@@ -60,10 +60,6 @@ const (
 
 	// DefaultProfileName is the name of the default profile.
 	DefaultProfileName = "default"
-
-	// InstalledSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
-	// in the last install operation.
-	InstalledSpecCRPrefix = "installed-state"
 )
 
 // ComponentName is a component name string, typed to constrain allowed values.

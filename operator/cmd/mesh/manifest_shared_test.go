@@ -30,7 +30,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -218,7 +217,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 	if err != nil {
 		return nil, err
 	}
-	if err := fakeInstallOperator(reconciler, chartSource, iop); err != nil {
+	if err := fakeInstallOperator(reconciler, chartSource); err != nil {
 		return nil, err
 	}
 
@@ -232,7 +231,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 // fakeInstallOperator installs the operator manifest resources into a cluster using the given reconciler.
 // The installation is for testing with a kubebuilder fake cluster only, since no functional Deployment will be
 // created.
-func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType, iop *v1alpha1.IstioOperator) error {
+func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType) error {
 	ocArgs := &operatorCommonArgs{
 		manifestsPath:     string(chartSource),
 		istioNamespace:    constants.IstioSystemNamespace,
@@ -250,15 +249,8 @@ func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource 
 	if err := applyWithReconciler(reconciler, mstr); err != nil {
 		return err
 	}
-	iopStr, err := yaml.Marshal(iop)
-	if err != nil {
-		return err
-	}
-	if err := saveIOPToCluster(reconciler, string(iopStr)); err != nil {
-		return err
-	}
 
-	return err
+	return nil
 }
 
 // applyWithReconciler applies the given manifest string using the given reconciler.
