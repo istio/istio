@@ -64,7 +64,6 @@ func FilterName(name, namespace string) DepOption {
 	return func(h *dependency) {
 		h.filter.name = name
 		h.filter.namespace = namespace
-		h.key.name = name
 	}
 }
 

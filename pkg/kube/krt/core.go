@@ -15,7 +15,6 @@
 package krt
 
 import (
-	"fmt"
 	"reflect"
 
 	"google.golang.org/protobuf/proto"
@@ -49,28 +48,24 @@ func batchedRegister[T any](c Collection[T], f func(o Event[T])) {
 	})
 }
 
-type erasedCollection interface {
-	register(f func(o []Event[any]))
-	hash() string
+// erasedCollection is a Collection[T] that has been type-erased so it can be stored in collections
+// that do not have type information.
+type erasedCollection struct {
+	// original stores the original typed Collection
+	original any
+	// registerFunc registers any Event[any] handler. These will be mapped to Event[T] when connected to the original collection.
+	registerFunc func(f func(o []Event[any]))
+	// TODO: since we erase things, we lose a lot of context. We should add some ID() or Name() to Collections.
 }
 
-type erasedCollectionImpl struct {
-	r func(f func(o []Event[any]))
-	h string
-}
-
-func (e erasedCollectionImpl) hash() string {
-	return e.h
-}
-
-func (e erasedCollectionImpl) register(f func(o []Event[any])) {
-	e.r(f)
+func (e erasedCollection) register(f func(o []Event[any])) {
+	e.registerFunc(f)
 }
 
 func eraseCollection[T any](c Collection[T]) erasedCollection {
-	return erasedCollectionImpl{
-		h: fmt.Sprintf("%p", c),
-		r: func(f func(o []Event[any])) {
+	return erasedCollection{
+		original: c,
+		registerFunc: func(f func(o []Event[any])) {
 			c.RegisterBatch(func(o []Event[T]) {
 				f(slices.Map(o, castEvent[T, any]))
 			})
@@ -103,35 +98,15 @@ type resourceNamer interface {
 
 // dependency is a specific thing that can be depdnended on
 type dependency struct {
-	// Key; can be a type or name+type
-	key depKey
 	// The actual collection containing this
 	collection erasedCollection
 	// Filter over the collection
 	filter filter
 }
 
-type depKey struct {
-	// TODO: this is currently broken and suggests we can only have two dependencies of the same type if they have an explicit name
-	// We should allow multiple (example: fetch from ns A and ns B)
-	// Explicit name
-	name string
-	// Type. If there are multiple with the same type, name is required
-	dtype reflect.Type
-}
-
-func (d depKey) String() string {
-	return fmt.Sprintf("%v/%v", d.dtype.Name(), d.name)
-}
-
-type dependencies struct {
-	dependencies map[depKey]dependency
-	finalized    bool
-}
-
 type depper interface {
 	// Registers a dependency, returning true if it is finalized
-	registerDependency(dependency) bool
+	registerDependency(dependency)
 }
 
 type Event[T any] struct {
@@ -165,7 +140,7 @@ type HandlerContext interface {
 
 type (
 	DepOption func(*dependency)
-	Option    func(map[depKey]dependency)
+	Option    func(map[untypedCollection]dependency)
 )
 
 type (

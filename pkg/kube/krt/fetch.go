@@ -36,14 +36,11 @@ func Fetch[T any](ctx HandlerContext, c Collection[T], opts ...DepOption) []T {
 	h := ctx.(depper)
 	d := dependency{
 		collection: eraseCollection(c),
-		key:        depKey{dtype: GetType[T]()},
 	}
 	for _, o := range opts {
 		o(&d)
 	}
-	if !h.registerDependency(d) {
-		return nil
-	}
+	h.registerDependency(d)
 
 	// Now we can do the real fetching
 	var res []T
@@ -53,6 +50,8 @@ func Fetch[T any](ctx HandlerContext, c Collection[T], opts ...DepOption) []T {
 			res = append(res, c)
 		}
 	}
-	log.WithLabels("key", d.key, "type", GetType[T](), "filter", d.filter, "size", len(res)).Debugf("Fetch")
+	if log.DebugEnabled() {
+		log.WithLabels("type", GetType[T](), "filter", d.filter, "size", len(res)).Debugf("Fetch")
+	}
 	return res
 }

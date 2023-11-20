@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -185,6 +186,7 @@ func TestCollectionSimple(t *testing.T) {
 }
 
 func TestCollectionMerged(t *testing.T) {
+	log.FindScope("krt").SetOutputLevel(log.DebugLevel)
 	c := kube.NewFakeClient()
 	pods := krt.NewInformer[*corev1.Pod](c)
 	services := krt.NewInformer[*corev1.Service](c)

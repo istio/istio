@@ -15,15 +15,12 @@
 package krt
 
 import (
-	"fmt"
 	"sync"
 
 	"go.uber.org/atomic"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/ptr"
-	"istio.io/istio/pkg/slices"
 )
 
 // singletonAdapter exposes a singleton as a collection
@@ -79,24 +76,16 @@ func (h *singleton[T]) execute() {
 func NewSingleton[T any](hf TransformationEmpty[T]) Singleton[T] {
 	h := &singleton[T]{
 		handle: hf,
-		deps: dependencies{
-			dependencies: map[depKey]dependency{},
-			finalized:    false,
-		},
-		state: atomic.NewPointer[T](nil),
+		deps:   map[untypedCollection]dependency{},
+		state:  atomic.NewPointer[T](nil),
 	}
-	// Run the singleton, but do not persist state. This is just to register dependencies
-	// I suppose we could make this also persist state
-	// hf(h)
 	// TODO: wait for dependencies to be ready
 	// Populate initial state. It is a singleton so we don't have any hard dependencies
 	h.execute()
-	h.deps.finalized = true
 	mu := sync.Mutex{}
-	for _, dep := range h.deps.dependencies {
+	for _, dep := range h.deps {
 		dep := dep
-		log := log.WithLabels("dep", dep.key)
-		log.Debugf("insert dep, filter: %+v", dep.filter)
+		log.Debugf("insert dependency, filter: %+v", dep.filter)
 		dep.collection.register(func(events []Event[any]) {
 			mu.Lock()
 			defer mu.Unlock()
@@ -143,7 +132,7 @@ func NewSingleton[T any](hf TransformationEmpty[T]) Singleton[T] {
 }
 
 type singleton[T any] struct {
-	deps       dependencies
+	deps       map[untypedCollection]dependency
 	handle     TransformationEmpty[T]
 	handlersMu sync.RWMutex
 	handlers   []func(o []Event[T])
@@ -166,29 +155,21 @@ func (h *singleton[T]) RegisterBatch(f func(o []Event[T])) {
 	defer h.handlersMu.Unlock()
 	// TODO: locking here is probably not reliable to avoid duplicate events
 	// Send all existing objects through handler
-	objs := slices.Map(h.List(metav1.NamespaceAll), func(t T) Event[T] {
-		return Event[T]{
-			New:   ptr.Of(t),
-			Event: controllers.EventAdd,
-		}
-	})
-	if len(objs) > 0 {
-		f(objs)
-	}
+	//objs := slices.Map(h.List(metav1.NamespaceAll), func(t T) Event[T] {
+	//	return Event[T]{
+	//		New:   ptr.Of(t),
+	//		Event: controllers.EventAdd,
+	//	}
+	//})
+	//if len(objs) > 0 {
+	//	f(objs)
+	//}
 	h.handlers = append(h.handlers, f)
 }
 
 // registerDependency creates a
-func (h *singleton[T]) registerDependency(d dependency) bool {
-	_, exists := h.deps.dependencies[d.key]
-	if exists && !h.deps.finalized {
-		panic(fmt.Sprintf("dependency already registered, %+v", d.key))
-	}
-	if !exists && h.deps.finalized {
-		panic(fmt.Sprintf("dependency registered after initialization, %+v", d.key))
-	}
-	h.deps.dependencies[d.key] = d
-	return h.deps.finalized
+func (h *singleton[T]) registerDependency(d dependency) {
+	h.deps[d.collection.original] = d
 }
 
 func (h *singleton[T]) Get() *T {
