@@ -3,4 +3,4 @@ kind: bug-fix
 area: documentation
 releaseNotes:
 - |
-    **Fixed** `httpbin` samples now work on OpenShift.
+    **Fixed** `httpbin` sample manifests to deploy correctly on OpenShift.
