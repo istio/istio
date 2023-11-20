@@ -288,12 +288,12 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name: systemNS,
 				Labels: map[string]string{
-					label.TopologyNetwork.Name: "ns3",
+					label.TopologyNetwork.Name: "nw3",
 				},
 			},
 		})
 		addMeshNetworksFromRegistryGateway(t, s.controller, s.controller.meshNetworksWatcher)
-		expectWorkloadNetwork(t, s.controller, "ns3")
+		expectWorkloadNetwork(t, s.controller, "nw3")
 	})
 }
 
