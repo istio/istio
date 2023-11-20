@@ -46,6 +46,8 @@ type erasedCollection struct {
 	original any
 	// registerFunc registers any Event[any] handler. These will be mapped to Event[T] when connected to the original collection.
 	registerFunc func(f func(o []Event[any]))
+	name         string
+
 	// TODO: since we erase things, we lose a lot of context. We should add some ID() or Name() to Collections.
 }
 
@@ -55,6 +57,7 @@ func (e erasedCollection) register(f func(o []Event[any])) {
 
 func eraseCollection[T any](c Collection[T]) erasedCollection {
 	return erasedCollection{
+		name:     c.Name(),
 		original: c,
 		registerFunc: func(f func(o []Event[any])) {
 			c.RegisterBatch(func(o []Event[T]) {
@@ -78,6 +81,19 @@ func castEvent[I, O any](o Event[I]) Event[O] {
 		e.New = ptr.Of(any(*o.New).(O))
 	}
 	return e
+}
+
+func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
+	c := &collectionOptions{}
+	for _, o := range opts {
+		o(c)
+	}
+	return *c
+}
+
+// collectionOptions tracks options for a collection
+type collectionOptions struct {
+	name string
 }
 
 // dependency is a specific thing that can be depended on

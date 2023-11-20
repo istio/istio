@@ -277,7 +277,7 @@ func TestCollectionCycle(t *testing.T) {
 	Thingys.RegisterBatch(BatchedTrackerHandler[PodSizeCount](tt))
 
 	fetch := func() []PodSizeCount {
-		return Thingys.List("")
+		return slices.SortBy(Thingys.List(""), func(a PodSizeCount) string { return a.Named.ResourceName() })
 	}
 
 	assert.Equal(t, fetch(), nil)

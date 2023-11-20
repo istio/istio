@@ -27,6 +27,7 @@ type Collection[T any] interface {
 	// GetKey returns an object by it's key, if present. Otherwise, nil is returned.
 	GetKey(k Key[T]) *T
 	// List returns all objects in the queried namespace.
+	// Order of the list is undefined.
 	// Note: not all T types have a "Namespace"; a non-empty namespace is only valid for types that do have a namespace.
 	List(namespace string) []T
 	// Register adds an event watcher to the collection. Any time an item in the collection changes, the handler will be
@@ -37,6 +38,9 @@ type Collection[T any] interface {
 	// RegisterBatch registers a handler that accepts multiple events at once. This can be useful as an optimization.
 	// Otherwise, behaves the same as Register.
 	RegisterBatch(f func(o []Event[T]))
+	// Name is a human facing name for this collection.
+	// Note this may not be universally unique
+	Name() string
 }
 
 // Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,
@@ -46,6 +50,9 @@ type Singleton[T any] interface {
 	Get() *T
 	// Register adds an event watcher to the object. Any time it changes, the handler will be called
 	Register(f func(o Event[T]))
+	// Name is a human facing name for this collection.
+	// Note this may not be universally unique
+	Name() string
 	AsCollection() Collection[T]
 }
 
@@ -83,12 +90,16 @@ func (e Event[T]) Latest() T {
 // This can be used with Fetch to dynamically query for resources.
 // Note: this doesn't expose Fetch as a method, as Go generics do not support arbitrary generic types on methods.
 type HandlerContext interface {
+	// _internalHandler is an interface that can only be implemented by this package.
 	_internalHandler()
 }
 
 // FetchOption is a functional argument type that can be passed to Fetch.
 // These are all created by the various Filter* functions
 type FetchOption func(*dependency)
+
+// CollectionOption is a functional argument type that can be passed to Collection constructors.
+type CollectionOption func(*collectionOptions)
 
 // Transformations represent functions that derive some output types from an input type.
 type (

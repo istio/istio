@@ -15,6 +15,7 @@
 package krt
 
 import (
+	"fmt"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -50,6 +51,10 @@ func (s singletonAdapter[T]) List(namespace string) []T {
 	return []T{*res}
 }
 
+func (s singletonAdapter[T]) Name() string {
+	return s.s.Name()
+}
+
 var _ Collection[any] = &singletonAdapter[any]{}
 
 func (h *singleton[T]) execute() {
@@ -73,12 +78,18 @@ func (h *singleton[T]) execute() {
 	}
 }
 
-func NewSingleton[T any](hf TransformationEmpty[T]) Singleton[T] {
+func NewSingleton[T any](hf TransformationEmpty[T], opts ...CollectionOption) Singleton[T] {
+	o := buildCollectionOptions(opts...)
+	if o.name == "" {
+		o.name = fmt.Sprintf("Singleton[%v]", ptr.TypeName[T]())
+	}
 	h := &singleton[T]{
+		name:   o.name,
 		handle: hf,
 		deps:   map[untypedCollection]dependency{},
 		state:  atomic.NewPointer[T](nil),
 	}
+	log := log.WithLabels("owner", h.name)
 	// TODO: wait for dependencies to be ready
 	// Populate initial state. It is a singleton so we don't have any hard dependencies
 	h.execute()
@@ -132,11 +143,16 @@ func NewSingleton[T any](hf TransformationEmpty[T]) Singleton[T] {
 }
 
 type singleton[T any] struct {
+	name       string
 	deps       map[untypedCollection]dependency
 	handle     TransformationEmpty[T]
 	handlersMu sync.RWMutex
 	handlers   []func(o []Event[T])
 	state      *atomic.Pointer[T]
+}
+
+func (h *singleton[T]) Name() string {
+	return h.name
 }
 
 func (h *singleton[T]) _internalHandler() {

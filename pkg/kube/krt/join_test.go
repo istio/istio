@@ -36,7 +36,7 @@ func TestJoinCollection(t *testing.T) {
 	c1 := krt.NewStatic[Named](nil)
 	c2 := krt.NewStatic[Named](nil)
 	c3 := krt.NewStatic[Named](nil)
-	j := krt.JoinCollection(c1.AsCollection(), c2.AsCollection(), c3.AsCollection())
+	j := krt.JoinCollection([]krt.Collection[Named]{c1.AsCollection(), c2.AsCollection(), c3.AsCollection()})
 	last := atomic.NewString("")
 	j.Register(func(o krt.Event[Named]) {
 		last.Store(o.Latest().ResourceName())
@@ -85,7 +85,7 @@ func TestCollectionJoin(t *testing.T) {
 	SimplePods := SimplePodCollection(pods)
 	SimpleServices := SimpleServiceCollection(services)
 	SimpleServiceEntries := SimpleServiceCollectionFromEntries(serviceEntries)
-	Joined := krt.JoinCollection(SimpleServices, SimpleServiceEntries)
+	Joined := krt.JoinCollection([]krt.Collection[SimpleService]{SimpleServices, SimpleServiceEntries})
 	SimpleEndpoints := SimpleEndpointsCollection(SimplePods, Joined)
 
 	fetch := func() []SimpleEndpoint {

@@ -14,19 +14,24 @@
 
 package krt
 
-import "istio.io/istio/pkg/ptr"
+import (
+	"fmt"
+
+	"istio.io/istio/pkg/ptr"
+)
 
 type join[T any] struct {
+	name        string
 	collections []Collection[T]
 	merge       func(ts []T) T
 }
 
 func (j join[I]) Dump() {
-	log.Errorf("> BEGIN DUMP (join)")
+	log.Errorf("> BEGIN DUMP (join %v)", j.name)
 	for _, c := range j.collections {
 		Dump(c)
 	}
-	log.Errorf("< END DUMP (join)")
+	log.Errorf("< END DUMP (join %v)", j.name)
 }
 
 func (j join[T]) GetKey(k Key[T]) *T {
@@ -57,6 +62,7 @@ func (j join[T]) List(namespace string) []T {
 	return l
 }
 
+func (j join[T]) Name() string { return j.name }
 func (j join[T]) Register(f func(o Event[T])) {
 	for _, c := range j.collections {
 		c.Register(f)
@@ -69,10 +75,18 @@ func (j join[T]) RegisterBatch(f func(o []Event[T])) {
 	}
 }
 
-func JoinCollection[T any](cs ...Collection[T]) Collection[T] {
-	return join[T]{collections: cs, merge: func(ts []T) T {
-		return ts[0]
-	}}
+func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collection[T] {
+	o := buildCollectionOptions(opts...)
+	if o.name == "" {
+		o.name = fmt.Sprintf("Join[%v]", ptr.TypeName[T]())
+	}
+	return join[T]{
+		name:        o.name,
+		collections: cs,
+		merge: func(ts []T) T {
+			return ts[0]
+		},
+	}
 }
 
 func JoinCollectionOn[T any](merge func(ts []T) T, cs ...Collection[T]) Collection[T] {

@@ -31,6 +31,9 @@ import (
 // manyCollection builds a mapping from I->O.
 // This can be built from transformation functions of I->*O or I->[]O; both are implemented by this same struct.
 type manyCollection[I, O any] struct {
+	// name provides the name for this collection.
+
+	name string
 	// parent is the input collection we are building off of.
 	parent Collection[I]
 
@@ -126,7 +129,7 @@ func (h *manyCollection[I, O]) onUpdate(items []Event[I]) {
 			// For any new collections we depend on, start watching them if its the first time we have watched them.
 			for _, dep := range ctx.d {
 				if !h.collectionDependencies.InsertContains(dep.collection.original) {
-					log.Infof("register new dependency on collection %T", dep.collection.original)
+					log.WithLabels("collection", dep.collection.name).Debugf("register new dependency")
 					dep.collection.register(func(o []Event[any]) {
 						h.onDependencyEvent(dep.collection.original, o)
 					})
@@ -185,10 +188,16 @@ func (h *manyCollection[I, O]) onUpdate(items []Event[I]) {
 	}
 }
 
+func WithName(name string) CollectionOption {
+	return func(c *collectionOptions) {
+		c.name = name
+	}
+}
+
 // NewCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
 // This applies for one-to-one relationships between I and O.
 // For zero-to-one, use NewSingleton. For one-to-many, use NewManyCollection.
-func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O]) Collection[O] {
+func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O], opts ...CollectionOption) Collection[O] {
 	// For implementation simplicity, represent TransformationSingle as a TransformationMulti so we can share an implementation.
 	hm := func(ctx HandlerContext, i I) []O {
 		res := hf(ctx, i)
@@ -197,20 +206,29 @@ func NewCollection[I, O any](c Collection[I], hf TransformationSingle[I, O]) Col
 		}
 		return []O{*res}
 	}
-	return newManyCollection[I, O](c, hm, fmt.Sprintf("Collection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]()))
+	o := buildCollectionOptions(opts...)
+	if o.name == "" {
+		o.name = fmt.Sprintf("Collection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
+	}
+	return newManyCollection[I, O](c, hm, o)
 }
 
 // NewManyCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
 // This applies for one-to-many relationships between I and O.
 // For zero-to-one, use NewSingleton. For one-to-one, use NewCollection.
-func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O]) Collection[O] {
-	return newManyCollection[I, O](c, hf, fmt.Sprintf("ManyCollection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]()))
+func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], opts ...CollectionOption) Collection[O] {
+	o := buildCollectionOptions(opts...)
+	if o.name == "" {
+		o.name = fmt.Sprintf("ManyCollection[%v,%v]", ptr.TypeName[I](), ptr.TypeName[O]())
+	}
+	return newManyCollection[I, O](c, hf, o)
 }
 
-func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], name string) Collection[O] {
+func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], opts collectionOptions) Collection[O] {
 	h := &manyCollection[I, O]{
 		handle:                 hf,
-		log:                    log.WithLabels("owner", name),
+		name:                   opts.name,
+		log:                    log.WithLabels("owner", opts.name),
 		parent:                 c,
 		collectionDependencies: sets.New[any](),
 		objectRelations:        map[Key[I]]map[untypedCollection]dependency{},
@@ -327,13 +345,12 @@ func (h *manyCollection[I, O]) List(namespace string) (res []O) {
 	defer h.mu.Unlock()
 	if namespace == "" {
 		res = maps.Values(h.collectionState.outputs)
-		slices.SortBy(res, GetKey[O])
 	} else {
-		// TODO: implement properly using collectionState.namespace
+		// TODO: implement properly using collectionState.namespace.
+		// For now, we filter
 		res = slices.FilterInPlace(maps.Values(h.collectionState.outputs), func(o O) bool {
 			return getNamespace(o) == namespace
 		})
-		slices.SortBy(res, GetKey[O])
 		return
 	}
 	return
@@ -360,10 +377,17 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) {
 	//}
 }
 
+func (h *manyCollection[I, O]) Name() string {
+	return h.name
+}
+
 // collectionDependencyTracker tracks, for a single transformation call, all dependencies registered.
 // These are inserted on each call to Fetch().
 // Once the transformation function is complete, the set of dependencies for the provided input will be replaced
 // with the set accumulated here.
+//
+// Note: this is used instead of passing manyCollection to the transformation function directly because we want to build up some state
+// for a given transformation call at once, then apply it in a single transaction to the manyCollection.
 type collectionDependencyTracker[I, O any] struct {
 	h *manyCollection[I, O]
 	d map[untypedCollection]dependency
