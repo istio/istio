@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** support for automatically set default network to Ambient workloads if they are not set, when `istio-system`
+  is labeled with `topology.istio.io/network`. Note that if your Ztunnel is not in the same network as you set in
+    `topology.istio.io/network`, your Ambient workloads will not be able to communicate with each other.
