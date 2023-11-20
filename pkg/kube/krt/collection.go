@@ -54,7 +54,7 @@ type manyCollection[I, O any] struct {
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
 	eventHandlers []func(o []Event[O])
 
-	handle TransformationMulti[I, O]
+	transformation TransformationMulti[I, O]
 }
 
 type untypedCollection = any
@@ -86,8 +86,10 @@ func (h *manyCollection[I, O]) Dump() {
 	h.log.Errorf("<<< END DUMP")
 }
 
-// onUpdate takes a list of I's that changed and reruns the handler over them.
-func (h *manyCollection[I, O]) onUpdate(items []Event[I]) {
+// onPrimaryInputEvent takes a list of I's that changed and reruns the handler over them.
+// This is called either when I directly changes, or if a secondary dependency changed. In this case, we compute which I's depended
+// on the secondary dependency, and call onPrimaryInputEvent with them
+func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 	var events []Event[O]
 	for _, a := range items {
 		i := a.Latest()
@@ -124,14 +126,14 @@ func (h *manyCollection[I, O]) onUpdate(items []Event[I]) {
 			h.mu.Unlock()
 			ctx := &collectionDependencyTracker[I, O]{h, map[untypedCollection]dependency{}}
 			// Handler shouldn't be called with lock
-			results := slices.GroupUnique(h.handle(ctx, i), GetKey[O])
+			results := slices.GroupUnique(h.transformation(ctx, i), GetKey[O])
 			h.mu.Lock()
 			// For any new collections we depend on, start watching them if its the first time we have watched them.
 			for _, dep := range ctx.d {
 				if !h.collectionDependencies.InsertContains(dep.collection.original) {
 					log.WithLabels("collection", dep.collection.name).Debugf("register new dependency")
 					dep.collection.register(func(o []Event[any]) {
-						h.onDependencyEvent(dep.collection.original, o)
+						h.onSecondaryDependencyEvent(dep.collection.original, o)
 					})
 				}
 			}
@@ -226,7 +228,7 @@ func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 
 func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], opts collectionOptions) Collection[O] {
 	h := &manyCollection[I, O]{
-		handle:                 hf,
+		transformation:         hf,
 		name:                   opts.name,
 		log:                    log.WithLabels("owner", opts.name),
 		parent:                 c,
@@ -240,7 +242,7 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 	}
 	// TODO: wait for dependencies to be ready
 	// Build up the initial state
-	h.onUpdate(slices.Map(c.List(metav1.NamespaceAll), func(t I) Event[I] {
+	h.onPrimaryInputEvent(slices.Map(c.List(metav1.NamespaceAll), func(t I) Event[I] {
 		return Event[I]{
 			New:   &t,
 			Event: controllers.EventAdd,
@@ -252,14 +254,14 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 			log := h.log.WithLabels("dep", "primary")
 			log.WithLabels("batch", len(events)).Debugf("got event")
 		}
-		h.onUpdate(events)
+		h.onPrimaryInputEvent(events)
 	})
 	return h
 }
 
 // Handler is called when a dependency changes. We will take as inputs the item that changed.
-// Then we find all of our own values (I) that changed and onUpdate() them
-func (h *manyCollection[I, O]) onDependencyEvent(sourceCollection any, events []Event[any]) {
+// Then we find all of our own values (I) that changed and onPrimaryInputEvent() them
+func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, events []Event[any]) {
 	h.mu.Lock()
 	// A secondary dependency changed...
 	// Got an event. Now we need to find out who depends on it..
@@ -316,7 +318,7 @@ func (h *manyCollection[I, O]) onDependencyEvent(sourceCollection any, events []
 			}
 		} else {
 			// Typically an EventUpdate should have Old and New. We only have New here.
-			// In practice, this is an internal surface only so we just make sure onUpdate handles this.
+			// In practice, this is an internal surface only so we just make sure onPrimaryInputEvent handles this.
 			toRun = append(toRun, Event[I]{
 				Event: controllers.EventUpdate,
 				New:   iObj,
@@ -324,7 +326,7 @@ func (h *manyCollection[I, O]) onDependencyEvent(sourceCollection any, events []
 		}
 	}
 	h.mu.Unlock()
-	h.onUpdate(toRun)
+	h.onPrimaryInputEvent(toRun)
 }
 
 func (h *manyCollection[I, O]) _internalHandler() {
