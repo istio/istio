@@ -35,7 +35,6 @@ func GetKey[O any](a O) Key[O] {
 		return Key[O](k)
 	}
 	panic(fmt.Sprintf("Cannot get Key, got %T", a))
-	return ""
 }
 
 // Named is a convenience struct. It is ideal to be embedded into a type that has a name and namespace,

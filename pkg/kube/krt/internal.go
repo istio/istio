@@ -130,7 +130,6 @@ func getName(a any) string {
 		return ak.GetName()
 	}
 	panic(fmt.Sprintf("No Name, got %T %+v", a, a))
-	return ""
 }
 
 // tryGetKey returns the Key for an object. If not possible, returns false
@@ -167,7 +166,6 @@ func getNamespace(a any) string {
 		return ak.GetNamespace()
 	}
 	panic(fmt.Sprintf("No Namespace, got %T", a))
-	return ""
 }
 
 // getLabels returns the labels for an object, of possible.
@@ -186,7 +184,6 @@ func getLabels(a any) map[string]string {
 		return ac.Labels
 	}
 	panic(fmt.Sprintf("No Labels, got %T", a))
-	return nil
 }
 
 // getLabelSelector returns the labels for an object, of possible.
@@ -205,13 +202,11 @@ func getLabelSelector(a any) map[string]string {
 	specField := val.FieldByName("Spec")
 	if !specField.IsValid() {
 		panic(fmt.Sprintf("obj %T has no Spec", a))
-		return nil
 	}
 
 	labelsField := specField.FieldByName("Selector")
 	if !labelsField.IsValid() {
 		panic(fmt.Sprintf("obj %T has no Selector", a))
-		return nil
 	}
 
 	switch s := labelsField.Interface().(type) {
@@ -221,7 +216,6 @@ func getLabelSelector(a any) map[string]string {
 		return s
 	default:
 		panic(fmt.Sprintf("obj %T has unknown Selector", s))
-		return nil
 	}
 }
 

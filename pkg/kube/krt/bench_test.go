@@ -19,7 +19,6 @@ import (
 	"net"
 	"reflect"
 	"testing"
-	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -43,18 +42,19 @@ type Workload struct {
 	IP           string
 }
 
-type S2 struct{ *v1.Service }
+// GetLabelSelector defaults to using Reflection which is slow. Provide a specialized implementation that does it more efficiently.
+type ServiceWrapper struct{ *v1.Service }
 
-func (s S2) GetLabelSelector() map[string]string {
+func (s ServiceWrapper) GetLabelSelector() map[string]string {
 	return s.Spec.Selector
 }
 
-var _ krt.LabelSelectorer = S2{}
+var _ krt.LabelSelectorer = ServiceWrapper{}
 
-func NewModern(c kube.Client, events chan string, stop <-chan struct{}) {
+func NewModern(c kube.Client, events chan string, _ <-chan struct{}) {
 	Pods := krt.NewInformer[*v1.Pod](c)
 	Services := krt.NewInformer[*v1.Service](c, krt.WithObjectAugmentation(func(o any) any {
-		return S2{o.(*v1.Service)}
+		return ServiceWrapper{o.(*v1.Service)}
 	}))
 	Workloads := krt.NewCollection(Pods, func(ctx krt.HandlerContext, p *v1.Pod) *Workload {
 		if p.Status.PodIP == "" {
@@ -157,18 +157,18 @@ func NewLegacy(cl kube.Client, events chan string, stop <-chan struct{}) {
 	go c.queue.Run(stop)
 }
 
-var nextIp = net.ParseIP("10.0.0.10")
+var nextIP = net.ParseIP("10.0.0.10")
 
 func GetIP() string {
-	i := nextIp.To4()
+	i := nextIP.To4()
 	ret := i.String()
 	v := uint(i[0])<<24 + uint(i[1])<<16 + uint(i[2])<<8 + uint(i[3])
-	v += 1
+	v++
 	v3 := byte(v & 0xFF)
 	v2 := byte((v >> 8) & 0xFF)
 	v1 := byte((v >> 16) & 0xFF)
 	v0 := byte((v >> 24) & 0xFF)
-	nextIp = net.IPv4(v0, v1, v2, v3)
+	nextIP = net.IPv4(v0, v1, v2, v3)
 	return ret
 }
 
@@ -176,19 +176,6 @@ func drainN(c chan string, n int) {
 	for n > 0 {
 		n--
 		<-c
-	}
-}
-
-func drainCount(c chan string) int {
-	to := time.After(time.Second)
-	i := 0
-	for {
-		select {
-		case <-to:
-			return i
-		case <-c:
-			i++
-		}
 	}
 }
 
@@ -262,7 +249,6 @@ func BenchmarkControllers(b *testing.B) {
 					},
 				})
 			}
-			// b.Log(drainCount(events))
 			drainN(events, 1000)
 		}
 	}

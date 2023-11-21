@@ -33,7 +33,7 @@ These are *not* expressed as generic constraints due to limitations in Go's type
 
 The core of the framework is in the ability to derive collections from others.
 
-In general, these are built by providing some `func(inputs...) outputs...`.
+In general, these are built by providing some `func(inputs...) outputs...` (called "transformation" functions).
 While more could be expressed, there are currently three forms implemented.
 
 * `func() *O` via `NewSingleton`
@@ -111,7 +111,7 @@ ContainerNames := krt.NewManyCollection[string](func(ctx krt.HandlerContext, pod
 }) // Results in a Collection[string]
 ```
 
-Example computing a list of service endpoints.
+Example computing a list of service endpoints, similar to the Kubernetes core endpoints controller.
 ```go
 Endpoints := krt.NewManyCollection[Endpoint](func(ctx krt.HandlerContext, svc *v1.Service) (res []Endpoint) {
     for _, c := range krt.Fetch(ctx, Pods, krt.FilterLabel(svc.Spec.Selector)) {
@@ -155,3 +155,69 @@ The following filters are provided
 * `FilterGeneric(func(any) bool)`: filters by an arbitrary function.
 
 Note that most filters may only be used if the objects being `Fetch`ed implement appropriate functions to extract the fields filtered against.
+
+## Library Status
+
+This library is currently "experimental" and is not used in Istio production yet.
+The intent is this will be slowly rolled out to controllers that will benefit from it and are lower risk;
+likely, the ambient controller will be the first target.
+
+While its _plausible_ all of Istio could be fundamentally re-architected to fully embrace `krt` throughout (replacing things like `PushContext`),
+it is not yet clear this is desired.
+
+### Performance
+
+Compared to a perfectly optimized hand-written controller, `krt` adds some overhead.
+However, writing a perfectly optimized controller is hard, and often not done.
+As a result, for many scenarios it is expected that `krt` will perform on-par or better.
+
+This is similar to a comparison between a high level programming language compared to assembly;
+while its always possible to write better code in assembly, smart compilers can make optimizations humans are unlikely to,
+such as loop unrolling.
+Similarly, `krt` can make complex optimizations in one place, so each controller implementation doesn't, which is likely to increase
+the amount of optimizations applied.
+
+The `BenchmarkControllers` puts this to the test, comparing an *ideal* hand-written controller to one written in `krt`.
+While the numbers are likely to change over time, at the time of writing the overhead for `krt` is roughly 10%:
+
+```
+name                  time/op
+Controllers/krt-8     13.4ms ±23%
+Controllers/legacy-8  11.4ms ± 6%
+
+name                  alloc/op
+Controllers/krt-8     15.2MB ± 0%
+Controllers/legacy-8  12.9MB ± 0%
+```
+
+### Future work
+
+#### Object optimizations
+
+One important aspect of `krt` is its ability to automatically detect if objects have changed, and only trigger dependencies if so.
+This works better when we only compare fields we actually use.
+Today, users can do this manually by making a transformation from the full object to a subset of the object.
+
+This could be improved by:
+* Automagically detecting which subset of the object is used, and optimize this behind the scenes. This seems unrealistic, though.
+* Allow a lightweight form of a `Full -> Subset` transformation, that doesn't create a full new collection (with respective overhead), but rather overlays on top of an existing one.
+
+#### Internal dependency optimizations
+
+Today, the library stores a mapping of `Input -> Dependencies` (`map[Key[I]][]dependency`).
+Often times, there are common dependencies amongst keys.
+For example, a namespace filter probably has many less unique values than unique input objects.
+Other filters may be completely static and shared by all keys.
+
+This could be improved by:
+* Optimize the data structure to be a bit more advanced in sharing dependencies between keys.
+* Push the problem to the user; allow them to explicitly set up static `Fetch`es.
+
+#### Debug tooling
+
+`krt` has an opportunity to add a lot of debugging capabilities that are hard to do elsewhere, because it would require
+linking up disparate controllers, and a lot of per-controller logic.
+
+Some debugging tooling ideas:
+* Add OpenTelemetry tracing to controllers ([prototype](https://github.com/howardjohn/istio/commits/experiment/cv2-tracing)).
+* Automatically generate mermaid diagrams showing system dependencies.

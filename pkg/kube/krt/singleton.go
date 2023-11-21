@@ -109,17 +109,15 @@ func NewSingleton[T any](hf TransformationEmpty[T], opts ...CollectionOption) Si
 						log.Debugf("Add match %v", getName(*o.New))
 						matched = true
 						break
-					} else {
-						log.Debugf("Add no match %v", getName(*o.New))
 					}
+					log.Debugf("Add no match %v", getName(*o.New))
 				case controllers.EventDelete:
 					if dep.filter.Matches(*o.Old) {
 						log.Debugf("delete match %v", getName(*o.Old))
 						matched = true
 						break
-					} else {
-						log.Debugf("Add no match %v", getName(*o.Old))
 					}
+					log.Debugf("Add no match %v", getName(*o.Old))
 				case controllers.EventUpdate:
 					if dep.filter.Matches(*o.New) {
 						log.Debugf("Update match %v", getName(*o.New))
@@ -129,9 +127,8 @@ func NewSingleton[T any](hf TransformationEmpty[T], opts ...CollectionOption) Si
 						log.Debugf("Update no match, but used to %v", getName(*o.New))
 						matched = true
 						break
-					} else {
-						log.Debugf("Update no change")
 					}
+					log.Debugf("Update no change")
 				}
 			}
 			if matched {

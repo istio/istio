@@ -14,10 +14,6 @@
 
 package krt
 
-import (
-	"fmt"
-)
-
 func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *T {
 	res := Fetch[T](ctx, c, opts...)
 	switch len(res) {
@@ -26,7 +22,7 @@ func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *
 	case 1:
 		return &res[0]
 	default:
-		panic(fmt.Sprintf("FetchOne found for more than 1 item"))
+		panic("FetchOne found for more than 1 item")
 	}
 }
 

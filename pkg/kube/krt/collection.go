@@ -34,7 +34,8 @@ import (
 //   - mu is responsible for locking the actual data we are storing. List()/Get() calls will lock this.
 //   - recomputeMu is responsible for ensuring there is mutually exclusive access to recomputation. Typically, in a controller
 //     pattern this would be accomplished by a queue. However, these add operational and performance overhead that is not required here.
-//     Instead, we ensure at most one goroutine is recomputing things at a time. This avoids two dependency updates happening concurrently and writing events out of order.
+//     Instead, we ensure at most one goroutine is recomputing things at a time.
+//     This avoids two dependency updates happening concurrently and writing events out of order.
 type manyCollection[I, O any] struct {
 	// name provides the name for this collection.
 	name string
@@ -171,7 +172,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 			for oKey := range h.collectionState.mappings[iKey] {
 				oldRes, f := h.collectionState.outputs[oKey]
 				if !f {
-					h.log.WithLabels("oKey", oKey).Errorf("invalid event, deletion of non-existant object")
+					h.log.WithLabels("oKey", oKey).Errorf("invalid event, deletion of non-existent object")
 					continue
 				}
 				e := Event[O]{
