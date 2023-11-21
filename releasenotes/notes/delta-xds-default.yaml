@@ -1,5 +1,5 @@
 apiVersion: release-notes/v2
-kind: enhacement
+kind: promotion
 area: traffic-management
 issue:
   - 47949
