@@ -68,17 +68,15 @@ func (c *Controller) getPod(ip string, namespace string, targetRef *v1.ObjectRef
 		pod := c.pods.getPodByKey(key)
 		return pod
 	}
-
 	// This means the endpoint is manually controlled
-	// TODO: this may be not correct because of the hostnetwork pods may have same ip address
-	// Do we have a way to get the pod from only endpoint?
-	pod := c.pods.getPodByIP(ip)
-	if pod != nil {
-		// This prevents selecting a pod in another different namespace
-		if pod.Namespace != namespace {
-			pod = nil
+	// We will want to lookup a pod to find metadata like service account, labels, etc. But for hostNetwork, we just get a raw IP,
+	// and the IP may be shared by many pods. Best we can do is guess.
+	pods := c.pods.getPodsByIP(ip)
+	for _, p := range pods {
+		if p.Namespace == namespace {
+			// Might not be right, but best we can do.
+			return p
 		}
 	}
-	// There maybe no pod at all
-	return pod
+	return nil
 }

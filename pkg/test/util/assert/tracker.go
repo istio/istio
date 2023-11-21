@@ -41,20 +41,33 @@ func (t *Tracker[T]) Record(event T) {
 	t.events = append(t.events, event)
 }
 
-// WaitOrdered waits for an event to happen, in order
-func (t *Tracker[T]) WaitOrdered(event T) {
+// Empty asserts the tracker is empty
+func (t *Tracker[T]) Empty() {
 	t.t.Helper()
-	retry.UntilSuccessOrFail(t.t, func() error {
-		t.mu.Lock()
-		defer t.mu.Unlock()
-		if len(t.events) == 0 {
-			return fmt.Errorf("no events")
-		}
-		if t.events[0] != event {
-			return fmt.Errorf("got events %v, want %v", t.events, event)
-		}
-		// clear the event
-		t.events = t.events[1:]
-		return nil
-	}, retry.Timeout(time.Second))
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if len(t.events) != 0 {
+		t.t.Fatalf("unexpected events: %v", t.events)
+	}
+}
+
+// WaitOrdered waits for an event to happen, in order
+func (t *Tracker[T]) WaitOrdered(events ...T) {
+	t.t.Helper()
+	for _, event := range events {
+		retry.UntilSuccessOrFail(t.t, func() error {
+			t.mu.Lock()
+			defer t.mu.Unlock()
+			if len(t.events) == 0 {
+				return fmt.Errorf("no events")
+			}
+			if t.events[0] != event {
+				t.t.Fatalf("got events %v, want %v", t.events, event)
+			}
+			// clear the event
+			t.events = t.events[1:]
+			return nil
+		}, retry.Timeout(time.Second))
+	}
+	t.Empty()
 }
