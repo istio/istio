@@ -107,31 +107,45 @@ func FilterGeneric(f func(any) bool) FetchOption {
 
 func (f filter) Matches(object any) bool {
 	if f.key != "" && f.key != string(GetKey[any](object)) {
-		log.Debugf("no match key: %q vs %q", f.key, string(GetKey[any](object)))
+		if log.DebugEnabled() {
+			log.Debugf("no match key: %q vs %q", f.key, string(GetKey[any](object)))
+		}
 		return false
 	}
 	if f.name != "" && f.name != getName(object) {
-		log.Debugf("no match name: %q vs %q", f.name, getName(object))
+		if log.DebugEnabled() {
+			log.Debugf("no match name: %q vs %q", f.name, getName(object))
+		}
 		return false
 	}
 	if f.namespace != "" && f.namespace != getNamespace(object) {
-		log.Debugf("no match namespace: %q vs %q", f.namespace, getNamespace(object))
+		if log.DebugEnabled() {
+			log.Debugf("no match namespace: %q vs %q", f.namespace, getNamespace(object))
+		}
 		return false
 	}
 	if f.selects != nil && !labels.Instance(getLabelSelector(object)).SubsetOf(f.selects) {
-		log.Debugf("no match selects: %q vs %q", f.selects, getLabelSelector(object))
+		if log.DebugEnabled() {
+			log.Debugf("no match selects: %q vs %q", f.selects, getLabelSelector(object))
+		}
 		return false
 	}
 	if f.selectsNonEmpty != nil && !labels.Instance(getLabelSelector(object)).Match(f.selectsNonEmpty) {
-		log.Debugf("no match selectsNonEmpty: %q vs %q", f.selectsNonEmpty, getLabelSelector(object))
+		if log.DebugEnabled() {
+			log.Debugf("no match selectsNonEmpty: %q vs %q", f.selectsNonEmpty, getLabelSelector(object))
+		}
 		return false
 	}
 	if f.labels != nil && !labels.Instance(f.labels).SubsetOf(getLabels(object)) {
-		log.Debugf("no match labels: %q vs %q", f.labels, getLabels(object))
+		if log.DebugEnabled() {
+			log.Debugf("no match labels: %q vs %q", f.labels, getLabels(object))
+		}
 		return false
 	}
 	if f.generic != nil && !f.generic(object) {
-		log.Debugf("no match generic")
+		if log.DebugEnabled() {
+			log.Debugf("no match generic")
+		}
 		return false
 	}
 	return true

@@ -47,8 +47,6 @@ type erasedCollection struct {
 	// registerFunc registers any Event[any] handler. These will be mapped to Event[T] when connected to the original collection.
 	registerFunc func(f func(o []Event[any]))
 	name         string
-
-	// TODO: since we erase things, we lose a lot of context. We should add some ID() or Name() to Collections.
 }
 
 func (e erasedCollection) register(f func(o []Event[any])) {
@@ -93,7 +91,8 @@ func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
 
 // collectionOptions tracks options for a collection
 type collectionOptions struct {
-	name string
+	name         string
+	augmentation func(o any) any
 }
 
 // dependency is a specific thing that can be depended on
@@ -110,6 +109,17 @@ type registerDependency interface {
 	// Registers a dependency, returning true if it is finalized
 	registerDependency(dependency)
 	Name() string
+}
+
+type augmenter interface {
+	augment(any) any
+}
+
+func objectOrAugmented[T any](c Collection[T], o any) any {
+	if a, ok := c.(augmenter); ok {
+		return a.augment(o)
+	}
+	return o
 }
 
 // getName returns the name for an object, of possible.

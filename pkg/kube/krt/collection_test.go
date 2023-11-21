@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -182,7 +181,6 @@ func TestCollectionSimple(t *testing.T) {
 }
 
 func TestCollectionMerged(t *testing.T) {
-	log.FindScope("krt").SetOutputLevel(log.DebugLevel)
 	c := kube.NewFakeClient()
 	pods := krt.NewInformer[*corev1.Pod](c)
 	services := krt.NewInformer[*corev1.Service](c)
@@ -398,4 +396,65 @@ func fetcherSorted[T krt.ResourceNamer](c krt.Collection[T]) func() []T {
 			return t.ResourceName()
 		})
 	}
+}
+
+func TestCollectionMultipleFetch(t *testing.T) {
+	type Result struct {
+		Named
+		Configs []string
+	}
+	c := kube.NewFakeClient()
+	kpc := kclient.New[*corev1.Pod](c)
+	kcc := kclient.New[*corev1.ConfigMap](c)
+	pc := clienttest.Wrap(t, kpc)
+	cc := clienttest.Wrap(t, kcc)
+	pods := krt.WrapClient[*corev1.Pod](kpc)
+	configMaps := krt.WrapClient[*corev1.ConfigMap](kcc)
+	c.RunAndWait(test.NewStop(t))
+
+	lblFoo := map[string]string{"app": "foo"}
+	lblBar := map[string]string{"app": "bar"}
+	// Setup a simple collection that fetches the same dependency twice
+	Results := krt.NewCollection(pods, func(ctx krt.HandlerContext, i *corev1.Pod) *Result {
+		foos := krt.Fetch(ctx, configMaps, krt.FilterLabel(lblFoo))
+		bars := krt.Fetch(ctx, configMaps, krt.FilterLabel(lblBar))
+		names := slices.Map(foos, func(f *corev1.ConfigMap) string { return f.Name })
+		names = append(names, slices.Map(bars, func(f *corev1.ConfigMap) string { return f.Name })...)
+		names = slices.Sort(names)
+		return &Result{
+			Named:   NewNamed(i),
+			Configs: slices.Sort(names),
+		}
+	})
+
+	assert.Equal(t, fetcherSorted(Results)(), nil)
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "name",
+			Namespace: "namespace",
+		},
+	}
+	pc.Create(pod)
+	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), nil}})
+
+	cc.Create(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "foo1", Labels: lblFoo}})
+	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), []string{"foo1"}}})
+
+	cc.Create(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "switch", Labels: lblFoo}})
+	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), []string{"foo1", "switch"}}})
+
+	cc.Create(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "bar1", Labels: lblBar}})
+	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), []string{"bar1", "foo1", "switch"}}})
+
+	cc.Update(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "switch", Labels: lblBar}})
+	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), []string{"bar1", "foo1", "switch"}}})
+
+	cc.Update(&corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: "switch", Labels: nil}})
+	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), []string{"bar1", "foo1"}}})
+
+	cc.Delete("bar1", "")
+	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), []string{"foo1"}}})
+
+	cc.Delete("foo1", "")
+	assert.EventuallyEqual(t, fetcherSorted(Results), []Result{{NewNamed(pod), nil}})
 }

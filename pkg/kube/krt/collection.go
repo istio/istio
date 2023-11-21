@@ -57,12 +57,14 @@ type manyCollection[I, O any] struct {
 	// Note this does not include `parent`, which is the *primary* dependency declared outside of transformation functions.
 	collectionDependencies sets.Set[untypedCollection]
 	// Stores a map of I -> secondary dependencies (added via Fetch)
-	objectRelations map[Key[I]]map[untypedCollection]dependency
+	objectRelations map[Key[I]][]dependency
 
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
 	eventHandlers *handlers[O]
 
 	transformation TransformationMulti[I, O]
+
+	augmentation func(a any) any
 }
 
 type handlers[O any] struct {
@@ -93,13 +95,20 @@ type multiIndex[I, O any] struct {
 	mappings map[Key[I]]sets.Set[Key[O]]
 }
 
+func (h *manyCollection[I, O]) augment(a any) any {
+	if h.augmentation != nil {
+		return h.augmentation(a)
+	}
+	return a
+}
+
 func (h *manyCollection[I, O]) Dump() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.log.Errorf(">>> BEGIN DUMP")
-	for k, v := range h.objectRelations {
-		for kk, vv := range v {
-			h.log.Errorf("Dependencies for: %v: %v -> %T (%v)", k, kk, vv.collection, vv.filter)
+	for k, deps := range h.objectRelations {
+		for _, dep := range deps {
+			h.log.Errorf("Dependencies for: %v: %v (%v)", k, dep.collection.name, dep.filter)
 		}
 	}
 	for i, os := range h.collectionState.mappings {
@@ -146,7 +155,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		i := a.Latest()
 		iKey := GetKey(i)
 
-		ctx := &collectionDependencyTracker[I, O]{h, map[untypedCollection]dependency{}}
+		ctx := &collectionDependencyTracker[I, O]{h, nil}
 		results := slices.GroupUnique(h.transformation(ctx, i), GetKey[O])
 		recomputedResults[idx] = results
 		// Update the I -> Dependency mapping
@@ -162,7 +171,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 			for oKey := range h.collectionState.mappings[iKey] {
 				oldRes, f := h.collectionState.outputs[oKey]
 				if !f {
-					log.WithLabels("oKey", oKey).Errorf("invalid event, deletion of non-existant object")
+					h.log.WithLabels("oKey", oKey).Errorf("invalid event, deletion of non-existant object")
 					continue
 				}
 				e := Event[O]{
@@ -171,7 +180,9 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 				}
 				events = append(events, e)
 				delete(h.collectionState.outputs, oKey)
-				log.WithLabels("res", oKey).Debugf("handled delete")
+				if h.log.DebugEnabled() {
+					h.log.WithLabels("res", oKey).Debugf("handled delete")
+				}
 			}
 			// TODO: we need to clean up h.collectionState.objects somehow. We don't know if we have exclusive
 			// mapping from I -> O I think
@@ -212,7 +223,9 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 					delete(h.collectionState.outputs, key)
 				}
 
-				h.log.WithLabels("res", key, "type", e.Event).Debugf("handled")
+				if h.log.DebugEnabled() {
+					h.log.WithLabels("res", key, "type", e.Event).Debugf("handled")
+				}
 				events = append(events, e)
 			}
 		}
@@ -225,7 +238,9 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	}
 	handlers := h.eventHandlers.Get()
 
-	h.log.WithLabels("events", len(events), "handlers", len(handlers)).Debugf("calling handlers")
+	if h.log.DebugEnabled() {
+		h.log.WithLabels("events", len(events), "handlers", len(handlers)).Debugf("calling handlers")
+	}
 	for _, handler := range handlers {
 		handler(events)
 	}
@@ -234,6 +249,12 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 func WithName(name string) CollectionOption {
 	return func(c *collectionOptions) {
 		c.name = name
+	}
+}
+
+func WithObjectAugmentation(fn func(o any) any) CollectionOption {
+	return func(c *collectionOptions) {
+		c.augmentation = fn
 	}
 }
 
@@ -274,13 +295,14 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 		log:                    log.WithLabels("owner", opts.name),
 		parent:                 c,
 		collectionDependencies: sets.New[any](),
-		objectRelations:        map[Key[I]]map[untypedCollection]dependency{},
+		objectRelations:        map[Key[I]][]dependency{},
 		collectionState: multiIndex[I, O]{
 			inputs:   map[Key[I]]I{},
 			outputs:  map[Key[O]]O{},
 			mappings: map[Key[I]]sets.Set[Key[O]]{},
 		},
 		eventHandlers: &handlers[O]{},
+		augmentation:  opts.augmentation,
 	}
 	// TODO: wait for dependencies to be ready
 	// Build up the initial state
@@ -315,25 +337,11 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, 
 		// This can be by name or the entire type.
 		// objectRelations stores each input key to dependency specification.
 		for iKey, dependencies := range h.objectRelations {
-			dependency, f := dependencies[sourceCollection]
-			if !f {
-				// This input key doesn't depend on this event at all, as its not watching this collection.
-				continue
-			}
-			// For each input, we will check if it depends on this event.
-			// We use Items() to check both the old and new object; we will recompute if either matched
-			log := h.log.WithLabels("item", iKey)
-			for _, item := range ev.Items() {
-				match := dependency.filter.Matches(item)
-				log.WithLabels("match", match).Debugf("dependency change for collection %T", sourceCollection)
-				if match {
-					changedInputKeys.Insert(iKey)
-					break
-				}
+			if k, changed := h.objectChanged(iKey, dependencies, sourceCollection, ev); changed {
+				changedInputKeys.Insert(k)
 			}
 		}
 	}
-	// h.mu.Unlock()
 	h.log.Debugf("event size %v, impacts %v objects", len(events), len(changedInputKeys))
 
 	toRun := make([]Event[I], 0, len(changedInputKeys))
@@ -368,6 +376,27 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, 
 		}
 	}
 	h.onPrimaryInputEventLocked(toRun)
+}
+
+func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []dependency, sourceCollection any, ev Event[any]) (Key[I], bool) {
+	for _, dep := range dependencies {
+		if dep.collection.original != sourceCollection {
+			continue
+		}
+		// For each input, we will check if it depends on this event.
+		// We use Items() to check both the old and new object; we will recompute if either matched
+		for _, item := range ev.Items() {
+			match := dep.filter.Matches(item)
+			if h.log.DebugEnabled() {
+				h.log.WithLabels("item", iKey, "match", match).Debugf("dependency change for collection %T", sourceCollection)
+			}
+			if match {
+				// Its a match! Return now. We don't need to check all dependencies, since we just need to find if any of them changed
+				return iKey, true
+			}
+		}
+	}
+	return ptr.Empty[Key[I]](), false
 }
 
 func (h *manyCollection[I, O]) _internalHandler() {
@@ -431,12 +460,13 @@ func (h *manyCollection[I, O]) Name() string {
 // for a given transformation call at once, then apply it in a single transaction to the manyCollection.
 type collectionDependencyTracker[I, O any] struct {
 	*manyCollection[I, O]
-	d map[untypedCollection]dependency
+	d []dependency
 }
 
-// registerDependency creates a
+// registerDependency track a dependency. This is in the context of a specific input I type, as we create a collectionDependencyTracker
+// per I.
 func (i *collectionDependencyTracker[I, O]) registerDependency(d dependency) {
-	i.d[d.collection.original] = d
+	i.d = append(i.d, d)
 
 	// For any new collections we depend on, start watching them if its the first time we have watched them.
 	if !i.collectionDependencies.InsertContains(d.collection.original) {

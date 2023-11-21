@@ -72,7 +72,7 @@ func (t *Tracker[T]) WaitOrdered(events ...T) {
 			t.events[0] = ptr.Empty[T]()
 			t.events = t.events[1:]
 			return nil
-		}, retry.Timeout(time.Second))
+		}, retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond))
 		if err != nil {
 			t.t.Fatal(err)
 		}
@@ -119,6 +119,7 @@ func (t *Tracker[T]) WaitUnordered(events ...T) {
 // WaitCompare waits for an event to happen and ensures it meets a custom comparison function
 func (t *Tracker[T]) WaitCompare(f func(T) bool) {
 	t.t.Helper()
+	var err error
 	retry.UntilSuccessOrFail(t.t, func() error {
 		t.mu.Lock()
 		defer t.mu.Unlock()
@@ -135,7 +136,7 @@ func (t *Tracker[T]) WaitCompare(f func(T) bool) {
 		t.events[0] = ptr.Empty[T]()
 		t.events = t.events[1:]
 		return nil
-	}, retry.Timeout(time.Second))
+	}, retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond))
 	if err != nil {
 		t.t.Fatal(err)
 	}

@@ -89,6 +89,7 @@ func (e Event[T]) Latest() T {
 // HandlerContext is an opaque type passed into transformation functions.
 // This can be used with Fetch to dynamically query for resources.
 // Note: this doesn't expose Fetch as a method, as Go generics do not support arbitrary generic types on methods.
+// TODO: make this a struct
 type HandlerContext interface {
 	// _internalHandler is an interface that can only be implemented by this package.
 	_internalHandler()

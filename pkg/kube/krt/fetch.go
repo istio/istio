@@ -31,8 +31,6 @@ func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *
 }
 
 func Fetch[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) []T {
-	// First, set up the dependency. On first run, this will be new.
-	// One subsequent runs, we just validate
 	h := ctx.(registerDependency)
 	d := dependency{
 		collection: eraseCollection(c),
@@ -45,10 +43,11 @@ func Fetch[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) []T 
 
 	// Now we can do the real fetching
 	var res []T
-	for _, c := range c.List(d.filter.namespace) {
-		c := c
-		if d.filter.Matches(c) {
-			res = append(res, c)
+	for _, i := range c.List(d.filter.namespace) {
+		i := i
+		o := objectOrAugmented(c, i)
+		if d.filter.Matches(o) {
+			res = append(res, i)
 		}
 	}
 	if log.DebugEnabled() {

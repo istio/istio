@@ -19,6 +19,7 @@ import (
 	"net"
 	"reflect"
 	"testing"
+	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,9 +43,19 @@ type Workload struct {
 	IP           string
 }
 
+type S2 struct{ *v1.Service }
+
+func (s S2) GetLabelSelector() map[string]string {
+	return s.Spec.Selector
+}
+
+var _ krt.LabelSelectorer = S2{}
+
 func NewModern(c kube.Client, events chan string, stop <-chan struct{}) {
 	Pods := krt.NewInformer[*v1.Pod](c)
-	Services := krt.NewInformer[*v1.Service](c)
+	Services := krt.NewInformer[*v1.Service](c, krt.WithObjectAugmentation(func(o any) any {
+		return S2{o.(*v1.Service)}
+	}))
 	Workloads := krt.NewCollection(Pods, func(ctx krt.HandlerContext, p *v1.Pod) *Workload {
 		if p.Status.PodIP == "" {
 			return nil
@@ -134,6 +145,12 @@ func NewLegacy(cl kube.Client, events chan string, stop <-chan struct{}) {
 	c.services = kclient.New[*v1.Service](cl)
 	c.queue = controllers.NewQueue("pods", controllers.WithReconciler(c.Reconcile))
 	c.pods.AddEventHandler(controllers.ObjectHandler(c.queue.AddObject))
+	c.services.AddEventHandler(controllers.FromEventHandler(func(e controllers.Event) {
+		o := e.Latest()
+		for _, pod := range c.pods.List(o.GetNamespace(), klabels.SelectorFromValidatedSet(o.(*v1.Service).Spec.Selector)) {
+			c.queue.AddObject(pod)
+		}
+	}))
 	c.handler = func(e krt.Event[Workload]) {
 		events <- fmt.Sprintf(e.Latest().Name, e.Event)
 	}
@@ -159,6 +176,19 @@ func drainN(c chan string, n int) {
 	for n > 0 {
 		n--
 		<-c
+	}
+}
+
+func drainCount(c chan string) int {
+	to := time.After(time.Second)
+	i := 0
+	for {
+		select {
+		case <-to:
+			return i
+		case <-c:
+			i++
+		}
 	}
 }
 
@@ -232,6 +262,7 @@ func BenchmarkControllers(b *testing.B) {
 					},
 				})
 			}
+			// b.Log(drainCount(events))
 			drainN(events, 1000)
 		}
 	}
