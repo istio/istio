@@ -96,8 +96,8 @@ func TestServiceInstancesStore(t *testing.T) {
 		t.Errorf("got unexpected instances %v", gotSeInstances)
 	}
 
-	// 7. test deleteInstances
-	store.deleteInstances(cKey, instances)
+	// 7. test deleteInstanceKeys
+	store.deleteInstanceKeys(cKey, instances)
 	gotInstances = store.getAll()
 	if len(gotInstances) != 0 {
 		t.Errorf("got unexpected instances %v", gotSeInstances)
