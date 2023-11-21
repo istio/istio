@@ -81,21 +81,14 @@ func promDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app.kubernetes.io/name=prometheus")
+			name, namespace, err := inferPodMeta(ctx, client, "app.kubernetes.io/name=prometheus")
 			if err != nil {
-				return fmt.Errorf("not able to locate Prometheus pod: %v", err)
+				return err
 			}
-
-			if len(pl.Items) < 1 {
-				return errors.New("no Prometheus pods found")
-			}
-
-			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "Prometheus",
+			return portForward(name, namespace, "Prometheus",
 				"http://%s", bindAddress, promPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
-
 	return cmd
 }
 
@@ -117,17 +110,11 @@ func grafanaDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app.kubernetes.io/name=grafana")
+			name, namespace, err := inferPodMeta(ctx, client, "app.kubernetes.io/name=grafana")
 			if err != nil {
-				return fmt.Errorf("not able to locate Grafana pod: %v", err)
+				return err
 			}
-
-			if len(pl.Items) < 1 {
-				return errors.New("no Grafana pods found")
-			}
-
-			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "Grafana",
+			return portForward(name, namespace, "Grafana",
 				"http://%s", bindAddress, grafanaPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
@@ -153,17 +140,11 @@ func kialiDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app=kiali")
+			name, namespace, err := inferPodMeta(ctx, client, "app=kiali")
 			if err != nil {
-				return fmt.Errorf("not able to locate Kiali pod: %v", err)
+				return err
 			}
-
-			if len(pl.Items) < 1 {
-				return errors.New("no Kiali pods found")
-			}
-
-			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "Kiali",
+			return portForward(name, namespace, "Kiali",
 				"http://%s/kiali", bindAddress, kialiPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
@@ -189,17 +170,11 @@ func jaegerDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app=jaeger")
+			name, namespace, err := inferPodMeta(ctx, client, "app=jaeger")
 			if err != nil {
-				return fmt.Errorf("not able to locate Jaeger pod: %v", err)
+				return err
 			}
-
-			if len(pl.Items) < 1 {
-				return errors.New("no Jaeger pods found")
-			}
-
-			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "Jaeger",
+			return portForward(name, namespace, "Jaeger",
 				"http://%s", bindAddress, jaegerPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
@@ -225,17 +200,11 @@ func zipkinDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app=zipkin")
+			name, namespace, err := inferPodMeta(ctx, client, "app=zipkin")
 			if err != nil {
-				return fmt.Errorf("not able to locate Zipkin pod: %v", err)
+				return err
 			}
-
-			if len(pl.Items) < 1 {
-				return errors.New("no Zipkin pods found")
-			}
-
-			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "Zipkin",
+			return portForward(name, namespace, "Zipkin",
 				"http://%s", bindAddress, zipkinPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
@@ -438,17 +407,11 @@ func skywalkingDashCmd(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			pl, err := client.PodsForSelector(context.TODO(), ctx.IstioNamespace(), "app=skywalking-ui")
+			name, namespace, err := inferPodMeta(ctx, client, "app=skywalking-ui")
 			if err != nil {
-				return fmt.Errorf("not able to locate SkyWalking UI pod: %v", err)
+				return err
 			}
-
-			if len(pl.Items) < 1 {
-				return errors.New("no SkyWalking UI pods found")
-			}
-
-			// only use the first pod in the list
-			return portForward(pl.Items[0].Name, ctx.IstioNamespace(), "SkyWalking",
+			return portForward(name, namespace, "SkyWalking",
 				"http://%s", bindAddress, skywalkingPort, client, cmd.OutOrStdout(), browser)
 		},
 	}
@@ -603,4 +566,17 @@ func Dashboard(cliContext cli.Context) *cobra.Command {
 	dashboardCmd.AddCommand(controlz)
 
 	return dashboardCmd
+}
+
+func inferPodMeta(ctx cli.Context, client kube.CLIClient, labelSelector string) (name, namespace string, err error) {
+	for _, ns := range []string{ctx.IstioNamespace(), ctx.NamespaceOrDefault(ctx.Namespace())} {
+		pl, err := client.PodsForSelector(context.TODO(), ns, labelSelector)
+		if err != nil {
+			continue
+		}
+		if len(pl.Items) > 0 {
+			return pl.Items[0].Name, pl.Items[0].Namespace, nil
+		}
+	}
+	return "", "", fmt.Errorf("no pods found with selector %s", labelSelector)
 }
