@@ -60,7 +60,7 @@ The `Fetch` operation enables querying against other collections.
 If the result of the `Fetch` operation changes, the collection will automatically be recomputed; the framework handles the state and event detection.
 In the above example, the provided function will be called (at least) every time there is a change to a configmap.
 The `ConfigMapCount` collection will produce events only when the count changes.
-The framework will automatically suppress events when nothing has changed.
+The framework will use generic Equals to on the underlying object to determine whether or not to recompute collections.
 
 ### Picking a collection type
 
@@ -140,6 +140,8 @@ Basically, Transformations must be stateless and idempotent.
 * Querying external state (e.g. making HTTP calls) is not permitted.
 * Transformations _may_ be called at any time, including many times for the same inputs. Transformation functions should not make any assumptions about calling patterns.
 
+Violation of these behaviors will result in undefined behavior (which would likely manifest as stale data).
+
 ### Fetch details
 
 In addition to simply fetching _all_ resources from a collection, a filter can be provided.
@@ -155,6 +157,7 @@ The following filters are provided
 * `FilterGeneric(func(any) bool)`: filters by an arbitrary function.
 
 Note that most filters may only be used if the objects being `Fetch`ed implement appropriate functions to extract the fields filtered against.
+Failures to meet this requirement will result in a `panic`.
 
 ## Library Status
 
@@ -221,3 +224,4 @@ linking up disparate controllers, and a lot of per-controller logic.
 Some debugging tooling ideas:
 * Add OpenTelemetry tracing to controllers ([prototype](https://github.com/howardjohn/istio/commits/experiment/cv2-tracing)).
 * Automatically generate mermaid diagrams showing system dependencies.
+* Automatically detect violations of [Transformation constraints](#transformation-constraints).

@@ -58,7 +58,7 @@ type manyCollection[I, O any] struct {
 	// Note this does not include `parent`, which is the *primary* dependency declared outside of transformation functions.
 	collectionDependencies sets.Set[untypedCollection]
 	// Stores a map of I -> secondary dependencies (added via Fetch)
-	objectRelations map[Key[I]][]dependency
+	objectDependencies map[Key[I]][]dependency
 
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
 	eventHandlers *handlers[O]
@@ -107,7 +107,7 @@ func (h *manyCollection[I, O]) Dump() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.log.Errorf(">>> BEGIN DUMP")
-	for k, deps := range h.objectRelations {
+	for k, deps := range h.objectDependencies {
 		for _, dep := range deps {
 			h.log.Errorf("Dependencies for: %v: %v (%v)", k, dep.collection.name, dep.filter)
 		}
@@ -160,7 +160,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		results := slices.GroupUnique(h.transformation(ctx, i), GetKey[O])
 		recomputedResults[idx] = results
 		// Update the I -> Dependency mapping
-		h.objectRelations[iKey] = ctx.d
+		h.objectDependencies[iKey] = ctx.d
 	}
 
 	// Now acquire the full lock. Note we still have recomputeMu held!
@@ -189,7 +189,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 			// mapping from I -> O I think
 			delete(h.collectionState.mappings, iKey)
 			delete(h.collectionState.inputs, iKey)
-			delete(h.objectRelations, iKey)
+			delete(h.objectDependencies, iKey)
 		} else {
 			results := recomputedResults[idx]
 			newKeys := sets.New(maps.Keys(results)...)
@@ -247,12 +247,23 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	}
 }
 
+// WithName allows explicitly naming a controller. This is a best practice to make debugging easier.
+// If not set, a default name is picked.
 func WithName(name string) CollectionOption {
 	return func(c *collectionOptions) {
 		c.name = name
 	}
 }
 
+// WithObjectAugmentation allows transforming an object into another for usage throughout the library.
+// Currently this applies to things like Name, Namespace, Labels, LabelSelector, etc. Equals is not currently supported,
+// but likely in the future.
+// The intended usage is to add support for these fields to collections of types that do not implement the appropriate interfaces.
+// The conversion function can convert to a embedded struct with extra methods added:
+//
+//	type Wrapper struct { Object }
+//	func (w Wrapper) ResourceName() string { return ... }
+//	WithObjectAugmentation(func(o any) any { return Wrapper{o.(Object)} })
 func WithObjectAugmentation(fn func(o any) any) CollectionOption {
 	return func(c *collectionOptions) {
 		c.augmentation = fn
@@ -296,7 +307,7 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 		log:                    log.WithLabels("owner", opts.name),
 		parent:                 c,
 		collectionDependencies: sets.New[any](),
-		objectRelations:        map[Key[I]][]dependency{},
+		objectDependencies:     map[Key[I]][]dependency{},
 		collectionState: multiIndex[I, O]{
 			inputs:   map[Key[I]]I{},
 			outputs:  map[Key[O]]O{},
@@ -337,7 +348,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, 
 		// We have a possibly dependant object changed. For each input object, see if it depends on the object.
 		// This can be by name or the entire type.
 		// objectRelations stores each input key to dependency specification.
-		for iKey, dependencies := range h.objectRelations {
+		for iKey, dependencies := range h.objectDependencies {
 			if k, changed := h.objectChanged(iKey, dependencies, sourceCollection, ev); changed {
 				changedInputKeys.Insert(k)
 			}
