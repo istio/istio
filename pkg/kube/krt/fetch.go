@@ -40,6 +40,7 @@ func Fetch[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) []T 
 	for _, o := range opts {
 		o(&d)
 	}
+	// Important: register before we List(), so we cannot miss any events
 	h.registerDependency(d)
 
 	// Now we can do the real fetching

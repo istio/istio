@@ -159,11 +159,7 @@ func TestCollectionSimple(t *testing.T) {
 	c.RunAndWait(test.NewStop(t))
 	SimplePods := SimplePodCollection(pods)
 
-	fetch := func() []SimplePod {
-		return SimplePods.List("")
-	}
-
-	assert.Equal(t, fetch(), nil)
+	assert.Equal(t, fetcherSorted(SimplePods)(), nil)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "name",
@@ -171,18 +167,18 @@ func TestCollectionSimple(t *testing.T) {
 		},
 	}
 	pc.Create(pod)
-	assert.Equal(t, fetch(), nil)
+	assert.Equal(t, fetcherSorted(SimplePods)(), nil)
 
 	pod.Status = corev1.PodStatus{PodIP: "1.2.3.4"}
 	pc.UpdateStatus(pod)
-	assert.EventuallyEqual(t, fetch, []SimplePod{{NewNamed(pod), Labeled{}, "1.2.3.4"}})
+	assert.EventuallyEqual(t, fetcherSorted(SimplePods), []SimplePod{{NewNamed(pod), Labeled{}, "1.2.3.4"}})
 
 	pod.Status.PodIP = "1.2.3.5"
 	pc.UpdateStatus(pod)
-	assert.EventuallyEqual(t, fetch, []SimplePod{{NewNamed(pod), Labeled{}, "1.2.3.5"}})
+	assert.EventuallyEqual(t, fetcherSorted(SimplePods), []SimplePod{{NewNamed(pod), Labeled{}, "1.2.3.5"}})
 
 	pc.Delete(pod.Name, pod.Namespace)
-	assert.EventuallyEqual(t, fetch, nil)
+	assert.EventuallyEqual(t, fetcherSorted(SimplePods), nil)
 }
 
 func TestCollectionMerged(t *testing.T) {
@@ -197,11 +193,7 @@ func TestCollectionMerged(t *testing.T) {
 	SimpleServices := SimpleServiceCollection(services)
 	SimpleEndpoints := SimpleEndpointsCollection(SimplePods, SimpleServices)
 
-	fetch := func() []SimpleEndpoint {
-		return SimpleEndpoints.List("")
-	}
-
-	assert.Equal(t, fetch(), nil)
+	assert.Equal(t, fetcherSorted(SimpleEndpoints)(), nil)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod",
@@ -210,7 +202,7 @@ func TestCollectionMerged(t *testing.T) {
 		},
 	}
 	pc.Create(pod)
-	assert.Equal(t, fetch(), nil)
+	assert.Equal(t, fetcherSorted(SimpleEndpoints)(), nil)
 
 	svc := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -220,18 +212,18 @@ func TestCollectionMerged(t *testing.T) {
 		Spec: corev1.ServiceSpec{Selector: map[string]string{"app": "foo"}},
 	}
 	sc.Create(svc)
-	assert.Equal(t, fetch(), nil)
+	assert.Equal(t, fetcherSorted(SimpleEndpoints)(), nil)
 
 	pod.Status = corev1.PodStatus{PodIP: "1.2.3.4"}
 	pc.UpdateStatus(pod)
-	assert.EventuallyEqual(t, fetch, []SimpleEndpoint{{pod.Name, svc.Name, pod.Namespace, "1.2.3.4"}})
+	assert.EventuallyEqual(t, fetcherSorted(SimpleEndpoints), []SimpleEndpoint{{pod.Name, svc.Name, pod.Namespace, "1.2.3.4"}})
 
 	pod.Status.PodIP = "1.2.3.5"
 	pc.UpdateStatus(pod)
-	assert.EventuallyEqual(t, fetch, []SimpleEndpoint{{pod.Name, svc.Name, pod.Namespace, "1.2.3.5"}})
+	assert.EventuallyEqual(t, fetcherSorted(SimpleEndpoints), []SimpleEndpoint{{pod.Name, svc.Name, pod.Namespace, "1.2.3.5"}})
 
 	pc.Delete(pod.Name, pod.Namespace)
-	assert.EventuallyEqual(t, fetch, nil)
+	assert.EventuallyEqual(t, fetcherSorted(SimpleEndpoints), nil)
 
 	pod2 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -243,7 +235,7 @@ func TestCollectionMerged(t *testing.T) {
 	}
 	pc.CreateOrUpdateStatus(pod)
 	pc.CreateOrUpdateStatus(pod2)
-	assert.EventuallyEqual(t, fetch, []SimpleEndpoint{
+	assert.EventuallyEqual(t, fetcherSorted(SimpleEndpoints), []SimpleEndpoint{
 		{pod2.Name, svc.Name, pod2.Namespace, pod2.Status.PodIP},
 		{pod.Name, svc.Name, pod.Namespace, pod.Status.PodIP},
 	})
@@ -276,11 +268,7 @@ func TestCollectionCycle(t *testing.T) {
 	tt := assert.NewTracker[string](t)
 	Thingys.RegisterBatch(BatchedTrackerHandler[PodSizeCount](tt))
 
-	fetch := func() []PodSizeCount {
-		return slices.SortBy(Thingys.List(""), func(a PodSizeCount) string { return a.Named.ResourceName() })
-	}
-
-	assert.Equal(t, fetch(), nil)
+	assert.Equal(t, fetcherSorted(Thingys)(), nil)
 	pod := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "name",
@@ -291,7 +279,7 @@ func TestCollectionCycle(t *testing.T) {
 	}
 	pc.CreateOrUpdateStatus(pod)
 	tt.WaitOrdered("add/namespace/name")
-	assert.Equal(t, fetch(), []PodSizeCount{{
+	assert.Equal(t, fetcherSorted(Thingys)(), []PodSizeCount{{
 		Named:         NewNamed(pod),
 		MatchingSizes: 0,
 	}})
@@ -306,7 +294,7 @@ func TestCollectionCycle(t *testing.T) {
 	}
 	pc.CreateOrUpdateStatus(largePod)
 	tt.WaitOrdered("update/namespace/name")
-	assert.Equal(t, fetch(), []PodSizeCount{{
+	assert.Equal(t, fetcherSorted(Thingys)(), []PodSizeCount{{
 		Named:         NewNamed(pod),
 		MatchingSizes: 1,
 	}})
@@ -321,7 +309,7 @@ func TestCollectionCycle(t *testing.T) {
 	}
 	pc.CreateOrUpdateStatus(smallPod)
 	pc.CreateOrUpdateStatus(largePod)
-	assert.Equal(t, fetch(), []PodSizeCount{{
+	assert.Equal(t, fetcherSorted(Thingys)(), []PodSizeCount{{
 		Named:         NewNamed(pod),
 		MatchingSizes: 1,
 	}})
@@ -337,7 +325,7 @@ func TestCollectionCycle(t *testing.T) {
 	}
 	pc.CreateOrUpdateStatus(largePod2)
 	tt.WaitOrdered("update/namespace/name")
-	assert.Equal(t, fetch(), []PodSizeCount{{
+	assert.Equal(t, fetcherSorted(Thingys)(), []PodSizeCount{{
 		Named:         NewNamed(pod),
 		MatchingSizes: 2,
 	}})
@@ -352,7 +340,7 @@ func TestCollectionCycle(t *testing.T) {
 	}
 	pc.CreateOrUpdateStatus(dual)
 	tt.WaitUnordered("update/namespace/name", "add/namespace/name-dual")
-	assert.Equal(t, fetch(), []PodSizeCount{
+	assert.Equal(t, fetcherSorted(Thingys)(), []PodSizeCount{
 		{
 			Named:         NewNamed(pod),
 			MatchingSizes: 3,
@@ -366,7 +354,7 @@ func TestCollectionCycle(t *testing.T) {
 	largePod2.Labels["size"] = "small"
 	pc.CreateOrUpdateStatus(largePod2)
 	tt.WaitCompare(CompareUnordered("update/namespace/name-dual", "update/namespace/name"))
-	assert.Equal(t, fetch(), []PodSizeCount{
+	assert.Equal(t, fetcherSorted(Thingys)(), []PodSizeCount{
 		{
 			Named:         NewNamed(pod),
 			MatchingSizes: 2,
@@ -379,21 +367,21 @@ func TestCollectionCycle(t *testing.T) {
 
 	pc.Delete(dual.Name, dual.Namespace)
 	tt.WaitUnordered("update/namespace/name", "delete/namespace/name-dual")
-	assert.Equal(t, fetch(), []PodSizeCount{{
+	assert.Equal(t, fetcherSorted(Thingys)(), []PodSizeCount{{
 		Named:         NewNamed(pod),
 		MatchingSizes: 1,
 	}})
 
 	pc.Delete(largePod.Name, largePod.Namespace)
 	tt.WaitOrdered("update/namespace/name")
-	assert.Equal(t, fetch(), []PodSizeCount{{
+	assert.Equal(t, fetcherSorted(Thingys)(), []PodSizeCount{{
 		Named:         NewNamed(pod),
 		MatchingSizes: 0,
 	}})
 
 	pc.Delete(pod.Name, pod.Namespace)
 	tt.WaitOrdered("delete/namespace/name")
-	assert.Equal(t, fetch(), []PodSizeCount{})
+	assert.Equal(t, fetcherSorted(Thingys)(), []PodSizeCount{})
 }
 
 func CompareUnordered(wants ...string) func(s string) bool {
@@ -401,5 +389,13 @@ func CompareUnordered(wants ...string) func(s string) bool {
 	return func(s string) bool {
 		got := sets.New(strings.Split(s, ",")...)
 		return want.Equals(got)
+	}
+}
+
+func fetcherSorted[T krt.ResourceNamer](c krt.Collection[T]) func() []T {
+	return func() []T {
+		return slices.SortBy(c.List(""), func(t T) string {
+			return t.ResourceName()
+		})
 	}
 }

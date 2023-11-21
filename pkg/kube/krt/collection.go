@@ -30,9 +30,13 @@ import (
 
 // manyCollection builds a mapping from I->O.
 // This can be built from transformation functions of I->*O or I->[]O; both are implemented by this same struct.
+// Locking used here is somewhat complex. We use two locks, mu and recomputeMu.
+//   - mu is responsible for locking the actual data we are storing. List()/Get() calls will lock this.
+//   - recomputeMu is responsible for ensuring there is mutually exclusive access to recomputation. Typically, in a controller
+//     pattern this would be accomplished by a queue. However, these add operational and performance overhead that is not required here.
+//     Instead, we ensure at most one goroutine is recomputing things at a time. This avoids two dependency updates happening concurrently and writing events out of order.
 type manyCollection[I, O any] struct {
 	// name provides the name for this collection.
-
 	name string
 	// parent is the input collection we are building off of.
 	parent Collection[I]
@@ -40,9 +44,12 @@ type manyCollection[I, O any] struct {
 	// log is a logger for the collection, with additional labels already added to identify it.
 	log *istiolog.Scope
 
+	// recomputeMu blocks a recomputation of I->O.
 	recomputeMu sync.Mutex
 
-	// mu protects all items grouped below
+	// mu protects all items grouped below.
+	// This is acquired for reads and writes of data.
+	// This can be acquired with recomputeMu held, but only with strict ordering (mu inside recomputeMu)
 	mu              sync.Mutex
 	collectionState multiIndex[I, O]
 	// collectionDependencies specifies the set of collections we depend on from within the transformation functions (via Fetch).
@@ -137,22 +144,11 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 			continue
 		}
 		i := a.Latest()
-
 		iKey := GetKey(i)
-		log := h.log.WithLabels("key", iKey)
 
 		ctx := &collectionDependencyTracker[I, O]{h, map[untypedCollection]dependency{}}
 		results := slices.GroupUnique(h.transformation(ctx, i), GetKey[O])
 		recomputedResults[idx] = results
-		// For any new collections we depend on, start watching them if its the first time we have watched them.
-		for _, dep := range ctx.d {
-			if !h.collectionDependencies.InsertContains(dep.collection.original) {
-				log.WithLabels("collection", dep.collection.name).Debugf("register new dependency")
-				dep.collection.register(func(o []Event[any]) {
-					h.onSecondaryDependencyEvent(dep.collection.original, o)
-				})
-			}
-		}
 		// Update the I -> Dependency mapping
 		h.objectRelations[iKey] = ctx.d
 	}
@@ -441,6 +437,14 @@ type collectionDependencyTracker[I, O any] struct {
 // registerDependency creates a
 func (i *collectionDependencyTracker[I, O]) registerDependency(d dependency) {
 	i.d[d.collection.original] = d
+
+	// For any new collections we depend on, start watching them if its the first time we have watched them.
+	if !i.collectionDependencies.InsertContains(d.collection.original) {
+		i.log.WithLabels("collection", d.collection.name).Debugf("register new dependency")
+		d.collection.register(func(o []Event[any]) {
+			i.onSecondaryDependencyEvent(d.collection.original, o)
+		})
+	}
 }
 
 func (i *collectionDependencyTracker[I, O]) _internalHandler() {

@@ -115,11 +115,9 @@ func TestCollectionJoin(t *testing.T) {
 	sc.Create(svc)
 	assert.Equal(t, fetch(), nil)
 
-	t.Log("update status")
 	pod.Status = corev1.PodStatus{PodIP: "1.2.3.4"}
 	pc.UpdateStatus(pod)
 	assert.EventuallyEqual(t, fetch, []SimpleEndpoint{{pod.Name, svc.Name, pod.Namespace, "1.2.3.4"}})
-	return
 
 	pod.Status.PodIP = "1.2.3.5"
 	pc.UpdateStatus(pod)
