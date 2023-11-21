@@ -16,8 +16,6 @@ package krt
 
 import (
 	"fmt"
-
-	"istio.io/istio/pkg/ptr"
 )
 
 func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *T {
@@ -53,7 +51,12 @@ func Fetch[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) []T 
 		}
 	}
 	if log.DebugEnabled() {
-		log.WithLabels("type", ptr.TypeName[T](), "filter", d.filter, "size", len(res)).Debugf("Fetch")
+		log.WithLabels(
+			"from", h.Name(),
+			"for", c.Name(),
+			"filter", d.filter,
+			"size", len(res),
+		).Debugf("Fetch")
 	}
 	return res
 }

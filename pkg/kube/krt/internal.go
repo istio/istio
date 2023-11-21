@@ -109,6 +109,7 @@ type dependency struct {
 type registerDependency interface {
 	// Registers a dependency, returning true if it is finalized
 	registerDependency(dependency)
+	Name() string
 }
 
 // getName returns the name for an object, of possible.

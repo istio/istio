@@ -97,7 +97,7 @@ func EventuallyEqual[T any](t test.Failer, fetch func() T, expected T, retryOpts
 	t.Helper()
 	var a T
 	// Unit tests typically need shorter default; opts can override though
-	ro := []retry.Option{retry.Timeout(time.Second * 4)}
+	ro := []retry.Option{retry.Timeout(time.Second * 5)}
 	ro = append(ro, retryOpts...)
 	err := retry.UntilSuccess(func() error {
 		a = fetch()

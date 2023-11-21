@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -69,11 +70,12 @@ func TestJoinCollection(t *testing.T) {
 }
 
 func TestCollectionJoin(t *testing.T) {
+	log.FindScope("krt").SetOutputLevel(log.DebugLevel)
 	// Due to a flaw in the library, we may get the Pod and Service event at the same time.
 	// The service event starts first, reads zero pods.
 	// The pod event starts, reads one pod, and writes. Then service ends, and reverts to zero pods.
 	// We need to serialize updates.
-	t.Skip("Test is broken")
+	// t.Skip("Test is broken")
 	c := kube.NewFakeClient()
 	pods := krt.NewInformer[*corev1.Pod](c)
 	services := krt.NewInformer[*corev1.Service](c)
@@ -89,7 +91,7 @@ func TestCollectionJoin(t *testing.T) {
 	SimpleEndpoints := SimpleEndpointsCollection(SimplePods, Joined)
 
 	fetch := func() []SimpleEndpoint {
-		return SimpleEndpoints.List("")
+		return slices.SortBy(SimpleEndpoints.List(""), func(s SimpleEndpoint) string { return s.ResourceName() })
 	}
 
 	assert.Equal(t, fetch(), nil)

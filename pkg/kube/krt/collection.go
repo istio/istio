@@ -40,6 +40,8 @@ type manyCollection[I, O any] struct {
 	// log is a logger for the collection, with additional labels already added to identify it.
 	log *istiolog.Scope
 
+	recomputeMu sync.Mutex
+
 	// mu protects all items grouped below
 	mu              sync.Mutex
 	collectionState multiIndex[I, O]
@@ -50,11 +52,27 @@ type manyCollection[I, O any] struct {
 	// Stores a map of I -> secondary dependencies (added via Fetch)
 	objectRelations map[Key[I]]map[untypedCollection]dependency
 
-	handlersMu sync.RWMutex
 	// eventHandlers is a list of event handlers registered for the collection. On any changes, each will be notified.
-	eventHandlers []func(o []Event[O])
+	eventHandlers *handlers[O]
 
 	transformation TransformationMulti[I, O]
+}
+
+type handlers[O any] struct {
+	mu sync.RWMutex
+	h  []func(o []Event[O])
+}
+
+func (o *handlers[O]) Insert(f func(o []Event[O])) {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.h = append(o.h, f)
+}
+
+func (o *handlers[O]) Get() []func(o []Event[O]) {
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+	return slices.Clone(o.h)
 }
 
 type untypedCollection = any
@@ -90,22 +108,65 @@ func (h *manyCollection[I, O]) Dump() {
 // This is called either when I directly changes, or if a secondary dependency changed. In this case, we compute which I's depended
 // on the secondary dependency, and call onPrimaryInputEvent with them
 func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
+	h.recomputeMu.Lock()
+	defer h.recomputeMu.Unlock()
+	// Between the events being enqueued and now, the input may have changed. Update with latest info.
+	// Note we now have the recomputeMu so this is safe; any futures calls will do the same so always have up-to-date information.
+	for idx, ev := range items {
+		iKey := GetKey(ev.Latest())
+		iObj := h.parent.GetKey(iKey)
+		if iObj == nil {
+			ev.Event = controllers.EventDelete
+			ev.New = nil
+		} else {
+			ev.New = iObj
+		}
+		items[idx] = ev
+	}
+	h.onPrimaryInputEventLocked(items)
+}
+
+// onPrimaryInputEventLocked takes a list of I's that changed and reruns the handler over them.
+// This should be called with recomputeMu acquired.
+func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 	var events []Event[O]
-	for _, a := range items {
+	recomputedResults := make([]map[Key[O]]O, len(items))
+	for idx, a := range items {
+		if a.Event == controllers.EventDelete {
+			// handled below, with full lock...
+			continue
+		}
 		i := a.Latest()
 
 		iKey := GetKey(i)
 		log := h.log.WithLabels("key", iKey)
 
-		h.mu.Lock()
-		// Find dependencies for this input; insert empty set if we don't have any
-		// Give them a context for this specific input
+		ctx := &collectionDependencyTracker[I, O]{h, map[untypedCollection]dependency{}}
+		results := slices.GroupUnique(h.transformation(ctx, i), GetKey[O])
+		recomputedResults[idx] = results
+		// For any new collections we depend on, start watching them if its the first time we have watched them.
+		for _, dep := range ctx.d {
+			if !h.collectionDependencies.InsertContains(dep.collection.original) {
+				log.WithLabels("collection", dep.collection.name).Debugf("register new dependency")
+				dep.collection.register(func(o []Event[any]) {
+					h.onSecondaryDependencyEvent(dep.collection.original, o)
+				})
+			}
+		}
+		// Update the I -> Dependency mapping
+		h.objectRelations[iKey] = ctx.d
+	}
+
+	// Now acquire the full lock. Note we still have recomputeMu held!
+	h.mu.Lock()
+	for idx, a := range items {
+		i := a.Latest()
+		iKey := GetKey(i)
 		if a.Event == controllers.EventDelete {
 			for oKey := range h.collectionState.mappings[iKey] {
 				oldRes, f := h.collectionState.outputs[oKey]
 				if !f {
-					// Typically happens when O has multiple parents
-					log.WithLabels("okey", oKey).Errorf("BUG, inconsistent")
+					log.WithLabels("oKey", oKey).Errorf("invalid event, deletion of non-existant object")
 					continue
 				}
 				e := Event[O]{
@@ -121,24 +182,8 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 			delete(h.collectionState.mappings, iKey)
 			delete(h.collectionState.inputs, iKey)
 			delete(h.objectRelations, iKey)
-			h.mu.Unlock()
 		} else {
-			h.mu.Unlock()
-			ctx := &collectionDependencyTracker[I, O]{h, map[untypedCollection]dependency{}}
-			// Handler shouldn't be called with lock
-			results := slices.GroupUnique(h.transformation(ctx, i), GetKey[O])
-			h.mu.Lock()
-			// For any new collections we depend on, start watching them if its the first time we have watched them.
-			for _, dep := range ctx.d {
-				if !h.collectionDependencies.InsertContains(dep.collection.original) {
-					log.WithLabels("collection", dep.collection.name).Debugf("register new dependency")
-					dep.collection.register(func(o []Event[any]) {
-						h.onSecondaryDependencyEvent(dep.collection.original, o)
-					})
-				}
-			}
-			// Update they I -> Dependency mapping
-			h.objectRelations[iKey] = ctx.d
+			results := recomputedResults[idx]
 			newKeys := sets.New(maps.Keys(results)...)
 			oldKeys := h.collectionState.mappings[iKey]
 			h.collectionState.mappings[iKey] = newKeys
@@ -171,18 +216,18 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 					delete(h.collectionState.outputs, key)
 				}
 
-				log.WithLabels("res", key, "type", e.Event).Debugf("handled")
+				h.log.WithLabels("res", key, "type", e.Event).Debugf("handled")
 				events = append(events, e)
 			}
-			h.mu.Unlock()
 		}
 	}
+	h.mu.Unlock()
+
+	// Short circuit if we have nothing to do
 	if len(events) == 0 {
 		return
 	}
-	h.handlersMu.RLock()
-	handlers := slices.Clone(h.eventHandlers)
-	h.handlersMu.RUnlock()
+	handlers := h.eventHandlers.Get()
 
 	h.log.WithLabels("events", len(events), "handlers", len(handlers)).Debugf("calling handlers")
 	for _, handler := range handlers {
@@ -239,6 +284,7 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 			outputs:  map[Key[O]]O{},
 			mappings: map[Key[I]]sets.Set[Key[O]]{},
 		},
+		eventHandlers: &handlers[O]{},
 	}
 	// TODO: wait for dependencies to be ready
 	// Build up the initial state
@@ -262,7 +308,8 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 // Handler is called when a dependency changes. We will take as inputs the item that changed.
 // Then we find all of our own values (I) that changed and onPrimaryInputEvent() them
 func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, events []Event[any]) {
-	h.mu.Lock()
+	h.recomputeMu.Lock()
+	defer h.recomputeMu.Unlock()
 	// A secondary dependency changed...
 	// Got an event. Now we need to find out who depends on it..
 	changedInputKeys := sets.Set[Key[I]]{}
@@ -290,8 +337,9 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, 
 			}
 		}
 	}
-
+	// h.mu.Unlock()
 	h.log.Debugf("event size %v, impacts %v objects", len(events), len(changedInputKeys))
+
 	toRun := make([]Event[I], 0, len(changedInputKeys))
 	// Now we have the set of input keys that changed. We need to recompute all of these.
 	// While we could just do that manually, to re-use code, we will convert these into Event[I] and use the same logic as
@@ -299,9 +347,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, 
 	for i := range changedInputKeys {
 		iObj := h.parent.GetKey(i)
 		if iObj == nil {
-			log.Errorf("howardjohn: TODO")
-			log.Fatalf("howardjohn: can this every happen?")
-			// object no longer found means it has been deleted
+			// Object no longer found means it has been deleted.
 			h.log.Debugf("parent deletion %v", i)
 			for oKey := range h.collectionState.mappings[i] {
 				_, f := h.collectionState.outputs[oKey]
@@ -325,8 +371,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, 
 			})
 		}
 	}
-	h.mu.Unlock()
-	h.onPrimaryInputEvent(toRun)
+	h.onPrimaryInputEventLocked(toRun)
 }
 
 func (h *manyCollection[I, O]) _internalHandler() {
@@ -363,10 +408,8 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) {
 }
 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) {
-	h.handlersMu.Lock()
-	defer h.handlersMu.Unlock()
-	// TODO: locking here is probably not reliable to avoid duplicate events
-	h.eventHandlers = append(h.eventHandlers, f)
+	h.eventHandlers.Insert(f)
+	// TODO: make sure we avoid duplicate events as well
 	// Send all existing objects through handler
 	//objs := slices.Map(h.List(metav1.NamespaceAll), func(t O) Event[O] {
 	//	return Event[O]{
@@ -391,7 +434,7 @@ func (h *manyCollection[I, O]) Name() string {
 // Note: this is used instead of passing manyCollection to the transformation function directly because we want to build up some state
 // for a given transformation call at once, then apply it in a single transaction to the manyCollection.
 type collectionDependencyTracker[I, O any] struct {
-	h *manyCollection[I, O]
+	*manyCollection[I, O]
 	d map[untypedCollection]dependency
 }
 
