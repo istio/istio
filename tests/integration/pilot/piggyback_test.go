@@ -85,22 +85,26 @@ func TestPiggyback(t *testing.T) {
 				pf.Start()
 				defer pf.Close()
 
-				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
-				args := []string{
-					"x",
-					"internal-debug",
-					"syncz",
-					"--plaintext",
-					"--xds-address", pf.Address(),
+				argsToTest := []struct {
+					args []string
+				}{
+					{[]string{"x", "internal-debug", "syncz", "--plaintext", "--xds-address", pf.Address()}},
+					{[]string{"ps", "--plaintext", "--xds-address", pf.Address(), "--namespace", nsName}},
 				}
-				output, _, err := istioCtl.Invoke(args)
-				if err != nil {
-					return err
-				}
+				for _, args := range argsToTest {
+					istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+					output, _, err := istioCtl.Invoke(args.args)
+					if err != nil {
+						return err
+					}
 
-				// Just verify pod A is known to Pilot; implicitly this verifies that
-				// the printing code printed it.
-				return expectSubstrings(output, fmt.Sprintf("%s.%s", podName, nsName))
+					// Just verify pod A is known to Pilot; implicitly this verifies that
+					// the printing code printed it.
+					if err := expectSubstrings(output, fmt.Sprintf("%s.%s", podName, nsName)); err != nil {
+						return err
+					}
+				}
+				return nil
 			})
 		})
 }

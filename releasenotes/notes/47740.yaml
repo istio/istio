@@ -3,4 +3,4 @@ kind: feature
 area: istioctl
 releaseNotes:
 - |
-  **Removed** the experimental `istioctl` command: `proxy-status`. Usage of `istioctl proxy-status` is recommended instead.
+  **Updated** `istioctl experimental proxy-stauts` has been promoted to `istioctl proxy-status`. The old `istioctl proxy-status` command is removed.

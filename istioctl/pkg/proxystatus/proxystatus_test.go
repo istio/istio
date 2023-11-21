@@ -46,8 +46,8 @@ type execTestCase struct {
 func TestProxyStatus(t *testing.T) {
 	cases := []execTestCase{
 		{ // case 0
-			args:           []string{},
-			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ECDS     ISTIOD",
+			args:          []string{},
+			wantException: true, // Error: no running Istio pods in "istio-system"
 		},
 		{ // case 2: supplying nonexistent pod name should result in error with flag
 			args:          strings.Split("deployment/random-gibberish", " "),
@@ -66,8 +66,8 @@ func TestProxyStatus(t *testing.T) {
 			wantException: true,
 		},
 		{ // case 6: new --revision argument
-			args:           strings.Split("--revision canary", " "),
-			expectedString: "NAME     CLUSTER     CDS     LDS     EDS     RDS     ECDS     ISTIOD",
+			args:          strings.Split("--revision canary", " "),
+			wantException: true, // Error: no running Istio pods in "istio-system"
 		},
 		{ // case 7: supplying type that doesn't select pods should fail
 			args:          strings.Split("serviceaccount/sleep", " "),
@@ -77,7 +77,7 @@ func TestProxyStatus(t *testing.T) {
 
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("case %d %s", i, strings.Join(c.args, " ")), func(t *testing.T) {
-			verifyExecTestOutput(t, StatusCommand(cli.NewFakeContext(nil)), c)
+			verifyExecTestOutput(t, XdsStatusCommand(cli.NewFakeContext(nil)), c)
 		})
 	}
 }
