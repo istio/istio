@@ -37,12 +37,12 @@ In general, these are built by providing some `func(inputs...) outputs...` (call
 While more could be expressed, there are currently three forms implemented.
 
 * `func() *O` via `NewSingleton`
-  * This generates a collection that has a single value. An example would be some global configuration.
+    * This generates a collection that has a single value. An example would be some global configuration.
 * `func(input I) *O` via `NewCollection`
-  * This generates a one-to-one mapping of input to output. An example would be a transformation from a `Pod` type to a generic `Workload` type.
+    * This generates a one-to-one mapping of input to output. An example would be a transformation from a `Pod` type to a generic `Workload` type.
 * `func(input I) []O` via `NewManyCollection`
-  * This generates a one-to-many mapping of input to output. An example would be a transformation from a `Service` to a _set_ of `Endpoint` types.
-  * The order of the response does not matter. Each response must have a unique key.
+    * This generates a one-to-many mapping of input to output. An example would be a transformation from a `Service` to a _set_ of `Endpoint` types.
+    * The order of the response does not matter. Each response must have a unique key.
 
 The form used and input type only represent the _primary dependencies_, indicating the cardinality.
 Each transformation can additionally include an arbitrary number of dependencies, fetching data from other collections.
@@ -102,6 +102,7 @@ In these cases, usually its best to use a `ManyCollection`.
 Like the above examples, its *possible* to express these as normal `Collection`s, but likely inefficient.
 
 Example computing a list of all container names across all pods:
+
 ```go
 ContainerNames := krt.NewManyCollection[string](func(ctx krt.HandlerContext, pod *v1.Pod) (res []string) {
     for _, c := range pod.Spec.Containers {
@@ -111,7 +112,8 @@ ContainerNames := krt.NewManyCollection[string](func(ctx krt.HandlerContext, pod
 }) // Results in a Collection[string]
 ```
 
-Example computing a list of service endpoints, similar to the Kubernetes core endpoints controller.
+Example computing a list of service endpoints, similar to the Kubernetes core endpoints controller:
+
 ```go
 Endpoints := krt.NewManyCollection[Endpoint](func(ctx krt.HandlerContext, svc *v1.Service) (res []Endpoint) {
     for _, c := range krt.Fetch(ctx, Pods, krt.FilterLabel(svc.Spec.Selector)) {
@@ -183,7 +185,7 @@ the amount of optimizations applied.
 The `BenchmarkControllers` puts this to the test, comparing an *ideal* hand-written controller to one written in `krt`.
 While the numbers are likely to change over time, at the time of writing the overhead for `krt` is roughly 10%:
 
-```
+```text
 name                  time/op
 Controllers/krt-8     13.4ms ±23%
 Controllers/legacy-8  11.4ms ± 6%
