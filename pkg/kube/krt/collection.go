@@ -185,8 +185,6 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 					h.log.WithLabels("res", oKey).Debugf("handled delete")
 				}
 			}
-			// TODO: we need to clean up h.collectionState.objects somehow. We don't know if we have exclusive
-			// mapping from I -> O I think
 			delete(h.collectionState.mappings, iKey)
 			delete(h.collectionState.inputs, iKey)
 			delete(h.objectDependencies, iKey)
@@ -316,7 +314,6 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 		eventHandlers: &handlers[O]{},
 		augmentation:  opts.augmentation,
 	}
-	// TODO: wait for dependencies to be ready
 	// Build up the initial state
 	h.onPrimaryInputEvent(slices.Map(c.List(metav1.NamespaceAll), func(t I) Event[I] {
 		return Event[I]{
@@ -430,8 +427,7 @@ func (h *manyCollection[I, O]) List(namespace string) (res []O) {
 	if namespace == "" {
 		res = maps.Values(h.collectionState.outputs)
 	} else {
-		// TODO: implement properly using collectionState.namespace.
-		// For now, we filter
+		// Future improvement: shard outputs by namespace so we can query more efficiently
 		res = slices.FilterInPlace(maps.Values(h.collectionState.outputs), func(o O) bool {
 			return getNamespace(o) == namespace
 		})
@@ -446,17 +442,6 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) {
 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) {
 	h.eventHandlers.Insert(f)
-	// TODO: make sure we avoid duplicate events as well
-	// Send all existing objects through handler
-	//objs := slices.Map(h.List(metav1.NamespaceAll), func(t O) Event[O] {
-	//	return Event[O]{
-	//		New:   ptr.Of(t),
-	//		Event: controllers.EventAdd,
-	//	}
-	//})
-	//if len(objs) > 0 {
-	//	f(objs)
-	//}
 }
 
 func (h *manyCollection[I, O]) Name() string {

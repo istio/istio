@@ -62,7 +62,7 @@ func (h *singleton[T]) execute() {
 	oldRes := h.state.Swap(res)
 	updated := !equal(res, oldRes)
 	if updated {
-		for _, handler := range h.handlers {
+		for _, handler := range h.handlers.Get() {
 			event := controllers.EventUpdate
 			if oldRes == nil {
 				event = controllers.EventAdd
@@ -84,13 +84,13 @@ func NewSingleton[T any](hf TransformationEmpty[T], opts ...CollectionOption) Si
 		o.name = fmt.Sprintf("Singleton[%v]", ptr.TypeName[T]())
 	}
 	h := &singleton[T]{
-		name:   o.name,
-		handle: hf,
-		deps:   map[untypedCollection]dependency{},
-		state:  atomic.NewPointer[T](nil),
+		name:     o.name,
+		handle:   hf,
+		deps:     map[untypedCollection]dependency{},
+		state:    atomic.NewPointer[T](nil),
+		handlers: &handlers[T]{},
 	}
 	log := log.WithLabels("owner", h.name)
-	// TODO: wait for dependencies to be ready
 	// Populate initial state. It is a singleton so we don't have any hard dependencies
 	h.execute()
 	mu := sync.Mutex{}
@@ -140,12 +140,11 @@ func NewSingleton[T any](hf TransformationEmpty[T], opts ...CollectionOption) Si
 }
 
 type singleton[T any] struct {
-	name       string
-	deps       map[untypedCollection]dependency
-	handle     TransformationEmpty[T]
-	handlersMu sync.RWMutex
-	handlers   []func(o []Event[T])
-	state      *atomic.Pointer[T]
+	name     string
+	deps     map[untypedCollection]dependency
+	handle   TransformationEmpty[T]
+	handlers *handlers[T]
+	state    *atomic.Pointer[T]
 }
 
 func (h *singleton[T]) Name() string {
@@ -164,20 +163,7 @@ func (h *singleton[T]) Register(f func(o Event[T])) {
 }
 
 func (h *singleton[T]) RegisterBatch(f func(o []Event[T])) {
-	h.handlersMu.Lock()
-	defer h.handlersMu.Unlock()
-	// TODO: locking here is probably not reliable to avoid duplicate events
-	// Send all existing objects through handler
-	//objs := slices.Map(h.List(metav1.NamespaceAll), func(t T) Event[T] {
-	//	return Event[T]{
-	//		New:   ptr.Of(t),
-	//		Event: controllers.EventAdd,
-	//	}
-	//})
-	//if len(objs) > 0 {
-	//	f(objs)
-	//}
-	h.handlers = append(h.handlers, f)
+	h.handlers.Insert(f)
 }
 
 // registerDependency creates a
@@ -190,11 +176,13 @@ func (h *singleton[T]) Get() *T {
 }
 
 func (h *singleton[T]) GetKey(k Key[T]) *T {
-	// TODO implement me
-	panic("implement me")
+	return h.state.Load()
 }
 
 func (h *singleton[T]) List(namespace string) []T {
-	// TODO: use namespace?
-	return ptr.ToList(h.Get())
+	v := h.state.Load()
+	if v == nil {
+		return nil
+	}
+	return []T{*v}
 }

@@ -46,8 +46,6 @@ func TestSingleton(t *testing.T) {
 	)
 	tt := assert.NewTracker[string](t)
 	ConfigMapNames.Register(TrackerHandler[string](tt))
-	// TODO: add back On Register -> List; but it breaks internal usage
-	// tt.WaitOrdered("add/")
 
 	assert.Equal(t, *ConfigMapNames.Get(), "")
 
