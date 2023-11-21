@@ -327,7 +327,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	appContainers := []map[string]any{{
 		"Name":           appContainerName,
 		"ImageFullPath":  settings.EchoImage, // This overrides image hub/tag if it's not empty.
-		"ContainerPorts": getContainerPorts(cfg),
+		"ContainerPorts": containerPorts,
 	}}
 
 	// Only use the custom image for proxyless gRPC instances. This will bind the gRPC ports on one container
@@ -369,7 +369,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"ServiceAccount":          cfg.ServiceAccount,
 		"DisableAutomountSAToken": cfg.DisableAutomountSAToken,
 		"AppContainers":           appContainers,
-		"ContainerPorts":          getContainerPorts(cfg),
+		"ContainerPorts":          containerPorts,
 		"Subsets":                 cfg.Subsets,
 		"TLSSettings":             cfg.TLSSettings,
 		"Cluster":                 cfg.Cluster.Name(),

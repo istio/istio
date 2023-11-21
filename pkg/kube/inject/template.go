@@ -62,6 +62,7 @@ func createInjectionFuncmap() template.FuncMap {
 		"omit":                omit,
 		"strdict":             strdict,
 		"toJsonMap":           toJSONMap,
+		"mergeMaps":           mergeMaps,
 	}
 }
 

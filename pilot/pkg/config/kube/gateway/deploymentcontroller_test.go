@@ -92,6 +92,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		gw      v1beta1.Gateway
 		objects []runtime.Object
 		pcs     *model.ProxyConfigs
+		values  string
 	}{
 		{
 			name: "simple",
@@ -187,7 +188,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Name:      "namespace",
 					Namespace: "default",
 					Labels: map[string]string{
-						"topology.istio.io/network": "network-1",
+						"topology.istio.io/network": "network-1", // explicitly set network won't be overwritten
 					},
 				},
 				Spec: v1beta1.GatewaySpec{
@@ -200,6 +201,32 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 			},
 			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  network: network-2`,
+		},
+		{
+			name: "waypoint-no-network-label",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: v1beta1.GatewaySpec{
+					GatewayClassName: constants.WaypointGatewayClassName,
+					Listeners: []v1beta1.Listener{{
+						Name:     "mesh",
+						Port:     v1beta1.PortNumber(15008),
+						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  network: network-1`,
 		},
 		{
 			name: "proxy-config-crd",
@@ -241,7 +268,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 			tw := revisions.NewTagWatcher(client, "")
 			go tw.Run(stop)
 			d := NewDeploymentController(
-				client, cluster.ID(features.ClusterName), env, testInjectionConfig(t), func(fn func()) {
+				client, cluster.ID(features.ClusterName), env, testInjectionConfig(t, tt.values), func(fn func()) {
 				}, tw, "")
 			d.patcher = func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 				b, err := yaml.JSONToYAML(data)
@@ -272,7 +299,7 @@ func TestVersionManagement(t *testing.T) {
 	})
 	tw := revisions.NewTagWatcher(c, "default")
 	env := &model.Environment{}
-	d := NewDeploymentController(c, "", env, testInjectionConfig(t), func(fn func()) {}, tw, "")
+	d := NewDeploymentController(c, "", env, testInjectionConfig(t, ""), func(fn func()) {}, tw, "")
 	reconciles := atomic.NewInt32(0)
 	wantReconcile := int32(0)
 	expectReconciled := func() {
@@ -360,13 +387,23 @@ func TestVersionManagement(t *testing.T) {
 	assert.Equal(t, reconciles.Load(), wantReconcile)
 }
 
-func testInjectionConfig(t test.Failer) func() inject.WebhookConfig {
-	vc, err := inject.NewValuesConfig(`
+func testInjectionConfig(t test.Failer, values string) func() inject.WebhookConfig {
+	var vc inject.ValuesConfig
+	var err error
+	if values != "" {
+		vc, err = inject.NewValuesConfig(values)
+		if err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		vc, err = inject.NewValuesConfig(`
 global:
   hub: test
   tag: test`)
-	if err != nil {
-		t.Fatal(err)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 	}
 	tmpl, err := inject.ParseTemplates(map[string]string{
 		"kube-gateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/kube-gateway.yaml")),

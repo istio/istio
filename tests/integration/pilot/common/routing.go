@@ -2488,21 +2488,28 @@ spec:
 					ConsistentHostChecker,
 				),
 				PropagateResponse: func(req *http.Request, res *http.Response) {
-					if res != nil && res.Cookies() != nil {
-						var sessionCookie *http.Cookie
-						for _, cookie := range res.Cookies() {
-							if cookie.Name == "session-cookie" {
-								sessionCookie = cookie
-								break
-							}
+					scopes.Framework.Infof("invoking propagate response")
+					if res == nil {
+						scopes.Framework.Infof("no response")
+						return
+					}
+					if res.Cookies() == nil {
+						scopes.Framework.Infof("no cookies")
+						return
+					}
+					var sessionCookie *http.Cookie
+					for _, cookie := range res.Cookies() {
+						if cookie.Name == "session-cookie" {
+							sessionCookie = cookie
+							break
 						}
-						if sessionCookie != nil {
-							scopes.Framework.Infof("setting the request cookie back in the request: %v %b",
-								sessionCookie.Value, sessionCookie.Expires)
-							req.AddCookie(sessionCookie)
-						} else {
-							scopes.Framework.Infof("no session cookie found in the response")
-						}
+					}
+					if sessionCookie != nil {
+						scopes.Framework.Infof("setting the request cookie back in the request: %v %b",
+							sessionCookie.Value, sessionCookie.Expires)
+						req.AddCookie(sessionCookie)
+					} else {
+						scopes.Framework.Infof("no session cookie found in the response")
 					}
 				},
 			}

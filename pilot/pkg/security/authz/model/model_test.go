@@ -81,7 +81,7 @@ when:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := New(tc.rule)
+			got, err := New(tc.rule, false)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -259,7 +259,7 @@ when:
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			m, err := New(tc.rule)
+			m, err := New(tc.rule, false)
 			if err != nil {
 				t.Fatal(err)
 			}

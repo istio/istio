@@ -28,6 +28,7 @@ type ZtunnelWorkload struct {
 	CanonicalRevision string    `json:"canonicalRevision"`
 	Node              string    `json:"node"`
 	NativeHbone       bool      `json:"nativeHbone"`
+	Network           string    `json:"network,omitempty"`
 }
 
 type Waypoint struct {

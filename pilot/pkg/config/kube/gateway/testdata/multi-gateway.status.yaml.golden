@@ -35,7 +35,7 @@ status:
       and istio-ingressgateway.istio-system.svc.domain.suffix:80, but failed to assign
       to all requested addresses: hostname "istio-ingressgateway.not-default.svc.domain.suffix"
       not found'
-    reason: AddressNotAssigned
+    reason: AddressNotUsable
     status: "False"
     type: Programmed
   listeners:

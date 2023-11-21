@@ -3107,3 +3107,65 @@ func TestResolveServiceAliases(t *testing.T) {
 		})
 	}
 }
+
+func BenchmarkInitServiceAccounts(b *testing.B) {
+	ps := NewPushContext()
+	index := NewEndpointIndex(DisabledCache{})
+	env := &Environment{EndpointIndex: index}
+	ps.Mesh = &meshconfig.MeshConfig{TrustDomainAliases: []string{"td1", "td2"}}
+
+	services := []*Service{
+		{
+			Hostname: "svc-unset",
+			Ports:    allPorts,
+			Attributes: ServiceAttributes{
+				Namespace: "test1",
+			},
+		},
+		{
+			Hostname: "svc-public",
+			Ports:    allPorts,
+			Attributes: ServiceAttributes{
+				Namespace: "test1",
+				ExportTo:  sets.New(visibility.Public),
+			},
+		},
+		{
+			Hostname: "svc-private",
+			Ports:    allPorts,
+			Attributes: ServiceAttributes{
+				Namespace: "test1",
+				ExportTo:  sets.New(visibility.Private),
+			},
+		},
+		{
+			Hostname: "svc-none",
+			Ports:    allPorts,
+			Attributes: ServiceAttributes{
+				Namespace: "test1",
+				ExportTo:  sets.New(visibility.None),
+			},
+		},
+		{
+			Hostname: "svc-namespace",
+			Ports:    allPorts,
+			Attributes: ServiceAttributes{
+				Namespace: "test1",
+				ExportTo:  sets.New(visibility.Instance("namespace")),
+			},
+		},
+	}
+
+	for _, svc := range services {
+		if index.shardsBySvc[string(svc.Hostname)] == nil {
+			index.shardsBySvc[string(svc.Hostname)] = map[string]*EndpointShards{}
+		}
+		index.shardsBySvc[string(svc.Hostname)][svc.Attributes.Namespace] = &EndpointShards{
+			ServiceAccounts: sets.New("spiffe://cluster.local/ns/def/sa/sa1", "spiffe://cluster.local/ns/def/sa/sa2"),
+		}
+	}
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		ps.initServiceAccounts(env, services)
+	}
+}

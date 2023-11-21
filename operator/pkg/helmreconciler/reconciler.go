@@ -198,8 +198,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 		c, ms := c, ms
 		wg.Add(1)
 		go func() {
-			var processedObjs object.K8sObjects
-			var deployedObjects int
+			var appliedResult AppliedResult
 			defer wg.Done()
 			if s := h.dependencyWaitCh[c]; s != nil {
 				scope.Infof("%s is waiting on dependency...", c)
@@ -220,10 +219,10 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 					Name:    c,
 					Content: name.MergeManifestSlices(ms),
 				}
-				processedObjs, deployedObjects, err = h.ApplyManifest(m, serverSideApply)
+				appliedResult, err = h.ApplyManifest(m, serverSideApply)
 				if err != nil {
 					status = v1alpha1.InstallStatus_ERROR
-				} else if len(processedObjs) != 0 || deployedObjects > 0 {
+				} else if appliedResult.Succeed() {
 					status = v1alpha1.InstallStatus_HEALTHY
 				}
 			}
@@ -312,6 +311,19 @@ func (h *HelmReconciler) Delete() error {
 		return err
 	}
 	return nil
+}
+
+func (h *HelmReconciler) DeleteIOPInClusterIfExists(iop *istioV1Alpha1.IstioOperator) {
+	// Delete the previous IstioOperator CR if it exists.
+	objectKey := client.ObjectKeyFromObject(iop)
+	receiver := &unstructured.Unstructured{}
+	receiver.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "install.istio.io",
+		Version: "v1alpha1", Kind: name.IstioOperatorStr,
+	})
+	if err := h.client.Get(context.TODO(), objectKey, receiver); err == nil {
+		_ = h.client.Delete(context.TODO(), receiver)
+	}
 }
 
 // SetStatusBegin updates the status field on the IstioOperator instance before reconciling.
