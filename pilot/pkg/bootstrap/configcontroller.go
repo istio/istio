@@ -173,6 +173,9 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 						// We can only run this if the Gateway CRD is created
 						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
 							nsFilter := args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter
+							if !features.EnableEnhancedResourceScoping {
+								nsFilter = nil
+							}
 							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
 							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
 								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision, nsFilter)
