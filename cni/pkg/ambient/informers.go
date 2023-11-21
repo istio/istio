@@ -28,6 +28,12 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+// podReconcileHandler is used to handle pod reconcile events
+type podReconcileHandler interface {
+	addPodToMesh(pod *corev1.Pod)
+	delPodFromMesh(pod *corev1.Pod, event controllers.Event)
+}
+
 func (s *Server) setupHandlers() {
 	s.queue = controllers.NewQueue("ambient",
 		controllers.WithGenericReconciler(s.Reconcile),
@@ -52,11 +58,6 @@ func (s *Server) setupHandlers() {
 			}
 		},
 	})
-}
-
-func (s *Server) Run(stop <-chan struct{}) {
-	go s.queue.Run(stop)
-	<-stop
 }
 
 func (s *Server) ReconcileNamespaces() sets.String {
@@ -104,9 +105,10 @@ func (s *Server) Reconcile(input any) error {
 	log := log.WithLabels("type", event.Event, "pod", config.NamespacedName(pod))
 	if ztunnelPod(pod) {
 		log.Debugf("reconciling ztunnel")
-		return s.UpdateActiveNodeProxy()
+		return s.updateActiveNodeProxy()
 	}
 	log.Debugf("reconciling pod")
+
 	switch event.Event {
 	case controllers.EventAdd:
 		ns := s.namespaces.Get(pod.Namespace, "")
@@ -117,34 +119,55 @@ func (s *Server) Reconcile(input any) error {
 		// But if CNI restarts, we clear the rules, so this can happen due to CNI restart as well
 		if PodRedirectionEnabled(ns, pod) && !s.IsPodEnrolledInAmbient(pod) {
 			log.Debugf("Pod added not in ipset, adding")
-			s.AddPodToMesh(pod)
+			s.podReconcileHandler.addPodToMesh(pod)
 		}
 	case controllers.EventUpdate:
-		// For update, we just need to handle opt outs
-		newPod := event.New.(*corev1.Pod)
-		oldPod := event.Old.(*corev1.Pod)
-		ns := s.namespaces.Get(newPod.Namespace, "")
-		if ns == nil {
-			return fmt.Errorf("failed to find namespace %v", ns)
-		}
-		wasEnabled := oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
-		nowEnabled := PodRedirectionEnabled(ns, newPod)
-		if wasEnabled && !nowEnabled {
-			log.Debugf("Pod no longer matches, removing from mesh")
-			s.DelPodFromMesh(newPod, event)
-		} else if !wasEnabled && nowEnabled {
-			log.Debugf("Pod now matches, adding to mesh")
-			s.AddPodToMesh(pod)
-		} else if nowEnabled && !s.IsPodEnrolledInAmbient(pod) {
-			// This can happen if a node cleanup happens as part of a ztunnel recycle,
-			// cleaning up the node-level ipset with all the pod IPs
-			// If this happens we re-queue everything for reconciliation, and need to
-			// make sure existing pods get re-added to the ipset if they aren't already there.
-			log.Debugf("Pod is enabled but not in ipset, (re)adding to mesh")
-			s.AddPodToMesh(pod)
-		}
+		return s.handleUpdate(event)
 	case controllers.EventDelete:
-		s.DelPodFromMesh(pod, event)
+		s.podReconcileHandler.delPodFromMesh(pod, event)
 	}
+	return nil
+}
+
+func (s *Server) handleUpdate(event controllers.Event) error {
+	// For update, we just need to handle opt outs
+	newPod := event.New.(*corev1.Pod)
+	oldPod := event.Old.(*corev1.Pod)
+	log := log.WithLabels("type", event.Event, "pod", config.NamespacedName(newPod))
+
+	ns := s.namespaces.Get(newPod.Namespace, "")
+	if ns == nil {
+		return fmt.Errorf("failed to find namespace %v", ns)
+	}
+
+	// wasEnabled can safely assume that if constants.AmbientRedirection was on OldPod
+	// by only this annotation.
+	wasEnabled := oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
+	// nowEnabled is checked by more precise PodRedirectionEnabled
+	nowEnabled := PodRedirectionEnabled(ns, newPod)
+
+	notAmbientPod := !wasEnabled && !nowEnabled
+	removeFromMesh := wasEnabled && !nowEnabled
+	joinMesh := !wasEnabled && nowEnabled
+	meshedPodNotInIpset := nowEnabled && !IsPodInIpset(newPod)
+
+	switch {
+	case notAmbientPod:
+		return nil
+	case removeFromMesh:
+		log.Debugf("Pod no longer matches, removing from mesh")
+		s.podReconcileHandler.delPodFromMesh(newPod, event)
+	case joinMesh:
+		log.Debugf("Pod now matches, adding to mesh")
+		s.podReconcileHandler.addPodToMesh(newPod)
+	case meshedPodNotInIpset:
+		// This can happen if a node cleanup happens as part of a ztunnel recycle,
+		// cleaning up the node-level ipset with all the pod IPs
+		// If this happens we re-queue everything for reconciliation, and need to
+		// make sure existing pods get re-added to the ipset if they aren't already there.
+		log.Debugf("Pod is enabled but not in ipset, (re)adding to mesh")
+		s.podReconcileHandler.addPodToMesh(newPod)
+	}
+
 	return nil
 }
