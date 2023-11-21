@@ -56,10 +56,6 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 	if s.SkipTProxy {
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "tproxy")
 	}
-	if s.SkipDelta {
-		// TODO we may also want to trigger this if we have an old version
-		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "delta")
-	}
 	// Allow passing a single CSV flag as well
 	normalized := make(ArrayFlags, 0)
 	for _, sk := range s.SkipWorkloadClasses {
@@ -171,9 +167,6 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.SkipVM, "istio.test.skipVM", settingsFromCommandLine.SkipVM,
 		"Skip VM related parts in all tests.")
-
-	flag.BoolVar(&settingsFromCommandLine.SkipDelta, "istio.test.skipDelta", settingsFromCommandLine.SkipDelta,
-		"Skip Delta XDS related parts in all tests.")
 
 	flag.BoolVar(&settingsFromCommandLine.SkipTProxy, "istio.test.skipTProxy", settingsFromCommandLine.SkipTProxy,
 		"Skip TProxy related parts in all tests.")
