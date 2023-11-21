@@ -20,13 +20,16 @@ import (
 	"io"
 	"os"
 
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
+	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/log"
 )
 
@@ -140,4 +143,110 @@ func readConfigFile(filename string) ([]byte, error) {
 		return nil, err
 	}
 	return data, nil
+}
+
+func XdsStatusCommand(ctx cli.Context) *cobra.Command {
+	var opts clioptions.ControlPlaneOptions
+	var centralOpts clioptions.CentralControlPlaneOptions
+	var multiXdsOpts multixds.Options
+
+	statusCmd := &cobra.Command{
+		Use:   "proxy-status [<type>/]<name>[.<namespace>]",
+		Short: "Retrieves the synchronization status of each Envoy in the mesh",
+		Long: `
+Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in the mesh
+`,
+		Example: `  # Retrieve sync status for all Envoys in a mesh
+  istioctl x proxy-status
+
+  # Retrieve sync diff for a single Envoy and Istiod
+  istioctl x proxy-status istio-egressgateway-59585c5b9c-ndc59.istio-system
+
+  # SECURITY OPTIONS
+
+  # Retrieve proxy status information directly from the control plane, using token security
+  # (This is the usual way to get the proxy-status with an out-of-cluster control plane.)
+  istioctl x ps --xds-address istio.cloudprovider.example.com:15012
+
+  # Retrieve proxy status information via Kubernetes config, using token security
+  # (This is the usual way to get the proxy-status with an in-cluster control plane.)
+  istioctl x proxy-status
+
+  # Retrieve proxy status information directly from the control plane, using RSA certificate security
+  # (Certificates must be obtained before this step.  The --cert-dir flag lets istioctl bypass the Kubernetes API server.)
+  istioctl x ps --xds-address istio.example.com:15012 --cert-dir ~/.istio-certs
+
+  # Retrieve proxy status information via XDS from specific control plane in multi-control plane in-cluster configuration
+  # (Select a specific control plane in an in-cluster canary Istio configuration.)
+  istioctl x ps --xds-label istio.io/rev=default
+`,
+		Aliases: []string{"ps"},
+		RunE: func(c *cobra.Command, args []string) error {
+			kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
+			if err != nil {
+				return err
+			}
+			multiXdsOpts.MessageWriter = c.OutOrStdout()
+
+			if len(args) > 0 {
+				podName, ns, err := ctx.InferPodInfoFromTypedResource(args[0], ctx.Namespace())
+				if err != nil {
+					return err
+				}
+				if ambient.IsZtunnelPod(kubeClient, podName, ns) {
+					_, _ = fmt.Fprintf(c.OutOrStdout(),
+						"Sync diff is not available for ztunnel pod %s.%s\n", podName, ns)
+					return nil
+				}
+				var envoyDump []byte
+				if configDumpFile != "" {
+					envoyDump, err = readConfigFile(configDumpFile)
+				} else {
+					path := "config_dump"
+					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
+				}
+				if err != nil {
+					return fmt.Errorf("could not contact sidecar: %w", err)
+				}
+
+				xdsRequest := discovery.DiscoveryRequest{
+					ResourceNames: []string{fmt.Sprintf("%s.%s", podName, ns)},
+					TypeUrl:       pilotxds.TypeDebugConfigDump,
+				}
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, ctx.IstioNamespace(), "", "", kubeClient, multiXdsOpts)
+				if err != nil {
+					return err
+				}
+				c, err := compare.NewXdsComparator(c.OutOrStdout(), xdsResponses, envoyDump)
+				if err != nil {
+					return err
+				}
+				return c.Diff()
+			}
+			xdsRequest := discovery.DiscoveryRequest{
+				TypeUrl: pilotxds.TypeDebugSyncronization,
+			}
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, ctx.IstioNamespace(), "", "", kubeClient, multiXdsOpts)
+			if err != nil {
+				return err
+			}
+			sw := pilot.XdsStatusWriter{
+				Writer:    c.OutOrStdout(),
+				Namespace: ctx.Namespace(),
+			}
+			return sw.PrintAll(xdsResponses)
+		},
+	}
+
+	opts.AttachControlPlaneFlags(statusCmd)
+	centralOpts.AttachControlPlaneFlags(statusCmd)
+	statusCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"Envoy config dump JSON file")
+	statusCmd.PersistentFlags().BoolVar(&multiXdsOpts.XdsViaAgents, "xds-via-agents", false,
+		"Access Istiod via the tap service of each agent")
+	statusCmd.PersistentFlags().IntVar(&multiXdsOpts.XdsViaAgentsLimit, "xds-via-agents-limit", 100,
+		"Maximum number of pods being visited by istioctl when `xds-via-agent` flag is true."+
+			"To iterate all the agent pods without limit, set to 0")
+
+	return statusCmd
 }
