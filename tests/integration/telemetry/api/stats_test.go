@@ -150,6 +150,82 @@ func TestStatsFilter(t *testing.T) {
 		})
 }
 
+func TestStatsGatewayServerFilter(t *testing.T) {
+	framework.NewTest(t).
+		Features("observability.telemetry.stats.prometheus.http.api").
+		Run(func(t framework.TestContext) {
+			base := filepath.Join(env.IstioSrc, "tests/integration/telemetry/testdata/")
+			// Following resources are being deployed to test sidecar->gateway communication. With following resources,
+			// routing is being setup from sidecar to external site, via egress gateway.
+			// clt(http:80) -> sidecar(http:80) -> istio-mtls -> (http:80)egress-gateway-> vs(http:80) -> cnn.com
+			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-http-dest-rule.yaml")).ApplyOrFail(t)
+			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-http-gateway.yaml")).ApplyOrFail(t)
+			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-http-vs.yaml")).ApplyOrFail(t)
+			//t.ConfigIstio().File("istio-system", filepath.Join(base, "test-mx-filter.yaml")).ApplyOrFail(t)
+
+			// The main SE is available only to app namespace, make one the egress can access.
+			t.ConfigIstio().Eval(ist.Settings().SystemNamespace, map[string]any{
+				"Namespace": apps.External.Namespace.Name(),
+				"Hostname":  cdeployment.ExternalHostname,
+			}, `apiVersion: networking.istio.io/v1alpha3
+kind: ServiceEntry
+metadata:
+  name: external-service
+spec:
+  exportTo: [.]
+  hosts:
+  - {{.Hostname}}
+  location: MESH_EXTERNAL
+  resolution: DNS
+  endpoints:
+  - address: external.{{.Namespace}}.svc.cluster.local
+  ports:
+  - name: http
+    number: 80
+    protocol: HTTP
+`).ApplyOrFail(t, apply.NoCleanup)
+			g, _ := errgroup.WithContext(context.Background())
+			for _, cltInstance := range GetClientInstances() {
+				cltInstance := cltInstance
+				g.Go(func() error {
+					err := retry.UntilSuccess(func() error {
+						if _, err := cltInstance.Call(echo.CallOptions{
+							Address: "fake.external.com",
+							Scheme:  scheme.HTTP,
+							Port:    ports.HTTP,
+							Count:   1,
+							Retry:   echo.Retry{NoRetry: true}, // we do retry in outer loop
+							Check:   check.OK(),
+						}); err != nil {
+							return err
+						}
+
+						c := cltInstance.Config().Cluster
+						sourceCluster := "Kubernetes"
+						if len(t.AllClusters()) > 1 {
+							sourceCluster = c.Name()
+						}
+						query := buildGatewayQuery(sourceCluster)
+						prom := GetPromInstance()
+						if _, err := prom.QuerySum(c, query); err != nil {
+							util.PromDiff(t, prom, c, query)
+							return err
+						}
+
+						return nil
+					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
+					if err != nil {
+						t.Fatalf("test failed: %v", err)
+					}
+					return nil
+				})
+			}
+			if err := g.Wait(); err != nil {
+				t.Fatalf("test failed: %v", err)
+			}
+		})
+}
+
 // TestStatsTCPFilter includes common test logic for stats and metadataexchange filters running
 // with nullvm and wasm runtime for TCP.
 func TestStatsTCPFilter(t *testing.T) {
@@ -371,6 +447,31 @@ func buildQuery(sourceCluster string) (sourceQuery, destinationQuery, appQuery p
 	}
 
 	return BuildQueryCommon(labels, ns.Name())
+}
+
+func buildGatewayQuery(sourceCluster string) (sourceQuery prometheus.Query) {
+	ns := GetAppNamespace()
+	labels := map[string]string{
+		"request_protocol":               "http",
+		"response_code":                  "200",
+		"destination_app":                "istio-egressgateway",
+		"destination_canonical_revision": "latest",
+		"destination_canonical_service":  "istio-egressgateway",
+		"destination_service":            "istio-egressgateway.istio-system.svc.cluster.local",
+		"destination_service_name":       "istio-egressgateway",
+		"destination_workload_namespace": "istio-system",
+		"destination_service_namespace":  "istio-system",
+		"source_app":                     "a",
+		"source_version":                 "v1",
+		"source_workload":                "a-v1",
+		"source_workload_namespace":      ns.Name(),
+		"source_cluster":                 sourceCluster,
+		"reporter":                       "source",
+	}
+	sourceQuery.Metric = "istio_requests_total"
+	sourceQuery.Labels = labels
+
+	return
 }
 
 func buildOutOfMeshServerQuery(sourceCluster string) prometheus.Query {
