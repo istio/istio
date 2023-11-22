@@ -169,7 +169,6 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 		return r.Err()
 	}
 	visitor := genericclioptions.ResourceFinderForResult(r).Do()
-	// Indirectly RECURSE back into verifyPostInstall with the manifest we just generated
 	generatedCrds, generatedDeployments, generatedDaemonSets, err := v.verifyPostInstall(
 		visitor,
 		fmt.Sprintf("generated from %s", "default"))
