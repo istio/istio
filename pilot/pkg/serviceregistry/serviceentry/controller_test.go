@@ -767,7 +767,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			i.Endpoint.Namespace = selector.Name
 		}
 		// Old IP is gone
-		expectProxyInstances(t, sd, nil, "2.2.2.2")
+		expectProxyInstances(t, sd, []*model.ServiceInstance{}, "2.2.2.2")
 		expectProxyInstances(t, sd, instances, "9.9.9.9")
 		expectServiceInstances(t, sd, selector, 0, instances)
 		expectEvents(t, events,
