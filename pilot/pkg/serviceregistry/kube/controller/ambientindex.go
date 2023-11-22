@@ -955,6 +955,20 @@ func (c *Controller) AdditionalPodSubscriptions(
 	return shouldSubscribe
 }
 
+// syncAllWorkloadsForAmbient refreshes all ambient workloads.
+func (c *Controller) syncAllWorkloadsForAmbient() {
+	if c.ambientIndex != nil {
+		var namespaces []string
+		if c.opts.DiscoveryNamespacesFilter != nil {
+			namespaces = c.opts.DiscoveryNamespacesFilter.GetMembers().UnsortedList()
+		}
+		for _, ns := range namespaces {
+			pods := c.podsClient.List(ns, klabels.Everything())
+			c.ambientIndex.HandleSelectedNamespace(ns, pods, c)
+		}
+	}
+}
+
 func workloadNameAndType(pod *v1.Pod) (string, workloadapi.WorkloadType) {
 	objMeta, typeMeta := kubeutil.GetDeployMetaFromPod(pod)
 	switch typeMeta.Kind {
