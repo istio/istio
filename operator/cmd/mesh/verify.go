@@ -72,12 +72,15 @@ istioctl experimental precheck.
 			if err != nil {
 				return err
 			}
-			client, kubeClient, err := KubernetesClients(client, clog.NewDefaultLogger())
+
+			l := clog.NewConsoleLogger(c.OutOrStdout(), c.OutOrStderr(), installerScope)
+			client, kubeClient, err := KubernetesClients(client, l)
 			if err != nil {
 				return err
 			}
+
 			installationVerifier, err := verifier.NewStatusVerifier(client, kubeClient,
-				ctx.IstioNamespace(), manifestsPath, filenames, opts)
+				ctx.IstioNamespace(), manifestsPath, filenames, opts, verifier.WithLogger(l))
 			if err != nil {
 				return err
 			}
