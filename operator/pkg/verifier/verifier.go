@@ -149,6 +149,9 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 		return err
 	}
 	h, err := helmreconciler.NewHelmReconciler(v.kclient, v.client, iop, &helmreconciler.Options{})
+	if err != nil {
+		return err
+	}
 	resources, err := h.GetPrunedResources(v.controlPlaneOpts.Revision, true, "")
 	if err != nil {
 		return err

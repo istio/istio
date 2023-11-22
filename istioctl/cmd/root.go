@@ -23,6 +23,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
+
 	"istio.io/istio/istioctl/pkg/admin"
 	"istio.io/istio/istioctl/pkg/analyze"
 	"istio.io/istio/istioctl/pkg/authz"

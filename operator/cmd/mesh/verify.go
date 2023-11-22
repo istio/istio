@@ -18,6 +18,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
@@ -72,6 +73,9 @@ istioctl experimental precheck.
 				return err
 			}
 			client, kubeClient, err := KubernetesClients(client, clog.NewDefaultLogger())
+			if err != nil {
+				return err
+			}
 			installationVerifier, err := verifier.NewStatusVerifier(client, kubeClient,
 				ctx.IstioNamespace(), manifestsPath, filenames, opts)
 			if err != nil {
