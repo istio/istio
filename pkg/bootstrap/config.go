@@ -274,6 +274,12 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		}
 	}
 
+	var compression string
+	// TODO: move annotation to api repo
+	if statsCompression, ok := meta.Annotations["sidecar.istio.io/statsCompression"]; ok {
+		compression = statsCompression
+	}
+
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
@@ -282,6 +288,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 		option.EnvoyHistogramBuckets(buckets),
+		option.EnvoyStatsCompression(compression),
 	}
 }
 

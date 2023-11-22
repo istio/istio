@@ -543,7 +543,25 @@
                       }
                     ]
                   },
-                  "http_filters": [{
+                  "http_filters": [
+                  {{- if .stats_compression }}
+                  {{- if eq .stats_compression "gzip"}}
+                  {
+                    "name": "envoy.filters.http.compressor",
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.compressor.v3.Compressor",
+                      "compressor_library": {
+                        "name": "text_optimized",
+                        "typed_config": {
+                        "@type": "type.googleapis.com/envoy.extensions.compression.gzip.compressor.v3.Gzip"
+                        }
+                      },
+                      "remove_accept_encoding_header": true
+                    }
+                  },
+                  {{- end }}
+                  {{- end }}
+                  {
                     "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"
