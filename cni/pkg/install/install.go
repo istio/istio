@@ -47,7 +47,7 @@ func NewInstaller(cfg *config.InstallConfig, isReady *atomic.Value) *Installer {
 	}
 }
 
-func (in *Installer) installAll(ctx context.Context) (sets.Set[string], error) {
+func (in *Installer) installAll(ctx context.Context) (sets.String, error) {
 	// Install binaries
 	// Currently we _always_ do this, since the binaries do not live in a shared location
 	// and we harm no one by doing so.
@@ -179,7 +179,7 @@ func (in *Installer) Cleanup() error {
 // sleepWatchInstall  blocks until any file change for the binaries or config are detected.
 // At that point, the func yields so the caller can recheck the validity of the install.
 // If an error occurs or context is canceled, the function will return an error.
-func (in *Installer) sleepWatchInstall(ctx context.Context, installedBinFiles sets.Set[string]) error {
+func (in *Installer) sleepWatchInstall(ctx context.Context, installedBinFiles sets.String) error {
 	// Watch our specific binaries, in each configured binary dir.
 	// We may or may not be the only CNI plugin in play, and if we are not
 	// we shouldn't fire events for binaries that are not ours.

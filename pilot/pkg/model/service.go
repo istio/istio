@@ -911,7 +911,7 @@ type AmbientIndexes interface {
 		proxy *Proxy,
 		allAddresses sets.String,
 		currentSubs sets.String,
-	) sets.Set[string]
+	) sets.String
 	Policies(requested sets.Set[ConfigKey]) []*security.Authorization
 	Waypoint(scope WaypointScope) []netip.Addr
 	WorkloadsForWaypoint(scope WaypointScope) []*WorkloadInfo

@@ -26,7 +26,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/cli"
@@ -36,7 +35,6 @@ import (
 	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
-	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -199,8 +197,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 
 	// Detect whether previous installation exists prior to performing the installation.
 	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
-	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
-	if err != nil {
+	if err := InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 	opts := &helmreconciler.ProcessDefaultWebhookOptions{
@@ -244,7 +241,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 // Returns final IstioOperator after installation if successful.
 func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kubeClient kube.Client, client client.Client,
 	waitTimeout time.Duration, l clog.Logger,
-) (*v1alpha12.IstioOperator, error) {
+) error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{
@@ -253,33 +250,27 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 	}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
 	if err != nil {
-		return iop, err
+		return err
 	}
 	status, err := reconciler.Reconcile()
 	if err != nil {
-		return iop, fmt.Errorf("errors occurred during operation: %v", err)
+		return fmt.Errorf("errors occurred during operation: %v", err)
 	}
 	if status.Status != v1alpha1.InstallStatus_HEALTHY {
-		return iop, fmt.Errorf("errors occurred during operation")
+		return fmt.Errorf("errors occurred during operation")
 	}
+
+	// Previously we may install IOP file from the old version of istioctl. Now since we won't install IOP file
+	// anymore, and it didn't provide much value, we can delete it if it exists.
+	reconciler.DeleteIOPInClusterIfExists(iop)
 
 	opts.ProgressLog.SetState(progress.StateComplete)
 
-	// Save a copy of what was installed as a CR in the cluster under an internal name.
-	if iop.Annotations == nil {
-		iop.Annotations = make(map[string]string)
-	}
-	iop.Annotations[istiocontrolplane.IgnoreReconcileAnnotation] = "true"
-	iopStr, err := yaml.Marshal(iop)
-	if err != nil {
-		return iop, err
-	}
-
-	return iop, saveIOPToCluster(reconciler, string(iopStr))
+	return nil
 }
 
 func savedIOPName(iop *v1alpha12.IstioOperator) string {
-	ret := name.InstalledSpecCRPrefix
+	ret := "installed-state"
 	if iop.Name != "" {
 		ret += "-" + iop.Name
 	}

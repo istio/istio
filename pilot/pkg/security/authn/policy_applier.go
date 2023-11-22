@@ -32,7 +32,7 @@ type PolicyApplier interface {
 
 	// JwtFilter returns the JWT HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no JWT validation is needed.
-	JwtFilter() *hcm.HttpFilter
+	JwtFilter(useExtendedJwt, clearRouteCache bool) *hcm.HttpFilter
 
 	// AuthNFilter returns the (authn) HTTP filter to enforce the underlying authentication policy.
 	// It may return nil, if no authentication is needed.

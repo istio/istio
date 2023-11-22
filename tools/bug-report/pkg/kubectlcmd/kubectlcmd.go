@@ -45,7 +45,7 @@ type Runner struct {
 	taskSem chan struct{}
 
 	// runningTasks tracks the in-flight fetch operations for user feedback.
-	runningTasks   sets.Set[string]
+	runningTasks   sets.String
 	runningTasksMu sync.RWMutex
 
 	// runningTasksTicker is the report interval for running tasks.

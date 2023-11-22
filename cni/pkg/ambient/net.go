@@ -235,7 +235,7 @@ func GetHostIP(kubeClient kubernetes.Interface) (string, error) {
 	return "", nil
 }
 
-func (s *Server) AddPodToMesh(pod *corev1.Pod) {
+func (s *Server) addPodToMesh(pod *corev1.Pod) {
 	switch s.redirectMode {
 	case IptablesMode:
 		// This is used for pods already running - we can't block, but we
@@ -255,7 +255,7 @@ func (s *Server) AddPodToMesh(pod *corev1.Pod) {
 	}
 }
 
-func (s *Server) DelPodFromMesh(pod *corev1.Pod, event controllers.Event) {
+func (s *Server) delPodFromMesh(pod *corev1.Pod, event controllers.Event) {
 	log.Debugf("Pod %s/%s is now stopped or opt out... cleaning up.", pod.Namespace, pod.Name)
 	switch s.redirectMode {
 	case IptablesMode:
@@ -281,7 +281,7 @@ func SetProc(path string, value string) error {
 	return os.WriteFile(path, []byte(value), 0o644)
 }
 
-func (s *Server) cleanStaleIPs(stales sets.Set[string]) {
+func (s *Server) cleanStaleIPs(stales sets.String) {
 	log.Infof("Ambient stale Pod IPs to be cleaned: %s", stales)
 	switch s.redirectMode {
 	case IptablesMode:

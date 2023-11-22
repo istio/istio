@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
@@ -180,13 +179,4 @@ func getCRAndNamespaceFromFile(filePath string, l clog.Logger) (customResource s
 	customResource = string(b)
 	istioNamespace = mergedIOPS.Namespace
 	return
-}
-
-// saveIOPToCluster saves the state in an IOP CR in the cluster.
-func saveIOPToCluster(reconciler *helmreconciler.HelmReconciler, iop string) error {
-	obj, err := object.ParseYAMLToK8sObject([]byte(iop))
-	if err != nil {
-		return err
-	}
-	return reconciler.ApplyObject(obj.UnstructuredObject(), false)
 }

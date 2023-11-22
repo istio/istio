@@ -84,7 +84,7 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 	})
 
 	if filter.Verbose {
-		fmt.Fprintln(w, "NAMESPACE\tNAME\tIP\tNODE\tWAYPOINT\tPROTOCOL")
+		fmt.Fprintln(w, "NAMESPACE\tNAME\tNETWORK\tIP\tNODE\tWAYPOINT\tPROTOCOL")
 	} else {
 		fmt.Fprintln(w, "NAMESPACE\tNAME\tIP\tNODE")
 	}
@@ -96,7 +96,8 @@ func (c *ConfigWriter) PrintWorkloadSummary(filter WorkloadFilter) error {
 		}
 		if filter.Verbose {
 			waypoint := waypointName(wl, zDump.Services)
-			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\n", wl.Namespace, wl.Name, ip, wl.Node, waypoint, wl.Protocol)
+			fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
+				wl.Namespace, wl.Name, wl.Network, ip, wl.Node, waypoint, wl.Protocol)
 		} else {
 			fmt.Fprintf(w, "%v\t%v\t%v\t%v\n", wl.Namespace, wl.Name, ip, wl.Node)
 		}

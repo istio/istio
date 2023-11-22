@@ -306,10 +306,10 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		addConfigs(se, services)
 	}
 
-	s.serviceInstances.deleteInstances(key, instancesDeleted)
+	s.serviceInstances.deleteInstanceKeys(key, instancesDeleted)
 	if event == model.EventDelete {
 		s.workloadInstances.Delete(wi)
-		s.serviceInstances.deleteInstances(key, instancesUpdated)
+		s.serviceInstances.deleteInstanceKeys(key, instancesUpdated)
 	} else {
 		s.workloadInstances.Insert(wi)
 		s.serviceInstances.updateInstances(key, instancesUpdated)
@@ -387,7 +387,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	serviceInstancesByConfig, serviceInstances := s.buildServiceInstances(curr, cs)
 	oldInstances := s.serviceInstances.getServiceEntryInstances(key)
 	for configKey, old := range oldInstances {
-		s.serviceInstances.deleteInstances(configKey, old)
+		s.serviceInstances.deleteInstanceKeys(configKey, old)
 	}
 	if event == model.EventDelete {
 		s.serviceInstances.deleteAllServiceEntryInstances(key)
@@ -583,11 +583,11 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	}
 
 	if len(instancesDeleted) > 0 {
-		s.serviceInstances.deleteInstances(key, instancesDeleted)
+		s.serviceInstances.deleteInstanceKeys(key, instancesDeleted)
 	}
 
 	if event == model.EventDelete {
-		s.serviceInstances.deleteInstances(key, instances)
+		s.serviceInstances.deleteInstanceKeys(key, instances)
 	} else {
 		s.serviceInstances.updateInstances(key, instances)
 	}
