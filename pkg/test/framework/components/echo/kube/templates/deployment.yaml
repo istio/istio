@@ -99,9 +99,6 @@ spec:
         image: {{ $.ImageHub }}/app:{{ $.ImageTag }}
 {{- end }}
         imagePullPolicy: {{ $.ImagePullPolicy }}
-        securityContext:
-          runAsUser: 1338
-          runAsGroup: 1338
         args:
 {{- if $appContainer.FallbackPort }}
           - --forwarding_address=0.0.0.0:{{ $appContainer.FallbackPort }}
