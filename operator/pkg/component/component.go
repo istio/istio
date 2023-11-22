@@ -72,6 +72,8 @@ type IstioComponent interface {
 	Run() error
 	// RenderManifest returns a string with the rendered manifest for the component.
 	RenderManifest() (string, error)
+	// ComponentSpec returns the component spec for the component.
+	ComponentSpec() any
 }
 
 // CommonComponentFields is a struct common to all components.
@@ -119,6 +121,10 @@ func (c *IstioComponentBase) Run() error {
 
 func (c *IstioComponentBase) RenderManifest() (string, error) {
 	return renderManifest(c)
+}
+
+func (c *IstioComponentBase) ComponentSpec() any {
+	return c.componentSpec
 }
 
 // NewCoreComponent creates a new IstioComponent with the given componentName and options.

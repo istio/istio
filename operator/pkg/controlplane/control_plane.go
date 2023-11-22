@@ -50,26 +50,36 @@ func NewIstioControlPlane(
 		Filter:      sets.New(filter...),
 		Version:     ver,
 	}
+	comps, err := BuildComponents(*opts)
+	if err != nil {
+		return nil, err
+	}
+	out.components = comps
+	return out, nil
+}
+
+func BuildComponents(opts component.Options) ([]component.IstioComponent, error) {
+	var out []component.IstioComponent
 	for _, c := range name.AllCoreComponentNames {
-		o := *opts
-		ns, err := name.Namespace(c, installSpec)
+		o := opts
+		ns, err := name.Namespace(c, opts.InstallSpec)
 		if err != nil {
 			return nil, err
 		}
 		o.Namespace = ns
-		out.components = append(out.components, component.NewCoreComponent(c, &o))
+		out = append(out, component.NewCoreComponent(c, &o))
 	}
 
-	if installSpec.Components != nil {
-		for idx, c := range installSpec.Components.IngressGateways {
-			o := *opts
-			o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-			out.components = append(out.components, component.NewIngressComponent(c.Name, idx, c, &o))
+	if opts.InstallSpec.Components != nil {
+		for idx, c := range opts.InstallSpec.Components.IngressGateways {
+			o := opts
+			o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(opts.InstallSpec))
+			out = append(out, component.NewIngressComponent(c.Name, idx, c, &o))
 		}
-		for idx, c := range installSpec.Components.EgressGateways {
-			o := *opts
-			o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(installSpec))
-			out.components = append(out.components, component.NewEgressComponent(c.Name, idx, c, &o))
+		for idx, c := range opts.InstallSpec.Components.EgressGateways {
+			o := opts
+			o.Namespace = defaultIfEmpty(c.Namespace, iop.Namespace(opts.InstallSpec))
+			out = append(out, component.NewEgressComponent(c.Name, idx, c, &o))
 		}
 	}
 	return out, nil
