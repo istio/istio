@@ -64,8 +64,8 @@ type IstioComponent struct {
 	ResourceName string
 	// index is the index of the component (only used for components with multiple instances like gateways).
 	index int
-	// componentSpec for the actual component e.g. GatewaySpec, ComponentSpec.
-	componentSpec any
+	// ComponentSpec for the actual component e.g. GatewaySpec, ComponentSpec.
+	ComponentSpec any
 	// started reports whether the component is in initialized and running.
 	started  bool
 	renderer helm.TemplateRenderer
@@ -74,7 +74,7 @@ type IstioComponent struct {
 func (c *IstioComponent) Enabled() bool {
 	if c.ComponentName.IsGateway() {
 		// type assert is guaranteed to work in this context.
-		return c.componentSpec.(*v1alpha1.GatewaySpec).Enabled.GetValue()
+		return c.ComponentSpec.(*v1alpha1.GatewaySpec).Enabled.GetValue()
 	}
 
 	return c.isCoreComponentEnabled()
@@ -157,7 +157,7 @@ func NewIngressComponent(resourceName string, index int, spec *v1alpha1.GatewayS
 		ComponentName: name.IngressComponentName,
 		ResourceName:  resourceName,
 		index:         index,
-		componentSpec: spec,
+		ComponentSpec: spec,
 	}
 }
 
@@ -167,7 +167,7 @@ func NewEgressComponent(resourceName string, index int, spec *v1alpha1.GatewaySp
 		Options:       opts,
 		ComponentName: name.EgressComponentName,
 		index:         index,
-		componentSpec: spec,
+		ComponentSpec: spec,
 		ResourceName:  resourceName,
 	}
 }
@@ -191,7 +191,7 @@ func renderManifest(cf *IstioComponent) (string, error) {
 		return disabledYAMLStr(cf.ComponentName, cf.ResourceName), nil
 	}
 
-	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.componentSpec, cf.ComponentName)
+	mergedYAML, err := cf.Translator.TranslateHelmValues(cf.InstallSpec, cf.ComponentSpec, cf.ComponentName)
 	if err != nil {
 		return "", err
 	}
