@@ -25,10 +25,10 @@ import (
 	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/chartutil"
 	"helm.sh/helm/v3/pkg/engine"
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"k8s.io/apimachinery/pkg/version"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/manifests"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/log"

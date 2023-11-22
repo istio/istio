@@ -23,9 +23,9 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
-	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
