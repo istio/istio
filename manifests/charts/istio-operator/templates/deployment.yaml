@@ -30,6 +30,7 @@ spec:
           command:
           - operator
           - server
+          - --max-concurrent-reconciles={{ .Values.operator.maxConcurrentReconciles }}
           - --monitoring-host={{ .Values.operator.monitoring.host }}
           - --monitoring-port={{ .Values.operator.monitoring.port }}
           securityContext:
