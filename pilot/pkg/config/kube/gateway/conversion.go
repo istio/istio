@@ -2317,9 +2317,12 @@ func buildTLS(ctx configContext, tls *k8s.GatewayTLSConfig, gw config.Config, is
 		return nil, nil
 	}
 	// Explicitly not supported: file mounted
-	// Not yet implemented: TLS mode, https redirect, max protocol version, SANs, CipherSuites, VerifyCertificate
+	// Not yet implemented: TLS mode, https redirect, max protocol version, CipherSuites, VerifyCertificate
 	out := &istio.ServerTLSSettings{
 		HttpsRedirect: false,
+	}
+	if sans, ok := tls.Options[gatewaySubjectAltNamesKey]; ok {
+		out.SubjectAltNames = strings.Split(string(sans), ",")
 	}
 	mode := k8sv1.TLSModeTerminate
 	if tls.Mode != nil {

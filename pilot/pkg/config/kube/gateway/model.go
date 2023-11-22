@@ -33,6 +33,8 @@ const (
 	gatewayNameOverride          = "gateway.istio.io/name-override"
 	gatewaySAOverride            = "gateway.istio.io/service-account"
 	serviceTypeOverride          = "networking.istio.io/service-type"
+	// A comma-separated list of alternate names to verify the subject identity in the certificate presented by the client
+	gatewaySubjectAltNamesKey = "gateway.istio.io/subject-alt-names"
 )
 
 // GatewayResources stores all gateway resources used for our conversion.
