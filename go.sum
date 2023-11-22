@@ -428,6 +428,8 @@ github.com/inconshreveable/mousetrap v1.0.0/go.mod h1:PxqpIevigyE2G7u3NXJIT2ANyt
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/jessevdk/go-flags v1.4.0/go.mod h1:4FA24M0QyGHXBuZZK/XkWh8h0e1EYbRYJSGM75WSRxI=
+github.com/jewertow/api v0.0.0-20231122123127-9e624f9eda5f h1:KtLn+qNQGTVLaiQc40ryfzRp4FatyvewGTlc13hXhRg=
+github.com/jewertow/api v0.0.0-20231122123127-9e624f9eda5f/go.mod h1:hm1PE/mGdIAsjCDkTIAplP53H7TjO5LUQCiVvF26SVg=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
@@ -1111,6 +1113,11 @@ istio.io/api v1.19.0-alpha.1.0.20231218173149-89a175a4b2c2 h1:gtHWNXgdoUgrqs6H9t
 istio.io/api v1.19.0-alpha.1.0.20231218173149-89a175a4b2c2/go.mod h1:EWEUl/dE3Q1QSR2515aIm39FFR2Hk2MGbiN71OocEhQ=
 istio.io/client-go v1.19.0-alpha.1.0.20231218173549-90d93ee965be h1:AfpsvRMqRiZ1RITetMen8Ms4kxEwMFKSzadoxM5kbBw=
 istio.io/client-go v1.19.0-alpha.1.0.20231218173549-90d93ee965be/go.mod h1:Jbdguymst8lXzvGBa3MuKrhCsH04ZgsSU6o+XRAZlYI=
+honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt0JzvZhAg=
+honnef.co/go/tools v0.0.1-2020.1.3/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
+honnef.co/go/tools v0.0.1-2020.1.4/go.mod h1:X/FiERA/W4tHapMX5mGpAtMSVEeEUOyHaw9vFzvIQ3k=
+istio.io/client-go v1.19.0-alpha.1.0.20231116181506-8b33e788f730 h1:k/IlpOWjrpmVTzwddbZVhfqSYCfH36HJOg1RAvrD610=
+istio.io/client-go v1.19.0-alpha.1.0.20231116181506-8b33e788f730/go.mod h1:QB0g+gniE75e5JT0OUD312STDopDqBovgqMjl8VNIIg=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.4/go.mod h1:lOIQAKYgai1+vz9J7YcDZwC26Z0zQewYOGWdyIPUUQ4=
 k8s.io/api v0.29.0 h1:NiCdQMY1QOp1H8lfRyeEf8eOwV6+0xA6XEE44ohDX2A=
