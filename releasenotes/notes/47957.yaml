@@ -5,4 +5,4 @@ issue:
   - 47957
 releaseNotes:
   - |
-    **Fixed** the command ipilot-agent istio-clean-iptables cannot clean up the iptables rules generated for istio dns proxy.
+    **Fixed** an issue where the `pilot-agent istio-clean-iptables` command cannot clean up the iptables rules generated for istio dns proxy.
