@@ -72,6 +72,12 @@ const (
 	v2Suffix   = ",component,istio"
 )
 
+var envoyWellKnownCompressorLibrary = sets.String{
+	"gzip":   {},
+	"zstd":   {},
+	"brotli": {},
+}
+
 // Config for creating a bootstrap file.
 type Config struct {
 	*model.Node
@@ -291,14 +297,6 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyStatsCompression(compression),
 	}
 }
-
-var (
-	envoyWellKnownCompressorLibrary = sets.String{
-		"gzip":   {},
-		"zstd":   {},
-		"brotli": {},
-	}
-)
 
 func lightstepAccessTokenFile(config string) string {
 	return path.Join(config, lightstepAccessTokenBase)
