@@ -35,7 +35,7 @@ type PodCache struct {
 	// podsByIP maintains stable pod IP to name key mapping
 	// this allows us to retrieve the latest status by pod IP.
 	// This should only contain RUNNING or PENDING pods with an allocated IP.
-	podsByIP map[string]types.NamespacedName
+	podsByIP map[string]sets.Set[types.NamespacedName]
 	// IPByPods is a reverse map of podsByIP. This exists to allow us to prune stale entries in the
 	// pod cache if a pod changes IP.
 	IPByPods map[types.NamespacedName]string
@@ -53,7 +53,7 @@ func newPodCache(c *Controller, pods kclient.Client[*v1.Pod], queueEndpointEvent
 	out := &PodCache{
 		pods:               pods,
 		c:                  c,
-		podsByIP:           make(map[string]types.NamespacedName),
+		podsByIP:           make(map[string]sets.Set[types.NamespacedName]),
 		IPByPods:           make(map[types.NamespacedName]string),
 		needResync:         make(map[string]sets.Set[types.NamespacedName]),
 		queueEndpointEvent: queueEndpointEvent,
@@ -219,8 +219,8 @@ func getPortMap(pod *v1.Pod) map[string]uint32 {
 func (pc *PodCache) deleteIP(ip string, podKey types.NamespacedName) bool {
 	pc.Lock()
 	defer pc.Unlock()
-	if pc.podsByIP[ip] == podKey {
-		delete(pc.podsByIP, ip)
+	if pc.podsByIP[ip].Contains(podKey) {
+		sets.DeleteCleanupLast(pc.podsByIP, ip, podKey)
 		delete(pc.IPByPods, podKey)
 		return true
 	}
@@ -230,15 +230,15 @@ func (pc *PodCache) deleteIP(ip string, podKey types.NamespacedName) bool {
 func (pc *PodCache) update(ip string, key types.NamespacedName) {
 	pc.Lock()
 	// if the pod has been cached, return
-	if key == pc.podsByIP[ip] {
+	if pc.podsByIP[ip].Contains(key) {
 		pc.Unlock()
 		return
 	}
 	if current, f := pc.IPByPods[key]; f {
 		// The pod already exists, but with another IP Address. We need to clean up that
-		delete(pc.podsByIP, current)
+		sets.DeleteCleanupLast(pc.podsByIP, current, key)
 	}
-	pc.podsByIP[ip] = key
+	sets.InsertOrNew(pc.podsByIP, ip, key)
 	pc.IPByPods[key] = ip
 
 	if endpointsToUpdate, f := pc.needResync[ip]; f {
@@ -276,20 +276,28 @@ func (pc *PodCache) proxyUpdates(ip string) {
 	}
 }
 
-func (pc *PodCache) getPodKey(addr string) (types.NamespacedName, bool) {
+func (pc *PodCache) getPodKeys(addr string) []types.NamespacedName {
 	pc.RLock()
 	defer pc.RUnlock()
-	key, exists := pc.podsByIP[addr]
-	return key, exists
+	return pc.podsByIP[addr].UnsortedList()
 }
 
 // getPodByIp returns the pod or nil if pod not found or an error occurred
-func (pc *PodCache) getPodByIP(addr string) *v1.Pod {
-	key, exists := pc.getPodKey(addr)
-	if !exists {
+func (pc *PodCache) getPodsByIP(addr string) []*v1.Pod {
+	keys := pc.getPodKeys(addr)
+	if keys == nil {
 		return nil
 	}
-	return pc.getPodByKey(key)
+	res := make([]*v1.Pod, 0, len(keys))
+	for _, key := range keys {
+		p := pc.getPodByKey(key)
+		// Subtle race condition. getPodKeys is our cache over pods, while getPodByKey hits the informer cache.
+		// if these are out of sync, p may be nil (pod was deleted).
+		if p != nil {
+			res = append(res, p)
+		}
+	}
+	return res
 }
 
 // getPodByKey returns the pod by key
@@ -312,5 +320,23 @@ func (pc *PodCache) getPodByProxy(proxy *model.Proxy) *v1.Pod {
 	// because multiple ips belong to the same pod
 	proxyIP := proxy.IPAddresses[0]
 	// just in case the proxy ID is bad formatted
-	return pc.getPodByIP(proxyIP)
+	pods := pc.getPodsByIP(proxyIP)
+	switch len(pods) {
+	case 0:
+		return nil
+	case 1:
+		return pods[0]
+	default:
+		// This should only happen with hostNetwork pods, which cannot be proxy clients...
+		log.Errorf("unexpected: found multiple pods for proxy %v (%v)", proxy.ID, proxyIP)
+		// Try to handle it gracefully
+		for _, p := range pods {
+			// At least filter out wrong namespaces...
+			if proxy.ConfigNamespace != p.Namespace {
+				continue
+			}
+			return p
+		}
+		return nil
+	}
 }
