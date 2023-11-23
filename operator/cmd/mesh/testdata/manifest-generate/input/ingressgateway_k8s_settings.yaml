@@ -23,4 +23,10 @@ spec:
       k8s:
         service:
           externalTrafficPolicy: Local
+    - namespace: custom-namespace
+      name: istio-ingressgateway-custom
+      enabled: true
+      k8s:
+        service:
+          externalTrafficPolicy: Local
 

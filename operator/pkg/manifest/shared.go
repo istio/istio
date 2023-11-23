@@ -184,7 +184,7 @@ func GenIOPFromProfile(profileOrPath, fileOverlayYAML string, setFlags []string,
 	}
 
 	// Merge user file and --set flags.
-	outYAML, err = util.OverlayIOP(outYAML, overlayYAML)
+	outYAML, err = util.OverlayYAML(outYAML, overlayYAML)
 	if err != nil {
 		return "", nil, fmt.Errorf("could not overlay user config over base: %s", err)
 	}
