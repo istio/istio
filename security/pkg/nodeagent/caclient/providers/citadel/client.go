@@ -80,7 +80,7 @@ func (c *CitadelClient) Close() {
 }
 
 // CSRSign calls Citadel to sign a CSR.
-func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]string, error) {
+func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) (res []string, err error) {
 	crMetaStruct := &structpb.Struct{
 		Fields: map[string]*structpb.Value{
 			security.CertSigner: {
@@ -93,8 +93,16 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) ([]strin
 		ValidityDuration: certValidTTLInSec,
 		Metadata:         crMetaStruct,
 	}
+	// TODO: notify reconnect when root cert is updated
+	defer func() {
+		if err != nil {
+			if err := c.reconnect(); err != nil {
+				citadelClientLog.Errorf("failed reconnect: %v", err)
+			}
+		}
+	}()
 
-	if err := c.reconnectIfNeeded(); err != nil {
+	if err = c.reconnectIfNeeded(); err != nil {
 		return nil, err
 	}
 
@@ -158,6 +166,10 @@ func (c *CitadelClient) reconnectIfNeeded() error {
 		return nil
 	}
 
+	return c.reconnect()
+}
+
+func (c *CitadelClient) reconnect() error {
 	if err := c.conn.Close(); err != nil {
 		return fmt.Errorf("failed to close connection")
 	}
