@@ -276,7 +276,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 
 	var compression string
 	// TODO: move annotation to api repo
-	if statsCompression, ok := meta.Annotations["sidecar.istio.io/statsCompression"]; ok {
+	if statsCompression, ok := meta.Annotations["sidecar.istio.io/statsCompression"]; ok && envoyWellKnownCompressorLibrary.Contains(statsCompression) {
 		compression = statsCompression
 	}
 
@@ -291,6 +291,14 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyStatsCompression(compression),
 	}
 }
+
+var (
+	envoyWellKnownCompressorLibrary = sets.String{
+		"gzip":   {},
+		"zstd":   {},
+		"brotli": {},
+	}
+)
 
 func lightstepAccessTokenFile(config string) string {
 	return path.Join(config, lightstepAccessTokenBase)
