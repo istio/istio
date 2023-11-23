@@ -1100,8 +1100,6 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 	}
 
 	res := &listener.Listener{
-		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
-		Address:          util.BuildAddress(opts.bind, uint32(opts.port)),
 		TrafficDirection: core.TrafficDirection_OUTBOUND,
 		ListenerFilters:  listenerFilters,
 		FilterChains:     filterChains,
@@ -1116,6 +1114,8 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
 		res.Name = getListenerName(opts.bind, opts.port, istionetworking.TransportProtocolTCP)
 		log.Debugf("buildGatewayListener: building TCP listener %s", res.Name)
+		// TODO: need to sanitize the opts.bind if its a UDS socket, as it could have colons, that envoy doesn't like
+		res.Address = util.BuildAddress(opts.bind, uint32(opts.port))
 		// only use to exact_balance for tcp outbound listeners; virtualOutbound listener should
 		// not have this set per Envoy docs for redirected listeners
 		if opts.proxy.Metadata.OutboundListenerExactBalance {
@@ -1131,6 +1131,7 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 		//       of building listener, filter chains, serializing etc based on transport protocol
 		res.Name = getListenerName(opts.bind, opts.port, istionetworking.TransportProtocolQUIC)
 		log.Debugf("buildGatewayListener: building UDP/QUIC listener %s", res.Name)
+		res.Address = util.BuildNetworkAddress(opts.bind, uint32(opts.port), istionetworking.TransportProtocolQUIC)
 		res.UdpListenerConfig = &listener.UdpListenerConfig{
 			// TODO: Maybe we should add options in MeshConfig to
 			//       configure QUIC options - it should look similar
