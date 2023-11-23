@@ -157,7 +157,7 @@ func XdsVersionCommand(ctx cli.Context) *cobra.Command {
 func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **discovery.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
 		xdsRequest := discovery.DiscoveryRequest{
-			TypeUrl: "istio.io/connections",
+			TypeUrl: xds.TypeURLConnect,
 		}
 		kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 		if err != nil {
