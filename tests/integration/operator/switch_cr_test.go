@@ -31,6 +31,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"istio.io/api/label"
 	api "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
@@ -298,21 +299,28 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 		t.Logf("failed to list existing CR: %v", err.Error())
 	}
 
-	scopes.Framework.Infof("waiting for pods in istio-system to be deleted")
-	// wait for pods in istio-system to be deleted
+	scopes.Framework.Infof("waiting for workloads in istio-system to be deleted")
+	// wait for workloads in istio-system to be deleted
 	err = retry.UntilSuccess(func() error {
-		podList, err := cs.Kube().CoreV1().Pods(IstioNamespace).List(context.TODO(), metav1.ListOptions{})
+		deployList, err := cs.Kube().AppsV1().Deployments(IstioNamespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: label.IoIstioRev.Name,
+		})
 		if err != nil {
 			return err
 		}
-		if len(podList.Items) == 0 {
-			return nil
+		if len(deployList.Items) > 0 {
+			return fmt.Errorf("workloads still remain in %s", IstioNamespace)
 		}
-		names := []string{}
-		for _, i := range podList.Items {
-			names = append(names, i.Name)
+		dsList, err := cs.Kube().AppsV1().DaemonSets(IstioNamespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: label.IoIstioRev.Name,
+		})
+		if err != nil {
+			return err
 		}
-		return fmt.Errorf("pods still remain in %s: %v", IstioNamespace, names)
+		if len(dsList.Items) > 0 {
+			return fmt.Errorf("workloads still remain in %s", IstioNamespace)
+		}
+		return nil
 	}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
 
 	if err != nil {
