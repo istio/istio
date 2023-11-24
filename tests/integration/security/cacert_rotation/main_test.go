@@ -182,7 +182,7 @@ func getWorkloadCertLastUpdateTime(t framework.TestContext, i echo.Instance, ctl
 }
 
 // Abstracted function to wait for workload cert to be updated
-func waitForWorkloadCertUpdate(t *testing.T, from echo.Instance, istioCtl istioctl.Istioctl, lastUpdateTime time.Time) time.Time {
+func waitForWorkloadCertUpdate(t framework.TestContext, from echo.Instance, istioCtl istioctl.Instance, lastUpdateTime time.Time) time.Time {
 	retry.UntilOrFail(t, func() bool {
 		updateTime, err := getWorkloadCertLastUpdateTime(t, from, istioCtl)
 		if err != nil {
