@@ -378,8 +378,8 @@ func (esc *endpointSliceController) handleEndpointSlice(ep *v1.EndpointSlice, ev
 
 func (esc *endpointSliceController) updateEDS(hostnames []host.Name, namespace string) {
 	shard := model.ShardKeyFromRegistry(esc.c)
-	esc.endpointCache.mu.Lock()
-	defer esc.endpointCache.mu.Unlock()
+	esc.endpointCache.mu.RLock()
+	defer esc.endpointCache.mu.RLock()
 	for _, hostname := range hostnames {
 		endpoints := esc.endpointCache.get(hostname)
 		if features.EnableK8SServiceSelectWorkloadEntries {
