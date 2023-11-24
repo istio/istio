@@ -151,7 +151,7 @@ spec:
         securityContext:
           capabilities:
             drop:
-            - all
+            - ALL
           privileged: false
           runAsGroup: 1337
           runAsUser: 0
