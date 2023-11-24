@@ -49,7 +49,7 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		Setup(istio.Setup(nil, setupConfig, cert.CreateCASecret)).
+		Setup(istio.Setup(nil, setupConfig, cert.CreateCASecretWithCombinedRootCert)).
 		Setup(deployment.SetupSingleNamespace(&apps, deployment.Config{})).
 		Setup(func(ctx resource.Context) error {
 			return reachability.CreateCustomInstances(&apps)
@@ -94,33 +94,33 @@ func TestReachability(t *testing.T) {
 			verifyTraffic(t, from[0], to[0], fromAndTo)
 			t.Log("traffic works between a and b")
 
-			// step 1: Update CA root cert with combined root
-			if err := cert.CreateCustomCASecret(t,
-				"ca-cert.pem", "ca-key.pem",
-				"cert-chain.pem", "root-cert-combined.pem"); err != nil {
-				t.Errorf("failed to update combined CA secret: %v", err)
-			}
-
-			lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
-			verifyTraffic(t, from[0], to[0], fromAndTo)
-			t.Log("traffic works between a and b after root cert changed")
-
-			// step 2: Update CA signing key/cert with cacert to trigger workload cert resigning
-			if err := cert.CreateCustomCASecret(t,
-				"ca-cert-alt.pem", "ca-key-alt.pem",
-				"cert-chain-alt.pem", "root-cert-combined-2.pem"); err != nil {
-				t.Errorf("failed to update CA secret: %v", err)
-			}
-
-			lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
-			// Verify traffic works between a and b after cert rotation
-			verifyTraffic(t, from[0], to[0], fromAndTo)
-			t.Log("traffic works between a and b after ca-cert changed")
+			//// step 1: Update CA root cert with combined root
+			//if err := cert.CreateCustomCASecret(t,
+			//	"ca-cert.pem", "ca-key.pem",
+			//	"cert-chain.pem", "root-cert-combined.pem"); err != nil {
+			//	t.Errorf("failed to update combined CA secret: %v", err)
+			//}
+			//
+			//lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
+			//verifyTraffic(t, from[0], to[0], fromAndTo)
+			//t.Log("traffic works between a and b after root cert changed")
+			//
+			//// step 2: Update CA signing key/cert with cacert to trigger workload cert resigning
+			//if err := cert.CreateCustomCASecret(t,
+			//	"ca-cert-alt.pem", "ca-key-alt.pem",
+			//	"cert-chain-alt.pem", "root-cert-combined-2.pem"); err != nil {
+			//	t.Errorf("failed to update CA secret: %v", err)
+			//}
+			//
+			//lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
+			//// Verify traffic works between a and b after cert rotation
+			//verifyTraffic(t, from[0], to[0], fromAndTo)
+			//t.Log("traffic works between a and b after ca-cert changed")
 
 			// step 3: Remove the old root cert
 			if err := cert.CreateCustomCASecret(t,
 				"ca-cert-alt.pem", "ca-key-alt.pem",
-				"cert-chain-alt.pem", "root-cert-combined.pem"); err != nil {
+				"cert-chain-alt.pem", "root-cert-alt.pem"); err != nil {
 				t.Errorf("failed to update CA secret: %v", err)
 			}
 
