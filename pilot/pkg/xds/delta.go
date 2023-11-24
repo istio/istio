@@ -273,7 +273,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		return nil
 	}
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con,
+		return s.pushDeltaXds(con,
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
