@@ -302,29 +302,23 @@ func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 	scopes.Framework.Infof("waiting for workloads in istio-system to be deleted")
 	// wait for workloads in istio-system to be deleted
 	err = retry.UntilSuccess(func() error {
-		names := []string{}
-		deployList, err := cs.Kube().AppsV1().Deployments(IstioNamespace).List(context.TODO(), metav1.ListOptions{})
+		deployList, err := cs.Kube().AppsV1().Deployments(IstioNamespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: label.IoIstioRev.Name,
+		})
 		if err != nil {
 			return err
 		}
-		for _, i := range deployList.Items {
-			if _, ok := i.GetLabels()[label.IoIstioRev.Name]; !ok {
-				continue
-			}
-			names = append(names, fmt.Sprintf("deployment/%s", i.GetName()))
+		if len(deployList.Items) > 0 {
+			return fmt.Errorf("workloads still remain in %s", IstioNamespace)
 		}
-		dsList, err := cs.Kube().AppsV1().DaemonSets(IstioNamespace).List(context.TODO(), metav1.ListOptions{})
+		dsList, err := cs.Kube().AppsV1().DaemonSets(IstioNamespace).List(context.TODO(), metav1.ListOptions{
+			LabelSelector: label.IoIstioRev.Name,
+		})
 		if err != nil {
 			return err
 		}
-		for _, i := range dsList.Items {
-			if _, ok := i.GetLabels()[label.IoIstioRev.Name]; !ok {
-				continue
-			}
-			names = append(names, fmt.Sprintf("daemonset/%s", i.GetName()))
-		}
-		if len(names) > 0 {
-			return fmt.Errorf("workloads still remain in %s: %v", IstioNamespace, names)
+		if len(dsList.Items) > 0 {
+			return fmt.Errorf("workloads still remain in %s", IstioNamespace)
 		}
 		return nil
 	}, retry.Timeout(retryTimeOut), retry.Delay(retryDelay))
