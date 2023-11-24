@@ -383,7 +383,36 @@ func applyOutlierDetection(c *cluster.Cluster, outlier *networking.OutlierDetect
 		// SuccessRate based outlier detection should be disabled.
 		out.EnforcingLocalOriginSuccessRate = &wrapperspb.UInt32Value{Value: 0}
 	}
-
+	if outlier.FailurePercentageEjection != nil {
+		failureEjection := outlier.FailurePercentageEjection
+		if failureEjection.GetMinimumHosts() != nil {
+			out.FailurePercentageMinimumHosts = failureEjection.GetMinimumHosts()
+		}
+		if failureEjection.GetEnforcementPercentage() != nil {
+			out.EnforcingFailurePercentage = failureEjection.GetEnforcementPercentage()
+		}
+		if failureEjection.GetRequestVolume() != nil {
+			out.FailurePercentageRequestVolume = failureEjection.GetRequestVolume()
+		}
+		if failureEjection.GetThreshold() != nil {
+			out.FailurePercentageThreshold = failureEjection.GetThreshold()
+		}
+	}
+	if outlier.SuccessRateEjection != nil {
+		successRateEjection := outlier.SuccessRateEjection
+		if successRateEjection.GetMinimumHosts() != nil {
+			out.SuccessRateMinimumHosts = successRateEjection.GetMinimumHosts()
+		}
+		if successRateEjection.GetRequestVolume() != nil {
+			out.SuccessRateRequestVolume = successRateEjection.GetRequestVolume()
+		}
+		if successRateEjection.GetStdevFactor() != nil {
+			out.SuccessRateStdevFactor = successRateEjection.GetStdevFactor()
+		}
+		if successRateEjection.GetEnforcementPercentage() != nil {
+			out.EnforcingSuccessRate = successRateEjection.GetEnforcementPercentage()
+		}
+	}
 	c.OutlierDetection = out
 
 	// Disable panic threshold by default as its not typically applicable in k8s environments

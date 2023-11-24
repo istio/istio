@@ -16,11 +16,11 @@ package grpcgen
 
 import (
 	"fmt"
-
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
@@ -206,7 +206,56 @@ func (b *clusterBuilder) applyTrafficPolicy(c *cluster.Cluster, trafficPolicy *n
 	}
 	b.applyTLS(c, trafficPolicy)
 	b.applyLoadBalancing(c, trafficPolicy)
+	b.applyOutlierDetection(c, trafficPolicy)
 	// TODO status or log when unsupported features are included
+}
+
+func (b *clusterBuilder) applyOutlierDetection(c *cluster.Cluster, policy *networking.TrafficPolicy) {
+	outlier := policy.OutlierDetection
+	if outlier == nil {
+		return
+	}
+	out := &cluster.OutlierDetection{}
+	if outlier.Interval != nil {
+		out.Interval = outlier.Interval
+	}
+	if outlier.BaseEjectionTime != nil {
+		out.BaseEjectionTime = outlier.BaseEjectionTime
+	}
+	if outlier.MaxEjectionPercent > 0 {
+		out.MaxEjectionPercent = &wrapperspb.UInt32Value{Value: uint32(outlier.MaxEjectionPercent)}
+	}
+	if outlier.FailurePercentageEjection != nil {
+		failureEjection := outlier.FailurePercentageEjection
+		if failureEjection.GetMinimumHosts() != nil {
+			out.FailurePercentageMinimumHosts = failureEjection.GetMinimumHosts()
+		}
+		if failureEjection.GetEnforcementPercentage() != nil {
+			out.EnforcingFailurePercentage = failureEjection.GetEnforcementPercentage()
+		}
+		if failureEjection.GetRequestVolume() != nil {
+			out.FailurePercentageRequestVolume = failureEjection.GetRequestVolume()
+		}
+		if failureEjection.GetThreshold() != nil {
+			out.FailurePercentageThreshold = failureEjection.GetThreshold()
+		}
+	}
+	if outlier.SuccessRateEjection != nil {
+		successRateEjection := outlier.SuccessRateEjection
+		if successRateEjection.GetMinimumHosts() != nil {
+			out.SuccessRateMinimumHosts = successRateEjection.GetMinimumHosts()
+		}
+		if successRateEjection.GetRequestVolume() != nil {
+			out.SuccessRateRequestVolume = successRateEjection.GetRequestVolume()
+		}
+		if successRateEjection.GetStdevFactor() != nil {
+			out.SuccessRateStdevFactor = successRateEjection.GetStdevFactor()
+		}
+		if successRateEjection.GetEnforcementPercentage() != nil {
+			out.EnforcingSuccessRate = successRateEjection.GetEnforcementPercentage()
+		}
+	}
+	c.OutlierDetection = out
 }
 
 func (b *clusterBuilder) applyLoadBalancing(c *cluster.Cluster, policy *networking.TrafficPolicy) {
