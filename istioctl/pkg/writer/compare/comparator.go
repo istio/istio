@@ -21,6 +21,7 @@ import (
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/istioctl/pkg/util/configdump"
 )
@@ -61,13 +62,17 @@ func NewComparator(w io.Writer, istiodResponses map[string][]byte, envoyResponse
 }
 
 // NewXdsComparator is a comparator constructor
-func NewXdsComparator(w io.Writer, istiodResponses map[string]*discovery.DiscoveryResponse, envoyResponse []byte) (*Comparator, error) {
+func NewXdsComparator(w io.Writer, istiodResponses map[string]*discovery.DeltaDiscoveryResponse, envoyResponse []byte) (*Comparator, error) {
 	c := &Comparator{}
 	for _, resp := range istiodResponses {
 		if len(resp.Resources) > 0 {
+			resources := make([]*anypb.Any, 0)
+			for _, r := range resp.Resources {
+				resources = append(resources, r.Resource)
+			}
 			c.istiod = &configdump.Wrapper{
 				ConfigDump: &admin.ConfigDump{
-					Configs: resp.Resources,
+					Configs: resources,
 				},
 			}
 			break

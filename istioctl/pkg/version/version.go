@@ -101,7 +101,7 @@ func getProxyInfoWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions) 
 func XdsVersionCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
-	var xdsResponses *discovery.DiscoveryResponse
+	var xdsResponses *discovery.DeltaDiscoveryResponse
 	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
 		GetRemoteVersion: xdsRemoteVersionWrapper(ctx, &opts, &centralOpts, &xdsResponses),
 		GetProxyVersions: xdsProxyVersionWrapper(&xdsResponses),
@@ -153,10 +153,10 @@ func XdsVersionCommand(ctx cli.Context) *cobra.Command {
 
 // xdsRemoteVersionWrapper uses outXDS to share the XDS response with xdsProxyVersionWrapper.
 // (Screwy API on istioVersion.CobraCommandWithOptions)
-// nolint: lll
-func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **discovery.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
+func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions,
+	outXDS **discovery.DeltaDiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
-		xdsRequest := discovery.DiscoveryRequest{
+		xdsRequest := discovery.DeltaDiscoveryRequest{
 			TypeUrl: "istio.io/connections",
 		}
 		kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
@@ -194,29 +194,24 @@ func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptio
 	}
 }
 
-func xdsProxyVersionWrapper(xdsResponse **discovery.DiscoveryResponse) func() (*[]istioVersion.ProxyInfo, error) {
+func xdsProxyVersionWrapper(xdsResponse **discovery.DeltaDiscoveryResponse) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
 		pi := []istioVersion.ProxyInfo{}
 		for _, resource := range (*xdsResponse).Resources {
-			switch resource.TypeUrl {
-			case "type.googleapis.com/envoy.config.core.v3.Node":
-				node := core.Node{}
-				err := resource.UnmarshalTo(&node)
-				if err != nil {
-					return nil, fmt.Errorf("could not unmarshal Node: %w", err)
-				}
-				meta, err := model.ParseMetadata(node.Metadata)
-				if err != nil || meta.ProxyConfig == nil {
-					// Skip non-sidecars (e.g. istioctl queries)
-					continue
-				}
-				pi = append(pi, istioVersion.ProxyInfo{
-					ID:           node.Id,
-					IstioVersion: getIstioVersionFromXdsMetadata(node.Metadata),
-				})
-			default:
-				return nil, fmt.Errorf("unexpected resource type %q", resource.TypeUrl)
+			node := core.Node{}
+			err := resource.Resource.UnmarshalTo(&node)
+			if err != nil {
+				return nil, fmt.Errorf("could not unmarshal Node: %w", err)
 			}
+			meta, err := model.ParseMetadata(node.Metadata)
+			if err != nil || meta.ProxyConfig == nil {
+				// Skip non-sidecars (e.g. istioctl queries)
+				continue
+			}
+			pi = append(pi, istioVersion.ProxyInfo{
+				ID:           node.Id,
+				IstioVersion: getIstioVersionFromXdsMetadata(node.Metadata),
+			})
 		}
 		return &pi, nil
 	}

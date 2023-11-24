@@ -45,6 +45,7 @@ func defaultLogOptions() *log.Options {
 	o.SetOutputLevel("installer", log.WarnLevel)
 	o.SetOutputLevel("translator", log.WarnLevel)
 	o.SetOutputLevel("adsc", log.WarnLevel)
+	o.SetOutputLevel("deltaadsc", log.WarnLevel)
 	o.SetOutputLevel("default", log.WarnLevel)
 	o.SetOutputLevel("klog", log.WarnLevel)
 	o.SetOutputLevel("kube", log.ErrorLevel)

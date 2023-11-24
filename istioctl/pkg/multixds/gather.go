@@ -81,8 +81,8 @@ var DefaultOptions = Options{
 // RequestAndProcessXds merges XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // Deprecated This method makes multiple responses appear to come from a single control plane;
 // consider using AllRequestAndProcessXds or FirstRequestAndProcessXds
-// nolint: lll
-func RequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string, kubeClient kube.CLIClient) (*discovery.DiscoveryResponse, error) {
+func RequestAndProcessXds(dr *discovery.DeltaDiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
+	kubeClient kube.CLIClient) (*discovery.DeltaDiscoveryResponse, error) {
 	responses, err := MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace,
 		istioNamespace, tokenServiceAccount, kubeClient, DefaultOptions)
 	if err != nil {
@@ -91,8 +91,8 @@ func RequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions
 	return mergeShards(responses)
 }
 
-// nolint: lll
-func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient, centralOpts clioptions.CentralControlPlaneOptions) ([]*discovery.DiscoveryResponse, error) {
+func queryEachShard(all bool, dr *discovery.DeltaDiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient,
+	centralOpts clioptions.CentralControlPlaneOptions) ([]*discovery.DeltaDiscoveryResponse, error) {
 	labelSelector := centralOpts.XdsPodLabel
 	if labelSelector == "" {
 		labelSelector = "app=istiod"
@@ -108,7 +108,7 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 		return nil, ControlPlaneNotFoundError{istioNamespace}
 	}
 
-	responses := []*discovery.DiscoveryResponse{}
+	responses := []*discovery.DeltaDiscoveryResponse{}
 	xdsOpts := clioptions.CentralControlPlaneOptions{
 		XDSSAN:  makeSan(istioNamespace, kubeClient.Revision()),
 		CertDir: centralOpts.CertDir,
@@ -147,16 +147,16 @@ func queryEachShard(all bool, dr *discovery.DiscoveryRequest, istioNamespace str
 // `istioctl` can access the debug endpoint.
 // If `all` is true, `queryDebugSynczViaAgents` iterates all the pod having a proxy
 // except the pods of which status information is already queried.
-func queryDebugSynczViaAgents(all bool, dr *discovery.DiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient,
+func queryDebugSynczViaAgents(all bool, dr *discovery.DeltaDiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient,
 	centralOpts clioptions.CentralControlPlaneOptions, options Options,
-) ([]*discovery.DiscoveryResponse, error) {
+) ([]*discovery.DeltaDiscoveryResponse, error) {
 	xdsOpts := clioptions.CentralControlPlaneOptions{
 		XDSSAN:  makeSan(istioNamespace, kubeClient.Revision()),
 		CertDir: centralOpts.CertDir,
 		Timeout: centralOpts.Timeout,
 	}
 	visited := make(map[string]bool)
-	queryToOnePod := func(pod *v1.Pod) (*discovery.DiscoveryResponse, error) {
+	queryToOnePod := func(pod *v1.Pod) (*discovery.DeltaDiscoveryResponse, error) {
 		fw, err := kubeClient.NewPortForwarder(pod.Name, pod.Namespace, "localhost", 0, 15004)
 		if err != nil {
 			return nil, err
@@ -173,22 +173,17 @@ func queryDebugSynczViaAgents(all bool, dr *discovery.DiscoveryRequest, istioNam
 			return nil, fmt.Errorf("could not get XDS from the agent pod %q: %v", pod.Name, err)
 		}
 		for _, resource := range response.GetResources() {
-			switch resource.GetTypeUrl() {
-			case "type.googleapis.com/envoy.service.status.v3.ClientConfig":
-				clientConfig := xdsstatus.ClientConfig{}
-				err := resource.UnmarshalTo(&clientConfig)
-				if err != nil {
-					return nil, err
-				}
-				visited[clientConfig.Node.Id] = true
-			default:
-				// ignore unknown types.
+			clientConfig := xdsstatus.ClientConfig{}
+			err := resource.Resource.UnmarshalTo(&clientConfig)
+			if err != nil {
+				return nil, err
 			}
+			visited[clientConfig.Node.Id] = true
 		}
 		return response, nil
 	}
 
-	responses := []*discovery.DiscoveryResponse{}
+	responses := []*discovery.DeltaDiscoveryResponse{}
 	if all {
 		token := ""
 		touchedPods := 0
@@ -227,10 +222,10 @@ func queryDebugSynczViaAgents(all bool, dr *discovery.DiscoveryRequest, istioNam
 		}
 	} else {
 		// If there is a specific pod name in ResourceName, use the agent in the pod.
-		if len(dr.ResourceNames) != 1 {
+		if len(dr.ResourceNamesSubscribe) != 1 {
 			return nil, fmt.Errorf("`ResourceNames` must have one element when `all` flag is turned on")
 		}
-		slice := strings.SplitN(dr.ResourceNames[0], ".", 2)
+		slice := strings.SplitN(dr.ResourceNamesSubscribe[0], ".", 2)
 		if len(slice) != 2 {
 			return nil, fmt.Errorf("invalid resource name format: %v", slice)
 		}
@@ -251,8 +246,8 @@ func queryDebugSynczViaAgents(all bool, dr *discovery.DiscoveryRequest, istioNam
 	return responses, nil
 }
 
-func mergeShards(responses map[string]*discovery.DiscoveryResponse) (*discovery.DiscoveryResponse, error) {
-	retval := discovery.DiscoveryResponse{}
+func mergeShards(responses map[string]*discovery.DeltaDiscoveryResponse) (*discovery.DeltaDiscoveryResponse, error) {
+	retval := discovery.DeltaDiscoveryResponse{}
 	if len(responses) == 0 {
 		return &retval, nil
 	}
@@ -276,18 +271,18 @@ func makeSan(istioNamespace, revision string) string {
 
 // AllRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers
 // nolint: lll
-func AllRequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
+func AllRequestAndProcessXds(dr *discovery.DeltaDiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
 	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
-) (map[string]*discovery.DiscoveryResponse, error) {
+) (map[string]*discovery.DeltaDiscoveryResponse, error) {
 	return MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient, options)
 }
 
 // FirstRequestAndProcessXds returns all XDS responses from 1 central or 1..N K8s cluster-based XDS servers,
 // stopping after the first response that returns any resources.
 // nolint: lll
-func FirstRequestAndProcessXds(dr *discovery.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
+func FirstRequestAndProcessXds(dr *discovery.DeltaDiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
 	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
-) (map[string]*discovery.DiscoveryResponse, error) {
+) (map[string]*discovery.DeltaDiscoveryResponse, error) {
 	return MultiRequestAndProcessXds(false, dr, centralOpts, istioNamespace, ns, serviceAccount, kubeClient, options)
 }
 
@@ -324,9 +319,9 @@ func getXdsAddressFromWebhooks(client kube.CLIClient) (*xdsAddr, error) {
 }
 
 // nolint: lll
-func MultiRequestAndProcessXds(all bool, dr *discovery.DiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
+func MultiRequestAndProcessXds(all bool, dr *discovery.DeltaDiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
 	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
-) (map[string]*discovery.DiscoveryResponse, error) {
+) (map[string]*discovery.DeltaDiscoveryResponse, error) {
 	// If Central Istiod case, just call it
 	if ns == "" {
 		ns = istioNamespace
@@ -343,13 +338,13 @@ func MultiRequestAndProcessXds(all bool, dr *discovery.DiscoveryRequest, central
 		if err != nil {
 			return nil, err
 		}
-		return map[string]*discovery.DiscoveryResponse{
+		return map[string]*discovery.DeltaDiscoveryResponse{
 			CpInfo(response).ID: response,
 		}, nil
 	}
 
 	var (
-		responses []*discovery.DiscoveryResponse
+		responses []*discovery.DeltaDiscoveryResponse
 		err       error
 	)
 
@@ -375,7 +370,7 @@ func MultiRequestAndProcessXds(all bool, dr *discovery.DiscoveryRequest, central
 				if err != nil {
 					return nil, err
 				}
-				return map[string]*discovery.DiscoveryResponse{
+				return map[string]*discovery.DeltaDiscoveryResponse{
 					CpInfo(response).ID: response,
 				}, nil
 			}
@@ -385,8 +380,8 @@ func MultiRequestAndProcessXds(all bool, dr *discovery.DiscoveryRequest, central
 	return mapShards(responses)
 }
 
-func mapShards(responses []*discovery.DiscoveryResponse) (map[string]*discovery.DiscoveryResponse, error) {
-	retval := map[string]*discovery.DiscoveryResponse{}
+func mapShards(responses []*discovery.DeltaDiscoveryResponse) (map[string]*discovery.DeltaDiscoveryResponse, error) {
+	retval := map[string]*discovery.DeltaDiscoveryResponse{}
 
 	for _, response := range responses {
 		retval[CpInfo(response).ID] = response
@@ -396,7 +391,7 @@ func mapShards(responses []*discovery.DiscoveryResponse) (map[string]*discovery.
 }
 
 // CpInfo returns the Istio control plane info from JSON-encoded XDS ControlPlane Identifier
-func CpInfo(xdsResponse *discovery.DiscoveryResponse) pilotxds.IstioControlPlaneInstance {
+func CpInfo(xdsResponse *discovery.DeltaDiscoveryResponse) pilotxds.IstioControlPlaneInstance {
 	if xdsResponse.ControlPlane == nil {
 		return pilotxds.IstioControlPlaneInstance{
 			Component: "MISSING",

@@ -20,9 +20,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"fmt"
-	"math"
 	"net"
-	"net/netip"
 	"os"
 	"sort"
 	"strings"
@@ -62,92 +60,13 @@ import (
 	"istio.io/istio/pkg/wellknown"
 )
 
-const (
-	defaultClientMaxReceiveMessageSize = math.MaxInt32
-	defaultInitialConnWindowSize       = 1024 * 1024 // default gRPC InitialWindowSize
-	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
-)
-
-// Config for the ADS connection.
-type Config struct {
-	// Namespace defaults to 'default'
-	Namespace string
-
-	// Workload defaults to 'test'
-	Workload string
-
-	// Revision for this control plane instance. We will only read configs that match this revision.
-	Revision string
-
-	// Meta includes additional metadata for the node
-	Meta *pstruct.Struct
-
-	Locality *core.Locality
-
-	// NodeType defaults to sidecar. "ingress" and "router" are also supported.
-	NodeType string
-
-	// IP is currently the primary key used to locate inbound configs. It is sent by client,
-	// must match a known endpoint IP. Tests can use a ServiceEntry to register fake IPs.
-	IP string
-
-	// CertDir is the directory where mTLS certs are configured.
-	// If CertDir and Secret are empty, an insecure connection will be used.
-	// TODO: implement SecretManager for cert dir
-	CertDir string
-
-	// Secrets is the interface used for getting keys and rootCA.
-	SecretManager security.SecretManager
-
-	// For getting the certificate, using same code as SDS server.
-	// Either the JWTPath or the certs must be present.
-	JWTPath string
-
-	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
-	XDSSAN string
-
-	// XDSRootCAFile explicitly set the root CA to be used for the XDS connection.
-	// Mirrors Envoy file.
-	XDSRootCAFile string
-
-	// RootCert contains the XDS root certificate. Used mainly for tests, apps will normally use
-	// XDSRootCAFile
-	RootCert []byte
-
-	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
-	InsecureSkipVerify bool
-
-	// InitialDiscoveryRequests is a list of resources to watch at first, represented as URLs (for new XDS resource naming)
-	// or type URLs.
-	InitialDiscoveryRequests      []*discovery.DiscoveryRequest
-	InitialDeltaDiscoveryRequests []*discovery.DeltaDiscoveryRequest
-
-	// BackoffPolicy determines the reconnect policy. Based on MCP client.
-	BackoffPolicy backoff.BackOff
-
-	// ResponseHandler will be called on each DiscoveryResponse.
-	// TODO: mirror Generator, allow adding handler per type
-	ResponseHandler      ResponseHandler
-	DeltaResponseHandler DeltaResponseHandler
-
-	GrpcOpts []grpc.DialOption
-}
-
-func DefaultGrpcDialOptions() []grpc.DialOption {
-	return []grpc.DialOption{
-		// TODO(SpecialYang) maybe need to make it configurable.
-		grpc.WithInitialWindowSize(int32(defaultInitialWindowSize)),
-		grpc.WithInitialConnWindowSize(int32(defaultInitialConnWindowSize)),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(defaultClientMaxReceiveMessageSize)),
-	}
-}
-
-// ADSC implements a basic client for ADS, for use in stress tests and tools
+// DeltaADSC implements a basic client for delta ADS, for use in stress tests and tools
 // or libraries that need to connect to Istio pilot or other ADS servers.
-type ADSC struct {
+type DeltaADSC struct {
 	// Stream is the GRPC connection stream, allowing direct GRPC send operations.
 	// Set after Dial is called.
-	stream discovery.AggregatedDiscoveryService_StreamAggregatedResourcesClient
+	stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+
 	// xds client used to create a stream
 	client discovery.AggregatedDiscoveryServiceClient
 	conn   *grpc.ClientConn
@@ -188,13 +107,13 @@ type ADSC struct {
 	Metadata *pstruct.Struct
 
 	// Updates includes the type of the last update received from the server.
-	Updates     chan string
-	errChan     chan error
-	XDSUpdates  chan *discovery.DiscoveryResponse
-	VersionInfo map[string]string
+	Updates         chan string
+	errChan         chan error
+	DeltaXDSUpdates chan *discovery.DeltaDiscoveryResponse
+	VersionInfo     map[string]string
 
 	// Last received message, by type
-	Received map[string]*discovery.DiscoveryResponse
+	Received map[string]*discovery.DeltaDiscoveryResponse
 
 	mutex sync.RWMutex
 
@@ -221,30 +140,14 @@ type ADSC struct {
 	Locality *core.Locality
 }
 
-type ResponseHandler interface {
-	HandleResponse(con *ADSC, response *discovery.DiscoveryResponse)
+type DeltaResponseHandler interface {
+	HandleDeltaResponse(con *DeltaADSC, response *discovery.DeltaDiscoveryResponse)
 }
 
-// jsonMarshalProtoWithName wraps a proto.Message with name so it can be marshaled with the standard encoding/json library
-type jsonMarshalProtoWithName struct {
-	Name    string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
-	Message proto.Message
-}
+var deltaAdscLog = log.RegisterScope("deltaadsc", "delta adsc debugging")
 
-func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
-	strSer, serr := protomarshal.ToJSONWithIndent(p.Message, "  ")
-	if serr != nil {
-		adscLog.Warnf("Error for marshaling [%s]: %v", p.Name, serr)
-		return []byte(""), serr
-	}
-	serialItem := []byte("{\"" + p.Name + "\":" + strSer + "}")
-	return serialItem, nil
-}
-
-var adscLog = log.RegisterScope("adsc", "adsc debugging")
-
-func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
-	adsc, err := New(discoveryAddr, opts)
+func NewDeltaWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*DeltaADSC, error) {
+	adsc, err := NewDelta(discoveryAddr, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -252,14 +155,14 @@ func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy back
 	return adsc, err
 }
 
-// New creates a new ADSC, maintaining a connection to an XDS server.
+// NewDelta creates a new delta ADSC, maintaining a connection to an XDS server.
 // Will:
 // - get certificate using the Secret provider, if CertRequired
 // - connect to the XDS server specified in ProxyConfig
 // - send initial request for watched resources
 // - wait for response from XDS server
 // - on success, start a background thread to maintain the connection, with exp. backoff.
-func New(discoveryAddr string, opts *Config) (*ADSC, error) {
+func NewDelta(discoveryAddr string, opts *Config) (*DeltaADSC, error) {
 	if opts == nil {
 		opts = &Config{}
 	}
@@ -267,15 +170,15 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 	if opts.BackoffPolicy == nil {
 		opts.BackoffPolicy = backoff.NewExponentialBackOff(backoff.DefaultOption())
 	}
-	adsc := &ADSC{
-		Updates:     make(chan string, 100),
-		XDSUpdates:  make(chan *discovery.DiscoveryResponse, 100),
-		VersionInfo: map[string]string{},
-		url:         discoveryAddr,
-		Received:    map[string]*discovery.DiscoveryResponse{},
-		cfg:         opts,
-		sync:        map[string]time.Time{},
-		errChan:     make(chan error, 10),
+	adsc := &DeltaADSC{
+		Updates:         make(chan string, 100),
+		DeltaXDSUpdates: make(chan *discovery.DeltaDiscoveryResponse, 100),
+		VersionInfo:     map[string]string{},
+		url:             discoveryAddr,
+		Received:        map[string]*discovery.DeltaDiscoveryResponse{},
+		cfg:             opts,
+		sync:            map[string]time.Time{},
+		errChan:         make(chan error, 10),
 	}
 
 	if opts.Namespace == "" {
@@ -304,7 +207,7 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 }
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
-func (a *ADSC) Dial() error {
+func (a *DeltaADSC) Dial() error {
 	opts := a.cfg
 
 	defaultGrpcDialOptions := DefaultGrpcDialOptions()
@@ -335,33 +238,7 @@ func (a *ADSC) Dial() error {
 	return nil
 }
 
-// Returns a private IP address, or unspecified IP (0.0.0.0) if no IP is available
-func getPrivateIPIfAvailable() netip.Addr {
-	addrs, _ := net.InterfaceAddrs()
-	for _, addr := range addrs {
-		var ip net.IP
-		switch v := addr.(type) {
-		case *net.IPNet:
-			ip = v.IP
-		case *net.IPAddr:
-			ip = v.IP
-		default:
-			continue
-		}
-		ipAddr, ok := netip.AddrFromSlice(ip)
-		if !ok {
-			continue
-		}
-		// unwrap the IPv4-mapped IPv6 address
-		unwrapAddr := ipAddr.Unmap()
-		if !unwrapAddr.IsLoopback() {
-			return unwrapAddr
-		}
-	}
-	return netip.IPv4Unspecified()
-}
-
-func (a *ADSC) tlsConfig() (*tls.Config, error) {
+func (a *DeltaADSC) tlsConfig() (*tls.Config, error) {
 	var clientCerts []tls.Certificate
 	var serverCABytes []byte
 	var err error
@@ -413,7 +290,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 }
 
 // Close the stream.
-func (a *ADSC) Close() {
+func (a *DeltaADSC) Close() {
 	a.mutex.Lock()
 	_ = a.conn.Close()
 	a.closed = true
@@ -423,17 +300,17 @@ func (a *ADSC) Close() {
 // Run will create a new stream using the existing grpc client connection and send the initial xds requests.
 // And then it will run a go routine receiving and handling xds response.
 // Note: it is non blocking
-func (a *ADSC) Run() error {
+func (a *DeltaADSC) Run() error {
 	var err error
 	a.client = discovery.NewAggregatedDiscoveryServiceClient(a.conn)
-	a.stream, err = a.client.StreamAggregatedResources(context.Background())
+	a.stream, err = a.client.DeltaAggregatedResources(context.Background())
 	if err != nil {
 		return err
 	}
 	a.sendNodeMeta = true
 	a.InitialLoad = 0
 	// Send the initial requests
-	for _, r := range a.cfg.InitialDiscoveryRequests {
+	for _, r := range a.cfg.InitialDeltaDiscoveryRequests {
 		if r.TypeUrl == v3.ClusterType {
 			a.watchTime = time.Now()
 		}
@@ -445,15 +322,15 @@ func (a *ADSC) Run() error {
 }
 
 // HasSynced returns true if MCP configs have synced
-func (a *ADSC) HasSynced() bool {
-	if a.cfg == nil || len(a.cfg.InitialDiscoveryRequests) == 0 {
+func (a *DeltaADSC) HasSynced() bool {
+	if a.cfg == nil || len(a.cfg.InitialDeltaDiscoveryRequests) == 0 {
 		return true
 	}
 
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 
-	for _, req := range a.cfg.InitialDiscoveryRequests {
+	for _, req := range a.cfg.InitialDeltaDiscoveryRequests {
 		_, isMCP := convertTypeURLToMCPGVK(req.TypeUrl)
 		if !isMCP {
 			continue
@@ -468,7 +345,7 @@ func (a *ADSC) HasSynced() bool {
 }
 
 // reconnect will create a new stream
-func (a *ADSC) reconnect() {
+func (a *DeltaADSC) reconnect() {
 	a.mutex.RLock()
 	if a.closed {
 		a.mutex.RUnlock()
@@ -483,7 +360,7 @@ func (a *ADSC) reconnect() {
 	}
 }
 
-func (a *ADSC) handleRecv() {
+func (a *DeltaADSC) handleRecv() {
 	// We connected, so reset the backoff
 	if a.cfg.BackoffPolicy != nil {
 		a.cfg.BackoffPolicy.Reset()
@@ -492,7 +369,7 @@ func (a *ADSC) handleRecv() {
 		var err error
 		msg, err := a.stream.Recv()
 		if err != nil {
-			adscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
+			deltaAdscLog.Infof("Connection closed for node %v with err: %v", a.nodeID, err)
 			select {
 			case a.errChan <- err:
 			default:
@@ -504,7 +381,7 @@ func (a *ADSC) handleRecv() {
 				a.Close()
 				a.WaitClear()
 				a.Updates <- ""
-				a.XDSUpdates <- nil
+				a.DeltaXDSUpdates <- nil
 				close(a.errChan)
 			}
 			return
@@ -513,18 +390,18 @@ func (a *ADSC) handleRecv() {
 		// Group-value-kind - used for high level api generator.
 		resourceGvk, isMCP := convertTypeURLToMCPGVK(msg.TypeUrl)
 
-		adscLog.WithLabels("type", msg.TypeUrl, "count", len(msg.Resources), "nonce", msg.Nonce).Info("Received")
-		if a.cfg.ResponseHandler != nil {
-			a.cfg.ResponseHandler.HandleResponse(a, msg)
+		deltaAdscLog.WithLabels("type", msg.TypeUrl, "count", len(msg.Resources), "nonce", msg.Nonce).Info("Received")
+		if a.cfg.DeltaResponseHandler != nil {
+			a.cfg.DeltaResponseHandler.HandleDeltaResponse(a, msg)
 		}
 
 		if msg.TypeUrl == gvk.MeshConfig.String() &&
 			len(msg.Resources) > 0 {
 			rsc := msg.Resources[0]
 			m := &v1alpha1.MeshConfig{}
-			err = proto.Unmarshal(rsc.Value, m)
+			err = proto.Unmarshal(rsc.GetResource().GetValue(), m)
 			if err != nil {
-				adscLog.Warnf("Failed to unmarshal mesh config: %v", err)
+				deltaAdscLog.Warnf("Failed to unmarshal mesh config: %v", err)
 			}
 			a.Mesh = m
 			if a.LocalCacheDir != "" {
@@ -541,12 +418,12 @@ func (a *ADSC) handleRecv() {
 		}
 
 		// Process the resources.
-		a.VersionInfo[msg.TypeUrl] = msg.VersionInfo
+		a.VersionInfo[msg.TypeUrl] = msg.GetSystemVersionInfo()
 		switch msg.TypeUrl {
 		case v3.ListenerType:
 			listeners := make([]*listener.Listener, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
-				valBytes := rsc.Value
+				valBytes := rsc.GetResource().GetValue()
 				ll := &listener.Listener{}
 				_ = proto.Unmarshal(valBytes, ll)
 				listeners = append(listeners, ll)
@@ -555,7 +432,7 @@ func (a *ADSC) handleRecv() {
 		case v3.ClusterType:
 			clusters := make([]*cluster.Cluster, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
-				valBytes := rsc.Value
+				valBytes := rsc.GetResource().GetValue()
 				cl := &cluster.Cluster{}
 				_ = proto.Unmarshal(valBytes, cl)
 				clusters = append(clusters, cl)
@@ -564,7 +441,7 @@ func (a *ADSC) handleRecv() {
 		case v3.EndpointType:
 			eds := make([]*endpoint.ClusterLoadAssignment, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
-				valBytes := rsc.Value
+				valBytes := rsc.GetResource().GetValue()
 				el := &endpoint.ClusterLoadAssignment{}
 				_ = proto.Unmarshal(valBytes, el)
 				eds = append(eds, el)
@@ -573,7 +450,7 @@ func (a *ADSC) handleRecv() {
 		case v3.RouteType:
 			routes := make([]*route.RouteConfiguration, 0, len(msg.Resources))
 			for _, rsc := range msg.Resources {
-				valBytes := rsc.Value
+				valBytes := rsc.GetResource().GetValue()
 				rl := &route.RouteConfiguration{}
 				_ = proto.Unmarshal(valBytes, rl)
 				routes = append(routes, rl)
@@ -581,7 +458,11 @@ func (a *ADSC) handleRecv() {
 			a.handleRDS(routes)
 		default:
 			if isMCP {
-				a.handleMCP(resourceGvk, msg.Resources)
+				resources := make([]*anypb.Any, 0, len(msg.Resources))
+				for _, rsc := range msg.Resources {
+					resources = append(resources, rsc.GetResource())
+				}
+				a.handleMCP(resourceGvk, resources)
 			}
 		}
 
@@ -601,13 +482,13 @@ func (a *ADSC) handleRecv() {
 		a.mutex.Unlock()
 
 		select {
-		case a.XDSUpdates <- msg:
+		case a.DeltaXDSUpdates <- msg:
 		default:
 		}
 	}
 }
 
-func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
+func (a *DeltaADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 	if m == nil || m.Metadata == nil {
 		return &config.Config{}, nil
 	}
@@ -644,7 +525,7 @@ func (a *ADSC) mcpToPilot(m *mcp.Resource) (*config.Config, error) {
 }
 
 // nolint: staticcheck
-func (a *ADSC) handleLDS(ll []*listener.Listener) {
+func (a *DeltaADSC) handleLDS(ll []*listener.Listener) {
 	lh := map[string]*listener.Listener{}
 	lt := map[string]*listener.Listener{}
 
@@ -675,7 +556,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 			lt[l.Name] = l
 			config, _ := conversion.MessageToStruct(filter.GetTypedConfig())
 			c := config.Fields["cluster"].GetStringValue()
-			adscLog.Debugf("TCP: %s -> %s", l.Name, c)
+			deltaAdscLog.Debugf("TCP: %s -> %s", l.Name, c)
 		case wellknown.HTTPConnectionManager:
 			lh[l.Name] = l
 
@@ -693,14 +574,14 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 		case wellknown.MySQLProxy:
 			// ignore for now
 		default:
-			adscLog.Infof(protomarshal.ToJSONWithIndent(l, "  "))
+			deltaAdscLog.Infof(protomarshal.ToJSONWithIndent(l, "  "))
 		}
 	}
 
-	adscLog.Infof("LDS: http=%d tcp=%d size=%d", len(lh), len(lt), ldsSize)
-	if adscLog.DebugEnabled() {
+	deltaAdscLog.Infof("LDS: http=%d tcp=%d size=%d", len(lh), len(lt), ldsSize)
+	if deltaAdscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(ll, " ", " ")
-		adscLog.Debugf(string(b))
+		deltaAdscLog.Debugf(string(b))
 	}
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -717,7 +598,7 @@ func (a *ADSC) handleLDS(ll []*listener.Listener) {
 }
 
 // Save will save the json configs to files, using the base directory
-func (a *ADSC) Save(base string) error {
+func (a *DeltaADSC) Save(base string) error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -734,7 +615,7 @@ func (a *ADSC) Save(base string) error {
 	}
 	byteJSONResponse, err := json.MarshalIndent(arrTCPListenersJSONProto, "", "  ")
 	if err != nil {
-		adscLog.Warnf("Error for marshaling TCPListeners: %v", err)
+		deltaAdscLog.Warnf("Error for marshaling TCPListeners: %v", err)
 	}
 	err = os.WriteFile(base+"_lds_tcp.json", byteJSONResponse, 0o644)
 	if err != nil {
@@ -844,7 +725,7 @@ func (a *ADSC) Save(base string) error {
 	return err
 }
 
-func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
+func (a *DeltaADSC) handleCDS(ll []*cluster.Cluster) {
 	cn := make([]string, 0, len(ll))
 	cdsSize := 0
 	edscds := map[string]*cluster.Cluster{}
@@ -862,14 +743,14 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 		edscds[c.Name] = c
 	}
 
-	adscLog.Infof("CDS: %d size=%d", len(cn), cdsSize)
+	deltaAdscLog.Infof("CDS: %d size=%d", len(cn), cdsSize)
 
 	if len(cn) > 0 {
 		a.sendRsc(v3.EndpointType, cn)
 	}
-	if adscLog.DebugEnabled() {
+	if deltaAdscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(ll, " ", " ")
-		adscLog.Debugf(string(b))
+		deltaAdscLog.Debugf(string(b))
 	}
 
 	a.mutex.Lock()
@@ -883,7 +764,7 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 	}
 }
 
-func (a *ADSC) node() *core.Node {
+func (a *DeltaADSC) node() *core.Node {
 	n := &core.Node{
 		Id:       a.nodeID,
 		Locality: a.Locality,
@@ -903,21 +784,33 @@ func (a *ADSC) node() *core.Node {
 	return n
 }
 
-// Raw send of a request.
-func (a *ADSC) Send(req *discovery.DiscoveryRequest) error {
+func (a *DeltaADSC) Send(req *discovery.DeltaDiscoveryRequest) error {
 	if a.sendNodeMeta {
 		req.Node = a.node()
 		a.sendNodeMeta = false
 	}
 	req.ResponseNonce = time.Now().String()
-	if adscLog.DebugEnabled() {
+	if deltaAdscLog.DebugEnabled() {
 		strReq, _ := protomarshal.ToJSONWithIndent(req, "  ")
-		adscLog.Debugf("Sending Discovery Request to istiod: %s", strReq)
+		deltaAdscLog.Debugf("Sending Discovery Request to istiod: %s", strReq)
 	}
 	return a.stream.Send(req)
 }
 
-func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
+func (a *DeltaADSC) SendDelta(req *discovery.DeltaDiscoveryRequest) error {
+	if a.sendNodeMeta {
+		req.Node = a.node()
+		a.sendNodeMeta = false
+	}
+	req.ResponseNonce = time.Now().String()
+	if deltaAdscLog.DebugEnabled() {
+		strReq, _ := protomarshal.ToJSONWithIndent(req, "  ")
+		deltaAdscLog.Debugf("Sending Delta Discovery Request to istiod: %s", strReq)
+	}
+	return a.stream.Send(req)
+}
+
+func (a *DeltaADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 	la := map[string]*endpoint.ClusterLoadAssignment{}
 	edsSize := 0
 	ep := 0
@@ -927,14 +820,14 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 		ep += len(cla.Endpoints)
 	}
 
-	adscLog.Infof("eds: %d size=%d ep=%d", len(eds), edsSize, ep)
-	if adscLog.DebugEnabled() {
+	deltaAdscLog.Infof("eds: %d size=%d ep=%d", len(eds), edsSize, ep)
+	if deltaAdscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(eds, " ", " ")
-		adscLog.Debugf(string(b))
+		deltaAdscLog.Debugf(string(b))
 	}
 	if a.InitialLoad == 0 {
 		// first load - Envoy loads listeners after endpoints
-		_ = a.stream.Send(&discovery.DiscoveryRequest{
+		_ = a.stream.Send(&discovery.DeltaDiscoveryRequest{
 			Node:    a.node(),
 			TypeUrl: v3.ListenerType,
 		})
@@ -950,7 +843,7 @@ func (a *ADSC) handleEDS(eds []*endpoint.ClusterLoadAssignment) {
 	}
 }
 
-func (a *ADSC) handleRDS(configurations []*route.RouteConfiguration) {
+func (a *DeltaADSC) handleRDS(configurations []*route.RouteConfiguration) {
 	vh := 0
 	rcount := 0
 	size := 0
@@ -963,7 +856,7 @@ func (a *ADSC) handleRDS(configurations []*route.RouteConfiguration) {
 			for _, rt := range h.Routes {
 				rcount++
 				// Example: match:<prefix:"/" > route:<cluster:"outbound|9154||load-se-154.local" ...
-				adscLog.Debugf("Handle route %v, path %v, cluster %v", h.Name, rt.Match.PathSpecifier, rt.GetRoute().GetCluster())
+				deltaAdscLog.Debugf("Handle route %v, path %v, cluster %v", h.Name, rt.Match.PathSpecifier, rt.GetRoute().GetCluster())
 			}
 		}
 		rds[r.Name] = r
@@ -971,14 +864,14 @@ func (a *ADSC) handleRDS(configurations []*route.RouteConfiguration) {
 	}
 	if a.InitialLoad == 0 {
 		a.InitialLoad = time.Since(a.watchTime)
-		adscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d time=%d", len(configurations), size, vh, rcount, a.InitialLoad)
+		deltaAdscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d time=%d", len(configurations), size, vh, rcount, a.InitialLoad)
 	} else {
-		adscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d", len(configurations), size, vh, rcount)
+		deltaAdscLog.Infof("RDS: %d size=%d vhosts=%d routes=%d", len(configurations), size, vh, rcount)
 	}
 
-	if adscLog.DebugEnabled() {
+	if deltaAdscLog.DebugEnabled() {
 		b, _ := json.MarshalIndent(configurations, " ", " ")
-		adscLog.Debugf(string(b))
+		deltaAdscLog.Debugf(string(b))
 	}
 
 	a.mutex.Lock()
@@ -993,7 +886,7 @@ func (a *ADSC) handleRDS(configurations []*route.RouteConfiguration) {
 
 // WaitClear will clear the waiting events, so next call to Wait will get
 // the next push type.
-func (a *ADSC) WaitClear() {
+func (a *DeltaADSC) WaitClear() {
 	for {
 		select {
 		case <-a.Updates:
@@ -1009,7 +902,7 @@ func (a *ADSC) WaitClear() {
 // push's RDS response comes in later. Instead, we can reject events coming
 // before (ie CDS). The only real alternative is to wait which introduces its own
 // issues.
-func (a *ADSC) WaitSingle(to time.Duration, want string, reject string) error {
+func (a *DeltaADSC) WaitSingle(to time.Duration, want string, reject string) error {
 	t := time.NewTimer(to)
 	for {
 		select {
@@ -1032,7 +925,7 @@ func (a *ADSC) WaitSingle(to time.Duration, want string, reject string) error {
 
 // Wait for an updates for all the specified types
 // If updates is empty, this will wait for any update
-func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
+func (a *DeltaADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 	t := time.NewTimer(to)
 	want := sets.New[string](updates...)
 	got := make([]string, 0, len(updates))
@@ -1054,7 +947,7 @@ func (a *ADSC) Wait(to time.Duration, updates ...string) ([]string, error) {
 }
 
 // WaitVersion waits for a new or updated for a typeURL.
-func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*discovery.DiscoveryResponse, error) {
+func (a *DeltaADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*discovery.DeltaDiscoveryResponse, error) {
 	t := time.NewTimer(to)
 	a.mutex.Lock()
 	ex := a.Received[typeURL]
@@ -1063,14 +956,14 @@ func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*disc
 		if lastVersion == "" {
 			return ex, nil
 		}
-		if lastVersion != ex.VersionInfo {
+		if lastVersion != ex.GetSystemVersionInfo() {
 			return ex, nil
 		}
 	}
 
 	for {
 		select {
-		case t := <-a.XDSUpdates:
+		case t := <-a.DeltaXDSUpdates:
 			if t == nil {
 				return nil, fmt.Errorf("closed")
 			}
@@ -1090,7 +983,7 @@ func (a *ADSC) WaitVersion(to time.Duration, typeURL, lastVersion string) (*disc
 }
 
 // EndpointsJSON returns the endpoints, formatted as JSON, for debugging.
-func (a *ADSC) EndpointsJSON() string {
+func (a *DeltaADSC) EndpointsJSON() string {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	out, _ := json.MarshalIndent(a.eds, " ", " ")
@@ -1099,21 +992,21 @@ func (a *ADSC) EndpointsJSON() string {
 
 // Watch will start watching resources, starting with CDS. Based on the CDS response
 // it will start watching RDS and LDS.
-func (a *ADSC) Watch() {
+func (a *DeltaADSC) Watch() {
 	a.watchTime = time.Now()
-	_ = a.stream.Send(&discovery.DiscoveryRequest{
+	_ = a.stream.Send(&discovery.DeltaDiscoveryRequest{
 		Node:    a.node(),
 		TypeUrl: v3.ClusterType,
 	})
 }
 
-func ConfigInitialRequests() []*discovery.DiscoveryRequest {
-	out := make([]*discovery.DiscoveryRequest, 0, len(collections.Pilot.All())+1)
-	out = append(out, &discovery.DiscoveryRequest{
+func ConfigInitialDeltaRequests() []*discovery.DeltaDiscoveryRequest {
+	out := make([]*discovery.DeltaDiscoveryRequest, 0, len(collections.Pilot.All())+1)
+	out = append(out, &discovery.DeltaDiscoveryRequest{
 		TypeUrl: gvk.MeshConfig.String(),
 	})
 	for _, sch := range collections.Pilot.All() {
-		out = append(out, &discovery.DiscoveryRequest{
+		out = append(out, &discovery.DeltaDiscoveryRequest{
 			TypeUrl: sch.GroupVersionKind().String(),
 		})
 	}
@@ -1121,24 +1014,21 @@ func ConfigInitialRequests() []*discovery.DiscoveryRequest {
 	return out
 }
 
-func (a *ADSC) sendRsc(typeurl string, rsc []string) {
+func (a *DeltaADSC) sendRsc(typeurl string, rsc []string) {
 	ex := a.Received[typeurl]
-	version := ""
 	nonce := ""
 	if ex != nil {
-		version = ex.VersionInfo
 		nonce = ex.Nonce
 	}
-	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: nonce,
-		VersionInfo:   version,
-		Node:          a.node(),
-		TypeUrl:       typeurl,
-		ResourceNames: rsc,
+	_ = a.stream.Send(&discovery.DeltaDiscoveryRequest{
+		ResponseNonce:          nonce,
+		Node:                   a.node(),
+		TypeUrl:                typeurl,
+		ResourceNamesSubscribe: rsc,
 	})
 }
 
-func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
+func (a *DeltaADSC) ack(msg *discovery.DeltaDiscoveryResponse) {
 	var resources []string
 
 	if strings.HasPrefix(msg.TypeUrl, v3.DebugType) {
@@ -1158,58 +1048,57 @@ func (a *ADSC) ack(msg *discovery.DiscoveryResponse) {
 		}
 	}
 
-	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		ResponseNonce: msg.Nonce,
-		TypeUrl:       msg.TypeUrl,
-		Node:          a.node(),
-		VersionInfo:   msg.VersionInfo,
-		ResourceNames: resources,
+	_ = a.stream.Send(&discovery.DeltaDiscoveryRequest{
+		ResponseNonce:          msg.Nonce,
+		TypeUrl:                msg.TypeUrl,
+		Node:                   a.node(),
+		ResourceNamesSubscribe: resources,
 	})
 }
 
 // GetHTTPListeners returns all the http listeners.
-func (a *ADSC) GetHTTPListeners() map[string]*listener.Listener {
+func (a *DeltaADSC) GetHTTPListeners() map[string]*listener.Listener {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	return a.httpListeners
 }
 
 // GetTCPListeners returns all the tcp listeners.
-func (a *ADSC) GetTCPListeners() map[string]*listener.Listener {
+func (a *DeltaADSC) GetTCPListeners() map[string]*listener.Listener {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 	return a.tcpListeners
 }
 
 // GetEdsClusters returns all the eds type clusters.
-func (a *ADSC) GetEdsClusters() map[string]*cluster.Cluster {
+func (a *DeltaADSC) GetEdsClusters() map[string]*cluster.Cluster {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 	return a.edsClusters
 }
 
 // GetClusters returns all the non-eds type clusters.
-func (a *ADSC) GetClusters() map[string]*cluster.Cluster {
+func (a *DeltaADSC) GetClusters() map[string]*cluster.Cluster {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 	return a.clusters
 }
 
 // GetRoutes returns all the routes.
-func (a *ADSC) GetRoutes() map[string]*route.RouteConfiguration {
+func (a *DeltaADSC) GetRoutes() map[string]*route.RouteConfiguration {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 	return a.routes
 }
 
 // GetEndpoints returns all the routes.
-func (a *ADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
+func (a *DeltaADSC) GetEndpoints() map[string]*endpoint.ClusterLoadAssignment {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()
 	return a.eds
 }
 
-func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*anypb.Any) {
+func (a *DeltaADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*anypb.Any) {
 	// Generic - fill up the store
 	if a.Store == nil {
 		return
@@ -1222,12 +1111,12 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 		m := &mcp.Resource{}
 		err := rsc.UnmarshalTo(m)
 		if err != nil {
-			adscLog.Warnf("Error unmarshalling received MCP config %v", err)
+			deltaAdscLog.Warnf("Error unmarshalling received MCP config %v", err)
 			continue
 		}
 		newCfg, err := a.mcpToPilot(m)
 		if err != nil {
-			adscLog.Warnf("Invalid data: %v (%v)", err, string(rsc.Value))
+			deltaAdscLog.Warnf("Invalid data: %v (%v)", err, string(rsc.Value))
 			continue
 		}
 		if newCfg == nil {
@@ -1240,7 +1129,7 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 
 		if oldCfg == nil {
 			if _, err = a.Store.Create(*newCfg); err != nil {
-				adscLog.Warnf("Error adding a new resource to the store %v", err)
+				deltaAdscLog.Warnf("Error adding a new resource to the store %v", err)
 				continue
 			}
 		} else if oldCfg.ResourceVersion != newCfg.ResourceVersion || newCfg.ResourceVersion == "" {
@@ -1248,20 +1137,20 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 			newCfg.Annotations[mem.ResourceVersion] = newCfg.ResourceVersion
 			newCfg.ResourceVersion = oldCfg.ResourceVersion
 			if _, err = a.Store.Update(*newCfg); err != nil {
-				adscLog.Warnf("Error updating an existing resource in the store %v", err)
+				deltaAdscLog.Warnf("Error updating an existing resource in the store %v", err)
 				continue
 			}
 		}
 		if a.LocalCacheDir != "" {
 			strResponse, err := json.MarshalIndent(newCfg, "  ", "  ")
 			if err != nil {
-				adscLog.Warnf("Error marshaling received MCP config %v", err)
+				deltaAdscLog.Warnf("Error marshaling received MCP config %v", err)
 				continue
 			}
 			err = os.WriteFile(a.LocalCacheDir+"_res."+
 				newCfg.GroupVersionKind.Kind+"."+newCfg.Namespace+"."+newCfg.Name+".json", strResponse, 0o644)
 			if err != nil {
-				adscLog.Warnf("Error writing received MCP config to local file %v", err)
+				deltaAdscLog.Warnf("Error writing received MCP config to local file %v", err)
 			}
 		}
 	}
@@ -1270,14 +1159,14 @@ func (a *ADSC) handleMCP(groupVersionKind config.GroupVersionKind, resources []*
 	for _, config := range existingConfigs {
 		if _, ok := received[config.Namespace+"/"+config.Name]; !ok {
 			if err := a.Store.Delete(config.GroupVersionKind, config.Name, config.Namespace, nil); err != nil {
-				adscLog.Warnf("Error deleting an outdated resource from the store %v", err)
+				deltaAdscLog.Warnf("Error deleting an outdated resource from the store %v", err)
 				continue
 			}
 			if a.LocalCacheDir != "" {
 				err := os.Remove(a.LocalCacheDir + "_res." +
 					config.GroupVersionKind.Kind + "." + config.Namespace + "." + config.Name + ".json")
 				if err != nil {
-					adscLog.Warnf("Error deleting received MCP config to local file %v", err)
+					deltaAdscLog.Warnf("Error deleting received MCP config to local file %v", err)
 				}
 			}
 		}

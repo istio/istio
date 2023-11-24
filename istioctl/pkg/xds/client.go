@@ -41,10 +41,10 @@ const (
 var tokenAudiences = []string{"istio-ca"}
 
 // GetXdsResponse opens a gRPC connection to opts.xds and waits for a single response
-func GetXdsResponse(dr *discovery.DiscoveryRequest, ns string, serviceAccount string, opts clioptions.CentralControlPlaneOptions,
+func GetXdsResponse(dr *discovery.DeltaDiscoveryRequest, ns string, serviceAccount string, opts clioptions.CentralControlPlaneOptions,
 	grpcOpts []grpc.DialOption,
-) (*discovery.DiscoveryResponse, error) {
-	adscConn, err := adsc.NewWithBackoffPolicy(opts.Xds, &adsc.Config{
+) (*discovery.DeltaDiscoveryResponse, error) {
+	adscConn, err := adsc.NewDeltaWithBackoffPolicy(opts.Xds, &adsc.Config{
 		Meta: model.NodeMetadata{
 			Generator:      "event",
 			ServiceAccount: serviceAccount,
@@ -64,7 +64,7 @@ func GetXdsResponse(dr *discovery.DiscoveryRequest, ns string, serviceAccount st
 		return nil, fmt.Errorf("ADSC: failed running %v", err)
 	}
 
-	err = adscConn.Send(dr)
+	err = adscConn.SendDelta(dr)
 	if err != nil {
 		return nil, err
 	}

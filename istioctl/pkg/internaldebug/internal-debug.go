@@ -36,10 +36,10 @@ func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
 	centralOpts clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
 	istioNamespace string,
-) (map[string]*discovery.DiscoveryResponse, error) {
+) (map[string]*discovery.DeltaDiscoveryResponse, error) {
 	var namespace, serviceAccount string
-	xdsRequest := discovery.DiscoveryRequest{
-		ResourceNames: []string{"list"},
+	xdsRequest := discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{"list"},
 		Node: &core.Node{
 			Id: "debug~0.0.0.0~istioctl~cluster.local",
 		},
@@ -58,11 +58,11 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 	centralOpts *clioptions.CentralControlPlaneOptions,
 	writer io.Writer,
 	istioNamespace string,
-	xdsResponses map[string]*discovery.DiscoveryResponse,
-) (map[string]*discovery.DiscoveryResponse, error) {
+	xdsResponses map[string]*discovery.DeltaDiscoveryResponse,
+) (map[string]*discovery.DeltaDiscoveryResponse, error) {
 	for _, response := range xdsResponses {
 		for _, resource := range response.Resources {
-			eString := string(resource.Value)
+			eString := resource.String()
 			switch {
 			case strings.Contains(eString, "You must provide a proxyID in the query string"):
 				return nil, fmt.Errorf(" You must provide a proxyID in the query string, e.g. [%s]",
@@ -128,7 +128,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 					Err: fmt.Errorf("debug type is required"),
 				}
 			}
-			var xdsRequest *discovery.DiscoveryRequest
+			var xdsRequest *discovery.DeltaDiscoveryRequest
 			var namespace, serviceAccount string
 
 			var resourceNames []string
@@ -139,8 +139,8 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				}
 				resourceNames = append(resourceNames, fmt.Sprintf("%s.%s", name, ns))
 			}
-			xdsRequest = &discovery.DiscoveryRequest{
-				ResourceNames: resourceNames,
+			xdsRequest = &discovery.DeltaDiscoveryRequest{
+				ResourceNamesSubscribe: resourceNames,
 				Node: &core.Node{
 					Id: "debug~0.0.0.0~istioctl~cluster.local",
 				},
