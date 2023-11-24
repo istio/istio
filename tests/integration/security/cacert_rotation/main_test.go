@@ -91,23 +91,8 @@ func TestReachability(t *testing.T) {
 				t.Errorf("failed to get workload cert last update time: %v", err)
 			}
 
-			// Verify traffic works between a and b
-			echotest.New(t, fromAndTo).
-				WithDefaultFilters(1, 1).
-				FromMatch(match.ServiceName(from.NamespacedName())).
-				ToMatch(match.ServiceName(to.NamespacedName())).
-				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-					// Verify mTLS works between a and b
-					opts := echo.CallOptions{
-						To: to,
-						Port: echo.Port{
-							Name: "http",
-						},
-					}
-					opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
-
-					from.CallOrFail(t, opts)
-				})
+			verifyTraffic(t, from[0], to[0], fromAndTo)
+			t.Log("traffic works between a and b")
 
 			// step 1: Update CA root cert with combined root
 			if err := cert.CreateCustomCASecret(t,
@@ -117,6 +102,8 @@ func TestReachability(t *testing.T) {
 			}
 
 			lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
+			verifyTraffic(t, from[0], to[0], fromAndTo)
+			t.Log("traffic works between a and b after root cert changed")
 
 			// step 2: Update CA signing key/cert with cacert to trigger workload cert resigning
 			if err := cert.CreateCustomCASecret(t,
@@ -126,33 +113,41 @@ func TestReachability(t *testing.T) {
 			}
 
 			lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
+			// Verify traffic works between a and b after cert rotation
+			verifyTraffic(t, from[0], to[0], fromAndTo)
+			t.Log("traffic works between a and b after ca-cert changed")
 
 			// step 3: Remove the old root cert
 			if err := cert.CreateCustomCASecret(t,
 				"ca-cert-alt.pem", "ca-key-alt.pem",
-				"cert-chain-alt.pem", "root-cert-alt.pem"); err != nil {
+				"cert-chain-alt.pem", "root-cert-combined.pem"); err != nil {
 				t.Errorf("failed to update CA secret: %v", err)
 			}
 
 			waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
+			t.Log("traffic works between a and b after remove old root cert")
 
 			// Verify traffic works between a and b after cert rotation
-			echotest.New(t, fromAndTo).
-				WithDefaultFilters(1, 1).
-				FromMatch(match.ServiceName(from.NamespacedName())).
-				ToMatch(match.ServiceName(to.NamespacedName())).
-				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-					// Verify mTLS works between a and b
-					opts := echo.CallOptions{
-						To: to,
-						Port: echo.Port{
-							Name: "http",
-						},
-					}
-					opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
+			verifyTraffic(t, from[0], to[0], fromAndTo)
+		})
+}
 
-					from.CallOrFail(t, opts)
-				})
+func verifyTraffic(t framework.TestContext, from, to echo.Instance, fromAndTo echo.Instances) {
+	echotest.New(t, fromAndTo).
+		WithDefaultFilters(1, 1).
+		FromMatch(match.ServiceName(from.NamespacedName())).
+		ToMatch(match.ServiceName(to.NamespacedName())).
+		Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+			// Verify mTLS works between a and b
+			opts := echo.CallOptions{
+				To: to,
+				Port: echo.Port{
+					Name: "http",
+				},
+			}
+			opts.Check = check.And(check.OK(), check.ReachedTargetClusters(t))
+
+			from.CallOrFail(t, opts)
 		})
 }
 
