@@ -25,6 +25,7 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -80,18 +81,6 @@ var (
 	trustBundleLog = log.RegisterScope("trustBundle", "Workload mTLS trust bundle logs")
 	remoteTimeout  = 10 * time.Second
 )
-
-func isEqSliceStr(certs1 []string, certs2 []string) bool {
-	if len(certs1) != len(certs2) {
-		return false
-	}
-	for i := range certs1 {
-		if certs1[i] != certs2[i] {
-			return false
-		}
-	}
-	return true
-}
 
 // NewTrustBundle returns a new trustbundle
 func NewTrustBundle(remoteCaCertPool *x509.CertPool) *TrustBundle {
@@ -178,7 +167,7 @@ func (tb *TrustBundle) UpdateTrustAnchor(anchorConfig *TrustAnchorUpdate) error 
 	}
 
 	// Check if anything needs to be changed at all
-	if isEqSliceStr(anchorConfig.Certs, cachedConfig.Certs) {
+	if slices.Equal(anchorConfig.Certs, cachedConfig.Certs) {
 		trustBundleLog.Debugf("no change to trustAnchor configuration after recent update")
 		return nil
 	}
@@ -209,7 +198,7 @@ func (tb *TrustBundle) updateRemoteEndpoint(spiffeEndpoints []string) {
 	remoteEndpoints := tb.endpoints
 	tb.endpointMutex.RUnlock()
 
-	if isEqSliceStr(spiffeEndpoints, remoteEndpoints) {
+	if slices.Equal(spiffeEndpoints, remoteEndpoints) {
 		return
 	}
 	trustBundleLog.Infof("updated remote endpoints  :%v", spiffeEndpoints)

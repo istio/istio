@@ -50,6 +50,9 @@ type Server struct {
 	iptablesCommand lazy.Lazy[string]
 	redirectMode    RedirectMode
 	ebpfServer      *ebpf.RedirectServer
+
+	// podReconcileHandler can be overridden by tests.
+	podReconcileHandler podReconcileHandler
 }
 
 type AmbientConfigFile struct {
@@ -93,6 +96,8 @@ func NewServer(ctx context.Context, args AmbientArgs) (*Server, error) {
 
 	log.Infof("Ambient enrolled IPs before reconciling: %s", s.getEnrolledIPSets())
 
+	// podReconcileHandle is implemented by the server, but can be overridden by tests.
+	s.podReconcileHandler = s
 	s.setupHandlers()
 
 	s.UpdateConfig()
@@ -154,7 +159,7 @@ func (s *Server) UpdateConfig() {
 
 var ztunnelLabels = labels.ValidatedSetSelector(labels.Set{"app": "ztunnel"})
 
-func (s *Server) UpdateActiveNodeProxy() error {
+func (s *Server) updateActiveNodeProxy() error {
 	pods := s.pods.List(metav1.NamespaceAll, ztunnelLabels)
 	var activePod *corev1.Pod
 	for _, p := range pods {

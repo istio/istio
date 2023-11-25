@@ -19,6 +19,7 @@ import (
 	"strings"
 
 	rbacpb "github.com/envoyproxy/go-control-plane/envoy/config/rbac/v3"
+	matcherpb "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authz/matcher"
@@ -70,9 +71,11 @@ func (connSNIGenerator) principal(_, _ string, _ bool, _ bool) (*rbacpb.Principa
 	return nil, fmt.Errorf("unimplemented")
 }
 
-type envoyFilterGenerator struct{}
+type envoyFilterGenerator struct {
+	useExtendedJwt bool
+}
 
-func (envoyFilterGenerator) permission(key, value string, _ bool) (*rbacpb.Permission, error) {
+func (efg envoyFilterGenerator) permission(key, value string, _ bool) (*rbacpb.Permission, error) {
 	// Split key of format "experimental.envoy.filters.a.b[c]" to "envoy.filters.a.b" and "c".
 	parts := strings.SplitN(strings.TrimSuffix(strings.TrimPrefix(key, "experimental."), "]"), "[", 2)
 
@@ -83,7 +86,7 @@ func (envoyFilterGenerator) permission(key, value string, _ bool) (*rbacpb.Permi
 	// If value is of format [v], create a list matcher.
 	// Else, if value is of format v, create a string matcher.
 	if strings.HasPrefix(value, "[") && strings.HasSuffix(value, "]") {
-		m := matcher.MetadataListMatcher(parts[0], parts[1:], matcher.StringMatcher(strings.Trim(value, "[]")))
+		m := matcher.MetadataListMatcher(parts[0], parts[1:], matcher.StringMatcher(strings.Trim(value, "[]")), efg.useExtendedJwt)
 		return permissionMetadata(m), nil
 	}
 	m := matcher.MetadataStringMatcher(parts[0], parts[1], matcher.StringMatcher(value))
@@ -145,39 +148,99 @@ func (srcPrincipalGenerator) principal(key, value string, _ bool, useAuthenticat
 	return principalAuthenticated(m, useAuthenticated), nil
 }
 
-type requestPrincipalGenerator struct{}
+type requestPrincipalGenerator struct {
+	useExtendedJwt bool
+}
 
 func (requestPrincipalGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
 }
 
-func (requestPrincipalGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
+var matchAny = matcher.StringMatcherRegex(".+")
+
+func (rpg requestPrincipalGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
-
+	if rpg.useExtendedJwt {
+		iss, sub, found := strings.Cut(value, "/")
+		var matchIss, matchSub *matcherpb.StringMatcher
+		switch {
+		case value == "*":
+			matchIss = matchAny
+			matchSub = matchAny
+		case strings.HasPrefix(value, "*"):
+			if found {
+				if iss == "*" {
+					matchIss = matchAny
+				} else {
+					matchIss = matcher.StringMatcherSuffix(strings.TrimPrefix(iss, "*"), false)
+				}
+				matchSub = matcher.StringMatcherExact(sub, false)
+			} else {
+				matchIss = matchAny
+				matchSub = matcher.StringMatcherSuffix(strings.TrimPrefix(value, "*"), false)
+			}
+		case strings.HasSuffix(value, "*"):
+			if found {
+				matchIss = matcher.StringMatcherExact(iss, false)
+				if sub == "*" {
+					matchSub = matchAny
+				} else {
+					matchSub = matcher.StringMatcherPrefix(strings.TrimSuffix(sub, "*"), false)
+				}
+			} else {
+				matchIss = matcher.StringMatcherPrefix(strings.TrimSuffix(value, "*"), false)
+				matchSub = matchAny
+			}
+		default:
+			matchSub = matcher.StringMatcherExact(sub, false)
+			matchIss = matcher.StringMatcherExact(iss, false)
+		}
+		im := MetadataStringMatcherForJWTClaim("iss", matchIss)
+		sm := MetadataStringMatcherForJWTClaim("sub", matchSub)
+		return principalAnd([]*rbacpb.Principal{principalMetadata(im), principalMetadata(sm)}), nil
+	}
 	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
 	return principalMetadata(m), nil
 }
 
-type requestAudiencesGenerator struct{}
+type requestAudiencesGenerator struct {
+	useExtendedJwt bool
+}
 
 func (requestAudiencesGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	return requestPrincipalGenerator{}.permission(key, value, forTCP)
 }
 
-func (requestAudiencesGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
-	return requestPrincipalGenerator{}.principal(key, value, forTCP, useAuthenticated)
+func (rag requestAudiencesGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+	if forTCP {
+		return nil, fmt.Errorf("%q is HTTP only", key)
+	}
+	if rag.useExtendedJwt {
+		return principalMetadata(MetadataStringMatcherForJWTClaim("aud", matcher.StringMatcher(value))), nil
+	}
+	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
+	return principalMetadata(m), nil
 }
 
-type requestPresenterGenerator struct{}
+type requestPresenterGenerator struct {
+	useExtendedJwt bool
+}
 
 func (requestPresenterGenerator) permission(key, value string, forTCP bool) (*rbacpb.Permission, error) {
 	return requestPrincipalGenerator{}.permission(key, value, forTCP)
 }
 
-func (requestPresenterGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
-	return requestPrincipalGenerator{}.principal(key, value, forTCP, useAuthenticated)
+func (rpg requestPresenterGenerator) principal(key, value string, forTCP bool, useAuthenticated bool) (*rbacpb.Principal, error) {
+	if forTCP {
+		return nil, fmt.Errorf("%q is HTTP only", key)
+	}
+	if rpg.useExtendedJwt {
+		return principalMetadata(MetadataMatcherForJWTClaims([]string{"azp"}, matcher.StringMatcher(value), true)), nil
+	}
+	m := matcher.MetadataStringMatcher(filters.AuthnFilterName, key, matcher.StringMatcher(value))
+	return principalMetadata(m), nil
 }
 
 type requestHeaderGenerator struct{}
@@ -199,13 +262,15 @@ func (requestHeaderGenerator) principal(key, value string, forTCP bool, _ bool) 
 	return principalHeader(m), nil
 }
 
-type requestClaimGenerator struct{}
+type requestClaimGenerator struct {
+	useExtendedJwt bool
+}
 
 func (requestClaimGenerator) permission(_, _ string, _ bool) (*rbacpb.Permission, error) {
 	return nil, fmt.Errorf("unimplemented")
 }
 
-func (requestClaimGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
+func (rcg requestClaimGenerator) principal(key, value string, forTCP bool, _ bool) (*rbacpb.Principal, error) {
 	if forTCP {
 		return nil, fmt.Errorf("%q is HTTP only", key)
 	}
@@ -216,7 +281,7 @@ func (requestClaimGenerator) principal(key, value string, forTCP bool, _ bool) (
 	}
 	// Generate a metadata list matcher for the given path keys and value.
 	// On proxy side, the value should be of list type.
-	m := MetadataMatcherForJWTClaims(claims, matcher.StringMatcher(value))
+	m := MetadataMatcherForJWTClaims(claims, matcher.StringMatcher(value), rcg.useExtendedJwt)
 	return principalMetadata(m), nil
 }
 

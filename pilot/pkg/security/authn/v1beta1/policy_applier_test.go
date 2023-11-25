@@ -929,7 +929,7 @@ func TestJwtFilter(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			istiotest.SetForTest(t, &features.JwksFetchMode, c.jwksFetchMode)
-			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(); !reflect.DeepEqual(c.expected, got) {
+			if got := NewPolicyApplier("root-namespace", c.in, nil, push).JwtFilter(false, false); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})
@@ -1243,7 +1243,7 @@ func TestConvertToEnvoyJwtConfig(t *testing.T) {
 
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := convertToEnvoyJwtConfig(c.in, push); !reflect.DeepEqual(c.expected, got) {
+			if got := convertToEnvoyJwtConfig(c.in, push, false, false); !reflect.DeepEqual(c.expected, got) {
 				t.Errorf("got:\n%s\nwanted:\n%s\n", spew.Sdump(got), spew.Sdump(c.expected))
 			}
 		})

@@ -80,6 +80,9 @@ var (
 		name.IstioBaseComponentName: {
 			name.PilotComponentName,
 		},
+		name.CNIComponentName: {
+			name.ZtunnelComponentName,
+		},
 	}
 
 	// InstallTree is a top down hierarchy tree of dependencies where children must wait for the parent to complete
