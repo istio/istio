@@ -33,6 +33,30 @@ import (
 // Source is all possible sources of MeshConfig
 type Source int
 
+const (
+	SourceIstioCA Source = iota
+	SourceMeshConfig
+	SourceIstioRA
+	sourceSpiffeEndpoints
+
+	RemoteDefaultPollPeriod = 30 * time.Minute
+)
+
+func (s Source) String() string {
+	switch s {
+	case SourceIstioCA:
+		return "IstioCA"
+	case SourceMeshConfig:
+		return "MeshConfig"
+	case SourceIstioRA:
+		return "IstioRA"
+	case sourceSpiffeEndpoints:
+		return "SpiffeEndpoints"
+	default:
+		return "Unknown"
+	}
+}
+
 type TrustAnchorConfig struct {
 	Certs []string
 }
@@ -56,15 +80,6 @@ type TrustBundle struct {
 var (
 	trustBundleLog = log.RegisterScope("trustBundle", "Workload mTLS trust bundle logs")
 	remoteTimeout  = 10 * time.Second
-)
-
-const (
-	SourceIstioCA Source = iota
-	SourceMeshConfig
-	SourceIstioRA
-	sourceSpiffeEndpoints
-
-	RemoteDefaultPollPeriod = 30 * time.Minute
 )
 
 // NewTrustBundle returns a new trustbundle
