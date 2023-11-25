@@ -463,6 +463,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 			for _, hostname := range intersectingHosts {
 				if svc, exists := nameToServiceMap[hostname]; exists {
 					gatewayService = svc
+					break
 				}
 			}
 
