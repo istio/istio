@@ -387,8 +387,8 @@ func endpointSliceSelectorForService(name string) klabels.Selector {
 
 func (esc *endpointSliceController) pushEDS(hostnames []host.Name, namespace string) {
 	shard := model.ShardKeyFromRegistry(esc.c)
-	esc.endpointCache.mu.RLock()
-	defer esc.endpointCache.mu.RUnlock()
+	esc.endpointCache.mu.Lock()
+	defer esc.endpointCache.mu.Unlock()
 	for _, hostname := range hostnames {
 		endpoints := esc.endpointCache.get(hostname)
 		if features.EnableK8SServiceSelectWorkloadEntries {
