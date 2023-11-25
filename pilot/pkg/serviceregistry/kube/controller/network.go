@@ -153,7 +153,7 @@ func (c *Controller) onNetworkChange() {
 	if err := c.syncPods(); err != nil {
 		log.Errorf("one or more errors force-syncing pods: %v", err)
 	}
-	if err := c.endpoints.initializeEndpoints(metav1.NamespaceAll, true); err != nil {
+	if err := c.endpoints.initializeNamespace(metav1.NamespaceAll, true); err != nil {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
 	c.reloadNetworkGateways()

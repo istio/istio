@@ -67,8 +67,8 @@ func (esc *endpointSliceController) podArrived(name, ns string) error {
 	return esc.onEvent(nil, ep, model.EventAdd)
 }
 
-// initializeEndpoints initializes endpoints for a given namespace.
-func (esc *endpointSliceController) initializeEndpoints(ns string, filtered bool) error {
+// initializeNamespace initializes endpoints for a given namespace.
+func (esc *endpointSliceController) initializeNamespace(ns string, filtered bool) error {
 	var err *multierror.Error
 	var endpoints []*v1.EndpointSlice
 	if filtered {
