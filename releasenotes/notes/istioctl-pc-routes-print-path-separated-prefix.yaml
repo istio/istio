@@ -3,4 +3,4 @@ kind: feature
 area: istioctl
 releaseNotes:
   - |
-    **Add** `path_separated_prefix` to the MATCH column in the output of `pc routes` command.
+    **Added** `path_separated_prefix` to the MATCH column in the output of `pc routes` command.
