@@ -378,8 +378,13 @@ func (esc *endpointSliceController) handleEndpointSlice(ep *v1.EndpointSlice, ev
 
 func (esc *endpointSliceController) updateEDS(hostnames []host.Name, namespace string) {
 	shard := model.ShardKeyFromRegistry(esc.c)
-	esc.endpointCache.mu.RLock()
-	defer esc.endpointCache.mu.RUnlock()
+	// Even though we just read from the cache, we need the full lock to ensure updateEDS
+	// runs sequentially when `EnableK8SServiceSelectWorkloadEntries` is enabled. Otherwise,
+	// we may end up with eds updates can go out of order with workload entry updates causing
+	// incorrect endpoints. For regular endpoint updates, updateEDS is already serialized
+	// because the events are queued.
+	esc.endpointCache.mu.Lock()
+	defer esc.endpointCache.mu.Unlock()
 	for _, hostname := range hostnames {
 		endpoints := esc.endpointCache.get(hostname)
 		if features.EnableK8SServiceSelectWorkloadEntries {

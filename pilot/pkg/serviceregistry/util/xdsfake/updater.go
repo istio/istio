@@ -17,7 +17,6 @@ package xdsfake
 import (
 	"sort"
 	"strings"
-	"sync"
 	"time"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -44,7 +43,6 @@ func NewWithDelegate(delegate model.XDSUpdater) *Updater {
 
 // Updater is used to test the registry.
 type Updater struct {
-	mu sync.Mutex
 	// Events tracks notifications received by the updater
 	Events   chan Event
 	Delegate model.XDSUpdater
@@ -107,8 +105,6 @@ func (fx *Updater) EDSUpdate(c model.ShardKey, hostname string, ns string, entry
 	default:
 	}
 	if fx.Delegate != nil {
-		fx.mu.Lock()
-		defer fx.mu.Unlock()
 		fx.Delegate.EDSUpdate(c, hostname, ns, entry)
 	}
 }
