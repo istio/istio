@@ -181,6 +181,11 @@ message EgressGatewayConfig {
   // minReplicas setting for HorizontalPodAutoscaler.
   uint32 autoscaleMin = 3;
 
+  // K8s memory utilization setting for HorizontalPodAutoscaler target.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  TargetUtilizationConfig memory = 4 [deprecated=true];
+
   // K8s utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
