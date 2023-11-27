@@ -61,12 +61,14 @@ spec:
       target:
         type: Utilization
         averageUtilization: {{ $gateway.cpu.targetAverageUtilization }}
+  {{- if $gateway.memory.targetAverageUtilization }}
   - type: Resource
     resource:
       name: memory
       target:
         type: Utilization
         averageUtilization: {{ $gateway.memory.targetAverageUtilization }}
+  {{- end }}
 ---
 {{- end }}
 {{- end }}
