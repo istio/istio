@@ -81,7 +81,6 @@ values.pilot.autoscaleMax=5
 values.pilot.autoscaleMin=1
 values.pilot.configMap=true
 values.pilot.cpu.targetAverageUtilization=80
-values.pilot.memory.targetAverageUtilization=80
 values.pilot.enableProtocolSniffingForInbound=true
 values.pilot.enableProtocolSniffingForOutbound=true
 values.pilot.image="pilot"

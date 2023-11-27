@@ -57,8 +57,6 @@ pilot:
   autoscaleMin: 1
   cpu:
     targetAverageUtilization: 80
-  memory:
-    targetAverageUtilization: 80
   traceSampling: 1.0
   image: pilot
   env:
@@ -249,6 +247,8 @@ spec:
       autoscaleMin: 1
       cpu:
         targetAverageUtilization: 80
+      memory:
+        targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
       env:
@@ -319,8 +319,8 @@ spec:
       autoscaleMin: 1
       cpu:
         targetAverageUtilization: 80
-	  memory:
-		targetAverageUtilization: 80
+      memory:
+        targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
       env:

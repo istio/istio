@@ -125,8 +125,6 @@ spec:
       env: {}
       cpu:
         targetAverageUtilization: 80
-      memory: {}
-        # targetAverageUtilization: 80
       nodeSelector: {}
       keepaliveMaxServerConnectionAge: 30m
       deploymentLabels:
