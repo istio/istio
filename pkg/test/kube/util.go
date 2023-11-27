@@ -17,7 +17,6 @@ package kube
 import (
 	"context"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -27,6 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	istioKube "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
@@ -264,18 +264,12 @@ func MutatingWebhookConfigurationsExists(a kubernetes.Interface, names []string)
 		return false
 	}
 
-	if len(cfgs.Items) != len(names) {
-		return false
-	}
-
-	sort.Strings(names)
+	var existing []string
 	for _, cfg := range cfgs.Items {
-		if idx := sort.SearchStrings(names, cfg.Name); idx == len(names) {
-			return false
-		}
+		existing = append(existing, cfg.Name)
 	}
 
-	return true
+	return checkAllNamesExist(names, existing)
 }
 
 // ValidatingWebhookConfigurationsExists returns true if all the given validating webhook configs exist.
@@ -285,14 +279,21 @@ func ValidatingWebhookConfigurationsExists(a kubernetes.Interface, names []strin
 		return false
 	}
 
-	// Target cluster could have other validating webhook configurations
-	if len(cfgs.Items) < len(names) {
+	var existing []string
+	for _, cfg := range cfgs.Items {
+		existing = append(existing, cfg.Name)
+	}
+
+	return checkAllNamesExist(names, existing)
+}
+
+func checkAllNamesExist(names []string, haystack []string) bool {
+	if len(haystack) < len(names) {
 		return false
 	}
 
-	sort.Strings(names)
-	for _, cfg := range cfgs.Items {
-		if idx := sort.SearchStrings(names, cfg.Name); idx == len(names) {
+	for _, name := range names {
+		if !slices.Contains(haystack, name) {
 			return false
 		}
 	}
