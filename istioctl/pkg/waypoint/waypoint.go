@@ -15,6 +15,7 @@
 package waypoint
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"strings"
@@ -48,26 +49,6 @@ var (
 
 	deleteAll bool
 )
-
-func compare(a, b interface{}) int {
-	switch a := a.(type) {
-	case int:
-		b := b.(int)
-		if a < b {
-			return -1
-		} else if a > b {
-			return 1
-		} else {
-			return 0
-		}
-	case string:
-		b := b.(string)
-		return strings.Compare(a, b)
-	}
-
-	// Handle other types as needed
-	return 0
-}
 
 func Cmd(ctx cli.Context) *cobra.Command {
 	var waypointServiceAccount string
@@ -261,10 +242,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			}
 			w := new(tabwriter.Writer).Init(writer, 0, 8, 5, ' ', 0)
 			slices.SortFunc(gws.Items, func(i, j gateway.Gateway) int {
-				if r := compare(i.Namespace, j.Namespace); r != 0 {
+				if r := cmp.Compare(i.Namespace, j.Namespace); r != 0 {
 					return r
 				}
-				return compare(i.Name, j.Name)
+				return cmp.Compare(i.Name, j.Name)
 			})
 			filteredGws := make([]gateway.Gateway, 0)
 			for _, gw := range gws.Items {
