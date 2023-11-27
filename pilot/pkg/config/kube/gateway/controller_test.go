@@ -27,6 +27,7 @@ import (
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -43,7 +44,7 @@ import (
 
 var (
 	gatewayClassSpec = &k8s.GatewayClassSpec{
-		ControllerName: constants.ManagedGatewayController,
+		ControllerName: k8sv1.GatewayController(features.ManagedGatewayController),
 	}
 	gatewaySpec = &k8s.GatewaySpec{
 		GatewayClassName: "gwclass",

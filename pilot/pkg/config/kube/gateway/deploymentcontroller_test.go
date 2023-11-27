@@ -68,7 +68,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 			Name: "custom",
 		},
 		Spec: v1beta1.GatewayClassSpec{
-			ControllerName: constants.ManagedGatewayController,
+			ControllerName: k8sv1.GatewayController(features.ManagedGatewayController),
 		},
 	}
 	defaultObjects := []runtime.Object{defaultNamespace}
@@ -112,7 +112,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Annotations: map[string]string{"should": "see"},
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: defaultClassName,
+					GatewayClassName: k8sv1.ObjectName(features.GatewayAPIDefaultGatewayClass),
 				},
 			},
 			objects:                  defaultObjects,
@@ -126,7 +126,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: defaultClassName,
+					GatewayClassName: k8sv1.ObjectName(features.GatewayAPIDefaultGatewayClass),
 				},
 			},
 			objects:                  defaultObjects,
@@ -142,7 +142,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Annotations: map[string]string{gatewaySAOverride: "custom-sa"},
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: defaultClassName,
+					GatewayClassName: k8sv1.ObjectName(features.GatewayAPIDefaultGatewayClass),
 				},
 			},
 			objects:                  defaultObjects,
@@ -157,7 +157,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
 				Spec: v1beta1.GatewaySpec{
-					GatewayClassName: defaultClassName,
+					GatewayClassName: k8sv1.ObjectName(features.GatewayAPIDefaultGatewayClass),
 					Addresses: []v1beta1.GatewayAddress{{
 						Type:  func() *v1beta1.AddressType { x := v1beta1.IPAddressType; return &x }(),
 						Value: "1.2.3.4",
@@ -179,7 +179,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					},
 				},
 				Spec: v1beta1.GatewaySpec{
-					GatewayClassName: defaultClassName,
+					GatewayClassName: k8sv1.ObjectName(features.GatewayAPIDefaultGatewayClass),
 					Listeners: []v1beta1.Listener{{
 						Name:     "http",
 						Port:     v1beta1.PortNumber(80),
@@ -200,7 +200,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Annotations: map[string]string{gatewayNameOverride: "default"},
 				},
 				Spec: v1beta1.GatewaySpec{
-					GatewayClassName: defaultClassName,
+					GatewayClassName: k8sv1.ObjectName(features.GatewayAPIDefaultGatewayClass),
 					Listeners: []v1beta1.Listener{{
 						Name:     "http",
 						Port:     v1beta1.PortNumber(80),
@@ -266,7 +266,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: defaultClassName,
+					GatewayClassName: k8sv1.ObjectName(features.GatewayAPIDefaultGatewayClass),
 				},
 			},
 			objects: defaultObjects,
@@ -295,7 +295,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Annotations: map[string]string{"should-not": "see"},
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: defaultClassName,
+					GatewayClassName: k8sv1.ObjectName(features.GatewayAPIDefaultGatewayClass),
 					Infrastructure: &k8sv1.GatewayInfrastructure{
 						Labels:      map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{"foo": "bar", "gateway.networking.k8s.io/ignore": "true"},
 						Annotations: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{"fizz": "buzz", "gateway.networking.k8s.io/ignore": "true"},
@@ -315,7 +315,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					},
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: defaultClassName,
+					GatewayClassName: k8sv1.ObjectName(features.GatewayAPIDefaultGatewayClass),
 				},
 			},
 			objects: defaultObjects,
@@ -328,7 +328,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha2.GatewaySpec{
-					GatewayClassName: defaultClassName,
+					GatewayClassName: k8sv1.ObjectName(features.GatewayAPIDefaultGatewayClass),
 					Infrastructure: &k8sv1.GatewayInfrastructure{
 						Annotations: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{
 							"ambient.istio.io/redirection": "enabled",
@@ -439,7 +439,9 @@ func TestVersionManagement(t *testing.T) {
 			Name:      "gw",
 			Namespace: "default",
 		},
-		Spec: v1beta1.GatewaySpec{GatewayClassName: defaultClassName},
+		Spec: v1beta1.GatewaySpec{
+			GatewayClassName: v1beta1.ObjectName(features.GatewayAPIDefaultGatewayClass),
+		},
 	}
 	gws.Create(defaultGateway)
 	assert.Equal(t, assert.ChannelHasItem(t, writes), buildPatch(ControllerVersion))
