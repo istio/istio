@@ -132,7 +132,7 @@ spec:
       cpu:
         targetAverageUtilization: 80
       memory:
-        targetAverageUtilization: 80
+        targetAverageUtilization: {}
       enableProtocolSniffingForInbound: true
       enableProtocolSniffingForOutbound: true
       env: {}

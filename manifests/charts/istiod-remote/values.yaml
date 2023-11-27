@@ -30,7 +30,7 @@ pilot:
   cpu:
     targetAverageUtilization: 80
   memory:
-    targetAverageUtilization: 80
+    targetAverageUtilization: {}
   # Additional volumeMounts to the istiod container
   volumeMounts: []
   # Additional volumes to the istiod pod
