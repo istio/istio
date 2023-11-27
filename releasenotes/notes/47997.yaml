@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: telemetry
+issue:
+  - 30987
+releaseNotes:
+  - |
+    **Added** compression for the Envoy stats endpoint, support `brotli`, `gzip` and `zstd`.
