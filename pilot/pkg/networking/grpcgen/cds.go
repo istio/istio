@@ -227,32 +227,32 @@ func (b *clusterBuilder) applyOutlierDetection(c *cluster.Cluster, policy *netwo
 	}
 	if outlier.FailurePercentageEjection != nil {
 		failureEjection := outlier.FailurePercentageEjection
-		if failureEjection.GetMinimumHosts() != nil {
-			out.FailurePercentageMinimumHosts = failureEjection.GetMinimumHosts()
+		if failureEjection.MinimumHosts != nil {
+			out.FailurePercentageMinimumHosts = &wrapperspb.UInt32Value{Value: failureEjection.MinimumHosts.Value}
 		}
-		if failureEjection.GetEnforcementPercentage() != nil {
-			out.EnforcingFailurePercentage = failureEjection.GetEnforcementPercentage()
+		if failureEjection.EnforcementPercentage != nil {
+			out.EnforcingFailurePercentage = &wrapperspb.UInt32Value{Value: failureEjection.EnforcementPercentage.Value}
 		}
-		if failureEjection.GetRequestVolume() != nil {
-			out.FailurePercentageRequestVolume = failureEjection.GetRequestVolume()
+		if failureEjection.RequestVolume != nil {
+			out.FailurePercentageRequestVolume = &wrapperspb.UInt32Value{Value: failureEjection.RequestVolume.Value}
 		}
-		if failureEjection.GetThreshold() != nil {
-			out.FailurePercentageThreshold = failureEjection.GetThreshold()
+		if failureEjection.Threshold != nil {
+			out.FailurePercentageThreshold = &wrapperspb.UInt32Value{Value: failureEjection.Threshold.Value}
 		}
 	}
 	if outlier.SuccessRateEjection != nil {
 		successRateEjection := outlier.SuccessRateEjection
-		if successRateEjection.GetMinimumHosts() != nil {
-			out.SuccessRateMinimumHosts = successRateEjection.GetMinimumHosts()
+		if successRateEjection.MinimumHosts != nil {
+			out.SuccessRateMinimumHosts = &wrapperspb.UInt32Value{Value: successRateEjection.MinimumHosts.Value}
 		}
-		if successRateEjection.GetRequestVolume() != nil {
-			out.SuccessRateRequestVolume = successRateEjection.GetRequestVolume()
+		if successRateEjection.RequestVolume != nil {
+			out.SuccessRateRequestVolume = &wrapperspb.UInt32Value{Value: successRateEjection.RequestVolume.Value}
 		}
-		if successRateEjection.GetStdevFactor() != nil {
-			out.SuccessRateStdevFactor = successRateEjection.GetStdevFactor()
+		if successRateEjection.StdevFactor != nil {
+			out.SuccessRateStdevFactor = &wrapperspb.UInt32Value{Value: successRateEjection.StdevFactor.Value}
 		}
-		if successRateEjection.GetEnforcementPercentage() != nil {
-			out.EnforcingSuccessRate = successRateEjection.GetEnforcementPercentage()
+		if successRateEjection.EnforcementPercentage != nil {
+			out.EnforcingSuccessRate = &wrapperspb.UInt32Value{Value: successRateEjection.EnforcementPercentage.Value}
 		}
 	}
 	c.OutlierDetection = out
