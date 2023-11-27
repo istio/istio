@@ -24,6 +24,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	resourcedetectors "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/resource_detectors/v3"
 	envoy_type_metadata_v3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -50,6 +51,11 @@ const (
 	envoyOpenTelemetry = "envoy.tracers.opentelemetry"
 	envoySkywalking    = "envoy.tracers.skywalking"
 	envoyZipkin        = "envoy.tracers.zipkin"
+)
+
+const (
+	environmentResourceDetector = "type.googleapis.com/istio.mesh.v1alpha1.MeshConfig.ExtensionProvider.OpenTelemetryTracingProvider.EnvironmentResourceDetector"
+	dynatraceResourceDetector   = "type.googleapis.com/istio.mesh.v1alpha1.MeshConfig.ExtensionProvider.OpenTelemetryTracingProvider.DynatraceResourceDetector"
 )
 
 // this is used for testing. it should not be changed in regular code.
@@ -269,17 +275,17 @@ func datadogConfig(serviceName, hostname, cluster string) (*anypb.Any, error) {
 }
 
 func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider) (*anypb.Any, error) {
-	var oc *tracingcfg.OpenTelemetryConfig
+	oc := &tracingcfg.OpenTelemetryConfig{
+		ServiceName: serviceName,
+	}
 
 	if otelProvider.GetHttp() == nil {
 		// export via gRPC
-		oc = &tracingcfg.OpenTelemetryConfig{
-			GrpcService: &core.GrpcService{
-				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: cluster,
-						Authority:   hostname,
-					},
+		oc.GrpcService = &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: cluster,
+					Authority:   hostname,
 				},
 			},
 		}
@@ -290,18 +296,15 @@ func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.
 		if err != nil {
 			return nil, fmt.Errorf("could not parse otlp/http traces endpoint: %v", err)
 		}
-		oc = &tracingcfg.OpenTelemetryConfig{
-			HttpService: &core.HttpService{
-				HttpUri: &core.HttpUri{
-					Uri: te,
-					HttpUpstreamType: &core.HttpUri_Cluster{
-						Cluster: cluster,
-					},
-					Timeout: httpService.GetTimeout(),
+		oc.HttpService = &core.HttpService{
+			HttpUri: &core.HttpUri{
+				Uri: te,
+				HttpUpstreamType: &core.HttpUri_Cluster{
+					Cluster: cluster,
 				},
+				Timeout: httpService.GetTimeout(),
 			},
 		}
-
 		for _, h := range httpService.GetHeaders() {
 			hvo := &core.HeaderValueOption{
 				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
@@ -314,7 +317,26 @@ func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.
 		}
 	}
 
-	oc.ServiceName = serviceName
+	// Add configured resource detectors
+	if otelProvider.ResourceDetectors != nil {
+		res := []*core.TypedExtensionConfig{}
+		rd := otelProvider.ResourceDetectors
+
+		if rd.Environment != nil {
+			res = append(res, &core.TypedExtensionConfig{
+				Name:        "envoy.tracers.opentelemetry.resource_detectors.environment",
+				TypedConfig: protoconv.MessageToAny(&resourcedetectors.EnvironmentResourceDetectorConfig{}),
+			})
+		}
+		if rd.Dynatrace != nil {
+			res = append(res, &core.TypedExtensionConfig{
+				Name:        "envoy.tracers.opentelemetry.resource_detectors.dynatrace",
+				TypedConfig: protoconv.MessageToAny(&resourcedetectors.DynatraceResourceDetectorConfig{}),
+			})
+		}
+		oc.ResourceDetectors = res
+	}
+
 	return anypb.New(oc)
 }
 

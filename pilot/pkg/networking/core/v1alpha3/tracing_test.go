@@ -578,6 +578,9 @@ func fakeOpenTelemetryHTTP() *meshconfig.MeshConfig_ExtensionProvider {
 						},
 					},
 				},
+				ResourceDetectors: &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors{
+					Dynatrace: &meshconfig.MeshConfig_ExtensionProvider_DynatraceResourceDetector{},
+				},
 			},
 		},
 	}
