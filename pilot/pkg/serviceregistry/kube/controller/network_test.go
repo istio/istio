@@ -37,7 +37,9 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestNetworkUpdateTriggers(t *testing.T) {
@@ -228,4 +230,81 @@ func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher
 			}},
 		},
 	}})
+}
+
+func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+
+	s := newAmbientTestServer(t, testC, "")
+
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
+
+	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertAddresses(t, s.addrXdsName("127.0.0.2"), "pod2")
+
+	createOrUpdateNamespace(t, s.controller, testNS, "")
+	createOrUpdateNamespace(t, s.controller, systemNS, "")
+
+	expectWorkloadNetwork := func(t *testing.T, c *FakeController, network string) {
+		podNames := sets.New[string]("pod1", "pod2")
+		addresses := c.ambientIndex.All()
+		for _, addr := range addresses {
+			wl := addr.GetWorkload()
+			if wl == nil {
+				continue
+			}
+			if !podNames.Contains(wl.Name) {
+				continue
+			}
+			assert.Equal(t, network, addr.GetWorkload().Network)
+		}
+	}
+
+	t.Run("change namespace network to nw1", func(t *testing.T) {
+		createOrUpdateNamespace(t, s.controller, systemNS, "nw1")
+		retry.UntilSuccessOrFail(t, func() error {
+			if s.controller.networkFromSystemNamespace() != "nw1" {
+				return fmt.Errorf("network not updated")
+			}
+			return nil
+		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
+		expectWorkloadNetwork(t, s.controller, "nw1")
+	})
+
+	t.Run("change namespace network to nw2", func(t *testing.T) {
+		createOrUpdateNamespace(t, s.controller, systemNS, "nw2")
+		retry.UntilSuccessOrFail(t, func() error {
+			if s.controller.networkFromSystemNamespace() != "nw2" {
+				return fmt.Errorf("network not updated")
+			}
+			return nil
+		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
+		expectWorkloadNetwork(t, s.controller, "nw2")
+	})
+
+	t.Run("manually change namespace network to nw3, and update meshNetworks", func(t *testing.T) {
+		s.controller.setNetworkFromNamespace(&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: systemNS,
+				Labels: map[string]string{
+					label.TopologyNetwork.Name: "nw3",
+				},
+			},
+		})
+		addMeshNetworksFromRegistryGateway(t, s.controller, s.controller.meshNetworksWatcher)
+		expectWorkloadNetwork(t, s.controller, "nw3")
+	})
+}
+
+func createOrUpdateNamespace(t *testing.T, c *FakeController, name, network string) {
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				label.TopologyNetwork.Name: network,
+			},
+		},
+	}
+	clienttest.Wrap(t, c.namespaces).CreateOrUpdate(namespace)
 }

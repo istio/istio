@@ -26,6 +26,7 @@ import (
 	"time"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/util/retry"
@@ -117,7 +118,7 @@ func TestIsEqSpliceStr(t *testing.T) {
 		},
 	}
 	for _, tc := range testCases {
-		certSame := isEqSliceStr(tc.certs1, tc.certs2)
+		certSame := slices.Equal(tc.certs1, tc.certs2)
 		if (certSame && !tc.expSame) || (!certSame && tc.expSame) {
 			t.Errorf("cert compare testcase failed. tc: %v", tc)
 		}
@@ -173,7 +174,7 @@ func TestUpdateTrustAnchor(t *testing.T) {
 		t.Errorf("Basic trustbundle update test failed. Error: %v", err)
 	}
 	trustedCerts = tb.GetTrustBundle()
-	if !isEqSliceStr(trustedCerts, []string{rootCACert}) || cbCounter != 1 {
+	if !slices.Equal(trustedCerts, []string{rootCACert}) || cbCounter != 1 {
 		t.Errorf("Basic trustbundle update test failed. Callback value is %v", cbCounter)
 	}
 
@@ -187,7 +188,7 @@ func TestUpdateTrustAnchor(t *testing.T) {
 		t.Errorf("trustbundle intermediate cert update test failed. Error: %v", err)
 	}
 	trustedCerts = tb.GetTrustBundle()
-	if !isEqSliceStr(trustedCerts, []string{intermediateCACert}) || cbCounter != 2 {
+	if !slices.Equal(trustedCerts, []string{intermediateCACert}) || cbCounter != 2 {
 		t.Errorf("trustbundle intermediate cert update test failed. Callback value is %v", cbCounter)
 	}
 
@@ -203,7 +204,7 @@ func TestUpdateTrustAnchor(t *testing.T) {
 	trustedCerts = tb.GetTrustBundle()
 	result := []string{intermediateCACert, rootCACert}
 	sort.Strings(result)
-	if !isEqSliceStr(trustedCerts, result) || cbCounter != 3 {
+	if !slices.Equal(trustedCerts, result) || cbCounter != 3 {
 		t.Errorf("multicert update failed. Callback value is %v", cbCounter)
 	}
 
@@ -216,7 +217,7 @@ func TestUpdateTrustAnchor(t *testing.T) {
 		t.Errorf("duplicate multicert update failed. Error: %v", err)
 	}
 	trustedCerts = tb.GetTrustBundle()
-	if !isEqSliceStr(trustedCerts, result) || cbCounter != 3 {
+	if !slices.Equal(trustedCerts, result) || cbCounter != 3 {
 		t.Errorf("duplicate multicert update failed. Callback value is %v", cbCounter)
 	}
 
@@ -230,7 +231,7 @@ func TestUpdateTrustAnchor(t *testing.T) {
 		t.Errorf("bad cert update failed. Expected error")
 	}
 	trustedCerts = tb.GetTrustBundle()
-	if !isEqSliceStr(trustedCerts, result) || cbCounter != 3 {
+	if !slices.Equal(trustedCerts, result) || cbCounter != 3 {
 		t.Errorf("bad cert update failed. Callback value is %v", cbCounter)
 	}
 
@@ -250,7 +251,7 @@ func TestUpdateTrustAnchor(t *testing.T) {
 		t.Errorf("clear cert update failed. Error: %v", err)
 	}
 	trustedCerts = tb.GetTrustBundle()
-	if !isEqSliceStr(trustedCerts, []string{}) || cbCounter != 5 {
+	if !slices.Equal(trustedCerts, []string{}) || cbCounter != 5 {
 		t.Errorf("cert removal update failed. Callback value is %v", cbCounter)
 	}
 }
@@ -306,7 +307,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_SpiffeBundleUrl{SpiffeBundleUrl: server1.Listener.Addr().String()}},
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: rootCACert}},
 	}})
-	if !isEqSliceStr(tb.endpoints, []string{server1.Listener.Addr().String()}) {
+	if !slices.Equal(tb.endpoints, []string{server1.Listener.Addr().String()}) {
 		t.Errorf("server1 endpoint not correctly updated in trustbundle. Trustbundle endpoints: %v", tb.endpoints)
 	}
 	// Check server1's anchor has been added along with meshConfig pem cert
@@ -323,7 +324,7 @@ func TestAddMeshConfigUpdate(t *testing.T) {
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_SpiffeBundleUrl{SpiffeBundleUrl: server1.Listener.Addr().String()}},
 		{CertificateData: &meshconfig.MeshConfig_CertificateData_Pem{Pem: rootCACert}},
 	}})
-	if !isEqSliceStr(tb.endpoints, []string{server2.Listener.Addr().String(), server1.Listener.Addr().String()}) {
+	if !slices.Equal(tb.endpoints, []string{server2.Listener.Addr().String(), server1.Listener.Addr().String()}) {
 		t.Errorf("server2 endpoint not correctly updated in trustbundle. Trustbundle endpoints: %v", tb.endpoints)
 	}
 	// Check only server 2's trustanchor is present along with meshConfig pem and not server 1 (since it is down)

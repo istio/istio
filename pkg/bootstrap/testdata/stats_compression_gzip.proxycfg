@@ -1,0 +1,14 @@
+config_path:                      "/etc/istio/proxy"
+binary_path:                      "/usr/local/bin/envoy"
+service_cluster:                  "istio-proxy"
+drain_duration:                   {seconds: 5}
+discovery_address:                "mypilot:15011"
+statsd_udp_address:               "10.1.1.1:9125"
+envoy_metrics_service:            {address: "metrics-service:15000", tls_settings: { mode: MUTUAL, client_certificate: "/etc/istio/ms/client.pem", private_key: "/etc/istio/ms/key.pem", ca_certificates: "/etc/istio/ms/ca.pem"}}
+envoy_access_log_service:         {address: "accesslog-service:15000"}
+proxy_admin_port:                 15005
+control_plane_auth_policy:        MUTUAL_TLS
+stat_name_length:                 200
+tracing:                          { zipkin: { address: "localhost:6000" } }
+
+# Sets all relevant options to values different than default

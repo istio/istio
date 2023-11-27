@@ -25,6 +25,211 @@ import (
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
+func TestRequestPrincipal(t *testing.T) {
+	cases := []struct {
+		in   string
+		want string
+	}{
+		{
+			in: "*",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+`,
+		},
+		{
+			in: "foo*",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  prefix: foo
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+`,
+		},
+		{
+			in: "foo/*",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  exact: foo
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+`,
+		},
+		{
+			in: "foo/bar*",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  exact: foo
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  prefix: bar
+`,
+		},
+		{
+			in: "*foo",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  suffix: foo
+`,
+		},
+		{
+			in: "*/foo",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  safe_regex: {regex: .+}
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  exact: foo
+`,
+		},
+		{
+			in: "*bar/foo",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  suffix: bar
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  exact: foo
+`,
+		},
+		{
+			in: "foo/bar",
+			want: `
+        and_ids:
+          ids:
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: iss
+              value:
+                string_match:
+                  exact: foo
+          - metadata:
+              filter: envoy.filters.http.jwt_authn
+              path:
+              - key: payload
+              - key: sub
+              value:
+                string_match:
+                  exact: bar
+`,
+		},
+	}
+	rpg := requestPrincipalGenerator{useExtendedJwt: true}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			got, err := rpg.principal("", tc.in, false, false)
+			if err != nil {
+				t.Fatal(err)
+			}
+			principal := yamlPrincipal(t, tc.want)
+			if diff := cmp.Diff(got, principal, protocmp.Transform()); diff != "" {
+				t.Errorf("diff detected: %v", diff)
+			}
+		})
+	}
+}
+
 func TestGenerator(t *testing.T) {
 	cases := []struct {
 		name   string

@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	"istio.io/istio/pilot/pkg/networking/util"
+	"istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -59,7 +60,17 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			IPAddresses: []string{"1.1.1.1"},
 			ID:          "someID",
 			DNSDomain:   "foo.com",
+			IstioVersion: &model.IstioVersion{
+				Major: 1,
+				Minor: 20,
+			},
 		})
+	}
+
+	nodeWithExtended := func(cg *v1alpha3.ConfigGenTest) *model.Proxy {
+		out := node(cg)
+		out.IstioVersion.Minor = 21
+		return out
 	}
 
 	gatewayNames := sets.New("some-gateway")
@@ -272,6 +283,22 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[0].GetFilter()).To(Equal("istio_authn"))
 		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[0].GetInvert()).To(BeFalse())
 		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[1].GetFilter()).To(Equal("istio_authn"))
+		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[1].GetInvert()).To(BeTrue())
+	})
+
+	t.Run("for virtual service with exact matching on JWT claims with extended", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{})
+
+		routes, err := route.BuildHTTPRoutesForVirtualService(nodeWithExtended(cg), virtualServiceWithExactMatchingOnHeaderForJWTClaims,
+			serviceRegistry, nil, 8080, gatewayNames, route.RouteOptions{})
+		xdstest.ValidateRoutes(t, routes)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(len(routes)).To(Equal(1))
+		g.Expect(len(routes[0].GetMatch().GetHeaders())).To(Equal(0))
+		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[0].GetFilter()).To(Equal(filters.EnvoyJwtFilterName))
+		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[0].GetInvert()).To(BeFalse())
+		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[1].GetFilter()).To(Equal(filters.EnvoyJwtFilterName))
 		g.Expect(routes[0].GetMatch().GetDynamicMetadata()[1].GetInvert()).To(BeTrue())
 	})
 

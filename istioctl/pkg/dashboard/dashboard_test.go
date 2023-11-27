@@ -57,27 +57,27 @@ func TestDashboard(t *testing.T) {
 		},
 		{ // case 6
 			Args:           strings.Split("grafana --browser=false", " "),
-			ExpectedOutput: "Error: no Grafana pods found\n",
+			ExpectedOutput: "Error: no pods found with selector app.kubernetes.io/name=grafana\n",
 			WantException:  true,
 		},
 		{ // case 7
 			Args:           strings.Split("jaeger --browser=false", " "),
-			ExpectedOutput: "Error: no Jaeger pods found\n",
+			ExpectedOutput: "Error: no pods found with selector app=jaeger\n",
 			WantException:  true,
 		},
 		{ // case 8
 			Args:           strings.Split("kiali --browser=false", " "),
-			ExpectedOutput: "Error: no Kiali pods found\n",
+			ExpectedOutput: "Error: no pods found with selector app=kiali\n",
 			WantException:  true,
 		},
 		{ // case 9
 			Args:           strings.Split("prometheus --browser=false", " "),
-			ExpectedOutput: "Error: no Prometheus pods found\n",
+			ExpectedOutput: "Error: no pods found with selector app.kubernetes.io/name=prometheus\n",
 			WantException:  true,
 		},
 		{ // case 10
 			Args:           strings.Split("zipkin --browser=false", " "),
-			ExpectedOutput: "Error: no Zipkin pods found\n",
+			ExpectedOutput: "Error: no pods found with selector app=zipkin\n",
 			WantException:  true,
 		},
 		{ // case 11

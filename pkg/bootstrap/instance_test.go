@@ -285,6 +285,30 @@ func TestGolden(t *testing.T) {
 				"ISTIO_META_LOAD_STATS_CONFIG_JSON": `{"api_type": "GRPC", "transport_api_version": "V3"}`,
 			},
 		},
+		{
+			base: "stats_compression_gzip",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsCompression": "gzip",
+			},
+		},
+		{
+			base: "stats_compression_brotli",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsCompression": "brotli",
+			},
+		},
+		{
+			base: "stats_compression_zstd",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsCompression": "zstd",
+			},
+		},
+		{
+			base: "stats_compression_unknown",
+			annotations: map[string]string{
+				"sidecar.istio.io/statsCompression": "unknown",
+			},
+		},
 	}
 
 	test.SetForTest(t, &version.Info.Version, "binary-1.0")

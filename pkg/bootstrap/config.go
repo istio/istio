@@ -72,6 +72,12 @@ const (
 	v2Suffix   = ",component,istio"
 )
 
+var envoyWellKnownCompressorLibrary = sets.String{
+	"gzip":   {},
+	"zstd":   {},
+	"brotli": {},
+}
+
 // Config for creating a bootstrap file.
 type Config struct {
 	*model.Node
@@ -274,6 +280,12 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		}
 	}
 
+	var compression string
+	// TODO: move annotation to api repo
+	if statsCompression, ok := meta.Annotations["sidecar.istio.io/statsCompression"]; ok && envoyWellKnownCompressorLibrary.Contains(statsCompression) {
+		compression = statsCompression
+	}
+
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
@@ -282,6 +294,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 		option.EnvoyHistogramBuckets(buckets),
+		option.EnvoyStatsCompression(compression),
 	}
 }
 
