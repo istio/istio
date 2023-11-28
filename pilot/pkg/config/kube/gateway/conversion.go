@@ -2248,6 +2248,10 @@ func getNamespaceLabelReferences(routes *k8s.AllowedRoutes) []string {
 		res = append(res, k)
 	}
 	for _, me := range routes.Namespaces.Selector.MatchExpressions {
+		if me.Operator == "NotIn" || me.Operator == "DoesNotExist" {
+			res = append(res, "*")
+		}
+
 		res = append(res, me.Key)
 	}
 	return res
