@@ -164,7 +164,7 @@ status:
       reason: ResolvedRefs
       status: "True"
       type: ResolvedRefs
-    name: namespace-selector
+    name: selector-labels
     supportedKinds:
     - group: gateway.networking.k8s.io
       kind: HTTPRoute
@@ -233,7 +233,7 @@ status:
   parents:
   - conditions:
     - lastTransitionTime: fake
-      message: hostnames matched parent hostname "*.namespace-selector.example", but
+      message: hostnames matched parent hostname "*.selector-labels.example", but
         namespace "default" is not allowed by the parent
       reason: NotAllowedByListeners
       status: "False"
@@ -247,7 +247,7 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
-      sectionName: namespace-selector
+      sectionName: selector-labels	
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -326,7 +326,7 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
-      sectionName: namespace-selector
+      sectionName: selector-labels
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -352,7 +352,7 @@ status:
     parentRef:
       name: gateway
       namespace: istio-system
-      sectionName: namespace-selector
+      sectionName: selector-labels
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
