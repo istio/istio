@@ -387,6 +387,11 @@ func endpointSliceSelectorForService(name string) klabels.Selector {
 
 func (esc *endpointSliceController) pushEDS(hostnames []host.Name, namespace string) {
 	shard := model.ShardKeyFromRegistry(esc.c)
+	// Even though we just read from the cache, we need the full lock to ensure pushEDS
+	// runs sequentially when `EnableK8SServiceSelectWorkloadEntries` is enabled. Otherwise,
+	// we may end up with eds updates can go out of order with workload entry updates causing
+	// incorrect endpoints. For regular endpoint updates, pushEDS is already serialized
+	// because the events are queued.
 	esc.endpointCache.mu.Lock()
 	defer esc.endpointCache.mu.Unlock()
 	for _, hostname := range hostnames {
