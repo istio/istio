@@ -15,6 +15,7 @@
 package route_test
 
 import (
+	"log"
 	"reflect"
 	"testing"
 
@@ -1208,6 +1209,30 @@ func TestBuildHTTPRoutes(t *testing.T) {
 		}
 		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).To(ConsistOf(hashPolicy))
 	})
+
+	t.Run("for virtualservices and services with overlapping wildcard hosts", func(t *testing.T) {
+		g := NewWithT(t)
+		cg := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
+			Configs:  []config.Config{virtualServiceWithWildcardHost, virtualServiceWithNestedWildcardHost},
+			Services: []*model.Service{exampleWildcardService, exampleNestedWildcardService},
+		})
+
+		// Redefine the service registry for this test
+		serviceRegistry := map[host.Name]*model.Service{
+			"*.example.org":       exampleWildcardService,
+			"*.hello.example.org": exampleNestedWildcardService,
+		}
+
+		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
+			[]config.Config{virtualServiceWithWildcardHost, virtualServiceWithNestedWildcardHost}, 8080,
+		)
+		log.Printf("%#v", vhosts)
+		g.Expect(vhosts).To(HaveLen(2))
+		for _, vhost := range vhosts {
+			g.Expect(vhost.Services).To(HaveLen(1))
+			g.Expect(vhost.Routes).To(HaveLen(1))
+		}
+	})
 }
 
 func loadBalancerPolicy(name string) *networking.LoadBalancerSettings_ConsistentHash {
@@ -1452,6 +1477,66 @@ var virtualServiceWithCatchAllPort = config.Config{
 							Host: "example1.default.svc.cluster.local",
 							Port: &networking.PortSelector{
 								Number: 8484,
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithWildcardHost = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "wildcard",
+	},
+	Spec: &networking.VirtualService{
+		Hosts: []string{"*.example.org"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "https",
+						Port: uint32(8080),
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.example.org",
+							Port: &networking.PortSelector{
+								Number: 8080,
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+var virtualServiceWithNestedWildcardHost = config.Config{
+	Meta: config.Meta{
+		GroupVersionKind: gvk.VirtualService,
+		Name:             "nested-wildcard",
+	},
+	Spec: &networking.VirtualService{
+		Hosts: []string{"*.hello.example.org"},
+		Http: []*networking.HTTPRoute{
+			{
+				Match: []*networking.HTTPMatchRequest{
+					{
+						Name: "https",
+						Port: uint32(8080),
+					},
+				},
+				Route: []*networking.HTTPRouteDestination{
+					{
+						Destination: &networking.Destination{
+							Host: "*.hello.example.org",
+							Port: &networking.PortSelector{
+								Number: 8080,
 							},
 						},
 					},
@@ -2606,7 +2691,19 @@ var networkingDestinationRule = &networking.DestinationRule{
 	},
 }
 
-var exampleService = []*model.Service{{Hostname: "*.example.org", Attributes: model.ServiceAttributes{Namespace: "istio-system"}}}
+var (
+	exampleService         = []*model.Service{{Hostname: "*.example.org", Attributes: model.ServiceAttributes{Namespace: "istio-system"}}}
+	exampleWildcardService = &model.Service{
+		Hostname:   "*.example.org",
+		Attributes: model.ServiceAttributes{Namespace: "istio-system"},
+		Ports:      []*model.Port{{Port: 8080, Protocol: "HTTP"}},
+	}
+	exampleNestedWildcardService = &model.Service{
+		Hostname:   "*.hello.example.org",
+		Attributes: model.ServiceAttributes{Namespace: "istio-system"},
+		Ports:      []*model.Port{{Port: 8080, Protocol: "HTTP"}},
+	}
+)
 
 var networkingDestinationRuleWithPortLevelTrafficPolicy = &networking.DestinationRule{
 	Host: "*.example.org",
