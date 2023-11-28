@@ -788,7 +788,7 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	}
 	// We only write the status code to the response.
 	w.WriteHeader(response.StatusCode)
-	io.Copy(w, response.Body)
+	_, _ = io.Copy(w, response.Body)
 }
 
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
