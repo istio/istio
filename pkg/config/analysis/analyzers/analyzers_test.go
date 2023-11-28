@@ -270,7 +270,7 @@ var testGrid = []testCase{
 			"testdata/common/sidecar-injector-configmap.yaml",
 		},
 		meshConfigFile: "testdata/common/meshconfig.yaml",
-		analyzer: &injection.ImageAnalyzer{},
+		analyzer:       &injection.ImageAnalyzer{},
 		expected: []message{
 			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
 		},
