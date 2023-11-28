@@ -250,30 +250,30 @@ func findVethLinkForPeerIP(peerIP net.IP) (*netlink.Veth, error) {
 		veth := l.(*netlink.Veth)
 		peerIndex, err := getPeerIndex(veth)
 		if err != nil {
-			log.Warnf("failed to get peer index for veth link %s: %v", veth.Name, err)
+			log.Warnf("failed to get peer index for veth interface %s: %v", veth.Name, err)
 		}
 		peerNs, err := getNsNameFromNsID(veth.Attrs().NetNsID)
 		if err != nil {
 			log.Warnf("failed to get network namespace name from namespace id '%d' for veth interface %s: %v", veth.Attrs().NetNsID, veth.Name, err)
 		}
-		var vethFound bool
+		var peerVethFound bool
 		if err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", filepath.Base(peerNs)), func(netns.NetNS) error {
 			peerLink, err := netlink.LinkByIndex(peerIndex)
 			if err != nil {
-				return fmt.Errorf("failed to get link by index [veth=%s,peerIndex=%d,peerNs=%s]: %v", veth.Name, peerIndex, peerNs, err)
+				return fmt.Errorf("failed to get veth interface '%s' by peer index: %v", veth.Name, err)
 			}
 			addrs, err := netlink.AddrList(peerLink, netlink.FAMILY_V4)
 			if err != nil {
-				return fmt.Errorf("failed to get address for peer's link [veth=%s,peerIndex=%d,peerNs=%s,peerLink=%s]: %v", veth.Name, peerIndex, peerNs, peerLink.Attrs().Name, err)
+				return fmt.Errorf("failed to get address for veth interface '%s': %v", veth.Name, err)
 			}
 			if addrs[0].IP.Equal(peerIP) {
-				vethFound = true
+				peerVethFound = true
 			}
 			return nil
 		}); err != nil {
-			log.Warnf("failed to inspect peer link: %v", err)
+			log.Warnf("failed to inspect peer link in the network namespace '%s': %v", peerNs, err)
 		}
-		if vethFound {
+		if peerVethFound {
 			return veth, nil
 		}
 	}
