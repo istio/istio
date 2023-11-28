@@ -12,28 +12,38 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adsc
+package adsc2
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"errors"
 	"fmt"
 	"math"
+	"net"
+	"os"
 	"reflect"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
+	"go.uber.org/atomic"
 	"golang.org/x/net/context"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
-
+	pstruct "google.golang.org/protobuf/types/known/structpb"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/set"
-	"istio.io/pkg/log"
 )
 
 type resourceKey struct {
@@ -61,6 +71,7 @@ type resourceNode struct {
 type HandlerContext interface {
 	RegisterDependency(typeURL string, resourceName ...string)
 	Reject(reason error)
+	ResourceCount() int
 }
 
 var _ HandlerContext = &handlerContext{}
@@ -68,8 +79,9 @@ var _ HandlerContext = &handlerContext{}
 // HandlerContext provides an event for a single resource, allowing handlers to react to it.
 // Operations done in the handler may be batched together with other handler's.
 type handlerContext struct {
-	sub  keySet
-	nack error
+	sub   keySet
+	nack  error
+	count int
 }
 
 func (h *handlerContext) RegisterDependency(typeURL string, resourceName ...string) {
@@ -89,35 +101,106 @@ func (h *handlerContext) Reject(reason error) {
 	h.nack = reason
 }
 
-type Client struct {
-	handlers map[string]interface{}
-	// Map of resources key to its node
-	tree           map[resourceKey]resourceNode
-	xdsClient      discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
-	conn           *grpc.ClientConn
-	initialWatches []resourceKey
+func (h *handlerContext) ResourceCount() int {
+	return h.count
 }
 
-func (c Client) trigger(url string, r *discovery.Resource, event Event) (*handlerContext, error) {
-	res := newProto(url)
-	if r != nil {
-		if err := r.Resource.UnmarshalTo(res); err != nil {
-			return nil, err
+type Config struct {
+	// Address of the xDS server
+	Address string
+	// Namespace of the node, defaults to "default"
+	Namespace string
+	// Workload name of the node, defaults to "test"
+	Workload string
+	// NodeType defaults to sidecar. "ingress" and "router" are also supported.
+	NodeType string
+	// IP is currently the primary key used to locate inbound configs. It is sent by client,
+	// must match a known endpoint IP. Tests can use a ServiceEntry to register fake IPs.
+	IP string
+	// proxy Meta includes additional metadata for the node
+	Meta *pstruct.Struct
+	// Locality of the node
+	Locality *core.Locality
+	// TODO revision
+
+	GrpcOpts []grpc.DialOption
+
+	// CertDir is the directory where mTLS certs are configured.
+	// If CertDir and Secret are empty, an insecure connection will be used.
+	CertDir string
+	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
+	XDSSAN string
+	// XDSRootCAFile explicitly set the root CA to be used for the XDS connection.
+	// Mirrors Envoy file.
+	XDSRootCAFile string
+	// RootCert contains the XDS root certificate. Used mainly for tests, apps will normally use
+	// XDSRootCAFile
+	RootCert []byte
+	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
+	InsecureSkipVerify bool
+	// Secrets is the interface used for getting keys and rootCA.
+	SecretManager security.SecretManager
+}
+
+func initConfigIfNotPresent(config *Config) *Config {
+	if config == nil {
+		config = &Config{}
+	}
+	if config.Namespace == "" {
+		config.Namespace = "default"
+	}
+	if config.NodeType == "" {
+		config.NodeType = "sidecar"
+	}
+	if config.IP == "" {
+		config.IP = adsc.GetPrivateIPIfAvailable().String()
+	}
+	if config.Workload == "" {
+		config.Workload = "test"
+	}
+	return config
+}
+
+type Client struct {
+	config   *Config
+	handlers map[string]interface{}
+	// Map of resources key to its node
+	tree map[resourceKey]resourceNode
+
+	xdsClient discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
+	conn      *grpc.ClientConn
+
+	// initialWatches is the list of resources we are watching on startup
+	initialWatches []resourceKey
+
+	// sendNodeMeta is set to true if the connection is new - and we need to send node meta
+	sendNodeMeta atomic.Bool
+}
+
+func (c *Client) trigger(ctx *handlerContext, url string, r *discovery.Resource, event Event) error {
+	var res proto.Message
+	if isDebugType(url) {
+		res = r.Resource
+	} else {
+		res = newProto(url)
+		if r != nil && res != nil {
+			if err := r.Resource.UnmarshalTo(res); err != nil {
+				return err
+			}
 		}
 	}
-	ctx := &handlerContext{}
 	handler, f := c.handlers[url]
 	if !f {
 		log.Warnf("ignoring unknown type %v", url)
-		return &handlerContext{}, nil
+		return nil
 	}
 	reflect.ValueOf(handler).Call([]reflect.Value{reflect.ValueOf(ctx), reflect.ValueOf(res), reflect.ValueOf(event)})
-	return ctx, nil
+	return nil
 }
 
-// getProtoMessageType returns the Go lang type of the proto with the specified name.
+// getProtoMessageType returns the Golang type of the proto with the specified name.
 func newProto(tt string) proto.Message {
-	name := protoreflect.FullName(strings.TrimPrefix(tt, "type.googleapis.com/"))
+	name := protoreflect.FullName(strings.TrimPrefix(tt, resource.APITypePrefix))
 	t, err := protoregistry.GlobalTypes.FindMessageByName(name)
 	if err != nil || t == nil {
 		return nil
@@ -126,20 +209,17 @@ func newProto(tt string) proto.Message {
 }
 
 func (c *Client) Run(ctx context.Context) error {
-	addr := "localhost:15010"
-
-	conn, err := grpc.DialContext(ctx, addr, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	if err != nil {
+	if err := c.dial(ctx); err != nil {
 		return fmt.Errorf("dial context: %v", err)
 	}
 
-	xds := discovery.NewAggregatedDiscoveryServiceClient(conn)
+	xds := discovery.NewAggregatedDiscoveryServiceClient(c.conn)
 	xdsClient, err := xds.DeltaAggregatedResources(ctx, grpc.MaxCallRecvMsgSize(math.MaxInt32))
 	if err != nil {
 		return fmt.Errorf("delta stream: %v", err)
 	}
+	c.sendNodeMeta.Store(true)
 	c.xdsClient = xdsClient
-	c.conn = conn
 	go c.handleRecv()
 	for _, w := range c.initialWatches {
 		c.request(w)
@@ -147,10 +227,92 @@ func (c *Client) Run(ctx context.Context) error {
 	return nil
 }
 
+func (c *Client) dial(ctx context.Context) error {
+	defaultOptions := adsc.DefaultGrpcDialOptions()
+	opts := append(defaultOptions, c.config.GrpcOpts...)
+
+	var err error
+	// If we need MTLS - CertDir or Secrets provider is set.
+	if len(c.config.CertDir) > 0 || c.config.SecretManager != nil {
+		tlsCfg, err := c.tlsConfig()
+		if err != nil {
+			return err
+		}
+		creds := credentials.NewTLS(tlsCfg)
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	}
+
+	// Only disable transport security if the user didn't supply custom dial options
+	if len(opts) == len(defaultOptions) {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	conn, err := grpc.DialContext(ctx, c.config.Address, opts...)
+	if err != nil {
+		return fmt.Errorf("dial context: %v", err)
+	}
+	c.conn = conn
+	return nil
+}
+
+func (c *Client) tlsConfig() (*tls.Config, error) {
+	var clientCerts []tls.Certificate
+	var serverCABytes []byte
+	var err error
+
+	getClientCertificate := getClientCertFn(c.config)
+
+	// Load the root CAs
+	if c.config.RootCert != nil {
+		serverCABytes = c.config.RootCert
+	} else if c.config.XDSRootCAFile != "" {
+		serverCABytes, err = os.ReadFile(c.config.XDSRootCAFile)
+		if err != nil {
+			return nil, err
+		}
+	} else if c.config.SecretManager != nil {
+		// This is a bit crazy - we could just use the file
+		rootCA, err := c.config.SecretManager.GenerateSecret(security.RootCertReqResourceName)
+		if err != nil {
+			return nil, err
+		}
+
+		serverCABytes = rootCA.RootCert
+	} else if c.config.CertDir != "" {
+		serverCABytes, err = os.ReadFile(c.config.CertDir + "/root-cert.pem")
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	serverCAs := x509.NewCertPool()
+	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
+		return nil, err
+	}
+
+	shost, _, _ := net.SplitHostPort(c.config.Address)
+	if c.config.XDSSAN != "" {
+		shost = c.config.XDSSAN
+	}
+
+	// nolint: gosec
+	// it's insecure only when a user explicitly enable insecure mode.
+	return &tls.Config{
+		GetClientCertificate: getClientCertificate,
+		Certificates:         clientCerts,
+		RootCAs:              serverCAs,
+		ServerName:           shost,
+		InsecureSkipVerify:   c.config.InsecureSkipVerify,
+	}, nil
+}
+
 type Option func(c *Client)
 
-func New(opts ...Option) *Client {
+var deltaadsc = log.RegisterScope("delta adsc", "delta adsc debugging")
+
+func New(config *Config, opts ...Option) *Client {
 	c := &Client{
+		config:   initConfigIfNotPresent(config),
 		handlers: map[string]interface{}{},
 		tree:     map[resourceKey]resourceNode{},
 	}
@@ -162,12 +324,18 @@ func New(opts ...Option) *Client {
 
 func TypeName[T proto.Message]() string {
 	ft := new(T)
-	return "type.googleapis.com/" + string((*ft).ProtoReflect().Descriptor().FullName())
+	return resource.APITypePrefix + string((*ft).ProtoReflect().Descriptor().FullName())
 }
 
 func Register[T proto.Message](f func(ctx HandlerContext, res T, event Event)) Option {
 	return func(c *Client) {
 		c.handlers[TypeName[T]()] = f
+	}
+}
+
+func RegisterType(typeURL string, f func(ctx HandlerContext, res proto.Message, event Event)) Option {
+	return func(c *Client) {
+		c.handlers[typeURL] = f
 	}
 }
 
@@ -195,8 +363,33 @@ func Watch[T proto.Message](resourceName string) Option {
 	}
 }
 
+func WatchType(typeURL string, resourceName string) Option {
+	return func(c *Client) {
+		if resourceName == "*" {
+			// Normalize to allow both forms
+			resourceName = ""
+		}
+		key := resourceKey{
+			Name:    resourceName,
+			TypeUrl: typeURL,
+		}
+		existing, f := c.tree[key]
+		if f {
+			// We are watching directly now, so erase any parents
+			existing.Parents = nil
+		} else {
+			c.tree[key] = resourceNode{
+				Parents:  make(keySet),
+				Children: make(keySet),
+			}
+		}
+		c.initialWatches = append(c.initialWatches, key)
+	}
+}
+
 func (c *Client) handleRecv() {
 	scope := log.WithLabels("node", c.NodeID())
+	// TODO reconnect
 	for {
 		scope.Infof("start Recv")
 		msg, err := c.xdsClient.Recv()
@@ -218,11 +411,22 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 	var rejects []error
 	allAdds := map[string]set.Set[string]{}
 	allRemoves := map[string]set.Set[string]{}
+	ctx := &handlerContext{
+		count: len(d.Resources),
+	}
 	for _, r := range d.Resources {
-		if d.TypeUrl != r.Resource.TypeUrl {
+		if isDebugType(d.TypeUrl) {
+			// No need to ack && type check for debug types
+			err := c.trigger(ctx, d.TypeUrl, r, EventAdd)
+			if err != nil {
+				return err
+			}
+			continue
+		}
+		if d.TypeUrl != r.Resource.TypeUrl && !isDebugType(d.TypeUrl) {
 			log.Fatalf("mismatch of type url: %v vs %v", d.TypeUrl, r.Resource.TypeUrl)
 		}
-		ctx, err := c.trigger(d.TypeUrl, r, EventAdd)
+		err := c.trigger(ctx, d.TypeUrl, r, EventAdd)
 		if err != nil {
 			return err
 		}
@@ -240,7 +444,6 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 
 		remove, add := c.tree[parentKey].Children.Split(ctx.sub)
 		for key := range add {
-			log.Errorf("howardjohn: add %v", key)
 			if _, f := allAdds[key.TypeUrl]; !f {
 				allAdds[key.TypeUrl] = set.New[string]()
 			}
@@ -248,7 +451,6 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 			c.relate(parentKey, key)
 		}
 		for key := range remove {
-			log.Errorf("howardjohn: remove %v", key)
 			if _, f := allRemoves[key.TypeUrl]; !f {
 				allRemoves[key.TypeUrl] = set.New[string]()
 			}
@@ -258,11 +460,10 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 	}
 	for _, r := range d.RemovedResources {
 		// TODO: we need to actually store the resources so we can pass them down in this case
-		_, err := c.trigger(d.TypeUrl, nil, EventDelete)
+		err := c.trigger(ctx, d.TypeUrl, nil, EventDelete)
 		if err != nil {
 			return err
 		}
-		// TODO: do we need ctx at all?
 
 		key := resourceKey{
 			Name:    r,
@@ -286,18 +487,21 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 }
 
 func joinError(rejects []error) error {
-	if len(rejects) == 0 {
-		return nil
-	}
 	var e []string
 	for _, r := range rejects {
+		if r == nil {
+			continue
+		}
 		e = append(e, r.Error())
+	}
+	if len(e) == 0 {
+		return nil
 	}
 	return errors.New(strings.Join(e, "; "))
 }
 
 // establishResource sets up the relationship for a resource we received.
-func (c Client) establishResource(key resourceKey) {
+func (c *Client) establishResource(key resourceKey) {
 	parentNode, f := c.tree[key]
 	if !f {
 		parentNode = resourceNode{
@@ -315,12 +519,12 @@ func (c Client) establishResource(key resourceKey) {
 	}
 
 	if !f && !wildFound {
-		// TODO: no fatal, this can be unwatched resource from server
-		log.Fatalf("recieved unsubscribed resource: %v, %v", key, c.tree)
+		// We are receiving an unwanted resource, silently ignore it.
+		log.Debugf("recieved unsubscribed resource: %v, %v", key, c.tree)
 	}
 }
 
-func (c Client) relate(parent, child resourceKey) {
+func (c *Client) relate(parent, child resourceKey) {
 	parentNode, f := c.tree[parent]
 	if !f {
 		log.Fatalf("unknown parent: %v, %v", parent, c.tree)
@@ -339,7 +543,7 @@ func (c Client) relate(parent, child resourceKey) {
 	parentNode.Children.Insert(child)
 }
 
-func (c Client) drop(parent resourceKey) {
+func (c *Client) drop(parent resourceKey) {
 	parentNode, f := c.tree[parent]
 	if !f {
 		log.Fatalf("unknown parent: %v, %v", parent, c.tree)
@@ -353,7 +557,7 @@ func (c Client) drop(parent resourceKey) {
 	}
 }
 
-func (c Client) unrelate(parent, child resourceKey) {
+func (c *Client) unrelate(parent, child resourceKey) {
 	parentNode, f := c.tree[parent]
 	if !f {
 		log.Fatalf("unknown parent: %v, %v", parent, c.tree)
@@ -380,10 +584,6 @@ const (
 	// EventAdd is sent when an object is added
 	EventAdd Event = iota
 
-	// EventUpdate is sent when an object is modified
-	// Captures the modified object
-	EventUpdate
-
 	// EventDelete is sent when an object is deleted
 	// Captures the object at the last known state
 	EventDelete
@@ -394,15 +594,13 @@ func (event Event) String() string {
 	switch event {
 	case EventAdd:
 		out = "add"
-	case EventUpdate:
-		out = "update"
 	case EventDelete:
 		out = "delete"
 	}
 	return out
 }
 
-func (c Client) dumpTree() string {
+func (c *Client) dumpTree() string {
 	sb := strings.Builder{}
 	roots := make(keySet)
 	for key := range c.tree {
@@ -416,7 +614,7 @@ func (c Client) dumpTree() string {
 	return sb.String()
 }
 
-func (c Client) dumpNode(sb *strings.Builder, key resourceKey, indent string) {
+func (c *Client) dumpNode(sb *strings.Builder, key resourceKey, indent string) {
 	sb.WriteString(indent + key.ShortName() + ":\n")
 	if len(indent) > 10 {
 		return
@@ -432,24 +630,28 @@ func (c Client) dumpNode(sb *strings.Builder, key resourceKey, indent string) {
 	}
 }
 
-func (c Client) Close() {
+func (c *Client) Close() {
 	if c.conn != nil {
 		c.conn.Close()
 	}
 }
 
-func (c Client) request(w resourceKey) {
+func (c *Client) request(w resourceKey) {
 	// TODO: we need nonce for things after the first
 	c.send(w, "", nil)
 }
 
-func (c Client) send(w resourceKey, nonce string, err error) {
+func (c *Client) send(w resourceKey, nonce string, err error) {
 	req := &discovery.DeltaDiscoveryRequest{
 		Node: &core.Node{
 			Id: c.NodeID(),
 		},
 		TypeUrl:       w.TypeUrl,
 		ResponseNonce: nonce,
+	}
+	if c.sendNodeMeta.Load() {
+		req.Node = c.node()
+		c.sendNodeMeta.Store(false)
 	}
 
 	if w.Name != "" && err == nil {
@@ -461,12 +663,32 @@ func (c Client) send(w resourceKey, nonce string, err error) {
 	c.xdsClient.Send(req)
 }
 
-func (c Client) NodeID() string {
-	return fmt.Sprintf("%s~%s~%s.%s~%s.svc.cluster.local", "sidecar", "1.1.1.1",
-		"test", "test", "test")
+func (c *Client) NodeID() string {
+	return fmt.Sprintf("%s~%s~%s.%s~%s.svc.%s", c.config.NodeType, c.config.IP,
+		c.config.Workload, c.config.Namespace, c.config.Namespace, constants.DefaultClusterLocalDomain)
 }
 
-func (c Client) update(t string, sub, unsub set.Set[string], d *discovery.DeltaDiscoveryResponse) {
+func (c *Client) node() *core.Node {
+	n := &core.Node{
+		Id:       c.NodeID(),
+		Locality: c.config.Locality,
+	}
+	if c.config.Meta == nil {
+		n.Metadata = &pstruct.Struct{
+			Fields: map[string]*pstruct.Value{
+				"ISTIO_VERSION": {Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}},
+			},
+		}
+	} else {
+		n.Metadata = c.config.Meta
+		if c.config.Meta.Fields["ISTIO_VERSION"] == nil {
+			c.config.Meta.Fields["ISTIO_VERSION"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}}
+		}
+	}
+	return n
+}
+
+func (c *Client) update(t string, sub, unsub set.Set[string], d *discovery.DeltaDiscoveryResponse) {
 	req := &discovery.DeltaDiscoveryRequest{
 		Node: &core.Node{
 			Id: c.NodeID(),

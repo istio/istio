@@ -25,10 +25,11 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/anypb"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/adsc"
+	"istio.io/istio/pkg/adsc2"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -41,10 +42,28 @@ const (
 var tokenAudiences = []string{"istio-ca"}
 
 // GetXdsResponse opens a gRPC connection to opts.xds and waits for a single response
-func GetXdsResponse(dr *discovery.DeltaDiscoveryRequest, ns string, serviceAccount string, opts clioptions.CentralControlPlaneOptions,
+func GetXdsResponse(dr *discovery.DeltaDiscoveryRequest, ns, serviceAccount string, opts clioptions.CentralControlPlaneOptions,
 	grpcOpts []grpc.DialOption,
 ) (*discovery.DeltaDiscoveryResponse, error) {
-	adscConn, err := adsc.NewDeltaWithBackoffPolicy(opts.Xds, &adsc.Config{
+	waitRes := make(chan *anypb.Any, 10)
+
+	handlers := make([]adsc2.Option, 0)
+	count := 0
+	handlers = append(handlers, adsc2.RegisterType(dr.TypeUrl, func(ctx adsc2.HandlerContext, res proto.Message, event adsc2.Event) {
+		waitRes <- res.(*anypb.Any)
+		if count == 0 {
+			count = ctx.ResourceCount()
+		}
+	}))
+	for _, resource := range dr.ResourceNamesSubscribe {
+		handlers = append(handlers, adsc2.WatchType(dr.TypeUrl, resource))
+	}
+	if len(dr.ResourceNamesSubscribe) == 0 {
+		handlers = append(handlers, adsc2.WatchType(dr.TypeUrl, "*"))
+	}
+
+	adsClient := adsc2.New(&adsc2.Config{
+		Address: opts.Xds,
 		Meta: model.NodeMetadata{
 			Generator:      "event",
 			ServiceAccount: serviceAccount,
@@ -55,21 +74,33 @@ func GetXdsResponse(dr *discovery.DeltaDiscoveryRequest, ns string, serviceAccou
 		InsecureSkipVerify: opts.InsecureSkipVerify,
 		XDSSAN:             opts.XDSSAN,
 		GrpcOpts:           grpcOpts,
-	}, nil)
-	if err != nil {
-		return nil, fmt.Errorf("could not dial: %w", err)
-	}
-	err = adscConn.Run()
-	if err != nil {
-		return nil, fmt.Errorf("ADSC: failed running %v", err)
-	}
+	}, handlers...)
 
-	err = adscConn.SendDelta(dr)
+	// Start ADS client
+	err := adsClient.Run(context.Background())
 	if err != nil {
+		fmt.Printf("ADSC: failed running %v\n", err)
 		return nil, err
 	}
-	response, err := adscConn.WaitVersion(opts.Timeout, dr.TypeUrl, "")
-	return response, err
+
+	results := make([]*anypb.Any, 0)
+
+	for res := range waitRes {
+		results = append(results, res)
+		if count == len(results) {
+			break
+		}
+	}
+
+	adsClient.Close()
+
+	resources := make([]*discovery.Resource, 0)
+	for _, result := range results {
+		resources = append(resources, &discovery.Resource{Resource: result})
+	}
+	return &discovery.DeltaDiscoveryResponse{
+		Resources: resources,
+	}, nil
 }
 
 // DialOptions constructs gRPC dial options from command line configuration

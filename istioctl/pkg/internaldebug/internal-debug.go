@@ -16,49 +16,21 @@ package internaldebug
 
 import (
 	"fmt"
-	"io"
 	"strings"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/kube"
 )
 
-func HandlerForRetrieveDebugList(kubeClient kube.CLIClient,
-	centralOpts clioptions.CentralControlPlaneOptions,
-	writer io.Writer,
-	istioNamespace string,
-) (map[string]*discovery.DeltaDiscoveryResponse, error) {
-	var namespace, serviceAccount string
-	xdsRequest := discovery.DeltaDiscoveryRequest{
-		ResourceNamesSubscribe: []string{"list"},
-		Node: &core.Node{
-			Id: "debug~0.0.0.0~istioctl~cluster.local",
-		},
-		TypeUrl: v3.DebugType,
-	}
-	xdsResponses, respErr := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, istioNamespace,
-		namespace, serviceAccount, kubeClient, multixds.DefaultOptions)
-	if respErr != nil {
-		return xdsResponses, respErr
-	}
-	_, _ = fmt.Fprint(writer, "error: according to below command list, please check all supported internal debug commands\n")
-	return xdsResponses, nil
-}
-
-func HandlerForDebugErrors(kubeClient kube.CLIClient,
-	centralOpts *clioptions.CentralControlPlaneOptions,
-	writer io.Writer,
-	istioNamespace string,
-	xdsResponses map[string]*discovery.DeltaDiscoveryResponse,
+func HandlerForDebugErrors(xdsResponses map[string]*discovery.DeltaDiscoveryResponse,
 ) (map[string]*discovery.DeltaDiscoveryResponse, error) {
 	for _, response := range xdsResponses {
 		for _, resource := range response.Resources {
@@ -67,9 +39,6 @@ func HandlerForDebugErrors(kubeClient kube.CLIClient,
 			case strings.Contains(eString, "You must provide a proxyID in the query string"):
 				return nil, fmt.Errorf(" You must provide a proxyID in the query string, e.g. [%s]",
 					"edsz?proxyID=istio-ingressgateway")
-
-			case strings.Contains(eString, "404 page not found"):
-				return HandlerForRetrieveDebugList(kubeClient, *centralOpts, writer, istioNamespace)
 
 			case strings.Contains(eString, "querystring parameter 'resource' is required"):
 				return nil, fmt.Errorf("querystring parameter 'resource' is required, e.g. [%s]",
@@ -128,7 +97,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 					Err: fmt.Errorf("debug type is required"),
 				}
 			}
-			var xdsRequest *discovery.DeltaDiscoveryRequest
+			var xdsRequest discovery.DeltaDiscoveryRequest
 			var namespace, serviceAccount string
 
 			var resourceNames []string
@@ -139,7 +108,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				}
 				resourceNames = append(resourceNames, fmt.Sprintf("%s.%s", name, ns))
 			}
-			xdsRequest = &discovery.DeltaDiscoveryRequest{
+			xdsRequest = discovery.DeltaDiscoveryRequest{
 				ResourceNamesSubscribe: resourceNames,
 				Node: &core.Node{
 					Id: "debug~0.0.0.0~istioctl~cluster.local",
@@ -147,7 +116,9 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				TypeUrl: v3.DebugType + "/" + args[0],
 			}
 
-			xdsResponses, err := multixds.MultiRequestAndProcessXds(internalDebugAllIstiod, xdsRequest, centralOpts, ctx.IstioNamespace(),
+			var xdsResponses map[string]*discovery.DeltaDiscoveryResponse
+			xdsResponses, err = multixds.MultiRequestAndProcessXds(internalDebugAllIstiod,
+				&xdsRequest, centralOpts, ctx.IstioNamespace(),
 				namespace, serviceAccount, kubeClient, multixds.DefaultOptions)
 			if err != nil {
 				return err
@@ -156,7 +127,7 @@ By default it will use the default serviceAccount from (istio-system) namespace 
 				Writer:                 c.OutOrStdout(),
 				InternalDebugAllIstiod: internalDebugAllIstiod,
 			}
-			newResponse, err := HandlerForDebugErrors(kubeClient, &centralOpts, c.OutOrStdout(), ctx.IstioNamespace(), xdsResponses)
+			newResponse, err := HandlerForDebugErrors(xdsResponses)
 			if err != nil {
 				return err
 			}

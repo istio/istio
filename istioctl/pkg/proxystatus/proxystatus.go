@@ -22,6 +22,7 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
+	pilotxds "istio.io/istio/pilot/pkg/xds"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
@@ -29,7 +30,6 @@ import (
 	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
-	pilotxds "istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/log"
 )
 
@@ -213,7 +213,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					ResourceNamesSubscribe: []string{fmt.Sprintf("%s.%s", podName, ns)},
 					TypeUrl:                pilotxds.TypeDebugConfigDump,
 				}
-				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, ctx.IstioNamespace(), "", "", kubeClient, multiXdsOpts)
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, ctx.IstioNamespace(),
+					"", "", kubeClient, multiXdsOpts)
 				if err != nil {
 					return err
 				}
@@ -226,7 +227,8 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 			xdsRequest := discovery.DeltaDiscoveryRequest{
 				TypeUrl: pilotxds.TypeDebugSyncronization,
 			}
-			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, ctx.IstioNamespace(), "", "", kubeClient, multiXdsOpts)
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts,
+				ctx.IstioNamespace(), "", "", kubeClient, multiXdsOpts)
 			if err != nil {
 				return err
 			}

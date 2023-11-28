@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adsc
+package adsc2
 
 import (
 	"fmt"
@@ -31,9 +31,9 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/pkg/log"
 )
 
 var testCluster = &cluster.Cluster{
@@ -107,6 +107,9 @@ func TestClient(t *testing.T) {
 		log.Infof("handle secret %v: %v", event, res.Name)
 	})
 	client := New(
+		&Config{
+			Address: "localhost:15010",
+		},
 		clusterHandler,
 		Watch[*cluster.Cluster]("*"),
 		listenerHandler,

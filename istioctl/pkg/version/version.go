@@ -157,7 +157,7 @@ func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptio
 	outXDS **discovery.DeltaDiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
 		xdsRequest := discovery.DeltaDiscoveryRequest{
-			TypeUrl: "istio.io/connections",
+			TypeUrl: xds.TypeURLConnect,
 		}
 		kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 		if err != nil {

@@ -319,8 +319,8 @@ func getXdsAddressFromWebhooks(client kube.CLIClient) (*xdsAddr, error) {
 }
 
 // nolint: lll
-func MultiRequestAndProcessXds(all bool, dr *discovery.DeltaDiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
-	ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
+func MultiRequestAndProcessXds(all bool, dr *discovery.DeltaDiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions,
+	istioNamespace string, ns string, serviceAccount string, kubeClient kube.CLIClient, options Options,
 ) (map[string]*discovery.DeltaDiscoveryResponse, error) {
 	// If Central Istiod case, just call it
 	if ns == "" {

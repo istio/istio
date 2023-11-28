@@ -42,7 +42,6 @@ import (
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
-
 	mcp "istio.io/api/mcp/v1alpha1"
 	"istio.io/api/mesh/v1alpha1"
 	mem "istio.io/istio/pilot/pkg/config/memory"
@@ -128,7 +127,6 @@ type Config struct {
 	// ResponseHandler will be called on each DiscoveryResponse.
 	// TODO: mirror Generator, allow adding handler per type
 	ResponseHandler      ResponseHandler
-	DeltaResponseHandler DeltaResponseHandler
 
 	GrpcOpts []grpc.DialOption
 }
@@ -285,7 +283,7 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 		opts.NodeType = "sidecar"
 	}
 	if opts.IP == "" {
-		opts.IP = getPrivateIPIfAvailable().String()
+		opts.IP = GetPrivateIPIfAvailable().String()
 	}
 	if opts.Workload == "" {
 		opts.Workload = "test-1"
@@ -336,7 +334,7 @@ func (a *ADSC) Dial() error {
 }
 
 // Returns a private IP address, or unspecified IP (0.0.0.0) if no IP is available
-func getPrivateIPIfAvailable() netip.Addr {
+func GetPrivateIPIfAvailable() netip.Addr {
 	addrs, _ := net.InterfaceAddrs()
 	for _, addr := range addrs {
 		var ip net.IP

@@ -69,8 +69,8 @@ func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
 }
 
 func ExtractClusterSecretResources(t test.Failer, c *cluster.Cluster) []string {
-	resourceNames := sets.New()
-	sockets := []*core.TransportSocket{}
+	resourceNames := sets.New[string]()
+	var sockets []*core.TransportSocket
 	if c.TransportSocket != nil {
 		sockets = append(sockets, c.TransportSocket)
 	}
@@ -87,12 +87,12 @@ func ExtractClusterSecretResources(t test.Failer, c *cluster.Cluster) []string {
 			resourceNames.Insert(s.GetName())
 		}
 	}
-	return resourceNames.SortedList()
+	return resourceNames.UnsortedList()
 }
 
 func ExtractListenerSecretResources(t test.Failer, l *listener.Listener) []string {
-	resourceNames := sets.New()
-	sockets := []*core.TransportSocket{}
+	resourceNames := sets.New[string]()
+	var sockets []*core.TransportSocket
 	for _, fc := range l.GetFilterChains() {
 		if fc.GetTransportSocket() != nil {
 			sockets = append(sockets, fc.GetTransportSocket())
@@ -108,7 +108,7 @@ func ExtractListenerSecretResources(t test.Failer, l *listener.Listener) []strin
 			resourceNames.Insert(s.GetName())
 		}
 	}
-	return resourceNames.SortedList()
+	return resourceNames.UnsortedList()
 }
 
 // ExtractSecretResources fetches all referenced SDS resource names from a list of clusters and listeners

@@ -24,6 +24,7 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"github.com/google/uuid"
 	"go.uber.org/atomic"
 	"golang.org/x/time/rate"
@@ -560,6 +561,7 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["api/"+TypeURLConnect] = s.StatusGen
 
 	s.Generators["event"] = s.StatusGen
+	s.Generators[resource.APITypePrefix+"envoy.service.status.v3.ClientConfig"] = s.StatusGen
 	s.Generators[v3.DebugType] = NewDebugGen(s, systemNameSpace, internalDebugMux)
 	s.Generators[v3.BootstrapType] = &BootstrapGenerator{Server: s}
 }
