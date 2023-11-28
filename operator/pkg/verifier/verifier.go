@@ -20,8 +20,6 @@ import (
 	"strings"
 
 	"github.com/fatih/color"
-	"github.com/hashicorp/go-multierror"
-	admitv1 "k8s.io/api/admissionregistration/v1"
 	appsv1 "k8s.io/api/apps/v1"
 	v1batch "k8s.io/api/batch/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,13 +30,15 @@ import (
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/yaml"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"istio.io/api/label"
+	operatprv1alpha1 "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	operator_istio "istio.io/istio/operator/pkg/apis/istio"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/controlplane"
+	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util"
@@ -72,6 +72,7 @@ type StatusVerifier struct {
 	successMarker    string
 	failureMarker    string
 	client           kube.CLIClient
+	kclient          client.Client
 }
 
 type StatusVerifierOptions func(*StatusVerifier)
@@ -90,7 +91,7 @@ func WithIOP(iop *v1alpha1.IstioOperator) StatusVerifierOptions {
 
 // NewStatusVerifier creates a new instance of post-install verifier
 // which checks the status of various resources from the manifest.
-func NewStatusVerifier(client kube.CLIClient, istioNamespace, manifestsPath string,
+func NewStatusVerifier(kubeClient kube.CLIClient, client client.Client, istioNamespace, manifestsPath string,
 	filenames []string, controlPlaneOpts clioptions.ControlPlaneOptions,
 	options ...StatusVerifierOptions,
 ) (*StatusVerifier, error) {
@@ -102,7 +103,8 @@ func NewStatusVerifier(client kube.CLIClient, istioNamespace, manifestsPath stri
 		manifestsPath:    manifestsPath,
 		filenames:        filenames,
 		controlPlaneOpts: controlPlaneOpts,
-		client:           client,
+		client:           kubeClient,
+		kclient:          client,
 	}
 
 	for _, opt := range options {
@@ -129,6 +131,7 @@ func (v *StatusVerifier) Verify() error {
 	return v.verifyInstall()
 }
 
+// verifyInstallIOPRevision verifies the default installation of IstioOperator with the revision.
 func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	var err error
 	if v.controlPlaneOpts.Revision == "" {
@@ -139,46 +142,43 @@ func (v *StatusVerifier) verifyInstallIOPRevision() error {
 	} else if v.controlPlaneOpts.Revision == "default" {
 		v.controlPlaneOpts.Revision = ""
 	}
-	iops, err := v.operatorsFromCluster(v.controlPlaneOpts.Revision)
+
+	emptyiops := &operatprv1alpha1.IstioOperatorSpec{Profile: "empty", Revision: v.controlPlaneOpts.Revision}
+	iop, err := translate.IOPStoIOP(emptyiops, "", "")
 	if err != nil {
-		// At this point we know there is no IstioOperator defining a control plane.  This may
-		// be the case in a Istio cluster with external control plane.
-		v.logger.LogAndErrorf("error while fetching revision %s: %v", v.controlPlaneOpts.Revision, err.Error())
-		injector, err2 := v.injectorFromCluster(v.controlPlaneOpts.Revision)
-		if err2 == nil && injector != nil {
-			// The cluster *is* configured for Istio, but no IOP is present.  This could mean
-			// - the user followed our remote control plane instructions
-			// - helm was used
-			// - user did `istioctl manifest generate | kubectl apply ...`
-			return fmt.Errorf("Istio present but verify-install needs an IstioOperator or manifest for comparison. Supply flag --filename <yaml>") // nolint: stylecheck
-		}
-		return fmt.Errorf("could not load IstioOperator from cluster: %v. Use --filename", err)
+		return err
 	}
-	var crdTotal, istioDeploymentTotal, daemonSetTotal int
-	multiErr := &multierror.Error{}
-	for _, iop := range iops {
-		if v.manifestsPath != "" {
-			iop.Spec.InstallPackagePath = v.manifestsPath
-		}
-		profile := manifest.GetProfile(iop)
-		by, err := yaml.Marshal(iop)
-		if err != nil {
-			return err
-		}
-		mergedIOP, err := manifest.GetMergedIOP(string(by), profile, v.manifestsPath, v.controlPlaneOpts.Revision, v.client, v.logger)
-		if err != nil {
-			return err
-		}
-		crdCount, istioDeploymentCount, daemonSetCount, err := v.verifyPostInstallIstioOperator(
-			mergedIOP, fmt.Sprintf("in cluster operator %s", mergedIOP.GetName()))
-		if err != nil {
-			multiErr = multierror.Append(multiErr, err)
-		}
-		crdTotal += crdCount
-		istioDeploymentTotal += istioDeploymentCount
-		daemonSetTotal += daemonSetCount
+	h, err := helmreconciler.NewHelmReconciler(v.kclient, v.client, iop, &helmreconciler.Options{})
+	if err != nil {
+		return err
 	}
-	return v.reportStatus(crdTotal, istioDeploymentTotal, daemonSetTotal, multiErr.ErrorOrNil())
+	resources, err := h.GetPrunedResources(v.controlPlaneOpts.Revision, true, "")
+	if err != nil {
+		return err
+	}
+	builder := resource.NewBuilder(v.client.UtilFactory()).ContinueOnError().Unstructured()
+	for i, re := range resources {
+		rj, err := re.MarshalJSON()
+		if err != nil {
+			continue
+		}
+		pseudoFilename := fmt.Sprintf("%d: generated from %s", i, "default")
+
+		reader := strings.NewReader(string(rj))
+		builder = builder.Stream(reader, pseudoFilename)
+	}
+	r := builder.Flatten().Do()
+	if r.Err() != nil {
+		return r.Err()
+	}
+	visitor := genericclioptions.ResourceFinderForResult(r).Do()
+	generatedCrds, generatedDeployments, generatedDaemonSets, err := v.verifyPostInstall(
+		visitor,
+		fmt.Sprintf("generated from %s", "default"))
+	if err != nil {
+		return err
+	}
+	return v.reportStatus(generatedCrds, generatedDeployments, generatedDaemonSets, nil)
 }
 
 func (v *StatusVerifier) getRevision() (string, error) {
@@ -429,55 +429,6 @@ func resourceKinds(un *unstructured.Unstructured) string {
 		kinds = specialKind
 	}
 	return kinds
-}
-
-// Find Istio injector matching revision.  ("" matches any revision.)
-func (v *StatusVerifier) injectorFromCluster(revision string) (*admitv1.MutatingWebhookConfiguration, error) {
-	hooks, err := v.client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
-	if err != nil {
-		return nil, err
-	}
-
-	revCount := 0
-	var hookmatch *admitv1.MutatingWebhookConfiguration
-	for i, hook := range hooks.Items {
-		rev := hook.ObjectMeta.GetLabels()[label.IoIstioRev.Name]
-		if rev != "" {
-			revCount++
-			revision = rev
-			if revision == "" || revision == rev {
-				hookmatch = &hooks.Items[i]
-			}
-		}
-	}
-
-	v.logger.LogAndPrintf("%d Istio injectors detected", revCount)
-	if hookmatch != nil {
-		return hookmatch, nil
-	}
-
-	return nil, fmt.Errorf("Istio injector revision %q not found", revision) // nolint: stylecheck
-}
-
-// Find an IstioOperator matching revision in the cluster.  The IstioOperators
-// don't have a label for their revision, so we parse them and check .Spec.Revision
-func (v *StatusVerifier) operatorsFromCluster(revision string) ([]*v1alpha1.IstioOperator, error) {
-	iops, err := AllOperatorsInCluster(v.client.Dynamic())
-	if err != nil {
-		return nil, err
-	}
-	iopsMatch := make([]*v1alpha1.IstioOperator, 0)
-	for _, iop := range iops {
-		if iop.Spec.Revision == revision ||
-			(iop.Spec.Revision == "default" && revision == "") ||
-			(iop.Spec.Revision == "" && revision == "default") {
-			iopsMatch = append(iopsMatch, iop)
-		}
-	}
-	if len(iopsMatch) > 0 {
-		return iopsMatch, nil
-	}
-	return nil, fmt.Errorf("control plane revision %q not found", revision)
 }
 
 func (v *StatusVerifier) reportStatus(crdCount, istioDeploymentCount, daemonSetCount int, err error) error {

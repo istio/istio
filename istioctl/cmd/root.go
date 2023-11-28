@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/istioctl/pkg/dashboard"
 	"istio.io/istio/istioctl/pkg/describe"
 	"istio.io/istio/istioctl/pkg/injector"
-	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/internaldebug"
 	"istio.io/istio/istioctl/pkg/kubeinject"
 	"istio.io/istio/istioctl/pkg/metrics"
@@ -193,7 +192,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(admin.Cmd(ctx))
 	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
-	rootCmd.AddCommand(install.NewVerifyCommand(ctx))
+	rootCmd.AddCommand(mesh.NewVerifyCommand(ctx))
 	rootCmd.AddCommand(mesh.UninstallCmd(ctx, root.LoggingOptions))
 
 	experimentalCmd.AddCommand(authz.AuthZ(ctx))

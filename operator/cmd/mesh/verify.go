@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package install
+package mesh
 
 import (
 	"fmt"
@@ -23,7 +23,8 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/formatting"
-	"istio.io/istio/istioctl/pkg/verifier"
+	"istio.io/istio/operator/pkg/util/clog"
+	"istio.io/istio/operator/pkg/verifier"
 )
 
 // NewVerifyCommand creates a new command for verifying Istio Installation Status
@@ -71,7 +72,15 @@ istioctl experimental precheck.
 			if err != nil {
 				return err
 			}
-			installationVerifier, err := verifier.NewStatusVerifier(client, ctx.IstioNamespace(), manifestsPath, filenames, opts)
+
+			l := clog.NewConsoleLogger(c.OutOrStdout(), c.OutOrStderr(), installerScope)
+			client, kubeClient, err := KubernetesClients(client, l)
+			if err != nil {
+				return err
+			}
+
+			installationVerifier, err := verifier.NewStatusVerifier(client, kubeClient,
+				ctx.IstioNamespace(), manifestsPath, filenames, opts, verifier.WithLogger(l))
 			if err != nil {
 				return err
 			}
