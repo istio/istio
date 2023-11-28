@@ -263,7 +263,6 @@ func TestDefaultWithLabel(t *testing.T) {
 }
 
 func TestLogWithTime(t *testing.T) {
-
 	getLogTime := func(t *testing.T, line string) time.Time {
 		type logEntry struct {
 			Time time.Time `json:"time"`
