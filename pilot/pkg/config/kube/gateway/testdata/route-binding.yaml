@@ -45,8 +45,8 @@ spec:
         from: All
       kinds:
       - kind: TCPRoute
-  - name: namespace-selector
-    hostname: "*.namespace-selector.example"
+  - name: selector-labels
+    hostname: "*.selector-labels.example"
     port: 80
     protocol: HTTP
     allowedRoutes:
@@ -55,6 +55,73 @@ spec:
         selector:
           matchLabels:
             istio.io/test-name-part: group
+  - name: selector-expr-in
+    hostname: "*.selector-expr-in.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: In
+            values:
+              - group
+  - name: selector-expr-notin
+    hostname: "*.selector-expr-notin.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: NotIn
+            values:
+              - excluded
+          - key: istio.io/test-label-not-found
+            operator: NotIn
+            values:
+              - irrelevant
+  - name: selector-expr-exists
+    hostname: "*.selector-expr-exists.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: Exists
+  - name: selector-expr-dne
+    hostname: "*.selector-expr-dne.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-label-not-found
+            operator: DoesNotExist
+  - name: selector-combined
+    hostname: "*.selector-combined.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            istio.io/test-name-part: group
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: In
+            values:
+              - group
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -162,7 +229,7 @@ spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
-    sectionName: namespace-selector
+    sectionName: selector-labels
   rules:
   - backendRefs:
     - name: httpbin
@@ -177,7 +244,7 @@ spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
-    sectionName: namespace-selector
+    sectionName: selector-labels
   rules:
   - backendRefs:
     - name: httpbin
@@ -192,7 +259,7 @@ spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
-    sectionName: namespace-selector
+    sectionName: selector-labels
   rules:
   - backendRefs:
     - name: httpbin
