@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+releaseNotes:
+  - |
+    **Improved** pilot-agent will return the return of http probe body from the original probe API setting in the container as well as statuscode.
