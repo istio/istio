@@ -343,7 +343,7 @@ func handleEvent(s *Server) {
 		return
 	}
 
-	err = s.updatePluggedinRootCertAndGenKeyCert()
+	err = s.updateRootCertAndGenKeyCert()
 	if err != nil {
 		log.Errorf("Failed generating plugged-in istiod key cert: %v", err)
 		return
@@ -456,6 +456,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		if err != nil {
 			return nil, err
 		}
+		caOpts.OnRootCertUpdate = s.updateRootCertAndGenKeyCert
 	} else {
 		// The secret is mounted and the "istio-generated" key is not used.
 		log.Info("Use local CA certificate")
@@ -467,7 +468,6 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 
 		s.initCACertsWatcher()
 	}
-	caOpts.OnRootCertUpdate = s.updatePluggedinRootCertAndGenKeyCert
 	istioCA, err := ca.NewIstioCA(caOpts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create an istiod CA: %v", err)

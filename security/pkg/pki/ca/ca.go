@@ -114,7 +114,7 @@ type IstioCAOptions struct {
 	// Config for creating self-signed root cert rotator.
 	RotatorConfig *SelfSignedCARootCertRotatorConfig
 
-	// OnRootCertUpdate is the cb which can only be called by root cert rotator
+	// OnRootCertUpdate is the cb which can only be called by self-signed root cert rotator
 	OnRootCertUpdate func() error
 }
 

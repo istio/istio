@@ -163,7 +163,7 @@ func (rotator *SelfSignedCARootCertRotator) checkAndRotateRootCertForSigningCert
 				rootCertRotatorLog.Info("Successfully reloaded root cert into KeyCertBundle.")
 			}
 			if rotator.onRootCertUpdate != nil {
-				rotator.onRootCertUpdate()
+				_ = rotator.onRootCertUpdate()
 			}
 		}
 		return
@@ -250,7 +250,7 @@ func (rotator *SelfSignedCARootCertRotator) updateRootCertificate(caSecret *v1.S
 	}
 	rootCertRotatorLog.Infof("Root certificate is updated in CA KeyCertBundle: %v", string(cert))
 	if rotator.onRootCertUpdate != nil {
-		rotator.onRootCertUpdate()
+		_ = rotator.onRootCertUpdate()
 	}
 	return false, nil
 }
