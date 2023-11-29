@@ -17,7 +17,7 @@ package slices
 import (
 	"cmp"
 	"fmt"
-	"math/rand" // nolint: not used for security purposes
+	"math/rand"
 	"reflect"
 	"testing"
 
