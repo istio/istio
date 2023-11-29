@@ -85,7 +85,7 @@ func (f *forwarder) Start() error {
 				f.errCh <- fmt.Errorf("port forward: %v", err)
 				return
 			}
-			scopes.Framework.Infof("port forward completed without error")
+			scopes.Framework.Debugf("port forward completed without error")
 			f.errCh <- nil
 			// At this point, either the stopCh has been closed, or port forwarder connection is broken.
 			// the port forwarder should have already been ready before.
