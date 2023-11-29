@@ -508,6 +508,9 @@ include common/Makefile.common.mk
 # Target: wasm
 #-----------------------------------------------------------------------------
 
-.PHONY: wasm.header-injector
+.PHONY: wasm.pushx wasm.header-injector
 wasm.header-injector:
 	@samples/wasm_modules/header_injector_go/build-service.sh
+
+wasm.pushx: wasm.header-injector ## Build and push wasm modules to registry defined by $HUB and $TAG
+

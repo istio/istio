@@ -43,7 +43,7 @@ dockerx.save: docker.save
 	@:
 dockerx.push: docker.push
 	@:
-dockerx.pushx: docker.push
+dockerx.pushx: docker.push wasm.push
 	@:
 dockerx: docker
 	@:
