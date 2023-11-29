@@ -74,7 +74,7 @@ const (
 
 	localHostIPv4 = "127.0.0.1"
 	localHostIPv6 = "::1"
-	maxRespBodyLength = 10 * 1 << 10 // 10KB
+	maxRespBodyLength = 10 * 1 << 10
 )
 
 var (
@@ -792,7 +792,8 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	w.WriteHeader(response.StatusCode)
 	// Return the body from probe as well
 	b, _ := utilio.ReadAtMost(response.Body, maxRespBodyLength)
-	w.Write(b)
+	_, _ = w.Write(b)
+
 }
 
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
