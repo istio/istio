@@ -376,7 +376,7 @@ func (c *Controller) changeWorkloadEntryStateToConnected(entryName string, proxy
 	if conTime.Before(lastConTime) {
 		return false, nil
 	}
-	// Try to patch, if it fails then try to create
+	// Try to update, if it fails we retry all the above logic since the WLE changed
 	updated := wle.DeepCopy()
 	setConnectMeta(&updated, c.instanceID, conTime)
 	_, err := c.store.Update(updated)
