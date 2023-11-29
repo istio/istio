@@ -71,7 +71,6 @@ const (
 	// indicates that httpbin container liveness prober port is 8080 and probing path is /hello.
 	// This environment variable should never be set manually.
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
-
 	localHostIPv4 = "127.0.0.1"
 	localHostIPv6 = "::1"
 	maxRespBodyLength = 10 * 1 << 10
