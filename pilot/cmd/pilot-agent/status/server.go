@@ -43,6 +43,7 @@ import (
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	grpcStatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	utilio "k8s.io/utils/io"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
@@ -73,6 +74,7 @@ const (
 
 	localHostIPv4 = "127.0.0.1"
 	localHostIPv6 = "::1"
+	maxRespBodyLength = 10 * 1 << 10 // 10KB
 )
 
 var (
@@ -788,7 +790,9 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	}
 	// We only write the status code to the response.
 	w.WriteHeader(response.StatusCode)
-	_, _ = io.Copy(w, response.Body)
+	// Return the body from probe as well
+	b, _ := utilio.ReadAtMost(response.Body, maxRespBodyLength)
+	w.Write(b)
 }
 
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
