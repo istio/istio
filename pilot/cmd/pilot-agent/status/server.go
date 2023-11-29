@@ -793,7 +793,6 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	// Return the body from probe as well
 	b, _ := utilio.ReadAtMost(response.Body, maxRespBodyLength)
 	_, _ = w.Write(b)
-
 }
 
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {
