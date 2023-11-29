@@ -257,7 +257,7 @@ func findVethLinkForPeerIP(peerIP net.IP) (*netlink.Veth, error) {
 			log.Warnf("failed to get network namespace name from namespace id '%d' for veth interface %s: %v", veth.Attrs().NetNsID, veth.Name, err)
 		}
 		var peerVethFound bool
-		if err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", filepath.Base(peerNs)), func(netns.NetNS) error {
+		if err := netns.WithNetNSPath(fmt.Sprintf("%s/%s", constants.NetNsPath, filepath.Base(peerNs)), func(netns.NetNS) error {
 			peerLink, err := netlink.LinkByIndex(peerIndex)
 			if err != nil {
 				return fmt.Errorf("failed to get veth interface '%s' by peer index: %v", veth.Name, err)
@@ -321,7 +321,7 @@ func GetIndexAndPeerMac(podIfName, nspath string) (int, net.HardwareAddr, error)
 
 func getMacFromNsIdx(nsName string, ifIndex int) (net.HardwareAddr, error) {
 	var hwAddr net.HardwareAddr
-	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", nsName), func(netns.NetNS) error {
+	err := netns.WithNetNSPath(fmt.Sprintf("%s/%s", constants.NetNsPath, nsName), func(netns.NetNS) error {
 		link, err := netlink.LinkByIndex(ifIndex)
 		if err != nil {
 			return fmt.Errorf("failed to get link(%d) in ns(%s): %v", ifIndex, nsName, err)
@@ -338,7 +338,7 @@ func getMacFromNsIdx(nsName string, ifIndex int) (net.HardwareAddr, error) {
 func getNsNameFromNsID(nsid int) (string, error) {
 	foundNs := errors.New("nsid found, stop iterating")
 	nsName := ""
-	err := filepath.WalkDir("/var/run/netns", func(p string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(constants.NetNsPath, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -891,7 +891,7 @@ func determineDstPortForGeneveLink(remoteIP net.IP, vnis ...uint32) uint16 {
 func (s *Server) CreateEBPFRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztunnelNetNS string) error {
 	ns := filepath.Base(ztunnelNetNS)
 	log.Debugf("CreateEBPFRulesWithinNodeProxyNS: proxyNsVethIdx=%d, ztunnelIP=%s, from within netns=%s", proxyNsVethIdx, ztunnelIP, ztunnelNetNS)
-	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
+	err := netns.WithNetNSPath(fmt.Sprintf("%s/%s", constants.NetNsPath, ns), func(netns.NetNS) error {
 		// Make sure we flush table 100 before continuing - it should be empty in a new namespace
 		// but better to ensure that.
 		if err := routeFlushTable(constants.RouteTableInbound); err != nil {
@@ -1038,7 +1038,7 @@ func (s *Server) createTProxyRulesForLegacyEBPF(ztunnelIP, ifName string) error 
 func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztunnelNetNS, hostIP string, geneveDstPort uint16) error {
 	ns := filepath.Base(ztunnelNetNS)
 	log.Debugf("CreateRulesWithinNodeProxyNS: proxyNsVethIdx=%d, ztunnelIP=%s, hostIP=%s, from within netns=%s", proxyNsVethIdx, ztunnelIP, hostIP, ztunnelNetNS)
-	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
+	err := netns.WithNetNSPath(fmt.Sprintf("%s/%s", constants.NetNsPath, ns), func(netns.NetNS) error {
 		//"p" is just to visually distinguish from the host-side tunnel links in logs
 		inboundGeneveLinkName := "p" + constants.InboundTun
 		outboundGeneveLinkName := "p" + constants.OutboundTun
