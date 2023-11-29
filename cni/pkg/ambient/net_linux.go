@@ -250,11 +250,11 @@ func findVethLinkForPeerIP(peerIP net.IP) (*netlink.Veth, error) {
 		veth := l.(*netlink.Veth)
 		peerIndex, err := getPeerIndex(veth)
 		if err != nil {
-			log.Warnf("failed to get peer index for veth interface %s: %v", veth.Name, err)
+			continue
 		}
 		peerNs, err := getNsNameFromNsID(veth.Attrs().NetNsID)
 		if err != nil {
-			log.Warnf("failed to get network namespace name from namespace id '%d' for veth interface %s: %v", veth.Attrs().NetNsID, veth.Name, err)
+			continue
 		}
 		var peerVethFound bool
 		if err := netns.WithNetNSPath(filepath.Join(constants.NetNsPath, filepath.Base(peerNs)), func(netns.NetNS) error {
