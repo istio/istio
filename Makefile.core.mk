@@ -503,3 +503,11 @@ bookinfo.push:
 	@BOOKINFO_TAG=${BOOKINFO_VERSION} BOOKINFO_HUB=${HUB} samples/bookinfo/src/build-services.sh --push
 
 include common/Makefile.common.mk
+
+#-----------------------------------------------------------------------------
+# Target: wasm
+#-----------------------------------------------------------------------------
+
+.PHONY: wasm.header-injector
+wasm.header-injector:
+	@samples/wasm_modules/header_injector_go/build-service.sh
