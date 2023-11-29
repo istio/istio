@@ -36,6 +36,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -534,7 +535,7 @@ func (r *RedirectServer) attachTCForWorkLoad(ifindex uint32) error {
 func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction string, fd uint32, name string) error {
 	config := &tc.Config{}
 	if namespace != "" {
-		nsHdlr, err := ns.GetNS(fmt.Sprintf("%s/%s", constants.NetNsPath, namespace))
+		nsHdlr, err := ns.GetNS(filepath.Join(constants.NetNsPath, namespace))
 		if err != nil {
 			return err
 		}
@@ -628,7 +629,7 @@ func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction st
 func (r *RedirectServer) delClsactQdisc(namespace string, ifindex uint32) error {
 	config := &tc.Config{}
 	if namespace != "" {
-		nsHdlr, err := ns.GetNS(fmt.Sprintf("%s/%s", constants.NetNsPath, namespace))
+		nsHdlr, err := ns.GetNS(filepath.Join(constants.NetNsPath, namespace))
 		if err != nil {
 			return err
 		}
