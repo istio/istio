@@ -22,6 +22,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+	"time"
 )
 
 type udsServer struct {
@@ -64,38 +65,57 @@ func TestUDSLog(t *testing.T) {
 		}
 	}()
 
-	WithLabels("k", "v").Info("test")
-	Warn("test2")
-	Sync()
+	{
+		t.Log("test sending normal log")
 
-	// There should be two messages received at server
-	// {"msg":"test","k":"v"}
-	// {"msg":"test2"}
-	if got, want := len(srv.messages), 2; got != want {
-		t.Fatalf("number received log messages got %v want %v", got, want)
-	}
-	type testMessage struct {
-		Msg string `json:"msg"`
-		K   string `json:"k"`
+		WithLabels("k", "v").Info("test")
+		Warn("test2")
+		Sync()
+
+		// There should be two messages received at server
+		// {"msg":"test","k":"v"}
+		// {"msg":"test2"}
+		if got, want := len(srv.messages), 2; got != want {
+			t.Fatalf("number received log messages got %v want %v", got, want)
+		}
+		type testMessage struct {
+			Msg string `json:"msg"`
+			K   string `json:"k"`
+		}
+
+		want := []testMessage{
+			{Msg: "test", K: "v"},
+			{Msg: "test2"},
+		}
+		got := make([]testMessage, 2)
+		json.Unmarshal([]byte(srv.messages[0]), &got[0])
+		json.Unmarshal([]byte(srv.messages[1]), &got[1])
+		if !reflect.DeepEqual(got, want) {
+			t.Errorf("received log messages, got %v want %v", got, want)
+		}
 	}
 
-	want := []testMessage{
-		{Msg: "test", K: "v"},
-		{Msg: "test2"},
-	}
-	got := make([]testMessage, 2)
-	json.Unmarshal([]byte(srv.messages[0]), &got[0])
-	json.Unmarshal([]byte(srv.messages[1]), &got[1])
-	if !reflect.DeepEqual(got, want) {
-		t.Errorf("received log messages, got %v want %v", got, want)
-	}
+	{
+		t.Log("test sending log with specified time")
 
-	// Clean up all the mssages, and log again. Check that buffer is cleaned up properly.
-	srv.messages = make([]string, 0)
-	Warn("test3")
-	Sync()
-	// There should only be one message in the buffer
-	if got, want := len(srv.messages), 1; got != want {
-		t.Fatalf("number received log messages got %v want %v", got, want)
+		// Clean up all the mssages, and log again. Check that buffer is cleaned up properly.
+		srv.messages = make([]string, 0)
+		yesterday := time.Now().Add(-time.Hour * 24).Truncate(time.Microsecond)
+		defaultScope.LogWithTime(InfoLevel, "test3", yesterday)
+		Sync()
+		// There should only be one message in the buffer
+		if got, want := len(srv.messages), 1; got != want {
+			t.Fatalf("number received log messages got %v want %v", got, want)
+		}
+
+		type testMessage struct {
+			Msg  string    `json:"msg"`
+			Time time.Time `json:"time"`
+		}
+		var got testMessage
+		json.Unmarshal([]byte(srv.messages[0]), &got)
+		if got.Time.UnixNano() != yesterday.UnixNano() {
+			t.Errorf("received log message with specified time, got %v want %v", got.Time, yesterday)
+		}
 	}
 }

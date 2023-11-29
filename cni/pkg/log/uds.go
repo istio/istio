@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"time"
 
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/pkg/log"
@@ -36,8 +37,9 @@ type UDSLogger struct {
 }
 
 type cniLog struct {
-	Level string `json:"level"`
-	Msg   string `json:"msg"`
+	Level string    `json:"level"`
+	Time  time.Time `json:"time"`
+	Msg   string    `json:"msg"`
 }
 
 func NewUDSLogger() *UDSLogger {
@@ -117,13 +119,13 @@ func (l *UDSLogger) processLog(body []byte) {
 		// There is no fatal log from CNI plugin
 		switch m.Level {
 		case "debug":
-			pluginLog.Debug(m.Msg)
+			pluginLog.LogWithTime(log.DebugLevel, m.Msg, m.Time)
 		case "info":
-			pluginLog.Info(m.Msg)
+			pluginLog.LogWithTime(log.InfoLevel, m.Msg, m.Time)
 		case "warn":
-			pluginLog.Warn(m.Msg)
+			pluginLog.LogWithTime(log.WarnLevel, m.Msg, m.Time)
 		case "error":
-			pluginLog.Error(m.Msg)
+			pluginLog.LogWithTime(log.ErrorLevel, m.Msg, m.Time)
 		}
 	}
 }
