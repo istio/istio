@@ -143,6 +143,8 @@ func (c *clientFactory) KubernetesClientSet() (*kubernetes.Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	restConfig.QPS = float32(features.RequestLimit)
+	restConfig.Burst = int(features.RequestLimit) * 2
 	return kubernetes.NewForConfig(restConfig)
 }
 
