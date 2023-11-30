@@ -21,12 +21,11 @@ import (
 	"crypto/tls"
 	"fmt"
 	"strings"
+	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-	"google.golang.org/protobuf/proto"
-	"google.golang.org/protobuf/types/known/anypb"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/adsc2"
@@ -45,16 +44,7 @@ var tokenAudiences = []string{"istio-ca"}
 func GetXdsResponse(dr *discovery.DeltaDiscoveryRequest, ns, serviceAccount string, opts clioptions.CentralControlPlaneOptions,
 	grpcOpts []grpc.DialOption,
 ) (*discovery.DeltaDiscoveryResponse, error) {
-	waitRes := make(chan *anypb.Any, 10)
-
 	handlers := make([]adsc2.Option, 0)
-	count := 0
-	handlers = append(handlers, adsc2.RegisterType(dr.TypeUrl, func(ctx adsc2.HandlerContext, res proto.Message, event adsc2.Event) {
-		waitRes <- res.(*anypb.Any)
-		if count == 0 {
-			count = ctx.ResourceCount()
-		}
-	}))
 	for _, resource := range dr.ResourceNamesSubscribe {
 		handlers = append(handlers, adsc2.WatchType(dr.TypeUrl, resource))
 	}
@@ -83,23 +73,15 @@ func GetXdsResponse(dr *discovery.DeltaDiscoveryRequest, ns, serviceAccount stri
 		return nil, err
 	}
 
-	results := make([]*anypb.Any, 0)
-
-	for res := range waitRes {
-		results = append(results, res)
-		if count == len(results) {
-			break
-		}
+	added, _, err := adsClient.WaitResources(time.Second*5, dr.TypeUrl)
+	if err != nil {
+		return nil, err
 	}
 
 	adsClient.Close()
 
-	resources := make([]*discovery.Resource, 0)
-	for _, result := range results {
-		resources = append(resources, &discovery.Resource{Resource: result})
-	}
 	return &discovery.DeltaDiscoveryResponse{
-		Resources: resources,
+		Resources: added,
 	}, nil
 }
 

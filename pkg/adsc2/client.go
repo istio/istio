@@ -24,6 +24,8 @@ import (
 	"os"
 	"reflect"
 	"strings"
+	"sync"
+	"time"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
@@ -72,17 +74,15 @@ type resourceNode struct {
 type HandlerContext interface {
 	RegisterDependency(typeURL string, resourceName ...string)
 	Reject(reason error)
-	ResourceCount() int
 }
 
 var _ HandlerContext = &handlerContext{}
 
-// HandlerContext provides an event for a single resource, allowing handlers to react to it.
+// HandlerContext provides an event for a single delta response, allowing handlers to react to it.
 // Operations done in the handler may be batched together with other handler's.
 type handlerContext struct {
-	sub   keySet
-	nack  error
-	count int
+	sub  keySet
+	nack error
 }
 
 func (h *handlerContext) RegisterDependency(typeURL string, resourceName ...string) {
@@ -100,10 +100,6 @@ func (h *handlerContext) RegisterDependency(typeURL string, resourceName ...stri
 
 func (h *handlerContext) Reject(reason error) {
 	h.nack = reason
-}
-
-func (h *handlerContext) ResourceCount() int {
-	return h.count
 }
 
 type Config struct {
@@ -176,6 +172,15 @@ type Client struct {
 
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta
 	sendNodeMeta atomic.Bool
+
+	mutex sync.RWMutex
+	// Last received message, by type
+	received        map[string]*discovery.DeltaDiscoveryResponse
+	deltaXDSUpdates chan *discovery.DeltaDiscoveryResponse
+
+	resourceCache *cache
+
+	errChan chan error
 }
 
 func (c *Client) trigger(ctx *handlerContext, url string, r *discovery.Resource, event Event) error {
@@ -311,9 +316,14 @@ type Option func(c *Client)
 
 func New(config *Config, opts ...Option) *Client {
 	c := &Client{
-		config:   initConfigIfNotPresent(config),
-		handlers: map[string]interface{}{},
-		tree:     map[resourceKey]resourceNode{},
+		config:          initConfigIfNotPresent(config),
+		handlers:        map[string]interface{}{},
+		tree:            map[resourceKey]resourceNode{},
+		errChan:         make(chan error, 10),
+		deltaXDSUpdates: make(chan *discovery.DeltaDiscoveryResponse, 100),
+		received:        map[string]*discovery.DeltaDiscoveryResponse{},
+		mutex:           sync.RWMutex{},
+		resourceCache:   newResourceCache(),
 	}
 	for _, o := range opts {
 		o(c)
@@ -382,6 +392,7 @@ func (c *Client) handleRecv() {
 		msg, err := c.xdsClient.Recv()
 		if err != nil {
 			scope.Infof("Connection closed: %v", err)
+			c.errChan <- err
 			c.Close()
 			return
 		}
@@ -398,18 +409,28 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 	var rejects []error
 	allAdds := map[string]set.Set[string]{}
 	allRemoves := map[string]set.Set[string]{}
-	ctx := &handlerContext{
-		count: len(d.Resources),
-	}
-	for _, r := range d.Resources {
-		if isDebugType(d.TypeUrl) {
-			// No need to ack and type check for debug types
+	ctx := &handlerContext{}
+	defer func() {
+		c.mutex.Lock()
+		c.received[d.TypeUrl] = d
+		c.mutex.Unlock()
+		select {
+		case c.deltaXDSUpdates <- d:
+		default:
+		}
+	}()
+	if isDebugType(d.TypeUrl) {
+		// No need to ack and type check for debug types
+		// TODO do we need to trigger handlers for debug types?
+		for _, r := range d.Resources {
 			err := c.trigger(ctx, d.TypeUrl, r, EventAdd)
 			if err != nil {
 				return err
 			}
-			continue
 		}
+		return nil
+	}
+	for _, r := range d.Resources {
 		if d.TypeUrl != r.Resource.TypeUrl {
 			log.Fatalf("mismatch of type url: %v vs %v", d.TypeUrl, r.Resource.TypeUrl)
 		}
@@ -422,6 +443,7 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 			TypeUrl: r.Resource.TypeUrl,
 		}
 		c.establishResource(parentKey)
+		c.resourceCache.put(parentKey, r)
 
 		if ctx.nack != nil {
 			rejects = append(rejects, ctx.nack)
@@ -446,21 +468,22 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		}
 	}
 	for _, r := range d.RemovedResources {
-		// TODO: we need to actually store the resources so we can pass them down in this case
-		err := c.trigger(ctx, d.TypeUrl, nil, EventDelete)
-		if err != nil {
-			return err
-		}
-
 		key := resourceKey{
 			Name:    r,
 			TypeUrl: d.TypeUrl,
 		}
+		cached := c.resourceCache.get(key)
+		err := c.trigger(ctx, d.TypeUrl, cached, EventDelete)
+		if err != nil {
+			return err
+		}
+
 		if _, f := allRemoves[key.TypeUrl]; !f {
 			allRemoves[key.TypeUrl] = set.New[string]()
 		}
 		allRemoves[key.TypeUrl].Insert(key.Name)
 		c.drop(key)
+		c.resourceCache.delete(key)
 	}
 	c.send(resourceKey{TypeUrl: d.TypeUrl}, d.Nonce, joinError(rejects))
 	for t, sub := range allAdds {
@@ -620,12 +643,19 @@ func (c *Client) dumpNode(sb *strings.Builder, key resourceKey, indent string) {
 func (c *Client) Close() {
 	if c.conn != nil {
 		c.conn.Close()
+		c.conn = nil
 	}
 }
 
 func (c *Client) request(w resourceKey) {
-	// TODO: we need nonce for things after the first
-	c.send(w, "", nil)
+	c.mutex.Lock()
+	ex := c.received[w.TypeUrl]
+	c.mutex.Unlock()
+	nonce := ""
+	if ex != nil {
+		nonce = ex.Nonce
+	}
+	c.send(w, nonce, nil)
 }
 
 func (c *Client) send(w resourceKey, nonce string, err error) {
@@ -690,4 +720,50 @@ func (c *Client) update(t string, sub, unsub set.Set[string], d *discovery.Delta
 		req.ResourceNamesUnsubscribe = unsub.UnsortedList()
 	}
 	c.xdsClient.Send(req)
+}
+
+// WaitResources waits for a new or updated for a typeURL.
+func (c *Client) WaitResources(to time.Duration, typeURL string) (added []*discovery.Resource, removed []*discovery.Resource, err error) {
+	t := time.NewTimer(to)
+	c.mutex.Lock()
+	ex := c.received[typeURL]
+	c.mutex.Unlock()
+	if ex != nil {
+		return ex.Resources, c.getResources(ex.TypeUrl, ex.RemovedResources...), nil
+	}
+
+	for {
+		select {
+		case t := <-c.deltaXDSUpdates:
+			if t == nil {
+				return nil, nil, fmt.Errorf("closed")
+			}
+			if t.TypeUrl == typeURL {
+				return t.Resources, c.getResources(t.TypeUrl, t.RemovedResources...), nil
+			}
+
+		case <-t.C:
+			return nil, nil, fmt.Errorf("timeout, still waiting for updates: %v", typeURL)
+		case err, ok := <-c.errChan:
+			if ok {
+				return nil, nil, err
+			}
+			return nil, nil, fmt.Errorf("connection closed")
+		}
+	}
+}
+
+func (c *Client) getResources(typeURL string, resourceNames ...string) []*discovery.Resource {
+	resources := make([]*discovery.Resource, 0, len(resourceNames))
+	for _, name := range resourceNames {
+		key := resourceKey{
+			Name:    name,
+			TypeUrl: typeURL,
+		}
+		cached := c.resourceCache.get(key)
+		if cached != nil {
+			resources = append(resources, cached)
+		}
+	}
+	return resources
 }
