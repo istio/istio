@@ -21,13 +21,13 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/spf13/cobra"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 )
 
 func HandlerForDebugErrors(xdsResponses map[string]*discovery.DeltaDiscoveryResponse,

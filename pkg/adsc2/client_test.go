@@ -15,7 +15,8 @@
 package adsc2
 
 import (
-	"fmt"
+	"context"
+	"net"
 	"testing"
 	"time"
 
@@ -24,17 +25,34 @@ import (
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
+	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
+	"github.com/google/go-cmp/cmp"
+	"google.golang.org/grpc"
+	"google.golang.org/protobuf/testing/protocmp"
 
 	authn_model "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/retry"
 )
+
+type mockDeltaXdsServer struct{}
+
+var deltaHandler func(stream discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error
+
+func (t *mockDeltaXdsServer) StreamAggregatedResources(discovery.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+	return nil
+}
+
+func (t *mockDeltaXdsServer) DeltaAggregatedResources(delta discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+	return deltaHandler(delta)
+}
 
 var testCluster = &cluster.Cluster{
 	Name:                 "test-eds",
@@ -79,9 +97,134 @@ var testClusterNoSecret = &cluster.Cluster{
 	LbPolicy: cluster.Cluster_ROUND_ROBIN,
 }
 
-func TestClient(t *testing.T) {
+var testListener = &listener.Listener{
+	Name: "test-listener",
+	Address: &core.Address{
+		Address: &core.Address_SocketAddress{
+			SocketAddress: &core.SocketAddress{
+				Protocol: core.SocketAddress_TCP,
+				Address:  "0.0.0.0",
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: 8080,
+				},
+			},
+		},
+	},
+	FilterChains: []*listener.FilterChain{
+		{
+			Filters: []*listener.Filter{
+				{
+					Name: wellknown.HTTPConnectionManager,
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+								Rds: &hcm.Rds{
+									RouteConfigName: "test-rds-config",
+									ConfigSource: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_Ads{
+											Ads: &core.AggregatedConfigSource{},
+										},
+									},
+								},
+							},
+						}),
+					},
+				},
+			},
+			TransportSocket: &core.TransportSocket{
+				Name: wellknown.TransportSocketTLS,
+				ConfigType: &core.TransportSocket_TypedConfig{
+					TypedConfig: protoconv.MessageToAny(&tls.DownstreamTlsContext{
+						CommonTlsContext: &tls.CommonTlsContext{
+							ValidationContextType: &tls.CommonTlsContext_CombinedValidationContext{
+								CombinedValidationContext: &tls.CommonTlsContext_CombinedCertificateValidationContext{
+									ValidationContextSdsSecretConfig: &tls.SdsSecretConfig{
+										Name:      "kubernetes://test",
+										SdsConfig: authn_model.SDSAdsConfig,
+									},
+								},
+							},
+						},
+					}),
+				},
+			},
+		},
+	},
+}
+
+var testListenerNoSecret = &listener.Listener{
+	Name: "test-listener",
+	Address: &core.Address{
+		Address: &core.Address_SocketAddress{
+			SocketAddress: &core.SocketAddress{
+				Protocol: core.SocketAddress_TCP,
+				Address:  "0.0.0.0",
+				PortSpecifier: &core.SocketAddress_PortValue{
+					PortValue: 8080,
+				},
+			},
+		},
+	},
+	FilterChains: []*listener.FilterChain{
+		{
+			Filters: []*listener.Filter{
+				{
+					Name: wellknown.HTTPConnectionManager,
+					ConfigType: &listener.Filter_TypedConfig{
+						TypedConfig: protoconv.MessageToAny(&hcm.HttpConnectionManager{
+							RouteSpecifier: &hcm.HttpConnectionManager_Rds{
+								Rds: &hcm.Rds{
+									RouteConfigName: "test-rds-config",
+									ConfigSource: &core.ConfigSource{
+										ConfigSourceSpecifier: &core.ConfigSource_Ads{
+											Ads: &core.AggregatedConfigSource{},
+										},
+									},
+								},
+							},
+						}),
+					},
+				},
+			},
+		},
+	},
+}
+
+var testRouteConfig = &route.RouteConfiguration{
+	Name: "test-route",
+	// Define the route entries here
+	VirtualHosts: []*route.VirtualHost{
+		{
+			Name:    "test-vhost",
+			Domains: []string{"*"},
+			Routes: []*route.Route{
+				{
+					Match: &route.RouteMatch{
+						PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"},
+					},
+					Action: &route.Route_Route{
+						Route: &route.RouteAction{
+							ClusterSpecifier: &route.RouteAction_Cluster{Cluster: "test-cluster"},
+						},
+					},
+				},
+			},
+		},
+	},
+}
+
+func TestDeltaClient(t *testing.T) {
+	type testCase struct {
+		desc                   string
+		deltaHandler           func(server discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error
+		inClient               *Client
+		expectedDeltaResources *Client
+		expectedTree           string
+	}
+
+	var tests []testCase
+
 	clusterHandler := Register(func(ctx HandlerContext, res *cluster.Cluster, event Event) {
-		log.Infof("handle cluster %v: %v", event, res.Name)
 		if event == EventDelete {
 			return
 		}
@@ -89,10 +232,8 @@ func TestClient(t *testing.T) {
 		ctx.RegisterDependency(v3.EndpointType, xdstest.ExtractEdsClusterNames([]*cluster.Cluster{res})...)
 	})
 	endpointsHandler := Register(func(ctx HandlerContext, res *endpoint.ClusterLoadAssignment, event Event) {
-		log.Infof("handle endpoint %v: %v", event, res.ClusterName)
 	})
 	listenerHandler := Register(func(ctx HandlerContext, res *listener.Listener, event Event) {
-		log.Infof("handle listener %v: %v", event, res.Name)
 		if event == EventDelete {
 			return
 		}
@@ -101,15 +242,11 @@ func TestClient(t *testing.T) {
 		// TODO: ECDS
 	})
 	routesHandler := Register(func(ctx HandlerContext, res *route.RouteConfiguration, event Event) {
-		log.Infof("handle route %v: %v", event, res.Name)
 	})
 	secretsHandler := Register(func(ctx HandlerContext, res *tls.Secret, event Event) {
-		log.Infof("handle secret %v: %v", event, res.Name)
 	})
-	client := New(
-		&Config{
-			Address: "localhost:15010",
-		},
+
+	handlers := []Option{
 		clusterHandler,
 		Watch[*cluster.Cluster]("*"),
 		listenerHandler,
@@ -117,8 +254,213 @@ func TestClient(t *testing.T) {
 		endpointsHandler,
 		routesHandler,
 		secretsHandler,
-	)
-	assert.NoError(t, client.Run(test.NewContext(t)))
-	time.Sleep(time.Second * 3)
-	fmt.Println(client.dumpTree())
+	}
+
+	descs := []struct {
+		desc            string
+		inClient        *Client
+		serverResponses []*discovery.DeltaDiscoveryResponse
+		expectedTree    string
+	}{
+		{
+			desc: "initial request cluster with no secret",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: v3.ClusterType,
+					Resources: []*discovery.Resource{
+						{
+							Name:     "test-eds",
+							Resource: protoconv.MessageToAny(testClusterNoSecret),
+						},
+					},
+				},
+			},
+			expectedTree: `CDS/:
+  CDS/test-eds:
+    EDS/test-eds:
+LDS/:
+`,
+		},
+		{
+			desc: "initial request cluster with secret",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: v3.ClusterType,
+					Resources: []*discovery.Resource{
+						{
+							Name:     "test-eds",
+							Resource: protoconv.MessageToAny(testCluster),
+						},
+					},
+				},
+			},
+			expectedTree: `CDS/:
+  CDS/test-eds:
+    EDS/test-eds:
+    SDS/kubernetes://test:
+LDS/:
+`,
+		},
+		{
+			desc: "initial request listener with no secret",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: v3.ListenerType,
+					Resources: []*discovery.Resource{
+						{
+							Name:     "test-listener",
+							Resource: protoconv.MessageToAny(testListenerNoSecret),
+						},
+					},
+				},
+			},
+			expectedTree: `CDS/:
+LDS/:
+  LDS/test-listener:
+    RDS/test-rds-config:
+`,
+		},
+		{
+			desc: "initial request listener with secret",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: v3.ListenerType,
+					Resources: []*discovery.Resource{
+						{
+							Name:     "test-listener",
+							Resource: protoconv.MessageToAny(testListener),
+						},
+					},
+				},
+			},
+			expectedTree: `CDS/:
+LDS/:
+  LDS/test-listener:
+    RDS/test-rds-config:
+    SDS/kubernetes://test:
+`,
+		},
+		{
+			desc: "put things together",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: v3.ClusterType,
+					Resources: []*discovery.Resource{
+						{
+							Name:     "test-eds",
+							Resource: protoconv.MessageToAny(testCluster),
+						},
+					},
+				},
+				{
+					TypeUrl: v3.ListenerType,
+					Resources: []*discovery.Resource{
+						{
+							Name:     "test-listener",
+							Resource: protoconv.MessageToAny(testListener),
+						},
+					},
+				},
+				{
+					TypeUrl: v3.RouteType,
+					Resources: []*discovery.Resource{
+						{
+							Name:     "test-route",
+							Resource: protoconv.MessageToAny(testRouteConfig),
+						},
+					},
+				},
+			},
+			expectedTree: `CDS/:
+  CDS/test-eds:
+    EDS/test-eds:
+    SDS/kubernetes://test:
+LDS/:
+  LDS/test-listener:
+    RDS/test-rds-config:
+    SDS/kubernetes://test:
+RDS/test-route:
+`,
+		},
+	}
+	for _, item := range descs {
+		desc := item // avoid refer to on-stack-var
+		expected := make(map[string]*discovery.DeltaDiscoveryResponse)
+		for _, response := range item.serverResponses {
+			expected[response.TypeUrl] = response
+		}
+		tc := testCase{
+			desc:     desc.desc,
+			inClient: New(&Config{}),
+			deltaHandler: func(delta discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
+				for _, response := range desc.serverResponses {
+					_ = delta.Send(response)
+				}
+				return nil
+			},
+			expectedDeltaResources: &Client{
+				received: expected,
+			},
+			expectedTree: desc.expectedTree,
+		}
+		tests = append(tests, tc)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			deltaHandler = tt.deltaHandler
+			l, err := net.Listen("tcp", ":0")
+			if err != nil {
+				t.Errorf("Unable to listen with tcp err %v", err)
+				return
+			}
+			tt.inClient.config.Address = l.Addr().String()
+			xds := grpc.NewServer()
+			discovery.RegisterAggregatedDiscoveryServiceServer(xds, new(mockDeltaXdsServer))
+			go func() {
+				err = xds.Serve(l)
+				if err != nil {
+					log.Error(err)
+				}
+			}()
+			defer xds.GracefulStop()
+			if err != nil {
+				t.Errorf("Could not start serving ads server %v", err)
+				return
+			}
+
+			tt.inClient = New(tt.inClient.config, handlers...)
+			if err := tt.inClient.Run(context.TODO()); err != nil {
+				t.Errorf("ADSC: failed running %v", err)
+				return
+			}
+			assert.EventuallyEqual(t, func() bool {
+				tt.inClient.mutex.Lock()
+				defer tt.inClient.mutex.Unlock()
+				rec := tt.inClient.received
+
+				if rec == nil && len(rec) != len(tt.expectedDeltaResources.received) {
+					return false
+				}
+				for tpe, rsrcs := range tt.expectedDeltaResources.received {
+					if _, ok := rec[tpe]; !ok {
+						return false
+					}
+					if len(rsrcs.Resources) != len(rec[tpe].Resources) {
+						return false
+					}
+				}
+				return true
+			}, true, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
+
+			if !cmp.Equal(tt.inClient.received, tt.expectedDeltaResources.received, protocmp.Transform()) {
+				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedDeltaResources.received, tt.inClient.received)
+			}
+
+			tree := tt.inClient.dumpTree()
+			if diff := cmp.Diff(tt.expectedTree, tree); diff != "" {
+				t.Errorf("%s: expected tree %v got %v", tt.desc, tt.expectedTree, tree)
+			}
+		})
+	}
 }

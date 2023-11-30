@@ -40,6 +40,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
+	"istio.io/istio/pkg/slices"
 
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/adsc"
@@ -343,13 +344,6 @@ func Register[T proto.Message](f func(ctx HandlerContext, res T, event Event)) O
 	}
 }
 
-// RegisterType registers a handler for a type based on the type URL.
-func RegisterType(typeURL string, f func(ctx HandlerContext, res proto.Message, event Event)) Option {
-	return func(c *Client) {
-		c.handlers[typeURL] = f
-	}
-}
-
 // Watch registers an initial watch for a type based on the type reflected by the proto message.
 func Watch[T proto.Message](resourceName string) Option {
 	return initWatch(TypeName[T](), resourceName)
@@ -618,7 +612,10 @@ func (c *Client) dumpTree() string {
 			roots.Insert(key)
 		}
 	}
-	for key := range roots {
+	keys := slices.SortFunc(roots.UnsortedList(), func(a, b resourceKey) int {
+		return strings.Compare(a.ShortName(), b.ShortName())
+	})
+	for _, key := range keys {
 		c.dumpNode(&sb, key, "")
 	}
 	return sb.String()
@@ -630,7 +627,10 @@ func (c *Client) dumpNode(sb *strings.Builder, key resourceKey, indent string) {
 		return
 	}
 	node := c.tree[key]
-	for child := range node.Children {
+	keys := slices.SortFunc(node.Children.UnsortedList(), func(a, b resourceKey) int {
+		return strings.Compare(a.ShortName(), b.ShortName())
+	})
+	for _, child := range keys {
 		id := indent + "  "
 		// Not sure what this is -- two different parents?
 		//if _, f := child.Parents[node]; !f {

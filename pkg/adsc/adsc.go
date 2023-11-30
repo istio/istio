@@ -118,15 +118,14 @@ type Config struct {
 
 	// InitialDiscoveryRequests is a list of resources to watch at first, represented as URLs (for new XDS resource naming)
 	// or type URLs.
-	InitialDiscoveryRequests      []*discovery.DiscoveryRequest
-	InitialDeltaDiscoveryRequests []*discovery.DeltaDiscoveryRequest
+	InitialDiscoveryRequests []*discovery.DiscoveryRequest
 
 	// BackoffPolicy determines the reconnect policy. Based on MCP client.
 	BackoffPolicy backoff.BackOff
 
 	// ResponseHandler will be called on each DiscoveryResponse.
 	// TODO: mirror Generator, allow adding handler per type
-	ResponseHandler      ResponseHandler
+	ResponseHandler ResponseHandler
 
 	GrpcOpts []grpc.DialOption
 }
