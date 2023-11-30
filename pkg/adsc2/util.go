@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/security"
 )

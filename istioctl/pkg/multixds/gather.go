@@ -82,7 +82,8 @@ var DefaultOptions = Options{
 // Deprecated This method makes multiple responses appear to come from a single control plane;
 // consider using AllRequestAndProcessXds or FirstRequestAndProcessXds
 func RequestAndProcessXds(dr *discovery.DeltaDiscoveryRequest, centralOpts clioptions.CentralControlPlaneOptions, istioNamespace string,
-	kubeClient kube.CLIClient) (*discovery.DeltaDiscoveryResponse, error) {
+	kubeClient kube.CLIClient,
+) (*discovery.DeltaDiscoveryResponse, error) {
 	responses, err := MultiRequestAndProcessXds(true, dr, centralOpts, istioNamespace,
 		istioNamespace, tokenServiceAccount, kubeClient, DefaultOptions)
 	if err != nil {
@@ -92,7 +93,8 @@ func RequestAndProcessXds(dr *discovery.DeltaDiscoveryRequest, centralOpts cliop
 }
 
 func queryEachShard(all bool, dr *discovery.DeltaDiscoveryRequest, istioNamespace string, kubeClient kube.CLIClient,
-	centralOpts clioptions.CentralControlPlaneOptions) ([]*discovery.DeltaDiscoveryResponse, error) {
+	centralOpts clioptions.CentralControlPlaneOptions,
+) ([]*discovery.DeltaDiscoveryResponse, error) {
 	labelSelector := centralOpts.XdsPodLabel
 	if labelSelector == "" {
 		labelSelector = "app=istiod"
@@ -173,12 +175,16 @@ func queryDebugSynczViaAgents(all bool, dr *discovery.DeltaDiscoveryRequest, ist
 			return nil, fmt.Errorf("could not get XDS from the agent pod %q: %v", pod.Name, err)
 		}
 		for _, resource := range response.GetResources() {
-			clientConfig := xdsstatus.ClientConfig{}
-			err := resource.Resource.UnmarshalTo(&clientConfig)
-			if err != nil {
-				return nil, err
+			switch response.TypeUrl {
+			case "type.googleapis.com/envoy.service.status.v3.ClientConfig":
+				clientConfig := xdsstatus.ClientConfig{}
+				err := resource.Resource.UnmarshalTo(&clientConfig)
+				if err != nil {
+					return nil, err
+				}
+				visited[clientConfig.Node.Id] = true
+			default:
 			}
-			visited[clientConfig.Node.Id] = true
 		}
 		return response, nil
 	}
