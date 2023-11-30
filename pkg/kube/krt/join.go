@@ -26,7 +26,7 @@ type join[T any] struct {
 	merge       func(ts []T) T
 }
 
-func (j join[I]) Dump() {
+func (j *join[I]) Dump() {
 	log.Errorf("> BEGIN DUMP (join %v)", j.name)
 	for _, c := range j.collections {
 		Dump(c)
@@ -34,7 +34,7 @@ func (j join[I]) Dump() {
 	log.Errorf("< END DUMP (join %v)", j.name)
 }
 
-func (j join[T]) GetKey(k Key[T]) *T {
+func (j *join[T]) GetKey(k Key[T]) *T {
 	var found []T
 	for _, c := range j.collections {
 		if r := c.GetKey(k); r != nil {
@@ -47,7 +47,7 @@ func (j join[T]) GetKey(k Key[T]) *T {
 	return ptr.Of(j.merge(found))
 }
 
-func (j join[T]) List(namespace string) []T {
+func (j *join[T]) List(namespace string) []T {
 	res := map[Key[T]][]T{}
 	for _, c := range j.collections {
 		for _, i := range c.List(namespace) {
@@ -62,14 +62,14 @@ func (j join[T]) List(namespace string) []T {
 	return l
 }
 
-func (j join[T]) Name() string { return j.name }
-func (j join[T]) Register(f func(o Event[T])) {
+func (j *join[T]) Name() string { return j.name }
+func (j *join[T]) Register(f func(o Event[T])) {
 	for _, c := range j.collections {
 		c.Register(f)
 	}
 }
 
-func (j join[T]) RegisterBatch(f func(o []Event[T])) {
+func (j *join[T]) RegisterBatch(f func(o []Event[T])) {
 	for _, c := range j.collections {
 		c.RegisterBatch(f)
 	}
@@ -80,7 +80,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	if o.name == "" {
 		o.name = fmt.Sprintf("Join[%v]", ptr.TypeName[T]())
 	}
-	return join[T]{
+	return &join[T]{
 		name:        o.name,
 		collections: cs,
 		merge: func(ts []T) T {
@@ -90,5 +90,5 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 }
 
 func JoinCollectionOn[T any](merge func(ts []T) T, cs ...Collection[T]) Collection[T] {
-	return join[T]{collections: cs, merge: merge}
+	return &join[T]{collections: cs, merge: merge}
 }

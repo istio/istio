@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -70,12 +69,6 @@ func TestJoinCollection(t *testing.T) {
 }
 
 func TestCollectionJoin(t *testing.T) {
-	log.FindScope("krt").SetOutputLevel(log.DebugLevel)
-	// Due to a flaw in the library, we may get the Pod and Service event at the same time.
-	// The service event starts first, reads zero pods.
-	// The pod event starts, reads one pod, and writes. Then service ends, and reverts to zero pods.
-	// We need to serialize updates.
-	// t.Skip("Test is broken")
 	c := kube.NewFakeClient()
 	pods := krt.NewInformer[*corev1.Pod](c)
 	services := krt.NewInformer[*corev1.Service](c)
@@ -85,10 +78,16 @@ func TestCollectionJoin(t *testing.T) {
 	sc := clienttest.Wrap(t, kclient.New[*corev1.Service](c))
 	sec := clienttest.Wrap(t, kclient.New[*istioclient.ServiceEntry](c))
 	SimplePods := SimplePodCollection(pods)
+	ExtraSimplePods := krt.NewStatic(&SimplePod{
+		Named:   Named{"namespace", "name-static"},
+		Labeled: Labeled{map[string]string{"app": "foo"}},
+		IP:      "9.9.9.9",
+	})
 	SimpleServices := SimpleServiceCollection(services)
 	SimpleServiceEntries := SimpleServiceCollectionFromEntries(serviceEntries)
-	Joined := krt.JoinCollection([]krt.Collection[SimpleService]{SimpleServices, SimpleServiceEntries})
-	SimpleEndpoints := SimpleEndpointsCollection(SimplePods, Joined)
+	AllServices := krt.JoinCollection([]krt.Collection[SimpleService]{SimpleServices, SimpleServiceEntries})
+	AllPods := krt.JoinCollection([]krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection()})
+	SimpleEndpoints := SimpleEndpointsCollection(AllPods, AllServices)
 
 	fetch := func() []SimpleEndpoint {
 		return slices.SortBy(SimpleEndpoints.List(""), func(s SimpleEndpoint) string { return s.ResourceName() })
@@ -117,7 +116,15 @@ func TestCollectionJoin(t *testing.T) {
 
 	pod.Status = corev1.PodStatus{PodIP: "1.2.3.4"}
 	pc.UpdateStatus(pod)
-	assert.EventuallyEqual(t, fetch, []SimpleEndpoint{{pod.Name, svc.Name, pod.Namespace, "1.2.3.4"}})
+	assert.EventuallyEqual(t, fetch, []SimpleEndpoint{
+		{pod.Name, svc.Name, pod.Namespace, "1.2.3.4"},
+		{"name-static", svc.Name, pod.Namespace, "9.9.9.9"},
+	})
+
+	ExtraSimplePods.Set(nil)
+	assert.EventuallyEqual(t, fetch, []SimpleEndpoint{
+		{pod.Name, svc.Name, pod.Namespace, "1.2.3.4"},
+	})
 
 	pod.Status.PodIP = "1.2.3.5"
 	pc.UpdateStatus(pod)
