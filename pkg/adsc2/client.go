@@ -15,13 +15,9 @@
 package adsc2
 
 import (
-	"crypto/tls"
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"math"
-	"net"
-	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -34,19 +30,14 @@ import (
 	"golang.org/x/net/context"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
-	pstruct "google.golang.org/protobuf/types/known/structpb"
 	"k8s.io/utils/set"
 
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/adsc"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -104,64 +95,14 @@ func (h *handlerContext) Reject(reason error) {
 	h.nack = reason
 }
 
-type Config struct {
-	// Address of the xDS server
-	Address string
-	// Namespace of the node, defaults to "default"
-	Namespace string
-	// Workload name of the node, defaults to "test"
-	Workload string
-	// NodeType defaults to sidecar. "ingress" and "router" are also supported.
-	NodeType string
-	// IP is currently the primary key used to locate inbound configs. It is sent by client,
-	// must match a known endpoint IP. Tests can use a ServiceEntry to register fake IPs.
-	IP string
-	// proxy Meta includes additional metadata for the node
-	Meta *pstruct.Struct
-	// Locality of the node
-	Locality *core.Locality
-	// TODO revision
-
-	GrpcOpts []grpc.DialOption
-
-	// CertDir is the directory where mTLS certs are configured.
-	// If CertDir and Secret are empty, an insecure connection will be used.
-	CertDir string
-	// XDSSAN is the expected SAN of the XDS server. If not set, the ProxyConfig.DiscoveryAddress is used.
-	XDSSAN string
-	// XDSRootCAFile explicitly set the root CA to be used for the XDS connection.
-	// Mirrors Envoy file.
-	XDSRootCAFile string
-	// RootCert contains the XDS root certificate. Used mainly for tests, apps will normally use
-	// XDSRootCAFile
-	RootCert []byte
-	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
-	InsecureSkipVerify bool
-	// Secrets is the interface used for getting keys and rootCA.
-	SecretManager security.SecretManager
-}
-
-func initConfigIfNotPresent(config *Config) *Config {
-	if config == nil {
-		config = &Config{}
-	}
-	if config.Namespace == "" {
-		config.Namespace = "default"
-	}
-	if config.NodeType == "" {
-		config.NodeType = "sidecar"
-	}
-	if config.IP == "" {
-		config.IP = adsc.GetPrivateIPIfAvailable().String()
-	}
-	if config.Workload == "" {
-		config.Workload = "test"
-	}
-	return config
+// DeltaADSConfig for delta ADS connection.
+type DeltaADSConfig struct {
+	*adsc.Config
+	//TODO mcp, reconnect
 }
 
 type Client struct {
-	config   *Config
+	config   *DeltaADSConfig
 	handlers map[string]interface{}
 	// Map of resources key to its node
 	tree map[resourceKey]resourceNode
@@ -217,7 +158,7 @@ func newProto(tt string) proto.Message {
 }
 
 func (c *Client) Run(ctx context.Context) error {
-	if err := c.dial(ctx); err != nil {
+	if err := c.dial(); err != nil {
 		return fmt.Errorf("dial context: %v", err)
 	}
 
@@ -235,90 +176,24 @@ func (c *Client) Run(ctx context.Context) error {
 	return nil
 }
 
-func (c *Client) dial(ctx context.Context) error {
-	defaultOptions := adsc.DefaultGrpcDialOptions()
-	opts := append(defaultOptions, c.config.GrpcOpts...)
-
-	var err error
-	// If we need MTLS - CertDir or Secrets provider is set.
-	if len(c.config.CertDir) > 0 || c.config.SecretManager != nil {
-		tlsCfg, err := c.tlsConfig()
-		if err != nil {
-			return err
-		}
-		creds := credentials.NewTLS(tlsCfg)
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	}
-
-	// Only disable transport security if the user didn't supply custom dial options
-	if len(opts) == len(defaultOptions) {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
-
-	conn, err := grpc.DialContext(ctx, c.config.Address, opts...)
+func (c *Client) dial() error {
+	conn, err := adsc.DialWithConfig(c.config.Config)
 	if err != nil {
-		return fmt.Errorf("dial context: %v", err)
+		return err
 	}
 	c.conn = conn
 	return nil
 }
 
-func (c *Client) tlsConfig() (*tls.Config, error) {
-	var clientCerts []tls.Certificate
-	var serverCABytes []byte
-	var err error
-
-	getClientCertificate := getClientCertFn(c.config)
-
-	// Load the root CAs
-	if c.config.RootCert != nil {
-		serverCABytes = c.config.RootCert
-	} else if c.config.XDSRootCAFile != "" {
-		serverCABytes, err = os.ReadFile(c.config.XDSRootCAFile)
-		if err != nil {
-			return nil, err
-		}
-	} else if c.config.SecretManager != nil {
-		// This is a bit crazy - we could just use the file
-		rootCA, err := c.config.SecretManager.GenerateSecret(security.RootCertReqResourceName)
-		if err != nil {
-			return nil, err
-		}
-
-		serverCABytes = rootCA.RootCert
-	} else if c.config.CertDir != "" {
-		serverCABytes, err = os.ReadFile(c.config.CertDir + "/root-cert.pem")
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	serverCAs := x509.NewCertPool()
-	if ok := serverCAs.AppendCertsFromPEM(serverCABytes); !ok {
-		return nil, err
-	}
-
-	shost, _, _ := net.SplitHostPort(c.config.Address)
-	if c.config.XDSSAN != "" {
-		shost = c.config.XDSSAN
-	}
-
-	// nolint: gosec
-	// it's insecure only when a user explicitly enable insecure mode.
-	return &tls.Config{
-		GetClientCertificate: getClientCertificate,
-		Certificates:         clientCerts,
-		RootCAs:              serverCAs,
-		ServerName:           shost,
-		InsecureSkipVerify:   c.config.InsecureSkipVerify,
-	}, nil
-}
-
 type Option func(c *Client)
 
-func New(config *Config, opts ...Option) *Client {
+func New(config *DeltaADSConfig, opts ...Option) *Client {
+	if config == nil {
+		config = &DeltaADSConfig{}
+	}
+	config.Config = adsc.InitConfigIfNotPresent(config.Config)
 	c := &Client{
-		config:          initConfigIfNotPresent(config),
+		config:          config,
 		handlers:        map[string]interface{}{},
 		tree:            map[resourceKey]resourceNode{},
 		errChan:         make(chan error, 10),
@@ -381,7 +256,6 @@ func initWatch(typeURL string, resourceName string) Option {
 
 func (c *Client) handleRecv() {
 	scope := log.WithLabels("node", c.NodeID())
-	// TODO reconnect
 	for {
 		scope.Infof("start Recv")
 		msg, err := c.xdsClient.Recv()
@@ -682,28 +556,11 @@ func (c *Client) send(w resourceKey, nonce string, err error) {
 }
 
 func (c *Client) NodeID() string {
-	return fmt.Sprintf("%s~%s~%s.%s~%s.svc.%s", c.config.NodeType, c.config.IP,
-		c.config.Workload, c.config.Namespace, c.config.Namespace, constants.DefaultClusterLocalDomain)
+	return adsc.NodeID(c.config.Config)
 }
 
 func (c *Client) node() *core.Node {
-	n := &core.Node{
-		Id:       c.NodeID(),
-		Locality: c.config.Locality,
-	}
-	if c.config.Meta == nil {
-		n.Metadata = &pstruct.Struct{
-			Fields: map[string]*pstruct.Value{
-				"ISTIO_VERSION": {Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}},
-			},
-		}
-	} else {
-		n.Metadata = c.config.Meta
-		if c.config.Meta.Fields["ISTIO_VERSION"] == nil {
-			c.config.Meta.Fields["ISTIO_VERSION"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}}
-		}
-	}
-	return n
+	return adsc.BuildNode(c.config.Config)
 }
 
 func (c *Client) update(t string, sub, unsub set.Set[string], d *discovery.DeltaDiscoveryResponse) {

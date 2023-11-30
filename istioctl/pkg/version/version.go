@@ -218,7 +218,6 @@ func xdsProxyVersionWrapper(xdsResponse **discovery.DeltaDiscoveryResponse) func
 			default:
 				return nil, fmt.Errorf("unexpected resource type %q", (*xdsResponse).TypeUrl)
 			}
-
 		}
 		return &pi, nil
 	}

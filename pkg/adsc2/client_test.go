@@ -391,7 +391,7 @@ RDS/test-route:
 		}
 		tc := testCase{
 			desc:     desc.desc,
-			inClient: New(&Config{}),
+			inClient: New(&DeltaADSConfig{}),
 			deltaHandler: func(delta discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 				for _, response := range desc.serverResponses {
 					_ = delta.Send(response)

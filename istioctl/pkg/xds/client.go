@@ -29,6 +29,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/adsc2"
 	"istio.io/istio/pkg/kube"
 )
@@ -53,18 +54,20 @@ func GetXdsResponse(dr *discovery.DeltaDiscoveryRequest, ns, serviceAccount stri
 		handlers = append(handlers, adsc2.WatchType(dr.TypeUrl, "*"))
 	}
 
-	adsClient := adsc2.New(&adsc2.Config{
-		Address: opts.Xds,
-		Meta: model.NodeMetadata{
-			Generator:      "event",
-			ServiceAccount: serviceAccount,
-			Namespace:      ns,
-			CloudrunAddr:   opts.IstiodAddr,
-		}.ToStruct(),
-		CertDir:            opts.CertDir,
-		InsecureSkipVerify: opts.InsecureSkipVerify,
-		XDSSAN:             opts.XDSSAN,
-		GrpcOpts:           grpcOpts,
+	adsClient := adsc2.New(&adsc2.DeltaADSConfig{
+		Config: &adsc.Config{
+			Address: opts.Xds,
+			Meta: model.NodeMetadata{
+				Generator:      "event",
+				ServiceAccount: serviceAccount,
+				Namespace:      ns,
+				CloudrunAddr:   opts.IstiodAddr,
+			}.ToStruct(),
+			CertDir:            opts.CertDir,
+			InsecureSkipVerify: opts.InsecureSkipVerify,
+			XDSSAN:             opts.XDSSAN,
+			GrpcOpts:           grpcOpts,
+		},
 	}, handlers...)
 
 	// Start ADS client
@@ -79,7 +82,7 @@ func GetXdsResponse(dr *discovery.DeltaDiscoveryRequest, ns, serviceAccount stri
 		return nil, err
 	}
 
-	adsClient.Close()
+	//adsClient.Close()
 
 	return &discovery.DeltaDiscoveryResponse{
 		Resources: added,

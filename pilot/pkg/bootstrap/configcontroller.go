@@ -232,24 +232,26 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			s.ConfigStores = append(s.ConfigStores, configController)
 			log.Infof("Started File configSource %s", configSource.Address)
 		case XDS:
-			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.Config{
-				Namespace: args.Namespace,
-				Workload:  args.PodName,
-				Revision:  args.Revision,
-				Meta: model.NodeMetadata{
-					Generator: "api",
-					// To reduce transported data if upstream server supports. Especially for custom servers.
-					IstioRevision: args.Revision,
-				}.ToStruct(),
-				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
-				GrpcOpts: []grpc.DialOption{
-					args.KeepaliveOptions.ConvertToClientOption(),
-					// Because we use the custom grpc options for adsc, here we should
-					// explicitly set transport credentials.
-					// TODO: maybe we should use the tls settings within ConfigSource
-					// to secure the connection between istiod and remote xds server.
-					grpc.WithTransportCredentials(insecure.NewCredentials()),
+			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.ADSConfig{
+				Config: &adsc.Config{
+					Namespace: args.Namespace,
+					Workload:  args.PodName,
+					Revision:  args.Revision,
+					Meta: model.NodeMetadata{
+						Generator: "api",
+						// To reduce transported data if upstream server supports. Especially for custom servers.
+						IstioRevision: args.Revision,
+					}.ToStruct(),
+					GrpcOpts: []grpc.DialOption{
+						args.KeepaliveOptions.ConvertToClientOption(),
+						// Because we use the custom grpc options for adsc, here we should
+						// explicitly set transport credentials.
+						// TODO: maybe we should use the tls settings within ConfigSource
+						// to secure the connection between istiod and remote xds server.
+						grpc.WithTransportCredentials(insecure.NewCredentials()),
+					},
 				},
+				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)
