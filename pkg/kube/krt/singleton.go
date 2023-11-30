@@ -43,6 +43,10 @@ func (s singletonAdapter[T]) GetKey(k Key[T]) *T {
 	return s.s.Get()
 }
 
+func (s singletonAdapter[T]) Run(stop <-chan struct{}) {
+
+}
+
 func (s singletonAdapter[T]) List(namespace string) []T {
 	res := s.s.Get()
 	if res == nil {
@@ -156,6 +160,10 @@ func (h *singleton[T]) _internalHandler() {
 
 func (h *singleton[T]) AsCollection() Collection[T] {
 	return singletonAdapter[T]{h}
+}
+
+func (h *singleton[T]) Run(stop <-chan struct{}){
+
 }
 
 func (h *singleton[T]) Register(f func(o Event[T])) {

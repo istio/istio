@@ -41,6 +41,7 @@ type Collection[T any] interface {
 	// Name is a human facing name for this collection.
 	// Note this may not be universally unique
 	Name() string
+	Run(stop <-chan struct{})
 }
 
 // Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,

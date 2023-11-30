@@ -155,7 +155,9 @@ func TestCollectionSimple(t *testing.T) {
 	kpc := kclient.New[*corev1.Pod](c)
 	pc := clienttest.Wrap(t, kpc)
 	pods := krt.WrapClient[*corev1.Pod](kpc)
-	c.RunAndWait(test.NewStop(t))
+	stop := test.NewStop(t)
+	c.RunAndWait(stop)
+	//go pods.Run(stop)
 	SimplePods := SimplePodCollection(pods)
 
 	assert.Equal(t, fetcherSorted(SimplePods)(), nil)

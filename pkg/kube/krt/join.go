@@ -69,6 +69,10 @@ func (j *join[T]) Register(f func(o Event[T])) {
 	}
 }
 
+func (j *join[T]) Run(stop <-chan struct{}) {
+
+}
+
 func (j *join[T]) RegisterBatch(f func(o []Event[T])) {
 	for _, c := range j.collections {
 		c.RegisterBatch(f)

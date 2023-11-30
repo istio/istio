@@ -104,6 +104,10 @@ func (h *manyCollection[I, O]) augment(a any) any {
 	return a
 }
 
+func (h *manyCollection[I, O]) Run(stop <-chan struct{}) {
+
+}
+
 func (h *manyCollection[I, O]) Dump() {
 	h.mu.Lock()
 	defer h.mu.Unlock()

@@ -16,7 +16,9 @@ package krt
 
 import (
 	"fmt"
+	"go.uber.org/atomic"
 	"strings"
+	"sync"
 
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
@@ -34,7 +36,53 @@ type informer[I controllers.ComparableObject] struct {
 	log  *istiolog.Scope
 	name string
 
-	augmentation func(a any) any
+	eventHandlers *handlers[I]
+	eventQueue    *eventQueue[I]
+	augmentation  func(a any) any
+}
+
+type eventQueue[I any] struct {
+	q        []Event[I]
+	handlers *handlers[I]
+	mu       sync.RWMutex
+	started  *atomic.Bool
+}
+
+func newEventQueue[I any](h *handlers[I]) *eventQueue[I] {
+	return &eventQueue[I]{
+		handlers: h,
+		started:  atomic.NewBool(false),
+	}
+}
+
+func (e *eventQueue[T]) add(t Event[T]) {
+	if e.started.Load() {
+		e.process([]Event[T]{t})
+		// Hot path
+		return
+	}
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	// may have started since we get the lock
+	if e.started.Load() {
+		e.process([]Event[T]{t})
+		return
+	}
+	e.q = append(e.q, t)
+}
+
+func (e *eventQueue[I]) process(t []Event[I]) {
+	handlers := e.handlers.Get()
+	for _, handler := range handlers {
+		handler(t)
+	}
+}
+func (e *eventQueue[I]) drain() {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.process(e.q)
+	e.q = nil
+	e.started.Store(true)
 }
 
 func (i *informer[I]) augment(a any) any {
@@ -49,6 +97,13 @@ var _ augmenter = &informer[controllers.Object]{}
 var _ Collection[controllers.Object] = &informer[controllers.Object]{}
 
 func (i *informer[I]) _internalHandler() {}
+
+func (i *informer[I]) Run(stop <-chan struct{}) {
+	kube.WaitForCacheSync(i.name, stop, i.inf.HasSynced)
+	i.eventQueue.drain()
+	<-stop
+	i.inf.ShutdownHandlers()
+}
 
 func (i *informer[I]) Name() string {
 	return i.name
@@ -72,12 +127,7 @@ func (i *informer[I]) Register(f func(o Event[I])) {
 }
 
 func (i *informer[I]) RegisterBatch(f func(o []Event[I])) {
-	i.inf.AddEventHandler(EventHandler(func(o Event[I]) {
-		if i.log.DebugEnabled() {
-			i.log.WithLabels("key", GetKey(o.Latest()), "type", o.Event).Debugf("handling event")
-		}
-		f([]Event[I]{o})
-	}))
+	i.eventHandlers.Insert(f)
 }
 
 func EventHandler[I controllers.ComparableObject](handler func(o Event[I])) cache.ResourceEventHandler {
@@ -109,12 +159,20 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 	if o.name == "" {
 		o.name = fmt.Sprintf("NewInformer[%v]", ptr.TypeName[I]())
 	}
-	return &informer[I]{
-		inf:          c,
-		log:          log.WithLabels("owner", o.name),
-		name:         o.name,
-		augmentation: o.augmentation,
+	inf := &informer[I]{
+		inf:           c,
+		log:           log.WithLabels("owner", o.name),
+		name:          o.name,
+		eventHandlers: &handlers[I]{},
+		augmentation:  o.augmentation,
 	}
+	eq := newEventQueue[I](inf.eventHandlers)
+	c.AddEventHandler(EventHandler(func(o Event[I]) {
+		eq.add(o)
+	}))
+	inf.eventQueue = eq
+	go inf.Run(make(chan struct{}))
+	return inf
 }
 
 func NewInformer[I controllers.ComparableObject](c kube.Client, opts ...CollectionOption) Collection[I] {
