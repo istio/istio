@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/transport/spdy"
 
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/pkg/log"
 )
 
 // PortForwarder manages the forwarding of a single port.
@@ -85,7 +86,7 @@ func (f *forwarder) Start() error {
 				f.errCh <- fmt.Errorf("port forward: %v", err)
 				return
 			}
-			scopes.Framework.Debugf("port forward completed without error")
+			log.Infof("port forward completed without error")
 			f.errCh <- nil
 			// At this point, either the stopCh has been closed, or port forwarder connection is broken.
 			// the port forwarder should have already been ready before.
