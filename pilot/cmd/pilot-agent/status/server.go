@@ -43,6 +43,7 @@ import (
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	grpcStatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	k8sUtilIo "k8s.io/utils/io"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
@@ -71,8 +72,9 @@ const (
 	// This environment variable should never be set manually.
 	KubeAppProberEnvName = "ISTIO_KUBE_APP_PROBERS"
 
-	localHostIPv4 = "127.0.0.1"
-	localHostIPv6 = "::1"
+	localHostIPv4     = "127.0.0.1"
+	localHostIPv6     = "::1"
+	maxRespBodyLength = 10 * 1 << 10
 )
 
 var (
@@ -788,6 +790,9 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	}
 	// We only write the status code to the response.
 	w.WriteHeader(response.StatusCode)
+	// Return the body from probe as well
+	b, _ := k8sUtilIo.ReadAtMost(response.Body, maxRespBodyLength)
+	_, _ = w.Write(b)
 }
 
 func (s *Server) handleAppProbeTCPSocket(w http.ResponseWriter, prober *Prober) {

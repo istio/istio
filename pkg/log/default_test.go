@@ -15,9 +15,11 @@
 package log
 
 import (
+	"encoding/json"
 	"regexp"
 	"strconv"
 	"testing"
+	"time"
 )
 
 func testOptions() *Options {
@@ -258,4 +260,49 @@ func TestDefaultWithLabel(t *testing.T) {
 	}
 
 	mustRegexMatchString(t, lines[0], `Hello	foo=bar baz=123 qux=0.123`)
+}
+
+func TestLogWithTime(t *testing.T) {
+	getLogTime := func(t *testing.T, line string) time.Time {
+		type logEntry struct {
+			Time time.Time `json:"time"`
+		}
+		var e logEntry
+		if err := json.Unmarshal([]byte(line), &e); err != nil {
+			t.Fatalf("Failed to unmarshal log entry: %v", err)
+		}
+		return e.Time
+	}
+
+	t.Run("specified time", func(t *testing.T) {
+		yesterday := time.Now().Add(-time.Hour * 24).Truncate(time.Microsecond)
+
+		stdoutLines, _ := captureStdout(func() {
+			o := DefaultOptions()
+			o.JSONEncoding = true
+			_ = Configure(o)
+			defaultScope.LogWithTime(InfoLevel, "Hello", yesterday)
+		})
+
+		gotTime := getLogTime(t, stdoutLines[0])
+		if gotTime.UnixNano() != yesterday.UnixNano() {
+			t.Fatalf("Got time %v, expected %v", gotTime, yesterday)
+		}
+	})
+
+	t.Run("empty time", func(t *testing.T) {
+		stdoutLines, _ := captureStdout(func() {
+			o := DefaultOptions()
+			o.JSONEncoding = true
+			_ = Configure(o)
+
+			var ti time.Time
+			defaultScope.LogWithTime(InfoLevel, "Hello", ti)
+		})
+
+		gotTime := getLogTime(t, stdoutLines[0])
+		if gotTime.IsZero() {
+			t.Fatalf("Got %v, expected non-zero", gotTime)
+		}
+	})
 }

@@ -264,6 +264,18 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "injectionImageDistroless",
+		inputFiles: []string{
+			"testdata/injection-image-distroless.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		meshConfigFile: "testdata/common/meshconfig.yaml",
+		analyzer:       &injection.ImageAnalyzer{},
+		expected: []message{
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+		},
+	},
+	{
 		name: "istioInjectionProxyImageMismatchAbsolute",
 		inputFiles: []string{
 			"testdata/injection-with-mismatched-sidecar.yaml",

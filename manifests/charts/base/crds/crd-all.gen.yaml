@@ -909,6 +909,16 @@ spec:
                                 type: object
                             type: object
                           type: array
+                        proxyProtocol:
+                          description: The upstream PROXY protocol settings.
+                          properties:
+                            version:
+                              description: The PROXY protocol version to use.
+                              enum:
+                              - V1
+                              - V2
+                              type: string
+                          type: object
                         tls:
                           description: TLS related settings for connections to the
                             upstream service.
@@ -1593,6 +1603,16 @@ spec:
                           type: object
                       type: object
                     type: array
+                  proxyProtocol:
+                    description: The upstream PROXY protocol settings.
+                    properties:
+                      version:
+                        description: The PROXY protocol version to use.
+                        enum:
+                        - V1
+                        - V2
+                        type: string
+                    type: object
                   tls:
                     description: TLS related settings for connections to the upstream
                       service.
@@ -2356,6 +2376,16 @@ spec:
                                 type: object
                             type: object
                           type: array
+                        proxyProtocol:
+                          description: The upstream PROXY protocol settings.
+                          properties:
+                            version:
+                              description: The PROXY protocol version to use.
+                              enum:
+                              - V1
+                              - V2
+                              type: string
+                          type: object
                         tls:
                           description: TLS related settings for connections to the
                             upstream service.
@@ -3040,6 +3070,16 @@ spec:
                           type: object
                       type: object
                     type: array
+                  proxyProtocol:
+                    description: The upstream PROXY protocol settings.
+                    properties:
+                      version:
+                        description: The PROXY protocol version to use.
+                        enum:
+                        - V1
+                        - V2
+                        type: string
+                    type: object
                   tls:
                     description: TLS related settings for connections to the upstream
                       service.
@@ -7791,6 +7831,11 @@ spec:
                       description: If set to true, the original token will be kept
                         for the upstream request.
                       type: boolean
+                    fromCookies:
+                      description: List of cookie names from which JWT is expected.
+                      items:
+                        type: string
+                      type: array
                     fromHeaders:
                       description: List of header locations from which JWT is expected.
                       items:
@@ -7900,6 +7945,11 @@ spec:
                       description: If set to true, the original token will be kept
                         for the upstream request.
                       type: boolean
+                    fromCookies:
+                      description: List of cookie names from which JWT is expected.
+                      items:
+                        type: string
+                      type: array
                     fromHeaders:
                       description: List of header locations from which JWT is expected.
                       items:
