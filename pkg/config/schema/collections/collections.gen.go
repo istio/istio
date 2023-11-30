@@ -214,6 +214,7 @@ var (
 		Version:    "v1beta1",
 		VersionAliases: []string{
 			"v1alpha2",
+			"v1",
 		},
 		Proto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassStatus",
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayClassSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayClassStatus{}).Elem(),
@@ -232,6 +233,7 @@ var (
 		Version:    "v1beta1",
 		VersionAliases: []string{
 			"v1alpha2",
+			"v1",
 		},
 		Proto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteStatus",
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.HTTPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.HTTPRouteStatus{}).Elem(),
@@ -280,6 +282,7 @@ var (
 		Version:    "v1beta1",
 		VersionAliases: []string{
 			"v1alpha2",
+			"v1",
 		},
 		Proto: "k8s.io.gateway_api.api.v1alpha1.GatewaySpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayStatus",
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewaySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayStatus{}).Elem(),
