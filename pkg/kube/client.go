@@ -453,8 +453,8 @@ func NewCLIClient(clientConfig clientcmd.ClientConfig, revision string) (CLIClie
 }
 
 // NewClient creates a Kubernetes client from the given rest config.
-func NewClient(clientConfig clientcmd.ClientConfig, cluster cluster.ID) (Client, error) {
-	return newClientInternal(newClientFactory(clientConfig, false), "", cluster)
+func NewClient(clientConfig clientcmd.ClientConfig, cluster cluster.ID, configOverrides ...func(*rest.Config)) (Client, error) {
+	return newClientInternal(newClientFactory(clientConfig, false, configOverrides...), "", cluster)
 }
 
 func (c *client) RESTConfig() *rest.Config {

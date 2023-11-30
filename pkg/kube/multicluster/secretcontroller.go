@@ -77,6 +77,7 @@ type Controller struct {
 	configClusterClient kube.Client
 	queue               controllers.Queue
 	secrets             kclient.Client[*corev1.Secret]
+	configOverrides     []func(*rest.Config)
 
 	namespaces kclient.Client[*corev1.Namespace]
 
@@ -87,7 +88,7 @@ type Controller struct {
 }
 
 // NewController returns a new secret controller
-func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID, meshWatcher mesh.Watcher) *Controller {
+func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID, meshWatcher mesh.Watcher, configOverrides ...func(*rest.Config)) *Controller {
 	informerClient := kubeclientset
 
 	// When these two are set to true, Istiod will be watching the namespace in which
@@ -101,7 +102,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		}
 		log.Info("Successfully retrieved incluster config.")
 
-		localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(config), clusterID)
+		localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(config), clusterID, configOverrides...)
 		if err != nil {
 			log.Errorf("Could not create a client to access local cluster API server: %v", err)
 			return nil
@@ -125,6 +126,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		configClusterClient: kubeclientset,
 		cs:                  newClustersStore(),
 		secrets:             secrets,
+		configOverrides:     configOverrides,
 	}
 
 	namespaces := kclient.New[*corev1.Namespace](kubeclientset)
@@ -202,7 +204,7 @@ func (c *Controller) processItem(key types.NamespacedName) error {
 }
 
 // BuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overridden for testing only
-var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID) (kube.Client, error) {
+var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 	if len(kubeConfig) == 0 {
 		return nil, errors.New("kubeconfig is empty")
 	}
@@ -221,7 +223,7 @@ var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID) (kube
 
 	clientConfig := clientcmd.NewDefaultClientConfig(*rawConfig, &clientcmd.ConfigOverrides{})
 
-	clients, err := kube.NewClient(clientConfig, clusterId)
+	clients, err := kube.NewClient(clientConfig, clusterId, configOverrides...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
@@ -292,7 +294,7 @@ func sanitizeKubeConfig(config api.Config, allowlist sets.String) error {
 }
 
 func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*Cluster, error) {
-	clients, err := BuildClientsFromConfig(kubeConfig, cluster.ID(clusterID))
+	clients, err := BuildClientsFromConfig(kubeConfig, cluster.ID(clusterID), c.configOverrides...)
 	if err != nil {
 		return nil, err
 	}

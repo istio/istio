@@ -46,12 +46,15 @@ type clientFactory struct {
 	mapper   lazy.Lazy[meta.ResettableRESTMapper]
 
 	discoveryClient lazy.Lazy[discovery.CachedDiscoveryInterface]
+
+	configOverrides []func(*rest.Config)
 }
 
 // newClientFactory creates a new util.Factory from the given clientcmd.ClientConfig.
-func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool) *clientFactory {
+func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool, configOverrides ...func(*rest.Config)) *clientFactory {
 	out := &clientFactory{
-		clientConfig: clientConfig,
+		clientConfig:    clientConfig,
+		configOverrides: configOverrides,
 	}
 
 	out.discoveryClient = lazy.NewWithRetry(func() (discovery.CachedDiscoveryInterface, error) {
@@ -102,7 +105,11 @@ func (c *clientFactory) ToRESTConfig() (*rest.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	return SetRestDefaults(restConfig), nil
+	restConfig = SetRestDefaults(restConfig)
+	for _, override := range c.configOverrides {
+		override(restConfig)
+	}
+	return restConfig, nil
 }
 
 func (c *clientFactory) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
@@ -143,8 +150,6 @@ func (c *clientFactory) KubernetesClientSet() (*kubernetes.Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
-	restConfig.QPS = float32(features.RequestLimit)
-	restConfig.Burst = int(features.RequestLimit) * 2
 	return kubernetes.NewForConfig(restConfig)
 }
 
