@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 47847
+releaseNotes:
+- |
+  **Added** support retrieve JWT from cookies.

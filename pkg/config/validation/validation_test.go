@@ -8049,6 +8049,20 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: true,
 		},
 		{
+			name:       "bad cookie location",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:      "foo.com",
+						JwksUri:     "https://foo.com",
+						FromCookies: []string{"", "foo"},
+					},
+				},
+			},
+			valid: false,
+		},
+		{
 			name:       "jwks ok",
 			configName: constants.DefaultAuthenticationPolicyName,
 			in: &security_beta.RequestAuthentication{
