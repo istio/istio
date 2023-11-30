@@ -180,7 +180,7 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DeltaDiscov
 	for id, dr := range drs {
 		for _, resource := range dr.Resources {
 			switch dr.TypeUrl {
-			case "type.googleapis.com/envoy.service.status.v3.ClientConfig":
+			case xds.TypeDebugSyncronization:
 				clientConfig := xdsstatus.ClientConfig{}
 				err := resource.Resource.UnmarshalTo(&clientConfig)
 				if err != nil {

@@ -77,16 +77,12 @@ func GetXdsResponse(dr *discovery.DeltaDiscoveryRequest, ns, serviceAccount stri
 		return nil, err
 	}
 
-	added, _, err := adsClient.WaitResources(time.Second*5, dr.TypeUrl)
+	resp, err := adsClient.WaitResp(time.Second*5, dr.TypeUrl)
 	if err != nil {
 		return nil, err
 	}
-
-	//adsClient.Close()
-
-	return &discovery.DeltaDiscoveryResponse{
-		Resources: added,
-	}, nil
+	adsClient.Close()
+	return resp, nil
 }
 
 // DialOptions constructs gRPC dial options from command line configuration

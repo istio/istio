@@ -371,8 +371,6 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 	}
 }
 
-const clientConfigType = "type.googleapis.com/envoy.service.status.v3.ClientConfig"
-
 type clientConfigInput struct {
 	proxyID   string
 	clusterID string
@@ -438,7 +436,7 @@ func xdsResponseInput(istiodID string, configInputs []clientConfigInput) *discov
 	}
 
 	return &discovery.DeltaDiscoveryResponse{
-		TypeUrl:   clientConfigType,
+		TypeUrl:   xds.TypeDebugSyncronization,
 		Resources: resources,
 		ControlPlane: &core.ControlPlane{
 			Identifier: string(identifier),

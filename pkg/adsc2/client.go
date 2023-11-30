@@ -44,15 +44,15 @@ import (
 
 type resourceKey struct {
 	Name    string
-	TypeUrl string
+	TypeURL string
 }
 
 func (k resourceKey) String() string {
-	return k.TypeUrl + "/" + k.Name
+	return k.TypeURL + "/" + k.Name
 }
 
 func (k resourceKey) ShortName() string {
-	return v3.GetShortType(k.TypeUrl) + "/" + k.Name
+	return v3.GetShortType(k.TypeURL) + "/" + k.Name
 }
 
 type keySet = sets.Set[resourceKey]
@@ -85,7 +85,7 @@ func (h *handlerContext) RegisterDependency(typeURL string, resourceName ...stri
 	for _, r := range resourceName {
 		key := resourceKey{
 			Name:    r,
-			TypeUrl: typeURL,
+			TypeURL: typeURL,
 		}
 		h.sub.Insert(key)
 	}
@@ -97,8 +97,8 @@ func (h *handlerContext) Reject(reason error) {
 
 // DeltaADSConfig for delta ADS connection.
 type DeltaADSConfig struct {
+	// TODO mcp, reconnect
 	*adsc.Config
-	//TODO mcp, reconnect
 }
 
 type Client struct {
@@ -154,7 +154,7 @@ func newProto(tt string) proto.Message {
 	if err != nil || t == nil {
 		return nil
 	}
-	return t.New().Interface().(proto.Message)
+	return t.New().Interface()
 }
 
 func (c *Client) Run(ctx context.Context) error {
@@ -238,7 +238,7 @@ func initWatch(typeURL string, resourceName string) Option {
 		}
 		key := resourceKey{
 			Name:    resourceName,
-			TypeUrl: typeURL,
+			TypeURL: typeURL,
 		}
 		existing, f := c.tree[key]
 		if f {
@@ -290,13 +290,6 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 	}()
 	if isDebugType(d.TypeUrl) {
 		// No need to ack and type check for debug types
-		// TODO do we need to trigger handlers for debug types?
-		for _, r := range d.Resources {
-			err := c.trigger(ctx, d.TypeUrl, r, EventAdd)
-			if err != nil {
-				return err
-			}
-		}
 		return nil
 	}
 	for _, r := range d.Resources {
@@ -309,7 +302,7 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		}
 		parentKey := resourceKey{
 			Name:    r.Name,
-			TypeUrl: r.Resource.TypeUrl,
+			TypeURL: r.Resource.TypeUrl,
 		}
 		c.establishResource(parentKey)
 		c.resourceCache.put(parentKey, r)
@@ -322,24 +315,24 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 
 		remove, add := c.tree[parentKey].Children.Diff(ctx.sub)
 		for _, key := range add {
-			if _, f := allAdds[key.TypeUrl]; !f {
-				allAdds[key.TypeUrl] = set.New[string]()
+			if _, f := allAdds[key.TypeURL]; !f {
+				allAdds[key.TypeURL] = set.New[string]()
 			}
-			allAdds[key.TypeUrl].Insert(key.Name)
+			allAdds[key.TypeURL].Insert(key.Name)
 			c.relate(parentKey, key)
 		}
 		for _, key := range remove {
-			if _, f := allRemoves[key.TypeUrl]; !f {
-				allRemoves[key.TypeUrl] = set.New[string]()
+			if _, f := allRemoves[key.TypeURL]; !f {
+				allRemoves[key.TypeURL] = set.New[string]()
 			}
-			allRemoves[key.TypeUrl].Insert(key.Name)
+			allRemoves[key.TypeURL].Insert(key.Name)
 			c.unrelate(parentKey, key)
 		}
 	}
 	for _, r := range d.RemovedResources {
 		key := resourceKey{
 			Name:    r,
-			TypeUrl: d.TypeUrl,
+			TypeURL: d.TypeUrl,
 		}
 		cached := c.resourceCache.get(key)
 		err := c.trigger(ctx, d.TypeUrl, cached, EventDelete)
@@ -347,14 +340,14 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 			return err
 		}
 
-		if _, f := allRemoves[key.TypeUrl]; !f {
-			allRemoves[key.TypeUrl] = set.New[string]()
+		if _, f := allRemoves[key.TypeURL]; !f {
+			allRemoves[key.TypeURL] = set.New[string]()
 		}
-		allRemoves[key.TypeUrl].Insert(key.Name)
+		allRemoves[key.TypeURL].Insert(key.Name)
 		c.drop(key)
 		c.resourceCache.delete(key)
 	}
-	c.send(resourceKey{TypeUrl: d.TypeUrl}, d.Nonce, joinError(rejects))
+	c.send(resourceKey{TypeURL: d.TypeUrl}, d.Nonce, joinError(rejects))
 	for t, sub := range allAdds {
 		unsub, f := allRemoves[t]
 		if f {
@@ -390,7 +383,7 @@ func (c *Client) establishResource(key resourceKey) {
 		c.tree[key] = parentNode
 	}
 
-	wildcardKey := resourceKey{TypeUrl: key.TypeUrl}
+	wildcardKey := resourceKey{TypeURL: key.TypeURL}
 	wildNode, wildFound := c.tree[wildcardKey]
 	if wildFound {
 		wildNode.Children.Insert(key)
@@ -399,7 +392,7 @@ func (c *Client) establishResource(key resourceKey) {
 
 	if !f && !wildFound {
 		// We are receiving an unwanted resource, silently ignore it.
-		log.Debugf("recieved unsubscribed resource: %v, %v", key, c.tree)
+		log.Debugf("received unsubscribed resource: %v, %v", key, c.tree)
 	}
 }
 
@@ -524,7 +517,7 @@ func (c *Client) Close() {
 
 func (c *Client) request(w resourceKey) {
 	c.mutex.Lock()
-	ex := c.received[w.TypeUrl]
+	ex := c.received[w.TypeURL]
 	c.mutex.Unlock()
 	nonce := ""
 	if ex != nil {
@@ -538,7 +531,7 @@ func (c *Client) send(w resourceKey, nonce string, err error) {
 		Node: &core.Node{
 			Id: c.NodeID(),
 		},
-		TypeUrl:       w.TypeUrl,
+		TypeUrl:       w.TypeURL,
 		ResponseNonce: nonce,
 	}
 	if c.sendNodeMeta.Load() {
@@ -552,7 +545,10 @@ func (c *Client) send(w resourceKey, nonce string, err error) {
 	if err != nil {
 		req.ErrorDetail = &status.Status{Message: err.Error()}
 	}
-	c.xdsClient.Send(req)
+	err = c.xdsClient.Send(req)
+	if err != nil {
+		c.errChan <- err
+	}
 }
 
 func (c *Client) NodeID() string {
@@ -577,51 +573,39 @@ func (c *Client) update(t string, sub, unsub set.Set[string], d *discovery.Delta
 	if unsub != nil {
 		req.ResourceNamesUnsubscribe = unsub.UnsortedList()
 	}
-	c.xdsClient.Send(req)
+	err := c.xdsClient.Send(req)
+	if err != nil {
+		c.errChan <- err
+	}
 }
 
-// WaitResources waits for a new or updated for a typeURL.
-func (c *Client) WaitResources(to time.Duration, typeURL string) (added []*discovery.Resource, removed []*discovery.Resource, err error) {
+// WaitResp waits for the latest delta response for a typeURL.
+func (c *Client) WaitResp(to time.Duration, typeURL string) (*discovery.DeltaDiscoveryResponse, error) {
 	t := time.NewTimer(to)
 	c.mutex.Lock()
 	ex := c.received[typeURL]
 	c.mutex.Unlock()
 	if ex != nil {
-		return ex.Resources, c.getResources(ex.TypeUrl, ex.RemovedResources...), nil
+		return ex, nil
 	}
 
 	for {
 		select {
 		case t := <-c.deltaXDSUpdates:
 			if t == nil {
-				return nil, nil, fmt.Errorf("closed")
+				return nil, fmt.Errorf("closed")
 			}
 			if t.TypeUrl == typeURL {
-				return t.Resources, c.getResources(t.TypeUrl, t.RemovedResources...), nil
+				return t, nil
 			}
 
 		case <-t.C:
-			return nil, nil, fmt.Errorf("timeout, still waiting for updates: %v", typeURL)
+			return nil, fmt.Errorf("timeout, still waiting for updates: %v", typeURL)
 		case err, ok := <-c.errChan:
 			if ok {
-				return nil, nil, err
+				return nil, err
 			}
-			return nil, nil, fmt.Errorf("connection closed")
+			return nil, fmt.Errorf("connection closed")
 		}
 	}
-}
-
-func (c *Client) getResources(typeURL string, resourceNames ...string) []*discovery.Resource {
-	resources := make([]*discovery.Resource, 0, len(resourceNames))
-	for _, name := range resourceNames {
-		key := resourceKey{
-			Name:    name,
-			TypeUrl: typeURL,
-		}
-		cached := c.resourceCache.get(key)
-		if cached != nil {
-			resources = append(resources, cached)
-		}
-	}
-	return resources
 }
