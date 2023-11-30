@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/namespace"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -171,8 +172,13 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 // The controller will not start until Run() is called.
 func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *model.Environment,
 	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher, revision string,
+	nsFilter namespace.DiscoveryNamespacesFilter,
 ) *DeploymentController {
-	gateways := kclient.New[*gateway.Gateway](client)
+	var filter namespace.DiscoveryFilter
+	if nsFilter != nil {
+		filter = nsFilter.Filter
+	}
+	gateways := kclient.NewFiltered[*gateway.Gateway](client, kclient.Filter{ObjectFilter: filter})
 	gatewayClasses := kclient.New[*gateway.GatewayClass](client)
 	dc := &DeploymentController{
 		client:    client,
@@ -203,19 +209,19 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *mode
 	// the Gateway to the queue and reconcile the state of the world.
 	parentHandler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
 
-	dc.services = kclient.New[*corev1.Service](client)
+	dc.services = kclient.NewFiltered[*corev1.Service](client, kclient.Filter{ObjectFilter: filter})
 	dc.services.AddEventHandler(parentHandler)
 	dc.clients[gvr.Service] = NewUntypedWrapper(dc.services)
 
-	dc.deployments = kclient.New[*appsv1.Deployment](client)
+	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, kclient.Filter{ObjectFilter: filter})
 	dc.deployments.AddEventHandler(parentHandler)
 	dc.clients[gvr.Deployment] = NewUntypedWrapper(dc.deployments)
 
-	dc.serviceAccounts = kclient.New[*corev1.ServiceAccount](client)
+	dc.serviceAccounts = kclient.NewFiltered[*corev1.ServiceAccount](client, kclient.Filter{ObjectFilter: filter})
 	dc.serviceAccounts.AddEventHandler(parentHandler)
 	dc.clients[gvr.ServiceAccount] = NewUntypedWrapper(dc.serviceAccounts)
 
-	dc.namespaces = kclient.New[*corev1.Namespace](client)
+	dc.namespaces = kclient.NewFiltered[*corev1.Namespace](client, kclient.Filter{ObjectFilter: filter})
 	dc.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		// TODO: make this more intelligent, checking if something we care about has changed
 		// requeue this namespace

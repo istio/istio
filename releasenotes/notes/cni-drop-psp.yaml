@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+  - |
+    **Removed** support for `.Values.cni.psp_cluster_role` as part of installation, as `PodSecurityPolicy` was [deprecated](https://kubernetes.io/blog/2021/04/06/podsecuritypolicy-deprecation-past-present-and-future/).
