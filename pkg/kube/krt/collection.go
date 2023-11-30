@@ -65,6 +65,7 @@ type manyCollection[I, O any] struct {
 
 	transformation TransformationMulti[I, O]
 
+	// augmentation allows transforming an object into another for usage throughout the library. See WithObjectAugmentation.
 	augmentation func(a any) any
 }
 

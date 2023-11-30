@@ -108,7 +108,7 @@ type (
 	TransformationEmpty[T any] func(ctx HandlerContext) *T
 	// TransformationSingle represents a one-to-one relationship between I and O.
 	TransformationSingle[I, O any] func(ctx HandlerContext, i I) *O
-	// TransformationSingle represents a one-to-many relationship between I and O.
+	// TransformationMulti represents a one-to-many relationship between I and O.
 	TransformationMulti[I, O any] func(ctx HandlerContext, i I) []O
 )
 

@@ -60,7 +60,7 @@ The `Fetch` operation enables querying against other collections.
 If the result of the `Fetch` operation changes, the collection will automatically be recomputed; the framework handles the state and event detection.
 In the above example, the provided function will be called (at least) every time there is a change to a configmap.
 The `ConfigMapCount` collection will produce events only when the count changes.
-The framework will use generic Equals to on the underlying object to determine whether or not to recompute collections.
+The framework will use generic Equals on the underlying object to determine whether or not to recompute collections.
 
 ### Picking a collection type
 
@@ -88,7 +88,7 @@ A better approach would be to lift `Pod` into a primary dependency:
 
 ```go
 SimplePods := krt.NewCollection[SimplePod](func(ctx krt.HandlerContext, pod *v1.Pod) *SimplePod {
-    return &SimplePod{Name: pod.Name})
+    return &SimplePod{Name: pod.Name}
 }) // Results in a Collection[SimplePod]
 ```
 
@@ -142,7 +142,7 @@ Basically, Transformations must be stateless and idempotent.
 * Querying external state (e.g. making HTTP calls) is not permitted.
 * Transformations _may_ be called at any time, including many times for the same inputs. Transformation functions should not make any assumptions about calling patterns.
 
-Violation of these behaviors will result in undefined behavior (which would likely manifest as stale data).
+Violation of these properties will result in undefined behavior (which would likely manifest as stale data).
 
 ### Fetch details
 

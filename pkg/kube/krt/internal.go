@@ -122,7 +122,7 @@ func objectOrAugmented[T any](c Collection[T], o any) any {
 	return o
 }
 
-// getName returns the name for an object, of possible.
+// getName returns the name for an object, if possible.
 // Warning: this will panic if the name is not available.
 func getName(a any) string {
 	ak, ok := a.(Namer)
@@ -158,7 +158,7 @@ func tryGetKey[O any](a O) (Key[O], bool) {
 	return "", false
 }
 
-// getNamespace returns the namespace for an object, of possible.
+// getNamespace returns the namespace for an object, if possible.
 // Warning: this will panic if the namespace is not available.
 func getNamespace(a any) string {
 	ak, ok := a.(Namespacer)
@@ -168,7 +168,7 @@ func getNamespace(a any) string {
 	panic(fmt.Sprintf("No Namespace, got %T", a))
 }
 
-// getLabels returns the labels for an object, of possible.
+// getLabels returns the labels for an object, if possible.
 // Warning: this will panic if the labels is not available.
 func getLabels(a any) map[string]string {
 	al, ok := a.(labeler)
@@ -186,7 +186,7 @@ func getLabels(a any) map[string]string {
 	panic(fmt.Sprintf("No Labels, got %T", a))
 }
 
-// getLabelSelector returns the labels for an object, of possible.
+// getLabelSelector returns the labels for an object, if possible.
 // Warning: this will panic if the labelSelectors is not available.
 func getLabelSelector(a any) map[string]string {
 	ak, ok := a.(LabelSelectorer)
