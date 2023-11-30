@@ -19,6 +19,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"strings"
 
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -99,7 +100,7 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) (res []s
 	// Becase that the grpc client still use the old tls configuration to reconnect to istiod.
 	// So here we need to rebuild the caClient in order to use the new root cert.
 	defer func() {
-		if err != nil {
+		if err != nil && strings.Contains(err.Error(), "x509: certificate signed by unknown authority") {
 			if err := c.reconnect(); err != nil {
 				citadelClientLog.Errorf("failed reconnect: %v", err)
 			}
