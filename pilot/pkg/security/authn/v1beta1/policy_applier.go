@@ -248,6 +248,7 @@ func convertToEnvoyJwtConfig(jwtRules []*v1beta1.JWTRule, push *model.PushContex
 			})
 		}
 		provider.FromParams = jwtRule.FromParams
+		provider.FromCookies = jwtRule.FromCookies
 
 		authnLog.Debugf("JwksFetchMode is set to: %v", features.JwksFetchMode)
 
