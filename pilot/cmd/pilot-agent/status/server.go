@@ -43,7 +43,7 @@ import (
 	grpcHealth "google.golang.org/grpc/health/grpc_health_v1"
 	grpcStatus "google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/util/intstr"
-	utilio "k8s.io/utils/io"
+	k8sUtilIo "k8s.io/utils/io"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/metrics"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/grpcready"
@@ -791,7 +791,7 @@ func (s *Server) handleAppProbeHTTPGet(w http.ResponseWriter, req *http.Request,
 	// We only write the status code to the response.
 	w.WriteHeader(response.StatusCode)
 	// Return the body from probe as well
-	b, _ := utilio.ReadAtMost(response.Body, maxRespBodyLength)
+	b, _ := k8sUtilIo.ReadAtMost(response.Body, maxRespBodyLength)
 	_, _ = w.Write(b)
 }
 
