@@ -40,14 +40,15 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
-	"istio.io/istio/pkg/slices"
+	"k8s.io/utils/set"
 
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/pkg/set"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type resourceKey struct {
@@ -63,7 +64,7 @@ func (k resourceKey) ShortName() string {
 	return v3.GetShortType(k.TypeUrl) + "/" + k.Name
 }
 
-type keySet = set.Set[resourceKey]
+type keySet = sets.Set[resourceKey]
 
 type resourceNode struct {
 	// Parents of the resource. If nil, this is explicitly watched
@@ -445,15 +446,15 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 			continue
 		}
 
-		remove, add := c.tree[parentKey].Children.Split(ctx.sub)
-		for key := range add {
+		remove, add := c.tree[parentKey].Children.Diff(ctx.sub)
+		for _, key := range add {
 			if _, f := allAdds[key.TypeUrl]; !f {
 				allAdds[key.TypeUrl] = set.New[string]()
 			}
 			allAdds[key.TypeUrl].Insert(key.Name)
 			c.relate(parentKey, key)
 		}
-		for key := range remove {
+		for _, key := range remove {
 			if _, f := allRemoves[key.TypeUrl]; !f {
 				allRemoves[key.TypeUrl] = set.New[string]()
 			}
