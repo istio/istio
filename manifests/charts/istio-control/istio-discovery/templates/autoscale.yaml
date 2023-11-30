@@ -1,4 +1,4 @@
-{{- if and .Values.pilot.autoscaleEnabled .Values.pilot.autoscaleMin .Values.pilot.autoscaleMax }}
+{{- if and .Values.pilot.autoscaleEnabled }}
 {{- if not .Values.global.autoscalingv2API }}
 apiVersion: autoscaling/v2beta1
 kind: HorizontalPodAutoscaler
@@ -12,7 +12,7 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
 spec:
-  maxReplicas: {{ .Values.pilot.autoscaleMax }}
+  maxReplicas: {{ required "A valid .Values.pilot.autoscaleMax value is required" .Values.pilot.autoscaleMax }}
   minReplicas: {{ .Values.pilot.autoscaleMin }}
   scaleTargetRef:
     apiVersion: apps/v1
@@ -41,7 +41,7 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Pilot"
 spec:
-  maxReplicas: {{ .Values.pilot.autoscaleMax }}
+  maxReplicas: {{ required "A valid .Values.pilot.autoscaleMax value is required" .Values.pilot.autoscaleMax }}
   minReplicas: {{ .Values.pilot.autoscaleMin }}
   scaleTargetRef:
     apiVersion: apps/v1
