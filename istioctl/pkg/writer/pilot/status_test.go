@@ -24,8 +24,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/google/uuid"
-	anypb "google.golang.org/protobuf/types/known/anypb"
-
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds"
@@ -262,13 +260,13 @@ func statusInputProxyVersion() []xds.SyncStatus {
 func TestXdsStatusWriter_PrintAll(t *testing.T) {
 	tests := []struct {
 		name    string
-		input   map[string]*discovery.DiscoveryResponse
+		input   map[string]*discovery.DeltaDiscoveryResponse
 		want    string
 		wantErr bool
 	}{
 		{
 			name: "prints multiple istiod inputs to buffer in alphabetical order by pod name",
-			input: map[string]*discovery.DiscoveryResponse{
+			input: map[string]*discovery.DeltaDiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
 						proxyID:        "proxy1",
@@ -322,7 +320,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 		},
 		{
 			name: "prints single istiod input to buffer in alphabetical order by pod name",
-			input: map[string]*discovery.DiscoveryResponse{
+			input: map[string]*discovery.DeltaDiscoveryResponse{
 				"istiod1": xdsResponseInput("istiod1", []clientConfigInput{
 					{
 						proxyID:        "proxy1",
@@ -353,7 +351,7 @@ func TestXdsStatusWriter_PrintAll(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := &bytes.Buffer{}
 			sw := XdsStatusWriter{Writer: got}
-			input := map[string]*discovery.DiscoveryResponse{}
+			input := map[string]*discovery.DeltaDiscoveryResponse{}
 			for key, ss := range tt.input {
 				input[key] = ss
 			}
@@ -421,7 +419,7 @@ func newXdsClientConfig(config clientConfigInput) *status.ClientConfig {
 	}
 }
 
-func xdsResponseInput(istiodID string, configInputs []clientConfigInput) *discovery.DiscoveryResponse {
+func xdsResponseInput(istiodID string, configInputs []clientConfigInput) *discovery.DeltaDiscoveryResponse {
 	icp := &xds.IstioControlPlaneInstance{
 		Component: "istiod",
 		ID:        istiodID,
@@ -431,15 +429,16 @@ func xdsResponseInput(istiodID string, configInputs []clientConfigInput) *discov
 	}
 	identifier, _ := json.Marshal(icp)
 
-	resources := make([]*anypb.Any, 0)
+	resources := make([]*discovery.Resource, 0)
 	for _, input := range configInputs {
-		resources = append(resources, protoconv.MessageToAny(newXdsClientConfig(input)))
+		resources = append(resources, &discovery.Resource{
+			Resource: protoconv.MessageToAny(newXdsClientConfig(input)),
+		})
 	}
 
-	return &discovery.DiscoveryResponse{
-		VersionInfo: "1.1",
-		TypeUrl:     clientConfigType,
-		Resources:   resources,
+	return &discovery.DeltaDiscoveryResponse{
+		TypeUrl:   clientConfigType,
+		Resources: resources,
 		ControlPlane: &core.ControlPlane{
 			Identifier: string(identifier),
 		},
