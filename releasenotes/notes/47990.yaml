@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Updated** `verify-install` command now defaults to not requiring a IstioOperator file, since it is now removed from the installation process.

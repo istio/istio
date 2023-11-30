@@ -50,5 +50,5 @@ func getClientCertFn(config *Config) func(requestInfo *tls.CertificateRequestInf
 }
 
 func isDebugType(typeURL string) bool {
-	return typeURL == xds.TypeDebugSyncronization || typeURL == xds.TypeDebugConfigDump
+	return typeURL == xds.TypeDebugSyncronization || typeURL == xds.TypeDebugConfigDump || typeURL == xds.TypeURLConnect
 }

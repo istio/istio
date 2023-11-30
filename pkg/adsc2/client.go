@@ -38,6 +38,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoreflect"
 	"google.golang.org/protobuf/reflect/protoregistry"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
+
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/constants"
@@ -308,8 +309,6 @@ func (c *Client) tlsConfig() (*tls.Config, error) {
 
 type Option func(c *Client)
 
-var deltaadsc = log.RegisterScope("delta adsc", "delta adsc debugging")
-
 func New(config *Config, opts ...Option) *Client {
 	c := &Client{
 		config:   initConfigIfNotPresent(config),
@@ -327,43 +326,31 @@ func TypeName[T proto.Message]() string {
 	return resource.APITypePrefix + string((*ft).ProtoReflect().Descriptor().FullName())
 }
 
+// Register registers a handler for a type which is reflected by the proto message.
 func Register[T proto.Message](f func(ctx HandlerContext, res T, event Event)) Option {
 	return func(c *Client) {
 		c.handlers[TypeName[T]()] = f
 	}
 }
 
+// RegisterType registers a handler for a type based on the type URL.
 func RegisterType(typeURL string, f func(ctx HandlerContext, res proto.Message, event Event)) Option {
 	return func(c *Client) {
 		c.handlers[typeURL] = f
 	}
 }
 
+// Watch registers an initial watch for a type based on the type reflected by the proto message.
 func Watch[T proto.Message](resourceName string) Option {
-	return func(c *Client) {
-		if resourceName == "*" {
-			// Normalize to allow both forms
-			resourceName = ""
-		}
-		key := resourceKey{
-			Name:    resourceName,
-			TypeUrl: TypeName[T](),
-		}
-		existing, f := c.tree[key]
-		if f {
-			// We are watching directly now, so erase any parents
-			existing.Parents = nil
-		} else {
-			c.tree[key] = resourceNode{
-				Parents:  make(keySet),
-				Children: make(keySet),
-			}
-		}
-		c.initialWatches = append(c.initialWatches, key)
-	}
+	return initWatch(TypeName[T](), resourceName)
 }
 
+// WatchType registers an initial watch for a type based on the type URL.
 func WatchType(typeURL string, resourceName string) Option {
+	return initWatch(typeURL, resourceName)
+}
+
+func initWatch(typeURL string, resourceName string) Option {
 	return func(c *Client) {
 		if resourceName == "*" {
 			// Normalize to allow both forms
@@ -416,14 +403,14 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 	}
 	for _, r := range d.Resources {
 		if isDebugType(d.TypeUrl) {
-			// No need to ack && type check for debug types
+			// No need to ack and type check for debug types
 			err := c.trigger(ctx, d.TypeUrl, r, EventAdd)
 			if err != nil {
 				return err
 			}
 			continue
 		}
-		if d.TypeUrl != r.Resource.TypeUrl && !isDebugType(d.TypeUrl) {
+		if d.TypeUrl != r.Resource.TypeUrl {
 			log.Fatalf("mismatch of type url: %v vs %v", d.TypeUrl, r.Resource.TypeUrl)
 		}
 		err := c.trigger(ctx, d.TypeUrl, r, EventAdd)

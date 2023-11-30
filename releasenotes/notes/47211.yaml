@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+issue:
+  - 47211
+
+releaseNotes:
+- |
+  **Added** Ability to configure the IPv4 loopback CIDR used by istio-iptables in various firewall rules.

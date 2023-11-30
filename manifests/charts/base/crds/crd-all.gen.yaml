@@ -7791,6 +7791,11 @@ spec:
                       description: If set to true, the original token will be kept
                         for the upstream request.
                       type: boolean
+                    fromCookies:
+                      description: List of cookie names from which JWT is expected.
+                      items:
+                        type: string
+                      type: array
                     fromHeaders:
                       description: List of header locations from which JWT is expected.
                       items:
@@ -7900,6 +7905,11 @@ spec:
                       description: If set to true, the original token will be kept
                         for the upstream request.
                       type: boolean
+                    fromCookies:
+                      description: List of cookie names from which JWT is expected.
+                      items:
+                        type: string
+                      type: array
                     fromHeaders:
                       description: List of header locations from which JWT is expected.
                       items:
