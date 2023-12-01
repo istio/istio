@@ -1324,7 +1324,7 @@ func printConfigs(writer io.Writer, configs []*config.Config) {
 	fmt.Fprintf(writer, "   %s\n", cfgNames)
 }
 
-func printPeerAuthentication(writer io.Writer, pa authnv1beta1.MergedPeerAuthentication) {
+func printPeerAuthentication(writer io.Writer, pa authn.MergedPeerAuthentication) {
 	fmt.Fprintf(writer, "Effective PeerAuthentication:\n")
 	fmt.Fprintf(writer, "   Workload mTLS mode: %s\n", pa.Mode.String())
 	if len(pa.PerPort) != 0 {
