@@ -102,7 +102,11 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		}
 		log.Info("Successfully retrieved incluster config.")
 
-		localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(config), clusterID, configOverrides...)
+		for _, overwrite := range configOverrides {
+			overwrite(config)
+		}
+
+		localKubeClient, err := kube.NewClient(kube.NewClientConfigForRestConfig(config), clusterID)
 		if err != nil {
 			log.Errorf("Could not create a client to access local cluster API server: %v", err)
 			return nil
