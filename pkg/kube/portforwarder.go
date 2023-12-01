@@ -27,7 +27,6 @@ import (
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 
-	"istio.io/istio/pkg/test/scopes"
 	"istio.io/pkg/log"
 )
 
@@ -82,7 +81,7 @@ func (f *forwarder) Start() error {
 				return
 			}
 			if err = fw.ForwardPorts(); err != nil {
-				scopes.Framework.Errorf("port forward failed: %v", err)
+				log.Errorf("port forward failed: %v", err)
 				f.errCh <- fmt.Errorf("port forward: %v", err)
 				return
 			}
