@@ -95,7 +95,7 @@ func resetCallbackData() {
 	deleted = ""
 }
 
-func Test_KubeConfigOverride(t *testing.T) {
+func TestKubeConfigOverride(t *testing.T) {
 	var (
 		expectedQPS   = float32(100)
 		expectedBurst = 200
