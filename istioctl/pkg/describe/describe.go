@@ -54,7 +54,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authnv1beta1 "istio.io/istio/pilot/pkg/security/authn/v1beta1"
+	"istio.io/istio/pilot/pkg/security/authn"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -1272,7 +1272,7 @@ func describePeerAuthentication(
 	}
 
 	matchedPA := findMatchedConfigs(podsLabels, cfgs)
-	effectivePA := authnv1beta1.ComposePeerAuthentication(meshCfg.RootNamespace, matchedPA)
+	effectivePA := authn.ComposePeerAuthentication(meshCfg.RootNamespace, matchedPA)
 	printPeerAuthentication(writer, effectivePA)
 	if len(matchedPA) != 0 {
 		printConfigs(writer, matchedPA)
