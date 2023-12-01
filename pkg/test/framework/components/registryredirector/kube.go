@@ -104,9 +104,9 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	}
 
 	if ctx.Environment().IsMultiCluster() {
-		lb, err := testKube.WaitUntilServiceLoadBalancerReady(c.cluster.Kube(), c.ns.Name(), "gce-metadata-server")
+		lb, err := testKube.WaitUntilServiceLoadBalancerReady(c.cluster.Kube(), c.ns.Name(), service)
 		if err != nil {
-			scopes.Framework.Infof("Error waiting for GCE Metadata service LB to be available: %v", err)
+			scopes.Framework.Infof("Error waiting for container registry service LB to be available: %v", err)
 			return nil, err
 		}
 		c.address = net.JoinHostPort(lb, fmt.Sprint(svc.Spec.Ports[0].Port))
