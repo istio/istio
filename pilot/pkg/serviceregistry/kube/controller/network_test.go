@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
@@ -237,6 +238,20 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 
 	s := newAmbientTestServer(t, testC, "")
 
+	lastNotified := atomic.Value{}
+	s.controller.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		lastNotified.Store(o.GetName())
+	}))
+
+	waitNamespaceNotify := func(namespace string) {
+		retry.UntilSuccessOrFail(t, func() error {
+			if lastNotified.Load() != namespace {
+				return fmt.Errorf("no namespace notify")
+			}
+			return nil
+		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
+	}
+
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
 
@@ -246,7 +261,13 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 	createOrUpdateNamespace(t, s.controller, testNS, "")
 	createOrUpdateNamespace(t, s.controller, systemNS, "")
 
-	expectWorkloadNetwork := func(t *testing.T, c *FakeController, network string) {
+	waitNamespaceNotify(systemNS)
+
+	expectNetwork := func(t *testing.T, c *FakeController, network string) {
+		lastNotified = atomic.Value{}
+		createOrUpdateNamespace(t, s.controller, systemNS, network)
+		waitNamespaceNotify(systemNS)
+		assert.Equal(t, network, s.controller.networkFromSystemNamespace().String())
 		podNames := sets.New[string]("pod1", "pod2")
 		addresses := c.ambientIndex.All()
 		for _, addr := range addresses {
@@ -262,25 +283,11 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 	}
 
 	t.Run("change namespace network to nw1", func(t *testing.T) {
-		createOrUpdateNamespace(t, s.controller, systemNS, "nw1")
-		retry.UntilSuccessOrFail(t, func() error {
-			if s.controller.networkFromSystemNamespace() != "nw1" {
-				return fmt.Errorf("network not updated")
-			}
-			return nil
-		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
-		expectWorkloadNetwork(t, s.controller, "nw1")
+		expectNetwork(t, s.controller, "nw1")
 	})
 
 	t.Run("change namespace network to nw2", func(t *testing.T) {
-		createOrUpdateNamespace(t, s.controller, systemNS, "nw2")
-		retry.UntilSuccessOrFail(t, func() error {
-			if s.controller.networkFromSystemNamespace() != "nw2" {
-				return fmt.Errorf("network not updated")
-			}
-			return nil
-		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
-		expectWorkloadNetwork(t, s.controller, "nw2")
+		expectNetwork(t, s.controller, "nw2")
 	})
 
 	t.Run("manually change namespace network to nw3, and update meshNetworks", func(t *testing.T) {
@@ -293,7 +300,7 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 			},
 		})
 		addMeshNetworksFromRegistryGateway(t, s.controller, s.controller.meshNetworksWatcher)
-		expectWorkloadNetwork(t, s.controller, "nw3")
+		expectNetwork(t, s.controller, "nw3")
 	})
 }
 
