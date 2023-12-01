@@ -88,7 +88,9 @@ type Controller struct {
 }
 
 // NewController returns a new secret controller
-func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID, meshWatcher mesh.Watcher, configOverrides ...func(*rest.Config)) *Controller {
+func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID,
+	meshWatcher mesh.Watcher, configOverrides ...func(*rest.Config),
+) *Controller {
 	informerClient := kubeclientset
 
 	// When these two are set to true, Istiod will be watching the namespace in which
