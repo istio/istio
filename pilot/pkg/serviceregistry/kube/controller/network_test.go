@@ -243,14 +243,22 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 		namespaceNotifyCh <- o.GetName()
 	}))
 
-	waitNamespaceNotify := func(namespace string) {
-		retry.UntilSuccessOrFail(t, func() error {
-			notifiedNamespace := <-namespaceNotifyCh
-			if notifiedNamespace != namespace {
-				return fmt.Errorf("no namespace notify")
+	waitNamespaceOrFail := func(t test.Failer, namespace string) {
+		t.Helper()
+		delay := time.NewTimer(time.Second * 5)
+		defer delay.Stop()
+		for {
+			select {
+			case <-delay.C:
+				t.Fatalf("timed out waiting for %s", namespace)
+			case n := <-namespaceNotifyCh:
+				if n == namespace {
+					return
+				}
+				t.Logf("skipping namespace %s want %s", n, namespace)
+				continue
 			}
-			return nil
-		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
+		}
 	}
 	waitNetwork := func(c *FakeController, network string) {
 		retry.UntilSuccessOrFail(t, func() error {
@@ -275,8 +283,9 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 		})
 	}
 	expectNetwork := func(t *testing.T, c *FakeController, network string) {
+		t.Helper()
 		createOrUpdateNamespace(t, s.controller, systemNS, network)
-		waitNamespaceNotify(systemNS)
+		waitNamespaceOrFail(t, systemNS)
 		waitNetwork(c, network)
 	}
 
@@ -289,7 +298,7 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 	createOrUpdateNamespace(t, s.controller, testNS, "")
 	createOrUpdateNamespace(t, s.controller, systemNS, "")
 
-	waitNamespaceNotify(systemNS)
+	waitNamespaceOrFail(t, systemNS)
 
 	t.Run("change namespace network to nw1", func(t *testing.T) {
 		expectNetwork(t, s.controller, "nw1")
