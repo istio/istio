@@ -182,27 +182,20 @@ func UntilComplete(fn RetriableFunc, options ...Option) (any, error) {
 		default:
 		}
 
-		result, completed, err := fn()
-		attempts++
-		if completed {
-			if err == nil {
-				successes++
-			} else {
-				successes = 0
-			}
-			if successes >= cfg.converge {
-				return result, err
-			}
+		done := make(chan struct {
+			result    any
+			completed bool
+			err       error
+		}, 1)
 
-			// Skip delay if we have a success
-			continue
-		}
-		successes = 0
-		if err != nil {
-			scope.Debugf("encountered an error on attempt %d: %v", attempts, err)
-			lasterr = err
-		}
-
+		go func() {
+			result, completed, err := fn()
+			done <- struct {
+				result    any
+				completed bool
+				err       error
+			}{result, completed, err}
+		}()
 		select {
 		case <-to:
 			convergeStr := ""
@@ -210,10 +203,38 @@ func UntilComplete(fn RetriableFunc, options ...Option) (any, error) {
 				convergeStr = fmt.Sprintf(", %d/%d successes", successes, cfg.converge)
 			}
 			return nil, fmt.Errorf("timeout while waiting after %d attempts%s (last error: %v)", attempts, convergeStr, lasterr)
-		case <-time.After(delay):
-			delay *= 2
-			if delay > cfg.delayMax {
-				delay = cfg.delayMax
+		case r := <-done:
+			attempts++
+			if r.completed {
+				if r.err == nil {
+					successes++
+				} else {
+					successes = 0
+				}
+				if successes >= cfg.converge {
+					return r.result, r.err
+				}
+				// Skip delay if we have a success
+				continue
+			}
+
+			successes = 0
+			if r.err != nil {
+				scope.Debugf("encountered an error on attempt %d: %v", attempts, r.err)
+				lasterr = r.err
+			}
+			select {
+			case <-to:
+				convergeStr := ""
+				if cfg.converge > 1 {
+					convergeStr = fmt.Sprintf(", %d/%d successes", successes, cfg.converge)
+				}
+				return nil, fmt.Errorf("timeout while waiting after %d attempts%s (last error: %v)", attempts, convergeStr, lasterr)
+			case <-time.After(delay):
+				delay *= 2
+				if delay > cfg.delayMax {
+					delay = cfg.delayMax
+				}
 			}
 		}
 	}
