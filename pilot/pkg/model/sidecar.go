@@ -198,6 +198,8 @@ type IstioEgressListenerWrapper struct {
 	// a private virtual service for serviceA from the local namespace,
 	// with a different path rewrite or no path rewrites.
 	virtualServices []config.Config
+
+	mostSpecificWildcardSvcIndex map[host.Name]types.NamespacedName
 }
 
 const defaultSidecar = "default-sidecar"
@@ -213,6 +215,9 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	}
 	defaultEgressListener.services = ps.servicesExportedToNamespace(configNamespace)
 	defaultEgressListener.virtualServices = ps.VirtualServicesForGateway(configNamespace, constants.IstioMeshGateway)
+	mostSpecificWildcardSvcIndex := computeWildcardHostVirtualServiceIndex(
+		defaultEgressListener.virtualServices, defaultEgressListener.services)
+	defaultEgressListener.mostSpecificWildcardSvcIndex = mostSpecificWildcardSvcIndex
 
 	out := &SidecarScope{
 		Name:                    defaultSidecar,
@@ -510,6 +515,8 @@ func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
 	out.virtualServices = SelectVirtualServices(ps.virtualServiceIndex, configNamespace, hostsByNamespace)
 	svces := ps.servicesExportedToNamespace(configNamespace)
 	out.services = out.selectServices(svces, configNamespace, hostsByNamespace)
+	out.mostSpecificWildcardSvcIndex = computeWildcardHostVirtualServiceIndex(out.virtualServices, out.services)
+
 	return out
 }
 
@@ -589,6 +596,12 @@ func (ilw *IstioEgressListenerWrapper) Services() []*Service {
 // egress listener
 func (ilw *IstioEgressListenerWrapper) VirtualServices() []config.Config {
 	return ilw.virtualServices
+}
+
+// WildcardHostVirtualServiceIndex returns the the wildcardHostVirtualServiceIndex for this egress
+// listener.
+func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardServiceIndex() map[host.Name]types.NamespacedName {
+	return ilw.mostSpecificWildcardSvcIndex
 }
 
 // DependsOnConfig determines if the proxy depends on the given config.
@@ -826,6 +839,35 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[i
 	// sidecar egress listener.
 	log.Warnf("Failed to find any VirtualService destination ports %v exposed by Service %s", vsDestPorts, service.Hostname)
 	return nil
+}
+
+// computeWildcardHostVirtualServiceIndex computes the wildcardHostVirtualServiceIndex for a given
+// list of virtualServices. This is used to optimize the lookup of the most specific wildcard host
+func computeWildcardHostVirtualServiceIndex(virtualServices []config.Config, services []*Service) map[host.Name]types.NamespacedName {
+	fqdnVirtualServiceHostIndex := make(map[host.Name]config.Config, len(virtualServices))
+	wildcardVirtualServiceHostIndex := make(map[host.Name]config.Config, len(virtualServices))
+	for _, vs := range virtualServices {
+		v := vs.Spec.(*networking.VirtualService)
+		for _, h := range v.Hosts {
+			if host.Name(h).IsWildCarded() {
+				wildcardVirtualServiceHostIndex[host.Name(h)] = vs
+			} else {
+				fqdnVirtualServiceHostIndex[host.Name(h)] = vs
+			}
+		}
+	}
+
+	mostSpecificWildcardSvcIndex := make(map[host.Name]types.NamespacedName)
+	for _, svc := range services {
+		_, ref, exists := MostSpecificHostMatchOldestFirst(svc.Hostname, fqdnVirtualServiceHostIndex, wildcardVirtualServiceHostIndex)
+		if !exists {
+			// This svc doesn't have a virtualService; skip
+			continue
+		}
+		mostSpecificWildcardSvcIndex[svc.Hostname] = ref.NamespacedName()
+	}
+
+	return mostSpecificWildcardSvcIndex
 }
 
 func needsPortMatch(l *networking.IstioEgressListener) bool {

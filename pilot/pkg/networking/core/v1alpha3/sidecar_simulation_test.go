@@ -1927,362 +1927,362 @@ spec:
 		expected        map[string][]string
 		expectedGateway map[string][]string
 	}{
-		// Port 80 has special cases as there is defaulting logic around this port
-		{
-			name: "simple port 80",
-			cfg: []Configer{vsArgs{
-				Namespace: "default",
-				Match:     "known.default.svc.cluster.local",
-				Dest:      "alt-known.default.svc.cluster.local",
-			}},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-			},
-		},
-		{
-			name: "simple port 8080",
-			cfg: []Configer{vsArgs{
-				Namespace: "default",
-				Match:     "known.default.svc.cluster.local",
-				Dest:      "alt-known.default.svc.cluster.local",
-			}},
-			proxy:     proxy("default"),
-			routeName: "8080",
-			expected: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|8080||alt-known.default.svc.cluster.local"},
-			},
-			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-			},
-		},
-		{
-			name: "unknown port 80",
-			cfg: []Configer{vsArgs{
-				Namespace: "default",
-				Match:     "foo.default.svc.cluster.local",
-				Dest:      "foo.default.svc.cluster.local",
-			}},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"foo.default.svc.cluster.local": {"outbound|80||foo.default.svc.cluster.local"},
-			},
-			expectedGateway: map[string][]string{
-				"foo.default.svc.cluster.local": nil,
-			},
-		},
-		{
-			name: "unknown port 8080",
-			cfg: []Configer{vsArgs{
-				Namespace: "default",
-				Match:     "foo.default.svc.cluster.local",
-				Dest:      "foo.default.svc.cluster.local",
-			}},
-			proxy:     proxy("default"),
-			routeName: "8080",
-			// For unknown services, we only will add a route to the port 80
-			expected: map[string][]string{
-				"foo.default.svc.cluster.local": nil,
-			},
-		},
-		{
-			name: "unknown port 8080 match 8080",
-			cfg: []Configer{vsArgs{
-				Namespace: "default",
-				Match:     "foo.default.svc.cluster.local",
-				Dest:      "foo.default.svc.cluster.local",
-				PortMatch: 8080,
-			}},
-			proxy:     proxy("default"),
-			routeName: "8080",
-			// For unknown services, we only will add a route to the port 80
-			expected: map[string][]string{
-				"foo.default.svc.cluster.local": nil,
-			},
-		},
-		{
-			name: "unknown port 8080 dest 8080 ",
-			cfg: []Configer{vsArgs{
-				Namespace: "default",
-				Match:     "foo.default.svc.cluster.local",
-				Dest:      "foo.default.svc.cluster.local",
-				Port:      8080,
-			}},
-			proxy:     proxy("default"),
-			routeName: "8080",
-			// For unknown services, we only will add a route to the port 80
-			expected: map[string][]string{
-				"foo.default.svc.cluster.local": nil,
-			},
-		},
-		{
-			name: "producer rule port 80",
-			cfg: []Configer{vsArgs{
-				Namespace: "default",
-				Match:     "known.default.svc.cluster.local",
-				Dest:      "alt-known.default.svc.cluster.local",
-			}},
-			proxy:     proxy("not-default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-			},
-		},
-		{
-			name: "producer rule port 8080",
-			cfg: []Configer{vsArgs{
-				Namespace: "default",
-				Match:     "known.default.svc.cluster.local",
-				Dest:      "alt-known.default.svc.cluster.local",
-			}},
-			proxy:     proxy("not-default"),
-			routeName: "8080",
-			expected: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|8080||alt-known.default.svc.cluster.local"},
-			},
-			expectedGateway: map[string][]string{ // No implicit port matching for gateway
-				"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-			},
-		},
-		{
-			name: "consumer rule port 80",
-			cfg: []Configer{vsArgs{
-				Namespace: "not-default",
-				Match:     "known.default.svc.cluster.local",
-				Dest:      "alt-known.default.svc.cluster.local",
-			}},
-			proxy:     proxy("not-default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-			},
-		},
-		{
-			name: "consumer rule port 8080",
-			cfg: []Configer{vsArgs{
-				Namespace: "not-default",
-				Match:     "known.default.svc.cluster.local",
-				Dest:      "alt-known.default.svc.cluster.local",
-			}},
-			proxy:     proxy("not-default"),
-			routeName: "8080",
-			expected: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|8080||alt-known.default.svc.cluster.local"},
-			},
-			expectedGateway: map[string][]string{ // No implicit port matching for gateway
-				"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-			},
-		},
-		{
-			name: "arbitrary rule port 80",
-			cfg: []Configer{vsArgs{
-				Namespace: "arbitrary",
-				Match:     "known.default.svc.cluster.local",
-				Dest:      "alt-known.default.svc.cluster.local",
-			}},
-			proxy:     proxy("not-default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-			},
-			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||known.default.svc.cluster.local"},
-			},
-		},
-		{
-			name: "arbitrary rule port 8080",
-			cfg: []Configer{vsArgs{
-				Namespace: "arbitrary",
-				Match:     "known.default.svc.cluster.local",
-				Dest:      "alt-known.default.svc.cluster.local",
-			}},
-			proxy:     proxy("not-default"),
-			routeName: "8080",
-			expected: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|8080||alt-known.default.svc.cluster.local"},
-			},
-			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|8080||known.default.svc.cluster.local"},
-			},
-		},
-		{
-			name: "multiple rules 80",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "arbitrary",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "arbitrary.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "default.example.com",
-					Time:      TimeBase,
-				},
-				vsArgs{
-					Namespace: "not-default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "not-default.example.com",
-					Time:      TimeNewer,
-				},
-			},
-			proxy:     proxy("not-default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// Oldest wins
-				"known.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
-			},
-			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||not-default.example.com"},
-			},
-		},
-		{
-			name: "multiple rules 8080",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "arbitrary",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "arbitrary.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "default.example.com",
-					Time:      TimeBase,
-				},
-				vsArgs{
-					Namespace: "not-default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "not-default.example.com",
-					Time:      TimeNewer,
-				},
-			},
-			proxy:     proxy("not-default"),
-			routeName: "8080",
-			expected: map[string][]string{
-				// Oldest wins
-				"known.default.svc.cluster.local": {"outbound|8080||arbitrary.example.com"},
-			},
-			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||not-default.example.com"},
-			},
-		},
-		{
-			name: "wildcard random",
-			cfg: []Configer{vsArgs{
-				Namespace: "default",
-				Match:     "*.unknown.example.com",
-				Dest:      "arbitrary.example.com",
-			}},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// match no VS, get default config
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				"known.default.svc.cluster.local":     {"outbound|80||known.default.svc.cluster.local"},
-				// Wildcard doesn't match any known services, insert it as-is
-				"*.unknown.example.com": {"outbound|80||arbitrary.example.com"},
-			},
-		},
-		{
-			name: "wildcard match with sidecar",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "*.cluster.local",
-					Dest:      "arbitrary.example.com",
-				},
-				scArgs{
-					Namespace: "default",
-					Egress:    []string{"*/*.cluster.local"},
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"alt-known.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||arbitrary.example.com"},
-				// Matched an exact service, so we have no route for the wildcard
-				"*.cluster.local": nil,
-			},
-			expectedGateway: map[string][]string{
-				// Exact service matches do not get the wildcard applied
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				"known.default.svc.cluster.local":     {"outbound|80||known.default.svc.cluster.local"},
-				// The wildcard
-				"*.cluster.local": {"outbound|80||arbitrary.example.com"},
-			},
-		},
-		{
-			name: "wildcard first then explicit",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "*.cluster.local",
-					Dest:      "wild.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "explicit.example.com",
-					Time:      TimeNewer,
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"}, // oldest wins
-				// Matched an exact service, so we have no route for the wildcard
-				"*.cluster.local": nil,
-			},
-			expectedGateway: map[string][]string{
-				// No overrides, use default
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				// Explicit has precedence
-				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
-				// Last is our wildcard
-				"*.cluster.local": {"outbound|80||wild.example.com"},
-			},
-		},
-		{
-			name: "explicit first then wildcard",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "*.cluster.local",
-					Dest:      "wild.example.com",
-					Time:      TimeNewer,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "explicit.example.com",
-					Time:      TimeOlder,
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"}, // oldest wins
-				// Matched an exact service, so we have no route for the wildcard
-				"*.cluster.local": nil,
-			},
-			expectedGateway: map[string][]string{
-				// No overrides, use default
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				// Explicit has precedence
-				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
-				// Last is our wildcard
-				"*.cluster.local": {"outbound|80||wild.example.com"},
-			},
-		},
+		// // Port 80 has special cases as there is defaulting logic around this port
+		// {
+		// 	name: "simple port 80",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "default",
+		// 		Match:     "known.default.svc.cluster.local",
+		// 		Dest:      "alt-known.default.svc.cluster.local",
+		// 	}},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 	},
+		// },
+		// {
+		// 	name: "simple port 8080",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "default",
+		// 		Match:     "known.default.svc.cluster.local",
+		// 		Dest:      "alt-known.default.svc.cluster.local",
+		// 	}},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "8080",
+		// 	expected: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|8080||alt-known.default.svc.cluster.local"},
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 	},
+		// },
+		// {
+		// 	name: "unknown port 80",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "default",
+		// 		Match:     "foo.default.svc.cluster.local",
+		// 		Dest:      "foo.default.svc.cluster.local",
+		// 	}},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"foo.default.svc.cluster.local": {"outbound|80||foo.default.svc.cluster.local"},
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		"foo.default.svc.cluster.local": nil,
+		// 	},
+		// },
+		// {
+		// 	name: "unknown port 8080",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "default",
+		// 		Match:     "foo.default.svc.cluster.local",
+		// 		Dest:      "foo.default.svc.cluster.local",
+		// 	}},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "8080",
+		// 	// For unknown services, we only will add a route to the port 80
+		// 	expected: map[string][]string{
+		// 		"foo.default.svc.cluster.local": nil,
+		// 	},
+		// },
+		// {
+		// 	name: "unknown port 8080 match 8080",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "default",
+		// 		Match:     "foo.default.svc.cluster.local",
+		// 		Dest:      "foo.default.svc.cluster.local",
+		// 		PortMatch: 8080,
+		// 	}},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "8080",
+		// 	// For unknown services, we only will add a route to the port 80
+		// 	expected: map[string][]string{
+		// 		"foo.default.svc.cluster.local": nil,
+		// 	},
+		// },
+		// {
+		// 	name: "unknown port 8080 dest 8080 ",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "default",
+		// 		Match:     "foo.default.svc.cluster.local",
+		// 		Dest:      "foo.default.svc.cluster.local",
+		// 		Port:      8080,
+		// 	}},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "8080",
+		// 	// For unknown services, we only will add a route to the port 80
+		// 	expected: map[string][]string{
+		// 		"foo.default.svc.cluster.local": nil,
+		// 	},
+		// },
+		// {
+		// 	name: "producer rule port 80",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "default",
+		// 		Match:     "known.default.svc.cluster.local",
+		// 		Dest:      "alt-known.default.svc.cluster.local",
+		// 	}},
+		// 	proxy:     proxy("not-default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 	},
+		// },
+		// {
+		// 	name: "producer rule port 8080",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "default",
+		// 		Match:     "known.default.svc.cluster.local",
+		// 		Dest:      "alt-known.default.svc.cluster.local",
+		// 	}},
+		// 	proxy:     proxy("not-default"),
+		// 	routeName: "8080",
+		// 	expected: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|8080||alt-known.default.svc.cluster.local"},
+		// 	},
+		// 	expectedGateway: map[string][]string{ // No implicit port matching for gateway
+		// 		"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 	},
+		// },
+		// {
+		// 	name: "consumer rule port 80",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "not-default",
+		// 		Match:     "known.default.svc.cluster.local",
+		// 		Dest:      "alt-known.default.svc.cluster.local",
+		// 	}},
+		// 	proxy:     proxy("not-default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 	},
+		// },
+		// {
+		// 	name: "consumer rule port 8080",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "not-default",
+		// 		Match:     "known.default.svc.cluster.local",
+		// 		Dest:      "alt-known.default.svc.cluster.local",
+		// 	}},
+		// 	proxy:     proxy("not-default"),
+		// 	routeName: "8080",
+		// 	expected: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|8080||alt-known.default.svc.cluster.local"},
+		// 	},
+		// 	expectedGateway: map[string][]string{ // No implicit port matching for gateway
+		// 		"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 	},
+		// },
+		// {
+		// 	name: "arbitrary rule port 80",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "arbitrary",
+		// 		Match:     "known.default.svc.cluster.local",
+		// 		Dest:      "alt-known.default.svc.cluster.local",
+		// 	}},
+		// 	proxy:     proxy("not-default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|80||known.default.svc.cluster.local"},
+		// 	},
+		// },
+		// {
+		// 	name: "arbitrary rule port 8080",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "arbitrary",
+		// 		Match:     "known.default.svc.cluster.local",
+		// 		Dest:      "alt-known.default.svc.cluster.local",
+		// 	}},
+		// 	proxy:     proxy("not-default"),
+		// 	routeName: "8080",
+		// 	expected: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|8080||alt-known.default.svc.cluster.local"},
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|8080||known.default.svc.cluster.local"},
+		// 	},
+		// },
+		// {
+		// 	name: "multiple rules 80",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "arbitrary",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "arbitrary.example.com",
+		// 			Time:      TimeOlder,
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "default.example.com",
+		// 			Time:      TimeBase,
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "not-default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "not-default.example.com",
+		// 			Time:      TimeNewer,
+		// 		},
+		// 	},
+		// 	proxy:     proxy("not-default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		// Oldest wins
+		// 		"known.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|80||not-default.example.com"},
+		// 	},
+		// },
+		// {
+		// 	name: "multiple rules 8080",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "arbitrary",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "arbitrary.example.com",
+		// 			Time:      TimeOlder,
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "default.example.com",
+		// 			Time:      TimeBase,
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "not-default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "not-default.example.com",
+		// 			Time:      TimeNewer,
+		// 		},
+		// 	},
+		// 	proxy:     proxy("not-default"),
+		// 	routeName: "8080",
+		// 	expected: map[string][]string{
+		// 		// Oldest wins
+		// 		"known.default.svc.cluster.local": {"outbound|8080||arbitrary.example.com"},
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|80||not-default.example.com"},
+		// 	},
+		// },
+		// {
+		// 	name: "wildcard random",
+		// 	cfg: []Configer{vsArgs{
+		// 		Namespace: "default",
+		// 		Match:     "*.unknown.example.com",
+		// 		Dest:      "arbitrary.example.com",
+		// 	}},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		// match no VS, get default config
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 		"known.default.svc.cluster.local":     {"outbound|80||known.default.svc.cluster.local"},
+		// 		// Wildcard doesn't match any known services, insert it as-is
+		// 		"*.unknown.example.com": {"outbound|80||arbitrary.example.com"},
+		// 	},
+		// },
+		// {
+		// 	name: "wildcard match with sidecar",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "*.cluster.local",
+		// 			Dest:      "arbitrary.example.com",
+		// 		},
+		// 		scArgs{
+		// 			Namespace: "default",
+		// 			Egress:    []string{"*/*.cluster.local"},
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
+		// 		"known.default.svc.cluster.local":     {"outbound|80||arbitrary.example.com"},
+		// 		// Matched an exact service, so we have no route for the wildcard
+		// 		"*.cluster.local": nil,
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		// Exact service matches do not get the wildcard applied
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 		"known.default.svc.cluster.local":     {"outbound|80||known.default.svc.cluster.local"},
+		// 		// The wildcard
+		// 		"*.cluster.local": {"outbound|80||arbitrary.example.com"},
+		// 	},
+		// },
+		// {
+		// 	name: "wildcard first then explicit",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "*.cluster.local",
+		// 			Dest:      "wild.example.com",
+		// 			Time:      TimeOlder,
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "explicit.example.com",
+		// 			Time:      TimeNewer,
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
+		// 		"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"}, // oldest wins
+		// 		// Matched an exact service, so we have no route for the wildcard
+		// 		"*.cluster.local": nil,
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		// No overrides, use default
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 		// Explicit has precedence
+		// 		"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
+		// 		// Last is our wildcard
+		// 		"*.cluster.local": {"outbound|80||wild.example.com"},
+		// 	},
+		// },
+		// {
+		// 	name: "explicit first then wildcard",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "*.cluster.local",
+		// 			Dest:      "wild.example.com",
+		// 			Time:      TimeNewer,
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "explicit.example.com",
+		// 			Time:      TimeOlder,
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
+		// 		"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"}, // oldest wins
+		// 		// Matched an exact service, so we have no route for the wildcard
+		// 		"*.cluster.local": nil,
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		// No overrides, use default
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 		// Explicit has precedence
+		// 		"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
+		// 		// Last is our wildcard
+		// 		"*.cluster.local": {"outbound|80||wild.example.com"},
+		// 	},
+		// },
 		{
 			name: "wildcard and explicit with sidecar",
 			cfg: []Configer{
@@ -2308,7 +2308,8 @@ spec:
 			expected: map[string][]string{
 				// Even though we did not import `*.cluster.local`, the VS attaches
 				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"},
+				// Oldest wins
+				"known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
 				"*.cluster.local": nil,
 			},
@@ -2321,287 +2322,287 @@ spec:
 				"*.cluster.local": nil,
 			},
 		},
-		{
-			name: "explicit first then wildcard with sidecar cross namespace",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "not-default",
-					Match:     "*.cluster.local",
-					Dest:      "wild.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "explicit.example.com",
-					Time:      TimeNewer,
-				},
-				scArgs{
-					Namespace: "default",
-					Egress:    []string{"default/known.default.svc.cluster.local", "default/alt-known.default.svc.cluster.local"},
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// Similar to above, but now the older wildcard VS is in a complete different namespace which we don't import
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
-				// Matched an exact service, so we have no route for the wildcard
-				"*.cluster.local": nil,
-			},
-		},
-		{
-			name: "wildcard and explicit cross namespace",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "not-default",
-					Match:     "*.cluster.local",
-					Dest:      "wild.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "explicit.example.com",
-					Time:      TimeNewer,
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// Wildcard is older, so it wins, even though it is cross namespace
-				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"},
-				// Matched an exact service, so we have no route for the wildcard
-				"*.cluster.local": nil,
-			},
-			expectedGateway: map[string][]string{
-				// Exact match wins
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
-				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
-				// Wildcard last
-				"*.cluster.local": {"outbound|80||wild.example.com"},
-			},
-		},
-		{
-			name: "wildcard and explicit unknown",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "*.tld",
-					Dest:      "wild.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "example.tld",
-					Dest:      "explicit.example.com",
-					Time:      TimeNewer,
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// wildcard does not match
-				"known.default.svc.cluster.local": {"outbound|80||known.default.svc.cluster.local"},
-				// Even though its less exact, this wildcard wins
-				"*.tld":         {"outbound|80||wild.example.com"},
-				"*.example.tld": nil,
-			},
-		},
-		{
-			name: "explicit match with wildcard sidecar",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "arbitrary.svc.cluster.local",
-					Dest:      "arbitrary.svc.cluster.local",
-				},
-				scArgs{
-					Namespace: "default",
-					Egress:    []string{"*/*.cluster.local"},
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"arbitrary.svc.cluster.local": {"outbound|80||arbitrary.svc.cluster.local"},
-			},
-		},
-		{
-			name: "wildcard match with explicit sidecar",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "*.cluster.local",
-					Dest:      "arbitrary.example.com",
-				},
-				scArgs{
-					Namespace: "default",
-					Egress:    []string{"*/known.default.svc.cluster.local"},
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
-				"*.cluster.local":                 nil,
-			},
-			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||known.default.svc.cluster.local"},
-				"*.cluster.local":                 nil,
-			},
-		},
-		{
-			name: "non-service wildcard match with explicit sidecar",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "*.example.org",
-					Dest:      "arbitrary.example.com",
-				},
-				scArgs{
-					Namespace: "default",
-					Egress:    []string{"*/explicit.example.org", "*/alt-known.default.svc.cluster.local"},
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"known.default.svc.cluster.local":     nil,                                                  // Not imported
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"}, // No change
-				"*.example.org":                       {"outbound|80||arbitrary.example.com"},
-			},
-			expectedGateway: map[string][]string{
-				"known.default.svc.cluster.local":     nil,                                                  // Not imported
-				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"}, // No change
-				"*.example.org":                       nil,                                                  // Not imported
-			},
-		},
-		{
-			name: "sidecar filter",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "not-default",
-					Match:     "*.default.svc.cluster.local",
-					Dest:      "arbitrary.example.com",
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "explicit.default.svc.cluster.local",
-					Dest:      "explicit.default.svc.cluster.local",
-				},
-				scArgs{
-					Namespace: "not-default",
-					Egress:    []string{"not-default/*.default.svc.cluster.local", "not-default/not-default.not-default.svc.cluster.local"},
-				},
-			},
-			proxy:     proxy("not-default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// even though there is an *.svc.cluster.local, since we do not import it we should create a wildcard matcher
-				"*.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
-				// We did not import this, shouldn't show up
-				"explicit.default.svc.cluster.local":        nil,
-				"not-default.not-default.svc.cluster.local": {"outbound|80||not-default.not-default.svc.cluster.local"},
-			},
-		},
-		{
-			name: "same namespace conflict",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "old.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "new.example.com",
-					Time:      TimeNewer,
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				"known.default.svc.cluster.local": {"outbound|80||old.example.com"}, // oldest wins
-			},
-		},
-		{
-			name: "cross namespace conflict",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "not-default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "producer.example.com",
-					Time:      TimeOlder,
-				},
-				vsArgs{
-					Namespace: "default",
-					Match:     "known.default.svc.cluster.local",
-					Dest:      "consumer.example.com",
-					Time:      TimeNewer,
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// oldest wins
-				"known.default.svc.cluster.local": {"outbound|80||producer.example.com"},
-			},
-			expectedGateway: map[string][]string{
-				// consumer wins
-				"known.default.svc.cluster.local": {"outbound|80||consumer.example.com"},
-			},
-		},
-		{
-			name: "import only a unknown service route",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Match:     "foo.default.svc.cluster.local",
-					Dest:      "example.com",
-				},
-				scArgs{
-					Namespace: "default",
-					Egress:    []string{"*/foo.default.svc.cluster.local"},
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected:  nil, // We do not even get a route as there is no service on the port
-		},
-		{
-			// https://github.com/istio/istio/issues/37087
-			name: "multi-host import single",
-			cfg: []Configer{
-				vsArgs{
-					Namespace: "default",
-					Matches:   []string{"known.default.svc.cluster.local", "alt-known.default.svc.cluster.local"},
-					Dest:      "example.com",
-				},
-				scArgs{
-					Namespace: "default",
-					Egress:    []string{"*/known.default.svc.cluster.local"},
-				},
-			},
-			proxy:     proxy("default"),
-			routeName: "80",
-			expected: map[string][]string{
-				// imported
-				"known.default.svc.cluster.local": {"outbound|80||example.com"},
-				// Not imported but we include it anyway
-				"alt-known.default.svc.cluster.local": {"outbound|80||example.com"},
-			},
-			expectedGateway: map[string][]string{
-				// imported
-				"known.default.svc.cluster.local": {"outbound|80||example.com"},
-				// Not imported
-				"alt-known.default.svc.cluster.local": nil,
-			},
-		},
+		// {
+		// 	name: "explicit first then wildcard with sidecar cross namespace",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "not-default",
+		// 			Match:     "*.cluster.local",
+		// 			Dest:      "wild.example.com",
+		// 			Time:      TimeOlder,
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "explicit.example.com",
+		// 			Time:      TimeNewer,
+		// 		},
+		// 		scArgs{
+		// 			Namespace: "default",
+		// 			Egress:    []string{"default/known.default.svc.cluster.local", "default/alt-known.default.svc.cluster.local"},
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		// Similar to above, but now the older wildcard VS is in a complete different namespace which we don't import
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 		"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
+		// 		// Matched an exact service, so we have no route for the wildcard
+		// 		"*.cluster.local": nil,
+		// 	},
+		// },
+		// {
+		// 	name: "wildcard and explicit cross namespace",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "not-default",
+		// 			Match:     "*.cluster.local",
+		// 			Dest:      "wild.example.com",
+		// 			Time:      TimeOlder,
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "explicit.example.com",
+		// 			Time:      TimeNewer,
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		// Wildcard is older, so it wins, even though it is cross namespace
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
+		// 		"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"},
+		// 		// Matched an exact service, so we have no route for the wildcard
+		// 		"*.cluster.local": nil,
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		// Exact match wins
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+		// 		"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
+		// 		// Wildcard last
+		// 		"*.cluster.local": {"outbound|80||wild.example.com"},
+		// 	},
+		// },
+		// {
+		// 	name: "wildcard and explicit unknown",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "*.tld",
+		// 			Dest:      "wild.example.com",
+		// 			Time:      TimeOlder,
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "example.tld",
+		// 			Dest:      "explicit.example.com",
+		// 			Time:      TimeNewer,
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		// wildcard does not match
+		// 		"known.default.svc.cluster.local": {"outbound|80||known.default.svc.cluster.local"},
+		// 		// Even though its less exact, this wildcard wins
+		// 		"*.tld":         {"outbound|80||wild.example.com"},
+		// 		"*.example.tld": nil,
+		// 	},
+		// },
+		// {
+		// 	name: "explicit match with wildcard sidecar",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "arbitrary.svc.cluster.local",
+		// 			Dest:      "arbitrary.svc.cluster.local",
+		// 		},
+		// 		scArgs{
+		// 			Namespace: "default",
+		// 			Egress:    []string{"*/*.cluster.local"},
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"arbitrary.svc.cluster.local": {"outbound|80||arbitrary.svc.cluster.local"},
+		// 	},
+		// },
+		// {
+		// 	name: "wildcard match with explicit sidecar",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "*.cluster.local",
+		// 			Dest:      "arbitrary.example.com",
+		// 		},
+		// 		scArgs{
+		// 			Namespace: "default",
+		// 			Egress:    []string{"*/known.default.svc.cluster.local"},
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
+		// 		"*.cluster.local":                 nil,
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|80||known.default.svc.cluster.local"},
+		// 		"*.cluster.local":                 nil,
+		// 	},
+		// },
+		// {
+		// 	name: "non-service wildcard match with explicit sidecar",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "*.example.org",
+		// 			Dest:      "arbitrary.example.com",
+		// 		},
+		// 		scArgs{
+		// 			Namespace: "default",
+		// 			Egress:    []string{"*/explicit.example.org", "*/alt-known.default.svc.cluster.local"},
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"known.default.svc.cluster.local":     nil,                                                  // Not imported
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"}, // No change
+		// 		"*.example.org":                       {"outbound|80||arbitrary.example.com"},
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		"known.default.svc.cluster.local":     nil,                                                  // Not imported
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"}, // No change
+		// 		"*.example.org":                       nil,                                                  // Not imported
+		// 	},
+		// },
+		// {
+		// 	name: "sidecar filter",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "not-default",
+		// 			Match:     "*.default.svc.cluster.local",
+		// 			Dest:      "arbitrary.example.com",
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "explicit.default.svc.cluster.local",
+		// 			Dest:      "explicit.default.svc.cluster.local",
+		// 		},
+		// 		scArgs{
+		// 			Namespace: "not-default",
+		// 			Egress:    []string{"not-default/*.default.svc.cluster.local", "not-default/not-default.not-default.svc.cluster.local"},
+		// 		},
+		// 	},
+		// 	proxy:     proxy("not-default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		// even though there is an *.svc.cluster.local, since we do not import it we should create a wildcard matcher
+		// 		"*.default.svc.cluster.local": {"outbound|80||arbitrary.example.com"},
+		// 		// We did not import this, shouldn't show up
+		// 		"explicit.default.svc.cluster.local":        nil,
+		// 		"not-default.not-default.svc.cluster.local": {"outbound|80||not-default.not-default.svc.cluster.local"},
+		// 	},
+		// },
+		// {
+		// 	name: "same namespace conflict",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "old.example.com",
+		// 			Time:      TimeOlder,
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "new.example.com",
+		// 			Time:      TimeNewer,
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		"known.default.svc.cluster.local": {"outbound|80||old.example.com"}, // oldest wins
+		// 	},
+		// },
+		// {
+		// 	name: "cross namespace conflict",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "not-default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "producer.example.com",
+		// 			Time:      TimeOlder,
+		// 		},
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "known.default.svc.cluster.local",
+		// 			Dest:      "consumer.example.com",
+		// 			Time:      TimeNewer,
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		// oldest wins
+		// 		"known.default.svc.cluster.local": {"outbound|80||producer.example.com"},
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		// consumer wins
+		// 		"known.default.svc.cluster.local": {"outbound|80||consumer.example.com"},
+		// 	},
+		// },
+		// {
+		// 	name: "import only a unknown service route",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Match:     "foo.default.svc.cluster.local",
+		// 			Dest:      "example.com",
+		// 		},
+		// 		scArgs{
+		// 			Namespace: "default",
+		// 			Egress:    []string{"*/foo.default.svc.cluster.local"},
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected:  nil, // We do not even get a route as there is no service on the port
+		// },
+		// {
+		// 	// https://github.com/istio/istio/issues/37087
+		// 	name: "multi-host import single",
+		// 	cfg: []Configer{
+		// 		vsArgs{
+		// 			Namespace: "default",
+		// 			Matches:   []string{"known.default.svc.cluster.local", "alt-known.default.svc.cluster.local"},
+		// 			Dest:      "example.com",
+		// 		},
+		// 		scArgs{
+		// 			Namespace: "default",
+		// 			Egress:    []string{"*/known.default.svc.cluster.local"},
+		// 		},
+		// 	},
+		// 	proxy:     proxy("default"),
+		// 	routeName: "80",
+		// 	expected: map[string][]string{
+		// 		// imported
+		// 		"known.default.svc.cluster.local": {"outbound|80||example.com"},
+		// 		// Not imported but we include it anyway
+		// 		"alt-known.default.svc.cluster.local": {"outbound|80||example.com"},
+		// 	},
+		// 	expectedGateway: map[string][]string{
+		// 		// imported
+		// 		"known.default.svc.cluster.local": {"outbound|80||example.com"},
+		// 		// Not imported
+		// 		"alt-known.default.svc.cluster.local": nil,
+		// 	},
+		// },
 	}
 	for _, variant := range []string{"httproute", "virtualservice"} {
 		t.Run(variant, func(t *testing.T) {

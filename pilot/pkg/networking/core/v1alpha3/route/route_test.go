@@ -24,6 +24,7 @@ import (
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	. "github.com/onsi/gomega"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"k8s.io/apimachinery/pkg/types"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -1180,7 +1181,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 			Services: exampleService,
 		})
-		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry, []config.Config{}, 8080)
+		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
+			[]config.Config{}, 8080, map[host.Name]types.NamespacedName{},
+		)
 		g.Expect(vhosts[0].Routes[0].Action.(*envoyroute.Route_Route).Route.HashPolicy).NotTo(BeNil())
 	})
 	t.Run("for no virtualservice but has destinationrule with portLevel consistentHash loadbalancer", func(t *testing.T) {
@@ -1198,7 +1201,9 @@ func TestBuildHTTPRoutes(t *testing.T) {
 			},
 			Services: exampleService,
 		})
-		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry, []config.Config{}, 8080)
+		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
+			[]config.Config{}, 8080, map[host.Name]types.NamespacedName{},
+		)
 
 		hashPolicy := &envoyroute.RouteAction_HashPolicy{
 			PolicySpecifier: &envoyroute.RouteAction_HashPolicy_Cookie_{
@@ -1219,12 +1224,18 @@ func TestBuildHTTPRoutes(t *testing.T) {
 
 		// Redefine the service registry for this test
 		serviceRegistry := map[host.Name]*model.Service{
-			"*.example.org":       exampleWildcardService,
-			"*.hello.example.org": exampleNestedWildcardService,
+			"*.example.org":             exampleWildcardService,
+			"goodbye.hello.example.org": exampleNestedWildcardService,
+		}
+
+		wildcardIndex := map[host.Name]types.NamespacedName{
+			"*.example.org":       virtualServiceWithWildcardHost.NamespacedName(),
+			"*.hello.example.org": virtualServiceWithNestedWildcardHost.NamespacedName(),
 		}
 
 		vhosts := route.BuildSidecarVirtualHostWrapper(nil, node(cg), cg.PushContext(), serviceRegistry,
 			[]config.Config{virtualServiceWithWildcardHost, virtualServiceWithNestedWildcardHost}, 8080,
+			wildcardIndex,
 		)
 		log.Printf("%#v", vhosts)
 		g.Expect(vhosts).To(HaveLen(2))
@@ -2699,7 +2710,7 @@ var (
 		Ports:      []*model.Port{{Port: 8080, Protocol: "HTTP"}},
 	}
 	exampleNestedWildcardService = &model.Service{
-		Hostname:   "*.hello.example.org",
+		Hostname:   "goodbye.hello.example.org",
 		Attributes: model.ServiceAttributes{Namespace: "istio-system"},
 		Ports:      []*model.Port{{Port: 8080, Protocol: "HTTP"}},
 	}

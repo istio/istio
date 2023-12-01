@@ -94,51 +94,13 @@ type VirtualHostWrapper struct {
 	Routes []*route.Route
 }
 
-type vsHostEntry struct {
-	vs   types.NamespacedName
-	host host.Name
-}
-
 // BuildSidecarVirtualHostWrapper creates virtual hosts from the given set of virtual Services
 // and a list of Services from the service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
 func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
-	virtualServices []config.Config, listenPort int,
+	virtualServices []config.Config, listenPort int, mostSpecificWildcardIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
-
-	// For correctness, we need to maintain a mapping of hostnames to the
-	// virtual services that have the most specific wildcard host match
-	// match for that hostname. Unfortunately, we have to loop through all of
-	// hosts in all of the virtualservices an extra time...
-	//
-	// TODO: Investigate whether it's worth it to maintain this map in the
-	// pushContext or something else higher level for _all_ virtualServices
-	vsWithMostSpecificWildcardHosts := make(map[host.Name]vsHostEntry)
-	for _, vs := range virtualServices {
-		rule := vs.Spec.(*networking.VirtualService)
-		for _, h := range rule.Hosts {
-			hostName := host.Name(h)
-			if !hostName.IsWildCarded() {
-				continue
-			}
-			if entry, ok := vsWithMostSpecificWildcardHosts[hostName]; ok {
-				// If we come across a more specific wildcard host, replace the entry
-				if host.MoreSpecific(hostName, entry.host) {
-					vsWithMostSpecificWildcardHosts[hostName] = vsHostEntry{
-						vs:   vs.NamespacedName(),
-						host: hostName,
-					}
-				}
-			} else {
-				// If we haven't seen this wildcard host before, add it
-				vsWithMostSpecificWildcardHosts[hostName] = vsHostEntry{
-					vs:   vs.NamespacedName(),
-					host: hostName,
-				}
-			}
-		}
-	}
 
 	// dependentDestinationRules includes all the destinationrules referenced by
 	// the virtualservices, which have consistent hash policy.
@@ -149,7 +111,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 		hashByDestination, destinationRules := hashForVirtualService(push, node, virtualService)
 		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
 		wrappers := buildSidecarVirtualHostsForVirtualService(
-			node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh, vsWithMostSpecificWildcardHosts,
+			node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh, mostSpecificWildcardIndex,
 		)
 		out = append(out, wrappers...)
 	}
@@ -185,8 +147,11 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 // plain non-registry hostnames
 func separateVSHostsAndServices(virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
-	vsWithMostSpecificWildcardHosts map[host.Name]vsHostEntry,
+	mostSpecificWildcardIndex map[host.Name]types.NamespacedName,
 ) ([]string, []*model.Service) {
+	// TODO: A further optimization would be to completely rely on the index and not do the loop below
+	// However, that requires assuming that serviceRegistry never got filtered after the
+	// egressListener was created.
 	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	servicesInVirtualService := make([]*model.Service, 0)
@@ -218,18 +183,19 @@ func separateVSHostsAndServices(virtualService config.Config,
 		foundSvcMatch := false
 		// Say we have Services *.foo.global, *.bar.global
 		for svcHost, svc := range serviceRegistry {
-			// *.foo.global matches *.global
-			if svcHost.Matches(hostname) {
-				foundSvcMatch = true
-				// BUT we need to check for the most specific match since another VS
-				// exists that matches *.foo.global more specifically.
-				entry, ok := vsWithMostSpecificWildcardHosts[svcHost]
-				if ok && entry.vs != virtualService.NamespacedName() {
-					// Some other VS has a more specific match, so we don't add this service to the list.
-					continue
-				}
-				servicesInVirtualService = append(servicesInVirtualService, svc)
+			vs, ok := mostSpecificWildcardIndex[svcHost]
+			if !ok {
+				// This service doesn't have a virtualService that matches it.
+				continue
 			}
+			foundSvcMatch = true // we did find a match
+			if vs != virtualService.NamespacedName() {
+				// This virtual service is not the most specific wildcard match for this service.
+				// So we don't add it to the list of services in this virtual service so as
+				// to avoid duplicates
+				continue
+			}
+			servicesInVirtualService = append(servicesInVirtualService, svc)
 		}
 		if !foundSvcMatch {
 			hosts = append(hosts, string(hostname))
@@ -249,7 +215,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	hashByDestination DestinationHashMap,
 	listenPort int,
 	mesh *meshconfig.MeshConfig,
-	vsWithMostSpecificWildcardHosts map[host.Name]vsHostEntry,
+	mostSpecificWildcardIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	meshGateway := sets.New(constants.IstioMeshGateway)
 	opts := RouteOptions{
@@ -265,7 +231,7 @@ func buildSidecarVirtualHostsForVirtualService(
 		return nil
 	}
 
-	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry, vsWithMostSpecificWildcardHosts)
+	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry, mostSpecificWildcardIndex)
 
 	// Gateway allows only routes from the namespace of the proxy, or namespace of the destination.
 	if model.UseGatewaySemantics(virtualService) {

@@ -17,6 +17,7 @@ package model
 import (
 	"sort"
 	"strings"
+	"time"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -41,6 +42,10 @@ type ConfigKey struct {
 	Kind      kind.Kind
 	Name      string
 	Namespace string
+}
+
+type CreationTimestamper interface {
+	GetCreationTimestamp() time.Time
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
@@ -322,6 +327,54 @@ func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]
 				matchValue = wildcard[h]
 				found = true
 			} else if host.MoreSpecific(h, matchHost) {
+				matchHost = h
+				matchValue = v
+			}
+		}
+	}
+
+	return matchHost, matchValue, found
+}
+
+// MostSpecificHostMatchOldestFirst is the same as MostSpecificHostMatch, but returns the oldest match first in the case of over
+func MostSpecificHostMatchOldestFirst[V CreationTimestamper](needle host.Name, specific map[host.Name]V,
+	wildcard map[host.Name]V) (host.Name, V, bool) {
+
+	// The algorithm is a bit different than MostSpecificHostMatch. We can't short-circuit on the first
+	// match, regardless of whether it's specific or wildcarded. This is because we have to check the timestamp
+	// of all configs to make sure there's not an older matching one that we should use instead.
+
+	if needle.IsWildCarded() {
+		needle = needle[1:]
+	}
+
+	found := false
+	var matchHost host.Name
+	var matchValue V
+	// exact match first
+	if v, ok := specific[needle]; ok {
+		found = true
+		matchHost = needle
+		matchValue = v
+	}
+
+	// check wildcard
+	return mostSpecificHostWildcardMatchOldestFirst(string(needle), wildcard)
+}
+
+func mostSpecificHostWildcardMatchOldestFirst[V CreationTimestamper](needle string, wildcard map[host.Name]V) (host.Name, V, bool) {
+	found := false
+	var matchHost host.Name
+	var matchValue V
+
+	for h, v := range wildcard {
+		if strings.HasSuffix(needle, string(h[1:])) {
+			if !found {
+				matchHost = h
+				matchValue = wildcard[h]
+				found = true
+			} else if host.MoreSpecific(h, matchHost) && v.GetCreationTimestamp().Before(matchValue.GetCreationTimestamp()) {
+				// Only replace if the new match is more specific and older than the current match
 				matchHost = h
 				matchValue = v
 			}
