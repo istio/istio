@@ -21,6 +21,7 @@ spec:
   template:
     metadata:
       annotations:
+        ambient.istio.io/redirection: disabled
         prometheus.io/port: "15014"
         prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
@@ -67,16 +68,20 @@ spec:
           value: /var/run/secrets/remote/config
         - name: PILOT_TRACE_SAMPLING
           value: "1"
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
-          value: "true"
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "true"
-        - name: ISTIOD_ADDR
-          value: istiod.istio-system.svc:15012
         - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        - name: PLATFORM
+          value: ""
         image: gcr.io/istio-testing/pilot:latest
         name: discovery
         ports:
@@ -103,9 +108,7 @@ spec:
             drop:
             - ALL
           readOnlyRootFilesystem: true
-          runAsGroup: 1337
           runAsNonRoot: true
-          runAsUser: 1337
         volumeMounts:
         - mountPath: /var/run/secrets/tokens
           name: istio-token
@@ -124,8 +127,6 @@ spec:
         - mountPath: /var/run/secrets/istiod/ca
           name: istio-csr-ca-configmap
           readOnly: true
-      securityContext:
-        fsGroup: 1337
       serviceAccountName: istiod
       volumes:
       - emptyDir:
