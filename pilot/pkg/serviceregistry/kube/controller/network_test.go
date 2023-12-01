@@ -245,13 +245,9 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 
 	waitNamespaceNotify := func(namespace string) {
 		retry.UntilSuccessOrFail(t, func() error {
-			select {
-			case notifiedNamespace := <-namespaceNotifyCh:
-				if notifiedNamespace != namespace {
-					return fmt.Errorf("no namespace notify")
-				}
-			case <-time.After(5 * time.Second):
-				return fmt.Errorf("timeout waiting for namespace notification")
+			notifiedNamespace := <-namespaceNotifyCh
+			if notifiedNamespace != namespace {
+				return fmt.Errorf("no namespace notify")
 			}
 			return nil
 		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
