@@ -70,7 +70,10 @@ func (j *join[T]) Register(f func(o Event[T])) {
 }
 
 func (j *join[T]) Run(stop <-chan struct{}) {
+}
 
+func (j *join[T]) Synced() <-chan struct{} {
+	return nil
 }
 
 func (j *join[T]) RegisterBatch(f func(o []Event[T])) {

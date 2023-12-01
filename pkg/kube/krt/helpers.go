@@ -17,6 +17,7 @@ package krt
 import (
 	"fmt"
 	"reflect"
+	"time"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	acmetav1 "k8s.io/client-go/applyconfigurations/meta/v1"
@@ -88,4 +89,35 @@ func keyFunc(name, namespace string) string {
 		return name
 	}
 	return namespace + "/" + name
+}
+
+type Syncer interface {
+	Synced() <-chan struct{}
+}
+
+func WaitForCacheSync(name string, stop <-chan struct{}, collections ...Syncer) (r bool) {
+	t := time.NewTicker(time.Second * 5)
+	defer t.Stop()
+	t0 := time.Now()
+	defer func() {
+		if r {
+			log.WithLabels("name", name, "time", time.Since(t0)).Debugf("sync complete")
+		} else {
+			log.WithLabels("name", name, "time", time.Since(t0)).Errorf("sync failed")
+		}
+	}()
+	for _, col := range collections {
+		for {
+			select {
+			case <-t.C:
+				log.WithLabels("name", name, "time", time.Since(t0)).Debugf("waiting for sync...")
+				continue
+			case <-stop:
+				return false
+			case <-col.Synced():
+				break
+			}
+		}
+	}
+	return true
 }

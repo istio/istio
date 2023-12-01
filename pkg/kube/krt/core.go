@@ -41,6 +41,7 @@ type Collection[T any] interface {
 	// Name is a human facing name for this collection.
 	// Note this may not be universally unique
 	Name() string
+	Synced() <-chan struct{}
 	Run(stop <-chan struct{})
 }
 

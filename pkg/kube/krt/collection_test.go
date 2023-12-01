@@ -157,7 +157,6 @@ func TestCollectionSimple(t *testing.T) {
 	pods := krt.WrapClient[*corev1.Pod](kpc)
 	stop := test.NewStop(t)
 	c.RunAndWait(stop)
-	//go pods.Run(stop)
 	SimplePods := SimplePodCollection(pods)
 
 	assert.Equal(t, fetcherSorted(SimplePods)(), nil)
@@ -178,8 +177,14 @@ func TestCollectionSimple(t *testing.T) {
 	pc.UpdateStatus(pod)
 	assert.EventuallyEqual(t, fetcherSorted(SimplePods), []SimplePod{{NewNamed(pod), Labeled{}, "1.2.3.5"}})
 
+	// check we get updates if we add a handler later
+	tt := assert.NewTracker[string](t)
+	SimplePods.Register(TrackerHandler[SimplePod](tt))
+	tt.WaitUnordered("add/ns/a", "add/ns/b") // TODO find what the real event should be
+
 	pc.Delete(pod.Name, pod.Namespace)
 	assert.EventuallyEqual(t, fetcherSorted(SimplePods), nil)
+	tt.WaitUnordered("delete/ns/a", "add/ns/b")
 }
 
 func TestCollectionMerged(t *testing.T) {

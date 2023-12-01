@@ -72,11 +72,9 @@ func TestNewInformer(t *testing.T) {
 	assert.Equal(t, ConfigMaps.GetKey("ns/b"), &cmB)
 	assert.Equal(t, ConfigMaps.GetKey("ns/a"), &cmA2)
 
-	/* TODO: run all existing state when a new handler is registered.
 	tt2 := assert.NewTracker[string](t)
 	ConfigMaps.Register(TrackerHandler[*corev1.ConfigMap](tt2))
 	tt2.WaitUnordered("add/ns/a", "add/ns/b")
-	 */
 
 	cmt.Delete(cmB.Name, cmB.Namespace)
 	tt.WaitOrdered("delete/ns/b")

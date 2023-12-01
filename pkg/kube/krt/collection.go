@@ -70,14 +70,26 @@ type manyCollection[I, O any] struct {
 }
 
 type handlers[O any] struct {
-	mu sync.RWMutex
-	h  []func(o []Event[O])
+	mu   sync.RWMutex
+	h    []func(o []Event[O])
+	skip bool
 }
 
-func (o *handlers[O]) Insert(f func(o []Event[O])) {
+func (o *handlers[O]) Stop() []func(o []Event[O]) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
+	o.skip = true
+	return slices.Clone(o.h)
+}
+
+func (o *handlers[O]) Insert(f func(o []Event[O])) bool {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	if o.skip {
+		return false
+	}
 	o.h = append(o.h, f)
+	return true
 }
 
 func (o *handlers[O]) Get() []func(o []Event[O]) {
@@ -105,7 +117,10 @@ func (h *manyCollection[I, O]) augment(a any) any {
 }
 
 func (h *manyCollection[I, O]) Run(stop <-chan struct{}) {
+}
 
+func (h *manyCollection[I, O]) Synced() <-chan struct{} {
+	return nil
 }
 
 func (h *manyCollection[I, O]) Dump() {

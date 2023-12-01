@@ -16,10 +16,10 @@ package krt
 
 import (
 	"fmt"
-	"go.uber.org/atomic"
 	"strings"
 	"sync"
 
+	"go.uber.org/atomic"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
@@ -37,8 +37,8 @@ type informer[I controllers.ComparableObject] struct {
 	name string
 
 	eventHandlers *handlers[I]
-	eventQueue    *eventQueue[I]
 	augmentation  func(a any) any
+	synced        chan struct{}
 }
 
 type eventQueue[I any] struct {
@@ -77,6 +77,7 @@ func (e *eventQueue[I]) process(t []Event[I]) {
 		handler(t)
 	}
 }
+
 func (e *eventQueue[I]) drain() {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -98,11 +99,15 @@ var _ Collection[controllers.Object] = &informer[controllers.Object]{}
 
 func (i *informer[I]) _internalHandler() {}
 
+func (i *informer[I]) Synced() <-chan struct{} {
+	return i.synced
+}
+
 func (i *informer[I]) Run(stop <-chan struct{}) {
-	kube.WaitForCacheSync(i.name, stop, i.inf.HasSynced)
-	i.eventQueue.drain()
-	<-stop
-	i.inf.ShutdownHandlers()
+	//kube.WaitForCacheSync(i.name, stop, i.inf.HasSynced)
+	//i.eventQueue.drain()
+	//<-stop
+	//i.inf.ShutdownHandlers()
 }
 
 func (i *informer[I]) Name() string {
@@ -127,7 +132,11 @@ func (i *informer[I]) Register(f func(o Event[I])) {
 }
 
 func (i *informer[I]) RegisterBatch(f func(o []Event[I])) {
-	i.eventHandlers.Insert(f)
+	if !i.eventHandlers.Insert(f) {
+		i.inf.AddEventHandler(EventHandler[I](func(o Event[I]) {
+			f([]Event[I]{o})
+		}))
+	}
 }
 
 func EventHandler[I controllers.ComparableObject](handler func(o Event[I])) cache.ResourceEventHandler {
@@ -165,13 +174,34 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		name:          o.name,
 		eventHandlers: &handlers[I]{},
 		augmentation:  o.augmentation,
+		synced:        make(chan struct{}),
 	}
-	eq := newEventQueue[I](inf.eventHandlers)
-	c.AddEventHandler(EventHandler(func(o Event[I]) {
-		eq.add(o)
-	}))
-	inf.eventQueue = eq
-	go inf.Run(make(chan struct{}))
+
+	stop := make(chan struct{})
+	go func() {
+		// First, wait for the informer to populate
+		if !kube.WaitForCacheSync(o.name, stop, c.HasSynced) {
+			return
+		}
+		handlers := inf.eventHandlers.Stop()
+		// Now, take all our handlers we have built up
+		for _, h := range handlers {
+			c.AddEventHandler(EventHandler[I](func(o Event[I]) {
+				h([]Event[I]{o})
+			}))
+		}
+		// Now wait for handlers to sync
+		kube.WaitForCacheSync(o.name+" handlers", stop, c.HasSynced)
+		if !kube.WaitForCacheSync(o.name, stop, c.HasSynced) {
+			c.ShutdownHandlers()
+			return
+		}
+		close(inf.synced)
+		inf.log.Infof("informers synced")
+		//<-stop
+		//c.ShutdownHandlers()
+	}()
+	// go inf.Run()
 	return inf
 }
 
