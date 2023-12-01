@@ -53,14 +53,26 @@ func (e erasedCollection) register(f func(o []Event[any])) {
 	e.registerFunc(f)
 }
 
+type registerBatchInterface[T any] interface {
+	registerBatch(func(o []Event[T]), bool)
+}
+
 func eraseCollection[T any](c Collection[T]) erasedCollection {
 	return erasedCollection{
 		name:     c.Name(),
 		original: c,
 		registerFunc: func(f func(o []Event[any])) {
-			c.RegisterBatch(func(o []Event[T]) {
+			ff := func(o []Event[T]) {
 				f(slices.Map(o, castEvent[T, any]))
-			})
+			}
+			if rb, ok := c.(registerBatchInterface[T]); ok {
+				// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
+				// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
+				rb.registerBatch(ff, false)
+			} else {
+				// Informer... anything else valid here?
+				c.RegisterBatch(ff)
+			}
 		},
 	}
 }

@@ -16,14 +16,13 @@ package krt
 
 import (
 	"fmt"
-	"sync"
-
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
+	"sync"
 )
 
 // manyCollection builds a mapping from I->O.
@@ -331,7 +330,7 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 		augmentation:  opts.augmentation,
 		synced:        make(chan struct{}),
 	}
-	stop := make(chan struct{})
+	stop := make(chan struct{}) // TODO: pass in from user
 	go func() {
 		// Wait for primary dependency to be ready
 		if !WaitForCacheSync(fmt.Sprintf("%v from %v", c.Name(), h.name), stop, c) {
@@ -339,18 +338,27 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 		}
 		// Now, register our handler. This will call Add() for the initial state
 		h.eventHandlers.MarkInitialized()
+		first := true
+		done := make(chan struct{})
+		log.Errorf("howardjohn: register patch %v", h.name)
 		c.RegisterBatch(func(events []Event[I]) {
+			log.Errorf("howardjohn: in register patch %v", h.name)
 			if log.DebugEnabled() {
 				h.log.WithLabels("dep", "primary", "batch", len(events)).
 					Debugf("got event")
 			}
 			h.onPrimaryInputEvent(events)
+			if first {
+				first = false
+				log.Errorf("howardjohn: close done %v", h.name)
+				close(done)
+			}
 		})
-		// TODO: we need a way to know the above finished once. Below does nothing currently
-		// Wait for primary dependency to be ready
-		if !WaitForCacheSync(fmt.Sprintf("%v from %v handlers", c.Name(), h.name), stop, c) {
+		log.Errorf("howardjohn: wait... %v", h.name)
+		if !waitForCacheSync(fmt.Sprintf("%v from %v handlers", c.Name(), h.name), stop, done) {
 			return
 		}
+		log.Errorf("howardjohn: waited %v", h.name)
 		close(h.synced)
 		h.log.Infof("%v synced", h.name)
 	}()
@@ -466,7 +474,11 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) {
 }
 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) {
-	if !h.eventHandlers.Insert(f) {
+	h.registerBatch(f, true)
+}
+
+func (h *manyCollection[I, O]) registerBatch(f func(o []Event[O]), runExistingState bool) {
+	if !h.eventHandlers.Insert(f) && runExistingState {
 		// Already started. Pause everything, and run through the handler.
 		h.recomputeMu.Lock()
 		defer h.recomputeMu.Unlock()

@@ -192,11 +192,43 @@ func TestCollectionSimple(t *testing.T) {
 	tt.WaitUnordered("delete/namespace/name")
 }
 
+func TestCollectionInitialState(t *testing.T) {
+	c := kube.NewFakeClient(
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "pod",
+				Namespace: "namespace",
+				Labels:    map[string]string{"app": "foo"},
+			},
+			Status: corev1.PodStatus{PodIP: "1.2.3.4"},
+		},
+		&corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "svc",
+				Namespace: "namespace",
+			},
+			Spec: corev1.ServiceSpec{Selector: map[string]string{"app": "foo"}},
+		},
+	)
+	pods := krt.NewInformer[*corev1.Pod](c)
+	services := krt.NewInformer[*corev1.Service](c)
+	stop := make(chan struct{})
+	//stop := test.NewStop(t)
+	c.RunAndWait(stop)
+	SimplePods := SimplePodCollection(pods)
+	SimpleServices := SimpleServiceCollection(services)
+	SimpleEndpoints := SimpleEndpointsCollection(SimplePods, SimpleServices)
+	krt.WaitForCacheSync("test", stop, SimpleEndpoints)
+	// Assert Equal -- not EventuallyEqual -- to ensure our WaitForCacheSync is proper
+	assert.Equal(t, fetcherSorted(SimpleEndpoints)(), []SimpleEndpoint{{"pod", "svc", "namespace", "1.2.3.4"}})
+}
+
 func TestCollectionMerged(t *testing.T) {
 	c := kube.NewFakeClient()
 	pods := krt.NewInformer[*corev1.Pod](c)
 	services := krt.NewInformer[*corev1.Service](c)
-	c.RunAndWait(test.NewStop(t))
+	stop := test.NewStop(t)
+	c.RunAndWait(stop)
 	pc := clienttest.Wrap(t, kclient.New[*corev1.Pod](c))
 	sc := clienttest.Wrap(t, kclient.New[*corev1.Service](c))
 	SimplePods := SimplePodCollection(pods)

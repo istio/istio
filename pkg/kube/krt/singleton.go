@@ -47,7 +47,10 @@ func (s singletonAdapter[T]) Run(stop <-chan struct{}) {
 }
 
 func (s singletonAdapter[T]) Synced() <-chan struct{} {
-	return nil
+	ss := make(chan struct{})
+	close(ss)
+	// TODO: questionable
+	return ss
 }
 
 func (s singletonAdapter[T]) List(namespace string) []T {
@@ -90,12 +93,14 @@ func NewSingleton[T any](hf TransformationEmpty[T], opts ...CollectionOption) Si
 	if o.name == "" {
 		o.name = fmt.Sprintf("Singleton[%v]", ptr.TypeName[T]())
 	}
+	synced := make(chan struct{})
 	h := &singleton[T]{
 		name:     o.name,
 		handle:   hf,
 		deps:     map[untypedCollection]dependency{},
 		state:    atomic.NewPointer[T](nil),
 		handlers: &handlers[T]{},
+		synced:   synced,
 	}
 	log := log.WithLabels("owner", h.name)
 	// Populate initial state. It is a singleton so we don't have any hard dependencies
@@ -143,6 +148,8 @@ func NewSingleton[T any](hf TransformationEmpty[T], opts ...CollectionOption) Si
 			}
 		})
 	}
+
+	close(synced)
 	return h
 }
 
@@ -152,6 +159,7 @@ type singleton[T any] struct {
 	handle   TransformationEmpty[T]
 	handlers *handlers[T]
 	state    *atomic.Pointer[T]
+	synced   chan struct{}
 }
 
 func (h *singleton[T]) Name() string {

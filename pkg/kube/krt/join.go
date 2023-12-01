@@ -24,6 +24,7 @@ type join[T any] struct {
 	name        string
 	collections []Collection[T]
 	merge       func(ts []T) T
+	synced      <-chan struct{}
 }
 
 func (j *join[I]) Dump() {
@@ -63,6 +64,7 @@ func (j *join[T]) List(namespace string) []T {
 }
 
 func (j *join[T]) Name() string { return j.name }
+
 func (j *join[T]) Register(f func(o Event[T])) {
 	for _, c := range j.collections {
 		c.Register(f)
@@ -73,7 +75,7 @@ func (j *join[T]) Run(stop <-chan struct{}) {
 }
 
 func (j *join[T]) Synced() <-chan struct{} {
-	return nil
+	return j.synced
 }
 
 func (j *join[T]) RegisterBatch(f func(o []Event[T])) {
@@ -87,8 +89,20 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	if o.name == "" {
 		o.name = fmt.Sprintf("Join[%v]", ptr.TypeName[T]())
 	}
+	synced := make(chan struct{})
+	stop := make(chan struct{}) // TODO: pass in from user
+	go func() {
+		for _, c := range cs {
+			if !WaitForCacheSync(fmt.Sprintf("%v from %v", c.Name(), o.name), stop, c) {
+				return
+			}
+		}
+		close(synced)
+		log.Infof("%v synced", o.name)
+	}()
 	return &join[T]{
 		name:        o.name,
+		synced:      synced,
 		collections: cs,
 		merge: func(ts []T) T {
 			return ts[0]
