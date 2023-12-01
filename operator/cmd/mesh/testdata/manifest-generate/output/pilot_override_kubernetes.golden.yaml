@@ -1,18 +1,13 @@
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
+apiVersion: v1
+kind: ServiceAccount
 metadata:
   labels:
     app: istio-reader
     release: istio
-  name: istio-reader-istio-system
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: istio-reader-istio-system
-subjects:
-- kind: ServiceAccount
-  name: my-service-role
+  name: istio-reader-service-account
   namespace: istio-system
+spec:
+  automountServiceAccountToken: false
 
 ---
 
@@ -53,6 +48,7 @@ webhooks:
       operator: NotIn
       values:
       - "false"
+  reinvocationPolicy: Never
   rules:
   - apiGroups:
     - ""
@@ -90,6 +86,7 @@ webhooks:
       operator: In
       values:
       - default
+  reinvocationPolicy: Never
   rules:
   - apiGroups:
     - ""
@@ -123,6 +120,7 @@ webhooks:
       operator: NotIn
       values:
       - "false"
+  reinvocationPolicy: Never
   rules:
   - apiGroups:
     - ""
@@ -158,6 +156,7 @@ webhooks:
       - "true"
     - key: istio.io/rev
       operator: DoesNotExist
+  reinvocationPolicy: Never
   rules:
   - apiGroups:
     - ""
@@ -195,6 +194,7 @@ spec:
   template:
     metadata:
       annotations:
+        ambient.istio.io/redirection: disabled
         prometheus.io/port: "15014"
         prometheus.io/scrape: "true"
         sidecar.istio.io/inject: "false"
@@ -239,16 +239,20 @@ spec:
           value: /var/run/secrets/remote/config
         - name: PILOT_TRACE_SAMPLING
           value: "1"
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND
-          value: "true"
-        - name: PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND
-          value: "true"
-        - name: ISTIOD_ADDR
-          value: istiod.istio-control.svc:15012
         - name: PILOT_ENABLE_ANALYSIS
           value: "false"
         - name: CLUSTER_ID
           value: Kubernetes
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
+        - name: PLATFORM
+          value: ""
         image: docker.io/istio/pilot:1.1.4
         name: discovery
         ports:
@@ -287,8 +291,6 @@ spec:
         - mountPath: /var/run/secrets/istiod/ca
           name: istio-csr-ca-configmap
           readOnly: true
-      securityContext:
-        fsGroup: 1337
       serviceAccountName: istiod
       volumes:
       - emptyDir:

@@ -94,9 +94,9 @@ spec:
         includeIPRanges: '*'
         logLevel: warning
         privileged: false
-        readinessFailureThreshold: 30
-        readinessInitialDelaySeconds: 1
-        readinessPeriodSeconds: 2
+        readinessFailureThreshold: 4
+        readinessInitialDelaySeconds: 0
+        readinessPeriodSeconds: 15
         resources:
           limits:
             cpu: 2000m
@@ -104,17 +104,13 @@ spec:
           requests:
             cpu: 100m
             memory: 128Mi
+        startupProbe:
+          enabled: true
+          failureThreshold: 600
         statusPort: 15020
         tracer: zipkin
       proxy_init:
         image: proxyv2
-        resources:
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-          requests:
-            cpu: 10m
-            memory: 10Mi
       sds:
         token:
           aud: istio-ca
@@ -135,8 +131,6 @@ spec:
       configMap: true
       cpu:
         targetAverageUtilization: 80
-      enableProtocolSniffingForInbound: true
-      enableProtocolSniffingForOutbound: true
       env: {}
       image: pilot
       keepaliveMaxServerConnectionAge: 30m
