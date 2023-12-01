@@ -168,7 +168,7 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 	if o.name == "" {
 		o.name = fmt.Sprintf("NewInformer[%v]", ptr.TypeName[I]())
 	}
-	inf := &informer[I]{
+	h := &informer[I]{
 		inf:           c,
 		log:           log.WithLabels("owner", o.name),
 		name:          o.name,
@@ -183,26 +183,25 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		if !kube.WaitForCacheSync(o.name, stop, c.HasSynced) {
 			return
 		}
-		handlers := inf.eventHandlers.Stop()
-		// Now, take all our handlers we have built up
+		// Now, take all our handlers we have built up and register them...
+		handlers := h.eventHandlers.MarkInitialized()
 		for _, h := range handlers {
 			c.AddEventHandler(EventHandler[I](func(o Event[I]) {
 				h([]Event[I]{o})
 			}))
 		}
 		// Now wait for handlers to sync
-		kube.WaitForCacheSync(o.name+" handlers", stop, c.HasSynced)
-		if !kube.WaitForCacheSync(o.name, stop, c.HasSynced) {
+		if !kube.WaitForCacheSync(o.name+" handlers", stop, c.HasSynced) {
 			c.ShutdownHandlers()
 			return
 		}
-		close(inf.synced)
-		inf.log.Infof("informers synced")
+		close(h.synced)
+		h.log.Infof("%v synced", h.name)
 		//<-stop
 		//c.ShutdownHandlers()
 	}()
 	// go inf.Run()
-	return inf
+	return h
 }
 
 func NewInformer[I controllers.ComparableObject](c kube.Client, opts ...CollectionOption) Collection[I] {

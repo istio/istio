@@ -115,8 +115,8 @@ func WaitForCacheSync(name string, stop <-chan struct{}, collections ...Syncer) 
 			case <-stop:
 				return false
 			case <-col.Synced():
-				break
 			}
+			break
 		}
 	}
 	return true

@@ -15,6 +15,7 @@
 package krt_test
 
 import (
+	"istio.io/istio/pkg/log"
 	"strings"
 	"testing"
 
@@ -150,6 +151,10 @@ func SimpleEndpointsCollection(pods krt.Collection[SimplePod], services krt.Coll
 	})
 }
 
+func init() {
+	log.FindScope("krt").SetOutputLevel(log.DebugLevel)
+}
+
 func TestCollectionSimple(t *testing.T) {
 	c := kube.NewFakeClient()
 	kpc := kclient.New[*corev1.Pod](c)
@@ -180,11 +185,11 @@ func TestCollectionSimple(t *testing.T) {
 	// check we get updates if we add a handler later
 	tt := assert.NewTracker[string](t)
 	SimplePods.Register(TrackerHandler[SimplePod](tt))
-	tt.WaitUnordered("add/ns/a", "add/ns/b") // TODO find what the real event should be
+	tt.WaitUnordered("add/namespace/name")
 
 	pc.Delete(pod.Name, pod.Namespace)
 	assert.EventuallyEqual(t, fetcherSorted(SimplePods), nil)
-	tt.WaitUnordered("delete/ns/a", "add/ns/b")
+	tt.WaitUnordered("delete/namespace/name")
 }
 
 func TestCollectionMerged(t *testing.T) {

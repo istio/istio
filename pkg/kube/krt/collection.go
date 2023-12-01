@@ -18,8 +18,6 @@ import (
 	"fmt"
 	"sync"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
@@ -67,29 +65,27 @@ type manyCollection[I, O any] struct {
 
 	// augmentation allows transforming an object into another for usage throughout the library. See WithObjectAugmentation.
 	augmentation func(a any) any
+	synced       chan struct{}
 }
 
 type handlers[O any] struct {
 	mu   sync.RWMutex
 	h    []func(o []Event[O])
-	skip bool
+	init bool
 }
 
-func (o *handlers[O]) Stop() []func(o []Event[O]) {
+func (o *handlers[O]) MarkInitialized() []func(o []Event[O]) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	o.skip = true
+	o.init = true
 	return slices.Clone(o.h)
 }
 
 func (o *handlers[O]) Insert(f func(o []Event[O])) bool {
 	o.mu.Lock()
 	defer o.mu.Unlock()
-	if o.skip {
-		return false
-	}
 	o.h = append(o.h, f)
-	return true
+	return !o.init
 }
 
 func (o *handlers[O]) Get() []func(o []Event[O]) {
@@ -120,7 +116,7 @@ func (h *manyCollection[I, O]) Run(stop <-chan struct{}) {
 }
 
 func (h *manyCollection[I, O]) Synced() <-chan struct{} {
-	return nil
+	return h.synced
 }
 
 func (h *manyCollection[I, O]) Dump() {
@@ -333,22 +329,31 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 		},
 		eventHandlers: &handlers[O]{},
 		augmentation:  opts.augmentation,
+		synced:        make(chan struct{}),
 	}
-	// Build up the initial state
-	h.onPrimaryInputEvent(slices.Map(c.List(metav1.NamespaceAll), func(t I) Event[I] {
-		return Event[I]{
-			New:   &t,
-			Event: controllers.EventAdd,
+	stop := make(chan struct{})
+	go func() {
+		// Wait for primary dependency to be ready
+		if !WaitForCacheSync(fmt.Sprintf("%v from %v", c.Name(), h.name), stop, c) {
+			return
 		}
-	}))
-	// Setup primary manyCollection. On any change, trigger only that one
-	c.RegisterBatch(func(events []Event[I]) {
-		if log.DebugEnabled() {
-			log := h.log.WithLabels("dep", "primary")
-			log.WithLabels("batch", len(events)).Debugf("got event")
+		// Now, register our handler. This will call Add() for the initial state
+		h.eventHandlers.MarkInitialized()
+		c.RegisterBatch(func(events []Event[I]) {
+			if log.DebugEnabled() {
+				h.log.WithLabels("dep", "primary", "batch", len(events)).
+					Debugf("got event")
+			}
+			h.onPrimaryInputEvent(events)
+		})
+		// TODO: we need a way to know the above finished once. Below does nothing currently
+		// Wait for primary dependency to be ready
+		if !WaitForCacheSync(fmt.Sprintf("%v from %v handlers", c.Name(), h.name), stop, c) {
+			return
 		}
-		h.onPrimaryInputEvent(events)
-	})
+		close(h.synced)
+		h.log.Infof("%v synced", h.name)
+	}()
 	return h
 }
 
@@ -461,7 +466,21 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) {
 }
 
 func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) {
-	h.eventHandlers.Insert(f)
+	if !h.eventHandlers.Insert(f) {
+		// Already started. Pause everything, and run through the handler.
+		h.recomputeMu.Lock()
+		defer h.recomputeMu.Unlock()
+		h.mu.Lock()
+		events := make([]Event[O], 0, len(h.collectionState.outputs))
+		for _, o := range h.collectionState.outputs {
+			events = append(events, Event[O]{
+				New:   &o,
+				Event: controllers.EventAdd,
+			})
+		}
+		h.mu.Unlock()
+		f(events)
+	}
 }
 
 func (h *manyCollection[I, O]) Name() string {
