@@ -35,6 +35,7 @@ import (
 	"google.golang.org/protobuf/reflect/protoregistry"
 	"k8s.io/utils/set"
 
+	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/log"
@@ -121,7 +122,7 @@ type Client struct {
 	received        map[string]*discovery.DeltaDiscoveryResponse
 	deltaXDSUpdates chan *discovery.DeltaDiscoveryResponse
 
-	resourceCache *cache
+	resourceCache sync.Map
 
 	errChan chan error
 }
@@ -200,7 +201,7 @@ func New(config *DeltaADSConfig, opts ...Option) *Client {
 		deltaXDSUpdates: make(chan *discovery.DeltaDiscoveryResponse, 100),
 		received:        map[string]*discovery.DeltaDiscoveryResponse{},
 		mutex:           sync.RWMutex{},
-		resourceCache:   newResourceCache(),
+		resourceCache:   sync.Map{},
 	}
 	for _, o := range opts {
 		o(c)
@@ -305,7 +306,7 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 			TypeURL: r.Resource.TypeUrl,
 		}
 		c.establishResource(parentKey)
-		c.resourceCache.put(parentKey, r)
+		c.resourceCache.Store(parentKey, r)
 
 		if ctx.nack != nil {
 			rejects = append(rejects, ctx.nack)
@@ -334,7 +335,11 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 			Name:    r,
 			TypeURL: d.TypeUrl,
 		}
-		cached := c.resourceCache.get(key)
+		var cached *discovery.Resource
+		value, ok := c.resourceCache.Load(key)
+		if ok {
+			cached = value.(*discovery.Resource)
+		}
 		err := c.trigger(ctx, d.TypeUrl, cached, EventDelete)
 		if err != nil {
 			return err
@@ -345,7 +350,7 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		}
 		allRemoves[key.TypeURL].Insert(key.Name)
 		c.drop(key)
-		c.resourceCache.delete(key)
+		c.resourceCache.Delete(key)
 	}
 	c.send(resourceKey{TypeURL: d.TypeUrl}, d.Nonce, joinError(rejects))
 	for t, sub := range allAdds {
@@ -608,4 +613,8 @@ func (c *Client) WaitResp(to time.Duration, typeURL string) (*discovery.DeltaDis
 			return nil, fmt.Errorf("connection closed")
 		}
 	}
+}
+
+func isDebugType(typeURL string) bool {
+	return typeURL == xds.TypeDebugSyncronization || typeURL == xds.TypeDebugConfigDump || typeURL == xds.TypeURLConnect
 }
