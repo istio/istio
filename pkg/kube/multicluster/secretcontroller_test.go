@@ -95,6 +95,51 @@ func resetCallbackData() {
 	deleted = ""
 }
 
+func Test_KubeConfigOverride(t *testing.T) {
+	var (
+		expectedQPS   = float32(100)
+		expectedBurst = 200
+	)
+	fakeRestConfig := &rest.Config{}
+	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		for _, override := range configOverrides {
+			override(fakeRestConfig)
+		}
+		return kube.NewFakeClient(), nil
+	}
+	clientset := kube.NewFakeClient()
+	stopCh := test.NewStop(t)
+	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil), func(cfg *rest.Config) {
+		cfg.QPS = expectedQPS
+		cfg.Burst = expectedBurst
+	})
+	clientset.RunAndWait(stopCh)
+	c.AddHandler(&handler{})
+	clientset.RunAndWait(stopCh)
+	_ = c.Run(stopCh)
+	t.Run("sync timeout", func(t *testing.T) {
+		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
+	})
+	kube.WaitForCacheSync("test", stopCh, c.HasSynced)
+	secret0 := makeSecret(secretNamespace, "s0",
+		clusterCredential{"c0", []byte("kubeconfig0-0")})
+
+	t.Run("test kube config override", func(t *testing.T) {
+		g := NewWithT(t)
+		_, err := clientset.Kube().CoreV1().Secrets(secret0.Namespace).Create(context.TODO(), secret0, metav1.CreateOptions{})
+		g.Expect(err).Should(BeNil())
+
+		g.Eventually(func() *Cluster {
+			return c.cs.GetByID("c0")
+		}, 10*time.Second).ShouldNot(BeNil())
+
+		g.Expect(fakeRestConfig).Should(Equal(&rest.Config{
+			QPS:   expectedQPS,
+			Burst: expectedBurst,
+		}))
+	})
+}
+
 func Test_SecretController(t *testing.T) {
 	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
