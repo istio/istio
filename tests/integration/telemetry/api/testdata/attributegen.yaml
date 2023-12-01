@@ -15,7 +15,7 @@ spec:
   phase: STATS
   selector:
     matchLabels:
-      app: server
+      app: b
   url: {{ .AttributeGenURL }}
   imagePullSecret: regcred
   pluginConfig:
