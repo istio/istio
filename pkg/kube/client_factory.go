@@ -46,15 +46,12 @@ type clientFactory struct {
 	mapper   lazy.Lazy[meta.ResettableRESTMapper]
 
 	discoveryClient lazy.Lazy[discovery.CachedDiscoveryInterface]
-
-	configOverrides []func(*rest.Config)
 }
 
 // newClientFactory creates a new util.Factory from the given clientcmd.ClientConfig.
-func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool, configOverrides ...func(*rest.Config)) *clientFactory {
+func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool) *clientFactory {
 	out := &clientFactory{
-		clientConfig:    clientConfig,
-		configOverrides: configOverrides,
+		clientConfig: clientConfig,
 	}
 
 	out.discoveryClient = lazy.NewWithRetry(func() (discovery.CachedDiscoveryInterface, error) {
@@ -105,11 +102,7 @@ func (c *clientFactory) ToRESTConfig() (*rest.Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	restConfig = SetRestDefaults(restConfig)
-	for _, override := range c.configOverrides {
-		override(restConfig)
-	}
-	return restConfig, nil
+	return SetRestDefaults(restConfig), nil
 }
 
 func (c *clientFactory) ToDiscoveryClient() (discovery.CachedDiscoveryInterface, error) {
