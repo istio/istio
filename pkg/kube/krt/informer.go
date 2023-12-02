@@ -127,16 +127,26 @@ func (i *informer[I]) GetKey(k Key[I]) *I {
 	return nil
 }
 
-func (i *informer[I]) Register(f func(o Event[I])) {
-	registerHandlerAsBatched[I](i, f)
+func (i *informer[I]) Register(f func(o Event[I])) HandlerRegistration {
+	return registerHandlerAsBatched[I](i, f)
 }
 
-func (i *informer[I]) RegisterBatch(f func(o []Event[I])) {
+func (i *informer[I]) RegisterBatch(f func(o []Event[I])) HandlerRegistration {
 	if !i.eventHandlers.Insert(f) {
 		i.inf.AddEventHandler(EventHandler[I](func(o Event[I]) {
 			f([]Event[I]{o})
 		}))
 	}
+	stop := make(chan struct{})
+	synced := make(chan struct{})
+	// TODO: this is terrible...
+	go func() {
+		if !kube.WaitForCacheSync(fmt.Sprintf("%v handler", i.name), stop, i.inf.HasSynced) {
+			return
+		}
+		close(synced)
+	}()
+	return handlerRegistration{synced: synced}
 }
 
 func EventHandler[I controllers.ComparableObject](handler func(o Event[I])) cache.ResourceEventHandler {

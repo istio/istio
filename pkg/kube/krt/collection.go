@@ -338,24 +338,17 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 		}
 		// Now, register our handler. This will call Add() for the initial state
 		h.eventHandlers.MarkInitialized()
-		first := true
-		done := make(chan struct{})
 		log.Errorf("howardjohn: register patch %v", h.name)
-		c.RegisterBatch(func(events []Event[I]) {
+		handlerReg := c.RegisterBatch(func(events []Event[I]) {
 			log.Errorf("howardjohn: in register patch %v", h.name)
 			if log.DebugEnabled() {
 				h.log.WithLabels("dep", "primary", "batch", len(events)).
 					Debugf("got event")
 			}
 			h.onPrimaryInputEvent(events)
-			if first {
-				first = false
-				log.Errorf("howardjohn: close done %v", h.name)
-				close(done)
-			}
 		})
 		log.Errorf("howardjohn: wait... %v", h.name)
-		if !waitForCacheSync(fmt.Sprintf("%v from %v handlers", c.Name(), h.name), stop, done) {
+		if !WaitForCacheSync(fmt.Sprintf("%v from %v handlers", c.Name(), h.name), stop, handlerReg) {
 			return
 		}
 		log.Errorf("howardjohn: waited %v", h.name)
@@ -469,15 +462,21 @@ func (h *manyCollection[I, O]) List(namespace string) (res []O) {
 	return
 }
 
-func (h *manyCollection[I, O]) Register(f func(o Event[O])) {
-	registerHandlerAsBatched[O](h, f)
+func (h *manyCollection[I, O]) Register(f func(o Event[O])) HandlerRegistration {
+	return registerHandlerAsBatched[O](h, f)
 }
 
-func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) {
-	h.registerBatch(f, true)
+var _ registerBatchInterface[any] = &manyCollection[int, any]{}
+
+func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) HandlerRegistration {
+	return h.registerBatchi(f, true)
 }
 
 func (h *manyCollection[I, O]) registerBatch(f func(o []Event[O]), runExistingState bool) {
+	h.registerBatchi(f, runExistingState)
+}
+
+func (h *manyCollection[I, O]) registerBatchi(f func(o []Event[O]), runExistingState bool) HandlerRegistration {
 	if !h.eventHandlers.Insert(f) && runExistingState {
 		// Already started. Pause everything, and run through the handler.
 		h.recomputeMu.Lock()
@@ -492,7 +491,11 @@ func (h *manyCollection[I, O]) registerBatch(f func(o []Event[O]), runExistingSt
 		}
 		h.mu.Unlock()
 		f(events)
+		synced := make(chan struct{})
+		close(synced)
+		return handlerRegistration{synced: synced}
 	}
+	return handlerRegistration{synced: h.synced}
 }
 
 func (h *manyCollection[I, O]) Name() string {

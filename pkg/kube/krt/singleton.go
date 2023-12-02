@@ -29,14 +29,14 @@ type singletonAdapter[T any] struct {
 	s Singleton[T]
 }
 
-func (s singletonAdapter[T]) RegisterBatch(f func(o []Event[T])) {
-	s.s.Register(func(o Event[T]) {
+func (s singletonAdapter[T]) RegisterBatch(f func(o []Event[T])) HandlerRegistration {
+	return s.s.Register(func(o Event[T]) {
 		f([]Event[T]{o})
 	})
 }
 
-func (s singletonAdapter[T]) Register(f func(o Event[T])) {
-	s.s.Register(f)
+func (s singletonAdapter[T]) Register(f func(o Event[T])) HandlerRegistration {
+	return s.s.Register(f)
 }
 
 func (s singletonAdapter[T]) GetKey(k Key[T]) *T {
@@ -180,12 +180,16 @@ func (h *singleton[T]) Synced() <-chan struct{} {
 	return nil
 }
 
-func (h *singleton[T]) Register(f func(o Event[T])) {
-	registerHandlerAsBatched[T](h, f)
+func (h *singleton[T]) Register(f func(o Event[T])) HandlerRegistration {
+	return registerHandlerAsBatched[T](h, f)
 }
 
-func (h *singleton[T]) RegisterBatch(f func(o []Event[T])) {
+func (h *singleton[T]) RegisterBatch(f func(o []Event[T])) HandlerRegistration {
 	h.handlers.Insert(f)
+	// TODO: actually check...
+	synced := make(chan struct{})
+	close(synced)
+	return handlerRegistration{synced: synced}
 }
 
 // registerDependency creates a

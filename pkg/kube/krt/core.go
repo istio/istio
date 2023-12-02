@@ -34,15 +34,19 @@ type Collection[T any] interface {
 	// called. Typically, usage of Register is done internally in krt via composition of Collections with Transformations
 	// (NewCollection, NewManyCollection, NewSingleton); however, at boundaries of the system (connecting to something not
 	// using krt), registering directly is expected.
-	Register(f func(o Event[T]))
+	Register(f func(o Event[T])) HandlerRegistration
 	// RegisterBatch registers a handler that accepts multiple events at once. This can be useful as an optimization.
 	// Otherwise, behaves the same as Register.
-	RegisterBatch(f func(o []Event[T]))
+	RegisterBatch(f func(o []Event[T])) HandlerRegistration
 	// Name is a human facing name for this collection.
 	// Note this may not be universally unique
 	Name() string
 	Synced() <-chan struct{}
 	Run(stop <-chan struct{})
+}
+
+type HandlerRegistration interface {
+	Synced() <-chan struct{}
 }
 
 // Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,
@@ -51,7 +55,7 @@ type Singleton[T any] interface {
 	// Get returns the object, or nil if there is none.
 	Get() *T
 	// Register adds an event watcher to the object. Any time it changes, the handler will be called
-	Register(f func(o Event[T]))
+	Register(f func(o Event[T])) HandlerRegistration
 	// Name is a human facing name for this collection.
 	// Note this may not be universally unique
 	Name() string
@@ -155,4 +159,12 @@ type Namespacer interface {
 
 type labeler interface {
 	GetLabels() map[string]string
+}
+
+type handlerRegistration struct {
+	synced <-chan struct{}
+}
+
+func (h handlerRegistration) Synced() <-chan struct{} {
+	return h.synced
 }

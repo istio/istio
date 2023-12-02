@@ -16,7 +16,6 @@ package krt
 
 import (
 	"fmt"
-
 	"istio.io/istio/pkg/ptr"
 )
 
@@ -65,9 +64,35 @@ func (j *join[T]) List(namespace string) []T {
 
 func (j *join[T]) Name() string { return j.name }
 
-func (j *join[T]) Register(f func(o Event[T])) {
+func (j *join[T]) Register(f func(o Event[T])) HandlerRegistration {
 	for _, c := range j.collections {
 		c.Register(f)
+	}
+	// TODO: actually check...
+	synced := make(chan struct{})
+	close(synced)
+	return handlerRegistration{synced: synced}
+}
+
+var _ registerBatchInterface[any] = &join[any]{}
+
+func (j *join[T]) RegisterBatch(f func(o []Event[T])) HandlerRegistration {
+	for _, c := range j.collections {
+		c.RegisterBatch(f)
+	}
+	// TODO: actually check...
+	synced := make(chan struct{})
+	close(synced)
+	return handlerRegistration{synced: synced}
+}
+
+func (j *join[T]) registerBatch(f func(o []Event[T]), runExistingState bool)  {
+	for _, c := range j.collections {
+		if rb, ok := c.(registerBatchInterface[T]); ok {
+			rb.registerBatch(f, runExistingState)
+		} else {
+			c.RegisterBatch(f)
+		}
 	}
 }
 
@@ -76,12 +101,6 @@ func (j *join[T]) Run(stop <-chan struct{}) {
 
 func (j *join[T]) Synced() <-chan struct{} {
 	return j.synced
-}
-
-func (j *join[T]) RegisterBatch(f func(o []Event[T])) {
-	for _, c := range j.collections {
-		c.RegisterBatch(f)
-	}
 }
 
 func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collection[T] {

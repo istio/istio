@@ -140,6 +140,7 @@ func (s SimpleEndpoint) ResourceName() string {
 func SimpleEndpointsCollection(pods krt.Collection[SimplePod], services krt.Collection[SimpleService]) krt.Collection[SimpleEndpoint] {
 	return krt.NewManyCollection[SimpleService, SimpleEndpoint](services, func(ctx krt.HandlerContext, svc SimpleService) []SimpleEndpoint {
 		pods := krt.Fetch(ctx, pods, krt.FilterLabel(svc.Selector))
+		log.Errorf("howardjohn: compute endpoints: got %v pods", len(pods))
 		return slices.Map(pods, func(pod SimplePod) SimpleEndpoint {
 			return SimpleEndpoint{
 				Pod:       pod.Name,

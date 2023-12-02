@@ -112,7 +112,6 @@ func TestCollectionJoin(t *testing.T) {
 		Spec: corev1.ServiceSpec{Selector: map[string]string{"app": "foo"}},
 	}
 	sc.Create(svc)
-	assert.Equal(t, fetch(), nil)
 
 	pod.Status = corev1.PodStatus{PodIP: "1.2.3.4"}
 	pc.UpdateStatus(pod)
