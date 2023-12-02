@@ -490,7 +490,9 @@ func (h *manyCollection[I, O]) registerBatchi(f func(o []Event[O]), runExistingS
 			})
 		}
 		h.mu.Unlock()
-		f(events)
+		if len(events) > 0 {
+			f(events)
+		}
 		synced := make(chan struct{})
 		close(synced)
 		return handlerRegistration{synced: synced}
@@ -522,6 +524,8 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(d dependency) {
 	// For any new collections we depend on, start watching them if its the first time we have watched them.
 	if !i.collectionDependencies.InsertContains(d.collection.original) {
 		i.log.WithLabels("collection", d.collection.name).Debugf("register new dependency")
+		// TODO: propogate stop
+		waitForCacheSync(fmt.Sprintf("%s secondary", d.collection.name), make(chan struct{}), d.collection.synced)
 		d.collection.register(func(o []Event[any]) {
 			i.onSecondaryDependencyEvent(d.collection.original, o)
 		})

@@ -47,6 +47,7 @@ type erasedCollection struct {
 	// registerFunc registers any Event[any] handler. These will be mapped to Event[T] when connected to the original collection.
 	registerFunc func(f func(o []Event[any]))
 	name         string
+	synced       <-chan struct{}
 }
 
 func (e erasedCollection) register(f func(o []Event[any])) {
@@ -61,6 +62,7 @@ func eraseCollection[T any](c Collection[T]) erasedCollection {
 	return erasedCollection{
 		name:     c.Name(),
 		original: c,
+		synced: c.Synced(),
 		registerFunc: func(f func(o []Event[any])) {
 			ff := func(o []Event[T]) {
 				f(slices.Map(o, castEvent[T, any]))
