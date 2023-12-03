@@ -1001,6 +1001,7 @@ type httpListenerOpts struct {
 
 	suppressEnvoyDebugHeaders bool
 	skipIstioMXHeaders        bool
+	mtlsGatewayMxFilter       bool
 
 	// http3Only indicates that the HTTP codec used
 	// is HTTP/3 over QUIC transport (uses UDP)

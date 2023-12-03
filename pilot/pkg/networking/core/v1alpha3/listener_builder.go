@@ -451,5 +451,10 @@ func appendMxFilter(httpOpts *httpListenerOpts, node *model.Proxy, filters []*hc
 	if httpOpts.skipIstioMXHeaders {
 		return append(filters, xdsfilters.SidecarOutboundMetadataFilterSkipHeaders)
 	}
+
+	if httpOpts.mtlsGatewayMxFilter {
+		return append(filters, xdsfilters.GatewayMtlsMetadataFilter)
+	}
+
 	return append(filters, xdsfilters.SidecarOutboundMetadataFilter)
 }
