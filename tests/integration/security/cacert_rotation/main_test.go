@@ -109,30 +109,32 @@ func TestReachability(t *testing.T) {
 					from.CallOrFail(t, opts)
 				})
 
-			// Rotate CA cert
+			// step 1: Update CA root cert with combined root
 			if err := cert.CreateCustomCASecret(t,
 				"ca-cert.pem", "ca-key.pem",
 				"cert-chain.pem", "root-cert-combined.pem"); err != nil {
 				t.Errorf("failed to update combined CA secret: %v", err)
 			}
 
-			// Wait for workload cert to be updated
-			retry.UntilOrFail(t, func() bool {
-				updateTime, err := getWorkloadCertLastUpdateTime(t, from[0], istioCtl)
-				if err != nil {
-					t.Logf("failed to get workload cert last update time: %v", err)
-					return false
-				}
+			lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
 
-				// retry when workload cert is not updated
-				if updateTime.After(lastUpdateTime) {
-					t.Logf("workload cert is updated, last update time: %v", updateTime)
-					return true
-				}
+			// step 2: Update CA signing key/cert with cacert to trigger workload cert resigning
+			if err := cert.CreateCustomCASecret(t,
+				"ca-cert-alt.pem", "ca-key-alt.pem",
+				"cert-chain-alt.pem", "root-cert-combined-2.pem"); err != nil {
+				t.Errorf("failed to update CA secret: %v", err)
+			}
 
-				return false
-			}, retry.Timeout(5*time.Minute), // Need more time for waiting, see https://github.com/istio/istio/pull/47839#issuecomment-1809510888
-				retry.Delay(1*time.Second))
+			lastUpdateTime = waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
+
+			// step 3: Remove the old root cert
+			if err := cert.CreateCustomCASecret(t,
+				"ca-cert-alt.pem", "ca-key-alt.pem",
+				"cert-chain-alt.pem", "root-cert-alt.pem"); err != nil {
+				t.Errorf("failed to update CA secret: %v", err)
+			}
+
+			waitForWorkloadCertUpdate(t, from[0], istioCtl, lastUpdateTime)
 
 			// Verify traffic works between a and b after cert rotation
 			echotest.New(t, fromAndTo).
@@ -177,6 +179,27 @@ func getWorkloadCertLastUpdateTime(t framework.TestContext, i echo.Instance, ctl
 	}
 
 	return time.Now(), errors.New("failed to find workload cert")
+}
+
+// Abstracted function to wait for workload cert to be updated
+func waitForWorkloadCertUpdate(t framework.TestContext, from echo.Instance, istioCtl istioctl.Instance, lastUpdateTime time.Time) time.Time {
+	retry.UntilOrFail(t, func() bool {
+		updateTime, err := getWorkloadCertLastUpdateTime(t, from, istioCtl)
+		if err != nil {
+			t.Logf("failed to get workload cert last update time: %v", err)
+			return false
+		}
+
+		// retry when workload cert is not updated
+		if updateTime.After(lastUpdateTime) {
+			lastUpdateTime = updateTime
+			t.Logf("workload cert is updated, last update time: %v", updateTime)
+			return true
+		}
+
+		return false
+	}, retry.Timeout(5*time.Minute), retry.Delay(1*time.Second))
+	return lastUpdateTime
 }
 
 func getPodID(i echo.Instance) (string, error) {
