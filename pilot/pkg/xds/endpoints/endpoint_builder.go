@@ -649,36 +649,10 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
-	address, port := e.Address, e.EndpointPort
-
-	supportsTunnel := false
-	// Other side is a waypoint proxy.
-	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
-		supportsTunnel = true
-	}
-
-	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	if b.push.SupportsTunnel(e.Network, e.Address) {
-		supportsTunnel = true
-	}
-	// Otherwise supports tunnel
-	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
-	// need to pick the right one based on our support overlap.
-	if e.SupportsTunnel(model.TunnelHTTP) {
-		supportsTunnel = true
-	}
-	if b.proxy.IsProxylessGrpc() {
-		// Proxyless client cannot handle tunneling, even if the server can
-		supportsTunnel = false
-	}
-
-	if !b.proxy.EnableHBONE() {
-		supportsTunnel = false
-	}
-
 	waypoint := ""
-
+	address, port := e.Address, int(e.EndpointPort)
 	// Setup tunnel information, if needed
+	// This is for waypoint
 	if b.dir == model.TrafficDirectionInboundVIP {
 		// This is only used in waypoint proxy
 		inScope := waypointInScope(b.proxy, e)
@@ -689,17 +663,14 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			return nil
 		}
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
-		if supportsTunnel {
-			address := e.Address
-			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
-			// and add some detunnel metadata that had the original port.
-			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(e.EndpointPort), waypoint)
-			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
-			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
-				Value: e.GetLoadBalancingWeight(),
-			}
+		// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
+		// and add some detunnel metadata that had the original port.
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
+		ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
+		ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
+			Value: e.GetLoadBalancingWeight(),
 		}
-	} else if supportsTunnel {
+	} else if supportTunnel(b, e) {
 		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
 		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
 			workloads := findWaypoints(b.push, e)
@@ -710,9 +681,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		}
 		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
+			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(port))),
 		}}
-		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(port), waypoint)
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
@@ -721,6 +692,35 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 
 	return ep
+}
+
+func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
+	if b.proxy.IsProxylessGrpc() {
+		// Proxyless client cannot handle tunneling, even if the server can
+		return false
+	}
+
+	if !b.proxy.EnableHBONE() {
+		return false
+	}
+
+	// Other side is a waypoint proxy.
+	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
+		return true
+	}
+
+	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
+	if b.push.SupportsTunnel(e.Network, e.Address) {
+		return true
+	}
+	// Otherwise supports tunnel
+	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
+	// need to pick the right one based on our support overlap.
+	if e.SupportsTunnel(model.TunnelHTTP) {
+		return true
+	}
+
+	return false
 }
 
 // waypointInScope computes whether the endpoint is owned by the waypoint
