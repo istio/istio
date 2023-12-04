@@ -541,6 +541,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 
 	var skippedWebhooks []types.NamespacedName
 	exists := revtag.PreviousInstallExists(context.Background(), h.kubeClient.Kube())
+	// Here if we need to create a default tag, we need to skip the webhooks that are going to be deactivated.
 	if detectIfTagWebhookIsNeeded(h.iop, exists) {
 		whs, err := revtag.GetWebhooksWithRevision(context.Background(), h.kubeClient.Kube(), revtag.DefaultRevisionName)
 		if err != nil {
