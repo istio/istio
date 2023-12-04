@@ -34,7 +34,6 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/config/xds"
 )
 
@@ -307,7 +306,7 @@ func rewriteVMConfig(resourceName string, vm *wasmextensions.VmConfig, status *s
 		// These env variables are added by Istio control plane and meant to be consumed by the
 		// agent for image pulling control should not be leaked to Envoy or the Wasm extension runtime.
 		for k := range envs.KeyValues {
-			if strings.HasPrefix(k, bootstrap.IstioMetaPrefix) {
+			if strings.HasPrefix(k, "ISTIO_META_") {
 				delete(envs.KeyValues, k)
 			}
 		}

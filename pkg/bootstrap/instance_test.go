@@ -40,6 +40,7 @@ import (
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	_ "istio.io/istio/pilot/pkg/networking/core/v1alpha3" // Import all protos we may need
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/test"

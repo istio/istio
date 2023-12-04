@@ -4609,7 +4609,8 @@ func TestValidateEnvoyFilter(t *testing.T) {
 					},
 				},
 			},
-		}, error: "referenced type unknown (hint: try using the v3 XDS API)"},
+		}, warning: "unknown @type values detected; message will be sent as unvalidated: " +
+			"[type.googleapis.com/envoy.config.filter.network.ext_authz.v2.ExtAuthz] (hint: try using the v3 XDS API)"},
 		{name: "deprecated type", in: &networking.EnvoyFilter{
 			ConfigPatches: []*networking.EnvoyFilter_EnvoyConfigObjectPatch{
 				{

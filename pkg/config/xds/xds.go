@@ -17,7 +17,9 @@ package xds
 import (
 	"errors"
 	"fmt"
+	"strings"
 
+	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	bootstrap "github.com/envoyproxy/go-control-plane/envoy/config/bootstrap/v3"
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -25,10 +27,14 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/util/sets"
 )
 
 // nolint: interfacer
@@ -71,20 +77,92 @@ func BuildXDSObjectFromStruct(applyTo networking.EnvoyFilter_ApplyTo, value *str
 	return obj, nil
 }
 
-func StructToMessage(pbst *structpb.Struct, out proto.Message, strict bool) error {
-	if pbst == nil {
+type anyTransformer struct {
+	unknownTypes sets.String
+}
+
+var typedStructTypeURL = protoconv.TypeURL(&udpa.TypedStruct{})
+
+func (a *anyTransformer) AnyToTypedStruct(pbst *structpb.Struct) *structpb.Struct {
+	typeURL, f := pbst.Fields["@type"]
+	if f && typeURL.GetStringValue() != "" && !isTypeKnown(typeURL.GetStringValue()) {
+		// need to transform!
+		pbst := proto.Clone(pbst).(*structpb.Struct)
+		pbst.Fields["@type"] = structpb.NewStringValue(typedStructTypeURL)
+		pbst.Fields["type_url"] = typeURL
+		st, _ := structpb.NewStruct(nil)
+		for k, v := range pbst.Fields {
+			if k != "@type" && k != "type_url" {
+				st.Fields[k] = v
+			}
+		}
+		pbst.Fields["value"] = structpb.NewStructValue(st)
+		a.unknownTypes.Insert(typeURL.GetStringValue())
+		return pbst
+	}
+	var parent *structpb.Struct
+
+	for k, v := range pbst.Fields {
+		switch t := v.Kind.(type) {
+		case *structpb.Value_StructValue:
+			res := a.AnyToTypedStruct(t.StructValue)
+			if res != nil {
+				if parent == nil {
+					parent = proto.Clone(pbst).(*structpb.Struct)
+				}
+				parent.Fields[k] = structpb.NewStructValue(res)
+			}
+		case *structpb.Value_ListValue:
+			for idx, i := range t.ListValue.Values {
+				if sz := i.GetStructValue(); sz != nil {
+					res := a.AnyToTypedStruct(sz)
+					if res != nil {
+						if parent == nil {
+							parent = proto.Clone(pbst).(*structpb.Struct)
+						}
+						parent.Fields[k].GetListValue().Values[idx] = structpb.NewStructValue(res)
+					}
+				}
+			}
+		}
+	}
+	return parent
+}
+
+func StructToMessage(raw *structpb.Struct, out proto.Message, strict bool) error {
+	if raw == nil {
 		return errors.New("nil struct")
 	}
 
+	at := anyTransformer{unknownTypes: sets.New[string]()}
+	pbst := at.AnyToTypedStruct(raw)
+	if pbst == nil {
+		// No clone needed
+		pbst = raw
+	}
+	// Strict is set, but we found unknown *types*. Warn there will be no validation
+	if strict && !at.unknownTypes.IsEmpty() {
+		return fmt.Errorf("unknown @type values detected; message will be sent as unvalidated: %v", sets.SortedList(at.unknownTypes))
+	}
 	buf, err := protomarshal.MarshalProtoNames(pbst)
 	if err != nil {
 		return err
 	}
 
 	// If strict is not set, ignore unknown fields as they may be sending versions of
-	// the proto we are not internally using
+	// the proto we are not internally using.
+	// Note this is for unknown fields; above we handle unknown types.
 	if strict {
 		return protomarshal.Unmarshal(buf, out)
 	}
 	return protomarshal.UnmarshalAllowUnknown(buf, out)
+}
+
+func isTypeKnown(typeURL string) bool {
+	mname := typeURL
+	if slash := strings.LastIndex(typeURL, "/"); slash >= 0 {
+		mname = mname[slash+1:]
+	}
+	_, err := protoregistry.GlobalTypes.FindMessageByName(protoreflect.FullName(mname))
+	return err == nil
 }

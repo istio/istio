@@ -417,7 +417,7 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 				IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, true)
 				// user has any typed struct
 				// The type may not match up exactly. For example, if we use v2 internally but they use v3.
-				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
+				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeURL
 				// If we did not do this, merge.Merge below will panic (which is recovered), so even though this
 				// is not 100% reliable its better than doing nothing
 				if userFilter.GetTypedConfig().TypeUrl != filter.GetTypedConfig().TypeUrl {
@@ -566,7 +566,7 @@ func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 			if userHTTPFilter.GetTypedConfig() != nil {
 				// user has any typed struct
 				// The type may not match up exactly. For example, if we use v2 internally but they use v3.
-				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeUrl
+				// Assuming they are not using deprecated/new fields, we can safely swap out the TypeURL
 				// If we did not do this, merge.Merge below will panic (which is recovered), so even though this
 				// is not 100% reliable its better than doing nothing
 				if userHTTPFilter.GetTypedConfig().TypeUrl != httpFilter.GetTypedConfig().TypeUrl {

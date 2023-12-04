@@ -884,20 +884,17 @@ var ValidateEnvoyFilter = registerValidateFunc("ValidateEnvoyFilter",
 			}
 			// ensure that the struct is valid
 			if _, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, false); err != nil {
-				if strings.Contains(err.Error(), "could not resolve Any message type") {
-					if strings.Contains(err.Error(), ".v2.") {
-						err = fmt.Errorf("referenced type unknown (hint: try using the v3 XDS API): %v", err)
-					} else {
-						err = fmt.Errorf("referenced type unknown: %v", err)
-					}
-				}
 				errs = appendValidation(errs, err)
 			} else {
 				// Run with strict validation, and emit warnings. This helps capture cases like unknown fields
 				// We do not want to reject in case the proto is valid but our libraries are outdated
 				obj, err := xds.BuildXDSObjectFromStruct(cp.ApplyTo, cp.Patch.Value, true)
 				if err != nil {
-					errs = appendValidation(errs, WrapWarning(err))
+					if strings.Contains(err.Error(), "unknown @type values detected") && strings.Contains(err.Error(), ".v2.") {
+						errs = appendValidation(errs, WrapWarning(fmt.Errorf("%v (hint: try using the v3 XDS API)", err)))
+					} else {
+						errs = appendValidation(errs, WrapWarning(err))
+					}
 				}
 
 				// Append any deprecation notices

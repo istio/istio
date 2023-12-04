@@ -173,7 +173,9 @@ func TestConvertEnvoyFilter(t *testing.T) {
 	if patches := cfilter.Patches[networking.EnvoyFilter_INVALID]; len(patches) != 1 {
 		t.Fatalf("unexpected patches of %v: %v", networking.EnvoyFilter_INVALID, cfilter.Patches)
 	}
-	if patches := cfilter.Patches[networking.EnvoyFilter_HTTP_ROUTE]; len(patches) != 1 { // check num of invalid http route patches
+	// check num of invalid http route patches
+	// The invalid type will be converted to a typed_struct, so should be present
+	if patches := cfilter.Patches[networking.EnvoyFilter_HTTP_ROUTE]; len(patches) != 2 {
 		t.Fatalf("unexpected patches of %v: %v", networking.EnvoyFilter_HTTP_ROUTE, cfilter.Patches)
 	}
 }

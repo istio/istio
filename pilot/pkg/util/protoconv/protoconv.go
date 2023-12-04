@@ -27,6 +27,10 @@ import (
 	"istio.io/istio/pkg/log"
 )
 
+func TypeURL(msg proto.Message) string {
+	return "type.googleapis.com/" + string(msg.ProtoReflect().Descriptor().FullName())
+}
+
 // MessageToAnyWithError converts from proto message to proto Any
 func MessageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
 	b, err := marshal(msg)
@@ -34,8 +38,7 @@ func MessageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
 		return nil, err
 	}
 	return &anypb.Any{
-		// nolint: staticcheck
-		TypeUrl: "type.googleapis.com/" + string(msg.ProtoReflect().Descriptor().FullName()),
+		TypeUrl: TypeURL(msg),
 		Value:   b,
 	}, nil
 }
