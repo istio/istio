@@ -77,4 +77,5 @@ const (
 
 const (
 	AmbientConfigFilepath = "/etc/ambient-config/config.json"
+	NetNsPath             = "/var/run/netns"
 )
