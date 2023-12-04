@@ -86,7 +86,7 @@ func (sg *StatusGen) GenerateDeltas(
 	return res, nil, detail, true, err
 }
 
-func (sg *StatusGen) handleInternalRequest(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (sg *StatusGen) handleInternalRequest(_ *model.Proxy, w *model.WatchedResource, _ *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 
 	switch w.TypeUrl {
