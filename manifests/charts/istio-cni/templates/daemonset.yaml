@@ -125,6 +125,8 @@ spec:
             # Set to true to enable pod deletion
             - name: REPAIR_DELETE_PODS
               value: "{{.Values.cni.repair.deletePods}}"
+            - name: REPAIR_REPAIR_PODS
+              value: "{{.Values.cni.repair.repairPods}}"
             - name: REPAIR_RUN_AS_DAEMON
               value: "true"
             - name: REPAIR_SIDECAR_ANNOTATION
@@ -161,6 +163,10 @@ spec:
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
+            {{- if .Values.cni.repair.repairPods }}
+            - mountPath: /host/proc
+              name: cni-host-procfs
+            {{- end }}
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
             - mountPath: /var/run/istio-cni
@@ -188,6 +194,12 @@ spec:
         - name: cni-bin-dir
           hostPath:
             path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
+        {{- if .Values.cni.repair.repairPods }}
+        - name: cni-host-procfs
+          hostPath:
+            path: /proc
+            type: Directory
+        {{- end }}
         {{- if .Values.cni.ambient.enabled }}
         - name: cni-ambient-config-dir
           hostPath:
