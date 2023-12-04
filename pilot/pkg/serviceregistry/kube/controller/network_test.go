@@ -256,7 +256,6 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 					return
 				}
 				t.Logf("skipping namespace %s want %s", n, namespace)
-				continue
 			}
 		}
 	}
