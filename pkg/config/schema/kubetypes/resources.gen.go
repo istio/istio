@@ -45,6 +45,8 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 		return gvk.ConfigMap
 	case *k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition:
 		return gvk.CustomResourceDefinition
+	case *k8sioapiappsv1.DaemonSet:
+		return gvk.DaemonSet
 	case *k8sioapiappsv1.Deployment:
 		return gvk.Deployment
 	case *istioioapinetworkingv1alpha3.DestinationRule:
@@ -117,6 +119,8 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 		return gvk.Sidecar
 	case *apiistioioapinetworkingv1alpha3.Sidecar:
 		return gvk.Sidecar
+	case *k8sioapiappsv1.StatefulSet:
+		return gvk.StatefulSet
 	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
 		return gvk.TCPRoute
 	case *sigsk8siogatewayapiapisv1alpha2.TLSRoute:
