@@ -171,16 +171,17 @@ func (a *Agent) terminate() {
 		defer ticker.Stop()
 	graceful_loop:
 		for range ticker.C {
+			ac, err := a.activeProxyConnections()
 			select {
 			case status := <-a.statusCh:
 				log.Warnf("Envoy exited with error %v", status.err)
 				log.Infof("Graceful termination logic ended prematurely, envoy process terminated early")
 				return
 			default:
-				ac, err := a.activeProxyConnections()
 				if err != nil {
 					log.Errorf(err.Error())
 					a.abortCh <- errAbort
+					log.Infof("Graceful termination logic ended prematurely, error while obtaining downstream_cx_active stat")
 					break graceful_loop
 				}
 				if ac == -1 {
