@@ -243,6 +243,10 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	gvkList := append(resources, ClusterCPResources...)
 	if includeClusterResources {
 		gvkList = append(resources, AllClusterResources...)
+		// Cleanup IstioOperator, which may be used with in-cluster operator.
+		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
+			usList = append(usList, ioplist)
+		}
 	}
 	for _, gvk := range gvkList {
 		objects := &unstructured.UnstructuredList{}
@@ -287,6 +291,21 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	}
 
 	return usList, nil
+}
+
+// getIstioOperatorCR is a helper function to get IstioOperator CR during purge,
+// otherwise the resources would be reconciled back later if there is in-cluster operator deployment.
+// And it is needed to remove the IstioOperator CRD.
+func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
+	objects := &unstructured.UnstructuredList{}
+	objects.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "install.istio.io",
+		Version: "v1alpha1", Kind: name.IstioOperatorStr,
+	})
+	if err := h.client.List(context.TODO(), objects); err != nil {
+		scope.Errorf("failed to list IstioOperator CR: %v", err)
+	}
+	return objects
 }
 
 // DeleteControlPlaneByManifests removed resources by manifests with matching revision label.

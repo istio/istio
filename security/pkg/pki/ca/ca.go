@@ -113,7 +113,12 @@ type IstioCAOptions struct {
 
 	// Config for creating self-signed root cert rotator.
 	RotatorConfig *SelfSignedCARootCertRotatorConfig
+
+	// OnRootCertUpdate is the cb which can only be called by self-signed root cert rotator
+	OnRootCertUpdate func() error
 }
+
+type RootCertUpdateFunc func() error
 
 // NewSelfSignedIstioCAOptions returns a new IstioCAOptions instance using self-signed certificate.
 func NewSelfSignedIstioCAOptions(ctx context.Context,
@@ -200,6 +205,7 @@ func NewSelfSignedIstioCAOptions(ctx context.Context,
 		}
 		return err
 	})
+	pkiCaLog.Infof("Set secret name for self-signed CA cert rotator to %s", caCertName)
 	caOpts.RotatorConfig.secretName = caCertName
 	return caOpts, err
 }
@@ -216,7 +222,6 @@ func loadSelfSignedCaSecret(client corev1.CoreV1Interface, namespace string, caC
 			caSecret.Data[CAPrivateKeyFile], nil, rootCerts); err != nil {
 			return fmt.Errorf("failed to create CA KeyCertBundle (%v)", err)
 		}
-		pkiCaLog.Infof("Set secret name for self-signed CA cert rotator to %s", caCertName)
 		pkiCaLog.Infof("Using existing public key: %v", string(rootCerts))
 	}
 	return err
@@ -344,7 +349,7 @@ func NewIstioCA(opts *IstioCAOptions) (*IstioCA, error) {
 	}
 
 	if opts.CAType == selfSignedCA && opts.RotatorConfig != nil && opts.RotatorConfig.CheckInterval > time.Duration(0) {
-		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca)
+		ca.rootCertRotator = NewSelfSignedCARootCertRotator(opts.RotatorConfig, ca, opts.OnRootCertUpdate)
 	}
 
 	// if CA cert becomes invalid before workload cert it's going to cause workload cert to be invalid too,

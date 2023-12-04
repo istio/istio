@@ -12,12 +12,12 @@ spec:
       k8s:
         # Base component only allows overlays field.
         overlays:
-          - kind: ClusterRoleBinding
-            name: istio-reader-istio-system
+          - kind: ServiceAccount
+            name: istio-reader-service-account
             patches:
               # Select list item by value
-              - path: subjects.[name:istio-reader-service-account].name
-                value: my-service-role
+              - path: spec.automountServiceAccountToken
+                value: false
 
     pilot:
       enabled: true
