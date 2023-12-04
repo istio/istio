@@ -265,6 +265,35 @@ var (
 		},
 	}
 
+	// TODO https://github.com/istio/istio/issues/46740
+	// false values can be omitted in protobuf, results in diff JSON values between control plane and envoy config dumps
+	// long term fix will be to add the metadata config to istio/api and use that over TypedStruct
+	SidecarOutboundMetadataFilterSkipHeaders = &hcm.HttpFilter{
+		Name: MxFilterName,
+		ConfigType: &hcm.HttpFilter_TypedConfig{
+			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
+				map[string]any{
+					"upstream_discovery": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+					"upstream_propagation": []any{
+						map[string]any{
+							"istio_headers": map[string]any{
+								"skip_external_clusters": true,
+							},
+						},
+					},
+				}),
+		},
+	}
+
+	// GatewayMtlsMetadataFilter is configured on gateways when the TLS mode for listener is ISTIO_MUTUAL
+	// This allows egress gateways to discover and propagate metadata exchange headers with the downstream peer.
 	GatewayMtlsMetadataFilter = &hcm.HttpFilter{
 		Name: MxFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
@@ -300,10 +329,7 @@ var (
 		},
 	}
 
-	// TODO https://github.com/istio/istio/issues/46740
-	// false values can be omitted in protobuf, results in diff JSON values between control plane and envoy config dumps
-	// long term fix will be to add the metadata config to istio/api and use that over TypedStruct
-	SidecarOutboundMetadataFilterSkipHeaders = &hcm.HttpFilter{
+	GatewayMtlsMetadataFilterSkipHeaders = &hcm.HttpFilter{
 		Name: MxFilterName,
 		ConfigType: &hcm.HttpFilter_TypedConfig{
 			TypedConfig: protoconv.TypedStructWithFields("type.googleapis.com/io.istio.http.peer_metadata.Config",
@@ -321,6 +347,19 @@ var (
 							"istio_headers": map[string]any{
 								"skip_external_clusters": true,
 							},
+						},
+					},
+					"downstream_discovery": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
+						},
+						map[string]any{
+							"workload_discovery": map[string]any{},
+						},
+					},
+					"downstream_propagation": []any{
+						map[string]any{
+							"istio_headers": map[string]any{},
 						},
 					},
 				}),
