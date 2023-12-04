@@ -131,8 +131,6 @@ spec:
       configMap: true
       cpu:
         targetAverageUtilization: 80
-      enableProtocolSniffingForInbound: true
-      enableProtocolSniffingForOutbound: true
       env: {}
       image: pilot
       keepaliveMaxServerConnectionAge: 30m
