@@ -166,6 +166,7 @@ resources:
     version: "v1beta1"
     versionAliases:
     - "v1alpha2"
+    - "v1"
     clusterScoped: true
     protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassSpec"
@@ -179,6 +180,7 @@ resources:
     version: "v1beta1"
     versionAliases:
     - "v1alpha2"
+    - "v1"
     protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.GatewaySpec"
     validate: "ValidateKubernetesGateway"
@@ -191,6 +193,7 @@ resources:
     version: "v1beta1"
     versionAliases:
     - "v1alpha2"
+    - "v1"
     protoPackage: "sigs.k8s.io/gateway-api/apis/v1beta1"
     proto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteSpec"
     statusProto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteStatus"
