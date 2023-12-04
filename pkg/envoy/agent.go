@@ -174,7 +174,7 @@ func (a *Agent) terminate() {
 			ac, err := a.activeProxyConnections()
 			select {
 			case status := <-a.statusCh:
-				log.Warnf("Envoy exited with error %v", status.err)
+				log.Warnf("Envoy exited with status %v", status.err)
 				log.Infof("Graceful termination logic ended prematurely, envoy process terminated early")
 				return
 			default:
@@ -202,7 +202,7 @@ func (a *Agent) terminate() {
 		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
 		select {
 		case status := <-a.statusCh:
-			log.Warnf("Envoy exited with error %v", status.err)
+			log.Infof("Envoy exited with status %v", status.err)
 			log.Infof("Graceful termination logic ended prematurely, envoy process terminated early")
 			return
 		case <-time.After(a.terminationDrainDuration):
