@@ -15,7 +15,7 @@
 package main
 
 import (
-	context "context"
+	"context"
 	"fmt"
 	"log"
 	"net/http"
