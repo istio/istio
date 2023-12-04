@@ -39,16 +39,18 @@ var (
 )
 
 type kubeComponent struct {
-	id      resource.ID
-	ns      namespace.Instance
-	cluster cluster.Cluster
-	address string
+	id        resource.ID
+	ns        namespace.Instance
+	cluster   cluster.Cluster
+	address   string
+	addressVM string
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
 		cluster: ctx.Clusters().GetOrDefault(cfg.Cluster),
 	}
+
 	c.id = ctx.TrackResource(c)
 	var err error
 	scopes.Framework.Info("=== BEGIN: Deploy GCE Metadata Server ===")
@@ -80,8 +82,20 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	c.address = net.JoinHostPort(svc.Spec.ClusterIP, fmt.Sprint(svc.Spec.Ports[0].TargetPort.IntVal))
-	scopes.Framework.Infof("GCE Metadata Server in-cluster address: %s", c.address)
+	// Multicluster needs to use LoadBalancer IP
+	if ctx.Environment().IsMultiCluster() {
+		lb, err := testKube.WaitUntilServiceLoadBalancerReady(c.cluster.Kube(), c.ns.Name(), "gce-metadata-server")
+		if err != nil {
+			scopes.Framework.Infof("Error waiting for GCE Metadata service LB to be available: %v", err)
+			return nil, err
+		}
+		c.address = net.JoinHostPort(lb, fmt.Sprint(svc.Spec.Ports[0].Port))
+		c.addressVM = net.JoinHostPort(lb, fmt.Sprint(svc.Spec.Ports[1].Port))
+	} else {
+		c.address = net.JoinHostPort(svc.Spec.ClusterIP, fmt.Sprint(svc.Spec.Ports[0].Port))
+		c.addressVM = net.JoinHostPort(svc.Spec.ClusterIP, fmt.Sprint(svc.Spec.Ports[1].Port))
+	}
+	scopes.Framework.Infof("GCE Metadata Server in-cluster address: %s/%s", c.address, c.addressVM)
 
 	return c, nil
 }
@@ -97,4 +111,8 @@ func (c *kubeComponent) Close() error {
 
 func (c *kubeComponent) Address() string {
 	return c.address
+}
+
+func (c *kubeComponent) AddressVM() string {
+	return c.addressVM
 }
