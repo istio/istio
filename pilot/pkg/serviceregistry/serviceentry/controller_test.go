@@ -1826,8 +1826,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.ClientSideLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.227.81",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+					AutoAllocatedIPv4Address: "240.240.59.150",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:3b96",
 				},
 			},
 		},
@@ -1845,8 +1845,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.227.81",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
+					AutoAllocatedIPv4Address: "240.240.59.150",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:3b96",
 				},
 			},
 		},
@@ -1871,15 +1871,15 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "a17061.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.25.11",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:19b",
+					AutoAllocatedIPv4Address: "240.240.112.229",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:70e5",
 				},
 				{
 					Hostname:                 "a44155.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.31.17",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:1f11",
+					AutoAllocatedIPv4Address: "240.240.157.26",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:9d1a",
 				},
 			},
 		},
@@ -1898,8 +1898,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "a.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.134.206",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:86ce",
+					AutoAllocatedIPv4Address: "240.240.219.222",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:dbde",
 				},
 			},
 		},
@@ -1924,15 +1924,15 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "a.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.134.206",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:86ce",
+					AutoAllocatedIPv4Address: "240.240.219.222",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:dbde",
 				},
 				{
 					Hostname:                 "a.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.41.100",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:2964",
+					AutoAllocatedIPv4Address: "240.240.167.215",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:a7d7",
 				},
 			},
 		},
@@ -1962,6 +1962,10 @@ func Test_autoAllocateIP_values(t *testing.T) {
 			Hostname:       host.Name(fmt.Sprintf("foo%d.com", i)),
 			Resolution:     model.ClientSideLB,
 			DefaultAddress: constants.UnspecifiedIP,
+			Attributes: model.ServiceAttributes{
+				Namespace:  "default",
+				ConfigName: fmt.Sprintf("foo%d.com", i),
+			},
 		}
 		inServices[i] = &temp
 	}
@@ -1976,7 +1980,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	// 240.240.2.255
 	// 240.240.3.0
 	// 240.240.3.255
-	// The last IP should be 240.240.202.167
+	// The last IP should be 240.240.7.73
 	doNotWant := map[string]bool{
 		"240.240.0.0":   true,
 		"240.240.0.255": true,
@@ -1987,7 +1991,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		"240.240.3.0":   true,
 		"240.240.3.255": true,
 	}
-	expectedLastIP := "240.240.10.222"
+	expectedLastIP := "240.240.7.73"
 	if gotServices[len(gotServices)-1].AutoAllocatedIPv4Address != expectedLastIP {
 		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
@@ -2034,15 +2038,15 @@ func BenchmarkAutoAllocateIPs(t *testing.B) {
 func Test_autoAllocateIP_deterministic(t *testing.T) {
 	inServices := make([]*model.Service, 0)
 	originalServices := map[string]string{
-		"a.com": "240.240.109.8",
-		"c.com": "240.240.234.51",
-		"e.com": "240.240.85.60",
-		"g.com": "240.240.23.172",
-		"i.com": "240.240.15.2",
-		"k.com": "240.240.160.161",
-		"l.com": "240.240.42.96",
-		"n.com": "240.240.121.61",
-		"o.com": "240.240.122.71",
+		"a.com": "240.240.102.204",
+		"c.com": "240.240.220.16",
+		"e.com": "240.240.130.220",
+		"g.com": "240.240.3.171",
+		"i.com": "240.240.162.176",
+		"k.com": "240.240.24.212",
+		"l.com": "240.240.150.33",
+		"n.com": "240.240.8.193",
+		"o.com": "240.240.110.94",
 	}
 
 	allocateAndValidate := func() {

@@ -230,6 +230,7 @@ func buildServices(hostAddresses []*HostAddress, name, namespace string, ports m
 				Labels:          lbls,
 				ExportTo:        exportTo,
 				LabelSelectors:  selectors,
+				ConfigName:      name,
 			},
 			ServiceAccounts: saccounts,
 		})

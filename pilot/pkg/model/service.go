@@ -702,6 +702,11 @@ type ServiceAttributes struct {
 	ClusterExternalPorts map[cluster.ID]map[uint32]uint32
 
 	K8sAttributes
+
+	// For Service Entries
+
+	// Name of the Service Entry
+	ConfigName string
 }
 
 type NamespacedHostname struct {

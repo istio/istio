@@ -969,7 +969,7 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 }
 
 func makeServiceKey(svc *model.Service) string {
-	return svc.Attributes.Namespace + "/" + svc.Hostname.String()
+	return svc.Attributes.Name + "/" + svc.Attributes.Namespace + "/" + svc.Hostname.String()
 }
 
 func setAutoAllocatedIPs(svc *model.Service, octets octetPair) {
