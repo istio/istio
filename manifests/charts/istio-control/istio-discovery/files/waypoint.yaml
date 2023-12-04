@@ -195,14 +195,15 @@ spec:
           successThreshold: 1
           timeoutSeconds: 1
         securityContext:
-          privileged: true
+          privileged: false
           runAsGroup: 1337
           runAsUser: 0
           capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
+            drop:
+            - ALL
         volumeMounts:
+        - name: workload-socket
+          mountPath: /var/run/secrets/workload-spiffe-uds
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/lib/istio/data
@@ -214,6 +215,8 @@ spec:
         - mountPath: /etc/istio/pod
           name: istio-podinfo
       volumes:
+      - emptyDir: {}
+        name: workload-socket
       - emptyDir:
           medium: Memory
         name: istio-envoy

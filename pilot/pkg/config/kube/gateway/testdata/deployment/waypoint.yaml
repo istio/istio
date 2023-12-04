@@ -150,10 +150,9 @@ spec:
             memory: 128Mi
         securityContext:
           capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
-          privileged: true
+            drop:
+            - ALL
+          privileged: false
           runAsGroup: 1337
           runAsUser: 0
         startupProbe:
@@ -167,6 +166,8 @@ spec:
           successThreshold: 1
           timeoutSeconds: 1
         volumeMounts:
+        - mountPath: /var/run/secrets/workload-spiffe-uds
+          name: workload-socket
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/lib/istio/data
@@ -180,6 +181,8 @@ spec:
       serviceAccountName: namespace-istio-waypoint
       terminationGracePeriodSeconds: 2
       volumes:
+      - emptyDir: {}
+        name: workload-socket
       - emptyDir:
           medium: Memory
         name: istio-envoy
