@@ -18,11 +18,6 @@ import (
 	"fmt"
 	"strings"
 
-	v1 "k8s.io/api/admissionregistration/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	klabels "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/types"
-
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -30,26 +25,32 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/util/sets"
+	v1 "k8s.io/api/admissionregistration/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 )
 
 type Analyzer struct {
 	SkipServiceCheck bool
-	// SkipedWebhooks is a list of webhooks to skip, this happens when the webhook is not actually
+	// SkippedWebhooks is a list of webhooks to skip, this happens when the webhook is not actually
 	// going to be used in the current revision.
-	SkippedWebhooks []types.NamespacedName
+	SkippedWebhooks sets.Set[string]
 }
 
 var _ analysis.Analyzer = &Analyzer{}
 
 func (a *Analyzer) Metadata() analysis.Metadata {
-	return analysis.Metadata{
+	meta := analysis.Metadata{
 		Name:        "webhook.Analyzer",
 		Description: "Checks the validity of Istio webhooks",
 		Inputs: []config.GroupVersionKind{
 			gvk.MutatingWebhookConfiguration,
-			gvk.Service,
 		},
 	}
+	if !a.SkipServiceCheck {
+		meta.Inputs = append(meta.Inputs, gvk.Service)
+	}
+	return meta
 }
 
 func getNamespaceLabels() []klabels.Set {
@@ -74,14 +75,8 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	resources := map[string]*resource.Instance{}
 	revisions := sets.New[string]()
 	context.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
-		key := types.NamespacedName{
-			Namespace: resource.Metadata.FullName.Namespace.String(),
-			Name:      resource.Metadata.FullName.Name.String(),
-		}
-		for _, skip := range a.SkippedWebhooks {
-			if skip == key {
-				return true
-			}
+		if a.SkippedWebhooks.Contains(resource.Metadata.FullName.Name.String()) {
+			return true
 		}
 		wh := resource.Message.(*v1.MutatingWebhookConfiguration)
 		revs := extractRevisions(wh)

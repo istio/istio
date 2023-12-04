@@ -22,6 +22,8 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -539,7 +541,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return nil
 	}
 
-	var skippedWebhooks []types.NamespacedName
+	skippedWebhooks := sets.New[string]()
 	exists := revtag.PreviousInstallExists(context.Background(), h.kubeClient.Kube())
 	// Here if we need to create a default tag, we need to skip the webhooks that are going to be deactivated.
 	if detectIfTagWebhookIsNeeded(h.iop, exists) {
@@ -548,7 +550,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 			return err
 		}
 		for _, wh := range whs {
-			skippedWebhooks = append(skippedWebhooks, types.NamespacedName{Name: wh.Name, Namespace: wh.Namespace})
+			skippedWebhooks.Insert(wh.GetName())
 		}
 	}
 
@@ -556,9 +558,33 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		SkipServiceCheck: true,
 		SkippedWebhooks:  skippedWebhooks,
 	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil)
+
+	// Add in-cluster webhooks
+	objects := &unstructured.UnstructuredList{}
+	objects.SetGroupVersionKind(gvk.MutatingWebhookConfiguration.Kubernetes())
+	err := h.client.List(context.Background(), objects, &client.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for i, obj := range objects.Items {
+		objYAML, err := object.NewK8sObject(&obj, nil, nil).YAML()
+		if err != nil {
+			return err
+		}
+		whReaderSource := local.ReaderSource{
+			Name:   fmt.Sprintf("in-cluster-webhook-%d", i),
+			Reader: strings.NewReader(string(objYAML)),
+		}
+		err = sa.AddReaderKubeSource([]local.ReaderSource{whReaderSource})
+		if err != nil {
+			return err
+		}
+	}
+
+	// Add webhook manifests to be applied
 	var localWebhookYAMLReaders []local.ReaderSource
 	var parsedK8sObjects object.K8sObjects
-	for _, wh := range whs {
+	for i, wh := range whs {
 		k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(wh)
 		if err != nil {
 			return err
@@ -568,19 +594,15 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 			return err
 		}
 		whReaderSource := local.ReaderSource{
-			Name:   "",
+			Name:   fmt.Sprintf("installed-webhook-%d", i),
 			Reader: strings.NewReader(objYaml),
 		}
 		localWebhookYAMLReaders = append(localWebhookYAMLReaders, whReaderSource)
 		parsedK8sObjects = append(parsedK8sObjects, k8sObjects...)
 	}
-	err := sa.AddReaderKubeSource(localWebhookYAMLReaders)
+	err = sa.AddReaderKubeSource(localWebhookYAMLReaders)
 	if err != nil {
 		return err
-	}
-
-	if h.kubeClient != nil {
-		sa.AddRunningKubeSource(h.kubeClient)
 	}
 
 	// Analyze webhooks

@@ -175,7 +175,6 @@ func (s *KubeSource) SetNamespacesFilter(namespacesFilter func(obj interface{}) 
 
 // Clear the contents of this source
 func (s *KubeSource) Clear() {
-	s.versionCtr = 0
 	s.shas = make(map[kubeResourceKey]resourceSha)
 	s.byFile = make(map[string]map[kubeResourceKey]config.GroupVersionKind)
 	s.inner = memory.MakeSkipValidation(*s.schemas)
@@ -213,8 +212,6 @@ func (s *KubeSource) ApplyContent(name, yamlText string) error {
 
 		oldSha, found := s.shas[key]
 		if !found || oldSha != r.sha {
-			s.versionCtr++
-			r.config.ResourceVersion = fmt.Sprintf("v%d", s.versionCtr)
 			scope.Debugf("KubeSource.ApplyContent: Set: %v/%v", r.schema.GroupVersionKind(), r.fullName())
 			// apply is idempotent, but configstore is not, thus the odd logic here
 			_, err := s.inner.Update(*r.config)
