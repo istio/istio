@@ -68,6 +68,13 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 		return nil, err
 	}
 
+	pi := ExtractPodInfo(pod)
+	log.Debugf("Pod %v/%v info: \n%+v", podNamespace, podName, pi)
+
+	return pi, nil
+}
+
+func ExtractPodInfo(pod *v1.Pod) *PodInfo {
 	pi := &PodInfo{
 		Containers:        sets.New[string](),
 		Labels:            pod.Labels,
@@ -91,9 +98,7 @@ func getK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (
 			}
 		}
 	}
-	log.Debugf("Pod %v/%v info: \n%+v", podNamespace, podName, pi)
-
-	return pi, nil
+	return pi
 }
 
 // containers fetches all containers in the pod.
