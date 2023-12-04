@@ -86,7 +86,7 @@ func (sg *StatusGen) GenerateDeltas(
 	return res, nil, detail, true, err
 }
 
-func (sg *StatusGen) handleInternalRequest(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+func (sg *StatusGen) handleInternalRequest(_ *model.Proxy, w *model.WatchedResource, _ *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 
 	switch w.TypeUrl {
@@ -114,42 +114,6 @@ func (sg *StatusGen) handleInternalRequest(proxy *model.Proxy, w *model.WatchedR
 		res = dumpRes
 	}
 	return res, model.DefaultXdsLogDetails, nil
-}
-
-// GenerateDeltas delta XDS responses about internal events:
-// - connection status
-// - NACKs
-// We can also expose ACKS.
-func (sg *StatusGen) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
-	w *model.WatchedResource,
-) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
-	res := model.Resources{}
-
-	switch w.TypeUrl {
-	case TypeURLConnect:
-		for _, v := range sg.Server.Clients() {
-			res = append(res, &discovery.Resource{
-				Name:     v.node.Id,
-				Resource: protoconv.MessageToAny(v.node),
-			})
-		}
-	case TypeDebugSyncronization:
-		res = sg.debugSyncz()
-	case TypeDebugConfigDump:
-		if len(w.ResourceNames) == 0 || len(w.ResourceNames) > 1 {
-			// Malformed request from client
-			log.Infof("%s with %d ResourceNames", TypeDebugConfigDump, len(w.ResourceNames))
-			break
-		}
-		var err error
-		dumpRes, err := sg.debugConfigDump(w.ResourceNames[0])
-		if err != nil {
-			log.Infof("%s failed: %v", TypeDebugConfigDump, err)
-			break
-		}
-		res = dumpRes
-	}
-	return res, nil, model.DefaultXdsLogDetails, true, nil
 }
 
 // isSidecar ad-hoc method to see if connection represents a sidecar
