@@ -77,8 +77,13 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req 
 // - connection status
 // - NACKs
 // We can also expose ACKS.
-func (sg *StatusGen) GenerateDeltas(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	return sg.handleInternalRequest(proxy, w, req)
+func (sg *StatusGen) GenerateDeltas(
+	proxy *model.Proxy,
+	req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	res, detail, err := sg.handleInternalRequest(proxy, w, req)
+	return res, nil, detail, true, err
 }
 
 func (sg *StatusGen) handleInternalRequest(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

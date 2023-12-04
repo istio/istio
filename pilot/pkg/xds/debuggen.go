@@ -92,10 +92,7 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		return nil, model.DefaultXdsLogDetails, err
 	}
 
-	buffer, err := processDebugRequest(dg, resourceName)
-	if err != nil {
-		return nil, model.DefaultXdsLogDetails, err
-	}
+	buffer := processDebugRequest(dg, resourceName)
 
 	res := model.Resources{&discovery.Resource{
 		Name: resourceName,
@@ -108,7 +105,11 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 }
 
 // GenerateDeltas XDS debug responses according to the incoming debug request
-func (dg *DebugGen) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest, w *model.WatchedResource) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+func (dg *DebugGen) GenerateDeltas(
+	proxy *model.Proxy,
+	req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
 	if err := validateProxyAuthentication(proxy, w); err != nil {
 		return nil, nil, model.DefaultXdsLogDetails, true, err
 	}
@@ -118,10 +119,7 @@ func (dg *DebugGen) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest, w
 		return nil, nil, model.DefaultXdsLogDetails, true, err
 	}
 
-	buffer, err := processDebugRequest(dg, resourceName)
-	if err != nil {
-		return nil, nil, model.DefaultXdsLogDetails, true, err
-	}
+	buffer := processDebugRequest(dg, resourceName)
 
 	res := model.Resources{&discovery.Resource{
 		Name: resourceName,
@@ -157,7 +155,7 @@ func parseAndValidateDebugRequest(proxy *model.Proxy, w *model.WatchedResource, 
 	return resourceName, nil
 }
 
-func processDebugRequest(dg *DebugGen, resourceName string) (bytes.Buffer, error) {
+func processDebugRequest(dg *DebugGen, resourceName string) bytes.Buffer {
 	var buffer bytes.Buffer
 	debugURL := "/debug/" + resourceName
 	hreq, _ := http.NewRequest(http.MethodGet, debugURL, nil)
@@ -169,5 +167,5 @@ func processDebugRequest(dg *DebugGen, resourceName string) (bytes.Buffer, error
 		buffer.Write(header)
 	}
 	buffer.Write(response.body.Bytes())
-	return buffer, nil
+	return buffer
 }
