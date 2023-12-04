@@ -127,6 +127,8 @@ func AnnotateEnrolledPod(client kubernetes.Interface, pod *corev1.Pod) error {
 			types.MergePatchType,
 			annotationPatch,
 			metav1.PatchOptions{},
+			// Both "pods" and "pods/status" can mutate the metadata. However, pods/status is lower privilege, so we use that instead.
+			"status",
 		)
 	return err
 }
@@ -144,6 +146,8 @@ func AnnotateUnenrollPod(client kubernetes.Interface, pod *corev1.Pod) error {
 			types.MergePatchType,
 			annotationRemovePatch,
 			metav1.PatchOptions{},
+			// Both "pods" and "pods/status" can mutate the metadata. However, pods/status is lower privilege, so we use that instead.
+			"status",
 		)
 	return err
 }

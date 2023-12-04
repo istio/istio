@@ -56,7 +56,13 @@ cni:
     hub: ""
     tag: ""
 
-    labelPods: true
+    # Repair controller has 2 modes. Pick which one meets your use cases. Note only one may be used.
+    # This defines the action the controller will take when a pod is detected as broken.
+
+    # labelPods will label all pods with <brokenPodLabelKey>=<brokenPodLabelValue>.
+    # This is only capable of identifying broken pods; the user is responsible for fixing them (generally, by deleting them).
+    labelPods: false
+    # deletePods will delete any broken pod. These will then be rescheduled, hopefully onto a node that is fully ready.
     deletePods: true
 
     initContainerName: "istio-validation"
