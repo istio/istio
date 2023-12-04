@@ -539,8 +539,21 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return nil
 	}
 
+	var skippedWebhooks []types.NamespacedName
+	exists := revtag.PreviousInstallExists(context.Background(), h.kubeClient.Kube())
+	if detectIfTagWebhookIsNeeded(h.iop, exists) {
+		whs, err := revtag.GetWebhooksWithRevision(context.Background(), h.kubeClient.Kube(), revtag.DefaultRevisionName)
+		if err != nil {
+			return err
+		}
+		for _, wh := range whs {
+			skippedWebhooks = append(skippedWebhooks, types.NamespacedName{Name: wh.Name, Namespace: wh.Namespace})
+		}
+	}
+
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
 		SkipServiceCheck: true,
+		SkippedWebhooks:  skippedWebhooks,
 	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil)
 	var localWebhookYAMLReaders []local.ReaderSource
 	var parsedK8sObjects object.K8sObjects
@@ -619,38 +632,43 @@ type ProcessDefaultWebhookOptions struct {
 	DryRun    bool
 }
 
-func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
-	// Detect whether previous installation exists prior to performing the installation.
+func detectIfTagWebhookIsNeeded(iop *istioV1Alpha1.IstioOperator, exists bool) bool {
 	rev := iop.Spec.Revision
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	operatorManageWebhooks := operatorManageWebhooks(iop)
-	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
-		if rev == "" {
-			rev = revtag.DefaultRevisionName
-		}
-		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
+	return !operatorManageWebhooks && (!exists || isDefaultInstallation)
+}
 
-		ignorePruneLabel := map[string]string{
-			OwningResourceNotPruned: "true",
-		}
-
-		o := &revtag.GenerateOptions{
-			Tag:                  revtag.DefaultRevisionName,
-			Revision:             rev,
-			Overwrite:            true,
-			AutoInjectNamespaces: autoInjectNamespaces,
-			CustomLabels:         ignorePruneLabel,
-		}
-		// If tag cannot be created could be remote cluster install, don't fail out.
-		tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)
-		if err == nil && !opt.DryRun {
-			if err = applyManifests(client, tagManifests); err != nil {
-				return false, err
-			}
-		}
-		processed = true
+func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
+	// Detect whether previous installation exists prior to performing the installation.
+	if !detectIfTagWebhookIsNeeded(iop, exists) {
+		return false, nil
 	}
-	return processed, nil
+	rev := iop.Spec.Revision
+	if rev == "" {
+		rev = revtag.DefaultRevisionName
+	}
+	autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
+
+	ignorePruneLabel := map[string]string{
+		OwningResourceNotPruned: "true",
+	}
+
+	o := &revtag.GenerateOptions{
+		Tag:                  revtag.DefaultRevisionName,
+		Revision:             rev,
+		Overwrite:            true,
+		AutoInjectNamespaces: autoInjectNamespaces,
+		CustomLabels:         ignorePruneLabel,
+	}
+	// If tag cannot be created could be remote cluster install, don't fail out.
+	tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)
+	if err == nil && !opt.DryRun {
+		if err = applyManifests(client, tagManifests); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 func applyManifests(kubeClient kube.Client, manifests string) error {

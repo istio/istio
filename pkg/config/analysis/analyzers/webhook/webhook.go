@@ -21,6 +21,7 @@ import (
 	v1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/label"
 	"istio.io/istio/pkg/config"
@@ -33,6 +34,9 @@ import (
 
 type Analyzer struct {
 	SkipServiceCheck bool
+	// SkipedWebhooks is a list of webhooks to skip, this happens when the webhook is not actually
+	// going to be used in the current revision.
+	SkippedWebhooks []types.NamespacedName
 }
 
 var _ analysis.Analyzer = &Analyzer{}
@@ -70,6 +74,15 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	resources := map[string]*resource.Instance{}
 	revisions := sets.New[string]()
 	context.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
+		key := types.NamespacedName{
+			Namespace: resource.Metadata.FullName.Namespace.String(),
+			Name:      resource.Metadata.FullName.Name.String(),
+		}
+		for _, skip := range a.SkippedWebhooks {
+			if skip == key {
+				return true
+			}
+		}
 		wh := resource.Message.(*v1.MutatingWebhookConfiguration)
 		revs := extractRevisions(wh)
 		if len(revs) == 0 && !isIstioWebhook(wh) {
