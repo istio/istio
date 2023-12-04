@@ -64,9 +64,8 @@ type KubeSource struct {
 	inner     model.ConfigStore
 	defaultNs resource.Namespace
 
-	versionCtr int64
-	shas       map[kubeResourceKey]resourceSha
-	byFile     map[string]map[kubeResourceKey]config.GroupVersionKind
+	shas   map[kubeResourceKey]resourceSha
+	byFile map[string]map[kubeResourceKey]config.GroupVersionKind
 
 	// If meshConfig.DiscoverySelectors are specified, the namespacesFilter tracks the namespaces this controller watches.
 	namespacesFilter func(obj interface{}) bool
