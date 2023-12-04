@@ -472,6 +472,11 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) HandlerRegist
 	return h.registerBatchi(f, true)
 }
 
+/*
+TODO: this register* types is crazy. Maybe we can make one, or at most 2 (RegBatch w runexisting, or simple Register)
+Synced: its kind of weird. Maybe we need a generic interface, can be channel or polling based?
+ */
+
 func (h *manyCollection[I, O]) registerBatch(f func(o []Event[O]), runExistingState bool) {
 	h.registerBatchi(f, runExistingState)
 }
