@@ -19,12 +19,8 @@ import (
 	"fmt"
 	"strings"
 
-	networkingv1beta1 "istio.io/api/networking/v1beta1"
-	"istio.io/client-go/pkg/apis/networking/v1beta1"
-	"istio.io/istio/pkg/maps"
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -89,16 +85,6 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		return
 	}
 
-	variant := ""
-	c.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
-		meshConfig := r.Message.(*v1alpha1.MeshConfig)
-		variant = meshConfig.GetDefaultConfig().GetImage().GetImageType()
-		return true
-	})
-	if variant == "default" {
-		variant = ""
-	}
-
 	injectedNamespaces := make(map[string]string)
 	namespaceMismatchedPods := make(map[string][]string)
 	namespaceResources := make(map[string]*resource.Instance)
@@ -119,6 +105,8 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
+	resolver := util.NewEffectiveProxyConfigResolver(c)
+
 	c.ForEach(gvk.Pod, func(r *resource.Instance) bool {
 		var injectionCMName string
 		pod := r.Message.(*v1.PodSpec)
@@ -135,6 +123,8 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		if r.Metadata.Annotations["sidecar.istio.io/proxyImage"] != "" {
 			return true
 		}
+
+		variant := resolver.ImageVariant(r)
 
 		for _, container := range append(slices.Clone(pod.Containers), pod.InitContainers...) {
 			if container.Name != util.IstioProxyName {
@@ -171,42 +161,4 @@ func GetIstioProxyImage(cm *v1.ConfigMap) string {
 		return m.Global.Proxy.Image
 	}
 	return fmt.Sprintf("%s/%s:%s", m.Global.Hub, m.Global.Proxy.Image, m.Global.Tag)
-}
-
-func calculateVariant(c analysis.Context, pod *resource.Instance) string {
-	variant := ""
-	rootNamespace := ""
-	c.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
-		meshConfig := r.Message.(*v1alpha1.MeshConfig)
-		rootNamespace = meshConfig.GetRootNamespace()
-		variant = meshConfig.GetDefaultConfig().GetImage().GetImageType()
-		return true
-	})
-
-	var meshProxyConfig, namespaceProxyConfig, workloadProxyConfig *networkingv1beta1.ProxyConfig
-	c.ForEach(gvk.ProxyConfig, func(r *resource.Instance) bool {
-		proxyConfig := r.Message.(*networkingv1beta1.ProxyConfig)
-		if r.Metadata.FullName.Namespace.String() == rootNamespace {
-			meshProxyConfig = proxyConfig
-		}
-		if r.Metadata.FullName.Namespace.String() == pod.Metadata.FullName.Namespace.String() {
-			if maps.Match(proxyConfig.GetSelector().GetMatchLabels(), pod.Metadata.Labels) {
-				workloadProxyConfig = proxyConfig
-			}else{
-				namespaceProxyConfig = proxyConfig
-			}
-		}
-		return true
-	})
-	if meshProxyConfig != nil {
-		variant = meshProxyConfig.GetImage().GetImageType()
-	}
-	if namespaceProxyConfig != nil {
-		variant = namespaceProxyConfig.GetImage().GetImageType()
-	}
-	if workloadProxyConfig != nil {
-		variant = workloadProxyConfig.GetImage().GetImageType()
-	}
-	if pod.Metadata.Annotations
-
 }
