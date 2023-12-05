@@ -858,13 +858,15 @@ func (s *Server) initRegistryEventHandlers() {
 
 	if s.configController != nil {
 		configHandler := func(prev config.Config, curr config.Config, event model.Event) {
-			defer func() {
-				if event != model.EventDelete {
-					s.statusReporter.AddInProgressResource(curr)
-				} else {
-					s.statusReporter.DeleteInProgressResource(curr)
-				}
-			}()
+			if s.statusReporter != nil {
+				defer func() {
+					if event != model.EventDelete {
+						s.statusReporter.AddInProgressResource(curr)
+					} else {
+						s.statusReporter.DeleteInProgressResource(curr)
+					}
+				}()
+			}
 			log.Debugf("Handle event %s for configuration %s", event, curr.Key())
 			// For update events, trigger push only if spec has changed.
 			if event == model.EventUpdate && !needsPush(prev, curr) {
