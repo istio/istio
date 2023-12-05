@@ -1088,7 +1088,7 @@ func ParseSubsetKeyHostname(s string) (hostname string) {
 	if idx == -1 {
 		return ""
 	}
-	return s[idx:]
+	return s[idx+1:]
 }
 
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
