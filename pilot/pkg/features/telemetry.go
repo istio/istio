@@ -66,4 +66,7 @@ var (
 
 	StackdriverAuditLog = env.Register("STACKDRIVER_AUDIT_LOG", false, ""+
 		"If enabled, StackDriver audit logging will be enabled.").Get()
+
+	EnableECDSForStats = env.Register("ENABLE_ECDS_FOR_STATS", false,
+		"fi enabled, Istio will use ECDS send stats filter").Get()
 )

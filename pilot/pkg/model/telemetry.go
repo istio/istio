@@ -16,6 +16,7 @@ package model
 
 import (
 	"fmt"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"sort"
 	"strings"
 	"sync"
@@ -373,9 +374,33 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 	return &cfg
 }
 
+var defaultConfigSource = &core.ConfigSource{
+	ConfigSourceSpecifier: &core.ConfigSource_Ads{
+		Ads: &core.AggregatedConfigSource{},
+	},
+	ResourceApiVersion:  core.ApiVersion_V3,
+	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
+}
+
 // HTTPFilters computes the HttpFilter for a given proxy/class
 func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
 	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
+		if features.EnableECDSForStats {
+			return []*hcm.HttpFilter{
+				{
+					Name: ECDSResourceName(networking.ListenerProtocolHTTP, class, proxy.Type),
+					ConfigType: &hcm.HttpFilter_ConfigDiscovery{
+						ConfigDiscovery: &core.ExtensionConfigSource{
+							ConfigSource: defaultConfigSource,
+							TypeUrls: []string{
+								xds.StatsFilterType,
+								xds.RBACHTTPFilterType,
+							},
+						},
+					},
+				},
+			}
+		}
 		return res.([]*hcm.HttpFilter)
 	}
 	return nil
@@ -384,6 +409,23 @@ func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) 
 // TCPFilters computes the TCPFilters for a given proxy/class
 func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass) []*listener.Filter {
 	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
+		if features.EnableECDSForStats {
+			return []*listener.Filter{
+				{
+					Name: ECDSResourceName(networking.ListenerProtocolHTTP, class, proxy.Type),
+					ConfigType: &listener.Filter_ConfigDiscovery{
+						ConfigDiscovery: &core.ExtensionConfigSource{
+							ConfigSource: defaultConfigSource,
+							TypeUrls: []string{
+								xds.StatsFilterType,
+								xds.RBACNetworkFilterType,
+							},
+						},
+					},
+				},
+			}
+		}
+
 		return res.([]*listener.Filter)
 	}
 	return nil
@@ -556,17 +598,48 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	}
 
 	var res any
-	// Finally, compute the actual filters based on the protoc
-	switch protocol {
-	case networking.ListenerProtocolHTTP:
-		res = buildHTTPTelemetryFilter(class, m)
-	default:
-		res = buildTCPTelemetryFilter(class, m)
+	if features.EnableECDSForStats {
+		switch protocol {
+		case networking.ListenerProtocolHTTP:
+			res = buildHTTPTypedExtensionConfig(class, m)
+		case networking.ListenerProtocolTCP:
+			res = buildTCPTypedExtensionConfig(class, m)
+		}
+	} else {
+		// Finally, compute the actual filters based on the protoc
+		switch protocol {
+		case networking.ListenerProtocolHTTP:
+			res = buildHTTPTelemetryFilter(class, m)
+		default:
+			res = buildTCPTelemetryFilter(class, m)
+		}
 	}
 
 	// Update cache
 	t.computedMetricsFilters[key] = res
 	return res
+}
+
+func (t *Telemetries) HTTPTypedExtensionConfigFilters(proxy *Proxy, class networking.ListenerClass) []*core.TypedExtensionConfig {
+	if !features.EnableECDSForStats {
+		return nil
+	}
+
+	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
+		return res.([]*core.TypedExtensionConfig)
+	}
+	return nil
+}
+
+func (t *Telemetries) TCPTypedExtensionConfigFilters(proxy *Proxy, class networking.ListenerClass) []*core.TypedExtensionConfig {
+	if !features.EnableECDSForStats {
+		return nil
+	}
+
+	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
+		return res.([]*core.TypedExtensionConfig)
+	}
+	return nil
 }
 
 // default value for metric rotation interval and graceful deletion interval,
@@ -932,6 +1005,125 @@ var waypointStatsConfig = protoconv.MessageToAny(&udpa.TypedStruct{
 // This is to ensure this stays in sync as new handlers are added
 // STOP. DO NOT UPDATE THIS WITHOUT UPDATING buildHTTPTelemetryFilter and buildTCPTelemetryFilter.
 const telemetryFilterHandled = 14
+
+func ECDSResourceName(protocol networking.ListenerProtocol, class networking.ListenerClass, nodeType NodeType) string {
+	p := "HTTP"
+	if protocol == networking.ListenerProtocolTCP {
+		p = "TCP"
+	}
+
+	metricClass := "client"
+	if class == networking.ListenerClassSidecarInbound {
+		metricClass = "server"
+	}
+
+	node := ""
+	if nodeType == Waypoint {
+		node = "waypoint"
+	}
+
+	return fmt.Sprintf("stats|%s|%s|%s|%s", p, metricClass, node)
+}
+
+func buildHTTPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*core.TypedExtensionConfig {
+	res := make([]*core.TypedExtensionConfig, 0, telemetryFilterHandled)
+	for _, cfg := range metricsCfg {
+		switch cfg.Provider.GetProvider().(type) {
+		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
+			if cfg.NodeType == Waypoint {
+				res = append(res, &core.TypedExtensionConfig{
+					Name: ECDSResourceName(networking.ListenerProtocolHTTP, class, cfg.NodeType),
+					TypedConfig: protoconv.MessageToAny(&hcm.HttpFilter{
+						Name:       xds.StatsFilterName,
+						ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: waypointStatsConfig},
+					}),
+				})
+			} else {
+				if statsCfg := generateStatsConfig(class, cfg); statsCfg != nil {
+					res = append(res, &core.TypedExtensionConfig{
+						Name: ECDSResourceName(networking.ListenerProtocolHTTP, class, cfg.NodeType),
+						TypedConfig: protoconv.MessageToAny(&hcm.HttpFilter{
+							Name:       xds.StatsFilterName,
+							ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: statsCfg},
+						}),
+					})
+				}
+			}
+		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
+			sdCfg := generateSDConfig(class, cfg)
+			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
+			vmConfig.VmConfig.VmId = stackdriverVMID(class)
+
+			wasmConfig := &wasm.PluginConfig{
+				RootId:        vmConfig.VmConfig.VmId,
+				Vm:            vmConfig,
+				Configuration: sdCfg,
+			}
+
+			res = append(res, &core.TypedExtensionConfig{
+				Name: ECDSResourceName(networking.ListenerProtocolHTTP, class, cfg.NodeType),
+				TypedConfig: protoconv.MessageToAny(&hcm.HttpFilter{
+					Name:       xds.StackdriverFilterName,
+					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				}),
+			})
+		default:
+			// Only prometheus and SD supported currently
+			continue
+		}
+	}
+	return res
+}
+
+func buildTCPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*core.TypedExtensionConfig {
+	res := make([]*core.TypedExtensionConfig, 0, telemetryFilterHandled)
+	for _, cfg := range metricsCfg {
+		switch cfg.Provider.GetProvider().(type) {
+		case *meshconfig.MeshConfig_ExtensionProvider_Prometheus:
+			if cfg.NodeType == Waypoint {
+				res = append(res, &core.TypedExtensionConfig{
+					Name: ECDSResourceName(networking.ListenerProtocolTCP, class, cfg.NodeType),
+					TypedConfig: protoconv.MessageToAny(&listener.Filter{
+						Name:       xds.StatsFilterName,
+						ConfigType: &listener.Filter_TypedConfig{TypedConfig: waypointStatsConfig},
+					}),
+				})
+			} else {
+				if statsCfg := generateStatsConfig(class, cfg); statsCfg != nil {
+					res = append(res, &core.TypedExtensionConfig{
+						Name: ECDSResourceName(networking.ListenerProtocolTCP, class, cfg.NodeType),
+						TypedConfig: protoconv.MessageToAny(&listener.Filter{
+							Name:       xds.StatsFilterName,
+							ConfigType: &listener.Filter_TypedConfig{TypedConfig: statsCfg},
+						}),
+					})
+				}
+			}
+		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
+			sdCfg := generateSDConfig(class, cfg)
+			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
+			vmConfig.VmConfig.VmId = stackdriverVMID(class)
+
+			wasmConfig := &wasm.PluginConfig{
+				RootId:        vmConfig.VmConfig.VmId,
+				Vm:            vmConfig,
+				Configuration: sdCfg,
+			}
+
+			res = append(res, &core.TypedExtensionConfig{
+				Name: ECDSResourceName(networking.ListenerProtocolTCP, class, cfg.NodeType),
+				TypedConfig: protoconv.MessageToAny(&listener.Filter{
+					Name:       xds.StackdriverFilterName,
+					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
+				}),
+			})
+		default:
+			// Only prometheus and SD supported currently
+			continue
+		}
+	}
+	return res
+}
 
 func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*hcm.HttpFilter {
 	res := make([]*hcm.HttpFilter, 0, len(metricsCfg))
