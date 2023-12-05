@@ -16,7 +16,6 @@ package krt_test
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/log"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -26,6 +25,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -38,7 +38,7 @@ func TestSingleton(t *testing.T) {
 	stop := test.NewStop(t)
 	c.RunAndWait(stop)
 	cmt := clienttest.NewWriter[*corev1.ConfigMap](t, c)
-	ConfigMapNames := krt.NewSingleton2[string](
+	ConfigMapNames := krt.NewSingleton[string](
 		func(ctx krt.HandlerContext) *string {
 			cms := krt.Fetch(ctx, ConfigMaps)
 			log.Errorf("howardjohn: gen %v", slices.Join(",", slices.Map(cms, func(c *corev1.ConfigMap) string {
