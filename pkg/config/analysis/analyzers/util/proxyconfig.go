@@ -1,13 +1,28 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package util
 
 import (
+	"strings"
+
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1beta1"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -33,8 +48,8 @@ func (e *EffectiveProxyConfigResolver) ImageType(pod *resource.Instance) string 
 			variant = v.GetImage().GetImageType()
 		}
 	}
-	if v, ok := e.workload[pod.Metadata.FullName.String()]; ok {
-		if maps.Match(v.GetSelector().GetMatchLabels(), pod.Metadata.Labels) {
+	for k, v := range e.workload {
+		if strings.HasPrefix(k, pod.Metadata.FullName.Namespace.String()) {
 			if v.GetImage().GetImageType() != "" {
 				variant = v.GetImage().GetImageType()
 			}
@@ -78,6 +93,7 @@ func NewEffectiveProxyConfigResolver(c analysis.Context) *EffectiveProxyConfigRe
 		proxyConfig := r.Message.(*v1beta1.ProxyConfig)
 		if r.Metadata.FullName.Namespace.String() == resolver.rootNamespace {
 			resolver.root = proxyConfig
+			return true
 		}
 		if proxyConfig.GetSelector() == nil {
 			resolver.namespace[r.Metadata.FullName.Namespace.String()] = proxyConfig
