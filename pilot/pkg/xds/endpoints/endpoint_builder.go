@@ -651,6 +651,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 
 	waypoint := ""
 	address, port := e.Address, int(e.EndpointPort)
+	tunnel := supportTunnel(b, e)
 	// Setup tunnel information, if needed
 	// This is for waypoint
 	if b.dir == model.TrafficDirectionInboundVIP {
@@ -663,14 +664,16 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			return nil
 		}
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
-		// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
-		// and add some detunnel metadata that had the original port.
-		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
-		ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
-		ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
-			Value: e.GetLoadBalancingWeight(),
+		if tunnel {
+			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
+			// and add some detunnel metadata that had the original port.
+			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
+			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
+			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
+				Value: e.GetLoadBalancingWeight(),
+			}
 		}
-	} else if supportTunnel(b, e) {
+	} else if tunnel {
 		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
 		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
 			workloads := findWaypoints(b.push, e)
