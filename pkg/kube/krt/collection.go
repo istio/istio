@@ -287,6 +287,13 @@ func WithObjectAugmentation(fn func(o any) any) CollectionOption {
 	}
 }
 
+// WithStop sets a custom stop channel so a collection can be terminated when the channel is closed
+func WithStop(stop <-chan struct{}) CollectionOption {
+	return func(c *collectionOptions) {
+		c.stop = stop
+	}
+}
+
 // NewCollection transforms a Collection[I] to a Collection[O] by applying the provided transformation function.
 // This applies for one-to-one relationships between I and O.
 // For zero-to-one, use NewSingleton. For one-to-many, use NewManyCollection.
@@ -334,7 +341,7 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 		eventHandlers: &handlers[O]{},
 		augmentation:  opts.augmentation,
 		synced:        make(chan struct{}),
-		stop:          make(chan struct{}), // TODO: pass in from user
+		stop:          opts.stop,
 	}
 	go func() {
 		// Wait for primary dependency to be ready
@@ -517,7 +524,6 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(d dependency) {
 	// For any new collections we depend on, start watching them if its the first time we have watched them.
 	if !i.collectionDependencies.InsertContains(d.collection.original) {
 		i.log.WithLabels("collection", d.collection.name).Debugf("register new dependency")
-		// TODO: propogate stop
 		d.collection.synced.WaitUntilSynced(i.stop)
 		d.collection.register(func(o []Event[any]) {
 			i.onSecondaryDependencyEvent(d.collection.original, o)

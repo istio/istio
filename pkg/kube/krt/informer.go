@@ -136,10 +136,9 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		synced:         make(chan struct{}),
 	}
 
-	stop := make(chan struct{})
 	go func() {
 		// First, wait for the informer to populate
-		if !kube.WaitForCacheSync(o.name, stop, c.HasSynced) {
+		if !kube.WaitForCacheSync(o.name, o.stop, c.HasSynced) {
 			return
 		}
 		// Now, take all our handlers we have built up and register them...
@@ -150,7 +149,7 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 			}))
 		}
 		// Now wait for handlers to sync
-		if !kube.WaitForCacheSync(o.name+" handlers", stop, c.HasSynced) {
+		if !kube.WaitForCacheSync(o.name+" handlers", o.stop, c.HasSynced) {
 			c.ShutdownHandlers()
 			return
 		}

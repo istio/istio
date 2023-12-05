@@ -96,13 +96,12 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		o.name = fmt.Sprintf("Join[%v]", ptr.TypeName[T]())
 	}
 	synced := make(chan struct{})
-	stop := make(chan struct{}) // TODO: pass in from user
 	c := slices.Map(cs, func(e Collection[T]) internalCollection[T] {
 		return e.(internalCollection[T])
 	})
 	go func() {
 		for _, c := range c {
-			if !c.Synced().WaitUntilSynced(stop) {
+			if !c.Synced().WaitUntilSynced(o.stop) {
 				return
 			}
 		}
