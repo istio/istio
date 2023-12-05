@@ -350,6 +350,7 @@ func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 		Revision:     args.Revision,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,
 		Identifier:   "crd-controller",
+		MeshConfig:   s.environment.Mesh(),
 	}
 	if args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter != nil {
 		opts.NamespacesFilter = args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter.Filter

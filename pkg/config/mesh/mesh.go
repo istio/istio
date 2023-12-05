@@ -134,6 +134,12 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 				},
 			},
 		},
+
+		GatewayAPI: &meshconfig.MeshConfig_GatewayAPIConfig{
+			ControllerMode:   wrappers.Bool(false),
+			DefaultClassName: constants.DefaultGatewayClassName,
+			ControllerName:   constants.ManagedGatewayController,
+		},
 	}
 }
 

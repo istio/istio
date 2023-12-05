@@ -153,9 +153,11 @@ type meshConfig struct {
 	ServiceSettings                []*meshConfigServiceSettings                              `json:"serviceSettings" patchStrategy:"replace"`
 	DefaultProviders               *meshConfigDefaultProviders                               `json:"defaultProviders" patchStrategy:"merge"`
 	ExtensionProviders             []*meshConfigExtensionProvider                            `json:"extensionProviders" patchStrategy:"merge" patchMergeKey:"name"`
+	GatewayAPI                     *meshConfigGatewayAPI                                     `json:"gatewayAPI" patchStrategy:"merge"`
 }
 
 type (
+	meshConfigGatewayAPI       struct{}
 	meshConfigDefaultProviders struct {
 		AccessLogging []struct{} `json:"accessLogging"`
 		Tracing       []struct{} `json:"tracing"`

@@ -39,7 +39,7 @@ type Schema interface {
 	// GroupVersionResource of the resource.
 	GroupVersionResource() schema.GroupVersionResource
 
-	// IsClusterScoped indicates that this resource is scoped to a particular namespace within a cluster.
+	// IsClusterScoped indicates that this resource is not scoped to a particular namespace within a cluster.
 	IsClusterScoped() bool
 
 	// IsBuiltin indicates that this resource is builtin (not a CRD)

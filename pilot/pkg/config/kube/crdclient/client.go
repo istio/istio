@@ -38,6 +38,7 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"  // import GKE cluster authentication plugin
 	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc" // import OIDC cluster authentication plugin, e.g. for Tectonic
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -83,16 +84,18 @@ type Client struct {
 	logger           *log.Scope
 
 	// namespacesFilter is only used to initiate filtered informer.
-	namespacesFilter func(obj interface{}) bool
+	namespacesFilter func(obj any) bool
 	filtersByGVK     map[config.GroupVersionKind]kubetypes.Filter
+	mesh             *meshconfig.MeshConfig
 }
 
 type Option struct {
 	Revision         string
 	DomainSuffix     string
 	Identifier       string
-	NamespacesFilter func(obj interface{}) bool
+	NamespacesFilter func(obj any) bool
 	FiltersByGVK     map[config.GroupVersionKind]kubetypes.Filter
+	MeshConfig       *meshconfig.MeshConfig
 }
 
 var _ model.ConfigStoreController = &Client{}
@@ -125,6 +128,7 @@ func NewForSchemas(client kube.Client, opts Option, schemas collection.Schemas) 
 		logger:           scope.WithLabels("controller", opts.Identifier),
 		namespacesFilter: opts.NamespacesFilter,
 		filtersByGVK:     opts.FiltersByGVK,
+		mesh:             opts.MeshConfig,
 	}
 
 	for _, s := range out.schemas.All() {
@@ -344,17 +348,28 @@ func (cl *Client) addCRD(name string) {
 		cl.logger.Debugf("added resource that already exists: %v", resourceGVK)
 		return
 	}
+
 	filter := cl.filtersByGVK[resourceGVK]
-	objectFilter := filter.ObjectFilter
-	filter.ObjectFilter = func(t any) bool {
-		if objectFilter != nil && !objectFilter(t) {
-			return false
+
+	// Don't filter any Gateway API resource when in Gateway API Controller mode
+	if resourceGVK.Group == collections.KubernetesGateway.Group() &&
+		cl.mesh != nil && cl.mesh.GatewayAPI != nil && cl.mesh.GatewayAPI.ControllerMode.GetValue() {
+		filter.ObjectFilter = func(t any) bool {
+			return true
 		}
-		if cl.namespacesFilter != nil && !cl.namespacesFilter(t) {
-			return false
+	} else {
+		objectFilter := filter.ObjectFilter
+		filter.ObjectFilter = func(t any) bool {
+			if objectFilter != nil && !objectFilter(t) {
+				return false
+			}
+			if cl.namespacesFilter != nil && !cl.namespacesFilter(t) {
+				return false
+			}
+			return config.LabelsInRevision(t.(controllers.Object).GetLabels(), cl.revision)
 		}
-		return config.LabelsInRevision(t.(controllers.Object).GetLabels(), cl.revision)
 	}
+
 	var kc kclient.Untyped
 	if s.IsBuiltin() {
 		kc = kclient.NewUntypedInformer(cl.client, gvr, filter)
