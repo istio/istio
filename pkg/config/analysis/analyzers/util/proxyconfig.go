@@ -19,8 +19,8 @@ type EffectiveProxyConfigResolver struct {
 	workload      map[string]*v1beta1.ProxyConfig
 }
 
-// ImageVariant returns the effective image variant for the given pod.
-func (e *EffectiveProxyConfigResolver) ImageVariant(pod *resource.Instance) string {
+// ImageType returns the effective image type for the given pod.
+func (e *EffectiveProxyConfigResolver) ImageType(pod *resource.Instance) string {
 	variant := ""
 	if e.meshConfig.GetDefaultConfig().GetImage().GetImageType() != "" {
 		variant = e.meshConfig.GetDefaultConfig().GetImage().GetImageType()

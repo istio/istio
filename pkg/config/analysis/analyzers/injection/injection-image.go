@@ -124,7 +124,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		variant := resolver.ImageVariant(r)
+		variant := resolver.ImageType(r)
 
 		for _, container := range append(slices.Clone(pod.Containers), pod.InitContainers...) {
 			if container.Name != util.IstioProxyName {
