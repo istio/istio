@@ -41,4 +41,7 @@ type Context interface {
 	Canceled() bool
 
 	SetAnalyzer(analyzerName string)
+
+	// RootNamespace returns the root namespace of the policies being analyzed
+	RootNamespace() string
 }
