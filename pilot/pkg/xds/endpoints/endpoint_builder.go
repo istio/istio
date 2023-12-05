@@ -701,7 +701,7 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		}
 	} else if supportsTunnel {
 		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
-		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
+		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() {
 			workloads := findWaypoints(b.push, e)
 			if len(workloads) > 0 {
 				// TODO: load balance

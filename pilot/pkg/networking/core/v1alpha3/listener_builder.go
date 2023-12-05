@@ -437,7 +437,7 @@ func (lb *ListenerBuilder) buildHTTPConnectionManager(httpOpts *httpListenerOpts
 }
 
 func appendMxFilter(httpOpts *httpListenerOpts, node *model.Proxy, filters []*hcm.HttpFilter) []*hcm.HttpFilter {
-	if !features.MetadataExchange || httpOpts.hbone || node.IsAmbient() {
+	if !features.MetadataExchange || httpOpts.hbone {
 		return filters
 	}
 	if !features.NativeMetadataExchange || !util.IsIstioVersionGE119(node.IstioVersion) {
