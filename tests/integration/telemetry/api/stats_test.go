@@ -158,9 +158,9 @@ func TestStatsGatewayServerFilter(t *testing.T) {
 			// Following resources are being deployed to test sidecar->gateway communication. With following resources,
 			// routing is being setup from sidecar to external site, via egress gateway.
 			// clt(http:80) -> sidecar(http:80) -> istio-mtls -> (http:80)egress-gateway-> vs(http:80) -> cnn.com
-			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-http-dest-rule.yaml")).ApplyOrFail(t)
-			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-http-gateway.yaml")).ApplyOrFail(t)
-			t.ConfigIstio().File(GetAppNamespace().Name(), filepath.Join(base, "istio-mtls-http-vs.yaml")).ApplyOrFail(t)
+			t.ConfigIstio().File(apps.Namespace.Name(), filepath.Join(base, "istio-mtls-http-dest-rule.yaml")).ApplyOrFail(t)
+			t.ConfigIstio().File(apps.Namespace.Name(), filepath.Join(base, "istio-mtls-http-gateway.yaml")).ApplyOrFail(t)
+			t.ConfigIstio().File(apps.Namespace.Name(), filepath.Join(base, "istio-mtls-http-vs.yaml")).ApplyOrFail(t)
 			//t.ConfigIstio().File("istio-system", filepath.Join(base, "test-mx-filter.yaml")).ApplyOrFail(t)
 
 			// The main SE is available only to app namespace, make one the egress can access.
@@ -206,9 +206,8 @@ spec:
 							sourceCluster = c.Name()
 						}
 						query := buildGatewayQuery(sourceCluster)
-						prom := GetPromInstance()
-						if _, err := prom.QuerySum(c, query); err != nil {
-							util.PromDiff(t, prom, c, query)
+						if _, err := promInst.QuerySum(c, query); err != nil {
+							util.PromDiff(t, promInst, c, query)
 							return err
 						}
 
@@ -450,7 +449,7 @@ func buildQuery(sourceCluster string) (sourceQuery, destinationQuery, appQuery p
 }
 
 func buildGatewayQuery(sourceCluster string) (sourceQuery prometheus.Query) {
-	ns := GetAppNamespace()
+	ns := apps.Namespace
 	labels := map[string]string{
 		"request_protocol":               "http",
 		"response_code":                  "200",
