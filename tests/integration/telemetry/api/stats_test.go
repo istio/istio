@@ -161,7 +161,6 @@ func TestStatsGatewayServerFilter(t *testing.T) {
 			t.ConfigIstio().File(apps.Namespace.Name(), filepath.Join(base, "istio-mtls-http-dest-rule.yaml")).ApplyOrFail(t)
 			t.ConfigIstio().File(apps.Namespace.Name(), filepath.Join(base, "istio-mtls-http-gateway.yaml")).ApplyOrFail(t)
 			t.ConfigIstio().File(apps.Namespace.Name(), filepath.Join(base, "istio-mtls-http-vs.yaml")).ApplyOrFail(t)
-			//t.ConfigIstio().File("istio-system", filepath.Join(base, "test-mx-filter.yaml")).ApplyOrFail(t)
 
 			// The main SE is available only to app namespace, make one the egress can access.
 			t.ConfigIstio().Eval(ist.Settings().SystemNamespace, map[string]any{
