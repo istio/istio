@@ -77,9 +77,9 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 		setGws(c.NetworkGateways())
 	})
 	expectGateways := func(t *testing.T, expectedGws int) {
+		// wait for a notification
+		assert.ChannelHasItem(t, notifyCh)
 		retry.UntilSuccessOrFail(t, func() error {
-			// wait for a notification
-			assert.ChannelHasItem(t, notifyCh)
 			if n := len(getGws()); n != expectedGws {
 				return fmt.Errorf("expected %d gateways but got %d", expectedGws, n)
 			}
