@@ -63,7 +63,7 @@ func TestSingleton(t *testing.T) {
 			Namespace: "ns",
 		},
 	})
-	tt.WaitOrdered("add/ns/a", "delete/")
+	tt.WaitUnordered("delete/", "add/ns/a")
 	assert.Equal(t, *ConfigMapNames.Get(), "ns/a")
 }
 

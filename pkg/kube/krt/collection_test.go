@@ -309,7 +309,7 @@ func TestCollectionCycle(t *testing.T) {
 		}
 	})
 	tt := assert.NewTracker[string](t)
-	Thingys.RegisterBatch(BatchedTrackerHandler[PodSizeCount](tt))
+	Thingys.RegisterBatch(BatchedTrackerHandler[PodSizeCount](tt), true)
 
 	assert.Equal(t, fetcherSorted(Thingys)(), nil)
 	pod := &corev1.Pod{

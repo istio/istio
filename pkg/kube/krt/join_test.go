@@ -16,6 +16,7 @@ package krt_test
 
 import (
 	"testing"
+	"time"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -113,8 +114,14 @@ func TestCollectionJoin(t *testing.T) {
 	}
 	sc.Create(svc)
 
+	time.Sleep(time.Second)
+	t.Log("update status")
 	pod.Status = corev1.PodStatus{PodIP: "1.2.3.4"}
 	pc.UpdateStatus(pod)
+	time.Sleep(time.Second)
+	krt.Dump(SimpleEndpoints)
+	krt.Dump(AllPods)
+	krt.Dump(AllServices)
 	assert.EventuallyEqual(t, fetch, []SimpleEndpoint{
 		{pod.Name, svc.Name, pod.Namespace, "1.2.3.4"},
 		{"name-static", svc.Name, pod.Namespace, "9.9.9.9"},

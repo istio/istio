@@ -17,9 +17,7 @@ package krt
 import (
 	"fmt"
 	"strings"
-	"sync"
 
-	"go.uber.org/atomic"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/tools/cache"
 
@@ -32,58 +30,13 @@ import (
 )
 
 type informer[I controllers.ComparableObject] struct {
-	inf  kclient.Informer[I]
-	log  *istiolog.Scope
-	name string
+	inf            kclient.Informer[I]
+	log            *istiolog.Scope
+	collectionName string
 
 	eventHandlers *handlers[I]
 	augmentation  func(a any) any
 	synced        chan struct{}
-}
-
-type eventQueue[I any] struct {
-	q        []Event[I]
-	handlers *handlers[I]
-	mu       sync.RWMutex
-	started  *atomic.Bool
-}
-
-func newEventQueue[I any](h *handlers[I]) *eventQueue[I] {
-	return &eventQueue[I]{
-		handlers: h,
-		started:  atomic.NewBool(false),
-	}
-}
-
-func (e *eventQueue[T]) add(t Event[T]) {
-	if e.started.Load() {
-		e.process([]Event[T]{t})
-		// Hot path
-		return
-	}
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	// may have started since we get the lock
-	if e.started.Load() {
-		e.process([]Event[T]{t})
-		return
-	}
-	e.q = append(e.q, t)
-}
-
-func (e *eventQueue[I]) process(t []Event[I]) {
-	handlers := e.handlers.Get()
-	for _, handler := range handlers {
-		handler(t)
-	}
-}
-
-func (e *eventQueue[I]) drain() {
-	e.mu.Lock()
-	defer e.mu.Unlock()
-	e.process(e.q)
-	e.q = nil
-	e.started.Store(true)
 }
 
 func (i *informer[I]) augment(a any) any {
@@ -93,21 +46,23 @@ func (i *informer[I]) augment(a any) any {
 	return a
 }
 
-var _ augmenter = &informer[controllers.Object]{}
-
-var _ Collection[controllers.Object] = &informer[controllers.Object]{}
+var _ internalCollection[controllers.Object] = &informer[controllers.Object]{}
 
 func (i *informer[I]) _internalHandler() {}
 
 func (i *informer[I]) Synced() Syncer {
 	return channelSyncer{
-		name:   i.name,
+		name:   i.collectionName,
 		synced: i.synced,
 	}
 }
 
-func (i *informer[I]) Name() string {
-	return i.name
+func (i *informer[I]) dump() {
+	// TODO: implement some useful dump here
+}
+
+func (i *informer[I]) name() string {
+	return i.collectionName
 }
 
 func (i *informer[I]) List(namespace string) []I {
@@ -127,14 +82,18 @@ func (i *informer[I]) Register(f func(o Event[I])) Syncer {
 	return registerHandlerAsBatched[I](i, f)
 }
 
-func (i *informer[I]) RegisterBatch(f func(o []Event[I])) Syncer {
+func (i *informer[I]) RegisterBatch(f func(o []Event[I]), runExistingState bool) Syncer {
+	// Note: runExistingState is NOT respected here.
+	// Informer doesn't expose a way to do that. However, due to the runtime model of informers, this isn't a dealbreaker;
+	// the handlers are all called async, so we don't end up with the same deadlocks we would have in the other collection types.
+	// While this is quite kludgy, this is an internal interface so its not too bad.
 	if !i.eventHandlers.Insert(f) {
 		i.inf.AddEventHandler(EventHandler[I](func(o Event[I]) {
 			f([]Event[I]{o})
 		}))
 	}
 	return pollSyncer{
-		name: fmt.Sprintf("%v handler", i.name),
+		name: fmt.Sprintf("%v handler", i.name()),
 		f:    i.inf.HasSynced,
 	}
 }
@@ -169,12 +128,12 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		o.name = fmt.Sprintf("NewInformer[%v]", ptr.TypeName[I]())
 	}
 	h := &informer[I]{
-		inf:           c,
-		log:           log.WithLabels("owner", o.name),
-		name:          o.name,
-		eventHandlers: &handlers[I]{},
-		augmentation:  o.augmentation,
-		synced:        make(chan struct{}),
+		inf:            c,
+		log:            log.WithLabels("owner", o.name),
+		collectionName: o.name,
+		eventHandlers:  &handlers[I]{},
+		augmentation:   o.augmentation,
+		synced:         make(chan struct{}),
 	}
 
 	stop := make(chan struct{})
@@ -197,10 +156,7 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 		}
 		close(h.synced)
 		h.log.Infof("%v synced", h.name)
-		//<-stop
-		//c.ShutdownHandlers()
 	}()
-	// go inf.Run()
 	return h
 }
 

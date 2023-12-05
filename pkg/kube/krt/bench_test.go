@@ -67,10 +67,8 @@ func NewModern(c kube.Client, events chan string, _ <-chan struct{}) {
 			ServiceNames: slices.Map(services, func(e *v1.Service) string { return e.Name }),
 		}
 	})
-	Workloads.RegisterBatch(func(o []krt.Event[Workload]) {
-		for _, e := range o {
-			events <- fmt.Sprintf(e.Latest().Name, e.Event)
-		}
+	Workloads.Register(func(e krt.Event[Workload]) {
+		events <- fmt.Sprintf(e.Latest().Name, e.Event)
 	})
 }
 

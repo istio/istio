@@ -18,21 +18,22 @@ import (
 	"fmt"
 
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 )
 
 type join[T any] struct {
-	name        string
-	collections []Collection[T]
-	merge       func(ts []T) T
-	synced      <-chan struct{}
+	collectionName string
+	collections    []internalCollection[T]
+	merge          func(ts []T) T
+	synced         <-chan struct{}
 }
 
-func (j *join[I]) Dump() {
-	log.Errorf("> BEGIN DUMP (join %v)", j.name)
+func (j *join[I]) dump() {
+	log.Errorf("> BEGIN DUMP (join %v)", j.collectionName)
 	for _, c := range j.collections {
-		Dump(c)
+		c.dump()
 	}
-	log.Errorf("< END DUMP (join %v)", j.name)
+	log.Errorf("< END DUMP (join %v)", j.collectionName)
 }
 
 func (j *join[T]) GetKey(k Key[T]) *T {
@@ -63,7 +64,7 @@ func (j *join[T]) List(namespace string) []T {
 	return l
 }
 
-func (j *join[T]) Name() string { return j.name }
+func (j *join[T]) name() string { return j.collectionName }
 
 func (j *join[T]) Register(f func(o Event[T])) Syncer {
 	for _, c := range j.collections {
@@ -73,29 +74,22 @@ func (j *join[T]) Register(f func(o Event[T])) Syncer {
 	return alwaysSynced{}
 }
 
-var _ registerBatchInterface[any] = &join[any]{}
-
-func (j *join[T]) RegisterBatch(f func(o []Event[T])) Syncer {
+func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Syncer {
 	for _, c := range j.collections {
-		c.RegisterBatch(f)
+		c.RegisterBatch(f, runExistingState)
 	}
 	// TODO: actually check... we need some aggregate.
 	return alwaysSynced{}
 }
 
-func (j *join[T]) registerBatch(f func(o []Event[T]), runExistingState bool) {
-	for _, c := range j.collections {
-		if rb, ok := c.(registerBatchInterface[T]); ok {
-			rb.registerBatch(f, runExistingState)
-		} else {
-			c.RegisterBatch(f)
-		}
-	}
+func (d *join[T]) augment(a any) any {
+	// not supported in this collection type
+	return a
 }
 
 func (j *join[T]) Synced() Syncer {
 	return channelSyncer{
-		name:   j.name,
+		name:   j.collectionName,
 		synced: j.synced,
 	}
 }
@@ -107,8 +101,11 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	}
 	synced := make(chan struct{})
 	stop := make(chan struct{}) // TODO: pass in from user
+	c := slices.Map(cs, func(e Collection[T]) internalCollection[T] {
+		return e.(internalCollection[T])
+	})
 	go func() {
-		for _, c := range cs {
+		for _, c := range c {
 			if !c.Synced().WaitUntilSynced(stop) {
 				return
 			}
@@ -117,15 +114,11 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 		log.Infof("%v synced", o.name)
 	}()
 	return &join[T]{
-		name:        o.name,
-		synced:      synced,
-		collections: cs,
+		collectionName: o.name,
+		synced:         synced,
+		collections:    c,
 		merge: func(ts []T) T {
 			return ts[0]
 		},
 	}
-}
-
-func JoinCollectionOn[T any](merge func(ts []T) T, cs ...Collection[T]) Collection[T] {
-	return &join[T]{collections: cs, merge: merge}
 }

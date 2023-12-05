@@ -35,8 +35,8 @@ import (
 //     Instead, we ensure at most one goroutine is recomputing things at a time.
 //     This avoids two dependency updates happening concurrently and writing events out of order.
 type manyCollection[I, O any] struct {
-	// name provides the name for this collection.
-	name string
+	// collectionName provides the collectionName for this collection.
+	collectionName string
 	// parent is the input collection we are building off of.
 	parent Collection[I]
 
@@ -66,7 +66,10 @@ type manyCollection[I, O any] struct {
 	// augmentation allows transforming an object into another for usage throughout the library. See WithObjectAugmentation.
 	augmentation func(a any) any
 	synced       chan struct{}
+	stop         <-chan struct{}
 }
+
+var _ internalCollection[any] = &manyCollection[any, any]{}
 
 type handlers[O any] struct {
 	mu   sync.RWMutex
@@ -114,12 +117,12 @@ func (h *manyCollection[I, O]) augment(a any) any {
 
 func (h *manyCollection[I, O]) Synced() Syncer {
 	return channelSyncer{
-		name:   h.name,
+		name:   h.collectionName,
 		synced: h.synced,
 	}
 }
 
-func (h *manyCollection[I, O]) Dump() {
+func (h *manyCollection[I, O]) dump() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	h.log.Errorf(">>> BEGIN DUMP")
@@ -314,10 +317,11 @@ func NewManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 	return newManyCollection[I, O](c, hf, o)
 }
 
-func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], opts collectionOptions) Collection[O] {
+func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O], opts collectionOptions) Collection[O] {
+	c := cc.(internalCollection[I])
 	h := &manyCollection[I, O]{
 		transformation:         hf,
-		name:                   opts.name,
+		collectionName:         opts.name,
 		log:                    log.WithLabels("owner", opts.name),
 		parent:                 c,
 		collectionDependencies: sets.New[any](),
@@ -330,29 +334,25 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 		eventHandlers: &handlers[O]{},
 		augmentation:  opts.augmentation,
 		synced:        make(chan struct{}),
+		stop:          make(chan struct{}), // TODO: pass in from user
 	}
-	stop := make(chan struct{}) // TODO: pass in from user
 	go func() {
 		// Wait for primary dependency to be ready
-		if !c.Synced().WaitUntilSynced(stop) {
+		if !c.Synced().WaitUntilSynced(h.stop) {
 			return
 		}
 		// Now, register our handler. This will call Add() for the initial state
 		h.eventHandlers.MarkInitialized()
-		log.Errorf("howardjohn: register patch %v", h.name)
 		handlerReg := c.RegisterBatch(func(events []Event[I]) {
-			log.Errorf("howardjohn: in register patch %v", h.name)
 			if log.DebugEnabled() {
 				h.log.WithLabels("dep", "primary", "batch", len(events)).
 					Debugf("got event")
 			}
 			h.onPrimaryInputEvent(events)
-		})
-		log.Errorf("howardjohn: wait... %v", h.name)
-		if !handlerReg.WaitUntilSynced(stop) {
+		}, true)
+		if !handlerReg.WaitUntilSynced(h.stop) {
 			return
 		}
-		log.Errorf("howardjohn: waited %v", h.name)
 		close(h.synced)
 		h.log.Infof("%v synced", h.name)
 	}()
@@ -467,22 +467,7 @@ func (h *manyCollection[I, O]) Register(f func(o Event[O])) Syncer {
 	return registerHandlerAsBatched[O](h, f)
 }
 
-var _ registerBatchInterface[any] = &manyCollection[int, any]{}
-
-func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) Syncer {
-	return h.registerBatchi(f, true)
-}
-
-/*
-TODO: this register* types is crazy. Maybe we can make one, or at most 2 (RegBatch w runexisting, or simple Register)
-Synced: its kind of weird. Maybe we need a generic interface, can be channel or polling based?
-*/
-
-func (h *manyCollection[I, O]) registerBatch(f func(o []Event[O]), runExistingState bool) {
-	h.registerBatchi(f, runExistingState)
-}
-
-func (h *manyCollection[I, O]) registerBatchi(f func(o []Event[O]), runExistingState bool) Syncer {
+func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingState bool) Syncer {
 	if !h.eventHandlers.Insert(f) && runExistingState {
 		// Already started. Pause everything, and run through the handler.
 		h.recomputeMu.Lock()
@@ -503,13 +488,13 @@ func (h *manyCollection[I, O]) registerBatchi(f func(o []Event[O]), runExistingS
 		return alwaysSynced{}
 	}
 	return channelSyncer{
-		name:   h.name + " handler",
+		name:   h.collectionName + " handler",
 		synced: h.synced,
 	}
 }
 
-func (h *manyCollection[I, O]) Name() string {
-	return h.name
+func (h *manyCollection[I, O]) name() string {
+	return h.collectionName
 }
 
 // collectionDependencyTracker tracks, for a single transformation call, all dependencies registered.
@@ -533,7 +518,7 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(d dependency) {
 	if !i.collectionDependencies.InsertContains(d.collection.original) {
 		i.log.WithLabels("collection", d.collection.name).Debugf("register new dependency")
 		// TODO: propogate stop
-		d.collection.synced.WaitUntilSynced(make(chan struct{}))
+		d.collection.synced.WaitUntilSynced(i.stop)
 		d.collection.register(func(o []Event[any]) {
 			i.onSecondaryDependencyEvent(d.collection.original, o)
 		})

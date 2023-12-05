@@ -26,22 +26,42 @@ var log = istiolog.RegisterScope("krt", "")
 type Collection[T any] interface {
 	// GetKey returns an object by it's key, if present. Otherwise, nil is returned.
 	GetKey(k Key[T]) *T
+
 	// List returns all objects in the queried namespace.
 	// Order of the list is undefined.
 	// Note: not all T types have a "Namespace"; a non-empty namespace is only valid for types that do have a namespace.
 	List(namespace string) []T
+
 	// Register adds an event watcher to the collection. Any time an item in the collection changes, the handler will be
 	// called. Typically, usage of Register is done internally in krt via composition of Collections with Transformations
 	// (NewCollection, NewManyCollection, NewSingleton); however, at boundaries of the system (connecting to something not
 	// using krt), registering directly is expected.
 	Register(f func(o Event[T])) Syncer
+
+	// Synced returns a Syncer which can be used to determine if the collection has synced. Once its synced, all dependencies have
+	// been processed, and all handlers have been called with the results.
+	Synced() Syncer
+
 	// RegisterBatch registers a handler that accepts multiple events at once. This can be useful as an optimization.
 	// Otherwise, behaves the same as Register.
-	RegisterBatch(f func(o []Event[T])) Syncer
+	// Additionally, skipping the default behavior of "send all current state through the handler" can be turned off.
+	// This is important when we register in a handler itself, which would cause duplicative events.
+	RegisterBatch(f func(o []Event[T]), runExistingState bool) Syncer
+}
+
+// internalCollection is a superset of Collection for internal usage. All collections must implement this type, but
+// we only expose some functions to external users for simplicity.
+type internalCollection[T any] interface {
+	Collection[T]
+
 	// Name is a human facing name for this collection.
 	// Note this may not be universally unique
-	Name() string
-	Synced() Syncer
+	name() string
+
+	dump()
+
+	// Augment mutates an object for use in various function calls. See WithObjectAugmentation
+	augment(any) any
 }
 
 // Singleton is a special Collection that only ever has a single object. They can be converted to the Collection where convenient,
@@ -51,9 +71,6 @@ type Singleton[T any] interface {
 	Get() *T
 	// Register adds an event watcher to the object. Any time it changes, the handler will be called
 	Register(f func(o Event[T])) Syncer
-	// Name is a human facing name for this collection.
-	// Note this may not be universally unique
-	Name() string
 	AsCollection() Collection[T]
 }
 

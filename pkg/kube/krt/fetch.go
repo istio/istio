@@ -26,8 +26,9 @@ func FetchOne[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) *
 	}
 }
 
-func Fetch[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) []T {
+func Fetch[T any](ctx HandlerContext, cc Collection[T], opts ...FetchOption) []T {
 	h := ctx.(registerDependency)
+	c := cc.(internalCollection[T])
 	d := dependency{
 		collection: eraseCollection(c),
 	}
@@ -41,15 +42,15 @@ func Fetch[T any](ctx HandlerContext, c Collection[T], opts ...FetchOption) []T 
 	var res []T
 	for _, i := range c.List(d.filter.namespace) {
 		i := i
-		o := objectOrAugmented(c, i)
+		o := c.augment(i)
 		if d.filter.Matches(o) {
 			res = append(res, i)
 		}
 	}
 	if log.DebugEnabled() {
 		log.WithLabels(
-			"from", h.Name(),
-			"for", c.Name(),
+			"from", h.name(),
+			"for", c.name(),
 			"filter", d.filter,
 			"size", len(res),
 		).Debugf("Fetch")

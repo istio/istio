@@ -31,12 +31,12 @@ import (
 
 // registerHandlerAsBatched is a helper to register the provided handler as a batched handler. This allows collections to
 // only implement RegisterBatch.
-func registerHandlerAsBatched[T any](c Collection[T], f func(o Event[T])) Syncer {
+func registerHandlerAsBatched[T any](c internalCollection[T], f func(o Event[T])) Syncer {
 	return c.RegisterBatch(func(events []Event[T]) {
 		for _, o := range events {
 			f(o)
 		}
-	})
+	}, true)
 }
 
 // erasedCollection is a Collection[T] that has been type-erased so it can be stored in collections
@@ -54,27 +54,18 @@ func (e erasedCollection) register(f func(o []Event[any])) {
 	e.registerFunc(f)
 }
 
-type registerBatchInterface[T any] interface {
-	registerBatch(func(o []Event[T]), bool)
-}
-
-func eraseCollection[T any](c Collection[T]) erasedCollection {
+func eraseCollection[T any](c internalCollection[T]) erasedCollection {
 	return erasedCollection{
-		name:     c.Name(),
+		name:     c.name(),
 		original: c,
 		synced:   c.Synced(),
 		registerFunc: func(f func(o []Event[any])) {
 			ff := func(o []Event[T]) {
 				f(slices.Map(o, castEvent[T, any]))
 			}
-			if rb, ok := c.(registerBatchInterface[T]); ok {
-				// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
-				// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
-				rb.registerBatch(ff, false)
-			} else {
-				// Informer... anything else valid here?
-				c.RegisterBatch(ff)
-			}
+			// Skip calling all the existing state for secondary dependencies, otherwise we end up with a deadlock due to
+			// rerunning the same collection's recomputation at the same time (once for the initial event, then for the initial registration).
+			c.RegisterBatch(ff, false)
 		},
 	}
 }
@@ -122,18 +113,7 @@ type dependency struct {
 type registerDependency interface {
 	// Registers a dependency, returning true if it is finalized
 	registerDependency(dependency)
-	Name() string
-}
-
-type augmenter interface {
-	augment(any) any
-}
-
-func objectOrAugmented[T any](c Collection[T], o any) any {
-	if a, ok := c.(augmenter); ok {
-		return a.augment(o)
-	}
-	return o
+	name() string
 }
 
 // getName returns the name for an object, if possible.
