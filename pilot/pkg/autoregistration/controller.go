@@ -174,6 +174,7 @@ func (c *Controller) setupAutoRecreate() {
 	}
 	c.lateRegistrationQueue = controllers.NewQueue("auto-register existing connections",
 		controllers.WithReconciler(func(key kubetypes.NamespacedName) error {
+			log.Debugf("(%s) processing WorkloadGroup add for %s/%s", c.instanceID, key.Namespace, key.Name)
 			// WorkloadGroup doesn't exist anymore, skip this.
 			if c.store.Get(gvk.WorkloadGroup, key.Name, key.Namespace) == nil {
 				return nil
@@ -185,10 +186,10 @@ func (c *Controller) setupAutoRecreate() {
 				if entryName == "" {
 					continue
 				}
-				proxy.SetWorkloadEntry(entryName, true)
 				if err := c.registerWorkload(entryName, proxy, conn.ConnectedAt()); err != nil {
 					log.Error(err)
 				}
+				proxy.SetWorkloadEntry(entryName, true)
 			}
 			return nil
 		}))
@@ -321,7 +322,7 @@ func (c *Controller) registerWorkload(entryName string, proxy *model.Proxy, conT
 			return nil
 		}
 		autoRegistrationUpdates.Increment()
-		log.Infof("updated auto-registered WorkloadEntry %s/%s", proxy.Metadata.Namespace, entryName)
+		log.Infof("updated auto-registered WorkloadEntry %s/%s as connected", proxy.Metadata.Namespace, entryName)
 		return nil
 	}
 
@@ -358,16 +359,27 @@ func (c *Controller) changeWorkloadEntryStateToConnected(entryName string, proxy
 	if wle == nil {
 		return false, fmt.Errorf("failed updating WorkloadEntry %s/%s: WorkloadEntry not found", proxy.Metadata.Namespace, entryName)
 	}
+
+	// check if this was actually disconnected AFTER this connTime
+	// this check can miss, but when it does the `Update` will fail due to versioning
+	// and retry. The retry includes this check and passes the next time.
+	if timestamp, ok := wle.Annotations[annotation.IoIstioDisconnectedAt.Name]; ok {
+		disconnTime, _ := time.Parse(timeFormat, timestamp)
+		if conTime.Before(disconnTime) {
+			// we slowly processed a connect and disconnected before getting to this point
+			return false, nil
+		}
+	}
+
 	lastConTime, _ := time.Parse(timeFormat, wle.Annotations[annotation.IoIstioConnectedAt.Name])
 	// the proxy has reconnected to another pilot, not belong to this one.
 	if conTime.Before(lastConTime) {
 		return false, nil
 	}
-	// Try to patch, if it fails then try to create
-	_, err := c.store.Patch(*wle, func(cfg config.Config) (config.Config, kubetypes.PatchType) {
-		setConnectMeta(&cfg, c.instanceID, conTime)
-		return cfg, kubetypes.MergePatchType
-	})
+	// Try to update, if it fails we retry all the above logic since the WLE changed
+	updated := wle.DeepCopy()
+	setConnectMeta(&updated, c.instanceID, conTime)
+	_, err := c.store.Update(updated)
 	if err != nil {
 		return false, fmt.Errorf("failed updating WorkloadEntry %s/%s err: %v", proxy.Metadata.Namespace, entryName, err)
 	}
@@ -475,6 +487,7 @@ func (c *Controller) unregisterWorkload(item any) error {
 	if !changed {
 		return nil
 	}
+	log.Infof("updated auto-registered WorkloadEntry %s/%s as disconnected", workItem.proxy.Metadata.Namespace, workItem.entryName)
 
 	if workItem.autoCreated {
 		autoRegistrationUnregistrations.Increment()
