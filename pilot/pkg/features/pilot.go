@@ -705,8 +705,8 @@ var (
 	StackdriverAuditLog = env.Register("STACKDRIVER_AUDIT_LOG", false, ""+
 		"If enabled, StackDriver audit logging will be enabled.").Get()
 
-	DisableGatewayMtlsDownstreamMetadataExchnage = env.RegisterBoolVar("DISABLE_GATEWAY_MTLS_DOWNSTREAM_METADATA_EXCHANGE", false,
-		"If true, pilot will not configure gateway mTLS listeners for metadata exchange with downstream peer.").Get()
+	EnableGatewayMtlsDownstreamMetadataExchnage = env.RegisterBoolVar("ENABLE_GATEWAY_MTLS_DOWNSTREAM_METADATA_EXCHANGE", false,
+		"If true, pilot will configure gateway mTLS listeners for metadata exchange with downstream peer.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

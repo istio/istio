@@ -449,14 +449,14 @@ func appendMxFilter(httpOpts *httpListenerOpts, node *model.Proxy, filters []*hc
 	}
 
 	if httpOpts.skipIstioMXHeaders {
-		if httpOpts.isGatewayMtls && !features.DisableGatewayMtlsDownstreamMetadataExchnage {
+		if httpOpts.isGatewayMtls && features.EnableGatewayMtlsDownstreamMetadataExchnage {
 			return append(filters, xdsfilters.GatewayMtlsMetadataFilterSkipHeaders)
 		}
 
 		return append(filters, xdsfilters.SidecarOutboundMetadataFilterSkipHeaders)
 	}
 
-	if httpOpts.isGatewayMtls && !features.DisableGatewayMtlsDownstreamMetadataExchnage {
+	if httpOpts.isGatewayMtls && features.EnableGatewayMtlsDownstreamMetadataExchnage {
 		return append(filters, xdsfilters.GatewayMtlsMetadataFilter)
 	}
 
