@@ -29,13 +29,13 @@ type singletonAdapter[T any] struct {
 	s Singleton[T]
 }
 
-func (s singletonAdapter[T]) RegisterBatch(f func(o []Event[T])) HandlerRegistration {
+func (s singletonAdapter[T]) RegisterBatch(f func(o []Event[T])) Syncer {
 	return s.s.Register(func(o Event[T]) {
 		f([]Event[T]{o})
 	})
 }
 
-func (s singletonAdapter[T]) Register(f func(o Event[T])) HandlerRegistration {
+func (s singletonAdapter[T]) Register(f func(o Event[T])) Syncer {
 	return s.s.Register(f)
 }
 
@@ -43,14 +43,9 @@ func (s singletonAdapter[T]) GetKey(k Key[T]) *T {
 	return s.s.Get()
 }
 
-func (s singletonAdapter[T]) Run(stop <-chan struct{}) {
-}
-
-func (s singletonAdapter[T]) Synced() <-chan struct{} {
-	ss := make(chan struct{})
-	close(ss)
-	// TODO: questionable
-	return ss
+func (s singletonAdapter[T]) Synced() Syncer {
+	// TODO: this is wrong
+	return alwaysSynced{}
 }
 
 func (s singletonAdapter[T]) List(namespace string) []T {
@@ -173,23 +168,19 @@ func (h *singleton[T]) AsCollection() Collection[T] {
 	return singletonAdapter[T]{h}
 }
 
-func (h *singleton[T]) Run(stop <-chan struct{}) {
+func (h *singleton[T]) Synced() Syncer {
+	// TODO: this is wrong
+	return alwaysSynced{}
 }
 
-func (h *singleton[T]) Synced() <-chan struct{} {
-	return nil
-}
-
-func (h *singleton[T]) Register(f func(o Event[T])) HandlerRegistration {
+func (h *singleton[T]) Register(f func(o Event[T])) Syncer {
 	return registerHandlerAsBatched[T](h, f)
 }
 
-func (h *singleton[T]) RegisterBatch(f func(o []Event[T])) HandlerRegistration {
+func (h *singleton[T]) RegisterBatch(f func(o []Event[T])) Syncer {
 	h.handlers.Insert(f)
-	// TODO: actually check...
-	synced := make(chan struct{})
-	close(synced)
-	return handlerRegistration{synced: synced}
+	// TODO: this is wrong
+	return alwaysSynced{}
 }
 
 // registerDependency creates a

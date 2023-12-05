@@ -15,7 +15,6 @@
 package krt_test
 
 import (
-	"istio.io/istio/pkg/log"
 	"strings"
 	"testing"
 
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -214,12 +214,12 @@ func TestCollectionInitialState(t *testing.T) {
 	pods := krt.NewInformer[*corev1.Pod](c)
 	services := krt.NewInformer[*corev1.Service](c)
 	stop := make(chan struct{})
-	//stop := test.NewStop(t)
+	// stop := test.NewStop(t)
 	c.RunAndWait(stop)
 	SimplePods := SimplePodCollection(pods)
 	SimpleServices := SimpleServiceCollection(services)
 	SimpleEndpoints := SimpleEndpointsCollection(SimplePods, SimpleServices)
-	krt.WaitForCacheSync("test", stop, SimpleEndpoints)
+	assert.Equal(t, SimpleEndpoints.Synced().WaitUntilSynced(stop), true)
 	// Assert Equal -- not EventuallyEqual -- to ensure our WaitForCacheSync is proper
 	assert.Equal(t, fetcherSorted(SimpleEndpoints)(), []SimpleEndpoint{{"pod", "svc", "namespace", "1.2.3.4"}})
 }

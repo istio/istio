@@ -16,7 +16,6 @@ package krt
 
 import (
 	"fmt"
-	"istio.io/istio/pkg/slices"
 	"reflect"
 	"time"
 
@@ -92,13 +91,6 @@ func keyFunc(name, namespace string) string {
 	return namespace + "/" + name
 }
 
-type Syncer interface {
-	Synced() <-chan struct{}
-}
-
-func WaitForCacheSync(name string, stop <-chan struct{}, collections ...Syncer) (r bool) {
-	return waitForCacheSync(name, stop, slices.Map(collections, func(s Syncer) <-chan struct{} { return s.Synced() })...)
-}
 func waitForCacheSync(name string, stop <-chan struct{}, collections ...<-chan struct{}) (r bool) {
 	t := time.NewTicker(time.Second * 5)
 	defer t.Stop()

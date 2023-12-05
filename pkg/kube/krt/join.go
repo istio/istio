@@ -16,6 +16,7 @@ package krt
 
 import (
 	"fmt"
+
 	"istio.io/istio/pkg/ptr"
 )
 
@@ -64,29 +65,25 @@ func (j *join[T]) List(namespace string) []T {
 
 func (j *join[T]) Name() string { return j.name }
 
-func (j *join[T]) Register(f func(o Event[T])) HandlerRegistration {
+func (j *join[T]) Register(f func(o Event[T])) Syncer {
 	for _, c := range j.collections {
 		c.Register(f)
 	}
-	// TODO: actually check...
-	synced := make(chan struct{})
-	close(synced)
-	return handlerRegistration{synced: synced}
+	// TODO: actually check... we need some aggregate.
+	return alwaysSynced{}
 }
 
 var _ registerBatchInterface[any] = &join[any]{}
 
-func (j *join[T]) RegisterBatch(f func(o []Event[T])) HandlerRegistration {
+func (j *join[T]) RegisterBatch(f func(o []Event[T])) Syncer {
 	for _, c := range j.collections {
 		c.RegisterBatch(f)
 	}
-	// TODO: actually check...
-	synced := make(chan struct{})
-	close(synced)
-	return handlerRegistration{synced: synced}
+	// TODO: actually check... we need some aggregate.
+	return alwaysSynced{}
 }
 
-func (j *join[T]) registerBatch(f func(o []Event[T]), runExistingState bool)  {
+func (j *join[T]) registerBatch(f func(o []Event[T]), runExistingState bool) {
 	for _, c := range j.collections {
 		if rb, ok := c.(registerBatchInterface[T]); ok {
 			rb.registerBatch(f, runExistingState)
@@ -96,11 +93,11 @@ func (j *join[T]) registerBatch(f func(o []Event[T]), runExistingState bool)  {
 	}
 }
 
-func (j *join[T]) Run(stop <-chan struct{}) {
-}
-
-func (j *join[T]) Synced() <-chan struct{} {
-	return j.synced
+func (j *join[T]) Synced() Syncer {
+	return channelSyncer{
+		name:   j.name,
+		synced: j.synced,
+	}
 }
 
 func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collection[T] {
@@ -112,7 +109,7 @@ func JoinCollection[T any](cs []Collection[T], opts ...CollectionOption) Collect
 	stop := make(chan struct{}) // TODO: pass in from user
 	go func() {
 		for _, c := range cs {
-			if !WaitForCacheSync(fmt.Sprintf("%v from %v", c.Name(), o.name), stop, c) {
+			if !c.Synced().WaitUntilSynced(stop) {
 				return
 			}
 		}

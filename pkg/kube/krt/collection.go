@@ -16,13 +16,14 @@ package krt
 
 import (
 	"fmt"
+	"sync"
+
 	"istio.io/istio/pkg/kube/controllers"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
-	"sync"
 )
 
 // manyCollection builds a mapping from I->O.
@@ -111,11 +112,11 @@ func (h *manyCollection[I, O]) augment(a any) any {
 	return a
 }
 
-func (h *manyCollection[I, O]) Run(stop <-chan struct{}) {
-}
-
-func (h *manyCollection[I, O]) Synced() <-chan struct{} {
-	return h.synced
+func (h *manyCollection[I, O]) Synced() Syncer {
+	return channelSyncer{
+		name:   h.name,
+		synced: h.synced,
+	}
 }
 
 func (h *manyCollection[I, O]) Dump() {
@@ -333,7 +334,7 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 	stop := make(chan struct{}) // TODO: pass in from user
 	go func() {
 		// Wait for primary dependency to be ready
-		if !WaitForCacheSync(fmt.Sprintf("%v from %v", c.Name(), h.name), stop, c) {
+		if !c.Synced().WaitUntilSynced(stop) {
 			return
 		}
 		// Now, register our handler. This will call Add() for the initial state
@@ -348,7 +349,7 @@ func newManyCollection[I, O any](c Collection[I], hf TransformationMulti[I, O], 
 			h.onPrimaryInputEvent(events)
 		})
 		log.Errorf("howardjohn: wait... %v", h.name)
-		if !WaitForCacheSync(fmt.Sprintf("%v from %v handlers", c.Name(), h.name), stop, handlerReg) {
+		if !handlerReg.WaitUntilSynced(stop) {
 			return
 		}
 		log.Errorf("howardjohn: waited %v", h.name)
@@ -462,26 +463,26 @@ func (h *manyCollection[I, O]) List(namespace string) (res []O) {
 	return
 }
 
-func (h *manyCollection[I, O]) Register(f func(o Event[O])) HandlerRegistration {
+func (h *manyCollection[I, O]) Register(f func(o Event[O])) Syncer {
 	return registerHandlerAsBatched[O](h, f)
 }
 
 var _ registerBatchInterface[any] = &manyCollection[int, any]{}
 
-func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) HandlerRegistration {
+func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O])) Syncer {
 	return h.registerBatchi(f, true)
 }
 
 /*
 TODO: this register* types is crazy. Maybe we can make one, or at most 2 (RegBatch w runexisting, or simple Register)
 Synced: its kind of weird. Maybe we need a generic interface, can be channel or polling based?
- */
+*/
 
 func (h *manyCollection[I, O]) registerBatch(f func(o []Event[O]), runExistingState bool) {
 	h.registerBatchi(f, runExistingState)
 }
 
-func (h *manyCollection[I, O]) registerBatchi(f func(o []Event[O]), runExistingState bool) HandlerRegistration {
+func (h *manyCollection[I, O]) registerBatchi(f func(o []Event[O]), runExistingState bool) Syncer {
 	if !h.eventHandlers.Insert(f) && runExistingState {
 		// Already started. Pause everything, and run through the handler.
 		h.recomputeMu.Lock()
@@ -498,11 +499,13 @@ func (h *manyCollection[I, O]) registerBatchi(f func(o []Event[O]), runExistingS
 		if len(events) > 0 {
 			f(events)
 		}
-		synced := make(chan struct{})
-		close(synced)
-		return handlerRegistration{synced: synced}
+		// We handle events in sequence here, so its always synced at this point/
+		return alwaysSynced{}
 	}
-	return handlerRegistration{synced: h.synced}
+	return channelSyncer{
+		name:   h.name + " handler",
+		synced: h.synced,
+	}
 }
 
 func (h *manyCollection[I, O]) Name() string {
@@ -530,7 +533,7 @@ func (i *collectionDependencyTracker[I, O]) registerDependency(d dependency) {
 	if !i.collectionDependencies.InsertContains(d.collection.original) {
 		i.log.WithLabels("collection", d.collection.name).Debugf("register new dependency")
 		// TODO: propogate stop
-		waitForCacheSync(fmt.Sprintf("%s secondary", d.collection.name), make(chan struct{}), d.collection.synced)
+		d.collection.synced.WaitUntilSynced(make(chan struct{}))
 		d.collection.register(func(o []Event[any]) {
 			i.onSecondaryDependencyEvent(d.collection.original, o)
 		})

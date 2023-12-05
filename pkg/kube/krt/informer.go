@@ -99,15 +99,11 @@ var _ Collection[controllers.Object] = &informer[controllers.Object]{}
 
 func (i *informer[I]) _internalHandler() {}
 
-func (i *informer[I]) Synced() <-chan struct{} {
-	return i.synced
-}
-
-func (i *informer[I]) Run(stop <-chan struct{}) {
-	//kube.WaitForCacheSync(i.name, stop, i.inf.HasSynced)
-	//i.eventQueue.drain()
-	//<-stop
-	//i.inf.ShutdownHandlers()
+func (i *informer[I]) Synced() Syncer {
+	return channelSyncer{
+		name:   i.name,
+		synced: i.synced,
+	}
 }
 
 func (i *informer[I]) Name() string {
@@ -127,26 +123,20 @@ func (i *informer[I]) GetKey(k Key[I]) *I {
 	return nil
 }
 
-func (i *informer[I]) Register(f func(o Event[I])) HandlerRegistration {
+func (i *informer[I]) Register(f func(o Event[I])) Syncer {
 	return registerHandlerAsBatched[I](i, f)
 }
 
-func (i *informer[I]) RegisterBatch(f func(o []Event[I])) HandlerRegistration {
+func (i *informer[I]) RegisterBatch(f func(o []Event[I])) Syncer {
 	if !i.eventHandlers.Insert(f) {
 		i.inf.AddEventHandler(EventHandler[I](func(o Event[I]) {
 			f([]Event[I]{o})
 		}))
 	}
-	stop := make(chan struct{})
-	synced := make(chan struct{})
-	// TODO: this is terrible...
-	go func() {
-		if !kube.WaitForCacheSync(fmt.Sprintf("%v handler", i.name), stop, i.inf.HasSynced) {
-			return
-		}
-		close(synced)
-	}()
-	return handlerRegistration{synced: synced}
+	return pollSyncer{
+		name: fmt.Sprintf("%v handler", i.name),
+		f:    i.inf.HasSynced,
+	}
 }
 
 func EventHandler[I controllers.ComparableObject](handler func(o Event[I])) cache.ResourceEventHandler {

@@ -31,7 +31,7 @@ import (
 
 // registerHandlerAsBatched is a helper to register the provided handler as a batched handler. This allows collections to
 // only implement RegisterBatch.
-func registerHandlerAsBatched[T any](c Collection[T], f func(o Event[T])) HandlerRegistration {
+func registerHandlerAsBatched[T any](c Collection[T], f func(o Event[T])) Syncer {
 	return c.RegisterBatch(func(events []Event[T]) {
 		for _, o := range events {
 			f(o)
@@ -47,7 +47,7 @@ type erasedCollection struct {
 	// registerFunc registers any Event[any] handler. These will be mapped to Event[T] when connected to the original collection.
 	registerFunc func(f func(o []Event[any]))
 	name         string
-	synced       <-chan struct{}
+	synced       Syncer
 }
 
 func (e erasedCollection) register(f func(o []Event[any])) {
@@ -62,7 +62,7 @@ func eraseCollection[T any](c Collection[T]) erasedCollection {
 	return erasedCollection{
 		name:     c.Name(),
 		original: c,
-		synced: c.Synced(),
+		synced:   c.Synced(),
 		registerFunc: func(f func(o []Event[any])) {
 			ff := func(o []Event[T]) {
 				f(slices.Map(o, castEvent[T, any]))
