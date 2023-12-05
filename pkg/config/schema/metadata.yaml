@@ -104,7 +104,7 @@ resources:
     group: "apps"
     version: "v1"
     builtin: true
-    proto: "k8s.io.api.apps.v1.DeploymentSpec"
+    proto: "k8s.io.api.apps.v1.StatefulSetSpec"
     protoPackage: "k8s.io/api/apps/v1"
 
   - kind: "Secret"
