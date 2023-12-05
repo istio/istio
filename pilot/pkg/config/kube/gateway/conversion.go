@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	kubeconfig "istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -1958,7 +1959,7 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 				Meta: config.Meta{
 					CreationTimestamp: obj.CreationTimestamp,
 					GroupVersionKind:  gvk.Gateway,
-					Name:              fmt.Sprintf("%s-%s-%s", obj.Name, constants.KubernetesGatewayName, l.Name),
+					Name:              kubeconfig.InternalGatewayName(obj.Name, string(l.Name)),
 					Annotations:       meta,
 					Namespace:         obj.Namespace,
 					Domain:            r.Domain,
