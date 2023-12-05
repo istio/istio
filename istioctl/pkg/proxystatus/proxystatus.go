@@ -209,12 +209,11 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 					return fmt.Errorf("could not contact sidecar: %w", err)
 				}
 
-				xdsRequest := discovery.DeltaDiscoveryRequest{
-					ResourceNamesSubscribe: []string{fmt.Sprintf("%s.%s", podName, ns)},
-					TypeUrl:                pilotxds.TypeDebugConfigDump,
+				xdsRequest := discovery.DiscoveryRequest{
+					ResourceNames: []string{fmt.Sprintf("%s.%s", podName, ns)},
+					TypeUrl:       pilotxds.TypeDebugConfigDump,
 				}
-				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, ctx.IstioNamespace(),
-					"", "", kubeClient, multiXdsOpts)
+				xdsResponses, err := multixds.FirstRequestAndProcessXds(&xdsRequest, centralOpts, ctx.IstioNamespace(), "", "", kubeClient, multiXdsOpts)
 				if err != nil {
 					return err
 				}
@@ -224,11 +223,10 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				}
 				return c.Diff()
 			}
-			xdsRequest := discovery.DeltaDiscoveryRequest{
+			xdsRequest := discovery.DiscoveryRequest{
 				TypeUrl: pilotxds.TypeDebugSyncronization,
 			}
-			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts,
-				ctx.IstioNamespace(), "", "", kubeClient, multiXdsOpts)
+			xdsResponses, err := multixds.AllRequestAndProcessXds(&xdsRequest, centralOpts, ctx.IstioNamespace(), "", "", kubeClient, multiXdsOpts)
 			if err != nil {
 				return err
 			}

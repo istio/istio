@@ -21,7 +21,6 @@ import (
 	"crypto/tls"
 	"fmt"
 	"strings"
-	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/grpc"
@@ -30,7 +29,6 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/adsc"
-	"istio.io/istio/pkg/adsc2"
 	"istio.io/istio/pkg/kube"
 )
 
@@ -43,46 +41,35 @@ const (
 var tokenAudiences = []string{"istio-ca"}
 
 // GetXdsResponse opens a gRPC connection to opts.xds and waits for a single response
-func GetXdsResponse(dr *discovery.DeltaDiscoveryRequest, ns, serviceAccount string, opts clioptions.CentralControlPlaneOptions,
+func GetXdsResponse(dr *discovery.DiscoveryRequest, ns string, serviceAccount string, opts clioptions.CentralControlPlaneOptions,
 	grpcOpts []grpc.DialOption,
-) (*discovery.DeltaDiscoveryResponse, error) {
-	handlers := make([]adsc2.Option, 0)
-	for _, resource := range dr.ResourceNamesSubscribe {
-		handlers = append(handlers, adsc2.WatchType(dr.TypeUrl, resource))
-	}
-	if len(dr.ResourceNamesSubscribe) == 0 {
-		handlers = append(handlers, adsc2.WatchType(dr.TypeUrl, "*"))
-	}
-
-	adsClient := adsc2.New(&adsc2.DeltaADSConfig{
-		Config: &adsc.Config{
-			Address: opts.Xds,
-			Meta: model.NodeMetadata{
-				Generator:      "event",
-				ServiceAccount: serviceAccount,
-				Namespace:      ns,
-				CloudrunAddr:   opts.IstiodAddr,
-			}.ToStruct(),
-			CertDir:            opts.CertDir,
-			InsecureSkipVerify: opts.InsecureSkipVerify,
-			XDSSAN:             opts.XDSSAN,
-			GrpcOpts:           grpcOpts,
-		},
-	}, handlers...)
-
-	// Start ADS client
-	err := adsClient.Run(context.Background())
+) (*discovery.DiscoveryResponse, error) {
+	adscConn, err := adsc.NewWithBackoffPolicy(opts.Xds, &adsc.Config{
+		Meta: model.NodeMetadata{
+			Generator:      "event",
+			ServiceAccount: serviceAccount,
+			Namespace:      ns,
+			CloudrunAddr:   opts.IstiodAddr,
+		}.ToStruct(),
+		CertDir:            opts.CertDir,
+		InsecureSkipVerify: opts.InsecureSkipVerify,
+		XDSSAN:             opts.XDSSAN,
+		GrpcOpts:           grpcOpts,
+	}, nil)
 	if err != nil {
-		fmt.Printf("ADSC: failed running %v\n", err)
-		return nil, err
+		return nil, fmt.Errorf("could not dial: %w", err)
+	}
+	err = adscConn.Run()
+	if err != nil {
+		return nil, fmt.Errorf("ADSC: failed running %v", err)
 	}
 
-	resp, err := adsClient.WaitResp(time.Second*5, dr.TypeUrl)
+	err = adscConn.Send(dr)
 	if err != nil {
 		return nil, err
 	}
-	adsClient.Close()
-	return resp, nil
+	response, err := adscConn.WaitVersion(opts.Timeout, dr.TypeUrl, "")
+	return response, err
 }
 
 // DialOptions constructs gRPC dial options from command line configuration

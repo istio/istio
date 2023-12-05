@@ -3,4 +3,4 @@ kind: feature
 area: traffic-management
 releaseNotes:
 - |
-  **Added** support for delta ADS client. Now `istioctl` commands that rely on xDS will use delta ADS client by default.
+  **Added** support for delta ADS client.

@@ -73,7 +73,7 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req 
 	return sg.handleInternalRequest(proxy, w, req)
 }
 
-// Generate delta XDS responses about internal events:
+// GenerateDeltas delta XDS responses about internal events:
 // - connection status
 // - NACKs
 // We can also expose ACKS.

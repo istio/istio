@@ -101,7 +101,7 @@ func getProxyInfoWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions) 
 func XdsVersionCommand(ctx cli.Context) *cobra.Command {
 	var opts clioptions.ControlPlaneOptions
 	var centralOpts clioptions.CentralControlPlaneOptions
-	var xdsResponses *discovery.DeltaDiscoveryResponse
+	var xdsResponses *discovery.DiscoveryResponse
 	versionCmd := istioVersion.CobraCommandWithOptions(istioVersion.CobraOptions{
 		GetRemoteVersion: xdsRemoteVersionWrapper(ctx, &opts, &centralOpts, &xdsResponses),
 		GetProxyVersions: xdsProxyVersionWrapper(&xdsResponses),
@@ -153,11 +153,10 @@ func XdsVersionCommand(ctx cli.Context) *cobra.Command {
 
 // xdsRemoteVersionWrapper uses outXDS to share the XDS response with xdsProxyVersionWrapper.
 // (Screwy API on istioVersion.CobraCommandWithOptions)
-func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions,
-	outXDS **discovery.DeltaDiscoveryResponse,
-) func() (*istioVersion.MeshInfo, error) {
+// nolint: lll
+func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **discovery.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
-		xdsRequest := discovery.DeltaDiscoveryRequest{
+		xdsRequest := discovery.DiscoveryRequest{
 			TypeUrl: xds.TypeURLConnect,
 		}
 		kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
@@ -195,14 +194,14 @@ func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptio
 	}
 }
 
-func xdsProxyVersionWrapper(xdsResponse **discovery.DeltaDiscoveryResponse) func() (*[]istioVersion.ProxyInfo, error) {
+func xdsProxyVersionWrapper(xdsResponse **discovery.DiscoveryResponse) func() (*[]istioVersion.ProxyInfo, error) {
 	return func() (*[]istioVersion.ProxyInfo, error) {
 		pi := []istioVersion.ProxyInfo{}
 		for _, resource := range (*xdsResponse).Resources {
-			switch (*xdsResponse).TypeUrl {
+			switch resource.TypeUrl {
 			case "type.googleapis.com/envoy.config.core.v3.Node":
 				node := core.Node{}
-				err := resource.Resource.UnmarshalTo(&node)
+				err := resource.UnmarshalTo(&node)
 				if err != nil {
 					return nil, fmt.Errorf("could not unmarshal Node: %w", err)
 				}
@@ -216,7 +215,7 @@ func xdsProxyVersionWrapper(xdsResponse **discovery.DeltaDiscoveryResponse) func
 					IstioVersion: getIstioVersionFromXdsMetadata(node.Metadata),
 				})
 			default:
-				return nil, fmt.Errorf("unexpected resource type %q", (*xdsResponse).TypeUrl)
+				return nil, fmt.Errorf("unexpected resource type %q", resource.TypeUrl)
 			}
 		}
 		return &pi, nil
