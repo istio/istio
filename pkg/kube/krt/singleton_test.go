@@ -25,7 +25,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/kube/krt"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
@@ -41,8 +40,6 @@ func TestSingleton(t *testing.T) {
 	ConfigMapNames := krt.NewSingleton[string](
 		func(ctx krt.HandlerContext) *string {
 			cms := krt.Fetch(ctx, ConfigMaps)
-				return config.NamespacedName(c).String()
-			})...))
 			return ptr.Of(slices.Join(",", slices.Map(cms, func(c *corev1.ConfigMap) string {
 				return config.NamespacedName(c).String()
 			})...))

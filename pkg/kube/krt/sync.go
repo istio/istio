@@ -34,3 +34,16 @@ type alwaysSynced struct{}
 func (c alwaysSynced) WaitUntilSynced(stop <-chan struct{}) bool {
 	return true
 }
+
+type multiSyncer struct {
+	syncers []Syncer
+}
+
+func (c multiSyncer) WaitUntilSynced(stop <-chan struct{}) bool {
+	for _, s := range c.syncers {
+		if !s.WaitUntilSynced(stop) {
+			return false
+		}
+	}
+	return true
+}

@@ -67,19 +67,15 @@ func (j *join[T]) List(namespace string) []T {
 func (j *join[T]) name() string { return j.collectionName }
 
 func (j *join[T]) Register(f func(o Event[T])) Syncer {
-	for _, c := range j.collections {
-		c.Register(f)
-	}
-	// TODO: actually check... we need some aggregate.
-	return alwaysSynced{}
+	return registerHandlerAsBatched[T](j, f)
 }
 
 func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Syncer {
+	sync := multiSyncer{}
 	for _, c := range j.collections {
-		c.RegisterBatch(f, runExistingState)
+		sync.syncers = append(sync.syncers, c.RegisterBatch(f, runExistingState))
 	}
-	// TODO: actually check... we need some aggregate.
-	return alwaysSynced{}
+	return sync
 }
 
 func (d *join[T]) augment(a any) any {
