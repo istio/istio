@@ -346,6 +346,17 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		serviceType = corev1.ServiceType(o)
 	}
 
+	// TODO: Codify this API (i.e how to know if a specific gateway is an Istio waypoint gateway)
+	isWaypointGateway := strings.Contains(string(gw.Spec.GatewayClassName), "waypoint")
+
+	// Default the network label for waypoints if not explicitly set in gateway's labels
+	if _, ok := gw.GetLabels()["topology.istio.io/network"]; !ok && isWaypointGateway {
+		if gw.Labels == nil {
+			gw.Labels = make(map[string]string)
+		}
+		gw.Labels["topology.istio.io/network"] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+	}
+
 	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
@@ -353,11 +364,46 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		Ports:          extractServicePorts(gw),
 		ClusterID:      d.clusterID.String(),
 
-		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
-		Revision:       d.revision,
-		ServiceType:    serviceType,
-		ProxyUID:       proxyUID,
-		ProxyGID:       proxyGID,
+		KubeVersion122:            kube.IsAtLeastVersion(d.client, 22),
+		Revision:                  d.revision,
+		ServiceType:               serviceType,
+		ProxyUID:                  proxyUID,
+		ProxyGID:                  proxyGID,
+		InfrastructureLabels:      gw.GetLabels(),
+		InfrastructureAnnotations: gw.GetAnnotations(),
+	}
+
+	d.setGatewayNameLabel(&input)
+	// Default to the gateway labels/annotations and overwrite if infrastructure labels/annotations are set
+	gwInfra := gw.Spec.Infrastructure
+	if gwInfra != nil && gwInfra.Labels != nil {
+		infraLabels := make(map[string]string, len(gwInfra.Labels))
+		for k, v := range gw.Spec.Infrastructure.Labels {
+			if strings.HasPrefix(string(k), "gateway.networking.k8s.io/") {
+				continue // ignore this prefix to avoid conflicts
+			}
+			infraLabels[string(k)] = string(v)
+		}
+
+		// Default the network label for waypoints if not explicitly set in infra labels
+		// We do this a second time here for correctness since if infra labels are set (according to the gwapi spec),
+		// the gateway's labels are ignored.
+		if _, ok := infraLabels["topology.istio.io/network"]; !ok && isWaypointGateway {
+			infraLabels["topology.istio.io/network"] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+		}
+
+		input.InfrastructureLabels = infraLabels
+	}
+
+	if gwInfra != nil && gwInfra.Annotations != nil {
+		infraAnnotations := make(map[string]string, len(gwInfra.Annotations))
+		for k, v := range gw.Spec.Infrastructure.Annotations {
+			if strings.HasPrefix(string(k), "gateway.networking.k8s.io/") {
+				continue // ignore this prefix to avoid conflicts
+			}
+			infraAnnotations[string(k)] = string(v)
+		}
+		input.InfrastructureAnnotations = infraAnnotations
 	}
 
 	if overwriteControllerVersion {
@@ -449,7 +495,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
 
-	labelToMatch := map[string]string{constants.GatewayNameLabel: mi.Name}
+	labelToMatch := map[string]string{constants.GatewayNameLabel: mi.Name, constants.DeprecatedGatewayNameLabel: mi.Name}
 	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
@@ -543,17 +589,46 @@ func (d *DeploymentController) canManage(gvr schema.GroupVersionResource, name, 
 	return managed, obj.GetResourceVersion()
 }
 
+// setGatewayNameLabel sets either the new or deprecated gateway name label
+// based on the template input
+func (d *DeploymentController) setGatewayNameLabel(ti *TemplateInput) {
+	ti.GatewayNameLabel = constants.GatewayNameLabel // default to the new gateway name label
+	store, f := d.clients[gvr.Deployment]            // Use deployment since those matchlabels are immutable
+	if !f {
+		log.Warnf("deployment gvr not found in deployment controller clients; defaulting to the new gateway name label")
+		return
+	}
+	dep := store.Get(ti.DeploymentName, ti.Namespace)
+	if dep == nil {
+		log.Debugf("deployment %s/%s not found in store; using to the new gateway name label", ti.DeploymentName, ti.Namespace)
+		return
+	}
+
+	// Base label choice on the deployment's selector
+	_, exists := dep.(*appsv1.Deployment).Spec.Selector.MatchLabels[constants.DeprecatedGatewayNameLabel]
+	if !exists {
+		// The old label doesn't already exist on the deployment; use the new label
+		return
+	}
+
+	// The old label exists on the deployment; use the old label
+	ti.GatewayNameLabel = constants.DeprecatedGatewayNameLabel
+}
+
 type TemplateInput struct {
 	*gateway.Gateway
-	DeploymentName string
-	ServiceAccount string
-	Ports          []corev1.ServicePort
-	ServiceType    corev1.ServiceType
-	ClusterID      string
-	KubeVersion122 bool
-	Revision       string
-	ProxyUID       int64
-	ProxyGID       int64
+	DeploymentName            string
+	ServiceAccount            string
+	Ports                     []corev1.ServicePort
+	ServiceType               corev1.ServiceType
+	ClusterID                 string
+	KubeVersion122            bool
+	Revision                  string
+	ProxyUID                  int64
+	ProxyGID                  int64
+	InfrastructureLabels      map[string]string
+	InfrastructureAnnotations map[string]string
+	GatewayNameLabel          string
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {
