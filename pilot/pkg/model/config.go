@@ -17,7 +17,6 @@ package model
 import (
 	"sort"
 	"strings"
-	"time"
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,10 +41,6 @@ type ConfigKey struct {
 	Kind      kind.Kind
 	Name      string
 	Namespace string
-}
-
-type CreationTimestamper interface {
-	GetCreationTimestamp() time.Time
 }
 
 func (key ConfigKey) HashCode() ConfigHash {
@@ -336,10 +331,8 @@ func mostSpecificHostWildcardMatch[V any](needle string, wildcard map[host.Name]
 	return matchHost, matchValue, found
 }
 
-// MostSpecificHostMatchOldestFirst is the same as MostSpecificHostMatch, but returns the oldest match first in the case of over
-func MostSpecificHostMatchOldestFirst[V CreationTimestamper](needle host.Name, specific map[host.Name]V,
-	wildcard map[host.Name]V) (host.Name, V, bool) {
-
+// OldestMatchingHost returns the oldest matching host for a given needle (whether specific or wildcarded)
+func OldestMatchingHost(needle host.Name, specific map[host.Name]config.Config, wildcard map[host.Name]config.Config) (host.Name, config.Config, bool) {
 	// The algorithm is a bit different than MostSpecificHostMatch. We can't short-circuit on the first
 	// match, regardless of whether it's specific or wildcarded. This is because we have to check the timestamp
 	// of all configs to make sure there's not an older matching one that we should use instead.
@@ -350,7 +343,7 @@ func MostSpecificHostMatchOldestFirst[V CreationTimestamper](needle host.Name, s
 
 	found := false
 	var matchHost host.Name
-	var matchValue V
+	var matchValue config.Config
 	// exact match first
 	if v, ok := specific[needle]; ok {
 		found = true
@@ -358,22 +351,14 @@ func MostSpecificHostMatchOldestFirst[V CreationTimestamper](needle host.Name, s
 		matchValue = v
 	}
 
-	// check wildcard
-	return mostSpecificHostWildcardMatchOldestFirst(string(needle), wildcard)
-}
-
-func mostSpecificHostWildcardMatchOldestFirst[V CreationTimestamper](needle string, wildcard map[host.Name]V) (host.Name, V, bool) {
-	found := false
-	var matchHost host.Name
-	var matchValue V
-
+	// Even if we have a match, we still need to check the wildcard map to see if there's an older match
 	for h, v := range wildcard {
-		if strings.HasSuffix(needle, string(h[1:])) {
+		if strings.HasSuffix(string(needle), string(h[1:])) {
 			if !found {
 				matchHost = h
 				matchValue = wildcard[h]
 				found = true
-			} else if host.MoreSpecific(h, matchHost) && v.GetCreationTimestamp().Before(matchValue.GetCreationTimestamp()) {
+			} else if h.Matches(matchHost) && v.GetCreationTimestamp().Before(matchValue.GetCreationTimestamp()) {
 				// Only replace if the new match is more specific and older than the current match
 				matchHost = h
 				matchValue = v
