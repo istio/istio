@@ -24,6 +24,44 @@ import (
 	"istio.io/istio/pkg/ptr"
 )
 
+type dummyValue struct{}
+
+func (d dummyValue) ResourceName() string {
+	return ""
+}
+
+type dummyCollection struct {}
+
+func (d dummyCollection) GetKey(k Key[dummyValue]) *dummyValue {
+	return ptr.Of(dummyValue{})
+}
+
+func (d dummyCollection) List(namespace string) []dummyValue {
+	return []dummyValue{{}}
+}
+
+func (d dummyCollection) Register(f func(o Event[dummyValue])) Syncer {
+	return registerHandlerAsBatched[dummyValue](d, f)
+}
+
+func (d dummyCollection) RegisterBatch(f func(o []Event[dummyValue])) Syncer {
+	f([]Event[dummyValue]{{
+		New:   ptr.Of(dummyValue{}),
+		Event: controllers.EventAdd,
+	}})
+	return alwaysSynced{}
+}
+
+func (d dummyCollection) Name() string {
+	return "empty"
+}
+
+func (d dummyCollection) Synced() Syncer {
+	return alwaysSynced{}
+}
+
+var _ Collection[dummyValue] = dummyCollection{}
+
 // singletonAdapter exposes a singleton as a collection
 type singletonAdapter[T any] struct {
 	s Singleton[T]
@@ -83,6 +121,39 @@ func (h *singleton[T]) execute() {
 	}
 }
 
+type collectionAdapter[T any] struct {
+	c Collection[T]
+}
+
+func (c collectionAdapter[T]) Get() *T {
+	// Guaranteed to be 0 or 1 len
+	res := c.c.List("")
+	if len(res) == 0 {
+		return nil
+	}
+	return &res[0]
+}
+
+func (c collectionAdapter[T]) Register(f func(o Event[T])) Syncer {
+	return c.c.Register(f)
+}
+
+func (c collectionAdapter[T]) Name() string {
+	return c.c.Name()
+}
+
+func (c collectionAdapter[T]) AsCollection() Collection[T] {
+	return c.c
+}
+
+var _ Singleton[any] = &collectionAdapter[any]{}
+
+func NewSingleton2[O any](hf TransformationEmpty[O], opts ...CollectionOption) Singleton[O] {
+	col := NewCollection[dummyValue, O](dummyCollection{}, func(ctx HandlerContext, _ dummyValue) *O {
+		return hf(ctx)
+	}, opts...)
+	return collectionAdapter[O]{col}
+}
 func NewSingleton[T any](hf TransformationEmpty[T], opts ...CollectionOption) Singleton[T] {
 	o := buildCollectionOptions(opts...)
 	if o.name == "" {

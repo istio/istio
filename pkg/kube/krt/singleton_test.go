@@ -16,6 +16,7 @@ package krt_test
 
 import (
 	"fmt"
+	"istio.io/istio/pkg/log"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
@@ -34,28 +35,35 @@ import (
 func TestSingleton(t *testing.T) {
 	c := kube.NewFakeClient()
 	ConfigMaps := krt.NewInformer[*corev1.ConfigMap](c)
-	c.RunAndWait(test.NewStop(t))
+	stop := test.NewStop(t)
+	c.RunAndWait(stop)
 	cmt := clienttest.NewWriter[*corev1.ConfigMap](t, c)
-	ConfigMapNames := krt.NewSingleton[string](
+	ConfigMapNames := krt.NewSingleton2[string](
 		func(ctx krt.HandlerContext) *string {
 			cms := krt.Fetch(ctx, ConfigMaps)
+			log.Errorf("howardjohn: gen %v", slices.Join(",", slices.Map(cms, func(c *corev1.ConfigMap) string {
+				return config.NamespacedName(c).String()
+			})...))
 			return ptr.Of(slices.Join(",", slices.Map(cms, func(c *corev1.ConfigMap) string {
 				return config.NamespacedName(c).String()
 			})...))
 		},
 	)
+	ConfigMapNames.AsCollection().Synced().WaitUntilSynced(stop)
 	tt := assert.NewTracker[string](t)
 	ConfigMapNames.Register(TrackerHandler[string](tt))
+	tt.WaitOrdered("add/")
 
 	assert.Equal(t, *ConfigMapNames.Get(), "")
 
+	t.Log("create")
 	cmt.Create(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "a",
 			Namespace: "ns",
 		},
 	})
-	tt.WaitOrdered("update/ns/a")
+	tt.WaitOrdered("add/ns/a", "delete/")
 	assert.Equal(t, *ConfigMapNames.Get(), "ns/a")
 }
 
