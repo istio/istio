@@ -416,6 +416,14 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "virtualServiceInternalGatewayRef",
+		inputFiles: []string{"testdata/virtualservice_internal_gateway_ref.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.ReferencedInternalGateway, "VirtualService httpbin"},
+		},
+	},
+	{
 		name:       "serviceMultipleDeployments",
 		inputFiles: []string{"testdata/deployment-multi-service.yaml"},
 		analyzer:   &deployment.ServiceAssociationAnalyzer{},

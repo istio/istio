@@ -625,3 +625,14 @@ messages:
         type: string
       - name: webhook
         type: string
+
+  - name: "ReferencedInternalGateway"
+    code: IST0165
+    level: Warning
+    description: "VirtualServices should not reference internal Gateways."
+    template: "Gateway reference in VirtualService %s is to an implementation-generated internal Gateway: %s."
+    args:
+      - name: virtualservice
+        type: string
+      - name: gateway
+        type: string
