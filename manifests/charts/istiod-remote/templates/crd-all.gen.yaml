@@ -884,10 +884,10 @@ spec:
                                       certificates.
                                     type: string
                                   insecureSkipVerify:
-                                    description: InsecureSkipVerify specifies whether
+                                    description: '`insecureSkipVerify` specifies whether
                                       the proxy should skip verifying the CA signature
                                       and SAN for the server certificate corresponding
-                                      to the host.
+                                      to the host.'
                                     nullable: true
                                     type: boolean
                                   mode:
@@ -942,9 +942,10 @@ spec:
                                 certs for the client including the CA certificates.
                               type: string
                             insecureSkipVerify:
-                              description: InsecureSkipVerify specifies whether the
-                                proxy should skip verifying the CA signature and SAN
-                                for the server certificate corresponding to the host.
+                              description: '`insecureSkipVerify` specifies whether
+                                the proxy should skip verifying the CA signature and
+                                SAN for the server certificate corresponding to the
+                                host.'
                               nullable: true
                               type: boolean
                             mode:
@@ -1579,9 +1580,10 @@ spec:
                                 certs for the client including the CA certificates.
                               type: string
                             insecureSkipVerify:
-                              description: InsecureSkipVerify specifies whether the
-                                proxy should skip verifying the CA signature and SAN
-                                for the server certificate corresponding to the host.
+                              description: '`insecureSkipVerify` specifies whether
+                                the proxy should skip verifying the CA signature and
+                                SAN for the server certificate corresponding to the
+                                host.'
                               nullable: true
                               type: boolean
                             mode:
@@ -1636,9 +1638,9 @@ spec:
                           for the client including the CA certificates.
                         type: string
                       insecureSkipVerify:
-                        description: InsecureSkipVerify specifies whether the proxy
+                        description: '`insecureSkipVerify` specifies whether the proxy
                           should skip verifying the CA signature and SAN for the server
-                          certificate corresponding to the host.
+                          certificate corresponding to the host.'
                         nullable: true
                         type: boolean
                       mode:
@@ -2351,10 +2353,10 @@ spec:
                                       certificates.
                                     type: string
                                   insecureSkipVerify:
-                                    description: InsecureSkipVerify specifies whether
+                                    description: '`insecureSkipVerify` specifies whether
                                       the proxy should skip verifying the CA signature
                                       and SAN for the server certificate corresponding
-                                      to the host.
+                                      to the host.'
                                     nullable: true
                                     type: boolean
                                   mode:
@@ -2409,9 +2411,10 @@ spec:
                                 certs for the client including the CA certificates.
                               type: string
                             insecureSkipVerify:
-                              description: InsecureSkipVerify specifies whether the
-                                proxy should skip verifying the CA signature and SAN
-                                for the server certificate corresponding to the host.
+                              description: '`insecureSkipVerify` specifies whether
+                                the proxy should skip verifying the CA signature and
+                                SAN for the server certificate corresponding to the
+                                host.'
                               nullable: true
                               type: boolean
                             mode:
@@ -3046,9 +3049,10 @@ spec:
                                 certs for the client including the CA certificates.
                               type: string
                             insecureSkipVerify:
-                              description: InsecureSkipVerify specifies whether the
-                                proxy should skip verifying the CA signature and SAN
-                                for the server certificate corresponding to the host.
+                              description: '`insecureSkipVerify` specifies whether
+                                the proxy should skip verifying the CA signature and
+                                SAN for the server certificate corresponding to the
+                                host.'
                               nullable: true
                               type: boolean
                             mode:
@@ -3103,9 +3107,9 @@ spec:
                           for the client including the CA certificates.
                         type: string
                       insecureSkipVerify:
-                        description: InsecureSkipVerify specifies whether the proxy
+                        description: '`insecureSkipVerify` specifies whether the proxy
                           should skip verifying the CA signature and SAN for the server
-                          certificate corresponding to the host.
+                          certificate corresponding to the host.'
                         nullable: true
                         type: boolean
                       mode:
