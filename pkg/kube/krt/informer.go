@@ -155,7 +155,7 @@ func WrapClient[I controllers.ComparableObject](c kclient.Informer[I], opts ...C
 			return
 		}
 		close(h.synced)
-		h.log.Infof("%v synced", h.name)
+		h.log.Infof("%v synced", h.name())
 	}()
 	return h
 }

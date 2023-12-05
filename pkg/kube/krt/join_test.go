@@ -16,7 +16,6 @@ package krt_test
 
 import (
 	"testing"
-	"time"
 
 	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
@@ -114,14 +113,9 @@ func TestCollectionJoin(t *testing.T) {
 	}
 	sc.Create(svc)
 
-	time.Sleep(time.Second)
-	t.Log("update status")
 	pod.Status = corev1.PodStatus{PodIP: "1.2.3.4"}
 	pc.UpdateStatus(pod)
-	time.Sleep(time.Second)
-	krt.Dump(SimpleEndpoints)
-	krt.Dump(AllPods)
-	krt.Dump(AllServices)
+
 	assert.EventuallyEqual(t, fetch, []SimpleEndpoint{
 		{pod.Name, svc.Name, pod.Namespace, "1.2.3.4"},
 		{"name-static", svc.Name, pod.Namespace, "9.9.9.9"},
@@ -167,5 +161,32 @@ func TestCollectionJoin(t *testing.T) {
 		{pod2.Name, se.Name, pod2.Namespace, pod2.Status.PodIP},
 		{pod.Name, svc.Name, pod.Namespace, pod.Status.PodIP},
 		{pod2.Name, svc.Name, pod2.Namespace, pod2.Status.PodIP},
+	})
+}
+
+func TestCollectionJoinSync(t *testing.T) {
+	c := kube.NewFakeClient(&corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "name",
+			Namespace: "namespace",
+			Labels:    map[string]string{"app": "foo"},
+		},
+		Status: corev1.PodStatus{PodIP: "1.2.3.4"},
+	})
+	pods := krt.NewInformer[*corev1.Pod](c)
+	stop := test.NewStop(t)
+	c.RunAndWait(stop)
+	SimplePods := SimplePodCollection(pods)
+	ExtraSimplePods := krt.NewStatic(&SimplePod{
+		Named:   Named{"namespace", "name-static"},
+		Labeled: Labeled{map[string]string{"app": "foo"}},
+		IP:      "9.9.9.9",
+	})
+	AllPods := krt.JoinCollection([]krt.Collection[SimplePod]{SimplePods, ExtraSimplePods.AsCollection()})
+	assert.Equal(t, AllPods.Synced().WaitUntilSynced(stop), true)
+	// Assert Equal -- not EventuallyEqual -- to ensure our WaitForCacheSync is proper
+	assert.Equal(t, fetcherSorted(AllPods)(), []SimplePod{
+		{Named{"namespace", "name"}, NewLabeled(map[string]string{"app": "foo"}), "1.2.3.4"},
+		{Named{"namespace", "name-static"}, NewLabeled(map[string]string{"app": "foo"}), "9.9.9.9"},
 	})
 }

@@ -354,7 +354,7 @@ func newManyCollection[I, O any](cc Collection[I], hf TransformationMulti[I, O],
 			return
 		}
 		close(h.synced)
-		h.log.Infof("%v synced", h.name)
+		h.log.Infof("%v synced", h.name())
 	}()
 	return h
 }

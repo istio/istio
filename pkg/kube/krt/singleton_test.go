@@ -41,7 +41,6 @@ func TestSingleton(t *testing.T) {
 	ConfigMapNames := krt.NewSingleton[string](
 		func(ctx krt.HandlerContext) *string {
 			cms := krt.Fetch(ctx, ConfigMaps)
-			log.Errorf("howardjohn: gen %v", slices.Join(",", slices.Map(cms, func(c *corev1.ConfigMap) string {
 				return config.NamespacedName(c).String()
 			})...))
 			return ptr.Of(slices.Join(",", slices.Map(cms, func(c *corev1.ConfigMap) string {
@@ -56,7 +55,6 @@ func TestSingleton(t *testing.T) {
 
 	assert.Equal(t, *ConfigMapNames.Get(), "")
 
-	t.Log("create")
 	cmt.Create(&corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "a",
