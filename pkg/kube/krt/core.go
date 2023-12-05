@@ -172,11 +172,3 @@ type Namespacer interface {
 type labeler interface {
 	GetLabels() map[string]string
 }
-
-type handlerRegistration struct {
-	synced <-chan struct{}
-}
-
-func (h handlerRegistration) Synced() <-chan struct{} {
-	return h.synced
-}

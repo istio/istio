@@ -28,14 +28,6 @@ type join[T any] struct {
 	synced         <-chan struct{}
 }
 
-func (j *join[I]) dump() {
-	log.Errorf("> BEGIN DUMP (join %v)", j.collectionName)
-	for _, c := range j.collections {
-		c.dump()
-	}
-	log.Errorf("< END DUMP (join %v)", j.collectionName)
-}
-
 func (j *join[T]) GetKey(k Key[T]) *T {
 	var found []T
 	for _, c := range j.collections {
@@ -64,8 +56,6 @@ func (j *join[T]) List(namespace string) []T {
 	return l
 }
 
-func (j *join[T]) name() string { return j.collectionName }
-
 func (j *join[T]) Register(f func(o Event[T])) Syncer {
 	return registerHandlerAsBatched[T](j, f)
 }
@@ -78,9 +68,22 @@ func (j *join[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) Syn
 	return sync
 }
 
-func (d *join[T]) augment(a any) any {
+// nolint: unused // (not true, its to implement an interface)
+func (j *join[T]) augment(a any) any {
 	// not supported in this collection type
 	return a
+}
+
+// nolint: unused // (not true, its to implement an interface)
+func (j *join[T]) name() string { return j.collectionName }
+
+// nolint: unused // (not true, its to implement an interface)
+func (j *join[I]) dump() {
+	log.Errorf("> BEGIN DUMP (join %v)", j.collectionName)
+	for _, c := range j.collections {
+		c.dump()
+	}
+	log.Errorf("< END DUMP (join %v)", j.collectionName)
 }
 
 func (j *join[T]) Synced() Syncer {

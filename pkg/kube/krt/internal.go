@@ -101,7 +101,7 @@ func buildCollectionOptions(opts ...CollectionOption) collectionOptions {
 type collectionOptions struct {
 	name         string
 	augmentation func(o any) any
-	stop <-chan struct{}
+	stop         <-chan struct{}
 }
 
 // dependency is a specific thing that can be depended on

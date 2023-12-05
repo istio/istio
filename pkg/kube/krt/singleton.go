@@ -61,11 +61,6 @@ func (d *static[T]) List(namespace string) []T {
 	return []T{*v}
 }
 
-func (d *static[T]) augment(a any) any {
-	// not supported in this collection type
-	return a
-}
-
 func (d *static[T]) Register(f func(o Event[T])) Syncer {
 	return registerHandlerAsBatched[T](d, f)
 }
@@ -84,10 +79,6 @@ func (d *static[T]) RegisterBatch(f func(o []Event[T]), runExistingState bool) S
 	return alwaysSynced{}
 }
 
-func (d *static[T]) name() string {
-	return "static"
-}
-
 func (d *static[T]) Synced() Syncer {
 	return alwaysSynced{}
 }
@@ -102,8 +93,20 @@ func (d *static[T]) Set(now *T) {
 	}
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (d *static[T]) dump() {
 	log.Errorf(">>> static[%v]: %+v<<<", ptr.TypeName[T](), d.val.Load())
+}
+
+// nolint: unused // (not true, its to implement an interface)
+func (d *static[T]) augment(a any) any {
+	// not supported in this collection type
+	return a
+}
+
+// nolint: unused // (not true, its to implement an interface)
+func (d *static[T]) name() string {
+	return "static"
 }
 
 func toEvent[T any](old, now *T) Event[T] {

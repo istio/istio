@@ -39,6 +39,7 @@ type informer[I controllers.ComparableObject] struct {
 	synced        chan struct{}
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (i *informer[I]) augment(a any) any {
 	if i.augmentation != nil {
 		return i.augmentation(a)
@@ -57,6 +58,7 @@ func (i *informer[I]) Synced() Syncer {
 	}
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (i *informer[I]) dump() {
 	// TODO: implement some useful dump here
 }

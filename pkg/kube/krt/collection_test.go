@@ -213,7 +213,6 @@ func TestCollectionInitialState(t *testing.T) {
 	pods := krt.NewInformer[*corev1.Pod](c)
 	services := krt.NewInformer[*corev1.Service](c)
 	stop := make(chan struct{})
-	// stop := test.NewStop(t)
 	c.RunAndWait(stop)
 	SimplePods := SimplePodCollection(pods)
 	SimpleServices := SimpleServiceCollection(services)

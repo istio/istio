@@ -108,13 +108,6 @@ type multiIndex[I, O any] struct {
 	mappings map[Key[I]]sets.Set[Key[O]]
 }
 
-func (h *manyCollection[I, O]) augment(a any) any {
-	if h.augmentation != nil {
-		return h.augmentation(a)
-	}
-	return a
-}
-
 func (h *manyCollection[I, O]) Synced() Syncer {
 	return channelSyncer{
 		name:   h.collectionName,
@@ -122,6 +115,7 @@ func (h *manyCollection[I, O]) Synced() Syncer {
 	}
 }
 
+// nolint: unused // (not true, its to implement an interface)
 func (h *manyCollection[I, O]) dump() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -138,6 +132,14 @@ func (h *manyCollection[I, O]) dump() {
 		h.log.Errorf("Output %v -> %v", os, o)
 	}
 	h.log.Errorf("<<< END DUMP")
+}
+
+// nolint: unused // (not true, its to implement an interface)
+func (h *manyCollection[I, O]) augment(a any) any {
+	if h.augmentation != nil {
+		return h.augmentation(a)
+	}
+	return a
 }
 
 // onPrimaryInputEvent takes a list of I's that changed and reruns the handler over them.
@@ -482,6 +484,7 @@ func (h *manyCollection[I, O]) RegisterBatch(f func(o []Event[O]), runExistingSt
 		h.mu.Lock()
 		events := make([]Event[O], 0, len(h.collectionState.outputs))
 		for _, o := range h.collectionState.outputs {
+			o := o
 			events = append(events, Event[O]{
 				New:   &o,
 				Event: controllers.EventAdd,
