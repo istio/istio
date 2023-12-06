@@ -925,7 +925,6 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	}
 
 	x := 0
-	y := 0
 	hnMap := make(map[string]octetPair)
 	for _, svc := range hashedServices {
 		if svc == nil {
@@ -939,27 +938,15 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			setAutoAllocatedIPs(svc, v)
 		} else {
 			var thirdOctect, fourthOctect int
-			if x/255 < 255 {
-				// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
-				// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
-				// So we bump X to 511, so that the resulting IP is 240.240.2.1
+			// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
+			// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
+			// So we bump X to 511, so that the resulting IP is 240.240.2.1
+			x++
+			if x%255 == 0 {
 				x++
-				if x%255 == 0 {
-					x++
-				}
 			}
 			thirdOctect = x / 255
-			// When we reach thirdOctect 255, we need to just increment the fourthOctect
-			// keeping the thirdOctect as 255.
-			if thirdOctect >= 255 {
-				y++
-				thirdOctect = 255
-				fourthOctect = y
-			} else {
-				thirdOctect = x / 255
-				fourthOctect = x % 255
-			}
-
+			fourthOctect = x % 255
 			pair := octetPair{thirdOctect, fourthOctect}
 			setAutoAllocatedIPs(svc, pair)
 			hnMap[n] = pair
