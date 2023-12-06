@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: networking
+issue:
+  - 48044
+
+releaseNotes:
+- |
+  **Fixed** Gateway API AllowedRoutes handling for NotIn and DoesNotExist LabelSelector MatchExpressions.
