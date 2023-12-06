@@ -42,10 +42,10 @@ import (
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
-type k8sPodInfoFunc func(*kubernetes.Clientset, string, string) (*PodInfo, error)
+type k8sPodInfoFunc func(kubernetes.Interface, string, string) (*PodInfo, error)
 
 func generateMockK8sPodInfoFunc(pi *PodInfo) k8sPodInfoFunc {
-	return func(_ *kubernetes.Clientset, _, _ string) (*PodInfo, error) {
+	return func(_ kubernetes.Interface, _, _ string) (*PodInfo, error) {
 		return pi, nil
 	}
 }
@@ -83,7 +83,7 @@ func generateMockGetNsFunc(netNs string) netNsFunc {
 }
 
 func TestIPTablesRuleGeneration(t *testing.T) {
-	cniConf := fmt.Sprintf(conf, currentVersion, currentVersion, ifname, sandboxDirectory, "iptables")
+	cniConf := fmt.Sprintf(mockConf, currentVersion, currentVersion, ifname, sandboxDirectory, "", false, "iptables")
 	args := testSetArgs(cniConf)
 	newKubeClient = mocknewK8sClient
 

@@ -84,6 +84,13 @@ spec:
             runAsGroup: 0
             runAsUser: 0
             runAsNonRoot: false
+            capabilities:
+              drop:
+              - ALL
+              add:
+              - NET_ADMIN
+              - SYS_ADMIN
+              - NET_RAW
             privileged: {{ .Values.cni.privileged }}
 {{- if .Values.cni.seccompProfile }}
             seccompProfile:
@@ -174,9 +181,14 @@ spec:
             {{- if .Values.cni.ambient.enabled }}
             - mountPath: /etc/ambient-config
               name: cni-ambient-config-dir
-            - mountPath: /var/run/netns
+            - mountPath: /hostmounts/var/run/netns
               mountPropagation: HostToContainer
               name: cni-netns-dir
+            - mountPath: /var/run/ztunnel
+              name: cni-ztunnel-sock-dir
+            - mountPath: /hostmounts/proc
+              name: cni-host-proc
+              readOnly: true
             {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
             - mountPath: /sys/fs/bpf
               mountPropagation: Bidirectional
@@ -215,7 +227,7 @@ spec:
         - name: cni-netns-dir
           hostPath:
             path: {{ .Values.cni.cniNetnsDir | default "/var/run/netns" }}
-            type: Directory # this directory must exist on the node, if it does not,
+            type: DirectoryOrCreate # this directory must exist on the node, if it does not,
             # consult your container runtime documentation for the appropriate path
         {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
         - name: cni-bpffs-dir
