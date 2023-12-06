@@ -113,7 +113,7 @@ type HandlerFunc func(ctx HandlerContext, res proto.Message, event Event)
 //     This step sets the stage for receiving relevant DeltaDiscoveryResponse from the server.
 //
 //  2. Processing DeltaDiscoveryResponses: Upon receiving a delta response, the client performs several key actions:
-//     - Event Handling: Triggers specific handlers for each resource, as registed using Register function during client initialization.
+//     - Event Handling: Triggers specific handlers for each resource, as register using Register function during client initialization.
 //     - Tree Update: Modifies its 'tree' to reflect changes in resources, such as adding new resources,
 //     updating relationships between parents and children, and removing or unlinking resources.
 //     - Resource Caching: If 'EnableDeletedResourceCache' is enabled, newly added resources are cached.
@@ -169,18 +169,6 @@ func (c *Client) trigger(ctx *handlerContext, url string, r *discovery.Resource,
 	if !f {
 		deltaLog.Warnf("ignoring unknown type %v", url)
 		return nil
-	}
-	handler(ctx, res, event)
-	return nil
-}
-
-func (c *Client) callHandler(handler HandlerFunc, ctx *handlerContext, url string, r *discovery.Resource, event Event) error {
-	var res proto.Message
-	if r != nil {
-		res = newProto(url)
-		if err := r.Resource.UnmarshalTo(res); err != nil {
-			return err
-		}
 	}
 	handler(ctx, res, event)
 	return nil
