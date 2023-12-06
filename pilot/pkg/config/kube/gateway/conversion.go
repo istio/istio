@@ -2248,7 +2248,12 @@ func getNamespaceLabelReferences(routes *k8s.AllowedRoutes) []string {
 		res = append(res, k)
 	}
 	for _, me := range routes.Namespaces.Selector.MatchExpressions {
-		if me.Operator == "NotIn" || me.Operator == "DoesNotExist" {
+		if me.Operator == metav1.LabelSelectorOpNotIn || me.Operator == metav1.LabelSelectorOpDoesNotExist {
+			// Over-matching is fine because this only controls the set of namespace
+			// label change events to watch and the actual binding enforcement happens
+			// by checking the intersection of the generated VirtualService.spec.hosts
+			// and Istio Gateway.spec.servers.hosts arrays - we just can't miss
+			// potentially relevant namespace label events here.
 			res = append(res, "*")
 		}
 
@@ -2418,7 +2423,7 @@ func parentRefString(ref k8s.ParentReference) string {
 		ptr.OrEmpty(ref.Namespace))
 }
 
-// buildHostnameMatch generates a VirtualService.spec.hosts section from a listener
+// buildHostnameMatch generates a Gateway.spec.servers.hosts section from a listener
 func buildHostnameMatch(localNamespace string, r GatewayResources, l k8s.Listener) []string {
 	// We may allow all hostnames or a specific one
 	hostname := "*"
