@@ -93,6 +93,7 @@ func newResolver(timeout time.Duration, protocol, dnsServer string) *net.Resolve
 
 // doForward sends the requests and collect the responses.
 func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context.Context, *Config, int) (string, error)) (*proto.ForwardEchoResponse, error) {
+	fwLog.Infof("forwarding %d requests to %s", cfg.count, cfg.Proxy)
 	// make the timeout apply to the entire set of requests
 	ctx, cancel := context.WithTimeout(ctx, cfg.timeout)
 	defer cancel()
@@ -136,9 +137,12 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 			}
 		}
 
+		fwLog.Infof("sending request %d", index)
 		if cfg.PropagateResponse != nil {
+			fwLog.Info("propagate response is not nil")
 			workFn() // nolint: errcheck
 		} else {
+			fwLog.Info("propagate response is  nil")
 			g.Go(ctx, workFn)
 		}
 	}

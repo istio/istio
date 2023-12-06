@@ -2484,7 +2484,7 @@ spec:
 				},
 				Port: echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
 				Check: check.And(
-					check.OK(),
+					check.NotOK(),
 					ConsistentHostChecker,
 				),
 				PropagateResponse: func(req *http.Request, res *http.Response) {
@@ -2520,7 +2520,7 @@ spec:
 				Address: svcName,
 				Port:    echo.Port{ServicePort: ports.TCP.ServicePort, Protocol: protocol.TCP},
 				Check: check.And(
-					check.OK(),
+					check.NotOK(),
 					ConsistentHostChecker,
 				),
 			}

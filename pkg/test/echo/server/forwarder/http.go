@@ -210,8 +210,10 @@ func (c *httpCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 	httpReq.Header = cfg.headers.Clone()
 	writeForwardedHeaders(&outBuffer, requestID, cfg.headers)
 
+	fwLog.Info("make request")
 	// Propagate previous response cookies if any
 	if cfg.PropagateResponse != nil {
+		fwLog.Info("invoking propagate response")
 		cfg.PropagateResponse(httpReq, cfg.previousResponse)
 	}
 	// Get the transport.
