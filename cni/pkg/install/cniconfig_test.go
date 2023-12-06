@@ -21,10 +21,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
 	"istio.io/istio/cni/pkg/config"
 	testutils "istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/file"
-	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestGetDefaultCNINetwork(t *testing.T) {

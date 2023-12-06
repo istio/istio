@@ -17,6 +17,7 @@
 package plugin
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -28,11 +29,13 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/cni/pkg/version"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
-	"istio.io/istio/cni/pkg/ambient"
 	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -52,9 +55,12 @@ const (
 
 // Kubernetes a K8s specific struct to hold config
 type Kubernetes struct {
+	K8sAPIRoot           string   `json:"k8s_api_root"`
 	Kubeconfig           string   `json:"kubeconfig"`
 	InterceptRuleMgrType string   `json:"intercept_type"`
+	NodeName             string   `json:"node_name"`
 	ExcludeNamespaces    []string `json:"exclude_namespaces"`
+	CNIBinDir            string   `json:"cni_bin_dir"`
 }
 
 // Config is whatever you expect your configuration json to be. This is whatever
@@ -64,10 +70,11 @@ type Config struct {
 	types.NetConf
 
 	// Add plugin-specific flags here
-	LogLevel       string     `json:"log_level"`
-	LogUDSAddress  string     `json:"log_uds_address"`
-	AmbientEnabled bool       `json:"ambient_enabled"`
-	Kubernetes     Kubernetes `json:"kubernetes"`
+	LogLevel        string     `json:"log_level"`
+	LogUDSAddress   string     `json:"log_uds_address"`
+	CNIEventAddress string     `json:"cni_event_address"`
+	AmbientEnabled  bool       `json:"ambient_enabled"`
+	Kubernetes      Kubernetes `json:"kubernetes"`
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
@@ -75,6 +82,7 @@ type Config struct {
 // https://github.com/containerd/containerd/blob/ced9b18c231a28990617bc0a4b8ce2e81ee2ffa1/pkg/cri/server/sandbox_run.go#L526-L532
 type K8sArgs struct {
 	types.CommonArgs
+	IP                         net.IP
 	K8S_POD_NAME               types.UnmarshallableString // nolint: revive, stylecheck
 	K8S_POD_NAMESPACE          types.UnmarshallableString // nolint: revive, stylecheck
 	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: revive, stylecheck
@@ -88,6 +96,7 @@ func parseConfig(stdin []byte) (*Config, error) {
 		return nil, fmt.Errorf("failed to parse network configuration: %v", err)
 	}
 
+	log.Debugf("istio-cni: Config is: %+v", conf)
 	// Parse previous result. Remove this if your plugin is not chained.
 	if conf.RawPrevResult != nil {
 		resultBytes, err := json.Marshal(conf.RawPrevResult)
@@ -157,13 +166,13 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		log.Errorf("istio-cni cmdAdd failed to parse config %v %v", string(args.StdinData), err)
 		return err
 	}
-	if err := doRun(args, conf); err != nil {
+	if err := doAddRun(args, conf); err != nil {
 		return err
 	}
 	return pluginResponse(conf)
 }
 
-func doRun(args *skel.CmdArgs, conf *Config) error {
+func doAddRun(args *skel.CmdArgs, conf *Config) error {
 	setupLogging(conf)
 
 	var loggedPrevResult any
@@ -202,38 +211,36 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 		}
 	}
 
+	// Event filtering
 	client, err := newKubeClient(*conf)
 	if err != nil {
 		return err
 	}
 
+	// Begin ambient plugin logic
+	// For ambient pods, this is all the logic we need to run
 	if conf.AmbientEnabled {
-		ambientConf, err := ambient.ReadAmbientConfig()
-		if err != nil {
-			log.Errorf("istio-cni cmdAdd failed to read ambient config %v", err)
-			return err
-		}
-
-		log.Debugf("ambientConf.ZTunnelReady: %v", ambientConf.ZTunnelReady)
-		added := false
-		prevResult := conf.PrevResult.(*cniv1.Result)
-		podIPs, err := getPodIPs(args.IfName, prevResult)
-		if err != nil {
-			log.Errorf("istio-cni cmdAdd failed to get pod IPs: %s", err)
-			return err
-		}
-		log.Infof("istio-cni ambient cmdAdd podName: %s podIPs: %+v", podName, podIPs)
-		added, err = checkAmbient(client, *ambientConf, podName, podNamespace, args.IfName, args.Netns, podIPs)
+		log.Debugf("istio-cni ambient cmdAdd podName: %s - checking if ambient enabled", podName)
+		podIsAmbient, err := isAmbientPod(client, podName, podNamespace)
 		if err != nil {
 			log.Errorf("istio-cni cmdAdd failed to check ambient: %s", err)
-			return err
+		}
+		prevResult := conf.PrevResult.(*cniv1.Result)
+
+		// Only send event if this pod "would be" an ambient-watched pod - otherwise skip
+		if podIsAmbient {
+			cniClient := newCNIClient(conf.CNIEventAddress, constants.CNIAddEventPath)
+			if err = PushCNIEvent(cniClient, args, prevResult.IPs, podName, podNamespace); err != nil {
+				log.Errorf("istio-cni cmdAdd failed to signal node Istio CNI agent: %s", err)
+				return err
+			}
+		} else {
+			log.Debugf("istio-cni ambient cmdAdd podName: %s - not ambient enabled, ignoring", podName)
 		}
 
-		if added {
-			return nil
-		}
-		// Otherwise, continue. We may need to add sidecar redirection
+		return nil
 	}
+	// End ambient plugin logic
 
 	pi := &PodInfo{}
 	var k8sErr error
@@ -334,7 +341,6 @@ func pluginResponse(conf *Config) error {
 		}
 		return types.PrintResult(result, conf.CNIVersion)
 	}
-
 	// Pass through the result for the next plugin
 	return types.PrintResult(conf.PrevResult, conf.CNIVersion)
 }
@@ -347,24 +353,15 @@ func CmdDelete(args *skel.CmdArgs) (err error) {
 	return nil
 }
 
-func getPodIPs(iface string, prevResult *cniv1.Result) ([]net.IPNet, error) {
-	if prevResult == nil || len(prevResult.IPs) == 0 {
-		return nil, fmt.Errorf("no ip addresses supplied")
+func isAmbientPod(client kubernetes.Interface, podName, podNamespace string) (bool, error) {
+	pod, err := client.CoreV1().Pods(podNamespace).Get(context.Background(), podName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	ns, err := client.CoreV1().Namespaces().Get(context.Background(), podNamespace, metav1.GetOptions{})
+	if err != nil {
+		return false, err
 	}
 
-	ips := make([]net.IPNet, 0, len(prevResult.IPs))
-
-	for _, ipConfig := range prevResult.IPs {
-		if ipConfig.Interface == nil {
-			ips = append(ips, ipConfig.Address)
-			continue
-		}
-		idx := *ipConfig.Interface
-		if idx >= 0 && idx < len(prevResult.Interfaces) && prevResult.Interfaces[idx].Name != iface {
-			continue
-		}
-		ips = append(ips, ipConfig.Address)
-	}
-
-	return ips, nil
+	return util.PodRedirectionEnabled(ns, pod), nil
 }

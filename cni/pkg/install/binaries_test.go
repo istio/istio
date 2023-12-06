@@ -18,7 +18,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"istio.io/istio/pkg/test/util/assert"
+	"github.com/stretchr/testify/assert"
+
 	"istio.io/istio/pkg/test/util/file"
 )
 

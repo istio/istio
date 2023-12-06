@@ -25,6 +25,7 @@ data:
           "log_level": {{ quote .Values.cni.logLevel }},
           "log_uds_address": "__LOG_UDS_ADDRESS__",
           {{if .Values.cni.ambient.enabled}}"ambient_enabled": true,{{end}}
+          "cni_event_address": "__CNI_EVENT_ADDRESS__",
           "kubernetes": {
               "kubeconfig": "__KUBECONFIG_FILEPATH__",
               "cni_bin_dir": {{ .Values.cni.cniBinDir | default $defaultBinDir | quote }},
