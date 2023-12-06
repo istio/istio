@@ -200,8 +200,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 	regenerated := 0
 	for _, clusterName := range w.ResourceNames {
 		if edsUpdatedServices != nil {
-			_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-			if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+			if _, ok := edsUpdatedServices[model.ParseSubsetKeyHostname(clusterName)]; !ok {
 				// Cluster was not updated, skip recomputing. This happens when we get an incremental update for a
 				// specific Hostname. On connect or for full push edsUpdatedServices will be empty.
 				continue
@@ -258,8 +257,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 
 	for _, clusterName := range w.ResourceNames {
 		// filter out eds that are not updated for clusters
-		_, _, hostname, _ := model.ParseSubsetKey(clusterName)
-		if _, ok := edsUpdatedServices[string(hostname)]; !ok {
+		if _, ok := edsUpdatedServices[model.ParseSubsetKeyHostname(clusterName)]; !ok {
 			continue
 		}
 

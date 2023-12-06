@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestGetByPort(t *testing.T) {
@@ -598,5 +599,23 @@ func TestFuzzServiceDeepCopy(t *testing.T) {
 	if !cmp.Equal(originalSvc, copied, opts...) {
 		diff := cmp.Diff(originalSvc, copied, opts...)
 		t.Errorf("unexpected diff %v", diff)
+	}
+}
+
+func TestParseSubsetKeyHostname(t *testing.T) {
+	tests := []struct {
+		in, out string
+	}{
+		{"outbound|80|subset|host.com", "host.com"},
+		{"outbound|80|subset|", ""},
+		{"|||", ""},
+		{"||||||", ""},
+		{"", ""},
+		{"outbound_.80_._.test.local", "test.local"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.in, func(t *testing.T) {
+			assert.Equal(t, ParseSubsetKeyHostname(tt.in), tt.out)
+		})
 	}
 }
