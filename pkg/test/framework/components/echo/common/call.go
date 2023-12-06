@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"time"
 
+	"istio.io/istio/pkg/log"
 	echoclient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -31,12 +32,15 @@ import (
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+var fwLog = log.RegisterScope("echocommon", "echo common clientside")
+
 type sendFunc func(req *proto.ForwardEchoRequest) (echoclient.Responses, error)
 
 func callInternal(srcName string, from echo.Caller, opts echo.CallOptions, send sendFunc) (echo.CallResult, error) {
 	// Create the proto request.
 	req := newForwardRequest(opts)
 	sendAndValidate := func() (echo.CallResult, error) {
+		fwLog.Infof("sending request from src %s to %s", srcName, getTargetURL(opts))
 		responses, err := send(req)
 
 		// Verify the number of responses matches the expected.
