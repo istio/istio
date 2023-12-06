@@ -611,6 +611,7 @@ func TestParseSubsetKeyHostname(t *testing.T) {
 		{"|||", ""},
 		{"||||||", ""},
 		{"", ""},
+		{"outbound_.80_._.test.local", "test.local"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.in, func(t *testing.T) {

@@ -1082,11 +1082,14 @@ func IsDNSSrvSubsetKey(s string) bool {
 
 // ParseSubsetKeyHostname is an optimized specialization of ParseSubsetKey that only returns the hostname.
 // This is created as this is used in some hot paths and is about 2x faster than ParseSubsetKey; for typical use ParseSubsetKey is sufficient (and zero-alloc).
-// Warning: this does not support "DNS SRV" form
 func ParseSubsetKeyHostname(s string) (hostname string) {
 	idx := strings.LastIndex(s, "|")
 	if idx == -1 {
-		return ""
+		// Could be DNS SRV format.
+		// Do not do LastIndex("_."), as those are valid characters in the hostname (unlike |)
+		// Fallback to the full parser.
+		_, _, hostname, _ := ParseSubsetKey(s)
+		return string(hostname)
 	}
 	return s[idx+1:]
 }
