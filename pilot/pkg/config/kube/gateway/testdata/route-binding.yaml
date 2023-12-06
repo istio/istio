@@ -107,21 +107,21 @@ spec:
   #         matchExpressions:
   #         - key: istio.io/test-label-not-found
   #           operator: DoesNotExist
-  # - name: selector-combined
-  #   hostname: "*.selector-combined.example"
-  #   port: 80
-  #   protocol: HTTP
-  #   allowedRoutes:
-  #     namespaces:
-  #       from: Selector
-  #       selector:
-  #         matchLabels:
-  #           istio.io/test-name-part: group
-  #         matchExpressions:
-  #         - key: istio.io/test-name-part
-  #           operator: In
-  #           values:
-  #             - group
+  - name: selector-combined
+    hostname: "*.selector-combined.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            istio.io/test-name-part: group
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: In
+            values:
+              - group
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute

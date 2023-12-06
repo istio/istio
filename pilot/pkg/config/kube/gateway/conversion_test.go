@@ -1225,6 +1225,7 @@ func readConfigString(t testing.TB, data string, validator *crdvalidation.Valida
 		t.Error(err)
 	}
 	c, _, err := crd.ParseInputs(data)
+  t.Logf(data)
 	if err != nil {
 		t.Fatalf("failed to parse CRD: %v", err)
 	}
