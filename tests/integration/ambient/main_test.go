@@ -93,7 +93,7 @@ func TestMain(m *testing.M) {
 values:
   ztunnel:
     env:
-      SECRET_TTL: 300
+      SECRET_TTL: 5m
 `
 		}, cert.CreateCASecret)).
 		Setup(func(t resource.Context) error {

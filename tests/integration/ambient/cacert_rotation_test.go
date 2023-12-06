@@ -48,19 +48,20 @@ func TestCertificateRefresh(t *testing.T) {
 
 			sa := apps.Captured[0].ServiceAccountName()
 
+			// we do not know which ztunnel instance is located on the node as the workload, so we need to check all of them initially
 			ztunnelPods, err := kubetest.NewPodFetch(t.AllClusters()[0], istioCfg.SystemNamespace, "app=ztunnel")()
 			assert.NoError(t, err)
 
 			originalPem, ztunnelPod, err := getWorkloadIntermediateCert(t, ztunnelPods, sa, istioCtl)
 			if err != nil {
-				t.Errorf("failed to get workload cert last update time: %v", err)
+				t.Errorf("failed to get intial workload cert: %v", err)
 			}
 
-			// step 1: Update CA root cert with combined root
+			// Update CA with new intermediate cert
 			if err := cert.CreateCustomCASecret(t,
 				"ca-cert-alt.pem", "ca-key-alt.pem",
 				"cert-chain-alt.pem", "root-cert.pem"); err != nil {
-				t.Errorf("failed to update combined CA secret: %v", err)
+				t.Errorf("failed to update intermediate cert for CA secret: %v", err)
 			}
 
 			_ = waitForWorkloadCertUpdate(t, ztunnelPod, sa, istioCtl, originalPem)
@@ -73,7 +74,7 @@ func getWorkloadIntermediateCert(t framework.TestContext, zPods []v1.Pod, servic
 		podName := fmt.Sprintf("%s.%s", ztunnel.Name, ztunnel.Namespace)
 		out, errOut, err := ctl.Invoke([]string{"pc", "s", podName, "-o", "json"})
 		if err != nil || errOut != "" {
-			t.Errorf("failed to retrieve pod secret from %s, err: %v errOut: %s", podName, err, errOut)
+			t.Errorf("failed to retrieve pod secrets from %s, err: %v errOut: %s", podName, err, errOut)
 		}
 
 		dump := []configdump.CertsDump{}
@@ -99,18 +100,18 @@ func waitForWorkloadCertUpdate(t framework.TestContext, ztunnelPod v1.Pod, servi
 	retry.UntilOrFail(t, func() bool {
 		updatedPem, _, err := getWorkloadIntermediateCert(t, []v1.Pod{ztunnelPod}, serviceAccount, istioCtl)
 		if err != nil {
-			t.Logf("failed to get workload cert last update time: %v", err)
+			t.Logf("failed to get current workload cert: %v", err)
 			return false
 		}
 
 		// retry when workload cert is not updated
 		if originalPem != updatedPem {
 			newPem = updatedPem
-			t.Logf("workload cert is updated, last update time: %v", updatedPem)
+			t.Logf("workload cert is updated")
 			return true
 		}
 
 		return false
-	}, retry.Timeout(5*time.Minute), retry.Delay(1*time.Second))
+	}, retry.Timeout(5*time.Minute), retry.Delay(10*time.Second))
 	return newPem
 }
