@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -73,18 +72,15 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 	}
 
 	c.AppendNetworkGatewayHandler(func() {
-		notifyCh <- struct{}{}
 		setGws(c.NetworkGateways())
+		notifyCh <- struct{}{}
 	})
 	expectGateways := func(t *testing.T, expectedGws int) {
 		// wait for a notification
 		assert.ChannelHasItem(t, notifyCh)
-		retry.UntilSuccessOrFail(t, func() error {
-			if n := len(getGws()); n != expectedGws {
-				return fmt.Errorf("expected %d gateways but got %d", expectedGws, n)
-			}
-			return nil
-		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
+		if n := len(getGws()); n != expectedGws {
+			t.Errorf("expected %d gateways but got %d", expectedGws, n)
+		}
 	}
 
 	t.Run("add meshnetworks", func(t *testing.T) {
