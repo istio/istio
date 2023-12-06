@@ -1075,19 +1075,10 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 		errs = appendErrors(errs, fmt.Errorf("config namespace and dnsName in host entry cannot be empty"))
 	}
 
-	if !isGateway {
-		// namespace can be * or . or ~ or a valid DNS label in sidecars
-		if parts[0] != "*" && parts[0] != "." && parts[0] != "~" {
-			if !labels.IsDNS1123Label(parts[0]) {
-				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in sidecar", parts[0]))
-			}
-		}
-	} else {
-		// namespace can be * or . or a valid DNS label in gateways
-		if parts[0] != "*" && parts[0] != "." {
-			if !labels.IsDNS1123Label(parts[0]) {
-				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in gateway", parts[0]))
-			}
+	// namespace can be * or . or ~ or a valid DNS label in sidecars or gateways
+	if parts[0] != "*" && parts[0] != "." && parts[0] != "~" {
+		if !labels.IsDNS1123Label(parts[0]) {
+			errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q", parts[0]))
 		}
 	}
 	errs = appendErrors(errs, validateSidecarOrGatewayHostnamePart(parts[1], isGateway))
