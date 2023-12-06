@@ -72,8 +72,8 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 	}
 
 	c.AppendNetworkGatewayHandler(func() {
-		notifyCh <- struct{}{}
 		setGws(c.NetworkGateways())
+		notifyCh <- struct{}{}
 	})
 	expectGateways := func(t *testing.T, expectedGws int) {
 		// wait for a notification
