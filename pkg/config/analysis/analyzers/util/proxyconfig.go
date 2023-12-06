@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -48,8 +49,12 @@ func (e *EffectiveProxyConfigResolver) ImageType(pod *resource.Instance) string 
 			variant = v.GetImage().GetImageType()
 		}
 	}
+	// check if there are workload level resources that match the pod
 	for k, v := range e.workload {
-		if strings.HasPrefix(k, pod.Metadata.FullName.Namespace.String()) {
+		if !strings.HasPrefix(k, pod.Metadata.FullName.Namespace.String()) {
+			continue
+		}
+		if maps.Match(v.GetSelector().GetMatchLabels(), pod.Metadata.Labels) {
 			if v.GetImage().GetImageType() != "" {
 				variant = v.GetImage().GetImageType()
 			}

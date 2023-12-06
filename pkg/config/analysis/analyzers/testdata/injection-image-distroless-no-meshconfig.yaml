@@ -38,7 +38,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: ratings
+      app: details
       workload: details
   image:
     imageType: distroless
