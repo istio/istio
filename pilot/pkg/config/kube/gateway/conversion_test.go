@@ -450,6 +450,14 @@ func TestConvertResources(t *testing.T) {
 			})
 			goldenFile := fmt.Sprintf("testdata/%s.yaml.golden", tt.name)
 			res := append(output.Gateway, output.VirtualService...)
+
+			configString := string(marshalYaml(t, res))
+			t.Logf(configString)
+			badHostname := "/*.selector-expr-notin.example"
+			parts := strings.SplitN(badHostname, "/", 2)
+			t.Log(parts, len(parts))
+			readConfigString(t, configString, validator, tt.validationIgnorer)
+
 			util.CompareContent(t, marshalYaml(t, res), goldenFile)
 			golden := splitOutput(readConfig(t, goldenFile, validator, tt.validationIgnorer))
 
@@ -1225,7 +1233,6 @@ func readConfigString(t testing.TB, data string, validator *crdvalidation.Valida
 		t.Error(err)
 	}
 	c, _, err := crd.ParseInputs(data)
-  t.Logf(data)
 	if err != nil {
 		t.Fatalf("failed to parse CRD: %v", err)
 	}

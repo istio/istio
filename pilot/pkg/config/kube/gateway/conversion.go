@@ -2428,7 +2428,10 @@ func buildHostnameMatch(localNamespace string, r GatewayResources, l k8s.Listene
 
 	resp := []string{}
 	for _, ns := range namespacesFromSelector(localNamespace, r, l.AllowedRoutes) {
-		resp = append(resp, fmt.Sprintf("%s/%s", ns, hostname))
+		// This check is necessary to prevent adding a hostname with an invalid empty namespace
+		if len(ns) > 0 {
+			resp = append(resp, fmt.Sprintf("%s/%s", ns, hostname))
+		}
 	}
 
 	// If nothing matched use ~ namespace (match nothing). We need this since its illegal to have an
