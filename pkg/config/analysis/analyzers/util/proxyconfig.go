@@ -54,7 +54,7 @@ func (e *EffectiveProxyConfigResolver) ImageType(pod *resource.Instance) string 
 		if !strings.HasPrefix(k, pod.Metadata.FullName.Namespace.String()) {
 			continue
 		}
-		if maps.Match(v.GetSelector().GetMatchLabels(), pod.Metadata.Labels) {
+		if maps.Contains(v.GetSelector().GetMatchLabels(), pod.Metadata.Labels) {
 			if v.GetImage().GetImageType() != "" {
 				variant = v.GetImage().GetImageType()
 			}
