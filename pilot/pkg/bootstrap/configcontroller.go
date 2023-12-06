@@ -233,7 +233,8 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			log.Infof("Started File configSource %s", configSource.Address)
 		case XDS:
 			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.ADSConfig{
-				Config: &adsc.Config{
+				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
+				Config: adsc.Config{
 					Namespace: args.Namespace,
 					Workload:  args.PodName,
 					Revision:  args.Revision,
@@ -251,7 +252,6 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 						grpc.WithTransportCredentials(insecure.NewCredentials()),
 					},
 				},
-				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to dial XDS %s %v", configSource.Address, err)

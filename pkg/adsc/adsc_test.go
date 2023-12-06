@@ -133,7 +133,7 @@ func TestADSC_Run(t *testing.T) {
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *discovery.DiscoveryResponse),
 				cfg: &ADSConfig{
-					Config:                   &Config{},
+					Config:                   Config{},
 					InitialDiscoveryRequests: desc.initialRequests,
 				},
 				VersionInfo: map[string]string{},
@@ -408,7 +408,7 @@ func TestADSC_handleMCP(t *testing.T) {
 		VersionInfo: map[string]string{},
 		Store:       memory.Make(collections.Pilot),
 		cfg: &ADSConfig{
-			Config: &Config{
+			Config: Config{
 				Revision: rev,
 			},
 		},

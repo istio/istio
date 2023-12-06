@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package adsc2
+package adsc
 
 import (
 	"context"
@@ -391,7 +391,7 @@ RDS/test-route:
 		}
 		tc := testCase{
 			desc:     desc.desc,
-			inClient: New(&DeltaADSConfig{}),
+			inClient: NewDeltaWithBackoffPolicy("", &DeltaADSConfig{}, nil),
 			deltaHandler: func(delta discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesServer) error {
 				for _, response := range desc.serverResponses {
 					_ = delta.Send(response)
@@ -414,7 +414,7 @@ RDS/test-route:
 				t.Errorf("Unable to listen with tcp err %v", err)
 				return
 			}
-			tt.inClient.config.Address = l.Addr().String()
+			tt.inClient.cfg.Address = l.Addr().String()
 			xds := grpc.NewServer()
 			discovery.RegisterAggregatedDiscoveryServiceServer(xds, new(mockDeltaXdsServer))
 			go func() {
@@ -429,7 +429,7 @@ RDS/test-route:
 				return
 			}
 
-			tt.inClient = New(tt.inClient.config, handlers...)
+			tt.inClient = NewDeltaWithBackoffPolicy(tt.inClient.cfg.Address, tt.inClient.cfg, nil, handlers...)
 			if err := tt.inClient.Run(context.TODO()); err != nil {
 				t.Errorf("ADSC: failed running %v", err)
 				return

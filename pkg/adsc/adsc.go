@@ -87,7 +87,7 @@ type Config struct {
 	Locality *core.Locality
 
 	// NodeType defaults to sidecar. "ingress" and "router" are also supported.
-	NodeType string
+	NodeType model.NodeType
 
 	// IP is currently the primary key used to locate inbound configs. It is sent by client,
 	// must match a known endpoint IP. Tests can use a ServiceEntry to register fake IPs.
@@ -127,7 +127,7 @@ type Config struct {
 
 // ADSConfig for the ADS connection.
 type ADSConfig struct {
-	*Config
+	Config
 
 	// InitialDiscoveryRequests is a list of resources to watch at first, represented as URLs (for new XDS resource naming)
 	// or type URLs.
@@ -138,7 +138,7 @@ type ADSConfig struct {
 	ResponseHandler ResponseHandler
 }
 
-func DefaultGrpcDialOptions() []grpc.DialOption {
+func defaultGrpcDialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
 		// TODO(SpecialYang) maybe need to make it configurable.
 		grpc.WithInitialWindowSize(int32(defaultInitialWindowSize)),
@@ -266,11 +266,7 @@ func New(discoveryAddr string, opts *ADSConfig) (*ADSC, error) {
 	if opts == nil {
 		opts = &ADSConfig{}
 	}
-	// We want to recreate stream
-	if opts.BackoffPolicy == nil {
-		opts.BackoffPolicy = backoff.NewExponentialBackOff(backoff.DefaultOption())
-	}
-	opts.Config = InitConfigIfNotPresent(opts.Config)
+	opts.Config = setDefaultConfig(&opts.Config)
 	opts.Address = discoveryAddr
 	adsc := &ADSC{
 		Updates:     make(chan string, 100),
@@ -285,7 +281,7 @@ func New(discoveryAddr string, opts *ADSConfig) (*ADSC, error) {
 	adsc.Metadata = opts.Meta
 	adsc.Locality = opts.Locality
 
-	adsc.nodeID = NodeID(adsc.cfg.Config)
+	adsc.nodeID = nodeID(&adsc.cfg.Config)
 
 	if err := adsc.Dial(); err != nil {
 		return nil, err
@@ -294,7 +290,7 @@ func New(discoveryAddr string, opts *ADSConfig) (*ADSC, error) {
 	return adsc, nil
 }
 
-func InitConfigIfNotPresent(config *Config) *Config {
+func setDefaultConfig(config *Config) Config {
 	if config == nil {
 		config = &Config{}
 	}
@@ -302,7 +298,7 @@ func InitConfigIfNotPresent(config *Config) *Config {
 		config.Namespace = "default"
 	}
 	if config.NodeType == "" {
-		config.NodeType = "sidecar"
+		config.NodeType = model.SidecarProxy
 	}
 	if config.IP == "" {
 		config.IP = getPrivateIPIfAvailable().String()
@@ -310,14 +306,15 @@ func InitConfigIfNotPresent(config *Config) *Config {
 	if config.Workload == "" {
 		config.Workload = "test-1"
 	}
-	return config
+	if config.BackoffPolicy == nil {
+		config.BackoffPolicy = backoff.NewExponentialBackOff(backoff.DefaultOption())
+	}
+	return *config
 }
 
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func (a *ADSC) Dial() error {
-	opts := a.cfg
-
-	conn, err := DialWithConfig(opts.Config)
+	conn, err := dialWithConfig(&a.cfg.Config)
 	if err != nil {
 		return err
 	}
@@ -325,8 +322,8 @@ func (a *ADSC) Dial() error {
 	return nil
 }
 
-func DialWithConfig(config *Config) (*grpc.ClientConn, error) {
-	defaultGrpcDialOptions := DefaultGrpcDialOptions()
+func dialWithConfig(config *Config) (*grpc.ClientConn, error) {
+	defaultGrpcDialOptions := defaultGrpcDialOptions()
 	var grpcDialOptions []grpc.DialOption
 	grpcDialOptions = append(grpcDialOptions, defaultGrpcDialOptions...)
 	grpcDialOptions = append(grpcDialOptions, config.GrpcOpts...)
@@ -903,17 +900,17 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 }
 
 func (a *ADSC) node() *core.Node {
-	return BuildNode(a.cfg.Config)
+	return buildNode(&a.cfg.Config)
 }
 
-func NodeID(config *Config) string {
+func nodeID(config *Config) string {
 	return fmt.Sprintf("%s~%s~%s.%s~%s.svc.%s", config.NodeType, config.IP,
 		config.Workload, config.Namespace, config.Namespace, constants.DefaultClusterLocalDomain)
 }
 
-func BuildNode(config *Config) *core.Node {
+func buildNode(config *Config) *core.Node {
 	n := &core.Node{
-		Id:       NodeID(config),
+		Id:       nodeID(config),
 		Locality: config.Locality,
 	}
 	if config.Meta == nil {
@@ -1123,16 +1120,6 @@ func (a *ADSC) EndpointsJSON() string {
 	defer a.mutex.Unlock()
 	out, _ := json.MarshalIndent(a.eds, " ", " ")
 	return string(out)
-}
-
-// Watch will start watching resources, starting with CDS. Based on the CDS response
-// it will start watching RDS and LDS.
-func (a *ADSC) Watch() {
-	a.watchTime = time.Now()
-	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		Node:    a.node(),
-		TypeUrl: v3.ClusterType,
-	})
 }
 
 func ConfigInitialRequests() []*discovery.DiscoveryRequest {
