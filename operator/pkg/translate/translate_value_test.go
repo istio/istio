@@ -247,6 +247,8 @@ spec:
       autoscaleMin: 1
       cpu:
         targetAverageUtilization: 80
+      memory:
+        targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
       env:
@@ -317,6 +319,8 @@ spec:
       autoscaleMin: 1
       cpu:
         targetAverageUtilization: 80
+      memory:
+        targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
       env:
@@ -354,6 +358,8 @@ spec:
       autoscaleMax: 3
       autoscaleMin: 1
       cpu:
+        targetAverageUtilization: 80
+      memory:
         targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
@@ -421,6 +427,8 @@ spec:
       autoscaleMin: 1
       cpu:
         targetAverageUtilization: 80
+      memory:
+        targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
       env:
@@ -461,6 +469,8 @@ spec:
       autoscaleMax: 3
       autoscaleMin: 1
       cpu:
+        targetAverageUtilization: 80
+      memory:
         targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
@@ -527,6 +537,8 @@ spec:
       autoscaleMin: 1
       cpu:
         targetAverageUtilization: 80
+      memory:
+        targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
       env: {}
@@ -563,6 +575,8 @@ spec:
       autoscaleMax: 3
       autoscaleMin: 1
       cpu:
+        targetAverageUtilization: 80
+      memory:
         targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
@@ -635,6 +649,8 @@ spec:
       autoscaleMax: 3
       autoscaleMin: 1
       cpu:
+        targetAverageUtilization: 80
+      memory:
         targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
@@ -679,6 +695,8 @@ spec:
       autoscaleMin: 1
       cpu:
         targetAverageUtilization: 80
+      memory:
+        targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
       env:
@@ -752,6 +770,8 @@ spec:
       autoscaleMax: 3
       autoscaleMin: 1
       cpu:
+        targetAverageUtilization: 80
+      memory:
         targetAverageUtilization: 80
       traceSampling: 1.0
       image: pilot
@@ -836,6 +856,8 @@ spec:
       autoscaleMax: 3
       cpu:
         targetAverageUtilization: 80
+      memory:
+        targetAverageUtilization: 80
 `,
 			want: `
 spec:
@@ -848,6 +870,8 @@ spec:
       autoscaleMin: 1
       autoscaleMax: 3
       cpu:
+        targetAverageUtilization: 80
+      memory:
         targetAverageUtilization: 80
 `,
 		},
