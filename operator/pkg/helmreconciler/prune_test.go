@@ -35,10 +35,6 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-const (
-	testRevision = "test"
-)
-
 var (
 	//go:embed testdata/iop-test-gw-1.yaml
 	iopTestGwData1 []byte
