@@ -6,18 +6,25 @@ import (
 )
 
 var (
-{{- range .Entries }}
-	{{.Resource.Identifier}} = schema.GroupVersionResource{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Resource: "{{.Resource.Plural}}"}
+{{- range $entry := .Entries }}
+	{{$entry.Resource.Identifier}} = schema.GroupVersionResource{Group: "{{$entry.Resource.Group}}", Version: "{{$entry.Resource.Version}}", Resource: "{{$entry.Resource.Plural}}"}
+	{{- range $alias := .Resource.VersionAliases }}
+	{{$entry.Resource.Identifier}}_{{$alias}} = schema.GroupVersionResource{Group: "{{$entry.Resource.Group}}", Version: "{{$alias}}", Resource: "{{$entry.Resource.Plural}}"}
+    {{- end }}
 {{- end }}
 )
 
 func IsClusterScoped(g schema.GroupVersionResource) bool {
 	switch g {
-{{- range .Entries }}
-	{{- if not .Resource.Synthetic }}
-	case {{.Resource.Identifier}}:
-		return {{.Resource.ClusterScoped}}
+{{- range $entry := .Entries }}
+	{{- if not $entry.Resource.Synthetic }}
+	case {{$entry.Resource.Identifier}}:
+		return {{$entry.Resource.ClusterScoped}}
+	{{- range $alias := .Resource.VersionAliases }}
+    case {{$entry.Resource.Identifier}}_{{$alias}}:
+        return {{$entry.Resource.ClusterScoped}}
 	{{- end }}
+    {{- end }}
 {{- end }}
 	}
 	// shouldn't happen

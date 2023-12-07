@@ -23,7 +23,7 @@ type FakeCertUtil struct {
 }
 
 // GetWaitTime returns duration if err is nil, otherwise, it returns err.
-func (f FakeCertUtil) GetWaitTime(certBytes []byte, now time.Time, minGracePeriod time.Duration) (time.Duration, error) {
+func (f FakeCertUtil) GetWaitTime(certBytes []byte, now time.Time) (time.Duration, error) {
 	if f.Err != nil {
 		return time.Duration(0), f.Err
 	}

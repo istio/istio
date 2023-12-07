@@ -71,7 +71,7 @@ spec:
     name: default
     port: 80
   selector:
-    istio.io/gateway-name: managed-owner
+    gateway.networking.k8s.io/gateway-name: managed-owner
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -80,11 +80,12 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: managed-owner
+      gateway.networking.k8s.io/gateway-name: managed-owner
   replicas: 1
   template:
     metadata:
       labels:
+        gateway.networking.k8s.io/gateway-name: managed-owner
         istio.io/gateway-name: managed-owner
     spec:
       containers:
@@ -92,7 +93,7 @@ spec:
         image: %s
 `, image)).ApplyOrFail(t)
 	cls := t.Clusters().Kube().Default()
-	fetchFn := testKube.NewSinglePodFetch(cls, apps.Namespace.Name(), "istio.io/gateway-name=managed-owner")
+	fetchFn := testKube.NewSinglePodFetch(cls, apps.Namespace.Name(), "gateway.networking.k8s.io/gateway-name=managed-owner")
 	if _, err := testKube.WaitUntilPodsAreReady(fetchFn); err != nil {
 		t.Fatal(err)
 	}

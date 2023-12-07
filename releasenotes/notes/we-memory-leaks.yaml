@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: [47893]
+releaseNotes:
+  - |
+    **Fixed** a memory leak when `hostNetwork` pods scale up and down.
+  - |
+    **Fixed** a memory leak when `WorkloadEntries` change their IP address.
+  - |
+    **Fixed** a memory leak when a `ServiceEntry` is removed. 

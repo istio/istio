@@ -45,7 +45,6 @@ import (
 
 const (
 	autoscalingV2MinK8SVersion = 23
-	pdbV1MinK8SVersion         = 21
 )
 
 var (
@@ -84,18 +83,13 @@ func NamespacedResources(version *version.Info) []schema.GroupVersionKind {
 		{Group: "", Version: "v1", Kind: name.SAStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
+		{Group: "policy", Version: "v1", Kind: name.PDBStr},
 	}
 	// autoscaling v2 API is available on >=1.23
 	if kube.IsKubeAtLeastOrLessThanVersion(version, autoscalingV2MinK8SVersion, true) {
 		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: name.HPAStr})
 	} else {
 		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2beta2", Kind: name.HPAStr})
-	}
-	// policy/v1 is available on >=1.21
-	if kube.IsKubeAtLeastOrLessThanVersion(version, pdbV1MinK8SVersion, true) {
-		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1", Kind: name.PDBStr})
-	} else {
-		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1beta1", Kind: name.PDBStr})
 	}
 	return res
 }
@@ -250,6 +244,10 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	gvkList := append(resources, ClusterCPResources...)
 	if includeClusterResources {
 		gvkList = append(resources, AllClusterResources...)
+		// Cleanup IstioOperator, which may be used with in-cluster operator.
+		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
+			usList = append(usList, ioplist)
+		}
 	}
 	for _, gvk := range gvkList {
 		objects := &unstructured.UnstructuredList{}
@@ -297,6 +295,21 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	}
 
 	return usList, nil
+}
+
+// getIstioOperatorCR is a helper function to get IstioOperator CR during purge,
+// otherwise the resources would be reconciled back later if there is in-cluster operator deployment.
+// And it is needed to remove the IstioOperator CRD.
+func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
+	objects := &unstructured.UnstructuredList{}
+	objects.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   "install.istio.io",
+		Version: "v1alpha1", Kind: name.IstioOperatorStr,
+	})
+	if err := h.client.List(context.TODO(), objects); err != nil {
+		scope.Errorf("failed to list IstioOperator CR: %v", err)
+	}
+	return objects
 }
 
 // runForAllTypes will collect all existing resource types we care about. For each type, the callback function

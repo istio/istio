@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -320,6 +321,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 				errCh:       a.dynamicBootstrapWaitCh,
 				envoyUpdate: envoyProxy.UpdateConfig,
 			}
+			a.xdsProxy.handlers[v3.BootstrapType] = bsStream.bootStrapHandler
 			err := a.xdsProxy.handleStream(bsStream)
 			if err != nil {
 				log.Warn(err)

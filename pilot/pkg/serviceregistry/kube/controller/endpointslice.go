@@ -59,14 +59,16 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 	return out
 }
 
-func (esc *endpointSliceController) sync(name, ns string, event model.Event, filtered bool) error {
-	if name != "" {
-		ep := esc.slices.Get(name, ns)
-		if ep == nil {
-			return nil
-		}
-		return esc.onEvent(nil, ep, event)
+func (esc *endpointSliceController) podArrived(name, ns string) error {
+	ep := esc.slices.Get(name, ns)
+	if ep == nil {
+		return nil
 	}
+	return esc.onEvent(nil, ep, model.EventAdd)
+}
+
+// initializeNamespace initializes endpoints for a given namespace.
+func (esc *endpointSliceController) initializeNamespace(ns string, filtered bool) error {
 	var err *multierror.Error
 	var endpoints []*v1.EndpointSlice
 	if filtered {
@@ -76,17 +78,68 @@ func (esc *endpointSliceController) sync(name, ns string, event model.Event, fil
 	}
 	log.Debugf("initializing %d endpointslices", len(endpoints))
 	for _, s := range endpoints {
-		err = multierror.Append(err, esc.onEvent(nil, s, event))
+		err = multierror.Append(err, esc.onEvent(nil, s, model.EventAdd))
+	}
+	return err.ErrorOrNil()
+}
+
+// deleteEndpoints deletes endpoints for a given namespace.
+func (esc *endpointSliceController) deleteEndpoints(ns string) error {
+	var err *multierror.Error
+	endpoints := esc.slices.ListUnfiltered(ns, klabels.Everything())
+	log.Debugf("deleting %d endpointslices", len(endpoints))
+	for _, s := range endpoints {
+		err = multierror.Append(err, esc.onEvent(nil, s, model.EventDelete))
 	}
 	return err.ErrorOrNil()
 }
 
 func (esc *endpointSliceController) onEvent(_, ep *v1.EndpointSlice, event model.Event) error {
-	esLabels := ep.GetLabels()
-	if endpointSliceSelector.Matches(klabels.Set(esLabels)) {
-		return esc.processEndpointEvent(serviceNameForEndpointSlice(esLabels), ep.GetNamespace(), event, ep)
-	}
+	esc.onEventInternal(nil, ep, event)
 	return nil
+}
+
+func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, event model.Event) {
+	esLabels := ep.GetLabels()
+	if !endpointSliceSelector.Matches(klabels.Set(esLabels)) {
+		return
+	}
+	// Update internal endpoint cache no matter what kind of service, even headless service.
+	// As for gateways, the cluster discovery type is `EDS` for headless service.
+	namespacedName := getServiceNamespacedName(ep)
+	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
+	if event == model.EventDelete {
+		esc.deleteEndpointSlice(ep)
+	} else {
+		esc.updateEndpointSlice(ep)
+	}
+	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
+	// Trigger EDS push for all hostnames.
+	esc.pushEDS(hostnames, namespacedName.Namespace)
+
+	name := serviceNameForEndpointSlice(esLabels)
+	namespace := ep.GetNamespace()
+	svc := esc.c.services.Get(name, namespace)
+	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone {
+		return
+	}
+	// For headless services, trigger a full push if EnableHeadlessService is true,
+	// otherwise push endpoint updates - needed for NDS output.
+	for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
+		// skip push if it is not exported
+		if modelSvc.Attributes.ExportTo.Contains(visibility.None) {
+			continue
+		}
+
+		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			Full: features.EnableHeadlessService,
+			// TODO: extend and set service instance type, so no need to re-init push context
+			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
+
+			Reason: model.NewReasonStats(model.HeadlessEndpointUpdate),
+		})
+		break
+	}
 }
 
 // GetProxyServiceTargets returns service instances co-located with a given proxy
@@ -96,7 +149,7 @@ func (esc *endpointSliceController) GetProxyServiceTargets(proxy *model.Proxy) [
 	eps := esc.slices.List(proxy.Metadata.Namespace, endpointSliceSelector)
 	var out []model.ServiceTarget
 	for _, ep := range eps {
-		instances := esc.sliceServiceInstances(ep, proxy)
+		instances := esc.serviceTargets(ep, proxy)
 		out = append(out, instances...)
 	}
 
@@ -107,7 +160,7 @@ func serviceNameForEndpointSlice(labels map[string]string) string {
 	return labels[v1beta1.LabelServiceName]
 }
 
-func (esc *endpointSliceController) sliceServiceInstances(ep *v1.EndpointSlice, proxy *model.Proxy) []model.ServiceTarget {
+func (esc *endpointSliceController) serviceTargets(ep *v1.EndpointSlice, proxy *model.Proxy) []model.ServiceTarget {
 	var out []model.ServiceTarget
 	esc.endpointCache.mu.RLock()
 	defer esc.endpointCache.mu.RUnlock()
@@ -332,52 +385,13 @@ func endpointSliceSelectorForService(name string) klabels.Selector {
 	}).AsSelectorPreValidated().Add(*endpointSliceRequirement)
 }
 
-// processEndpointEvent triggers the config update.
-func (esc *endpointSliceController) processEndpointEvent(name string, namespace string, event model.Event, ep *v1.EndpointSlice) error {
-	// Update internal endpoint cache no matter what kind of service, even headless service.
-	// As for gateways, the cluster discovery type is `EDS` for headless service.
-	esc.handleEndpointSlice(ep, event)
-	if svc := esc.c.services.Get(name, namespace); svc != nil {
-		// if the service is headless service, trigger a full push if EnableHeadlessService is true,
-		// otherwise push endpoint updates - needed for NDS output.
-		if svc.Spec.ClusterIP == corev1.ClusterIPNone {
-			for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
-				// skip push if it is not exported
-				if modelSvc.Attributes.ExportTo.Contains(visibility.None) {
-					continue
-				}
-
-				esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					Full: features.EnableHeadlessService,
-					// TODO: extend and set service instance type, so no need to re-init push context
-					ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
-
-					Reason: model.NewReasonStats(model.HeadlessEndpointUpdate),
-				})
-				return nil
-			}
-		}
-	}
-
-	return nil
-}
-
-func (esc *endpointSliceController) handleEndpointSlice(ep *v1.EndpointSlice, event model.Event) {
-	namespacedName := getServiceNamespacedName(ep)
-	log.Debugf("Handle EDS endpoint %s %s in namespace %s", namespacedName.Name, event, namespacedName.Namespace)
-
-	if event == model.EventDelete {
-		esc.deleteEndpointSlice(ep)
-	} else {
-		esc.updateEndpointSlice(ep)
-	}
-
-	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
-	esc.updateEDS(hostnames, namespacedName.Namespace)
-}
-
-func (esc *endpointSliceController) updateEDS(hostnames []host.Name, namespace string) {
+func (esc *endpointSliceController) pushEDS(hostnames []host.Name, namespace string) {
 	shard := model.ShardKeyFromRegistry(esc.c)
+	// Even though we just read from the cache, we need the full lock to ensure pushEDS
+	// runs sequentially when `EnableK8SServiceSelectWorkloadEntries` is enabled. Otherwise,
+	// we may end up with eds updates can go out of order with workload entry updates causing
+	// incorrect endpoints. For regular endpoint updates, pushEDS is already serialized
+	// because the events are queued.
 	esc.endpointCache.mu.Lock()
 	defer esc.endpointCache.mu.Unlock()
 	for _, hostname := range hostnames {
@@ -395,4 +409,61 @@ func (esc *endpointSliceController) updateEDS(hostnames []host.Name, namespace s
 
 		esc.c.opts.XDSUpdater.EDSUpdate(shard, string(hostname), namespace, endpoints)
 	}
+}
+
+// getPod fetches a pod by name or IP address.
+// A pod may be missing (nil) for two reasons:
+//   - It is an endpoint without an associated Pod. In this case, expectPod will be false.
+//   - It is an endpoint with an associate Pod, but its not found. In this case, expectPod will be true.
+//     this may happen due to eventually consistency issues, out of order events, etc. In this case, the caller
+//     should not precede with the endpoint, or inaccurate information would be sent which may have impacts on
+//     correctness and security.
+//
+// Note: this is only used by endpointslice controller
+func getPod(c *Controller, ip string, ep *metav1.ObjectMeta, targetRef *corev1.ObjectReference, host host.Name) (*corev1.Pod, bool) {
+	var expectPod bool
+	pod := c.getPod(ip, ep.Namespace, targetRef)
+	if targetRef != nil && targetRef.Kind == "Pod" {
+		expectPod = true
+		if pod == nil {
+			c.registerEndpointResync(ep, ip, host)
+		}
+	}
+
+	return pod, expectPod
+}
+
+func (c *Controller) registerEndpointResync(ep *metav1.ObjectMeta, ip string, host host.Name) {
+	// This means, the endpoint event has arrived before pod event.
+	// This might happen because PodCache is eventually consistent.
+	log.Debugf("Endpoint without pod %s %s.%s", ip, ep.Name, ep.Namespace)
+	endpointsWithNoPods.Increment()
+	if c.opts.Metrics != nil {
+		c.opts.Metrics.AddMetric(model.EndpointNoPod, string(host), "", ip)
+	}
+	// Tell pod cache we want to queue the endpoint event when this pod arrives.
+	c.pods.queueEndpointEventOnPodArrival(config.NamespacedName(ep), ip)
+}
+
+// getPod fetches a pod by name or IP address.
+// A pod may be missing (nil) for two reasons:
+// * It is an endpoint without an associated Pod.
+// * It is an endpoint with an associate Pod, but its not found.
+func (c *Controller) getPod(ip string, namespace string, targetRef *corev1.ObjectReference) *corev1.Pod {
+	if targetRef != nil && targetRef.Kind == "Pod" {
+		key := types.NamespacedName{Name: targetRef.Name, Namespace: targetRef.Namespace}
+		pod := c.pods.getPodByKey(key)
+		return pod
+	}
+	// This means the endpoint is manually controlled
+	// We will want to lookup a pod to find metadata like service account, labels, etc. But for hostNetwork, we just get a raw IP,
+	// and the IP may be shared by many pods. Best we can do is guess.
+	pods := c.pods.getPodsByIP(ip)
+	for _, p := range pods {
+		if p.Namespace == namespace {
+			// Might not be right, but best we can do.
+			return p
+		}
+	}
+	return nil
 }

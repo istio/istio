@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -58,17 +59,7 @@ func makeClient(t *testing.T, schemas collection.Schemas, f ...func(o Option) Op
 	return config, fake
 }
 
-// Ensure that the client can run without CRDs present
-func TestClientNoCRDs(t *testing.T) {
-	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
-	store, _ := makeClient(t, schema)
-	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
-	r := collections.VirtualService
-	configMeta := config.Meta{
-		Name:             "name",
-		Namespace:        "ns",
-		GroupVersionKind: r.GroupVersionKind(),
-	}
+func createResource(t *testing.T, store model.ConfigStoreController, r resource.Schema, configMeta config.Meta) config.Spec {
 	pb, err := r.NewInstance()
 	if err != nil {
 		t.Fatal(err)
@@ -80,6 +71,23 @@ func TestClientNoCRDs(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Create => got %v", err)
 	}
+
+	return pb
+}
+
+// Ensure that the client can run without CRDs present
+func TestClientNoCRDs(t *testing.T) {
+	schema := collection.NewSchemasBuilder().MustAdd(collections.Sidecar).Build()
+	store, _ := makeClient(t, schema)
+	retry.UntilOrFail(t, store.HasSynced, retry.Timeout(time.Second))
+	r := collections.VirtualService
+	configMeta := config.Meta{
+		Name:             "name",
+		Namespace:        "ns",
+		GroupVersionKind: r.GroupVersionKind(),
+	}
+	createResource(t, store, r, configMeta)
+
 	retry.UntilSuccessOrFail(t, func() error {
 		l := store.List(r.GroupVersionKind(), configMeta.Namespace)
 		if len(l) != 0 {
@@ -118,27 +126,14 @@ func TestClientDelayedCRDs(t *testing.T) {
 		Namespace:        "ns1",
 		GroupVersionKind: r.GroupVersionKind(),
 	}
-	pb, err := r.NewInstance()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.Create(config.Config{
-		Meta: configMeta1,
-		Spec: pb,
-	}); err != nil {
-		t.Fatalf("Create => got %v", err)
-	}
+	createResource(t, store, r, configMeta1)
+
 	configMeta2 := config.Meta{
 		Name:             "name2",
 		Namespace:        "ns2",
 		GroupVersionKind: r.GroupVersionKind(),
 	}
-	if _, err := store.Create(config.Config{
-		Meta: configMeta2,
-		Spec: pb,
-	}); err != nil {
-		t.Fatalf("Create => got %v", err)
-	}
+	createResource(t, store, r, configMeta2)
 
 	retry.UntilSuccessOrFail(t, func() error {
 		l := store.List(r.GroupVersionKind(), "")
@@ -178,18 +173,8 @@ func TestClient(t *testing.T) {
 			if !r.IsClusterScoped() {
 				configMeta.Namespace = configNamespace
 			}
+			pb := createResource(t, store, r, configMeta)
 
-			pb, err := r.NewInstance()
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if _, err := store.Create(config.Config{
-				Meta: configMeta,
-				Spec: pb,
-			}); err != nil {
-				t.Fatalf("Create(%v) => got %v", name, err)
-			}
 			// Kubernetes is eventually consistent, so we allow a short time to pass before we get
 			retry.UntilSuccessOrFail(t, func() error {
 				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)

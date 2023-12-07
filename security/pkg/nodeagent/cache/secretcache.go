@@ -744,7 +744,6 @@ func concatCerts(certsPEM []string) []byte {
 // UpdateConfigTrustBundle : Update the Configured Trust Bundle in the secret Manager client
 func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error {
 	sc.configTrustBundleMutex.Lock()
-
 	if bytes.Equal(sc.configTrustBundle, trustBundle) {
 		cacheLog.Debugf("skip for same trust bundle")
 		sc.configTrustBundleMutex.Unlock()

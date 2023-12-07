@@ -986,8 +986,10 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 		CRDs:             []schema.GroupVersionResource{gvr.KubernetesGateway},
 		ConfigController: cfg,
 		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: systemNS}),
+		NetworksWatcher:  mesh.NewFixedNetworksWatcher(nil),
 		ClusterID:        clusterID,
 		ConfigCluster:    true,
+		SystemNamespace:  systemNS,
 	})
 	controller.network = networkID
 	pc := clienttest.Wrap(t, controller.podsClient)

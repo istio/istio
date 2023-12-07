@@ -2244,6 +2244,12 @@ func validateJwtRule(rule *security_beta.JWTRule) (errs error) {
 		}
 	}
 
+	for _, location := range rule.FromCookies {
+		if len(location) == 0 {
+			errs = multierror.Append(errs, errors.New("cookie name must be non-empty string"))
+		}
+	}
+
 	for _, claimAndHeaders := range rule.OutputClaimToHeaders {
 		if claimAndHeaders == nil {
 			errs = multierror.Append(errs, errors.New("outputClaimToHeaders must not be null"))

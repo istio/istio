@@ -282,7 +282,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	})
 	c.pods = newPodCache(c, c.podsClient, func(key types.NamespacedName) {
 		c.queue.Push(func() error {
-			return c.endpoints.sync(key.Name, key.Namespace, model.EventAdd, true)
+			return c.endpoints.podArrived(key.Name, key.Namespace)
 		})
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
@@ -904,7 +904,7 @@ func (c *Controller) workloadInstanceHandler(si *model.WorkloadInstance, event m
 	matchedHostnames := slices.Map(matchedServices, func(e *v1.Service) host.Name {
 		return kube.ServiceHostname(e.Name, e.Namespace, c.opts.DomainSuffix)
 	})
-	c.endpoints.updateEDS(matchedHostnames, si.Namespace)
+	c.endpoints.pushEDS(matchedHostnames, si.Namespace)
 }
 
 func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event) error {

@@ -35,6 +35,8 @@ gateways:
 
     cpu:
       targetAverageUtilization: 80
+    memory: {}
+      # targetAverageUtilization: 80
 
     resources:
       requests:

@@ -280,3 +280,7 @@ type HistogramBucket struct {
 func EnvoyHistogramBuckets(value []HistogramBucket) Instance {
 	return newOption("histogram_buckets", value)
 }
+
+func EnvoyStatsCompression(value string) Instance {
+	return newOption("stats_compression", value)
+}

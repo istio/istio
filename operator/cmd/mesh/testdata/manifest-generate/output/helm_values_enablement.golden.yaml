@@ -22,6 +22,7 @@ spec:
   template:
     metadata:
       annotations:
+        istio.io/rev: default
         prometheus.io/path: /stats/prometheus
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
@@ -84,6 +85,10 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: status.hostIP
+        - name: ISTIO_CPU_LIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
         - name: SERVICE_ACCOUNT
           valueFrom:
             fieldRef:
@@ -165,7 +170,6 @@ spec:
           name: egressgateway-ca-certs
           readOnly: true
       securityContext:
-        fsGroup: 1337
         runAsGroup: 1337
         runAsNonRoot: true
         runAsUser: 1337

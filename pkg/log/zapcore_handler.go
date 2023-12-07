@@ -28,7 +28,7 @@ var toLevel = map[zapcore.Level]Level{
 
 // callerSkipOffset is how many callers to pop off the stack to determine the caller function locality, used for
 // adding file/line number to log output.
-const callerSkipOffset = 2
+const callerSkipOffset = 3
 
 func dumpStack(level zapcore.Level, scope *Scope) bool {
 	thresh := toLevel[level]
