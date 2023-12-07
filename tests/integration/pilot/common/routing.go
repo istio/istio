@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/metadata"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -2487,7 +2488,7 @@ spec:
 					check.NotOK(),
 					ConsistentHostChecker,
 				),
-				PropagateResponse: func(req *http.Request, res *http.Response) {
+				PropagateResponse: func(md metadata.MD, res *http.Response) {
 					scopes.Framework.Infof("invoking propagate response")
 					if res == nil {
 						scopes.Framework.Infof("no response")
@@ -2507,7 +2508,8 @@ spec:
 					if sessionCookie != nil {
 						scopes.Framework.Infof("setting the request cookie back in the request: %v %b",
 							sessionCookie.Value, sessionCookie.Expires)
-						req.AddCookie(sessionCookie)
+						s := fmt.Sprintf("%s=%s", sessionCookie.Name, sessionCookie.Value)
+						md.Set("Cookie", s)
 					} else {
 						scopes.Framework.Infof("no session cookie found in the response")
 					}

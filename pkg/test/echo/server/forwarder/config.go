@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"google.golang.org/grpc/metadata"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/echo/proto"
@@ -49,7 +50,7 @@ type Config struct {
 	count                   int
 	headers                 http.Header
 	newConnectionPerRequest bool
-	PropagateResponse       func(req *http.Request, resp *http.Response)
+	PropagateResponse       func(md metadata.MD, resp *http.Response)
 	forceDNSLookup          bool
 	hostHeader              string
 	urlHost                 string

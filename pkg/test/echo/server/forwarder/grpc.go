@@ -67,6 +67,7 @@ func (c *grpcProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.For
 			return conn, func() {}, nil
 		}
 	}
+	fwLog.Info("making grpc call")
 
 	call := &grpcCall{
 		e:       c.e,
@@ -104,6 +105,12 @@ func (c *grpcCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 		}
 	}
 	outMD.Set("X-Request-Id", strconv.Itoa(requestID))
+	fwLog.Info("making gRPC request")
+	// Propagate previous response cookies if any
+	if cfg.PropagateResponse != nil {
+		fwLog.Info("invoking propagate response")
+		cfg.PropagateResponse(httpReq, cfg.previousResponse)
+	}
 	ctx = metadata.NewOutgoingContext(ctx, outMD)
 
 	var outBuffer bytes.Buffer

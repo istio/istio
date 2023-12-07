@@ -212,10 +212,10 @@ func (c *httpCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 
 	fwLog.Info("make request")
 	// Propagate previous response cookies if any
-	if cfg.PropagateResponse != nil {
-		fwLog.Info("invoking propagate response")
-		cfg.PropagateResponse(httpReq, cfg.previousResponse)
-	}
+	// if cfg.PropagateResponse != nil {
+	// 	fwLog.Info("invoking propagate response")
+	// 	cfg.PropagateResponse(httpReq, cfg.previousResponse)
+	// }
 	// Get the transport.
 	transport, closeTransport, err := c.getTransport()
 	if err != nil {
