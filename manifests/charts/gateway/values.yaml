@@ -150,3 +150,11 @@ defaults:
   # Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
   # for more detail.
   priorityClassName: ""
+
+  # Maximum number of Pods that can be created over the desired number of Pods.
+  # The value can be an absolute number (for example, 5) or a percentage of desired Pods (for example, 10%).
+  rollingMaxSurge: "25%"
+
+  # Maximum number of Pods that can be unavailable during the update process.
+  # The value can be an absolute number (for example, 5) or a percentage of desired Pods (for example, 10%).
+  rollingMaxUnavailable: "25%"
