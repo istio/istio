@@ -16,8 +16,10 @@
 package slices
 
 import (
+	"cmp"
+	"slices" // nolint: depguard
+
 	"golang.org/x/exp/constraints"
-	"golang.org/x/exp/slices"
 )
 
 // Equal reports whether two slices are equal: the same length and all
@@ -29,14 +31,35 @@ func Equal[E comparable](s1, s2 []E) bool {
 	return slices.Equal(s1, s2)
 }
 
+// EqualFunc reports whether two slices are equal using a comparison
+// function on each pair of elements. If the lengths are different,
+// EqualFunc returns false. Otherwise, the elements are compared in
+// increasing index order, and the comparison stops at the first index
+// for which eq returns false.
+func EqualFunc[E1, E2 comparable](s1 []E1, s2 []E2, eq func(E1, E2) bool) bool {
+	return slices.EqualFunc(s1, s2, eq)
+}
+
 // SortFunc sorts the slice x in ascending order as determined by the less function.
 // This sort is not guaranteed to be stable.
 // The slice is modified in place but returned.
-func SortFunc[E any](x []E, less func(a, b E) bool) []E {
+func SortFunc[E any](x []E, less func(a, b E) int) []E {
 	if len(x) <= 1 {
 		return x
 	}
 	slices.SortFunc(x, less)
+	return x
+}
+
+// SortBy is a helper to sort a slice by some value. Typically, this would be sorting a struct
+// by a single field. If you need to have multiple fields, see the ExampleSort.
+func SortBy[E any, A constraints.Ordered](x []E, extract func(a E) A) []E {
+	if len(x) <= 1 {
+		return x
+	}
+	SortFunc(x, func(a, b E) int {
+		return cmp.Compare(extract(a), extract(b))
+	})
 	return x
 }
 
@@ -58,6 +81,10 @@ func Clone[S ~[]E, E any](s S) S {
 
 // Delete removes the element i from s, returning the modified slice.
 func Delete[S ~[]E, E any](s S, i int) S {
+	// "If those elements contain pointers you might consider zeroing those elements
+	// so that objects they reference can be garbage collected."
+	var empty E
+	s[i] = empty
 	return slices.Delete(s, i, i+1)
 }
 
@@ -73,6 +100,14 @@ func FindFunc[E any](s []E, f func(E) bool) *E {
 		return nil
 	}
 	return &s[idx]
+}
+
+// Reverse returns its argument array reversed
+func Reverse[E any](r []E) []E {
+	for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {
+		r[i], r[j] = r[j], r[i]
+	}
+	return r
 }
 
 // FilterInPlace retains all elements in []E that f(E) returns true for.
@@ -132,13 +167,22 @@ func Reference[E any](s []E) []*E {
 	return res
 }
 
-// Dereference returns all non-nil references, derefernced
+// Dereference returns all non-nil references, dereferenced
 func Dereference[E any](s []*E) []E {
 	res := make([]E, 0, len(s))
 	for _, v := range s {
 		if v != nil {
 			res = append(res, *v)
 		}
+	}
+	return res
+}
+
+// Flatten merges a slice of slices into a single slice.
+func Flatten[E any](s [][]E) []E {
+	res := make([]E, 0)
+	for _, v := range s {
+		res = append(res, v...)
 	}
 	return res
 }

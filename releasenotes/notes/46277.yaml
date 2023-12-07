@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 46277
+releaseNotes:
+- |
+  **Fixed** health_checkers extensions is not compiled in.

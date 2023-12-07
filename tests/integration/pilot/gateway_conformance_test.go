@@ -21,14 +21,17 @@ import (
 	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
+	v1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/namespace"
-	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/scopes"
 )
 
@@ -45,6 +48,8 @@ var gatewayConformanceInputs GatewayConformanceInputs
 // defined in sigs.k8s.io/gateway-api/conformance/base/manifests.yaml
 var conformanceNamespaces = []string{
 	"gateway-conformance-infra",
+	"gateway-conformance-mesh",
+	"gateway-conformance-mesh-consumer",
 	"gateway-conformance-app-backend",
 	"gateway-conformance-web-backend",
 }
@@ -53,11 +58,15 @@ var skippedTests = map[string]string{
 	"MeshFrontendHostname": "https://github.com/istio/istio/issues/44702",
 }
 
+func init() {
+	scope := log.RegisterScope("controlleruntime", "scope for controller runtime")
+	controllruntimelog.SetLogger(log.NewLogrAdapter(scope))
+}
+
 func TestGatewayConformance(t *testing.T) {
 	framework.
 		NewTest(t).
 		Features("traffic.gateway").
-		Label(label.IPv4). // Need https://github.com/kubernetes-sigs/gateway-api/pull/2024 in 0.7.1
 		Run(func(ctx framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(ctx)
 
@@ -72,7 +81,6 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
-			rc, _ := gatewayConformanceInputs.Client.UtilFactory().RESTClient()
 			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
 				Scheme: kube.IstioScheme,
 				Mapper: mapper,
@@ -81,14 +89,19 @@ func TestGatewayConformance(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			features := suite.AllFeatures
+			hostnameType := v1.AddressType("Hostname")
 			opts := suite.Options{
-				Client:               c,
-				RestConfig:           gatewayConformanceInputs.Client.RESTConfig(),
-				RESTClient:           rc,
-				GatewayClassName:     "istio",
-				Debug:                scopes.Framework.DebugEnabled(),
-				CleanupBaseResources: gatewayConformanceInputs.Cleanup,
-				SupportedFeatures:    suite.AllFeatures,
+				Client:                   c,
+				Clientset:                gatewayConformanceInputs.Client.Kube(),
+				RestConfig:               gatewayConformanceInputs.Client.RESTConfig(),
+				GatewayClassName:         "istio",
+				Debug:                    scopes.Framework.DebugEnabled(),
+				CleanupBaseResources:     gatewayConformanceInputs.Cleanup,
+				SupportedFeatures:        features,
+				SkipTests:                maps.Keys(skippedTests),
+				UsableNetworkAddresses:   []v1.GatewayAddress{{Value: "infra-backend-v1.gateway-conformance-infra.svc.cluster.local", Type: &hostnameType}},
+				UnusableNetworkAddresses: []v1.GatewayAddress{{Value: "foo", Type: &hostnameType}},
 			}
 			if rev := ctx.Settings().Revisions.Default(); rev != "" {
 				opts.NamespaceLabels = map[string]string{
@@ -109,16 +122,9 @@ func TestGatewayConformance(t *testing.T) {
 					}
 				}
 			})
+
 			csuite := suite.New(opts)
 			csuite.Setup(t)
-
-			for _, ct := range tests.ConformanceTests {
-				t.Run(ct.ShortName, func(t *testing.T) {
-					if reason, f := skippedTests[ct.ShortName]; f {
-						t.Skip(reason)
-					}
-					ct.Run(t, csuite)
-				})
-			}
+			csuite.Run(t, tests.ConformanceTests)
 		})
 }

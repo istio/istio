@@ -150,6 +150,14 @@ spec:
               value: "true"
             {{- end }}
             {{- end }}
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
@@ -194,7 +202,9 @@ spec:
             path: /var/run/istio-cni
         - name: cni-netns-dir
           hostPath:
-            path: /var/run/netns
+            path: {{ .Values.cni.cniNetnsDir | default "/var/run/netns" }}
+            type: Directory # this directory must exist on the node, if it does not,
+            # consult your container runtime documentation for the appropriate path
         {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
         - name: cni-bpffs-dir
           hostPath:

@@ -112,6 +112,11 @@ func LabelsInRevision(lbls map[string]string, rev string) bool {
 		// This is a global object, and always included
 		return true
 	}
+	// If the revision is empty, this means we don't specify a revision, and
+	// we should always include it
+	if rev == "" {
+		return true
+	}
 	// Otherwise, only return true if revisions equal
 	return configEnv == rev
 }
@@ -360,6 +365,13 @@ func (c Config) GetNamespace() string {
 	return c.Namespace
 }
 
+func (c Config) NamespacedName() kubetypes.NamespacedName {
+	return kubetypes.NamespacedName{
+		Namespace: c.Namespace,
+		Name:      c.Name,
+	}
+}
+
 var _ fmt.Stringer = GroupVersionKind{}
 
 type GroupVersionKind struct {
@@ -407,9 +419,9 @@ type Namer interface {
 	GetNamespace() string
 }
 
-func NamespacedName(n Namer) kubetypes.NamespacedName {
+func NamespacedName(o metav1.Object) kubetypes.NamespacedName {
 	return kubetypes.NamespacedName{
-		Namespace: n.GetNamespace(),
-		Name:      n.GetName(),
+		Namespace: o.GetNamespace(),
+		Name:      o.GetName(),
 	}
 }

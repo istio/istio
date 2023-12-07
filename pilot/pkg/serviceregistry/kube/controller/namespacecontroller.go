@@ -145,7 +145,7 @@ func (nc *NamespaceController) reconcileCACert(o types.NamespacedName) error {
 		ns = o.Name
 	}
 	if nc.DiscoveryNamespacesFilter != nil && !nc.DiscoveryNamespacesFilter.Filter(ns) {
-		// donot delete the configmap, maybe it is owned by another control plane
+		// do not delete the configmap, maybe it is owned by another control plane
 		return nil
 	}
 

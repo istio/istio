@@ -131,3 +131,35 @@ func ValidNamespaceArgs(_ *cobra.Command, ctx cli.Context, args []string, toComp
 	}
 	return nsName, cobra.ShellCompDirectiveNoFileComp
 }
+
+func ValidServiceAccountArgs(_ *cobra.Command, ctx cli.Context, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+	if len(args) != 0 {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	client, err := ctx.CLIClient()
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	saName, err := getServiceAccountsName(client, toComplete, ctx.NamespaceOrDefault(ctx.Namespace()))
+	if err != nil {
+		return nil, cobra.ShellCompDirectiveNoFileComp
+	}
+	return saName, cobra.ShellCompDirectiveNoFileComp
+}
+
+func getServiceAccountsName(kubeClient kube.CLIClient, toComplete, ns string) ([]string, error) {
+	ctx := context.Background()
+	saList, err := kubeClient.Kube().CoreV1().ServiceAccounts(ns).List(ctx, metav1.ListOptions{})
+	if err != nil {
+		return nil, err
+	}
+
+	var saNameList []string
+	for _, sa := range saList.Items {
+		if toComplete == "" || strings.HasPrefix(sa.Name, toComplete) {
+			saNameList = append(saNameList, sa.Name)
+		}
+	}
+
+	return saNameList, nil
+}

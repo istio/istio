@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 45150
+releaseNotes:
+  - |
+    **Added** Inlined `WorkloadEntry` resources via `endpoints` field on `ServiceEntry` resources on different networks do not require an address to be specified.

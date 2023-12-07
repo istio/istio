@@ -16,6 +16,7 @@ package serviceentry
 
 import (
 	"fmt"
+	"net"
 	"reflect"
 	"sort"
 	"strings"
@@ -33,9 +34,12 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -107,7 +111,9 @@ func initServiceDiscoveryWithOpts(t test.Failer, workloadOnly bool, opts ...Opti
 	stop := test.NewStop(t)
 	go configController.Run(stop)
 
-	xdsUpdater := xdsfake.NewFakeXDS()
+	endpoints := model.NewEndpointIndex(model.DisabledCache{})
+	delegate := model.NewEndpointIndexUpdater(endpoints)
+	xdsUpdater := xdsfake.NewWithDelegate(delegate)
 
 	istioStore := configController
 	var controller *Controller
@@ -135,7 +141,9 @@ func TestServiceDiscoveryServices(t *testing.T) {
 		Event{Type: "xds full", ID: "*.istio.io"},
 		Event{Type: "xds full", ID: "tcpstatic.com"},
 		Event{Type: "service", ID: "*.google.com", Namespace: httpDNS.Namespace},
+		Event{Type: "eds cache", ID: "*.google.com", Namespace: httpDNS.Namespace},
 		Event{Type: "service", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
+		Event{Type: "eds cache", ID: "*.istio.io", Namespace: httpDNSRR.Namespace},
 		Event{Type: "service", ID: "tcpstatic.com", Namespace: tcpStatic.Namespace},
 		Event{Type: "eds cache", ID: "tcpstatic.com", Namespace: tcpStatic.Namespace})
 	services := sd.Services()
@@ -268,11 +276,11 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStaticOverlayUpdatedInstance, 0, instances)
-		proxyInstances := []*model.ServiceInstance{
-			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
-			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText),
+		proxyInstances := []model.ServiceTarget{
+			makeTarget(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+			makeTarget(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"some-new-label": "bar"}, PlainText),
 		}
-		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
+		expectProxyTargets(t, sd, proxyInstances, "6.6.6.6")
 		// TODO 45 is wrong
 		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 
@@ -282,10 +290,10 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 			makeInstance(httpStaticOverlay, "5.5.5.5", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"overlay": "bar"}, PlainText),
 			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText))
 		expectServiceInstances(t, sd, httpStatic, 0, instances)
-		proxyInstances = []*model.ServiceInstance{
-			makeInstance(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
+		proxyInstances = []model.ServiceTarget{
+			makeTarget(httpStaticOverlay, "6.6.6.6", 4567, httpStaticOverlay.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"other": "bar"}, PlainText),
 		}
-		expectProxyInstances(t, sd, proxyInstances, "6.6.6.6")
+		expectProxyTargets(t, sd, proxyInstances, "6.6.6.6")
 		expectEvents(t, events, Event{Type: "eds", ID: "*.google.com", Namespace: httpStaticOverlay.Namespace, EndpointCount: len(instances)})
 	})
 
@@ -434,12 +442,15 @@ func TestServiceDiscoveryServiceUpdate(t *testing.T) {
 		// Service change, so we need a full push
 		expectEvents(t, events,
 			Event{Type: "service", ID: "tcpdns.com", Namespace: tcpDNS.Namespace},
+			Event{Type: "eds cache", ID: "tcpdns.com", Namespace: tcpDNS.Namespace},
 			Event{Type: "xds full", ID: "tcpdns.com"}) // service added
 
 		// now update the config
 		createConfigs([]*config.Config{tcpDNSUpdated}, store, t)
 		expectEvents(t, events,
-			Event{Type: "xds full", ID: "tcpdns.com"}) // service deleted
+			Event{Type: "xds full", ID: "tcpdns.com"},
+			Event{Type: "eds cache", ID: "tcpdns.com"},
+		) // service deleted
 		expectServiceInstances(t, sd, tcpDNS, 0, instances2)
 	})
 
@@ -618,6 +629,7 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
+			Event{Type: "eds cache", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
 			Event{Type: "xds full", ID: "dns.selector.com"})
 	})
 
@@ -745,6 +757,49 @@ func TestServiceDiscoveryWorkloadUpdate(t *testing.T) {
 			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
 		)
 	})
+
+	t.Run("update", func(t *testing.T) {
+		updated := func() *config.Config {
+			d := wle.DeepCopy()
+			we := d.Spec.(*networking.WorkloadEntry)
+			we.Address = "9.9.9.9"
+			return &d
+		}()
+		// Update the configs
+		createConfigs([]*config.Config{updated}, store, t)
+		instances := []*model.ServiceInstance{
+			makeInstanceWithServiceAccount(selector, "9.9.9.9", 444,
+				selector.Spec.(*networking.ServiceEntry).Ports[0], map[string]string{"app": "wle"}, "default"),
+			makeInstanceWithServiceAccount(selector, "9.9.9.9", 445,
+				selector.Spec.(*networking.ServiceEntry).Ports[1], map[string]string{"app": "wle"}, "default"),
+		}
+		for _, i := range instances {
+			i.Endpoint.WorkloadName = "wl"
+			i.Endpoint.Namespace = selector.Name
+		}
+		// Old IP is gone
+		expectProxyInstances(t, sd, nil, "2.2.2.2")
+		expectProxyInstances(t, sd, instances, "9.9.9.9")
+		expectServiceInstances(t, sd, selector, 0, instances)
+		expectEvents(t, events,
+			Event{Type: "proxy", ID: "9.9.9.9"},
+			Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2},
+		)
+	})
+
+	t.Run("cleanup", func(t *testing.T) {
+		deleteConfigs([]*config.Config{wle, selector, dnsSelector, dnsWle, wle3}, store, t)
+		assertControllerEmpty(t, sd)
+	})
+}
+
+func assertControllerEmpty(t *testing.T, sd *Controller) {
+	assert.Equal(t, len(sd.services.servicesBySE), 0)
+	assert.Equal(t, len(sd.serviceInstances.ip2instance), 0)
+	assert.Equal(t, len(sd.serviceInstances.instances), 0)
+	assert.Equal(t, len(sd.serviceInstances.instancesBySE), 0)
+	assert.Equal(t, len(sd.serviceInstances.instancesByHostAndPort), 0)
+	assert.Equal(t, sd.workloadInstances.Empty(), true)
 }
 
 func TestServiceDiscoveryWorkloadChangeLabel(t *testing.T) {
@@ -914,6 +969,7 @@ func TestWorkloadInstanceFullPush(t *testing.T) {
 		expectServiceInstances(t, sd, selectorDNS, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "selector.com", Namespace: selectorDNS.Namespace},
+			Event{Type: "eds cache", ID: "selector.com", Namespace: selectorDNS.Namespace},
 			Event{Type: "xds full", ID: "selector.com"})
 	})
 
@@ -1058,6 +1114,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectServiceInstances(t, sd, dnsSelector, 0, instances)
 		expectEvents(t, events,
 			Event{Type: "service", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
+			Event{Type: "eds cache", ID: "dns.selector.com", Namespace: dnsSelector.Namespace},
 			Event{Type: "xds full", ID: "dns.selector.com"})
 	})
 
@@ -1108,7 +1165,7 @@ func TestServiceDiscoveryWorkloadInstance(t *testing.T) {
 		expectEvents(t, events, Event{Type: "eds", ID: "selector.com", Namespace: selector.Namespace, EndpointCount: 2})
 
 		key := instancesKey{namespace: selector.Namespace, hostname: "selector.com"}
-		namespacedName := config.NamespacedName(selector)
+		namespacedName := selector.NamespacedName()
 		if len(sd.serviceInstances.ip2instance) != 1 {
 			t.Fatalf("service instances store `ip2instance` memory leak, expect 1, got %d", len(sd.serviceInstances.ip2instance))
 		}
@@ -1327,11 +1384,16 @@ func TestServiceDiscoveryWorkloadInstanceChangeLabel(t *testing.T) {
 
 func expectProxyInstances(t testing.TB, sd *Controller, expected []*model.ServiceInstance, ip string) {
 	t.Helper()
+	expectProxyTargets(t, sd, slices.Map(expected, model.ServiceInstanceToTarget), ip)
+}
+
+func expectProxyTargets(t testing.TB, sd *Controller, expected []model.ServiceTarget, ip string) {
+	t.Helper()
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
-		instances := sd.GetProxyServiceInstances(&model.Proxy{IPAddresses: []string{ip}, Metadata: &model.NodeMetadata{}})
-		sortServiceInstances(instances)
-		sortServiceInstances(expected)
+		instances := sd.GetProxyServiceTargets(&model.Proxy{IPAddresses: []string{ip}, Metadata: &model.NodeMetadata{}})
+		sortServiceTargets(instances)
+		sortServiceTargets(expected)
 		if err := compare(t, instances, expected); err != nil {
 			return err
 		}
@@ -1350,13 +1412,24 @@ func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, po
 	if len(svcs) != len(expected) {
 		t.Fatalf("got more services than expected: %v vs %v", len(svcs), len(expected))
 	}
+	expe := [][]*model.IstioEndpoint{}
+	for _, o := range expected {
+		res := []*model.IstioEndpoint{}
+		for _, i := range o {
+			res = append(res, i.Endpoint)
+		}
+		expe = append(expe, res)
+	}
 	// The system is eventually consistent, so add some retries
 	retry.UntilSuccessOrFail(t, func() error {
 		for i, svc := range svcs {
-			instances := sd.InstancesByPort(svc, port)
-			sortServiceInstances(instances)
-			sortServiceInstances(expected[i])
-			if err := compare(t, instances, expected[i]); err != nil {
+			endpoints := GetEndpointsForPort(svc, sd.XdsUpdater.(*xdsfake.Updater).Delegate.(*model.EndpointIndexUpdater).Index, port)
+			if endpoints == nil {
+				endpoints = []*model.IstioEndpoint{} // To simplify tests a bit
+			}
+			sortEndpoints(endpoints)
+			sortEndpoints(expe[i])
+			if err := compare(t, endpoints, expe[i]); err != nil {
 				return fmt.Errorf("%d: %v", i, err)
 			}
 		}
@@ -1364,7 +1437,7 @@ func expectServiceInstances(t testing.TB, sd *Controller, cfg *config.Config, po
 	}, retry.Converge(2), retry.Timeout(time.Second*1))
 }
 
-func TestServiceDiscoveryGetProxyServiceInstances(t *testing.T) {
+func TestServiceDiscoveryGetProxyServiceTargets(t *testing.T) {
 	store, sd, _ := initServiceDiscovery(t)
 
 	createConfigs([]*config.Config{httpStatic, tcpStatic}, store, t)
@@ -1520,16 +1593,6 @@ func TestServicesDiff(t *testing.T) {
 			unchanged: stringsToHosts(updatedHTTPDNS.Spec.(*networking.ServiceEntry).Hosts),
 		},
 		{
-			name:    "same config with different name",
-			current: updatedHTTPDNS,
-			new: func() *config.Config {
-				c := updatedHTTPDNS.DeepCopy()
-				c.Name = "httpDNS1"
-				return &c
-			}(),
-			unchanged: stringsToHosts(updatedHTTPDNS.Spec.(*networking.ServiceEntry).Hosts),
-		},
-		{
 			name:    "different resolution",
 			current: updatedHTTPDNS,
 			new: func() *config.Config {
@@ -1578,9 +1641,6 @@ func TestServicesDiff(t *testing.T) {
 	}
 
 	for _, tt := range cases {
-		if tt.name != "same config with additional endpoint" {
-			continue
-		}
 		t.Run(tt.name, func(t *testing.T) {
 			as := convertServices(*tt.current)
 			bs := convertServices(*tt.new)
@@ -1607,6 +1667,17 @@ func sortServices(services []*model.Service) {
 	for _, service := range services {
 		sortPorts(service.Ports)
 	}
+}
+
+func sortServiceTargets(instances []model.ServiceTarget) {
+	sort.Slice(instances, func(i, j int) bool {
+		if instances[i].Service.Hostname == instances[j].Service.Hostname {
+			if instances[i].Port.TargetPort == instances[j].Port.TargetPort {
+				return instances[i].Port.TargetPort < instances[j].Port.TargetPort
+			}
+		}
+		return instances[i].Service.Hostname < instances[j].Service.Hostname
+	})
 }
 
 func sortServiceInstances(instances []*model.ServiceInstance) {
@@ -1639,6 +1710,36 @@ func sortServiceInstances(instances []*model.ServiceInstance) {
 			return instances[i].Endpoint.EndpointPort < instances[j].Endpoint.EndpointPort
 		}
 		return instances[i].Service.Hostname < instances[j].Service.Hostname
+	})
+}
+
+func sortEndpoints(endpoints []*model.IstioEndpoint) {
+	labelsToSlice := func(labels labels.Instance) []string {
+		out := make([]string, 0, len(labels))
+		for k, v := range labels {
+			out = append(out, fmt.Sprintf("%s=%s", k, v))
+		}
+		sort.Strings(out)
+		return out
+	}
+
+	sort.Slice(endpoints, func(i, j int) bool {
+		if endpoints[i].EndpointPort == endpoints[j].EndpointPort {
+			if endpoints[i].Address == endpoints[j].Address {
+				if len(endpoints[i].Labels) == len(endpoints[j].Labels) {
+					iLabels := labelsToSlice(endpoints[i].Labels)
+					jLabels := labelsToSlice(endpoints[j].Labels)
+					for k := range iLabels {
+						if iLabels[k] < jLabels[k] {
+							return true
+						}
+					}
+				}
+				return len(endpoints[i].Labels) < len(endpoints[j].Labels)
+			}
+			return endpoints[i].Address < endpoints[j].Address
+		}
+		return endpoints[i].EndpointPort < endpoints[j].EndpointPort
 	})
 }
 
@@ -1725,8 +1826,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.ClientSideLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.62.90",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:3e5a",
+					AutoAllocatedIPv4Address: "240.240.227.81",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
 				},
 			},
 		},
@@ -1744,8 +1845,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "foo.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.62.90",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:3e5a",
+					AutoAllocatedIPv4Address: "240.240.227.81",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:e351",
 				},
 			},
 		},
@@ -1770,15 +1871,15 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "a17061.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.0.1",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:1",
+					AutoAllocatedIPv4Address: "240.240.25.11",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:19b",
 				},
 				{
 					Hostname:                 "a44155.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.75.79",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:4b4f",
+					AutoAllocatedIPv4Address: "240.240.31.17",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:1f11",
 				},
 			},
 		},
@@ -1797,8 +1898,8 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "a.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.163.38",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:a326",
+					AutoAllocatedIPv4Address: "240.240.134.206",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:86ce",
 				},
 			},
 		},
@@ -1823,15 +1924,15 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 					Hostname:                 "a.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.163.38",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:a326",
+					AutoAllocatedIPv4Address: "240.240.134.206",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:86ce",
 				},
 				{
 					Hostname:                 "a.example.com",
 					Resolution:               model.DNSLB,
 					DefaultAddress:           "0.0.0.0",
-					AutoAllocatedIPv4Address: "240.240.114.198",
-					AutoAllocatedIPv6Address: "2001:2::f0f0:72c6",
+					AutoAllocatedIPv4Address: "240.240.41.100",
+					AutoAllocatedIPv6Address: "2001:2::f0f0:2964",
 				},
 			},
 		},
@@ -1845,7 +1946,7 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 						got.AutoAllocatedIPv4Address, tt.wantServices[i].AutoAllocatedIPv4Address)
 				}
 				if got.AutoAllocatedIPv6Address != tt.wantServices[i].AutoAllocatedIPv6Address {
-					t.Errorf("autoAllocateIPs() AutoAllocatedIPv4Address = %v, want %v",
+					t.Errorf("autoAllocateIPs() AutoAllocatedIPv6Address = %v, want %v",
 						got.AutoAllocatedIPv6Address, tt.wantServices[i].AutoAllocatedIPv6Address)
 				}
 			}
@@ -1854,8 +1955,9 @@ func Test_autoAllocateIP_conditions(t *testing.T) {
 }
 
 func Test_autoAllocateIP_values(t *testing.T) {
-	inServices := make([]*model.Service, 255*255)
-	for i := 0; i < 255*255; i++ {
+	ips := maxIPs
+	inServices := make([]*model.Service, ips)
+	for i := 0; i < ips; i++ {
 		temp := model.Service{
 			Hostname:       host.Name(fmt.Sprintf("foo%d.com", i)),
 			Resolution:     model.ClientSideLB,
@@ -1882,8 +1984,10 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		"240.240.1.255": true,
 		"240.240.2.0":   true,
 		"240.240.2.255": true,
+		"240.240.3.0":   true,
+		"240.240.3.255": true,
 	}
-	expectedLastIP := "240.240.202.167"
+	expectedLastIP := "240.240.10.222"
 	if gotServices[len(gotServices)-1].AutoAllocatedIPv4Address != expectedLastIP {
 		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
@@ -1891,12 +1995,39 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	gotIPMap := make(map[string]string)
 	for _, svc := range gotServices {
 		if svc.AutoAllocatedIPv4Address == "" || doNotWant[svc.AutoAllocatedIPv4Address] {
-			t.Errorf("unexpected value for auto allocated IP address %s", svc.AutoAllocatedIPv4Address)
+			t.Errorf("unexpected value for auto allocated IP address %s for service %s", svc.AutoAllocatedIPv4Address, svc.Hostname.String())
 		}
 		if v, ok := gotIPMap[svc.AutoAllocatedIPv4Address]; ok && v != svc.Hostname.String() {
 			t.Errorf("multiple allocations of same IP address to different services with different hostname: %s", svc.AutoAllocatedIPv4Address)
 		}
 		gotIPMap[svc.AutoAllocatedIPv4Address] = svc.Hostname.String()
+		// Validate that IP address is valid.
+		ip := net.ParseIP(svc.AutoAllocatedIPv4Address)
+		if ip == nil {
+			t.Errorf("invalid IP address %s : %s", svc.AutoAllocatedIPv4Address, svc.Hostname.String())
+		}
+		// Validate that IP address is in the expected range.
+		_, subnet, _ := net.ParseCIDR("240.240.0.0/16")
+		if !subnet.Contains(ip) {
+			t.Errorf("IP address not in range %s : %s", svc.AutoAllocatedIPv4Address, svc.Hostname.String())
+		}
+	}
+	assert.Equal(t, maxIPs, len(gotIPMap))
+}
+
+func BenchmarkAutoAllocateIPs(t *testing.B) {
+	inServices := make([]*model.Service, 255*255)
+	for i := 0; i < 255*255; i++ {
+		temp := model.Service{
+			Hostname:       host.Name(fmt.Sprintf("foo%d.com", i)),
+			Resolution:     model.ClientSideLB,
+			DefaultAddress: constants.UnspecifiedIP,
+		}
+		inServices[i] = &temp
+	}
+	t.ResetTimer()
+	for i := 0; i < t.N; i++ {
+		autoAllocateIPs(inServices)
 	}
 }
 
@@ -1904,29 +2035,36 @@ func Test_autoAllocateIP_values(t *testing.T) {
 func Test_autoAllocateIP_deterministic(t *testing.T) {
 	inServices := make([]*model.Service, 0)
 	originalServices := map[string]string{
-		"a.com": "240.240.81.186",
-		"c.com": "240.240.79.99",
-		"e.com": "240.240.175.33",
-		"g.com": "240.240.106.30",
-		"i.com": "240.240.124.21",
-		"k.com": "240.240.234.190",
-		"l.com": "240.240.142.221",
-		"n.com": "240.240.41.17",
-		"o.com": "240.240.31.228",
+		"a.com": "240.240.109.8",
+		"c.com": "240.240.234.51",
+		"e.com": "240.240.85.60",
+		"g.com": "240.240.23.172",
+		"i.com": "240.240.15.2",
+		"k.com": "240.240.160.161",
+		"l.com": "240.240.42.96",
+		"n.com": "240.240.121.61",
+		"o.com": "240.240.122.71",
 	}
 
 	allocateAndValidate := func() {
 		gotServices := autoAllocateIPs(model.SortServicesByCreationTime(inServices))
 		gotIPMap := make(map[string]string)
+		serviceIPMap := make(map[string]string)
 		for _, svc := range gotServices {
 			if v, ok := gotIPMap[svc.AutoAllocatedIPv4Address]; ok && v != svc.Hostname.String() {
 				t.Errorf("multiple allocations of same IP address to different services with different hostname: %s", svc.AutoAllocatedIPv4Address)
 			}
 			gotIPMap[svc.AutoAllocatedIPv4Address] = svc.Hostname.String()
+			serviceIPMap[svc.Hostname.String()] = svc.AutoAllocatedIPv4Address
 		}
 		for k, v := range originalServices {
 			if gotIPMap[v] != k {
-				t.Errorf("ipaddress changed for service %s. expected: %s, got: %s", k, v, gotIPMap[v])
+				t.Errorf("ipaddress changed for service %s. expected: %s, got: %s", k, v, serviceIPMap[k])
+			}
+		}
+		for k, v := range gotIPMap {
+			if net.ParseIP(k) == nil {
+				t.Errorf("invalid ipaddress for service %s. got: %s", v, k)
 			}
 		}
 	}
@@ -2097,4 +2235,30 @@ func BenchmarkWorkloadEntryHandler(b *testing.B) {
 		sd.workloadEntryHandler(config.Config{}, *dnsWle, model.EventDelete)
 		sd.workloadEntryHandler(config.Config{}, *wle2, model.EventDelete)
 	}
+}
+
+func GetEndpoints(s *model.Service, endpoints *model.EndpointIndex) []*model.IstioEndpoint {
+	return GetEndpointsForPort(s, endpoints, 0)
+}
+
+func GetEndpointsForPort(s *model.Service, endpoints *model.EndpointIndex, port int) []*model.IstioEndpoint {
+	shards, ok := endpoints.ShardsForService(string(s.Hostname), s.Attributes.Namespace)
+	if !ok {
+		return nil
+	}
+	var pn string
+	for _, p := range s.Ports {
+		if p.Port == port {
+			pn = p.Name
+			break
+		}
+	}
+	if pn == "" && port != 0 {
+		return nil
+	}
+	shards.RLock()
+	defer shards.RUnlock()
+	return slices.FilterInPlace(slices.Flatten(maps.Values(shards.Shards)), func(endpoint *model.IstioEndpoint) bool {
+		return pn == "" || endpoint.ServicePortName == pn
+	})
 }

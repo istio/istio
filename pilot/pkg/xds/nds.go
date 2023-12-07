@@ -74,12 +74,7 @@ func ndsNeedsPush(req *model.PushRequest) bool {
 }
 
 func headlessEndpointsUpdated(req *model.PushRequest) bool {
-	for _, reason := range req.Reason {
-		if reason == model.HeadlessEndpointUpdate {
-			return true
-		}
-	}
-	return false
+	return req.Reason.Has(model.HeadlessEndpointUpdate)
 }
 
 func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {

@@ -211,6 +211,63 @@ func TestSingleMTLSGateway_ServerKeyCertRotation(t *testing.T) {
 		})
 }
 
+// TestSingleOptionalMTLSGateway tests a single mTLS ingress gateway with SDS enabled.
+// Verifies behavior when client sends certificate and when client does not send certificate.
+func TestSingleOptionalMTLSGateway(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("security.ingress.tls.gateway.optional-mtls").
+		Run(func(t framework.TestContext) {
+			var (
+				credName   = "testsinglemtlsgateway-serverkeyoptionalmtls"
+				credCaName = "testsinglemtlsgateway-serverkeyoptionalmtls-cacert"
+				host       = "testsinglemtlsgateway-serverkeyoptionalmtls.example.com"
+			)
+			allInstances := []echo.Instances{ingressutil.A, ingressutil.VM}
+			for _, instances := range allInstances {
+				echotest.New(t, instances).
+					SetupForDestination(func(t framework.TestContext, to echo.Target) error {
+						ingressutil.SetupConfig(t, echo1NS, ingressutil.TestConfig{
+							Mode:           "OPTIONAL_MUTUAL",
+							CredentialName: credName,
+							Host:           host,
+							ServiceName:    to.Config().Service,
+							GatewayLabel:   inst.Settings().IngressGatewayIstioLabel,
+						})
+						return nil
+					}).
+					To(echotest.SingleSimplePodServiceAndAllSpecial()).
+					RunFromClusters(func(t framework.TestContext, _ cluster.Cluster, _ echo.Target) {
+						// Add two kubernetes secrets to provision server key/cert and client CA cert for ingress gateway.
+						ingressutil.CreateIngressKubeSecret(t, credCaName, ingressutil.Mtls,
+							ingressutil.IngressCredentialCaCertA, false)
+						ingressutil.CreateIngressKubeSecret(t, credName, ingressutil.Mtls,
+							ingressutil.IngressCredentialServerKeyCertA, false)
+
+						ing := inst.IngressFor(t.Clusters().Default())
+						if ing == nil {
+							t.Skip()
+						}
+						tlsContext := ingressutil.TLSContext{
+							CaCert:     ingressutil.CaCertA,
+							PrivateKey: ingressutil.TLSClientKeyA,
+							Cert:       ingressutil.TLSClientCertA,
+						}
+						t.NewSubTest("request without client certificates").Run(func(t framework.TestContext) {
+							// Send a SIMPLE TLS request without client certificates.
+							ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.TLS, tlsContext,
+								ingressutil.ExpectedResponse{StatusCode: http.StatusOK})
+						})
+						t.NewSubTest("request with client certificates").Run(func(t framework.TestContext) {
+							// Send a TLS request with client certificates.
+							ingressutil.SendRequestOrFail(t, ing, host, credName, ingressutil.Mtls, tlsContext,
+								ingressutil.ExpectedResponse{StatusCode: http.StatusOK})
+						})
+					})
+			}
+		})
+}
+
 // TestSingleMTLSGateway_CompoundSecretRotation tests a single mTLS ingress gateway with SDS enabled.
 // Verifies behavior in these scenarios.
 // (1) A valid kubernetes secret with key/cert and client CA cert is added, verifies that SSL connection
@@ -399,10 +456,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret1.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						// TODO(JimmyCYJ): Temporarily skip verification of error message to deflake test.
-						//  Need a more accurate way to verify the request failures.
-						// https://github.com/istio/istio/issues/16998
-						SkipErrorMessageVerification: true,
+						ErrorMessage: "connection reset by peer",
 					},
 					callType: ingressutil.TLS,
 					tlsContext: ingressutil.TLSContext{
@@ -418,7 +472,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret2.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						SkipErrorMessageVerification: true,
+						ErrorMessage: "connection reset by peer",
 					},
 					callType: ingressutil.TLS,
 					tlsContext: ingressutil.TLSContext{
@@ -434,7 +488,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret3.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						SkipErrorMessageVerification: true,
+						ErrorMessage: "connection reset by peer",
 					},
 					callType: ingressutil.TLS,
 					tlsContext: ingressutil.TLSContext{
@@ -449,7 +503,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret4.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						SkipErrorMessageVerification: true,
+						ErrorMessage: "connection reset by peer",
 					},
 					callType: ingressutil.TLS,
 					tlsContext: ingressutil.TLSContext{
@@ -464,7 +518,7 @@ func TestMultiTlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultitlsgateway-invalidsecret5.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						SkipErrorMessageVerification: true,
+						ErrorMessage: "connection reset by peer",
 					},
 					callType: ingressutil.TLS,
 					tlsContext: ingressutil.TLSContext{
@@ -532,10 +586,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultimtlsgateway-invalidsecret1.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						// TODO(JimmyCYJ): Temporarily skip verification of error message to deflake test.
-						//  Need a more accurate way to verify the request failures.
-						// https://github.com/istio/istio/issues/16998
-						SkipErrorMessageVerification: true,
+						ErrorMessage: "connection reset by peer",
 					},
 					callType: ingressutil.Mtls,
 					tlsContext: ingressutil.TLSContext{
@@ -553,7 +604,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultimtlsgateway-invalidsecret2.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						SkipErrorMessageVerification: true,
+						ErrorMessage: "connection reset by peer",
 					},
 					callType: ingressutil.Mtls,
 					tlsContext: ingressutil.TLSContext{
@@ -572,7 +623,7 @@ func TestMultiMtlsGateway_InvalidSecret(t *testing.T) {
 					},
 					hostName: "testmultimtlsgateway-invalidsecret3.example.com",
 					expectedResponse: ingressutil.ExpectedResponse{
-						SkipErrorMessageVerification: true,
+						ErrorMessage: "error decrypting message",
 					},
 					callType: ingressutil.Mtls,
 					tlsContext: ingressutil.TLSContext{

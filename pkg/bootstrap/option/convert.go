@@ -25,7 +25,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	auth "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/conversion"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/types/known/durationpb"
 	pstruct "google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // TransportSocket wraps UpstreamTLSContext
@@ -81,7 +81,7 @@ func transportSocketConverter(tls *networkingAPI.ClientTLSSettings, sniName stri
 		// bootstrap generation this is better than having our custom structs.
 		tlsContextStruct, _ := conversion.MessageToStruct(protoconv.MessageToAny(tlsContext))
 		transportSocket := &TransportSocket{
-			Name:        wellknown.TransportSocketTls,
+			Name:        wellknown.TransportSocketTLS,
 			TypedConfig: tlsContextStruct,
 		}
 		return convertToJSON(transportSocket), nil
@@ -180,7 +180,7 @@ func addressConverter(addr string) convertFunc {
 			// Replace host with HOST_IP env var if it is "$(HOST_IP)".
 			// This is to support some tracer setting (Datadog, Zipkin), where "$(HOST_IP)"" is used for address.
 			// Tracer address used to be specified within proxy container params, and thus could be interpreted with pod HOST_IP env var.
-			// Now tracer config is passed in with mesh config volumn at gateway, k8s env var interpretation does not work.
+			// Now tracer config is passed in with mesh config volume at gateway, k8s env var interpretation does not work.
 			// This is to achieve the same interpretation as k8s.
 			hostIPEnv := os.Getenv("HOST_IP")
 			if hostIPEnv != "" {

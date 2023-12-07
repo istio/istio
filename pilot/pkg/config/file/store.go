@@ -46,6 +46,7 @@ import (
 	sresource "istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -82,13 +83,9 @@ func (s *KubeSource) Get(typ config.GroupVersionKind, name, namespace string) *c
 func (s *KubeSource) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	configs := s.inner.List(typ, namespace)
 	if s.namespacesFilter != nil {
-		var out []config.Config
-		for _, config := range configs {
-			if s.namespacesFilter(config) {
-				out = append(out, config)
-			}
-		}
-		return out
+		return slices.Filter(configs, func(c config.Config) bool {
+			return s.namespacesFilter(c)
+		})
 	}
 	return configs
 }
@@ -169,6 +166,11 @@ func NewKubeSource(schemas collection.Schemas) *KubeSource {
 // SetDefaultNamespace enables injecting a default namespace for resources where none is already specified
 func (s *KubeSource) SetDefaultNamespace(defaultNs resource.Namespace) {
 	s.defaultNs = defaultNs
+}
+
+// SetNamespacesFilter enables filtering the namespaces this controller watches.
+func (s *KubeSource) SetNamespacesFilter(namespacesFilter func(obj interface{}) bool) {
+	s.namespacesFilter = namespacesFilter
 }
 
 // Clear the contents of this source

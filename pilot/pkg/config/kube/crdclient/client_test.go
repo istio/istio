@@ -32,6 +32,7 @@ import (
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
@@ -51,14 +52,27 @@ func makeClient(t *testing.T, schemas collection.Schemas, f ...func(o Option) Op
 	for _, fn := range f {
 		o = fn(o)
 	}
-	config, err := New(fake, o)
-	if err != nil {
-		t.Fatal(err)
-	}
+	config := New(fake, o)
 	go config.Run(stop)
 	fake.RunAndWait(stop)
 	kube.WaitForCacheSync("test", stop, config.HasSynced)
 	return config, fake
+}
+
+func createResource(t *testing.T, store model.ConfigStoreController, r resource.Schema, configMeta config.Meta) config.Spec {
+	pb, err := r.NewInstance()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := store.Create(config.Config{
+		Meta: configMeta,
+		Spec: pb,
+	}); err != nil {
+		t.Fatalf("Create => got %v", err)
+	}
+
+	return pb
 }
 
 // Ensure that the client can run without CRDs present
@@ -72,17 +86,8 @@ func TestClientNoCRDs(t *testing.T) {
 		Namespace:        "ns",
 		GroupVersionKind: r.GroupVersionKind(),
 	}
-	pb, err := r.NewInstance()
-	if err != nil {
-		t.Fatal(err)
-	}
+	createResource(t, store, r, configMeta)
 
-	if _, err := store.Create(config.Config{
-		Meta: configMeta,
-		Spec: pb,
-	}); err != nil {
-		t.Fatalf("Create => got %v", err)
-	}
 	retry.UntilSuccessOrFail(t, func() error {
 		l := store.List(r.GroupVersionKind(), configMeta.Namespace)
 		if len(l) != 0 {
@@ -121,27 +126,14 @@ func TestClientDelayedCRDs(t *testing.T) {
 		Namespace:        "ns1",
 		GroupVersionKind: r.GroupVersionKind(),
 	}
-	pb, err := r.NewInstance()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.Create(config.Config{
-		Meta: configMeta1,
-		Spec: pb,
-	}); err != nil {
-		t.Fatalf("Create => got %v", err)
-	}
+	createResource(t, store, r, configMeta1)
+
 	configMeta2 := config.Meta{
 		Name:             "name2",
 		Namespace:        "ns2",
 		GroupVersionKind: r.GroupVersionKind(),
 	}
-	if _, err := store.Create(config.Config{
-		Meta: configMeta2,
-		Spec: pb,
-	}); err != nil {
-		t.Fatalf("Create => got %v", err)
-	}
+	createResource(t, store, r, configMeta2)
 
 	retry.UntilSuccessOrFail(t, func() error {
 		l := store.List(r.GroupVersionKind(), "")
@@ -181,18 +173,8 @@ func TestClient(t *testing.T) {
 			if !r.IsClusterScoped() {
 				configMeta.Namespace = configNamespace
 			}
+			pb := createResource(t, store, r, configMeta)
 
-			pb, err := r.NewInstance()
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if _, err := store.Create(config.Config{
-				Meta: configMeta,
-				Spec: pb,
-			}); err != nil {
-				t.Fatalf("Create(%v) => got %v", name, err)
-			}
 			// Kubernetes is eventually consistent, so we allow a short time to pass before we get
 			retry.UntilSuccessOrFail(t, func() error {
 				cfg := store.Get(r.GroupVersionKind(), configName, configMeta.Namespace)
@@ -303,7 +285,7 @@ func TestClient(t *testing.T) {
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
 			if cfg == nil {
-				return fmt.Errorf("cfg shouldnt be nil :(")
+				return fmt.Errorf("cfg shouldn't be nil :(")
 			}
 			if !reflect.DeepEqual(cfg.Meta, cfgMeta) {
 				return fmt.Errorf("something is deeply wrong....., %v", cfg.Meta)
@@ -331,7 +313,7 @@ func TestClient(t *testing.T) {
 		retry.UntilSuccessOrFail(t, func() error {
 			cfg := store.Get(r.GroupVersionKind(), name, cfgMeta.Namespace)
 			if cfg == nil {
-				return fmt.Errorf("cfg cant be nil")
+				return fmt.Errorf("cfg can't be nil")
 			}
 			if !reflect.DeepEqual(cfg.Status, stat) {
 				return fmt.Errorf("status %v does not match %v", cfg.Status, stat)
@@ -356,7 +338,9 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 		{"istio.io/rev": "canary"},
 		{"istio.io/rev": "prod"},
 	}
-	var expectedCfgs []config.Config
+	var expectedNoRevision []config.Config
+	var expectedCanary []config.Config
+	var expectedProd []config.Config
 	for i := 0; i < 9; i++ {
 		selectedLabels := labels[i%len(labels)]
 		obj := &clientnetworkingv1alpha3.ServiceEntry{
@@ -369,41 +353,54 @@ func TestClientInitialSyncSkipsOtherRevisions(t *testing.T) {
 		}
 
 		clienttest.NewWriter[*clientnetworkingv1alpha3.ServiceEntry](t, fake).Create(obj)
-		// Only SEs from the default revision should generate events.
-		if selectedLabels == nil {
-			expectedCfgs = append(expectedCfgs, TranslateObject(obj, gvk.ServiceEntry, ""))
+		// canary revision should receive only global objects and objects with the canary revision
+		if selectedLabels == nil || reflect.DeepEqual(selectedLabels, labels[1]) {
+			expectedCanary = append(expectedCanary, TranslateObject(obj, gvk.ServiceEntry, ""))
 		}
+		// prod revision should receive only global objects and objects with the prod revision
+		if selectedLabels == nil || reflect.DeepEqual(selectedLabels, labels[2]) {
+			expectedProd = append(expectedProd, TranslateObject(obj, gvk.ServiceEntry, ""))
+		}
+		// no revision should receive all objects
+		expectedNoRevision = append(expectedNoRevision, TranslateObject(obj, gvk.ServiceEntry, ""))
 	}
 
-	// Create a config store with a handler that records add events
-	store, err := New(fake, Option{})
-	assert.NoError(t, err)
-
-	var cfgsAdded []config.Config
-	store.RegisterEventHandler(
-		gvk.ServiceEntry,
-		func(old config.Config, curr config.Config, event model.Event) {
-			if event != model.EventAdd {
-				t.Fatalf("unexpected event: %v", event)
-			}
-			cfgsAdded = append(cfgsAdded, curr)
-		},
-	)
-
-	stop := test.NewStop(t)
-	fake.RunAndWait(stop)
-	go store.Run(stop)
-
-	kube.WaitForCacheSync("test", stop, store.HasSynced)
-
-	// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
-	sortFunc := func(a, b config.Config) bool {
-		return a.Key() < b.Key()
+	storeCases := map[string][]config.Config{
+		"":       expectedNoRevision, // No revision specified, should receive all events.
+		"canary": expectedCanary,     // Only SEs from the canary revision should be received.
+		"prod":   expectedProd,       // Only SEs from the prod revision should be received.
 	}
-	slices.SortFunc(cfgsAdded, sortFunc)
-	slices.SortFunc(expectedCfgs, sortFunc)
+	for rev, expected := range storeCases {
+		store := New(fake, Option{
+			Revision: rev,
+		})
 
-	assert.Equal(t, expectedCfgs, cfgsAdded)
+		var cfgsAdded []config.Config
+		store.RegisterEventHandler(
+			gvk.ServiceEntry,
+			func(old config.Config, curr config.Config, event model.Event) {
+				if event != model.EventAdd {
+					t.Fatalf("unexpected event: %v", event)
+				}
+				cfgsAdded = append(cfgsAdded, curr)
+			},
+		)
+
+		stop := test.NewStop(t)
+		fake.RunAndWait(stop)
+		go store.Run(stop)
+
+		kube.WaitForCacheSync("test", stop, store.HasSynced)
+
+		// The order of the events doesn't matter, so sort the two slices so the ordering is consistent
+		sortFunc := func(a config.Config) string {
+			return a.Key()
+		}
+		slices.SortBy(cfgsAdded, sortFunc)
+		slices.SortBy(expected, sortFunc)
+
+		assert.Equal(t, expected, cfgsAdded)
+	}
 }
 
 func TestClientSync(t *testing.T) {
@@ -420,8 +417,7 @@ func TestClientSync(t *testing.T) {
 		clienttest.MakeCRD(t, fake, s.GroupVersionResource())
 	}
 	stop := test.NewStop(t)
-	c, err := New(fake, Option{})
-	assert.NoError(t, err)
+	c := New(fake, Option{})
 
 	events := atomic.NewInt64(0)
 	c.RegisterEventHandler(gvk.ServiceEntry, func(c config.Config, c2 config.Config, event model.Event) {

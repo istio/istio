@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - 46555
+# releaseNotes is a markdown listing of any user facing changes. This will appear in the
+# release notes.
+releaseNotes:
+- |
+  **Fixed** attempting to reach multi-network endpoints that are unreachable due to `DestinationRule` TLS mode
+  other than `ISTIO_MUTUAL`.

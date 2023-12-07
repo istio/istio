@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+  - |
+    **Added** IST0162 `GatewayPortNotDefinedOnService` message to detect the issue where Gateway port was not exposed by Service.

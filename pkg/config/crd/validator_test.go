@@ -29,7 +29,7 @@ metadata:
 spec:
   mtls:
     mode: STRICT
-`); err != nil {
+`, nil); err != nil {
 			t.Fatal(err)
 		}
 	})
@@ -42,7 +42,7 @@ metadata:
 spec:
   mtls:
     mode: BAD
-`); err == nil {
+`, nil); err == nil {
 			t.Fatal("expected error but got none")
 		}
 	})

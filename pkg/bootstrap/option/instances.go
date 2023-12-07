@@ -85,7 +85,7 @@ func NodeMetadata(meta *model.BootstrapNodeMetadata, rawMeta map[string]any) Ins
 	return newOptionOrSkipIfZero("meta_json_str", meta).withConvert(nodeMetadataConverter(meta, rawMeta))
 }
 
-func RuntimeFlags(flags map[string]string) Instance {
+func RuntimeFlags(flags map[string]any) Instance {
 	return newOptionOrSkipIfZero("runtime_flags", flags).withConvert(jsonConverter(flags))
 }
 
@@ -103,6 +103,14 @@ func Localhost(value LocalhostValue) Instance {
 
 func Wildcard(value WildcardValue) Instance {
 	return newOption("wildcard", value)
+}
+
+func AdditionalWildCard(value WildcardValue) Instance {
+	return newOption("additional_wildcard", value)
+}
+
+func DualStack(value bool) Instance {
+	return newOption("dual_stack", value)
 }
 
 func DNSLookupFamily(value DNSLookupFamilyValue) Instance {
@@ -271,4 +279,8 @@ type HistogramBucket struct {
 
 func EnvoyHistogramBuckets(value []HistogramBucket) Instance {
 	return newOption("histogram_buckets", value)
+}
+
+func EnvoyStatsCompression(value string) Instance {
+	return newOption("stats_compression", value)
 }

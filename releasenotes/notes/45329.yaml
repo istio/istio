@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 45329
+releaseNotes:
+- |
+  **Fixed** when creating a `WorkloadGroup`, `WorkloadEntry` auto-registration will occur immediately for proxies
+  that are already connected.

@@ -26,8 +26,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	"istio.io/istio/operator/pkg/name"
-	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
-	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/tools/bug-report/pkg/common"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 	"istio.io/istio/tools/bug-report/pkg/util/path"
@@ -87,12 +86,12 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 	for _, ild := range config.Include {
 		if len(ild.Namespaces) > 0 {
 			if !isIncludeOrExcludeEntriesMatched(ild.Namespaces, pod.Namespace) {
-				return true
+				continue
 			}
 		}
 		if len(ild.Pods) > 0 {
 			if !isIncludeOrExcludeEntriesMatched(ild.Pods, pod.Name) {
-				return true
+				continue
 			}
 		}
 
@@ -104,7 +103,7 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 				}
 			}
 			if !isContainerMatch {
-				return true
+				continue
 			}
 		}
 
@@ -119,7 +118,7 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 				}
 			}
 			if !isLabelsMatch {
-				return true
+				continue
 			}
 		}
 
@@ -134,12 +133,14 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 				}
 			}
 			if !isAnnotationMatch {
-				return true
+				continue
 			}
 		}
+		// If we reach here, it means that all include entries are matched.
+		return false
 	}
-
-	return false
+	// If we reach here, it means that no include entries are matched.
+	return true
 }
 
 func shouldSkipDeployment(deployment string, config *config2.BugReportConfig) bool {
@@ -212,6 +213,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 		Labels:      make(map[string]map[string]string),
 		Annotations: make(map[string]map[string]string),
 		Pod:         make(map[string]*corev1.Pod),
+		CniPod:      make(map[string]*corev1.Pod),
 	}
 
 	pods, err := clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{})
@@ -230,7 +232,11 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 	}
 
 	for i, p := range pods.Items {
-		if analyzer_util.IsSystemNamespace(resource.Namespace(p.Namespace)) {
+		if p.Labels["k8s-app"] == "istio-cni-node" {
+			out.CniPod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
+		}
+
+		if inject.IgnoredNamespaces.Contains(p.Namespace) {
 			continue
 		}
 		if skip := shouldSkipPod(&p, config); skip {
@@ -250,9 +256,19 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 			for _, c := range p.Spec.Containers {
 				out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
 			}
+			for _, c := range p.Spec.InitContainers {
+				if c.Name == inject.ProxyContainerName {
+					out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
+				}
+			}
 		} else if daemonset != "" {
 			for _, c := range p.Spec.Containers {
 				out.insertContainer(p.Namespace, daemonset, p.Name, c.Name)
+			}
+			for _, c := range p.Spec.InitContainers {
+				if c.Name == inject.ProxyContainerName {
+					out.insertContainer(p.Namespace, deployment, p.Name, c.Name)
+				}
 			}
 		}
 
@@ -276,6 +292,8 @@ type Resources struct {
 	Annotations map[string]map[string]string
 	// Pod maps a pod name to its Pod info. The key is namespace/pod-name.
 	Pod map[string]*corev1.Pod
+	// CniPod
+	CniPod map[string]*corev1.Pod
 }
 
 func (r *Resources) insertContainer(namespace, deployment, pod, container string) {
@@ -298,8 +316,14 @@ func (r *Resources) insertContainer(namespace, deployment, pod, container string
 }
 
 // ContainerRestarts returns the number of container restarts for the given container.
-func (r *Resources) ContainerRestarts(namespace, pod, container string) int {
-	for _, cs := range r.Pod[PodKey(namespace, pod)].Status.ContainerStatuses {
+func (r *Resources) ContainerRestarts(namespace, pod, container string, isCniPod bool) int {
+	var podItem *corev1.Pod
+	if isCniPod {
+		podItem = r.CniPod[PodKey(namespace, pod)]
+	} else {
+		podItem = r.Pod[PodKey(namespace, pod)]
+	}
+	for _, cs := range podItem.Status.ContainerStatuses {
 		if cs.Name == container {
 			return int(cs.RestartCount)
 		}

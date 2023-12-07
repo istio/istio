@@ -25,6 +25,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/kube"
@@ -169,7 +170,7 @@ func TestOperatorInit(t *testing.T) {
 	}
 }
 
-func MockKubernetesClients(_, _ string, _ clog.Logger) (kube.CLIClient, client.Client, error) {
+func MockKubernetesClients(_ kube.CLIClient, _ clog.Logger) (kube.CLIClient, client.Client, error) {
 	extendedClient = kube.NewFakeClient()
 	kubeClient, _ = client.New(&rest.Config{}, client.Options{})
 	return extendedClient, kubeClient, nil
@@ -207,7 +208,12 @@ func TestOperatorInitDryRun(t *testing.T) {
 				args = append(args, "--watchedNamespaces", test.watchedNamespaces)
 			}
 
-			rootCmd := GetRootCmd(args)
+			kubeClientFunc = func() (kube.CLIClient, error) {
+				return nil, nil
+			}
+			rootCmd := GetRootCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
+				Version: "25",
+			}), args)
 			err := rootCmd.Execute()
 			assert.NoError(t, err)
 

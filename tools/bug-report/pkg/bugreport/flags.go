@@ -96,10 +96,9 @@ func addFlags(cmd *cobra.Command, args *config2.BugReportConfig) {
 	cmd.PersistentFlags().StringVar(&outputDir, "output-dir", "",
 		"Set a specific directory for output archive file.")
 
-	// requests per second limit
-	cmd.PersistentFlags().IntVar(&args.RequestsPerSecondLimit, "rps-limit", 0,
-		"Requests per second limit to the Kubernetes API server, defaults to 10."+
-			"A higher limit can make bug report collection much faster.")
+	// in-flight request limit
+	cmd.PersistentFlags().IntVar(&args.RequestConcurrency, "rq-concurrency", 0,
+		"Set the concurrency limit of requests to the Kubernetes API server, defaults to 32.")
 }
 
 func parseConfig() (*config2.BugReportConfig, error) {

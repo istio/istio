@@ -3,7 +3,9 @@ name: ""
 # revision declares which revision this gateway is a part of
 revision: ""
 
-replicaCount: 1
+# Controls the spec.replicas setting for the Gateway deployment if set.
+# Otherwise defaults to Kubernetes Deployment default (1).
+replicaCount:
 
 kind: Deployment
 
@@ -55,6 +57,8 @@ service:
   loadBalancerSourceRanges: []
   externalTrafficPolicy: ""
   externalIPs: []
+  ipFamilyPolicy: ""
+  ipFamilies: []
 
 resources:
   requests:
@@ -69,6 +73,8 @@ autoscaling:
   minReplicas: 1
   maxReplicas: 5
   targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: {}
+  autoscaleBehavior: {}
 
 # Pod environment variables
 env: {}
@@ -125,3 +131,19 @@ imagePullSecrets: []
 # podDisruptionBudget: {}
 #
 podDisruptionBudget: {}
+
+terminationGracePeriodSeconds: 30
+
+# A list of `Volumes` added into the Gateway Pods. See
+# https://kubernetes.io/docs/concepts/storage/volumes/.
+volumes: []
+
+# A list of `VolumeMounts` added into the Gateway Pods. See
+# https://kubernetes.io/docs/concepts/storage/volumes/.
+volumeMounts: []
+
+# Configure this to a higher priority class in order to make sure your Istio gateway pods
+# will not be killed because of low priority class.
+# Refer to https://kubernetes.io/docs/concepts/configuration/pod-priority-preemption/#priorityclass
+# for more detail.
+priorityClassName: ""

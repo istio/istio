@@ -245,6 +245,10 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 						Value: strconv.FormatBool(false),
 					},
 				},
+				Labels: map[string]string{
+					label.SidecarInject.Name:     "false",
+					constants.AmbientRedirection: constants.AmbientRedirectionDisabled,
+				},
 			},
 		},
 	}
@@ -255,6 +259,9 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 		Ports:          ports.All(),
 		Subsets: []echo.SubsetConfig{{
 			Annotations: echo.NewAnnotations().Set(echo.SidecarInterceptionMode, "TPROXY"),
+			Labels: map[string]string{
+				constants.AmbientRedirection: constants.AmbientRedirectionDisabled,
+			},
 		}},
 		IncludeExtAuthz: c.IncludeExtAuthz,
 	}
@@ -270,6 +277,30 @@ func (c *Config) DefaultEchoConfigs(t resource.Context) []echo.Config {
 	}
 
 	defaultConfigs = append(defaultConfigs, a, b, cSvc, headless, stateful, naked, tProxy, vmSvc)
+
+	if t.Settings().EnableDualStack {
+		dSvc := echo.Config{
+			Service:         DSvc,
+			ServiceAccount:  true,
+			Ports:           ports.All(),
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: c.IncludeExtAuthz,
+			IPFamilies:      "IPv6, IPv4",
+			IPFamilyPolicy:  "RequireDualStack",
+			DualStack:       true,
+		}
+		eSvc := echo.Config{
+			Service:         ESvc,
+			ServiceAccount:  true,
+			Ports:           ports.All(),
+			Subsets:         []echo.SubsetConfig{{}},
+			IncludeExtAuthz: c.IncludeExtAuthz,
+			IPFamilies:      "IPv6",
+			IPFamilyPolicy:  "SingleStack",
+			DualStack:       true,
+		}
+		defaultConfigs = append(defaultConfigs, dSvc, eSvc)
+	}
 
 	if !skipDeltaXDS(t) {
 		delta := echo.Config{
@@ -434,7 +465,7 @@ func New(ctx resource.Context, cfg Config) (*Echos, error) {
 	}
 
 	if !cfg.NoExternalNamespace {
-		builder = apps.External.build(builder)
+		builder = apps.External.build(ctx, builder)
 	}
 
 	echos, err := builder.Build()

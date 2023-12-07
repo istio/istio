@@ -346,8 +346,3 @@ func sortConfigByCreationTime(configs []config.Config) []config.Config {
 	})
 	return configs
 }
-
-// key creates a key from a reference's name and namespace.
-func key(name, namespace string) string {
-	return name + "/" + namespace
-}

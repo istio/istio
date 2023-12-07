@@ -1,0 +1,13 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 47290
+  - 47264
+  - 31250
+  - 33360
+  - 30531
+  - 38484
+releaseNotes:
+- |
+  **Fixed** DNS Proxy resolution for wildcard ServiceEntry with the search domain suffix for glibc based containers.

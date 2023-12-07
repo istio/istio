@@ -28,7 +28,7 @@ import (
 const (
 	// MinK8SVersion is the minimum k8s version required to run this version of Istio
 	// https://istio.io/docs/setup/platform-setup/
-	MinK8SVersion               = 24
+	MinK8SVersion               = 25
 	UnSupportedK8SVersionLogMsg = "\nThe Kubernetes version %s is not supported by Istio %s. The minimum supported Kubernetes version is 1.%d.\n" +
 		"Proceeding with the installation, but you might experience problems. " +
 		"See https://istio.io/latest/docs/setup/platform-setup/ for a list of supported versions.\n"
@@ -55,7 +55,7 @@ func extractKubernetesVersion(versionInfo *version.Info) (int, error) {
 }
 
 // IsK8VersionSupported checks minimum supported Kubernetes version for Istio.
-// If the K8s version is not atleast the `MinK8SVersion`, it logs a message warning the user that they
+// If the K8s version is not at least the `MinK8SVersion`, it logs a message warning the user that they
 // may experience problems if they proceed with the install.
 func IsK8VersionSupported(c kube.Client, l clog.Logger) error {
 	serverVersion, err := c.GetKubernetesVersion()

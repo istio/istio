@@ -24,7 +24,10 @@ spec:
       enabled: false
 
   values:
+    ztunnel:
+      variant: distroless
     pilot:
+      variant: distroless
       env:
         # Setup more secure default that is off in 'default' only for backwards compatibility
         VERIFY_CERTIFICATE_AT_CLIENT: "true"
@@ -43,8 +46,6 @@ spec:
       excludeNamespaces:
       - kube-system
 
-      # TODO: https://github.com/istio/istio/issues/43243
-      # variant: distroless
     telemetry:
       # Telemetry handled with Telemetry API only
       enabled: false

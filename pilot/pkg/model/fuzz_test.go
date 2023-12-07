@@ -17,41 +17,35 @@ package model
 import (
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
-	"google.golang.org/protobuf/testing/protocmp"
-
 	"istio.io/istio/pkg/fuzz"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func FuzzDeepCopyService(f *testing.F) {
-	fuzzDeepCopy[*Service](f, cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex"))
+	fuzzDeepCopy[*Service](f)
 }
 
 func FuzzDeepCopyServiceInstance(f *testing.F) {
-	fuzzDeepCopy[*ServiceInstance](f, protocmp.Transform(), cmp.AllowUnexported(), cmpopts.IgnoreFields(AddressMap{}, "mutex"))
+	fuzzDeepCopy[*ServiceInstance](f)
 }
 
 func FuzzDeepCopyWorkloadInstance(f *testing.F) {
-	fuzzDeepCopy[*WorkloadInstance](f, protocmp.Transform(), cmp.AllowUnexported())
+	fuzzDeepCopy[*WorkloadInstance](f)
 }
 
 func FuzzDeepCopyIstioEndpoint(f *testing.F) {
-	fuzzDeepCopy[*IstioEndpoint](f, protocmp.Transform(), cmp.AllowUnexported())
+	fuzzDeepCopy[*IstioEndpoint](f)
 }
 
 type deepCopier[T any] interface {
 	DeepCopy() T
 }
 
-func fuzzDeepCopy[T deepCopier[T]](f test.Fuzzer, opts ...cmp.Option) {
+func fuzzDeepCopy[T deepCopier[T]](f test.Fuzzer) {
 	fuzz.Fuzz(f, func(fg fuzz.Helper) {
 		orig := fuzz.Struct[T](fg)
 		copied := orig.DeepCopy()
-		if !cmp.Equal(orig, copied, opts...) {
-			diff := cmp.Diff(orig, copied, opts...)
-			fg.T().Fatalf("unexpected diff %v", diff)
-		}
+		assert.Equal(fg.T(), orig, copied)
 	})
 }

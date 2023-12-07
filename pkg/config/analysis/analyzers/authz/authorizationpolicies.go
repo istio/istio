@@ -68,8 +68,8 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.I
 	// If AuthzPolicy is mesh-wide
 	if meshWidePolicy(apNs, c) {
 		// If it has selector, need further analysis
-		if ap.Selector != nil {
-			apSelector := klabels.SelectorFromSet(ap.Selector.MatchLabels)
+		if ap.GetSelector() != nil {
+			apSelector := klabels.SelectorFromSet(ap.GetSelector().MatchLabels)
 			// If there is at least one pod matching the selector within the whole mesh
 			if !hasMatchingPodsRunning(apSelector, podLabelsMap) {
 				c.Report(gvk.AuthorizationPolicy, msg.NewNoMatchingWorkloadsFound(r, apSelector.String()))
@@ -83,7 +83,7 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.I
 
 	// If the AuthzPolicy is namespace-wide and there are present Pods,
 	// no messages should be triggered.
-	if ap.Selector == nil {
+	if ap.GetSelector() == nil {
 		if len(podLabelsMap[apNs]) == 0 {
 			c.Report(gvk.AuthorizationPolicy, msg.NewNoMatchingWorkloadsFound(r, ""))
 		}
@@ -91,7 +91,7 @@ func (a *AuthorizationPoliciesAnalyzer) analyzeNoMatchingWorkloads(r *resource.I
 	}
 
 	// If the AuthzPolicy has Selector, then need to find a matching Pod.
-	apSelector := klabels.SelectorFromSet(ap.Selector.MatchLabels)
+	apSelector := klabels.SelectorFromSet(ap.GetSelector().MatchLabels)
 	if !hasMatchingPodsRunningIn(apSelector, podLabelsMap[apNs]) {
 		c.Report(gvk.AuthorizationPolicy, msg.NewNoMatchingWorkloadsFound(r, apSelector.String()))
 	}

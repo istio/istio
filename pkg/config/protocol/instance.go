@@ -103,6 +103,11 @@ func (i Instance) IsHTTP2() bool {
 	}
 }
 
+// IsHTTPOrSniffed is true for protocols that use HTTP as transport protocol, or *can* use it if sniffed to be HTTP
+func (i Instance) IsHTTPOrSniffed() bool {
+	return i.IsHTTP() || i.IsUnsupported()
+}
+
 // IsHTTP is true for protocols that use HTTP as transport protocol
 func (i Instance) IsHTTP() bool {
 	switch i {

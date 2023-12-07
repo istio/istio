@@ -1,0 +1,8 @@
+action: DENY
+groups:
+- rules:
+  - matches:
+    - notDestinationPorts:
+      - 9090
+name: converted_peer_authentication_strict-mtls
+scope: WORKLOAD_SELECTOR

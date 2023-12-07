@@ -36,6 +36,36 @@ func StringMatcherRegex(regex string) *matcher.StringMatcher {
 	}
 }
 
+// StringMatcherPrefix create a string matcher for prefix matching.
+func StringMatcherPrefix(prefix string, ignoreCase bool) *matcher.StringMatcher {
+	return &matcher.StringMatcher{
+		IgnoreCase: ignoreCase,
+		MatchPattern: &matcher.StringMatcher_Prefix{
+			Prefix: prefix,
+		},
+	}
+}
+
+// StringMatcherSuffix create a string matcher for suffix matching.
+func StringMatcherSuffix(suffix string, ignoreCase bool) *matcher.StringMatcher {
+	return &matcher.StringMatcher{
+		IgnoreCase: ignoreCase,
+		MatchPattern: &matcher.StringMatcher_Suffix{
+			Suffix: suffix,
+		},
+	}
+}
+
+// StringMatcherExact create a string matcher for exact matching.
+func StringMatcherExact(exact string, ignoreCase bool) *matcher.StringMatcher {
+	return &matcher.StringMatcher{
+		IgnoreCase: ignoreCase,
+		MatchPattern: &matcher.StringMatcher_Exact{
+			Exact: exact,
+		},
+	}
+}
+
 // StringMatcherWithPrefix creates a string matcher for v with the extra prefix inserted to the
 // created string matcher, note the prefix is ignored if v is wildcard ("*").
 // The wildcard "*" will be generated as ".+" instead of ".*".
@@ -47,24 +77,12 @@ func StringMatcherWithPrefix(v, prefix string) *matcher.StringMatcher {
 		return StringMatcherRegex(".+")
 	case strings.HasPrefix(v, "*"):
 		if prefix == "" {
-			return &matcher.StringMatcher{
-				MatchPattern: &matcher.StringMatcher_Suffix{
-					Suffix: strings.TrimPrefix(v, "*"),
-				},
-			}
+			return StringMatcherSuffix(strings.TrimPrefix(v, "*"), false)
 		}
 		return StringMatcherRegex(prefix + ".*" + strings.TrimPrefix(v, "*"))
 	case strings.HasSuffix(v, "*"):
-		return &matcher.StringMatcher{
-			MatchPattern: &matcher.StringMatcher_Prefix{
-				Prefix: prefix + strings.TrimSuffix(v, "*"),
-			},
-		}
+		return StringMatcherPrefix(prefix+strings.TrimSuffix(v, "*"), false)
 	default:
-		return &matcher.StringMatcher{
-			MatchPattern: &matcher.StringMatcher_Exact{
-				Exact: prefix + v,
-			},
-		}
+		return StringMatcherExact(prefix+v, false)
 	}
 }

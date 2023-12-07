@@ -110,15 +110,39 @@ func TestOpts(t *testing.T) {
 var meshEmptyVersion = MeshInfo{}
 
 var meshInfoSingleVersion = MeshInfo{
-	{"Pilot", BuildInfo{"1.2.0", "gitSHA123", "go1.10", "Clean", "tag"}},
-	{"Injector", BuildInfo{"1.2.0", "gitSHAabc", "go1.10.1", "Modified", "tag"}},
-	{"Citadel", BuildInfo{"1.2.0", "gitSHA321", "go1.11.0", "Clean", "tag"}},
+	{
+		Component: "Pilot",
+		Revision:  "default",
+		Info:      BuildInfo{"1.2.0", "gitSHA123", "go1.10", "Clean", "tag"},
+	},
+	{
+		Component: "Injector",
+		Revision:  "default",
+		Info:      BuildInfo{"1.2.0", "gitSHAabc", "go1.10.1", "Modified", "tag"},
+	},
+	{
+		Component: "Citadel",
+		Revision:  "default",
+		Info:      BuildInfo{"1.2.0", "gitSHA321", "go1.11.0", "Clean", "tag"},
+	},
 }
 
 var meshInfoMultiVersion = MeshInfo{
-	{"Pilot", BuildInfo{"1.0.0", "gitSHA123", "go1.10", "Clean", "1.0.0"}},
-	{"Injector", BuildInfo{"1.0.1", "gitSHAabc", "go1.10.1", "Modified", "1.0.1"}},
-	{"Citadel", BuildInfo{"1.2", "gitSHA321", "go1.11.0", "Clean", "1.2"}},
+	{
+		Component: "Pilot",
+		Revision:  "default",
+		Info:      BuildInfo{"1.0.0", "gitSHA123", "go1.10", "Clean", "1.0.0"},
+	},
+	{
+		Component: "Injector",
+		Revision:  "default",
+		Info:      BuildInfo{"1.0.1", "gitSHAabc", "go1.10.1", "Modified", "1.0.1"},
+	},
+	{
+		Component: "Citadel",
+		Revision:  "default",
+		Info:      BuildInfo{"1.2", "gitSHA321", "go1.11.0", "Clean", "1.2"},
+	},
 }
 
 func mockRemoteMesh(meshInfo *MeshInfo, err error) GetRemoteVersionFunc {
@@ -171,7 +195,7 @@ func TestVersion(t *testing.T) {
 		{ // case 0 client-side only, normal output
 			args: strings.Split("version --remote=false --short=false", " "),
 			expectedRegexp: regexp.MustCompile("version.BuildInfo{Version:\"unknown\", GitRevision:\"unknown\", " +
-				"GolangVersion:\"go1.([0-9+?(\\.)?]+)(rc[0-9]?)?(beta[0-9]?)?(.+boringcrypto)?\", " +
+				"GolangVersion:\"go1.([0-9+?(\\.)?]+).*\", " +
 				"BuildStatus:\"unknown\", GitTag:\"unknown\"}"),
 		},
 		{ // case 1 client-side only, short output
@@ -181,7 +205,7 @@ func TestVersion(t *testing.T) {
 		{ // case 2 client-side only, yaml output
 			args: strings.Split("version --remote=false -o yaml", " "),
 			expectedRegexp: regexp.MustCompile("clientVersion:\n" +
-				"  golang_version: go1.([0-9+?(\\.)?]+)(rc[0-9]?)?(beta[0-9]?)?(.+boringcrypto)?\n" +
+				"  golang_version: go1.([0-9+?(\\.)?]+).*\n" +
 				"  revision: unknown\n" +
 				"  status: unknown\n" +
 				"  tag: unknown\n" +
@@ -193,7 +217,7 @@ func TestVersion(t *testing.T) {
 				"  \"clientVersion\": {\n" +
 				"    \"version\": \"unknown\",\n" +
 				"    \"revision\": \"unknown\",\n" +
-				"    \"golang_version\": \"go1.([0-9+?(\\.)?]+)(rc[0-9]?)?(beta[0-9]?)?(.+boringcrypto)?\",\n" +
+				"    \"golang_version\": \"go1.([0-9+?(\\.)?]+).*\",\n" +
 				"    \"status\": \"unknown\",\n" +
 				"    \"tag\": \"unknown\"\n" +
 				"  }\n" +
@@ -204,7 +228,7 @@ func TestVersion(t *testing.T) {
 			args:       strings.Split("version --remote=true --short=false --output=", " "),
 			remoteMesh: &meshInfoMultiVersion,
 			expectedRegexp: regexp.MustCompile("client version: version.BuildInfo{Version:\"unknown\", GitRevision:\"unknown\", " +
-				"GolangVersion:\"go1.([0-9+?(\\.)?]+)(rc[0-9]?)?(beta[0-9]?)?(.+boringcrypto)?\", " +
+				"GolangVersion:\"go1.([0-9+?(\\.)?]+).*\", " +
 				"BuildStatus:\"unknown\", GitTag:\"unknown\"}\n" +
 				printMeshVersion(&meshInfoMultiVersion, rawOutputMock)),
 		},
@@ -217,7 +241,7 @@ func TestVersion(t *testing.T) {
 			args:       strings.Split("version --remote=true -o yaml", " "),
 			remoteMesh: &meshInfoMultiVersion,
 			expectedRegexp: regexp.MustCompile("clientVersion:\n" +
-				"  golang_version: go1.([0-9+?(\\.)?]+)(rc[0-9]?)?(beta[0-9]?)?(.+boringcrypto)?\n" +
+				"  golang_version: go1.([0-9+?(\\.)?]+).*\n" +
 				"  revision: unknown\n" +
 				"  status: unknown\n" +
 				"  tag: unknown\n" +
@@ -230,7 +254,7 @@ func TestVersion(t *testing.T) {
 				"  \"clientVersion\": {\n" +
 				"    \"version\": \"unknown\",\n" +
 				"    \"revision\": \"unknown\",\n" +
-				"    \"golang_version\": \"go1.([0-9+?(\\.)?]+)(rc[0-9]?)?(beta[0-9]?)?(.+boringcrypto)?\",\n" +
+				"    \"golang_version\": \"go1.([0-9+?(\\.)?]+).*\",\n" +
 				"    \"status\": \"unknown\",\n" +
 				"    \"tag\": \"unknown\"\n" +
 				"  },\n" +

@@ -102,7 +102,7 @@ func TestBuild(t *testing.T) {
 			t.Fatal(err)
 		}
 		if len(clusters) != len(tests) {
-			t.Errorf("expcted %d clusters but built %d", len(tests), len(clusters))
+			t.Errorf("expected %d clusters but built %d", len(tests), len(clusters))
 		}
 	})
 	for _, tc := range tests {

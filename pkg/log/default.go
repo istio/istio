@@ -23,13 +23,13 @@ func registerDefaultScope() *Scope {
 var defaultScope = registerDefaultScope()
 
 // Fatal outputs a message at fatal level.
-func Fatal(fields ...any) {
-	defaultScope.Fatal(fields...)
+func Fatal(fields any) {
+	defaultScope.Fatal(fields)
 }
 
 // Fatalf uses fmt.Sprintf to construct and log a message at fatal level.
-func Fatalf(args ...any) {
-	defaultScope.Fatalf(args...)
+func Fatalf(format string, args ...any) {
+	defaultScope.Fatalf(format, args...)
 }
 
 // FatalEnabled returns whether output of messages using this scope is currently enabled for fatal-level output.
@@ -43,8 +43,8 @@ func Error(fields any) {
 }
 
 // Errorf uses fmt.Sprintf to construct and log a message at error level.
-func Errorf(args ...any) {
-	defaultScope.Errorf(args...)
+func Errorf(format string, args ...any) {
+	defaultScope.Errorf(format, args...)
 }
 
 // ErrorEnabled returns whether output of messages using this scope is currently enabled for error-level output.
@@ -58,8 +58,8 @@ func Warn(fields any) {
 }
 
 // Warnf uses fmt.Sprintf to construct and log a message at warn level.
-func Warnf(args ...any) {
-	defaultScope.Warnf(args...)
+func Warnf(format string, args ...any) {
+	defaultScope.Warnf(format, args...)
 }
 
 // WarnEnabled returns whether output of messages using this scope is currently enabled for warn-level output.
@@ -73,8 +73,8 @@ func Info(fields any) {
 }
 
 // Infof uses fmt.Sprintf to construct and log a message at info level.
-func Infof(args ...any) {
-	defaultScope.Infof(args...)
+func Infof(format string, args ...any) {
+	defaultScope.Infof(format, args...)
 }
 
 // InfoEnabled returns whether output of messages using this scope is currently enabled for info-level output.
@@ -88,8 +88,8 @@ func Debug(fields any) {
 }
 
 // Debugf uses fmt.Sprintf to construct and log a message at debug level.
-func Debugf(args ...any) {
-	defaultScope.Debugf(args...)
+func Debugf(format string, args ...any) {
+	defaultScope.Debugf(format, args...)
 }
 
 // DebugEnabled returns whether output of messages using this scope is currently enabled for debug-level output.

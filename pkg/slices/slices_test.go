@@ -15,9 +15,33 @@
 package slices
 
 import (
+	"cmp"
+	"fmt"
+	"math/rand"
 	"reflect"
 	"testing"
+
+	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/tests/util/leak"
 )
+
+func TestDelete(t *testing.T) {
+	type s struct {
+		Junk string
+	}
+	var input []*s
+	var output []*s
+	t.Run("inner", func(t *testing.T) {
+		a := &s{"a"}
+		b := &s{"b"}
+		// Check that we can garbage collect elements when we delete them.
+		leak.MustGarbageCollect(t, b)
+		input = []*s{a, b}
+		output = Delete(input, 1)
+	})
+	assert.Equal(t, output, []*s{{"a"}})
+	assert.Equal(t, input, []*s{{"a"}, nil})
+}
 
 func TestFindFunc(t *testing.T) {
 	emptyElement := []string{}
@@ -286,4 +310,76 @@ func TestDereference(t *testing.T) {
 			}
 		})
 	}
+}
+
+// nolint: unused
+type myStruct struct {
+	a, b, c, d string
+	n          int
+}
+
+func makeRandomStructs(n int) []*myStruct {
+	rand.Seed(42) // nolint: staticcheck
+	structs := make([]*myStruct, n)
+	for i := 0; i < n; i++ {
+		structs[i] = &myStruct{n: rand.Intn(n)} // nolint: gosec
+	}
+	return structs
+}
+
+const N = 100_000
+
+func BenchmarkSort(b *testing.B) {
+	b.Run("bool", func(b *testing.B) {
+		cmpFunc := func(a, b *myStruct) int { return a.n - b.n }
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			ss := makeRandomStructs(N)
+			b.StartTimer()
+			SortFunc(ss, cmpFunc)
+		}
+	})
+	b.Run("by", func(b *testing.B) {
+		cmpFunc := func(a *myStruct) int { return a.n }
+		for i := 0; i < b.N; i++ {
+			b.StopTimer()
+			ss := makeRandomStructs(N)
+			b.StartTimer()
+			SortBy(ss, cmpFunc)
+		}
+	})
+}
+
+func ExampleSort() {
+	// ExampleSort shows the best practices in sorting by multiple keys.
+	// If you just have one key, use SortBy
+
+	// Test has 3 values; we will sort by them in Rank < First < Last order
+	type Test struct {
+		Rank  int
+		First string
+		Last  string
+	}
+	l := []Test{
+		{0, "b", "b"},
+		{0, "b", "a"},
+		{1, "a", "a"},
+		{0, "c", "a"},
+		{1, "c", "a"},
+		{0, "a", "a"},
+		{2, "z", "a"},
+	}
+	SortFunc(l, func(a, b Test) int {
+		if r := cmp.Compare(a.Rank, b.Rank); r != 0 {
+			return r
+		}
+		if r := cmp.Compare(a.First, b.First); r != 0 {
+			return r
+		}
+		return cmp.Compare(a.Last, b.Last)
+	})
+	fmt.Println(l)
+
+	// Output:
+	// [{0 a a} {0 b a} {0 b b} {0 c a} {1 a a} {1 c a} {2 z a}]
 }

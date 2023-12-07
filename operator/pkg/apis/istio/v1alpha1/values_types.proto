@@ -62,6 +62,8 @@ message CNIConfig {
 
   string cniConfFileName = 8;
 
+  string cniNetnsDir = 31;
+
   repeated string excludeNamespaces = 9;
 
   google.protobuf.Struct affinity = 20;
@@ -133,8 +135,8 @@ message ResourceQuotas {
   int64 pods = 2;
 }
 
-// Configuration for CPU target utilization for HorizontalPodAutoscaler target.
-message CPUTargetUtilizationConfig {
+// Configuration for CPU or memory target utilization for HorizontalPodAutoscaler target.
+message TargetUtilizationConfig {
   // K8s utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
@@ -179,10 +181,15 @@ message EgressGatewayConfig {
   // minReplicas setting for HorizontalPodAutoscaler.
   uint32 autoscaleMin = 3;
 
+  // K8s memory utilization setting for HorizontalPodAutoscaler target.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  TargetUtilizationConfig memory = 4 [deprecated=true];
+
   // K8s utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 5 [deprecated=true];
+  TargetUtilizationConfig cpu = 5 [deprecated=true];
 
   google.protobuf.BoolValue customService = 6;
 
@@ -274,7 +281,10 @@ message EgressGatewayConfig {
 
   ServiceAccount serviceAccount = 28;
 
-  // Next available 29.
+  repeated string ipFamilies = 29;
+ 
+  string ipFamilyPolicy = 30;
+  // Next available 31.
 }
 
 // Configuration for gateways.
@@ -465,7 +475,11 @@ message GlobalConfig {
   // An empty value means it is a vanilla Kubernetes distribution, therefore no special
   // treatment will be considered.
   string platform = 69;
-  // The next available key is 70
+
+  repeated string ipFamilies = 70;
+ 
+  string ipFamilyPolicy = 71;
+  // The next available key is 72
 }
 
 // Configuration for Security Token Service (STS) server.
@@ -499,10 +513,15 @@ message IngressGatewayConfig {
   // minReplicas setting for HorizontalPodAutoscaler.
   uint32 autoscaleMin = 3;
 
-  // K8s utilization setting for HorizontalPodAutoscaler target.
+  // K8s memory utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 5 [deprecated=true];
+  TargetUtilizationConfig memory = 4 [deprecated=true];
+
+  // K8s cpu utilization setting for HorizontalPodAutoscaler target.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  TargetUtilizationConfig cpu = 5 [deprecated=true];
 
   google.protobuf.BoolValue customService = 6;
 
@@ -584,7 +603,10 @@ message IngressGatewayConfig {
 
   ServiceAccount serviceAccount = 47;
 
-  // Next available 48.
+  repeated string ipFamilies = 48;
+ 
+  string ipFamilyPolicy = 49;
+  // Next available 50.
 }
 
 // IngressGatewayZvpnConfig enables cross-cluster access using SNI matching.
@@ -663,7 +685,7 @@ message PilotConfig {
   // Target CPU utilization used in HorizontalPodAutoscaler.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 11 [deprecated=true];
+  TargetUtilizationConfig cpu = 11 [deprecated=true];
 
   // K8s node selector.
   //
@@ -703,6 +725,8 @@ message PilotConfig {
   //   ENV_VAR_2: value2
   google.protobuf.Struct env = 21;
 
+  google.protobuf.Struct affinity = 22;
+
   // K8s rolling update strategy
   IntOrString rollingMaxSurge  = 24 [deprecated=true];
 
@@ -713,9 +737,9 @@ message PilotConfig {
   repeated google.protobuf.Struct tolerations = 26 [deprecated=true];
 
   // if protocol sniffing is enabled for outbound
-  google.protobuf.BoolValue enableProtocolSniffingForOutbound = 28;
+  google.protobuf.BoolValue enableProtocolSniffingForOutbound = 28 [deprecated=true];
   // if protocol sniffing is enabled for inbound
-  google.protobuf.BoolValue enableProtocolSniffingForInbound = 29;
+  google.protobuf.BoolValue enableProtocolSniffingForInbound = 29 [deprecated=true];
 
   // K8s annotations for pods.
   //
@@ -745,6 +769,21 @@ message PilotConfig {
   google.protobuf.Struct seccompProfile = 38;
 
   repeated google.protobuf.Struct topologySpreadConstraints = 41;
+
+  repeated google.protobuf.Struct extraContainerArgs = 42;
+
+  repeated google.protobuf.Struct volumeMounts = 49;
+
+  repeated google.protobuf.Struct volumes = 51;
+
+  repeated string ipFamilies = 52;
+ 
+  string ipFamilyPolicy = 53;
+
+  // Target memory utilization used in HorizontalPodAutoscaler.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  TargetUtilizationConfig memory = 54 [deprecated=true];
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.
@@ -949,6 +988,8 @@ message ProxyConfig {
   // Sets the number of successive failed probes before indicating readiness failure.
   uint32 readinessFailureThreshold = 22;
 
+  StartupProbe startupProbe = 41;
+
   // Default port used for the Pilot agent's health checks.
   uint32 statusPort = 23;
 
@@ -971,6 +1012,11 @@ message ProxyConfig {
   string includeInboundPorts = 38;
 
   string includeOutboundPorts = 39;
+}
+
+message StartupProbe {
+  google.protobuf.BoolValue enabled = 1;
+  uint32 failureThreshold = 2;
 }
 
 // Specifies which tracer to use.
@@ -1016,21 +1062,13 @@ message SecretVolume {
   string secretName = 3;
 }
 
-// ServiceConfig is described in istio.io documentation.
-message ServiceConfig {
-  google.protobuf.Struct annotations = 1;
-
-  uint32 externalPort = 2;
-
-  string name = 3;
-
-  string type = 18;
-}
-
 // SidecarInjectorConfig is described in istio.io documentation.
 message SidecarInjectorConfig {
   // Enables sidecar auto-injection in namespaces by default.
   google.protobuf.BoolValue enableNamespacesByDefault = 2;
+
+  // Setting this to `IfNeeded` will result in the sidecar injector being run again if additional mutations occur. Default: Never
+  string reinvocationPolicy = 3;
 
   // Instructs Istio to not inject the sidecar on those pods, based on labels that are present in those pods.
   //

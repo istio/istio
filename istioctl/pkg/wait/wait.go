@@ -29,12 +29,12 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/describe"
 	"istio.io/istio/istioctl/pkg/util/handlers"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
+	"istio.io/istio/pkg/slices"
 )
 
 var (
@@ -217,7 +217,7 @@ func poll(ctx cli.Context,
 	}
 
 	for version, count := range versionCount {
-		if describe.Contains(acceptedVersions, version) {
+		if slices.Contains(acceptedVersions, version) {
 			present += count
 		} else {
 			notpresent += count

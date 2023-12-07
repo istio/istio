@@ -35,6 +35,8 @@ metadata:
 spec:
   hosts:
   - random-{{$i}}.host.example
+  addresses:
+    - 127.0.0.{{$i}}
   ports:
   - number: 80
     name: http

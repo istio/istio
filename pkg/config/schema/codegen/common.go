@@ -24,6 +24,7 @@ import (
 	"strings"
 	"text/template"
 
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/schema/ast"
 	"istio.io/istio/pkg/test/env"
 )
@@ -46,13 +47,20 @@ func Run() error {
 			agentEntries = append(agentEntries, e)
 		}
 	}
+
+	// add MCS types
+	gvrEntries := append([]colEntry{
+		{Resource: &ast.Resource{Identifier: "ServiceExport", Plural: "serviceexports", Version: features.MCSAPIVersion, Group: features.MCSAPIGroup}},
+		{Resource: &ast.Resource{Identifier: "ServiceImport", Plural: "serviceimports", Version: features.MCSAPIVersion, Group: features.MCSAPIGroup}},
+	}, inp.Entries...)
+
 	return errors.Join(
 		writeTemplate("pkg/config/schema/gvk/resources.gen.go", gvkTemplate, map[string]any{
 			"Entries":     inp.Entries,
 			"PackageName": "gvk",
 		}),
 		writeTemplate("pkg/config/schema/gvr/resources.gen.go", gvrTemplate, map[string]any{
-			"Entries":     inp.Entries,
+			"Entries":     gvrEntries,
 			"PackageName": "gvr",
 		}),
 		writeTemplate("pilot/pkg/config/kube/crdclient/types.gen.go", crdclientTemplate, map[string]any{

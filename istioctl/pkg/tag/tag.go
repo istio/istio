@@ -15,6 +15,7 @@
 package tag
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -35,6 +36,8 @@ import (
 	"istio.io/istio/pkg/config/analysis/local"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/maps"
+	"istio.io/istio/pkg/slices"
 )
 
 const (
@@ -111,21 +114,21 @@ func tagSetCommand(ctx cli.Context) *cobra.Command {
 		Short: "Create or modify revision tags",
 		Long: `Create or modify revision tags. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
-		Example: ` # Create a revision tag from the "1-8-0" revision
- istioctl tag set prod --revision 1-8-0
+		Example: `  # Create a revision tag from the "1-8-0" revision
+  istioctl tag set prod --revision 1-8-0
 
- # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
- kubectl label ns test-ns istio.io/rev=prod
+  # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
+  kubectl label ns test-ns istio.io/rev=prod
 
- # Change the revision tag to reference the "1-8-1" revision
- istioctl tag set prod --revision 1-8-1 --overwrite
+  # Change the revision tag to reference the "1-8-1" revision
+  istioctl tag set prod --revision 1-8-1 --overwrite
 
- # Make revision "1-8-1" the default revision, both resulting in that revision handling injection for "istio-injection=enabled"
- # and validating resources cluster-wide
- istioctl tag set default --revision 1-8-1
+  # Make revision "1-8-1" the default revision, both resulting in that revision handling injection for "istio-injection=enabled"
+  # and validating resources cluster-wide
+  istioctl tag set default --revision 1-8-1
 
- # Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
- kubectl rollout restart deployments -n test-ns
+  # Rollout namespace "test-ns" to update workloads to the "1-8-1" revision
+  kubectl rollout restart deployments -n test-ns
 `,
 		SuggestFor: []string{"create"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -164,17 +167,17 @@ func tagGenerateCommand(ctx cli.Context) *cobra.Command {
 		Short: "Generate configuration for a revision tag to stdout",
 		Long: `Create a revision tag and output to the command's stdout. Tag an Istio control plane revision for use with namespace istio.io/rev
 injection labels.`,
-		Example: ` # Create a revision tag from the "1-8-0" revision
- istioctl tag generate prod --revision 1-8-0 > tag.yaml
+		Example: `  # Create a revision tag from the "1-8-0" revision
+  istioctl tag generate prod --revision 1-8-0 > tag.yaml
 
- # Apply the tag to cluster
- kubectl apply -f tag.yaml
+  # Apply the tag to cluster
+  kubectl apply -f tag.yaml
 
- # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
- kubectl label ns test-ns istio.io/rev=prod
+  # Point namespace "test-ns" at the revision pointed to by the "prod" revision tag
+  kubectl label ns test-ns istio.io/rev=prod
 
- # Rollout namespace "test-ns" to update workloads to the "1-8-0" revision
- kubectl rollout restart deployments -n test-ns
+  # Rollout namespace "test-ns" to update workloads to the "1-8-0" revision
+  kubectl rollout restart deployments -n test-ns
 `,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) == 0 {
@@ -227,6 +230,8 @@ func tagListCommand(ctx cli.Context) *cobra.Command {
 		},
 	}
 
+	cmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", util.TableFormat, "Output format for tag description "+
+		"(available formats: table,json)")
 	return cmd
 }
 
@@ -277,6 +282,7 @@ func setTag(ctx context.Context, kubeClient kube.CLIClient, tagName, revision, i
 		Generate:             generate,
 		Overwrite:            overwrite,
 		AutoInjectNamespaces: autoInjectNamespaces,
+		UserManaged:          true,
 	}
 	tagWhYAML, err := Generate(ctx, kubeClient, opts, istioNS)
 	if err != nil {
@@ -379,9 +385,13 @@ func removeTag(ctx context.Context, kubeClient kubernetes.Interface, tagName str
 	return nil
 }
 
+type uniqTag struct {
+	revision, tag string
+}
+
 // listTags lists existing revision.
 func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Writer) error {
-	tagWebhooks, err := GetTagWebhooks(ctx, kubeClient)
+	tagWebhooks, err := GetRevisionWebhooks(ctx, kubeClient)
 	if err != nil {
 		return fmt.Errorf("failed to retrieve revision tags: %v", err)
 	}
@@ -389,12 +399,9 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 		fmt.Fprintf(writer, "No Istio revision tag MutatingWebhookConfigurations to list\n")
 		return nil
 	}
-	tags := make([]tagDescription, 0)
+	rawTags := map[uniqTag]tagDescription{}
 	for _, wh := range tagWebhooks {
-		tagName, err := GetWebhookTagName(wh)
-		if err != nil {
-			return fmt.Errorf("error parsing tag name from webhook %q: %v", wh.Name, err)
-		}
+		tagName := GetWebhookTagName(wh)
 		tagRevision, err := GetWebhookRevision(wh)
 		if err != nil {
 			return fmt.Errorf("error parsing revision from webhook %q: %v", wh.Name, err)
@@ -408,8 +415,23 @@ func listTags(ctx context.Context, kubeClient kubernetes.Interface, writer io.Wr
 			Revision:   tagRevision,
 			Namespaces: tagNamespaces,
 		}
-		tags = append(tags, tagDesc)
+		key := uniqTag{
+			revision: tagRevision,
+			tag:      tagName,
+		}
+		rawTags[key] = tagDesc
 	}
+	for k := range rawTags {
+		if k.tag != "" {
+			delete(rawTags, uniqTag{revision: k.revision})
+		}
+	}
+	tags := slices.SortFunc(maps.Values(rawTags), func(a, b tagDescription) int {
+		if r := cmp.Compare(a.Revision, b.Revision); r != 0 {
+			return r
+		}
+		return cmp.Compare(a.Tag, b.Tag)
+	})
 
 	switch outputFormat {
 	case util.JSONFormat:

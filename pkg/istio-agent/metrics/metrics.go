@@ -24,7 +24,7 @@ const (
 )
 
 var (
-	disconnectionTypeTag = monitoring.MustCreateLabel("type")
+	disconnectionTypeTag = monitoring.CreateLabel("type")
 
 	// IstiodConnectionFailures records total number of connection failures to Istiod.
 	IstiodConnectionFailures = monitoring.NewSum(
@@ -36,14 +36,12 @@ var (
 	istiodDisconnections = monitoring.NewSum(
 		"istiod_connection_terminations",
 		"The total number of connection errors to Istiod",
-		monitoring.WithLabels(disconnectionTypeTag),
 	)
 
 	// envoyDisconnections records total number of unexpected disconnections by Envoy.
 	envoyDisconnections = monitoring.NewSum(
 		"envoy_connection_terminations",
 		"The total number of connection errors from envoy",
-		monitoring.WithLabels(disconnectionTypeTag),
 	)
 
 	// TODO: Add type url as type for requeasts and responses if needed.
@@ -65,14 +63,3 @@ var (
 	EnvoyConnectionCancellations  = envoyDisconnections.With(disconnectionTypeTag.Value(Cancel))
 	EnvoyConnectionErrors         = envoyDisconnections.With(disconnectionTypeTag.Value(Error))
 )
-
-func init() {
-	monitoring.MustRegister(
-		IstiodConnectionFailures,
-		IstiodConnectionErrors,
-		istiodDisconnections,
-		envoyDisconnections,
-		XdsProxyRequests,
-		XdsProxyResponses,
-	)
-}

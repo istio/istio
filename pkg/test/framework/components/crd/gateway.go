@@ -34,7 +34,7 @@ import (
 // SupportsGatewayAPI checks if the gateway API is supported.
 func SupportsGatewayAPI(t resource.Context) bool {
 	for _, cluster := range t.Clusters() {
-		if !cluster.MinKubeVersion(19) {
+		if !cluster.MinKubeVersion(23) { // API uses CEL which requires 1.23
 			return false
 		}
 	}

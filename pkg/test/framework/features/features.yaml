@@ -88,6 +88,7 @@ features:
       file-mounted-certs:
       ecc-signature-algorithm:
       multiple-root:
+      cacert-rotation:
     user:
     ingress:
       mtls:
@@ -101,6 +102,7 @@ features:
           invalid-secret:
           K8sca:
           valid-secret:
+          optional-mtls:
       quic:
         sds:
           tls:
@@ -118,6 +120,7 @@ features:
       mtls-local:
       jwt-token:
       workload-selector:
+      policy-attachment:
       deny-action:
       negative-match:
       ingress-gateway:
@@ -149,7 +152,7 @@ features:
     wasm:
       remote-load:
       image-pull-policy:
-  # features releated to the lifecycle of istio installations
+  # features related to the lifecycle of istio installations
   installation:
     operator:
       uninstall_revision:
@@ -175,7 +178,7 @@ features:
       firstpartyjwt:
         install:
     upgrade:
-  # describes internal build and testing infrastrcuture
+  # describes internal build and testing infrastructure
   infrastructure:
     # the testing framework
     framework:

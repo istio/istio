@@ -31,6 +31,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/deprecation"
 	"istio.io/istio/pkg/config/analysis/analyzers/destinationrule"
 	"istio.io/istio/pkg/config/analysis/analyzers/envoyfilter"
+	"istio.io/istio/pkg/config/analysis/analyzers/externalcontrolplane"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
@@ -113,6 +114,31 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "externalControlPlaneMissingWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-missing-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.InvalidExternalControlPlaneConfig, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
+			{msg.InvalidExternalControlPlaneConfig, "ValidatingWebhookConfiguration istio-validator-external-istiod"},
+		},
+	},
+	{
+		name:       "externalControlPlaneUsingIpAddresses",
+		inputFiles: []string{"testdata/externalcontrolplane-using-ip-addr.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.ExternalControlPlaneAddressIsNotAHostname, "MutatingWebhookConfiguration istio-sidecar-injector-external-istiod"},
+		},
+	},
+	{
+		name:       "externalControlPlaneValidWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-valid-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
 		name:       "gatewayNoWorkload",
 		inputFiles: []string{"testdata/gateway-no-workload.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
@@ -125,7 +151,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-no-port.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway httpbin-gateway"},
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
 		},
 	},
 	{
@@ -149,7 +175,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-badport.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway httpbin-gateway"},
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin-gateway"},
 		},
 	},
 	{
@@ -157,7 +183,7 @@ var testGrid = []testCase{
 		inputFiles: []string{"testdata/gateway-custom-ingressgateway-svcselector.yaml"},
 		analyzer:   &gateway.IngressGatewayPortAnalyzer{},
 		expected: []message{
-			{msg.GatewayPortNotOnWorkload, "Gateway httpbin8002-gateway"},
+			{msg.GatewayPortNotDefinedOnService, "Gateway httpbin8002-gateway"},
 		},
 	},
 	{
@@ -204,6 +230,9 @@ var testGrid = []testCase{
 			{msg.NamespaceNotInjected, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod default/noninjectedpod"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-1"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-2"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-3"},
 		},
 	},
 	{
@@ -217,6 +246,9 @@ var testGrid = []testCase{
 			{msg.NamespaceInjectionEnabledByDefault, "Namespace bar"},
 			{msg.PodMissingProxy, "Pod default/noninjectedpod"},
 			{msg.NamespaceMultipleInjectionLabels, "Namespace busted"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-1"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-2"},
+			{msg.NamespaceMultipleInjectionLabels, "Namespace multi-ns-3"},
 		},
 	},
 	{
@@ -226,6 +258,19 @@ var testGrid = []testCase{
 			"testdata/common/sidecar-injector-configmap.yaml",
 		},
 		analyzer: &injection.ImageAnalyzer{},
+		expected: []message{
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace-native"},
+		},
+	},
+	{
+		name: "injectionImageDistroless",
+		inputFiles: []string{
+			"testdata/injection-image-distroless.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		meshConfigFile: "testdata/common/meshconfig.yaml",
+		analyzer:       &injection.ImageAnalyzer{},
 		expected: []message{
 			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
 		},
@@ -239,6 +284,7 @@ var testGrid = []testCase{
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
 			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace-native"},
 		},
 	},
 	{
@@ -251,6 +297,7 @@ var testGrid = []testCase{
 		analyzer: &injection.ImageAnalyzer{},
 		expected: []message{
 			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace-native"},
 			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace revision-namespace"},
 		},
 	},
@@ -369,14 +416,20 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "virtualServiceInternalGatewayRef",
+		inputFiles: []string{"testdata/virtualservice_internal_gateway_ref.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.ReferencedInternalGateway, "VirtualService httpbin"},
+		},
+	},
+	{
 		name:       "serviceMultipleDeployments",
 		inputFiles: []string{"testdata/deployment-multi-service.yaml"},
 		analyzer:   &deployment.ServiceAssociationAnalyzer{},
 		expected: []message{
 			{msg.DeploymentAssociatedToMultipleServices, "Deployment bookinfo/multiple-svc-multiple-prot"},
 			{msg.DeploymentAssociatedToMultipleServices, "Deployment bookinfo/multiple-without-port"},
-			{msg.DeploymentRequiresServiceAssociated, "Deployment bookinfo/no-services"},
-			{msg.DeploymentRequiresServiceAssociated, "Deployment injection-disabled-ns/ann-enabled-ns-disabled"},
 			{msg.DeploymentConflictingPorts, "Deployment bookinfo/conflicting-ports"},
 		},
 	},
@@ -390,9 +443,7 @@ var testGrid = []testCase{
 		name:       "serviceWithNoSelector",
 		inputFiles: []string{"testdata/deployment-service-no-selector.yaml"},
 		analyzer:   &deployment.ServiceAssociationAnalyzer{},
-		expected: []message{
-			{msg.DeploymentRequiresServiceAssociated, "Deployment default/helloworld-v2"},
-		},
+		expected:   []message{},
 	},
 	{
 		name: "regexes",
@@ -781,6 +832,12 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.InvalidTelemetryProvider, "Telemetry istio-system/mesh-default"},
 		},
+	},
+	{
+		name:       "Analyze invalid telemetry",
+		inputFiles: []string{"testdata/telemetry-disable-provider.yaml"},
+		analyzer:   &telemetry.ProdiverAnalyzer{},
+		expected:   []message{},
 	},
 	{
 		name:       "telemetrySelector",

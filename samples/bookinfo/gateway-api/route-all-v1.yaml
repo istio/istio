@@ -4,7 +4,8 @@ metadata:
   name: reviews
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: reviews
     port: 9080
   rules:
@@ -18,7 +19,8 @@ metadata:
   name: productpage
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: productpage
     port: 9080
   rules:
@@ -32,7 +34,8 @@ metadata:
   name: ratings
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: ratings
     port: 9080
   rules:
@@ -46,7 +49,8 @@ metadata:
   name: details
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: details
     port: 9080
   rules:

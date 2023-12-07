@@ -22,6 +22,7 @@ import (
 
 	"istio.io/api/annotation"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestFindSidecar(t *testing.T) {
@@ -29,23 +30,33 @@ func TestFindSidecar(t *testing.T) {
 	app := corev1.Container{Name: "app"}
 	for _, tc := range []struct {
 		name       string
-		containers []corev1.Container
-		index      int
+		containers *corev1.Pod
+		want       *corev1.Container
 	}{
-		{"only-sidecar", []corev1.Container{proxy}, 0},
-		{"app-and-sidecar", []corev1.Container{app, proxy}, 1},
-		{"no-sidecar", []corev1.Container{app}, -1},
+		{
+			name:       "only-sidecar",
+			containers: &corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{proxy}}},
+			want:       &proxy,
+		},
+		{
+			name:       "app-and-sidecar",
+			containers: &corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{app, proxy}}},
+			want:       &proxy,
+		},
+		{
+			name:       "no-sidecar",
+			containers: &corev1.Pod{Spec: corev1.PodSpec{Containers: []corev1.Container{app}}},
+			want:       nil,
+		},
+		{
+			name:       "init-sidecar",
+			containers: &corev1.Pod{Spec: corev1.PodSpec{InitContainers: []corev1.Container{proxy}, Containers: []corev1.Container{app}}},
+			want:       &proxy,
+		},
 	} {
-		got := FindSidecar(tc.containers)
-		var want *corev1.Container
-		if tc.index == -1 {
-			want = nil
-		} else {
-			want = &tc.containers[tc.index]
-		}
-		if got != want {
-			t.Errorf("[%v] failed, want %v, got %v", tc.name, want, got)
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			assert.Equal(t, FindSidecar(tc.containers), tc.want)
+		})
 	}
 }
 
@@ -117,12 +128,12 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 	svc := "foo"
 	for _, tc := range []struct {
 		name     string
-		podSpec  *corev1.PodSpec
+		pod      *corev1.Pod
 		expected string
 	}{
 		{
 			name: "simple gRPC liveness probe",
-			podSpec: &corev1.PodSpec{
+			pod: &corev1.Pod{Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
 						Name: "foo",
@@ -135,7 +146,7 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 						},
 					},
 				},
-			},
+			}},
 			expected: `
 {
     "/app-health/foo/livez": {
@@ -148,7 +159,7 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 		},
 		{
 			name: "gRPC readiness probe with service",
-			podSpec: &corev1.PodSpec{
+			pod: &corev1.Pod{Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
 						Name: "bar",
@@ -162,7 +173,7 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 						},
 					},
 				},
-			},
+			}},
 			expected: `
 {
     "/app-health/bar/readyz": {
@@ -175,7 +186,7 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 		},
 		{
 			name: "gRPC startup probe with service and timeout",
-			podSpec: &corev1.PodSpec{
+			pod: &corev1.Pod{Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
 						Name: "foo",
@@ -190,7 +201,7 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 						},
 					},
 				},
-			},
+			}},
 			expected: `
 {
     "/app-health/foo/startupz": {
@@ -203,7 +214,7 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 }`,
 		},
 	} {
-		got := DumpAppProbers(tc.podSpec, 15020)
+		got := DumpAppProbers(tc.pod, 15020)
 		test.JSONEquals(t, got, tc.expected)
 	}
 }
@@ -211,7 +222,7 @@ func TestDumpAppGRPCProbers(t *testing.T) {
 func TestPatchRewriteProbe(t *testing.T) {
 	svc := "foo"
 	annotations := map[string]string{}
-	statusPort := intstr.FromInt(15020)
+	statusPort := intstr.FromInt32(15020)
 	for _, tc := range []struct {
 		name        string
 		pod         *corev1.Pod

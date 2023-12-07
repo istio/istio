@@ -75,7 +75,7 @@
       }
     },
     "replicaCount": {
-      "type": "integer"
+      "type": [ "integer", "null" ]
     },
     "resources": {
       "type": "object",
@@ -128,6 +128,16 @@
         },
         "loadBalancerSourceRanges": {
           "type": "array"
+        },
+        "ipFamilies" : {
+          "items": {
+            "type": "string",
+            "enum": ["IPv4", "IPv6"]
+        }
+        },
+        "ipFamilyPolicy" : {
+          "type": "string",
+          "enum": ["", "SingleStack", "PreferDualStack", "RequireDualStack"]
         },
         "ports": {
           "type": "array",
@@ -214,6 +224,24 @@
           "enum": ["", "IfHealthyBudget", "AlwaysAllow"]
         }
       }
+    },
+    "terminationGracePeriodSeconds": {
+      "type": "number"
+    },
+    "volumes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "volumeMounts": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "priorityClassName": {
+      "type": "string"
     }
   }
 }

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+  - 46035
+releaseNotes:
+  - |
+    **Fixed** an issue where Istiod can't auto-detect the service port change in the case of that this service is referred by ingress using service port name.

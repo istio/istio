@@ -52,7 +52,7 @@ func rdsNeedsPush(req *model.PushRequest) bool {
 		return true
 	}
 	for config := range req.ConfigsUpdated {
-		if _, f := skippedRdsConfigs[config.Kind]; !f {
+		if !skippedRdsConfigs.Contains(config.Kind) {
 			return true
 		}
 	}

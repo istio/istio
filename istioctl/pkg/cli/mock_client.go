@@ -34,6 +34,10 @@ func (m MockPortForwarder) Address() string {
 func (m MockPortForwarder) Close() {
 }
 
+func (m MockPortForwarder) ErrChan() <-chan error {
+	return make(chan error)
+}
+
 func (m MockPortForwarder) WaitForStop() {
 }
 

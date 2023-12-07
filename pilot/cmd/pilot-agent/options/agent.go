@@ -20,6 +20,7 @@ import (
 	"strings"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/bootstrap/platform"
 	istioagent "istio.io/istio/pkg/istio-agent"
@@ -31,6 +32,10 @@ import (
 const xdsHeaderPrefix = "XDS_HEADER_"
 
 func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagent.AgentOptions {
+	var insecureRegistries []string
+	if wasmInsecureRegistries != "" {
+		insecureRegistries = strings.Split(wasmInsecureRegistries, ",")
+	}
 	o := &istioagent.AgentOptions{
 		XDSRootCerts:             xdsRootCA,
 		CARootCerts:              caRootCA,
@@ -41,7 +46,7 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
 		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
 		WASMOptions: wasm.Options{
-			InsecureRegistries:    sets.New(strings.Split(wasmInsecureRegistries, ",")...),
+			InsecureRegistries:    sets.New(insecureRegistries...),
 			ModuleExpiry:          wasmModuleExpiry,
 			PurgeInterval:         wasmPurgeInterval,
 			HTTPRequestTimeout:    wasmHTTPRequestTimeout,
@@ -64,6 +69,9 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		ProxyNamespace:              PodNamespaceVar.Get(),
 		ProxyDomain:                 proxy.DNSDomain,
 		IstiodSAN:                   istiodSAN.Get(),
+		DualStack:                   features.EnableDualStack,
+		UseExternalWorkloadSDS:      useExternalWorkloadSDSEnv,
+		MetadataDiscovery:           enableWDSEnv,
 	}
 	extractXDSHeadersFromEnv(o)
 	return o

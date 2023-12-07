@@ -995,7 +995,7 @@ func TestRunAndServe(t *testing.T) {
 			wantStatusCode: http.StatusBadRequest,
 		},
 	}
-
+	mt := monitortest.New(t)
 	for i, c := range cases {
 		t.Run(fmt.Sprintf("[%d] %s", i, c.name), func(t *testing.T) {
 			req := httptest.NewRequest("POST", "http://sidecar-injector/inject", bytes.NewReader(c.body))
@@ -1035,11 +1035,10 @@ func TestRunAndServe(t *testing.T) {
 		})
 	}
 	// Now Validate that metrics are created.
-	testSideCarInjectorMetrics(t)
+	testSideCarInjectorMetrics(mt)
 }
 
-func testSideCarInjectorMetrics(t *testing.T) {
-	mt := monitortest.New(t)
+func testSideCarInjectorMetrics(mt *monitortest.MetricsTest) {
 	expected := []string{
 		"sidecar_injection_requests_total",
 		"sidecar_injection_success_total",

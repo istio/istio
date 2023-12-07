@@ -35,6 +35,14 @@ To view support configuration options and documentation, run:
 helm show values istio/gateway
 ```
 
+### OpenShift
+
+When deploying the gateway in an OpenShift cluster, use the `openshift-values.yaml` file to override the default values, for example:
+
+```console
+helm install istio-ingressgateway istio/gateway -f openshift-values.yaml
+```
+
 ### `image: auto` Information
 
 The image used by the chart, `auto`, may be unintuitive.

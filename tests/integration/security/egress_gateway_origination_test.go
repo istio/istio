@@ -102,7 +102,9 @@ func TestSimpleTlsOrigination(t *testing.T) {
 				},
 			}
 
-			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All)
+			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All, i.Settings().EgressGatewayServiceNamespace,
+				i.Settings().EgressGatewayServiceName, i.Settings().EgressGatewayIstioLabel)
+
 			for _, tc := range testCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					newTLSGatewayDestinationRule(t, apps.External.All, "SIMPLE", tc.credentialToUse)
@@ -244,7 +246,8 @@ func TestMutualTlsOrigination(t *testing.T) {
 				},
 			}
 
-			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All)
+			newTLSGateway(t, t, apps.Ns1.Namespace, apps.External.All, i.Settings().EgressGatewayServiceNamespace,
+				i.Settings().EgressGatewayServiceName, i.Settings().EgressGatewayIstioLabel)
 			for _, tc := range testCases {
 				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
 					newTLSGatewayDestinationRule(t, apps.External.All, "MUTUAL", tc.credentialToUse)
@@ -261,8 +264,10 @@ func TestMutualTlsOrigination(t *testing.T) {
 // We want to test out TLS origination at Gateway, to do so traffic from client in client namespace is first
 // routed to egress-gateway service in istio-system namespace and then from egress-gateway to server in server namespace.
 // TLS origination at Gateway happens using DestinationRule with CredentialName reading k8s secret at the gateway proxy.
-func newTLSGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance, to echo.Instances) {
-	args := map[string]any{"to": to}
+func newTLSGateway(t test.Failer, ctx resource.Context, clientNamespace namespace.Instance,
+	to echo.Instances, egressNs string, egressSvc string, egressLabel string,
+) {
+	args := map[string]any{"to": to, "EgressNamespace": egressNs, "EgressService": egressSvc, "EgressLabel": egressLabel}
 
 	gateway := `
 apiVersion: networking.istio.io/v1beta1
@@ -271,7 +276,7 @@ metadata:
   name: istio-egressgateway-sds
 spec:
   selector:
-    istio: egressgateway
+    istio: {{.EgressLabel}}
   servers:
     - port:
         number: 443
@@ -287,7 +292,7 @@ kind: DestinationRule
 metadata:
   name: egressgateway-for-server-sds
 spec:
-  host: istio-egressgateway.istio-system.svc.cluster.local
+  host: {{.EgressService}}.{{.EgressNamespace}}.svc.cluster.local
   subsets:
   - name: server
     trafficPolicy:
@@ -316,7 +321,7 @@ spec:
           port: 80
       route:
         - destination:
-            host: istio-egressgateway.istio-system.svc.cluster.local
+            host: {{.EgressService}}.{{.EgressNamespace}}.svc.cluster.local
             subset: server
             port:
               number: 443

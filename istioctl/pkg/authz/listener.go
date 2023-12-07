@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strings"
 	"text/tabwriter"
 
@@ -26,10 +27,10 @@ import (
 	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	rbactcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -176,7 +177,12 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 	buf.WriteString("ACTION\tAuthorizationPolicy\tRULES\n")
 	for _, action := range []rbacpb.RBAC_Action{rbacpb.RBAC_DENY, rbacpb.RBAC_ALLOW, rbacpb.RBAC_LOG} {
 		if names, ok := actionToPolicy[action]; ok {
+			sortedNames := make([]string, 0, len(names))
 			for name := range names {
+				sortedNames = append(sortedNames, name)
+			}
+			sort.Strings(sortedNames)
+			for _, name := range sortedNames {
 				buf.WriteString(fmt.Sprintf("%s\t%s\t%d\n", action, name, len(policyToRule[name])))
 			}
 		}

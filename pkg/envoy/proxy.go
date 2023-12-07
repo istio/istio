@@ -53,6 +53,9 @@ type ProxyConfig struct {
 	// For unit testing, in combination with NoEnvoy prevents agent.Run from blocking
 	TestOnly    bool
 	AgentIsRoot bool
+
+	// Is the proxy in Dual Stack environment
+	DualStack bool
 }
 
 // NewProxy creates an instance of the proxy control commands
@@ -70,6 +73,10 @@ func NewProxy(cfg ProxyConfig) Proxy {
 		args = append(args, "--component-log-level", cfg.ComponentLogLevel)
 	}
 
+	// Explicitly enable core dumps. This may be desirable more often (by default), but for now we only set it in VM tests.
+	if enableEnvoyCoreDump {
+		args = append(args, "--enable-core-dump")
+	}
 	return &envoy{
 		ProxyConfig: cfg,
 		extraArgs:   args,
@@ -96,10 +103,10 @@ func splitComponentLog(level string) (string, []string) {
 	return logLevel, componentLogs
 }
 
-func (e *envoy) Drain() error {
+func (e *envoy) Drain(skipExit bool) error {
 	adminPort := uint32(e.AdminPort)
 
-	err := DrainListeners(adminPort, e.Sidecar)
+	err := DrainListeners(adminPort, e.Sidecar, skipExit)
 	if err != nil {
 		log.Infof("failed draining listeners for Envoy on port %d: %v", adminPort, err)
 	}
@@ -159,7 +166,10 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 	return startupArgs
 }
 
-var istioBootstrapOverrideVar = env.Register("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
+var (
+	istioBootstrapOverrideVar = env.Register("ISTIO_BOOTSTRAP_OVERRIDE", "", "")
+	enableEnvoyCoreDump       = env.Register("ISTIO_ENVOY_ENABLE_CORE_DUMP", false, "").Get()
+)
 
 func (e *envoy) Run(abort <-chan error) error {
 	// spin up a new Envoy process

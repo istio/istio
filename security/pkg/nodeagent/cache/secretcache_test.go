@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/file"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/testcerts"
 	"istio.io/istio/security/pkg/nodeagent/caclient/providers/mock"
@@ -240,7 +241,7 @@ func TestRotateTime(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			sc := &SecretManagerClient{configOptions: &security.Options{SecretRotationGracePeriodRatio: tt.gracePeriod}}
-			got := sc.rotateTime(security.SecretItem{CreatedTime: tt.created, ExpireTime: tt.expire})
+			got := rotateTime(security.SecretItem{CreatedTime: tt.created, ExpireTime: tt.expire}, sc.configOptions.SecretRotationGracePeriodRatio)
 			if !almostEqual(got, tt.expected) {
 				t.Fatalf("expected %v got %v", tt.expected, got)
 			}
@@ -588,7 +589,7 @@ func TestProxyConfigAnchors(t *testing.T) {
 	sc.UpdateConfigTrustBundle(rootCert)
 
 	// Ensure Callback gets invoked when updating proxyConfig trust bundle
-	u.Expect(map[string]int{security.RootCertReqResourceName: 1})
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
 	u.Reset()
 
 	concatCerts := func(certs ...string) []byte {
@@ -639,6 +640,53 @@ func TestProxyConfigAnchors(t *testing.T) {
 		ResourceName: sc.existingCertificateFile.GetRootResourceName(),
 		RootCert:     rootCert,
 	})
+}
+
+func TestProxyConfigAnchorsTriggerWorkloadCertUpdate(t *testing.T) {
+	cacheLog.SetOutputLevel(log.DebugLevel)
+	fakeCACli, err := mock.NewMockCAClient(time.Millisecond*200, false)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	u := NewUpdateTracker(t)
+	sc := createCache(t, fakeCACli, u.Callback, security.Options{WorkloadRSAKeySize: 2048})
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	if err != nil {
+		t.Errorf("failed to generate certificate for trustAnchor test case")
+	}
+	// Ensure Root cert call back gets invoked once, then workload cert once it expires in 200ms
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
+	u.Reset()
+
+	rootCert, err := os.ReadFile(filepath.Join("./testdata", "root-cert.pem"))
+	if err != nil {
+		t.Fatalf("Error reading the root cert file: %v", err)
+	}
+	// Update the proxyConfig with certs
+	sc.UpdateConfigTrustBundle(rootCert)
+
+	assert.Equal(t, sc.cache.GetWorkload(), nil)
+	// Ensure Callback gets invoked when updating proxyConfig trust bundle
+	u.Expect(map[string]int{security.RootCertReqResourceName: 1, security.WorkloadKeyCertResourceName: 1})
+	u.Reset()
+
+	rotateTime = func(item security.SecretItem, gracePeriodRatio float64) time.Duration {
+		return time.Millisecond * 200
+	}
+	fakeCACli, err = mock.NewMockCAClient(time.Millisecond*200, false)
+	if err != nil {
+		t.Fatalf("Error creating Mock CA client: %v", err)
+	}
+	sc = createCache(t, fakeCACli, u.Callback, security.Options{WorkloadRSAKeySize: 2048})
+	_, err = sc.GenerateSecret(security.WorkloadKeyCertResourceName)
+	if err != nil {
+		t.Errorf("failed to generate certificate for trustAnchor test case")
+	}
+	// Immediately update the proxyConfig root cert
+	sc.UpdateConfigTrustBundle(rootCert)
+	time.Sleep(time.Millisecond * 200)
+	// The rotation task actually will not call `OnSecretUpdate`, otherwise the WorkloadKeyCertResourceName event number should be 2
+	u.Expect(map[string]int{security.RootCertReqResourceName: 2, security.WorkloadKeyCertResourceName: 1})
 }
 
 func TestOSCACertGenerateSecret(t *testing.T) {

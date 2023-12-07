@@ -61,9 +61,9 @@ func GetCache(name string) *ObjectCache {
 
 // RemoveObject removes object with objHash in the Cache with the given name from the object Cache.
 func RemoveObject(name, objHash string) {
-	objectCachesMu.Lock()
+	objectCachesMu.RLock()
 	objectCache := objectCaches[name]
-	objectCachesMu.Unlock()
+	objectCachesMu.RUnlock()
 
 	if objectCache != nil {
 		objectCache.Mu.Lock()

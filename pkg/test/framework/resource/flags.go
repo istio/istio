@@ -57,7 +57,7 @@ func SettingsFromCommandLine(testID string) (*Settings, error) {
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "tproxy")
 	}
 	if s.SkipDelta {
-		// TODO we may also want to trigger this if we have an old verion
+		// TODO we may also want to trigger this if we have an old version
 		s.SkipWorkloadClasses = append(s.SkipWorkloadClasses, "delta")
 	}
 	// Allow passing a single CSV flag as well
@@ -180,6 +180,9 @@ func init() {
 
 	flag.BoolVar(&settingsFromCommandLine.Ambient, "istio.test.ambient", settingsFromCommandLine.Ambient,
 		"Indicate the use of ambient mesh.")
+
+	flag.BoolVar(&settingsFromCommandLine.PeerMetadataDiscovery, "istio.test.peer_metadata_discovery", settingsFromCommandLine.PeerMetadataDiscovery,
+		"Force the use of peer metadata discovery fallback for metadata exchange")
 
 	flag.BoolVar(&settingsFromCommandLine.AmbientEverywhere, "istio.test.ambient.everywhere", settingsFromCommandLine.AmbientEverywhere,
 		"Make Waypoint proxies the default instead of sidecar proxies for all echo apps. Must be used with istio.test.ambient")

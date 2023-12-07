@@ -29,7 +29,7 @@ import (
 	"time"
 
 	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
@@ -213,7 +213,7 @@ func TestProxyConfig(t *testing.T) {
 
 			var output string
 			var args []string
-			g := gomega.NewWithT(t)
+			g := NewWithT(t)
 
 			args = []string{
 				"--namespace=dummy",
@@ -221,7 +221,7 @@ func TestProxyConfig(t *testing.T) {
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput := jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
-			g.Expect(jsonOutput).To(gomega.HaveKey("bootstrap"))
+			g.Expect(jsonOutput).To(HaveKey("bootstrap"))
 
 			args = []string{
 				"--namespace=dummy",
@@ -229,7 +229,7 @@ func TestProxyConfig(t *testing.T) {
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
-			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+			g.Expect(jsonOutput).To(Not(BeEmpty()))
 
 			args = []string{
 				"--namespace=dummy",
@@ -237,7 +237,7 @@ func TestProxyConfig(t *testing.T) {
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
-			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+			g.Expect(jsonOutput).To(Not(BeEmpty()))
 
 			args = []string{
 				"--namespace=dummy",
@@ -245,7 +245,7 @@ func TestProxyConfig(t *testing.T) {
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
-			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+			g.Expect(jsonOutput).To(Not(BeEmpty()))
 
 			args = []string{
 				"--namespace=dummy",
@@ -253,7 +253,35 @@ func TestProxyConfig(t *testing.T) {
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
-			g.Expect(jsonOutput).To(gomega.Not(gomega.BeEmpty()))
+			g.Expect(jsonOutput).To(Not(BeEmpty()))
+
+			args = []string{
+				"--namespace=dummy",
+				"pc", "all", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "-o", "json",
+			}
+			output, _ = istioCtl.InvokeOrFail(t, args)
+			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
+			dumpAll, ok := jsonOutput.(map[string]any)
+			if !ok {
+				t.Fatalf("Failed to parse istioctl %s config dump to top level map", strings.Join(args, " "))
+			}
+			rawConfigs, ok := dumpAll["configs"].([]any)
+			if !ok {
+				t.Fatalf("Failed to parse istioctl %s config dump to slice of any", strings.Join(args, " "))
+			}
+			hasEndpoints := false
+			for _, rawConfig := range rawConfigs {
+				configDump, ok := rawConfig.(map[string]any)
+				if !ok {
+					t.Fatalf("Failed to parse istioctl %s raw config dump element to map of any", strings.Join(args, " "))
+				}
+				if configDump["@type"] == "type.googleapis.com/envoy.admin.v3.EndpointsConfigDump" {
+					hasEndpoints = true
+					break
+				}
+			}
+
+			g.Expect(hasEndpoints).To(BeTrue())
 
 			args = []string{
 				"--namespace=dummy",
@@ -261,7 +289,7 @@ func TestProxyConfig(t *testing.T) {
 			}
 			output, _ = istioCtl.InvokeOrFail(t, args)
 			jsonOutput = jsonUnmarshallOrFail(t, strings.Join(args, " "), output)
-			g.Expect(jsonOutput).To(gomega.HaveKey("dynamicActiveSecrets"))
+			g.Expect(jsonOutput).To(HaveKey("dynamicActiveSecrets"))
 			dump := &admin.SecretsConfigDump{}
 			if err := protomarshal.Unmarshal([]byte(output), dump); err != nil {
 				t.Fatal(err)
@@ -352,6 +380,13 @@ func TestProxyStatus(t *testing.T) {
 				}
 				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
 			})
+
+			// test namespace filtering
+			retry.UntilSuccessOrFail(t, func() error {
+				args = []string{"proxy-status", "-n", apps.Namespace.Name()}
+				output, _ = istioCtl.InvokeOrFail(t, args)
+				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
+			})
 		})
 }
 
@@ -369,7 +404,7 @@ func TestXdsProxyStatus(t *testing.T) {
 				t.Fatalf("Could not get Pod ID: %v", err)
 			}
 
-			g := gomega.NewWithT(t)
+			g := NewWithT(t)
 
 			expectSubstrings := func(have string, wants ...string) error {
 				for _, want := range wants {
@@ -408,9 +443,9 @@ func TestXdsProxyStatus(t *testing.T) {
 				filename := filepath.Join(d, "ps-configdump.json")
 				cs := t.Clusters().Default()
 				dump, err := cs.EnvoyDo(context.TODO(), podID, apps.Namespace.Name(), "GET", "config_dump")
-				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				g.Expect(err).ShouldNot(HaveOccurred())
 				err = os.WriteFile(filename, dump, os.ModePerm)
-				g.Expect(err).ShouldNot(gomega.HaveOccurred())
+				g.Expect(err).ShouldNot(HaveOccurred())
 				args := []string{
 					"x", "proxy-status", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()), "--file", filename, timeoutFlag,
 				}
@@ -419,6 +454,16 @@ func TestXdsProxyStatus(t *testing.T) {
 					return err
 				}
 				return expectSubstrings(output, "Clusters Match", "Listeners Match", "Routes Match")
+			})
+
+			// test namespace filtering
+			retry.UntilSuccessOrFail(t, func() error {
+				args := []string{"x", "proxy-status", "-n", apps.Namespace.Name()}
+				output, _, err := istioCtl.Invoke(args)
+				if err != nil {
+					return err
+				}
+				return expectSubstrings(output, fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()))
 			})
 		})
 }

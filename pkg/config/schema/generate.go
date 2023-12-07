@@ -14,8 +14,8 @@
 
 package schema
 
-// Create collection constants
-// We will generate collections twice. Once is the full collection set. The other includes only Istio types, with build tags set for agent
-// This allows the agent to use collections without importing all of Kubernetes libraries
-// nolint: lll
-//go:generate go run $REPO_ROOT/pkg/config/schema/codegen/tools/collections.main.go
+// Create collection constants.
+// We will generate collections twice. Once is the full collection set.
+// The other includes only Istio types, with build tags set for agent.
+// This allows the agent to use collections without importing all of Kubernetes libraries.
+//go:generate go run codegen/tools/collections.main.go

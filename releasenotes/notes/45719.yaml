@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+
+issue:
+  - 45719
+
+releaseNotes:
+  - |
+    **Fixed** a bug where route configuration is rejected with duplicate domains when virtual service has same hosts with different case.

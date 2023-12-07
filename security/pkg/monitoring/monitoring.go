@@ -17,7 +17,7 @@ package monitoring
 import "istio.io/istio/pkg/monitoring"
 
 // RequestType specifies the type of request we are monitoring. Current supported are CSR and TokenExchange
-var RequestType = monitoring.MustCreateLabel("request_type")
+var RequestType = monitoring.CreateLabel("request_type")
 
 const (
 	TokenExchange = "token_exchange"
@@ -27,10 +27,4 @@ const (
 var NumOutgoingRetries = monitoring.NewSum(
 	"num_outgoing_retries",
 	"Number of outgoing retry requests (e.g. to a token exchange server, CA, etc.)",
-	monitoring.WithLabels(RequestType))
-
-func init() {
-	monitoring.MustRegister(
-		NumOutgoingRetries,
-	)
-}
+)

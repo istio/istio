@@ -18,29 +18,44 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
-	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestNetworkUpdateTriggers(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
-	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{ClusterID: "Kubernetes", NetworksWatcher: meshNetworks, DomainSuffix: "cluster.local"})
+	c, _ := NewFakeControllerWithOptions(t, FakeControllerOptions{
+		ClusterID:       "Kubernetes",
+		NetworksWatcher: meshNetworks,
+		DomainSuffix:    "cluster.local",
+		CRDs:            []schema.GroupVersionResource{gvr.KubernetesGateway},
+	})
 
 	if len(c.NetworkGateways()) != 0 {
 		t.Fatal("did not expect any gateways yet")
 	}
 
-	notified := atomic.NewBool(false)
+	notifyCh := make(chan struct{}, 1)
 	var (
 		gwMu sync.Mutex
 		gws  []model.NetworkGateway
@@ -57,28 +72,21 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 	}
 
 	c.AppendNetworkGatewayHandler(func() {
-		notified.Store(true)
 		setGws(c.NetworkGateways())
+		notifyCh <- struct{}{}
 	})
 	expectGateways := func(t *testing.T, expectedGws int) {
-		defer notified.Store(false)
-		// 1. wait for a notification
-		retry.UntilSuccessOrFail(t, func() error {
-			if !notified.Load() {
-				return fmt.Errorf("no gateway notify")
-			}
-			if n := len(getGws()); n != expectedGws {
-				return fmt.Errorf("expected %d gateways but got %d", expectedGws, n)
-			}
-			return nil
-		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
+		// wait for a notification
+		assert.ChannelHasItem(t, notifyCh)
+		if n := len(getGws()); n != expectedGws {
+			t.Errorf("expected %d gateways but got %d", expectedGws, n)
+		}
 	}
 
 	t.Run("add meshnetworks", func(t *testing.T) {
 		addMeshNetworksFromRegistryGateway(t, c, meshNetworks)
 		expectGateways(t, 2)
 	})
-	fmt.Println(c.NetworkGateways())
 	t.Run("add labeled service", func(t *testing.T) {
 		addLabeledServiceGateway(t, c, "nw0")
 		expectGateways(t, 3)
@@ -87,8 +95,29 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 		addLabeledServiceGateway(t, c, "nw1")
 		expectGateways(t, 3)
 	})
+	t.Run("add kubernetes gateway", func(t *testing.T) {
+		addOrUpdateGatewayResource(t, c, 35443)
+		expectGateways(t, 7)
+	})
+	t.Run("update kubernetes gateway", func(t *testing.T) {
+		addOrUpdateGatewayResource(t, c, 45443)
+		expectGateways(t, 7)
+	})
+	t.Run("remove kubernetes gateway", func(t *testing.T) {
+		removeGatewayResource(t, c)
+		expectGateways(t, 3)
+	})
 	t.Run("remove labeled service", func(t *testing.T) {
 		removeLabeledServiceGateway(t, c)
+		expectGateways(t, 2)
+	})
+	// gateways are created even with out service
+	t.Run("add kubernetes gateway", func(t *testing.T) {
+		addOrUpdateGatewayResource(t, c, 35443)
+		expectGateways(t, 6)
+	})
+	t.Run("remove kubernetes gateway", func(t *testing.T) {
+		removeGatewayResource(t, c)
 		expectGateways(t, 2)
 	})
 	t.Run("remove meshnetworks", func(t *testing.T) {
@@ -116,6 +145,50 @@ func addLabeledServiceGateway(t *testing.T, c *FakeController, nw string) {
 
 func removeLabeledServiceGateway(t *testing.T, c *FakeController) {
 	clienttest.Wrap(t, c.services).Delete("istio-labeled-gw", "arbitrary-ns")
+}
+
+// creates a gateway that exposes 2 ports that are valid auto-passthrough ports
+// and it does so on an IP and a hostname
+func addOrUpdateGatewayResource(t *testing.T, c *FakeController, customPort int) {
+	passthroughMode := k8sv1.TLSModePassthrough
+	ipType := v1beta1.IPAddressType
+	hostnameType := v1beta1.HostnameAddressType
+	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).CreateOrUpdate(&v1beta1.Gateway{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "eastwest-gwapi",
+			Namespace: "istio-system",
+			Labels:    map[string]string{label.TopologyNetwork.Name: "nw2"},
+		},
+		Spec: v1beta1.GatewaySpec{
+			GatewayClassName: "istio",
+			Addresses: []v1beta1.GatewayAddress{
+				{Type: &ipType, Value: "1.2.3.4"},
+				{Type: &hostnameType, Value: "some hostname"},
+			},
+			Listeners: []v1beta1.Listener{
+				{
+					Name: "detected-by-options",
+					TLS: &v1beta1.GatewayTLSConfig{
+						Mode: &passthroughMode,
+						Options: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{
+							constants.ListenerModeOption: constants.ListenerModeAutoPassthrough,
+						},
+					},
+					Port: v1beta1.PortNumber(customPort),
+				},
+				{
+					Name: "detected-by-number",
+					TLS:  &v1beta1.GatewayTLSConfig{Mode: &passthroughMode},
+					Port: 15443,
+				},
+			},
+		},
+		Status: v1beta1.GatewayStatus{},
+	})
+}
+
+func removeGatewayResource(t *testing.T, c *FakeController) {
+	clienttest.Wrap(t, kclient.New[*v1beta1.Gateway](c.client)).Delete("eastwest-gwapi", "istio-system")
 }
 
 func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher mesh.NetworksWatcher) {
@@ -150,4 +223,90 @@ func addMeshNetworksFromRegistryGateway(t *testing.T, c *FakeController, watcher
 			}},
 		},
 	}})
+}
+
+func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+
+	s := newAmbientTestServer(t, testC, "")
+
+	tracker := assert.NewTracker[string](t)
+
+	s.controller.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
+		tracker.Record(o.GetName())
+	}))
+
+	expectNetwork := func(t *testing.T, c *FakeController, network string) {
+		retry.UntilSuccessOrFail(t, func() error {
+			t.Helper()
+			if c.networkFromSystemNamespace().String() != network {
+				return fmt.Errorf("no network notify")
+			}
+			podNames := sets.New[string]("pod1", "pod2")
+			addresses := c.ambientIndex.All()
+			for _, addr := range addresses {
+				wl := addr.GetWorkload()
+				if wl == nil {
+					continue
+				}
+				if !podNames.Contains(wl.Name) {
+					continue
+				}
+				if addr.GetWorkload().Network != network {
+					return fmt.Errorf("no network notify")
+				}
+			}
+			return nil
+		})
+	}
+
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
+
+	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertAddresses(t, s.addrXdsName("127.0.0.2"), "pod2")
+
+	createOrUpdateNamespace(t, s.controller, testNS, "")
+	createOrUpdateNamespace(t, s.controller, systemNS, "")
+
+	tracker.WaitOrdered(testNS, systemNS)
+
+	t.Run("change namespace network to nw1", func(t *testing.T) {
+		createOrUpdateNamespace(t, s.controller, systemNS, "nw1")
+		tracker.WaitOrdered(systemNS)
+		expectNetwork(t, s.controller, "nw1")
+	})
+
+	t.Run("change namespace network to nw2", func(t *testing.T) {
+		createOrUpdateNamespace(t, s.controller, systemNS, "nw2")
+		tracker.WaitOrdered(systemNS)
+		expectNetwork(t, s.controller, "nw2")
+	})
+
+	t.Run("manually change namespace network to nw3, and update meshNetworks", func(t *testing.T) {
+		s.controller.setNetworkFromNamespace(&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: systemNS,
+				Labels: map[string]string{
+					label.TopologyNetwork.Name: "nw3",
+				},
+			},
+		})
+		createOrUpdateNamespace(t, s.controller, systemNS, "nw3")
+		tracker.WaitOrdered(systemNS)
+		addMeshNetworksFromRegistryGateway(t, s.controller, s.controller.meshNetworksWatcher)
+		expectNetwork(t, s.controller, "nw3")
+	})
+}
+
+func createOrUpdateNamespace(t *testing.T, c *FakeController, name, network string) {
+	namespace := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				label.TopologyNetwork.Name: network,
+			},
+		},
+	}
+	clienttest.Wrap(t, c.namespaces).CreateOrUpdate(namespace)
 }

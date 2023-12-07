@@ -267,10 +267,9 @@ func GenerateService(cfg echo.Config) (string, error) {
 }
 
 var VMImages = map[echo.VMDistro]string{
-	echo.UbuntuXenial: "app_sidecar_ubuntu_xenial",
+	echo.UbuntuBionic: "app_sidecar_ubuntu_bionic",
 	echo.UbuntuJammy:  "app_sidecar_ubuntu_jammy",
 	echo.Debian11:     "app_sidecar_debian_11",
-	echo.Centos7:      "app_sidecar_centos_7",
 	// echo.Rockylinux8:  "app_sidecar_rockylinux_8", TODO(https://github.com/istio/istio/issues/38224)
 }
 
@@ -328,7 +327,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 	appContainers := []map[string]any{{
 		"Name":           appContainerName,
 		"ImageFullPath":  settings.EchoImage, // This overrides image hub/tag if it's not empty.
-		"ContainerPorts": getContainerPorts(cfg),
+		"ContainerPorts": containerPorts,
 	}}
 
 	// Only use the custom image for proxyless gRPC instances. This will bind the gRPC ports on one container
@@ -370,7 +369,7 @@ func deploymentParams(ctx resource.Context, cfg echo.Config, settings *resource.
 		"ServiceAccount":          cfg.ServiceAccount,
 		"DisableAutomountSAToken": cfg.DisableAutomountSAToken,
 		"AppContainers":           appContainers,
-		"ContainerPorts":          getContainerPorts(cfg),
+		"ContainerPorts":          containerPorts,
 		"Subsets":                 cfg.Subsets,
 		"TLSSettings":             cfg.TLSSettings,
 		"Cluster":                 cfg.Cluster.Name(),
@@ -546,7 +545,7 @@ spec:
 			return fmt.Errorf("failed customizing cluster.env: %v", err)
 		}
 
-		// push boostrap config as a ConfigMap so we can mount it on our "vm" pods
+		// push bootstrap config as a ConfigMap so we can mount it on our "vm" pods
 		cmData := map[string][]byte{}
 		generatedFiles, err := os.ReadDir(subsetDir)
 		if err != nil {
@@ -708,7 +707,7 @@ func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv st
 	if cfg.VMEnvironment != nil {
 		for k, v := range cfg.VMEnvironment {
 			addition := fmt.Sprintf("%s=%s\n", k, v)
-			_, err = f.Write([]byte(addition))
+			_, err = f.WriteString(addition)
 			if err != nil {
 				return fmt.Errorf("failed writing %q to %s: %v", addition, clusterEnv, err)
 			}
@@ -716,7 +715,7 @@ func customizeVMEnvironment(ctx resource.Context, cfg echo.Config, clusterEnv st
 	}
 	if !ctx.Environment().(*kube.Environment).Settings().LoadBalancerSupported {
 		// customize cluster.env with NodePort mapping
-		_, err = f.Write([]byte(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port())))
+		_, err = f.WriteString(fmt.Sprintf("ISTIO_PILOT_PORT=%d\n", istiodAddr.Port()))
 		if err != nil {
 			return err
 		}

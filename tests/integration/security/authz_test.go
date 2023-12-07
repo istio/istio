@@ -1170,8 +1170,11 @@ func TestAuthz_EgressGateway(t *testing.T) {
 				ToMatch(toMatch).
 				Config(config.File("testdata/authz/egress-gateway.yaml.tmpl").WithParams(param.Params{
 					// The namespaces for each resource are specified in the file. Use "" as the ns to apply to.
-					param.Namespace.String(): "",
-					"Allowed":                allowed,
+					param.Namespace.String():        "",
+					"EgressGatewayIstioLabel":       i.Settings().EgressGatewayIstioLabel,
+					"EgressGatewayServiceName":      i.Settings().EgressGatewayServiceName,
+					"EgressGatewayServiceNamespace": i.Settings().EgressGatewayServiceNamespace,
+					"Allowed":                       allowed,
 				})).
 				Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
 					allow := allowValue(from.NamespacedName() == allowed.Config().NamespacedName())

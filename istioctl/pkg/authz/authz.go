@@ -33,7 +33,7 @@ import (
 var configDumpFile string
 
 func checkCmd(ctx cli.Context) *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "check [<type>/]<name>[.<namespace>]",
 		Short: "Check AuthorizationPolicy applied in the pod.",
 		Long: `Check prints the AuthorizationPolicy applied to a pod by directly checking
@@ -89,6 +89,9 @@ The command also supports reading from a standalone config dump file with flag -
 			return nil
 		},
 	}
+	cmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
+		"The json file with Envoy config dump to be checked")
+	return cmd
 }
 
 func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
@@ -143,9 +146,6 @@ func AuthZ(ctx cli.Context) *cobra.Command {
 		Short: "Inspect Istio AuthorizationPolicy",
 	}
 
-	check := checkCmd(ctx)
-	check.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
-		"The json file with Envoy config dump to be checked")
 	cmd.AddCommand(checkCmd(ctx))
 	cmd.Long += "\n\n" + util.ExperimentalMsg
 	return cmd

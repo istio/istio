@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+issue:
+- 45534
+releaseNotes:
+- |
+  **Added** support for a flag called USE_EXTERNAL_WORKLOAD_SDS, when set to true, it will require an external SDS workload socket and it will prevent the istio-proxy from starting if the workload SDS socket is not found.

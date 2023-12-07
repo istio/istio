@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/netip"
 	"os"
 	"path"
 	"sort"
@@ -73,6 +72,12 @@ const (
 	v2Suffix   = ",component,istio"
 )
 
+var envoyWellKnownCompressorLibrary = sets.String{
+	"gzip":   {},
+	"zstd":   {},
+	"brotli": {},
+}
+
 // Config for creating a bootstrap file.
 type Config struct {
 	*model.Node
@@ -90,7 +95,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 	}
 
 	// Waypoint overrides
-	metadataDiscovery := false
+	metadataDiscovery := cfg.Metadata.MetadataDiscovery
 	if strings.HasPrefix(cfg.ID, "waypoint~") {
 		xdsType = "DELTA_GRPC"
 		metadataDiscovery = true
@@ -104,7 +109,7 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		option.DiscoveryHost(discHost),
 		option.Metadata(cfg.Metadata),
 		option.XdsType(xdsType),
-		option.MetadataDiscovery(metadataDiscovery))
+		option.MetadataDiscovery(bool(metadataDiscovery)))
 
 	// Add GCPProjectNumber to access in bootstrap template.
 	md := cfg.Metadata.PlatformMetadata
@@ -146,20 +151,26 @@ func (cfg Config) toTemplateParams() (map[string]any, error) {
 		if features.EnableDualStack {
 			// If dual-stack, it may be [IPv4, IPv6] or [IPv6, IPv4]
 			// So let the first ip family policy to decide its DNSLookupFamilyIP policy
-			netIP, _ := netip.ParseAddr(cfg.Metadata.InstanceIPs[0])
-			if netIP.Is6() && !netIP.IsLinkLocalUnicast() {
+			ipFamily, err := network.CheckIPFamilyTypeForFirstIPs(cfg.Metadata.InstanceIPs)
+			if err != nil {
+				return nil, err
+			}
+			if ipFamily == network.IPv6 {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv6),
 					option.Wildcard(option.WildcardIPv6),
+					option.AdditionalWildCard(option.WildcardIPv4),
 					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
 			} else {
 				opts = append(opts,
 					option.Localhost(option.LocalhostIPv4),
 					option.Wildcard(option.WildcardIPv4),
+					option.AdditionalWildCard(option.WildcardIPv6),
 					option.DNSLookupFamily(option.DNSLookupFamilyIPS))
 			}
+			opts = append(opts, option.DualStack(true))
 		} else {
-			// keep the original logic if Dual Stack is disable
+			// keep the original logic if Dual Stack is disabled
 			opts = append(opts,
 				option.Localhost(option.LocalhostIPv4),
 				option.Wildcard(option.WildcardIPv4),
@@ -269,6 +280,12 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		}
 	}
 
+	var compression string
+	// TODO: move annotation to api repo
+	if statsCompression, ok := meta.Annotations["sidecar.istio.io/statsCompression"]; ok && envoyWellKnownCompressorLibrary.Contains(statsCompression) {
+		compression = statsCompression
+	}
+
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
@@ -277,6 +294,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 		option.EnvoyHistogramBuckets(buckets),
+		option.EnvoyStatsCompression(compression),
 	}
 }
 
@@ -300,14 +318,13 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
-func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
+func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
 	// Setup defaults
-	runtimeFlags := map[string]string{
-		"overload.global_downstream_max_connections":                                                           "2147483647",
-		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": "true",
-		"re2.max_program_size.error_level":                                                                     "32768",
-		"envoy.reloadable_features.http_reject_path_with_fragment":                                             "false",
-		"envoy.reloadable_features.no_extension_lookup_by_name":                                                "false",
+	runtimeFlags := map[string]any{
+		"overload.global_downstream_max_connections": "2147483647",
+		"re2.max_program_size.error_level":           "32768",
+		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
+		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted
@@ -319,7 +336,17 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]string {
 			delete(runtimeFlags, k)
 			continue
 		}
-		runtimeFlags[k] = v
+		// Envoy used to allow everything as string but stopped in https://github.com/envoyproxy/envoy/issues/27434
+		// However, our API always takes in strings.
+		// Convert strings to bools for backwards compat.
+		switch v {
+		case "false":
+			runtimeFlags[k] = false
+		case "true":
+			runtimeFlags[k] = true
+		default:
+			runtimeFlags[k] = v
+		}
 	}
 	return runtimeFlags
 }
@@ -536,6 +563,7 @@ type MetadataOptions struct {
 	EnvoyStatusPort             int
 	EnvoyPrometheusPort         int
 	ExitOnZeroActiveConnections bool
+	MetadataDiscovery           bool
 }
 
 const (
@@ -591,6 +619,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 	meta.EnvoyStatusPort = options.EnvoyStatusPort
 	meta.EnvoyPrometheusPort = options.EnvoyPrometheusPort
 	meta.ExitOnZeroActiveConnections = model.StringBool(options.ExitOnZeroActiveConnections)
+	meta.MetadataDiscovery = model.StringBool(options.MetadataDiscovery)
 
 	meta.ProxyConfig = (*model.NodeMetaProxyConfig)(options.ProxyConfig)
 
@@ -645,7 +674,7 @@ func GetNodeMetaData(options MetadataOptions) (*model.Node, error) {
 		l = options.Platform.Locality()
 	} else {
 		// replace "." with "/"
-		localityString := model.GetLocalityLabelOrDefault(meta.Labels[model.LocalityLabel], "")
+		localityString := model.GetLocalityLabel(meta.Labels[model.LocalityLabel])
 		if localityString != "" {
 			// override the label with the sanitized value
 			meta.Labels[model.LocalityLabel] = localityString

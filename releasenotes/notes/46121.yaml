@@ -1,0 +1,15 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** an issue preventing the gateway chart from being used with a custom HorizontalPodAutoscaler resource.
+
+upgradeNotes:
+  - title: don't set spec.replicas unless user supplies a real number
+    content: |
+      When using the gateway chart, the user had to either pick between
+      explicitly setting `spec.replicas`, or using the chart-supplied
+      `HorizontalPodAutoscaler`. Now `spec.replicas` is only set if
+      `.Values.replicaCount` is supplied by the user and is a valid number.
+      This allows for custom `HorizontalPodAutoscalers` to be used.

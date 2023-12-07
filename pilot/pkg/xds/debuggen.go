@@ -83,31 +83,80 @@ func NewDebugGen(s *DiscoveryServer, systemNamespace string, debugMux *http.Serv
 
 // Generate XDS debug responses according to the incoming debug request
 func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
-	res := model.Resources{}
-	var buffer bytes.Buffer
+	if err := validateProxyAuthentication(proxy, w); err != nil {
+		return nil, model.DefaultXdsLogDetails, err
+	}
+
+	resourceName, err := parseAndValidateDebugRequest(proxy, w, dg)
+	if err != nil {
+		return nil, model.DefaultXdsLogDetails, err
+	}
+
+	buffer := processDebugRequest(dg, resourceName)
+
+	res := model.Resources{&discovery.Resource{
+		Name: resourceName,
+		Resource: &anypb.Any{
+			TypeUrl: v3.DebugType,
+			Value:   buffer.Bytes(),
+		},
+	}}
+	return res, model.DefaultXdsLogDetails, nil
+}
+
+// GenerateDeltas XDS debug responses according to the incoming debug request
+func (dg *DebugGen) GenerateDeltas(
+	proxy *model.Proxy,
+	req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	if err := validateProxyAuthentication(proxy, w); err != nil {
+		return nil, nil, model.DefaultXdsLogDetails, true, err
+	}
+
+	resourceName, err := parseAndValidateDebugRequest(proxy, w, dg)
+	if err != nil {
+		return nil, nil, model.DefaultXdsLogDetails, true, err
+	}
+
+	buffer := processDebugRequest(dg, resourceName)
+
+	res := model.Resources{&discovery.Resource{
+		Name: resourceName,
+		Resource: &anypb.Any{
+			TypeUrl: v3.DebugType,
+			Value:   buffer.Bytes(),
+		},
+	}}
+	return res, nil, model.DefaultXdsLogDetails, true, nil
+}
+
+func validateProxyAuthentication(proxy *model.Proxy, w *model.WatchedResource) error {
 	if proxy.VerifiedIdentity == nil {
 		log.Warnf("proxy %s is not authorized to receive debug. Ensure you are connecting over TLS port and are authenticated.", proxy.ID)
-		return nil, model.DefaultXdsLogDetails, status.Error(codes.Unauthenticated, "authentication required")
+		return status.Error(codes.Unauthenticated, "authentication required")
 	}
-	if w.ResourceNames == nil {
-		return res, model.DefaultXdsLogDetails, status.Error(codes.InvalidArgument, "debug type is required")
+	if w.ResourceNames == nil || len(w.ResourceNames) != 1 {
+		return status.Error(codes.InvalidArgument, "exactly one debug request is required")
 	}
-	if len(w.ResourceNames) != 1 {
-		return res, model.DefaultXdsLogDetails, status.Error(codes.InvalidArgument, "only one debug request is allowed")
-	}
+	return nil
+}
+
+func parseAndValidateDebugRequest(proxy *model.Proxy, w *model.WatchedResource, dg *DebugGen) (string, error) {
 	resourceName := w.ResourceNames[0]
 	u, _ := url.Parse(resourceName)
 	debugType := u.Path
 	identity := proxy.VerifiedIdentity
 	if identity.Namespace != dg.SystemNamespace {
-		shouldAllow := false
-		if _, ok := activeNamespaceDebuggers[debugType]; ok {
-			shouldAllow = true
-		}
-		if !shouldAllow {
-			return res, model.DefaultXdsLogDetails, status.Errorf(codes.PermissionDenied, "the debug info is not available for current identity: %q", identity)
+		if _, ok := activeNamespaceDebuggers[debugType]; !ok {
+			return "", status.Errorf(codes.PermissionDenied, "the debug info is not available for current identity: %q", identity)
 		}
 	}
+	return resourceName, nil
+}
+
+func processDebugRequest(dg *DebugGen, resourceName string) bytes.Buffer {
+	var buffer bytes.Buffer
 	debugURL := "/debug/" + resourceName
 	hreq, _ := http.NewRequest(http.MethodGet, debugURL, nil)
 	handler, _ := dg.DebugMux.Handler(hreq)
@@ -118,12 +167,5 @@ func (dg *DebugGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *
 		buffer.Write(header)
 	}
 	buffer.Write(response.body.Bytes())
-	res = append(res, &discovery.Resource{
-		Name: resourceName,
-		Resource: &anypb.Any{
-			TypeUrl: v3.DebugType,
-			Value:   buffer.Bytes(),
-		},
-	})
-	return res, model.DefaultXdsLogDetails, nil
+	return buffer
 }

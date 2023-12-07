@@ -171,3 +171,196 @@ func TestParseIPsSplitToV4V6(t *testing.T) {
 		})
 	}
 }
+
+func TestIsValidIPAddress(t *testing.T) {
+	type args struct {
+		ip string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "test is a valid ipv4 address",
+			args: args{
+				ip: "10.10.1.1",
+			},
+			want: true,
+		},
+		{
+			name: "test not a valid ipv4 address",
+			args: args{
+				ip: "188.188.188.1888",
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsValidIPAddress(tt.args.ip); got != tt.want {
+				t.Errorf("IsValidIPAddress() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsIPv6Address(t *testing.T) {
+	type args struct {
+		ip string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "test is a valid ipv6 address",
+			args: args{
+				ip: "::1",
+			},
+			want: true,
+		},
+		{
+			name: "test not a valid ipv6 address",
+			args: args{
+				ip: "2001:db8:::1",
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsIPv6Address(tt.args.ip); got != tt.want {
+				t.Errorf("IsIPv6Address() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsIPv4Address(t *testing.T) {
+	type args struct {
+		ip string
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "test is a ipv4 address",
+			args: args{
+				ip: "10.0.0.1",
+			},
+			want: true,
+		},
+		{
+			name: "test not a ipv4 address",
+			args: args{
+				ip: "188.188.188.1888",
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := IsIPv4Address(tt.args.ip); got != tt.want {
+				t.Errorf("IsIPv4Address() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIPsSplitV4V61(t *testing.T) {
+	type args struct {
+		ips []string
+	}
+	tests := []struct {
+		name     string
+		args     args
+		wantIpv4 []string
+		wantIpv6 []string
+	}{
+		{
+			name: "test correctly split ipv4 and ipv6 addresses",
+			args: args{
+				ips: []string{
+					"invalid addr",
+					"10.1.0.1",
+					"172.28.19.1",
+					"100.0.0.0.0",
+					"188.0.188.1888",
+					"::1",
+					":1:1:1",
+					"2001:db8:::1",
+					"2001:db8:::100",
+				},
+			},
+			wantIpv4: []string{
+				"10.1.0.1",
+				"172.28.19.1",
+			},
+			wantIpv6: []string{
+				"::1",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotIpv4, gotIpv6 := IPsSplitV4V6(tt.args.ips)
+			if !reflect.DeepEqual(gotIpv4, tt.wantIpv4) {
+				t.Errorf("IPsSplitV4V6() gotIpv4 = %v, want %v", gotIpv4, tt.wantIpv4)
+			}
+			if !reflect.DeepEqual(gotIpv6, tt.wantIpv6) {
+				t.Errorf("IPsSplitV4V6() gotIpv6 = %v, want %v", gotIpv6, tt.wantIpv6)
+			}
+		})
+	}
+}
+
+func TestParseIPsSplitToV4V61(t *testing.T) {
+	type args struct {
+		ips []string
+	}
+	tests := []struct {
+		name     string
+		args     args
+		wantIpv4 []netip.Addr
+		wantIpv6 []netip.Addr
+	}{
+		{
+			name: "test correctly parse ipv4 and ipv6 addresses",
+			args: args{
+				ips: []string{
+					"invalid addr",
+					"10.1.0.1",
+					"172.28.19.1",
+					"100.0.0.0.0",
+					"188.0.188.1888",
+					"::1",
+					":1:1:1",
+					"2001:db8:::1",
+					"2001:db8:::100",
+				},
+			},
+			wantIpv4: []netip.Addr{
+				netip.MustParseAddr("10.1.0.1"),
+				netip.MustParseAddr("172.28.19.1"),
+			},
+			wantIpv6: []netip.Addr{
+				netip.MustParseAddr("::1"),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotIpv4, gotIpv6 := ParseIPsSplitToV4V6(tt.args.ips)
+			if !reflect.DeepEqual(gotIpv4, tt.wantIpv4) {
+				t.Errorf("ParseIPsSplitToV4V6() gotIpv4 = %v, want %v", gotIpv4, tt.wantIpv4)
+			}
+			if !reflect.DeepEqual(gotIpv6, tt.wantIpv6) {
+				t.Errorf("ParseIPsSplitToV4V6() gotIpv6 = %v, want %v", gotIpv6, tt.wantIpv6)
+			}
+		})
+	}
+}

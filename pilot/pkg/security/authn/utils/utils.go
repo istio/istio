@@ -39,6 +39,7 @@ var SupportedCiphers = []string{
 // BuildInboundTLS returns the TLS context corresponding to the mTLS mode.
 func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 	protocol networking.ListenerProtocol, trustDomainAliases []string, minTLSVersion tls.TlsParameters_TlsProtocol,
+	mc *meshconfig.MeshConfig,
 ) *tls.DownstreamTlsContext {
 	if mTLSMode == model.MTLSDisable || mTLSMode == model.MTLSUnknown {
 		return nil
@@ -51,7 +52,11 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		// For TCP with mTLS, we advertise "istio-peer-exchange" from client and
 		// expect the same from server. This  is so that secure metadata exchange
 		// transfer can take place between sidecars for TCP with mTLS.
-		ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstreamWithMxc
+		if features.DisableMxALPN {
+			ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstream
+		} else {
+			ctx.CommonTlsContext.AlpnProtocols = util.ALPNDownstreamWithMxc
+		}
 	} else {
 		// Note that in the PERMISSIVE mode, we match filter chain on "istio" ALPN,
 		// which is used to differentiate between service mesh and legacy traffic.
@@ -64,10 +69,13 @@ func BuildInboundTLS(mTLSMode model.MutualTLSMode, node *model.Proxy,
 		// protocol, e.g. HTTP/2.
 		ctx.CommonTlsContext.AlpnProtocols = util.ALPNHttp
 	}
-
+	ciphers := SupportedCiphers
+	if mc != nil && mc.MeshMTLS != nil && mc.MeshMTLS.CipherSuites != nil {
+		ciphers = mc.MeshMTLS.CipherSuites
+	}
 	// Set Minimum TLS version to match the default client version and allowed strong cipher suites for sidecars.
 	ctx.CommonTlsContext.TlsParams = &tls.TlsParameters{
-		CipherSuites:              SupportedCiphers,
+		CipherSuites:              ciphers,
 		TlsMinimumProtocolVersion: minTLSVersion,
 		TlsMaximumProtocolVersion: tls.TlsParameters_TLSv1_3,
 	}

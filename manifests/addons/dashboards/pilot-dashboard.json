@@ -1003,28 +1003,12 @@
           "refId": "B"
         },
         {
-          "expr": "pilot_conflict_outbound_listener_http_over_current_tcp{app=\"istiod\"}",
-          "format": "time_series",
-          "hide": false,
-          "intervalFactor": 1,
-          "legendFormat": "Outbound Listeners (http over current tcp)",
-          "refId": "A"
-        },
-        {
           "expr": "pilot_conflict_outbound_listener_tcp_over_current_tcp{app=\"istiod\"}",
           "format": "time_series",
           "hide": false,
           "intervalFactor": 1,
           "legendFormat": "Outbound Listeners (tcp over current tcp)",
           "refId": "C"
-        },
-        {
-          "expr": "pilot_conflict_outbound_listener_tcp_over_current_http{app=\"istiod\"}",
-          "format": "time_series",
-          "hide": false,
-          "intervalFactor": 1,
-          "legendFormat": "Outbound Listeners (tcp over current http)",
-          "refId": "D"
         }
       ],
       "thresholds": [],

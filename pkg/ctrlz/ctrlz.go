@@ -49,7 +49,6 @@ var coreTopics = []fw.Topic{
 	topics.ProcTopic(),
 	topics.ArgsTopic(),
 	topics.VersionTopic(),
-	topics.MetricsTopic(),
 	topics.SignalsTopic(),
 }
 

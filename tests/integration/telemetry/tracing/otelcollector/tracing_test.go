@@ -48,7 +48,7 @@ func TestProxyTracingOpenCensusMeshConfig(t *testing.T) {
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
 				cluster := cluster
 				t.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
-					retry.UntilSuccessOrFail(t, func() error {
+					retry.UntilSuccessOrFail(ctx, func() error {
 						err := tracing.SendTraffic(ctx, nil, cluster)
 						if err != nil {
 							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
@@ -90,7 +90,7 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
 				cluster := cluster
 				t.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
-					retry.UntilSuccessOrFail(t, func() error {
+					retry.UntilSuccessOrFail(ctx, func() error {
 						err := tracing.SendTraffic(ctx, nil, cluster)
 						if err != nil {
 							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)

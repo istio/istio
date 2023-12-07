@@ -16,13 +16,13 @@ package validation
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -36,11 +36,11 @@ import (
 	security_beta "istio.io/api/security/v1beta1"
 	telemetry "istio.io/api/telemetry/v1alpha1"
 	api "istio.io/api/type/v1beta1"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -1258,10 +1258,11 @@ func TestValidateServerPort(t *testing.T) {
 	tests := []struct {
 		name string
 		in   *networking.Port
+		bind string
 		out  string
 	}{
-		{"empty", &networking.Port{}, "invalid protocol"},
-		{"empty", &networking.Port{}, "port name"},
+		{"empty", &networking.Port{}, "", "invalid protocol"},
+		{"empty", &networking.Port{}, "", "port name"},
 		{
 			"happy",
 			&networking.Port{
@@ -1269,6 +1270,7 @@ func TestValidateServerPort(t *testing.T) {
 				Number:   1,
 				Name:     "Henry",
 			},
+			"",
 			"",
 		},
 		{
@@ -1278,6 +1280,7 @@ func TestValidateServerPort(t *testing.T) {
 				Number:   1,
 				Name:     "Henry",
 			},
+			"",
 			"invalid protocol",
 		},
 		{
@@ -1287,6 +1290,7 @@ func TestValidateServerPort(t *testing.T) {
 				Number:   uint32(1 << 30),
 				Name:     "http",
 			},
+			"",
 			"port number",
 		},
 		{
@@ -1297,11 +1301,23 @@ func TestValidateServerPort(t *testing.T) {
 				Name:     "Henry",
 			},
 			"",
+			"port number",
+		},
+		{
+			"name, no number, uds",
+			&networking.Port{
+				Protocol: "http",
+				Number:   0,
+				Name:     "Henry",
+			},
+			"uds:///tmp",
+			"port number",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := validateServerPort(tt.in)
+			v := validateServerPort(tt.in, tt.bind)
+			_, err := v.Unwrap()
 			if err == nil && tt.out != "" {
 				t.Fatalf("validateServerPort(%v) = nil, wanted %q", tt.in, tt.out)
 			} else if err != nil && tt.out == "" {
@@ -1467,6 +1483,36 @@ func TestValidateTlsOptions(t *testing.T) {
 			"mutual no certs",
 			&networking.ServerTLSSettings{
 				Mode:              networking.ServerTLSSettings_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"client CA bundle", "",
+		},
+		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"server certificate", "",
+		},
+		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
+				ServerCertificate: "",
+				PrivateKey:        "",
+				CaCertificates:    "",
+			},
+			"private key", "",
+		},
+		{
+			"optional mutual no certs",
+			&networking.ServerTLSSettings{
+				Mode:              networking.ServerTLSSettings_OPTIONAL_MUTUAL,
 				ServerCertificate: "",
 				PrivateKey:        "",
 				CaCertificates:    "",
@@ -1908,9 +1954,9 @@ func TestValidateHTTPFaultInjectionAbort(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if got := validateHTTPFaultInjectionAbort(tc.in); (got == nil) != tc.valid {
+			if got := validateHTTPFaultInjectionAbort(tc.in); (got.Err == nil) != tc.valid {
 				t.Errorf("got valid=%v, want valid=%v: %v",
-					got == nil, tc.valid, got)
+					got.Err == nil, tc.valid, got)
 			}
 		})
 	}
@@ -2403,248 +2449,6 @@ func TestValidateHTTPDirectResponse(t *testing.T) {
 	}
 }
 
-func TestValidateDestinationWithInheritance(t *testing.T) {
-	test.SetForTest(t, &features.EnableDestinationRuleInheritance, true)
-	cases := []struct {
-		name  string
-		in    proto.Message
-		valid bool
-	}{
-		{name: "simple destination rule", in: &networking.DestinationRule{
-			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
-			},
-		}, valid: true},
-		{name: "simple global destination rule", in: &networking.DestinationRule{
-			Host: "reviews",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings without protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with POST protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "POST",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings without protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "reviews-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings with CONNECT protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "reviews-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "CONNECT",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "subset tunnel settings with POST protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "example-com-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "POST",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with IPv4 target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "192.168.1.2",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with IPv6 target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "2001:db8:1234::",
-					TargetPort: 80,
-				},
-			},
-		}, valid: true},
-		{name: "global tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "masque",
-					TargetHost: "example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "subset tunnel settings with an unsupported protocol", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			Subsets: []*networking.Subset{
-				{
-					Name: "example-com-80",
-					TrafficPolicy: &networking.TrafficPolicy{
-						Tunnel: &networking.TrafficPolicy_TunnelSettings{
-							Protocol:   "masque",
-							TargetHost: "example.com",
-							TargetPort: 80,
-						},
-					},
-				},
-			},
-		}, valid: false},
-		{name: "global rule with subsets", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			Subsets: []*networking.Subset{
-				{Name: "v1", Labels: map[string]string{"version": "v1"}},
-				{Name: "v2", Labels: map[string]string{"version": "v2"}},
-			},
-		}, valid: false},
-		{name: "global rule with exportTo", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			ExportTo: []string{"ns1", "ns2"},
-		}, valid: false},
-		{name: "empty host with workloadSelector", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-			},
-			WorkloadSelector: &api.WorkloadSelector{
-				MatchLabels: map[string]string{"app": "app1"},
-			},
-		}, valid: false},
-		{name: "global rule with portLevelSettings", in: &networking.DestinationRule{
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tls: &networking.ClientTLSSettings{
-					Mode: networking.ClientTLSSettings_SIMPLE,
-				},
-				PortLevelSettings: []*networking.TrafficPolicy_PortTrafficPolicy{
-					{
-						Port: &networking.PortSelector{Number: 8000},
-						OutlierDetection: &networking.OutlierDetection{
-							MinHealthPercent: 20,
-						},
-					},
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings for wildcard target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "*.example.com",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings for with invalid port", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-					TargetPort: 0,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings without required target host", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetPort: 80,
-				},
-			},
-		}, valid: false},
-		{name: "tunnel settings without required target port", in: &networking.DestinationRule{
-			Host: "tunnel-proxy.com",
-			TrafficPolicy: &networking.TrafficPolicy{
-				Tunnel: &networking.TrafficPolicy_TunnelSettings{
-					Protocol:   "CONNECT",
-					TargetHost: "example.com",
-				},
-			},
-		}, valid: false},
-	}
-	for _, c := range cases {
-		if _, got := ValidateDestinationRule(config.Config{
-			Meta: config.Meta{
-				Name:      someName,
-				Namespace: someNamespace,
-			},
-			Spec: c.in,
-		}); (got == nil) != c.valid {
-			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
-		}
-	}
-}
-
 func TestValidateDestination(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -2998,6 +2802,59 @@ func TestValidateHTTPRoute(t *testing.T) {
 			}},
 			Match: []*networking.HTTPMatchRequest{nil},
 		}, valid: false},
+		{name: "mirrors without destination", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: nil,
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "mirrors invalid mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 101},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "mirrors valid mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 1},
+			}, {
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: 50},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: true},
+		{name: "mirrors negative mirror percentage", route: &networking.HTTPRoute{
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+				Percentage:  &networking.Percent{Value: -1},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{nil},
+		}, valid: false},
+		{name: "conflicting mirror and mirrors", route: &networking.HTTPRoute{
+			Mirror: &networking.Destination{Host: "foo.baz"},
+			Mirrors: []*networking.HTTPMirrorPolicy{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
@@ -3086,7 +2943,7 @@ func TestValidateRouteDestination(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateRouteDestinations(tc.routes); (err == nil) != tc.valid {
+			if err := validateRouteDestinations(tc.routes, false); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
 			}
 		})
@@ -3758,23 +3615,225 @@ func TestValidateDestinationRule(t *testing.T) {
 				{Name: "v2", Labels: map[string]string{"version": "v2"}},
 			},
 		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CaCertificates:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CaCertificates:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_SIMPLE,
+					CredentialName: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_SIMPLE,
+					CaCertificates: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode simple, and the san is specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_SIMPLE,
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is not specified with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is not specified with tls mode mutual, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_MUTUAL,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set false with tls mode mutual, and the ca cert is specified by CredentialName", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:            networking.ClientTLSSettings_MUTUAL,
+					CredentialName:  "test",
+					SubjectAltNames: []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: false,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					CaCertificates:    "test",
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is specified by CaCertificates", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:           networking.ClientTLSSettings_MUTUAL,
+					CredentialName: "test",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the ca cert is not specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: true},
+
+		{name: "InsecureSkipVerify is set true with tls mode mutual, and the san is specified", in: &networking.DestinationRule{
+			Host: "reviews",
+			TrafficPolicy: &networking.TrafficPolicy{
+				Tls: &networking.ClientTLSSettings{
+					Mode:              networking.ClientTLSSettings_MUTUAL,
+					PrivateKey:        "key",
+					ClientCertificate: "cert",
+					SubjectAltNames:   []string{"reviews.default.svc"},
+					InsecureSkipVerify: &wrapperspb.BoolValue{
+						Value: true,
+					},
+				},
+			},
+		}, valid: false},
 	}
 	for _, c := range cases {
-		warn, got := ValidateDestinationRule(config.Config{
-			Meta: config.Meta{
-				Name:      someName,
-				Namespace: someNamespace,
-			},
-			Spec: c.in,
+		t.Run(c.name, func(t *testing.T) {
+			warn, got := ValidateDestinationRule(config.Config{
+				Meta: config.Meta{
+					Name:      someName,
+					Namespace: someNamespace,
+				},
+				Spec: c.in,
+			})
+			if (got == nil) != c.valid {
+				t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
+					c.name, got == nil, c.valid, got)
+			}
+			if (warn == nil) == c.warning {
+				t.Errorf("ValidateDestinationRule failed on %v: got warn=%v but wanted warn=%v: %v",
+					c.name, warn == nil, c.warning, warn)
+			}
 		})
-		if (got == nil) != c.valid {
-			t.Errorf("ValidateDestinationRule failed on %v: got valid=%v but wanted valid=%v: %v",
-				c.name, got == nil, c.valid, got)
-		}
-		if (warn == nil) == c.warning {
-			t.Errorf("ValidateDestinationRule failed on %v: got warn=%v but wanted warn=%v: %v",
-				c.name, warn == nil, c.warning, warn)
-		}
 	}
 }
 
@@ -4044,22 +4103,6 @@ func TestValidateLoadBalancer(t *testing.T) {
 				},
 			},
 			valid: true,
-		},
-
-		{
-			name: "invalid load balancer with consistentHash load balancing, missing ttl", in: &networking.LoadBalancerSettings{
-				LbPolicy: &networking.LoadBalancerSettings_ConsistentHash{
-					ConsistentHash: &networking.LoadBalancerSettings_ConsistentHashLB{
-						MinimumRingSize: 1024,
-						HashKey: &networking.LoadBalancerSettings_ConsistentHashLB_HttpCookie{
-							HttpCookie: &networking.LoadBalancerSettings_ConsistentHashLB_HTTPCookie{
-								Name: "test",
-							},
-						},
-					},
-				},
-			},
-			valid: false,
 		},
 
 		{
@@ -4611,7 +4654,6 @@ func TestValidateServiceEntries(t *testing.T) {
 			},
 			valid: true,
 		},
-
 		{
 			name: "discovery type DNS, one host set with IP address and https port",
 			in: &networking.ServiceEntry{
@@ -5063,6 +5105,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "repeat target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
+				Resolution:       networking.ServiceEntry_DNS,
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 80},
@@ -5074,6 +5117,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "valid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
+				Resolution:       networking.ServiceEntry_DNS,
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
@@ -5084,12 +5128,24 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "invalid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
+				Resolution:       networking.ServiceEntry_DNS,
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 65536},
 				},
 			},
 			valid: false,
+		},
+		{
+			name: "warn target port", in: &networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 1234},
+				},
+			},
+			valid:   true,
+			warning: true,
 		},
 		{
 			name: "valid endpoint port", in: &networking.ServiceEntry{
@@ -5201,6 +5257,21 @@ func TestValidateServiceEntries(t *testing.T) {
 				},
 				Endpoints:  []*networking.WorkloadEntry{},
 				Resolution: networking.ServiceEntry_NONE,
+			},
+			valid:   true,
+			warning: true,
+		},
+		{
+			name: "network set with no address on endpoint", in: &networking.ServiceEntry{
+				Hosts:     []string{"www.example.com"},
+				Addresses: []string{},
+				Ports: []*networking.ServicePort{
+					{Number: 443, Protocol: "HTTPS", Name: "https-example"},
+				},
+				Endpoints: []*networking.WorkloadEntry{
+					{Network: "cluster-1"},
+				},
+				Resolution: networking.ServiceEntry_STATIC,
 			},
 			valid:   true,
 			warning: true,
@@ -5486,6 +5557,203 @@ func TestValidateAuthorizationPolicy(t *testing.T) {
 				},
 			},
 			valid: false,
+		},
+		{
+			name: "target-ref-good",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   true,
+			Warning: false,
+		},
+		{
+			name: "target-ref-non-empty-namespace",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
+					Name:      "foo",
+					Namespace: "bar",
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
+		},
+		{
+			name: "target-ref-empty-name",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
+		},
+		{
+			name: "target-ref-wrong-group",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: "wrong-group",
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
+		},
+		{
+			name: "target-ref-wrong-kind",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
+		},
+		{
+			name: "target-ref-and-selector-cannot-both-be-set",
+			in: &security_beta.AuthorizationPolicy{
+				Action: security_beta.AuthorizationPolicy_DENY,
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+				Rules: []*security_beta.Rule{
+					{
+						From: []*security_beta.Rule_From{
+							{
+								Source: &security_beta.Source{
+									Principals: []string{"temp"},
+								},
+							},
+						},
+						To: []*security_beta.Rule_To{
+							{
+								Operation: &security_beta.Operation{
+									Ports:   []string{"8080"},
+									Methods: []string{"GET", "DELETE"},
+								},
+							},
+						},
+					},
+				},
+			},
+			valid:   false,
+			Warning: false,
 		},
 		{
 			name: "from-empty",
@@ -6271,7 +6539,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   8080,
 						Name:     "h8080",
@@ -6285,7 +6553,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"invalid Port", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http1",
 						Number:   1000000,
 						Name:     "",
@@ -6299,7 +6567,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"Port without name", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   8080,
 					},
@@ -6312,7 +6580,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"UDS bind in outbound", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6327,7 +6595,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"UDS bind in inbound", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6340,7 +6608,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"UDS bind in outbound 2", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6355,7 +6623,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"invalid bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6370,7 +6638,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"invalid capture mode with uds bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6386,7 +6654,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"duplicate UDS bind", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6397,7 +6665,7 @@ func TestValidateSidecar(t *testing.T) {
 					Bind: "unix:///@foo/bar/com",
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   0,
 						Name:     "uds",
@@ -6412,7 +6680,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"duplicate ports", &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6422,7 +6690,7 @@ func TestValidateSidecar(t *testing.T) {
 					},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "tcp",
@@ -6460,7 +6728,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with duplicate ports", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6468,7 +6736,7 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "127.0.0.1:110",
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "bar",
@@ -6485,7 +6753,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with duplicate ports and IPv6 endpoint", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6493,7 +6761,7 @@ func TestValidateSidecar(t *testing.T) {
 					DefaultEndpoint: "[::1]:110",
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "bar",
@@ -6510,7 +6778,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress without default endpoint", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6526,7 +6794,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with invalid default endpoint in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6538,7 +6806,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with invalid default endpoint in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6550,7 +6818,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with invalid default endpoint uds", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6567,7 +6835,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with invalid default endpoint port in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6584,7 +6852,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress with invalid default endpoint port in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6601,7 +6869,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"valid ingress and egress in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6618,7 +6886,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"valid ingress and egress in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6635,7 +6903,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"valid ingress and empty egress in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6647,7 +6915,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"valid ingress and empty egress in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6663,7 +6931,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"empty protocol in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number: 90,
 						Name:   "foo",
 					},
@@ -6679,7 +6947,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"empty protocol in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number: 90,
 						Name:   "foo",
 					},
@@ -6818,7 +7086,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls mode set to ISTIO_MUTUAL in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6833,7 +7101,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls mode set to ISTIO_MUTUAL in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6848,7 +7116,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls mode set to ISTIO_AUTO_PASSTHROUGH in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6863,7 +7131,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls mode set to ISTIO_AUTO_PASSTHROUGH in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "http",
 						Number:   90,
 						Name:     "foo",
@@ -6878,7 +7146,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls invalid protocol in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -6893,7 +7161,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls invalid protocol in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -6908,7 +7176,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls httpRedirect is not supported in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -6924,7 +7192,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls httpRedirect is not supported in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -6940,7 +7208,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls SAN entries are not supported in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -6956,7 +7224,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls SAN entries are not supported in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -6972,7 +7240,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls credentialName is not supported in IPv4", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -6988,7 +7256,7 @@ func TestValidateSidecar(t *testing.T) {
 		{"ingress tls credentialName is not supported in IPv6", &networking.Sidecar{
 			Ingress: []*networking.IstioIngressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Protocol: "tcp",
 						Number:   90,
 						Name:     "foo",
@@ -6998,6 +7266,98 @@ func TestValidateSidecar(t *testing.T) {
 						Mode:           networking.ServerTLSSettings_SIMPLE,
 						CredentialName: "secret-name",
 					},
+				},
+			},
+		}, false, false},
+		// We're using the same validation code as DestinationRule, so we're really trusting the TrafficPolicy
+		// validation code's testing. Here we just want to exercise the edge cases around Sidecar specifically.
+		{"valid inbound connection pool", &networking.Sidecar{
+			InboundConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http1MaxPendingRequests:  1024,
+					Http2MaxRequests:         1024,
+					MaxRequestsPerConnection: 1024,
+					MaxRetries:               1024,
+				},
+			},
+		}, true, false},
+		{"valid port-level connection pool with top level default", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							Http1MaxPendingRequests:  1024,
+							Http2MaxRequests:         1024,
+							MaxRequestsPerConnection: 1024,
+							MaxRetries:               1024,
+						},
+					},
+				},
+			},
+			InboundConnectionPool: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					Http1MaxPendingRequests:  1024,
+					Http2MaxRequests:         1024,
+					MaxRequestsPerConnection: 1024,
+					MaxRetries:               1024,
+				},
+			},
+		}, true, false},
+		{"valid port-level connection pool without a top level default", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "http",
+						Number:   90,
+						Name:     "foo",
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							Http1MaxPendingRequests:  1024,
+							Http2MaxRequests:         1024,
+							MaxRequestsPerConnection: 1024,
+							MaxRetries:               1024,
+						},
+					},
+				},
+			},
+		}, true, false},
+		{"warn http connection settings on tcp port", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							Http1MaxPendingRequests:  1024,
+							Http2MaxRequests:         1024,
+							MaxRequestsPerConnection: 1024,
+							MaxRetries:               1024,
+						},
+					},
+				},
+			},
+		}, true, true},
+		{"invalid top level connection pool", &networking.Sidecar{
+			InboundConnectionPool: &networking.ConnectionPoolSettings{},
+		}, false, false},
+		{"invalid port-level connection pool", &networking.Sidecar{
+			Ingress: []*networking.IstioIngressListener{
+				{
+					Port: &networking.SidecarPort{
+						Protocol: "tcp",
+						Number:   90,
+						Name:     "foo",
+					},
+					ConnectionPool: &networking.ConnectionPoolSettings{},
 				},
 			},
 		}, false, false},
@@ -7209,6 +7569,21 @@ func TestValidateLocalityLbSetting(t *testing.T) {
 			outlier: nil,
 			err:     false,
 			warn:    true,
+		},
+		{
+			name: "invalid LocalityLoadBalancerSetting specify both failoverPriority and region in failover",
+			in: &networking.LocalityLoadBalancerSetting{
+				Failover: []*networking.LocalityLoadBalancerSetting_Failover{
+					{
+						From: "region1",
+						To:   "region2",
+					},
+				},
+				FailoverPriority: []string{"topology.kubernetes.io/region"},
+			},
+			outlier: &networking.OutlierDetection{},
+			err:     true,
+			warn:    false,
 		},
 	}
 
@@ -7490,7 +7865,7 @@ func TestValidateRequestAuthentication(t *testing.T) {
 			valid: true,
 		},
 		{
-			name:       "bad selector - empty key",
+			name:       "bad workload selector - empty key",
 			configName: "foo",
 			in: &security_beta.RequestAuthentication{
 				Selector: &api.WorkloadSelector{
@@ -7503,6 +7878,119 @@ func TestValidateRequestAuthentication(t *testing.T) {
 					{
 						Issuer:  "foo.com",
 						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "good targetRef",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: true,
+		},
+		{
+			name:       "bad targetRef - empty name",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad targetRef - non-empty namespace",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
+					Name:      "foo",
+					Namespace: "bar",
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad targetRef - wrong group",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group: "wrong-group",
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "bad targetRef - wrong kind",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+			},
+			valid: false,
+		},
+		{
+			name:       "targetRef and selector cannot both be set",
+			configName: "foo",
+			in: &security_beta.RequestAuthentication{
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:  "foo.com",
+						JwksUri: "https://foo.com/cert",
+					},
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
 					},
 				},
 			},
@@ -7559,6 +8047,20 @@ func TestValidateRequestAuthentication(t *testing.T) {
 				},
 			},
 			valid: true,
+		},
+		{
+			name:       "bad cookie location",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:      "foo.com",
+						JwksUri:     "https://foo.com",
+						FromCookies: []string{"", "foo"},
+					},
+				},
+			},
+			valid: false,
 		},
 		{
 			name:       "jwks ok",
@@ -8247,6 +8749,145 @@ func TestValidateTelemetry(t *testing.T) {
 			},
 			"", "",
 		},
+		{
+			"good targetRef",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+			},
+			"", "",
+		},
+		{
+			"bad targetRef - empty name",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+				},
+			},
+			"targetRef name must be set", "",
+		},
+		{
+			"bad targetRef - non-empty namespace",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
+					Name:      "foo",
+					Namespace: "bar",
+				},
+			},
+			"targetRef namespace must not be set", "",
+		},
+		{
+			"bad targetRef - wrong group",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: "wrong-group",
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+			},
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, "wrong-group", gvk.KubernetesGateway.Kind), "",
+		},
+		{
+			"bad targetRef - wrong kind",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
+				},
+			},
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, gvk.KubernetesGateway.Group, "wrong-kind"), "",
+		},
+		{
+			"targetRef and selector cannot both be set",
+			&telemetry.Telemetry{
+				Tracing: []*telemetry.Tracing{{
+					CustomTags: map[string]*telemetry.Tracing_CustomTag{
+						"clusterID": {
+							Type: &telemetry.Tracing_CustomTag_Environment{
+								Environment: &telemetry.Tracing_Environment{
+									Name: "FOO",
+								},
+							},
+						},
+					},
+				}},
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+			},
+			"only one of targetRef or workloadSelector can be set", "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -8437,6 +9078,85 @@ func TestValidateWasmPlugin(t *testing.T) {
 				},
 			},
 			"duplicate env", "",
+		},
+		{
+			"target-ref-good",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+			},
+			"", "",
+		},
+		{
+			"target-ref-non-empty-namespace",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group:     gvk.KubernetesGateway.Group,
+					Kind:      gvk.KubernetesGateway.Kind,
+					Name:      "foo",
+					Namespace: "bar",
+				},
+			},
+			"targetRef namespace must not be set", "",
+		},
+		{
+			"target-ref-empty-name",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+				},
+			},
+			"targetRef name must be set", "",
+		},
+		{
+			"target-ref-wrong-group",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group: "wrong-group",
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+			},
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, "wrong-group", gvk.KubernetesGateway.Kind), "",
+		},
+		{
+			"target-ref-wrong-kind",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  "wrong-kind",
+					Name:  "foo",
+				},
+			},
+			fmt.Sprintf("targetRef Group and/or Kind don't match; expected: [Group: %s, Kind: %s], got: [Group: %s, Kind: %s]",
+				gvk.KubernetesGateway.Group, gvk.KubernetesGateway.Kind, gvk.KubernetesGateway.Group, "wrong-kind"), "",
+		},
+		{
+			"target-ref-and-selector-cannot-both-be-set",
+			&extensions.WasmPlugin{
+				Url: "http://test.com/test",
+				TargetRef: &api.PolicyTargetReference{
+					Group: gvk.KubernetesGateway.Group,
+					Kind:  gvk.KubernetesGateway.Kind,
+					Name:  "foo",
+				},
+				Selector: &api.WorkloadSelector{
+					MatchLabels: map[string]string{
+						"app": "httpbin",
+					},
+				},
+			},
+			"only one of targetRef or workloadSelector can be set", "",
 		},
 	}
 	for _, tt := range tests {

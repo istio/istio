@@ -54,7 +54,7 @@ func TestStartWithNoError(t *testing.T) {
 
 func TestRunComponentsAfterStart(t *testing.T) {
 	longDuration := 10 * time.Second
-	shortDuration := 1 * time.Second
+	shortDuration := 10 * time.Millisecond
 	cases := []struct {
 		name  string
 		c     *fakeComponent

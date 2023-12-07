@@ -14,8 +14,21 @@
 
 package server
 
-//go:generate sh -c "echo NOTE: eBPF support is temporarily disabled pending CNCF establishing guidance around dual-licensed eBPF bytecode"
-//go:generate sh -c "echo NOTE: https://github.com/cncf/toc/pull/1000#issuecomment-1564289871"
+//go:generate go run github.com/cilium/ebpf/cmd/bpf2go -cc clang -target bpf -cflags "-D__TARGET_ARCH_x86"  ambient_redirect ../app/ambient_redirect.bpf.c
+//go:generate sh -c "echo '// Copyright Istio Authors' > banner.tmp"
+//go:generate sh -c "echo '//' >> banner.tmp"
+//go:generate sh -c "echo '// Licensed under the Apache License, Version 2.0 (the \"License\");' >> banner.tmp"
+//go:generate sh -c "echo '// you may not use this file except in compliance with the License.' >> banner.tmp"
+//go:generate sh -c "echo '// You may obtain a copy of the License at' >> banner.tmp"
+//go:generate sh -c "echo '//' >> banner.tmp"
+//go:generate sh -c "echo '//     http://www.apache.org/licenses/LICENSE-2.0' >> banner.tmp"
+//go:generate sh -c "echo '//' >> banner.tmp"
+//go:generate sh -c "echo '// Unless required by applicable law or agreed to in writing, software' >> banner.tmp"
+//go:generate sh -c "echo '// distributed under the License is distributed on an \"AS IS\" BASIS,' >> banner.tmp"
+//go:generate sh -c "echo '// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.' >> banner.tmp"
+//go:generate sh -c "echo '// See the License for the specific language governing permissions and' >> banner.tmp"
+//go:generate sh -c "echo '// limitations under the License.\n' >> banner.tmp"
+//go:generate sh -c "cat banner.tmp ambient_redirect_bpf.go > tmp.go && mv tmp.go ambient_redirect_bpf.go && rm banner.tmp"
 
 import (
 	"errors"
@@ -23,6 +36,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -34,6 +48,7 @@ import (
 	"github.com/josharian/native"
 	"golang.org/x/sys/unix"
 
+	"istio.io/istio/cni/pkg/ambient/constants"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/util/sets"
@@ -118,7 +133,7 @@ func EBPFTProxySupport() bool {
 		return true
 	}
 	if errors.Is(err, ebpf.ErrNotSupported) {
-		log.Infof("FnSkAssign (Linux 5.7 or later) is not supported in current kernel")
+		log.Debugf("FnSkAssign (Linux 5.7 or later) is not supported in current kernel")
 	} else {
 		log.Errorf("failed to query ebpf helper availability: %v", err)
 	}
@@ -250,7 +265,7 @@ func (r *RedirectServer) initBpfObjects() error {
 	}
 	r.ztunnelIngressProgName = ztunnelIngressInfo.Name
 
-	log.Infof("ztunnelIngressProgName: %s", r.ztunnelIngressProgName)
+	log.Debugf("ztunnelIngressProgName: %s", r.ztunnelIngressProgName)
 
 	r.inboundFd = uint32(r.obj.AppInbound.FD())
 	inboundInfo, err := r.obj.AppInbound.Info()
@@ -520,7 +535,7 @@ func (r *RedirectServer) attachTCForWorkLoad(ifindex uint32) error {
 func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction string, fd uint32, name string) error {
 	config := &tc.Config{}
 	if namespace != "" {
-		nsHdlr, err := ns.GetNS(fmt.Sprintf("/var/run/netns/%s", namespace))
+		nsHdlr, err := ns.GetNS(filepath.Join(constants.NetNsPath, namespace))
 		if err != nil {
 			return err
 		}
@@ -614,7 +629,7 @@ func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction st
 func (r *RedirectServer) delClsactQdisc(namespace string, ifindex uint32) error {
 	config := &tc.Config{}
 	if namespace != "" {
-		nsHdlr, err := ns.GetNS(fmt.Sprintf("/var/run/netns/%s", namespace))
+		nsHdlr, err := ns.GetNS(filepath.Join(constants.NetNsPath, namespace))
 		if err != nil {
 			return err
 		}
@@ -661,7 +676,7 @@ func (r *RedirectServer) dumpZtunnelInfo() (*mapInfo, error) {
 	return &info, nil
 }
 
-func (r *RedirectServer) DumpAppIPs() sets.Set[string] {
+func (r *RedirectServer) DumpAppIPs() sets.String {
 	var keyOut [4]byte
 	var valueOut mapInfo
 	m := sets.New[string]()
@@ -671,6 +686,19 @@ func (r *RedirectServer) DumpAppIPs() sets.Set[string] {
 		m.Insert(ipAddr.String())
 	}
 	return m
+}
+
+func (r *RedirectServer) IsPodIPEnrolled(ip string) bool {
+	var valueOut mapInfo
+	ipAddr, err := netip.ParseAddr(ip)
+	if err != nil {
+		return false
+	}
+	if err = r.obj.AppInfo.Lookup(ipAddr.As4(), &valueOut); err != nil && !errors.Is(err, ebpf.ErrKeyNotExist) {
+		log.Errorf("failed to look up AppInfo: %w", err)
+	}
+
+	return err == nil
 }
 
 func htons(a uint16) uint16 {

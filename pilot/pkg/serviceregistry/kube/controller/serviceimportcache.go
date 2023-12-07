@@ -76,7 +76,7 @@ func newServiceImportCache(c *Controller) serviceImportCache {
 			Controller: c,
 		}
 
-		sic.serviceImports = kclient.NewDelayedInformer(sic.client, mcs.ServiceImportGVR, kubetypes.DynamicInformer, kclient.Filter{
+		sic.serviceImports = kclient.NewDelayedInformer[controllers.Object](sic.client, mcs.ServiceImportGVR, kubetypes.DynamicInformer, kclient.Filter{
 			ObjectFilter: sic.opts.GetFilter(),
 		})
 		// Register callbacks for events.
@@ -183,7 +183,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object
 
 		// The service already existed. Treat it as an update.
 		event = model.EventUpdate
-
+		mcsService = mcsService.DeepCopy()
 		if ic.updateIPs(mcsService, ips) {
 			needsFullPush = true
 		}
@@ -193,6 +193,7 @@ func (ic *serviceImportCacheImpl) onServiceImportEvent(_, obj controllers.Object
 	// a change to the discoverability policy.
 	ic.addOrUpdateService(nil, mcsService, event, true)
 
+	// TODO: do we really need a full push, we should do it in `addOrUpdateService`.
 	if needsFullPush {
 		ic.doFullPush(mcsHost, si.GetNamespace())
 	}
@@ -215,7 +216,7 @@ func (ic *serviceImportCacheImpl) doFullPush(mcsHost host.Name, ns string) {
 		Full:           true,
 		ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: mcsHost.String(), Namespace: ns}),
 
-		Reason: []model.TriggerReason{model.ServiceUpdate},
+		Reason: model.NewReasonStats(model.ServiceUpdate),
 	}
 	ic.opts.XDSUpdater.ConfigUpdate(pushReq)
 }

@@ -130,7 +130,7 @@ func CheckFileExists(path string) error {
 	return nil
 }
 
-func ReadProxySHA() (string, error) {
+func ReadDepsSHA(name string) (string, error) {
 	type DepsFile struct {
 		Name          string `json:"name"`
 		LastStableSHA string `json:"lastStableSHA"`
@@ -145,11 +145,11 @@ func ReadProxySHA() (string, error) {
 		return "", err
 	}
 	for _, d := range deps {
-		if d.Name == "PROXY_REPO_SHA" {
+		if d.Name == name {
 			return d.LastStableSHA, nil
 		}
 	}
-	return "", fmt.Errorf("PROXY_REPO_SHA not found")
+	return "", fmt.Errorf("%s not found", name)
 }
 
 // ReadVersion returns the contents of the $ROOTDIR/VERSION file

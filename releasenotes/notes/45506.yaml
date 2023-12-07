@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 45506
+releaseNotes:
+  - |
+    **Fixed** When using a ServiceEntry with DNS resolution multi-network endpoints will now go through the gateway.

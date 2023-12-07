@@ -96,6 +96,7 @@ func validateHTTPRoute(http *networking.HTTPRoute, delegate, gatewaySemantics bo
 	}
 
 	errs = appendValidation(errs, validateDestination(http.Mirror))
+	errs = appendValidation(errs, validateHTTPMirrors(http.Mirrors))
 	errs = appendValidation(errs, validateHTTPRedirect(http.Redirect))
 	errs = appendValidation(errs, validateHTTPDirectResponse(http.DirectResponse))
 	errs = appendValidation(errs, validateHTTPRetry(http.Retries))
@@ -266,6 +267,10 @@ func validateHTTPRouteConflict(http *networking.HTTPRoute, routeType HTTPRouteTy
 		}
 	} else if len(http.Route) == 0 {
 		errs = appendErrors(errs, errors.New("HTTP route, redirect or direct_response is required"))
+	}
+
+	if http.Mirror != nil && len(http.Mirrors) > 0 {
+		errs = appendErrors(errs, errors.New("HTTP route cannot contain both mirror and mirrors"))
 	}
 
 	return errs

@@ -9,3 +9,5 @@ spec:
     pilot:
       cpu:
         targetAverageUtilization: 90
+      memory:
+        targetAverageUtilization: 90

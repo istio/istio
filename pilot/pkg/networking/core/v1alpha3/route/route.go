@@ -16,6 +16,7 @@ package route
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -23,10 +24,11 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
+	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
+	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/golang/protobuf/ptypes/duration"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -48,6 +50,7 @@ import (
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/grpc"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // Headers with special meaning in Envoy
@@ -119,7 +122,7 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 
 	for _, svc := range serviceRegistry {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+			if port.Protocol.IsHTTPOrSniffed() {
 				hash, destinationRule := hashForService(push, node, svc, port)
 				if hash != nil {
 					dependentDestinationRules = append(dependentDestinationRules, destinationRule)
@@ -236,7 +239,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	serviceByPort := make(map[int][]*model.Service)
 	for _, svc := range servicesInVirtualService {
 		for _, port := range svc.Ports {
-			if port.Protocol.IsHTTP() || util.IsProtocolSniffingEnabledForPort(port) {
+			if port.Protocol.IsHTTPOrSniffed() {
 				serviceByPort[port.Port] = append(serviceByPort[port.Port], svc)
 			}
 		}
@@ -291,6 +294,12 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		// only happens when the gateway-api BackendRef is invalid
 		return "UnknownService"
 	}
+	h := host.Name(destination.Host)
+	// If this is an Alias, point to the concrete service
+	// TODO: this will not work if we have Alias -> Alias -> Concrete service.
+	if service != nil && service.Attributes.K8sAttributes.ExternalName != "" {
+		h = host.Name(service.Attributes.K8sAttributes.ExternalName)
+	}
 	port := listenerPort
 	if destination.GetPort() != nil {
 		port = int(destination.GetPort().GetNumber())
@@ -304,7 +313,7 @@ func GetDestinationCluster(destination *networking.Destination, service *model.S
 		// If blackhole cluster is needed, do the check on the caller side. See gateway and tls.go for examples.
 	}
 
-	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, host.Name(destination.Host), port)
+	return model.BuildSubsetKey(model.TrafficDirectionOutbound, destination.Subset, h, port)
 }
 
 type RouteOptions struct {
@@ -424,7 +433,7 @@ func translateRoute(
 
 	out := &route.Route{
 		Name:     routeName,
-		Match:    TranslateRouteMatch(virtualService, match),
+		Match:    TranslateRouteMatch(virtualService, match, node.SupportsEnvoyExtendedJwt()),
 		Metadata: util.BuildConfigInfoMetadata(virtualService.Meta),
 	}
 
@@ -442,20 +451,49 @@ func translateRoute(
 		authority = operations.Authority
 	}
 
+	var hostnames []host.Name
 	if in.Redirect != nil {
 		ApplyRedirect(out, in.Redirect, listenPort, opts.IsTLS, model.UseGatewaySemantics(virtualService))
 	} else if in.DirectResponse != nil {
 		ApplyDirectResponse(out, in.DirectResponse)
 	} else {
-		applyHTTPRouteDestination(out, node, virtualService, in, opts.Mesh, authority, serviceRegistry, listenPort, hashByDestination)
+		hostnames = applyHTTPRouteDestination(out, node, virtualService, in, opts.Mesh, authority, serviceRegistry, listenPort, hashByDestination)
 	}
 
 	out.Decorator = &route.Decorator{
 		Operation: GetRouteOperation(out, virtualService.Name, listenPort),
 	}
-	if in.Fault != nil {
+	if in.Fault != nil || in.CorsPolicy != nil {
 		out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+	}
+	if in.Fault != nil {
 		out.TypedPerFilterConfig[wellknown.Fault] = protoconv.MessageToAny(TranslateFault(in.Fault))
+	}
+	if in.CorsPolicy != nil {
+		out.TypedPerFilterConfig[wellknown.CORS] = protoconv.MessageToAny(TranslateCORSPolicy(in.CorsPolicy))
+	}
+	var statefulConfig *statefulsession.StatefulSession
+	for _, hostname := range hostnames {
+		perSvcStatefulConfig := util.MaybeBuildStatefulSessionFilterConfig(serviceRegistry[hostname])
+		// This means we have more than one stateful config for the same route because of weighed destinations.
+		// We should just pick the first and give a warning.
+		if perSvcStatefulConfig != nil && statefulConfig != nil {
+			log.Warnf("More than one stateful config for the same route %s. Picking the first one.", routeName)
+			break
+		}
+		statefulConfig = perSvcStatefulConfig
+	}
+	// Build stateful set config if the svc has appropriate labels attached.
+	if statefulConfig != nil {
+		if out.TypedPerFilterConfig == nil {
+			out.TypedPerFilterConfig = make(map[string]*anypb.Any)
+		}
+		perRouteStatefulSession := &statefulsession.StatefulSessionPerRoute{
+			Override: &statefulsession.StatefulSessionPerRoute_StatefulSession{
+				StatefulSession: statefulConfig,
+			},
+		}
+		out.TypedPerFilterConfig[util.StatefulSessionFilter] = protoconv.MessageToAny(perRouteStatefulSession)
 	}
 
 	if opts.IsHTTP3AltSvcHeaderNeeded {
@@ -479,14 +517,13 @@ func applyHTTPRouteDestination(
 	serviceRegistry map[host.Name]*model.Service,
 	listenerPort int,
 	hashByDestination DestinationHashMap,
-) {
+) []host.Name {
 	policy := in.Retries
 	if policy == nil {
 		// No VS policy set, use mesh defaults
 		policy = mesh.GetDefaultHttpRetryPolicy()
 	}
 	action := &route.RouteAction{
-		Cors:        TranslateCORSPolicy(in.CorsPolicy),
 		RetryPolicy: retry.ConvertPolicy(policy),
 	}
 
@@ -513,7 +550,18 @@ func applyHTTPRouteDestination(
 				Substitution: regexRewrite.Rewrite,
 			}
 		} else if uri := in.Rewrite.GetUri(); uri != "" {
-			action.PrefixRewrite = uri
+			if model.UseGatewaySemantics(vs) && uri == "/" {
+				// remove the prefix
+				action.RegexRewrite = &matcher.RegexMatchAndSubstitute{
+					Pattern: &matcher.RegexMatcher{
+						Regex: fmt.Sprintf(`^%s(/?)(.*)`, regexp.QuoteMeta(out.Match.GetPathSeparatedPrefix())),
+					},
+					// hold `/` in case the entire path is removed
+					Substitution: `/\2`,
+				}
+			} else {
+				action.PrefixRewrite = uri
+			}
 		}
 		if in.Rewrite.GetAuthority() != "" {
 			authority = in.Rewrite.GetAuthority()
@@ -527,78 +575,110 @@ func applyHTTPRouteDestination(
 
 	if in.Mirror != nil {
 		if mp := MirrorPercent(in); mp != nil {
-			action.RequestMirrorPolicies = []*route.RouteAction_RequestMirrorPolicy{{
-				Cluster:         GetDestinationCluster(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort),
-				RuntimeFraction: mp,
-				TraceSampled:    &wrappers.BoolValue{Value: false},
-			}}
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				TranslateRequestMirrorPolicy(in.Mirror, serviceRegistry[host.Name(in.Mirror.Host)], listenerPort, mp))
+		}
+	}
+	for _, mirror := range in.Mirrors {
+		if mp := MirrorPercentByPolicy(mirror); mp != nil && mirror.Destination != nil {
+			action.RequestMirrorPolicies = append(action.RequestMirrorPolicies,
+				TranslateRequestMirrorPolicy(mirror.Destination, serviceRegistry[host.Name(mirror.Destination.Host)], listenerPort, mp))
 		}
 	}
 
-	// TODO: eliminate this logic and use the total_weight option in envoy route
-	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
-	for _, dst := range in.Route {
-		weight := &wrappers.UInt32Value{Value: uint32(dst.Weight)}
-		if dst.Weight == 0 {
-			// Ignore 0 weighted clusters if there are other clusters in the route.
-			// But if this is the only cluster in the route, then add it as a cluster with weight 100
-			if len(in.Route) == 1 {
-				weight.Value = uint32(100)
-			} else {
+	var hostnames []host.Name
+	if len(in.Route) == 1 {
+		hostnames = append(hostnames, processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action))
+	} else {
+		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
+		for _, dst := range in.Route {
+			if dst.Weight == 0 {
+				// Ignore 0 weighted clusters if there are other clusters in the route.
 				continue
 			}
+			destinationweight, hostname := processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action)
+			weighted = append(weighted, destinationweight)
+			hostnames = append(hostnames, hostname)
 		}
-		hostname := host.Name(dst.GetDestination().GetHost())
-		n := GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort)
-		clusterWeight := &route.WeightedCluster_ClusterWeight{
-			Name:   n,
-			Weight: weight,
-		}
-		if dst.Headers != nil {
-			operations := TranslateHeadersOperations(dst.Headers)
-			clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
-			clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
-			clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
-			clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
-			if operations.Authority != "" {
-				clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
-					HostRewriteLiteral: operations.Authority,
-				}
-			}
-		}
-
-		weighted = append(weighted, clusterWeight)
-		hash := hashByDestination[dst]
-		hashPolicy := consistentHashToHashPolicy(hash)
-		if hashPolicy != nil {
-			action.HashPolicy = append(action.HashPolicy, hashPolicy)
-		}
-	}
-
-	// rewrite to a single cluster if there is only weighted cluster
-	if len(weighted) == 1 {
-		action.ClusterSpecifier = &route.RouteAction_Cluster{Cluster: weighted[0].Name}
-		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, weighted[0].RequestHeadersToAdd...)
-		out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, weighted[0].RequestHeadersToRemove...)
-		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, weighted[0].ResponseHeadersToAdd...)
-		out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, weighted[0].ResponseHeadersToRemove...)
-		if weighted[0].HostRewriteSpecifier != nil && action.HostRewriteSpecifier == nil {
-			// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
-			// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
-			// However, Envoy behavior is different when we set at both cluster level and route level, and we want
-			// behavior to be consistent with a single cluster and multiple clusters.
-			// As a result, we only override if the top level rewrite is not set
-			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
-				HostRewriteLiteral: weighted[0].GetHostRewriteLiteral(),
-			}
-		}
-	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
 				Clusters: weighted,
 			},
 		}
 	}
+	return hostnames
+}
+
+// processDestination processes a single destination in a route. It specifies to which cluster the route should
+// be routed to. It also sets the headers and hash policy if specified.
+// Returns the hostname of the destination.
+func processDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
+	listenerPort int,
+	hashByDestination DestinationHashMap,
+	out *route.Route,
+	action *route.RouteAction,
+) host.Name {
+	hostname := host.Name(dst.GetDestination().GetHost())
+	action.ClusterSpecifier = &route.RouteAction_Cluster{
+		Cluster: GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
+	}
+	if dst.Headers != nil {
+		operations := TranslateHeadersOperations(dst.Headers)
+		out.RequestHeadersToAdd = append(out.RequestHeadersToAdd, operations.RequestHeadersToAdd...)
+		out.RequestHeadersToRemove = append(out.RequestHeadersToRemove, operations.RequestHeadersToRemove...)
+		out.ResponseHeadersToAdd = append(out.ResponseHeadersToAdd, operations.ResponseHeadersToAdd...)
+		out.ResponseHeadersToRemove = append(out.ResponseHeadersToRemove, operations.ResponseHeadersToRemove...)
+		if operations.Authority != "" && action.HostRewriteSpecifier == nil {
+			// Ideally, if the weighted cluster overwrites authority, it has precedence. This mirrors behavior of headers,
+			// because for headers we append the weighted last which allows it to Set and wipe out previous Adds.
+			// However, Envoy behavior is different when we set at both cluster level and route level, and we want
+			// behavior to be consistent with a single cluster and multiple clusters.
+			// As a result, we only override if the top level rewrite is not set
+			action.HostRewriteSpecifier = &route.RouteAction_HostRewriteLiteral{
+				HostRewriteLiteral: operations.Authority,
+			}
+		}
+	}
+	hash := hashByDestination[dst]
+	hashPolicy := consistentHashToHashPolicy(hash)
+	if hashPolicy != nil {
+		action.HashPolicy = append(action.HashPolicy, hashPolicy)
+	}
+	return hostname
+}
+
+// processWeightedDestination processes a weighted destination in a route. It specifies to which cluster the route should
+// be routed to. It also sets the headers and hash policy if specified.
+// Returns the hostname of the destination along with its weight.
+func processWeightedDestination(dst *networking.HTTPRouteDestination, serviceRegistry map[host.Name]*model.Service,
+	listenerPort int,
+	hashByDestination DestinationHashMap,
+	action *route.RouteAction,
+) (*route.WeightedCluster_ClusterWeight, host.Name) {
+	hostname := host.Name(dst.GetDestination().GetHost())
+	clusterWeight := &route.WeightedCluster_ClusterWeight{
+		Name:   GetDestinationCluster(dst.Destination, serviceRegistry[hostname], listenerPort),
+		Weight: &wrappers.UInt32Value{Value: uint32(dst.Weight)},
+	}
+	if dst.Headers != nil {
+		operations := TranslateHeadersOperations(dst.Headers)
+		// If weighted destination has headers, we need to set them on the cluster weight.
+		clusterWeight.RequestHeadersToAdd = operations.RequestHeadersToAdd
+		clusterWeight.RequestHeadersToRemove = operations.RequestHeadersToRemove
+		clusterWeight.ResponseHeadersToAdd = operations.ResponseHeadersToAdd
+		clusterWeight.ResponseHeadersToRemove = operations.ResponseHeadersToRemove
+		if operations.Authority != "" {
+			clusterWeight.HostRewriteSpecifier = &route.WeightedCluster_ClusterWeight_HostRewriteLiteral{
+				HostRewriteLiteral: operations.Authority,
+			}
+		}
+	}
+	hash := hashByDestination[dst]
+	hashPolicy := consistentHashToHashPolicy(hash)
+	if hashPolicy != nil {
+		action.HashPolicy = append(action.HashPolicy, hashPolicy)
+	}
+	return clusterWeight, hostname
 }
 
 func ApplyRedirect(out *route.Route, redirect *networking.HTTPRedirect, port int, isTLS bool, useGatewaySemantics bool) {
@@ -748,6 +828,25 @@ func MirrorPercent(in *networking.HTTPRoute) *core.RuntimeFractionalPercent {
 	}
 }
 
+// MirrorPercentByPolicy computes the mirror percent to be used based on HTTPMirrorPolicy.
+func MirrorPercentByPolicy(mirror *networking.HTTPMirrorPolicy) *core.RuntimeFractionalPercent {
+	switch {
+	case mirror.Percentage != nil:
+		if mirror.Percentage.GetValue() > 0 {
+			return &core.RuntimeFractionalPercent{
+				DefaultValue: translatePercentToFractionalPercent(mirror.Percentage),
+			}
+		}
+		// If zero percent is provided explicitly, we should not mirror.
+		return nil
+	default:
+		// Default to 100 percent if percent is not given.
+		return &core.RuntimeFractionalPercent{
+			DefaultValue: translateIntegerToFractionalPercent(100),
+		}
+	}
+}
+
 // Len is i the sort.Interface for SortHeaderValueOption
 func (b SortHeaderValueOption) Len() int {
 	return len(b)
@@ -857,7 +956,7 @@ func TranslateHeadersOperations(headers *networking.Headers) HeadersOperations {
 }
 
 // TranslateRouteMatch translates match condition
-func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest) *route.RouteMatch {
+func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest, useExtendedJwt bool) *route.RouteMatch {
 	out := &route.RouteMatch{PathSpecifier: &route.RouteMatch_Prefix{Prefix: "/"}}
 	if in == nil {
 		return out
@@ -865,7 +964,7 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest) *rou
 
 	for name, stringMatch := range in.Headers {
 		// The metadata matcher takes precedence over the header matcher.
-		if metadataMatcher := translateMetadataMatch(name, stringMatch); metadataMatcher != nil {
+		if metadataMatcher := translateMetadataMatch(name, stringMatch, useExtendedJwt); metadataMatcher != nil {
 			out.DynamicMetadata = append(out.DynamicMetadata, metadataMatcher)
 		} else {
 			matcher := translateHeaderMatch(name, stringMatch)
@@ -874,7 +973,7 @@ func TranslateRouteMatch(vs config.Config, in *networking.HTTPMatchRequest) *rou
 	}
 
 	for name, stringMatch := range in.WithoutHeaders {
-		if metadataMatcher := translateMetadataMatch(name, stringMatch); metadataMatcher != nil {
+		if metadataMatcher := translateMetadataMatch(name, stringMatch, useExtendedJwt); metadataMatcher != nil {
 			metadataMatcher.Invert = true
 			out.DynamicMetadata = append(out.DynamicMetadata, metadataMatcher)
 		} else {
@@ -959,7 +1058,7 @@ func translateQueryParamMatch(name string, in *networking.StringMatch) *route.Qu
 // isCatchAllStringMatch determines if the given matcher is matched with all strings or not.
 // Currently, if the regex has "*" value, it returns true
 func isCatchAllStringMatch(in *networking.StringMatch) bool {
-	if in == nil {
+	if in == nil || in.MatchType == nil {
 		return true
 	}
 
@@ -986,12 +1085,12 @@ func isCatchAllStringMatch(in *networking.StringMatch) bool {
 // Examples using `[]` as a separator:
 // - `@request.auth.claims[admin]` matches the claim "admin".
 // - `@request.auth.claims[group][id]` matches the nested claims "group" and "id".
-func translateMetadataMatch(name string, in *networking.StringMatch) *matcher.MetadataMatcher {
+func translateMetadataMatch(name string, in *networking.StringMatch, useExtendedJwt bool) *matcher.MetadataMatcher {
 	rc := jwt.ToRoutingClaim(name)
 	if !rc.Match {
 		return nil
 	}
-	return authz.MetadataMatcherForJWTClaims(rc.Claims, util.ConvertToEnvoyMatch(in))
+	return authz.MetadataMatcherForJWTClaims(rc.Claims, util.ConvertToEnvoyMatch(in), useExtendedJwt)
 }
 
 // translateHeaderMatch translates to HeaderMatcher
@@ -1015,13 +1114,13 @@ func translateHeaderMatch(name string, in *networking.StringMatch) *route.Header
 }
 
 // TranslateCORSPolicy translates CORS policy
-func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
+func TranslateCORSPolicy(in *networking.CorsPolicy) *cors.CorsPolicy {
 	if in == nil {
 		return nil
 	}
 
 	// CORS filter is enabled by default
-	out := route.CorsPolicy{}
+	out := cors.CorsPolicy{}
 	// nolint: staticcheck
 	if in.AllowOrigins != nil {
 		out.AllowOriginStringMatch = util.ConvertToEnvoyMatches(in.AllowOrigins)
@@ -1029,12 +1128,10 @@ func TranslateCORSPolicy(in *networking.CorsPolicy) *route.CorsPolicy {
 		out.AllowOriginStringMatch = util.StringToExactMatch(in.AllowOrigin)
 	}
 
-	out.EnabledSpecifier = &route.CorsPolicy_FilterEnabled{
-		FilterEnabled: &core.RuntimeFractionalPercent{
-			DefaultValue: &xdstype.FractionalPercent{
-				Numerator:   100,
-				Denominator: xdstype.FractionalPercent_HUNDRED,
-			},
+	out.FilterEnabled = &core.RuntimeFractionalPercent{
+		DefaultValue: &xdstype.FractionalPercent{
+			Numerator:   100,
+			Denominator: xdstype.FractionalPercent_HUNDRED,
 		},
 	}
 
@@ -1066,7 +1163,7 @@ func GetRouteOperation(in *route.Route, vsName string, port int) string {
 
 	// If there is only one destination cluster in route, return host:port/uri as description of route.
 	// Otherwise there are multiple destination clusters and destination host is not clear. For that case
-	// return virtual serivce name:port/uri as substitute.
+	// return virtual service name:port/uri as substitute.
 	if c := in.GetRoute().GetCluster(); model.IsValidSubsetKey(c) {
 		// Parse host and port from cluster name.
 		_, _, h, p := model.ParseSubsetKey(c)
@@ -1094,7 +1191,7 @@ func buildDefaultHTTPRoute(clusterName string, operation string) *route.Route {
 		ClusterSpecifier: &route.RouteAction_Cluster{Cluster: clusterName},
 	}
 	val := &route.Route{
-		Match: TranslateRouteMatch(config.Config{}, nil),
+		Match: TranslateRouteMatch(config.Config{}, nil, true),
 		Decorator: &route.Decorator{
 			Operation: operation,
 		},
@@ -1212,6 +1309,16 @@ func TranslateFault(in *networking.HTTPFaultInjection) *xdshttpfault.HTTPFault {
 	}
 
 	return &out
+}
+
+func TranslateRequestMirrorPolicy(dst *networking.Destination, service *model.Service,
+	listenerPort int, mp *core.RuntimeFractionalPercent,
+) *route.RouteAction_RequestMirrorPolicy {
+	return &route.RouteAction_RequestMirrorPolicy{
+		Cluster:         GetDestinationCluster(dst, service, listenerPort),
+		RuntimeFraction: mp,
+		TraceSampled:    &wrappers.BoolValue{Value: false},
+	}
 }
 
 func portLevelSettingsConsistentHash(dst *networking.Destination,

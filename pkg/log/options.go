@@ -20,7 +20,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"google.golang.org/genproto/googleapis/api/monitoredres"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -121,18 +121,8 @@ type Options struct {
 	logCallers       string
 	stackTraceLevels string
 
-	// experimental: stackdriver support
-	useStackdriverFormat     bool
-	teeToStackdriver         bool
-	stackdriverTargetProject string
-	stackdriverQuotaProject  string
-	stackdriverLogName       string
-	stackdriverResource      *monitoredres.MonitoredResource
-
-	// tee log to an UDS server
-	teeToUDSServer   bool
-	udsSocketAddress string
-	udsServerPath    string
+	useStackdriverFormat bool
+	extensions           []Extension
 }
 
 // DefaultOptions returns a new set of options, initialized to the defaults
@@ -156,32 +146,22 @@ func (o *Options) WithStackdriverLoggingFormat() *Options {
 	return o
 }
 
-// WithTeeToStackdriver configures a parallel logging pipeline that writes logs to the Google Cloud Logging API.
-func (o *Options) WithTeeToStackdriver(project, logName string, mr *monitoredres.MonitoredResource) *Options {
-	o.teeToStackdriver = true
-	o.stackdriverTargetProject = project
-	o.stackdriverQuotaProject = project
-	o.stackdriverLogName = logName
-	o.stackdriverResource = mr
-	return o
-}
-
-// WithTeeToStackdriver configures a parallel logging pipeline that writes logs to the Google Cloud Logging API.
-func (o *Options) WithTeeToStackdriverWithQuotaProject(project, quotaProject, logName string, mr *monitoredres.MonitoredResource) *Options {
-	o.teeToStackdriver = true
-	o.stackdriverTargetProject = project
-	o.stackdriverQuotaProject = quotaProject
-	o.stackdriverLogName = logName
-	o.stackdriverResource = mr
-	return o
-}
-
 // WithTeeToUDS configures a parallel logging pipeline that writes logs to a server over UDS.
 // addr is the socket that the server listens on, and path is the HTTP path that process the log message.
 func (o *Options) WithTeeToUDS(addr, path string) *Options {
-	o.teeToUDSServer = true
-	o.udsSocketAddress = addr
-	o.udsServerPath = path
+	return o.WithExtension(func(c zapcore.Core) (zapcore.Core, func() error, error) {
+		return teeToUDSServer(c, addr, path), func() error { return nil }, nil
+	})
+}
+
+// Extension provides an extension mechanism for logs.
+// This is essentially like https://pkg.go.dev/golang.org/x/exp/slog#Handler.
+// This interface should be considered unstable; we will likely swap it for slog in the future and not expose zap internals.
+// Returns a modified Core interface, and a Close() function.
+type Extension func(c zapcore.Core) (zapcore.Core, func() error, error)
+
+func (o *Options) WithExtension(e Extension) *Options {
+	o.extensions = append(o.extensions, e)
 	return o
 }
 

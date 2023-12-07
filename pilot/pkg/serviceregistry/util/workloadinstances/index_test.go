@@ -18,14 +18,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
-
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/spiffe"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var GlobalTime = time.Now()
@@ -94,17 +93,7 @@ func TestIndex(t *testing.T) {
 	index.Insert(wi3)
 
 	verifyGetByIP := func(ip string, expected []*model.WorkloadInstance) {
-		actual := index.GetByIP(ip)
-
-		if diff := cmp.Diff(len(expected), len(actual)); diff != "" {
-			t.Errorf("GetByIP() returned unexpected number of workload instances (--want/++got): %v", diff)
-		}
-
-		for i := range expected {
-			if diff := cmp.Diff(expected[i], actual[i]); diff != "" {
-				t.Errorf("GetByIP() returned unexpected workload instance %d (--want/++got): %v", i, diff)
-			}
-		}
+		assert.Equal(t, expected, index.GetByIP(ip))
 	}
 
 	// GetByIP should return 2 workload instances
@@ -114,9 +103,7 @@ func TestIndex(t *testing.T) {
 	// Delete should return previously inserted value
 
 	deleted := index.Delete(wi1)
-	if diff := cmp.Diff(wi1, deleted); diff != "" {
-		t.Errorf("1st Delete() returned unexpected value (--want/++got): %v", diff)
-	}
+	assert.Equal(t, wi1, deleted)
 
 	// GetByIP should return 1 workload instance
 
@@ -125,9 +112,7 @@ func TestIndex(t *testing.T) {
 	// Delete should return nil since there is no such element in the index
 
 	deleted = index.Delete(wi1)
-	if diff := cmp.Diff((*model.WorkloadInstance)(nil), deleted); diff != "" {
-		t.Errorf("2nd Delete() returned unexpected value (--want/++got): %v", diff)
-	}
+	assert.Equal(t, nil, deleted)
 
 	// GetByIP should return nil
 
@@ -184,9 +169,7 @@ func TestIndex_FindAll(t *testing.T) {
 	actual := FindAllInIndex(index, ByServiceSelector(selector.Namespace, labels.Instance{"app": "wle"}))
 	want := []*model.WorkloadInstance{wi1, wi2}
 
-	if diff := cmp.Diff(len(want), len(actual)); diff != "" {
-		t.Errorf("FindAllInIndex() returned unexpected number of workload instances (--want/++got): %v", diff)
-	}
+	assert.Equal(t, len(want), len(actual))
 
 	got := map[string]*model.WorkloadInstance{}
 	for _, instance := range actual {
@@ -194,8 +177,6 @@ func TestIndex_FindAll(t *testing.T) {
 	}
 
 	for _, expected := range want {
-		if diff := cmp.Diff(expected, got[expected.Name]); diff != "" {
-			t.Fatalf("FindAllInIndex() returned unexpected workload instance %q (--want/++got): %v", expected.Name, diff)
-		}
+		assert.Equal(t, expected, got[expected.Name])
 	}
 }

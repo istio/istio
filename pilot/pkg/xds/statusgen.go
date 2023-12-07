@@ -70,6 +70,23 @@ func NewStatusGen(s *DiscoveryServer) *StatusGen {
 // - NACKs
 // We can also expose ACKS.
 func (sg *StatusGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	return sg.handleInternalRequest(proxy, w, req)
+}
+
+// Generate delta XDS responses about internal events:
+// - connection status
+// - NACKs
+// We can also expose ACKS.
+func (sg *StatusGen) GenerateDeltas(
+	proxy *model.Proxy,
+	req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	res, detail, err := sg.handleInternalRequest(proxy, w, req)
+	return res, nil, detail, true, err
+}
+
+func (sg *StatusGen) handleInternalRequest(_ *model.Proxy, w *model.WatchedResource, _ *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 
 	switch w.TypeUrl {
@@ -89,11 +106,12 @@ func (sg *StatusGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req 
 			break
 		}
 		var err error
-		res, err = sg.debugConfigDump(w.ResourceNames[0])
+		dumpRes, err := sg.debugConfigDump(w.ResourceNames[0])
 		if err != nil {
 			log.Infof("%s failed: %v", TypeDebugConfigDump, err)
 			break
 		}
+		res = dumpRes
 	}
 	return res, model.DefaultXdsLogDetails, nil
 }
@@ -126,7 +144,7 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 
 	for _, con := range sg.Server.Clients() {
 		con.proxy.RLock()
-		// Skip "nodes" without metdata (they are probably istioctl queries!)
+		// Skip "nodes" without metadata (they are probably istioctl queries!)
 		if isProxy(con) || isZtunnel(con) {
 			xdsConfigs := make([]*status.ClientConfig_GenericXdsConfig, 0)
 			for _, stype := range stypes {
@@ -147,7 +165,9 @@ func (sg *StatusGen) debugSyncz() model.Resources {
 				Node: &core.Node{
 					Id: con.proxy.ID,
 					Metadata: model.NodeMetadata{
-						ClusterID: con.proxy.Metadata.ClusterID,
+						ClusterID:    con.proxy.Metadata.ClusterID,
+						Namespace:    con.proxy.Metadata.Namespace,
+						IstioVersion: con.proxy.Metadata.IstioVersion,
 					}.ToStruct(),
 				},
 				GenericXdsConfigs: xdsConfigs,

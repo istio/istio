@@ -67,7 +67,7 @@ func WaitForResources(objects object.K8sObjects, client kube.Client,
 	var notReady []string
 	var debugInfo map[string]string
 
-	// Check if we are ready immediately, to avoid the 2s delay below when we are already redy
+	// Check if we are ready immediately, to avoid the 2s delay below when we are already ready
 	if ready, _, _, err := waitForResources(objects, client.Kube(), l); err == nil && ready {
 		return nil
 	}
@@ -310,7 +310,7 @@ func daemonsetsReady(daemonsets []*appsv1.DaemonSet) (bool, []string) {
 			if ds.Spec.UpdateStrategy.Type == appsv1.RollingUpdateDaemonSetStrategyType {
 				if ds.Status.DesiredNumberScheduled <= 0 {
 					// If DesiredNumberScheduled less then or equal 0, there some cases:
-					// 1) daemenset is just created
+					// 1) daemonset is just created
 					// 2) daemonset desired no pod
 					// 3) somebody changed it manually
 					// All the case is not a ready signal
@@ -342,7 +342,7 @@ func statefulsetsReady(statefulsets []*appsv1.StatefulSet) (bool, []string) {
 		if sts.Spec.UpdateStrategy.Type == appsv1.RollingUpdateStatefulSetStrategyType {
 			// Dereference all the pointers because StatefulSets like them
 			var partition int
-			// default replicasfor sts is 1
+			// default replicas for sts is 1
 			replicas := 1
 			// the rollingUpdate field can be nil even if the update strategy is a rolling update.
 			if sts.Spec.UpdateStrategy.RollingUpdate != nil &&

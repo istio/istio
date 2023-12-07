@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+
+issue:
+  - 45338
+
+releaseNotes:
+- |
+   **Fixed** an issue where the operator did not reject invalid CIDR entries that included spaces.

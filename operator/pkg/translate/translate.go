@@ -603,6 +603,13 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 			return "", fmt.Errorf("component value isn't a map")
 		}
 		finalVals := map[string]any{}
+		// strip out anything from the original apiVals which are a map[string]any but populate other top-level fields
+		for k, v := range apiVals {
+			_, isMap := v.(map[string]any)
+			if !isMap {
+				finalVals[k] = v
+			}
+		}
 		for k, v := range globals {
 			finalVals[k] = v
 		}
@@ -997,14 +1004,14 @@ func MergeK8sObject(base *object.K8sObject, overlayNode any, path util.Path) (*o
 }
 
 // createPatchObjectFromPath constructs patch object for node with path, returns nil object and error if the path is invalid.
-// eg. node:
+// e.g. node:
 //   - name: NEW_VAR
 //     value: new_value
 //
 // and path:
 //
 //	  spec.template.spec.containers.[name:discovery].env
-//	will constructs the following patch object:
+//	will construct the following patch object:
 //	  spec:
 //	    template:
 //	      spec:

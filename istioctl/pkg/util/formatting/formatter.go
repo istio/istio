@@ -62,7 +62,7 @@ func Print(ms diag.Messages, format string, colorize bool) (string, error) {
 }
 
 func printLog(ms diag.Messages, colorize bool) string {
-	var logOutput []string
+	logOutput := make([]string, 0, len(ms))
 	for _, m := range ms {
 		logOutput = append(logOutput, render(m, colorize))
 	}

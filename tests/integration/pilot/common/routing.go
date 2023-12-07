@@ -53,6 +53,20 @@ import (
 	ingressutil "istio.io/istio/tests/integration/security/sds_ingress/util"
 )
 
+const originateTLSTmpl = `
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: "{{.VirtualServiceHost|replace "*" "wild"}}"
+  namespace: "{{.IngressNamespace}}"
+spec:
+  host: "{{.VirtualServiceHost}}"
+  trafficPolicy:
+    tls:
+      mode: SIMPLE
+---
+`
+
 const httpVirtualServiceTmpl = `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -137,7 +151,7 @@ spec:
       protocol: {{.GatewayProtocol}}
 {{- if .Credential }}
     tls:
-      mode: SIMPLE
+      mode: {{.TLSMode}}
       credentialName: {{.Credential}}
 {{- if .Ciphers }}
       cipherSuites:
@@ -159,8 +173,9 @@ func httpGateway(host string, port int, portName, protocol string, gatewayIstioL
 		GatewayProtocol   string
 		Credential        string
 		GatewayIstioLabel string
+		TLSMode           string
 	}{
-		host, port, portName, protocol, "", gatewayIstioLabel,
+		host, port, portName, protocol, "", gatewayIstioLabel, "SIMPLE",
 	})
 }
 
@@ -258,7 +273,6 @@ spec:
 				check.Host("my-custom-authority")),
 		},
 		workloadAgnostic: true,
-		minIstioVersion:  "1.10.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header in destination",
@@ -288,7 +302,6 @@ spec:
 				check.Host("my-custom-authority")),
 		},
 		workloadAgnostic: true,
-		minIstioVersion:  "1.10.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header in route and destination",
@@ -322,7 +335,6 @@ spec:
 				check.Host("route-authority")),
 		},
 		workloadAgnostic: true,
-		minIstioVersion:  "1.12.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header in route and multi destination",
@@ -360,7 +372,6 @@ spec:
 				check.Host("route-authority")),
 		},
 		workloadAgnostic: true,
-		minIstioVersion:  "1.12.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "set host header multi destination",
@@ -398,7 +409,6 @@ spec:
 				check.Host("dest-authority")),
 		},
 		workloadAgnostic: true,
-		minIstioVersion:  "1.12.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name: "redirect",
@@ -786,8 +796,7 @@ spec:
 	})
 
 	t.RunTraffic(TrafficTestCase{
-		name:            "fault abort gRPC",
-		minIstioVersion: "1.15.0",
+		name: "fault abort gRPC",
 		config: `
 apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
@@ -993,7 +1002,6 @@ func useClientProtocolCases(t TrafficContext) {
 				check.Protocol("HTTP/2.0"),
 			),
 		},
-		minIstioVersion: "1.10.0",
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:   "use client protocol with h1",
@@ -1036,7 +1044,6 @@ func destinationRuleCases(t TrafficContext) {
 			},
 			Check: check.OK(),
 		},
-		minIstioVersion: "1.10.0",
 	})
 }
 
@@ -1150,7 +1157,7 @@ spec:
 func gatewayCases(t TrafficContext) {
 	// TODO fix for ambient
 	skipEnvoyPeerMeta := skipAmbient(t, "X-Envoy-Peer-Metadata present in response")
-	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string) map[string]any {
+	templateParams := func(protocol protocol.Instance, src echo.Callers, dests echo.Instances, ciphers []string, port string) map[string]any {
 		hostName, dest, portN, cred := "*", dests[0], 80, ""
 		if protocol.IsTLS() {
 			hostName, portN, cred = dest.Config().ClusterLocalFQDN(), 443, "cred"
@@ -1163,9 +1170,10 @@ func gatewayCases(t TrafficContext) {
 			"GatewayProtocol":    string(protocol),
 			"Gateway":            "gateway",
 			"VirtualServiceHost": dest.Config().ClusterLocalFQDN(),
-			"Port":               dest.PortForName(ports.HTTP.Name).ServicePort,
+			"Port":               dest.PortForName(port).ServicePort,
 			"Credential":         cred,
 			"Ciphers":            ciphers,
+			"TLSMode":            "SIMPLE",
 			"GatewayIstioLabel":  t.Istio.Settings().IngressGatewayIstioLabel,
 		}
 	}
@@ -1328,8 +1336,28 @@ spec:
 			// Test all cipher suites, including a fake one. Envoy should accept all of the ones on the "valid" list,
 			// and control plane should filter our invalid one.
 
-			params := templateParams(protocol.HTTPS, src, dests, append(sets.SortedList(security.ValidCipherSuites), "fake"))
+			params := templateParams(protocol.HTTPS, src, dests, append(sets.SortedList(security.ValidCipherSuites), "fake"), ports.HTTP.Name)
 			params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
+			return params
+		},
+		setupOpts: fqdnHostHeader,
+		opts: echo.CallOptions{
+			Count: 1,
+			Port: echo.Port{
+				Protocol: protocol.HTTPS,
+			},
+		},
+		viaIngress:       true,
+		workloadAgnostic: true,
+	})
+	t.RunTraffic(TrafficTestCase{
+		name: "optional mTLS",
+		config: gatewayTmpl + httpVirtualServiceTmpl +
+			ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA),
+		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
+			params := templateParams(protocol.HTTPS, src, dests, nil, ports.HTTP.Name)
+			params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
+			params["TLSMode"] = "OPTIONAL_MUTUAL"
 			return params
 		},
 		setupOpts: fqdnHostHeader,
@@ -1622,8 +1650,7 @@ spec:
 				},
 			},
 		},
-		minIstioVersion: "1.15.0",
-		setupOpts:       noTarget,
+		setupOpts: noTarget,
 		templateVars: func(_ echo.Callers, dests echo.Instances) map[string]any {
 			return map[string]any{
 				"Gateway":            "gateway",
@@ -1706,7 +1733,7 @@ spec:
 			name:   string(proto),
 			config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 			templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
-				params := templateParams(proto, src, dests, nil)
+				params := templateParams(proto, src, dests, nil, ports.HTTP.Name)
 				params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
 				return params
 			},
@@ -1724,7 +1751,7 @@ spec:
 			name:   fmt.Sprintf("%s scheme match", proto),
 			config: gatewayTmpl + httpVirtualServiceTmpl + secret,
 			templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
-				params := templateParams(proto, src, dests, nil)
+				params := templateParams(proto, src, dests, nil, ports.HTTP.Name)
 				params["MatchScheme"] = strings.ToLower(string(proto))
 				params["GatewayIstioLabel"] = t.Istio.Settings().IngressGatewayIstioLabel
 				return params
@@ -1745,64 +1772,23 @@ spec:
 			workloadAgnostic: true,
 		})
 	}
-}
-
-// 1. Creates a TCP Gateway and VirtualService listener
-// 2. Configures the echoserver to call itself via the TCP gateway using PROXY protocol https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
-// 3. Assumes that the proxy filter EnvoyFilter is not applied
-func ProxyProtocolFilterNotAppliedGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
-	var cases []TrafficTestCase
-	gatewayListenPort := 80
-	gatewayListenPortName := "tcp"
-
-	destinationSets := []echo.Instances{
-		apps.A,
-	}
-
-	for _, d := range destinationSets {
-		d := d
-		if len(d) == 0 {
-			continue
-		}
-
-		fqdn := d[0].Config().ClusterLocalFQDN()
-		cases = append(cases, TrafficTestCase{
-			name: d[0].Config().Service,
-			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
-			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
-			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP", "") + // use the default label since this test creates its own gateway
-				tcpVirtualService("gateway", fqdn, "", 80, ports.TCP.ServicePort),
-			call: apps.Naked[0].CallOrFail,
-			opts: echo.CallOptions{
-				Count:                1,
-				Port:                 echo.Port{ServicePort: 80},
-				Scheme:               scheme.TCP,
-				Address:              gateway,
-				ProxyProtocolVersion: 1,
-				// Envoy requires PROXY protocol TCP payloads have a minimum size, see:
-				// https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/listener/proxy_protocol/v3/proxy_protocol.proto
-				//
-				// If the PROXY protocol filter is enabled,
-				// Envoy will parse and consume the header out of the TCP payload, otherwise echo it back as-is)
-				//
-				// Note that Envoy's behavior is odd here and contradicts the PROXY protocol spec - it should _terminate the connection_ if it
-				// is configured to expect PROXY protocol headers and does not get them - instead, it ignores them for TCP traffic, as this test demonstrates.
-				Message: "This is a test TCP message",
-				Check: check.Each(
-					func(r echoClient.Response) error {
-						body := r.RawContent
-						// Tests run for both TCP4 and 6
-						ok := (strings.Contains(body, "PROXY TCP4") || strings.Contains(body, "PROXY TCP6"))
-						if !ok {
-							return fmt.Errorf("sent proxy protocol header, and it was not echoed back")
-						}
-						return nil
-					}),
-			},
+	secret := ingressutil.IngressKubeSecretYAML("cred", "{{.IngressNamespace}}", ingressutil.TLS, ingressutil.IngressCredentialA)
+	t.RunTraffic(TrafficTestCase{
+		name:   "HTTPS re-encrypt",
+		config: gatewayTmpl + httpVirtualServiceTmpl + originateTLSTmpl + secret,
+		templateVars: func(src echo.Callers, dests echo.Instances) map[string]any {
+			return templateParams(protocol.HTTPS, src, dests, nil, ports.HTTPS.Name)
 		},
-		)
-	}
-	return cases
+		setupOpts: fqdnHostHeader,
+		opts: echo.CallOptions{
+			Port: echo.Port{
+				Protocol: protocol.HTTPS,
+			},
+			Check: check.OK(),
+		},
+		viaIngress:       true,
+		workloadAgnostic: true,
+	})
 }
 
 // 1. Creates a TCP Gateway and VirtualService listener
@@ -2069,9 +2055,8 @@ func hostCases(t TrafficContext) {
 		for _, h := range hosts {
 			name := strings.Replace(h, address, "ip", -1) + "/auto-http"
 			t.RunTraffic(TrafficTestCase{
-				name:            name,
-				minIstioVersion: "1.15.0",
-				call:            c.CallOrFail,
+				name: name,
+				call: c.CallOrFail,
 				opts: echo.CallOptions{
 					To:    t.Apps.Headless,
 					Count: 1,
@@ -2116,9 +2101,8 @@ func hostCases(t TrafficContext) {
 				assertion = check.OK()
 			}
 			t.RunTraffic(TrafficTestCase{
-				name:            name,
-				minIstioVersion: "1.15.0",
-				call:            c.CallOrFail,
+				name: name,
+				call: c.CallOrFail,
 				opts: echo.CallOptions{
 					To: t.Apps.Headless,
 					Port: echo.Port{
@@ -2266,6 +2250,107 @@ spec:
 	}
 }
 
+func externalNameCases(t TrafficContext) {
+	calls := func(name string, checks ...echo.Checker) []TrafficCall {
+		checks = append(checks, check.OK())
+		ch := []TrafficCall{}
+		for _, c := range t.Apps.A {
+			for _, port := range []echo.Port{ports.HTTP, ports.AutoHTTP, ports.TCP, ports.HTTPS} {
+				c, port := c, port
+				ch = append(ch, TrafficCall{
+					name: port.Name,
+					call: c.CallOrFail,
+					opts: echo.CallOptions{
+						Address: name,
+						Port:    port,
+						Timeout: time.Millisecond * 250,
+						Check:   check.And(checks...),
+					},
+				})
+			}
+		}
+		return ch
+	}
+
+	t.RunTraffic(TrafficTestCase{
+		name:         "without port",
+		globalConfig: true,
+		config: fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: b-ext-no-port
+spec:
+  type: ExternalName
+  externalName: b.%s.svc.cluster.local`, t.Apps.Namespace.Name()),
+		children: calls("b-ext-no-port", check.MTLSForHTTP()),
+	})
+
+	t.RunTraffic(TrafficTestCase{
+		name:         "with port",
+		globalConfig: true,
+		config: fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: b-ext-port
+spec:
+  ports:
+  - name: http
+    port: %d
+    protocol: TCP
+    targetPort: %d
+  type: ExternalName
+  externalName: b.%s.svc.cluster.local`,
+			ports.HTTP.ServicePort, ports.HTTP.WorkloadPort, t.Apps.Namespace.Name()),
+		children: calls("b-ext-port", check.MTLSForHTTP()),
+	})
+
+	t.RunTraffic(TrafficTestCase{
+		name: "service entry",
+		skip: skip{
+			skip:   true,
+			reason: "not currently working, as SE doesn't have a VIP",
+		},
+		globalConfig: true,
+		config: fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: b-ext-se
+spec:
+  type: ExternalName
+  externalName: %s`,
+			t.Apps.External.All.Config().HostHeader()),
+		children: calls("b-ext-se"),
+	})
+
+	gatewayListenPort := 80
+	gatewayListenPortName := "http"
+	t.RunTraffic(TrafficTestCase{
+		name: "gateway",
+		skip: skip{
+			skip:   t.Clusters().IsMulticluster(),
+			reason: "we need to apply service to all but Istio config to only Istio clusters, which we don't support",
+		},
+		globalConfig: true,
+		config: fmt.Sprintf(`apiVersion: v1
+kind: Service
+metadata:
+  name: b-ext-se
+spec:
+  type: ExternalName
+  externalName: b.%s.svc.cluster.local
+---`,
+			t.Apps.Namespace.Name()) +
+			httpGateway("*", gatewayListenPort, gatewayListenPortName, "HTTP", t.Istio.Settings().IngressGatewayIstioLabel) +
+			httpVirtualService("gateway", fmt.Sprintf("b-ext-se.%s.svc.cluster.local", t.Apps.Namespace.Name()), ports.HTTP.ServicePort),
+		call: t.Istio.Ingresses().Callers()[0].CallOrFail,
+		opts: echo.CallOptions{
+			Address: fmt.Sprintf("b-ext-se.%s.svc.cluster.local", t.Apps.Namespace.Name()),
+			Port:    ports.HTTP,
+			Check:   check.OK(),
+		},
+	})
+}
+
 // consistentHashCases tests destination rule's consistent hashing mechanism
 func consistentHashCases(t TrafficContext) {
 	if len(t.Clusters().ByNetwork()) != 1 {
@@ -2324,6 +2409,37 @@ spec:
       consistentHash:
         {{. | indent 8}}
 `, svcName, svcName)
+
+			cookieWithTTLDest := fmt.Sprintf(`
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: session-cookie
+          ttl: 3600s
+`, svcName, svcName)
+
+			cookieWithoutTTLDest := fmt.Sprintf(`
+---
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: %s
+spec:
+  host: %s
+  trafficPolicy:
+    loadBalancer:
+      consistentHash:
+        httpCookie:
+          name: session-cookie
+`, svcName, svcName)
 			// Add a negative test case. This ensures that the test is actually valid; its not a super trivial check
 			// and could be broken by having only 1 pod so its good to have this check in place
 			t.RunTraffic(TrafficTestCase{
@@ -2359,6 +2475,46 @@ spec:
 					ConsistentHostChecker,
 				),
 			}
+			cookieCallOpts := echo.CallOptions{
+				Count:   10,
+				Address: svcName,
+				HTTP: echo.HTTP{
+					Path:    "/?some-query-param=bar",
+					Headers: headers.New().With("x-some-header", "baz").Build(),
+				},
+				Port: echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
+				Check: check.And(
+					check.OK(),
+					ConsistentHostChecker,
+				),
+				PropagateResponse: func(req *http.Request, res *http.Response) {
+					scopes.Framework.Infof("invoking propagate response")
+					if res == nil {
+						scopes.Framework.Infof("no response")
+						return
+					}
+					if res.Cookies() == nil {
+						scopes.Framework.Infof("no cookies")
+						return
+					}
+					var sessionCookie *http.Cookie
+					for _, cookie := range res.Cookies() {
+						if cookie.Name == "session-cookie" {
+							sessionCookie = cookie
+							break
+						}
+					}
+					if sessionCookie != nil {
+						scopes.Framework.Infof("setting the request cookie back in the request: %v %b",
+							sessionCookie.Value, sessionCookie.Expires)
+						req.AddCookie(sessionCookie)
+					} else {
+						scopes.Framework.Infof("no session cookie found in the response")
+					}
+				},
+			}
+			cookieWithoutTTLCallOpts := cookieCallOpts
+			cookieWithoutTTLCallOpts.HTTP.Headers = headers.New().With("Cookie", "session-cookie=somecookie").Build()
 			tcpCallopts := echo.CallOptions{
 				Count:   10,
 				Address: svcName,
@@ -2393,15 +2549,26 @@ spec:
 				opts:   callOpts,
 			})
 			t.RunTraffic(TrafficTestCase{
-				name:            "tcp source ip " + c.Config().Service,
-				minIstioVersion: "1.14.0",
-				config:          svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
-				call:            c.CallOrFail,
-				opts:            tcpCallopts,
+				name:   "tcp source ip " + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(destRule, "useSourceIp: true"),
+				call:   c.CallOrFail,
+				opts:   tcpCallopts,
 				skip: skip{
 					skip:   c.Config().WorkloadClass() == echo.Proxyless,
 					reason: "", // TODO: is this a bug or WAI?
 				},
+			})
+			t.RunTraffic(TrafficTestCase{
+				name:   "http cookie with ttl" + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(cookieWithTTLDest, ""),
+				call:   c.CallOrFail,
+				opts:   cookieCallOpts,
+			})
+			t.RunTraffic(TrafficTestCase{
+				name:   "http cookie without ttl" + c.Config().Service,
+				config: svc + tmpl.MustEvaluate(cookieWithoutTTLDest, ""),
+				call:   c.CallOrFail,
+				opts:   cookieWithoutTTLCallOpts,
 			})
 		}
 	}
@@ -2679,8 +2846,6 @@ func instanceIPTests(t TrafficContext) {
 			disableSidecar: true,
 			port:           ports.HTTPLocalHost,
 			code:           http.StatusServiceUnavailable,
-			// when testing with pre-1.10 versions this request succeeds
-			minIstioVersion: "1.10.0",
 		},
 		{
 			name:     "localhost IP with wildcard sidecar",
@@ -2699,8 +2864,6 @@ func instanceIPTests(t TrafficContext) {
 			endpoint: "",
 			port:     ports.HTTPLocalHost,
 			code:     http.StatusServiceUnavailable,
-			// when testing with pre-1.10 versions this request succeeds
-			minIstioVersion: "1.10.0",
 		},
 
 		// Wildcard bind
@@ -3359,7 +3522,7 @@ spec:
       claim: "wrong_claim"
 ---
 `
-	podB := []match.Matcher{match.ServiceName(t.Apps.B.NamespacedName())}
+	matchers := []match.Matcher{match.Or(match.ServiceName(t.Apps.B.NamespacedName()), match.WaypointService(), match.CapturedService())}
 	headersWithToken := map[string][]string{
 		"Host":          {"foo.bar"},
 		"Authorization": {"Bearer " + jwt.TokenIssuer1WithNestedClaims1},
@@ -3394,7 +3557,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with nested claim using claim to header:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3419,7 +3582,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with nested claim and single claim using claim to header:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3447,7 +3610,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with wrong claim and added header:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3477,7 +3640,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with nested claims:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3502,7 +3665,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched with single claim:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3527,7 +3690,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched multiple claims with regex:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3555,7 +3718,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched multiple claims:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3583,7 +3746,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched without claim:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3608,7 +3771,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched without claim:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3633,7 +3796,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "matched both with and without claims with regex:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3662,7 +3825,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched multiple claims:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3690,7 +3853,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched token:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3715,7 +3878,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with invalid token:401",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3740,7 +3903,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no token:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3765,7 +3928,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no token but same header:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3791,7 +3954,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "unmatched with no request authentication:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configRoute,
@@ -3821,7 +3984,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched with nested claims:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3846,7 +4009,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched with single claim:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3871,7 +4034,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched multiple claims with regex:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3899,7 +4062,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched multiple claims:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3927,7 +4090,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched without claim:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3952,7 +4115,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched without claim:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -3977,7 +4140,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched both with and without claims with regex:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4006,7 +4169,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched multiple claims:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4034,7 +4197,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched token:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4059,7 +4222,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with invalid token:401",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4084,7 +4247,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no token:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4109,7 +4272,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no token but same header:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4135,7 +4298,7 @@ spec:
 	})
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with no request authentication:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configRoute,
@@ -4161,7 +4324,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched with simple collision-resistant claim name:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4187,7 +4350,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with simple collision-resistant claim name:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4213,7 +4376,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: matched with nested collision-resistant claim name:200",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,
@@ -4239,7 +4402,7 @@ spec:
 
 	t.RunTraffic(TrafficTestCase{
 		name:             "usage2: unmatched with nested collision-resistant claim name:404",
-		targetMatchers:   podB,
+		targetMatchers:   matchers,
 		workloadAgnostic: true,
 		viaIngress:       true,
 		config:           configAll,

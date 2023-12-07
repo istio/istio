@@ -39,7 +39,7 @@ func TestConfigWriter_Prime(t *testing.T) {
 		{
 			name:        "loads valid ztunnel config_dump",
 			inputFile:   "testdata/dump.json",
-			wantConfigs: 9,
+			wantConfigs: 27,
 			wantErr:     false,
 		},
 	}
@@ -66,19 +66,25 @@ func TestConfigWriter_Prime(t *testing.T) {
 
 func TestConfigWriter_PrintSecretSummary(t *testing.T) {
 	tests := []struct {
-		name           string
-		wantOutputFile string
-		callPrime      bool
-		wantErr        bool
+		name               string
+		wantOutputSecret   string
+		wantOutputWorkload string
+		callPrime          bool
+		wantErr            bool
 	}{
 		{
-			name:           "returns expected secret summary onto Stdout",
-			callPrime:      true,
-			wantOutputFile: "testdata/secretsummary.txt",
+			name:             "returns expected secret summary onto Stdout",
+			callPrime:        true,
+			wantOutputSecret: "testdata/secretsummary.txt",
 		},
 		{
 			name:    "errors if config dump is not primed",
 			wantErr: true,
+		},
+		{
+			name:               "returns expected workload summary onto Stdout",
+			callPrime:          true,
+			wantOutputWorkload: "testdata/workloadsummary.txt",
 		},
 	}
 	for _, tt := range tests {
@@ -89,14 +95,23 @@ func TestConfigWriter_PrintSecretSummary(t *testing.T) {
 			if tt.callPrime {
 				cw.Prime(cd)
 			}
-			err := cw.PrintSecretSummary()
-			if tt.wantOutputFile != "" {
-				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputFile)
+			if tt.wantOutputSecret != "" {
+				err := cw.PrintSecretSummary()
+				if err == nil && tt.wantErr {
+					t.Errorf("PrintSecretSummary (%v) did not produce expected err", tt.name)
+				} else if err != nil && !tt.wantErr {
+					t.Errorf("PrintSecretSummary (%v) produced unexpected err: %v", tt.name, err)
+				}
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputSecret)
 			}
-			if err == nil && tt.wantErr {
-				t.Errorf("PrintSecretSummary (%v) did not produce expected err", tt.name)
-			} else if err != nil && !tt.wantErr {
-				t.Errorf("PrintSecretSummary (%v) produced unexpected err: %v", tt.name, err)
+			if tt.wantOutputWorkload != "" {
+				err := cw.PrintWorkloadSummary(WorkloadFilter{Verbose: true})
+				if err == nil && tt.wantErr {
+					t.Errorf("PrintWorkloadSummary (%v) did not produce expected err", tt.name)
+				} else if err != nil && !tt.wantErr {
+					t.Errorf("PrintWorkloadSummary (%v) produced unexpected err: %v", tt.name, err)
+				}
+				util.CompareContent(t, gotOut.Bytes(), tt.wantOutputWorkload)
 			}
 		})
 	}

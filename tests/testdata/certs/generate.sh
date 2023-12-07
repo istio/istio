@@ -115,7 +115,7 @@ private_key     = "${WD}/pilot/ca-key.pem"    # The private key
 crl_extensions = crl_ext
 
 default_md      = sha256                # use SHA-256 by default
-default_crl_days= 30                    # how long before next CRL
+default_crl_days= 3650                  # how long before next CRL
 
 [ crl_ext ]
 # CRL extensions.

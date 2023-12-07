@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Removed** the `PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_OUTBOUND` and `PILOT_ENABLE_PROTOCOL_SNIFFING_FOR_INBOUND` feature flags. These have been enabled by default since Istio 1.5.

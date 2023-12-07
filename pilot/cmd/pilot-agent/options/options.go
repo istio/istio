@@ -125,6 +125,9 @@ var (
 	enableBootstrapXdsEnv = env.Register("BOOTSTRAP_XDS_AGENT", false,
 		"If set to true, agent retrieves the bootstrap configuration prior to starting Envoy").Get()
 
+	enableWDSEnv = env.Register("PEER_METADATA_DISCOVERY", false,
+		"If set to true, enable the peer metadata discovery extension in Envoy").Get()
+
 	envoyStatusPortEnv = env.Register("ENVOY_STATUS_PORT", 15021,
 		"Envoy health status port value").Get()
 	envoyPrometheusPortEnv = env.Register("ENVOY_PROMETHEUS_PORT", 15090,
@@ -147,10 +150,13 @@ var (
 
 	minimumDrainDurationEnv = env.Register("MINIMUM_DRAIN_DURATION",
 		5*time.Second,
-		"The minimum duration for which agent waits before it checks for active connections and terminates proxy"+
+		"The minimum duration for which agent waits before it checks for active connections and terminates proxy "+
 			"when number of active connections become zero").Get()
 
 	exitOnZeroActiveConnectionsEnv = env.Register("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",
 		false,
 		"When set to true, terminates proxy when number of active connections become zero during draining").Get()
+
+	useExternalWorkloadSDSEnv = env.Register("USE_EXTERNAL_WORKLOAD_SDS", false,
+		"When set to true, the istio-agent will require an external SDS and will throw an error if the workload SDS socket is not found").Get()
 )

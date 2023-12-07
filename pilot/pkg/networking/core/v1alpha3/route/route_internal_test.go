@@ -21,6 +21,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
+	cors "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/cors/v3"
 	xdshttpfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/fault/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -323,7 +324,7 @@ func TestTranslateCORSPolicy(t *testing.T) {
 			{MatchType: &networking.StringMatch_Regex{Regex: "regex"}},
 		},
 	}
-	expectedCorsPolicy := &route.CorsPolicy{
+	expectedCorsPolicy := &cors.CorsPolicy{
 		AllowOriginStringMatch: []*matcher.StringMatcher{
 			{MatchPattern: &matcher.StringMatcher_Exact{Exact: "exact"}},
 			{MatchPattern: &matcher.StringMatcher_Prefix{Prefix: "prefix"}},
@@ -335,12 +336,10 @@ func TestTranslateCORSPolicy(t *testing.T) {
 				},
 			},
 		},
-		EnabledSpecifier: &route.CorsPolicy_FilterEnabled{
-			FilterEnabled: &core.RuntimeFractionalPercent{
-				DefaultValue: &xdstype.FractionalPercent{
-					Numerator:   100,
-					Denominator: xdstype.FractionalPercent_HUNDRED,
-				},
+		FilterEnabled: &core.RuntimeFractionalPercent{
+			DefaultValue: &xdstype.FractionalPercent{
+				Numerator:   100,
+				Denominator: xdstype.FractionalPercent_HUNDRED,
 			},
 		},
 	}
@@ -429,7 +428,58 @@ func TestMirrorPercent(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mp := MirrorPercent(tt.route)
 			if !reflect.DeepEqual(mp, tt.want) {
-				t.Errorf("Unexpected mirro percent want %v, got %v", tt.want, mp)
+				t.Errorf("Unexpected mirror percent want %v, got %v", tt.want, mp)
+			}
+		})
+	}
+}
+
+func TestMirrorPercentByPolicy(t *testing.T) {
+	cases := []struct {
+		name   string
+		policy *networking.HTTPMirrorPolicy
+		want   *core.RuntimeFractionalPercent
+	}{
+		{
+			name: "mirror with no value given",
+			policy: &networking.HTTPMirrorPolicy{
+				Destination: &networking.Destination{},
+			},
+			want: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   100,
+					Denominator: xdstype.FractionalPercent_HUNDRED,
+				},
+			},
+		},
+		{
+			name: "zero mirror percentage",
+			policy: &networking.HTTPMirrorPolicy{
+				Destination: &networking.Destination{},
+				Percentage:  &networking.Percent{Value: 0.0},
+			},
+			want: nil,
+		},
+		{
+			name: "mirrorpercentage with actual percent",
+			policy: &networking.HTTPMirrorPolicy{
+				Destination: &networking.Destination{},
+				Percentage:  &networking.Percent{Value: 50.0},
+			},
+			want: &core.RuntimeFractionalPercent{
+				DefaultValue: &xdstype.FractionalPercent{
+					Numerator:   500000,
+					Denominator: xdstype.FractionalPercent_MILLION,
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mp := MirrorPercentByPolicy(tt.policy)
+			if !reflect.DeepEqual(mp, tt.want) {
+				t.Errorf("Unexpected mirror percent want %v, got %v", tt.want, mp)
 			}
 		})
 	}
@@ -500,6 +550,8 @@ func TestTranslateMetadataMatch(t *testing.T) {
 		name string
 		in   *networking.StringMatch
 		want *matcher.MetadataMatcher
+
+		useExtended bool
 	}{
 		{
 			name: "@request.auth.claims",
@@ -522,27 +574,27 @@ func TestTranslateMetadataMatch(t *testing.T) {
 		{
 			name: "@request.auth.claims.key1",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"key1"}, authzmatcher.StringMatcher("exact")),
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1"}, authzmatcher.StringMatcher("exact"), false),
 		},
 		{
 			name: "@request.auth.claims.key1.KEY2",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"key1", "KEY2"}, authzmatcher.StringMatcher("exact")),
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1", "KEY2"}, authzmatcher.StringMatcher("exact"), false),
 		},
 		{
 			name: "@request.auth.claims.key1-key2",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"key1-key2"}, authzmatcher.StringMatcher("exact")),
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1-key2"}, authzmatcher.StringMatcher("exact"), false),
 		},
 		{
 			name: "@request.auth.claims.prefix",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Prefix{Prefix: "prefix"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"prefix"}, authzmatcher.StringMatcher("prefix*")),
+			want: authz.MetadataMatcherForJWTClaims([]string{"prefix"}, authzmatcher.StringMatcher("prefix*"), false),
 		},
 		{
 			name: "@request.auth.claims.regex",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Regex{Regex: ".+?\\..+?\\..+?"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"regex"}, authzmatcher.StringMatcherRegex(".+?\\..+?\\..+?")),
+			want: authz.MetadataMatcherForJWTClaims([]string{"regex"}, authzmatcher.StringMatcherRegex(".+?\\..+?\\..+?"), false),
 		},
 		{
 			name: "@request.auth.claims[key1",
@@ -561,32 +613,39 @@ func TestTranslateMetadataMatch(t *testing.T) {
 			// if `.` exists, use `.` as separator
 			name: "@request.auth.claims.[key1]",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"[key1]"}, authzmatcher.StringMatcher("exact")),
+			want: authz.MetadataMatcherForJWTClaims([]string{"[key1]"}, authzmatcher.StringMatcher("exact"), false),
 		},
 		{
 			name: "@request.auth.claims[key1]",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"key1"}, authzmatcher.StringMatcher("exact")),
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1"}, authzmatcher.StringMatcher("exact"), false),
 		},
 		{
 			name: "@request.auth.claims[key1][key2]",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"key1", "key2"}, authzmatcher.StringMatcher("exact")),
+			want: authz.MetadataMatcherForJWTClaims([]string{"key1", "key2"}, authzmatcher.StringMatcher("exact"), false),
 		},
 		{
 			name: "@request.auth.claims[test-issuer-2@istio.io]",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io"}, authzmatcher.StringMatcher("exact")),
+			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io"}, authzmatcher.StringMatcher("exact"), false),
 		},
 		{
 			name: "@request.auth.claims[test-issuer-2@istio.io][key1]",
 			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
-			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io", "key1"}, authzmatcher.StringMatcher("exact")),
+			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io", "key1"}, authzmatcher.StringMatcher("exact"), false),
+		},
+		{
+			name: "@request.auth.claims[test-issuer-2@istio.io][key1]",
+			in:   &networking.StringMatch{MatchType: &networking.StringMatch_Exact{Exact: "exact"}},
+			want: authz.MetadataMatcherForJWTClaims([]string{"test-issuer-2@istio.io", "key1"}, authzmatcher.StringMatcher("exact"), true),
+
+			useExtended: true,
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := translateMetadataMatch(tc.name, tc.in)
+			got := translateMetadataMatch(tc.name, tc.in, tc.useExtended)
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Errorf("Unexpected metadata matcher want %v, got %v", tc.want, got)
 			}

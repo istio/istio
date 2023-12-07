@@ -19,19 +19,14 @@ import (
 )
 
 var (
-	typeTag  = monitoring.MustCreateLabel("type")
-	eventTag = monitoring.MustCreateLabel("event")
+	typeTag  = monitoring.CreateLabel("type")
+	eventTag = monitoring.CreateLabel("event")
 
 	k8sEvents = monitoring.NewSum(
 		"pilot_k8s_cfg_events",
 		"Events from k8s config.",
-		monitoring.WithLabels(typeTag, eventTag),
 	)
 )
-
-func init() {
-	monitoring.MustRegister(k8sEvents)
-}
 
 func incrementEvent(kind, event string) {
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()

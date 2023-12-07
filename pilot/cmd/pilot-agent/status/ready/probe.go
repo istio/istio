@@ -29,7 +29,7 @@ type Probe struct {
 	LocalHostAddr       string
 	AdminPort           uint16
 	receivedFirstUpdate bool
-	// Indicates that Envoy is ready atleast once so that we can cache and reuse that probe.
+	// Indicates that Envoy is ready at least once so that we can cache and reuse that probe.
 	atleastOnceReady bool
 	Context          context.Context
 	// NoEnvoy so we only check config status
@@ -78,9 +78,8 @@ func (p *Probe) checkConfigStatus() error {
 		return fmt.Errorf("config not received from XDS server (is Istiod running?): %s", s.String())
 	} else if s.LDSUpdatesRejection > 0 || s.CDSUpdatesRejection > 0 {
 		return fmt.Errorf("config received from XDS server, but was rejected: %s", s.String())
-	} else {
-		return fmt.Errorf("config not fully received from XDS server: %s", s.String())
 	}
+	return fmt.Errorf("config not fully received from XDS server: %s", s.String())
 }
 
 // isEnvoyReady checks to ensure that Envoy is in the LIVE state and workers have started.

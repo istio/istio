@@ -18,7 +18,7 @@ const (
 	// UnspecifiedIP constant for empty IP address
 	UnspecifiedIP = "0.0.0.0"
 	// UnspecifiedIPv6 constant for empty IPv6 address
-	UnspecifiedIPv6 = "::/0"
+	UnspecifiedIPv6 = "::"
 
 	// AuthCertsPath is the path location for mTLS certificates
 	AuthCertsPath = "/etc/certs/"
@@ -153,16 +153,31 @@ const (
 	// load balancer, such as an Istio Gateway, is terminating the TLS.
 	CertProviderNone = "none"
 
+	// AlwaysReject is a special internal annotation that is always rejected in the validation webhook. This is used for
+	// testing the validation webhook.
+	AlwaysReject = "internal.istio.io/webhook-always-reject"
+
 	WaypointServiceAccount = "istio.io/for-service-account"
 
 	ManagedGatewayLabel               = "gateway.istio.io/managed"
 	ManagedGatewayController          = "istio.io/gateway-controller"
+	UnmanagedGatewayController        = "istio.io/unmanaged-gateway"
 	ManagedGatewayControllerLabel     = "istio.io-gateway-controller"
 	ManagedGatewayMeshControllerLabel = "istio.io-mesh-controller"
 	ManagedGatewayMeshController      = "istio.io/mesh-controller"
 
+	RemoteGatewayClassName   = "istio-remote"
 	WaypointGatewayClassName = "istio-waypoint"
-	GatewayNameLabel         = "istio.io/gateway-name"
+
+	// DeprecatedGatewayNameLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
+	DeprecatedGatewayNameLabel = "istio.io/gateway-name"
+	// GatewayNameLabel indicates the gateway managing a particular proxy instances. Only populated for Gateway API gateways
+	GatewayNameLabel = "gateway.networking.k8s.io/gateway-name"
+
+	// TODO formalize this API
+	// TODO additional values to represent passthrough and hbone or both
+	ListenerModeOption          = "gateway.istio.io/listener-protocol"
+	ListenerModeAutoPassthrough = "auto-passthrough"
 
 	// DataplaneMode namespace label for determining ambient mesh behavior
 	DataplaneMode        = "istio.io/dataplane-mode"

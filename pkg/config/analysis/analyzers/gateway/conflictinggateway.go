@@ -121,7 +121,7 @@ func isGWsHostMatched(gwInstance string, gwHostList []string) bool {
 	return false
 }
 
-// initGatewaysMap implements initilization for gateways Map
+// initGatewaysMap implements initialization for gateways Map
 func initGatewaysMap(ctx analysis.Context) map[string]map[string][]string {
 	gwConflictingMap := make(map[string]map[string][]string)
 	ctx.ForEach(gvk.Gateway, func(r *resource.Instance) bool {

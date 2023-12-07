@@ -16,6 +16,7 @@ package cli
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/istioctl/pkg/util/handlers"
@@ -38,14 +39,6 @@ type Context interface {
 	IstioNamespace() string
 	// NamespaceOrDefault returns the namespace specified by the user, or the default namespace if none was specified
 	NamespaceOrDefault(namespace string) string
-	// ConfigureDefaultNamespace sets the default namespace to use for commands that don't specify a namespace.
-	// This should be called before NamespaceOrDefault is called.
-	ConfigureDefaultNamespace()
-	// KubeConfig returns the kubeconfig specified by the user
-	KubeConfig() string
-	// KubeContext returns the kubecontext specified by the user
-	KubeContext() string
-	// TODO(hanxiaop) entirely drop KubeConfig and KubeContext, use CLIClient instead. Currently this is used not only in istioctl package.
 }
 
 type instance struct {
@@ -67,9 +60,18 @@ func newKubeClientWithRevision(kubeconfig, configContext, revision string) (kube
 	return kube.NewCLIClient(kube.NewClientConfigForRestConfig(rc), revision)
 }
 
-func NewCLIContext(rootFlags RootFlags) Context {
+func NewCLIContext(rootFlags *RootFlags) Context {
+	if rootFlags == nil {
+		rootFlags = &RootFlags{
+			kubeconfig:       ptr.Of[string](""),
+			configContext:    ptr.Of[string](""),
+			namespace:        ptr.Of[string](""),
+			istioNamespace:   ptr.Of[string](""),
+			defaultNamespace: "",
+		}
+	}
 	return &instance{
-		RootFlags: rootFlags,
+		RootFlags: *rootFlags,
 	}
 }
 
@@ -124,11 +126,18 @@ type fakeInstance struct {
 	clients   map[string]kube.CLIClient
 	rootFlags *RootFlags
 	results   map[string][]byte
+	objects   []runtime.Object
+	version   string
 }
 
 func (f *fakeInstance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 	if _, ok := f.clients[rev]; !ok {
-		cliclient := kube.NewFakeClient()
+		var cliclient kube.CLIClient
+		if f.version != "" {
+			cliclient = kube.NewFakeClientWithVersion(f.version, f.objects...)
+		} else {
+			cliclient = kube.NewFakeClient(f.objects...)
+		}
 		if rev != "" {
 			kube.SetRevisionForTest(cliclient, rev)
 		}
@@ -181,13 +190,14 @@ func (f *fakeInstance) IstioNamespace() string {
 	return f.rootFlags.IstioNamespace()
 }
 
-func (f *fakeInstance) ConfigureDefaultNamespace() {
-}
-
 type NewFakeContextOption struct {
 	Namespace      string
 	IstioNamespace string
 	Results        map[string][]byte
+	// Objects are the objects to be applied to the fake client
+	Objects []runtime.Object
+	// Version is the version of the fake client
+	Version string
 }
 
 func NewFakeContext(opts *NewFakeContextOption) Context {
@@ -206,5 +216,7 @@ func NewFakeContext(opts *NewFakeContextOption) Context {
 			defaultNamespace: "",
 		},
 		results: opts.Results,
+		objects: opts.Objects,
+		version: opts.Version,
 	}
 }

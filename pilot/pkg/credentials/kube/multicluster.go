@@ -43,29 +43,26 @@ func NewMulticluster(configCluster cluster.ID) *Multicluster {
 	return m
 }
 
-func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, _ <-chan struct{}) error {
+func (m *Multicluster) ClusterAdded(cluster *multicluster.Cluster, _ <-chan struct{}) {
 	log.Infof("initializing Kubernetes credential reader for cluster %v", cluster.ID)
 	sc := NewCredentialsController(cluster.Client)
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.addCluster(cluster, sc)
-	return nil
 }
 
-func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) error {
+func (m *Multicluster) ClusterUpdated(cluster *multicluster.Cluster, _ <-chan struct{}) {
 	sc := NewCredentialsController(cluster.Client)
 	m.m.Lock()
 	defer m.m.Unlock()
 	m.deleteCluster(cluster.ID)
 	m.addCluster(cluster, sc)
-	return nil
 }
 
-func (m *Multicluster) ClusterDeleted(key cluster.ID) error {
+func (m *Multicluster) ClusterDeleted(key cluster.ID) {
 	m.m.Lock()
 	defer m.m.Unlock()
 	delete(m.remoteKubeControllers, key)
-	return nil
 }
 
 func (m *Multicluster) addCluster(cluster *multicluster.Cluster, sc *CredentialsController) {

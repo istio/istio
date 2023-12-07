@@ -114,7 +114,7 @@ func newProxyCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			proxyConfig, err := config.ConstructProxyConfig(proxyArgs.MeshConfigFile, proxyArgs.ServiceCluster, options.ProxyConfigEnv, proxyArgs.Concurrency, proxy)
+			proxyConfig, err := config.ConstructProxyConfig(proxyArgs.MeshConfigFile, proxyArgs.ServiceCluster, options.ProxyConfigEnv, proxyArgs.Concurrency)
 			if err != nil {
 				return fmt.Errorf("failed to get proxy config: %v", err)
 			}
@@ -163,7 +163,7 @@ func newProxyCommand() *cobra.Command {
 			// If a status port was provided, start handling status probes.
 			if proxyConfig.StatusPort > 0 {
 				if err := initStatusServer(ctx, proxy, proxyConfig,
-					agentOptions.EnvoyPrometheusPort, proxyArgs.EnableProfiling, agent); err != nil {
+					agentOptions.EnvoyPrometheusPort, proxyArgs.EnableProfiling, agent, cancel); err != nil {
 					return err
 				}
 			}
@@ -214,13 +214,20 @@ func addFlags(proxyCmd *cobra.Command) {
 		"Enable profiling via web interface host:port/debug/pprof/.")
 }
 
-func initStatusServer(ctx context.Context, proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig,
-	envoyPrometheusPort int, enableProfiling bool, agent *istio_agent.Agent,
+func initStatusServer(
+	ctx context.Context,
+	proxy *model.Proxy,
+	proxyConfig *meshconfig.ProxyConfig,
+	envoyPrometheusPort int,
+	enableProfiling bool,
+	agent *istio_agent.Agent,
+	shutdown context.CancelFunc,
 ) error {
 	o := options.NewStatusServerOptions(proxy, proxyConfig, agent)
 	o.EnvoyPrometheusPort = envoyPrometheusPort
 	o.EnableProfiling = enableProfiling
 	o.Context = ctx
+	o.Shutdown = shutdown
 	statusServer, err := status.NewServer(*o)
 	if err != nil {
 		return err

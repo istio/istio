@@ -176,6 +176,8 @@ type Settings struct {
 	HelmRepo string
 
 	DisableDefaultExternalServiceConnectivity bool
+
+	PeerMetadataDiscovery bool
 }
 
 // SkipVMs changes the skip settings at runtime

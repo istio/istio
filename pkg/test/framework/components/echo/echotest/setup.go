@@ -75,13 +75,13 @@ func (t *T) SetupForPair(setupFn func(ctx framework.TestContext, from echo.Calle
 
 // SetupForServicePair works similarly to SetupForPair, but the setup function accepts echo.Services, which
 // contains instances for multiple services and should be used in combination with RunForN.
-// The length of dsts services will alyas be N.
+// The length of dsts services will always be N.
 func (t *T) SetupForServicePair(setupFn svcPairSetupFn) *T {
 	t.deploymentPairSetup = append(t.deploymentPairSetup, setupFn)
 	return t
 }
 
-// SetupForDestination is run each time the destination Service (but not destination cluser) changes.
+// SetupForDestination is run each time the destination Service (but not destination cluster) changes.
 func (t *T) SetupForDestination(setupFn dstSetupFn) *T {
 	t.destinationDeploymentSetup = append(t.destinationDeploymentSetup, setupFn)
 	return t

@@ -66,7 +66,7 @@ func (r *KubernetesRA) kubernetesSign(csrPEM []byte, caCertFile string, certSign
 ) ([]byte, error) {
 	certSignerDomain := r.certSignerDomain
 	if certSignerDomain == "" && certSigner != "" {
-		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is requiered for signer %s", certSigner))
+		return nil, raerror.NewError(raerror.CertGenError, fmt.Errorf("certSignerDomain is required for signer %s", certSigner))
 	}
 	if certSignerDomain != "" && certSigner != "" {
 		certSigner = certSignerDomain + "/" + certSigner

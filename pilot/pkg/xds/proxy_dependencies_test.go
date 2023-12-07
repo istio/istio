@@ -172,21 +172,21 @@ func TestProxyNeedsPush(t *testing.T) {
 			{
 				Hostname: svcName,
 				Attributes: model.ServiceAttributes{
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					ExportTo:  sets.New(visibility.Public),
 					Namespace: nsName,
 				},
 			},
 			{
 				Hostname: privateSvcName,
 				Attributes: model.ServiceAttributes{
-					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+					ExportTo:  sets.New(visibility.None),
 					Namespace: nsName,
 				},
 			},
 			{
 				Hostname: "foo",
 				Attributes: model.ServiceAttributes{
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					ExportTo:  sets.New(visibility.Public),
 					Namespace: nsName,
 				},
 			},
@@ -200,14 +200,14 @@ func TestProxyNeedsPush(t *testing.T) {
 			{
 				Hostname: svcName,
 				Attributes: model.ServiceAttributes{
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					ExportTo:  sets.New(visibility.Public),
 					Namespace: nsName,
 				},
 			},
 			{
 				Hostname: privateSvcName,
 				Attributes: model.ServiceAttributes{
-					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+					ExportTo:  sets.New(visibility.None),
 					Namespace: nsName,
 				},
 			},
@@ -215,7 +215,7 @@ func TestProxyNeedsPush(t *testing.T) {
 				Hostname: "foo",
 				Attributes: model.ServiceAttributes{
 					// service visibility changed from public to none
-					ExportTo:  map[visibility.Instance]bool{visibility.None: true},
+					ExportTo:  sets.New(visibility.None),
 					Namespace: nsName,
 				},
 			},
@@ -266,21 +266,21 @@ func TestProxyNeedsPush(t *testing.T) {
 			{
 				Hostname: fooSvc,
 				Attributes: model.ServiceAttributes{
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					ExportTo:  sets.New(visibility.Public),
 					Namespace: nsName,
 				},
 			},
 			{
 				Hostname: svcName,
 				Attributes: model.ServiceAttributes{
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					ExportTo:  sets.New(visibility.Public),
 					Namespace: nsName,
 				},
 			},
 			{
 				Hostname: extensionSvc,
 				Attributes: model.ServiceAttributes{
-					ExportTo:  map[visibility.Instance]bool{visibility.Public: true},
+					ExportTo:  sets.New(visibility.Public),
 					Namespace: nsName,
 				},
 			},

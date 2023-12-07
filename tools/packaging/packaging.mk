@@ -30,22 +30,15 @@ $(foreach DEP,$(SIDECAR_DEB_DEPS),\
         $(eval ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm: $(TARGET_OUT_LINUX)/$(DEP)) \
         $(eval SIDECAR_FILES+=$(TARGET_OUT_LINUX)/$(DEP)=$(ISTIO_DEB_BIN)/$(DEP)) )
 
-${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm: $(TARGET_OUT_LINUX)/envoy-centos
-${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm: $(TARGET_OUT_LINUX)/pilot-agent
-SIDECAR_CENTOS_7_FILES:=$(TARGET_OUT_LINUX)/envoy-centos=$(ISTIO_DEB_BIN)/envoy
-SIDECAR_CENTOS_7_FILES+=$(TARGET_OUT_LINUX)/pilot-agent=$(ISTIO_DEB_BIN)/pilot-agent
-
 ISTIO_DEB_DEST:=${ISTIO_DEB_BIN}/istio-start.sh \
 		/lib/systemd/system/istio.service \
 		/var/lib/istio/envoy/sidecar.env
 
 $(foreach DEST,$(ISTIO_DEB_DEST),\
         $(eval ${TARGET_OUT_LINUX}/istio-sidecar.deb:   tools/packaging/common/$(notdir $(DEST))) \
-        $(eval SIDECAR_FILES+=${REPO_ROOT}/tools/packaging/common/$(notdir $(DEST))=$(DEST)) \
-        $(eval SIDECAR_CENTOS_7_FILES+=${REPO_ROOT}/tools/packaging/common/$(notdir $(DEST))=$(DEST)))
+        $(eval SIDECAR_FILES+=${REPO_ROOT}/tools/packaging/common/$(notdir $(DEST))=$(DEST)))
 
 SIDECAR_FILES+=${REPO_ROOT}/tools/packaging/common/envoy_bootstrap.json=/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
-SIDECAR_CENTOS_7_FILES+=${REPO_ROOT}/tools/packaging/common/envoy_bootstrap.json=/var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 
 # original name used in 0.2 - will be updated to 'istio.deb' since it now includes all istio binaries.
 SIDECAR_PACKAGE_NAME ?= istio-sidecar
@@ -58,7 +51,6 @@ SIDECAR_PACKAGE_NAME ?= istio-sidecar
 # --iteration 1 adds a "-1" suffix to the version that didn't exist before
 ${TARGET_OUT_LINUX}/release/istio-sidecar.deb: | ${TARGET_OUT_LINUX} deb/fpm
 ${TARGET_OUT_LINUX}/release/istio-sidecar.rpm: | ${TARGET_OUT_LINUX} rpm/fpm
-${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm: | ${TARGET_OUT_LINUX} rpm-7/fpm
 
 # Package the sidecar rpm file.
 rpm/fpm:
@@ -76,27 +68,9 @@ rpm/fpm:
 		--depends iproute \
 		--depends iptables \
 		--depends sudo \
+		--depends hostname \
 		$(RPM_COMPRESSION) \
 		$(SIDECAR_FILES)
-
-# Centos 7 compatible RPM
-rpm-7/fpm:
-	rm -f ${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm
-	fpm -s dir -t rpm -n ${SIDECAR_PACKAGE_NAME} -p ${TARGET_OUT_LINUX}/release/istio-sidecar-centos-7.rpm --version $(PACKAGE_VERSION) -f \
-		--url http://istio.io  \
-		--license Apache \
-		--vendor istio.io \
-		--architecture "${TARGET_ARCH}" \
-		--maintainer istio@istio.io \
-		--after-install tools/packaging/postinst.sh \
-		--config-files /var/lib/istio/envoy/envoy_bootstrap_tmpl.json \
-		--config-files /var/lib/istio/envoy/sidecar.env \
-		--description "Istio Sidecar" \
-		--depends iproute \
-		--depends iptables \
-		--depends sudo \
-		$(RPM_COMPRESSION) \
-		$(SIDECAR_CENTOS_7_FILES)
 
 # Package the sidecar deb file.
 deb/fpm:
@@ -114,6 +88,7 @@ deb/fpm:
 		--depends iproute2 \
 		--depends iptables \
 		--depends sudo \
+		--depends hostname \
 		$(DEB_COMPRESSION) \
 		$(SIDECAR_FILES)
 
@@ -121,5 +96,4 @@ deb/fpm:
 	deb \
 	deb/fpm \
 	rpm/fpm \
-	rpm-7/fpm \
 	sidecar.deb

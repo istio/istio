@@ -1,0 +1,12 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+
+# issue is a list of GitHub issues resolved in this note.
+issue:
+  - https://github.com/istio/istio/issues/46136
+  - 46136
+
+releaseNotes:
+- |
+  **Added** support for validating json files to istioctl validate.

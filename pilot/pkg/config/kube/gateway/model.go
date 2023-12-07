@@ -32,6 +32,7 @@ const (
 	gatewayTLSTerminateModeKey   = "gateway.istio.io/tls-terminate-mode"
 	gatewayNameOverride          = "gateway.istio.io/name-override"
 	gatewaySAOverride            = "gateway.istio.io/service-account"
+	serviceTypeOverride          = "networking.istio.io/service-type"
 )
 
 // GatewayResources stores all gateway resources used for our conversion.
@@ -39,6 +40,7 @@ type GatewayResources struct {
 	GatewayClass   []config.Config
 	Gateway        []config.Config
 	HTTPRoute      []config.Config
+	GRPCRoute      []config.Config
 	TCPRoute       []config.Config
 	TLSRoute       []config.Config
 	ReferenceGrant []config.Config

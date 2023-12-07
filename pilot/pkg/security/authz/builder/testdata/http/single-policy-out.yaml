@@ -22,11 +22,13 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[0]-to[0]-method[1]
                     name: :method
+                    stringMatch:
+                      exact: rule[0]-to[0]-method[1]
                 - header:
-                    exactMatch: rule[0]-to[0]-method[2]
                     name: :method
+                    stringMatch:
+                      exact: rule[0]-to[0]-method[2]
             - orRules:
                 rules:
                 - urlPath:
@@ -64,11 +66,13 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[0]-to[1]-method[1]
                     name: :method
+                    stringMatch:
+                      exact: rule[0]-to[1]-method[1]
                 - header:
-                    exactMatch: rule[0]-to[1]-method[2]
                     name: :method
+                    stringMatch:
+                      exact: rule[0]-to[1]-method[2]
             - orRules:
                 rules:
                 - urlPath:
@@ -94,13 +98,11 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://rule[0]-from[0]-principal[1]
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://rule[0]-from[0]-principal[2]
             - orIds:
                 ids:
@@ -120,14 +122,12 @@ typedConfig:
                         exact: rule[0]-from[0]-requestPrincipal[2]
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/rule[0]-from[0]-ns[1]/.*
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/rule[0]-from[0]-ns[2]/.*
             - orIds:
@@ -146,14 +146,17 @@ typedConfig:
             - orIds:
                 ids:
                 - header:
-                    exactMatch: header
                     name: X-header
+                    stringMatch:
+                      exact: header
                 - header:
                     name: X-header
-                    prefixMatch: header-prefix-
+                    stringMatch:
+                      prefix: header-prefix-
                 - header:
                     name: X-header
-                    suffixMatch: -suffix-header
+                    stringMatch:
+                      suffix: -suffix-header
                 - header:
                     name: X-header
                     presentMatch: true
@@ -169,13 +172,11 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://rule[0]-from[1]-principal[1]
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://rule[0]-from[1]-principal[2]
             - orIds:
                 ids:
@@ -195,14 +196,12 @@ typedConfig:
                         exact: rule[0]-from[1]-requestPrincipal[2]
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/rule[0]-from[1]-ns[1]/.*
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/rule[0]-from[1]-ns[2]/.*
             - orIds:
@@ -224,14 +223,17 @@ typedConfig:
             - orIds:
                 ids:
                 - header:
-                    exactMatch: header
                     name: X-header
+                    stringMatch:
+                      exact: header
                 - header:
                     name: X-header
-                    prefixMatch: header-prefix-
+                    stringMatch:
+                      prefix: header-prefix-
                 - header:
                     name: X-header
-                    suffixMatch: -suffix-header
+                    stringMatch:
+                      suffix: -suffix-header
                 - header:
                     name: X-header
                     presentMatch: true
@@ -262,11 +264,13 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[1]-to[0]-method[1]
                     name: :method
+                    stringMatch:
+                      exact: rule[1]-to[0]-method[1]
                 - header:
-                    exactMatch: rule[1]-to[0]-method[2]
                     name: :method
+                    stringMatch:
+                      exact: rule[1]-to[0]-method[2]
             - orRules:
                 rules:
                 - urlPath:
@@ -296,11 +300,13 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: rule[1]-to[1]-method[1]
                     name: :method
+                    stringMatch:
+                      exact: rule[1]-to[1]-method[1]
                 - header:
-                    exactMatch: rule[1]-to[1]-method[2]
                     name: :method
+                    stringMatch:
+                      exact: rule[1]-to[1]-method[2]
             - orRules:
                 rules:
                 - urlPath:
@@ -318,13 +324,11 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://rule[1]-from[0]-principal[1]
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://rule[1]-from[0]-principal[2]
             - orIds:
                 ids:
@@ -344,14 +348,12 @@ typedConfig:
                         exact: rule[1]-from[0]-requestPrincipal[2]
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/rule[1]-from[0]-ns[1]/.*
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/rule[1]-from[0]-ns[2]/.*
             - orIds:
@@ -374,13 +376,11 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://rule[1]-from[1]-principal[1]
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://rule[1]-from[1]-principal[2]
             - orIds:
                 ids:
@@ -400,14 +400,12 @@ typedConfig:
                         exact: rule[1]-from[1]-requestPrincipal[2]
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/rule[1]-from[1]-ns[1]/.*
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/rule[1]-from[1]-ns[2]/.*
             - orIds:

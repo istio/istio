@@ -1,0 +1,26 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+releaseNotes:
+  - |
+    **Improved** the ordering of HTTP and TCP envoy filters to improve consistency
+upgradeNotes:
+  - title: "Envoy filter ordering"
+    content: |
+      This change impacts internal implementation of how Envoy "filters" are ordered. These filters run in order to implement various functionality.
+      
+      The ordering is now consistent across inbound, outbound and gateway proxy modes, as well as HTTP and TCP protocols:
+      
+      * Metadata Exchange
+      * CUSTOM Authz
+      * WASM Authn
+      * Authn
+      * WASM Authz
+      * Authz
+      * WASM Stats
+      * Stats
+      * WASM unspecified
+      
+      This changes the following areas:
+      * Inbound TCP filters now place Metadata Exchange before Authn.
+      * Gateway TCP filters now place stats after Authz, and CUSTOM Authz before Authn.

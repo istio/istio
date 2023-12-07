@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+  - 46267
+
+releaseNotes:
+- |
+  **Fixed** ambient WorkloadEntry xds events to fire on updates to spec. Fixes (#46267)[https://github.com/istio/istio/issues/46267).

@@ -152,12 +152,25 @@ func ApplyProxyConfig(yaml string, meshConfig *meshconfig.MeshConfig) (*meshconf
 // MergeProxyConfig merges the given proxy config yaml with the given proxy config object.
 func MergeProxyConfig(yaml string, proxyConfig *meshconfig.ProxyConfig) (*meshconfig.ProxyConfig, error) {
 	origMetadata := proxyConfig.ProxyMetadata
+	origProxyHeaders := proxyConfig.ProxyHeaders
 	if err := protomarshal.ApplyYAML(yaml, proxyConfig); err != nil {
 		return nil, fmt.Errorf("could not parse proxy config: %v", err)
 	}
 	newMetadata := proxyConfig.ProxyMetadata
 	proxyConfig.ProxyMetadata = mergeMap(origMetadata, newMetadata)
+	correctProxyHeaders(proxyConfig, origProxyHeaders)
 	return proxyConfig, nil
+}
+
+func correctProxyHeaders(proxyConfig *meshconfig.ProxyConfig, orig *meshconfig.ProxyConfig_ProxyHeaders) {
+	ph := proxyConfig.ProxyHeaders
+	if ph != nil && orig != nil {
+		ph.ForwardedClientCert = ptr.NonEmptyOrDefault(ph.ForwardedClientCert, orig.ForwardedClientCert)
+		ph.RequestId = ptr.NonEmptyOrDefault(ph.RequestId, orig.RequestId)
+		ph.AttemptCount = ptr.NonEmptyOrDefault(ph.AttemptCount, orig.AttemptCount)
+		ph.Server = ptr.NonEmptyOrDefault(ph.Server, orig.Server)
+		ph.EnvoyDebugHeaders = ptr.NonEmptyOrDefault(ph.EnvoyDebugHeaders, orig.EnvoyDebugHeaders)
+	}
 }
 
 func extractYamlField(key string, mp map[string]any) (string, error) {

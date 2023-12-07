@@ -145,6 +145,8 @@ func (fx *Updater) RemoveShard(shardKey model.ShardKey) {
 
 func (fx *Updater) WaitOrFail(t test.Failer, et string) *Event {
 	t.Helper()
+	delay := time.NewTimer(time.Second * 5)
+	defer delay.Stop()
 	for {
 		select {
 		case e := <-fx.Events:
@@ -153,7 +155,7 @@ func (fx *Updater) WaitOrFail(t test.Failer, et string) *Event {
 			}
 			log.Infof("skipping event %q want %q", e.Type, et)
 			continue
-		case <-time.After(time.Second * 5):
+		case <-delay.C:
 			t.Fatalf("timed out waiting for %v", et)
 		}
 	}
@@ -173,7 +175,8 @@ func (fx *Updater) StrictMatchOrFail(t test.Failer, events ...Event) {
 
 func (fx *Updater) matchOrFail(t test.Failer, strict bool, events ...Event) {
 	t.Helper()
-
+	delay := time.NewTimer(time.Second * 5)
+	defer delay.Stop()
 	for {
 		if len(events) == 0 {
 			return
@@ -200,7 +203,7 @@ func (fx *Updater) matchOrFail(t test.Failer, strict bool, events ...Event) {
 				}
 			}
 			continue
-		case <-time.After(time.Second * 5):
+		case <-delay.C:
 			t.Fatalf("timed out waiting for %v", events)
 		}
 	}

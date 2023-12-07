@@ -405,7 +405,7 @@ func TestCmdAddWithKubevirtInterfaces(t *testing.T) {
 	}
 
 	if value != testAnnotations[kubevirtInterfacesKey] {
-		t.Fatalf(fmt.Sprintf("expected kubevirtInterfaces annotation to equals %s", testAnnotations[kubevirtInterfacesKey]))
+		t.Fatalf("expected kubevirtInterfaces annotation to equals %s", testAnnotations[kubevirtInterfacesKey])
 	}
 }
 
@@ -423,7 +423,7 @@ func TestCmdAddWithExcludeInterfaces(t *testing.T) {
 	}
 
 	if value != testAnnotations[excludeInterfacesKey] {
-		t.Fatalf(fmt.Sprintf("expected excludeInterfaces annotation to equals %s", testAnnotations[excludeInterfacesKey]))
+		t.Fatalf("expected excludeInterfaces annotation to equals %s", testAnnotations[excludeInterfacesKey])
 	}
 }
 
@@ -471,6 +471,25 @@ func TestCmdAddNoPrevResult(t *testing.T) {
 
 	defer resetGlobalTestVariables()
 	testCmdAddWithStdinData(t, confNoPrevResult)
+}
+
+func TestCmdAddEnableDualStack(t *testing.T) {
+	defer resetGlobalTestVariables()
+	testProxyEnv["ISTIO_DUAL_STACK"] = "true"
+	testContainers = sets.New("mockContainer", "istio-proxy")
+	testCmdAdd(t)
+
+	if !nsenterFuncCalled {
+		t.Fatalf("expected nsenterFunc to be called")
+	}
+	mockIntercept, ok := GetInterceptRuleMgrCtor("mock")().(*mockInterceptRuleMgr)
+	if !ok {
+		t.Fatalf("expect using mockInterceptRuleMgr, actual %v", InterceptRuleMgrTypes["mock"]())
+	}
+	r := mockIntercept.lastRedirect[len(mockIntercept.lastRedirect)-1]
+	if !r.dualStack {
+		t.Fatalf("expect dualStack is true, actual %v", r.dualStack)
+	}
 }
 
 func MockInterceptRuleMgrCtor() InterceptRuleMgr {

@@ -111,7 +111,7 @@ func validateStringList(vf ValidatorFunc) ValidatorFunc {
 		}
 		var errs util.Errors
 		for _, s := range strings.Split(val.(string), ",") {
-			errs = util.AppendErrs(errs, vf(path, strings.TrimSpace(s)))
+			errs = util.AppendErrs(errs, vf(path, s))
 			scope.Debugf("\nerrors(%d): %v", len(errs), errs)
 			msg += fmt.Sprintf("\nerrors(%d): %v", len(errs), errs)
 		}
@@ -328,7 +328,7 @@ func getValidationFuncForPath(validations map[string]ValidatorFunc, path util.Pa
 }
 
 // check whether the pn path node match pattern.
-// pattern may container '*', eg. [1] match [*].
+// pattern may contain '*', e.g. [1] match [*].
 func matchPathNode(pattern, pn string) bool {
 	if !strings.Contains(pattern, "[") && !strings.Contains(pattern, "]") {
 		return pattern == pn

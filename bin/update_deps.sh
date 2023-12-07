@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-set -e
+set -exo pipefail
 
 UPDATE_BRANCH=${UPDATE_BRANCH:-"master"}
 
@@ -25,14 +25,7 @@ cd "${ROOTDIR}"
 # Get the sha of top commit
 # $1 = repo
 function getSha() {
-  local dir result
-  dir=$(mktemp -d)
-  git clone --depth=1 "https://github.com/istio/${1}.git" -b "${UPDATE_BRANCH}" "${dir}"
-
-  result="$(cd "${dir}" && git rev-parse HEAD)"
-  rm -rf "${dir}"
-
-  echo "${result}"
+  git ls-remote "https://github.com/istio/${1}.git" "refs/heads/${UPDATE_BRANCH}" | cut -f 1
 }
 
 make update-common

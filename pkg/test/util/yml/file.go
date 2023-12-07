@@ -92,6 +92,7 @@ func writeContentsToTempFile(workDir, contents string) (filename string, err err
 	if err != nil {
 		return
 	}
+	defer f.Close()
 	filename = f.Name()
 
 	_, err = f.WriteString(contents)

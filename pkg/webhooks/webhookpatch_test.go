@@ -163,8 +163,8 @@ func TestMutatingWebhookPatch(t *testing.T) {
 			testRevision,
 			"config1",
 			"webhook1",
-			caBundle0,
-			errWrongRevision.Error(),
+			[]byte{},
+			"",
 		},
 		{
 			"WrongRevisionWebhookNotUpdated",

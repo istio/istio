@@ -10,7 +10,7 @@ or just coming to the weekly [Environments Working Group](https://github.com/ist
 meeting to share your ideas.
 
 This document is an overview of how the operator works from a user perspective. For more details about the design and
-architecture and a code overview, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+architecture and a code overview, see [ARCHITECTURE.md](../architecture/environments/operator.md).
 
 ## Introduction
 
@@ -421,4 +421,4 @@ in the cluster in the istio-system namespace and the controller will react to it
 
 ## Architecture
 
-See [ARCHITECTURE.md](ARCHITECTURE.md)
+See [ARCHITECTURE.md](../architecture/environments/operator.md)

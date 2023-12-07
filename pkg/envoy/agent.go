@@ -18,9 +18,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"istio.io/istio/pkg/http"
 	"istio.io/istio/pkg/log"
@@ -53,6 +56,7 @@ func NewAgent(proxy Proxy, terminationDrainDuration, minDrainDuration time.Durat
 		adminPort:                   adminPort,
 		localhost:                   localhost,
 		knownIstioListeners:         knownIstioListeners,
+		skipDrain:                   atomic.NewBool(false),
 	}
 }
 
@@ -62,7 +66,7 @@ type Proxy interface {
 	Run(<-chan error) error
 
 	// Drains the envoy process.
-	Drain() error
+	Drain(skipExit bool) error
 
 	// Cleanup command for cleans up the proxy.
 	Cleanup()
@@ -90,6 +94,8 @@ type Agent struct {
 	knownIstioListeners sets.String
 
 	exitOnZeroActiveConnections bool
+
+	skipDrain *atomic.Bool
 }
 
 type exitStatus struct {
@@ -97,6 +103,15 @@ type exitStatus struct {
 }
 
 // Run starts the envoy and waits until it terminates.
+// There are a few exit paths:
+//  1. Envoy exits. In this case, we simply log and exit.
+//  2. /quitquitquit (on agent, not Envoy) is called. We will set skipDrain and cancel the context, which triggers us to exit immediately.
+//  3. SIGTERM. We will drain, wait termination drain duration, then exit. This is the standard pod shutdown; SIGTERM arrives when pod shutdown starts.
+//     If the pod's terminationGracePeriod is shorter than our drain duration (rare), we may be a SIGKILL.
+//  4. /drain + SIGTERM. This is the shutdown when using Kubernetes native sidecars.
+//     /drain is called when the pod shutdown starts. We start draining, forever.
+//     Once the app containers shutdown, we get a SIGTERM. We have no use to run anymore, so shutdown immediately.
+//     If somehow we do not shutdown from the SIGTERM fast enough, we may get a SIGKILL later.
 func (a *Agent) Run(ctx context.Context) {
 	log.Info("Starting proxy agent")
 	go a.runWait(a.abortCh)
@@ -114,21 +129,36 @@ func (a *Agent) Run(ctx context.Context) {
 
 	case <-ctx.Done():
 		a.terminate()
-		status := <-a.statusCh
-		if status.err == errAbort {
-			log.Infof("Envoy aborted normally")
-		} else {
-			log.Warnf("Envoy aborted abnormally")
-		}
 		log.Info("Agent has successfully terminated")
 	}
 }
 
+func (a *Agent) DisableDraining() {
+	a.skipDrain.Store(true)
+}
+
+func (a *Agent) DrainNow() {
+	log.Infof("Agent draining proxy")
+	err := a.proxy.Drain(true)
+	if err != nil {
+		log.Warnf("Error in invoking drain listeners endpoint: %v", err)
+	}
+	// If we drained now, skip draining + waiting later
+	// When we terminate, we will instead exit immediately
+	a.DisableDraining()
+}
+
+// terminate starts exiting the process.
 func (a *Agent) terminate() {
-	log.Infof("Agent draining Proxy")
-	e := a.proxy.Drain()
+	log.Infof("Agent draining Proxy for termination")
+	if a.skipDrain.Load() {
+		log.Infof("Agent already drained, exiting immediately")
+		a.abortCh <- errAbort
+		return
+	}
+	e := a.proxy.Drain(false)
 	if e != nil {
-		log.Warnf("Error in invoking drain listeners endpoint %v", e)
+		log.Warnf("Error in invoking drain listeners endpoint: %v", e)
 	}
 	// If exitOnZeroActiveConnections is enabled, always sleep minimumDrainDuration then exit
 	// after min(all connections close, terminationGracePeriodSeconds-minimumDrainDuration).
@@ -139,37 +169,59 @@ func (a *Agent) terminate() {
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
 		defer ticker.Stop()
+	graceful_loop:
 		for range ticker.C {
 			ac, err := a.activeProxyConnections()
-			if err != nil {
-				log.Errorf(err.Error())
-				a.abortCh <- errAbort
+			select {
+			case status := <-a.statusCh:
+				log.Infof("Envoy exited with status %v", status.err)
+				log.Infof("Graceful termination logic ended prematurely, envoy process terminated early")
 				return
+			default:
+				if err != nil {
+					log.Errorf(err.Error())
+					a.abortCh <- errAbort
+					log.Infof("Graceful termination logic ended prematurely, error while obtaining downstream_cx_active stat")
+					break graceful_loop
+				}
+				if ac == -1 {
+					log.Info("downstream_cx_active are not available. This either means there are no downstream connection established yet" +
+						" or the stats are not enabled. Skipping active connections check...")
+					a.abortCh <- errAbort
+					break graceful_loop
+				}
+				if ac == 0 {
+					log.Info("There are no more active connections. terminating proxy...")
+					a.abortCh <- errAbort
+					break graceful_loop
+				}
+				log.Infof("There are still %d active connections", ac)
 			}
-			if ac == -1 {
-				log.Info("downstream_cx_active are not available. This either means there are no downstream connection established yet" +
-					" or the stats are not enabled. Skipping active connections check...")
-				a.abortCh <- errAbort
-				return
-			}
-			if ac == 0 {
-				log.Info("There are no more active connections. terminating proxy...")
-				a.abortCh <- errAbort
-				return
-			}
-			log.Infof("There are still %d active connections", ac)
 		}
 	} else {
 		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
-		time.Sleep(a.terminationDrainDuration)
-		log.Infof("Graceful termination period complete, terminating remaining proxies.")
-		a.abortCh <- errAbort
+		select {
+		case status := <-a.statusCh:
+			log.Infof("Envoy exited with status %v", status.err)
+			log.Infof("Graceful termination logic ended prematurely, envoy process terminated early")
+			return
+		case <-time.After(a.terminationDrainDuration):
+			log.Infof("Graceful termination period complete, terminating remaining proxies.")
+			a.abortCh <- errAbort
+		}
+	}
+	status := <-a.statusCh
+	if status.err == errAbort {
+		log.Infof("Envoy aborted normally")
+	} else {
+		log.Warnf("Envoy aborted abnormally")
 	}
 	log.Warnf("Aborted proxy instance")
 }
 
 func (a *Agent) activeProxyConnections() (int, error) {
-	activeConnectionsURL := fmt.Sprintf("http://%s:%d/stats?usedonly&filter=downstream_cx_active$", a.localhost, a.adminPort)
+	adminHost := net.JoinHostPort(a.localhost, strconv.Itoa(a.adminPort))
+	activeConnectionsURL := fmt.Sprintf("http://%s/stats?usedonly&filter=downstream_cx_active$", adminHost)
 	stats, err := http.DoHTTPGet(activeConnectionsURL)
 	if err != nil {
 		return -1, fmt.Errorf("unable to get listener stats from Envoy : %v", err)

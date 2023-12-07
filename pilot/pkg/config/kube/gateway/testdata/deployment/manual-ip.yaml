@@ -7,8 +7,11 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-name: default
+    istio.io/gateway-name: default
   name: default-istio
   namespace: default
 ---
@@ -18,6 +21,8 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-name: default
+    istio.io/gateway-name: default
   name: default
   namespace: default
   ownerReferences:
@@ -28,7 +33,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: default
+      gateway.networking.k8s.io/gateway-name: default
   template:
     metadata:
       annotations:
@@ -37,6 +42,7 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
       labels:
+        gateway.networking.k8s.io/gateway-name: default
         istio.io/gateway-name: default
         service.istio.io/canonical-name: default
         service.istio.io/canonical-revision: latest
@@ -92,6 +98,14 @@ spec:
           value: '[]'
         - name: ISTIO_META_APP_CONTAINERS
           value: ""
+        - name: GOMEMLIMIT
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.memory
+        - name: GOMAXPROCS
+          valueFrom:
+            resourceFieldRef:
+              resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: Kubernetes
         - name: ISTIO_META_NODE_NAME
@@ -193,6 +207,8 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-name: default
+    istio.io/gateway-name: default
   name: default
   namespace: default
   ownerReferences:
@@ -208,6 +224,6 @@ spec:
     port: 15021
     protocol: TCP
   selector:
-    istio.io/gateway-name: default
+    gateway.networking.k8s.io/gateway-name: default
   type: LoadBalancer
 ---

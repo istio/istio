@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
+	kubeconfig "istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -61,6 +62,17 @@ func (s *GatewayAnalyzer) analyzeVirtualService(r *resource.Instance, c analysis
 	for i, gwName := range vs.Gateways {
 		// This is a special-case accepted value
 		if gwName == util.MeshGateway {
+			continue
+		}
+
+		if kubeconfig.IsInternalGatewayReference(gwName) {
+			m := msg.NewReferencedInternalGateway(r, vsName.String(), gwName)
+
+			if line, ok := util.ErrorLine(r, fmt.Sprintf(util.VSGateway, i)); ok {
+				m.Line = line
+			}
+
+			c.Report(gvk.VirtualService, m)
 			continue
 		}
 

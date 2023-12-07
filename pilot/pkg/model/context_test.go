@@ -565,7 +565,7 @@ func Test_parseIstioVersion(t *testing.T) {
 
 func TestSetServiceInstances(t *testing.T) {
 	tnow := time.Now()
-	instances := []*model.ServiceInstance{
+	instances := []model.ServiceTarget{
 		{
 			Service: &model.Service{
 				CreationTime: tnow.Add(1 * time.Second),
@@ -587,19 +587,19 @@ func TestSetServiceInstances(t *testing.T) {
 	}
 
 	serviceDiscovery := memory.NewServiceDiscovery()
-	serviceDiscovery.WantGetProxyServiceInstances = instances
+	serviceDiscovery.WantGetProxyServiceTargets = instances
 
 	env := &model.Environment{
 		ServiceDiscovery: serviceDiscovery,
 	}
 
 	proxy := &model.Proxy{}
-	proxy.SetServiceInstances(env)
+	proxy.SetServiceTargets(env)
 
-	assert.Equal(t, len(proxy.ServiceInstances), 3)
-	assert.Equal(t, proxy.ServiceInstances[0].Service.Hostname, "test2.com")
-	assert.Equal(t, proxy.ServiceInstances[1].Service.Hostname, "test3.com")
-	assert.Equal(t, proxy.ServiceInstances[2].Service.Hostname, "test1.com")
+	assert.Equal(t, len(proxy.ServiceTargets), 3)
+	assert.Equal(t, proxy.ServiceTargets[0].Service.Hostname, "test2.com")
+	assert.Equal(t, proxy.ServiceTargets[1].Service.Hostname, "test3.com")
+	assert.Equal(t, proxy.ServiceTargets[2].Service.Hostname, "test1.com")
 }
 
 func TestGlobalUnicastIP(t *testing.T) {

@@ -15,7 +15,7 @@
 package configdump
 
 type ZtunnelWorkload struct {
-	WorkloadIP        string    `json:"workloadIp"`
+	WorkloadIPs       []string  `json:"workloadIps"`
 	Waypoint          *Waypoint `json:"waypoint"`
 	GatewayIP         []byte    `json:"gatewayIp"`
 	Protocol          string    `json:"protocol"`
@@ -28,13 +28,11 @@ type ZtunnelWorkload struct {
 	CanonicalRevision string    `json:"canonicalRevision"`
 	Node              string    `json:"node"`
 	NativeHbone       bool      `json:"nativeHbone"`
+	Network           string    `json:"network,omitempty"`
 }
 
 type Waypoint struct {
-	Destination struct {
-		Address string `json:"address"`
-		Content string `json:"content"`
-	} `json:"destination"`
+	Destination string `json:"destination"`
 }
 
 type ZtunnelService struct {
@@ -46,8 +44,8 @@ type ZtunnelService struct {
 }
 
 type ZtunnelDump struct {
-	Workloads    map[string]*ZtunnelWorkload `json:"workloads"`
-	Services     map[string]*ZtunnelService  `json:"services_by_ip"`
+	Workloads    map[string]*ZtunnelWorkload `json:"by_addr"`
+	Services     map[string]*ZtunnelService  `json:"by_vip"`
 	Certificates []*CertsDump                `json:"certificates"`
 }
 

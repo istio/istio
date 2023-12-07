@@ -84,7 +84,13 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 				if svcSelector.Matches(podLabels) {
 					for _, port := range service.Ports {
 						if port.Protocol == "TCP" {
-							servicePorts[uint32(port.Port)] = true
+							// Because the Gateway's server port is the port on which the proxy should listen for incoming connections,
+							// the actual port associated with the service is the `TargetPort` that reaches the sidecar *workload instances*.
+							if tp := port.TargetPort.IntValue(); tp != 0 {
+								servicePorts[uint32(tp)] = true
+							} else {
+								servicePorts[uint32(port.Port)] = true
+							}
 						}
 					}
 				}
@@ -112,7 +118,7 @@ func (*IngressGatewayPortAnalyzer) analyzeGateway(r *resource.Instance, c analys
 		if server.Port != nil {
 			_, ok := servicePorts[server.Port.Number]
 			if !ok {
-				m := msg.NewGatewayPortNotOnWorkload(r, gwSelector.String(), int(server.Port.Number))
+				m := msg.NewGatewayPortNotDefinedOnService(r, int(server.Port.Number), gwSelector.String())
 
 				label := util.ExtractLabelFromSelectorString(gwSelector.String())
 				if line, ok := util.ErrorLine(r, fmt.Sprintf(util.GatewaySelector, label)); ok {

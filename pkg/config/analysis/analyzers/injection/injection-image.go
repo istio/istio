@@ -21,12 +21,14 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
+	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/slices"
 )
 
 // ImageAnalyzer checks the image of auto-injection configured with the running proxies on pods.
@@ -58,6 +60,7 @@ func (a *ImageAnalyzer) Metadata() analysis.Metadata {
 			gvk.Namespace,
 			gvk.Pod,
 			gvk.ConfigMap,
+			gvk.MeshConfig,
 		},
 	}
 }
@@ -80,6 +83,16 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 
 	if len(proxyImageMap) == 0 {
 		return
+	}
+
+	variant := ""
+	c.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
+		meshConfig := r.Message.(*v1alpha1.MeshConfig)
+		variant = meshConfig.GetDefaultConfig().GetImage().GetImageType()
+		return true
+	})
+	if variant == "default" {
+		variant = ""
 	}
 
 	injectedNamespaces := make(map[string]string)
@@ -119,7 +132,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
-		for _, container := range pod.Containers {
+		for _, container := range append(slices.Clone(pod.Containers), pod.InitContainers...) {
 			if container.Name != util.IstioProxyName {
 				continue
 			}
@@ -128,7 +141,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			if !okImage {
 				return true
 			}
-			if container.Image != proxyImage {
+			if container.Image != proxyImage && container.Image != fmt.Sprintf("%s-%s", proxyImage, variant) {
 				namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()] = append(
 					namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()], r.Metadata.FullName.Name.String())
 			}

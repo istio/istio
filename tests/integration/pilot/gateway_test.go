@@ -26,7 +26,7 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	k8s "sigs.k8s.io/gateway-api/apis/v1beta1"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
@@ -71,7 +71,7 @@ spec:
     name: default
     port: 80
   selector:
-    istio.io/gateway-name: managed-owner
+    gateway.networking.k8s.io/gateway-name: managed-owner
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -80,11 +80,12 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: managed-owner
+      gateway.networking.k8s.io/gateway-name: managed-owner
   replicas: 1
   template:
     metadata:
       labels:
+        gateway.networking.k8s.io/gateway-name: managed-owner
         istio.io/gateway-name: managed-owner
     spec:
       containers:
@@ -92,7 +93,7 @@ spec:
         image: %s
 `, image)).ApplyOrFail(t)
 	cls := t.Clusters().Kube().Default()
-	fetchFn := testKube.NewSinglePodFetch(cls, apps.Namespace.Name(), "istio.io/gateway-name=managed-owner")
+	fetchFn := testKube.NewSinglePodFetch(cls, apps.Namespace.Name(), "gateway.networking.k8s.io/gateway-name=managed-owner")
 	if _, err := testKube.WaitUntilPodsAreReady(fetchFn); err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +119,7 @@ spec:
 		if gw == nil {
 			return fmt.Errorf("failed to find gateway")
 		}
-		cond := kstatus.GetCondition(gw.Status.Conditions, string(k8s.GatewayConditionProgrammed))
+		cond := kstatus.GetCondition(gw.Status.Conditions, string(k8sv1.GatewayConditionProgrammed))
 		if cond.Status != metav1.ConditionTrue {
 			return fmt.Errorf("failed to find programmed condition: %+v", cond)
 		}
@@ -159,39 +160,98 @@ spec:
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
 metadata:
-  name: http
+  name: http-1
 spec:
   parentRefs:
   - name: gateway
+  hostnames: ["bar.example.com"]
   rules:
   - backendRefs:
     - name: b
       port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: http-2
+spec:
+  parentRefs:
+  - name: gateway
+  hostnames: ["foo.example.com"]
+  rules:
+  - backendRefs:
+    - name: d
+      port: 80
 `).ApplyOrFail(t)
-	apps.B[0].CallOrFail(t, echo.CallOptions{
-		Port:   echo.Port{ServicePort: 80},
-		Scheme: scheme.HTTP,
-		HTTP: echo.HTTP{
-			Headers: headers.New().WithHost("bar.example.com").Build(),
+	testCases := []struct {
+		check echo.Checker
+		from  echo.Instances
+		host  string
+	}{
+		{
+			check: check.OK(),
+			from:  apps.B,
+			host:  "bar.example.com",
 		},
-		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
-		Check:   check.OK(),
-		Retry: echo.Retry{
-			Options: []retry.Option{retry.Timeout(time.Minute)},
+		{
+			check: check.NotOK(),
+			from:  apps.B,
+			host:  "bar",
 		},
-	})
-	apps.B[0].CallOrFail(t, echo.CallOptions{
-		Port:   echo.Port{ServicePort: 80},
-		Scheme: scheme.HTTP,
-		HTTP: echo.HTTP{
-			Headers: headers.New().WithHost("bar").Build(),
-		},
-		Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
-		Check:   check.NotOK(),
-		Retry: echo.Retry{
-			Options: []retry.Option{retry.Timeout(time.Minute)},
-		},
-	})
+	}
+	if t.Settings().EnableDualStack {
+		additionalTestCases := []struct {
+			check echo.Checker
+			from  echo.Instances
+			host  string
+		}{
+			// apps.D hosts a dual-stack service,
+			// apps.E hosts an ipv6 only service and
+			// apps.B hosts an ipv4 only service
+			{
+				check: check.OK(),
+				from:  apps.D,
+				host:  "bar.example.com",
+			},
+			{
+				check: check.OK(),
+				from:  apps.E,
+				host:  "bar.example.com",
+			},
+			{
+				check: check.OK(),
+				from:  apps.E,
+				host:  "foo.example.com",
+			},
+			{
+				check: check.OK(),
+				from:  apps.D,
+				host:  "foo.example.com",
+			},
+			{
+				check: check.OK(),
+				from:  apps.B,
+				host:  "foo.example.com",
+			},
+		}
+		testCases = append(testCases, additionalTestCases...)
+	}
+	for _, tc := range testCases {
+		t.NewSubTest(fmt.Sprintf("gateway-connectivity-from-%s", tc.from[0].NamespacedName())).Run(func(t framework.TestContext) {
+			tc.from[0].CallOrFail(t, echo.CallOptions{
+				Port: echo.Port{
+					Protocol:    protocol.HTTP,
+					ServicePort: 80,
+				},
+				Scheme: scheme.HTTP,
+				HTTP: echo.HTTP{
+					Headers: headers.New().WithHost(tc.host).Build(),
+				},
+				Address: fmt.Sprintf("gateway-istio.%s.svc.cluster.local", apps.Namespace.Name()),
+				Check:   tc.check,
+			})
+		})
+	}
 }
 
 func ManagedGatewayShortNameTest(t framework.TestContext) {
@@ -248,15 +308,15 @@ spec:
 func UnmanagedGatewayTest(t framework.TestContext) {
 	ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-same", ingressutil.TLS, ingressutil.IngressCredentialA,
 		false, t.Clusters().Configs()...)
-	ingressutil.CreateIngressKubeSecret(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
-		false, t.Clusters().Configs()...)
+	ingressutil.CreateIngressKubeSecretInNamespace(t, "test-gateway-cert-cross", ingressutil.TLS, ingressutil.IngressCredentialB,
+		false, apps.Namespace.Name(), t.Clusters().Configs()...)
 
 	t.ConfigIstio().
 		YAML("", `
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: GatewayClass
 metadata:
-  name: istio
+  name: custom-istio
 spec:
   controllerName: istio.io/gateway-controller
 `).
@@ -270,7 +330,7 @@ spec:
   addresses:
   - value: istio-ingressgateway
     type: Hostname
-  gatewayClassName: istio
+  gatewayClassName: custom-istio
   listeners:
   - name: http
     hostname: "*.domain.example"
@@ -349,7 +409,8 @@ metadata:
   name: b
 spec:
   parentRefs:
-  - kind: Service
+  - group: ""
+    kind: Service
     name: b
   - name: gateway
     namespace: istio-system
@@ -368,7 +429,74 @@ spec:
     backendRefs:
     - name: b
       port: 80
-`).
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: GRPCRoute
+metadata:
+  name: grpc
+spec:
+  parentRefs:
+  - group: ""
+    kind: Service
+    name: c
+  - name: gateway
+    namespace: istio-system
+  rules:
+  - matches:
+    - method:
+        method: Echo
+    filters:
+    - type: RequestHeaderModifier
+      requestHeaderModifier:
+        add:
+        - name: my-added-header
+          value: added-grpc-value
+    backendRefs:
+    - name: c
+      port: 7070
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: tls-same
+spec:
+  parentRefs:
+  - name: gateway
+    sectionName: tls-same
+    namespace: istio-system
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: HTTPRoute
+metadata:
+  name: tls-cross
+spec:
+  parentRefs:
+  - name: gateway
+    sectionName: tls-cross
+    namespace: istio-system
+  rules:
+  - backendRefs:
+    - name: b
+      port: 80
+`).YAML(apps.Namespace.Name(), fmt.Sprintf(`
+apiVersion: gateway.networking.k8s.io/v1beta1
+kind: ReferenceGrant
+metadata:
+  name: allow-gateways-to-ref-secrets
+  namespace: "%s"
+spec:
+  from:
+  - group: gateway.networking.k8s.io
+    kind: Gateway
+    namespace: istio-system
+  to:
+  - group: ""
+    kind: Secret
+`, apps.Namespace.Name())).
 		ApplyOrFail(t)
 	for _, ingr := range istio.IngressesOrFail(t, t) {
 		t.NewSubTest(ingr.Cluster().StableName()).Run(func(t framework.TestContext) {
@@ -415,16 +543,54 @@ spec:
 						check.RequestHeader("My-Added-Header", "added-value")),
 				})
 			})
+			t.NewSubTest("mesh-grpc").Run(func(t framework.TestContext) {
+				_ = apps.A[0].CallOrFail(t, echo.CallOptions{
+					To:    apps.C,
+					Count: 1,
+					Port: echo.Port{
+						Name: "grpc",
+					},
+					Check: check.And(
+						check.OK(),
+						check.RequestHeader("My-Added-Header", "added-grpc-value")),
+				})
+			})
 			t.NewSubTest("status").Run(func(t framework.TestContext) {
 				retry.UntilSuccessOrFail(t, func() error {
 					gwc, err := t.Clusters().Kube().Default().GatewayAPI().GatewayV1beta1().GatewayClasses().Get(context.Background(), "istio", metav1.GetOptions{})
 					if err != nil {
 						return err
 					}
-					if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted)).Status; s != metav1.ConditionTrue {
+					if s := kstatus.GetCondition(gwc.Status.Conditions, string(k8sv1.GatewayClassConditionStatusAccepted)).Status; s != metav1.ConditionTrue {
 						return fmt.Errorf("expected status %q, got %q", metav1.ConditionTrue, s)
 					}
 					return nil
+				})
+			})
+			t.NewSubTest("tls-same").Run(func(t framework.TestContext) {
+				_ = ingr.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTPS,
+						ServicePort: 443,
+					},
+					HTTP: echo.HTTP{
+						Path:    "/",
+						Headers: headers.New().WithHost("same-namespace.domain.example").Build(),
+					},
+					Check: check.OK(),
+				})
+			})
+			t.NewSubTest("tls-cross").Run(func(t framework.TestContext) {
+				_ = ingr.CallOrFail(t, echo.CallOptions{
+					Port: echo.Port{
+						Protocol:    protocol.HTTPS,
+						ServicePort: 443,
+					},
+					HTTP: echo.HTTP{
+						Path:    "/",
+						Headers: headers.New().WithHost("cross-namespace.domain.example").Build(),
+					},
+					Check: check.OK(),
 				})
 			})
 		})
@@ -439,7 +605,7 @@ func StatusGatewayTest(t framework.TestContext) {
 		if gwc == nil {
 			return fmt.Errorf("failed to find GatewayClass istio")
 		}
-		cond := kstatus.GetCondition(gwc.Status.Conditions, string(k8s.GatewayClassConditionStatusAccepted))
+		cond := kstatus.GetCondition(gwc.Status.Conditions, string(k8sv1.GatewayClassConditionStatusAccepted))
 		if cond.Status != metav1.ConditionTrue {
 			return fmt.Errorf("failed to find accepted condition: %+v", cond)
 		}
@@ -456,4 +622,71 @@ func StatusGatewayTest(t framework.TestContext) {
 	client.Update(context.Background(), gwc, metav1.UpdateOptions{})
 	// It should be added back
 	retry.UntilSuccessOrFail(t, check)
+}
+
+// Verify that the envoy readiness probes are reachable at
+// https://GatewaySvcIP:15021/healthz/ready . This is being explicitly done
+// to make sure, in dual-stack scenarios both v4 and v6 probes are reachable.
+func TestGatewayReadinessProbes(t *testing.T) {
+	// nolint: staticcheck
+	framework.NewTest(t).
+		RequiresSingleCluster().
+		RequiresLocalControlPlane().
+		Features("traffic.gateway.readiness").
+		Run(func(t framework.TestContext) {
+			c := t.Clusters().Default()
+			var svc *corev1.Service
+			svc, _, err := testKube.WaitUntilServiceEndpointsAreReady(c.Kube(), "istio-system", "istio-ingressgateway")
+			if err != nil {
+				t.Fatalf("error getting ingress gateway svc ips: %v", err)
+			}
+			for _, ip := range svc.Spec.ClusterIPs {
+				t.NewSubTest("gateway-readiness-probe-" + ip).Run(func(t framework.TestContext) {
+					apps.External.All[0].CallOrFail(t, echo.CallOptions{
+						Address: ip,
+						Port:    echo.Port{ServicePort: 15021},
+						Scheme:  scheme.HTTP,
+						HTTP: echo.HTTP{
+							Path: "/healthz/ready",
+						},
+						Check: check.And(
+							check.Status(200),
+						),
+					})
+				})
+			}
+		})
+}
+
+// Verify that the envoy metrics endpoints are reachable at
+// https://GatewayPodIP:15090/stats/prometheus . This is being explicitly done
+// to make sure, in dual-stack scenarios both v4 and v6 probes are reachable.
+func TestGatewayMetricsEndpoints(t *testing.T) {
+	// nolint: staticcheck
+	framework.NewTest(t).
+		RequiresSingleCluster().
+		RequiresLocalControlPlane().
+		Features("traffic.gateway.metrics").
+		Run(func(t framework.TestContext) {
+			c := t.Clusters().Default()
+			podIPs, err := i.PodIPsFor(c, i.Settings().SystemNamespace, "app=istio-ingressgateway")
+			if err != nil {
+				t.Fatalf("error getting ingress gateway pod ips: %v", err)
+			}
+			for _, ip := range podIPs {
+				t.NewSubTest("gateway-metrics-endpoints-" + ip.IP).Run(func(t framework.TestContext) {
+					apps.External.All[0].CallOrFail(t, echo.CallOptions{
+						Address: ip.IP,
+						Port:    echo.Port{ServicePort: 15090},
+						Scheme:  scheme.HTTP,
+						HTTP: echo.HTTP{
+							Path: "/stats/prometheus",
+						},
+						Check: check.And(
+							check.Status(200),
+						),
+					})
+				})
+			}
+		})
 }

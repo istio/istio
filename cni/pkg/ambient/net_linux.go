@@ -102,6 +102,7 @@ func (s *Server) updateNodeProxyEBPF(pod *corev1.Pod, captureDNS bool) error {
 	veth, err := getVethWithDestinationOf(ip)
 	if err != nil {
 		log.Warnf("failed to get device: %v", err)
+		return err
 	}
 	peerIndex, err := getPeerIndex(veth)
 	if err != nil {
@@ -216,12 +217,12 @@ func getLinkWithDestinationOf(ip string) (netlink.Link, error) {
 		return nil, err
 	}
 
-	if len(routes) == 0 {
-		return nil, fmt.Errorf("no routes found for %s", ip)
+	if len(routes) > 0 {
+		linkIndex := routes[0].LinkIndex
+		return netlink.LinkByIndex(linkIndex)
 	}
 
-	linkIndex := routes[0].LinkIndex
-	return netlink.LinkByIndex(linkIndex)
+	return findVethLinkForPeerIP(net.ParseIP(ip))
 }
 
 func getVethWithDestinationOf(ip string) (*netlink.Veth, error) {
@@ -236,6 +237,49 @@ func getVethWithDestinationOf(ip string) (*netlink.Veth, error) {
 	return veth, nil
 }
 
+func findVethLinkForPeerIP(peerIP net.IP) (*netlink.Veth, error) {
+	links, err := netlink.LinkList()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list links: %v", err)
+	}
+	var v netlink.Veth
+	for _, l := range links {
+		if l.Type() != v.Type() {
+			continue
+		}
+		veth := l.(*netlink.Veth)
+		peerIndex, err := getPeerIndex(veth)
+		if err != nil {
+			continue
+		}
+		peerNs, err := getNsNameFromNsID(veth.Attrs().NetNsID)
+		if err != nil {
+			continue
+		}
+		var peerVethFound bool
+		if err := netns.WithNetNSPath(filepath.Join(constants.NetNsPath, filepath.Base(peerNs)), func(netns.NetNS) error {
+			peerLink, err := netlink.LinkByIndex(peerIndex)
+			if err != nil {
+				return fmt.Errorf("failed to get veth interface '%s' by peer index: %v", veth.Name, err)
+			}
+			addrs, err := netlink.AddrList(peerLink, netlink.FAMILY_V4)
+			if err != nil {
+				return fmt.Errorf("failed to get address for veth interface '%s': %v", veth.Name, err)
+			}
+			if addrs[0].IP.Equal(peerIP) {
+				peerVethFound = true
+			}
+			return nil
+		}); err != nil {
+			log.Warnf("failed to inspect peer link in the network namespace '%s': %v", peerNs, err)
+		}
+		if peerVethFound {
+			return veth, nil
+		}
+	}
+	return nil, fmt.Errorf("no veth interface found for peer IP %s", peerIP)
+}
+
 func getDeviceWithDestinationOf(ip string) (string, error) {
 	link, err := getLinkWithDestinationOf(ip)
 	if err != nil {
@@ -244,12 +288,11 @@ func getDeviceWithDestinationOf(ip string) (string, error) {
 	return link.Attrs().Name, nil
 }
 
-func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
+func GetIndexAndPeerMac(podIfName, nspath string) (int, net.HardwareAddr, error) {
 	var hostIfIndex int
 	var hwAddr net.HardwareAddr
 
-	ns = filepath.Base(ns)
-	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
+	err := netns.WithNetNSPath(nspath, func(netns.NetNS) error {
 		link, err := netlink.LinkByName(podIfName)
 		if err != nil {
 			return err
@@ -270,18 +313,18 @@ func GetIndexAndPeerMac(podIfName, ns string) (int, net.HardwareAddr, error) {
 		return nil
 	})
 	if err != nil {
-		return 0, nil, fmt.Errorf("failed to get info for if(%s) in ns(%s): %v", podIfName, ns, err)
+		return 0, nil, fmt.Errorf("failed to get info for if(%s) in ns(%s): %v", podIfName, nspath, err)
 	}
 
 	return hostIfIndex, hwAddr, nil
 }
 
-func getMacFromNsIdx(ns string, ifIndex int) (net.HardwareAddr, error) {
+func getMacFromNsIdx(nsName string, ifIndex int) (net.HardwareAddr, error) {
 	var hwAddr net.HardwareAddr
-	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
+	err := netns.WithNetNSPath(filepath.Join(constants.NetNsPath, nsName), func(netns.NetNS) error {
 		link, err := netlink.LinkByIndex(ifIndex)
 		if err != nil {
-			return fmt.Errorf("failed to get link(%d) in ns(%s): %v", ifIndex, ns, err)
+			return fmt.Errorf("failed to get link(%d) in ns(%s): %v", ifIndex, nsName, err)
 		}
 		hwAddr = link.Attrs().HardwareAddr
 		return nil
@@ -295,7 +338,7 @@ func getMacFromNsIdx(ns string, ifIndex int) (net.HardwareAddr, error) {
 func getNsNameFromNsID(nsid int) (string, error) {
 	foundNs := errors.New("nsid found, stop iterating")
 	nsName := ""
-	err := filepath.WalkDir("/var/run/netns", func(p string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(constants.NetNsPath, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -331,7 +374,7 @@ func getPeerIndex(veth *netlink.Veth) (int, error) {
 }
 
 // CreateRulesOnNode initializes the routing, firewall and ipset rules on the node.
-func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS bool) error {
+func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS bool, geneveDstPort uint16) error {
 	var err error
 
 	log.Debugf("CreateRulesOnNode: ztunnelVeth=%s, ztunnelIP=%s", ztunnelVeth, ztunnelIP)
@@ -432,9 +475,22 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			"--nfmask", constants.ProxyMask,
 			"--ctmask", constants.ProxyMask,
 		),
+
+		// Mark healthcheck probes from the node IP as skippable, so we don't capture them.
+		//
+		// We consider a packet as "from the host node" if it comes from a local socket in the host netns, and has
+		// the SRC host IP we derived elsewhere.
+		//
+		// Notably, this excludes `kubelet` node traffic from capture, but *not* `kube-proxy` node traffic.
+		// -t mangle -A ztunnel-OUTPUT -m owner --socket-exists -p tcp -m set --match-set ambient-pods dst -j MARK --set-mark 0x220
 		newIptableRule(
 			constants.TableMangle,
 			constants.ChainZTunnelOutput,
+			"-m", "owner",
+			"--socket-exists",
+			"-p", "tcp",
+			"-m", "set",
+			"--match-set", Ipset.Name, "dst",
 			"--source", HostIP,
 			"-j", "MARK",
 			"--set-mark", constants.ConnSkipMask,
@@ -452,6 +508,19 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		newIptableRule(
 			constants.TableNat,
 			constants.ChainZTunnelPostrouting,
+			"-m", "mark",
+			"--mark", constants.OutboundMark,
+			"-j", "ACCEPT",
+		),
+
+		// If we have an outbound mark, we don't need kube-proxy to do anything,
+		// so accept it before the KUBE-SERVICES chain in the Filter table rejects
+		// destinations that do not have a k8s endpoint resource. This is necessary
+		// for traffic destined to workloads outside k8s whose endpoints are known
+		// to ZTunnel but for whom k8s endpoints resources do not exist.
+		newIptableRule(
+			constants.TableFilter,
+			constants.ChainZTunnelForward,
 			"-m", "mark",
 			"--mark", constants.OutboundMark,
 			"-j", "ACCEPT",
@@ -481,7 +550,7 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 			constants.ChainZTunnelPrerouting,
 			"-p", "udp",
 			"-m", "udp",
-			"--dport", "6081",
+			"--dport", fmt.Sprintf("%d", geneveDstPort),
 			"-j", "RETURN",
 		),
 
@@ -614,8 +683,9 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		LinkAttrs: netlink.LinkAttrs{
 			Name: constants.InboundTun,
 		},
-		ID:     1000,
+		ID:     constants.InboundTunVNI,
 		Remote: net.ParseIP(ztunnelIP),
+		Dport:  geneveDstPort,
 	}
 	log.Debugf("Building inbound tunnel: %+v", inbnd)
 	err = netlink.LinkAdd(inbnd)
@@ -636,8 +706,9 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 		LinkAttrs: netlink.LinkAttrs{
 			Name: constants.OutboundTun,
 		},
-		ID:     1001,
+		ID:     constants.OutboundTunVNI,
 		Remote: net.ParseIP(ztunnelIP),
+		Dport:  geneveDstPort,
 	}
 	log.Debugf("Building outbound tunnel: %+v", outbnd)
 	err = netlink.LinkAdd(outbnd)
@@ -762,11 +833,53 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 	for _, route := range routes {
 		err = execute(route.Cmd, route.Args...)
 		if err != nil {
-			log.Errorf(fmt.Errorf("failed to add route (%+v): %v", route, err))
+			log.Errorf("failed to add route (%+v): %v", route, err)
 		}
 	}
 
 	return nil
+}
+
+// determineDstPortForGeneveLink looks for first available destination port for given VNI and remote IP
+// starting from the default value 6081 (https://man7.org/linux/man-pages/man8/ip-link.8.html).
+// Destination port cannot be reused and must be dynamically determined when:
+// - an external geneve link already exists (external geneve link does not have ID and remote IP address);
+// - a geneve link with the same ID and remote IP already exist.
+func determineDstPortForGeneveLink(remoteIP net.IP, vnis ...uint32) uint16 {
+	defaultGenevePort := uint16(6081)
+	vniSet := sets.New[uint32](vnis...)
+
+	existingLinks, err := netlink.LinkList()
+	if err != nil {
+		log.Errorf("failed to list links on the node: %v", err)
+		return defaultGenevePort
+	}
+
+	isExternal := func(genveLink *netlink.Geneve) bool {
+		return genveLink.ID == 0 && genveLink.Remote == nil
+	}
+	isConfigurationReserved := func(geneveLink *netlink.Geneve) bool {
+		return vniSet.Contains(geneveLink.ID) && geneveLink.Remote.Equal(remoteIP)
+	}
+
+	geneveType := netlink.Geneve{}
+	reservedPorts := sets.New[uint16]()
+	for _, l := range existingLinks {
+		if l.Type() == geneveType.Type() {
+			geneveLink := l.(*netlink.Geneve)
+			if isExternal(geneveLink) || isConfigurationReserved(geneveLink) {
+				reservedPorts.Insert(geneveLink.Dport)
+			}
+		}
+	}
+
+	for {
+		if reservedPorts.Contains(defaultGenevePort) {
+			defaultGenevePort++
+		} else {
+			return defaultGenevePort
+		}
+	}
 }
 
 // CreateEBPFRulesInNodeProxyNS initializes the routes and iptable rules that need to exist WITHIN
@@ -778,7 +891,7 @@ func (s *Server) CreateRulesOnNode(ztunnelVeth, ztunnelIP string, captureDNS boo
 func (s *Server) CreateEBPFRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztunnelNetNS string) error {
 	ns := filepath.Base(ztunnelNetNS)
 	log.Debugf("CreateEBPFRulesWithinNodeProxyNS: proxyNsVethIdx=%d, ztunnelIP=%s, from within netns=%s", proxyNsVethIdx, ztunnelIP, ztunnelNetNS)
-	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
+	err := netns.WithNetNSPath(filepath.Join(constants.NetNsPath, ns), func(netns.NetNS) error {
 		// Make sure we flush table 100 before continuing - it should be empty in a new namespace
 		// but better to ensure that.
 		if err := routeFlushTable(constants.RouteTableInbound); err != nil {
@@ -922,10 +1035,10 @@ func (s *Server) createTProxyRulesForLegacyEBPF(ztunnelIP, ifName string) error 
 //
 // There is no cleanup required for things we do within the netns, as when the netns is destroyed on pod delete,
 // everything within the netns goes away.
-func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztunnelNetNS, hostIP string) error {
+func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztunnelNetNS, hostIP string, geneveDstPort uint16) error {
 	ns := filepath.Base(ztunnelNetNS)
 	log.Debugf("CreateRulesWithinNodeProxyNS: proxyNsVethIdx=%d, ztunnelIP=%s, hostIP=%s, from within netns=%s", proxyNsVethIdx, ztunnelIP, hostIP, ztunnelNetNS)
-	err := netns.WithNetNSPath(fmt.Sprintf("/var/run/netns/%s", ns), func(netns.NetNS) error {
+	err := netns.WithNetNSPath(filepath.Join(constants.NetNsPath, ns), func(netns.NetNS) error {
 		//"p" is just to visually distinguish from the host-side tunnel links in logs
 		inboundGeneveLinkName := "p" + constants.InboundTun
 		outboundGeneveLinkName := "p" + constants.OutboundTun
@@ -945,8 +1058,9 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 			LinkAttrs: netlink.LinkAttrs{
 				Name: inboundGeneveLinkName,
 			},
-			ID:     1000,
+			ID:     constants.InboundTunVNI,
 			Remote: net.ParseIP(hostIP),
+			Dport:  geneveDstPort,
 		}
 		log.Debugf("Building inbound tunnel: %+v", inbndTunLink)
 		err := netlink.LinkAdd(inbndTunLink)
@@ -968,8 +1082,9 @@ func (s *Server) CreateRulesWithinNodeProxyNS(proxyNsVethIdx int, ztunnelIP, ztu
 			LinkAttrs: netlink.LinkAttrs{
 				Name: outboundGeneveLinkName,
 			},
-			ID:     1001,
+			ID:     constants.OutboundTunVNI,
 			Remote: net.ParseIP(hostIP),
+			Dport:  geneveDstPort,
 		}
 		log.Debugf("Building outbound tunnel: %+v", outbndTunLink)
 		err = netlink.LinkAdd(outbndTunLink)
@@ -1236,7 +1351,7 @@ func (s *Server) cleanupNode() {
 	}
 }
 
-func (s *Server) getEnrolledIPSets() sets.Set[string] {
+func (s *Server) getEnrolledIPSets() sets.String {
 	pods := sets.New[string]()
 	switch s.redirectMode {
 	case IptablesMode:
@@ -1251,6 +1366,16 @@ func (s *Server) getEnrolledIPSets() sets.Set[string] {
 		pods = s.ebpfServer.DumpAppIPs()
 	}
 	return pods
+}
+
+func (s *Server) IsPodEnrolledInAmbient(pod *corev1.Pod) bool {
+	switch s.redirectMode {
+	case IptablesMode:
+		return IsPodInIpset(pod)
+	case EbpfMode:
+		return s.ebpfServer.IsPodIPEnrolled(pod.Status.PodIP)
+	}
+	return false
 }
 
 func addTProxyMarkRule() error {

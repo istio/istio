@@ -31,14 +31,14 @@ import (
 )
 
 // nolint
-func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, subdomain string) map[int][]*model.ServiceInstance {
-	instances := make(map[int][]*model.ServiceInstance)
+func makeServiceInstances(proxy *model.Proxy, service *model.Service, hostname, subdomain string) map[int][]*model.IstioEndpoint {
+	instances := make(map[int][]*model.IstioEndpoint)
 	for _, port := range service.Ports {
 		instances[port.Port] = makeInstances(proxy, service, port.Port, port.Port)
-		instances[port.Port][0].Endpoint.HostName = hostname
-		instances[port.Port][0].Endpoint.SubDomain = subdomain
-		instances[port.Port][0].Endpoint.Network = proxy.Metadata.Network
-		instances[port.Port][0].Endpoint.Locality.ClusterID = proxy.Metadata.ClusterID
+		instances[port.Port][0].HostName = hostname
+		instances[port.Port][0].SubDomain = subdomain
+		instances[port.Port][0].Network = proxy.Metadata.Network
+		instances[port.Port][0].Locality.ClusterID = proxy.Metadata.ClusterID
 	}
 	return instances
 }
@@ -517,20 +517,16 @@ func TestNameTable(t *testing.T) {
 	}
 }
 
-func makeInstances(proxy *model.Proxy, svc *model.Service, servicePort int, targetPort int) []*model.ServiceInstance {
-	ret := make([]*model.ServiceInstance, 0)
+func makeInstances(proxy *model.Proxy, svc *model.Service, servicePort int, targetPort int) []*model.IstioEndpoint {
+	ret := make([]*model.IstioEndpoint, 0)
 	for _, p := range svc.Ports {
 		if p.Port != servicePort {
 			continue
 		}
-		ret = append(ret, &model.ServiceInstance{
-			Service:     svc,
-			ServicePort: p,
-			Endpoint: &model.IstioEndpoint{
-				Address:         proxy.IPAddresses[0],
-				ServicePortName: p.Name,
-				EndpointPort:    uint32(targetPort),
-			},
+		ret = append(ret, &model.IstioEndpoint{
+			Address:         proxy.IPAddresses[0],
+			ServicePortName: p.Name,
+			EndpointPort:    uint32(targetPort),
 		})
 	}
 	return ret

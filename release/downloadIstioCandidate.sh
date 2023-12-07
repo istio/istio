@@ -21,13 +21,13 @@
 # The script fetches the latest Istio release candidate and untars it.
 # You can pass variables on the command line to download a specific version
 # or to override the processor architecture. For example, to download
-# Istio 1.6.8 for the x86_64 architecture,
-# run curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.6.8 TARGET_ARCH=x86_64 sh -.
+# Istio 1.6.8 for the x86_64 architecture and linux OS,
+# run curl -L https://istio.io/downloadIstio | ISTIO_VERSION=1.6.8 TARGET_ARCH=x86_64 TARGET_OS=Linux sh -.
 
 set -e
 
 # Determines the operating system.
-OS="$(uname)"
+OS="${TARGET_OS:-$(uname)}"
 if [ "${OS}" = "Darwin" ] ; then
   OSEXT="osx"
 else

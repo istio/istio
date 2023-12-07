@@ -32,13 +32,19 @@ func SetForTest[T any](t Failer, vv *T, v T) {
 
 // SetEnvForTest sets an environment variable for the duration of a test, then resets it once the test is complete.
 func SetEnvForTest(t Failer, k, v string) {
-	old := os.Getenv(k)
+	old, oldset := os.LookupEnv(k)
 	if err := os.Setenv(k, v); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		if err := os.Setenv(k, old); err != nil {
-			t.Fatal(err)
+		if oldset {
+			if err := os.Setenv(k, old); err != nil {
+				t.Fatal(err)
+			}
+		} else {
+			if err := os.Unsetenv(k); err != nil {
+				t.Fatal(err)
+			}
 		}
 	})
 }

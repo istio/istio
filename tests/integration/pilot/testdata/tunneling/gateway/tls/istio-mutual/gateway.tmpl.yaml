@@ -1,10 +1,10 @@
 apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
-  name: istio-egressgateway
+  name: {{ .EgressGatewayServiceName | default "istio-egressgateway" }}
 spec:
   selector:
-    istio: egressgateway
+    istio: {{ .EgressGatewayIstioLabel | default "egressgateway" }}
   servers:
   - port:
       number: 80

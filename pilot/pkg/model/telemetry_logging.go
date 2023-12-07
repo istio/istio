@@ -23,18 +23,20 @@ import (
 	fileaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/file/v3"
 	grpcaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/grpc/v3"
 	otelaccesslog "github.com/envoyproxy/go-control-plane/envoy/extensions/access_loggers/open_telemetry/v3"
+	celformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/cel/v3"
 	metadataformatter "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/metadata/v3"
 	reqwithoutquery "github.com/envoyproxy/go-control-plane/envoy/extensions/formatter/req_without_query/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	otlpcommon "go.opentelemetry.io/proto/otlp/common/v1"
 	"google.golang.org/protobuf/types/known/structpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
+	"istio.io/istio/pkg/wellknown"
 )
 
 const (
@@ -59,6 +61,7 @@ const (
 
 	reqWithoutQueryCommandOperator = "%REQ_WITHOUT_QUERY"
 	metadataCommandOperator        = "%METADATA"
+	celCommandOperator             = "%CEL"
 
 	DevStdout = "/dev/stdout"
 
@@ -113,13 +116,25 @@ var (
 		TypedConfig: protoconv.MessageToAny(&reqwithoutquery.ReqWithoutQuery{}),
 	}
 
-	// metadataFormatter configures additional formatters needed for some of the format strings like "METATDATA"
+	// metadataFormatter configures additional formatters needed for some of the format strings like "METADATA"
 	// for more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/formatter/metadata/v3/metadata.proto
 	metadataFormatter = &core.TypedExtensionConfig{
 		Name:        "envoy.formatter.metadata",
 		TypedConfig: protoconv.MessageToAny(&metadataformatter.Metadata{}),
 	}
+
+	// celFormatter configures additional formatters needed for some of the format strings like "CEL"
+	// for more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/formatter/cel/v3/cel.proto
+	celFormatter = &core.TypedExtensionConfig{
+		Name:        "envoy.formatter.cel",
+		TypedConfig: protoconv.MessageToAny(&celformatter.Cel{}),
+	}
 )
+
+// configureFromProviderConfigHandled contains the number of providers we handle below.
+// This is to ensure this stays in sync as new handlers are added
+// STOP. DO NOT UPDATE THIS WITHOUT UPDATING telemetryAccessLog.
+const telemetryAccessLogHandled = 14
 
 func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionProvider) *accesslog.AccessLog {
 	var al *accesslog.AccessLog
@@ -137,6 +152,19 @@ func telemetryAccessLog(push *PushContext, fp *meshconfig.MeshConfig_ExtensionPr
 		al = tcpGrpcAccessLogFromTelemetry(push, prov.EnvoyTcpAls)
 	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyOtelAls:
 		al = openTelemetryLog(push, prov.EnvoyOtelAls)
+	case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp,
+		*meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzGrpc,
+		*meshconfig.MeshConfig_ExtensionProvider_Zipkin,
+		*meshconfig.MeshConfig_ExtensionProvider_Lightstep,
+		*meshconfig.MeshConfig_ExtensionProvider_Datadog,
+		*meshconfig.MeshConfig_ExtensionProvider_Skywalking,
+		*meshconfig.MeshConfig_ExtensionProvider_Opencensus,
+		*meshconfig.MeshConfig_ExtensionProvider_Opentelemetry,
+		*meshconfig.MeshConfig_ExtensionProvider_Prometheus,
+		*meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
+		// No access logs supported for this provider
+		// Stackdriver is a special case as its handled in the Metrics logic, as it uses a shared filter
+		return nil
 	}
 
 	return al
@@ -255,7 +283,7 @@ func buildFileAccessJSONLogFormat(
 }
 
 func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtensionConfig {
-	reqWithoutQuery, metadata := false, false
+	reqWithoutQuery, metadata, cel := false, false, false
 	for _, value := range jsonLogStruct.Fields {
 		if reqWithoutQuery && metadata {
 			break
@@ -263,11 +291,12 @@ func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtens
 
 		if !reqWithoutQuery && strings.Contains(value.GetStringValue(), reqWithoutQueryCommandOperator) {
 			reqWithoutQuery = true
-			continue
 		}
-
 		if !metadata && strings.Contains(value.GetStringValue(), metadataCommandOperator) {
 			metadata = true
+		}
+		if !cel && strings.Contains(value.GetStringValue(), celCommandOperator) {
+			cel = true
 		}
 	}
 
@@ -277,6 +306,9 @@ func accessLogJSONFormatters(jsonLogStruct *structpb.Struct) []*core.TypedExtens
 	}
 	if metadata {
 		formatters = append(formatters, metadataFormatter)
+	}
+	if cel {
+		formatters = append(formatters, celFormatter)
 	}
 
 	return formatters
@@ -289,6 +321,9 @@ func accessLogTextFormatters(text string) []*core.TypedExtensionConfig {
 	}
 	if strings.Contains(text, metadataCommandOperator) {
 		formatters = append(formatters, metadataFormatter)
+	}
+	if strings.Contains(text, celCommandOperator) {
+		formatters = append(formatters, celFormatter)
 	}
 
 	return formatters
@@ -452,6 +487,7 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
+		DisableBuiltinLabels: !features.EnableOTELBuiltinResourceLables,
 	}
 
 	if format != "" {

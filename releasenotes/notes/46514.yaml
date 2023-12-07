@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue: []
+
+releaseNotes:
+  - |
+    **Added** support for network wasm plugins.

@@ -25,6 +25,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/api/security/v1beta1"
+	metav1beta1 "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -64,6 +65,24 @@ func buildExpectExpectRemoved(t *testing.T) func(resp *discovery.DeltaDiscoveryR
 			t.Fatalf("unexpected resources: %v", resp.Resources)
 		}
 		assert.Equal(t, sets.SortedList(have), sets.SortedList(want))
+	}
+}
+
+func buildExpectAddedAndRemoved(t *testing.T) func(resp *discovery.DeltaDiscoveryResponse, added []string, removed []string) {
+	return func(resp *discovery.DeltaDiscoveryResponse, added []string, removed []string) {
+		t.Helper()
+		wantAdded := sets.New(added...)
+		wantRemoved := sets.New(removed...)
+		have := sets.New[string]()
+		haveRemoved := sets.New[string]()
+		for _, r := range resp.Resources {
+			have.Insert(r.Name)
+		}
+		for _, r := range resp.RemovedResources {
+			haveRemoved.Insert(r)
+		}
+		assert.Equal(t, sets.SortedList(have), sets.SortedList(wantAdded))
+		assert.Equal(t, sets.SortedList(haveRemoved), sets.SortedList(wantRemoved))
 	}
 }
 
@@ -217,7 +236,7 @@ func deletePod(s *FakeDiscoveryServer, name string) {
 	}
 }
 
-func createRBAC(s *FakeDiscoveryServer, name string, ns string) {
+func createAuthorizationPolicy(s *FakeDiscoveryServer, name string, ns string) {
 	_, err := s.Env().Create(config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.AuthorizationPolicy,
@@ -226,6 +245,24 @@ func createRBAC(s *FakeDiscoveryServer, name string, ns string) {
 		},
 		Spec: &v1beta1.AuthorizationPolicy{},
 	})
+	if err != nil {
+		s.t.Fatal(err)
+	}
+}
+
+func createPeerAuthentication(s *FakeDiscoveryServer, name string, ns string, f func(*config.Config)) {
+	c := config.Config{
+		Meta: config.Meta{
+			GroupVersionKind: gvk.PeerAuthentication,
+			Name:             name,
+			Namespace:        ns,
+		},
+		Spec: &v1beta1.PeerAuthentication{},
+	}
+	if f != nil {
+		f(&c)
+	}
+	_, err := s.Env().Create(c)
 	if err != nil {
 		s.t.Fatal(err)
 	}
@@ -296,7 +333,7 @@ func createService(s *FakeDiscoveryServer, name, namespace string, selector map[
 	svcs.CreateOrUpdate(service)
 }
 
-func TestWorkloadRBAC(t *testing.T) {
+func TestWorkloadAuthorizationPolicy(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	expect := buildExpect(t)
 	expectRemoved := buildExpectExpectRemoved(t)
@@ -309,17 +346,63 @@ func TestWorkloadRBAC(t *testing.T) {
 	ads.ExpectEmptyResponse()
 
 	// Create policy, due to wildcard subscribe we should receive it
-	createRBAC(s, "policy1", "ns")
+	createAuthorizationPolicy(s, "policy1", "ns")
 	expect(ads.ExpectResponse(), "ns/policy1")
 
 	// A new policy should push only that one
-	createRBAC(s, "policy2", "ns")
+	createAuthorizationPolicy(s, "policy2", "ns")
 	expect(ads.ExpectResponse(), "ns/policy2")
 
 	s.Env().Delete(gvk.AuthorizationPolicy, "policy2", "ns", nil)
 	expectRemoved(ads.ExpectResponse(), "ns/policy2")
 
 	// Irrelevant update shouldn't push
+	createPod(s, "pod", "sa", "127.0.0.1", "node")
+	ads.ExpectNoResponse()
+}
+
+func TestWorkloadPeerAuthentication(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	expect := buildExpect(t)
+	expectAddedAndRemoved := buildExpectAddedAndRemoved(t)
+	s := NewFakeDiscoveryServer(t, FakeOptions{})
+	ads := s.ConnectDeltaADS().WithType(v3.WorkloadAuthorizationType).WithTimeout(time.Second * 10).WithNodeType(model.Ztunnel)
+
+	ads.Request(&discovery.DeltaDiscoveryRequest{
+		ResourceNamesSubscribe: []string{"*"},
+	})
+	ads.ExpectEmptyResponse()
+
+	// Create policy; it should push only the static strict policy
+	// We expect a removal because the policy exists in the cluster but is not sent to the proxy (because it's not port-specific, STRICT, etc.)
+	createPeerAuthentication(s, "policy1", "ns", nil)
+	expectAddedAndRemoved(ads.ExpectResponse(), []string{"istio-system/istio_converted_static_strict"}, []string{"ns/converted_peer_authentication_policy1"})
+
+	createPeerAuthentication(s, "policy2", "ns", func(c *config.Config) {
+		c.Spec = &v1beta1.PeerAuthentication{
+			Mtls: &v1beta1.PeerAuthentication_MutualTLS{
+				Mode: v1beta1.PeerAuthentication_MutualTLS_PERMISSIVE,
+			},
+			PortLevelMtls: map[uint32]*v1beta1.PeerAuthentication_MutualTLS{
+				9080: {
+					Mode: v1beta1.PeerAuthentication_MutualTLS_STRICT,
+				},
+			},
+			Selector: &metav1beta1.WorkloadSelector{
+				MatchLabels: map[string]string{
+					"app": "sa", // This patches the pod we will create
+				},
+			},
+		}
+	})
+	expect(ads.ExpectResponse(), "ns/converted_peer_authentication_policy2", "istio-system/istio_converted_static_strict")
+
+	// We expect a removal because the policy was deleted
+	// Note that policy1 was not removed because its config was not updated (i.e. this is a partial push)
+	s.Env().Delete(gvk.PeerAuthentication, "policy2", "ns", nil)
+	expectAddedAndRemoved(ads.ExpectResponse(), []string{"istio-system/istio_converted_static_strict"}, []string{"ns/converted_peer_authentication_policy2"})
+
+	// Irrelevant update (pod is in the default namespace and not "ns") shouldn't push
 	createPod(s, "pod", "sa", "127.0.0.1", "node")
 	ads.ExpectNoResponse()
 }

@@ -145,6 +145,9 @@ func (c *ConfigWriter) retrieveSortedEndpointsSlice(filter EndpointFilter) ([]*e
 	if err != nil {
 		return nil, err
 	}
+	if dump == nil {
+		return nil, nil
+	}
 	endpoints := make([]*endpoint.ClusterLoadAssignment, 0, len(dump.DynamicEndpointConfigs))
 	for _, e := range dump.GetDynamicEndpointConfigs() {
 		cla, epCount := retrieveEndpoint(e.EndpointConfig, filter)

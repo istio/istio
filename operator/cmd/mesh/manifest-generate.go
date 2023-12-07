@@ -22,6 +22,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/helm"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
@@ -41,10 +42,6 @@ type ManifestGenerateArgs struct {
 	// EnableClusterSpecific determines if the current Kubernetes cluster will be used to autodetect values.
 	// If false, generic defaults will be used. This is useful when generating once and then applying later.
 	EnableClusterSpecific bool
-	// KubeConfigPath is the path to kube config file.
-	KubeConfigPath string
-	// Context is the cluster context in the kube config
-	Context string
 
 	// Set is a string with element format "path=value" where path is an IstioOperator path and the value is a
 	// value to set the node at that path to.
@@ -60,6 +57,8 @@ type ManifestGenerateArgs struct {
 	// Filter is the list of components to render
 	Filter []string
 }
+
+var kubeClientFunc func() (kube.CLIClient, error)
 
 func (a *ManifestGenerateArgs) String() string {
 	var b strings.Builder
@@ -85,13 +84,11 @@ func addManifestGenerateFlags(cmd *cobra.Command, args *ManifestGenerateArgs) {
 	cmd.PersistentFlags().StringSliceVar(&args.Filter, "filter", nil, "")
 	_ = cmd.PersistentFlags().MarkHidden("filter")
 
-	cmd.PersistentFlags().StringVarP(&args.KubeConfigPath, "kubeconfig", "c", "", KubeConfigFlagHelpStr+" Requires --cluster-specific.")
-	cmd.PersistentFlags().StringVar(&args.Context, "context", "", ContextFlagHelpStr+" Requires --cluster-specific.")
 	cmd.PersistentFlags().BoolVar(&args.EnableClusterSpecific, "cluster-specific", false,
 		"If enabled, the current cluster will be checked for cluster-specific setting detection.")
 }
 
-func ManifestGenerateCmd(rootArgs *RootArgs, mgArgs *ManifestGenerateArgs, logOpts *log.Options) *cobra.Command {
+func ManifestGenerateCmd(ctx cli.Context, rootArgs *RootArgs, mgArgs *ManifestGenerateArgs, logOpts *log.Options) *cobra.Command {
 	return &cobra.Command{
 		Use:   "generate",
 		Short: "Generates an Istio install manifest",
@@ -116,24 +113,26 @@ func ManifestGenerateCmd(rootArgs *RootArgs, mgArgs *ManifestGenerateArgs, logOp
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if kubeClientFunc == nil {
+				kubeClientFunc = ctx.CLIClient
+			}
+			var kubeClient kube.CLIClient
+			if mgArgs.EnableClusterSpecific {
+				kc, err := kubeClientFunc()
+				if err != nil {
+					return err
+				}
+				kubeClient = kc
+			}
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
-			return ManifestGenerate(rootArgs, mgArgs, logOpts, l)
+			return ManifestGenerate(kubeClient, rootArgs, mgArgs, logOpts, l)
 		},
 	}
 }
 
-func ManifestGenerate(args *RootArgs, mgArgs *ManifestGenerateArgs, logopts *log.Options, l clog.Logger) error {
+func ManifestGenerate(kubeClient kube.CLIClient, args *RootArgs, mgArgs *ManifestGenerateArgs, logopts *log.Options, l clog.Logger) error {
 	if err := configLogs(logopts); err != nil {
 		return fmt.Errorf("could not configure logs: %s", err)
-	}
-
-	var kubeClient kube.CLIClient
-	if mgArgs.EnableClusterSpecific {
-		kc, _, err := KubernetesClients(mgArgs.KubeConfigPath, mgArgs.Context, l)
-		if err != nil {
-			return err
-		}
-		kubeClient = kc
 	}
 
 	manifests, _, err := manifest.GenManifests(mgArgs.InFilenames, applyFlagAliases(mgArgs.Set, mgArgs.ManifestsPath, mgArgs.Revision),

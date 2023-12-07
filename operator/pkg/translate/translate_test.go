@@ -83,7 +83,7 @@ components:
 			expectSkip: true,
 		},
 		{
-			name:       "hpa enabled for ingressgateway with replicass",
+			name:       "hpa enabled for ingressgateway with replicas",
 			component:  name.IngressComponentName,
 			values:     fmt.Sprintf(valuesWithHPAndReplicaCountFormat, false, true, false),
 			expectSkip: true,
@@ -158,6 +158,12 @@ components:
           metrics:
            - resource:
                name: cpu
+               target:
+                 averageUtilization: 80
+                 type: Utilization
+             type: Resource
+           - resource:
+               name: memory
                target:
                  averageUtilization: 80
                  type: Utilization

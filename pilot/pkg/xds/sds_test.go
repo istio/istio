@@ -348,7 +348,7 @@ func TestGenerate(t *testing.T) {
 }
 
 // TestCaching ensures we don't have cross-proxy cache generation issues. This is split from TestGenerate
-// since it is order dependant.
+// since it is order dependent.
 // Regression test for https://github.com/istio/istio/issues/33368
 func TestCaching(t *testing.T) {
 	s := NewFakeDiscoveryServer(t, FakeOptions{

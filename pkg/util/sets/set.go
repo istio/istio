@@ -15,6 +15,8 @@
 package sets
 
 import (
+	"fmt"
+
 	"golang.org/x/exp/constraints"
 
 	"istio.io/istio/pkg/slices"
@@ -231,6 +233,13 @@ func (s Set[T]) Len() int {
 // IsEmpty indicates whether the set is the empty set.
 func (s Set[T]) IsEmpty() bool {
 	return len(s) == 0
+}
+
+// String returns a string representation of the set.
+// Be aware that the order of elements is random so the string representation may vary.
+// Use it only for debugging and logging.
+func (s Set[T]) String() string {
+	return fmt.Sprintf("%v", s.UnsortedList())
 }
 
 // InsertOrNew inserts t into the set if the set exists, or returns a new set with t if not.

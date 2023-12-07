@@ -10,11 +10,13 @@ typedConfig:
             - orRules:
                 rules:
                 - header:
-                    exactMatch: GET
                     name: :method
+                    stringMatch:
+                      exact: GET
                 - header:
-                    exactMatch: POST
                     name: :method
+                    stringMatch:
+                      exact: POST
         principals:
         - andIds:
             ids:
@@ -77,13 +79,11 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://principals1
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       exact: spiffe://principals2
       ns[foo]-policy[httpbin-6]-rule[0]:
         permissions:
@@ -119,14 +119,12 @@ typedConfig:
             ids:
             - orIds:
                 ids:
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/namespaces1/.*
-                - filterState:
-                    key: io.istio.peer_principal
-                    stringMatch:
+                - authenticated:
+                    principalName:
                       safeRegex:
                         regex: .*/ns/namespaces2/.*
       ns[foo]-policy[httpbin-8]-rule[0]:
@@ -156,9 +154,11 @@ typedConfig:
             - orIds:
                 ids:
                 - header:
-                    exactMatch: abc1
                     name: X-abc
+                    stringMatch:
+                      exact: abc1
                 - header:
-                    exactMatch: abc2
                     name: X-abc
+                    stringMatch:
+                      exact: abc2
   shadowRulesStatPrefix: istio_dry_run_allow_

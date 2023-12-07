@@ -41,6 +41,15 @@ func OrDefault[T any](t *T, def T) T {
 	return def
 }
 
+// NonEmptyOrDefault returns t if its non-empty, or else def.
+func NonEmptyOrDefault[T comparable](t T, def T) T {
+	var empty T
+	if t != empty {
+		return t
+	}
+	return def
+}
+
 // Empty returns an empty T type
 func Empty[T any]() T {
 	var empty T

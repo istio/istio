@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 46553
+releaseNotes:
+  - |
+    **Added** env var PILOT_ENABLE_GATEWAY_API_GATEWAYCLASS_CONTROLLER to enable/disable management of built-in GatewayClasses.

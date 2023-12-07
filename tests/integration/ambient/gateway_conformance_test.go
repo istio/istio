@@ -21,11 +21,13 @@ import (
 	"testing"
 
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/gateway-api/conformance/tests"
 	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/scopes"
@@ -49,7 +51,16 @@ var conformanceNamespaces = []string{
 	"gateway-conformance-mesh",
 }
 
-var skippedTests = map[string]string{}
+var skippedTests = map[string]string{
+	// TODO(https://github.com/kubernetes-sigs/gateway-api/issues/1996) scope this skip more
+	"MeshConsumerRoute":      "This requires an egress waypoint which is not yet implemented",
+	"GatewayStaticAddresses": "https://github.com/istio/istio/issues/47467",
+}
+
+func init() {
+	scope := log.RegisterScope("controlleruntime", "scope for controller runtime")
+	controllruntimelog.SetLogger(log.NewLogrAdapter(scope))
+}
 
 func TestGatewayConformance(t *testing.T) {
 	framework.
@@ -67,7 +78,6 @@ func TestGatewayConformance(t *testing.T) {
 			}
 
 			mapper, _ := gatewayConformanceInputs.Client.UtilFactory().ToRESTMapper()
-			rc, _ := gatewayConformanceInputs.Client.UtilFactory().RESTClient()
 			c, err := client.New(gatewayConformanceInputs.Client.RESTConfig(), client.Options{
 				Scheme: kube.IstioScheme,
 				Mapper: mapper,
@@ -78,8 +88,8 @@ func TestGatewayConformance(t *testing.T) {
 
 			opts := suite.Options{
 				Client:               c,
+				Clientset:            gatewayConformanceInputs.Client.Kube(),
 				RestConfig:           gatewayConformanceInputs.Client.RESTConfig(),
-				RESTClient:           rc,
 				GatewayClassName:     "istio",
 				Debug:                scopes.Framework.DebugEnabled(),
 				CleanupBaseResources: gatewayConformanceInputs.Cleanup,

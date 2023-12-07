@@ -1,0 +1,12 @@
+# some random comments
+ # some random comments
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myconfigmap
+  namespace: default # some random comments should be deleted
+data:
+  mydata: |-
+    First line of data # some random comments should not be deleted
+    Second line of data
+# some random comments

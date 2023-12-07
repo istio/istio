@@ -46,8 +46,8 @@ by a different role than the prod version.
 The intended users of this repo are users running Istio in production who want to select, tune
 and understand each binary that gets deployed, and select which combination to use.
 
-Note: each component can be installed in parallel with an existing Istio 1.0 or 1.1 install in
-`istio-system`. The new components will not interfere with existing apps, but can interoperate
+Note: each component can be installed in parallel with an existing Istio 1.0 or 1.1 installation in
+`istio-system`. The new components will not interfere with existing apps, but can interoperate,
 and it is possible to gradually move apps from Istio 1.0/1.1 to the new environments and
 across environments ( for example canary -> prod )
 
@@ -66,11 +66,11 @@ certificate provisioning tool, or use components that are centrally managed and 
 This is a work in progress - building on top of the multi-cluster installer.
 
 As an extreme, the goal is to be possible to run Istio workloads in a cluster without installing any Istio component
-in that cluster. Currently the minimum we require is the security provider (node agent or citadel).
+in that cluster. Currently, the minimum we require is the security provider (node agent or citadel).
 
 ### Install Istio CRDs
 
-This is the first step of the install. Please do not remove or edit any CRD - config currently requires
+This is the first step of the installation. Please do not remove or edit any CRD - config currently requires
 all CRDs to be present. On each upgrade it is recommended to reapply the file, to make sure
 you get all CRDs.  CRDs are separated by release and by component type in the CRD directory.
 
@@ -133,4 +133,4 @@ For large-scale gateways it is optionally possible to use a dedicated pilot in t
 ### Additional test templates
 
 A number of helm test setups are general-purpose and should be installable in any cluster, to confirm
-Istio works properly and allow testing the specific install.
+Istio works properly and allow testing the specific installation.

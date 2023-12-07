@@ -95,14 +95,9 @@ func patchVirtualHosts(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if removedVirtualHosts.Len() > 0 {
-		trimmedVirtualHosts := make([]*route.VirtualHost, 0, len(routeConfiguration.VirtualHosts)-removedVirtualHosts.Len())
-		for _, virtualHost := range routeConfiguration.VirtualHosts {
-			if removedVirtualHosts.Contains(virtualHost.Name) {
-				continue
-			}
-			trimmedVirtualHosts = append(trimmedVirtualHosts, virtualHost)
-		}
-		routeConfiguration.VirtualHosts = trimmedVirtualHosts
+		routeConfiguration.VirtualHosts = slices.FilterInPlace(routeConfiguration.VirtualHosts, func(virtualHost *route.VirtualHost) bool {
+			return !removedVirtualHosts.Contains(virtualHost.Name)
+		})
 	}
 }
 
@@ -230,14 +225,9 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 		IncrementEnvoyFilterMetric(rp.Key(), Route, applied)
 	}
 	if routesRemoved {
-		trimmedRoutes := make([]*route.Route, 0, len(virtualHost.Routes))
-		for i := range virtualHost.Routes {
-			if virtualHost.Routes[i] == nil {
-				continue
-			}
-			trimmedRoutes = append(trimmedRoutes, virtualHost.Routes[i])
-		}
-		virtualHost.Routes = trimmedRoutes
+		virtualHost.Routes = slices.FilterInPlace(virtualHost.Routes, func(r *route.Route) bool {
+			return r != nil
+		})
 	}
 }
 

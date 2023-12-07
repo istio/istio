@@ -338,7 +338,7 @@ spec:
               mountPath: /tmp/spire-server/private
               readOnly: false
         - name: spire-controller-manager
-          image: ghcr.io/spiffe/spire-controller-manager:nightly
+          image: ghcr.io/spiffe/spire-controller-manager:0.2.3
           imagePullPolicy: IfNotPresent
           args:
           - "--config=spire-controller-manager-config.yaml"
@@ -886,7 +886,7 @@ spec:
       serviceAccountName: spire-agent
       containers:
         - name: spire-agent
-          image: ghcr.io/spiffe/spire-agent:1.2.3
+          image: ghcr.io/spiffe/spire-agent:1.5.4
           imagePullPolicy: IfNotPresent
           args: ["-config", "/run/spire/config/agent.conf"]
           volumeMounts:

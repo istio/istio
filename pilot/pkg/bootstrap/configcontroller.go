@@ -136,10 +136,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 	if s.kubeClient == nil {
 		return nil
 	}
-	configController, err := s.makeKubeConfigController(args)
-	if err != nil {
-		return err
-	}
+	configController := s.makeKubeConfigController(args)
 	s.ConfigStores = append(s.ConfigStores, configController)
 	if features.EnableGatewayAPI {
 		if s.statusManager == nil && features.EnableGatewayAPIStatus {
@@ -159,7 +156,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					// Trigger a push so we can recompute status
 					s.XDSServer.ConfigUpdate(&model.PushRequest{
 						Full:   true,
-						Reason: []model.TriggerReason{model.GlobalUpdate},
+						Reason: model.NewReasonStats(model.GlobalUpdate),
 					})
 					<-leaderStop
 					log.Infof("Stopping gateway status writer")
@@ -175,9 +172,13 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
 						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
+							nsFilter := args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter
+							if !features.EnableEnhancedResourceScoping {
+								nsFilter = nil
+							}
 							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
 							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
-								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision)
+								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision, nsFilter)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
 							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -198,6 +199,7 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 			return err
 		}
 	}
+	var err error
 	s.RWConfigStore, err = configaggregate.MakeWriteableCache(s.ConfigStores, configController)
 	if err != nil {
 		return err
@@ -293,13 +295,13 @@ func (s *Server) initInprocessAnalysisController(args *PilotArgs) error {
 	s.addStartFunc("analysis controller", func(stop <-chan struct{}) error {
 		go leaderelection.
 			NewLeaderElection(args.Namespace, args.PodName, leaderelection.AnalyzeController, args.Revision, s.kubeClient).
-			AddRunFunction(func(stop <-chan struct{}) {
-				cont, err := incluster.NewController(stop, s.RWConfigStore,
+			AddRunFunction(func(leaderStop <-chan struct{}) {
+				cont, err := incluster.NewController(leaderStop, s.RWConfigStore,
 					s.kubeClient, args.Revision, args.Namespace, s.statusManager, args.RegistryOptions.KubeOptions.DomainSuffix)
 				if err != nil {
 					return
 				}
-				cont.Run(stop)
+				cont.Run(leaderStop)
 			}).Run(stop)
 		return nil
 	})
@@ -310,21 +312,23 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	if s.statusManager == nil && writeStatus {
 		s.initStatusManager(args)
 	}
-	s.statusReporter = &distribution.Reporter{
-		UpdateInterval: features.StatusUpdateInterval,
-		PodName:        args.PodName,
-	}
-	s.addStartFunc("status reporter init", func(stop <-chan struct{}) error {
-		s.statusReporter.Init(s.environment.GetLedger(), stop)
-		return nil
-	})
-	s.addTerminatingStartFunc("status reporter", func(stop <-chan struct{}) error {
-		if writeStatus {
-			s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
+	if features.EnableDistributionTracking {
+		s.statusReporter = &distribution.Reporter{
+			UpdateInterval: features.StatusUpdateInterval,
+			PodName:        args.PodName,
 		}
-		return nil
-	})
-	s.XDSServer.StatusReporter = s.statusReporter
+		s.addStartFunc("status reporter init", func(stop <-chan struct{}) error {
+			s.statusReporter.Init(s.environment.GetLedger(), stop)
+			return nil
+		})
+		s.addTerminatingStartFunc("status reporter", func(stop <-chan struct{}) error {
+			if writeStatus {
+				s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
+			}
+			return nil
+		})
+		s.XDSServer.StatusReporter = s.statusReporter
+	}
 	if writeStatus {
 		s.addTerminatingStartFunc("status distribution", func(stop <-chan struct{}) error {
 			leaderelection.
@@ -341,7 +345,7 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	}
 }
 
-func (s *Server) makeKubeConfigController(args *PilotArgs) (*crdclient.Client, error) {
+func (s *Server) makeKubeConfigController(args *PilotArgs) *crdclient.Client {
 	opts := crdclient.Option{
 		Revision:     args.Revision,
 		DomainSuffix: args.RegistryOptions.KubeOptions.DomainSuffix,

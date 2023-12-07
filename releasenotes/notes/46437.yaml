@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 46437
+releaseNotes:
+- |
+  **Fixed** Remote Gateways not being recognized when valid local gateways are not present. Fixes https://github.com/istio/istio/issues/46435.

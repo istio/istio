@@ -80,65 +80,217 @@ func testMesh() *meshconfig.MeshConfig {
 	}
 }
 
-func TestHTTPCircuitBreakerThresholds(t *testing.T) {
-	checkClusters := []string{"outbound|8080||*.example.org", "inbound|10001||"}
-	settings := []*networking.ConnectionPoolSettings{
-		nil,
-		{
-			Http: &networking.ConnectionPoolSettings_HTTPSettings{
-				Http1MaxPendingRequests:  1,
-				Http2MaxRequests:         2,
-				MaxRequestsPerConnection: 3,
-				MaxRetries:               4,
+func TestConnectionPoolSettings(t *testing.T) {
+	basicSettings := &networking.ConnectionPoolSettings{
+		Http: &networking.ConnectionPoolSettings_HTTPSettings{
+			Http1MaxPendingRequests:  1,
+			Http2MaxRequests:         2,
+			MaxRequestsPerConnection: 3,
+			MaxRetries:               4,
+		},
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+			MaxConnections: 1,
+			ConnectTimeout: durationpb.New(2 * time.Second),
+			TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+				Probes:   3,
+				Time:     durationpb.New(4 * time.Second),
+				Interval: durationpb.New(5 * time.Second),
 			},
+			MaxConnectionDuration: durationpb.New(6 * time.Second),
 		},
 	}
 
-	for _, s := range settings {
-		testName := "default"
-		if s != nil {
-			testName = "override"
-		}
-		t.Run(testName, func(t *testing.T) {
+	overrideSettings := &networking.ConnectionPoolSettings{
+		Http: &networking.ConnectionPoolSettings_HTTPSettings{
+			Http1MaxPendingRequests:  5,
+			Http2MaxRequests:         6,
+			MaxRequestsPerConnection: 7,
+			MaxRetries:               8,
+		},
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+			MaxConnections: 4,
+			ConnectTimeout: durationpb.New(5 * time.Second),
+			TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+				Probes:   6,
+				Time:     durationpb.New(7 * time.Second),
+				Interval: durationpb.New(8 * time.Second),
+			},
+			MaxConnectionDuration: durationpb.New(9 * time.Second),
+		},
+	}
+
+	cases := map[string]struct {
+		sidecar  *networking.Sidecar
+		destrule *networking.DestinationRule
+		// port -> expected settings
+		want map[string]*networking.ConnectionPoolSettings
+	}{
+		"no settings": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": nil,
+				"inbound|10001||":              nil,
+				"inbound|10002||":              nil,
+			},
+		},
+		"destination rule settings no sidecar": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: basicSettings,
+				},
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": basicSettings,
+				"inbound|10001||":              basicSettings,
+				"inbound|10002||":              basicSettings,
+			},
+		},
+		"sidecar settings no destination rule": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+			},
+			sidecar: &networking.Sidecar{
+				InboundConnectionPool: basicSettings,
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": nil,
+				"inbound|10001||":              basicSettings,
+				"inbound|10002||":              basicSettings,
+			},
+		},
+		"sidecar overrides destination rule for inbound listeners": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: basicSettings,
+				},
+			},
+			sidecar: &networking.Sidecar{
+				InboundConnectionPool: overrideSettings,
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": basicSettings,
+				"inbound|10001||":              overrideSettings,
+				"inbound|10002||":              overrideSettings,
+			},
+		},
+		"sidecar per-port rules override top-level rules": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+			},
+			sidecar: &networking.Sidecar{
+				InboundConnectionPool: basicSettings,
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   10001,
+							Protocol: string(protocol.HTTP),
+						},
+						ConnectionPool: overrideSettings,
+					},
+					{
+						Port: &networking.SidecarPort{
+							Number:   10002,
+							Protocol: string(protocol.Unsupported),
+						},
+					},
+				},
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": nil,
+				"inbound|10001||":              overrideSettings,
+				"inbound|10002||":              basicSettings,
+			},
+		},
+		"sidecar per-port rules with destination rule default": {
+			destrule: &networking.DestinationRule{
+				Host: "*.example.org",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: basicSettings,
+				},
+			},
+			sidecar: &networking.Sidecar{
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   10001,
+							Protocol: string(protocol.HTTP),
+						},
+						ConnectionPool: overrideSettings,
+					},
+					{
+						Port: &networking.SidecarPort{
+							Number:   10002,
+							Protocol: string(protocol.Unsupported),
+						},
+					},
+				},
+			},
+			want: map[string]*networking.ConnectionPoolSettings{
+				"outbound|8080||*.example.org": basicSettings,
+				"inbound|10001||":              overrideSettings,
+				"inbound|10002||":              basicSettings,
+			},
+		},
+	}
+	for name, tt := range cases {
+		t.Run(name, func(t *testing.T) {
 			g := NewWithT(t)
+
 			clusters := xdstest.ExtractClusters(buildTestClusters(clusterTest{
 				t:               t,
 				serviceHostname: "*.example.org",
 				nodeType:        model.SidecarProxy,
 				mesh:            testMesh(),
-				destRule: &networking.DestinationRule{
-					Host: "*.example.org",
-					TrafficPolicy: &networking.TrafficPolicy{
-						ConnectionPool: s,
-					},
-				},
+				destRule:        tt.destrule,
+				sidecar:         tt.sidecar,
 			}))
 
-			for _, c := range checkClusters {
-				cluster := clusters[c]
-				if cluster == nil {
-					t.Fatalf("cluster %v not found", c)
+			for c, expected := range tt.want {
+				cluster, ok := clusters[c]
+				if !ok {
+					names := make([]string, 0, len(clusters))
+					for n := range clusters {
+						names = append(names, n)
+					}
+					t.Fatalf("cluster %v not found; have: %s", c, strings.Join(names, ", "))
 				}
 				g.Expect(len(cluster.CircuitBreakers.Thresholds)).To(Equal(1))
 				thresholds := cluster.CircuitBreakers.Thresholds[0]
 
-				if s == nil {
-					// Assume the correct defaults for this direction.
+				if expected == nil {
 					g.Expect(thresholds).To(Equal(getDefaultCircuitBreakerThresholds()))
 				} else {
-					// Verify that the values were set correctly.
-					g.Expect(thresholds.MaxPendingRequests).To(Not(BeNil()))
-					g.Expect(thresholds.MaxPendingRequests.Value).To(Equal(uint32(s.Http.Http1MaxPendingRequests)))
-					g.Expect(thresholds.MaxRequests).To(Not(BeNil()))
-					g.Expect(thresholds.MaxRequests.Value).To(Equal(uint32(s.Http.Http2MaxRequests)))
-					g.Expect(cluster.TypedExtensionProtocolOptions).To(Not(BeNil()))
+					// verify TCP settings
+					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive).NotTo(BeNil())
+					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveProbes.Value).
+						To(Equal(expected.Tcp.TcpKeepalive.Probes))
+					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveTime.Value).
+						To(Equal(uint32(expected.Tcp.TcpKeepalive.Time.Seconds)))
+					g.Expect(cluster.UpstreamConnectionOptions.TcpKeepalive.KeepaliveInterval.Value).
+						To(Equal(uint32(expected.Tcp.TcpKeepalive.Interval.Seconds)))
+					g.Expect(cluster.ConnectTimeout).NotTo(BeNil())
+					g.Expect(cluster.ConnectTimeout.Seconds).To(Equal(expected.Tcp.ConnectTimeout.Seconds))
+
+					g.Expect(thresholds.MaxConnections).NotTo(BeNil())
+					g.Expect(thresholds.MaxConnections.Value).To(Equal(uint32(expected.Tcp.MaxConnections)))
+
+					// and HTTP settings
+					g.Expect(thresholds.MaxPendingRequests.Value).To(Equal(uint32(expected.Http.Http1MaxPendingRequests)))
+					g.Expect(thresholds.MaxRequests).NotTo(BeNil())
+					g.Expect(thresholds.MaxRequests.Value).To(Equal(uint32(expected.Http.Http2MaxRequests)))
+					g.Expect(cluster.TypedExtensionProtocolOptions).NotTo(BeNil())
 					anyOptions := cluster.TypedExtensionProtocolOptions[v3.HttpProtocolOptionsType]
-					g.Expect(anyOptions).To(Not(BeNil()))
+					g.Expect(anyOptions).NotTo(BeNil())
 					httpProtocolOptions := &http.HttpProtocolOptions{}
 					anyOptions.UnmarshalTo(httpProtocolOptions)
-					g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue()).To(Equal(uint32(s.Http.MaxRequestsPerConnection)))
-					g.Expect(thresholds.MaxRetries).To(Not(BeNil()))
-					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(s.Http.MaxRetries)))
+					g.Expect(httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue()).
+						To(Equal(uint32(expected.Http.MaxRequestsPerConnection)))
+					g.Expect(thresholds.MaxRetries).NotTo(BeNil())
+					g.Expect(thresholds.MaxRetries.Value).To(Equal(uint32(expected.Http.MaxRetries)))
 				}
 			}
 		})
@@ -147,46 +299,40 @@ func TestHTTPCircuitBreakerThresholds(t *testing.T) {
 
 func TestCommonHttpProtocolOptions(t *testing.T) {
 	cases := []struct {
-		clusterName               string
-		useDownStreamProtocol     bool
-		sniffingEnabledForInbound bool
-		proxyType                 model.NodeType
-		clusters                  int
+		clusterName           string
+		useDownStreamProtocol bool
+		proxyType             model.NodeType
+		clusters              int
 	}{
 		{
-			clusterName:               "outbound|8080||*.example.org",
-			useDownStreamProtocol:     false,
-			sniffingEnabledForInbound: false,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "outbound|8080||*.example.org",
+			useDownStreamProtocol: false,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "inbound|10001||",
-			useDownStreamProtocol:     false,
-			sniffingEnabledForInbound: false,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "inbound|10001||",
+			useDownStreamProtocol: false,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "outbound|9090||*.example.org",
-			useDownStreamProtocol:     true,
-			sniffingEnabledForInbound: false,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "outbound|9090||*.example.org",
+			useDownStreamProtocol: true,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "inbound|10002||",
-			useDownStreamProtocol:     true,
-			sniffingEnabledForInbound: true,
-			proxyType:                 model.SidecarProxy,
-			clusters:                  8,
+			clusterName:           "inbound|10002||",
+			useDownStreamProtocol: true,
+			proxyType:             model.SidecarProxy,
+			clusters:              8,
 		},
 		{
-			clusterName:               "outbound|8080||*.example.org",
-			useDownStreamProtocol:     true,
-			sniffingEnabledForInbound: true,
-			proxyType:                 model.Router,
-			clusters:                  3,
+			clusterName:           "outbound|8080||*.example.org",
+			useDownStreamProtocol: true,
+			proxyType:             model.Router,
+			clusters:              3,
 		},
 	}
 	settings := &networking.ConnectionPoolSettings{
@@ -196,10 +342,8 @@ func TestCommonHttpProtocolOptions(t *testing.T) {
 		},
 	}
 
+	test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
 	for _, tc := range cases {
-		test.SetForTest(t, &features.EnableProtocolSniffingForInbound, tc.sniffingEnabledForInbound)
-		test.SetForTest(t, &features.FilterGatewayClusterConfig, false)
-
 		settingsName := "default"
 		if settings != nil {
 			settingsName = "override"
@@ -252,6 +396,7 @@ type clusterTest struct {
 	locality          *core.Locality
 	mesh              *meshconfig.MeshConfig
 	destRule          proto.Message
+	sidecar           *networking.Sidecar
 	peerAuthn         *authn_beta.PeerAuthentication
 	externalService   bool
 
@@ -304,8 +449,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10001,
+				Address:         "6.6.6.6",
+				ServicePortName: servicePort[0].Name,
+				EndpointPort:    10001,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region1/zone1/subzone1",
@@ -318,8 +464,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10001,
+				Address:         "6.6.6.6",
+				ServicePortName: servicePort[0].Name,
+				EndpointPort:    10001,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region1/zone1/subzone2",
@@ -332,8 +479,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[0],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10001,
+				Address:         "6.6.6.6",
+				ServicePortName: servicePort[0].Name,
+				EndpointPort:    10001,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region2/zone1/subzone1",
@@ -346,8 +494,9 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 			Service:     service,
 			ServicePort: servicePort[1],
 			Endpoint: &model.IstioEndpoint{
-				Address:      "6.6.6.6",
-				EndpointPort: 10002,
+				ServicePortName: servicePort[1].Name,
+				Address:         "6.6.6.6",
+				EndpointPort:    10002,
 				Locality: model.Locality{
 					ClusterID: "",
 					Label:     "region1/zone1/subzone1",
@@ -366,6 +515,15 @@ func buildTestClusters(c clusterTest) []*cluster.Cluster {
 				Name:             "acme",
 			},
 			Spec: c.destRule,
+		})
+	}
+	if c.sidecar != nil {
+		configs = append(configs, config.Config{
+			Meta: config.Meta{
+				GroupVersionKind: gvk.Sidecar,
+				Name:             "default",
+			},
+			Spec: c.sidecar,
 		})
 	}
 	if c.peerAuthn != nil {
@@ -1411,18 +1569,12 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 		Resolution: model.ClientSideLB,
 	}
 
-	instances := []*model.ServiceInstance{
+	instances := []model.ServiceTarget{
 		{
-			Service:     service,
-			ServicePort: servicePort,
-			Endpoint: &model.IstioEndpoint{
-				Address:      "192.168.1.1",
-				EndpointPort: 7443,
-				Locality: model.Locality{
-					ClusterID: "",
-					Label:     "region1/zone1/subzone1",
-				},
-				LbWeight: 30,
+			Service: service,
+			Port: model.ServiceInstancePort{
+				ServicePort: servicePort,
+				TargetPort:  7443,
 			},
 		},
 	}
@@ -1430,20 +1582,17 @@ func TestFindServiceInstanceForIngressListener(t *testing.T) {
 	ingress := &networking.IstioIngressListener{
 		CaptureMode:     networking.CaptureMode_NONE,
 		DefaultEndpoint: "127.0.0.1:7020",
-		Port: &networking.Port{
+		Port: &networking.SidecarPort{
 			Number:   7443,
 			Name:     "grpc-core",
 			Protocol: "GRPC",
 		},
 	}
-	instance := findOrCreateServiceInstance(instances, ingress, "sidecar", "sidecarns")
-	if instance == nil || instance.Service.Hostname.Matches("sidecar.sidecarns") {
+	svc := findOrCreateService(instances, ingress, "sidecar", "sidecarns")
+	if svc == nil || svc.Hostname.Matches("sidecar.sidecarns") {
 		t.Fatal("Expected to return a valid instance, but got nil/default instance")
 	}
-	if instance == instances[0] {
-		t.Fatal("Expected to return a copy of instance, but got the same instance")
-	}
-	if !reflect.DeepEqual(instance, instances[0]) {
+	if !reflect.DeepEqual(svc, service) {
 		t.Fatal("Expected returned copy of instance to be equal, but they are different")
 	}
 }
@@ -1702,6 +1851,228 @@ func TestBuildInboundClustersPortLevelCircuitBreakerThresholds(t *testing.T) {
 			for _, cluster := range clusters {
 				g.Expect(cluster.CircuitBreakers).NotTo(BeNil())
 				g.Expect(cluster.CircuitBreakers.Thresholds[0]).To(Equal(c.expected))
+			}
+		})
+	}
+}
+
+func TestInboundClustersPassThroughBindIPs(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     80,
+		Protocol: protocol.HTTP,
+	}
+
+	service := &model.Service{
+		Hostname:   host.Name("backend.default.svc.cluster.local"),
+		Ports:      model.PortList{servicePort},
+		Resolution: model.Passthrough,
+	}
+	instances := []*model.ServiceInstance{
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "1.1.1.1",
+				EndpointPort: 10001,
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Address:      "2001:1::1",
+				EndpointPort: 10001,
+			},
+		},
+	}
+	inboundFilter := func(c *cluster.Cluster) bool {
+		return strings.HasPrefix(c.Name, "inbound|")
+	}
+
+	cases := []struct {
+		name                 string
+		proxy                *model.Proxy
+		dualStack            bool
+		expectedSrcAddr      string
+		expectedExtraSrcAddr string
+	}{
+		{
+			name:                 "all ipv4, dual stack disabled",
+			proxy:                getProxy(),
+			dualStack:            false,
+			expectedSrcAddr:      InboundPassthroughBindIpv4,
+			expectedExtraSrcAddr: "",
+		},
+		{
+			name:                 "all ipv4, dual stack enabled",
+			proxy:                getProxy(),
+			dualStack:            true,
+			expectedSrcAddr:      InboundPassthroughBindIpv4,
+			expectedExtraSrcAddr: "",
+		},
+		{
+			name:                 "all ipv6, dual stack disabled",
+			proxy:                getIPv6Proxy(),
+			dualStack:            false,
+			expectedSrcAddr:      InboundPassthroughBindIpv6,
+			expectedExtraSrcAddr: "",
+		},
+		{
+			name:                 "all ipv6, dual stack enabled",
+			proxy:                getIPv6Proxy(),
+			dualStack:            true,
+			expectedSrcAddr:      InboundPassthroughBindIpv6,
+			expectedExtraSrcAddr: "",
+		},
+		{
+			name:                 "ipv4 and ipv6, dual stack disabled",
+			proxy:                &dualStackProxy,
+			dualStack:            false,
+			expectedSrcAddr:      InboundPassthroughBindIpv4,
+			expectedExtraSrcAddr: "",
+		},
+		{
+			name:                 "ipv4 and ipv6, dual stack enabled",
+			proxy:                &dualStackProxy,
+			dualStack:            true,
+			expectedSrcAddr:      InboundPassthroughBindIpv4,
+			expectedExtraSrcAddr: InboundPassthroughBindIpv6,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			test.SetForTest(t, &features.EnableDualStack, c.dualStack)
+			g := NewWithT(t)
+			cg := NewConfigGenTest(t, TestOptions{
+				Services:  []*model.Service{service},
+				Instances: instances,
+				Configs:   []config.Config{},
+			})
+			clusters := cg.Clusters(cg.SetupProxy(c.proxy))
+			xdstest.ValidateClusters(t, clusters)
+
+			clusters = xdstest.FilterClusters(clusters, inboundFilter)
+			g.Expect(len(clusters)).ShouldNot(Equal(0))
+
+			for _, cluster := range clusters {
+				g.Expect(cluster.UpstreamBindConfig.SourceAddress.Address).To(Equal(c.expectedSrcAddr))
+				if c.expectedExtraSrcAddr != "" {
+					g.Expect(len(cluster.UpstreamBindConfig.ExtraSourceAddresses)).To(Equal(1))
+					g.Expect(cluster.UpstreamBindConfig.ExtraSourceAddresses[0].Address.Address).To(Equal(c.expectedExtraSrcAddr))
+				} else {
+					g.Expect(len(cluster.UpstreamBindConfig.ExtraSourceAddresses)).To(Equal(0))
+				}
+
+			}
+		})
+	}
+}
+
+func TestInboundClustersLocalhostDefaultEndpoint(t *testing.T) {
+	ipv4Proxy := getProxy()
+	ipv6Proxy := getIPv6Proxy()
+	dsProxy := model.Proxy{
+		Type:        model.SidecarProxy,
+		IPAddresses: []string{"1.1.1.1", "1111:2222::1"},
+		ID:          "v0.default",
+		DNSDomain:   "default.example.org",
+		Metadata: &model.NodeMetadata{
+			Namespace: "not-default",
+		},
+		ConfigNamespace: "not-default",
+	}
+
+	inboundFilter := func(c *cluster.Cluster) bool {
+		return strings.HasPrefix(c.Name, "inbound|")
+	}
+
+	cases := []struct {
+		name            string
+		proxy           *model.Proxy
+		defaultEndpoint string
+		expectedAddr    string
+		expectedPort    uint32
+	}{
+		// ipv4 use cases
+		{
+			name:            "ipv4 host: defaultEndpoint set to 127.0.0.1:7073",
+			proxy:           ipv4Proxy,
+			defaultEndpoint: "127.0.0.1:7073",
+			expectedAddr:    "127.0.0.1",
+			expectedPort:    7073,
+		},
+		{
+			name:            "ipv4 host: defaultEndpoint set to [::1]:7073",
+			proxy:           ipv4Proxy,
+			defaultEndpoint: "[::1]:7073",
+			expectedAddr:    "127.0.0.1",
+			expectedPort:    7073,
+		},
+		// ipv6 use cases
+		{
+			name:            "ipv6 host: defaultEndpoint set to 127.0.0.1:7073",
+			proxy:           ipv6Proxy,
+			defaultEndpoint: "127.0.0.1:7073",
+			expectedAddr:    "::1",
+			expectedPort:    7073,
+		},
+		{
+			name:            "ipv6 host: defaultEndpoint set to [::1]:7073",
+			proxy:           ipv6Proxy,
+			defaultEndpoint: "[::1]:7073",
+			expectedAddr:    "::1",
+			expectedPort:    7073,
+		}, // dual-stack use cases
+		{
+			name:            "dual-stack host: defaultEndpoint set to 127.0.0.1:7073",
+			proxy:           &dsProxy,
+			defaultEndpoint: "127.0.0.1:7073",
+			expectedAddr:    "127.0.0.1",
+			expectedPort:    7073,
+		},
+		{
+			name:            "dual-stack host: defaultEndpoint set to [::1]:7073",
+			proxy:           &dsProxy,
+			defaultEndpoint: "[::1]:7073",
+			expectedAddr:    "::1",
+			expectedPort:    7073,
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			g := NewWithT(t)
+			cg := NewConfigGenTest(t, TestOptions{})
+			proxy := cg.SetupProxy(c.proxy)
+			proxy.Metadata.InterceptionMode = model.InterceptionNone
+			proxy.SidecarScope = &model.SidecarScope{
+				Sidecar: &networking.Sidecar{
+					Ingress: []*networking.IstioIngressListener{
+						{
+							CaptureMode:     networking.CaptureMode_NONE,
+							DefaultEndpoint: c.defaultEndpoint,
+							Port: &networking.SidecarPort{
+								Number:   7443,
+								Name:     "http",
+								Protocol: "HTTP",
+							},
+						},
+					},
+				},
+			}
+
+			clusters := cg.Clusters(proxy)
+			xdstest.ValidateClusters(t, clusters)
+
+			clusters = xdstest.FilterClusters(clusters, inboundFilter)
+			g.Expect(len(clusters)).ShouldNot(Equal(0))
+
+			for _, cluster := range clusters {
+				socket := cluster.GetLoadAssignment().GetEndpoints()[0].LbEndpoints[0].GetEndpoint().GetAddress().GetSocketAddress()
+				g.Expect(socket.GetAddress()).To(Equal(c.expectedAddr))
+				g.Expect(socket.GetPortValue()).To(Equal(c.expectedPort))
 			}
 		})
 	}
@@ -2011,7 +2382,8 @@ func TestBuildStaticClusterWithNoEndPoint(t *testing.T) {
 	xdstest.ValidateClusters(t, clusters)
 
 	// Expect to ignore STRICT_DNS cluster without endpoints.
-	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).To(Equal([]string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster"}))
+	g.Expect(xdstest.MapKeys(xdstest.ExtractClusters(clusters))).
+		To(Equal([]string{"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster"}))
 }
 
 func TestEnvoyFilterPatching(t *testing.T) {
@@ -2111,7 +2483,7 @@ func TestTelemetryMetadata(t *testing.T) {
 		name      string
 		direction model.TrafficDirection
 		cluster   *cluster.Cluster
-		svcInsts  []*model.ServiceInstance
+		svcInsts  []model.ServiceTarget
 		service   *model.Service
 		want      *core.Metadata
 	}{
@@ -2119,7 +2491,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "no cluster",
 			direction: model.TrafficDirectionInbound,
 			cluster:   nil,
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2136,7 +2508,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound no service",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts:  []*model.ServiceInstance{},
+			svcInsts:  []model.ServiceTarget{},
 			want:      nil,
 		},
 		{
@@ -2153,7 +2525,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2162,8 +2534,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 			},
@@ -2226,7 +2600,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2235,8 +2609,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 			},
@@ -2285,7 +2661,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound multiple services",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2294,8 +2670,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 				{
@@ -2306,8 +2684,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "b.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 			},
@@ -2388,7 +2768,7 @@ func TestTelemetryMetadata(t *testing.T) {
 					},
 				},
 			},
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2397,8 +2777,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 			},
@@ -2497,7 +2879,7 @@ func TestTelemetryMetadata(t *testing.T) {
 			name:      "inbound duplicated metadata",
 			direction: model.TrafficDirectionInbound,
 			cluster:   &cluster.Cluster{},
-			svcInsts: []*model.ServiceInstance{
+			svcInsts: []model.ServiceTarget{
 				{
 					Service: &model.Service{
 						Attributes: model.ServiceAttributes{
@@ -2506,8 +2888,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 				{
@@ -2518,8 +2902,10 @@ func TestTelemetryMetadata(t *testing.T) {
 						},
 						Hostname: "a.default",
 					},
-					ServicePort: &model.Port{
-						Port: 80,
+					Port: model.ServiceInstancePort{
+						ServicePort: &model.Port{
+							Port: 80,
+						},
 					},
 				},
 			},
@@ -2568,11 +2954,10 @@ func TestTelemetryMetadata(t *testing.T) {
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
 			opt := buildClusterOpts{
-				mutable:          NewMutableCluster(tt.cluster),
-				port:             &model.Port{Port: 80},
-				serviceInstances: tt.svcInsts,
+				mutable: newClusterWrapper(tt.cluster),
+				port:    &model.Port{Port: 80},
 			}
-			addTelemetryMetadata(opt, tt.service, tt.direction, tt.svcInsts)
+			addTelemetryMetadata(tt.cluster, opt.port, tt.service, tt.direction, tt.svcInsts)
 			if opt.mutable.cluster != nil && !reflect.DeepEqual(opt.mutable.cluster.Metadata, tt.want) {
 				t.Errorf("cluster metadata does not match expectation want %+v, got %+v", tt.want, opt.mutable.cluster.Metadata)
 			}
@@ -3053,6 +3438,29 @@ func TestBuildDeltaClusters(t *testing.T) {
 			removedClusters:      nil,
 			expectedClusters: []string{
 				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster", "outbound|8080||test.com", "outbound|8080||testnew.com",
+			},
+		},
+		{
+			name:     "service is added and destination rule is updated",
+			services: []*model.Service{testService1, testService2},
+			configs: []config.Config{{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.DestinationRule,
+					Name:             "test-desinationrule",
+					Namespace:        TestServiceNamespace,
+				},
+				Spec: destRuleWithNewSubsets,
+			}},
+			configUpdated: sets.New(
+				model.ConfigKey{Kind: kind.ServiceEntry, Name: "testnew.com", Namespace: TestServiceNamespace},
+				model.ConfigKey{Kind: kind.DestinationRule, Name: "test-desinationrule", Namespace: TestServiceNamespace}),
+			watchedResourceNames: []string{"outbound|8080||test.com"},
+			usedDelta:            true,
+			removedClusters:      nil,
+			expectedClusters: []string{
+				"BlackHoleCluster", "InboundPassthroughClusterIpv4", "PassthroughCluster",
+				"outbound|8080|subset-1|test.com", "outbound|8080|subset-2|test.com", "outbound|8080||test.com",
+				"outbound|8080||testnew.com",
 			},
 		},
 		{

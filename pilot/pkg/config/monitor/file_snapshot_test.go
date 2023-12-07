@@ -19,7 +19,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/onsi/gomega"
+	. "github.com/onsi/gomega"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config/schema/collection"
@@ -76,7 +76,7 @@ spec:
 `
 
 func TestFileSnapshotNoFilter(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	ts := &testState{
 		ConfigFiles: map[string][]byte{"gateway.yml": []byte(gatewayYAML)},
@@ -86,18 +86,18 @@ func TestFileSnapshotNoFilter(t *testing.T) {
 
 	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(), "foo")
 	configs, err := fileWatcher.ReadConfigFiles()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(configs).To(gomega.HaveLen(1))
-	g.Expect(configs[0].Domain).To(gomega.Equal("foo"))
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(configs).To(HaveLen(1))
+	g.Expect(configs[0].Domain).To(Equal("foo"))
 
 	gateway := configs[0].Spec.(*networking.Gateway)
-	g.Expect(gateway.Servers[0].Port.Number).To(gomega.Equal(uint32(80)))
-	g.Expect(gateway.Servers[0].Port.Protocol).To(gomega.Equal("http"))
-	g.Expect(gateway.Servers[0].Hosts).To(gomega.Equal([]string{"*.example.com"}))
+	g.Expect(gateway.Servers[0].Port.Number).To(Equal(uint32(80)))
+	g.Expect(gateway.Servers[0].Port.Protocol).To(Equal("http"))
+	g.Expect(gateway.Servers[0].Hosts).To(Equal([]string{"*.example.com"}))
 }
 
 func TestFileSnapshotWithFilter(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	ts := &testState{
 		ConfigFiles: map[string][]byte{
@@ -110,15 +110,15 @@ func TestFileSnapshotWithFilter(t *testing.T) {
 
 	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(collections.VirtualService), "")
 	configs, err := fileWatcher.ReadConfigFiles()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(configs).To(gomega.HaveLen(1))
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(configs).To(HaveLen(1))
 
 	virtualService := configs[0].Spec.(*networking.VirtualService)
-	g.Expect(virtualService.Hosts).To(gomega.Equal([]string{"some.example.com"}))
+	g.Expect(virtualService.Hosts).To(Equal([]string{"some.example.com"}))
 }
 
 func TestFileSnapshotSorting(t *testing.T) {
-	g := gomega.NewWithT(t)
+	g := NewWithT(t)
 
 	ts := &testState{
 		ConfigFiles: map[string][]byte{
@@ -132,11 +132,11 @@ func TestFileSnapshotSorting(t *testing.T) {
 	fileWatcher := NewFileSnapshot(ts.rootPath, collection.SchemasFor(), "")
 
 	configs, err := fileWatcher.ReadConfigFiles()
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(configs).To(gomega.HaveLen(2))
+	g.Expect(err).NotTo(HaveOccurred())
+	g.Expect(configs).To(HaveLen(2))
 
-	g.Expect(configs[0].Spec).To(gomega.BeAssignableToTypeOf(&networking.Gateway{}))
-	g.Expect(configs[1].Spec).To(gomega.BeAssignableToTypeOf(&networking.VirtualService{}))
+	g.Expect(configs[0].Spec).To(BeAssignableToTypeOf(&networking.Gateway{}))
+	g.Expect(configs[1].Spec).To(BeAssignableToTypeOf(&networking.VirtualService{}))
 }
 
 type testState struct {

@@ -70,6 +70,10 @@
           "memory": "128Mi"
         }
       },
+      "startupProbe": {
+        "enabled": true,
+        "failureThreshold": 600
+      },
       "statusPort": 123,
       "tracer": "zipkin"
     },
@@ -106,6 +110,7 @@
     "enableNamespacesByDefault": false,
     "injectedAnnotations": {},
     "neverInjectSelector": [],
+    "reinvocationPolicy": "Never",
     "rewriteAppHTTPProbe": true,
     "templates": {}
   }

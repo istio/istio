@@ -50,14 +50,13 @@ func ApplyClusterMerge(pctx networking.EnvoyFilter_PatchContext, efw *model.Envo
 			continue
 		}
 		if commonConditionMatch(pctx, cp) && clusterMatch(c, cp, hosts) {
-
-			ret, err := mergeTransportSocketCluster(c, cp)
+			tsMerged, err := mergeTransportSocketCluster(c, cp)
 			if err != nil {
 				log.Debugf("Merge of transport socket failed for cluster: %v", err)
 				continue
 			}
 			applied = true
-			if !ret {
+			if !tsMerged {
 				merge.Merge(c, cp.Value)
 			}
 		}
@@ -79,17 +78,17 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 	if cpValueCast.GetTransportSocket() == nil {
 		return false, nil
 	}
-	var tsmPatch *core.TransportSocket
 
+	var ts *core.TransportSocket
 	// First check if the transport socket matches with any cluster transport socket matches.
 	if len(c.GetTransportSocketMatches()) > 0 {
 		for _, tsm := range c.GetTransportSocketMatches() {
 			if tsm.GetTransportSocket() != nil && cpValueCast.GetTransportSocket().Name == tsm.GetTransportSocket().Name {
-				tsmPatch = tsm.GetTransportSocket()
+				ts = tsm.GetTransportSocket()
 				break
 			}
 		}
-		if tsmPatch == nil {
+		if ts == nil {
 			// If we merged we would get both a transport_socket and transport_socket_matches which is not valid
 			// Drop the filter, but indicate that we handled the merge so that the outer function does not try
 			// to merge it again
@@ -97,27 +96,25 @@ func mergeTransportSocketCluster(c *cluster.Cluster, cp *model.EnvoyFilterConfig
 		}
 	} else if c.GetTransportSocket() != nil {
 		if cpValueCast.GetTransportSocket().Name == c.GetTransportSocket().Name {
-			tsmPatch = c.GetTransportSocket()
+			ts = c.GetTransportSocket()
 		}
 	}
 	// This means either there is a name mismatch or cluster does not have transport socket matches/transport socket.
 	// We cannot do a deep merge. Instead just replace the transport socket
-	if tsmPatch == nil {
+	if ts == nil {
 		c.TransportSocket = cpValueCast.TransportSocket
 	} else {
 		// Merge the patch and the cluster at a lower level
-		dstCluster := tsmPatch.GetTypedConfig()
+		dst := ts.GetTypedConfig()
 		srcPatch := cpValueCast.GetTransportSocket().GetTypedConfig()
-
-		if dstCluster != nil && srcPatch != nil {
-
-			retVal, errMerge := util.MergeAnyWithAny(dstCluster, srcPatch)
+		if dst != nil && srcPatch != nil {
+			retVal, errMerge := util.MergeAnyWithAny(dst, srcPatch)
 			if errMerge != nil {
 				return false, fmt.Errorf("function MergeAnyWithAny failed for ApplyClusterMerge: %v", errMerge)
 			}
 
 			// Merge the above result with the whole cluster
-			merge.Merge(dstCluster, retVal)
+			merge.Merge(dst, retVal)
 		}
 	}
 	return true, nil

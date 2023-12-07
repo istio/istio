@@ -243,7 +243,7 @@ func ExtractCertInfo(scrt *v1.Secret) (certInfo *credentials.CertInfo, err error
 		ret.CRL = scrt.Data[TLSSecretCrl]
 		return ret, nil
 	}
-	// No cert found. Try to generate a helpful error messsage
+	// No cert found. Try to generate a helpful error message
 	if hasKeys(scrt.Data, GenericScrtCert, GenericScrtKey) {
 		return nil, fmt.Errorf("found keys %q and %q, but they were empty", GenericScrtCert, GenericScrtKey)
 	}
@@ -280,7 +280,7 @@ func extractRoot(scrt *v1.Secret) (certInfo *credentials.CertInfo, err error) {
 		ret.CRL = scrt.Data[TLSSecretCrl]
 		return ret, nil
 	}
-	// No cert found. Try to generate a helpful error messsage
+	// No cert found. Try to generate a helpful error message
 	if hasKeys(scrt.Data, GenericScrtCaCert) {
 		return nil, fmt.Errorf("found key %q, but it was empty", GenericScrtCaCert)
 	}

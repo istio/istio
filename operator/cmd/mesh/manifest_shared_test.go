@@ -30,11 +30,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/yaml"
 
+	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
-	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
@@ -69,15 +68,13 @@ var (
 	// By default, tests only run with manifest generate, since it doesn't require any external fake test environment.
 	testedManifestCmds = []cmdType{cmdGenerate}
 	// Only used if kubebuilder is installed.
-	testenv               *envtest.Environment
-	testClient            client.Client
-	testReconcileOperator *istiocontrolplane.ReconcileIstioOperator
+	testenv    *envtest.Environment
+	testClient client.Client
 
 	allNamespacedGVKs = append(helmreconciler.NamespacedResources(&version.Info{Major: "1", Minor: "25"}),
 		schema.GroupVersionKind{Group: "", Version: "v1", Kind: "Endpoints"})
 	// CRDs are not in the prune list, but must be considered for tests.
-	allClusterGVKs = append(helmreconciler.ClusterResources,
-		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1beta1", Kind: "CustomResourceDefinition"})
+	allClusterGVKs = helmreconciler.ClusterResources
 )
 
 func init() {
@@ -120,8 +117,6 @@ func recreateTestEnv() error {
 	if err != nil {
 		return err
 	}
-
-	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, nil, s)
 	return nil
 }
 
@@ -133,7 +128,6 @@ func recreateSimpleTestEnv() {
 	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
 
 	testClient = fake.NewClientBuilder().WithScheme(s).Build()
-	testReconcileOperator = istiocontrolplane.NewReconcileIstioOperator(testClient, kube.NewFakeClient(), s)
 }
 
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
@@ -223,7 +217,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 	if err != nil {
 		return nil, err
 	}
-	if err := fakeInstallOperator(reconciler, chartSource, iop); err != nil {
+	if err := fakeInstallOperator(reconciler, chartSource); err != nil {
 		return nil, err
 	}
 
@@ -237,7 +231,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 // fakeInstallOperator installs the operator manifest resources into a cluster using the given reconciler.
 // The installation is for testing with a kubebuilder fake cluster only, since no functional Deployment will be
 // created.
-func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType, iop *v1alpha1.IstioOperator) error {
+func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType) error {
 	ocArgs := &operatorCommonArgs{
 		manifestsPath:     string(chartSource),
 		istioNamespace:    constants.IstioSystemNamespace,
@@ -255,15 +249,8 @@ func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource 
 	if err := applyWithReconciler(reconciler, mstr); err != nil {
 		return err
 	}
-	iopStr, err := yaml.Marshal(iop)
-	if err != nil {
-		return err
-	}
-	if err := saveIOPToCluster(reconciler, string(iopStr)); err != nil {
-		return err
-	}
 
-	return err
+	return nil
 }
 
 // applyWithReconciler applies the given manifest string using the given reconciler.
@@ -273,7 +260,7 @@ func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest str
 		Name:    name.IstioOperatorComponentName,
 		Content: manifest,
 	}
-	_, _, err := reconciler.ApplyManifest(m, false)
+	_, err := reconciler.ApplyManifest(m, false)
 	return err
 }
 
@@ -296,7 +283,7 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 		filters := []string{}
 		filters = append(filters, fileSelect...)
 		// Everything needs these
-		filters = append(filters, "templates/_affinity.tpl")
+		filters = append(filters, "templates/_affinity.tpl", "templates/_helpers.tpl")
 		args += " --filter " + strings.Join(filters, ",")
 	}
 	args += " --set installPackagePath=" + string(chartSource)
@@ -306,7 +293,9 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 // runCommand runs the given command string.
 func runCommand(command string) (string, error) {
 	var out bytes.Buffer
-	rootCmd := GetRootCmd(strings.Split(command, " "))
+	rootCmd := GetRootCmd(cli.NewFakeContext(&cli.NewFakeContextOption{
+		Version: "25",
+	}), strings.Split(command, " "))
 	rootCmd.SetOut(&out)
 
 	err := rootCmd.Execute()
@@ -350,11 +339,6 @@ func readFile(path string) (string, error) {
 // writeFile writes a file and returns an error if operation is unsuccessful.
 func writeFile(path string, data []byte) error {
 	return os.WriteFile(path, data, 0o644)
-}
-
-// removeFile removes given file from provided path.
-func removeFile(path string) error {
-	return os.Remove(path)
 }
 
 // inFileAbsolutePath returns the absolute path for an input file like "gateways".

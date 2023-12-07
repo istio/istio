@@ -9,17 +9,17 @@
     # is processed as if it were declared in the leaf namespace.
     rootNamespace: {{ .Values.meshConfig.rootNamespace | default .Values.global.istioNamespace }}
 
-  {{ $prom := include "prometheus" . | eq "true" }}
-  {{ $sdMetrics := include "sd-metrics" . | eq "true" }}
-  {{ $sdLogs := include "sd-logs" . | eq "true" }}
+  {{ $prom := include "default-prometheus" . | eq "true" }}
+  {{ $sdMetrics := include "default-sd-metrics" . | eq "true" }}
+  {{ $sdLogs := include "default-sd-logs" . | eq "true" }}
   {{- if or $prom $sdMetrics $sdLogs }}
     defaultProviders:
     {{- if or $prom $sdMetrics }}
       metrics:
       {{ if $prom }}- prometheus{{ end }}
-      {{ if $sdMetrics }}- stackdriver{{ end }}
+      {{ if and $sdMetrics $sdLogs }}- stackdriver{{ end }}
     {{- end }}
-    {{- if $sdLogs }}
+    {{- if and $sdMetrics $sdLogs }}
       accessLogging:
       - stackdriver
     {{- end }}
@@ -47,25 +47,17 @@
       {{- else if eq .Values.global.proxy.tracer "datadog" }}
         datadog:
           # Address of the Datadog Agent
-          address: {{ .Values.global.tracer.datadog.address | default "$(HOST_IP):8126" }}
+          address: {{ ((.Values.global.tracer).datadog).address | default "$(HOST_IP):8126" }}
       {{- else if eq .Values.global.proxy.tracer "stackdriver" }}
         stackdriver:
           # enables trace output to stdout.
-        {{- if $.Values.global.tracer.stackdriver.debug }}
-          debug: {{ $.Values.global.tracer.stackdriver.debug }}
-        {{- end }}
-        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAttributes }}
+          debug: {{ (($.Values.global.tracer).stackdriver).debug | default "false" }}
           # The global default max number of attributes per span.
-          maxNumberOfAttributes: {{ $.Values.global.tracer.stackdriver.maxNumberOfAttributes | default "200" }}
-        {{- end }}
-        {{- if $.Values.global.tracer.stackdriver.maxNumberOfAnnotations }}
+          maxNumberOfAttributes: {{ (($.Values.global.tracer).stackdriver).maxNumberOfAttributes | default "200" }}
           # The global default max number of annotation events per span.
-          maxNumberOfAnnotations: {{ $.Values.global.tracer.stackdriver.maxNumberOfAnnotations | default "200" }}
-        {{- end }}
-        {{- if $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents }}
+          maxNumberOfAnnotations: {{ (($.Values.global.tracer).stackdriver).maxNumberOfAnnotations | default "200" }}
           # The global default max number of message events per span.
-          maxNumberOfMessageEvents: {{ $.Values.global.tracer.stackdriver.maxNumberOfMessageEvents | default "200" }}
-        {{- end }}
+          maxNumberOfMessageEvents: {{ (($.Values.global.tracer).stackdriver).maxNumberOfMessageEvents | default "200" }}
       {{- else if eq .Values.global.proxy.tracer "openCensusAgent" }}
       {{/* Fill in openCensusAgent configuration from meshConfig so it isn't overwritten below */}}
 {{ toYaml $.Values.meshConfig.defaultConfig.tracing | indent 8 }}

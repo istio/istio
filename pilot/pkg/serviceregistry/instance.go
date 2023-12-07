@@ -35,13 +35,17 @@ type Instance interface {
 
 var _ Instance = &Simple{}
 
+type DiscoveryController interface {
+	model.Controller
+	model.ServiceDiscovery
+}
+
 // Simple Instance implementation, where fields are set individually.
 type Simple struct {
 	ProviderID provider.ID
 	ClusterID  cluster.ID
 
-	model.Controller
-	model.ServiceDiscovery
+	DiscoveryController
 }
 
 func (r Simple) Provider() provider.ID {

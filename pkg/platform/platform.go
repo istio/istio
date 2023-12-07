@@ -16,12 +16,10 @@ package platform
 
 import "istio.io/istio/pkg/env"
 
-type PlatformType string
-
 const (
-	Default   PlatformType = ""
-	OpenShift PlatformType = "openshift"
-	GCP       PlatformType = "gcp"
+	Default   = ""
+	OpenShift = "openshift"
+	GCP       = "gcp"
 )
 
 var Platform = env.Register(

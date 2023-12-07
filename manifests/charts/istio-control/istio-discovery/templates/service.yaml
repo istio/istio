@@ -38,4 +38,13 @@ spec:
     # This avoids default deployment picking the canary
     istio: pilot
     {{- end }}
+  {{- if .Values.pilot.ipFamilyPolicy }}
+  ipFamilyPolicy: {{ .Values.pilot.ipFamilyPolicy }}
+  {{- end }}
+  {{- if .Values.pilot.ipFamilies }}
+  ipFamilies:
+  {{- range .Values.pilot.ipFamilies }}
+  - {{ . }}
+  {{- end }}
+  {{- end }}
 ---

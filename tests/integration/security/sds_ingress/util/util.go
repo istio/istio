@@ -332,6 +332,9 @@ func doSendRequestsOrFail(ctx framework.TestContext, ing ingress.Instance, host 
 				}
 				return nil
 			}
+			if callType == Mtls {
+				return check.And(check.Status(exRsp.StatusCode), check.MTLSForHTTP()).Check(result, nil)
+			}
 
 			return check.Status(exRsp.StatusCode).Check(result, nil)
 		},

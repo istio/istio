@@ -15,15 +15,19 @@
 package framework
 
 import (
+	context2 "context"
 	"fmt"
 	"testing"
 	"time"
+
+	traceapi "go.opentelemetry.io/otel/trace"
 
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/tracing"
 )
 
 type Test interface {
@@ -121,6 +125,8 @@ type testImpl struct {
 	minIstioVersion      string
 
 	ctx *testContext
+	tc  context2.Context
+	ts  traceapi.Span
 }
 
 // NewTest returns a new test wrapper for running a single test.
@@ -135,7 +141,11 @@ func NewTest(t *testing.T) Test {
 		panic("call to scope without running the test framework")
 	}
 
+	ctx, span := tracing.Start(rt.suiteContext().traceContext, t.Name())
+
 	runner := &testImpl{
+		tc:            ctx,
+		ts:            span,
 		s:             rt.suiteContext(),
 		goTest:        t,
 		featureLabels: make(map[features.Feature][]string),
@@ -152,7 +162,7 @@ func (t *testImpl) Label(labels ...label.Instance) Test {
 func (t *testImpl) Features(feats ...features.Feature) Test {
 	if err := addFeatureLabels(t.featureLabels, feats...); err != nil {
 		// test runs shouldn't fail
-		log.Errorf(err)
+		log.Error(err)
 	}
 	return t
 }
@@ -293,6 +303,7 @@ func (t *testImpl) doRun(ctx *testContext, fn func(ctx TestContext), parallel bo
 			rt.suiteContext().Settings().TestID,
 			t.goTest.Name(),
 			time.Since(start))
+		t.ts.End()
 		rt.suiteContext().registerOutcome(t)
 	})
 

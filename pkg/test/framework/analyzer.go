@@ -244,7 +244,7 @@ func (t *testAnalyzer) Label(labels ...label.Instance) Test {
 
 func (t *testAnalyzer) Features(feats ...features.Feature) Test {
 	if err := addFeatureLabels(t.featureLabels, feats...); err != nil {
-		log.Errorf(err)
+		log.Error(err)
 		t.goTest.FailNow()
 	}
 	return t

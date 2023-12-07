@@ -1,0 +1,44 @@
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: default-{{ .To.ServiceName }}
+spec:
+  targetRef:
+    kind: Gateway
+    group: gateway.networking.k8s.io
+    name: waypoint
+  jwtRules:
+  - issuer: "test-issuer-1@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+  - issuer: "test-issuer-2@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+---
+apiVersion: security.istio.io/v1beta1
+kind: RequestAuthentication
+metadata:
+  name: ignored-{{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: waypoint # This should be ignored because it's not a targetRef
+  jwtRules:
+  - issuer: "test-issuer-3@istio.io"
+    jwksUri: "https://raw.githubusercontent.com/istio/istio/master/tests/common/jwt/jwks.json"
+---
+apiVersion: security.istio.io/v1beta1
+kind: AuthorizationPolicy
+metadata:
+  name: authz-gateway-{{ .To.ServiceName }}
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: waypoint # TODO: Replace this with a targetRef after https://github.com/istio/istio/pull/46560 merges
+  rules:
+  - from:
+    - source:
+        requestPrincipals: ["test-issuer-1@istio.io/sub-1"]
+    - source:
+        requestPrincipals: ["test-issuer-3@istio.io/sub-1"]
+  - to:
+    - operation:
+        paths: ["/healthz"]

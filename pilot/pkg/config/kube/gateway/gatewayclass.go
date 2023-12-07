@@ -15,12 +15,11 @@
 package gateway
 
 import (
-	"fmt"
-
 	"github.com/hashicorp/go-multierror"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8s "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gateway "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -50,7 +49,7 @@ func NewClassController(kc kube.Client) *ClassController {
 
 	gc.classes = kclient.New[*gateway.GatewayClass](kc)
 	gc.classes.AddEventHandler(controllers.FilteredObjectHandler(gc.queue.AddObject, func(o controllers.Object) bool {
-		_, f := classInfos[o.GetName()]
+		_, f := builtinClasses[gateway.ObjectName(o.GetName())]
 		return f
 	}))
 	return gc
@@ -64,29 +63,33 @@ func (c *ClassController) Run(stop <-chan struct{}) {
 
 func (c *ClassController) Reconcile(types.NamespacedName) error {
 	err := istiomultierror.New()
-	for class := range classInfos {
+	for class := range builtinClasses {
 		err = multierror.Append(err, c.reconcileClass(class))
 	}
 	return err.ErrorOrNil()
 }
 
-func (c *ClassController) reconcileClass(class string) error {
-	if c.classes.Get(class, "") != nil {
+func (c *ClassController) reconcileClass(class gateway.ObjectName) error {
+	if c.classes.Get(string(class), "") != nil {
 		log.Debugf("GatewayClass/%v already exists, no action", class)
 		return nil
 	}
-	classInfo := classInfos[class]
+	controller := builtinClasses[class]
+	classInfo, f := classInfos[controller]
+	if !f {
+		// Should only happen when ambient is disabled; otherwise builtinClasses and classInfos should be consistent
+		return nil
+	}
 	gc := &gateway.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: class,
+			Name: string(class),
 		},
 		Spec: gateway.GatewayClassSpec{
 			ControllerName: gateway.GatewayController(classInfo.controller),
 			Description:    &classInfo.description,
 		},
 	}
-	var err error
-	gc, err = c.classes.Create(gc)
+	_, err := c.classes.Create(gc)
 	if err != nil && !kerrors.IsConflict(err) {
 		return err
 	} else if err != nil && kerrors.IsConflict(err) {
@@ -96,14 +99,8 @@ func (c *ClassController) reconcileClass(class string) error {
 	if err != nil {
 		return err
 	}
-	if !classInfo.reportGatewayClassStatus {
-		return nil
-	}
-	gc.Status = GetClassStatus(&gc.Status, gc.Generation)
-	if _, err := c.classes.UpdateStatus(gc); err != nil {
-		return fmt.Errorf("failed to update status: %v", err)
-	}
-	return err
+
+	return nil
 }
 
 func GetClassStatus(existing *k8s.GatewayClassStatus, gen int64) k8s.GatewayClassStatus {
@@ -111,11 +108,11 @@ func GetClassStatus(existing *k8s.GatewayClassStatus, gen int64) k8s.GatewayClas
 		existing = &k8s.GatewayClassStatus{}
 	}
 	existing.Conditions = kstatus.UpdateConditionIfChanged(existing.Conditions, metav1.Condition{
-		Type:               string(gateway.GatewayClassConditionStatusAccepted),
+		Type:               string(k8sv1.GatewayClassConditionStatusAccepted),
 		Status:             kstatus.StatusTrue,
 		ObservedGeneration: gen,
 		LastTransitionTime: metav1.Now(),
-		Reason:             string(gateway.GatewayClassConditionStatusAccepted),
+		Reason:             string(k8sv1.GatewayClassConditionStatusAccepted),
 		Message:            "Handled by Istio controller",
 	})
 	return *existing

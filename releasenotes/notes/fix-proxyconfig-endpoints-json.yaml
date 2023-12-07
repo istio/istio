@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** the output of `istioctl proxy-config all` to include EDS configuration when the `--json` or `--yaml` flags are used.

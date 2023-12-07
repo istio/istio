@@ -26,8 +26,6 @@ import (
 	"istio.io/istio/cni/pkg/plugin"
 	"istio.io/istio/pkg/log"
 	istioversion "istio.io/istio/pkg/version"
-	"istio.io/istio/tools/istio-iptables/pkg/cmd"
-	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 func main() {
@@ -41,24 +39,6 @@ func main() {
 		// to https://github.com/uber-go/zap/issues/328
 		_ = log.Sync()
 	}()
-
-	// configure-routes allows setting up the iproute2 configuration.
-	// This is an old workaround and kept in place to preserve old behavior.
-	// It is called standalone when HostNSEnterExec=true.
-	// Default behavior is to use go netns, which is not in need for this:
-
-	// Older versions of Go < 1.10 cannot change network namespaces safely within a go program
-	// (see https://www.weave.works/blog/linux-namespaces-and-go-don-t-mix).
-	// As a result, the flow is:
-	// * CNI plugin is called with no args, skipping this section.
-	// * CNI code invokes iptables code with CNIMode=true. This in turn runs 'nsenter -- istio-cni configure-routes'
-	if len(os.Args) > 1 && os.Args[1] == constants.CommandConfigureRoutes {
-		if err := cmd.GetRouteCommand().Execute(); err != nil {
-			log.Errorf("failed to configure routes: %v", err)
-			os.Exit(1)
-		}
-		return
-	}
 
 	// TODO: implement plugin version
 	skel.PluginMain(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDelete, version.All,

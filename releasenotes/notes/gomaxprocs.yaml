@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** an automatically set `GOMEMLIMIT` and `GOMAXPROCS` to all deployments to improve performance.

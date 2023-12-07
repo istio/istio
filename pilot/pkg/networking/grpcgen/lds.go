@@ -31,11 +31,9 @@ import (
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
-	"istio.io/istio/pilot/pkg/security/authn/factory"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -45,7 +43,10 @@ import (
 
 var supportedFilters = []*hcm.HttpFilter{
 	xdsfilters.Fault,
-	xdsfilters.Router,
+	xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       false,
+		SuppressDebugHeaders: false, // No need to set this to true, gRPC doesn't respect it anyways
+	}),
 }
 
 const (
@@ -73,10 +74,10 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		return nil
 	}
 	var out model.Resources
-	mtlsPolicy := factory.NewMtlsPolicy(push, node.Metadata.Namespace, node.Labels)
-	serviceInstancesByPort := map[uint32]*model.ServiceInstance{}
-	for _, si := range node.ServiceInstances {
-		serviceInstancesByPort[si.Endpoint.EndpointPort] = si
+	mtlsPolicy := authn.NewMtlsPolicy(push, node.Metadata.Namespace, node.Labels, node.IsWaypointProxy())
+	serviceInstancesByPort := map[uint32]model.ServiceTarget{}
+	for _, si := range node.ServiceTargets {
+		serviceInstancesByPort[si.Port.TargetPort] = si
 	}
 
 	for _, name := range names {
@@ -114,8 +115,8 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		}
 		// add extra addresses for the listener
 		extrAddresses := si.Service.GetExtraAddressesForProxy(node)
-		if features.EnableDualStack && len(extrAddresses) > 0 {
-			ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(listenPort), node)
+		if len(extrAddresses) > 0 {
+			ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(listenPort))
 		}
 
 		out = append(out, &discovery.Resource{
@@ -127,8 +128,8 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 }
 
 // nolint: unparam
-func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *model.ServiceInstance, checker authn.MtlsPolicy) []*listener.FilterChain {
-	mode := checker.GetMutualTLSModeForPort(si.Endpoint.EndpointPort)
+func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si model.ServiceTarget, checker authn.MtlsPolicy) []*listener.FilterChain {
+	mode := checker.GetMutualTLSModeForPort(si.Port.TargetPort)
 
 	// auto-mtls label is set - clients will attempt to connect using mtls, and
 	// gRPC doesn't support permissive.
@@ -152,7 +153,7 @@ func buildInboundFilterChains(node *model.Proxy, push *model.PushContext, si *mo
 		mode = model.MTLSDisable
 	}
 	if mode == model.MTLSPermissive {
-		// TODO gRPC's filter chain match is super limted - only effective transport_protocol match is "raw_buffer"
+		// TODO gRPC's filter chain match is super limited - only effective transport_protocol match is "raw_buffer"
 		// see https://github.com/grpc/proposal/blob/master/A36-xds-for-servers.md for detail
 		// No need to warn on each push - the behavior is still consistent with auto-mtls, which is the
 		// replacement for permissive.
@@ -175,7 +176,11 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	fc := []*hcm.HttpFilter{}
 	// See security/authz/builder and grpc internal/xds/rbac
 	// grpc supports ALLOW and DENY actions (fail if it is not one of them), so we can't use the normal generator
-	policies := push.AuthzPolicies.ListAuthorizationPolicies(node.ConfigNamespace, node.Labels)
+	selectionOpts := model.WorkloadSelectionOpts{
+		Namespace:      node.ConfigNamespace,
+		WorkloadLabels: node.Labels,
+	}
+	policies := push.AuthzPolicies.ListAuthorizationPolicies(selectionOpts)
 	if len(policies.Deny)+len(policies.Allow) > 0 {
 		rules := buildRBAC(node, push, nameSuffix, tlsContext, rbacpb.RBAC_DENY, policies.Deny)
 		if rules != nil && len(rules.Policies) > 0 {
@@ -202,7 +207,10 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 	}
 
 	// Must be last
-	fc = append(fc, xdsfilters.Router)
+	fc = append(fc, xdsfilters.BuildRouterFilter(xdsfilters.RouterFilterContext{
+		StartChildSpan:       false,
+		SuppressDebugHeaders: false, // No need to set this to true, gRPC doesn't respect it anyways
+	}))
 
 	out := &listener.FilterChain{
 		Name:             "inbound-" + nameSuffix,
@@ -242,7 +250,7 @@ func buildInboundFilterChain(node *model.Proxy, push *model.PushContext, nameSuf
 
 // buildRBAC builds the RBAC config expected by gRPC.
 //
-// See: xds/interal/httpfilter/rbac
+// See: xds/internal/httpfilter/rbac
 //
 // TODO: gRPC also supports 'per route override' - not yet clear how to use it, Istio uses path expressions instead and we don't generate
 // vhosts or routes for the inbound listener.
@@ -261,7 +269,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 	for _, policy := range policies {
 		for i, rule := range policy.Spec.Rules {
 			name := fmt.Sprintf("%s-%s-%d", policy.Namespace, policy.Name, i)
-			m, err := authzmodel.New(rule)
+			m, err := authzmodel.New(rule, true)
 			if err != nil {
 				log.Warnf("Invalid rule %v: %v", rule, err)
 				continue
@@ -325,8 +333,8 @@ func buildOutboundListeners(node *model.Proxy, push *model.PushContext, filter l
 				}
 				// add extra addresses for the listener
 				extrAddresses := sv.GetExtraAddressesForProxy(node)
-				if features.EnableDualStack && len(extrAddresses) > 0 {
-					ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(p.Port), node)
+				if len(extrAddresses) > 0 {
+					ll.AdditionalAddresses = util.BuildAdditionalAddresses(extrAddresses, uint32(p.Port))
 				}
 
 				out = append(out, &discovery.Resource{

@@ -39,7 +39,7 @@ func MetadataStringMatcher(filter, key string, m *matcher.StringMatcher) *matche
 }
 
 // MetadataListMatcher creates a metadata list matcher for the given path keys and value.
-func MetadataListMatcher(filter string, keys []string, value *matcher.StringMatcher) *matcher.MetadataMatcher {
+func MetadataListMatcher(filter string, keys []string, value *matcher.StringMatcher, useExtendedJwt bool) *matcher.MetadataMatcher {
 	listMatcher := &matcher.ListMatcher{
 		MatchPattern: &matcher.ListMatcher_OneOf{
 			OneOf: &matcher.ValueMatcher{
@@ -59,13 +59,35 @@ func MetadataListMatcher(filter string, keys []string, value *matcher.StringMatc
 		})
 	}
 
-	return &matcher.MetadataMatcher{
+	out := &matcher.MetadataMatcher{
 		Filter: filter,
 		Path:   paths,
-		Value: &matcher.ValueMatcher{
+	}
+	if useExtendedJwt {
+		out.Value = &matcher.ValueMatcher{
+			MatchPattern: &matcher.ValueMatcher_OrMatch{
+				OrMatch: &matcher.OrMatcher{
+					ValueMatchers: []*matcher.ValueMatcher{
+						{
+							MatchPattern: &matcher.ValueMatcher_ListMatch{
+								ListMatch: listMatcher,
+							},
+						},
+						{
+							MatchPattern: &matcher.ValueMatcher_StringMatch{
+								StringMatch: value,
+							},
+						},
+					},
+				},
+			},
+		}
+	} else {
+		out.Value = &matcher.ValueMatcher{
 			MatchPattern: &matcher.ValueMatcher_ListMatch{
 				ListMatch: listMatcher,
 			},
-		},
+		}
 	}
+	return out
 }

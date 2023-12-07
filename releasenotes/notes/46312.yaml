@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 45825
+releaseNotes:
+- |
+  **Fixed** an issue that istio should using IMDSv2 as possible on AWS.

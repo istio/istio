@@ -21,23 +21,18 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd/api"
 
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestBuildClientConfig(t *testing.T) {
-	config1, err := generateKubeConfig("1.1.1.1", "3.3.3.3")
-	if err != nil {
-		t.Fatalf("Failed to create a sample kubernetes config file. Err: %v", err)
-	}
-	defer os.RemoveAll(filepath.Dir(config1))
-	config2, err := generateKubeConfig("2.2.2.2", "4.4.4.4")
-	if err != nil {
-		t.Fatalf("Failed to create a sample kubernetes config file. Err: %v", err)
-	}
-	defer os.RemoveAll(filepath.Dir(config2))
+	config1 := generateKubeConfig(t, "1.1.1.1", "3.3.3.3")
+	config2 := generateKubeConfig(t, "2.2.2.2", "4.4.4.4")
 
 	tests := []struct {
 		name               string
@@ -99,11 +94,10 @@ func TestBuildClientConfig(t *testing.T) {
 	}
 }
 
-func generateKubeConfig(cluster1Host string, cluster2Host string) (string, error) {
-	tempDir, err := os.MkdirTemp("/tmp/", ".kube")
-	if err != nil {
-		return "", err
-	}
+func generateKubeConfig(t *testing.T, cluster1Host string, cluster2Host string) string {
+	t.Helper()
+
+	tempDir := t.TempDir()
 	filePath := filepath.Join(tempDir, "config")
 
 	template := `apiVersion: v1
@@ -136,11 +130,11 @@ users:
     token: sdsddsd`
 
 	sampleConfig := fmt.Sprintf(template, cluster1Host, cluster2Host)
-	err = os.WriteFile(filePath, []byte(sampleConfig), 0o644)
+	err := os.WriteFile(filePath, []byte(sampleConfig), 0o644)
 	if err != nil {
-		return "", err
+		t.Fatal(err)
 	}
-	return filePath, nil
+	return filePath
 }
 
 func TestCronJobMetadata(t *testing.T) {
@@ -379,6 +373,73 @@ func TestStripUnusedFields(t *testing.T) {
 			got, _ := StripUnusedFields(tt.obj)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("StripUnusedFields: got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSanitizeKubeConfig(t *testing.T) {
+	cases := []struct {
+		name      string
+		config    api.Config
+		allowlist sets.String
+		want      api.Config
+		wantErr   bool
+	}{
+		{
+			name:    "empty",
+			config:  api.Config{},
+			want:    api.Config{},
+			wantErr: false,
+		},
+		{
+			name: "exec",
+			config: api.Config{
+				AuthInfos: map[string]*api.AuthInfo{
+					"default": {
+						Exec: &api.ExecConfig{
+							Command: "sleep",
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name:      "exec allowlist",
+			allowlist: sets.New("exec"),
+			config: api.Config{
+				AuthInfos: map[string]*api.AuthInfo{
+					"default": {
+						Exec: &api.ExecConfig{
+							Command: "sleep",
+						},
+					},
+				},
+			},
+			want: api.Config{
+				AuthInfos: map[string]*api.AuthInfo{
+					"default": {
+						Exec: &api.ExecConfig{
+							Command: "sleep",
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			err := sanitizeKubeConfig(tt.config, tt.allowlist)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("sanitizeKubeConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			if diff := cmp.Diff(tt.config, tt.want); diff != "" {
+				t.Fatal(diff)
 			}
 		})
 	}

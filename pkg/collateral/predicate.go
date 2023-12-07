@@ -15,8 +15,8 @@
 package collateral
 
 import (
-	"istio.io/istio/pkg/collateral/metrics"
 	"istio.io/istio/pkg/env"
+	"istio.io/istio/pkg/monitoring"
 )
 
 // Predicates are a set of predicates to apply when generating collaterals.
@@ -29,14 +29,14 @@ type Predicates struct {
 type SelectEnvFn func(env.Var) bool
 
 // SelectMetricFn is a predicate function for selecting metrics when generating collateral documents.
-type SelectMetricFn func(metrics.Exported) bool
+type SelectMetricFn func(monitoring.MetricDefinition) bool
 
 // DefaultSelectEnvFn is used to select all environment variables.
 func DefaultSelectEnvFn(_ env.Var) bool {
 	return true
 }
 
-// DefaultSelectMetricFn is used to seelct all metrics.
-func DefaultSelectMetricFn(_ metrics.Exported) bool {
+// DefaultSelectMetricFn is used to select all metrics.
+func DefaultSelectMetricFn(_ monitoring.MetricDefinition) bool {
 	return true
 }

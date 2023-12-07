@@ -57,7 +57,7 @@ func (s *EnvoyPatchAnalyzer) Analyze(c analysis.Context) {
 func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, priority int32, patchFilterNames []string, instanceName string) {
 	if priority == 0 {
 		// there is more than one envoy filter that uses the same name where the proxy version
-		// is set and the priorty is not set and a relative operator is used.  Issue a warning
+		// is set and the priority is not set and a relative operator is used.  Issue a warning
 		message := msg.NewEnvoyFilterUsesRelativeOperation(r)
 
 		// if the proxyVersion is set choose that error message over the relative operation message as
@@ -73,7 +73,7 @@ func relativeOperationMsg(r *resource.Instance, c analysis.Context, index int, p
 
 		if count > 0 {
 			// there is more than one envoy filter that uses the same name where the proxy version
-			// is set and the priorty is not set and a relative operator is used.  Issue a warning
+			// is set and the priority is not set and a relative operator is used.  Issue a warning
 			message = msg.NewEnvoyFilterUsesRelativeOperationWithProxyVersion(r)
 		}
 

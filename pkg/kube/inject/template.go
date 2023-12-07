@@ -49,7 +49,6 @@ func createInjectionFuncmap() template.FuncMap {
 		"annotation":          getAnnotation,
 		"valueOrDefault":      valueOrDefault,
 		"toJSON":              toJSON,
-		"toJson":              toJSON, // Used by, e.g. Istio 1.0.5 template sidecar-injector-configmap.yaml
 		"fromJSON":            fromJSON,
 		"structToJSON":        structToJSON,
 		"protoToJSON":         protoToJSON,
@@ -63,6 +62,7 @@ func createInjectionFuncmap() template.FuncMap {
 		"omit":                omit,
 		"strdict":             strdict,
 		"toJsonMap":           toJSONMap,
+		"mergeMaps":           mergeMaps,
 	}
 }
 

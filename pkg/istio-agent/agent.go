@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
+	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -78,6 +79,13 @@ const (
 )
 
 var _ ready.Prober = &Agent{}
+
+type LifecycleEvent string
+
+const (
+	DrainLifecycleEvent LifecycleEvent = "drain"
+	ExitLifecycleEvent  LifecycleEvent = "exit"
+)
 
 // Agent contains the configuration of the agent, based on the injected
 // environment:
@@ -186,6 +194,14 @@ type AgentOptions struct {
 	IstiodSAN string
 
 	WASMOptions wasm.Options
+
+	// Is the proxy in Dual Stack environment
+	DualStack bool
+
+	UseExternalWorkloadSDS bool
+
+	// Enable metadata discovery bootstrap extension
+	MetadataDiscovery bool
 }
 
 // NewAgent hosts the functionality for local SDS and XDS. This consists of the local SDS server and
@@ -240,6 +256,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 		EnvoyStatusPort:             a.cfg.EnvoyStatusPort,
 		ExitOnZeroActiveConnections: a.cfg.ExitOnZeroActiveConnections,
 		XDSRootCert:                 a.cfg.XDSRootCerts,
+		MetadataDiscovery:           a.cfg.MetadataDiscovery,
 	})
 }
 
@@ -281,6 +298,8 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	// used.
 	a.envoyOpts.AgentIsRoot = os.Getuid() == 0 && strings.HasSuffix(a.cfg.DNSAddr, ":53")
 
+	a.envoyOpts.DualStack = a.cfg.DualStack
+
 	envoyProxy := envoy.NewProxy(a.envoyOpts)
 
 	drainDuration := a.proxyConfig.TerminationDrainDuration.AsDuration()
@@ -302,6 +321,7 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 				errCh:       a.dynamicBootstrapWaitCh,
 				envoyUpdate: envoyProxy.UpdateConfig,
 			}
+			a.xdsProxy.handlers[v3.BootstrapType] = bsStream.bootStrapHandler
 			err := a.xdsProxy.handleStream(bsStream)
 			if err != nil {
 				log.Warn(err)
@@ -337,10 +357,12 @@ func (a *Agent) Run(ctx context.Context) (func(), error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to check SDS socket: %v", err)
 	}
-
 	if socketExists {
 		log.Info("Workload SDS socket found. Istio SDS Server won't be started")
 	} else {
+		if a.cfg.UseExternalWorkloadSDS {
+			return nil, errors.New("workload SDS socket is required but not found")
+		}
 		log.Info("Workload SDS socket not found. Starting Istio SDS Server")
 		err = a.initSdsServer()
 		if err != nil {
@@ -829,4 +851,8 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 // GRPCBootstrapPath returns the most recently generated gRPC bootstrap or nil if there is none.
 func (a *Agent) GRPCBootstrapPath() string {
 	return a.cfg.GRPCBootstrapPath
+}
+
+func (a *Agent) DrainNow() {
+	a.envoyAgent.DrainNow()
 }

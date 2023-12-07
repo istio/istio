@@ -135,9 +135,7 @@ func (e *errorWrapper) Log(args ...any) {
 }
 
 func (e *errorWrapper) Logf(format string, args ...any) {
-	ag := []any{format}
-	ag = append(ag, args...)
-	log.Infof(ag...)
+	log.Infof(format, args...)
 }
 
 func (e *errorWrapper) TempDir() string {

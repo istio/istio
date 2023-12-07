@@ -61,7 +61,7 @@ func GenCSR(options CertOptions) ([]byte, []byte, error) {
 		}
 	} else {
 		if options.RSAKeySize < minimumRsaKeySize {
-			return nil, nil, fmt.Errorf("requested key size does not meet the minimum requied size of %d (requested: %d)", minimumRsaKeySize, options.RSAKeySize)
+			return nil, nil, fmt.Errorf("requested key size does not meet the minimum required size of %d (requested: %d)", minimumRsaKeySize, options.RSAKeySize)
 		}
 
 		priv, err = rsa.GenerateKey(rand.Reader, options.RSAKeySize)
@@ -117,7 +117,7 @@ func AppendRootCerts(pemCert []byte, rootCertFile string) ([]byte, error) {
 	if len(rootCertFile) > 0 {
 		log.Debugf("append root certificates from %v", rootCertFile)
 		certBytes, err := os.ReadFile(rootCertFile)
-		if err != nil {
+		if err != nil && !os.IsNotExist(err) {
 			return rootCerts, fmt.Errorf("failed to read root certificates (%v)", err)
 		}
 		rootCerts = AppendCertByte(pemCert, certBytes)

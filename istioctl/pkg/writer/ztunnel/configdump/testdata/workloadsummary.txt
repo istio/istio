@@ -1,0 +1,28 @@
+NAMESPACE          NAME                                                 NETWORK  IP          NODE                  WAYPOINT                            PROTOCOL
+bookinfo           bookinfo-productpage-istio-waypoint-5cdd6745d5-rc2gg          10.244.2.59 ambient-worker2       None                                TCP
+bookinfo           details-v1-698d88b-dqrbr                                      10.244.2.51 ambient-worker2       namespace-istio-waypoint            HBONE
+bookinfo           namespace-istio-waypoint-d94944bf6-z89g2                      10.244.2.52 ambient-worker2       None                                TCP
+bookinfo           productpage-v1-675fc69cf-jscn2                                10.244.2.53 ambient-worker2       bookinfo-productpage-istio-waypoint HBONE
+bookinfo           ratings-v1-6484c4d9bb-mdxm5                          network1 10.244.2.54 ambient-worker2       namespace-istio-waypoint            HBONE
+bookinfo           reviews-v1-5b5d6494f4-qwjv4                                   10.244.1.37 ambient-worker        namespace-istio-waypoint            HBONE
+bookinfo           reviews-v2-5b667bcbf8-q5pn2                                   10.244.1.38 ambient-worker        namespace-istio-waypoint            HBONE
+bookinfo           reviews-v3-5b9bd44f4-7fff4                           network3 10.244.1.39 ambient-worker        namespace-istio-waypoint            HBONE
+default            details-v1-698d88b-krdw7                                      10.244.2.55 ambient-worker2       None                                HBONE
+default            httpbin-7447985f87-t8hv7                                      10.244.1.40 ambient-worker        None                                TCP
+default            productpage-v1-675fc69cf-kkrm2                                10.244.2.56 ambient-worker2       None                                HBONE
+default            ratings-v1-6484c4d9bb-8xc2r                                   10.244.2.57 ambient-worker2       None                                HBONE
+default            reviews-v1-5b5d6494f4-c7z5w                                   10.244.1.41 ambient-worker        None                                HBONE
+default            reviews-v2-5b667bcbf8-twvx6                                   10.244.1.42 ambient-worker        None                                HBONE
+default            reviews-v3-5b9bd44f4-z9ms4                                    10.244.1.43 ambient-worker        None                                HBONE
+default            sleep-7656cf8794-lxcmx                                        10.244.2.58 ambient-worker2       None                                HBONE
+gateway-system     gateway-api-admission-server-85985d48ff-5jcvd                 10.244.2.8  ambient-worker2       None                                TCP
+httpbin            httpbin-65975d4c6f-jr69n                                      10.244.1.10 ambient-worker        None                                TCP
+istio-system       istiod-8c7b98fc4-mwjfp                                        10.244.2.49 ambient-worker2       None                                TCP
+istio-system       istiod-test-6bdfb786d-s58pj                          network2 10.244.1.34 ambient-worker        None                                TCP
+istio-system       ztunnel-n5bg2                                                 10.244.0.8  ambient-control-plane None                                TCP
+istio-system       ztunnel-qk2pp                                                 10.244.2.60 ambient-worker2       None                                TCP
+istio-system       ztunnel-xljhg                                                 10.244.1.44 ambient-worker        None                                TCP
+kube-system        coredns-5dd5756b68-mgjn9                                      10.244.0.2  ambient-control-plane None                                TCP
+kube-system        coredns-5dd5756b68-nzlpw                                      10.244.0.3  ambient-control-plane None                                TCP
+local-path-storage local-path-provisioner-6f8956fb48-vvnpn                       10.244.0.4  ambient-control-plane None                                TCP
+sleep              sleep-7656cf8794-qpvbm                                        10.244.1.16 ambient-worker        None                                TCP

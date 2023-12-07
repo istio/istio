@@ -39,7 +39,6 @@ func TestClientTracing(t *testing.T) {
 		Features("observability.telemetry.tracing.client").
 		Run(func(t framework.TestContext) {
 			appNsInst := tracing.GetAppNamespace()
-			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
 			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
 				cluster := cluster
 				t.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {

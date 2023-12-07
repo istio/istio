@@ -163,6 +163,26 @@ meshConfig:
     discoveryAddress: istiod:15012
 `,
 		},
+		{
+			desc: "BadValuesIP with Space start",
+			yamlStr: `
+values:
+  global:
+    proxy:
+      includeIPRanges: "1.1.0.0/16, 2.2.0.0/16"
+`,
+			wantErrs: makeErrors([]string{`global.proxy.includeIPRanges netip.ParsePrefix(" 2.2.0.0/16"): ParseAddr(" 2.2.0.0"): unexpected character (at " 2.2.0.0")`}),
+		},
+		{
+			desc: "BadValuesIP with Space end",
+			yamlStr: `
+values:
+  global:
+    proxy:
+      includeIPRanges: "1.1.0.0/16 ,2.2.0.0/16"
+`,
+			wantErrs: makeErrors([]string{`global.proxy.includeIPRanges netip.ParsePrefix("1.1.0.0/16 "): bad bits after slash: "16 "`}),
+		},
 	}
 
 	for _, tt := range tests {

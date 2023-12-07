@@ -16,55 +16,27 @@ package xds
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials"
-	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/spiffe"
 )
-
-var AuthPlaintext = env.Register("XDS_AUTH_PLAINTEXT", false,
-	"Authenticate plain text requests - used if Istiod is running on a secure/trusted network").Get()
 
 // authenticate authenticates the ADS request using the configured authenticators.
 // Returns the validated principals or an error.
 // If no authenticators are configured, or if the request is on a non-secure
 // stream ( 15010 ) - returns an empty list of principals and no errors.
 func (s *DiscoveryServer) authenticate(ctx context.Context) ([]string, error) {
-	if !features.XDSAuth {
-		return nil, nil
+	c, err := security.Authenticate(ctx, s.Authenticators)
+	if c != nil {
+		return c.Identities, nil
 	}
-
-	// Authenticate - currently just checks that request has a certificate signed with the our key.
-	// Protected by flag to avoid breaking upgrades - should be enabled in multi-cluster/meshexpansion where
-	// XDS is exposed.
-	peerInfo, ok := peer.FromContext(ctx)
-	if !ok {
-		return nil, errors.New("invalid context")
-	}
-	// Not a TLS connection, we will not perform authentication
-	// TODO: add a flag to prevent unauthenticated requests ( 15010 )
-	// request not over TLS on the insecure port
-	if _, ok := peerInfo.AuthInfo.(credentials.TLSInfo); !ok && !AuthPlaintext {
-		return nil, nil
-	}
-
-	am := security.AuthenticationManager{
-		Authenticators: s.Authenticators,
-	}
-	if u := am.Authenticate(ctx); u != nil {
-		return u.Identities, nil
-	}
-	log.Errorf("Failed to authenticate client from %s: %s", peerInfo.Addr.String(), am.FailedMessages())
-	return nil, errors.New("authentication failure")
+	return nil, err
 }
 
 func (s *DiscoveryServer) authorize(con *Connection, identities []string) error {

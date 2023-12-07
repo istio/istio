@@ -32,7 +32,7 @@ type Version struct {
 	DataPlaneVersion *[]ProxyInfo `json:"dataPlaneVersion,omitempty" yaml:"dataPlaneVersion,omitempty"`
 }
 
-// GetRemoteVersionFunc is the function protoype to be passed to CobraOptions so that it is
+// GetRemoteVersionFunc is the function prototype to be passed to CobraOptions so that it is
 // called when invoking `cmd version`
 type (
 	GetRemoteVersionFunc func() (*MeshInfo, error)

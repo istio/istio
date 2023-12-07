@@ -20,18 +20,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/gomega"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/tools/clientcmd/api"
+	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/pkg/util/sets"
 )
 
 const secretNamespace string = "istio-system"
@@ -41,11 +39,11 @@ type clusterCredential struct {
 	kubeconfig []byte
 }
 
-func makeSecret(secret string, clusterConfigs ...clusterCredential) *v1.Secret {
+func makeSecret(namespace string, secret string, clusterConfigs ...clusterCredential) *v1.Secret {
 	s := &v1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secret,
-			Namespace: secretNamespace,
+			Namespace: namespace,
 			Labels: map[string]string{
 				MultiClusterSecretLabel: "true",
 			},
@@ -70,25 +68,22 @@ var _ ClusterHandler = &handler{}
 
 type handler struct{}
 
-func (h handler) ClusterAdded(cluster *Cluster, stop <-chan struct{}) error {
+func (h handler) ClusterAdded(cluster *Cluster, stop <-chan struct{}) {
 	mu.Lock()
 	defer mu.Unlock()
 	added = cluster.ID
-	return nil
 }
 
-func (h handler) ClusterUpdated(cluster *Cluster, stop <-chan struct{}) error {
+func (h handler) ClusterUpdated(cluster *Cluster, stop <-chan struct{}) {
 	mu.Lock()
 	defer mu.Unlock()
 	updated = cluster.ID
-	return nil
 }
 
-func (h handler) ClusterDeleted(id cluster.ID) error {
+func (h handler) ClusterDeleted(id cluster.ID) {
 	mu.Lock()
 	defer mu.Unlock()
 	deleted = id
-	return nil
 }
 
 func resetCallbackData() {
@@ -97,23 +92,77 @@ func resetCallbackData() {
 	deleted = ""
 }
 
-func Test_SecretController(t *testing.T) {
-	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID) (kube.Client, error) {
+func TestKubeConfigOverride(t *testing.T) {
+	var (
+		expectedQPS   = float32(100)
+		expectedBurst = 200
+	)
+	fakeRestConfig := &rest.Config{}
+	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		for _, override := range configOverrides {
+			override(fakeRestConfig)
+		}
+		return kube.NewFakeClient(), nil
+	}
+	clientset := kube.NewFakeClient()
+	stopCh := test.NewStop(t)
+	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil), func(cfg *rest.Config) {
+		cfg.QPS = expectedQPS
+		cfg.Burst = expectedBurst
+	})
+	clientset.RunAndWait(stopCh)
+	c.AddHandler(&handler{})
+	clientset.RunAndWait(stopCh)
+	_ = c.Run(stopCh)
+	t.Run("sync timeout", func(t *testing.T) {
+		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
+	})
+	kube.WaitForCacheSync("test", stopCh, c.HasSynced)
+	secret0 := makeSecret(secretNamespace, "s0",
+		clusterCredential{"c0", []byte("kubeconfig0-0")})
+
+	t.Run("test kube config override", func(t *testing.T) {
+		g := NewWithT(t)
+		_, err := clientset.Kube().CoreV1().Secrets(secret0.Namespace).Create(context.TODO(), secret0, metav1.CreateOptions{})
+		g.Expect(err).Should(BeNil())
+
+		g.Eventually(func() *Cluster {
+			return c.cs.GetByID("c0")
+		}, 10*time.Second).ShouldNot(BeNil())
+
+		g.Expect(fakeRestConfig).Should(Equal(&rest.Config{
+			QPS:   expectedQPS,
+			Burst: expectedBurst,
+		}))
+	})
+}
+
+func TestSecretController(t *testing.T) {
+	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
 
 	clientset := kube.NewFakeClient()
 
 	var (
-		secret0                        = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-0")})
-		secret0UpdateKubeconfigChanged = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")})
-		secret0UpdateKubeconfigSame    = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")})
-		secret0AddCluster              = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
-		secret0DeleteCluster           = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
-		secret0ReAddCluster            = makeSecret("s0", clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
-		secret0ReDeleteCluster         = secret0UpdateKubeconfigChanged // "c0-1" cluster re-deleted
-		secret1                        = makeSecret("s1", clusterCredential{"c1", []byte("kubeconfig1-0")})
+		secret0 = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-0")})
+		secret0UpdateKubeconfigChanged = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")})
+		secret0UpdateKubeconfigSame = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")})
+		secret0AddCluster = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
+		secret0DeleteCluster = secret0UpdateKubeconfigChanged // "c0-1" cluster deleted
+		secret0ReAddCluster  = makeSecret(secretNamespace, "s0",
+			clusterCredential{"c0", []byte("kubeconfig0-1")}, clusterCredential{"c0-1", []byte("kubeconfig0-2")})
+		secret0ReDeleteCluster = secret0UpdateKubeconfigChanged // "c0-1" cluster re-deleted
+		secret1                = makeSecret(secretNamespace, "s1",
+			clusterCredential{"c1", []byte("kubeconfig1-0")})
+		otherNSSecret = makeSecret("some-other-namespace", "s2",
+			clusterCredential{"c1", []byte("kubeconfig1-0")})
 	)
+
 	secret0UpdateKubeconfigSame.Annotations = map[string]string{"foo": "bar"}
 
 	steps := []struct {
@@ -181,6 +230,10 @@ func Test_SecretController(t *testing.T) {
 			delete:      secret1,
 			wantDeleted: "c1",
 		},
+		{
+			name: "Add secret from another namespace",
+			add:  otherNSSecret,
+		},
 	}
 
 	// Start the secret controller and sleep to allow secret process to start.
@@ -203,13 +256,13 @@ func Test_SecretController(t *testing.T) {
 
 			switch {
 			case step.add != nil:
-				_, err := clientset.Kube().CoreV1().Secrets(secretNamespace).Create(context.TODO(), step.add, metav1.CreateOptions{})
+				_, err := clientset.Kube().CoreV1().Secrets(step.add.Namespace).Create(context.TODO(), step.add, metav1.CreateOptions{})
 				g.Expect(err).Should(BeNil())
 			case step.update != nil:
-				_, err := clientset.Kube().CoreV1().Secrets(secretNamespace).Update(context.TODO(), step.update, metav1.UpdateOptions{})
+				_, err := clientset.Kube().CoreV1().Secrets(step.update.Namespace).Update(context.TODO(), step.update, metav1.UpdateOptions{})
 				g.Expect(err).Should(BeNil())
 			case step.delete != nil:
-				g.Expect(clientset.Kube().CoreV1().Secrets(secretNamespace).Delete(context.TODO(), step.delete.Name, metav1.DeleteOptions{})).
+				g.Expect(clientset.Kube().CoreV1().Secrets(step.delete.Namespace).Delete(context.TODO(), step.delete.Name, metav1.DeleteOptions{})).
 					Should(Succeed())
 			}
 
@@ -238,73 +291,6 @@ func Test_SecretController(t *testing.T) {
 					defer mu.Unlock()
 					return added == "" && updated == "" && deleted == ""
 				}).Should(Equal(true))
-			}
-		})
-	}
-}
-
-func TestSanitizeKubeConfig(t *testing.T) {
-	cases := []struct {
-		name      string
-		config    api.Config
-		allowlist sets.String
-		want      api.Config
-		wantErr   bool
-	}{
-		{
-			name:    "empty",
-			config:  api.Config{},
-			want:    api.Config{},
-			wantErr: false,
-		},
-		{
-			name: "exec",
-			config: api.Config{
-				AuthInfos: map[string]*api.AuthInfo{
-					"default": {
-						Exec: &api.ExecConfig{
-							Command: "sleep",
-						},
-					},
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name:      "exec allowlist",
-			allowlist: sets.New("exec"),
-			config: api.Config{
-				AuthInfos: map[string]*api.AuthInfo{
-					"default": {
-						Exec: &api.ExecConfig{
-							Command: "sleep",
-						},
-					},
-				},
-			},
-			want: api.Config{
-				AuthInfos: map[string]*api.AuthInfo{
-					"default": {
-						Exec: &api.ExecConfig{
-							Command: "sleep",
-						},
-					},
-				},
-			},
-			wantErr: false,
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			err := sanitizeKubeConfig(tt.config, tt.allowlist)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("sanitizeKubeConfig() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if err != nil {
-				return
-			}
-			if diff := cmp.Diff(tt.config, tt.want); diff != "" {
-				t.Fatal(diff)
 			}
 		})
 	}

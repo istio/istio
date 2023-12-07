@@ -15,18 +15,21 @@
 package model
 
 import (
+	"errors"
+
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/maps"
 )
 
 type FakeStore struct {
-	store map[config.GroupVersionKind]map[string][]config.Config
+	store map[config.GroupVersionKind]map[string]map[string]config.Config
 }
 
 func NewFakeStore() *FakeStore {
 	f := FakeStore{
-		store: make(map[config.GroupVersionKind]map[string][]config.Config),
+		store: make(map[config.GroupVersionKind]map[string]map[string]config.Config),
 	}
 	return &f
 }
@@ -37,7 +40,23 @@ func (s *FakeStore) Schemas() collection.Schemas {
 	return collections.Pilot
 }
 
-func (*FakeStore) Get(typ config.GroupVersionKind, name, namespace string) *config.Config { return nil }
+func (s *FakeStore) Get(typ config.GroupVersionKind, name, namespace string) *config.Config {
+	nsConfigs := s.store[typ]
+	if nsConfigs == nil {
+		return nil
+	}
+
+	configs := nsConfigs[namespace]
+	if configs == nil {
+		return nil
+	}
+
+	if config, f := configs[name]; f {
+		return &config
+	}
+
+	return nil
+}
 
 func (s *FakeStore) List(typ config.GroupVersionKind, namespace string) []config.Config {
 	nsConfigs := s.store[typ]
@@ -47,24 +66,47 @@ func (s *FakeStore) List(typ config.GroupVersionKind, namespace string) []config
 	var res []config.Config
 	if namespace == NamespaceAll {
 		for _, configs := range nsConfigs {
-			res = append(res, configs...)
+			for _, cfg := range configs {
+				res = append(res, cfg)
+			}
 		}
 		return res
 	}
-	return nsConfigs[namespace]
+
+	return maps.Values(nsConfigs[namespace])
 }
 
 func (s *FakeStore) Create(cfg config.Config) (revision string, err error) {
-	configs := s.store[cfg.GroupVersionKind]
-	if configs == nil {
-		configs = make(map[string][]config.Config)
+	nsConfigs := s.store[cfg.GroupVersionKind]
+	if nsConfigs == nil {
+		nsConfigs = make(map[string]map[string]config.Config)
+		s.store[cfg.GroupVersionKind] = nsConfigs
 	}
-	configs[cfg.Namespace] = append(configs[cfg.Namespace], cfg)
-	s.store[cfg.GroupVersionKind] = configs
+
+	configs := nsConfigs[cfg.Namespace]
+	if configs == nil {
+		configs = make(map[string]config.Config)
+		nsConfigs[cfg.Namespace] = configs
+	}
+
+	configs[cfg.Name] = cfg
 	return "", nil
 }
 
-func (*FakeStore) Update(config config.Config) (newRevision string, err error) { return "", nil }
+func (s *FakeStore) Update(cfg config.Config) (newRevision string, err error) {
+	nsConfigs := s.store[cfg.GroupVersionKind]
+	if nsConfigs != nil {
+		configs := nsConfigs[cfg.Namespace]
+		if configs != nil {
+			if _, f := configs[cfg.Name]; f {
+				configs[cfg.Name] = cfg
+				return "", nil
+			}
+		}
+	}
+
+	return "", errors.New("config not found")
+}
 
 func (*FakeStore) UpdateStatus(config config.Config) (string, error) { return "", nil }
 
@@ -72,6 +114,17 @@ func (*FakeStore) Patch(orig config.Config, patchFn config.PatchFunc) (string, e
 	return "", nil
 }
 
-func (*FakeStore) Delete(typ config.GroupVersionKind, name, namespace string, rv *string) error {
+func (s *FakeStore) Delete(typ config.GroupVersionKind, name, namespace string, rv *string) error {
+	nsConfigs := s.store[typ]
+	if nsConfigs == nil {
+		return nil
+	}
+
+	configs := nsConfigs[namespace]
+	if configs == nil {
+		return nil
+	}
+
+	delete(configs, name)
 	return nil
 }

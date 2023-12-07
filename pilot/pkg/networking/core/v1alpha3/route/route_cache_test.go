@@ -107,7 +107,7 @@ func TestDependentConfigs(t *testing.T) {
 			},
 		},
 		{
-			name: "singe parent",
+			name: "single parent",
 			r: Cache{
 				VirtualServices: []config.Config{
 					{
@@ -204,6 +204,49 @@ func TestDependentConfigs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.r.DependentConfigs(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("DependentConfigs got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestExtractNamespaceForKubernetesService(t *testing.T) {
+	tests := []struct {
+		hostname string
+		want     string
+	}{
+		{
+			"foo.ns.svc.cluster.local",
+			"ns",
+		},
+		{
+			"foo.svc.cluster.local",
+			"",
+		},
+		{
+			"svc.ns.svc.svc.svc",
+			"ns",
+		},
+		{
+			".svc.",
+			"",
+		},
+		{
+			"..svc.",
+			"",
+		},
+		{
+			"x.svc.",
+			"",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.hostname, func(t *testing.T) {
+			got, err := extractNamespaceForKubernetesService(tt.hostname)
+			if (err != nil) != (tt.want == "") {
+				t.Fatalf("unexpected error = %v", err)
+			}
+			if got != tt.want {
+				t.Fatalf("got = %v, want %v", got, tt.want)
 			}
 		})
 	}

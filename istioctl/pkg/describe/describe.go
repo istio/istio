@@ -29,7 +29,6 @@ import (
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	rbachttp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/rbac/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -39,6 +38,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 
 	apiannotation "istio.io/api/annotation"
+	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	typev1beta1 "istio.io/api/type/v1beta1"
@@ -54,7 +54,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	authnv1beta1 "istio.io/istio/pilot/pkg/security/authn/v1beta1"
+	"istio.io/istio/pilot/pkg/security/authn"
 	pilotcontroller "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config"
@@ -64,7 +64,11 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/url"
+	"istio.io/istio/pkg/wellknown"
 )
 
 type myProtoValue struct {
@@ -112,7 +116,7 @@ the configuration objects that affect that pod.`,
 
 			podLabels := klabels.Set(pod.ObjectMeta.Labels)
 			annotations := klabels.Set(pod.ObjectMeta.Annotations)
-			opts.Revision = getRevisionFromPodAnnotation(annotations)
+			opts.Revision = GetRevisionFromPodAnnotation(annotations)
 
 			printPod(writer, pod, opts.Revision)
 
@@ -175,7 +179,10 @@ the configuration objects that affect that pod.`,
 	return cmd
 }
 
-func getRevisionFromPodAnnotation(anno klabels.Set) string {
+func GetRevisionFromPodAnnotation(anno klabels.Set) string {
+	if v, ok := anno[label.IoIstioRev.Name]; ok {
+		return v
+	}
 	statusString := anno.Get(apiannotation.SidecarStatus.Name)
 	var injectionStatus inject.SidecarInjectionStatus
 	if err := json.Unmarshal([]byte(statusString), &injectionStatus); err != nil {
@@ -297,13 +304,13 @@ func httpRouteMatchSvc(vs *clientnetworking.VirtualService, route *v1alpha3.HTTP
 		fqdn := string(model.ResolveShortnameToFQDN(dest.Destination.Host, config.Meta{Namespace: vs.Namespace}))
 		if extendFQDN(fqdn) == svcHost {
 			if dest.Destination.Subset != "" {
-				if Contains(nonmatchingSubsets, dest.Destination.Subset) {
+				if slices.Contains(nonmatchingSubsets, dest.Destination.Subset) {
 					mismatchNotes = append(mismatchNotes, fmt.Sprintf("Route to non-matching subset %s for (%s)",
 						dest.Destination.Subset,
 						renderMatches(route.Match)))
 					continue
 				}
-				if !Contains(matchingSubsets, dest.Destination.Subset) {
+				if !slices.Contains(matchingSubsets, dest.Destination.Subset) {
 					if dr == nil {
 						// Don't bother giving the match conditions, the problem is that there are unknowns in the VirtualService
 						mismatchNotes = append(mismatchNotes, fmt.Sprintf("Warning: Route to subset %s but NO DESTINATION RULE defining subsets!", dest.Destination.Subset))
@@ -470,6 +477,11 @@ func printPod(writer io.Writer, pod *corev1.Pod, revision string) {
 			fmt.Fprintf(writer, "WARNING: Pod %s Container %s NOT READY\n", kname(pod.ObjectMeta), containerStatus.Name)
 		}
 	}
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
+		if !containerStatus.Ready {
+			fmt.Fprintf(writer, "WARNING: Pod %s Init Container %s NOT READY\n", kname(pod.ObjectMeta), containerStatus.Name)
+		}
+	}
 
 	if ignoreUnmeshed {
 		return
@@ -489,13 +501,13 @@ func printPod(writer io.Writer, pod *corev1.Pod, revision string) {
 
 	// https://istio.io/docs/setup/kubernetes/additional-setup/requirements/
 	// says "We recommend adding an explicit app label and version label to deployments."
-	app, ok := pod.ObjectMeta.Labels["app"]
-	if !ok || app == "" {
-		fmt.Fprintf(writer, "Suggestion: add 'app' label to pod for Istio telemetry.\n")
+	if !labels.HasCanonicalServiceName(pod.Labels) {
+		fmt.Fprintf(writer, "Suggestion: add required service name label for Istio telemetry. "+
+			"See %s.\n", url.DeploymentRequirements)
 	}
-	version, ok := pod.ObjectMeta.Labels["version"]
-	if !ok || version == "" {
-		fmt.Fprintf(writer, "Suggestion: add 'version' label to pod for Istio telemetry.\n")
+	if !labels.HasCanonicalServiceRevision(pod.Labels) {
+		fmt.Fprintf(writer, "Suggestion: add required service revision label for Istio telemetry. "+
+			"See %s.\n", url.DeploymentRequirements)
 	}
 }
 
@@ -536,24 +548,8 @@ func findProtocolForPort(port *corev1.ServicePort) string {
 	return protocol
 }
 
-func Contains(slice []string, s string) bool {
-	for _, candidate := range slice {
-		if candidate == s {
-			return true
-		}
-	}
-
-	return false
-}
-
 func isMeshed(pod *corev1.Pod) bool {
-	var sidecar bool
-
-	for _, container := range pod.Spec.Containers {
-		sidecar = sidecar || (container.Name == inject.ProxyContainerName)
-	}
-
-	return sidecar
+	return inject.FindSidecar(pod) != nil
 }
 
 // Extract value of key out of Struct, but always return a Struct, even if the value isn't one
@@ -914,13 +910,17 @@ func printIngressInfo(
 	pod := pods.Items[0]
 
 	// Currently no support for non-standard gateways selecting non ingressgateway pods
-	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(context.TODO(), metav1.ListOptions{
-		LabelSelector: "istio=ingressgateway",
-	})
+	ingressSvcs, err := kubeClient.CoreV1().Services(istioNamespace).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return multierror.Prefix(err, "Could not find ingress gateway service")
 	}
-	if len(ingressSvcs.Items) == 0 {
+	filteredIngressSvcs := []corev1.Service{}
+	for _, svc := range ingressSvcs.Items {
+		if v, ok := svc.Spec.Selector["istio"]; ok && v == "ingressgateway" {
+			filteredIngressSvcs = append(filteredIngressSvcs, svc)
+		}
+	}
+	if len(filteredIngressSvcs) == 0 {
 		return fmt.Errorf("no ingress gateway service")
 	}
 	byConfigDump, err := client.EnvoyDo(context.TODO(), pod.Name, pod.Namespace, "GET", "config_dump")
@@ -934,7 +934,7 @@ func printIngressInfo(
 		return fmt.Errorf("can't parse ingress gateway sidecar config_dump: %v", err)
 	}
 
-	ipIngress := getIngressIP(ingressSvcs.Items[0], pod)
+	ipIngress := getIngressIP(filteredIngressSvcs[0], pod)
 
 	for row, svc := range matchingServices {
 		for _, port := range svc.Spec.Ports {
@@ -963,7 +963,7 @@ func printIngressInfo(
 						fmt.Fprintf(writer, "--------------------\n")
 					}
 
-					printIngressService(writer, &ingressSvcs.Items[0], &pod, ipIngress)
+					printIngressService(writer, &filteredIngressSvcs[0], &pod, ipIngress)
 					printVirtualService(writer, vs, svc, matchingSubsets, nonmatchingSubsets, dr)
 				} else {
 					fmt.Fprintf(writer,
@@ -1228,6 +1228,11 @@ func containerReady(pod *corev1.Pod, containerName string) (bool, error) {
 			return containerStatus.Ready, nil
 		}
 	}
+	for _, containerStatus := range pod.Status.InitContainerStatuses {
+		if containerStatus.Name == containerName {
+			return containerStatus.Ready, nil
+		}
+	}
 	return false, fmt.Errorf("no container %q in pod", containerName)
 }
 
@@ -1267,7 +1272,7 @@ func describePeerAuthentication(
 	}
 
 	matchedPA := findMatchedConfigs(podsLabels, cfgs)
-	effectivePA := authnv1beta1.ComposePeerAuthentication(meshCfg.RootNamespace, matchedPA)
+	effectivePA := authn.ComposePeerAuthentication(meshCfg.RootNamespace, matchedPA)
 	printPeerAuthentication(writer, effectivePA)
 	if len(matchedPA) != 0 {
 		printConfigs(writer, matchedPA)
@@ -1319,7 +1324,7 @@ func printConfigs(writer io.Writer, configs []*config.Config) {
 	fmt.Fprintf(writer, "   %s\n", cfgNames)
 }
 
-func printPeerAuthentication(writer io.Writer, pa authnv1beta1.MergedPeerAuthentication) {
+func printPeerAuthentication(writer io.Writer, pa authn.MergedPeerAuthentication) {
 	fmt.Fprintf(writer, "Effective PeerAuthentication:\n")
 	fmt.Fprintf(writer, "   Workload mTLS mode: %s\n", pa.Mode.String())
 	if len(pa.PerPort) != 0 {

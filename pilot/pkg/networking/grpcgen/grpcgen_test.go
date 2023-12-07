@@ -204,7 +204,10 @@ func TestGRPC(t *testing.T) {
 			grpcOptions = append(grpcOptions, xdsgrpc.BootstrapContentsForTesting(bootstrapB))
 
 			// Replaces: grpc NewServer
-			grpcServer := xdsgrpc.NewGRPCServer(grpcOptions...)
+			grpcServer, err := xdsgrpc.NewGRPCServer(grpcOptions...)
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			testRBAC(t, grpcServer, xdsresolver, "echo-rbac-mtls", port, lis)
 		})
@@ -366,7 +369,7 @@ func initPersistent(sd *memory.ServiceDiscovery) {
 func initRBACTests(sd *memory.ServiceDiscovery, store model.ConfigStore, svcname string, port int, mtls bool) {
 	ns := "test"
 	hn := svcname + "." + ns + ".svc.cluster.local"
-	// The 'memory' store GetProxyServiceInstances uses the IP address of the node and endpoints to
+	// The 'memory' store GetProxyServiceTargets uses the IP address of the node and endpoints to
 	// identify the service. In k8s store, labels are matched instead.
 	// For server configs to work, the server XDS bootstrap must match the IP.
 	sd.AddService(&model.Service{
@@ -530,7 +533,7 @@ func testRBAC(t *testing.T, grpcServer *xdsgrpc.GRPCServer, xdsresolver resolver
 }
 
 // From xds_resolver_test
-// testClientConn is a fake implemetation of resolver.ClientConn. All is does
+// testClientConn is a fake implementation of resolver.ClientConn. All is does
 // is to store the state received from the resolver locally and signal that
 // event through a channel.
 type testClientConn struct {

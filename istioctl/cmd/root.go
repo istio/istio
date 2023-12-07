@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/istioctl/pkg/dashboard"
 	"istio.io/istio/istioctl/pkg/describe"
 	"istio.io/istio/istioctl/pkg/injector"
-	"istio.io/istio/istioctl/pkg/install"
 	"istio.io/istio/istioctl/pkg/internaldebug"
 	"istio.io/istio/istioctl/pkg/kubeinject"
 	"istio.io/istio/istioctl/pkg/metrics"
@@ -42,7 +41,6 @@ import (
 	"istio.io/istio/istioctl/pkg/precheck"
 	"istio.io/istio/istioctl/pkg/proxyconfig"
 	"istio.io/istio/istioctl/pkg/proxystatus"
-	"istio.io/istio/istioctl/pkg/revision"
 	"istio.io/istio/istioctl/pkg/root"
 	"istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util"
@@ -118,13 +116,12 @@ debug and diagnose their Istio mesh.
 	flags := rootCmd.PersistentFlags()
 	rootOptions := cli.AddRootFlags(flags)
 
-	ctx := cli.NewCLIContext(*rootOptions)
+	ctx := cli.NewCLIContext(rootOptions)
 
 	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
 		if err := configureLogging(cmd, args); err != nil {
 			return err
 		}
-		ctx.ConfigureDefaultNamespace()
 		return nil
 	}
 
@@ -195,18 +192,16 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(admin.Cmd(ctx))
 	experimentalCmd.AddCommand(injector.Cmd(ctx))
 
-	rootCmd.AddCommand(install.NewVerifyCommand())
-	rootCmd.AddCommand(mesh.UninstallCmd(root.LoggingOptions))
+	rootCmd.AddCommand(mesh.NewVerifyCommand(ctx))
+	rootCmd.AddCommand(mesh.UninstallCmd(ctx, root.LoggingOptions))
 
 	experimentalCmd.AddCommand(authz.AuthZ(ctx))
 	rootCmd.AddCommand(seeExperimentalCmd("authz"))
 	experimentalCmd.AddCommand(metrics.Cmd(ctx))
 	experimentalCmd.AddCommand(describe.Cmd(ctx))
 	experimentalCmd.AddCommand(wait.Cmd(ctx))
-	experimentalCmd.AddCommand(softGraduatedCmd(mesh.UninstallCmd(root.LoggingOptions)))
 	experimentalCmd.AddCommand(config.Cmd())
 	experimentalCmd.AddCommand(workload.Cmd(ctx))
-	experimentalCmd.AddCommand(revision.Cmd(ctx))
 	experimentalCmd.AddCommand(internaldebug.DebugCommand(ctx))
 	experimentalCmd.AddCommand(precheck.Cmd(ctx))
 	experimentalCmd.AddCommand(proxyconfig.StatsConfigCmd(ctx))
@@ -221,27 +216,27 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(dashboardCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(dashboardCmd)
 
-	manifestCmd := mesh.ManifestCmd(root.LoggingOptions)
+	manifestCmd := mesh.ManifestCmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(manifestCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(manifestCmd)
 
-	operatorCmd := mesh.OperatorCmd()
+	operatorCmd := mesh.OperatorCmd(ctx)
 	hideInheritedFlags(operatorCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(operatorCmd)
 
-	installCmd := mesh.InstallCmd(root.LoggingOptions)
+	installCmd := mesh.InstallCmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(installCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(installCmd)
 
-	profileCmd := mesh.ProfileCmd(root.LoggingOptions)
+	profileCmd := mesh.ProfileCmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(profileCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(profileCmd)
 
-	upgradeCmd := mesh.UpgradeCmd(root.LoggingOptions)
+	upgradeCmd := mesh.UpgradeCmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(upgradeCmd, cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(upgradeCmd)
 
-	bugReportCmd := bugreport.Cmd(root.LoggingOptions)
+	bugReportCmd := bugreport.Cmd(ctx, root.LoggingOptions)
 	hideInheritedFlags(bugReportCmd, cli.FlagNamespace, cli.FlagIstioNamespace)
 	rootCmd.AddCommand(bugReportCmd)
 
@@ -249,13 +244,9 @@ debug and diagnose their Istio mesh.
 	hideInheritedFlags(tag.TagCommand(ctx), cli.FlagNamespace, cli.FlagIstioNamespace, FlagCharts)
 	rootCmd.AddCommand(tagCmd)
 
-	remoteSecretCmd := multicluster.NewCreateRemoteSecretCommand()
-	remoteClustersCmd := proxyconfig.ClustersCommand(ctx)
 	// leave the multicluster commands in x for backwards compat
-	rootCmd.AddCommand(remoteSecretCmd)
-	rootCmd.AddCommand(remoteClustersCmd)
-	experimentalCmd.AddCommand(remoteSecretCmd)
-	experimentalCmd.AddCommand(remoteClustersCmd)
+	rootCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand(ctx))
+	rootCmd.AddCommand(proxyconfig.ClustersCommand(ctx))
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
 		Title:   "Istio Control",
@@ -309,20 +300,6 @@ func configureLogging(_ *cobra.Command, _ []string) error {
 		return err
 	}
 	return nil
-}
-
-// softGraduatedCmd is used for commands that have graduated, but we still want the old invocation to work.
-func softGraduatedCmd(cmd *cobra.Command) *cobra.Command {
-	msg := fmt.Sprintf("(%s has graduated. Use `istioctl %s`)", cmd.Name(), cmd.Name())
-
-	newCmd := *cmd
-	newCmd.Short = fmt.Sprintf("%s %s", cmd.Short, msg)
-	newCmd.RunE = func(c *cobra.Command, args []string) error {
-		fmt.Fprintln(cmd.ErrOrStderr(), msg)
-		return cmd.RunE(c, args)
-	}
-
-	return &newCmd
 }
 
 // seeExperimentalCmd is used for commands that have been around for a release but not graduated from

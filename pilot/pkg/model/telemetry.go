@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -139,7 +140,7 @@ type metricsConfig struct {
 }
 
 type metricConfig struct {
-	// if ture, do not add filter to chain
+	// if true, do not add filter to chain
 	Disabled  bool
 	Overrides []metricsOverride
 }
@@ -203,7 +204,7 @@ type TracingConfig struct {
 type TracingSpec struct {
 	Provider                     *meshconfig.MeshConfig_ExtensionProvider
 	Disabled                     bool
-	RandomSamplingPercentage     float64
+	RandomSamplingPercentage     *float64
 	CustomTags                   map[string]*tpb.Tracing_CustomTag
 	UseRequestIDForTraceSampling bool
 }
@@ -346,7 +347,7 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 		}
 		if m.RandomSamplingPercentage != nil {
 			for _, spec := range specs {
-				spec.RandomSamplingPercentage = m.RandomSamplingPercentage.GetValue()
+				spec.RandomSamplingPercentage = ptr.Of(m.RandomSamplingPercentage.GetValue())
 			}
 		}
 		if m.UseRequestIdForTraceSampling != nil {
@@ -434,34 +435,55 @@ func (t *Telemetries) applicableTelemetries(proxy *Proxy) computedTelemetries {
 		}
 	}
 
-	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
-		spec := telemetry.Spec
-		if len(spec.GetSelector().GetMatchLabels()) == 0 {
-			continue
-		}
-		selector := labels.Instance(spec.GetSelector().GetMatchLabels())
-		if selector.SubsetOf(proxy.Labels) {
-			key.Workload = types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace}
-			ms = append(ms, spec.GetMetrics()...)
-			if len(telemetry.Spec.GetAccessLogging()) != 0 {
-				ls = append(ls, &computedAccessLogging{
-					telemetryKey: telemetryKey{
-						Workload: types.NamespacedName{Name: telemetry.Name, Namespace: telemetry.Namespace},
-					},
-					Logging: telemetry.Spec.GetAccessLogging(),
-				})
-			}
-			ts = append(ts, spec.GetTracing()...)
-			break
-		}
-	}
-
-	return computedTelemetries{
+	ct := &computedTelemetries{
 		telemetryKey: key,
 		Metrics:      ms,
 		Logging:      ls,
 		Tracing:      ts,
 	}
+
+	for _, telemetry := range t.NamespaceToTelemetries[namespace] {
+		spec := telemetry.Spec
+		if len(spec.GetSelector().GetMatchLabels()) == 0 {
+			continue
+		}
+		opts := WorkloadSelectionOpts{
+			RootNamespace:  t.RootNamespace,
+			Namespace:      telemetry.Namespace,
+			WorkloadLabels: proxy.Labels,
+			IsWaypoint:     proxy.IsWaypointProxy(),
+		}
+
+		switch getPolicyMatcher(gvk.Telemetry, telemetry.Name, opts, spec) {
+		case policyMatchSelector:
+			selector := labels.Instance(spec.GetSelector().GetMatchLabels())
+			if selector.SubsetOf(proxy.Labels) {
+				ct = appendApplicableTelemetries(ct, telemetry, spec)
+			}
+		case policyMatchDirect:
+			ct = appendApplicableTelemetries(ct, telemetry, spec)
+		case policyMatchIgnore:
+			log.Debug("There isn't a match between the workload and the policy. Policy is ignored.")
+		}
+	}
+
+	return *ct
+}
+
+func appendApplicableTelemetries(ct *computedTelemetries, tel Telemetry, spec *tpb.Telemetry) *computedTelemetries {
+	ct.telemetryKey.Workload = types.NamespacedName{Name: tel.Name, Namespace: tel.Namespace}
+	ct.Metrics = append(ct.Metrics, spec.GetMetrics()...)
+	if len(tel.Spec.GetAccessLogging()) != 0 {
+		ct.Logging = append(ct.Logging, &computedAccessLogging{
+			telemetryKey: telemetryKey{
+				Workload: types.NamespacedName{Name: tel.Name, Namespace: tel.Namespace},
+			},
+			Logging: tel.Spec.GetAccessLogging(),
+		})
+	}
+	ct.Tracing = append(ct.Tracing, spec.GetTracing()...)
+
+	return ct
 }
 
 // telemetryFilters computes the filters for the given proxy/class and protocol. This computes the
@@ -547,7 +569,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	return res
 }
 
-// defaul value for metric rotation interval and graceful deletion interval,
+// default value for metric rotation interval and graceful deletion interval,
 // more details can be found in here: https://github.com/istio/proxy/blob/master/source/extensions/filters/http/istio_stats/config.proto#L116
 var (
 	defaultMetricRotationInterval         = 0 * time.Second
@@ -661,6 +683,11 @@ func (t *Telemetries) fetchProvider(m string) *meshconfig.MeshConfig_ExtensionPr
 		}
 	}
 	return nil
+}
+
+func (t *Telemetries) Debug(proxy *Proxy) any {
+	at := t.applicableTelemetries(proxy)
+	return at
 }
 
 var allMetrics = func() []string {
@@ -901,6 +928,11 @@ var waypointStatsConfig = protoconv.MessageToAny(&udpa.TypedStruct{
 	},
 })
 
+// telemetryFilterHandled contains the number of providers we handle below.
+// This is to ensure this stays in sync as new handlers are added
+// STOP. DO NOT UPDATE THIS WITHOUT UPDATING buildHTTPTelemetryFilter and buildTCPTelemetryFilter.
+const telemetryFilterHandled = 14
+
 func buildHTTPTelemetryFilter(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*hcm.HttpFilter {
 	res := make([]*hcm.HttpFilter, 0, len(metricsCfg))
 	for _, cfg := range metricsCfg {
@@ -1087,6 +1119,7 @@ func generateSDConfig(class networking.ListenerClass, telemetryConfig telemetryF
 	}
 
 	cfg.MetricExpiryDuration = durationpb.New(1 * time.Hour)
+	cfg.EnableAuditLog = features.StackdriverAuditLog
 	// In WASM we are not actually processing protobuf at all, so we need to encode this to JSON
 	cfgJSON, _ := protomarshal.MarshalProtoNames(&cfg)
 
@@ -1157,4 +1190,75 @@ func generateStatsConfig(class networking.ListenerClass, filterConfig telemetryF
 
 func disableHostHeaderFallback(class networking.ListenerClass) bool {
 	return class == networking.ListenerClassSidecarInbound || class == networking.ListenerClassGateway
+}
+
+// Equal compares two computedTelemetries for equality. This was created to help with testing. Because of the nature of the structs being compared,
+// it is safer to use cmp.Equal as opposed to reflect.DeepEqual. Also, because of the way the structs are generated, it is not possible to use
+// cmpopts.IgnoreUnexported without risking flakiness if those third party types that are relied on change. Next best thing is to use a custom
+// comparer as defined below. When cmp.Equal is called on this type, this will be leveraged by cmp.Equal to do the comparison see
+// https://godoc.org/github.com/google/go-cmp/cmp#Equal for more info.
+func (ct *computedTelemetries) Equal(other *computedTelemetries) bool {
+	if ct == nil && other == nil {
+		return true
+	}
+	if ct != nil && other == nil || ct == nil && other != nil {
+		return false
+	}
+	if len(ct.Metrics) != len(other.Metrics) || len(ct.Logging) != len(other.Logging) || len(ct.Tracing) != len(other.Tracing) {
+		return false
+	}
+	// Sort each slice so that we can compare them in order. Comparison is on the fields that are used in the test cases.
+	sort.SliceStable(ct.Metrics, func(i, j int) bool {
+		return ct.Metrics[i].Providers[0].Name < ct.Metrics[j].Providers[0].Name
+	})
+	sort.SliceStable(other.Metrics, func(i, j int) bool {
+		return other.Metrics[i].Providers[0].Name < other.Metrics[j].Providers[0].Name
+	})
+	for i := range ct.Metrics {
+		if ct.Metrics[i].ReportingInterval != nil && other.Metrics[i].ReportingInterval != nil {
+			if ct.Metrics[i].ReportingInterval.AsDuration() != other.Metrics[i].ReportingInterval.AsDuration() {
+				return false
+			}
+		}
+		if ct.Metrics[i].Providers != nil && other.Metrics[i].Providers != nil {
+			if ct.Metrics[i].Providers[0].Name != other.Metrics[i].Providers[0].Name {
+				return false
+			}
+		}
+	}
+	sort.SliceStable(ct.Logging, func(i, j int) bool {
+		return ct.Logging[i].telemetryKey.Root.Name < ct.Logging[j].telemetryKey.Root.Name
+	})
+	sort.SliceStable(other.Logging, func(i, j int) bool {
+		return other.Logging[i].telemetryKey.Root.Name < other.Logging[j].telemetryKey.Root.Name
+	})
+	for i := range ct.Logging {
+		if ct.Logging[i].telemetryKey != other.Logging[i].telemetryKey {
+			return false
+		}
+		if ct.Logging[i].Logging != nil && other.Logging[i].Logging != nil {
+			if ct.Logging[i].Logging[0].Providers[0].Name != other.Logging[i].Logging[0].Providers[0].Name {
+				return false
+			}
+		}
+	}
+	sort.SliceStable(ct.Tracing, func(i, j int) bool {
+		return ct.Tracing[i].Providers[0].Name < ct.Tracing[j].Providers[0].Name
+	})
+	sort.SliceStable(other.Tracing, func(i, j int) bool {
+		return other.Tracing[i].Providers[0].Name < other.Tracing[j].Providers[0].Name
+	})
+	for i := range ct.Tracing {
+		if ct.Tracing[i].Match != nil && other.Tracing[i].Match != nil {
+			if ct.Tracing[i].Match.Mode != other.Tracing[i].Match.Mode {
+				return false
+			}
+		}
+		if ct.Tracing[i].Providers != nil && other.Tracing[i].Providers != nil {
+			if ct.Tracing[i].Providers[0].Name != other.Tracing[i].Providers[0].Name {
+				return false
+			}
+		}
+	}
+	return true
 }

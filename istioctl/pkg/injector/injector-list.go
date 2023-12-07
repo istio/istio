@@ -16,7 +16,6 @@ package injector
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"sort"
@@ -34,6 +33,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/describe"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
@@ -126,7 +126,7 @@ func injectorListCommand(ctx cli.Context) *cobra.Command {
 func filterSystemNamespaces(nss []corev1.Namespace, istioNamespace string) []corev1.Namespace {
 	filtered := make([]corev1.Namespace, 0)
 	for _, ns := range nss {
-		if analyzer_util.IsSystemNamespace(resource.Namespace(ns.Name)) || ns.Name == istioNamespace {
+		if inject.IgnoredNamespaces.Contains(ns.Name) || ns.Name == istioNamespace {
 			continue
 		}
 		filtered = append(filtered, ns)
@@ -305,15 +305,7 @@ func podCountByRevision(pods []corev1.Pod, expectedRevision string) map[string]r
 }
 
 func extractRevisionFromPod(pod *corev1.Pod) string {
-	statusAnno, ok := pod.GetAnnotations()[annotation.SidecarStatus.Name]
-	if !ok {
-		return ""
-	}
-	var sidecarinjection inject.SidecarInjectionStatus
-	if err := json.Unmarshal([]byte(statusAnno), &sidecarinjection); err != nil {
-		return ""
-	}
-	return sidecarinjection.Revision
+	return describe.GetRevisionFromPodAnnotation(pod.GetAnnotations())
 }
 
 func injectionDisabled(pod *corev1.Pod) bool {

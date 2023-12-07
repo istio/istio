@@ -70,10 +70,9 @@ type Configurable interface {
 type VMDistro = string
 
 const (
-	UbuntuXenial VMDistro = "UbuntuXenial"
+	UbuntuBionic VMDistro = "UbuntuBionic"
 	UbuntuJammy  VMDistro = "UbuntuJammy"
-	Debian11     VMDistro = "Debian9"
-	Centos7      VMDistro = "Centos7"
+	Debian11     VMDistro = "Debian11"
 	Rockylinux8  VMDistro = "Centos8"
 
 	DefaultVMDistro = UbuntuJammy
@@ -171,6 +170,8 @@ type Config struct {
 
 	// IPFamilyPolicy. This is optional field. Mainly is used for dual stack testing.
 	IPFamilyPolicy string
+
+	DualStack bool
 
 	// WaypointProxy specifies if this workload should have an associated Waypoint
 	WaypointProxy bool
@@ -329,7 +330,7 @@ func (c Config) HasSidecar() bool {
 		perPodDisable = c.Subsets[0].Labels["sidecar.istio.io/inject"] == "false"
 	}
 
-	return perPodEnable || (!perPodDisable && c.Namespace.IsInjected())
+	return perPodEnable || (!perPodDisable && c.Namespace != nil && c.Namespace.IsInjected())
 }
 
 func (c Config) IsUncaptured() bool {
@@ -356,6 +357,7 @@ func (c Config) IsDelta() bool {
 // - Headless
 // - TProxy
 // - Multi-Subset
+// - DualStack Service Pods
 func (c Config) IsRegularPod() bool {
 	return len(c.Subsets) == 1 &&
 		!c.IsVM() &&
@@ -365,7 +367,8 @@ func (c Config) IsRegularPod() bool {
 		!c.IsStatefulSet() &&
 		!c.IsProxylessGRPC() &&
 		!c.HasWaypointProxy() &&
-		!c.ZTunnelCaptured()
+		!c.ZTunnelCaptured() &&
+		!c.DualStack
 }
 
 // ZTunnelCaptured returns true in ambient enabled namespaces where there is no sidecar

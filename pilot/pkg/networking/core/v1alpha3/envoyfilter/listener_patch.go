@@ -16,10 +16,10 @@ package envoyfilter
 
 import (
 	"fmt"
+	"strings"
 
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	"github.com/envoyproxy/go-control-plane/pkg/wellknown"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
 
@@ -28,9 +28,10 @@ import (
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/util/runtime"
-	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proto/merge"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/wellknown"
 )
 
 // ApplyListenerPatches applies patches to LDS output
@@ -94,13 +95,9 @@ func patchListeners(
 		}
 	}
 	if listenersRemoved {
-		tempArray := make([]*listener.Listener, 0, len(listeners))
-		for _, l := range listeners {
-			if l.Name != "" {
-				tempArray = append(tempArray, l)
-			}
-		}
-		return tempArray
+		return slices.FilterInPlace(listeners, func(l *listener.Listener) bool {
+			return l.Name != ""
+		})
 	}
 	return listeners
 }
@@ -219,13 +216,9 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 			if !hasListenerFilterMatch(lp) {
 				continue
 			}
-			tempListenerFilters := []*listener.ListenerFilter{}
-			for _, filter := range lis.ListenerFilters {
-				if !listenerFilterMatch(filter, lp) {
-					tempListenerFilters = append(tempListenerFilters, filter)
-				}
-			}
-			lis.ListenerFilters = tempListenerFilters
+			lis.ListenerFilters = slices.FilterInPlace(lis.ListenerFilters, func(filter *listener.ListenerFilter) bool {
+				return !listenerFilterMatch(filter, lp)
+			})
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), ListenerFilter, applied)
 	}
@@ -261,13 +254,9 @@ func patchFilterChains(patchContext networking.EnvoyFilter_PatchContext,
 		}
 	}
 	if filterChainsRemoved {
-		tempArray := make([]*listener.FilterChain, 0, len(lis.FilterChains))
-		for _, fc := range lis.FilterChains {
-			if fc.Filters != nil {
-				tempArray = append(tempArray, fc)
-			}
-		}
-		lis.FilterChains = tempArray
+		lis.FilterChains = slices.FilterInPlace(lis.FilterChains, func(fc *listener.FilterChain) bool {
+			return fc.Filters != nil
+		})
 	}
 }
 
@@ -433,14 +422,9 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 			if !hasNetworkFilterMatch(lp) {
 				continue
 			}
-
-			var tempFilters []*listener.Filter
-			for _, filter := range fc.Filters {
-				if !networkFilterMatch(filter, lp) {
-					tempFilters = append(tempFilters, filter)
-				}
-			}
-			fc.Filters = tempFilters
+			fc.Filters = slices.FilterInPlace(fc.Filters, func(filter *listener.Filter) bool {
+				return !networkFilterMatch(filter, lp)
+			})
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), NetworkFilter, applied)
 	}
@@ -499,7 +483,7 @@ func patchNetworkFilter(patchContext networking.EnvoyFilter_PatchContext,
 					retVal = filter.GetTypedConfig()
 				}
 			}
-			filter.Name = toCanonicalName(filterName)
+			filter.Name = filterName
 			if retVal != nil {
 				filter.ConfigType = &listener.Filter_TypedConfig{TypedConfig: retVal}
 			}
@@ -610,13 +594,9 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 			if !hasHTTPFilterMatch(lp) {
 				continue
 			}
-			var httpFilters []*hcm.HttpFilter
-			for _, h := range httpconn.HttpFilters {
-				if !httpFilterMatch(h, lp) {
-					httpFilters = append(httpFilters, h)
-				}
-			}
-			httpconn.HttpFilters = httpFilters
+			httpconn.HttpFilters = slices.FilterInPlace(httpconn.HttpFilters, func(h *hcm.HttpFilter) bool {
+				return !httpFilterMatch(h, lp)
+			})
 		}
 		IncrementEnvoyFilterMetric(lp.Key(), HttpFilter, applied)
 	}
@@ -680,7 +660,7 @@ func patchHTTPFilter(patchContext networking.EnvoyFilter_PatchContext,
 				}
 			}
 			applied = true
-			httpFilter.Name = toCanonicalName(httpFilterName)
+			httpFilter.Name = httpFilterName
 			if retVal != nil {
 				httpFilter.ConfigType = &hcm.HttpFilter_TypedConfig{TypedConfig: retVal}
 			}
@@ -762,6 +742,17 @@ func filterChainMatch(listener *listener.Listener, fc *listener.FilterChain, lp 
 		}
 	}
 
+	if match.ApplicationProtocols != "" {
+		if fc.FilterChainMatch == nil {
+			return false
+		}
+		for _, p := range strings.Split(match.ApplicationProtocols, ",") {
+			if !slices.Contains(fc.FilterChainMatch.ApplicationProtocols, p) {
+				return false
+			}
+		}
+	}
+
 	// check match for destination port within the FilterChainMatch
 	if match.DestinationPort > 0 {
 		if fc.FilterChainMatch == nil || fc.FilterChainMatch.DestinationPort == nil {
@@ -788,7 +779,7 @@ func listenerFilterMatch(filter *listener.ListenerFilter, cp *model.EnvoyFilterC
 		return true
 	}
 
-	return nameMatches(cp.Match.GetListener().ListenerFilter, filter.Name)
+	return cp.Match.GetListener().ListenerFilter == filter.Name
 }
 
 func hasNetworkFilterMatch(lp *model.EnvoyFilterConfigPatchWrapper) bool {
@@ -811,7 +802,7 @@ func networkFilterMatch(filter *listener.Filter, cp *model.EnvoyFilterConfigPatc
 		return true
 	}
 
-	return nameMatches(cp.Match.GetListener().FilterChain.Filter.Name, filter.Name)
+	return cp.Match.GetListener().FilterChain.Filter.Name == filter.Name
 }
 
 func hasHTTPFilterMatch(lp *model.EnvoyFilterConfigPatchWrapper) bool {
@@ -831,7 +822,7 @@ func httpFilterMatch(filter *hcm.HttpFilter, lp *model.EnvoyFilterConfigPatchWra
 
 	match := lp.Match.GetListener().FilterChain.Filter.SubFilter
 
-	return nameMatches(match.Name, filter.Name)
+	return match.Name == filter.Name
 }
 
 func patchContextMatch(patchContext networking.EnvoyFilter_PatchContext,
@@ -844,18 +835,4 @@ func commonConditionMatch(patchContext networking.EnvoyFilter_PatchContext,
 	lp *model.EnvoyFilterConfigPatchWrapper,
 ) bool {
 	return patchContextMatch(patchContext, lp)
-}
-
-// toCanonicalName converts a deprecated filter name to the replacement, if present. Otherwise, the
-// same name is returned.
-func toCanonicalName(name string) string {
-	if nn, f := xds.ReverseDeprecatedFilterNames[name]; f {
-		return nn
-	}
-	return name
-}
-
-// nameMatches compares two filter names, matching even if a deprecated filter name is used.
-func nameMatches(matchName, filterName string) bool {
-	return matchName == filterName || matchName == xds.DeprecatedFilterNames[filterName]
 }

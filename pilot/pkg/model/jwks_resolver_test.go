@@ -48,7 +48,12 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 			expectedJwksURI: mockCertURL,
 		},
 		{
-			in:              ms.URL, // Send two same request, mock server is expected to hit twice.
+			in:              ms.URL,
+			expectedJwksURI: mockCertURL,
+		},
+		{
+			// if the URL has a trailing slash, it should be handled.
+			in:              ms.URL + "/",
 			expectedJwksURI: mockCertURL,
 		},
 		{
@@ -68,8 +73,8 @@ func TestResolveJwksURIUsingOpenID(t *testing.T) {
 		}
 	}
 
-	// Verify mock openID discovery http://localhost:9999/.well-known/openid-configuration was called twice.
-	if got, want := ms.OpenIDHitNum, uint64(2); got != want {
+	// Verify mock openID discovery http://localhost:9999/.well-known/openid-configuration was called three times.
+	if got, want := ms.OpenIDHitNum, uint64(3); got != want {
 		t.Errorf("Mock OpenID discovery Hit number => expected %d but got %d", want, got)
 	}
 }

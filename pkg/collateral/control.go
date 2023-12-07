@@ -259,13 +259,13 @@ _complete istio 2>/dev/null
 		defer func() { _ = outFile.Close() }()
 
 		// Concatenate the head, initialization, generated bash, and tail to the file
-		if _, err = outFile.Write([]byte(zshInitialization)); err != nil {
+		if _, err = outFile.WriteString(zshInitialization); err != nil {
 			return fmt.Errorf("unable to output zsh initialization: %v", err)
 		}
 		if err = root.GenBashCompletion(outFile); err != nil {
 			return fmt.Errorf("unable to output zsh completion file: %v", err)
 		}
-		if _, err = outFile.Write([]byte(zshTail)); err != nil {
+		if _, err = outFile.WriteString(zshTail); err != nil {
 			return fmt.Errorf("unable to output zsh tail: %v", err)
 		}
 	}
@@ -705,8 +705,7 @@ func (g *generator) genMetrics(selectFn SelectMetricFn) {
 </thead>
 <tbody>`)
 
-	r := metrics.NewOpenCensusRegistry()
-	for _, metric := range r.ExportedMetrics() {
+	for _, metric := range metrics.ExportedMetrics() {
 		if !selectFn(metric) {
 			continue
 		}

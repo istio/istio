@@ -20,6 +20,11 @@ global:
   # treatment will be considered.
   platform: ""
 
+  # Setup how istiod Service is configured. See https://kubernetes.io/docs/concepts/services-networking/dual-stack/#services
+  # This is intended only for use with external istiod.
+  ipFamilyPolicy: ""
+  ipFamilies: []
+
 base:
   # Used for helm2 to add the CRDs to templates.
   enableCRDTemplates: false

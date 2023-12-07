@@ -39,8 +39,6 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsGroup: 1337
-            runAsUser: 1337
             runAsNonRoot: true
 {{- if .Values.operator.seccompProfile }}
             seccompProfile:

@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"runtime"
 	"strings"
-
-	"istio.io/istio/pilot/pkg/model"
 )
 
 // The following fields are populated at build time using -ldflags -X.
@@ -47,6 +45,7 @@ type BuildInfo struct {
 // ServerInfo contains the version for a single control plane component
 type ServerInfo struct {
 	Component string
+	Revision  string
 	Info      BuildInfo
 }
 
@@ -56,14 +55,13 @@ type MeshInfo []ServerInfo
 // NodeType decides the responsibility of the proxy serves in the mesh
 type NodeType string
 
-func ToUserFacingNodeType(t model.NodeType) NodeType {
+func ToUserFacingNodeType(t string) NodeType {
 	switch t {
-	case model.Router:
+	case "router":
 		return "gateway"
-	case model.Ztunnel, model.Waypoint, model.SidecarProxy:
+	default:
 		return NodeType(t)
 	}
-	return ""
 }
 
 // ProxyInfo contains the version for a single data plane component

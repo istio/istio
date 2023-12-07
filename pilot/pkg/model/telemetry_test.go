@@ -29,15 +29,18 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/envoy/extensions/stats"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	tpb "istio.io/api/telemetry/v1alpha1"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/collection"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/protomarshal"
 )
@@ -431,7 +434,7 @@ func TestTracing(t *testing.T) {
 			&TracingConfig{
 				ClientSpec: TracingSpec{
 					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-					RandomSamplingPercentage: 50.0,
+					RandomSamplingPercentage: ptr.Of(50.0),
 					CustomTags: map[string]*tpb.Tracing_CustomTag{
 						"foo": {},
 						"bar": {},
@@ -439,7 +442,7 @@ func TestTracing(t *testing.T) {
 					UseRequestIDForTraceSampling: false,
 				}, ServerSpec: TracingSpec{
 					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-					RandomSamplingPercentage: 50.0,
+					RandomSamplingPercentage: ptr.Of(50.0),
 					CustomTags: map[string]*tpb.Tracing_CustomTag{
 						"foo": {},
 						"bar": {},
@@ -455,16 +458,14 @@ func TestTracing(t *testing.T) {
 			[]string{"envoy"},
 			&TracingConfig{
 				ClientSpec: TracingSpec{
-					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-					RandomSamplingPercentage: 0.0,
+					Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
 					CustomTags: map[string]*tpb.Tracing_CustomTag{
 						"foo": {},
 						"baz": {},
 					},
 					UseRequestIDForTraceSampling: true,
 				}, ServerSpec: TracingSpec{
-					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-					RandomSamplingPercentage: 0.0,
+					Provider: &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
 					CustomTags: map[string]*tpb.Tracing_CustomTag{
 						"foo": {},
 						"baz": {},
@@ -484,7 +485,7 @@ func TestTracing(t *testing.T) {
 			&TracingConfig{
 				ClientSpec: TracingSpec{
 					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-					RandomSamplingPercentage: 80,
+					RandomSamplingPercentage: ptr.Of(80.0),
 					CustomTags: map[string]*tpb.Tracing_CustomTag{
 						"foo": {},
 						"baz": {},
@@ -493,7 +494,7 @@ func TestTracing(t *testing.T) {
 				},
 				ServerSpec: TracingSpec{
 					Provider:                 &meshconfig.MeshConfig_ExtensionProvider{Name: "envoy"},
-					RandomSamplingPercentage: 80,
+					RandomSamplingPercentage: ptr.Of(80.0),
 					CustomTags: map[string]*tpb.Tracing_CustomTag{
 						"foo": {},
 						"baz": {},
@@ -515,7 +516,7 @@ func TestTracing(t *testing.T) {
 							Stackdriver: &meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider{},
 						},
 					},
-					RandomSamplingPercentage:     99.9,
+					RandomSamplingPercentage:     ptr.Of(99.9),
 					UseRequestIDForTraceSampling: true,
 				},
 				ServerSpec: TracingSpec{
@@ -621,6 +622,42 @@ func TestTelemetryFilters(t *testing.T) {
 			{
 				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
 				Overrides: overrides,
+			},
+		},
+		AccessLogging: []*tpb.AccessLogging{
+			{
+				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+				Filter: &tpb.AccessLogging_Filter{
+					Expression: `response.code >= 500 && response.code <= 800`,
+				},
+			},
+		},
+	}
+	overridesAllMetricsStackdriver := &tpb.Telemetry{
+		Metrics: []*tpb.Metrics{
+			{
+				Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+				Overrides: []*tpb.MetricsOverrides{
+					{
+						TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+							"destination_service": {
+								Value: "fake_dest",
+							},
+						},
+					},
+					{
+						Match: &tpb.MetricSelector{
+							MetricMatch: &tpb.MetricSelector_Metric{
+								Metric: tpb.MetricSelector_REQUEST_COUNT,
+							},
+						},
+						TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+							"destination_service": {
+								Value: "fake_dest_override",
+							},
+						},
+					},
+				},
 			},
 		},
 		AccessLogging: []*tpb.AccessLogging{
@@ -795,6 +832,154 @@ func TestTelemetryFilters(t *testing.T) {
 			},
 		},
 		{
+			"prometheus overrides all metrics",
+			[]config.Config{newTelemetry("istio-system", &tpb.Telemetry{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						Overrides: []*tpb.MetricsOverrides{
+							{
+								TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+									"remove": {
+										Operation: tpb.MetricsOverrides_TagOverride_REMOVE,
+									},
+									"add": {
+										Operation: tpb.MetricsOverrides_TagOverride_UPSERT,
+										Value:     "bar",
+									},
+								},
+							},
+						},
+					},
+				},
+			})},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			// TODO: the following should be simple to `{"metrics":[{"dimensions":{"add":"bar"},"tags_to_remove":["remove"]}]}`
+			map[string]string{
+				"istio.stats": `{"metrics":[` +
+					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`]}`,
+			},
+		},
+		{
+			"prometheus overrides all metrics first",
+			[]config.Config{newTelemetry("istio-system", &tpb.Telemetry{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						Overrides: []*tpb.MetricsOverrides{
+							{
+								TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+									"remove": {
+										Operation: tpb.MetricsOverrides_TagOverride_REMOVE,
+									},
+									"add": {
+										Operation: tpb.MetricsOverrides_TagOverride_UPSERT,
+										Value:     "bar",
+									},
+								},
+							},
+							{
+								Match: &tpb.MetricSelector{
+									MetricMatch: &tpb.MetricSelector_Metric{
+										Metric: tpb.MetricSelector_REQUEST_COUNT,
+									},
+								},
+								TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+									"add": {
+										Value: "add-override",
+									},
+								},
+							},
+						},
+					},
+				},
+			})},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stats": `{"metrics":[` +
+					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"add-override"},"name":"requests_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`]}`,
+			},
+		},
+		{
+			"prometheus overrides all metrics secondary",
+			[]config.Config{newTelemetry("istio-system", &tpb.Telemetry{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						Overrides: []*tpb.MetricsOverrides{
+							{
+								Match: &tpb.MetricSelector{
+									MetricMatch: &tpb.MetricSelector_Metric{
+										Metric: tpb.MetricSelector_REQUEST_COUNT,
+									},
+								},
+								TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+									"add": {
+										Value: "add-override",
+									},
+								},
+							},
+							{
+								TagOverrides: map[string]*tpb.MetricsOverrides_TagOverride{
+									"remove": {
+										Operation: tpb.MetricsOverrides_TagOverride_REMOVE,
+									},
+									"add": {
+										Operation: tpb.MetricsOverrides_TagOverride_UPSERT,
+										Value:     "bar",
+									},
+								},
+							},
+						},
+					},
+				},
+			})},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stats": `{"metrics":[` +
+					`{"dimensions":{"add":"bar"},"name":"request_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_messages_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"requests_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_duration_milliseconds","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"request_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"response_bytes","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_closed_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_connections_opened_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_received_bytes_total","tags_to_remove":["remove"]},` +
+					`{"dimensions":{"add":"bar"},"name":"tcp_sent_bytes_total","tags_to_remove":["remove"]}` +
+					`]}`,
+			},
+		},
+		{
 			"prometheus overrides TCP",
 			[]config.Config{newTelemetry("istio-system", overridesPrometheus)},
 			sidecar,
@@ -851,6 +1036,48 @@ func TestTelemetryFilters(t *testing.T) {
 			map[string]string{
 				"istio.stackdriver": `{"access_logging_filter_expression":"response.code >= 500 && response.code <= 800",` +
 					`"metric_expiry_duration":"3600s","metrics_overrides":{"client/request_count":{"tag_overrides":{"add":"bar"}}}}`,
+			},
+		},
+		{
+			"overrides all metrics stackdriver/client",
+			[]config.Config{newTelemetry("istio-system", overridesAllMetricsStackdriver)},
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stackdriver": `{"access_logging_filter_expression":"response.code >= 500 && response.code <= 800",` +
+					`"metric_expiry_duration":"3600s","metrics_overrides":{` +
+					`"client/connection_close_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"client/connection_open_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"client/received_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"client/request_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"client/request_count":{"tag_overrides":{"destination_service":"fake_dest_override"}},` +
+					`"client/response_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"client/response_latencies":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"client/sent_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}}` +
+					`}}`,
+			},
+		},
+		{
+			"overrides all metrics stackdriver/server",
+			[]config.Config{newTelemetry("istio-system", overridesAllMetricsStackdriver)},
+			sidecar,
+			networking.ListenerClassSidecarInbound,
+			networking.ListenerProtocolHTTP,
+			nil,
+			map[string]string{
+				"istio.stackdriver": `{"disable_host_header_fallback":true,"access_logging_filter_expression":"response.code >= 500 && response.code <= 800",` +
+					`"metric_expiry_duration":"3600s","metrics_overrides":{` +
+					`"server/connection_close_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"server/connection_open_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"server/received_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"server/request_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"server/request_count":{"tag_overrides":{"destination_service":"fake_dest_override"}},` +
+					`"server/response_bytes":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"server/response_latencies":{"tag_overrides":{"destination_service":"fake_dest"}},` +
+					`"server/sent_bytes_count":{"tag_overrides":{"destination_service":"fake_dest"}}` +
+					`}}`,
 			},
 		},
 		{
@@ -1053,6 +1280,431 @@ func TestGetInterval(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			actual := getInterval(tc.input, tc.defaultVal)
 			assert.Equal(t, tc.expected, actual)
+		})
+	}
+}
+
+func Test_appendApplicableTelemetries(t *testing.T) {
+	namespacedName := types.NamespacedName{
+		Name:      "my-telemetry",
+		Namespace: "my-namespace",
+	}
+	emptyStackDriverTracing := &tpb.Tracing{
+		Match: &tpb.Tracing_TracingSelector{
+			Mode: tpb.WorkloadMode_CLIENT,
+		},
+		Providers: []*tpb.ProviderRef{
+			{
+				Name: "stackdriver",
+			},
+		},
+	}
+	prometheusMetrics := &tpb.Metrics{
+		Providers:         []*tpb.ProviderRef{{Name: "prometheus"}},
+		ReportingInterval: durationpb.New(15 * time.Second),
+	}
+	emptyEnvoyLogging := &tpb.AccessLogging{
+		Providers: []*tpb.ProviderRef{
+			{
+				Name: "envoy",
+			},
+		},
+	}
+	testComputeAccessLogging := &computedAccessLogging{
+		telemetryKey: telemetryKey{
+			Workload: namespacedName,
+		},
+		Logging: []*tpb.AccessLogging{
+			emptyEnvoyLogging,
+		},
+	}
+	validTelemetryConfigurationWithTargetRef := &tpb.Telemetry{
+		TargetRef: &v1beta1.PolicyTargetReference{
+			Group: gvk.KubernetesGateway.Group,
+			Kind:  gvk.KubernetesGateway.Kind,
+			Name:  "my-gateway",
+		},
+		Tracing: []*tpb.Tracing{
+			emptyStackDriverTracing,
+		},
+		Metrics: []*tpb.Metrics{
+			prometheusMetrics,
+		},
+		AccessLogging: []*tpb.AccessLogging{
+			emptyEnvoyLogging,
+		},
+	}
+	validTelemetryConfiguration := &tpb.Telemetry{
+		Tracing: []*tpb.Tracing{
+			emptyStackDriverTracing,
+		},
+		Metrics: []*tpb.Metrics{
+			prometheusMetrics,
+		},
+		AccessLogging: []*tpb.AccessLogging{
+			emptyEnvoyLogging,
+		},
+	}
+	type args struct {
+		ct   *computedTelemetries
+		tel  Telemetry
+		spec *tpb.Telemetry
+	}
+
+	tests := []struct {
+		name string
+		args args
+		want *computedTelemetries
+	}{
+		{
+			name: "empty telemetry configuration",
+			args: args{
+				ct:   &computedTelemetries{},
+				tel:  Telemetry{},
+				spec: &tpb.Telemetry{},
+			},
+			want: &computedTelemetries{},
+		},
+		{
+			name: "targetRef is defined, telemetry configurations are added to empty computed telemetries",
+			args: args{
+				ct: &computedTelemetries{},
+				tel: Telemetry{
+					Name:      "my-telemetry",
+					Namespace: "my-namespace",
+					Spec:      validTelemetryConfigurationWithTargetRef,
+				},
+				spec: validTelemetryConfigurationWithTargetRef,
+			},
+			want: &computedTelemetries{
+				telemetryKey: telemetryKey{Workload: namespacedName},
+				Metrics:      []*tpb.Metrics{prometheusMetrics},
+				Logging:      []*computedAccessLogging{testComputeAccessLogging},
+				Tracing:      []*tpb.Tracing{emptyStackDriverTracing},
+			},
+		},
+		{
+			name: "targetRef is not defined, telemetry configurations are added to empty computed telemetries",
+			args: args{
+				ct: &computedTelemetries{},
+				tel: Telemetry{
+					Name:      "my-telemetry",
+					Namespace: "my-namespace",
+					Spec:      validTelemetryConfiguration,
+				},
+				spec: validTelemetryConfiguration,
+			},
+			want: &computedTelemetries{
+				telemetryKey: telemetryKey{
+					Workload: namespacedName,
+				},
+				Metrics: []*tpb.Metrics{prometheusMetrics},
+				Logging: []*computedAccessLogging{testComputeAccessLogging},
+				Tracing: []*tpb.Tracing{emptyStackDriverTracing},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := appendApplicableTelemetries(tt.args.ct, tt.args.tel, tt.args.spec); !cmp.Equal(got, tt.want) {
+				t.Errorf("appendApplicableTelemetries() = want %v", cmp.Diff(got, tt.want))
+			}
+		})
+	}
+}
+
+func Test_computedTelemetries_Equal(t *testing.T) {
+	type args struct {
+		other *computedTelemetries
+	}
+
+	tests := []struct {
+		name                string
+		computedTelemetries *computedTelemetries
+		args                args
+		want                bool
+	}{
+		{
+			name:                "nil",
+			computedTelemetries: nil,
+			args: args{
+				other: nil,
+			},
+			want: true,
+		},
+		{
+			name:                "empty",
+			computedTelemetries: &computedTelemetries{},
+			args: args{
+				other: &computedTelemetries{},
+			},
+			want: true,
+		},
+		{
+			name:                "computedTelemetries is nil and other computedTelemetries is not",
+			computedTelemetries: nil,
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "other computedTelemetries is nil and computedTelemetries is not",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+					},
+				},
+			},
+			args: args{
+				other: nil,
+			},
+			want: false,
+		},
+		{
+			name: "different length in metrics slice comparison",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different length in tracing slice comparison",
+			computedTelemetries: &computedTelemetries{
+				Tracing: []*tpb.Tracing{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Tracing: []*tpb.Tracing{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						},
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different length in logging slice comparison",
+			computedTelemetries: &computedTelemetries{
+				Logging: []*computedAccessLogging{
+					{
+						Logging: []*tpb.AccessLogging{
+							{
+								Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Logging: []*computedAccessLogging{
+						{
+							Logging: []*tpb.AccessLogging{
+								{
+									Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+								},
+							},
+						},
+						{
+							Logging: []*tpb.AccessLogging{
+								{
+									Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different metrics",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different metrics reporting interval",
+			computedTelemetries: &computedTelemetries{
+				Metrics: []*tpb.Metrics{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						ReportingInterval: &durationpb.Duration{
+							Seconds: 10,
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Metrics: []*tpb.Metrics{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+							ReportingInterval: &durationpb.Duration{
+								Seconds: 15,
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different tracing providers",
+			computedTelemetries: &computedTelemetries{
+				Tracing: []*tpb.Tracing{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Tracing: []*tpb.Tracing{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different tracing match",
+			computedTelemetries: &computedTelemetries{
+				Tracing: []*tpb.Tracing{
+					{
+						Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+						Match: &tpb.Tracing_TracingSelector{
+							Mode: tpb.WorkloadMode_CLIENT,
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Tracing: []*tpb.Tracing{
+						{
+							Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+							Match: &tpb.Tracing_TracingSelector{
+								Mode: tpb.WorkloadMode_SERVER,
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different logging providers",
+			computedTelemetries: &computedTelemetries{
+				Logging: []*computedAccessLogging{
+					{
+						Logging: []*tpb.AccessLogging{
+							{
+								Providers: []*tpb.ProviderRef{{Name: "stackdriver"}},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Logging: []*computedAccessLogging{
+						{
+							Logging: []*tpb.AccessLogging{
+								{
+									Providers: []*tpb.ProviderRef{{Name: "prometheus"}},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "different logging telemetryKey",
+			computedTelemetries: &computedTelemetries{
+				Logging: []*computedAccessLogging{
+					{
+						telemetryKey: telemetryKey{
+							Workload: types.NamespacedName{
+								Name:      "my-telemetry",
+								Namespace: "my-namespace",
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				other: &computedTelemetries{
+					Logging: []*computedAccessLogging{
+						{
+							telemetryKey: telemetryKey{
+								Workload: types.NamespacedName{
+									Name:      "my-telemetry",
+									Namespace: "my-namespace-2",
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.computedTelemetries.Equal(tt.args.other); got != tt.want {
+				t.Errorf("computedTelemetries.Equal() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }

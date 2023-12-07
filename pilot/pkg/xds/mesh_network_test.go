@@ -27,12 +27,13 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/rand"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -41,10 +42,12 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
 func TestNetworkGatewayUpdates(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	pod := &workload{
 		kind: Pod,
 		name: "app", namespace: "pod",
@@ -153,6 +156,7 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 }
 
 func TestMeshNetworking(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	ingressServiceScenarios := map[corev1.ServiceType]map[cluster.ID][]runtime.Object{
 		corev1.ServiceTypeLoadBalancer: {
 			// cluster/network 1's ingress can be found up by registry service name in meshNetworks (no label)
@@ -194,7 +198,7 @@ func TestMeshNetworking(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "istio-ingressgateway",
 						Namespace:   "istio-system",
-						Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
+						Annotations: map[string]string{annotation.TrafficNodeSelector.Name: "{}"},
 					},
 					Spec: corev1.ServiceSpec{Type: corev1.ServiceTypeNodePort, Ports: []corev1.ServicePort{{Port: 15443, NodePort: 25443}}},
 				},
@@ -205,7 +209,7 @@ func TestMeshNetworking(t *testing.T) {
 					ObjectMeta: metav1.ObjectMeta{
 						Name:        "istio-ingressgateway",
 						Namespace:   "istio-system",
-						Annotations: map[string]string{kube.NodeSelectorAnnotation: "{}"},
+						Annotations: map[string]string{annotation.TrafficNodeSelector.Name: "{}"},
 						Labels: map[string]string{
 							label.TopologyNetwork.Name: "network-2",
 							// set the label here to test it = expectation doesn't change since we map back to that via NodePort
@@ -369,6 +373,7 @@ func TestMeshNetworking(t *testing.T) {
 }
 
 func TestEmptyAddressWorkloadEntry(t *testing.T) {
+	test.SetForTest(t, &features.MultiNetworkGatewayAPI, true)
 	type entry struct{ address, sa, network, version string }
 	const name, port = "remote-we-svc", 80
 	serviceCases := []struct {
@@ -420,7 +425,7 @@ spec:
 	workloadCases := []struct {
 		name         string
 		entries      []entry
-		expectations map[string][]LocLbEpInfo
+		expectations map[string][]xdstest.LocLbEpInfo
 	}{
 		{
 			name: "single subset",
@@ -435,20 +440,20 @@ spec:
 				// this should not be included in the weight since it doesn't have an address OR a gateway
 				{sa: "foo", network: "no-gateway-address", address: "", version: "v1"},
 			},
-			expectations: map[string][]LocLbEpInfo{
-				"": {LocLbEpInfo{
-					lbEps: []LbEpInfo{
-						{"1.2.3.4", 1},
-						{"2.2.2.2", 2},
+			expectations: map[string][]xdstest.LocLbEpInfo{
+				"": {xdstest.LocLbEpInfo{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "1.2.3.4", Weight: 1},
+						{Address: "2.2.2.2", Weight: 2},
 					},
-					weight: 3,
+					Weight: 3,
 				}},
-				"v1": {LocLbEpInfo{
-					lbEps: []LbEpInfo{
-						{"1.2.3.4", 1},
-						{"2.2.2.2", 2},
+				"v1": {xdstest.LocLbEpInfo{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "1.2.3.4", Weight: 1},
+						{Address: "2.2.2.2", Weight: 2},
 					},
-					weight: 3,
+					Weight: 3,
 				}},
 			},
 		},
@@ -460,26 +465,26 @@ spec:
 				{sa: "foo", network: "network-2", address: "", version: "v1"},
 				{sa: "foo", network: "network-2", address: "", version: "v2"},
 			},
-			expectations: map[string][]LocLbEpInfo{
-				"": {LocLbEpInfo{
-					lbEps: []LbEpInfo{
-						{"1.2.3.4", 1},
-						{"2.2.2.2", 2},
+			expectations: map[string][]xdstest.LocLbEpInfo{
+				"": {xdstest.LocLbEpInfo{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "1.2.3.4", Weight: 1},
+						{Address: "2.2.2.2", Weight: 2},
 					},
-					weight: 3,
+					Weight: 3,
 				}},
-				"v1": {LocLbEpInfo{
-					lbEps: []LbEpInfo{
-						{"1.2.3.4", 1},
-						{"2.2.2.2", 1},
+				"v1": {xdstest.LocLbEpInfo{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "1.2.3.4", Weight: 1},
+						{Address: "2.2.2.2", Weight: 1},
 					},
-					weight: 2,
+					Weight: 2,
 				}},
-				"v2": {LocLbEpInfo{
-					lbEps: []LbEpInfo{
-						{"2.2.2.2", 1},
+				"v2": {xdstest.LocLbEpInfo{
+					LbEps: []xdstest.LbEpInfo{
+						{Address: "2.2.2.2", Weight: 1},
 					},
-					weight: 1,
+					Weight: 1,
 				}},
 			},
 		},
@@ -499,7 +504,12 @@ spec:
 						metaNetwork: "network-1",
 					}
 					// expect self
-					client.ExpectWithWeight(client, "", LocLbEpInfo{weight: 1, lbEps: []LbEpInfo{{"10.0.0.1", 1}}})
+					client.ExpectWithWeight(client, "", xdstest.LocLbEpInfo{
+						Weight: 1,
+						LbEps: []xdstest.LbEpInfo{
+							{Address: "10.0.0.1", Weight: 1},
+						},
+					})
 					for subset, eps := range tc.expectations {
 						client.ExpectWithWeight(&workload{kind: sc.expectKind, name: name, namespace: "test", port: port}, subset, eps...)
 					}
@@ -633,7 +643,7 @@ type workload struct {
 	proxy *model.Proxy
 
 	expectations         map[string][]string
-	weightedExpectations map[string][]LocLbEpInfo
+	weightedExpectations map[string][]xdstest.LocLbEpInfo
 }
 
 func (w *workload) Expect(target *workload, ips ...string) {
@@ -643,9 +653,9 @@ func (w *workload) Expect(target *workload, ips ...string) {
 	w.expectations[target.clusterName("")] = ips
 }
 
-func (w *workload) ExpectWithWeight(target *workload, subset string, eps ...LocLbEpInfo) {
+func (w *workload) ExpectWithWeight(target *workload, subset string, eps ...xdstest.LocLbEpInfo) {
 	if w.weightedExpectations == nil {
-		w.weightedExpectations = make(map[string][]LocLbEpInfo)
+		w.weightedExpectations = make(map[string][]xdstest.LocLbEpInfo)
 	}
 	w.weightedExpectations[target.clusterName(subset)] = eps
 }
@@ -700,13 +710,13 @@ func (w *workload) testWeighted(t *testing.T, s *FakeDiscoveryServer) {
 			eps := xdstest.ExtractLocalityLbEndpoints(s.Endpoints(w.proxy))
 			for c, want := range w.weightedExpectations {
 				got := eps[c]
-				if err := compareEndpoints(c, got, want); err != nil {
+				if err := xdstest.CompareEndpoints(c, got, want); err != nil {
 					return err
 				}
 			}
 			for c, got := range eps {
 				want := w.weightedExpectations[c]
-				if err := compareEndpoints(c, got, want); err != nil {
+				if err := xdstest.CompareEndpoints(c, got, want); err != nil {
 					return err
 				}
 			}

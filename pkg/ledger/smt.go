@@ -257,7 +257,7 @@ func (s *smt) updateLeft(lnode, rnode, root []byte, keys, values, batch [][]byte
 		batch), nil}
 }
 
-// splitKeys devides the array of keys into 2 so they can update left and right branches in parallel
+// splitKeys divides the array of keys into 2 so they can update left and right branches in parallel
 func (s *smt) splitKeys(keys [][]byte, height int) ([][]byte, [][]byte) {
 	for i, key := range keys {
 		if bitIsSet(key, height) {
@@ -350,7 +350,7 @@ func (s *smt) loadBatch(root []byte) ([][]byte, error) {
 	s.db.updatedMux.RUnlock()
 	if exists {
 		if s.atomicUpdate {
-			// Return a copy so that Commit() doesnt have to be called at
+			// Return a copy so that Commit() doesn't have to be called at
 			// each block and still commit every state transition.
 			newVal := make([][]byte, batchLen)
 			copy(newVal, val)

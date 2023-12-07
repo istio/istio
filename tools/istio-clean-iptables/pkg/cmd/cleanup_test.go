@@ -122,10 +122,6 @@ type DependenciesStub struct {
 	ExecutedAll      []string
 }
 
-func (s *DependenciesStub) RunOrFail(cmd string, stdin io.ReadSeeker, args ...string) {
-	s.execute(false /*quietly*/, cmd, args...)
-}
-
 func (s *DependenciesStub) Run(cmd string, stdin io.ReadSeeker, args ...string) error {
 	s.execute(false /*quietly*/, cmd, args...)
 	return nil

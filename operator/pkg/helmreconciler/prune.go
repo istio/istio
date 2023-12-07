@@ -45,7 +45,6 @@ import (
 
 const (
 	autoscalingV2MinK8SVersion = 23
-	pdbV1MinK8SVersion         = 21
 )
 
 var (
@@ -68,6 +67,7 @@ var (
 	// AllClusterResources lists all cluster scope resources types which should be deleted in purge case, including CRD.
 	AllClusterResources = append(ClusterResources,
 		schema.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: name.CRDStr},
+		schema.GroupVersionKind{Group: "k8s.cni.cncf.io", Version: "v1", Kind: name.NetworkAttachmentDefinitionStr},
 	)
 )
 
@@ -78,29 +78,18 @@ func NamespacedResources(version *version.Info) []schema.GroupVersionKind {
 		{Group: "apps", Version: "v1", Kind: name.DaemonSetStr},
 		{Group: "", Version: "v1", Kind: name.ServiceStr},
 		{Group: "", Version: "v1", Kind: name.CMStr},
-		{Group: "", Version: "v1", Kind: name.PVCStr},
 		{Group: "", Version: "v1", Kind: name.PodStr},
 		{Group: "", Version: "v1", Kind: name.SecretStr},
 		{Group: "", Version: "v1", Kind: name.SAStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.DestinationRuleStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.EnvoyFilterStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.GatewayStr},
-		{Group: name.NetworkingAPIGroupName, Version: "v1alpha3", Kind: name.VirtualServiceStr},
-		{Group: name.SecurityAPIGroupName, Version: "v1beta1", Kind: name.PeerAuthenticationStr},
+		{Group: "policy", Version: "v1", Kind: name.PDBStr},
 	}
 	// autoscaling v2 API is available on >=1.23
 	if kube.IsKubeAtLeastOrLessThanVersion(version, autoscalingV2MinK8SVersion, true) {
 		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: name.HPAStr})
 	} else {
 		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2beta2", Kind: name.HPAStr})
-	}
-	// policy/v1 is available on >=1.21
-	if kube.IsKubeAtLeastOrLessThanVersion(version, pdbV1MinK8SVersion, true) {
-		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1", Kind: name.PDBStr})
-	} else {
-		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1beta1", Kind: name.PDBStr})
 	}
 	return res
 }
@@ -144,7 +133,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 			fmt.Errorf("failed to get enabled components: %v", err)
 	}
 	pilotEnabled := false
-	// check wherther the istiod is enabled
+	// check whether the istiod is enabled
 	for _, c := range enabledComponents {
 		if c == string(name.PilotComponentName) {
 			pilotEnabled = true
@@ -167,7 +156,7 @@ func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1al
 		if pilotExists {
 			// TODO(ramaraochavali): Find a better alternative instead of using debug interface
 			// of istiod as it is typically not recommended in production environments.
-			pids, err := proxy.GetIDsFromProxyInfo("", "", iopSpec.Revision, ns)
+			pids, err := proxy.GetIDsFromProxyInfo(kubeClient, ns)
 			if err != nil {
 				return errStatus, fmt.Errorf("failed to check proxy infos: %v", err)
 			}
@@ -254,23 +243,9 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	gvkList := append(resources, ClusterCPResources...)
 	if includeClusterResources {
 		gvkList = append(resources, AllClusterResources...)
+		// Cleanup IstioOperator, which may be used with in-cluster operator.
 		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
 			usList = append(usList, ioplist)
-		}
-	} else if componentName == "" {
-		// Remove Istio operator CR with specified revision if it is uninstalled
-		ioplist := h.getIstioOperatorCR()
-		if ioplist.Items != nil {
-			for _, iop := range ioplist.Items {
-				revisionIop := getIstioOperatorCRName(revision)
-				if iop.GetName() == revisionIop {
-					if iopToList, err := iop.ToList(); err == nil {
-						iopToList.Items = []unstructured.Unstructured{iop}
-						usList = append(usList, iopToList)
-						break
-					}
-				}
-			}
 		}
 	}
 	for _, gvk := range gvkList {

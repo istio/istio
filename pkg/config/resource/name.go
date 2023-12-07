@@ -85,7 +85,7 @@ func ParseFullName(name string) (FullName, error) {
 	return ParseFullNameWithDefaultNamespace("", name)
 }
 
-// ParseFullName parses the given name string using defaultNamespace if no namespace is found.
+// ParseFullNameWithDefaultNamespace parses the given name string using defaultNamespace if no namespace is found.
 func ParseFullNameWithDefaultNamespace(defaultNamespace Namespace, name string) (FullName, error) {
 	out := NewShortOrFullName(defaultNamespace, name)
 

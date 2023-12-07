@@ -58,12 +58,12 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		s := rs.Message.(*v1alpha1.Telemetry)
 
 		// For this analysis, ignore Telemetries with no selectors specified at all.
-		if s.Selector == nil || len(s.Selector.MatchLabels) == 0 {
+		if s.Selector == nil || len(s.GetSelector().MatchLabels) == 0 {
 			return true
 		}
 
 		sNs := rs.Metadata.FullName.Namespace
-		sel := labels.SelectorFromSet(s.Selector.MatchLabels)
+		sel := labels.SelectorFromSet(s.GetSelector().MatchLabels)
 
 		foundPod := false
 		c.ForEach(gvk.Pod, func(rp *resource.Instance) bool {

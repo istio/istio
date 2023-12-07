@@ -15,12 +15,18 @@
 package object
 
 import (
+	"fmt"
+	"io"
+	"os"
+	"reflect"
 	"strings"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 
 	"istio.io/istio/operator/pkg/util"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestHash(t *testing.T) {
@@ -269,135 +275,6 @@ func TestParseJSONToK8sObject(t *testing.T) {
 				}
 			} else if !tt.wantErr {
 				t.Errorf("ParseJsonToK8sObject(%s): got unexpected error: %v", tt.desc, err)
-			}
-		})
-	}
-}
-
-func TestParseYAMLToK8sObject(t *testing.T) {
-	testDeploymentYaml := `apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: istio-citadel
-  namespace: istio-system
-  labels:
-    istio: citadel
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      istio: citadel
-  template:
-    metadata:
-      labels:
-        istio: citadel
-    spec:
-      containers:
-      - name: citadel
-        image: docker.io/istio/citadel:1.1.8
-        args:
-        - "--append-dns-names=true"
-        - "--grpc-port=8060"
-        - "--grpc-hostname=citadel"
-        - "--citadel-storage-namespace=istio-system"
-        - "--custom-dns-names=istio-pilot-service-account.istio-system:istio-pilot.istio-system"
-        - "--monitoring-port=15014"
-        - "--self-signed-ca=true"`
-
-	testPodYaml := `apiVersion: v1
-kind: Pod
-metadata:
-  name: istio-galley-75bcd59768-hpt5t
-  namespace: istio-system
-  labels:
-    istio: galley
-spec:
-  containers:
-  - name: galley
-    image: docker.io/istio/galley:1.1.8
-    command:
-    - "/usr/local/bin/galley"
-    - server
-    - "--meshConfigFile=/etc/mesh-config/mesh"
-    - "--livenessProbeInterval=1s"
-    - "--livenessProbePath=/healthliveness"
-    - "--readinessProbePath=/healthready"
-    - "--readinessProbeInterval=1s"
-    - "--deployment-namespace=istio-system"
-    - "--insecure=true"
-    - "--validation-webhook-config-file"
-    - "/etc/config/validatingwebhookconfiguration.yaml"
-    - "--monitoringPort=15014"
-    - "--log_output_level=default:info"
-    ports:
-    - containerPort: 443
-      protocol: TCP
-    - containerPort: 15014
-      protocol: TCP
-    - containerPort: 9901
-      protocol: TCP`
-
-	testServiceYaml := `apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: pilot
-  name: istio-pilot
-  namespace: istio-system
-spec:
-  clusterIP: 10.102.230.31
-  ports:
-  - name: grpc-xds
-    port: 15010
-    protocol: TCP
-    targetPort: 15010
-  - name: https-xds
-    port: 15011
-    protocol: TCP
-    targetPort: 15011
-  - name: http-legacy-discovery
-    port: 8080
-    protocol: TCP
-    targetPort: 8080
-  - name: http-monitoring
-    port: 15014
-    protocol: TCP
-    targetPort: 15014
-  selector:
-    istio: pilot
-  sessionAffinity: None
-  type: ClusterIP`
-
-	parseYAMLToK8sObjectTests := []struct {
-		desc          string
-		objString     string
-		wantGroup     string
-		wantKind      string
-		wantName      string
-		wantNamespace string
-	}{
-		{"ParseYamlToK8sDeployment", testDeploymentYaml, "apps", "Deployment", "istio-citadel", "istio-system"},
-		{"ParseYamlToK8sPod", testPodYaml, "", "Pod", "istio-galley-75bcd59768-hpt5t", "istio-system"},
-		{"ParseYamlToK8sService", testServiceYaml, "", "Service", "istio-pilot", "istio-system"},
-	}
-
-	for _, tt := range parseYAMLToK8sObjectTests {
-		t.Run(tt.desc, func(t *testing.T) {
-			k8sObj, err := ParseYAMLToK8sObject([]byte(tt.objString))
-			if err != nil {
-				k8sObjStr := k8sObj.YAMLDebugString()
-				if k8sObj.Group != tt.wantGroup {
-					t.Errorf("ParseYAMLToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Group, k8sObjStr, tt.wantGroup)
-				}
-				if k8sObj.Group != tt.wantGroup {
-					t.Errorf("ParseYAMLToK8sObject(%s): got kind %s for k8s object %s, want %s", tt.desc, k8sObj.Kind, k8sObjStr, tt.wantKind)
-				}
-				if k8sObj.Name != tt.wantName {
-					t.Errorf("ParseYAMLToK8sObject(%s): got name %s for k8s object %s, want %s", tt.desc, k8sObj.Name, k8sObjStr, tt.wantName)
-				}
-				if k8sObj.Namespace != tt.wantNamespace {
-					t.Errorf("ParseYAMLToK8sObject(%s): got group %s for k8s object %s, want %s", tt.desc, k8sObj.Namespace, k8sObjStr, tt.wantNamespace)
-				}
 			}
 		})
 	}
@@ -711,4 +588,126 @@ func TestK8sObject_ResolveK8sConflict(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseK8sObjectsFromYAMLManifestFailOption(t *testing.T) {
+	cases := []struct {
+		name        string
+		input       string
+		failOnError bool
+		expectErr   bool
+		expectCount int
+		expectOut   bool
+	}{
+		{
+			name:        "well formed yaml, no errors",
+			input:       "well-formed",
+			failOnError: false,
+			expectErr:   false,
+			expectCount: 2,
+		},
+		{
+			name:        "malformed yaml, fail on error",
+			input:       "malformed",
+			failOnError: true,
+			expectErr:   true,
+			expectCount: 0,
+		},
+		{
+			name:        "malformed yaml, continue on error",
+			input:       "malformed",
+			failOnError: false,
+			expectErr:   false,
+			expectCount: 1,
+		},
+		{
+			name:        "space in the end of the manifest",
+			input:       "well-formed-with-space",
+			expectCount: 1,
+			expectOut:   true,
+		},
+		{
+			name:        "some random comments",
+			input:       "well-formed-with-comments",
+			expectCount: 1,
+			expectOut:   true,
+		},
+		{
+			name:        "invalid k8s object - missing kind",
+			input:       "invalid",
+			failOnError: true,
+			expectErr:   true,
+			expectCount: 0,
+		},
+		{
+			name:        "invalid k8s object - missing kind - skip error",
+			input:       "invalid",
+			failOnError: false,
+			expectErr:   false,
+			expectCount: 0,
+		},
+		{
+			name:        "empty object - do not have errors",
+			input:       "empty",
+			failOnError: true,
+			expectErr:   false,
+			expectCount: 0,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			inputFileName := fmt.Sprintf("testdata/%s.yaml", tc.input)
+			inputFile, err := os.Open(inputFileName)
+			if err != nil {
+				t.Errorf("error opening test data file: %v", err)
+			}
+			defer inputFile.Close()
+			manifest, err := io.ReadAll(inputFile)
+			if err != nil {
+				t.Errorf("error reading test data file: %v", err)
+			}
+			objects, err := ParseK8sObjectsFromYAMLManifestFailOption(string(manifest), tc.failOnError)
+			if tc.expectErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tc.expectCount, len(objects))
+			if tc.expectOut {
+				outputFileName := fmt.Sprintf("testdata/%s.out.yaml", tc.input)
+				outputFile, err := os.Open(outputFileName)
+				if err != nil {
+					t.Errorf("error opening test data file: %v", err)
+				}
+				defer outputFile.Close()
+				expectedYAML, err := io.ReadAll(outputFile)
+				if err != nil {
+					t.Errorf("error reading test data file: %v", err)
+				}
+				expectedYAMLs := strings.Split(string(expectedYAML), "---")
+				if len(expectedYAMLs) != len(objects) {
+					t.Errorf("expected %d objects, got %d", len(expectedYAMLs), len(objects))
+				}
+				for i, obj := range objects {
+					assert.Equal(t, true, compareYAMLContent(string(obj.yaml), expectedYAMLs[i]))
+				}
+			}
+		})
+	}
+}
+
+// compareYAMLContent compares two yaml resources and returns true if they are equal. If they have same content but different
+// order of fields, it will return true as well.
+func compareYAMLContent(yaml1, yaml2 string) bool {
+	var obj1, obj2 interface{}
+	err := k8syaml.Unmarshal([]byte(yaml1), &obj1)
+	if err != nil {
+		return false
+	}
+	err = k8syaml.Unmarshal([]byte(yaml2), &obj2)
+	if err != nil {
+		return false
+	}
+	return reflect.DeepEqual(obj1, obj2)
 }

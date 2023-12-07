@@ -41,7 +41,9 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
+	"istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/url"
 )
 
@@ -59,11 +61,9 @@ Example resource specifications include:
 		"status":     {},
 	}
 
-	istioDeploymentLabel = []string{
-		"app",
-		"version",
-	}
 	serviceProtocolUDP = "UDP"
+
+	fileExtensions = []string{".json", ".yaml", ".yml"}
 )
 
 type validator struct{}
@@ -207,16 +207,14 @@ func (v *validator) validateDeploymentLabel(istioNamespace string, un *unstructu
 	if un.GetNamespace() == handleNamespace(istioNamespace) {
 		return nil
 	}
-	labels, err := GetTemplateLabels(un)
+	objLabels, err := GetTemplateLabels(un)
 	if err != nil {
 		return err
 	}
 	url := fmt.Sprintf("See %s\n", url.DeploymentRequirements)
-	for _, l := range istioDeploymentLabel {
-		if _, ok := labels[l]; !ok {
-			fmt.Fprintf(writer, "deployment %q may not provide Istio metrics and telemetry without label %q. "+url,
-				fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), l)
-		}
+	if !labels.HasCanonicalServiceName(objLabels) || !labels.HasCanonicalServiceRevision(objLabels) {
+		fmt.Fprintf(writer, "deployment %q may not provide Istio metrics and telemetry labels: %q. "+url,
+			fmt.Sprintf("%s/%s:", un.GetName(), un.GetNamespace()), objLabels)
 	}
 	return nil
 }
@@ -235,7 +233,8 @@ func GetTemplateLabels(u *unstructured.Unstructured) (map[string]string, error) 
 	return nil, nil
 }
 
-func (v *validator) validateFile(istioNamespace *string, defaultNamespace string, reader io.Reader, writer io.Writer) (validation.Warning, error) {
+func (v *validator) validateFile(path string, istioNamespace *string, defaultNamespace string, reader io.Reader, writer io.Writer,
+) (validation.Warning, error) {
 	decoder := yaml.NewDecoder(reader)
 	decoder.SetStrict(true)
 	var errs error
@@ -248,7 +247,7 @@ func (v *validator) validateFile(istioNamespace *string, defaultNamespace string
 			return warnings, errs
 		}
 		if err != nil {
-			errs = multierror.Append(errs, err)
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("failed to decode file %s: ", path)))
 			return warnings, errs
 		}
 		if len(raw) == 0 {
@@ -266,6 +265,11 @@ func (v *validator) validateFile(istioNamespace *string, defaultNamespace string
 				un.GetKind(), un.GetNamespace(), un.GetName())))
 		}
 	}
+}
+
+func isFileFormatValid(file string) bool {
+	ext := filepath.Ext(file)
+	return slices.Contains(fileExtensions, ext)
 }
 
 func validateFiles(istioNamespace *string, defaultNamespace string, filenames []string, writer io.Writer) error {
@@ -290,7 +294,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 				return
 			}
 		}
-		warning, err := v.validateFile(istioNamespace, defaultNamespace, reader, writer)
+		warning, err := v.validateFile(path, istioNamespace, defaultNamespace, reader, writer)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}
@@ -305,9 +309,15 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 			if err != nil {
 				return err
 			}
-			if !info.IsDir() && filepath.Ext(path) == ".yaml" {
+
+			if info.IsDir() {
+				return nil
+			}
+
+			if isFileFormatValid(path) {
 				processFile(path)
 			}
+
 			return nil
 		})
 		return err
@@ -413,7 +423,7 @@ func NewValidateCommand(ctx cli.Context) *cobra.Command {
 	flags := c.PersistentFlags()
 	flags.StringSliceVarP(&filenames, "filename", "f", nil, "Inputs of files to validate")
 	flags.BoolVarP(&referential, "referential", "x", true, "Enable structural validation for policy and telemetry")
-
+	_ = flags.MarkHidden("referential")
 	return c
 }
 

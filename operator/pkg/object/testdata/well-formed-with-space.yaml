@@ -1,0 +1,8 @@
+# there are some spaces at the end
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: myconfigmap
+  namespace: default
+data:
+  mydata: "First line of data\nSecond line of data       "

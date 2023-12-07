@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package env makes it possible to track use of environment variables within procress
+// Package env makes it possible to track use of environment variables within process
 // in order to generate documentation for these uses.
 package env
 

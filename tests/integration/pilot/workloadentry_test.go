@@ -19,162 +19,208 @@ package pilot
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/crd"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
-	commonDeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/echo/common/ports"
-	"istio.io/istio/pkg/test/framework/components/echo/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
-	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
+// TestWorkloadEntryGateway covers a model of multi-network where we rely on writing WorkloadEntry
+// resources inside each config cluster rather than doing cross-cluster discovery via remote secret.
+// Each case tests a different way of using local resources to reach remote destination(s).
 func TestWorkloadEntryGateway(t *testing.T) {
 	// nolint: staticcheck
 	framework.NewTest(t).
 		RequiresMinClusters(2).
 		Features("traffic.reachability").
 		Run(func(t framework.TestContext) {
-			ist, err := istio.Get(t)
-			if err != nil {
-				t.Fatal(err)
+			crd.DeployGatewayAPIOrSkip(t)
+			i := istio.GetOrFail(t, t)
+			type gwAddr struct {
+				ip   string
+				port int
 			}
-			clusterCfg := t.Clusters().Default()
-			namespaceName := apps.Namespace.Name()
+			gatewayAddresses := map[string]gwAddr{}
+			for _, cluster := range t.Clusters() {
+				if _, ok := gatewayAddresses[cluster.NetworkName()]; ok {
+					continue
+				}
+				ip, port := i.EastWestGatewayFor(cluster).AddressForPort(15443)
+				if ip != "" {
+					gatewayAddresses[cluster.NetworkName()] = gwAddr{ip, port}
+				}
+			}
+			if len(t.Clusters().Networks()) != len(gatewayAddresses) {
+				t.Skip("must have an east-west for each network")
+			}
 
-			// Create a echo deployment "z" in the echos namespace.
-			t.Logf("Deploy an echo instance in namespace %s on cluster %s", namespaceName, clusterCfg.Name())
-			deployment.New(t, clusterCfg).
-				WithConfig(echo.Config{
-					Service:        "z",
-					ServiceAccount: true,
-					Namespace:      apps.Namespace,
-					Ports:          ports.All(),
-					Subsets:        []echo.SubsetConfig{{}},
-				}).BuildOrFail(t)
-
-			// Define an AUTO_PASSTHROUGH EW gateway
-			gatewayCfg := `apiVersion: networking.istio.io/v1alpha3
+			// we have an imaginary network for each network called {name}-manual-discovery
+			gwTmpl := `
+---
+apiVersion: gateway.networking.k8s.io/v1beta1
 kind: Gateway
 metadata:
-  name: ingress-ew
-  namespace: istio-system
+  name: remote-gateway-manual-discovery-%s
+  labels:
+    topology.istio.io/network: "%s-manual-discovery"
+spec:
+  gatewayClassName: istio-remote
+  addresses:
+  - value: %q
+  listeners:
+  - name: cross-network
+    port: 15443
+    protocol: TLS
+    tls:
+      mode: Passthrough
+      options:
+        gateway.istio.io/listener-protocol: auto-passthrough
+`
+			// a serviceentry that only includes cluster-local endpoints (avoid automatic cross-cluster discovery)
+			seTmpl := `
+---
+apiVersion: networking.istio.io/v1beta1
+kind: ServiceEntry
+metadata:
+  name: serviceentry.mesh.global
+spec:
+  addresses:
+  - 240.240.240.240
+  hosts: 
+  - serviceentry.mesh.global
+  ports:
+  - number: 80
+    targetPort: 18080
+    name: http
+    protocol: HTTP
+  resolution: STATIC
+  location: MESH_INTERNAL
+  workloadSelector:
+    labels:
+      app: b
+      topology.istio.io/cluster: %s
+`
+
+			exposeServices := `
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: cross-network-gateway
 spec:
   selector:
     istio: eastwestgateway
   servers:
   - port:
       number: 15443
-      name: https
+      name: tls
       protocol: TLS
-    hosts:
-    - serviceentry.mesh.global
     tls:
       mode: AUTO_PASSTHROUGH
-`
-			// Configure an AUTO_PASSTHROUGH EW gateway
-			t.ConfigIstio().YAML("istio-system", gatewayCfg).ApplyOrFail(t, apply.CleanupConditionally)
+    hosts:
+    - "serviceentry.mesh.global"
+      `
 
-			ewGatewayIP, ewGatewayPort := ist.EastWestGatewayFor(clusterCfg).AddressForPort(15443)
-			if ewGatewayIP == "" || ewGatewayPort == 0 { // most likely EW gateway is not deployed, skip testing
-				t.Skipf("Skipping test, eastwest gateway is probably not deployed for cluster %s", clusterCfg.Name())
+			// expose the ServiceEntry and create the "manual discovery" gateways in all clusters
+			cfg := t.ConfigIstio().YAML(i.Settings().SystemNamespace, exposeServices)
+			for _, network := range t.Clusters().Networks() {
+				cfg.
+					YAML(i.Settings().SystemNamespace, fmt.Sprintf(gwTmpl, network, network, gatewayAddresses[network].ip))
 			}
-			serviceEntryYaml := `
-apiVersion: networking.istio.io/v1beta1
-kind: ServiceEntry
+			cfg.ApplyOrFail(t)
+
+			// create a unique SE per cluster
+			for _, c := range t.Clusters().Configs() {
+				t.ConfigKube(c).YAML(apps.Namespace.Name(), fmt.Sprintf(seTmpl, c.Name())).ApplyOrFail(t)
+			}
+
+			weTmpl := `
+apiVersion: networking.istio.io/v1alpha3
+kind: WorkloadEntry
 metadata:
-  name: z-se
+  name: se-cross-network-{{.testName}}
+  labels:
+    app: b
+    security.istio.io/tlsMode: istio
+    # TODO this should be implicit, but for some reason it isn't for WorkloadEntry
+    topology.istio.io/cluster: {{.clusterName}}
 spec:
-  addresses:
-  - 240.240.34.56
-  hosts:
-  - serviceentry.mesh.global
+  address: "{{.address}}"
+  network: "{{.network}}"
+{{- if gt .targetPort 0 }}
   ports:
-  - name: http
-    number: 80
-    protocol: HTTP
-    targetPort: 8080
-  location: MESH_INTERNAL
-  resolution: STATIC
-  workloadSelector:
-    labels:
-      app: z
+    http: {{ .targetPort }}
+{{- end }}
 `
-			// Configure ServiceEntry
-			t.ConfigIstio().YAML(namespaceName, serviceEntryYaml).ApplyOrFail(t, apply.CleanupConditionally)
 
-			type testCase struct {
-				name    string
-				port    int
-				address string
-				network string
-			}
-			testCases := []testCase{
-				{"gateway address", ewGatewayPort, ewGatewayIP, ""},
-			}
-			if len(t.Clusters().Networks()) > 0 && t.Clusters().Networks()[0] != "" {
-				testCases = append(testCases, testCase{"empty address with label", 8080, "", t.Clusters().Networks()[0]})
+			testCases := []struct {
+				name            string
+				addressFunc     func(nw string) string
+				targetPortFunc  func(nw string) int
+				networkNameFunc func(nw string) string
+			}{
+				{
+					name:            "with gateway address",
+					addressFunc:     func(nw string) string { return gatewayAddresses[nw].ip },
+					targetPortFunc:  func(nw string) int { return gatewayAddresses[nw].port },
+					networkNameFunc: func(nw string) string { return "" },
+				},
+				{
+					name:            "empty address and network",
+					addressFunc:     func(nw string) string { return "" },
+					targetPortFunc:  func(nw string) int { return 0 },
+					networkNameFunc: func(nw string) string { return nw },
+				},
+				{
+					name:            "locally registered gateway",
+					addressFunc:     func(nw string) string { return "" },
+					targetPortFunc:  func(nw string) int { return 0 },
+					networkNameFunc: func(nw string) string { return nw + "-manual-discovery" },
+				},
 			}
 
 			for _, tc := range testCases {
-				{
-					tc := tc
-					t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
-						workloadEntryYaml := fmt.Sprintf(`apiVersion: networking.istio.io/v1beta1
-apiVersion: networking.istio.io/v1beta1
-kind: WorkloadEntry
-metadata:
-  name: z-we
-  labels:
-    security.istio.io/tlsMode: istio
-    app: z
-spec:
-  network: %q
-  ports:
-    http: %v
-  address: %q`, tc.network, tc.port, tc.address)
-
-						t.ConfigIstio().YAML(namespaceName, workloadEntryYaml).ApplyOrFail(t, apply.CleanupConditionally)
-
-						srcs := apps.All.Instances()
-						for _, src := range srcs {
-							srcName := src.Config().NamespacedName().Name
-							// Skipping tests for these workloads:
-							//      external
-							//      naked
-							//      proxyless-grpc
-							//      vm
-							if srcName == commonDeployment.ProxylessGRPCSvc ||
-								srcName == commonDeployment.NakedSvc ||
-								srcName == commonDeployment.ExternalSvc ||
-								srcName == commonDeployment.VMSvc {
-								continue
-							}
-							srcCluster := src.Config().Cluster.Name()
-							// Assert that non-skipped workloads can reach the service which includes our workload entry
-							t.NewSubTestf("%s in %s to ServiceEntry+WorkloadEntry Responds with 200", srcName, srcCluster).Run(func(t framework.TestContext) {
-								src.CallOrFail(t, echo.CallOptions{
-									Address: "serviceentry.mesh.global",
-									Port:    echo.Port{Name: "http", ServicePort: 80},
-									Scheme:  scheme.HTTP,
-									HTTP: echo.HTTP{
-										Path: "/path",
-									},
-									Check:                   check.OK(),
-									NewConnectionPerRequest: true,
-									Retry: echo.Retry{
-										Options: []retry.Option{multiclusterRetryDelay, retry.Timeout(time.Minute)},
-									},
-								})
-							})
+				tc := tc
+				t.NewSubTest(tc.name).Run(func(t framework.TestContext) {
+					for network, networkClusters := range t.Clusters().ByNetwork() {
+						weClusters := t.Clusters().Configs(networkClusters...)
+						for _, weCluster := range weClusters {
+							t.ConfigKube(weCluster).Eval(apps.Namespace.Name(), map[string]interface{}{
+								// used so this WE doesn't get cross-cluster discovered
+								"clusterName": weCluster.Name(),
+								"testName":    strings.ReplaceAll(tc.name, " ", "-"),
+								"network":     tc.networkNameFunc(network),
+								"address":     tc.addressFunc(network),
+								"targetPort":  tc.targetPortFunc(network),
+							}, weTmpl).ApplyOrFail(t)
 						}
-					})
-				}
+					}
+
+					for _, src := range apps.A.Instances() {
+						src := src
+						// TODO possibly can run parallel
+						t.NewSubTestf("from %s", src.Clusters().Default().Name()).Run(func(t framework.TestContext) {
+							src.CallOrFail(t, echo.CallOptions{
+								// check that we lb to all the networks (we won't reach non-config clusters because of the topology.istio.io/cluster selector)
+								// that selector helps us verify that we reached the endpoints due to the WorkloadEntry and not regular multicluster service discovery
+								Check:                   check.ReachedClusters(t.Clusters(), apps.A.Clusters().Configs()),
+								Address:                 "serviceentry.mesh.global",
+								Port:                    ports.HTTP,
+								Scheme:                  scheme.HTTP,
+								NewConnectionPerRequest: true,
+								Retry:                   echo.Retry{Options: []retry.Option{multiclusterRetryDelay, retry.Timeout(time.Minute)}},
+								Count:                   10,
+							})
+						})
+					}
+				})
 			}
 		})
 }

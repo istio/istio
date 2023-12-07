@@ -23,9 +23,11 @@ import (
 	tls "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/tls/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
+	metadata "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	"google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
@@ -87,11 +89,11 @@ func (configgen *ConfigGeneratorImpl) buildWaypointInboundClusters(
 }
 
 // `inbound-vip||hostname|port`. EDS routing to the internal listener for each pod in the VIP.
-func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, port model.Port, subset string) *MutableCluster {
+func (cb *ClusterBuilder) buildWaypointInboundVIPCluster(svc *model.Service, port model.Port, subset string) *clusterWrapper {
 	clusterName := model.BuildSubsetKey(model.TrafficDirectionInboundVIP, subset, svc.Hostname, port.Port)
 
 	clusterType := cluster.Cluster_EDS
-	localCluster := cb.buildDefaultCluster(clusterName, clusterType, nil,
+	localCluster := cb.buildCluster(clusterName, clusterType, nil,
 		model.TrafficDirectionInbound, &port, nil, nil)
 
 	// Ensure VIP cluster has services metadata for stats filter usage
@@ -178,6 +180,22 @@ func (cb *ClusterBuilder) buildConnectOriginate(proxy *model.Proxy, push *model.
 		ConnectTimeout:                durationpb.New(2 * time.Second),
 		CleanupInterval:               durationpb.New(60 * time.Second),
 		TypedExtensionProtocolOptions: h2connectUpgrade(),
+		LbConfig: &cluster.Cluster_OriginalDstLbConfig_{
+			OriginalDstLbConfig: &cluster.Cluster_OriginalDstLbConfig{
+				UpstreamPortOverride: &wrappers.UInt32Value{
+					Value: model.HBoneInboundListenPort,
+				},
+				// Used to override destination pods with waypoints.
+				MetadataKey: &metadata.MetadataKey{
+					Key: util.OriginalDstMetadataKey,
+					Path: []*metadata.MetadataKey_PathSegment{{
+						Segment: &metadata.MetadataKey_PathSegment_Key{
+							Key: "waypoint",
+						},
+					}},
+				},
+			},
+		},
 		TransportSocket: &core.TransportSocket{
 			Name: "tls",
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&tls.UpstreamTlsContext{

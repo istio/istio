@@ -113,6 +113,94 @@ func TestApplyProxyConfig(t *testing.T) {
 	})
 }
 
+func TestProxyConfigMerge(t *testing.T) {
+	cases := []struct {
+		name    string
+		base    string
+		overlay string
+		result  string
+	}{
+		{
+			name: "disabled then enabled",
+			base: `
+proxyHeaders:
+  requestId:
+    disabled: true`,
+			overlay: `
+proxyHeaders:
+  requestId:
+    disabled: false`,
+			result: `
+proxyHeaders:
+  requestId:
+    disabled: false`,
+		},
+		{
+			name: "enabled then disabled",
+			base: `
+proxyHeaders:
+  requestId:
+    disabled: false`,
+			overlay: `
+proxyHeaders:
+  requestId:
+    disabled: true`,
+			result: `
+proxyHeaders:
+  requestId:
+    disabled: true`,
+		},
+		{
+			name: "set multiple fields",
+			base: `
+proxyHeaders:
+  forwardedClientCert: APPEND_FORWARD
+  server:
+    value: server
+  requestId:
+    disabled: true
+  attemptCount: {}
+  envoyDebugHeaders:
+    disabled: true`,
+			overlay: `
+proxyHeaders:
+  forwardedClientCert: ALWAYS_FORWARD_ONLY
+  server:
+    disabled: true
+  requestId: {}
+  attemptCount:
+    disabled: true
+  envoyDebugHeaders:
+    disabled: true`,
+			result: `
+proxyHeaders:
+  forwardedClientCert: ALWAYS_FORWARD_ONLY
+  server:
+    disabled: true
+  requestId: {}
+  attemptCount:
+    disabled: true
+  envoyDebugHeaders:
+    disabled: true`,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			mc := &meshconfig.MeshConfig{DefaultConfig: &meshconfig.ProxyConfig{}}
+			var err error
+			mc, err = mesh.ApplyProxyConfig(tt.base, mc)
+			assert.NoError(t, err)
+			mc, err = mesh.ApplyProxyConfig(tt.overlay, mc)
+			assert.NoError(t, err)
+
+			want := &meshconfig.ProxyConfig{}
+			assert.NoError(t, protomarshal.ApplyYAML(tt.result, want))
+
+			assert.Equal(t, mc.GetDefaultConfig(), want)
+		})
+	}
+}
+
 func TestDefaultProxyConfig(t *testing.T) {
 	if err := validation.ValidateMeshConfigProxyConfig(mesh.DefaultProxyConfig()); err != nil {
 		t.Errorf("validation of default proxy config failed with %v", err)

@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: 
+  - 46935
+releaseNotes:
+  - |
+    **Fixed** An issue where upstream DNS queries would result in pairs of permanently UNREPLIED conntrack entries.

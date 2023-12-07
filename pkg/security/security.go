@@ -91,7 +91,6 @@ const (
 
 	// WorkloadKeyCertResourceName is the resource name of the discovery request for workload
 	// identity.
-	// TODO: change all the pilot one reference definition here instead.
 	WorkloadKeyCertResourceName = "default"
 
 	// GCE is Credential fetcher type of Google plugin
@@ -426,15 +425,15 @@ type Authenticator interface {
 	AuthenticatorType() string
 }
 
-// AuthenticationManager orchestrates all authenticators to perform authentication.
-type AuthenticationManager struct {
+// authenticationManager orchestrates all authenticators to perform authentication.
+type authenticationManager struct {
 	Authenticators []Authenticator
 	// authFailMsgs contains list of messages that authenticator wants to record - mainly used for logging.
 	authFailMsgs []string
 }
 
 // Authenticate loops through all the configured Authenticators and returns if one of the authenticator succeeds.
-func (am *AuthenticationManager) Authenticate(ctx context.Context) *Caller {
+func (am *authenticationManager) authenticate(ctx context.Context) *Caller {
 	req := AuthContext{GrpcContext: ctx}
 	for _, authn := range am.Authenticators {
 		u, err := authn.Authenticate(req)
@@ -456,7 +455,7 @@ func GetConnectionAddress(ctx context.Context) string {
 	return peerAddr
 }
 
-func (am *AuthenticationManager) FailedMessages() string {
+func (am *authenticationManager) FailedMessages() string {
 	return strings.Join(am.authFailMsgs, "; ")
 }
 
@@ -591,9 +590,8 @@ func SdsCertificateConfigFromResourceName(resource string) (SdsCertificateConfig
 			return SdsCertificateConfig{}, false
 		}
 		return SdsCertificateConfig{"", "", split[0]}, true
-	} else {
-		return SdsCertificateConfig{}, false
 	}
+	return SdsCertificateConfig{}, false
 }
 
 // SdsCertificateConfigFromResourceNameForOSCACert converts the OS resource name into a SdsCertificateConfig

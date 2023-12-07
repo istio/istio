@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -35,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
@@ -164,7 +167,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   9000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -208,7 +211,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -227,7 +230,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -246,7 +249,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -254,7 +257,7 @@ var (
 					Hosts: []string{"foo/*"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7000,
 						Protocol: "HTTP",
 						Name:     "uds",
@@ -272,7 +275,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   23145,
 						Protocol: "TCP",
 						Name:     "outbound-tcp",
@@ -300,7 +303,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "GRPC",
 						Name:     "listener-grpc-tls",
@@ -318,7 +321,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "GRPC",
 						Name:     "grpc-tls",
@@ -326,7 +329,7 @@ var (
 					Hosts: []string{"*/*"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7442,
 						Protocol: "HTTP",
 						Name:     "http-tls",
@@ -344,7 +347,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -362,7 +365,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -380,7 +383,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -398,7 +401,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http_proxy",
 						Name:     "grpc-tls",
@@ -416,7 +419,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "GRPC",
 						Name:     "grpc-tls",
@@ -424,7 +427,7 @@ var (
 					Hosts: []string{"*/*"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7442,
 						Protocol: "HTTP",
 						Name:     "http-tls",
@@ -445,7 +448,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   7443,
 						Protocol: "http",
 						Name:     "grpc-tls",
@@ -531,7 +534,7 @@ var (
 		Spec: &networking.Sidecar{
 			Egress: []*networking.IstioEgressListener{
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8031,
 						Protocol: "TCP",
 						Name:     "tcp-ipc1",
@@ -539,7 +542,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8032,
 						Protocol: "TCP",
 						Name:     "tcp-ipc2",
@@ -547,7 +550,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8033,
 						Protocol: "TCP",
 						Name:     "tcp-ipc3",
@@ -555,7 +558,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8034,
 						Protocol: "TCP",
 						Name:     "tcp-ipc4",
@@ -563,7 +566,7 @@ var (
 					Hosts: []string{"*/foobar.svc.cluster.local"},
 				},
 				{
-					Port: &networking.Port{
+					Port: &networking.SidecarPort{
 						Number:   8035,
 						Protocol: "TCP",
 						Name:     "tcp-ipc5",
@@ -836,7 +839,7 @@ var (
 			Attributes: ServiceAttributes{
 				Name:      "foo",
 				Namespace: "ns1",
-				ExportTo:  map[visibility.Instance]bool{visibility.Private: true},
+				ExportTo:  sets.New(visibility.Private),
 			},
 		},
 		{
@@ -1989,9 +1992,9 @@ func TestCreateSidecarScope(t *testing.T) {
 			}
 
 			ps.exportToDefaults = exportToDefaults{
-				virtualService:  map[visibility.Instance]bool{visibility.Public: true},
-				service:         map[visibility.Instance]bool{visibility.Public: true},
-				destinationRule: map[visibility.Instance]bool{visibility.Public: true},
+				virtualService:  sets.New(visibility.Public),
+				service:         sets.New(visibility.Public),
+				destinationRule: sets.New(visibility.Public),
 			}
 
 			sidecarConfig := tt.sidecarConfig
@@ -2091,77 +2094,121 @@ func TestIstioEgressListenerWrapper(t *testing.T) {
 		Ports:      port8000,
 		Attributes: ServiceAttributes{Namespace: "b"},
 	}
+
+	serviceBWildcard := &Service{
+		Hostname:   "*.test.wildcard.com",
+		Ports:      port8000,
+		Attributes: ServiceAttributes{Namespace: "b"},
+	}
 	allServices := []*Service{serviceA8000, serviceA9000, serviceAalt, serviceB8000, serviceB9000, serviceBalt}
 
 	tests := []struct {
 		name          string
-		listenerHosts map[string][]host.Name
+		listenerHosts map[string]hostClassification
 		services      []*Service
 		expected      []*Service
 		namespace     string
 	}{
 		{
-			name:          "*/* imports only those in a",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {wildcardService}},
-			services:      allServices,
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "*/* imports only those in a",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "*/* will bias towards configNamespace",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {wildcardService}},
-			services:      []*Service{serviceB8000, serviceB9000, serviceBalt, serviceA8000, serviceA9000, serviceAalt},
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "*/* will bias towards configNamespace",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  []*Service{serviceB8000, serviceB9000, serviceBalt, serviceA8000, serviceA9000, serviceAalt},
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "a/* imports only those in a",
-			listenerHosts: map[string][]host.Name{"a": {wildcardService}},
-			services:      allServices,
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "a/* imports only those in a",
+			listenerHosts: map[string]hostClassification{
+				"a": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "b/*, b/* imports only those in b",
-			listenerHosts: map[string][]host.Name{"b": {wildcardService, wildcardService}},
-			services:      allServices,
-			expected:      []*Service{serviceB8000, serviceB9000, serviceBalt},
-			namespace:     "a",
+			name: "b/*, b/* imports only those in b",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{wildcardService, wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceB8000, serviceB9000, serviceBalt},
+			namespace: "a",
 		},
 		{
-			name:          "*/alt imports alt in namespace a",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {"alt"}},
-			services:      allServices,
-			expected:      []*Service{serviceAalt},
-			namespace:     "a",
+			name: "*/alt imports alt in namespace a",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{"alt"}, exactHosts: sets.New[host.Name]("alt")},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceAalt},
+			namespace: "a",
 		},
 		{
-			name:          "b/alt imports alt in a namespaces",
-			listenerHosts: map[string][]host.Name{"b": {"alt"}},
-			services:      allServices,
-			expected:      []*Service{serviceBalt},
-			namespace:     "a",
+			name: "b/alt imports alt in a namespaces",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{"alt"}, exactHosts: sets.New[host.Name]("alt")},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceBalt},
+			namespace: "a",
 		},
 		{
-			name:          "b/* imports doesn't import in namespace a with proxy in a",
-			listenerHosts: map[string][]host.Name{"b": {wildcardService}},
-			services:      []*Service{serviceA8000},
-			expected:      []*Service{},
-			namespace:     "a",
+			name: "b/* imports doesn't import in namespace a with proxy in a",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  []*Service{serviceA8000},
+			expected:  []*Service{},
+			namespace: "a",
 		},
 		{
-			name:          "multiple hosts selected same service",
-			listenerHosts: map[string][]host.Name{"a": {wildcardService}, "*": {wildcardService}},
-			services:      []*Service{serviceA8000},
-			expected:      []*Service{serviceA8000},
-			namespace:     "a",
+			name: "multiple hosts selected same service",
+			listenerHosts: map[string]hostClassification{
+				"a": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+				"*": {allHosts: []host.Name{wildcardService}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  []*Service{serviceA8000},
+			expected:  []*Service{serviceA8000},
+			namespace: "a",
 		},
 		{
-			name:          "fall back to wildcard namespace",
-			listenerHosts: map[string][]host.Name{wildcardNamespace: {"host"}, "a": {"alt"}},
-			services:      allServices,
-			expected:      []*Service{serviceA8000, serviceA9000, serviceAalt},
-			namespace:     "a",
+			name: "fall back to wildcard namespace",
+			listenerHosts: map[string]hostClassification{
+				wildcardNamespace: {allHosts: []host.Name{"host"}, exactHosts: sets.New[host.Name]("host")},
+				"a":               {allHosts: []host.Name{"alt"}, exactHosts: sets.New[host.Name]("alt")},
+			},
+			services:  allServices,
+			expected:  []*Service{serviceA8000, serviceA9000, serviceAalt},
+			namespace: "a",
+		},
+		{
+			name: "service is wildcard, but not listener's subset",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{"wildcard.com"}, exactHosts: sets.New[host.Name]("wildcard.com")},
+			},
+			services:  []*Service{serviceBWildcard},
+			expected:  []*Service{},
+			namespace: "b",
+		},
+		{
+			name: "service is wildcard",
+			listenerHosts: map[string]hostClassification{
+				"b": {allHosts: []host.Name{"*.wildcard.com"}, exactHosts: sets.New[host.Name]()},
+			},
+			services:  []*Service{serviceBWildcard},
+			expected:  []*Service{serviceBWildcard},
+			namespace: "b",
 		},
 	}
 
@@ -2470,6 +2517,163 @@ outboundTrafficPolicy:
 	}
 }
 
+func TestInboundConnectionPoolForPort(t *testing.T) {
+	connectionPoolSettings := &networking.ConnectionPoolSettings{
+		Http: &networking.ConnectionPoolSettings_HTTPSettings{
+			Http1MaxPendingRequests:  1024,
+			Http2MaxRequests:         1024,
+			MaxRequestsPerConnection: 1024,
+			MaxRetries:               1024,
+			IdleTimeout:              durationpb.New(5 * time.Second),
+			H2UpgradePolicy:          networking.ConnectionPoolSettings_HTTPSettings_UPGRADE,
+		},
+		Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+			MaxConnections: 1024,
+			ConnectTimeout: durationpb.New(6 * time.Second),
+			TcpKeepalive: &networking.ConnectionPoolSettings_TCPSettings_TcpKeepalive{
+				Probes:   3,
+				Time:     durationpb.New(7 * time.Second),
+				Interval: durationpb.New(8 * time.Second),
+			},
+			MaxConnectionDuration: durationpb.New(9 * time.Second),
+		},
+	}
+
+	overrideConnectionPool := &networking.ConnectionPoolSettings{
+		Http: &networking.ConnectionPoolSettings_HTTPSettings{
+			Http1MaxPendingRequests:  1,
+			Http2MaxRequests:         2,
+			MaxRequestsPerConnection: 3,
+			MaxRetries:               4,
+			IdleTimeout:              durationpb.New(1 * time.Second),
+			H2UpgradePolicy:          networking.ConnectionPoolSettings_HTTPSettings_DO_NOT_UPGRADE,
+		},
+	}
+
+	tests := map[string]struct {
+		sidecar *networking.Sidecar
+		// port to settings map
+		want map[int]*networking.ConnectionPoolSettings
+	}{
+		"no settings": {
+			sidecar: &networking.Sidecar{},
+			want: map[int]*networking.ConnectionPoolSettings{
+				22:  nil,
+				80:  nil,
+				443: nil,
+			},
+		},
+		"no settings multiple ports": {
+			sidecar: &networking.Sidecar{
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+					},
+					{
+						Port: &networking.SidecarPort{
+							Number:   443,
+							Protocol: "HTTPS",
+							Name:     "https",
+						},
+					},
+				},
+			},
+			want: map[int]*networking.ConnectionPoolSettings{
+				22:  nil,
+				80:  nil,
+				443: nil,
+			},
+		},
+		"single port with settings": {
+			sidecar: &networking.Sidecar{
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						ConnectionPool: connectionPoolSettings,
+					},
+				},
+			},
+			want: map[int]*networking.ConnectionPoolSettings{
+				22:  nil,
+				80:  connectionPoolSettings,
+				443: nil,
+			},
+		},
+		"top level settings": {
+			sidecar: &networking.Sidecar{
+				InboundConnectionPool: connectionPoolSettings,
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+					},
+				},
+			},
+			want: map[int]*networking.ConnectionPoolSettings{
+				// with a default setting on the sidecar, we'll return it for any port we're asked about
+				22:  connectionPoolSettings,
+				80:  connectionPoolSettings,
+				443: connectionPoolSettings,
+			},
+		},
+		"port settings override top level": {
+			sidecar: &networking.Sidecar{
+				InboundConnectionPool: connectionPoolSettings,
+				Ingress: []*networking.IstioIngressListener{
+					{
+						Port: &networking.SidecarPort{
+							Number:   80,
+							Protocol: "HTTP",
+							Name:     "http",
+						},
+						ConnectionPool: overrideConnectionPool,
+					},
+				},
+			},
+			want: map[int]*networking.ConnectionPoolSettings{
+				// with a default setting on the sidecar, we'll return it for any port we're asked about
+				22:  connectionPoolSettings,
+				80:  overrideConnectionPool,
+				443: connectionPoolSettings,
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			ps := NewPushContext()
+			ps.Mesh = mesh.DefaultMeshConfig()
+
+			sidecar := &config.Config{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.Sidecar,
+					Name:             "sidecar",
+					Namespace:        strings.Replace(name, " ", "-", -1),
+				},
+				Spec: tt.sidecar,
+			}
+			scope := ConvertToSidecarScope(ps, sidecar, sidecar.Namespace)
+
+			for port, expected := range tt.want {
+				actual := scope.InboundConnectionPoolForPort(port)
+				if !reflect.DeepEqual(actual, expected) {
+					t.Errorf("for port %d, wanted %#v but got: %#v", port, expected, actual)
+				}
+			}
+		})
+	}
+}
+
 func BenchmarkConvertIstioListenerToWrapper(b *testing.B) {
 	b.Run("small-exact", func(b *testing.B) {
 		benchmarkConvertIstioListenerToWrapper(b, 10, 3, "", false)
@@ -2503,6 +2707,7 @@ func BenchmarkConvertIstioListenerToWrapper(b *testing.B) {
 }
 
 func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int, wildcard string, matchAll bool) {
+	// virtual service
 	cfgs := make([]config.Config, 0)
 	for i := 0; i < vsNum; i++ {
 		cfgs = append(cfgs, config.Config{
@@ -2517,7 +2722,17 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 		})
 	}
 	ps := NewPushContext()
-	ps.virtualServiceIndex.publicByGateway["default"] = cfgs
+	ps.virtualServiceIndex.publicByGateway[constants.IstioMeshGateway] = cfgs
+
+	// service
+	svcList := make([]*Service, 0, vsNum)
+	for i := 0; i < vsNum; i++ {
+		svcList = append(svcList, &Service{
+			Attributes: ServiceAttributes{Namespace: "default"},
+			Hostname:   host.Name("host-" + strconv.Itoa(i) + ".com"),
+		})
+	}
+	ps.ServiceIndex.public = svcList
 
 	hosts := make([]string, 0)
 	if matchAll {
@@ -2537,6 +2752,6 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		convertIstioListenerToWrapper(ps, "this-test-not-use-ns", istioListener)
+		convertIstioListenerToWrapper(ps, "default", istioListener)
 	}
 }

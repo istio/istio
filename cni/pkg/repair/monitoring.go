@@ -19,11 +19,11 @@ import (
 )
 
 var (
-	typeLabel  = monitoring.MustCreateLabel("type")
+	typeLabel  = monitoring.CreateLabel("type")
 	deleteType = "delete"
 	labelType  = "label"
 
-	resultLabel   = monitoring.MustCreateLabel("result")
+	resultLabel   = monitoring.CreateLabel("result")
 	resultSuccess = "success"
 	resultSkip    = "skip"
 	resultFail    = "fail"
@@ -31,10 +31,5 @@ var (
 	podsRepaired = monitoring.NewSum(
 		"istio_cni_repair_pods_repaired_total",
 		"Total number of pods repaired by repair controller",
-		monitoring.WithLabels(typeLabel, resultLabel),
 	)
 )
-
-func init() {
-	monitoring.MustRegister(podsRepaired)
-}

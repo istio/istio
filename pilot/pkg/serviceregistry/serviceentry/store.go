@@ -58,13 +58,24 @@ func (s *serviceInstancesStore) getByKey(key instancesKey) []*model.ServiceInsta
 	return all
 }
 
-func (s *serviceInstancesStore) deleteInstances(key configKey, instances []*model.ServiceInstance) {
+// deleteInstanceKeys deletes all instances with the given configKey and instanceKey
+// Note: as a convenience, this takes a []ServiceInstance instead of []instanceKey, as most callers have this format
+// However, this function only operates on the instance keys
+func (s *serviceInstancesStore) deleteInstanceKeys(key configKey, instances []*model.ServiceInstance) {
 	for _, i := range instances {
 		ikey := makeInstanceKey(i)
-		hostPort := hostPort{ikey.hostname.String(), i.ServicePort.Port}
-		s.instancesByHostAndPort.Delete(hostPort)
-		delete(s.instances[makeInstanceKey(i)], key)
+		s.instancesByHostAndPort.Delete(hostPort{ikey.hostname.String(), i.ServicePort.Port})
+		oldInstances := s.instances[ikey][key]
+		delete(s.instances[ikey], key)
+		if len(s.instances[ikey]) == 0 {
+			delete(s.instances, ikey)
+		}
 		delete(s.ip2instance, i.Endpoint.Address)
+		// Cleanup stale IPs, if the IPs changed
+		for _, oi := range oldInstances {
+			s.instancesByHostAndPort.Delete(hostPort{ikey.hostname.String(), oi.ServicePort.Port})
+			delete(s.ip2instance, oi.Endpoint.Address)
+		}
 	}
 }
 
@@ -96,7 +107,7 @@ func (s *serviceInstancesStore) addInstances(key configKey, instances []*model.S
 
 func (s *serviceInstancesStore) updateInstances(key configKey, instances []*model.ServiceInstance) {
 	// first delete
-	s.deleteInstances(key, instances)
+	s.deleteInstanceKeys(key, instances)
 
 	// second add
 	s.addInstances(key, instances)
@@ -119,6 +130,9 @@ func (s *serviceInstancesStore) updateServiceEntryInstancesPerConfig(key types.N
 
 func (s *serviceInstancesStore) deleteServiceEntryInstances(key types.NamespacedName, cKey configKey) {
 	delete(s.instancesBySE[key], cKey)
+	if len(s.instancesBySE[key]) == 0 {
+		delete(s.instancesBySE, key)
+	}
 }
 
 func (s *serviceInstancesStore) deleteAllServiceEntryInstances(key types.NamespacedName) {

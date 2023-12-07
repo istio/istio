@@ -57,23 +57,15 @@ type EnvoyFilterConfigPatchWrapper struct {
 // This is done only as an optimization; behavior should remain the same
 // All versions specified by the default installation (Telemetry V2) should be added here.
 var wellKnownVersions = map[string]string{
-	`^1\.4.*`:  "1.4",
-	`^1\.5.*`:  "1.5",
-	`^1\.6.*`:  "1.6",
-	`^1\.7.*`:  "1.7",
-	`^1\.8.*`:  "1.8",
-	`^1\.9.*`:  "1.9",
-	`^1\.10.*`: "1.10",
-	`^1\.11.*`: "1.11",
-	`^1\.12.*`: "1.12",
-	`^1\.13.*`: "1.13",
-	`^1\.14.*`: "1.14",
-	`^1\.15.*`: "1.15",
 	`^1\.16.*`: "1.16",
 	`^1\.17.*`: "1.17",
 	`^1\.18.*`: "1.18",
 	`^1\.19.*`: "1.19",
-	// Hopefully we have a better API by 1.19. If not, add it here
+	`^1\.20.*`: "1.20",
+	`^1\.21.*`: "1.21",
+	`^1\.22.*`: "1.22",
+	`^1\.23.*`: "1.23",
+	// Hopefully we have a better API by 1.23. If not, add it here
 }
 
 // convertToEnvoyFilterWrapper converts from EnvoyFilter config to EnvoyFilterWrapper object
@@ -95,7 +87,7 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		cpw := &EnvoyFilterConfigPatchWrapper{
 			Name:      local.Name,
 			Namespace: local.Namespace,
-			FullName:  genFullName(local.Namespace, local.Name),
+			FullName:  local.Namespace + "/" + local.Name,
 			ApplyTo:   cp.ApplyTo,
 			Match:     cp.Match,
 			Operation: cp.Patch.Operation,
@@ -200,16 +192,6 @@ func (efw *EnvoyFilterWrapper) KeysApplyingTo(applyTo ...networking.EnvoyFilter_
 		}
 	}
 	return sets.SortedList(keys)
-}
-
-func genFullName(namespace, name string) string {
-	b := strings.Builder{}
-	b.Grow(len(namespace) + len(name) + 1)
-
-	b.WriteString(namespace)
-	b.WriteString("/")
-	b.WriteString(name)
-	return b.String()
 }
 
 func (cpw *EnvoyFilterConfigPatchWrapper) Key() string {

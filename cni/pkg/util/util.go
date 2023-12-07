@@ -49,7 +49,7 @@ func (w *Watcher) Close() {
 }
 
 // Creates a file watcher that watches for any changes to the directory
-func CreateFileWatcher(dirs ...string) (*Watcher, error) {
+func CreateFileWatcher(paths ...string) (*Watcher, error) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, fmt.Errorf("watcher create: %v", err)
@@ -58,12 +58,12 @@ func CreateFileWatcher(dirs ...string) (*Watcher, error) {
 	fileModified, errChan := make(chan struct{}), make(chan error)
 	go watchFiles(watcher, fileModified, errChan)
 
-	for _, dir := range dirs {
-		if !file.Exists(dir) {
-			log.Infof("skip watching non-existing dir %v", dir)
+	for _, path := range paths {
+		if !file.Exists(path) {
+			log.Infof("file watcher skipping watch on non-existent path: %v", path)
 			continue
 		}
-		if err := watcher.Add(dir); err != nil {
+		if err := watcher.Add(path); err != nil {
 			if closeErr := watcher.Close(); closeErr != nil {
 				err = fmt.Errorf("%s: %w", closeErr.Error(), err)
 			}

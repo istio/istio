@@ -1,0 +1,28 @@
+# This file provides some defaults for integration testing.
+apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: install
+spec:
+  profile: ambient
+  components:
+    ingressGateways:
+      - name: istio-ingressgateway
+        enabled: true
+  values:
+    global:
+      # Ambient profile defaults to distroless. But this kind of breaks the test framework, which tries to set
+      # its own logic for distroless or not. Instead, defer it to the framework.
+      variant: ""
+    ztunnel:
+      meshConfig:
+        defaultConfig:
+          proxyMetadata:
+            ISTIO_META_DNS_CAPTURE: "true"
+            DNS_PROXY_ADDR: "0.0.0.0:15053"
+    meshConfig:
+      defaultConfig:
+        proxyMetadata:
+          ISTIO_META_DNS_CAPTURE: "true"
+          DNS_PROXY_ADDR: "0.0.0.0:15053"
+      accessLogFile: /dev/stdout

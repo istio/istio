@@ -161,7 +161,7 @@ func init() {
 	registerStringParameter(constants.KubeCAFile, "", "CA file for kubeconfig. Defaults to the same as install-cni pod")
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
-	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log ouptut to")
+	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log output to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
 	registerBooleanParameter(constants.EbpfEnabled, false, "Whether ebpf redirection is enabled")
 	// Repair
@@ -169,7 +169,7 @@ func init() {
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
 	registerBooleanParameter(constants.RepairLabelPods, false, "Controller will label pods when detecting pod broken by race condition")
 	registerStringParameter(constants.RepairLabelKey, "cni.istio.io/uninitialized",
-		"The key portion of the label which will be set by the ace repair if label pods is true")
+		"The key portion of the label which will be set by the race repair if label pods is true")
 	registerStringParameter(constants.RepairLabelValue, "true",
 		"The value portion of the label which will be set by the race repair if label pods is true")
 	registerStringParameter(constants.RepairNodeName, "", "The name of the managed node (will manage all nodes if unset)")

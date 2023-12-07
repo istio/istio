@@ -117,6 +117,21 @@ func init() {
 	_ = Configure(DefaultOptions())
 }
 
+// See: https://cloud.google.com/logging/docs/reference/v2/rest/v2/LogEntry#LogSeverity
+var stackdriverSeverityMapping = map[zapcore.Level]string{
+	zapcore.DebugLevel:  "Debug",
+	zapcore.InfoLevel:   "Info",
+	zapcore.WarnLevel:   "Warning",
+	zapcore.ErrorLevel:  "Error",
+	zapcore.DPanicLevel: "Critical",
+	zapcore.FatalLevel:  "Critical",
+	zapcore.PanicLevel:  "Critical",
+}
+
+func encodeStackdriverLevel(l zapcore.Level, enc zapcore.PrimitiveArrayEncoder) {
+	enc.AppendString(stackdriverSeverityMapping[l])
+}
+
 // prepZap is a utility function used by the Configure function.
 func prepZap(options *Options) (zapcore.Core, zapcore.Core, zapcore.WriteSyncer, error) {
 	var enc zapcore.Encoder
@@ -321,40 +336,24 @@ func Configure(options *Options) error {
 		return err
 	}
 
-	if err = updateScopes(options); err != nil {
+	if err := updateScopes(options); err != nil {
 		return err
 	}
 
 	closeFns := make([]func() error, 0)
 
-	if options.teeToStackdriver {
+	for _, ext := range options.extensions {
 		var closeFn, captureCloseFn func() error
-		// build stackdriver core.
-		core, closeFn, err = teeToStackdriver(
-			core,
-			options.stackdriverTargetProject,
-			options.stackdriverQuotaProject,
-			options.stackdriverLogName,
-			options.stackdriverResource)
+		var err error
+		core, closeFn, err = ext(core)
 		if err != nil {
 			return err
 		}
-		captureCore, captureCloseFn, err = teeToStackdriver(
-			captureCore,
-			options.stackdriverTargetProject,
-			options.stackdriverQuotaProject,
-			options.stackdriverLogName,
-			options.stackdriverResource)
+		captureCore, captureCloseFn, err = ext(captureCore)
 		if err != nil {
 			return err
 		}
 		closeFns = append(closeFns, closeFn, captureCloseFn)
-	}
-
-	if options.teeToUDSServer {
-		// build uds core.
-		core = teeToUDSServer(core, options.udsSocketAddress, options.udsServerPath)
-		captureCore = teeToUDSServer(captureCore, options.udsSocketAddress, options.udsServerPath)
 	}
 
 	pt := patchTable{
