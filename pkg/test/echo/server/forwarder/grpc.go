@@ -109,7 +109,7 @@ func (c *grpcCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 	// Propagate previous response cookies if any
 	if cfg.PropagateResponse != nil {
 		fwLog.Info("invoking propagate response")
-		cfg.PropagateResponse(httpReq, cfg.previousResponse)
+		cfg.PropagateResponse(outMD, cfg.previousResponse)
 	}
 	ctx = metadata.NewOutgoingContext(ctx, outMD)
 
