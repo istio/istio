@@ -60,8 +60,8 @@ func TestCertificateRefresh(t *testing.T) {
 			// Update CA with new intermediate cert
 			if err := cert.CreateCustomCASecret(t,
 				"ca-cert-alt.pem", "ca-key-alt.pem",
-				"cert-chain-alt.pem", "root-cert.pem"); err != nil {
-				t.Errorf("failed to update intermediate cert for CA secret: %v", err)
+				"cert-chain-alt.pem", "root-cert-combined.pem"); err != nil {
+				t.Errorf("failed to update CA secret: %v", err)
 			}
 
 			_ = waitForWorkloadCertUpdate(t, ztunnelPod, sa, istioCtl, originalPem)
