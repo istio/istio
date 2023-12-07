@@ -70,7 +70,7 @@ func (s *serviceInstancesStore) deleteInstanceKeys(key configKey, instances []*m
 		if len(s.instances[ikey]) == 0 {
 			delete(s.instances, ikey)
 		}
-		delete(s.ip2instance, i.Endpoint.Address)
+		delete(s.ip2instance, i.Endpoint.Key())
 		// Cleanup stale IPs, if the IPs changed
 		for _, oi := range oldInstances {
 			s.instancesByHostAndPort.Delete(hostPort{ikey.hostname.String(), oi.ServicePort.Port})
