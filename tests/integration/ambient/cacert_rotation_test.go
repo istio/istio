@@ -65,7 +65,6 @@ func TestIntermediateCertificateRefresh(t *testing.T) {
 			}
 
 			_ = waitForWorkloadCertUpdate(t, ztunnelPod, sa, istioCtl, originalPem)
-
 		})
 }
 
