@@ -46,6 +46,7 @@ func newGRPCProtocol(e *executor) protocol {
 type grpcConnectionGetter func() (*grpc.ClientConn, func(), error)
 
 func (c *grpcProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.ForwardEchoResponse, error) {
+	fwLog.Info("making grpc call")
 	var getConn grpcConnectionGetter
 	if cfg.newConnectionPerRequest {
 		// Create a new connection per request.
@@ -67,7 +68,6 @@ func (c *grpcProtocol) ForwardEcho(ctx context.Context, cfg *Config) (*proto.For
 			return conn, func() {}, nil
 		}
 	}
-	fwLog.Info("making grpc call")
 
 	call := &grpcCall{
 		e:       c.e,

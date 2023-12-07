@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc/metadata"
+
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/echo/proto"

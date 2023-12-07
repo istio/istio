@@ -111,7 +111,7 @@ func (c *Caller) CallEcho(from echo.Caller, opts echo.CallOptions) (echo.CallRes
 	send := func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {
 		ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
 		defer cancel()
-
+		fwLog.Info("calling forward echo")
 		ret, err := c.f.ForwardEcho(ctx, &forwarder.Config{
 			Request:           req,
 			Proxy:             opts.HTTP.HTTPProxy,
@@ -194,6 +194,7 @@ func ForwardEcho(srcName string, from echo.Caller, opts echo.CallOptions, client
 	}
 
 	res, err := callInternal(srcName, from, opts, func(req *proto.ForwardEchoRequest) (echoclient.Responses, error) {
+		fwLog.Info("calling forward echo at 197")
 		c, err := clientProvider()
 		if err != nil {
 			return nil, err

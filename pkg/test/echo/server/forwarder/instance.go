@@ -73,6 +73,7 @@ func (i *Instance) ForwardEcho(ctx context.Context, cfg *Config) (*proto.Forward
 		return nil, fmt.Errorf("no protocol handler found for scheme %s", cfg.scheme)
 	}
 
+	fwLog.Infof("forwarding request to grpc protocl")
 	return p.ForwardEcho(ctx, cfg)
 }
 
