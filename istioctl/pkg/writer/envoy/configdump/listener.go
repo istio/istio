@@ -534,6 +534,9 @@ func describeMatch(match *route.RouteMatch) string {
 	if match.GetPrefix() != "" {
 		conds = append(conds, fmt.Sprintf("%s*", match.GetPrefix()))
 	}
+	if match.GetPathSeparatedPrefix() != "" {
+		conds = append(conds, fmt.Sprintf("PathPrefix:%s", match.GetPathSeparatedPrefix()))
+	}
 	if match.GetPath() != "" {
 		conds = append(conds, match.GetPath())
 	}

@@ -36,23 +36,3 @@ roleRef:
   kind: ClusterRole
   name: istio-cni-repair-role
 {{- end }}
----
-{{- if ne .Values.cni.psp_cluster_role "" }}
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: istio-cni-psp
-  namespace: {{ .Release.Namespace }}
-  labels:
-    istio.io/rev: {{ .Values.revision | default "default" }}
-    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
-    operator.istio.io/component: "Cni"
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: {{ .Values.cni.psp_cluster_role }}
-subjects:
-- kind: ServiceAccount
-  name: istio-cni
-  namespace: {{ .Release.Namespace }}
-{{- end }}

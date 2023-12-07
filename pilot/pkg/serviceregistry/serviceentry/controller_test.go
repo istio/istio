@@ -2012,6 +2012,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 			t.Errorf("IP address not in range %s : %s", svc.AutoAllocatedIPv4Address, svc.Hostname.String())
 		}
 	}
+	assert.Equal(t, maxIPs, len(gotIPMap))
 }
 
 func BenchmarkAutoAllocateIPs(t *testing.B) {

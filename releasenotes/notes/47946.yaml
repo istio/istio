@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Added** namespace discovery selector support on gateway deployment controller, it is protected under `ENABLE_ENHANCED_RESOURCE_SCOPING`. 
+  When enabled, the gateway controller will only watch the k8s gateways that match the selector. Note it will affect both gateway and waypoint deployment.

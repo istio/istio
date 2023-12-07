@@ -290,7 +290,12 @@ func (pc *PodCache) getPodsByIP(addr string) []*v1.Pod {
 	}
 	res := make([]*v1.Pod, 0, len(keys))
 	for _, key := range keys {
-		res = append(res, pc.getPodByKey(key))
+		p := pc.getPodByKey(key)
+		// Subtle race condition. getPodKeys is our cache over pods, while getPodByKey hits the informer cache.
+		// if these are out of sync, p may be nil (pod was deleted).
+		if p != nil {
+			res = append(res, p)
+		}
 	}
 	return res
 }

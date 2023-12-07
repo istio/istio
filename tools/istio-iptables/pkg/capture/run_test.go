@@ -37,6 +37,7 @@ func constructTestConfig() *config.Config {
 		InboundTProxyMark:       "1337",
 		InboundTProxyRouteTable: "133",
 		OwnerGroupsInclude:      constants.OwnerGroupsInclude.DefaultValue,
+		HostIPv4LoopbackCidr:    constants.HostIPv4LoopbackCidr.DefaultValue,
 		RestoreFormat:           true,
 	}
 }
@@ -261,6 +262,12 @@ func TestIptables(t *testing.T) {
 			"drop-invalid",
 			func(cfg *config.Config) {
 				cfg.DropInvalid = true
+			},
+		},
+		{
+			"host-ipv4-loopback-cidr",
+			func(cfg *config.Config) {
+				cfg.HostIPv4LoopbackCidr = "127.0.0.1/8"
 			},
 		},
 	}

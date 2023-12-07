@@ -1,0 +1,58 @@
+{
+ "configs": [
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
+   "static_route_configs": [
+    {
+     "route_config": {
+      "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
+      "virtual_hosts": [
+       {
+        "name": "backend",
+        "domains": [
+         "*"
+        ],
+        "routes": [
+         {
+          "match": {
+           "prefix": "/healthz/ready"
+          },
+          "route": {
+           "cluster": "agent"
+          }
+         }
+        ]
+       }
+      ]
+     },
+     "last_updated": "2023-11-29T09:58:27.299Z"
+    },
+    {
+     "route_config": {
+      "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
+      "virtual_hosts": [
+       {
+        "name": "backend",
+        "domains": [
+         "*"
+        ],
+        "routes": [
+         {
+          "match": {
+           "prefix": "/stats/prometheus"
+          },
+          "route": {
+           "cluster": "prometheus_stats"
+          }
+         }
+        ]
+       }
+      ]
+     },
+     "last_updated": "2023-11-29T09:58:27.285Z"
+    }
+   ]
+  }
+ ]
+}
+

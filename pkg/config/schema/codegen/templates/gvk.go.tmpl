@@ -9,17 +9,24 @@ import (
 )
 
 var (
-{{- range .Entries }}
-	{{.Resource.Identifier}} = config.GroupVersionKind{Group: "{{.Resource.Group}}", Version: "{{.Resource.Version}}", Kind: "{{.Resource.Kind}}"}
+{{- range $entry := .Entries }}
+	{{$entry.Resource.Identifier}} = config.GroupVersionKind{Group: "{{$entry.Resource.Group}}", Version: "{{$entry.Resource.Version}}", Kind: "{{$entry.Resource.Kind}}"}
+	{{- range $alias := .Resource.VersionAliases }}
+	{{$entry.Resource.Identifier}}_{{$alias}} = config.GroupVersionKind{Group: "{{$entry.Resource.Group}}", Version: "{{$alias}}", Kind: "{{$entry.Resource.Kind}}"}
+    {{- end }}
 {{- end }}
 )
 
 // ToGVR converts a GVK to a GVR.
 func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 	switch g {
-{{- range .Entries }}
-		case {{.Resource.Identifier}}:
-			return gvr.{{.Resource.Identifier}}, true
+{{- range $entry := .Entries }}
+		case {{$entry.Resource.Identifier}}:
+			return gvr.{{$entry.Resource.Identifier}}, true
+	{{- range $alias := .Resource.VersionAliases }}
+		case {{$entry.Resource.Identifier}}_{{$alias}}:
+			return gvr.{{$entry.Resource.Identifier}}_{{$alias}}, true
+    {{- end }}
 {{- end }}
 	}
 

@@ -20,7 +20,7 @@ import (
 	networkingapi "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/security/authn/factory"
+	"istio.io/istio/pilot/pkg/security/authn"
 	"istio.io/istio/pkg/config"
 )
 
@@ -58,7 +58,7 @@ func (c *mtlsChecker) checkMtlsEnabled(ep *model.IstioEndpoint, isWaypoint bool)
 		return false
 	}
 
-	return factory.
+	return authn.
 		NewMtlsPolicy(c.push, ep.Namespace, ep.Labels, isWaypoint).
 		GetMutualTLSModeForPort(ep.EndpointPort) != model.MTLSDisable
 }

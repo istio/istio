@@ -16,6 +16,7 @@ package config
 
 import (
 	"fmt"
+	"net"
 )
 
 const (
@@ -38,6 +39,23 @@ func ValidateOwnerGroups(include, exclude string) error {
 		return fmt.Errorf("number of owner groups whose outgoing traffic "+
 			"should be redirected to Envoy cannot exceed %d, got %d: %v",
 			maxOwnerGroupsInclude, len(filter.Values), filter.Values)
+	}
+	return nil
+}
+
+func ValidateIPv4LoopbackCidr(cidr string) error {
+	ip, ipNet, err := net.ParseCIDR(cidr)
+	if err != nil {
+		return err
+	}
+
+	if ip.To4() == nil || !ip.To4().IsLoopback() {
+		return fmt.Errorf("expected valid ipv4 loopback address; found %v", ip)
+	}
+
+	ones, _ := ipNet.Mask.Size()
+	if ones < 8 || ones > 32 {
+		return fmt.Errorf("expected mask in range [8, 32]; found %v", ones)
 	}
 	return nil
 }

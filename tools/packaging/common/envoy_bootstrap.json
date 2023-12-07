@@ -543,7 +543,38 @@
                       }
                     ]
                   },
-                  "http_filters": [{
+                  "http_filters": [
+                  {{- if .stats_compression }}
+                  {
+                    "name": "envoy.filters.http.compressor",
+                    "typed_config": {
+                      "@type": "type.googleapis.com/envoy.extensions.filters.http.compressor.v3.Compressor",
+                      {{- if eq .stats_compression "gzip"}}
+                      "compressor_library": {
+                        "name": "text_optimized",
+                        "typed_config": {
+                          "@type": "type.googleapis.com/envoy.extensions.compression.gzip.compressor.v3.Gzip"
+                        }
+                      }
+                      {{- else if eq .stats_compression "zstd"}}
+                      "compressor_library": {
+                        "name": "text_optimized",
+                        "typed_config": {
+                          "@type": "type.googleapis.com/envoy.extensions.compression.zstd.compressor.v3.Zstd"
+                        }
+                      }
+                      {{- else if eq .stats_compression "brotli"}}
+                      "compressor_library": {
+                        "name": "text_optimized",
+                        "typed_config": {
+                          "@type": "type.googleapis.com/envoy.extensions.compression.brotli.compressor.v3.Brotli"
+                        }
+                      }
+                      {{- end }}
+                    }
+                  },
+                  {{- end }}
+                  {
                     "name": "envoy.filters.http.router",
                     "typed_config": {
                       "@type": "type.googleapis.com/envoy.extensions.filters.http.router.v3.Router"

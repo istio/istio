@@ -13,6 +13,7 @@ const (
 	CertificateSigningRequest
 	ConfigMap
 	CustomResourceDefinition
+	DaemonSet
 	Deployment
 	DestinationRule
 	EndpointSlice
@@ -41,6 +42,7 @@ const (
 	ServiceAccount
 	ServiceEntry
 	Sidecar
+	StatefulSet
 	TCPRoute
 	TLSRoute
 	Telemetry
@@ -64,6 +66,8 @@ func (k Kind) String() string {
 		return "ConfigMap"
 	case CustomResourceDefinition:
 		return "CustomResourceDefinition"
+	case DaemonSet:
+		return "DaemonSet"
 	case Deployment:
 		return "Deployment"
 	case DestinationRule:
@@ -120,6 +124,8 @@ func (k Kind) String() string {
 		return "ServiceEntry"
 	case Sidecar:
 		return "Sidecar"
+	case StatefulSet:
+		return "StatefulSet"
 	case TCPRoute:
 		return "TCPRoute"
 	case TLSRoute:
@@ -153,6 +159,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return ConfigMap
 	case gvk.CustomResourceDefinition:
 		return CustomResourceDefinition
+	case gvk.DaemonSet:
+		return DaemonSet
 	case gvk.Deployment:
 		return Deployment
 	case gvk.DestinationRule:
@@ -209,6 +217,8 @@ func MustFromGVK(g config.GroupVersionKind) Kind {
 		return ServiceEntry
 	case gvk.Sidecar:
 		return Sidecar
+	case gvk.StatefulSet:
+		return StatefulSet
 	case gvk.TCPRoute:
 		return TCPRoute
 	case gvk.TLSRoute:

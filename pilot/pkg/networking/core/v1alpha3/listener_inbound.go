@@ -729,7 +729,7 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 // This avoids a possible loop where traffic sent to this port would continually call itself indefinitely.
 func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	var filters []*listener.Filter
-	if !lb.node.IsAmbient() {
+	if !lb.node.IsWaypointProxy() {
 		filters = append(filters, buildMetadataExchangeNetworkFilters()...)
 	}
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)

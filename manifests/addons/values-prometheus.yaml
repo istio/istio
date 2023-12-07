@@ -28,3 +28,9 @@ server:
     repository: prom/prometheus
 
   securityContext: null
+
+configmapReload:
+  prometheus:
+    image:
+      # Use ghcr
+      repository: ghcr.io/prometheus-operator/prometheus-config-reloader

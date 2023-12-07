@@ -166,8 +166,6 @@ spec:
               - ALL
             privileged: false
             readOnlyRootFilesystem: true
-            runAsGroup: 1337
-            runAsUser: 1337
             runAsNonRoot: true
           resources:
             limits:

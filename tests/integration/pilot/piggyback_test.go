@@ -86,13 +86,7 @@ func TestPiggyback(t *testing.T) {
 				defer pf.Close()
 
 				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
-				args := []string{
-					"x",
-					"internal-debug",
-					"syncz",
-					"--plaintext",
-					"--xds-address", pf.Address(),
-				}
+				args := []string{"x", "proxy-status", "--plaintext", "--xds-address", pf.Address()}
 				output, _, err := istioCtl.Invoke(args)
 				if err != nil {
 					return err

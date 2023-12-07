@@ -47,7 +47,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/telemetry/common"
 )
 
 func TestAccessLogs(t *testing.T) {
@@ -61,12 +60,12 @@ func TestAccessLogs(t *testing.T) {
 			})
 			t.NewSubTest("enabled-with-targetref").Run(func(t framework.TestContext) {
 				args := map[string]any{
-					"To":                common.GetTarget().(echo.Instances),
-					"TargetGatewayName": common.GetTarget().ServiceName() + "-gateway",
-					"Address":           fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", common.GetTarget().ServiceName(), common.GetAppNamespace().Name()),
+					"To":                GetTarget().(echo.Instances),
+					"TargetGatewayName": GetTarget().ServiceName() + "-gateway",
+					"Address":           fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", GetTarget().ServiceName(), apps.Namespace.Name()),
 				}
 				crd.DeployGatewayAPIOrSkip(t)
-				t.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, "./testdata/gateway-api.yaml").ApplyOrFail(t)
+				t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "./testdata/gateway-api.yaml").ApplyOrFail(t)
 				applyTelemetryResourceWithTargetRef(t, true)
 				runAccessLogsTests(t, true, true)
 				deleteTelemetryResource(t, true)
@@ -84,7 +83,7 @@ func TestAccessLogsFilter(t *testing.T) {
 		Features("observability.telemetry.logging.filter").
 		Run(func(t framework.TestContext) {
 			runAccessLogFilterTests(t, false)
-			t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/filter.yaml").ApplyOrFail(t)
+			t.ConfigIstio().File(apps.Namespace.Name(), "./testdata/accesslog/filter.yaml").ApplyOrFail(t)
 			runAccessLogFilterTests(t, true)
 		})
 }
@@ -94,15 +93,15 @@ func TestAccessLogsMode(t *testing.T) {
 		Features("observability.telemetry.logging.match.mode").
 		Run(func(t framework.TestContext) {
 			t.NewSubTest("client").Run(func(t framework.TestContext) {
-				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-client.yaml").ApplyOrFail(t)
+				t.ConfigIstio().File(apps.Namespace.Name(), "./testdata/accesslog/mode-client.yaml").ApplyOrFail(t)
 				runAccessLogModeTests(t, true, false)
 			})
 			t.NewSubTest("server").Run(func(t framework.TestContext) {
-				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-server.yaml").ApplyOrFail(t)
+				t.ConfigIstio().File(apps.Namespace.Name(), "./testdata/accesslog/mode-server.yaml").ApplyOrFail(t)
 				runAccessLogModeTests(t, false, true)
 			})
 			t.NewSubTest("client-and-server").Run(func(t framework.TestContext) {
-				t.ConfigIstio().File(common.GetAppNamespace().Name(), "./testdata/accesslog/mode-clientserver.yaml").ApplyOrFail(t)
+				t.ConfigIstio().File(apps.Namespace.Name(), "./testdata/accesslog/mode-clientserver.yaml").ApplyOrFail(t)
 				runAccessLogModeTests(t, true, true)
 			})
 		})
@@ -121,7 +120,6 @@ defaultProviders:
   accessLogging:
   - envoy
 `
-				ist := *(common.GetIstioInstance())
 				ist.PatchMeshConfigOrFail(t, t, cfg)
 				runAccessLogsTests(t, true, false)
 			})
@@ -130,10 +128,10 @@ defaultProviders:
 
 func applyTelemetryResourceWithTargetRef(t framework.TestContext, enableLogs bool) {
 	args := map[string]any{
-		"TargetGatewayName": common.GetTarget().ServiceName() + "-gateway",
+		"TargetGatewayName": GetTarget().ServiceName() + "-gateway",
 		"DisableLogs":       !enableLogs,
 	}
-	t.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, "./testdata/accesslog/targetref.yaml").ApplyOrFail(t)
+	t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "./testdata/accesslog/targetref.yaml").ApplyOrFail(t)
 }
 
 func applyTelemetryResource(t framework.TestContext, enableLogs bool) {
@@ -147,7 +145,7 @@ spec:
     - name: envoy
     disabled: %v
 `, !enableLogs)
-	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).ApplyOrFail(t)
+	t.ConfigIstio().YAML(apps.Namespace.Name(), config).ApplyOrFail(t)
 }
 
 func deleteTelemetryResource(t framework.TestContext, enableLogs bool) {
@@ -159,17 +157,17 @@ spec:
   accessLogging:
   - disabled: %v
 `, enableLogs)
-	t.ConfigIstio().YAML(common.GetAppNamespace().Name(), config).DeleteOrFail(t)
+	t.ConfigIstio().YAML(apps.Namespace.Name(), config).DeleteOrFail(t)
 }
 
 func runAccessLogsTests(t framework.TestContext, expectLogs bool, hasTargetRef bool) {
 	testID := rand.String(16)
-	to := common.GetTarget()
-	if len(common.GetClientInstances()) == 0 {
+	to := GetTarget()
+	if len(GetClientInstances()) == 0 {
 		t.Fatal("there is no client")
 	}
-	cltInstance := common.GetClientInstances()[0]
-	from := common.GetClientInstances()[0]
+	cltInstance := GetClientInstances()[0]
+	from := GetClientInstances()[0]
 	var count float64
 	if expectLogs {
 		var http echo.HTTP
@@ -177,7 +175,7 @@ func runAccessLogsTests(t framework.TestContext, expectLogs bool, hasTargetRef b
 			http = echo.HTTP{
 				Path:    "/" + testID,
 				Method:  "GET",
-				Headers: headers.New().WithHost(fmt.Sprintf("%s.com", common.GetTarget().ServiceName())).Build(),
+				Headers: headers.New().WithHost(fmt.Sprintf("%s.com", GetTarget().ServiceName())).Build(),
 			}
 		} else {
 			http = echo.HTTP{
@@ -189,7 +187,7 @@ func runAccessLogsTests(t framework.TestContext, expectLogs bool, hasTargetRef b
 		// so they may not be immediately ready. If not ready, we retry sending a call again.
 		err := retry.UntilSuccess(func() error {
 			if hasTargetRef {
-				hostname := fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", common.GetTarget().ServiceName(), common.GetAppNamespace().Name())
+				hostname := fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", GetTarget().ServiceName(), apps.Namespace.Name())
 				defaultOptions := []retry.Option{retry.Delay(100 * time.Millisecond), retry.Timeout(200 * time.Second)}
 				httpOpts := echo.CallOptions{
 					Address: hostname,
@@ -208,7 +206,7 @@ func runAccessLogsTests(t framework.TestContext, expectLogs bool, hasTargetRef b
 				count = logCount(t, from, testID)
 				_ = cltInstance.CallOrFail(t, httpOpts)
 			} else {
-				common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
+				GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
 					To: to,
 					Port: echo.Port{
 						Name: "http",
@@ -231,7 +229,7 @@ func runAccessLogsTests(t framework.TestContext, expectLogs bool, hasTargetRef b
 		// once we stop logging.
 		retry.UntilSuccessOrFail(t, func() error {
 			testID := rand.String(16)
-			common.GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
+			GetClientInstances()[0].CallOrFail(t, echo.CallOptions{
 				To: to,
 				Port: echo.Port{
 					Name: "http",
@@ -273,8 +271,8 @@ func logCount(t test.Failer, to echo.Target, testID string) float64 {
 }
 
 func runAccessLogFilterTests(t framework.TestContext, expectLogs bool) {
-	to := common.GetTarget()
-	from := common.GetClientInstances()[0]
+	to := GetTarget()
+	from := GetClientInstances()[0]
 	if expectLogs {
 		// For positive test, we use the same path in Telemetry API and repeatedly send requests and check the count
 		// Retry a bit to get the logs. There is some delay before they are output(MeshConfig will not take effect immediately),
@@ -327,8 +325,8 @@ func runAccessLogFilterTests(t framework.TestContext, expectLogs bool) {
 
 func runAccessLogModeTests(t framework.TestContext, exceptClientLog, exceptServerLog bool) {
 	testID := rand.String(16)
-	to := common.GetTarget()
-	from := common.GetClientInstances()[0]
+	to := GetTarget()
+	from := GetClientInstances()[0]
 	// For positive test, we use the same path in Telemetry API and repeatedly send requests and check the count
 	// Retry a bit to get the logs. There is some delay before they are output(MeshConfig will not take effect immediately),
 	// so they may not be immediately ready. If not ready, we retry sending a call again.
