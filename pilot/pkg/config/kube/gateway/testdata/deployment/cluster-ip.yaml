@@ -7,8 +7,12 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  annotations:
+    networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-name: default
+    istio.io/gateway-name: default
   name: default-istio
   namespace: default
 ---
@@ -19,6 +23,8 @@ metadata:
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-name: default
+    istio.io/gateway-name: default
   name: default
   namespace: default
   ownerReferences:
@@ -29,7 +35,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: default
+      gateway.networking.k8s.io/gateway-name: default
   template:
     metadata:
       annotations:
@@ -39,6 +45,7 @@ spec:
         prometheus.io/port: "15020"
         prometheus.io/scrape: "true"
       labels:
+        gateway.networking.k8s.io/gateway-name: default
         istio.io/gateway-name: default
         service.istio.io/canonical-name: default
         service.istio.io/canonical-revision: latest
@@ -204,6 +211,8 @@ metadata:
     networking.istio.io/service-type: ClusterIP
   labels:
     gateway.istio.io/managed: istio.io-gateway-controller
+    gateway.networking.k8s.io/gateway-name: default
+    istio.io/gateway-name: default
   name: default
   namespace: default
   ownerReferences:
@@ -222,6 +231,6 @@ spec:
     port: 80
     protocol: TCP
   selector:
-    istio.io/gateway-name: default
+    gateway.networking.k8s.io/gateway-name: default
   type: ClusterIP
 ---

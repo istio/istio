@@ -15,6 +15,7 @@ var (
 	CertificateSigningRequest      = config.GroupVersionKind{Group: "certificates.k8s.io", Version: "v1", Kind: "CertificateSigningRequest"}
 	ConfigMap                      = config.GroupVersionKind{Group: "", Version: "v1", Kind: "ConfigMap"}
 	CustomResourceDefinition       = config.GroupVersionKind{Group: "apiextensions.k8s.io", Version: "v1", Kind: "CustomResourceDefinition"}
+	DaemonSet                      = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "DaemonSet"}
 	Deployment                     = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "Deployment"}
 	DestinationRule                = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "DestinationRule"}
 	DestinationRule_v1beta1        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "DestinationRule"}
@@ -55,6 +56,7 @@ var (
 	ServiceEntry_v1beta1           = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "ServiceEntry"}
 	Sidecar                        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Sidecar"}
 	Sidecar_v1beta1                = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "Sidecar"}
+	StatefulSet                    = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}
 	TCPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TCPRoute"}
 	TLSRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TLSRoute"}
 	Telemetry                      = config.GroupVersionKind{Group: "telemetry.istio.io", Version: "v1alpha1", Kind: "Telemetry"}
@@ -82,6 +84,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.ConfigMap, true
 	case CustomResourceDefinition:
 		return gvr.CustomResourceDefinition, true
+	case DaemonSet:
+		return gvr.DaemonSet, true
 	case Deployment:
 		return gvr.Deployment, true
 	case DestinationRule:
@@ -162,6 +166,8 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.Sidecar, true
 	case Sidecar_v1beta1:
 		return gvr.Sidecar_v1beta1, true
+	case StatefulSet:
+		return gvr.StatefulSet, true
 	case TCPRoute:
 		return gvr.TCPRoute, true
 	case TLSRoute:
@@ -212,6 +218,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return ConfigMap, true
 	case gvr.CustomResourceDefinition:
 		return CustomResourceDefinition, true
+	case gvr.DaemonSet:
+		return DaemonSet, true
 	case gvr.Deployment:
 		return Deployment, true
 	case gvr.DestinationRule:
@@ -268,6 +276,8 @@ func FromGVR(g schema.GroupVersionResource) (config.GroupVersionKind, bool) {
 		return ServiceEntry, true
 	case gvr.Sidecar:
 		return Sidecar, true
+	case gvr.StatefulSet:
+		return StatefulSet, true
 	case gvr.TCPRoute:
 		return TCPRoute, true
 	case gvr.TLSRoute:

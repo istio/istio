@@ -165,7 +165,7 @@ func GetPodInfo(p *Params) (map[string]string, error) {
 
 // GetEvents returns events for all namespaces.
 func GetEvents(p *Params) (map[string]string, error) {
-	out, err := p.Runner.RunCmd("get events --all-namespaces -o wide", "", p.KubeConfig, p.KubeContext, p.DryRun)
+	out, err := p.Runner.RunCmd("get events --all-namespaces -o wide --sort-by=.metadata.creationTimestamp", "", p.KubeConfig, p.KubeContext, p.DryRun)
 	return map[string]string{
 		"events": out,
 	}, err

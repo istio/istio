@@ -43,6 +43,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Kube().CoreV1().ConfigMaps(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition:
 		return c.Ext().ApiextensionsV1().CustomResourceDefinitions().(ktypes.WriteAPI[T])
+	case *k8sioapiappsv1.DaemonSet:
+		return c.Kube().AppsV1().DaemonSets(namespace).(ktypes.WriteAPI[T])
 	case *k8sioapiappsv1.Deployment:
 		return c.Kube().AppsV1().Deployments(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1alpha3.DestinationRule:
@@ -95,6 +97,8 @@ func GetWriteClient[T runtime.Object](c ClientGetter, namespace string) ktypes.W
 		return c.Istio().NetworkingV1alpha3().ServiceEntries(namespace).(ktypes.WriteAPI[T])
 	case *apiistioioapinetworkingv1alpha3.Sidecar:
 		return c.Istio().NetworkingV1alpha3().Sidecars(namespace).(ktypes.WriteAPI[T])
+	case *k8sioapiappsv1.StatefulSet:
+		return c.Kube().AppsV1().StatefulSets(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(namespace).(ktypes.WriteAPI[T])
 	case *sigsk8siogatewayapiapisv1alpha2.TLSRoute:
@@ -128,6 +132,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Kube().CoreV1().ConfigMaps(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition:
 		return c.Ext().ApiextensionsV1().CustomResourceDefinitions().(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapiappsv1.DaemonSet:
+		return c.Kube().AppsV1().DaemonSets(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *k8sioapiappsv1.Deployment:
 		return c.Kube().AppsV1().Deployments(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1alpha3.DestinationRule:
@@ -180,6 +186,8 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 		return c.Istio().NetworkingV1alpha3().ServiceEntries(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *apiistioioapinetworkingv1alpha3.Sidecar:
 		return c.Istio().NetworkingV1alpha3().Sidecars(namespace).(ktypes.ReadWriteAPI[T, TL])
+	case *k8sioapiappsv1.StatefulSet:
+		return c.Kube().AppsV1().StatefulSets(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1alpha2.TCPRoute:
 		return c.GatewayAPI().GatewayV1alpha2().TCPRoutes(namespace).(ktypes.ReadWriteAPI[T, TL])
 	case *sigsk8siogatewayapiapisv1alpha2.TLSRoute:
@@ -213,6 +221,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &k8sioapicorev1.ConfigMap{}
 	case gvr.CustomResourceDefinition:
 		return &k8sioapiextensionsapiserverpkgapisapiextensionsv1.CustomResourceDefinition{}
+	case gvr.DaemonSet:
+		return &k8sioapiappsv1.DaemonSet{}
 	case gvr.Deployment:
 		return &k8sioapiappsv1.Deployment{}
 	case gvr.DestinationRule:
@@ -265,6 +275,8 @@ func gvrToObject(g schema.GroupVersionResource) runtime.Object {
 		return &apiistioioapinetworkingv1alpha3.ServiceEntry{}
 	case gvr.Sidecar:
 		return &apiistioioapinetworkingv1alpha3.Sidecar{}
+	case gvr.StatefulSet:
+		return &k8sioapiappsv1.StatefulSet{}
 	case gvr.TCPRoute:
 		return &sigsk8siogatewayapiapisv1alpha2.TCPRoute{}
 	case gvr.TLSRoute:
@@ -320,6 +332,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Ext().ApiextensionsV1().CustomResourceDefinitions().Watch(context.Background(), options)
+		}
+	case gvr.DaemonSet:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().AppsV1().DaemonSets(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().AppsV1().DaemonSets(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.Deployment:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
@@ -502,6 +521,13 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
 			return c.Istio().NetworkingV1alpha3().Sidecars(opts.Namespace).Watch(context.Background(), options)
+		}
+	case gvr.StatefulSet:
+		l = func(options metav1.ListOptions) (runtime.Object, error) {
+			return c.Kube().AppsV1().StatefulSets(opts.Namespace).List(context.Background(), options)
+		}
+		w = func(options metav1.ListOptions) (watch.Interface, error) {
+			return c.Kube().AppsV1().StatefulSets(opts.Namespace).Watch(context.Background(), options)
 		}
 	case gvr.TCPRoute:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {

@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nullvm
+package api
 
 import (
 	"context"
@@ -43,7 +43,6 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
-	"istio.io/istio/tests/integration/telemetry/common"
 )
 
 var dashboards = []struct {
@@ -138,9 +137,9 @@ func TestDashboard(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.dashboard").
 		Run(func(t framework.TestContext) {
-			p := common.GetPromInstance()
+			p := promInst
 
-			t.ConfigIstio().YAML(common.GetAppNamespace().Name(), fmt.Sprintf(gatewayConfig, common.GetAppNamespace().Name())).
+			t.ConfigIstio().YAML(apps.Namespace.Name(), fmt.Sprintf(gatewayConfig, apps.Namespace.Name())).
 				ApplyOrFail(t)
 
 			// Apply just the grafana dashboards
@@ -163,7 +162,7 @@ func TestDashboard(t *testing.T) {
 							continue
 						}
 						t.Logf("Verifying %s for cluster %s", d.name, cl.Name())
-						cm, err := cl.Kube().CoreV1().ConfigMaps((*common.GetIstioInstance()).Settings().TelemetryNamespace).Get(
+						cm, err := cl.Kube().CoreV1().ConfigMaps(ist.Settings().TelemetryNamespace).Get(
 							context.TODO(), d.configmap, metav1.GetOptions{})
 						if err != nil {
 							t.Fatalf("Failed to find dashboard %v: %v", d.configmap, err)
@@ -306,7 +305,7 @@ func setupDashboardTest(done <-chan struct{}) {
 		case <-ticker.C:
 			times++
 			scopes.Framework.Infof("sending traffic %v", times)
-			for _, ing := range common.GetIngressInstance() {
+			for _, ing := range ingr {
 				host, port := ing.TCPAddress()
 				_, err := ing.Call(echo.CallOptions{
 					Port: echo.Port{
@@ -314,7 +313,7 @@ func setupDashboardTest(done <-chan struct{}) {
 					},
 					Count: 10,
 					HTTP: echo.HTTP{
-						Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", common.GetAppNamespace().Name()),
+						Path:    fmt.Sprintf("/echo-%s?codes=418:10,520:15,200:75", apps.Namespace.Name()),
 						Headers: headers.New().WithHost("server").Build(),
 					},
 					Check: check.NoError(), // Do not use check.OK since we expect non-200
@@ -334,7 +333,7 @@ func setupDashboardTest(done <-chan struct{}) {
 					},
 					Address: host,
 					HTTP: echo.HTTP{
-						Path:    fmt.Sprintf("/echo-%s", common.GetAppNamespace().Name()),
+						Path:    fmt.Sprintf("/echo-%s", apps.Namespace.Name()),
 						Headers: headers.New().WithHost("server").Build(),
 					},
 					Check: check.OK(),

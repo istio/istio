@@ -162,6 +162,12 @@ components:
                  averageUtilization: 80
                  type: Utilization
              type: Resource
+           - resource:
+               name: memory
+               target:
+                 averageUtilization: 80
+                 type: Utilization
+             type: Resource
 `
 	cases := []struct {
 		name        string

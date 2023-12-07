@@ -97,13 +97,23 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 		return nil, err
 	}
 
-	if _, _, err = testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), service); err != nil {
+	svc, _, err := testKube.WaitUntilServiceEndpointsAreReady(c.cluster.Kube(), c.ns.Name(), service)
+	if err != nil {
 		scopes.Framework.Infof("Error waiting for container registry service to be available: %v", err)
 		return nil, err
 	}
 
-	c.address = net.JoinHostPort(fmt.Sprintf("%s.%s", service, c.ns.Name()), "1338")
-	scopes.Framework.Infof("registry redirector server in-cluster address: %s", c.address)
+	if ctx.Environment().IsMultiCluster() {
+		lb, err := testKube.WaitUntilServiceLoadBalancerReady(c.cluster.Kube(), c.ns.Name(), service)
+		if err != nil {
+			scopes.Framework.Infof("Error waiting for container registry service LB to be available: %v", err)
+			return nil, err
+		}
+		c.address = net.JoinHostPort(lb, fmt.Sprint(svc.Spec.Ports[0].Port))
+	} else {
+		c.address = net.JoinHostPort(svc.Spec.ClusterIP, fmt.Sprint(svc.Spec.Ports[0].Port))
+	}
+	scopes.Framework.Infof("registry redirector server address: %s", c.address)
 
 	if len(pods) == 0 {
 		return nil, fmt.Errorf("no pod was selected for selector %q", podSelector)

@@ -370,7 +370,7 @@ metadata:
 spec:
   workloadSelector:
     labels:
-      istio.io/gateway-name: "{{.Destination}}"
+      gateway.networking.k8s.io/gateway-name: "{{.Destination}}"
   configPatches:
   - applyTo: HTTP_FILTER
     match:
@@ -727,7 +727,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
+      gateway.networking.k8s.io/gateway-name: waypoint
 `+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
@@ -772,7 +772,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
+      gateway.networking.k8s.io/gateway-name: waypoint
 `+policySpec).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				opt.Check = CheckDeny
@@ -872,7 +872,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
+      gateway.networking.k8s.io/gateway-name: waypoint
 `+policySpec+`
 ---
 apiVersion: networking.istio.io/v1alpha3
@@ -1034,7 +1034,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
+      gateway.networking.k8s.io/gateway-name: waypoint
 `+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
@@ -1054,7 +1054,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
+      gateway.networking.k8s.io/gateway-name: waypoint
 `+denySpec).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {

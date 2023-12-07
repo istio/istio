@@ -135,8 +135,8 @@ message ResourceQuotas {
   int64 pods = 2;
 }
 
-// Configuration for CPU target utilization for HorizontalPodAutoscaler target.
-message CPUTargetUtilizationConfig {
+// Configuration for CPU or memory target utilization for HorizontalPodAutoscaler target.
+message TargetUtilizationConfig {
   // K8s utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
@@ -181,10 +181,15 @@ message EgressGatewayConfig {
   // minReplicas setting for HorizontalPodAutoscaler.
   uint32 autoscaleMin = 3;
 
+  // K8s memory utilization setting for HorizontalPodAutoscaler target.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  TargetUtilizationConfig memory = 4 [deprecated=true];
+
   // K8s utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 5 [deprecated=true];
+  TargetUtilizationConfig cpu = 5 [deprecated=true];
 
   google.protobuf.BoolValue customService = 6;
 
@@ -508,10 +513,15 @@ message IngressGatewayConfig {
   // minReplicas setting for HorizontalPodAutoscaler.
   uint32 autoscaleMin = 3;
 
-  // K8s utilization setting for HorizontalPodAutoscaler target.
+  // K8s memory utilization setting for HorizontalPodAutoscaler target.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 5 [deprecated=true];
+  TargetUtilizationConfig memory = 4 [deprecated=true];
+
+  // K8s cpu utilization setting for HorizontalPodAutoscaler target.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  TargetUtilizationConfig cpu = 5 [deprecated=true];
 
   google.protobuf.BoolValue customService = 6;
 
@@ -675,7 +685,7 @@ message PilotConfig {
   // Target CPU utilization used in HorizontalPodAutoscaler.
   //
   // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
-  CPUTargetUtilizationConfig cpu = 11 [deprecated=true];
+  TargetUtilizationConfig cpu = 11 [deprecated=true];
 
   // K8s node selector.
   //
@@ -769,6 +779,11 @@ message PilotConfig {
   repeated string ipFamilies = 52;
  
   string ipFamilyPolicy = 53;
+
+  // Target memory utilization used in HorizontalPodAutoscaler.
+  //
+  // See https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
+  TargetUtilizationConfig memory = 54 [deprecated=true];
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.

@@ -18,9 +18,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
-	"go.uber.org/atomic"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -38,6 +36,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -56,7 +55,7 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 		t.Fatal("did not expect any gateways yet")
 	}
 
-	notified := atomic.NewBool(false)
+	notifyCh := make(chan struct{}, 1)
 	var (
 		gwMu sync.Mutex
 		gws  []model.NetworkGateway
@@ -73,21 +72,15 @@ func TestNetworkUpdateTriggers(t *testing.T) {
 	}
 
 	c.AppendNetworkGatewayHandler(func() {
-		notified.Store(true)
 		setGws(c.NetworkGateways())
+		notifyCh <- struct{}{}
 	})
 	expectGateways := func(t *testing.T, expectedGws int) {
-		defer notified.Store(false)
-		// 1. wait for a notification
-		retry.UntilSuccessOrFail(t, func() error {
-			if !notified.Load() {
-				return fmt.Errorf("no gateway notify")
-			}
-			if n := len(getGws()); n != expectedGws {
-				return fmt.Errorf("expected %d gateways but got %d", expectedGws, n)
-			}
-			return nil
-		}, retry.Timeout(5*time.Second), retry.Delay(10*time.Millisecond))
+		// wait for a notification
+		assert.ChannelHasItem(t, notifyCh)
+		if n := len(getGws()); n != expectedGws {
+			t.Errorf("expected %d gateways but got %d", expectedGws, n)
+		}
 	}
 
 	t.Run("add meshnetworks", func(t *testing.T) {
@@ -237,30 +230,15 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 
 	s := newAmbientTestServer(t, testC, "")
 
-	namespaceNotifyCh := make(chan string, 5)
-	defer close(namespaceNotifyCh)
+	tracker := assert.NewTracker[string](t)
+
 	s.controller.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
-		namespaceNotifyCh <- o.GetName()
+		tracker.Record(o.GetName())
 	}))
 
-	waitNamespaceOrFail := func(t test.Failer, namespace string) {
-		t.Helper()
-		delay := time.NewTimer(time.Second * 5)
-		defer delay.Stop()
-		for {
-			select {
-			case <-delay.C:
-				t.Fatalf("timed out waiting for %s", namespace)
-			case n := <-namespaceNotifyCh:
-				if n == namespace {
-					return
-				}
-				t.Logf("skipping namespace %s want %s", n, namespace)
-			}
-		}
-	}
-	waitNetwork := func(c *FakeController, network string) {
+	expectNetwork := func(t *testing.T, c *FakeController, network string) {
 		retry.UntilSuccessOrFail(t, func() error {
+			t.Helper()
 			if c.networkFromSystemNamespace().String() != network {
 				return fmt.Errorf("no network notify")
 			}
@@ -281,12 +259,6 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 			return nil
 		})
 	}
-	expectNetwork := func(t *testing.T, c *FakeController, network string) {
-		t.Helper()
-		createOrUpdateNamespace(t, s.controller, systemNS, network)
-		waitNamespaceOrFail(t, systemNS)
-		waitNetwork(c, network)
-	}
 
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
 	s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
@@ -297,13 +269,17 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 	createOrUpdateNamespace(t, s.controller, testNS, "")
 	createOrUpdateNamespace(t, s.controller, systemNS, "")
 
-	waitNamespaceOrFail(t, systemNS)
+	tracker.WaitOrdered(testNS, systemNS)
 
 	t.Run("change namespace network to nw1", func(t *testing.T) {
+		createOrUpdateNamespace(t, s.controller, systemNS, "nw1")
+		tracker.WaitOrdered(systemNS)
 		expectNetwork(t, s.controller, "nw1")
 	})
 
 	t.Run("change namespace network to nw2", func(t *testing.T) {
+		createOrUpdateNamespace(t, s.controller, systemNS, "nw2")
+		tracker.WaitOrdered(systemNS)
 		expectNetwork(t, s.controller, "nw2")
 	})
 
@@ -316,6 +292,8 @@ func TestSyncAllWorkloadsFromAmbient(t *testing.T) {
 				},
 			},
 		})
+		createOrUpdateNamespace(t, s.controller, systemNS, "nw3")
+		tracker.WaitOrdered(systemNS)
 		addMeshNetworksFromRegistryGateway(t, s.controller, s.controller.meshNetworksWatcher)
 		expectNetwork(t, s.controller, "nw3")
 	})

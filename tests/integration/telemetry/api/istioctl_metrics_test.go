@@ -15,7 +15,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package nullvm
+package api
 
 import (
 	"errors"
@@ -26,7 +26,6 @@ import (
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/util/retry"
-	"istio.io/istio/tests/integration/telemetry/common"
 )
 
 // TestIstioctlMetrics contains a basic validation of the experimental
@@ -37,10 +36,10 @@ func TestIstioctlMetrics(t *testing.T) {
 		Features("observability.telemetry.istioctl").
 		Run(func(t framework.TestContext) {
 			retry.UntilSuccessOrFail(t, func() error {
-				if err := common.SendTraffic(common.GetClientInstances()[0]); err != nil {
+				if err := SendTraffic(GetClientInstances()[0]); err != nil {
 					return err
 				}
-				return validateDefaultOutput(t, common.GetTarget().Config().Service)
+				return validateDefaultOutput(t, GetTarget().Config().Service)
 			}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
 		})
 }
