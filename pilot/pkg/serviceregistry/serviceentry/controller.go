@@ -17,6 +17,7 @@ package serviceentry
 import (
 	"fmt"
 	"hash/fnv"
+	"net"
 	"strconv"
 	"sync"
 	"time"
@@ -875,6 +876,20 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 // The current algorithm to allocate IPs is deterministic across all istiods.
 func autoAllocateIPs(services []*model.Service) []*model.Service {
 	hashedServices := make([]*model.Service, maxIPs)
+	hnMap := make(map[string]octetPair)
+	j := 0
+	for _, svc := range services {
+		if svc.AutoAllocatedIPv4Address != "" {
+			ip := net.ParseIP(svc.AutoAllocatedIPv4Address)
+			if ip != nil {
+				thirdPctert := int(ip.To4()[2])
+				fourthOctet := int(ip.To4()[3])
+				hashedServices[thirdPctert*255+fourthOctet-1] = svc
+				hnMap[makeServiceKey(svc)] = octetPair{thirdPctert, fourthOctet}
+				j++
+			}
+		}
+	}
 	hash := fnv.New32a()
 	// First iterate through the range of services and determine its position by hash
 	// so that we can deterministically allocate an IP.
@@ -885,7 +900,6 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	// - If there is a collision, apply second hash i.e. h2(x) = PRIME - (Key % PRIME)
 	//   where PRIME is the max prime number below MAXIPS.
 	// - Calculate new hash iteratively till we find an empty slot with (h1(k) + i*h2(k)) % MAXIPS
-	j := 0
 	for _, svc := range services {
 		// we can allocate IPs only if
 		// 1. the service has resolution set to static/dns. We cannot allocate
@@ -894,6 +908,9 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
+			if svc.AutoAllocatedIPv4Address != "" {
+				continue
+			}
 			if j >= maxIPs {
 				log.Errorf("out of IPs to allocate for service entries. maxips:= %d", maxIPs)
 				break
@@ -924,27 +941,23 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		}
 	}
 
-	x := 0
-	hnMap := make(map[string]octetPair)
-	for _, svc := range hashedServices {
+	for i, svc := range hashedServices {
 		if svc == nil {
-			// There is no service in the slot. Just increment x and move forward.
-			x++
+			// There is no service in the slot.
 			continue
 		}
+		if svc.AutoAllocatedIPv4Address != "" {
+			// this service already has an IP allocated.
+			continue
+		}
+
 		n := makeServiceKey(svc)
 		if v, ok := hnMap[n]; ok {
 			log.Debugf("Reuse IP for domain %s", n)
 			setAutoAllocatedIPs(svc, v)
 		} else {
 			var thirdOctect, fourthOctect int
-			// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
-			// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
-			// So we bump X to 511, so that the resulting IP is 240.240.2.1
-			x++
-			if x%255 == 0 {
-				x++
-			}
+			x := i + 1
 			thirdOctect = x / 255
 			fourthOctect = x % 255
 			pair := octetPair{thirdOctect, fourthOctect}

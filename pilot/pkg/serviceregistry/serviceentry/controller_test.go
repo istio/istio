@@ -16,6 +16,7 @@ package serviceentry
 
 import (
 	"fmt"
+	"math/rand"
 	"net"
 	"reflect"
 	"sort"
@@ -41,6 +42,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func createConfigs(configs []*config.Config, store model.ConfigStore, t testing.TB) {
@@ -1970,24 +1972,18 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	// We dont expect the following pattern of IPs.
 	// 240.240.0.0
 	// 240.240.0.255
-	// 240.240.1.0
 	// 240.240.1.255
-	// 240.240.2.0
 	// 240.240.2.255
-	// 240.240.3.0
 	// 240.240.3.255
 	// The last IP should be 240.240.202.167
 	doNotWant := map[string]bool{
 		"240.240.0.0":   true,
 		"240.240.0.255": true,
-		"240.240.1.0":   true,
 		"240.240.1.255": true,
-		"240.240.2.0":   true,
 		"240.240.2.255": true,
-		"240.240.3.0":   true,
 		"240.240.3.255": true,
 	}
-	expectedLastIP := "240.240.10.222"
+	expectedLastIP := "240.240.10.212"
 	if gotServices[len(gotServices)-1].AutoAllocatedIPv4Address != expectedLastIP {
 		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
@@ -2013,6 +2009,27 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		}
 	}
 	assert.Equal(t, maxIPs, len(gotIPMap))
+
+	// randomly remove some services
+	removed := rand.Intn(100)
+	removedIndex := make(sets.Set[int], removed)
+	for i := 0; i < removed; i++ {
+		removedIndex.Insert(rand.Intn(ips))
+	}
+	inServices2 := make([]*model.Service, 0, ips)
+	for i := 0; i < ips; i++ {
+		if removedIndex.Contains(i) {
+			continue
+		}
+		inServices2 = append(inServices2, inServices[i])
+	}
+	gotServices2 := autoAllocateIPs(inServices2)
+	for _, svc2 := range gotServices2 {
+		if gotIPMap[svc2.AutoAllocatedIPv4Address] != svc2.Hostname.String() {
+			t.Errorf("allocated ip: %s first time %s != second time %s",
+				svc2.AutoAllocatedIPv4Address, gotIPMap[svc2.AutoAllocatedIPv4Address], svc2.Hostname.String())
+		}
+	}
 }
 
 func BenchmarkAutoAllocateIPs(t *testing.B) {
