@@ -38,7 +38,7 @@ import (
 	"istio.io/istio/tests/integration/security/util/cert"
 )
 
-func TestCertificateRefresh(t *testing.T) {
+func TestIntermediateCertificateRefresh(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.peer.cacert-rotation").
 		Run(func(t framework.TestContext) {
@@ -54,7 +54,7 @@ func TestCertificateRefresh(t *testing.T) {
 
 			originalPem, ztunnelPod, err := getWorkloadIntermediateCert(t, ztunnelPods, sa, istioCtl)
 			if err != nil {
-				t.Errorf("failed to get intial workload cert: %v", err)
+				t.Errorf("failed to get initial workload cert: %v", err)
 			}
 
 			// Update CA with new intermediate cert
