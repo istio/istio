@@ -1090,7 +1090,7 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool, gat
 	} else {
 		// namespace can be * or . or a valid DNS label in gateways
 		// namespace can be ~ in gateways converted from Gateway API when no routes match
-		if parts[0] != "*" && parts[0] != "." && (parts[0] != "~" && gatewaySemantics) {
+		if parts[0] != "*" && parts[0] != "." && (parts[0] != "~" || !gatewaySemantics) {
 			if !labels.IsDNS1123Label(parts[0]) {
 				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in gateway", parts[0]))
 			}
