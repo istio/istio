@@ -192,7 +192,7 @@ spec:
 					tt.Run(t, apps.Namespace.Name())
 				}
 			})
-			t.NewSubTest("filter").Run(func(t framework.TestContext) {
+			t.NewSubTest("upstream proxy protocol").Run(func(t framework.TestContext) {
 				for _, tt := range common.UpstreamProxyProtocolCase(&apps, fmt.Sprintf("custom-gateway.%s.svc.cluster.local", gatewayNs.Name())) {
 					tt.Run(t, apps.Namespace.Name())
 				}
