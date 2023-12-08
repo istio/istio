@@ -59,27 +59,30 @@ type keySet = sets.Set[resourceKey]
 //
 // Example: Consider a scenario where we have a direct wildcard CDS watch.
 // Upon receiving a response, suppose some CDS resources named A, B, etc., are added. The resulting tree structure would be:
-// CDS/:
-//	CDS/A:
-//	CDS/B:
+//
+//	CDS/*:
+//	  CDS/A:
+//	  CDS/B:
 //
 // In this case, CDS/A and CDS/B are nodes under the wildcard CDS watch.
 //
 // Further, if we register a dependency on an EDS resource named C for CDS added resources,
 // the tree expands to:
-// CDS/:
-//	CDS/A:
-//	  EDS/C:
-//	CDS/B:
-//	  EDS/C:
+//
+//	CDS/*:
+//	  CDS/A:
+//	    EDS/C:
+//	  CDS/B:
+//	    EDS/C:
 //
 // Here, CDS/A and CDS/B become parents of EDS/C, and EDS/C is a child of both CDS/A and CDS/B.
 //
 // If a response later indicates that the CDS resource A is removed, all relationships originating from A are also removed.
 // The updated tree would then be:
-// CDS/:
-//	CDS/B:
-//	  EDS/C:
+//
+//	CDS/*:
+//	  CDS/B:
+//	    EDS/C:
 //
 // This change reflects the removal of CDS/A and its associated child link to EDS/C.
 type resourceNode struct {
