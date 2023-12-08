@@ -60,7 +60,6 @@ type keySet = sets.Set[resourceKey]
 // Example: Consider a scenario where we have a direct wildcard CDS watch.
 // Upon receiving a response, suppose some CDS resources named A, B, etc., are added. The resulting tree structure would be:
 // CDS/:
-//
 //	CDS/A:
 //	CDS/B:
 //
@@ -69,7 +68,6 @@ type keySet = sets.Set[resourceKey]
 // Further, if we register a dependency on an EDS resource named C for CDS added resources,
 // the tree expands to:
 // CDS/:
-//
 //	CDS/A:
 //	  EDS/C:
 //	CDS/B:
@@ -80,7 +78,6 @@ type keySet = sets.Set[resourceKey]
 // If a response later indicates that the CDS resource A is removed, all relationships originating from A are also removed.
 // The updated tree would then be:
 // CDS/:
-//
 //	CDS/B:
 //	  EDS/C:
 //
@@ -126,12 +123,6 @@ func (h *handlerContext) Reject(reason error) {
 // DeltaADSConfig for delta ADS connection.
 type DeltaADSConfig struct {
 	Config
-	// EnableDeletedResourceCache controls whether to maintain a cache for deleted resources.
-	// When set to true, the system keeps a cache of resources that have been removed, which can be useful
-	// for tracking or auditing purposes. If set to false, the caching of deleted resources is disabled,
-	// potentially reducing memory usage. By default, this field is set to false, meaning caching for deleted
-	// resources is disabled unless explicitly turned on.
-	EnableDeletedResourceCache bool
 }
 
 type HandlerFunc func(ctx HandlerContext, res proto.Message, event Event)
@@ -208,10 +199,6 @@ type Client struct {
 	// Last received message, by type
 	received        map[string]*discovery.DeltaDiscoveryResponse
 	deltaXDSUpdates chan *discovery.DeltaDiscoveryResponse
-
-	// resourceCache is used to cache the resource received from the delta stream,
-	// this is only used for triggering the delete event when the resource is removed from the stream.
-	resourceCache sync.Map
 
 	// errChan is used to signal errors from the delta stream
 	errChan chan error
@@ -305,7 +292,6 @@ func NewDelta(discoveryAddr string, config *DeltaADSConfig, opts ...Option) *Cli
 		deltaXDSUpdates: make(chan *discovery.DeltaDiscoveryResponse, 100),
 		received:        map[string]*discovery.DeltaDiscoveryResponse{},
 		mutex:           sync.RWMutex{},
-		resourceCache:   sync.Map{},
 	}
 	for _, o := range opts {
 		o(c)
@@ -426,9 +412,6 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 			TypeURL: r.Resource.TypeUrl,
 		}
 		c.establishResource(parentKey)
-		if c.cfg.EnableDeletedResourceCache {
-			c.resourceCache.Store(parentKey, r)
-		}
 		if ctx.nack != nil {
 			rejects = append(rejects, ctx.nack)
 			// On NACK, do not apply resource changes
@@ -456,18 +439,10 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 			Name:    r,
 			TypeURL: d.TypeUrl,
 		}
-		var cached *discovery.Resource
-		if c.cfg.EnableDeletedResourceCache {
-			value, ok := c.resourceCache.Load(key)
-			if ok {
-				cached = value.(*discovery.Resource)
-			}
-		} else {
-			cached = &discovery.Resource{
-				Name: r,
-			}
+		removed := &discovery.Resource{
+			Name: r,
 		}
-		err := c.trigger(ctx, d.TypeUrl, cached, EventDelete)
+		err := c.trigger(ctx, d.TypeUrl, removed, EventDelete)
 		if err != nil {
 			return err
 		}
@@ -477,9 +452,6 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 		}
 		allRemoves[key.TypeURL].Insert(key.Name)
 		c.drop(key)
-		if c.cfg.EnableDeletedResourceCache {
-			c.resourceCache.Delete(key)
-		}
 	}
 	c.send(resourceKey{TypeURL: d.TypeUrl}, d.Nonce, joinError(rejects))
 	for t, sub := range allAdds {
