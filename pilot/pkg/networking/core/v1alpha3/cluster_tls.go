@@ -127,7 +127,6 @@ func (cb *ClusterBuilder) applyUpstreamTLSSettings(
 	}
 }
 
-
 func (cb *ClusterBuilder) buildUpstreamClusterTLSContext(opts *buildClusterOpts, tls *networking.ClientTLSSettings) (*tlsv3.UpstreamTlsContext, error) {
 	if tls == nil {
 		return nil, nil
