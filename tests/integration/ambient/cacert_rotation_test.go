@@ -18,6 +18,7 @@
 package ambient
 
 import (
+	"bytes"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -112,7 +113,9 @@ func getWorkloadSecret(t framework.TestContext, zPods []v1.Pod, serviceAccount s
 }
 
 // Abstracted function to wait for workload cert to be updated
-func waitForWorkloadCertUpdate(t framework.TestContext, ztunnelPod v1.Pod, serviceAccount string, istioCtl istioctl.Instance, originalCert *configdump.CertsDump) *configdump.CertsDump {
+func waitForWorkloadCertUpdate(t framework.TestContext, ztunnelPod v1.Pod, serviceAccount string,
+	istioCtl istioctl.Instance, originalCert *configdump.CertsDump,
+) *configdump.CertsDump {
 	var newSecret *configdump.CertsDump
 	retry.UntilOrFail(t, func() bool {
 		updatedCert, _, err := getWorkloadSecret(t, []v1.Pod{ztunnelPod}, serviceAccount, istioCtl)
@@ -151,7 +154,7 @@ func verifyWorkloadCert(t framework.TestContext, workloadSecret *configdump.Cert
 	workloadX509 := parseCert(t, workloadCert)
 
 	// verify workload cert contains the correct intermediate cert
-	if string(workloadX509.AuthorityKeyId) != string(caX590.SubjectKeyId) {
+	if !bytes.Equal(workloadX509.AuthorityKeyId, caX590.SubjectKeyId) {
 		t.Errorf("workload certificate did not have expected authority key id: got %v wanted %v", string(workloadX509.AuthorityKeyId), string(caX590.SubjectKeyId))
 	}
 }
