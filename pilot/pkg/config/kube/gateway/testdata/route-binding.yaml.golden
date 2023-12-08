@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/default.istio-system
   creationTimestamp: null
@@ -20,6 +21,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/foobar.istio-system
   creationTimestamp: null
@@ -38,6 +40,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/same-namespace.istio-system
   creationTimestamp: null
@@ -56,6 +59,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/scope-route.istio-system
   creationTimestamp: null
@@ -74,6 +78,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/slctr-labels.istio-system
   creationTimestamp: null
@@ -93,6 +98,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/slctr-expr-in-yes.istio-system
   creationTimestamp: null
@@ -112,6 +118,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/slctr-expr-in-no.istio-system
   creationTimestamp: null
@@ -130,6 +137,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/slctr-expr-notin-yes.istio-system
   creationTimestamp: null
@@ -151,6 +159,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/slctr-expr-notin-no.istio-system
   creationTimestamp: null
@@ -170,6 +179,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/slctr-expr-exists-yes.istio-system
   creationTimestamp: null
@@ -191,6 +201,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/slctr-expr-exists-no.istio-system
   creationTimestamp: null
@@ -209,6 +220,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/slctr-expr-dne-yes.istio-system
   creationTimestamp: null
@@ -230,6 +242,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/slctr-expr-dne-no.istio-system
   creationTimestamp: null
@@ -248,6 +261,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/slctr-combined-yes.istio-system
   creationTimestamp: null
@@ -267,6 +281,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/slctr-combined-no.istio-system
   creationTimestamp: null

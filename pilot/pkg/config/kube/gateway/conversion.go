@@ -1953,7 +1953,9 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 				continue
 			}
 			meta := parentMeta(obj, &l.Name)
+			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
+
 			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
 			gatewayConfig := config.Config{
 				Meta: config.Meta{

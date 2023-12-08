@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/apple.istio-system
   creationTimestamp: null
@@ -20,6 +21,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/banana.istio-system
   creationTimestamp: null
