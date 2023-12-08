@@ -14,4 +14,4 @@ upgradeNotes:
     content: |
       This fix changes the behavior of overlapping wildcard hosts in VirtualService. Previously, the oldest VirtualService would take precedence
       regardless of whether or not it was the most specific host match. Now, the most specific host match will take precedence. To persist the old behavior,
-      set the `PERSIST_OLDEST_FIRST_HEURISTIC_FOR_WILDCARD_HOST_MATCHING` environment variable to `true` on istiod.
+      set the `PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING` environment variable to `true` on istiod.

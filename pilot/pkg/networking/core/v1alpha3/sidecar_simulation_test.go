@@ -2719,7 +2719,7 @@ spec:
 				tt := tt
 				t.Run(tt.name, func(t *testing.T) {
 					if tt.oldestWins {
-						test.SetForTest(t, &features.PersistOldestWinsHeuristicForWildcardHostMatching, true)
+						test.SetForTest(t, &features.PersistOldestWinsHeuristicForVirtualServiceHostMatching, true)
 					} else {
 						t.Parallel() // feature flags and parallel tests don't mix
 					}

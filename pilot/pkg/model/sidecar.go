@@ -201,7 +201,7 @@ type IstioEgressListenerWrapper struct {
 	virtualServices []config.Config
 
 	// An index of hostname to the namespaced name of the VirtualService containing the most
-	// relevant host match. Depending on the `PERSIST_OLDEST_FIRST_HEURISTIC_FOR_WILDCARD_HOST_MATCHING`
+	// relevant host match. Depending on the `PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING`
 	// feature flag, it could be the most specific host match or the oldest host match.
 	mostSpecificWildcardVsIndex map[host.Name]types.NamespacedName
 }
@@ -862,7 +862,7 @@ func computeWildcardHostVirtualServiceIndex(virtualServices []config.Config, ser
 
 	mostSpecificWildcardVsIndex := make(map[host.Name]types.NamespacedName)
 	comparator := MostSpecificHostMatch[config.Config]
-	if features.PersistOldestWinsHeuristicForWildcardHostMatching {
+	if features.PersistOldestWinsHeuristicForVirtualServiceHostMatching {
 		comparator = OldestMatchingHost
 	}
 	for _, svc := range services {
