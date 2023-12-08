@@ -1374,7 +1374,7 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 		return Validation{}
 	}
 	if policy.OutlierDetection == nil && policy.ConnectionPool == nil &&
-		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil && policy.Tunnel == nil {
+		policy.LoadBalancer == nil && policy.Tls == nil && policy.PortLevelSettings == nil && policy.Tunnel == nil && policy.ProxyProtocol == nil {
 		return WrapError(fmt.Errorf("traffic policy must have at least one field"))
 	}
 
@@ -1383,7 +1383,18 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 		validateLoadBalancer(policy.LoadBalancer, policy.OutlierDetection),
 		validateTLS(policy.Tls),
 		validatePortTrafficPolicies(policy.PortLevelSettings),
-		validateTunnelSettings(policy.Tunnel))
+		validateTunnelSettings(policy.Tunnel),
+		validateProxyProtocol(policy.ProxyProtocol))
+}
+
+func validateProxyProtocol(proxyProtocol *networking.TrafficPolicy_ProxyProtocol) (errs error) {
+	if proxyProtocol == nil {
+		return
+	}
+	if proxyProtocol.Version != 0 && proxyProtocol.Version != 1 {
+		errs = appendErrors(errs, fmt.Errorf("proxy protocol version is invalid: %d", proxyProtocol.Version))
+	}
+	return
 }
 
 func validateTunnelSettings(tunnel *networking.TrafficPolicy_TunnelSettings) (errs error) {
