@@ -209,7 +209,7 @@ func isDefaultRevisionDeactivated(ctx context.Context, client kubernetes.Interfa
 
 	for _, mwc := range mwcs {
 		for _, wh := range mwc.Webhooks {
-			if fmt.Sprint(wh.NamespaceSelector.MatchLabels) == fmt.Sprint(neverMatch) && fmt.Sprint(wh.ObjectSelector.MatchLabels) == fmt.Sprint(neverMatch) {
+			if fmt.Sprint(wh.NamespaceSelector.MatchLabels) == fmt.Sprint(util.NeverMatch) && fmt.Sprint(wh.ObjectSelector.MatchLabels) == fmt.Sprint(util.NeverMatch) {
 				return true
 			}
 		}

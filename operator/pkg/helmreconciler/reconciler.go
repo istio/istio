@@ -623,7 +623,7 @@ func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator,
 	// Detect whether previous installation exists prior to performing the installation.
 	rev := iop.Spec.Revision
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
-	operatorManageWebhooks := operatorManageWebhooks(iop)
+	operatorManageWebhooks := OperatorManageWebhooks(iop)
 	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
 		if rev == "" {
 			rev = revtag.DefaultRevisionName
@@ -686,7 +686,7 @@ func applyManifests(kubeClient kube.Client, manifests string) error {
 }
 
 // operatorManageWebhooks returns .Values.global.operatorManageWebhooks from the Istio Operator.
-func operatorManageWebhooks(iop *istioV1Alpha1.IstioOperator) bool {
+func OperatorManageWebhooks(iop *istioV1Alpha1.IstioOperator) bool {
 	if iop.Spec.GetValues() == nil {
 		return false
 	}

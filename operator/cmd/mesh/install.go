@@ -199,15 +199,15 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
 	rev := iop.Spec.Revision
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
-	operatorManageWebhooks := operatorManageWebhooks(iop)
+	operatorManageWebhooks := helmreconciler.OperatorManageWebhooks(iop)
 
-	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
-	if err != nil {
+	if err := InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l); err != nil {
 		if !operatorManageWebhooks && isDefaultInstallation {
 			_ = revtag.DeleteConflictedDefaultTag(context.Background(), kubeClient.Kube())
 		}
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
+
 	opts := &helmreconciler.ProcessDefaultWebhookOptions{
 		Namespace: ns,
 		DryRun:    rootArgs.DryRun,
