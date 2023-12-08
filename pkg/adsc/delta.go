@@ -54,6 +54,37 @@ func (k resourceKey) shortName() string {
 
 type keySet = sets.Set[resourceKey]
 
+// resourceNode represents a resource state in the dynamic tree structure of the service mesh.
+// It tracks the relationships of a resource with its parents and children within the mesh.
+//
+// Example: Consider a scenario where we have a direct wildcard CDS watch.
+// Upon receiving a response, suppose some CDS resources named A, B, etc., are added. The resulting tree structure would be:
+// CDS/:
+//
+//	CDS/A:
+//	CDS/B:
+//
+// In this case, CDS/A and CDS/B are nodes under the wildcard CDS watch.
+//
+// Further, if we register a dependency on an EDS resource named C for CDS added resources,
+// the tree expands to:
+// CDS/:
+//
+//	CDS/A:
+//	  EDS/C:
+//	CDS/B:
+//	  EDS/C:
+//
+// Here, CDS/A and CDS/B become parents of EDS/C, and EDS/C is a child of both CDS/A and CDS/B.
+//
+// If a response later indicates that the CDS resource A is removed, all relationships originating from A are also removed.
+// The updated tree would then be:
+// CDS/:
+//
+//	CDS/B:
+//	  EDS/C:
+//
+// This change reflects the removal of CDS/A and its associated child link to EDS/C.
 type resourceNode struct {
 	// Parents of the resource. If nil, this is explicitly watched
 	Parents keySet
@@ -126,10 +157,42 @@ type HandlerFunc func(ctx HandlerContext, res proto.Message, event Event)
 //     processing outcome. In cases of error or rejection, a Nack can be sent using HandlerContext.Reject.
 //     - Dependency Updates: Triggering requests for dependent resources. These dependencies are established via
 //     HandlerContext.RegisterDependency.
+//
+// An example of a handler registration is as follows:
+//
+//	clusterHandler := Register(func(ctx HandlerContext, res *cluster.Cluster, event Event) {
+//	  if event == EventDelete {
+//	    return
+//	  }
+//	  ctx.RegisterDependency(v3.SecretType, ExtractClusterSecretResources(t, res)...)
+//	  ctx.RegisterDependency(v3.EndpointType, ExtractEdsClusterNames([]*cluster.Cluster{res})...)
+//	})
+//
+// It means that when a cluster is added or updated, the client will trigger requests for the
+// secrets and endpoints that the cluster depends on.
+//
+// An example of register handlers:
+//
+//	handlers := []Option{
+//	  clusterHandler,
+//	  Watch[*cluster.Cluster]("*"),
+//	  listenerHandler,
+//	  Watch[*listener.Listener]("*"),
+//	  endpointsHandler,
+//	  routesHandler,
+//	  secretsHandler,
+//	}
+//
+// client := NewDelta("localhost:8080", handlers...)
+//
+// It means that the client will watch all clusters and listeners, and trigger resource events for
+// clusters, listeners, endpoints, routes and secrets that the clusters and listeners depend on.
 type Client struct {
 	cfg      *DeltaADSConfig
 	handlers map[string]HandlerFunc
-	// Map of resources key to its node
+	// tree is a map where each key is a `resourceKey` (comprising the resource name and typeURL)
+	// and each added resource is a `resourceNode`. This tree structure represents the dynamic state
+	// and relationships of resources.
 	tree map[resourceKey]resourceNode
 
 	xdsClient discovery.AggregatedDiscoveryService_DeltaAggregatedResourcesClient
@@ -148,7 +211,6 @@ type Client struct {
 
 	// resourceCache is used to cache the resource received from the delta stream,
 	// this is only used for triggering the delete event when the resource is removed from the stream.
-	// If cfg.
 	resourceCache sync.Map
 
 	// errChan is used to signal errors from the delta stream
@@ -158,16 +220,16 @@ type Client struct {
 	closed bool
 }
 
-func (c *Client) trigger(ctx *handlerContext, url string, r *discovery.Resource, event Event) error {
-	res := newProto(url)
+func (c *Client) trigger(ctx *handlerContext, typeURL string, r *discovery.Resource, event Event) error {
+	res := newProto(typeURL)
 	if r != nil && res != nil {
 		if err := r.Resource.UnmarshalTo(res); err != nil {
 			return err
 		}
 	}
-	handler, f := c.handlers[url]
+	handler, f := c.handlers[typeURL]
 	if !f {
-		deltaLog.Warnf("ignoring unknown type %v", url)
+		deltaLog.Warnf("ignoring unknown type %v", typeURL)
 		return nil
 	}
 	handler(ctx, res, event)
@@ -334,6 +396,10 @@ func (c *Client) handleRecv() {
 			c.Close()
 			return
 		}
+		c.mutex.Lock()
+		c.received[msg.TypeUrl] = msg
+		c.mutex.Unlock()
+		c.deltaXDSUpdates <- msg
 	}
 }
 
@@ -342,22 +408,14 @@ func (c *Client) handleDeltaResponse(d *discovery.DeltaDiscoveryResponse) error 
 	allAdds := map[string]set.Set[string]{}
 	allRemoves := map[string]set.Set[string]{}
 	ctx := &handlerContext{}
-	defer func() {
-		c.mutex.Lock()
-		c.received[d.TypeUrl] = d
-		c.mutex.Unlock()
-		select {
-		case c.deltaXDSUpdates <- d:
-		default:
-		}
-	}()
 	if isDebugType(d.TypeUrl) {
 		// No need to ack and type check for debug types
 		return nil
 	}
 	for _, r := range d.Resources {
 		if d.TypeUrl != r.Resource.TypeUrl {
-			deltaLog.Fatalf("Invalid response: mismatch of type url: %v vs %v", d.TypeUrl, r.Resource.TypeUrl)
+			deltaLog.Errorf("Invalid response: mismatch of type url: %v vs %v", d.TypeUrl, r.Resource.TypeUrl)
+			continue
 		}
 		err := c.trigger(ctx, d.TypeUrl, r, EventAdd)
 		if err != nil {
@@ -450,6 +508,7 @@ func joinError(rejects []error) error {
 
 // establishResource sets up the relationship for a resource we received.
 func (c *Client) establishResource(key resourceKey) {
+	// Check if we have a watch for this resource
 	parentNode, f := c.tree[key]
 	if !f {
 		parentNode = resourceNode{
@@ -459,6 +518,8 @@ func (c *Client) establishResource(key resourceKey) {
 		c.tree[key] = parentNode
 	}
 
+	// Check if we have a Watch for all "*" resources, and if so, this specific resource is a child
+	// of that watch.
 	wildcardKey := resourceKey{TypeURL: key.TypeURL}
 	wildNode, wildFound := c.tree[wildcardKey]
 	if wildFound {
