@@ -17,7 +17,6 @@ package serviceentry
 import (
 	"fmt"
 	"hash/fnv"
-	"net"
 	"strconv"
 	"sync"
 	"time"
@@ -875,21 +874,11 @@ func servicesDiff(os []*model.Service, ns []*model.Service) ([]*model.Service, [
 //
 // The current algorithm to allocate IPs is deterministic across all istiods.
 func autoAllocateIPs(services []*model.Service) []*model.Service {
+	// record services that has hash collision
+	var hashCollisions []*model.Service
 	hashedServices := make([]*model.Service, maxIPs)
 	hnMap := make(map[string]octetPair)
 	j := 0
-	for _, svc := range services {
-		if svc.AutoAllocatedIPv4Address != "" {
-			ip := net.ParseIP(svc.AutoAllocatedIPv4Address)
-			if ip != nil {
-				thirdPctert := int(ip.To4()[2])
-				fourthOctet := int(ip.To4()[3])
-				hashedServices[thirdPctert*255+fourthOctet-1] = svc
-				hnMap[makeServiceKey(svc)] = octetPair{thirdPctert, fourthOctet}
-				j++
-			}
-		}
-	}
 	hash := fnv.New32a()
 	// First iterate through the range of services and determine its position by hash
 	// so that we can deterministically allocate an IP.
@@ -908,9 +897,9 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 		// 3. the hostname is not a wildcard
 		if svc.DefaultAddress == constants.UnspecifiedIP && !svc.Hostname.IsWildCarded() &&
 			svc.Resolution != model.Passthrough {
-			if svc.AutoAllocatedIPv4Address != "" {
-				continue
-			}
+			// if svc.AutoAllocatedIPv4Address != "" {
+			// 	continue
+			// }
 			if j >= maxIPs {
 				log.Errorf("out of IPs to allocate for service entries. maxips:= %d", maxIPs)
 				break
@@ -924,20 +913,30 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			if hashedServices[firstHash] == nil {
 				hashedServices[firstHash] = svc
 			} else {
-				// This means we have a collision. Resolve collision by "DoubleHashing".
-				i := uint32(1)
-				secondHash := uint32(prime) - (s % uint32(prime))
-				for {
-					nh := (s + i*secondHash) % uint32(maxIPs-1)
-					if hashedServices[nh] == nil {
-						hashedServices[nh] = svc
-						break
-					}
-					i++
-				}
+				hashCollisions = append(hashCollisions, svc)
 			}
 			hash.Reset()
 			j++
+		}
+	}
+
+	// rehash at last, so that it can mitigate the influcence to other services that donot have hash collision
+	// It maybe not good the these services, but it is beneficial to most other services without hash collision.
+	for _, svc := range hashCollisions {
+		// First hash is calculated by hashing the service key i.e. (namespace + "/" + hostname).
+		hash.Write([]byte(makeServiceKey(svc)))
+		s := hash.Sum32()
+		hash.Reset()
+		// This means we have a collision. Resolve collision by "DoubleHashing".
+		i := uint32(1)
+		secondHash := uint32(prime) - (s % uint32(prime))
+		for {
+			nh := (s + i*secondHash) % uint32(maxIPs-1)
+			if hashedServices[nh] == nil {
+				hashedServices[nh] = svc
+				break
+			}
+			i++
 		}
 	}
 

@@ -1983,7 +1983,7 @@ func Test_autoAllocateIP_values(t *testing.T) {
 		"240.240.2.255": true,
 		"240.240.3.255": true,
 	}
-	expectedLastIP := "240.240.10.212"
+	expectedLastIP := "240.240.74.4"
 	if gotServices[len(gotServices)-1].AutoAllocatedIPv4Address != expectedLastIP {
 		t.Errorf("expected last IP address to be %s, got %s", expectedLastIP, gotServices[len(gotServices)-1].AutoAllocatedIPv4Address)
 	}
