@@ -15,8 +15,9 @@
 package serviceentry
 
 import (
+	"crypto/rand"
 	"fmt"
-	"math/rand"
+	"math/big"
 	"net"
 	"reflect"
 	"sort"
@@ -2011,10 +2012,12 @@ func Test_autoAllocateIP_values(t *testing.T) {
 	assert.Equal(t, maxIPs, len(gotIPMap))
 
 	// randomly remove some services
-	removed := rand.Intn(100)
+	n, _ := rand.Int(rand.Reader, big.NewInt(100))
+	removed := n.Int64()
 	removedIndex := make(sets.Set[int], removed)
-	for i := 0; i < removed; i++ {
-		removedIndex.Insert(rand.Intn(ips))
+	for i := 0; i < int(removed); i++ {
+		n, _ := rand.Int(rand.Reader, big.NewInt(int64(ips)))
+		removedIndex.Insert(int(n.Int64()))
 	}
 	inServices2 := make([]*model.Service, 0, ips)
 	for i := 0; i < ips; i++ {
