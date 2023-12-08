@@ -324,9 +324,8 @@ func getSidecarIngressPortList(node *model.Proxy) sets.Set[int] {
 	return ingressPortListSet
 }
 
-func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]inboundChainConfig,
-	enableSidecarServiceInboundListenerMerge bool,
-) map[uint32]inboundChainConfig {
+func (lb *ListenerBuilder) getFilterChainsByServicePort(enableSidecarServiceInboundListenerMerge bool) map[uint32]inboundChainConfig {
+	chainsByPort := make(map[uint32]inboundChainConfig)
 	ingressPortListSet := sets.New[int]()
 	sidecarScope := lb.node.SidecarScope
 	if sidecarScope.HasIngressListener() {
@@ -388,7 +387,7 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 
 // buildInboundChainConfigs builds all the application chain configs.
 func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
-	chainsByPort := make(map[uint32]inboundChainConfig)
+	var chainsByPort map[uint32]inboundChainConfig
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners.
 	if !lb.node.SidecarScope.HasIngressListener() {
 
@@ -398,11 +397,13 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 		if lb.node.GetInterceptionMode() == model.InterceptionNone {
 			return nil
 		}
-		chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, false)
+		chainsByPort = lb.getFilterChainsByServicePort(false)
 	} else {
 		// only allow to merge inbound listeners if sidecar has ingress listener pilot has env EnableSidecarServiceInboundListenerMerge set
 		if features.EnableSidecarServiceInboundListenerMerge {
-			chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, true)
+			chainsByPort = lb.getFilterChainsByServicePort(true)
+		} else {
+			chainsByPort = make(map[uint32]inboundChainConfig)
 		}
 
 		for _, i := range lb.node.SidecarScope.Sidecar.Ingress {
