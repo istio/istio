@@ -16,7 +16,6 @@ package model
 
 import (
 	"fmt"
-	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	"sort"
 	"strings"
 	"sync"
@@ -24,6 +23,7 @@ import (
 
 	udpa "github.com/cncf/xds/go/udpa/type/v1"
 	accesslog "github.com/envoyproxy/go-control-plane/envoy/config/accesslog/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
