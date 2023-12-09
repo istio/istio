@@ -356,6 +356,17 @@ func (c Config) GetNamespace() string {
 	return c.Namespace
 }
 
+func (c Config) GetCreationTimestamp() time.Time {
+	return c.CreationTimestamp
+}
+
+func (c Config) NamespacedName() kubetypes.NamespacedName {
+	return kubetypes.NamespacedName{
+		Namespace: c.Namespace,
+		Name:      c.Name,
+	}
+}
+
 var _ fmt.Stringer = GroupVersionKind{}
 
 type GroupVersionKind struct {
