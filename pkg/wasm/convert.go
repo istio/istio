@@ -329,8 +329,8 @@ func rewriteVMConfig(resourceName string, vm *wasmextensions.VmConfig, status *s
 	if remote.Sha256 == "nil" {
 		remote.Sha256 = ""
 	}
-	// Default timeout. Without this if user does not specify a timeout in the config, it fails with deadline exceeded
-	// while building transport in go container.
+	// this is always 30s, because the timeout is set by the control plane when convert to WasmPluginWrapper.
+	// see buildDataSource() in pilot/pkg/model/extensions.go
 	timeout := time.Second * 5
 	if remote.GetHttpUri().Timeout != nil {
 		timeout = remote.GetHttpUri().Timeout.AsDuration()
