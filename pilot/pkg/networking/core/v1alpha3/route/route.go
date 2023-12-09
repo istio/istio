@@ -33,6 +33,7 @@ import (
 	anypb "google.golang.org/protobuf/types/known/anypb"
 	"google.golang.org/protobuf/types/known/durationpb"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
+	"k8s.io/apimachinery/pkg/types"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -97,7 +98,7 @@ type VirtualHostWrapper struct {
 // and a list of Services from the service registry. Services are indexed by FQDN hostnames.
 // The list of Services is also passed to allow maintaining consistent ordering.
 func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *model.PushContext, serviceRegistry map[host.Name]*model.Service,
-	virtualServices []config.Config, listenPort int,
+	virtualServices []config.Config, listenPort int, mostSpecificWildcardIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	out := make([]VirtualHostWrapper, 0)
 
@@ -109,7 +110,9 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 	for _, virtualService := range virtualServices {
 		hashByDestination, destinationRules := hashForVirtualService(push, node, virtualService)
 		dependentDestinationRules = append(dependentDestinationRules, destinationRules...)
-		wrappers := buildSidecarVirtualHostsForVirtualService(node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh)
+		wrappers := buildSidecarVirtualHostsForVirtualService(
+			node, virtualService, serviceRegistry, hashByDestination, listenPort, push.Mesh, mostSpecificWildcardIndex,
+		)
 		out = append(out, wrappers...)
 	}
 
@@ -144,7 +147,11 @@ func BuildSidecarVirtualHostWrapper(routeCache *Cache, node *model.Proxy, push *
 // plain non-registry hostnames
 func separateVSHostsAndServices(virtualService config.Config,
 	serviceRegistry map[host.Name]*model.Service,
+	mostSpecificWildcardIndex map[host.Name]types.NamespacedName,
 ) ([]string, []*model.Service) {
+	// TODO: A further optimization would be to completely rely on the index and not do the loop below
+	// However, that requires assuming that serviceRegistry never got filtered after the
+	// egressListener was created.
 	rule := virtualService.Spec.(*networking.VirtualService)
 	hosts := make([]string, 0)
 	servicesInVirtualService := make([]*model.Service, 0)
@@ -172,15 +179,23 @@ func separateVSHostsAndServices(virtualService config.Config,
 			hosts = append(hosts, string(hostname))
 			continue
 		}
-		// Say host is *.global
+		// Say this VS's host is *.global and there's another VS with host *.foo.global
 		foundSvcMatch := false
 		// Say we have Services *.foo.global, *.bar.global
 		for svcHost, svc := range serviceRegistry {
-			// *.foo.global matches *.global
-			if svcHost.Matches(hostname) {
-				servicesInVirtualService = append(servicesInVirtualService, svc)
-				foundSvcMatch = true
+			vs, ok := mostSpecificWildcardIndex[svcHost]
+			if !ok {
+				// This service doesn't have a virtualService that matches it.
+				continue
 			}
+			foundSvcMatch = true // we did find a match
+			if vs != virtualService.NamespacedName() {
+				// This virtual service is not the most specific wildcard match for this service.
+				// So we don't add it to the list of services in this virtual service so as
+				// to avoid duplicates
+				continue
+			}
+			servicesInVirtualService = append(servicesInVirtualService, svc)
 		}
 		if !foundSvcMatch {
 			hosts = append(hosts, string(hostname))
@@ -200,6 +215,7 @@ func buildSidecarVirtualHostsForVirtualService(
 	hashByDestination DestinationHashMap,
 	listenPort int,
 	mesh *meshconfig.MeshConfig,
+	mostSpecificWildcardIndex map[host.Name]types.NamespacedName,
 ) []VirtualHostWrapper {
 	meshGateway := sets.New(constants.IstioMeshGateway)
 	opts := RouteOptions{
@@ -215,7 +231,7 @@ func buildSidecarVirtualHostsForVirtualService(
 		return nil
 	}
 
-	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry)
+	hosts, servicesInVirtualService := separateVSHostsAndServices(virtualService, serviceRegistry, mostSpecificWildcardIndex)
 
 	// Gateway allows only routes from the namespace of the proxy, or namespace of the destination.
 	if model.UseGatewaySemantics(virtualService) {
@@ -415,7 +431,7 @@ func translateRoute(
 	opts RouteOptions,
 ) *route.Route {
 	// When building routes, it's okay if the target cluster cannot be
-	// resolved Traffic to such clusters will blackhole.
+	// resolved. Traffic to such clusters will blackhole.
 
 	// Match by the destination port specified in the match condition
 	if match != nil && match.Port != 0 && match.Port != uint32(listenPort) {
