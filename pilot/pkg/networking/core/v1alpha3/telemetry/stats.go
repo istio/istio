@@ -22,12 +22,10 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-var (
-	allClasses = []networking.ListenerClass{
-		networking.ListenerClassSidecarInbound,
-		networking.ListenerClassSidecarOutbound,
-	}
-)
+var allClasses = []networking.ListenerClass{
+	networking.ListenerClassSidecarInbound,
+	networking.ListenerClassSidecarOutbound,
+}
 
 func InsertedExtensionConfigurations(proxy *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig {
 	hasNames := sets.New(extensionConfigNames...)
