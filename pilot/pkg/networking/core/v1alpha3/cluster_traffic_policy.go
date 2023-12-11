@@ -56,7 +56,10 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 			tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
 				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
-			cb.applyUpstreamProxyProtocol(&opts, proxyProtocol)
+			// donot apply proxy protocol for proxy that supports HBONE
+			if !cb.hbone {
+				cb.applyUpstreamProxyProtocol(&opts, proxyProtocol)
+			}
 		}
 	}
 

@@ -1378,6 +1378,10 @@ func validateTrafficPolicy(policy *networking.TrafficPolicy) Validation {
 		return WrapError(fmt.Errorf("traffic policy must have at least one field"))
 	}
 
+	if policy.Tunnel != nil && policy.ProxyProtocol != nil {
+		return WrapError(fmt.Errorf("tunnel and proxyProtocol must not be set together"))
+	}
+
 	return appendValidation(validateOutlierDetection(policy.OutlierDetection),
 		validateConnectionPool(policy.ConnectionPool),
 		validateLoadBalancer(policy.LoadBalancer, policy.OutlierDetection),
