@@ -1885,6 +1885,22 @@ func TestInboundClustersPassThroughBindIPs(t *testing.T) {
 				EndpointPort: 10001,
 			},
 		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Addresses:    []string{"1.1.1.1", "2001:1::1"},
+				EndpointPort: 10001,
+			},
+		},
+		{
+			Service:     service,
+			ServicePort: servicePort,
+			Endpoint: &model.IstioEndpoint{
+				Addresses:    []string{"2.2.2.2", "2001:1::2"},
+				EndpointPort: 10001,
+			},
+		},
 	}
 
 	inboundFilter := func(c *cluster.Cluster) bool {

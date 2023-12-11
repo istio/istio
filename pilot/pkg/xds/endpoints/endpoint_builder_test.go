@@ -241,3 +241,95 @@ func TestPopulateFailoverPriorityLabels(t *testing.T) {
 		})
 	}
 }
+
+func TestFilterIstioEndpoint(t *testing.T) {
+	servicePort := &model.Port{
+		Name:     "default",
+		Port:     80,
+		Protocol: protocol.HTTP,
+	}
+	ep0 := &model.IstioEndpoint {{
+		Addresses:       []string{"1.1.1.1"},
+		ServicePortName: "not-default",
+	}
+	ep1 := &model.IstioEndpoint {{
+		Addresses:       []string{"1.1.1.1"},
+		ServicePortName: "default",
+	}
+	ep2 := &model.IstioEndpoint{
+		Addresses:       []string{"2001:1::1"},
+		ServicePortName: "default",
+	},
+	ep3 := &model.IstioEndpoint{
+		Addresses:       []string{"1.1.1.1", "2001:1::1"},
+		ServicePortName: "default",
+	},
+	ep4 := &model.IstioEndpoint{
+		Addresses:       []string{},
+		ServicePortName: "default",
+	}
+
+	tests := []struct {
+		name:     string,
+		ep:       *model.IstioEndpoint,
+		p:        *&model.Port,
+		expected: bool
+	} {
+		{
+			name:     "test endpoint with different service port name",
+			ep:       ep0,
+			p:        servicePort,
+			expected: false,
+		},
+		{
+			name:     "test endpoint with ipv4 address",
+			ep:       ep1,
+			p:        servicePort,
+			expected: true,
+		},
+		{
+			name:     "test endpoint with ipv6 address",
+			ep:       ep2,
+			p:        servicePort,
+			expected: true,
+		},
+		{
+			name:     "test endpoint with both ipv4 and ipv6 addresses",
+			ep:       ep3,
+			p:        servicePort,
+			expected: true,
+		},
+		{
+			name:     "test endpoint without address",
+			ep:       ep4,
+			p:        servicePort,
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			b := &EndpointBuilder{
+				proxy: &model.Proxy{
+					Type:        model.SidecarProxy,
+					IPAddresses: []string{"111.111.111.111", "1111:2222::1"},
+					ID:          "v0.default",
+					DNSDomain:   "default.example.org",
+					Metadata: &model.NodeMetadata{
+						Namespace: "not-default",
+					},
+					ConfigNamespace: "ndefault",
+				},
+				workloadName: "test",
+				namespace:    "default",
+				nodeName:     node,
+			}
+
+			
+			b.filterIstioEndpoint(tt.)
+			if !reflect.DeepEqual(b.failoverPriorityLabels, tt.expectedLabels) {
+				t.Fatalf("expected priorityLabels %v but got %v", tt.expectedLabels, b.failoverPriorityLabels)
+			}
+		})
+	}
+}
