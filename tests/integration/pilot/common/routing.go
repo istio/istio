@@ -64,6 +64,7 @@ spec:
   trafficPolicy:
     tls:
       mode: SIMPLE
+      insecureSkipVerify: true
 ---
 `
 
