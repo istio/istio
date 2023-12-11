@@ -6,4 +6,4 @@ issue:
 
 releaseNotes:
 - |
-  **Fixed** Gateway API AllowedRoutes handling for NotIn and DoesNotExist LabelSelector MatchExpressions.
+  **Fixed** Gateway API `AllowedRoutes` handling for `NotIn` and `DoesNotExist` label selector match expressions.
