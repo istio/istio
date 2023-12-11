@@ -4,7 +4,7 @@ The Istio CNI Node Agent is responsible for several things
 
 - Install an Istio CNI plugin on each node's filesystem, updating that node's CNI config in e.g (`/etc/cni/net.d`), and watching the config and binary paths to reinstall if things are modified.
 - In sidecar mode, CNI plugin can configure sidecar networking for pods when they are scheduled by the container runtime, using iptables. The CNI handling the netns setup replaces the current Istio approach using a `NET_ADMIN` privileged `initContainers` container, `istio-init`, injected in the pods along with `istio-proxy` sidecars. This removes the need for a privileged, `NET_ADMIN` container in the Istio users' application pods.
-- In ambient mode, CNI plugin does not configure any networking, but will push events to an ambient watch server running in the agent Daemonset on new pod. The ambient server will find the pod netns and configure networking inside that pod via iptables. The ambient server will additionally watch enabled namespaces, and enroll already-started-but-newly-enrolled pods in a similar fashion.
+- In ambient mode, CNI plugin does not configure any networking, but will synchronously push events to an ambient watch server running in the agent Daemonset on new pod. The ambient server will find the pod netns and configure networking inside that pod via iptables. The ambient server will additionally watch enabled namespaces, and enroll already-started-but-newly-enrolled pods in a similar fashion.
 
 ## Ambient mode details
 
