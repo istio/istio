@@ -17,6 +17,7 @@
 package file
 
 import (
+	"fmt"
 	"testing"
 
 	. "github.com/onsi/gomega"
@@ -26,95 +27,34 @@ import (
 )
 
 func TestUpdateExistingContents(t *testing.T) {
-	cases := []struct {
-		existingConfig          string
-		newConfigs              []string
-		expectedResourceVersion string
-	}{
-		{
-			existingConfig: `apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: productpage
-spec:
-  host: productpage
-  subsets:
-  - name: v1
-    labels:
-      version: v1`,
-			newConfigs: []string{`apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: productpage
-spec:
-  host: productpage
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
-  subsets:
-  - name: v1
-    labels:
-      version: v1`},
-			expectedResourceVersion: "v2",
-		},
-		{
-			existingConfig: `apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: productpage
-spec:
-  host: productpage
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
-  subsets:
-  - name: v1
-    labels:
-      version: v1`,
-			newConfigs: []string{
-				`apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: productpage
-spec:
-  host: productpage
-  trafficPolicy:
-    tls:
-      mode: ISTIO_MUTUAL
-  subsets:
-  - name: v2
-    labels:
-      version: v2`,
-				`apiVersion: networking.istio.io/v1alpha3
-kind: DestinationRule
-metadata:
-  name: productpage
-spec:
-  host: productpage
-  trafficPolicy:
-    tls:
-      mode: DISABLE 
-  subsets:
-  - name: v2
-    labels:
-      version: v2`,
-			},
-			expectedResourceVersion: "v3",
-		},
-	}
 	g := NewWithT(t)
-	for _, c := range cases {
-		src := NewKubeSource(collections.Istio)
+	src := NewKubeSource(collections.Istio)
 
-		err := src.ApplyContent("test", c.existingConfig)
+	applyAndValidate := func(version string) {
+		configTemplate := `apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: productpage
+  labels:
+    version: %s
+spec:
+  host: productpage
+  trafficPolicy:
+    tls:
+      mode: ISTIO_MUTUAL
+  subsets:
+  - name: %s
+    labels:
+      version: %s`
+		config := fmt.Sprintf(configTemplate, version, version, version)
+		err := src.ApplyContent("test", config)
 		g.Expect(err).To(BeNil())
-
-		// apply the same resource, should overwrite the existing one
-		for _, cfg := range c.newConfigs {
-			err = src.ApplyContent("test", cfg)
-			g.Expect(err).To(BeNil())
-		}
 		existing := src.Get(gvk.DestinationRule, "productpage", "")
-		g.Expect(c.expectedResourceVersion, existing.ResourceVersion)
+		g.Expect(existing.Labels["version"]).To(Equal(version))
 	}
+
+	// Apply v1 config
+	applyAndValidate("v1")
+	// Apply v2 config and validate overwrite
+	applyAndValidate("v2")
 }
