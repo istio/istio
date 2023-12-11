@@ -98,7 +98,7 @@ values:
     env:
       SECRET_TTL: 5m
 `
-		}, cert.CreateCASecret)).
+		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Client = t.Clusters().Default()
 			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup

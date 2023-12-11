@@ -49,7 +49,7 @@ func TestIntermediateCertificateRefresh(t *testing.T) {
 			istioCfg := istio.DefaultConfigOrFail(t, t)
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			namespace.ClaimOrFail(t, t, istioCfg.SystemNamespace)
-			newX509 := getX509FromFile(t, "ca-cert-alt.pem")
+			newX509 := getX509FromFile(t, "ca-cert-alt-2.pem")
 
 			sa := apps.Captured[0].ServiceAccountName()
 
@@ -59,28 +59,21 @@ func TestIntermediateCertificateRefresh(t *testing.T) {
 
 			originalWorkloadSecret, ztunnelPod, err := getWorkloadSecret(t, ztunnelPods, sa, istioCtl)
 			if err != nil {
-				t.Errorf("failed to get initial workload cert: %v", err)
+				t.Errorf("failed to get initial workload secret: %v", err)
 			}
 
 			// Update CA with new intermediate cert
 			if err := cert.CreateCustomCASecret(t,
-				"ca-cert-alt.pem", "ca-key-alt.pem",
-				"cert-chain-alt.pem", "root-cert-combined.pem"); err != nil {
+				"ca-cert-alt-2.pem", "ca-key-alt-2.pem",
+				"cert-chain-alt-2.pem", "root-cert-alt.pem"); err != nil {
 				t.Errorf("failed to update CA secret: %v", err)
 			}
 
-			newWorkloadCert := waitForWorkloadCertUpdate(t, ztunnelPod, sa, istioCtl, originalWorkloadSecret)
-
-			verifyWorkloadCert(t, newWorkloadCert, newX509)
-
-			// reset CA to original values
-			if err := cert.CreateCustomCASecret(t,
-				"ca-cert.pem", "ca-key.pem",
-				"cert-chain.pem", "root-cert.pem"); err != nil {
-				t.Errorf("failed to update CA secret: %v", err)
-			}
-
-			_ = waitForWorkloadCertUpdate(t, ztunnelPod, sa, istioCtl, newWorkloadCert)
+			// perform one retry to handle race condition where ztunnel cert is refreshed before Istiod certificates are reloaded
+			retry.UntilSuccess(func() error {
+				newWorkloadCert := waitForWorkloadCertUpdate(t, ztunnelPod, sa, istioCtl, originalWorkloadSecret)
+				return verifyWorkloadCert(t, newWorkloadCert, newX509)
+			}, retry.MaxAttempts(2), retry.Timeout(5*time.Minute))
 		})
 }
 
@@ -136,7 +129,7 @@ func waitForWorkloadCertUpdate(t framework.TestContext, ztunnelPod v1.Pod, servi
 	return newSecret
 }
 
-func verifyWorkloadCert(t framework.TestContext, workloadSecret *configdump.CertsDump, caX590 *x509.Certificate) {
+func verifyWorkloadCert(t framework.TestContext, workloadSecret *configdump.CertsDump, caX590 *x509.Certificate) error {
 	intermediateCert, err := base64.StdEncoding.DecodeString(workloadSecret.CertChain[0].Pem)
 	if err != nil {
 		t.Errorf("failed to decode intermediate certificate: %v", err)
@@ -144,19 +137,21 @@ func verifyWorkloadCert(t framework.TestContext, workloadSecret *configdump.Cert
 	intermediateX509 := parseCert(t, intermediateCert)
 	// verify the correct intermediate cert is in the certificate chain
 	if intermediateX509.SerialNumber.String() != caX590.SerialNumber.String() {
-		t.Errorf("intermediate certificate serial numbers do not match: got %v, wanted %v", intermediateX509.SerialNumber.String(), caX590.SerialNumber.String())
+		return fmt.Errorf("intermediate certificate serial numbers do not match: got %v, wanted %v", intermediateX509.SerialNumber.String(), caX590.SerialNumber.String())
 	}
 
 	workloadCert, err := base64.StdEncoding.DecodeString(workloadSecret.CaCert[0].Pem)
 	if err != nil {
-		t.Errorf("failed to decode workload certificate: ", err)
+		return fmt.Errorf("failed to decode workload certificate: %v", err)
 	}
 	workloadX509 := parseCert(t, workloadCert)
 
 	// verify workload cert contains the correct intermediate cert
 	if !bytes.Equal(workloadX509.AuthorityKeyId, caX590.SubjectKeyId) {
-		t.Errorf("workload certificate did not have expected authority key id: got %v wanted %v", string(workloadX509.AuthorityKeyId), string(caX590.SubjectKeyId))
+		return fmt.Errorf("workload certificate did not have expected authority key id: got %v wanted %v", string(workloadX509.AuthorityKeyId), string(caX590.SubjectKeyId))
 	}
+
+	return nil
 }
 
 func getX509FromFile(t framework.TestContext, caCertFile string) *x509.Certificate {
