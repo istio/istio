@@ -170,7 +170,6 @@ func getModeLabel(m map[string]string) string {
 
 func (s *InformerHandlers) reconcilePod(input any) error {
 	event := input.(controllers.Event)
-	log := log.WithLabels("type", event.Event)
 	pod := event.Latest().(*corev1.Pod)
 
 	defer EventTotals.With(eventTypeTag.Value(event.Event.String())).Increment()

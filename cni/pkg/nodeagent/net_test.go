@@ -19,7 +19,9 @@ import (
 	"errors"
 	"net/netip"
 	"runtime"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
@@ -172,7 +174,7 @@ func TestServerAddPod(t *testing.T) {
 	podIPs := []netip.Addr{podIP}
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "fakenetns")
 	assert.NoError(t, err)
-	assert.EqualValues(t, ztunnelServer.addedPods.Load(), 1)
+	assert.EqualValues(t, 1, ztunnelServer.addedPods.Load())
 }
 
 func TestServerRemovePod(t *testing.T) {
@@ -199,14 +201,14 @@ func TestServerRemovePod(t *testing.T) {
 	assert.EqualValues(t, nlDeps.DelInpodMarkIPRuleCnt.Load(), 1)
 	assert.EqualValues(t, nlDeps.DelLoopbackRoutesCnt.Load(), 1)
 	// make sure the uid was taken from cache and netns closed
-	assert.Equal(t, nil, fixture.podNsMap.Take(string(podMeta.UID)))
+	netns := fixture.podNsMap.Take(string(podMeta.UID))
+	assert.Equal(t, nil, netns)
 
 	// run gc to clean up ns:
 
 	//revive:disable-next-line:call-to-gc Just a test that we are cleaning up the netns
 	runtime.GC()
-
-	assert.Equal(t, true, closed.Load())
+	assertNSClosed(t, closed)
 }
 
 func TestServerDeletePod(t *testing.T) {
@@ -235,12 +237,13 @@ func TestServerDeletePod(t *testing.T) {
 	assert.EqualValues(t, nlDeps.DelInpodMarkIPRuleCnt.Load(), 0)
 	assert.EqualValues(t, nlDeps.DelLoopbackRoutesCnt.Load(), 0)
 	// make sure the uid was taken from cache and netns closed
-	assert.Equal(t, nil, fixture.podNsMap.Take(string(podMeta.UID)))
+	netns := fixture.podNsMap.Take(string(podMeta.UID))
+	assert.Equal(t, nil, netns)
 	// run gc to clean up ns:
 
 	//revive:disable-next-line:call-to-gc Just a test that we are cleaning up the netns
 	runtime.GC()
-	assert.Equal(t, true, closed.Load())
+	assertNSClosed(t, closed)
 }
 
 func TestServerAddPodWithNoNetns(t *testing.T) {
@@ -631,4 +634,17 @@ func TestSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 	err := netServer.syncHostIPSets([]*corev1.Pod{pod})
 	assert.NoError(t, err)
 	fakeIPSetDeps.AssertExpectations(t)
+}
+
+// for tests that call `runtime.GC()` - we have no control over when the GC is actually scheduled,
+// and it is flake-prone to check for closure after calling it, this retries for a bit to make
+// sure the netns is closed eventually.
+func assertNSClosed(t *testing.T, closed *atomic.Bool) {
+	for i := 0; i < 5; i++ {
+		if closed.Load() {
+			return
+		}
+		time.Sleep(1 * time.Second)
+	}
+	t.Fatal("NS not closed")
 }
