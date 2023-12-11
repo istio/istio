@@ -458,14 +458,6 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 				}
 				gatewayRoutes[gatewayName][vskey] = routes
 			}
-			// This is the service that is exposed on gateway using VirtualService.
-			var gatewayService *model.Service
-			for _, hostname := range intersectingHosts {
-				if svc, exists := nameToServiceMap[hostname]; exists {
-					gatewayService = svc
-				}
-			}
-
 			for _, hostname := range intersectingHosts {
 				if vHost, exists := vHostDedupMap[hostname]; exists {
 					vHost.Routes = append(vHost.Routes, routes...)
@@ -473,6 +465,7 @@ func (configgen *ConfigGeneratorImpl) buildGatewayHTTPRouteConfig(node *model.Pr
 						vHost.RequireTls = route.VirtualHost_ALL
 					}
 				} else {
+					gatewayService := nameToServiceMap[hostname]
 					perRouteFilters := map[string]*anypb.Any{}
 					if gatewayService != nil {
 						// Build StatefulSession Filter if gateway service has persistence session label.

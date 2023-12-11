@@ -36,6 +36,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -47,6 +48,7 @@ import (
 	"github.com/josharian/native"
 	"golang.org/x/sys/unix"
 
+	"istio.io/istio/cni/pkg/ambient/constants"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/util/sets"
@@ -533,7 +535,7 @@ func (r *RedirectServer) attachTCForWorkLoad(ifindex uint32) error {
 func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction string, fd uint32, name string) error {
 	config := &tc.Config{}
 	if namespace != "" {
-		nsHdlr, err := ns.GetNS(fmt.Sprintf("/var/run/netns/%s", namespace))
+		nsHdlr, err := ns.GetNS(filepath.Join(constants.NetNsPath, namespace))
 		if err != nil {
 			return err
 		}
@@ -627,7 +629,7 @@ func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction st
 func (r *RedirectServer) delClsactQdisc(namespace string, ifindex uint32) error {
 	config := &tc.Config{}
 	if namespace != "" {
-		nsHdlr, err := ns.GetNS(fmt.Sprintf("/var/run/netns/%s", namespace))
+		nsHdlr, err := ns.GetNS(filepath.Join(constants.NetNsPath, namespace))
 		if err != nil {
 			return err
 		}

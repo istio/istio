@@ -88,8 +88,8 @@ func TestPiggyback(t *testing.T) {
 				argsToTest := []struct {
 					args []string
 				}{
-					{[]string{"x", "internal-debug", "syncz", "--plaintext", "--xds-address", pf.Address()}},
-					{[]string{"ps", "--plaintext", "--xds-address", pf.Address(), "--namespace", nsName}},
+					{[]string{"x", "proxy-status", "--plaintext", "--xds-address", pf.Address()}},
+					{[]string{"proxy-status", "--plaintext", "--xds-address", pf.Address()}},
 				}
 				for _, args := range argsToTest {
 					istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})

@@ -1,0 +1,119 @@
+{
+ "configs": [
+  {
+   "@type": "type.googleapis.com/envoy.admin.v3.RoutesConfigDump",
+   "static_route_configs": [
+    {
+     "route_config": {
+      "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
+      "virtual_hosts": [
+       {
+        "name": "backend",
+        "domains": [
+         "*"
+        ],
+        "routes": [
+         {
+          "match": {
+           "prefix": "/stats/prometheus"
+          },
+          "route": {
+           "cluster": "prometheus_stats"
+          }
+         }
+        ]
+       }
+      ]
+     },
+     "last_updated": "2023-11-29T10:46:50.844Z"
+    },
+    {
+     "route_config": {
+      "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
+      "virtual_hosts": [
+       {
+        "name": "backend",
+        "domains": [
+         "*"
+        ],
+        "routes": [
+         {
+          "match": {
+           "prefix": "/healthz/ready"
+          },
+          "route": {
+           "cluster": "agent"
+          }
+         }
+        ]
+       }
+      ]
+     },
+     "last_updated": "2023-11-29T10:46:50.845Z"
+    }
+   ],
+   "dynamic_route_configs": [
+    {
+     "version_info": "2023-11-29T10:46:50Z/15",
+     "route_config": {
+      "@type": "type.googleapis.com/envoy.config.route.v3.RouteConfiguration",
+      "name": "http.8080",
+      "virtual_hosts": [
+       {
+        "name": "httpbin.example.com:80",
+        "domains": [
+         "httpbin.example.com"
+        ],
+        "routes": [
+         {
+          "match": {
+           "prefix": "/get",
+           "case_sensitive": true
+          },
+          "route": {
+           "cluster": "outbound|8000||httpbin.default.svc.cluster.local",
+           "timeout": "0s",
+           "retry_policy": {
+            "retry_on": "connect-failure,refused-stream,unavailable,cancelled,retriable-status-codes",
+            "num_retries": 2,
+            "retry_host_predicate": [
+             {
+              "name": "envoy.retry_host_predicates.previous_hosts",
+              "typed_config": {
+               "@type": "type.googleapis.com/envoy.extensions.retry.host.previous_hosts.v3.PreviousHostsPredicate"
+              }
+             }
+            ],
+            "host_selection_retry_max_attempts": "5",
+            "retriable_status_codes": [
+             503
+            ]
+           },
+           "max_grpc_timeout": "0s"
+          },
+          "metadata": {
+           "filter_metadata": {
+            "istio": {
+             "config": "/apis/networking.istio.io/v1alpha3/namespaces/default/virtual-service/httpbin"
+            }
+           }
+          },
+          "decorator": {
+           "operation": "httpbin.default.svc.cluster.local:8000/get*"
+          }
+         }
+        ],
+        "include_request_attempt_count": true
+       }
+      ],
+      "validate_clusters": false,
+      "max_direct_response_body_size_bytes": 1048576,
+      "ignore_port_in_host_matching": true
+     },
+     "last_updated": "2023-11-29T10:46:50.869Z"
+    }
+   ]
+  }
+ ]
+}
+

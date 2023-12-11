@@ -1,0 +1,4 @@
+NAME          VHOST NAME                 DOMAINS                 MATCH                  VIRTUAL SERVICE
+http.8080     httpbin.example.com:80     httpbin.example.com     /get*                  httpbin.default
+              backend                    *                       /stats/prometheus*     
+              backend                    *                       /healthz/ready*

@@ -7,8 +7,12 @@ metadata:
 apiVersion: v1
 kind: ServiceAccount
 metadata:
+  annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-name: namespace
+    istio.io/gateway-name: namespace
+    topology.istio.io/network: network-1
   name: namespace-istio-waypoint
   namespace: default
 ---
@@ -18,6 +22,8 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-name: namespace
+    istio.io/gateway-name: namespace
     topology.istio.io/network: network-1
   name: namespace-istio-waypoint
   namespace: default
@@ -29,7 +35,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: namespace
+      gateway.networking.k8s.io/gateway-name: namespace
   template:
     metadata:
       annotations:
@@ -40,6 +46,7 @@ spec:
         prometheus.io/scrape: "true"
       labels:
         gateway.istio.io/managed: istio.io-mesh-controller
+        gateway.networking.k8s.io/gateway-name: namespace
         istio.io/gateway-name: namespace
         service.istio.io/canonical-name: namespace-istio-waypoint
         service.istio.io/canonical-revision: latest
@@ -150,10 +157,9 @@ spec:
             memory: 128Mi
         securityContext:
           capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
-          privileged: true
+            drop:
+            - ALL
+          privileged: false
           runAsGroup: 1337
           runAsUser: 0
         startupProbe:
@@ -167,6 +173,8 @@ spec:
           successThreshold: 1
           timeoutSeconds: 1
         volumeMounts:
+        - mountPath: /var/run/secrets/workload-spiffe-uds
+          name: workload-socket
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/lib/istio/data
@@ -180,6 +188,8 @@ spec:
       serviceAccountName: namespace-istio-waypoint
       terminationGracePeriodSeconds: 2
       volumes:
+      - emptyDir: {}
+        name: workload-socket
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -216,6 +226,8 @@ metadata:
   annotations: {}
   labels:
     gateway.istio.io/managed: istio.io-mesh-controller
+    gateway.networking.k8s.io/gateway-name: namespace
+    istio.io/gateway-name: namespace
     topology.istio.io/network: network-1
   name: namespace-istio-waypoint
   namespace: default
@@ -235,6 +247,6 @@ spec:
     port: 15008
     protocol: TCP
   selector:
-    istio.io/gateway-name: namespace
+    gateway.networking.k8s.io/gateway-name: namespace
   type: ClusterIP
 ---

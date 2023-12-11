@@ -295,7 +295,6 @@ func (s *Server) loadCACerts(caOpts *caOptions, dir string) error {
 // newly introduced cacerts are intermediate CA which is generated
 // from cuurent root-cert.pem. Then it updates and keycertbundle
 // and generates new dns certs.
-// TODO(rveerama1): Add support for new ROOT-CA rotation also.
 func handleEvent(s *Server) {
 	log.Info("Update Istiod cacerts")
 
@@ -344,7 +343,7 @@ func handleEvent(s *Server) {
 		return
 	}
 
-	err = s.updatePluggedinRootCertAndGenKeyCert()
+	err = s.updateRootCertAndGenKeyCert()
 	if err != nil {
 		log.Errorf("Failed generating plugged-in istiod key cert: %v", err)
 		return
@@ -457,6 +456,7 @@ func (s *Server) createIstioCA(opts *caOptions) (*ca.IstioCA, error) {
 		if err != nil {
 			return nil, err
 		}
+		caOpts.OnRootCertUpdate = s.updateRootCertAndGenKeyCert
 	} else {
 		// The secret is mounted and the "istio-generated" key is not used.
 		log.Info("Use local CA certificate")

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+  - |
+    **Added** `path_separated_prefix` to the MATCH column in the output of `pc routes` command.

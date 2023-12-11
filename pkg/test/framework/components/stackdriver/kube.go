@@ -22,7 +22,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/compute/metadata"
 	loggingpb "cloud.google.com/go/logging/apiv2/loggingpb"
 	"cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	cloudtracepb "cloud.google.com/go/trace/apiv1/tracepb"
@@ -62,12 +61,15 @@ type kubeComponent struct {
 	forwarder istioKube.PortForwarder
 	cluster   cluster.Cluster
 	address   string
+	onGKE     bool
 }
 
 func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 	c := &kubeComponent{
 		cluster: ctx.Clusters().GetOrDefault(cfg.Cluster),
 	}
+	ver, _ := ctx.Clusters().Kube()[0].GetKubernetesVersion()
+	c.onGKE = strings.Contains(ver.String(), "-gke")
 	c.id = ctx.TrackResource(c)
 	var err error
 	scopes.Framework.Info("=== BEGIN: Deploy Stackdriver ===")
@@ -141,7 +143,7 @@ func (c *kubeComponent) ListTimeSeries(_, _ string) ([]*monitoringpb.TimeSeries,
 	if err != nil {
 		return []*monitoringpb.TimeSeries{}, err
 	}
-	return trimMetricLabels(&r), nil
+	return trimMetricLabels(c.onGKE, &r), nil
 }
 
 func (c *kubeComponent) ListLogEntries(lt LogType, _, _ string) ([]*loggingpb.LogEntry, error) {
@@ -206,14 +208,14 @@ func (c *kubeComponent) Address() string {
 	return c.address
 }
 
-func trimMetricLabels(r *monitoringpb.ListTimeSeriesResponse) []*monitoringpb.TimeSeries {
+func trimMetricLabels(onGKE bool, r *monitoringpb.ListTimeSeriesResponse) []*monitoringpb.TimeSeries {
 	var ret []*monitoringpb.TimeSeries
 	for _, t := range r.TimeSeries {
 		if t == nil {
 			continue
 		}
 		t.Points = nil
-		if metadata.OnGCE() {
+		if onGKE {
 			// If the test runs on GCE, only remove MR fields that do not need verification
 			delete(t.Resource.Labels, "cluster_name")
 			delete(t.Resource.Labels, "location")

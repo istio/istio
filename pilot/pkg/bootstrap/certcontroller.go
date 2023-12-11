@@ -189,7 +189,7 @@ func (s *Server) RotateDNSCertForK8sCA(stop <-chan struct{},
 ) {
 	certUtil := certutil.NewCertUtil(int(defaultCertGracePeriodRatio * 100))
 	for {
-		waitTime, _ := certUtil.GetWaitTime(s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem, time.Now(), time.Duration(0))
+		waitTime, _ := certUtil.GetWaitTime(s.istiodCertBundleWatcher.GetKeyCertBundle().CertPem, time.Now())
 		if !sleep.Until(stop, waitTime) {
 			return
 		}
@@ -203,8 +203,9 @@ func (s *Server) RotateDNSCertForK8sCA(stop <-chan struct{},
 	}
 }
 
-// updatePluggedinRootCertAndGenKeyCert when intermediate CA is updated, it generates new dns certs and notifies keycertbundle about the changes
-func (s *Server) updatePluggedinRootCertAndGenKeyCert() error {
+// updateRootCertAndGenKeyCert when CA certs is updated, it generates new dns certs and notifies keycertbundle about the changes
+func (s *Server) updateRootCertAndGenKeyCert() error {
+	log.Infof("update root cert and generate new dns certs")
 	caBundle := s.CA.GetCAKeyCertBundle().GetRootCertPem()
 	certChain, keyPEM, err := s.CA.GenKeyCert(s.dnsNames, SelfSignedCACertTTL.Get(), false)
 	if err != nil {
@@ -213,7 +214,7 @@ func (s *Server) updatePluggedinRootCertAndGenKeyCert() error {
 
 	if features.MultiRootMesh {
 		// Trigger trust anchor update, this will send PCDS to all sidecars.
-		log.Debugf("Update trust anchor with new root cert")
+		log.Infof("Update trust anchor with new root cert")
 		err = s.workloadTrustBundle.UpdateTrustAnchor(&tb.TrustAnchorUpdate{
 			TrustAnchorConfig: tb.TrustAnchorConfig{Certs: []string{string(caBundle)}},
 			Source:            tb.SourceIstioCA,

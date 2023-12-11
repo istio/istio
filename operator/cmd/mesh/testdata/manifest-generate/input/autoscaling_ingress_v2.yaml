@@ -13,7 +13,14 @@ spec:
               target:
                 type: Utilization
                 averageUtilization: 80
+          - resource:
+              name: memory
+              target:
+                type: Utilization
+                averageUtilization: 80
   values:
     pilot:
       cpu:
+        targetAverageUtilization: 90
+      memory:
         targetAverageUtilization: 90

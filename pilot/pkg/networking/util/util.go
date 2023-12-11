@@ -694,14 +694,6 @@ func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
 	}
 }
 
-func BuildTunnelMetadata(address string, port int, waypoint string) *core.Metadata {
-	return &core.Metadata{
-		FilterMetadata: map[string]*structpb.Struct{
-			OriginalDstMetadataKey: BuildTunnelMetadataStruct(address, port, waypoint),
-		},
-	}
-}
-
 func BuildTunnelMetadataStruct(address string, port int, waypoint string) *structpb.Struct {
 	m := map[string]interface{}{
 		// logical destination behind the tunnel, on which policy and telemetry will be applied

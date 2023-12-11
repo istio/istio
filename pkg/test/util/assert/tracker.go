@@ -19,6 +19,7 @@ import (
 	"sync"
 	"time"
 
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -41,20 +42,69 @@ func (t *Tracker[T]) Record(event T) {
 	t.events = append(t.events, event)
 }
 
-// WaitOrdered waits for an event to happen, in order
-func (t *Tracker[T]) WaitOrdered(event T) {
+// Empty asserts the tracker is empty
+func (t *Tracker[T]) Empty() {
 	t.t.Helper()
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if len(t.events) != 0 {
+		t.t.Fatalf("unexpected events: %v", t.events)
+	}
+}
+
+// WaitOrdered waits for an event to happen, in order
+func (t *Tracker[T]) WaitOrdered(events ...T) {
+	t.t.Helper()
+	for _, event := range events {
+		var err error
+		retry.UntilSuccessOrFail(t.t, func() error {
+			t.mu.Lock()
+			defer t.mu.Unlock()
+			if len(t.events) == 0 {
+				return fmt.Errorf("no events")
+			}
+			if t.events[0] != event {
+				// Exit early instead of continuing to retry
+				err = fmt.Errorf("got events %v, want %v", t.events, event)
+				return nil
+			}
+			// clear the event
+			t.events = t.events[1:]
+			return nil
+		}, retry.Timeout(time.Second))
+		if err != nil {
+			t.t.Fatal(err)
+		}
+	}
+	t.Empty()
+}
+
+// WaitUnordered waits for an event to happen, in any order
+func (t *Tracker[T]) WaitUnordered(events ...T) {
+	t.t.Helper()
+	want := map[T]struct{}{}
+	for _, e := range events {
+		want[e] = struct{}{}
+	}
 	retry.UntilSuccessOrFail(t.t, func() error {
 		t.mu.Lock()
 		defer t.mu.Unlock()
 		if len(t.events) == 0 {
-			return fmt.Errorf("no events")
+			return fmt.Errorf("no events (want %v)", want)
 		}
-		if t.events[0] != event {
-			return fmt.Errorf("got events %v, want %v", t.events, event)
+		got := t.events[0]
+		if _, f := want[got]; !f {
+			return fmt.Errorf("got events %v, want %v", t.events, want)
 		}
 		// clear the event
+		t.events[0] = ptr.Empty[T]()
 		t.events = t.events[1:]
+		delete(want, got)
+
+		if len(want) > 0 {
+			return fmt.Errorf("still waiting for %v", want)
+		}
 		return nil
-	}, retry.Timeout(time.Second))
+	}, retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond))
+	t.Empty()
 }

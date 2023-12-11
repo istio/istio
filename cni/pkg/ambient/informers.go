@@ -149,7 +149,7 @@ func (s *Server) handleUpdate(event controllers.Event) error {
 	notAmbientPod := !wasEnabled && !nowEnabled
 	removeFromMesh := wasEnabled && !nowEnabled
 	joinMesh := !wasEnabled && nowEnabled
-	meshedPodNotInIpset := nowEnabled && !IsPodInIpset(newPod)
+	meshedPodNotEnrolled := nowEnabled && !s.IsPodEnrolledInAmbient(newPod)
 
 	switch {
 	case notAmbientPod:
@@ -160,12 +160,12 @@ func (s *Server) handleUpdate(event controllers.Event) error {
 	case joinMesh:
 		log.Debugf("Pod now matches, adding to mesh")
 		s.podReconcileHandler.addPodToMesh(newPod)
-	case meshedPodNotInIpset:
+	case meshedPodNotEnrolled:
 		// This can happen if a node cleanup happens as part of a ztunnel recycle,
 		// cleaning up the node-level ipset with all the pod IPs
 		// If this happens we re-queue everything for reconciliation, and need to
 		// make sure existing pods get re-added to the ipset if they aren't already there.
-		log.Debugf("Pod is enabled but not in ipset, (re)adding to mesh")
+		log.Debugf("Pod is enabled but not enrolled, (re)adding to mesh")
 		s.podReconcileHandler.addPodToMesh(newPod)
 	}
 

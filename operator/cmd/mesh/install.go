@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/istioctl/pkg/clioptions"
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util"
-	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
@@ -41,6 +40,7 @@ import (
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/operator/pkg/verifier"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/config/constants"
@@ -216,7 +216,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 			return nil
 		}
 		l.LogAndPrint("\n\nVerifying installation:")
-		installationVerifier, err := verifier.NewStatusVerifier(kubeClient, iop.Namespace, iArgs.ManifestsPath,
+		installationVerifier, err := verifier.NewStatusVerifier(kubeClient, client, iop.Namespace, iArgs.ManifestsPath,
 			iArgs.InFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision},
 			verifier.WithLogger(l),
 			verifier.WithIOP(iop),

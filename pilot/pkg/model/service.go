@@ -1080,34 +1080,55 @@ func IsDNSSrvSubsetKey(s string) bool {
 	return false
 }
 
+// ParseSubsetKeyHostname is an optimized specialization of ParseSubsetKey that only returns the hostname.
+// This is created as this is used in some hot paths and is about 2x faster than ParseSubsetKey; for typical use ParseSubsetKey is sufficient (and zero-alloc).
+func ParseSubsetKeyHostname(s string) (hostname string) {
+	idx := strings.LastIndex(s, "|")
+	if idx == -1 {
+		// Could be DNS SRV format.
+		// Do not do LastIndex("_."), as those are valid characters in the hostname (unlike |)
+		// Fallback to the full parser.
+		_, _, hostname, _ := ParseSubsetKey(s)
+		return string(hostname)
+	}
+	return s[idx+1:]
+}
+
 // ParseSubsetKey is the inverse of the BuildSubsetKey method
 func ParseSubsetKey(s string) (direction TrafficDirection, subsetName string, hostname host.Name, port int) {
-	var parts []string
-	dnsSrvMode := false
+	sep := "|"
 	// This could be the DNS srv form of the cluster that uses outbound_.port_.subset_.hostname
 	// Since we do not want every callsite to implement the logic to differentiate between the two forms
 	// we add an alternate parser here.
 	if strings.HasPrefix(s, trafficDirectionOutboundSrvPrefix) ||
 		strings.HasPrefix(s, trafficDirectionInboundSrvPrefix) {
-		parts = strings.SplitN(s, ".", 4)
-		dnsSrvMode = true
-	} else {
-		parts = strings.Split(s, "|")
+		sep = "_."
 	}
 
-	if len(parts) < 4 {
+	// Format: dir|port|subset|hostname
+	dir, s, ok := strings.Cut(s, sep)
+	if !ok {
 		return
 	}
+	direction = TrafficDirection(dir)
 
-	direction = TrafficDirection(strings.TrimSuffix(parts[0], "_"))
-	port, _ = strconv.Atoi(strings.TrimSuffix(parts[1], "_"))
-	subsetName = parts[2]
-
-	if dnsSrvMode {
-		subsetName = strings.TrimSuffix(parts[2], "_")
+	p, s, ok := strings.Cut(s, sep)
+	if !ok {
+		return
 	}
+	port, _ = strconv.Atoi(p)
 
-	hostname = host.Name(parts[3])
+	ss, s, ok := strings.Cut(s, sep)
+	if !ok {
+		return
+	}
+	subsetName = ss
+
+	// last part. No | remains -- verify this
+	if strings.Contains(s, sep) {
+		return
+	}
+	hostname = host.Name(s)
 	return
 }
 

@@ -142,7 +142,7 @@ func (cfg *IptablesConfigurator) handleInboundPortsInclude() {
 			// port.
 			// In the ISTIOINBOUND chain, '-j RETURN' bypasses Envoy and
 			// '-j ISTIOTPROXY' redirects to Envoy.
-			cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand,
+			cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand,
 				constants.ISTIOTPROXY, constants.MANGLE, "!", "-d", constants.IPVersionSpecific,
 				"-p", constants.TCP, "-j", constants.TPROXY,
 				"--tproxy-mark", cfg.cfg.InboundTProxyMark+"/0xffffffff", "--on-port", cfg.cfg.InboundCapturePort)
@@ -362,7 +362,7 @@ func (cfg *IptablesConfigurator) Run() error {
 			// app => istio-agent => Envoy inbound => dns server
 			// Instead, we just have:
 			// app => istio-agent => dns server
-			cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+			cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 				"-o", "lo",
 				"!", "-d", constants.IPVersionSpecific,
 				"-p", "tcp",
@@ -370,7 +370,7 @@ func (cfg *IptablesConfigurator) Run() error {
 				"!", "--dports", "53,"+cfg.cfg.InboundTunnelPort,
 				"-m", "owner", "--uid-owner", uid, "-j", constants.ISTIOINREDIRECT)
 		} else {
-			cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+			cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 				"-o", "lo",
 				"!", "-d", constants.IPVersionSpecific,
 				"-p", "tcp",
@@ -405,7 +405,7 @@ func (cfg *IptablesConfigurator) Run() error {
 	for _, gid := range split(cfg.cfg.ProxyGID) {
 		// Redirect app calls back to itself via Envoy when using the service VIP
 		// e.g. appN => Envoy (client) => Envoy (server) => appN.
-		cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+		cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 			"-o", "lo",
 			"!", "-d", constants.IPVersionSpecific,
 			"-p", "tcp",
@@ -483,7 +483,7 @@ func (cfg *IptablesConfigurator) Run() error {
 	// Skip redirection for Envoy-aware applications and
 	// container-to-container traffic both of which explicitly use
 	// localhost.
-	cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
+	cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.ISTIOOUTPUT, constants.NAT,
 		"-d", constants.IPVersionSpecific, "-j", constants.RETURN)
 	// Apply outbound IPv4 exclusions. Must be applied before inclusions.
 	for _, cidr := range ipv4RangesExclude.CIDRs {
@@ -516,14 +516,14 @@ func (cfg *IptablesConfigurator) Run() error {
 		for _, uid := range split(cfg.cfg.ProxyUID) {
 			// mark outgoing packets from envoy to workload by pod ip
 			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
-			cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
+			cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
 				"!", "-d", constants.IPVersionSpecific, "-p", constants.TCP, "-o", "lo",
 				"-m", "owner", "--uid-owner", uid, "-j", constants.MARK, "--set-mark", outboundMark)
 		}
 		for _, gid := range split(cfg.cfg.ProxyGID) {
 			// mark outgoing packets from envoy to workload by pod ip
 			// app call VIP --> envoy outbound -(mark 1338)-> envoy inbound --> app
-			cfg.iptables.AppendVersionedRule("127.0.0.1/32", "::1/128", iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
+			cfg.iptables.AppendVersionedRule(cfg.cfg.HostIPv4LoopbackCidr, "::1/128", iptableslog.UndefinedCommand, constants.OUTPUT, constants.MANGLE,
 				"!", "-d", constants.IPVersionSpecific, "-p", constants.TCP, "-o", "lo",
 				"-m", "owner", "--gid-owner", gid, "-j", constants.MARK, "--set-mark", outboundMark)
 		}

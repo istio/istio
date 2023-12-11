@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
 	util "istio.io/istio/tests/integration/telemetry"
-	"istio.io/istio/tests/integration/telemetry/common"
 )
 
 const (
@@ -187,15 +186,15 @@ func installWasmExtension(ctx framework.TestContext, pluginName, wasmModuleURL, 
 		"WasmPluginName":    pluginName,
 		"TestWasmModuleURL": wasmModuleURL,
 		"WasmPluginVersion": pluginVersion,
-		"TargetAppName":     common.GetTarget().(echo.Instances).NamespacedName().Name,
-		"TargetGatewayName": common.GetTarget().(echo.Instances).ServiceName() + "-gateway",
+		"TargetAppName":     GetTarget().(echo.Instances).NamespacedName().Name,
+		"TargetGatewayName": GetTarget().(echo.Instances).ServiceName() + "-gateway",
 	}
 
 	if len(imagePullPolicy) != 0 {
 		args["ImagePullPolicy"] = imagePullPolicy
 	}
 
-	if err := applyWasmConfig(ctx, common.GetAppNamespace().Name(), args, path); err != nil {
+	if err := applyWasmConfig(ctx, apps.Namespace.Name(), args, path); err != nil {
 		return err
 	}
 
@@ -206,7 +205,7 @@ func uninstallWasmExtension(ctx framework.TestContext, pluginName, path string) 
 	args := map[string]any{
 		"WasmPluginName": pluginName,
 	}
-	if err := ctx.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, path).Delete(); err != nil {
+	if err := ctx.ConfigIstio().EvalFile(apps.Namespace.Name(), args, path).Delete(); err != nil {
 		return err
 	}
 	return nil
@@ -214,14 +213,14 @@ func uninstallWasmExtension(ctx framework.TestContext, pluginName, path string) 
 
 func sendTraffic(ctx framework.TestContext, checker echo.Checker, options ...retry.Option) {
 	ctx.Helper()
-	if len(common.GetClientInstances()) == 0 {
+	if len(GetClientInstances()) == 0 {
 		ctx.Fatal("there is no client")
 	}
-	cltInstance := common.GetClientInstances()[0]
+	cltInstance := GetClientInstances()[0]
 
 	defaultOptions := []retry.Option{retry.Delay(100 * time.Millisecond), retry.Timeout(200 * time.Second)}
 	httpOpts := echo.CallOptions{
-		To: common.GetTarget(),
+		To: GetTarget(),
 		Port: echo.Port{
 			Name: "http",
 		},
@@ -241,10 +240,10 @@ func sendTraffic(ctx framework.TestContext, checker echo.Checker, options ...ret
 
 func sendTrafficToHostname(ctx framework.TestContext, checker echo.Checker, hostname string, options ...retry.Option) {
 	ctx.Helper()
-	if len(common.GetClientInstances()) == 0 {
+	if len(GetClientInstances()) == 0 {
 		ctx.Fatal("there is no client")
 	}
-	cltInstance := common.GetClientInstances()[0]
+	cltInstance := GetClientInstances()[0]
 
 	defaultOptions := []retry.Option{retry.Delay(100 * time.Millisecond), retry.Timeout(200 * time.Second)}
 	httpOpts := echo.CallOptions{
@@ -257,7 +256,7 @@ func sendTrafficToHostname(ctx framework.TestContext, checker echo.Checker, host
 		HTTP: echo.HTTP{
 			Path:    "/path",
 			Method:  "GET",
-			Headers: headers.New().WithHost(fmt.Sprintf("%s.com", common.GetTarget().ServiceName())).Build(),
+			Headers: headers.New().WithHost(fmt.Sprintf("%s.com", GetTarget().ServiceName())).Build(),
 		},
 		Count: 1,
 		Retry: echo.Retry{
@@ -297,9 +296,9 @@ func TestGatewaySelection(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			crd.DeployGatewayAPIOrSkip(t)
 			args := map[string]any{
-				"To": common.GetTarget().(echo.Instances),
+				"To": GetTarget().(echo.Instances),
 			}
-			t.ConfigIstio().EvalFile(common.GetAppNamespace().Name(), args, "testdata/gateway-api.yaml").ApplyOrFail(t)
+			t.ConfigIstio().EvalFile(apps.Namespace.Name(), args, "testdata/gateway-api.yaml").ApplyOrFail(t)
 			applyAndTestCustomWasmConfigWithOCI(t, wasmTestConfigs{
 				desc:            "initial creation with latest for a gateway",
 				name:            "wasm-test-module",
@@ -307,7 +306,7 @@ func TestGatewaySelection(t *testing.T) {
 				policy:          "",
 				upstreamVersion: "0.0.1",
 				expectedVersion: "0.0.1",
-				testHostname:    fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", common.GetTarget().ServiceName(), common.GetAppNamespace().Name()),
+				testHostname:    fmt.Sprintf("%s-gateway-istio.%s.svc.cluster.local", GetTarget().ServiceName(), apps.Namespace.Name()),
 			}, "testdata/gateway-wasm-filter.yaml")
 
 			resetCustomWasmConfig(t, "wasm-test-module", "testdata/gateway-wasm-filter.yaml")
@@ -393,16 +392,16 @@ func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restart
 	t.Helper()
 	// Test bad wasm remote load in only one cluster.
 	// There is no need to repeat the same testing logic in multiple clusters.
-	to := match.Cluster(t.Clusters().Default()).FirstOrFail(t, common.GetClientInstances())
+	to := match.Cluster(t.Clusters().Default()).FirstOrFail(t, GetClientInstances())
 	// Verify that echo server could return 200
-	common.SendTrafficOrFail(t, to)
+	SendTrafficOrFail(t, to)
 	t.Log("echo server returns OK, apply bad wasm remote load filter.")
 
 	// Apply bad filter config
 	t.Logf("use config in %s.", filterConfigPath)
-	t.ConfigIstio().File(common.GetAppNamespace().Name(), filterConfigPath).ApplyOrFail(t)
+	t.ConfigIstio().File(apps.Namespace.Name(), filterConfigPath).ApplyOrFail(t)
 	if restartTarget {
-		target := match.Cluster(t.Clusters().Default()).FirstOrFail(t, common.GetTarget().Instances())
+		target := match.Cluster(t.Clusters().Default()).FirstOrFail(t, GetTarget().Instances())
 		if err := target.Restart(); err != nil {
 			t.Fatalf("failed to restart the target pod: %v", err)
 		}
@@ -412,8 +411,8 @@ func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restart
 	retry.UntilSuccessOrFail(t, func() error {
 		q := prometheus.Query{Metric: "istio_agent_wasm_remote_fetch_count", Labels: map[string]string{"result": "download_failure"}}
 		c := to.Config().Cluster
-		if _, err := util.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
-			util.PromDiff(t, common.GetPromInstance(), c, q)
+		if _, err := util.QueryPrometheus(t, c, q, promInst); err != nil {
+			util.PromDiff(t, promInst, c, q)
 			return err
 		}
 		return nil
@@ -425,8 +424,8 @@ func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restart
 		retry.UntilSuccessOrFail(t, func() error {
 			q := prometheus.Query{Metric: "pilot_total_xds_rejects", Labels: map[string]string{"type": "ecds"}}
 			c := to.Config().Cluster
-			if _, err := util.QueryPrometheus(t, c, q, common.GetPromInstance()); err != nil {
-				util.PromDiff(t, common.GetPromInstance(), c, q)
+			if _, err := util.QueryPrometheus(t, c, q, promInst); err != nil {
+				util.PromDiff(t, promInst, c, q)
 				return err
 			}
 			return nil
@@ -436,7 +435,7 @@ func badWasmTestHelper(t framework.TestContext, filterConfigPath string, restart
 	t.Log("got istio_agent_wasm_remote_fetch_count metric in prometheus, bad wasm filter is applied, send request to echo server again.")
 
 	// Verify that echo server could still return 200
-	common.SendTrafficOrFail(t, to)
+	SendTrafficOrFail(t, to)
 
 	t.Log("echo server still returns ok after bad wasm filter is applied.")
 }

@@ -123,7 +123,7 @@ var (
 		TypedConfig: protoconv.MessageToAny(&metadataformatter.Metadata{}),
 	}
 
-	// metadataFormatter configures additional formatters needed for some of the format strings like "METADATA"
+	// celFormatter configures additional formatters needed for some of the format strings like "CEL"
 	// for more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/formatter/cel/v3/cel.proto
 	celFormatter = &core.TypedExtensionConfig{
 		Name:        "envoy.formatter.cel",
