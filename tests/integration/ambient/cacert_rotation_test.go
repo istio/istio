@@ -137,7 +137,8 @@ func verifyWorkloadCert(t framework.TestContext, workloadSecret *configdump.Cert
 	intermediateX509 := parseCert(t, intermediateCert)
 	// verify the correct intermediate cert is in the certificate chain
 	if intermediateX509.SerialNumber.String() != caX590.SerialNumber.String() {
-		return fmt.Errorf("intermediate certificate serial numbers do not match: got %v, wanted %v", intermediateX509.SerialNumber.String(), caX590.SerialNumber.String())
+		return fmt.Errorf("intermediate certificate serial numbers do not match: got %v, wanted %v",
+			intermediateX509.SerialNumber.String(), caX590.SerialNumber.String())
 	}
 
 	workloadCert, err := base64.StdEncoding.DecodeString(workloadSecret.CaCert[0].Pem)
@@ -148,7 +149,8 @@ func verifyWorkloadCert(t framework.TestContext, workloadSecret *configdump.Cert
 
 	// verify workload cert contains the correct intermediate cert
 	if !bytes.Equal(workloadX509.AuthorityKeyId, caX590.SubjectKeyId) {
-		return fmt.Errorf("workload certificate did not have expected authority key id: got %v wanted %v", string(workloadX509.AuthorityKeyId), string(caX590.SubjectKeyId))
+		return fmt.Errorf("workload certificate did not have expected authority key id: got %v wanted %v",
+			string(workloadX509.AuthorityKeyId), string(caX590.SubjectKeyId))
 	}
 
 	return nil
