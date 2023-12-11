@@ -21,7 +21,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/config/schema/gvk"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -77,8 +79,8 @@ func (c *Controller) initMeshWatcherHandler(meshWatcher mesh.Watcher, discoveryN
 	})
 }
 
-// HandleSelectedNamespace processes pods, workload entries and services for the selected namespace
-// and sends an XDS update as needed.
+// HandleSelectedNamespace processes all required resources, including pods, workload entries, services,
+// authorization policies, and peer authentications for the selected namespace and sends an XDS update as needed.
 //
 // NOTE: As an interface method of AmbientIndex, this locks the index.
 func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod, services []*corev1.Service, c *Controller) {
@@ -103,6 +105,20 @@ func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod
 		for _, w := range allWorkloadEntries {
 			updates = updates.Merge(a.handleWorkloadEntry(nil, w, false, c))
 		}
+		allServiceEntries := c.getControllerServiceEntries(ns)
+		for _, s := range allServiceEntries {
+			updates = updates.Merge(a.handleServiceEntry(s, model.EventUpdate, c))
+		}
+	}
+
+	authzPolicies := c.configController.List(gvk.AuthorizationPolicy, ns)
+	for _, ap := range authzPolicies {
+		updates = updates.Merge(c.handleAuthorizationPolicy(config.Config{}, ap, model.EventUpdate))
+	}
+
+	peerAuthes := c.configController.List(gvk.PeerAuthentication, ns)
+	for _, pa := range peerAuthes {
+		updates = updates.Merge(c.handlePeerAuthentication(config.Config{}, pa, model.EventUpdate))
 	}
 
 	if len(updates) > 0 {
