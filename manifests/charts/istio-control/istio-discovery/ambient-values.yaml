@@ -17,12 +17,6 @@ meshConfig:
     proxyMetadata:
       ISTIO_META_ENABLE_HBONE: "true"
 
-# Telemetry handled with Telemetry API only
-telemetry:
-  enabled: false
-  v2:
-    enabled: false
-
 # keep in sync with settings used when installing the Istio CNI chart
 istio_cni:
   enabled: true
