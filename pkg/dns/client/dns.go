@@ -123,7 +123,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 	// We will use the local resolv.conf for resolving unknown names.
 	dnsConfig, err := dns.ClientConfigFromFile(resolvConf)
 	if err != nil {
-		log.Warnf("failed to load /etc/resolv.conf: %v", err)
+		log.Warnf("failed to load %s: %v", resolvConf, err)
 		return nil, err
 	}
 
