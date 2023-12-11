@@ -628,6 +628,7 @@ func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator,
 			Overwrite:            true,
 			AutoInjectNamespaces: autoInjectNamespaces,
 			CustomLabels:         ignorePruneLabel,
+			Generate:             opt.DryRun,
 		}
 		// If tag cannot be created could be remote cluster install, don't fail out.
 		tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)
