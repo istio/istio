@@ -1926,6 +1926,7 @@ spec:
 		routeName       string
 		expected        map[string][]string
 		expectedGateway map[string][]string
+		oldestWins      bool
 	}{
 		// Port 80 has special cases as there is defaulting logic around this port
 		{
@@ -2218,7 +2219,7 @@ spec:
 			},
 		},
 		{
-			name: "wildcard first then explicit",
+			name: "wildcard first then explicit (oldest wins feature flag)",
 			cfg: []Configer{
 				vsArgs{
 					Namespace: "default",
@@ -2238,6 +2239,40 @@ spec:
 			expected: map[string][]string{
 				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
 				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"}, // oldest wins
+				// Matched an exact service, so we have no route for the wildcard
+				"*.cluster.local": nil,
+			},
+			expectedGateway: map[string][]string{
+				// No overrides, use default
+				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+				// Explicit has precedence
+				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
+				// Last is our wildcard
+				"*.cluster.local": {"outbound|80||wild.example.com"},
+			},
+			oldestWins: true,
+		},
+		{
+			name: "wildcard first then explicit",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.cluster.local",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known.default.svc.cluster.local",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
+				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
 				"*.cluster.local": nil,
 			},
@@ -2270,7 +2305,7 @@ spec:
 			routeName: "80",
 			expected: map[string][]string{
 				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"}, // oldest wins
+				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
 				"*.cluster.local": nil,
 			},
@@ -2282,6 +2317,46 @@ spec:
 				// Last is our wildcard
 				"*.cluster.local": {"outbound|80||wild.example.com"},
 			},
+		},
+		{
+			name: "wildcard and explicit with sidecar (oldest wins feature flag)",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.cluster.local",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known.default.svc.cluster.local",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"default/known.default.svc.cluster.local", "default/alt-known.default.svc.cluster.local"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Even though we did not import `*.cluster.local`, the VS attaches
+				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
+				// Oldest wins
+				"known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.cluster.local": nil,
+			},
+			expectedGateway: map[string][]string{
+				// No rule imported
+				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+				// Imported rule
+				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
+				// Not imported
+				"*.cluster.local": nil,
+			},
+			oldestWins: true,
 		},
 		{
 			name: "wildcard and explicit with sidecar",
@@ -2308,7 +2383,8 @@ spec:
 			expected: map[string][]string{
 				// Even though we did not import `*.cluster.local`, the VS attaches
 				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"},
+				// Most exact match wins
+				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
 				"*.cluster.local": nil,
 			},
@@ -2352,7 +2428,7 @@ spec:
 			},
 		},
 		{
-			name: "wildcard and explicit cross namespace",
+			name: "wildcard and explicit cross namespace (oldest wins feature flag)",
 			cfg: []Configer{
 				vsArgs{
 					Namespace: "not-default",
@@ -2373,6 +2449,40 @@ spec:
 				// Wildcard is older, so it wins, even though it is cross namespace
 				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
 				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.cluster.local": nil,
+			},
+			expectedGateway: map[string][]string{
+				// Exact match wins
+				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
+				// Wildcard last
+				"*.cluster.local": {"outbound|80||wild.example.com"},
+			},
+			oldestWins: true,
+		},
+		{
+			name: "wildcard and explicit cross namespace",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "not-default",
+					Match:     "*.cluster.local",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known.default.svc.cluster.local",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Exact match wins
+				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
+				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
 				"*.cluster.local": nil,
 			},
@@ -2608,7 +2718,11 @@ spec:
 			for _, tt := range cases {
 				tt := tt
 				t.Run(tt.name, func(t *testing.T) {
-					t.Parallel()
+					if tt.oldestWins {
+						test.SetForTest(t, &features.PersistOldestWinsHeuristicForVirtualServiceHostMatching, true)
+					} else {
+						t.Parallel() // feature flags and parallel tests don't mix
+					}
 					cfg := knownServices
 					for _, tc := range tt.cfg {
 						cfg = cfg + "\n---\n" + tc.Config(t, variant)

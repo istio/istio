@@ -40,6 +40,7 @@ import (
 // This file implements the fetcher of "Wasm Image Specification" compatible container images.
 // The spec is here https://github.com/solo-io/wasm/blob/master/spec/README.md.
 // Basically, this supports fetching and unpackaging three types of container images containing a Wasm binary.
+
 type ImageFetcherOption struct {
 	// TODO(mathetake) Add signature verification stuff.
 	PullSecret []byte
