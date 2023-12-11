@@ -85,8 +85,6 @@ func (c *Controller) initMeshWatcherHandler(meshWatcher mesh.Watcher, discoveryN
 // NOTE: As an interface method of AmbientIndex, this locks the index.
 func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod, services []*corev1.Service, c *Controller) {
 	a.mu.Lock()
-	defer a.mu.Unlock()
-
 	updates := sets.New[model.ConfigKey]()
 
 	// Handle Pods.
@@ -110,6 +108,7 @@ func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod
 			updates = updates.Merge(a.handleServiceEntry(s, model.EventUpdate, c))
 		}
 	}
+	a.mu.Unlock()
 
 	authzPolicies := c.configController.List(gvk.AuthorizationPolicy, ns)
 	for _, ap := range authzPolicies {
