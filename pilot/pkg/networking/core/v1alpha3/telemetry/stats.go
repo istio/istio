@@ -16,10 +16,10 @@ package telemetry
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
-	"istio.io/istio/pilot/pkg/networking"
-	"istio.io/istio/pkg/util/sets"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (

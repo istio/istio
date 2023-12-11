@@ -1022,7 +1022,7 @@ func ECDSResourceName(protocol networking.ListenerProtocol, class networking.Lis
 		node = "waypoint"
 	}
 
-	return fmt.Sprintf("stats|%s|%s|%s|%s", p, metricClass, node)
+	return fmt.Sprintf("stats|%s|%s|%s", p, metricClass, node)
 }
 
 func buildHTTPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*core.TypedExtensionConfig {
