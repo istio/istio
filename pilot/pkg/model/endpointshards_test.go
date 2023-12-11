@@ -41,10 +41,23 @@ func TestUpdateServiceAccount(t *testing.T) {
 			endpoints: append(cluster1Endppoints, &IstioEndpoint{Addresses: []string{"10.172.0.3"}, ServiceAccount: "sa1"}),
 			expect:    false,
 		},
+
+		{
+			name:      "added new endpoint with multiple addresses",
+			shardKey:  c1Key,
+			endpoints: append(cluster1Endppoints, &IstioEndpoint{Addresses: []string{"10.171.0.1", "2001:1::1"}, ServiceAccount: "sa1"}),
+			expect:    false,
+		},
 		{
 			name:      "added new sa",
 			shardKey:  c1Key,
 			endpoints: append(cluster1Endppoints, &IstioEndpoint{Addresses: []string{"10.172.0.3"}, ServiceAccount: "sa2"}),
+			expect:    true,
+		},
+		{
+			name:      "added new sa of an endpoint with multiple addresses",
+			shardKey:  c1Key,
+			endpoints: append(cluster1Endppoints, &IstioEndpoint{Addresses: []string{"10.172.0.3", "2001:1::3"}, ServiceAccount: "sa2"}),
 			expect:    true,
 		},
 		{
@@ -57,6 +70,15 @@ func TestUpdateServiceAccount(t *testing.T) {
 			expect: false,
 		},
 		{
+			name:     "updated endpoints multiple addresses",
+			shardKey: c1Key,
+			endpoints: []*IstioEndpoint{
+				{Addresses: []string{"10.172.0.5", "2001:1::5"}, ServiceAccount: "sa1"},
+				{Addresses: []string{"10.172.0.2", "2001:1::2"}, ServiceAccount: "sa-vm1"},
+			},
+			expect: false,
+		},
+		{
 			name:     "deleted one endpoint with unique sa",
 			shardKey: c1Key,
 			endpoints: []*IstioEndpoint{
@@ -64,6 +86,15 @@ func TestUpdateServiceAccount(t *testing.T) {
 			},
 			expect: true,
 		},
+		{
+			name:     "deleted one endpoint which contains multiple addresses with unique sa",
+			shardKey: c1Key,
+			endpoints: []*IstioEndpoint{
+				{Addresses: []string{"10.171.0.1", "2001:1::1"}, ServiceAccount: "sa1"},
+			},
+			expect: true,
+		},
+
 		{
 			name:     "deleted one endpoint with duplicate sa",
 			shardKey: c1Key,
