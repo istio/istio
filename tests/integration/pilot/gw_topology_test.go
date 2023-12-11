@@ -198,7 +198,7 @@ spec:
 func TestUpstreamProxyProtocol(t *testing.T) {
 	framework.
 		NewTest(t).
-		Features("traffic.upstream.proxyprotocol").
+		Features("traffic.ingress.topology").
 		Run(func(t framework.TestContext) {
 			injectLabel := `sidecar.istio.io/inject: "true"`
 			if len(t.Settings().Revisions.Default()) > 0 {
