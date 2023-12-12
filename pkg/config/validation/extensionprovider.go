@@ -39,7 +39,7 @@ func validateExtensionProviderService(service string) error {
 			}
 		}
 	} else {
-		if err := validateNamespaceSlashWildcardHostname(service, false); err != nil {
+		if err := validateNamespaceSlashWildcardHostname(service, false, false); err != nil {
 			return err
 		}
 	}

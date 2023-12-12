@@ -80,7 +80,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		Spec: &istioio_networking_v1beta1.ProxyConfig{
 			Selector: &istio_type_v1beta1.WorkloadSelector{
 				MatchLabels: map[string]string{
-					"istio.io/gateway-name": "default",
+					"gateway.networking.k8s.io/gateway-name": "default",
 				},
 			},
 			Image: &istioio_networking_v1beta1.ProxyImage{
@@ -104,8 +104,10 @@ func TestConfigureIstioGateway(t *testing.T) {
 			name: "simple",
 			gw: v1beta1.Gateway{
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "default",
-					Namespace: "default",
+					Name:        "default",
+					Namespace:   "default",
+					Labels:      map[string]string{"should": "see"},
+					Annotations: map[string]string{"should": "see"},
 				},
 				Spec: v1alpha2.GatewaySpec{
 					GatewayClassName: defaultClassName,
@@ -277,6 +279,25 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 				Spec: v1beta1.GatewaySpec{
 					GatewayClassName: v1beta1.ObjectName(customClass.Name),
+				},
+			},
+			objects: defaultObjects,
+		},
+		{
+			name: "infrastructure-labels-annotations",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default",
+					Namespace:   "default",
+					Labels:      map[string]string{"should-not": "see"},
+					Annotations: map[string]string{"should-not": "see"},
+				},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: defaultClassName,
+					Infrastructure: &k8sv1.GatewayInfrastructure{
+						Labels:      map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{"foo": "bar", "gateway.networking.k8s.io/ignore": "true"},
+						Annotations: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{"fizz": "buzz", "gateway.networking.k8s.io/ignore": "true"},
+					},
 				},
 			},
 			objects: defaultObjects,

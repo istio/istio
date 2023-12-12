@@ -449,8 +449,12 @@ func BuildSidecarOutboundVirtualHosts(node *model.Proxy, push *model.PushContext
 		// only select virtualServices that matches a service
 		virtualServices = selectVirtualServices(virtualServices, servicesByName)
 	}
+
+	mostSpecificWildcardIndex := egressListener.MostSpecificWildcardServiceIndex()
 	// Get list of virtual services bound to the mesh gateway
-	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push, servicesByName, virtualServices, listenerPort)
+	virtualHostWrappers := istio_route.BuildSidecarVirtualHostWrapper(routeCache, node, push,
+		servicesByName, virtualServices, listenerPort, mostSpecificWildcardIndex,
+	)
 
 	if features.EnableRDSCaching {
 		resource := xdsCache.Get(routeCache)

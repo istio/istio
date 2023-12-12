@@ -293,9 +293,9 @@ func buildDataSource(u *url.URL, wasmPlugin *extensions.WasmPlugin) *core.AsyncD
 			Remote: &core.RemoteDataSource{
 				HttpUri: &core.HttpUri{
 					Uri:     u.String(),
-					Timeout: durationpb.New(30 * time.Second),
+					Timeout: durationpb.New(30 * time.Second), // TODO: make this configurable?
 					HttpUpstreamType: &core.HttpUri_Cluster{
-						// this will be fetched by the agent anyway, so no need for a cluster
+						// the agent will fetch this anyway, so no need for a cluster
 						Cluster: "_",
 					},
 				},

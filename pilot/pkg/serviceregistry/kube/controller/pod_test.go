@@ -161,8 +161,9 @@ func TestHostNetworkPod(t *testing.T) {
 
 	createPod("128.0.0.1", "pod1")
 	assert.Equal(t, c.pods.getPodKeys("128.0.0.1"), []types.NamespacedName{{Name: "pod1", Namespace: "ns"}})
-
+	events.WaitOrdered("pod1/add", "pod1/update")
 	createPod("128.0.0.1", "pod2")
+	events.WaitOrdered("pod2/add", "pod2/update")
 	assert.Equal(t, sets.New(c.pods.getPodKeys("128.0.0.1")...), sets.New(
 		types.NamespacedName{Name: "pod1", Namespace: "ns"},
 		types.NamespacedName{Name: "pod2", Namespace: "ns"},
@@ -174,14 +175,7 @@ func TestHostNetworkPod(t *testing.T) {
 	}
 	pods.Delete("pod1", "ns")
 	pods.Delete("pod2", "ns")
-	events.WaitOrdered(
-		"pod1/add",
-		"pod1/update",
-		"pod2/add",
-		"pod2/update",
-		"pod1/delete",
-		"pod2/delete",
-	)
+	events.WaitOrdered("pod1/delete", "pod2/delete")
 }
 
 // Regression test for https://github.com/istio/istio/issues/20676

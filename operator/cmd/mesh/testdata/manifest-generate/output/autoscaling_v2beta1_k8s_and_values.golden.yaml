@@ -17,6 +17,10 @@ spec:
       name: cpu
       targetAverageUtilization: 70
     type: Resource
+  - resource:
+      name: memory
+      targetAverageUtilization: 70
+    type: Resource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
@@ -42,6 +46,10 @@ spec:
   metrics:
   - resource:
       name: cpu
+      targetAverageUtilization: 90
+    type: Resource
+  - resource:
+      name: memory
       targetAverageUtilization: 90
     type: Resource
   minReplicas: 1
