@@ -191,7 +191,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 	// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
 	//
 	// Note that SortedList is used here because the DIY istio sets class has no order guarantees,
-	// and our unit tests will flake if rules have a nondeterministic ordering :D. Shoulda used slices.
+	// and our unit tests will flake if rules have a nondeterministic ordering.
 	for _, probeP := range sets.SortedList(hostProbeSet) {
 		// If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
 		// -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport 8081 -j ACCEPT
