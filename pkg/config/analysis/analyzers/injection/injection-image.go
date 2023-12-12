@@ -21,7 +21,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 
-	"istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/util"
@@ -61,6 +60,7 @@ func (a *ImageAnalyzer) Metadata() analysis.Metadata {
 			gvk.Pod,
 			gvk.ConfigMap,
 			gvk.MeshConfig,
+			gvk.ProxyConfig,
 		},
 	}
 }
@@ -85,16 +85,6 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		return
 	}
 
-	variant := ""
-	c.ForEach(gvk.MeshConfig, func(r *resource.Instance) bool {
-		meshConfig := r.Message.(*v1alpha1.MeshConfig)
-		variant = meshConfig.GetDefaultConfig().GetImage().GetImageType()
-		return true
-	})
-	if variant == "default" {
-		variant = ""
-	}
-
 	injectedNamespaces := make(map[string]string)
 	namespaceMismatchedPods := make(map[string][]string)
 	namespaceResources := make(map[string]*resource.Instance)
@@ -115,6 +105,8 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
+	resolver := util.NewEffectiveProxyConfigResolver(c)
+
 	c.ForEach(gvk.Pod, func(r *resource.Instance) bool {
 		var injectionCMName string
 		pod := r.Message.(*v1.PodSpec)
@@ -131,6 +123,8 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		if r.Metadata.Annotations["sidecar.istio.io/proxyImage"] != "" {
 			return true
 		}
+
+		variant := resolver.ImageType(r)
 
 		for _, container := range append(slices.Clone(pod.Containers), pod.InitContainers...) {
 			if container.Name != util.IstioProxyName {
