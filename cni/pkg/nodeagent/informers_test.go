@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +29,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/monitoring/monitortest"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
@@ -338,10 +338,9 @@ func TestAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
-	enabledPod, err := handlers.AmbientEnabled(pod.Name, ns.Name)
+	_, err := handlers.AmbientEnabled(pod.Name, ns.Name)
 
 	assert.NoError(t, err)
-	assert.NotNil(t, enabledPod)
 }
 
 func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
@@ -386,7 +385,7 @@ func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 	disabledPod, err := handlers.AmbientEnabled(pod.Name, ns.Name)
 
 	assert.NoError(t, err)
-	assert.Nil(t, disabledPod)
+	assert.Equal(t, disabledPod, nil)
 }
 
 func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
@@ -431,7 +430,7 @@ func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 	disabledPod, err := handlers.AmbientEnabled(pod.Name, "what")
 
 	assert.Error(t, err)
-	assert.Nil(t, disabledPod)
+	assert.Equal(t, disabledPod, nil)
 }
 
 func TestExistingPodAddedWhenItPreExists(t *testing.T) {

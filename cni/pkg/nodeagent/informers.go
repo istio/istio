@@ -49,33 +49,27 @@ type InformerHandlers struct {
 	dataplane       MeshDataplane
 	systemNamespace string
 
-	podQueue controllers.Queue
-	pods     kclient.Client[*corev1.Pod]
-
-	namespaceQueue controllers.Queue
-	namespaces     kclient.Client[*corev1.Namespace]
+	queue      controllers.Queue
+	pods       kclient.Client[*corev1.Pod]
+	namespaces kclient.Client[*corev1.Namespace]
 }
 
 func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDataplane, systemNamespace string) *InformerHandlers {
 	s := &InformerHandlers{ctx: ctx, dataplane: dataplane, systemNamespace: systemNamespace}
-	s.podQueue = controllers.NewQueue("ambient-pod",
-		controllers.WithGenericReconciler(s.reconcilePod),
+	s.queue = controllers.NewQueue("ambient",
+		controllers.WithGenericReconciler(s.reconcile),
 		controllers.WithMaxAttempts(5),
 	)
-	s.namespaceQueue = controllers.NewQueue("ambient-ns",
-		controllers.WithGenericReconciler(s.reconcileNamespace),
-	)
-
 	// We only need to handle pods on our node
 	s.pods = kclient.NewFiltered[*corev1.Pod](kubeClient, kclient.Filter{FieldSelector: "spec.nodeName=" + NodeName})
 	s.pods.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
-		s.podQueue.Add(o)
+		s.queue.Add(o)
 	}))
 
 	// Namespaces could be anything though, so we watch all of those
 	s.namespaces = kclient.New[*corev1.Namespace](kubeClient)
 	s.namespaces.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
-		s.namespaceQueue.Add(o)
+		s.queue.Add(o)
 	}))
 
 	return s
@@ -94,8 +88,7 @@ func (s *InformerHandlers) AmbientEnabled(podName, podNamespace string) (*corev1
 }
 
 func (s *InformerHandlers) Start() {
-	go s.podQueue.Run(s.ctx.Done())
-	go s.namespaceQueue.Run(s.ctx.Done())
+	go s.queue.Run(s.ctx.Done())
 }
 
 func (s *InformerHandlers) GetAmbientPods() []*corev1.Pod {
@@ -130,12 +123,24 @@ func (s *InformerHandlers) enqueueNamespace(o controllers.Object) {
 		// ztunnel node reconciliation checks.
 		if !util.IsZtunnelPod(s.systemNamespace, pod) {
 			log.Debugf("Enqueuing pod %s/%s", pod.Namespace, pod.Name)
-			s.podQueue.Add(controllers.Event{
+			s.queue.Add(controllers.Event{
 				New:   pod,
 				Old:   pod,
 				Event: controllers.EventUpdate,
 			})
 		}
+	}
+}
+
+func (s *InformerHandlers) reconcile(input any) error {
+	event := input.(controllers.Event)
+	switch event.Latest().(type) {
+	case *corev1.Namespace:
+		return s.reconcileNamespace(input)
+	case *corev1.Pod:
+		return s.reconcilePod(input)
+	default:
+		return fmt.Errorf("unexpected event type: %+v", input)
 	}
 }
 

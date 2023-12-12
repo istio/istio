@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -33,6 +32,7 @@ import (
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/tools/istio-iptables/pkg/dependencies"
 )
 
@@ -174,7 +174,7 @@ func TestServerAddPod(t *testing.T) {
 	podIPs := []netip.Addr{podIP}
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "fakenetns")
 	assert.NoError(t, err)
-	assert.EqualValues(t, 1, ztunnelServer.addedPods.Load())
+	assert.Equal(t, 1, ztunnelServer.addedPods.Load())
 }
 
 func TestServerRemovePod(t *testing.T) {
@@ -197,9 +197,9 @@ func TestServerRemovePod(t *testing.T) {
 	fixture.podNsMap.UpsertPodCacheWithNetns(string(podMeta.UID), fakens)
 	err := netServer.RemovePodFromMesh(ctx, &corev1.Pod{ObjectMeta: podMeta})
 	assert.NoError(t, err)
-	assert.EqualValues(t, ztunnelServer.deletedPods.Load(), 1)
-	assert.EqualValues(t, nlDeps.DelInpodMarkIPRuleCnt.Load(), 1)
-	assert.EqualValues(t, nlDeps.DelLoopbackRoutesCnt.Load(), 1)
+	assert.Equal(t, ztunnelServer.deletedPods.Load(), 1)
+	assert.Equal(t, nlDeps.DelInpodMarkIPRuleCnt.Load(), 1)
+	assert.Equal(t, nlDeps.DelLoopbackRoutesCnt.Load(), 1)
 	// make sure the uid was taken from cache and netns closed
 	netns := fixture.podNsMap.Take(string(podMeta.UID))
 	assert.Equal(t, nil, netns)
@@ -231,11 +231,11 @@ func TestServerDeletePod(t *testing.T) {
 	fixture.podNsMap.UpsertPodCacheWithNetns(string(podMeta.UID), fakens)
 	err := netServer.DelPodFromMesh(ctx, &corev1.Pod{ObjectMeta: podMeta})
 	assert.NoError(t, err)
-	assert.EqualValues(t, ztunnelServer.deletedPods.Load(), 1)
+	assert.Equal(t, ztunnelServer.deletedPods.Load(), 1)
 	// with delete iptables is not called, as there is no need to delete the iptables rules
 	// from a pod that's gone from the cluster.
-	assert.EqualValues(t, nlDeps.DelInpodMarkIPRuleCnt.Load(), 0)
-	assert.EqualValues(t, nlDeps.DelLoopbackRoutesCnt.Load(), 0)
+	assert.Equal(t, nlDeps.DelInpodMarkIPRuleCnt.Load(), 0)
+	assert.Equal(t, nlDeps.DelLoopbackRoutesCnt.Load(), 0)
 	// make sure the uid was taken from cache and netns closed
 	netns := fixture.podNsMap.Take(string(podMeta.UID))
 	assert.Equal(t, nil, netns)
@@ -263,7 +263,7 @@ func TestServerAddPodWithNoNetns(t *testing.T) {
 	podIPs := []netip.Addr{podIP}
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "")
 	assert.NoError(t, err)
-	assert.EqualValues(t, ztunnelServer.addedPods.Load(), 1)
+	assert.Equal(t, ztunnelServer.addedPods.Load(), 1)
 }
 
 func TestReturnsPartialErrorOnZtunnelFail(t *testing.T) {
@@ -283,7 +283,7 @@ func TestReturnsPartialErrorOnZtunnelFail(t *testing.T) {
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "faksens")
-	assert.EqualValues(t, ztunnelServer.addedPods.Load(), 1)
+	assert.Equal(t, ztunnelServer.addedPods.Load(), 1)
 	if !errors.Is(err, ErrPartialAdd) {
 		t.Fatal("expected partial error")
 	}
@@ -308,7 +308,7 @@ func TestDoesntReturnsPartialErrorOnIptablesFail(t *testing.T) {
 	podIPs := []netip.Addr{podIP}
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "faksens")
 	// no calls to ztunnel if iptables failed
-	assert.EqualValues(t, ztunnelServer.addedPods.Load(), 0)
+	assert.Equal(t, ztunnelServer.addedPods.Load(), 0)
 
 	// error is not partial error
 	if errors.Is(err, ErrPartialAdd) {

@@ -19,9 +19,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestServer(t *testing.T) {

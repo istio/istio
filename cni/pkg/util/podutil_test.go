@@ -17,9 +17,10 @@ package util
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestGetPodIPIfPodIPPresent(t *testing.T) {

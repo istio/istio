@@ -23,12 +23,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 
 	"istio.io/istio/cni/pkg/zdsapi"
 	"istio.io/istio/pkg/monitoring/monitortest"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var ztunnelTestCounter atomic.Uint32

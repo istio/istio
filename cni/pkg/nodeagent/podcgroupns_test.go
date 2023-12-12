@@ -17,8 +17,9 @@ package nodeagent
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"k8s.io/apimachinery/pkg/types"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestWithProcFs(t *testing.T) {
