@@ -18,7 +18,6 @@ import (
 	"context"
 	"sync"
 	"testing"
-	"time"
 
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +26,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/test/util/assert"
-	"istio.io/istio/pkg/test/util/retry"
 )
 
 const (
@@ -184,7 +182,6 @@ func TestServerReconcilePod(t *testing.T) {
 
 		t.Run(c.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(ctx)
-			defer cancel()
 			kubeClient, fakePodHandler, err := setup(ctx)
 			assert.NoError(t, err)
 			defer func() {
@@ -198,24 +195,24 @@ func TestServerReconcilePod(t *testing.T) {
 			err = c.podOperations(ctx, kubeClient)
 			assert.NoError(t, err)
 
-			assert.EventuallyEqual(t, func() bool {
-				skippedEvents := 0
-				for i, event := range c.expectedEvents {
-					ok := fakePodHandler.eventIs(i-skippedEvents, event.event, event.podName)
-					if ok {
-						if event.assertPod != nil {
-							assert.Equal(t, true, event.assertPod(fakePodHandler.getEventPod(i-skippedEvents)))
-						}
+			// cancel the context manually to stop the mock kube client
+			cancel()
 
-						continue
+			skippedEvents := 0
+			for i, event := range c.expectedEvents {
+				ok := fakePodHandler.eventIs(i-skippedEvents, event.event, event.podName)
+				if ok {
+					if event.assertPod != nil {
+						assert.Equal(t, true, event.assertPod(fakePodHandler.getEventPod(i-skippedEvents)))
 					}
-					if event.couldSkip {
-						skippedEvents++
-						continue
-					}
+
+					continue
 				}
-				return true
-			}, true, retry.Timeout(3*time.Second))
+				if event.couldSkip {
+					skippedEvents++
+					continue
+				}
+			}
 		})
 	}
 }
@@ -267,7 +264,7 @@ func (h *fakePodReconcileHandler) delPodFromMesh(pod *v1.Pod, event controllers.
 
 	h.events = append(h.events, podEvent{
 		event: "del",
-		pod:   pod,
+		pod:   pod.DeepCopy(),
 	})
 }
 
@@ -277,6 +274,6 @@ func (h *fakePodReconcileHandler) addPodToMesh(pod *v1.Pod) {
 
 	h.events = append(h.events, podEvent{
 		event: "add",
-		pod:   pod,
+		pod:   pod.DeepCopy(),
 	})
 }
