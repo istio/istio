@@ -145,7 +145,7 @@ func applyManifest(kubeClient kube.Client, client client.Client, manifestStr str
 		Name:    componentName,
 		Content: manifestStr,
 	}
-	_, err = reconciler.ApplyManifest(ms, reconciler.CheckSSAEnabled())
+	_, err = reconciler.ApplyManifest(ms)
 	return err
 }
 
