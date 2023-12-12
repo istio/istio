@@ -487,8 +487,6 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 	}
 
 	c.configController.RegisterEventHandler(gvk.AuthorizationPolicy, func(oldCfg config.Config, newCfg config.Config, ev model.Event) {
-		idx.mu.Lock()
-		defer idx.mu.Unlock()
 		updates := c.handleAuthorizationPolicy(oldCfg, newCfg, ev)
 		if len(updates) > 0 {
 			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
@@ -499,8 +497,6 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 	})
 
 	c.configController.RegisterEventHandler(gvk.PeerAuthentication, func(oldCfg config.Config, newCfg config.Config, ev model.Event) {
-		idx.mu.Lock()
-		defer idx.mu.Unlock()
 		updates := c.handlePeerAuthentication(oldCfg, newCfg, ev)
 		if len(updates) > 0 {
 			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
