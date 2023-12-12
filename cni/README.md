@@ -23,7 +23,7 @@ This component accomplishes that in the following ways:
 - sends UDS events to ztunnel via a socket whenever a pod is enabled for ambient mesh (whether from CNI plugin or node watcher), instructing ztunnel to create the "tube" socket.
 
 The ambient CNI agent is the only place where ambient network config and pod redirection machinery happens.
-In ambient mode, the CNI plugin is effectively just a shim to catch pod creation events and notify the CNI agent early enough to set up network redirection before the pod is fully started. This is necessary because the CNI plugin is effectively the first thing to see a scheduled pod - before the K8S control plane will see it, the CNI will see it and trigger the plugin chain on the node - but the CNI plugin alone is not sufficient to handle all pod events (already-started pod updates, rebuilding current state on CNI restart) that the node agent cares about.
+In ambient mode, the CNI plugin is effectively just a shim to catch pod creation events and notify the CNI agent early enough to set up network redirection before the pod is fully started. This is necessary because the CNI plugin is effectively the first thing to see a scheduled pod - before the K8S control plane will see things like the pod IP or networking info, the CNI will - but the CNI plugin alone is not sufficient to handle all pod events (already-started pod updates, rebuilding current state on CNI restart) that the node agent cares about.
 
 ## Reference
 
