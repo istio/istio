@@ -157,7 +157,7 @@ func (esc *endpointSliceController) GetProxyServiceTargets(proxy *model.Proxy) [
 }
 
 func serviceNameForEndpointSlice(labels map[string]string) string {
-	return labels[v1beta1.LabelServiceName]
+	return labels[v1.LabelServiceName]
 }
 
 func (esc *endpointSliceController) serviceTargets(ep *v1.EndpointSlice, proxy *model.Proxy) []model.ServiceTarget {
