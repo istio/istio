@@ -19,7 +19,8 @@ import (
 	"testing"
 
 	"github.com/containernetworking/cni/pkg/skel"
-	"github.com/stretchr/testify/assert"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestProcessAddEventGoodPayload(t *testing.T) {

@@ -22,7 +22,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -30,6 +29,7 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestMeshDataplaneAddsAnnotationOnAdd(t *testing.T) {
