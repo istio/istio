@@ -1001,7 +1001,9 @@ type httpListenerOpts struct {
 
 	suppressEnvoyDebugHeaders bool
 	skipIstioMXHeaders        bool
-	isGatewayMtls             bool
+	// isGatewayIstioMtls indicates if the listener is using ISTIO signed
+	// certs for MUTUAL TLS connection with downstream peers.
+	isGatewayIstioMtls bool
 
 	// http3Only indicates that the HTTP codec used
 	// is HTTP/3 over QUIC transport (uses UDP)

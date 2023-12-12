@@ -90,6 +90,9 @@ meshConfig:
     - url_path
     - response_status
 values:
+  pilot:
+    env:
+      ENABLE_GATEWAY_MTLS_DOWNSTREAM_METADATA_EXCHANGE: true
  telemetry:
    v2:
      enabled: false # disable from install, we will enable via Telemetry layer

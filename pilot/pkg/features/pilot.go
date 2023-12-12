@@ -708,7 +708,7 @@ var (
 	EnableGatewayMtlsDownstreamMetadataExchnage = env.RegisterBoolVar("ENABLE_GATEWAY_MTLS_DOWNSTREAM_METADATA_EXCHANGE", false,
 		"If true, pilot will configure gateway mTLS listeners for metadata exchange with downstream peer.").Get()
 
-  PersistOldestWinsHeuristicForVirtualServiceHostMatching = env.Register("PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", false,
+	PersistOldestWinsHeuristicForVirtualServiceHostMatching = env.Register("PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", false,
 		"If enabled, istiod will persist the oldest first heuristic for subtly conflicting traffic policy selection"+
 			"(such as with overlapping wildcard hosts)").Get()
 )

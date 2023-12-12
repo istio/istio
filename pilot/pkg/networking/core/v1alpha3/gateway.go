@@ -658,7 +658,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 	// We know that this is a HTTPS server because this function is called only for ports of type HTTP/HTTPS
 	// where HTTPS server's TLS mode is not passthrough and not nil
 	http3Enabled := transportProtocol == istionetworking.TransportProtocolQUIC
-	isGatewayMtls := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
+	isGatewayIstioMtls := server.GetTls().GetMode() == networking.ServerTLSSettings_ISTIO_MUTUAL
 	return &filterChainOpts{
 		// This works because we validate that only HTTPS servers can have same port but still different port names
 		// and that no two non-HTTPS servers can be on same port or share port names.
@@ -674,7 +674,7 @@ func (configgen *ConfigGeneratorImpl) createGatewayHTTPFilterChainOpts(node *mod
 			statPrefix:                server.Name,
 			http3Only:                 http3Enabled,
 			class:                     istionetworking.ListenerClassGateway,
-			isGatewayMtls:             isGatewayMtls,
+			isGatewayIstioMtls:        isGatewayIstioMtls,
 		},
 	}
 }
