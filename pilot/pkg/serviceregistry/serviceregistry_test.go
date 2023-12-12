@@ -243,7 +243,6 @@ func TestWorkloadInstances(t *testing.T) {
 		fx.WaitOrFail(t, "eds")
 		// pure HTTP headless services should not need a full push since they do not
 		// require a Listener based on IP: https://github.com/istio/istio/issues/48207
-		fx.WaitOrFail(t, "proxy")
 		instances := []EndpointResponse{{
 			Address: pod.Status.PodIP,
 			Port:    80,
