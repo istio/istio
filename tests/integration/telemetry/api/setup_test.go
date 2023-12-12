@@ -80,22 +80,22 @@ func setupConfig(c resource.Context, cfg *istio.Config) {
 		return
 	}
 	cfg.ControlPlaneValues = `
-meshConfig:
-  accessLogFile: "" # disable from install, we will enable via Telemetry layer
-  defaultConfig:
-    proxyStatsMatcher:
-      inclusionPrefixes:
-      - istio_custom_total
-    extraStatTags:
-    - url_path
-    - response_status
 values:
   pilot:
     env:
       ENABLE_GATEWAY_MTLS_DOWNSTREAM_METADATA_EXCHANGE: "true"
- telemetry:
-   v2:
-     enabled: false # disable from install, we will enable via Telemetry layer
+  meshConfig:
+    accessLogFile: "" # disable from install, we will enable via Telemetry layer
+    defaultConfig:
+      proxyStatsMatcher:
+        inclusionPrefixes:
+        - istio_custom_total
+      extraStatTags:
+      - url_path
+      - response_status
+  telemetry:
+    v2:
+      enabled: false # disable from install, we will enable via Telemetry layer
 `
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 }
