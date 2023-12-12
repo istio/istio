@@ -146,7 +146,6 @@ func (s *InformerHandlers) reconcile(input any) error {
 
 func (s *InformerHandlers) reconcileNamespace(input any) error {
 	event := input.(controllers.Event)
-	log := log.WithLabels("type", event.Event)
 	ns := event.Latest().(*corev1.Namespace)
 
 	switch event.Event {
