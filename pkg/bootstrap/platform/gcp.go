@@ -177,10 +177,18 @@ func (e *gcpEnv) shouldFillMetadata() bool {
 // Metadata returns GCP environmental data, including project, cluster name, and
 // location information.
 func (e *gcpEnv) Metadata() map[string]string {
+	// If they statically configure metadata, use it immediately and exit. This does limit the ability to configure some static
+	// metadata, but extract the rest from the metadata server.
+	// However, the motivation to provide static metadata is to remove the dependency on the metadata server, which is unreliable.
+	// As a result, it doesn't make much sense to do lookups when this is set.
+	// If needed, the remaining pieces of metadata can be added to the static env var (missing is the gce_* ones).
+	if len(GCPStaticMetadata) != 0 {
+		return GCPStaticMetadata
+	}
 	// If we cannot reach the metadata server, bail out with only statically defined metadata
 	fillMetadata := e.shouldFillMetadata()
 	if !fillMetadata {
-		return GCPStaticMetadata
+		return nil
 	}
 
 	e.Lock()
@@ -190,8 +198,7 @@ func (e *gcpEnv) Metadata() map[string]string {
 		return e.metadata
 	}
 
-	// Start off with static metadata (if there is any)
-	md := maps.Clone(GCPStaticMetadata)
+	md := map[string]string{}
 
 	// suppliers is an array of functions that supply the metadata for missing properties
 	suppliers := []metadataSupplier{
