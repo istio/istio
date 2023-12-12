@@ -998,6 +998,16 @@ func TestValidateGateway(t *testing.T) {
 			"", "",
 		},
 		{
+			"happy k8s gateway-api server with no attached routes",
+			&networking.Gateway{
+				Servers: []*networking.Server{{
+					Hosts: []string{"~/foo.bar.com"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+				}},
+			},
+			"invalid namespace value", "",
+		},
+		{
 			"invalid port",
 			&networking.Gateway{
 				Servers: []*networking.Server{
@@ -1091,6 +1101,42 @@ func TestValidateGateway(t *testing.T) {
 	}
 }
 
+func TestValidateK8sGateway(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      proto.Message
+		out     string
+		warning string
+	}{
+		{
+			"happy k8s gateway-api server with no attached routes",
+			&networking.Gateway{
+				Servers: []*networking.Server{{
+					Hosts: []string{"~/foo.bar.com"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+				}},
+			},
+			"", "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			annotations := map[string]string{}
+			annotations[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
+
+			warn, err := ValidateGateway(config.Config{
+				Meta: config.Meta{
+					Name:        someName,
+					Namespace:   someNamespace,
+					Annotations: annotations,
+				},
+				Spec: tt.in,
+			})
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
+		})
+	}
+}
+
 func TestValidateServer(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1138,6 +1184,14 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			"",
+		},
+		{
+			"invalid ~/name",
+			&networking.Server{
+				Hosts: []string{"~/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			"namespace",
 		},
 		{
 			"invalid domain ns/name format",
@@ -1247,7 +1301,7 @@ func TestValidateServer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := validateServer(tt.in)
+			v := validateServer(tt.in, false)
 			warn, err := v.Unwrap()
 			checkValidationMessage(t, warn, err, "", tt.out)
 		})

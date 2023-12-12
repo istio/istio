@@ -1434,6 +1434,10 @@ func TestMergeTrafficPolicy(t *testing.T) {
 						MaxRetries: 10,
 					},
 				},
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					TargetHost: "example.com",
+					TargetPort: 8443,
+				},
 			},
 			port: nil,
 			expected: &networking.TrafficPolicy{
@@ -1444,6 +1448,10 @@ func TestMergeTrafficPolicy(t *testing.T) {
 				},
 				Tls: &networking.ClientTLSSettings{
 					Mode: networking.ClientTLSSettings_ISTIO_MUTUAL,
+				},
+				Tunnel: &networking.TrafficPolicy_TunnelSettings{
+					TargetHost: "example.com",
+					TargetPort: 8443,
 				},
 			},
 		},

@@ -473,7 +473,12 @@ func ValidateUnixAddress(addr string) error {
 var ValidateGateway = registerValidateFunc("ValidateGateway",
 	func(cfg config.Config) (Warning, error) {
 		name := cfg.Name
+
+		// Check if this was converted from a k8s gateway-api resource
+		gatewaySemantics := cfg.Annotations[constants.InternalGatewaySemantics] == constants.GatewaySemanticsGateway
+
 		v := Validation{}
+
 		// Gateway name must conform to the DNS label format (no dots)
 		if !labels.IsDNS1123Label(name) {
 			v = appendValidation(v, fmt.Errorf("invalid gateway name: %q", name))
@@ -488,7 +493,7 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 			v = appendValidation(v, fmt.Errorf("gateway must have at least one server"))
 		} else {
 			for _, server := range value.Servers {
-				v = appendValidation(v, validateServer(server))
+				v = appendValidation(v, validateServer(server, gatewaySemantics))
 			}
 		}
 
@@ -514,7 +519,7 @@ var ValidateGateway = registerValidateFunc("ValidateGateway",
 		return v.Unwrap()
 	})
 
-func validateServer(server *networking.Server) (v Validation) {
+func validateServer(server *networking.Server, gatewaySemantics bool) (v Validation) {
 	if server == nil {
 		return WrapError(fmt.Errorf("cannot have nil server"))
 	}
@@ -522,7 +527,7 @@ func validateServer(server *networking.Server) (v Validation) {
 		v = appendValidation(v, fmt.Errorf("server config must contain at least one host"))
 	} else {
 		for _, hostname := range server.Hosts {
-			v = appendValidation(v, validateNamespaceSlashWildcardHostname(hostname, true))
+			v = appendValidation(v, validateNamespaceSlashWildcardHostname(hostname, true, gatewaySemantics))
 		}
 	}
 	portErr := validateServerPort(server.Port, server.Bind)
@@ -1060,7 +1065,7 @@ func validateSidecarOrGatewayHostnamePart(hostname string, isGateway bool) (errs
 	return
 }
 
-func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (errs error) {
+func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool, gatewaySemantics bool) (errs error) {
 	parts := strings.SplitN(hostname, "/", 2)
 	if len(parts) != 2 {
 		if isGateway {
@@ -1084,7 +1089,8 @@ func validateNamespaceSlashWildcardHostname(hostname string, isGateway bool) (er
 		}
 	} else {
 		// namespace can be * or . or a valid DNS label in gateways
-		if parts[0] != "*" && parts[0] != "." {
+		// namespace can be ~ in gateways converted from Gateway API when no routes match
+		if parts[0] != "*" && parts[0] != "." && (parts[0] != "~" || !gatewaySemantics) {
 			if !labels.IsDNS1123Label(parts[0]) {
 				errs = appendErrors(errs, fmt.Errorf("invalid namespace value %q in gateway", parts[0]))
 			}
@@ -1273,7 +1279,7 @@ var ValidateSidecar = registerValidateFunc("ValidateSidecar",
 						}
 						nssSvcs[ns][svc] = true
 					}
-					errs = appendValidation(errs, validateNamespaceSlashWildcardHostname(hostname, false))
+					errs = appendValidation(errs, validateNamespaceSlashWildcardHostname(hostname, false, false))
 				}
 				// */*
 				// test/a

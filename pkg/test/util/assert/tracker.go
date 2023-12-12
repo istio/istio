@@ -69,6 +69,7 @@ func (t *Tracker[T]) WaitOrdered(events ...T) {
 				return nil
 			}
 			// clear the event
+			t.events[0] = ptr.Empty[T]()
 			t.events = t.events[1:]
 			return nil
 		}, retry.Timeout(time.Second))

@@ -15,8 +15,10 @@
 package file
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
 )
@@ -104,25 +106,16 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) (err error) {
 }
 
 func Exists(name string) bool {
+	// We must explicitly check if the error is due to the file not existing (as opposed to a
+	// permissions error).
 	_, err := os.Stat(name)
-	return err == nil
+	return !errors.Is(err, fs.ErrNotExist)
 }
 
 const (
 	// PrivateFileMode grants owner to read/write a file.
 	PrivateFileMode = 0o600
 )
-
-// IsDirWriteable checks if dir is writable by writing and removing a file
-// to dir. It returns nil if dir is writable.
-// Inspired by etcd fileutil.
-func IsDirWriteable(dir string) error {
-	f := filepath.Join(dir, ".touch")
-	if err := os.WriteFile(f, []byte(""), PrivateFileMode); err != nil {
-		return err
-	}
-	return os.Remove(f)
-}
 
 // DirEquals check if two directories are referring to the same directory
 func DirEquals(a, b string) (bool, error) {
