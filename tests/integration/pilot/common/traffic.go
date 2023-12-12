@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/test/util/yml"
 )
@@ -150,7 +151,7 @@ func (c TrafficTestCase) RunForApps(t framework.TestContext, apps echo.Instances
 				if c.globalConfig {
 					scope = t.ConfigKube()
 				}
-				return scope.YAML("", cfg).Apply()
+				return scope.YAML("", cfg).Apply(apply.CleanupConditionally)
 			}).
 			FromMatch(match.And(c.sourceMatchers...)).
 			// TODO mainly testing proxyless features as a client for now
@@ -234,7 +235,7 @@ func (c TrafficTestCase) Run(t framework.TestContext, namespace string) {
 			if c.globalConfig {
 				scope = t.ConfigKube()
 			}
-			scope.YAML("", cfg).ApplyOrFail(t)
+			scope.YAML("", cfg).ApplyOrFail(t, apply.CleanupConditionally)
 		}
 
 		if c.call != nil && len(c.children) > 0 {
