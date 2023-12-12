@@ -995,21 +995,8 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	pc := clienttest.Wrap(t, controller.podsClient)
 	sc := clienttest.Wrap(t, controller.services)
 	grc := clienttest.Wrap(t, kclient.NewFiltered[*k8sbeta.Gateway](controller.client, kubetypes.Filter{}))
-
-	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, func(c config.Config, c2 config.Config, event model.Event) {
-		updates := controller.handleAuthorizationPolicy(c, c2, event)
-		fx.ConfigUpdate(&model.PushRequest{
-			ConfigsUpdated: updates,
-			Reason:         model.NewReasonStats(model.AmbientUpdate),
-		})
-	})
-	cfg.RegisterEventHandler(gvk.PeerAuthentication, func(c config.Config, c2 config.Config, event model.Event) {
-		updates := controller.handlePeerAuthentication(c, c2, event)
-		fx.ConfigUpdate(&model.PushRequest{
-			ConfigsUpdated: updates,
-			Reason:         model.NewReasonStats(model.AmbientUpdate),
-		})
-	})
+	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
+	cfg.RegisterEventHandler(gvk.PeerAuthentication, controller.PeerAuthenticationHandler)
 
 	go cfg.Run(test.NewStop(t))
 

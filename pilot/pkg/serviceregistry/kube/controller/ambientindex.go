@@ -486,25 +486,8 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 		})
 	}
 
-	c.configController.RegisterEventHandler(gvk.AuthorizationPolicy, func(oldCfg config.Config, newCfg config.Config, ev model.Event) {
-		updates := c.handleAuthorizationPolicy(oldCfg, newCfg, ev)
-		if len(updates) > 0 {
-			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				ConfigsUpdated: updates,
-				Reason:         model.NewReasonStats(model.AmbientUpdate),
-			})
-		}
-	})
-
-	c.configController.RegisterEventHandler(gvk.PeerAuthentication, func(oldCfg config.Config, newCfg config.Config, ev model.Event) {
-		updates := c.handlePeerAuthentication(oldCfg, newCfg, ev)
-		if len(updates) > 0 {
-			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-				ConfigsUpdated: updates,
-				Reason:         model.NewReasonStats(model.AmbientUpdate),
-			})
-		}
-	})
+	c.configController.RegisterEventHandler(gvk.AuthorizationPolicy, c.AuthorizationPolicyHandler)
+	c.configController.RegisterEventHandler(gvk.PeerAuthentication, c.PeerAuthenticationHandler)
 
 	serviceHandler := cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj any) {

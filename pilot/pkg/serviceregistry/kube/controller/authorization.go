@@ -342,7 +342,7 @@ func (c *Controller) selectorAuthorizationPolicies(ns string, lbls map[string]st
 // synthetic authorization policies to the proxy based on the effective mTLS mode. In other words, even
 // if the selector of the PeerAuthentication doesn't change (indeed even if the PA has no selector),
 // any number of workloads may be affected by its spec changing
-func (c *Controller) handlePeerAuthentication(old config.Config, obj config.Config, ev model.Event) sets.Set[model.ConfigKey] {
+func (c *Controller) PeerAuthenticationHandler(old config.Config, obj config.Config, ev model.Event) {
 	getSelector := func(c config.Config) map[string]string {
 		if c.Spec == nil {
 			return nil
@@ -396,7 +396,7 @@ func (c *Controller) handlePeerAuthentication(old config.Config, obj config.Conf
 			// global or namespace level policy change
 			if oldPa.GetMtls().GetMode() == newPa.GetMtls().GetMode() {
 				// No change in mTLS mode, no workloads to push
-				return nil
+				return
 			}
 		}
 
@@ -407,13 +407,13 @@ func (c *Controller) handlePeerAuthentication(old config.Config, obj config.Conf
 		portLevelMtlsUnchanged := portMtlsEqual(oldPa.GetPortLevelMtls(), newPa.GetPortLevelMtls())
 		if maps.Equal(sel, oldSel) && mtlsUnchanged && portLevelMtlsUnchanged {
 			// Update event, but nothing we care about changed. No workloads to push.
-			return nil
+			return
 		}
 	}
 
 	if (newPa.Mtls == nil || newPa.GetMtls().GetMode() == v1beta1.PeerAuthentication_MutualTLS_UNSET) && newPa.GetPortLevelMtls() == nil {
 		// Nothing to do, no workloads to push
-		return nil
+		return
 	}
 
 	pods := map[string]*v1.Pod{}
@@ -452,7 +452,15 @@ func (c *Controller) handlePeerAuthentication(old config.Config, obj config.Conf
 			}
 		}
 	}
-	return c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, nil, c)
+
+	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, nil, c)
+
+	if len(updates) > 0 {
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			ConfigsUpdated: updates,
+			Reason:         model.NewReasonStats(model.AmbientUpdate),
+		})
+	}
 }
 
 // CalculateUpdatedWorkloads returns the set of updated config keys for the given
@@ -508,7 +516,7 @@ func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
 	return updates
 }
 
-func (c *Controller) handleAuthorizationPolicy(old config.Config, obj config.Config, ev model.Event) sets.Set[model.ConfigKey] {
+func (c *Controller) AuthorizationPolicyHandler(old config.Config, obj config.Config, ev model.Event) {
 	getSelector := func(c config.Config) map[string]string {
 		if c.Spec == nil {
 			return nil
@@ -525,12 +533,12 @@ func (c *Controller) handleAuthorizationPolicy(old config.Config, obj config.Con
 	case model.EventUpdate:
 		if maps.Equal(sel, oldSel) {
 			// Update event, but selector didn't change. No workloads to push.
-			return nil
+			return
 		}
 	default:
 		if sel == nil {
 			// We only care about selector policies
-			return nil
+			return
 		}
 	}
 
@@ -585,7 +593,14 @@ func (c *Controller) handleAuthorizationPolicy(old config.Config, obj config.Con
 		}
 	}
 
-	return c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, seEndpoints, c)
+	updates := c.ambientIndex.CalculateUpdatedWorkloads(pods, workloadEntries, seEndpoints, c)
+
+	if len(updates) > 0 {
+		c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+			ConfigsUpdated: updates,
+			Reason:         model.NewReasonStats(model.AmbientUpdate),
+		})
+	}
 }
 
 // meshWideSelectorEnabled indicates whether a mesh-wide policy can have a selector.
