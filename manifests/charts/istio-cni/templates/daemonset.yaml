@@ -9,7 +9,7 @@
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: istio-cni-node
+  name: istio-cni-node{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     k8s-app: istio-cni-node
