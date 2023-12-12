@@ -157,6 +157,8 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 	iptablesBuilder := builder.NewIptablesBuilder(ipbuildConfig(cfg.cfg))
 
 	// Insert jumps to our custom chains
+	// This is mostly just for visual tidiness and cleanup, as we can delete the secondary chains and jumps
+	// without polluting the main table too much.
 
 	// -t mangle -A OUTPUT -j ISTIO_PRERT
 	iptablesBuilder.AppendRule(
@@ -176,9 +178,11 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 		"-j", ChainInpodOutput,
 	)
 
-	// From here, we should be only inserting rules into our custom chains.
+	// From here on, we should be only inserting rules into our custom chains.
 
-	// -A PREROUTING -m mark --mark 0x3/0xfff -j CONNMARK --set-xmark 0x111/0xfff
+	// CLI: -A ISTIO_PRERT -m mark --mark 0x3/0xfff -j CONNMARK --set-xmark 0x111/0xfff
+	//
+	// DESC: If we have a packet mark, set a connmark.
 	iptablesBuilder.AppendRule(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE, "-m", "mark",
 		"--mark", inpodMark,
 		"-j", "CONNMARK",
@@ -190,11 +194,12 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 	// We do this so we can exempt this traffic from ztunnel capture/proxy - otherwise both kube-proxy (legit)
 	// and kubelet (skippable) traffic would have the same srcip once they got to the pod, and would be indistinguishable.
 	//
-	// Note that SortedList is used here because the DIY istio sets class has no order guarantees,
+	// Note that SortedList is used here because the istio sets class has no order guarantees,
 	// and our unit tests will flake if rules have a nondeterministic ordering.
 	for _, probeP := range sets.SortedList(hostProbeSet) {
-		// If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
-		// -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport 8081 -j ACCEPT
+		// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+		//
+		// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
 		iptablesBuilder.AppendRule(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
 			"-s", hostProbeSNAT.String(),
 			"-p", "tcp",
@@ -203,9 +208,10 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 			"-j", "ACCEPT",
 		)
 
-		// Anything coming BACK from the pod healthcheck port with a dest of our SNAT-ed hostside IP
-		// we skip.
-		// -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp --sport 8081 -j ACCEPT
+		// CLI: -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp --sport <PROBEPORT> -j ACCEPT
+		//
+		// DESC: Anything coming BACK from the pod healthcheck port with a dest of our SNAT-ed hostside IP
+		// we also short-circuit.
 		iptablesBuilder.AppendRule(
 			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
 			"-d", hostProbeSNAT.String(),
@@ -216,7 +222,9 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 		)
 	}
 
-	// -A PREROUTING -p tcp -m tcp --dport ` + inport + ` -m mark ! --mark 0x3/0xfff -j TPROXY --on-port ` + inport + ` --on-ip 127.0.0.1 --tproxy-mark 0x111/0xfff
+	// CLI: -A ISTIO_PRERT -p tcp -m tcp --dport <INPORT> -m mark ! --mark 0x3/0xfff -j TPROXY --on-port <INPORT> --on-ip 127.0.0.1 --tproxy-mark 0x111/0xfff
+	//
+	// DESC: Anything heading to <INPORT> that does not have the mark, TPROXY to ztunnel inbound port <INPORT>
 	iptablesBuilder.AppendRule(
 		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
 		"-p", "tcp",
@@ -230,7 +238,9 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 		"--tproxy-mark", inpodTproxyMark,
 	)
 
-	// -A PREROUTING -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+	// CLI: -A ISTIO_PRERT -p tcp -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT
+	//
+	// DESC: Anything that's already in conntrack as an established connection, accept
 	iptablesBuilder.AppendRule(
 		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
 		"-p", "tcp",
@@ -239,7 +249,9 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 		"-j", "ACCEPT",
 	)
 
-	// -A PREROUTING ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x3/0xfff -j TPROXY --on-port ` + inplainport + ` --on-ip 127.0.0.1 --tproxy-mark 0x111/0xfff
+	// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x3/0xfff -j TPROXY --on-port <INPLAINPORT> --on-ip 127.0.0.1 --tproxy-mark 0x111/0xfff
+	//
+	// DESC: Anything that is not bound for localhost and does not have the mark, TPROXY to ztunnel inbound plaintext port <INPLAINPORT>
 	iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
 		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
 		"!", "-d", iptablesconstants.IPVersionSpecific,
@@ -252,7 +264,9 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 		"--tproxy-mark", inpodTproxyMark,
 	)
 
-	// -A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
+	// CLI: -A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
+	//
+	// DESC: Propagate/restore connmark (if we had one) for outbound
 	iptablesBuilder.AppendRule(
 		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.MANGLE,
 		"-m", "connmark",
@@ -263,9 +277,9 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 		"--ctmask", fmt.Sprintf("0x%x", InpodRestoreMask),
 	)
 
-	// END mangle
-
-	// -A ISTIO_OUTPUT ! -o lo -p udp -m udp --dport 53 -j REDIRECT --to-port 15053
+	// CLI: -A ISTIO_OUTPUT ! -o lo -p udp -m udp --dport 53 -j REDIRECT --to-port 15053
+	//
+	// DESC: If this is a UDP DNS request to a non-localhost resolver, send it to ztunnel DNS proxy port
 	iptablesBuilder.AppendRule(
 		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
 		"!", "-o", "lo",
@@ -276,7 +290,9 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 		"--to-port", fmt.Sprintf("%d", constants.DNSCapturePort),
 	)
 
-	// -A ISTIO_OUTPUT -p tcp -m mark --mark 0x111/0xfff -j ACCEPT
+	// CLI: -A ISTIO_OUTPUT -p tcp -m mark --mark 0x111/0xfff -j ACCEPT
+	//
+	// DESC: If this is outbound and has our mark, let it go.
 	iptablesBuilder.AppendRule(
 		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
 		"-p", "tcp",
@@ -284,7 +300,9 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 		"--mark", inpodTproxyMark,
 		"-j", "ACCEPT",
 	)
-	// -A ISTIO_OUTPUT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x3/0xfff -j REDIRECT --to-ports ` + outport + `
+	// CLI: -A ISTIO_OUTPUT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x3/0xfff -j REDIRECT --to-ports <OUTPORT>
+	//
+	// DESC: If this is outbound, not bound for localhost, and does not have our packet mark, redirect to ztunnel proxy <OUTPORT>
 	iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
 		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
 		"!", "-d", iptablesconstants.IPVersionSpecific,
