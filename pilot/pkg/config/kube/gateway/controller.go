@@ -244,7 +244,6 @@ func (c *Controller) QueueStatusUpdates(r GatewayResources) {
 	c.handleStatusUpdates(r.GRPCRoute)
 	c.handleStatusUpdates(r.TCPRoute)
 	c.handleStatusUpdates(r.TLSRoute)
-	c.handleStatusUpdates(r.ServiceEntry)
 }
 
 func (c *Controller) handleStatusUpdates(configs []config.Config) {
