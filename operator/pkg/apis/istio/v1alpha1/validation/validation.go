@@ -114,7 +114,6 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 		{"Values.istiocoredns.enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
 		// nolint: lll
 		{"Values.global.jwtPolicy", "Values.global.jwtPolicy=third-party-jwt. See https://istio.io/latest/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for more information", "third-party-jwt"},
-
 		{"Values.global.centralIstiod", "Values.global.externalIstiod", false},
 		{"Values.global.arch", "the affinity of k8s settings", nil},
 	}
@@ -128,10 +127,6 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.prometheus.Enabled", "the samples/addons/ deployments", false},
-		{
-			"Values.telemetry.v2.stackdriver.logging", "Values.telemetry.v2.stackdriver.outboundAccessLogging and Values.telemetry.v2.stackdriver.inboundAccessLogging",
-			false,
-		},
 		{"Values.global.tracer.stackdriver.debug", "meshConfig.defaultConfig.tracing.stackdriver.debug", false},
 		{"Values.global.tracer.stackdriver.maxNumberOfAttributes", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes", 0},
 		{"Values.global.tracer.stackdriver.maxNumberOfAnnotations", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations", 0},
