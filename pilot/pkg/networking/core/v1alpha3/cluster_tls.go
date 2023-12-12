@@ -86,7 +86,11 @@ var hboneOrPlaintextSocket = []*cluster.Cluster_TransportSocketMatch{
 }
 
 // applyUpstreamTLSSettings applies upstream tls context to the cluster
-func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSSettings, mtlsCtxType mtlsContextType) {
+func (cb *ClusterBuilder) applyUpstreamTLSSettings(
+	opts *buildClusterOpts,
+	tls *networking.ClientTLSSettings,
+	mtlsCtxType mtlsContextType,
+) {
 	c := opts.mutable
 	tlsContext, err := cb.buildUpstreamClusterTLSContext(opts, tls)
 	if err != nil {
