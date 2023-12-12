@@ -181,12 +181,12 @@ spec:
             {{- if .Values.cni.ambient.enabled }}
             - mountPath: /etc/ambient-config
               name: cni-ambient-config-dir
-            - mountPath: /hostmounts/var/run/netns
+            - mountPath: /host/var/run/netns
               mountPropagation: HostToContainer
               name: cni-netns-dir
             - mountPath: /var/run/ztunnel
               name: cni-ztunnel-sock-dir
-            - mountPath: /hostmounts/proc
+            - mountPath: /host/proc
               name: cni-host-proc
               readOnly: true
             {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
@@ -227,8 +227,9 @@ spec:
         - name: cni-netns-dir
           hostPath:
             path: {{ .Values.cni.cniNetnsDir | default "/var/run/netns" }}
-            type: DirectoryOrCreate # this directory must exist on the node, if it does not,
-            # consult your container runtime documentation for the appropriate path
+            type: DirectoryOrCreate # DirectoryOrCreate instead of Directory for the following reason - CNI may not bind mount this until a non-hostnetwork pod is scheduled on the node,
+            # and we don't want to block CNI agent pod creation on waiting for the first non-hostnetwork pod.
+            # Once the CNI does mount this, it will get populated and we're good.
         {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
         - name: cni-bpffs-dir
           hostPath:
