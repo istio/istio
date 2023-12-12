@@ -113,8 +113,6 @@ var rootCmd = &cobra.Command{
 			watchServerReady.Store(true)
 		}
 
-		log.Info("Ambient node agent started, starting node CNI plugin installer...")
-
 		installer := install.NewInstaller(&cfg.InstallConfig, installDaemonReady)
 
 		repair.StartRepair(ctx, cfg.RepairConfig)

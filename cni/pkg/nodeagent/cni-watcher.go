@@ -113,7 +113,8 @@ func (s *CniPluginServer) Start() error {
 func (s *CniPluginServer) handleAddEvent(w http.ResponseWriter, req *http.Request) {
 	if req.Body == nil {
 		log.Error("empty request body")
-		http.Error(w, "empty request body", http.StatusInternalServerError)
+		http.Error(w, "empty request body", http.StatusBadRequest)
+		return
 	}
 	defer req.Body.Close()
 	data, err := io.ReadAll(req.Body)
@@ -126,11 +127,13 @@ func (s *CniPluginServer) handleAddEvent(w http.ResponseWriter, req *http.Reques
 	if err != nil {
 		log.Errorf("Failed to process CNI event payload: %v", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	}
 
 	if err := s.ReconcileCNIAddEvent(req.Context(), msg); err != nil {
 		log.Errorf("Failed to handle add event: %v", err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
 }
 
