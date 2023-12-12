@@ -187,6 +187,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	tcpRoute := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
 	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
 	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
+	serviceEntry := c.cache.List(gvk.ServiceEntry, metav1.NamespaceAll)
 
 	input := GatewayResources{
 		GatewayClass:   deepCopyStatus(gatewayClass),
@@ -196,6 +197,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 		TCPRoute:       deepCopyStatus(tcpRoute),
 		TLSRoute:       deepCopyStatus(tlsRoute),
 		ReferenceGrant: referenceGrant,
+		ServiceEntry:   serviceEntry,
 		Domain:         c.domain,
 		Context:        NewGatewayContext(ps),
 	}
@@ -242,6 +244,7 @@ func (c *Controller) QueueStatusUpdates(r GatewayResources) {
 	c.handleStatusUpdates(r.GRPCRoute)
 	c.handleStatusUpdates(r.TCPRoute)
 	c.handleStatusUpdates(r.TLSRoute)
+	c.handleStatusUpdates(r.ServiceEntry)
 }
 
 func (c *Controller) handleStatusUpdates(configs []config.Config) {
