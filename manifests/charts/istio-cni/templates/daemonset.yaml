@@ -177,10 +177,8 @@ spec:
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
             - mountPath: /var/run/istio-cni
-              name: cni-log-dir
+              name: cni-socket-dir
             {{- if .Values.cni.ambient.enabled }}
-            - mountPath: /etc/ambient-config
-              name: cni-ambient-config-dir
             - mountPath: /host/var/run/netns
               mountPropagation: HostToContainer
               name: cni-netns-dir
@@ -213,15 +211,20 @@ spec:
             type: Directory
         {{- end }}
         {{- if .Values.cni.ambient.enabled }}
-        - name: cni-ambient-config-dir
+        - name: cni-ztunnel-sock-dir
           hostPath:
-            path: {{ .Values.cni.ambient.configDir | default "/etc/ambient-config" }}
+            path: /var/run/ztunnel
+            type: DirectoryOrCreate
+        - name: cni-host-proc
+          hostPath:
+            path: /proc
+            type: Directory
         {{- end }}
         - name: cni-net-dir
           hostPath:
             path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
-        # Used for UDS log
-        - name: cni-log-dir
+        # Used for UDS sockets for logging, ambient eventing
+        - name: cni-socket-dir
           hostPath:
             path: /var/run/istio-cni
         - name: cni-netns-dir
@@ -235,3 +238,4 @@ spec:
           hostPath:
             path: /sys/fs/bpf
         {{- end }}
+
