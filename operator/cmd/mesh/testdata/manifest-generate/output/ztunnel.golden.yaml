@@ -30,7 +30,7 @@ spec:
           value: istiod.istio-system.svc:15012
         - name: XDS_ADDRESS
           value: istiod.istio-system.svc:15012
-        - name: ISTIO_META_CLUSTER_ID
+        - name: CLUSTER_ID
           value: Kubernetes
         - name: POD_NAME
           valueFrom:
