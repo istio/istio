@@ -59,13 +59,13 @@ func (w *SelectorAnalyzer) Metadata() analysis.Metadata {
 func (w *SelectorAnalyzer) Analyze(context analysis.Context) {
 	pods := gatewayPodsLabelMap(context)
 
-	handleResource := func(r *resource.Instance, gvkType config.GroupVersionKind) bool {
+	handleResource := func(r *resource.Instance, gvkType config.GroupVersionKind) {
 		spec, ok := r.Message.(policy)
 		if spec.GetTargetRef() != nil {
-			return true
+			return
 		}
 		if !ok || spec.GetSelector() == nil {
-			return true
+			return
 		}
 		selector := spec.GetSelector()
 		for _, pod := range pods[r.Metadata.FullName.Namespace.String()] {
@@ -73,12 +73,12 @@ func (w *SelectorAnalyzer) Analyze(context analysis.Context) {
 				context.Report(gvkType, msg.NewIneffectiveSelector(r, pod[constants.GatewayNameLabel]))
 			}
 		}
-		return true
 	}
 
 	for _, gvkType := range policyGVKs {
 		context.ForEach(gvkType, func(r *resource.Instance) bool {
-			return handleResource(r, gvkType)
+			handleResource(r, gvkType)
+			return true
 		})
 	}
 }
