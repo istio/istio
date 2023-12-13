@@ -2593,6 +2593,16 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 		},
 		{
 			Meta: config.Meta{
+				Name:              "foo2",
+				Namespace:         "default",
+				CreationTimestamp: olderTime.Add(30 * time.Minute), // Make sure we're newer than wild.default
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"foo.example.com"},
+			},
+		},
+		{
+			Meta: config.Meta{
 				Name:              "wild",
 				Namespace:         "default",
 				CreationTimestamp: olderTime,
@@ -2606,6 +2616,16 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 				Name:              "barwild",
 				Namespace:         "default",
 				CreationTimestamp: oldestTime,
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"*.bar.example.com"},
+			},
+		},
+		{
+			Meta: config.Meta{
+				Name:              "barwild2",
+				Namespace:         "default",
+				CreationTimestamp: olderTime,
 			},
 			Spec: &networking.VirtualService{
 				Hosts: []string{"*.bar.example.com"},
@@ -2640,7 +2660,7 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 			virtualServices: virtualServices,
 			services:        services,
 			expectedIndex: map[host.Name]types.NamespacedName{
-				"foo.example.com":     {Name: "foo", Namespace: "default"},
+				"foo.example.com":     {Name: "foo2", Namespace: "default"},
 				"baz.example.com":     {Name: "wild", Namespace: "default"},
 				"qux.bar.example.com": {Name: "barwild", Namespace: "default"},
 				"*.bar.example.com":   {Name: "barwild", Namespace: "default"},
