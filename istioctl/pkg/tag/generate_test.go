@@ -380,7 +380,7 @@ func TestGenerateOptions(t *testing.T) {
 
 	// Test generate option 'false', should modify webhooks
 	testGenerateOption(t, false, func(t *testing.T, actual, expected []admitv1.MutatingWebhook) {
-		if err := assert.Compare(actual, expected); err == nil {
+		if cmp.Equal(actual, expected) {
 			t.Errorf("expected diff between webhooks, got none")
 		}
 	})
