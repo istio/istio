@@ -170,7 +170,7 @@ func (e *Environment) AddMeshHandler(h func()) {
 	}
 }
 
-func (e *Environment) AddNetworksHandler(h func()) {
+func (e *Environment) AddNetworksHandler(h *mesh.NetworksHandler) {
 	if e != nil && e.NetworksWatcher != nil {
 		e.NetworksWatcher.AddNetworksHandler(h)
 	}

@@ -32,18 +32,26 @@ type NetworksHolder interface {
 	PrevNetworks() *meshconfig.MeshNetworks
 }
 
+// NetworksHandler is a wrapper for func, in order to find the added function
+// through a pointer and delete it
+type NetworksHandler struct {
+	Handler func()
+}
+
 // NetworksWatcher watches changes to the mesh networks config.
 type NetworksWatcher interface {
 	NetworksHolder
 
-	AddNetworksHandler(func())
+	AddNetworksHandler(*NetworksHandler)
+
+	DeleteNetworksHandler(*NetworksHandler)
 }
 
 var _ NetworksWatcher = &internalNetworkWatcher{}
 
 type internalNetworkWatcher struct {
 	mutex        sync.RWMutex
-	handlers     []func()
+	handlers     []*NetworksHandler
 	networks     *meshconfig.MeshNetworks
 	prevNetworks *meshconfig.MeshNetworks
 }
@@ -105,7 +113,7 @@ func (w *internalNetworkWatcher) PrevNetworks() *meshconfig.MeshNetworks {
 
 // SetNetworks will use the given value for mesh networks and notify all handlers of the change
 func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetworks) {
-	var handlers []func()
+	var handlers []*NetworksHandler
 
 	w.mutex.Lock()
 	if !reflect.DeepEqual(meshNetworks, w.networks) {
@@ -115,19 +123,32 @@ func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetwor
 		// Store the new config.
 		w.prevNetworks = w.networks
 		w.networks = meshNetworks
-		handlers = append([]func(){}, w.handlers...)
+		handlers = append([]*NetworksHandler{}, w.handlers...)
 	}
 	w.mutex.Unlock()
 
 	// Notify the handlers of the change.
 	for _, h := range handlers {
-		h()
+		h.Handler()
 	}
 }
 
 // AddNetworksHandler registers a callback handler for changes to the mesh network config.
-func (w *internalNetworkWatcher) AddNetworksHandler(h func()) {
+func (w *internalNetworkWatcher) AddNetworksHandler(h *NetworksHandler) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	w.handlers = append(w.handlers, h)
+}
+
+// DeleteNetworksHandler deregister a callback handler for changes to the mesh network config.
+func (w *internalNetworkWatcher) DeleteNetworksHandler(h *NetworksHandler) {
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	var handlers []*NetworksHandler
+	for _, handler := range w.handlers {
+		if !reflect.DeepEqual(h, handler) {
+			handlers = append(handlers, handler)
+		}
+	}
+	w.handlers = handlers
 }

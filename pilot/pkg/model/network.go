@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/miekg/dns"
+	"istio.io/istio/pkg/config/mesh"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
@@ -109,7 +110,9 @@ func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager
 	mgr.NetworkGateways.mu = &mgr.mu
 	mgr.Unresolved.mu = &mgr.mu
 
-	env.AddNetworksHandler(mgr.reloadGateways)
+	env.AddNetworksHandler(&mesh.NetworksHandler{
+		Handler: mgr.reloadGateways,
+	})
 	// register to per registry, will be called when gateway service changed
 	env.AppendNetworkGatewayHandler(mgr.reloadGateways)
 	nameCache.AppendNetworkGatewayHandler(mgr.reloadGateways)

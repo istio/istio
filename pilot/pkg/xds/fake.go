@@ -152,11 +152,13 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	var defaultKubeController *kube.FakeController
 	var registries []serviceregistry.Instance
 	if opts.NetworksWatcher != nil {
-		opts.NetworksWatcher.AddNetworksHandler(func() {
-			s.ConfigUpdate(&model.PushRequest{
-				Full:   true,
-				Reason: model.NewReasonStats(model.NetworksTrigger),
-			})
+		opts.NetworksWatcher.AddNetworksHandler(&mesh.NetworksHandler{
+			Handler: func() {
+				s.ConfigUpdate(&model.PushRequest{
+					Full:   true,
+					Reason: model.NewReasonStats(model.NetworksTrigger),
+				})
+			},
 		})
 	}
 	var xdsUpdater model.XDSUpdater = s

@@ -48,9 +48,11 @@ func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
 	doneCh := make(chan struct{}, 1)
 
 	var newN *meshconfig.MeshNetworks
-	w.AddNetworksHandler(func() {
-		newN = w.Networks()
-		close(doneCh)
+	w.AddNetworksHandler(&mesh.NetworksHandler{
+		Handler: func() {
+			newN = w.Networks()
+			close(doneCh)
+		},
 	})
 
 	// Change the file to trigger the update.
