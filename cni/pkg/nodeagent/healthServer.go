@@ -51,7 +51,7 @@ func healthz(w http.ResponseWriter, _ *http.Request) {
 
 func readyz(installReady, watchReady *atomic.Value) http.HandlerFunc {
 	return func(w http.ResponseWriter, _ *http.Request) {
-		if (installReady == nil || !installReady.Load().(bool)) || (watchReady == nil || !watchReady.Load().(bool)) {
+		if !installReady.Load().(bool) || !watchReady.Load().(bool) {
 			http.Error(w, http.StatusText(http.StatusServiceUnavailable), http.StatusServiceUnavailable)
 			return
 		}

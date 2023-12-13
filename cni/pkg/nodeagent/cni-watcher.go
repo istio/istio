@@ -155,7 +155,7 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 	// The CNI node plugin should have already checked the pod with this
 	// exact same function before forwarding us the event, but we have to invoke the K8S client anyway,
 	// so to be safe we check it again here to make sure we get the same result
-	ambientPod, err := s.handlers.AmbientEnabled(addCmd.PodName, addCmd.PodNamespace)
+	ambientPod, err := s.handlers.GetPodIfAmbient(addCmd.PodName, addCmd.PodNamespace)
 	if err != nil {
 		return err
 	}

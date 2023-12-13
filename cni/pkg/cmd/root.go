@@ -178,7 +178,7 @@ func init() {
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
 	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log output to")
 	registerStringParameter(constants.CNIEventAddress, "/var/run/istio-cni/pluginevent.sock",
-		"The UDS server address which CNI plugin will copy log ouptut to")
+		"The UDS server address which CNI plugin will forward ambient pod creation events to")
 	registerStringParameter(constants.ZtunnelUDSAddress, "/var/run/ztunnel/ztunnel.sock", "The UDS server address which ztunnel will connect to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
 	registerBooleanParameter(constants.InpodEnabled, false, "Whether inpod redirection is enabled")

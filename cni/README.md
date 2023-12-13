@@ -29,7 +29,7 @@ In ambient mode, the CNI plugin is effectively just a shim to catch pod creation
 
 ### Design details
 
-The `istio-cni` component accomplishes ambient redirection by setting up sockets within the application pod network namespace, where:
+Broadly, `istio-cni` accomplishes ambient redirection by instructing ztunnel to set up sockets within the application pod network namespace, where:
 
 - one end of the socket is in the application pod
 - and the other end is in ztunnel's pod
@@ -38,7 +38,7 @@ and setting up iptables rules to funnel traffic thru that socket "tube" to ztunn
 
 This effectively behaves like ztunnel is an in-pod sidecar, without actually requiring the injection of ztunnel as a sidecar into the pod manifest, or mutatating the application pod in any way.
 
-Additionally, it does not require any network rules/routing/config in the host network namespace, which greatly increases ambient mode compatibility with 3rd-party CNIs. In virtually all cases, Solo CNI is exactly as compatible with 3rd-party CNIs as sidecars are/were.
+Additionally, it does not require any network rules/routing/config in the host network namespace, which greatly increases ambient mode compatibility with 3rd-party CNIs. In virtually all cases, this "in-pod" ambient CNI is exactly as compatible with 3rd-party CNIs as sidecars are/were.
 
 ### Notable Env Vars
 

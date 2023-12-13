@@ -338,7 +338,7 @@ func TestAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
-	_, err := handlers.AmbientEnabled(pod.Name, ns.Name)
+	_, err := handlers.GetPodIfAmbient(pod.Name, ns.Name)
 
 	assert.NoError(t, err)
 }
@@ -382,7 +382,7 @@ func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
-	disabledPod, err := handlers.AmbientEnabled(pod.Name, ns.Name)
+	disabledPod, err := handlers.GetPodIfAmbient(pod.Name, ns.Name)
 
 	assert.NoError(t, err)
 	assert.Equal(t, disabledPod, nil)
@@ -427,7 +427,7 @@ func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
-	disabledPod, err := handlers.AmbientEnabled(pod.Name, "what")
+	disabledPod, err := handlers.GetPodIfAmbient(pod.Name, "what")
 
 	assert.Error(t, err)
 	assert.Equal(t, disabledPod, nil)
