@@ -33,7 +33,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/pkg/monitoring/monitortest"
 )
@@ -68,8 +67,7 @@ func TestServerAndZtunIntegration(t *testing.T) {
 		panic(err)
 	}
 	iptablesConfigurator := iptables.NewIptablesConfigurator(nil, realDependencies(), iptables.RealNlDeps())
-	set := ipset.IPPortSet{Name: "foo"}
-	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, NewPodNetnsProcFinder(os.DirFS("/proc")), set)
+	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, NewPodNetnsProcFinder(os.DirFS("/proc")))
 
 	defer os.Remove(addr)
 	ctx, cancelTimeout := context.WithTimeout(context.Background(), 20*time.Second)
