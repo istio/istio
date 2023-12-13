@@ -49,8 +49,8 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient"
+	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/platform"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
@@ -113,6 +113,8 @@ type Webhook struct {
 
 	env      *model.Environment
 	revision string
+
+	discoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 }
 
 func (wh *Webhook) GetConfig() WebhookConfig {
@@ -203,9 +205,8 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	}
 
 	if p.KubeClient != nil {
-		if platform.IsOpenShift() {
-			wh.namespaces = kclient.New[*corev1.Namespace](p.KubeClient)
-		}
+		wh.namespaces = kclient.New[*corev1.Namespace](p.KubeClient)
+		wh.discoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(wh.namespaces, wh.meshConfig.GetDiscoverySelectors())
 	}
 
 	mc := NewMulticast(p.Watcher, wh.GetConfig)
@@ -225,6 +226,9 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	p.Env.Watcher.AddMeshHandler(func() {
 		wh.mu.Lock()
 		wh.meshConfig = p.Env.Mesh()
+		if wh.discoveryNamespacesFilter != nil {
+			wh.discoveryNamespacesFilter.SelectorsChanged(wh.meshConfig.GetDiscoverySelectors())
+		}
 		wh.mu.Unlock()
 	})
 
@@ -1048,6 +1052,14 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	if pod.ObjectMeta.Namespace == "" {
 		pod.ObjectMeta.Namespace = req.Namespace
 	}
+
+	// Exit early if this pod is in a namespace filtered by discoverySelectors
+	if wh.discoveryNamespacesFilter != nil && !wh.discoveryNamespacesFilter.Filter(pod.ObjectMeta.Namespace) {
+		return &kube.AdmissionResponse{
+			Allowed: true,
+		}
+	}
+
 	log.Infof("Sidecar injection request for %v/%v", req.Namespace, podName)
 	log.Debugf("Object: %v", string(req.Object.Raw))
 	log.Debugf("OldObject: %v", string(req.OldObject.Raw))
