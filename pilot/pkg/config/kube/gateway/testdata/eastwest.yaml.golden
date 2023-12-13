@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: eastwestgateway-istio.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/eastwestgateway/istiod-grpc.istio-system
   creationTimestamp: null
@@ -21,6 +22,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: eastwestgateway-istio.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/eastwestgateway/istiod-webhook.istio-system
   creationTimestamp: null
@@ -40,6 +42,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: eastwestgateway-istio.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/eastwestgateway/cross-network.istio-system
   creationTimestamp: null

@@ -21,6 +21,8 @@ import (
 
 	mesh "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	security "istio.io/api/security/v1beta1"
+	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
@@ -28,6 +30,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
@@ -59,7 +62,11 @@ func TestProxyNeedsPush(t *testing.T) {
 		Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{},
 		SidecarScope: &model.SidecarScope{Name: generalName, Namespace: nsName, RootNamespace: nsRoot},
 	}
-	gateway := &model.Proxy{Type: model.Router, Metadata: &model.NodeMetadata{Namespace: nsName}}
+	gateway := &model.Proxy{
+		Type:     model.Router,
+		Metadata: &model.NodeMetadata{Namespace: nsName},
+		Labels:   map[string]string{"gateway": "gateway"},
+	}
 
 	sidecarScopeKindNames := map[kind.Kind]string{
 		kind.ServiceEntry: svcName, kind.VirtualService: vsName, kind.DestinationRule: drName, kind.Sidecar: scName,
@@ -255,10 +262,12 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	// test for gateway proxy dependencies with PILOT_FILTER_GATEWAY_CLUSTER_CONFIG enabled.
 	test.SetForTest(t, &features.FilterGatewayClusterConfig, true)
+	test.SetForTest(t, &features.JwksFetchMode, jwt.Envoy)
 
 	const (
 		fooSvc       = "foo"
 		extensionSvc = "extension"
+		jwksSvc      = "jwks"
 	)
 
 	cg = v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
@@ -279,6 +288,13 @@ func TestProxyNeedsPush(t *testing.T) {
 			},
 			{
 				Hostname: extensionSvc,
+				Attributes: model.ServiceAttributes{
+					ExportTo:  sets.New(visibility.Public),
+					Namespace: nsName,
+				},
+			},
+			{
+				Hostname: jwksSvc,
 				Attributes: model.ServiceAttributes{
 					ExportTo:  sets.New(visibility.Public),
 					Namespace: nsName,
@@ -306,6 +322,29 @@ func TestProxyNeedsPush(t *testing.T) {
 							},
 						},
 					},
+				},
+			},
+			{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.RequestAuthentication,
+					Name:             jwksSvc,
+					Namespace:        nsName,
+				},
+				Spec: &security.RequestAuthentication{
+					Selector: &v1beta1.WorkloadSelector{MatchLabels: gateway.Labels},
+					JwtRules: []*security.JWTRule{{JwksUri: "https://" + jwksSvc}},
+				},
+			},
+			{
+				Meta: config.Meta{
+					GroupVersionKind: gvk.RequestAuthentication,
+					Name:             fooSvc,
+					Namespace:        nsName,
+				},
+				Spec: &security.RequestAuthentication{
+					// not matching the gateway
+					Selector: &v1beta1.WorkloadSelector{MatchLabels: map[string]string{"foo": "bar"}},
+					JwtRules: []*security.JWTRule{{JwksUri: "https://" + fooSvc}},
 				},
 			},
 		},
@@ -346,6 +385,12 @@ func TestProxyNeedsPush(t *testing.T) {
 			name:    "mesh config extensions",
 			proxy:   gateway,
 			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: extensionSvc, Namespace: nsName}),
+			want:    true,
+		},
+		{
+			name:    "jwks servers",
+			proxy:   gateway,
+			configs: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: jwksSvc, Namespace: nsName}),
 			want:    true,
 		},
 	}

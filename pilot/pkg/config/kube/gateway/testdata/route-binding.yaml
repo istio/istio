@@ -45,8 +45,8 @@ spec:
         from: All
       kinds:
       - kind: TCPRoute
-  - name: namespace-selector
-    hostname: "*.namespace-selector.example"
+  - name: slctr-labels
+    hostname: "*.slctr-labels.example"
     port: 80
     protocol: HTTP
     allowedRoutes:
@@ -55,6 +55,140 @@ spec:
         selector:
           matchLabels:
             istio.io/test-name-part: group
+  - name: slctr-expr-in-yes
+    hostname: "*.slctr-expr-in-yes.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: In
+            values:
+              - group
+  - name: slctr-expr-in-no
+    hostname: "*.slctr-expr-in-no.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: In
+            values:
+              - public
+  - name: slctr-expr-notin-yes
+    hostname: "*.slctr-expr-notin-yes.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: NotIn
+            values:
+              - private
+          - key: istio.io/test-label-not-found
+            operator: NotIn
+            values:
+              - irrelevant
+  - name: slctr-expr-notin-no
+    hostname: "*.slctr-expr-notin-no.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: NotIn
+            values:
+              - group
+          - key: istio.io/test-label-not-found
+            operator: NotIn
+            values:
+              - irrelevant
+  - name: slctr-expr-exists-yes
+    hostname: "*.slctr-expr-exists-yes.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: Exists
+  - name: slctr-expr-exists-no
+    hostname: "*.slctr-expr-exists-no.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-name-public
+            operator: Exists
+  - name: slctr-expr-dne-yes
+    hostname: "*.slctr-expr-dne-yes.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-label-not-found
+            operator: DoesNotExist
+  - name: slctr-expr-dne-no
+    hostname: "*.slctr-expr-dne-no.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: DoesNotExist
+  - name: slctr-combined-yes
+    hostname: "*.slctr-combined-yes.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            istio.io/test-name-part: group
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: In
+            values:
+              - group
+  - name: slctr-combined-no
+    hostname: "*.slctr-combined-no.example"
+    port: 80
+    protocol: HTTP
+    allowedRoutes:
+      namespaces:
+        from: Selector
+        selector:
+          matchLabels:
+            istio.io/test-name-part: public
+          matchExpressions:
+          - key: istio.io/test-name-part
+            operator: In
+            values:
+              - group
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -162,7 +296,37 @@ spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
-    sectionName: namespace-selector
+    sectionName: slctr-labels
+  - name: gateway
+    namespace: istio-system
+    sectionName: slctr-expr-in-yes
+  - name: gateway
+    namespace: istio-system
+    sectionName: slctr-expr-in-no
+  - name: gateway
+    namespace: istio-system
+    sectionName: slctr-expr-notin-yes
+  - name: gateway
+    namespace: istio-system
+    sectionName: slctr-expr-notin-no
+  - name: gateway
+    namespace: istio-system
+    sectionName: slctr-expr-exists-yes
+  - name: gateway
+    namespace: istio-system
+    sectionName: slctr-expr-exists-no
+  - name: gateway
+    namespace: istio-system
+    sectionName: slctr-expr-dne-yes
+  - name: gateway
+    namespace: istio-system
+    sectionName: slctr-expr-dne-no
+  - name: gateway
+    namespace: istio-system
+    sectionName: slctr-combined-yes
+  - name: gateway
+    namespace: istio-system
+    sectionName: slctr-combined-no
   rules:
   - backendRefs:
     - name: httpbin
@@ -177,7 +341,7 @@ spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
-    sectionName: namespace-selector
+    sectionName: slctr-labels
   rules:
   - backendRefs:
     - name: httpbin
@@ -192,7 +356,7 @@ spec:
   parentRefs:
   - name: gateway
     namespace: istio-system
-    sectionName: namespace-selector
+    sectionName: slctr-labels
   rules:
   - backendRefs:
     - name: httpbin

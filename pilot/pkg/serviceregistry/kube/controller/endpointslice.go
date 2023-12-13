@@ -131,14 +131,29 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 			continue
 		}
 
-		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full: features.EnableHeadlessService,
-			// TODO: extend and set service instance type, so no need to re-init push context
-			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
+		// pure HTTP headless services should not need a full push since they do not
+		// require a Listener based on IP: https://github.com/istio/istio/issues/48207
+		pureHTTP := true
+		for _, p := range modelSvc.Ports {
+			if !p.Protocol.IsHTTP() {
+				pureHTTP = false
+				break
+			}
+		}
+		// ConfigUpdate should be handled by pushEDS above
+		if !pureHTTP {
+			esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+				Full: features.EnableHeadlessService,
+				// TODO: extend and set service instance type, so no need to re-init push context
+				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
 
-			Reason: model.NewReasonStats(model.HeadlessEndpointUpdate),
-		})
-		break
+				Reason: model.NewReasonStats(model.HeadlessEndpointUpdate),
+			})
+			// if there has been a full push, any further changes will be picked up by that
+			if features.EnableHeadlessService {
+				break
+			}
+		}
 	}
 }
 
@@ -157,7 +172,7 @@ func (esc *endpointSliceController) GetProxyServiceTargets(proxy *model.Proxy) [
 }
 
 func serviceNameForEndpointSlice(labels map[string]string) string {
-	return labels[v1beta1.LabelServiceName]
+	return labels[v1.LabelServiceName]
 }
 
 func (esc *endpointSliceController) serviceTargets(ep *v1.EndpointSlice, proxy *model.Proxy) []model.ServiceTarget {

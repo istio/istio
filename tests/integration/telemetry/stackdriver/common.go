@@ -56,6 +56,7 @@ const (
 	serverRequestCount           = "tests/integration/telemetry/stackdriver/testdata/server_request_count.json.tmpl"
 	clientRequestCount           = "tests/integration/telemetry/stackdriver/testdata/client_request_count.json.tmpl"
 	serverLogEntry               = "tests/integration/telemetry/stackdriver/testdata/server_access_log.json.tmpl"
+	accessLogPolicyEnvoyFilter   = "tests/integration/telemetry/stackdriver/testdata/accesslogpolicy.yaml"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 
 	FakeGCEMetadataServerValues = `

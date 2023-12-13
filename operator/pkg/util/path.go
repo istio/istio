@@ -24,9 +24,7 @@ import (
 
 const (
 	// PathSeparator is the separator between path elements.
-	PathSeparator = "."
-	// KVSeparator is the separator between the key and value in a key/value path element,
-	KVSeparator     = string(kvSeparatorRune)
+	PathSeparator   = "."
 	kvSeparatorRune = ':'
 
 	// InsertIndex is the index that means "insert" when setting values
