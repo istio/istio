@@ -5,4 +5,4 @@ issue:
 - 48273
 releaseNotes:
 - |
-  **Added** an analyzer to warn users if they set the `selector` field instead of the `targetRef` field for specific Istio resources, which may cause the resource to be ineffective.
+  **Added** an analyzer to warn users if they set the `selector` field instead of the `targetRef` field for specific Istio resources, which will cause the resource to be ineffective.
