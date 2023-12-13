@@ -58,18 +58,10 @@ func TestServerReconcilePod(t *testing.T) {
 		return kubeClient, fakePodHandler, err
 	}
 
-	type expectedEvent struct {
-		event     string
-		podName   string
-		assertPod func(pod *v1.Pod) bool
-		// couldSkip is used to indicate that the event could be skipped in assertion.
-		couldSkip bool
-	}
-
 	cases := []struct {
-		name           string
-		podOperations  func(ctx context.Context, kubeClient kube.CLIClient) error
-		expectedEvents []expectedEvent
+		name              string
+		podOperations     func(ctx context.Context, kubeClient kube.CLIClient) error
+		mustReceivedEvent expectedEvent
 	}{
 		{
 			name: "add a pod to mesh",
@@ -82,16 +74,9 @@ func TestServerReconcilePod(t *testing.T) {
 				}, metav1.CreateOptions{})
 				return err
 			},
-			expectedEvents: []expectedEvent{
-				{
-					event:   "add",
-					podName: "app-1",
-				},
-				{
-					event:     "add",
-					podName:   "app-1",
-					couldSkip: true,
-				},
+			mustReceivedEvent: expectedEvent{
+				podName: "app-1",
+				event:   "add",
 			},
 		},
 		{
@@ -109,23 +94,9 @@ func TestServerReconcilePod(t *testing.T) {
 
 				return kubeClient.Kube().CoreV1().Pods(testNamespace).Delete(ctx, "app-2", metav1.DeleteOptions{})
 			},
-			expectedEvents: []expectedEvent{
-				{
-					event:   "add",
-					podName: "app-2",
-				},
-				{
-					event:     "add",
-					podName:   "app-2",
-					couldSkip: true,
-					assertPod: func(pod *v1.Pod) bool { // means pod is deleting, but it is not received sometimes
-						return pod.DeletionTimestamp != nil
-					},
-				},
-				{
-					event:   "del",
-					podName: "app-2",
-				},
+			mustReceivedEvent: expectedEvent{
+				podName: "app-2",
+				event:   "del",
 			},
 		},
 		{
@@ -158,23 +129,44 @@ func TestServerReconcilePod(t *testing.T) {
 				}
 				return nil
 			},
-			expectedEvents: []expectedEvent{
-				{
-					event:   "add",
-					podName: "app-3",
-				},
-				{
-					event:     "add",
-					podName:   "app-3",
-					couldSkip: true,
-				},
-				{
-					event:   "del",
-					podName: "app-3",
-					assertPod: func(pod *v1.Pod) bool { // means pod is not deleting
-						return pod.DeletionTimestamp == nil
+			mustReceivedEvent: expectedEvent{
+				podName: "app-3",
+				event:   "del",
+			},
+		},
+		{
+			name: "add a none-ambient pod to mesh, then update it(AmbientRedirectionDisabled)",
+			podOperations: func(ctx context.Context, kubeClient kube.CLIClient) error {
+				_, err := kubeClient.Kube().CoreV1().Pods(testNamespace).Create(ctx, &v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-4",
+						Namespace: testNamespace,
+						Annotations: map[string]string{
+							constants.AmbientRedirection: constants.AmbientRedirectionDisabled,
+						},
 					},
-				},
+				}, metav1.CreateOptions{})
+				if err != nil {
+					return err
+				}
+
+				_, err = kubeClient.Kube().CoreV1().Pods(testNamespace).Update(ctx, &v1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "app-4",
+						Namespace: testNamespace,
+						Annotations: map[string]string{
+							constants.AmbientRedirection: constants.AmbientRedirectionEnabled,
+						},
+					},
+				}, metav1.UpdateOptions{})
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+			mustReceivedEvent: expectedEvent{
+				podName: "app-4",
+				event:   "add",
 			},
 		},
 	}
@@ -199,25 +191,15 @@ func TestServerReconcilePod(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.EventuallyEqual(t, func() bool {
-				skippedEvents := 0
-				for i, event := range c.expectedEvents {
-					ok := fakePodHandler.eventIs(i-skippedEvents, event.event, event.podName)
-					if ok {
-						if event.assertPod != nil {
-							assert.Equal(t, true, event.assertPod(fakePodHandler.getEventPod(i-skippedEvents)))
-						}
-
-						continue
-					}
-					if event.couldSkip {
-						skippedEvents++
-						continue
-					}
-				}
-				return true
+				return fakePodHandler.receivedEvent(c.mustReceivedEvent.event, c.mustReceivedEvent.podName)
 			}, true, retry.Timeout(3*time.Second))
 		})
 	}
+}
+
+type expectedEvent struct {
+	event   string
+	podName string
 }
 
 type fakePodReconcileHandler struct {
@@ -240,25 +222,16 @@ func (h *fakePodReconcileHandler) getEvents() []podEvent {
 	return h.events
 }
 
-func (h *fakePodReconcileHandler) getEventPod(i int) *v1.Pod {
+func (h *fakePodReconcileHandler) receivedEvent(event, podName string) bool {
 	h.Lock()
 	defer h.Unlock()
 
-	return h.events[i].pod
-}
-
-func (h *fakePodReconcileHandler) eventIs(index int, event, podName string) bool {
-	h.Lock()
-	defer h.Unlock()
-
-	if index >= len(h.events) {
-		return false
+	for _, e := range h.events {
+		if e.event == event && e.pod.Name == podName {
+			return true
+		}
 	}
-	e := h.events[index]
-	if e.event != event || e.pod.Name != podName {
-		return false
-	}
-	return true
+	return false
 }
 
 func (h *fakePodReconcileHandler) delPodFromMesh(pod *v1.Pod, event controllers.Event) {
