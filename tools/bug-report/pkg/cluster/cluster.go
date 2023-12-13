@@ -65,8 +65,8 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 		}
 		if len(eld.Labels) > 0 {
 			for key, val := range eld.Labels {
-				if evLablel, exists := pod.Labels[key]; exists {
-					if isExactMatchedOrPatternMatched(val, evLablel) {
+				if evLabel, exists := pod.Labels[key]; exists {
+					if isExactMatchedOrPatternMatched(val, evLabel) {
 						return true
 					}
 				}
@@ -110,8 +110,8 @@ func shouldSkipPod(pod *corev1.Pod, config *config2.BugReportConfig) bool {
 		if len(ild.Labels) > 0 {
 			isLabelsMatch := false
 			for key, val := range ild.Labels {
-				if evLablel, exists := pod.Labels[key]; exists {
-					if isExactMatchedOrPatternMatched(val, evLablel) {
+				if evLabel, exists := pod.Labels[key]; exists {
+					if isExactMatchedOrPatternMatched(val, evLabel) {
 						isLabelsMatch = true
 						break
 					}

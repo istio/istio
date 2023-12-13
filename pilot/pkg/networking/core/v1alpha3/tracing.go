@@ -237,7 +237,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		*meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog,
 		*meshconfig.MeshConfig_ExtensionProvider_Prometheus:
 		return nil, false, fmt.Errorf("provider %T does not support tracing", provider)
-		// Should enver happen, but just in case we forget to add one
+		// Should never happen, but just in case we forget to add one
 	default:
 		return nil, false, fmt.Errorf("provider %T does not support tracing", provider)
 	}

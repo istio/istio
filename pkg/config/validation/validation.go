@@ -1827,14 +1827,14 @@ func validateServiceSettings(config *meshconfig.MeshConfig) (errs error) {
 func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
 	var errs error
 	if pkpConf.GetProvider() == nil {
-		errs = multierror.Append(errs, errors.New("private key provider confguration is required"))
+		errs = multierror.Append(errs, errors.New("private key provider configuration is required"))
 	}
 
 	switch pkpConf.GetProvider().(type) {
 	case *meshconfig.PrivateKeyProvider_Cryptomb:
 		cryptomb := pkpConf.GetCryptomb()
 		if cryptomb == nil {
-			errs = multierror.Append(errs, errors.New("cryptomb confguration is required"))
+			errs = multierror.Append(errs, errors.New("cryptomb configuration is required"))
 		} else {
 			pollDelay := cryptomb.GetPollDelay()
 			if pollDelay == nil {
@@ -1846,7 +1846,7 @@ func validatePrivateKeyProvider(pkpConf *meshconfig.PrivateKeyProvider) error {
 	case *meshconfig.PrivateKeyProvider_Qat:
 		qatConf := pkpConf.GetQat()
 		if qatConf == nil {
-			errs = multierror.Append(errs, errors.New("qat confguration is required"))
+			errs = multierror.Append(errs, errors.New("qat configuration is required"))
 		} else {
 			pollDelay := qatConf.GetPollDelay()
 			if pollDelay == nil {
@@ -1967,7 +1967,7 @@ func ValidateMeshConfigProxyConfig(config *meshconfig.ProxyConfig) (errs error) 
 
 	if pkpConf := config.GetPrivateKeyProvider(); pkpConf != nil {
 		if err := validatePrivateKeyProvider(pkpConf); err != nil {
-			errs = multierror.Append(errs, multierror.Prefix(err, "invalid private key provider confguration:"))
+			errs = multierror.Append(errs, multierror.Prefix(err, "invalid private key provider configuration:"))
 		}
 	}
 

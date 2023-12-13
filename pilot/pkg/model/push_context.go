@@ -858,7 +858,7 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) b
 	return ps.extraGatewayServices(proxy).Contains(hostname)
 }
 
-// wellknownProviders is a lsit of all known providers.
+// wellknownProviders is a list of all known providers.
 // This exists
 var wellknownProviders = sets.New(
 	"envoy_ext_authz_http",

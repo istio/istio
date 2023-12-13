@@ -304,7 +304,7 @@ int ztunnel_ingress(struct __sk_buff *skb)
 
     if (skb->cb[4] == OUTBOUND_CB) {
         // We mark all app egress pkt as outbound and redirect here.
-        // We need identify if it's a actual *outbound* or just a reponse to
+        // We need identify if it's a actual *outbound* or just a response to
         // the proxy
         sk = bpf_skc_lookup_tcp(skb, tuple, tuple_len, BPF_F_CURRENT_NETNS, 0);
         if (sk) {
@@ -382,7 +382,7 @@ int ztunnel_tproxy(struct __sk_buff *skb)
         sk = NULL;
     }
     if (!sk) {
-        // No exisiting connection, try to find listner
+        // No existing connection, try to find listner
         __builtin_memset(&proxy_tup, 0, sizeof(proxy_tup));
 
         if (skb->cb[4] == OUTBOUND_CB) {

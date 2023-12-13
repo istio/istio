@@ -562,7 +562,7 @@ func (table *LookupTable) lookupHost(qtype uint16, hostname string) ([]dns.RR, b
 			for _, answer := range ipAnswers {
 				copied := dns.Copy(answer)
 				/// If there is a CNAME record for the wildcard host, we will sent a chained response of CNAME + A/AAAA pointer
-				/// Otherwhise we expand the wildcard to the original question domain
+				/// Otherwise we expand the wildcard to the original question domain
 				if len(cnAnswers) > 0 {
 					copied.Header().Name = hostname
 				} else {
