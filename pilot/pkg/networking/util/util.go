@@ -171,7 +171,7 @@ func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
 	}, nil
 }
 
-// OptionalBuildOptions is a struct to hold optional parameters for BuildAddress.
+// OptionalBuildOptions is a struct to hold optional parameters for BuildAddress and BuildAdditionalAddresses.
 type OptionalBuildAddressOptions struct {
 	Transport istionetworking.TransportProtocol
 }
