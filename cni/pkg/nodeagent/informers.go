@@ -39,7 +39,7 @@ var (
 )
 
 type K8sHandlers interface {
-	AmbientEnabled(podName, podNamespace string) (*corev1.Pod, error)
+	GetPodIfAmbient(podName, podNamespace string) (*corev1.Pod, error)
 	GetAmbientPods() []*corev1.Pod
 	Start()
 }
@@ -75,7 +75,7 @@ func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDa
 	return s
 }
 
-func (s *InformerHandlers) AmbientEnabled(podName, podNamespace string) (*corev1.Pod, error) {
+func (s *InformerHandlers) GetPodIfAmbient(podName, podNamespace string) (*corev1.Pod, error) {
 	ns := s.namespaces.Get(podNamespace, "")
 	if ns == nil {
 		return nil, fmt.Errorf("failed to find namespace %v", ns)
