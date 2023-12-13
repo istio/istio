@@ -15,10 +15,12 @@
 package tag
 
 import (
+	"context"
 	"fmt"
 	"path/filepath"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	admitv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -27,6 +29,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 var (
@@ -348,4 +351,38 @@ func TestGenerateMutatingWebhook(t *testing.T) {
 			}
 		}
 	}
+}
+
+func testGenerateOption(t *testing.T, generate bool, assertFunc func(*testing.T, []admitv1.MutatingWebhook, []admitv1.MutatingWebhook)) {
+	defaultWh := defaultRevisionCanonicalWebhook.DeepCopy()
+	fakeClient := kube.NewFakeClient(defaultWh)
+
+	opts := &GenerateOptions{
+		Generate: generate,
+		Tag:      "default",
+		Revision: "default",
+	}
+
+	_, err := Generate(context.TODO(), fakeClient, opts, "istio-system")
+	assert.NoError(t, err)
+
+	wh, err := fakeClient.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().
+		Get(context.Background(), "istio-sidecar-injector", metav1.GetOptions{})
+	assert.NoError(t, err)
+
+	assertFunc(t, wh.Webhooks, defaultWh.Webhooks)
+}
+
+func TestGenerateOptions(t *testing.T) {
+	// Test generate option 'true', should not modify webhooks
+	testGenerateOption(t, true, func(t *testing.T, actual, expected []admitv1.MutatingWebhook) {
+		assert.Equal(t, actual, expected)
+	})
+
+	// Test generate option 'false', should modify webhooks
+	testGenerateOption(t, false, func(t *testing.T, actual, expected []admitv1.MutatingWebhook) {
+		if cmp.Equal(actual, expected) {
+			t.Errorf("expected diff between webhooks, got none")
+		}
+	})
 }
