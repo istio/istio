@@ -852,10 +852,27 @@ func computeWildcardHostVirtualServiceIndex(virtualServices []config.Config, ser
 	for _, vs := range virtualServices {
 		v := vs.Spec.(*networking.VirtualService)
 		for _, h := range v.Hosts {
+			// We may have duplicate (not just overlapping) hosts; in the case of exact duplicates, take the oldest one first
 			if host.Name(h).IsWildCarded() {
-				wildcardVirtualServiceHostIndex[host.Name(h)] = vs
+				existingVs, exists := wildcardVirtualServiceHostIndex[host.Name(h)]
+				if !exists {
+					wildcardVirtualServiceHostIndex[host.Name(h)] = vs
+					continue
+				}
+				// Only replace if this VS is older than the existing one for this hostname
+				if vs.GetCreationTimestamp().Before(existingVs.GetCreationTimestamp()) {
+					wildcardVirtualServiceHostIndex[host.Name(h)] = vs
+				}
 			} else {
-				fqdnVirtualServiceHostIndex[host.Name(h)] = vs
+				existingVs, exists := fqdnVirtualServiceHostIndex[host.Name(h)]
+				if !exists {
+					fqdnVirtualServiceHostIndex[host.Name(h)] = vs
+					continue
+				}
+				// Only replace if this VS is older than the existing one for this hostname
+				if vs.GetCreationTimestamp().Before(existingVs.GetCreationTimestamp()) {
+					fqdnVirtualServiceHostIndex[host.Name(h)] = vs
+				}
 			}
 		}
 	}
