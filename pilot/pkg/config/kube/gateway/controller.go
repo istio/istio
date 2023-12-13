@@ -187,7 +187,7 @@ func (c *Controller) Reconcile(ps *model.PushContext) error {
 	tcpRoute := c.cache.List(gvk.TCPRoute, metav1.NamespaceAll)
 	tlsRoute := c.cache.List(gvk.TLSRoute, metav1.NamespaceAll)
 	referenceGrant := c.cache.List(gvk.ReferenceGrant, metav1.NamespaceAll)
-	serviceEntry := c.cache.List(gvk.ServiceEntry, metav1.NamespaceAll)
+	serviceEntry := c.cache.List(gvk.ServiceEntry, metav1.NamespaceAll) // TODO lazy load only referenced SEs?
 
 	input := GatewayResources{
 		GatewayClass:   deepCopyStatus(gatewayClass),
