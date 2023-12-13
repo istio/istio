@@ -3,6 +3,9 @@ kind: IstioOperator
 metadata:
   namespace: istio-system
 spec:
+  hub: gcr.io/istio-testing
+  tag: latest
+
   # Turn on default components: base, pilot, and ingress gateway
   components:
     base:
