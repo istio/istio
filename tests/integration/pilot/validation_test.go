@@ -23,7 +23,7 @@ import (
 	"strings"
 	"testing"
 
-	"gopkg.in/square/go-jose.v2/json"
+	json "github.com/go-jose/go-jose/v3/json"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pkg/config/constants"
