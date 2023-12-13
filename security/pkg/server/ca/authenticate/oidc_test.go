@@ -26,8 +26,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-jose/go-jose/v3"
 	"google.golang.org/grpc/metadata"
-	jose "gopkg.in/square/go-jose.v2"
 
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pkg/security"
