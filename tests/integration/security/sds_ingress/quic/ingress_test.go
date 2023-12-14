@@ -79,12 +79,6 @@ func TestTlsGatewaysWithQUIC(t *testing.T) {
 		RequiresSingleCluster().
 		Features("security.ingress.quic.sds.tls").
 		Run(func(t framework.TestContext) {
-			if t.Settings().EnableDualStack {
-				// Due to https://github.com/istio/istio/issues/46911
-				// currently QUIC tests do not work in dual-stack clusters.
-				// TODO: fix the issue and remove this skip.
-				t.Skip("QUIC tests for TlsGateways are broken for dual-stack")
-			}
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				ingressutil.RunTestMultiTLSGateways(t, inst, namespace.Future(&echo1NS))
 			})
@@ -104,12 +98,6 @@ func TestMtlsGatewaysWithQUIC(t *testing.T) {
 		RequiresSingleCluster().
 		Features("security.ingress.quic.sds.mtls").
 		Run(func(t framework.TestContext) {
-			if t.Settings().EnableDualStack {
-				// Due to https://github.com/istio/istio/issues/46911
-				// currently QUIC tests do not work in dual-stack clusters.
-				// TODO: fix the issue and remove this skip.
-				t.Skip("QUIC tests for MtlsGateways are broken for dual-stack")
-			}
 			t.NewSubTest("tcp").Run(func(t framework.TestContext) {
 				ingressutil.RunTestMultiTLSGateways(t, inst, namespace.Future(&echo1NS))
 			})
