@@ -1143,7 +1143,11 @@ func buildGatewayListener(opts gatewayListenerOpts, transport istionetworking.Tr
 	}
 	// add extra addresses for the listener
 	if features.EnableDualStack && len(opts.extraBind) > 0 {
-		res.AdditionalAddresses = util.BuildAdditionalAddresses(opts.extraBind, uint32(opts.port), util.OptionalBuildAddressOptions{Transport: transport})
+		res.AdditionalAddresses = util.BuildAdditionalAddresses(opts.extraBind, uint32(opts.port))
+		// Ensure consistent transport protocol with main address
+		for _, additionalAddress := range res.AdditionalAddresses {
+			additionalAddress.Address.GetSocketAddress().Protocol = transport.ToEnvoySocketProtocol()
+		}
 	}
 	accessLogBuilder.setListenerAccessLog(opts.push, opts.proxy, res, istionetworking.ListenerClassGateway)
 

@@ -171,20 +171,9 @@ func AddrStrToCidrRange(addr string) (*core.CidrRange, error) {
 	}, nil
 }
 
-// OptionalBuildOptions is a struct to hold optional parameters for BuildAddress and BuildAdditionalAddresses.
-type OptionalBuildAddressOptions struct {
-	Transport istionetworking.TransportProtocol
-}
-
 // BuildAddress returns a SocketAddress with the given ip and port or uds.
-func BuildAddress(bind string, port uint32, options ...OptionalBuildAddressOptions) *core.Address {
-	transport := istionetworking.TransportProtocol(istionetworking.TransportProtocolTCP)
-	var buildOptions OptionalBuildAddressOptions
-	if len(options) > 0 {
-		buildOptions = options[0]
-		transport = buildOptions.Transport
-	}
-	address := BuildNetworkAddress(bind, port, transport)
+func BuildAddress(bind string, port uint32) *core.Address {
+	address := BuildNetworkAddress(bind, port, istionetworking.TransportProtocolTCP)
 	if address != nil {
 		return address
 	}
@@ -199,7 +188,7 @@ func BuildAddress(bind string, port uint32, options ...OptionalBuildAddressOptio
 }
 
 // BuildAdditionalAddresses can add extra addresses to additional addresses for a listener
-func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, options ...OptionalBuildAddressOptions) []*listener.AdditionalAddress {
+func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32) []*listener.AdditionalAddress {
 	var additionalAddresses []*listener.AdditionalAddress
 	if len(extrAddresses) > 0 {
 		for _, exbd := range extrAddresses {
@@ -207,7 +196,7 @@ func BuildAdditionalAddresses(extrAddresses []string, listenPort uint32, options
 				continue
 			}
 			extraAddress := &listener.AdditionalAddress{
-				Address: BuildAddress(exbd, listenPort, options...),
+				Address: BuildAddress(exbd, listenPort),
 			}
 			additionalAddresses = append(additionalAddresses, extraAddress)
 		}
