@@ -33,8 +33,6 @@ import (
 
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/pkg/config"
-	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -123,80 +121,63 @@ func TestUninstallWithSetFlag(t *testing.T) {
 }
 
 func TestUninstallCustomFile(t *testing.T) {
-	framework.
-		NewTest(t).
+	framework.NewTest(t).
 		Features("installation.istioctl.uninstall_file").
 		Run(func(t framework.TestContext) {
-			tempFile, err := os.CreateTemp("", "custom-install.yaml")
-			if err != nil {
-				t.Fatalf("failed to create temp file: %v", err)
-			}
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
-			// remote profile will install a webhook, which will be pruned with uninstall -f, and other webhook will be kept.
-			customFile := fmt.Sprintf(`apiVersion: install.istio.io/v1alpha1
+			createIstioOperatorTempFile := func(name, revision string) (fileName string) {
+				tempFile, err := os.CreateTemp("", name)
+				if err != nil {
+					t.Fatalf("failed to create temp file: %v", err)
+				}
+				defer tempFile.Close()
+				contents := fmt.Sprintf(`apiVersion: install.istio.io/v1alpha1
 kind: IstioOperator
 metadata:
-  name: custom-install
+  name: %s
   namespace: istio-system
 spec:
   profile: remote
   revision: %s
-`, canaryRevision)
-			if _, err = tempFile.WriteString(customFile); err != nil {
-				t.Fatalf("failed to write to temp file: %v", err)
-			}
-			if err = tempFile.Close(); err != nil {
-				t.Fatalf("failed to close temp file: %v", err)
-			}
-
-			// install gateway component with custom file
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
-			installCmd := []string{
-				"install",
-				"-f", tempFile.Name(), "--skip-confirmation",
-			}
-			istioCtl.InvokeOrFail(t, installCmd)
-
-			// check custom webhook is installed
-			ls := fmt.Sprintf("%s=%s", helmreconciler.IstioComponentLabelStr, name.IstiodRemoteComponentName)
-			cs := t.Clusters().Default()
-			objs, _ := getRemainingResourcesCluster(cs, gvr.MutatingWebhookConfiguration, ls)
-			if len(objs) == 0 {
-				t.Fatalf("expect custom webhook to exist")
-			}
-
-			for _, ogvk := range allGVKs {
-				ogvr, ok := gvk.ToGVR(config.GroupVersionKind{
-					Group:   ogvk.Group,
-					Version: ogvk.Version,
-					Kind:    ogvk.Kind,
-				})
-				if !ok {
-					continue
+`, name, revision)
+				if _, err = tempFile.WriteString(contents); err != nil {
+					t.Fatalf("failed to write to temp file: %v", err)
 				}
-				objs, _ = getRemainingResourcesCluster(cs, ogvr, ls)
-				if len(objs) != 0 {
-					t.Logf("hanxiaop: existing resources kind %v: %v", ogvk, objs)
+				return tempFile.Name()
+			}
+
+			// Creating custom installation and empty uninstallation files
+			customFileName := createIstioOperatorTempFile("custom-install", canaryRevision)
+			randomFileName := createIstioOperatorTempFile("random-uninstall", canaryRevision)
+
+			// Install webhook with custom file
+			istioCtl.InvokeOrFail(t, []string{"install", "-f", customFileName, "--skip-confirmation"})
+
+			// Check if custom webhook is installed
+			validateWebhookExistence := func() {
+				ls := fmt.Sprintf("%s=%s", helmreconciler.IstioComponentLabelStr, name.IstiodRemoteComponentName)
+				cs := t.Clusters().Default()
+				objs, _ := getRemainingResourcesCluster(cs, gvr.MutatingWebhookConfiguration, ls)
+				if len(objs) == 0 {
+					t.Fatalf("expected custom webhook to exist")
 				}
 			}
 
-			uninstallCmd := []string{
-				"uninstall",
-				"--filename=" + tempFile.Name(),
-				"-r=" + canaryRevision,
-				"--skip-confirmation",
-			}
-			istioCtl.InvokeOrFail(t, uninstallCmd)
+			validateWebhookExistence()
 
-			// should have no resource from the custom file
-			checkCPResourcesUninstalled(t, cs, allGVKs, ls, true)
+			// Uninstall with a different file (should have no effect)
+			istioCtl.InvokeOrFail(t, []string{"uninstall", "-f", randomFileName, "-r" + canaryRevision, "--skip-confirmation"})
 
-			// should still have other components that are not installed by the custom file
-			ls = fmt.Sprintf("istio.io/rev=%s", canaryRevision)
-			objs, _ = getRemainingResourcesCluster(cs, gvr.Deployment, ls)
-			if len(objs) == 0 {
-				t.Fatalf("expect other components to exist but were removed")
-			}
+			// Check the webhook still exists
+			validateWebhookExistence()
+
+			// Uninstall with the correct file
+			istioCtl.InvokeOrFail(t, []string{"uninstall", "-f=" + customFileName, "-r=" + canaryRevision, "--skip-confirmation"})
+
+			// Check no resources from the custom file exist
+			checkCPResourcesUninstalled(t, t.Clusters().Default(), allGVKs,
+				fmt.Sprintf("%s=%s", helmreconciler.IstioComponentLabelStr, name.IstiodRemoteComponentName), true)
 		})
 }
 
