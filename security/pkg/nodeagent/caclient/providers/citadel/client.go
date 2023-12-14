@@ -16,7 +16,6 @@ package caclient
 
 import (
 	"context"
-	"crypto/tls"
 	"errors"
 	"fmt"
 	"strings"
@@ -107,10 +106,6 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) (res []s
 		}
 	}()
 
-	if err = c.reconnectIfNeeded(); err != nil {
-		return nil, err
-	}
-
 	ctx := metadata.NewOutgoingContext(context.Background(), metadata.Pairs("ClusterID", c.opts.ClusterID))
 	resp, err := c.client.CreateCertificate(ctx, req)
 	if err != nil {
@@ -157,21 +152,6 @@ func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
 	}
 
 	return conn, nil
-}
-
-func (c *CitadelClient) reconnectIfNeeded() error {
-	if c.opts.ProvCert == "" || c.usingMtls.Load() {
-		// No need to reconnect, already using mTLS or never will use it
-		return nil
-	}
-	_, err := tls.LoadX509KeyPair(c.tlsOpts.Cert, c.tlsOpts.Key)
-	if err != nil {
-		citadelClientLog.Errorf("Failed to load key pair %v", err)
-		// Cannot load the certificates yet, don't both reconnecting
-		return nil
-	}
-
-	return c.reconnect()
 }
 
 func (c *CitadelClient) reconnect() error {
