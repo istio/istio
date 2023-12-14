@@ -50,15 +50,15 @@ type XdsStatusWriter struct {
 }
 
 type xdsWriterStatus struct {
-	proxyID              string
-	clusterID            string
-	istiodID             string
-	istiodVersion        string
-	clusterStatus        string
-	listenerStatus       string
-	routeStatus          string
-	endpointStatus       string
-	extensionconfigStaus string
+	proxyID               string
+	clusterID             string
+	istiodID              string
+	istiodVersion         string
+	clusterStatus         string
+	listenerStatus        string
+	routeStatus           string
+	endpointStatus        string
+	extensionconfigStatus string
 }
 
 // PrintAll takes a slice of Pilot syncz responses and outputs them using a tabwriter
@@ -196,15 +196,15 @@ func (s *XdsStatusWriter) setupStatusPrint(drs map[string]*discovery.DiscoveryRe
 				cds, lds, eds, rds, ecds := getSyncStatus(&clientConfig)
 				cp := multixds.CpInfo(dr)
 				fullStatus = append(fullStatus, &xdsWriterStatus{
-					proxyID:              clientConfig.GetNode().GetId(),
-					clusterID:            meta.ClusterID.String(),
-					istiodID:             cp.ID,
-					istiodVersion:        meta.IstioVersion,
-					clusterStatus:        cds,
-					listenerStatus:       lds,
-					routeStatus:          rds,
-					endpointStatus:       eds,
-					extensionconfigStaus: ecds,
+					proxyID:               clientConfig.GetNode().GetId(),
+					clusterID:             meta.ClusterID.String(),
+					istiodID:              cp.ID,
+					istiodVersion:         meta.IstioVersion,
+					clusterStatus:         cds,
+					listenerStatus:        lds,
+					routeStatus:           rds,
+					endpointStatus:        eds,
+					extensionconfigStatus: ecds,
 				})
 				if len(fullStatus) == 0 {
 					return nil, nil, fmt.Errorf("no proxies found (checked %d istiods)", len(drs))
@@ -245,7 +245,7 @@ func xdsStatusPrintln(w io.Writer, status *xdsWriterStatus) error {
 	_, err := fmt.Fprintf(w, "%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\t%v\n",
 		status.proxyID, status.clusterID,
 		status.clusterStatus, status.listenerStatus, status.endpointStatus, status.routeStatus,
-		status.extensionconfigStaus,
+		status.extensionconfigStatus,
 		status.istiodID, status.istiodVersion)
 	return err
 }

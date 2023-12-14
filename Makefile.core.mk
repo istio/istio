@@ -93,7 +93,7 @@ endif
 -include .istiorc.mk
 
 # Environment for tests, the directory containing istio and deps binaries.
-# Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
+# Typically same as GOPATH/bin, so tests work seamlessly with IDEs.
 
 export ISTIO_BIN=$(GOBIN)
 
@@ -126,7 +126,7 @@ ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
 
-# For dockerx builds, allow HUBS which is a space seperated list of hubs. Default to HUB.
+# For dockerx builds, allow HUBS which is a space separated list of hubs. Default to HUB.
 HUBS ?= $(HUB)
 
 # If tag not explicitly set in users' .istiorc.mk or command line, default to the git sha.

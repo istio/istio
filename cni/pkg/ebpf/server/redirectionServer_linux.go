@@ -149,7 +149,7 @@ func (r *RedirectServer) SetLogLevel(level string) {
 
 func (r *RedirectServer) UpdateHostIP(ips []string) error {
 	if len(ips) > 2 {
-		return fmt.Errorf("too may ips inputed: %d", len(ips))
+		return fmt.Errorf("too may ips inputted: %d", len(ips))
 	}
 	for _, v := range ips {
 		ip, err := netip.ParseAddr(v)
@@ -199,7 +199,7 @@ func AddPodToMesh(ifIndex uint32, macAddr net.HardwareAddr, ips []netip.Addr) er
 	copy(mapInfo.MacAddr[:], macAddr)
 
 	if len(ips) == 0 {
-		return fmt.Errorf("nil ips inputed")
+		return fmt.Errorf("nil ips inputted")
 	}
 	// TODO: support multiple IPs and IPv6
 	ipAddr := ips[0]
@@ -367,7 +367,7 @@ func (r *RedirectServer) Start(stop <-chan struct{}) {
 
 func (r *RedirectServer) parseIPs(ipAddrs []netip.Addr) ([][]byte, error) {
 	if len(ipAddrs) == 0 {
-		return nil, fmt.Errorf("nil ipAddrs inputed")
+		return nil, fmt.Errorf("nil ipAddrs inputted")
 	}
 	// TODO: support multiple IPs and IPv6
 	ipAddr := ipAddrs[0]
@@ -660,7 +660,7 @@ func (r *RedirectServer) delClsactQdisc(namespace string, ifindex uint32) error 
 	}
 	err = rtnl.Qdisc().Delete(&info)
 	if errors.Is(err, os.ErrNotExist) {
-		log.Debugf("No qdisc configed for Ifindex: %d, %v", ifindex, err)
+		log.Debugf("No qdisc configured for Ifindex: %d, %v", ifindex, err)
 		return nil
 	}
 

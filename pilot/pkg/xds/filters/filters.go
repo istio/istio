@@ -397,16 +397,16 @@ var (
 var routers = func() map[RouterFilterContext]*hcm.HttpFilter {
 	res := map[RouterFilterContext]*hcm.HttpFilter{}
 	for _, startSpan := range []bool{true, false} {
-		for _, supressHeaders := range []bool{true, false} {
+		for _, suppressHeaders := range []bool{true, false} {
 			res[RouterFilterContext{
 				StartChildSpan:       startSpan,
-				SuppressDebugHeaders: supressHeaders,
+				SuppressDebugHeaders: suppressHeaders,
 			}] = &hcm.HttpFilter{
 				Name: wellknown.Router,
 				ConfigType: &hcm.HttpFilter_TypedConfig{
 					TypedConfig: protoconv.MessageToAny(&router.Router{
 						StartChildSpan:       startSpan,
-						SuppressEnvoyHeaders: supressHeaders,
+						SuppressEnvoyHeaders: suppressHeaders,
 					}),
 				},
 			}
