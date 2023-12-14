@@ -31,6 +31,7 @@ import (
 	extensions "istio.io/api/extensions/v1alpha1"
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -39,7 +40,9 @@ import (
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/config/security"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/monitoring"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
@@ -810,7 +813,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 	}
 
 	// host set.
-	hostsFromGateways := sets.String{}
+	hostsFromGateways := ps.extraGatewayServices(proxy)
 	for _, gw := range proxy.MergedGateway.GatewayNameForServer {
 		hostsFromGateways.Merge(ps.virtualServiceIndex.destinationsByGateway[gw])
 	}
@@ -826,7 +829,7 @@ func (ps *PushContext) GatewayServices(proxy *Proxy) []*Service {
 		}
 	}
 
-	log.Debugf("GatewayServices:: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
+	log.Debugf("GatewayServices: gateways len(services)=%d, len(filtered)=%d", len(svcs), len(gwSvcs))
 
 	return gwSvcs
 }
@@ -852,7 +855,7 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) b
 			}
 		}
 	}
-	return false
+	return ps.extraGatewayServices(proxy).Contains(hostname)
 }
 
 // wellknownProviders is a lsit of all known providers.
@@ -882,12 +885,16 @@ func AssertProvidersHandled(expected int) {
 
 // addHostsFromMeshConfigProvidersHandled contains the number of providers we handle below.
 // This is to ensure this stays in sync as new handlers are added
-// STOP. DO NOT UPDATE THIS WITHOUT UPDATING addHostsFromMeshConfig.
+// STOP. DO NOT UPDATE THIS WITHOUT UPDATING extraGatewayServices.
 const addHostsFromMeshConfigProvidersHandled = 14
 
-// add services from MeshConfig.ExtensionProviders
+// extraGatewayServices returns a subset of services referred from the proxy gateways, including:
+// 1. MeshConfig.ExtensionProviders
+// 2. RequestAuthentication.JwtRules.JwksUri
 // TODO: include cluster from EnvoyFilter such as global ratelimit [demo](https://istio.io/latest/docs/tasks/policy-enforcement/rate-limit/#global-rate-limit)
-func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
+func (ps *PushContext) extraGatewayServices(proxy *Proxy) sets.String {
+	hosts := sets.String{}
+	// add services from MeshConfig.ExtensionProviders
 	for _, prov := range ps.Mesh.ExtensionProviders {
 		switch p := prov.Provider.(type) {
 		case *meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp:
@@ -918,6 +925,22 @@ func addHostsFromMeshConfig(ps *PushContext, hosts sets.String) {
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver: // No services
 		}
 	}
+	// add services from RequestAuthentication.JwtRules.JwksUri
+	if features.JwksFetchMode != jwt.Istiod {
+		jwtPolicies := ps.AuthnPolicies.GetJwtPoliciesForWorkload(proxy.Metadata.Namespace, proxy.Labels, false)
+		for _, cfg := range jwtPolicies {
+			rules := cfg.Spec.(*v1beta1.RequestAuthentication).JwtRules
+			for _, r := range rules {
+				if uri := r.GetJwksUri(); len(uri) > 0 {
+					jwksInfo, err := security.ParseJwksURI(uri)
+					if err == nil {
+						hosts.Insert(jwksInfo.Hostname.String())
+					}
+				}
+			}
+		}
+	}
+	return hosts
 }
 
 // servicesExportedToNamespace returns the list of services that are visible to a namespace.
@@ -1709,10 +1732,6 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 				for host := range virtualServiceDestinations(rule) {
 					sets.InsertOrNew(ps.virtualServiceIndex.destinationsByGateway, gw, host)
 				}
-				if _, exists := ps.virtualServiceIndex.destinationsByGateway[gw]; !exists {
-					ps.virtualServiceIndex.destinationsByGateway[gw] = sets.String{}
-				}
-				addHostsFromMeshConfig(ps, ps.virtualServiceIndex.destinationsByGateway[gw])
 			}
 		}
 

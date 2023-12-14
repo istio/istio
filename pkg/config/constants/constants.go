@@ -131,12 +131,15 @@ const (
 	// Label to skip config comparison.
 	AlwaysPushLabel = "internal.istio.io/always-push"
 
-	// InternalParentNames declares the original resources of an internally-generate config. This is used by k8s gateway-api.
+	// InternalParentNames declares the original resources of an internally-generated config.
+	// This is used by k8s gateway-api.
 	// It is a comma separated list. For example, "HTTPRoute/foo.default,HTTPRoute/bar.default"
-	InternalParentNames    = "internal.istio.io/parents"
-	InternalRouteSemantics = "internal.istio.io/route-semantics"
-	RouteSemanticsIngress  = "ingress"
-	RouteSemanticsGateway  = "gateway"
+	InternalParentNames      = "internal.istio.io/parents"
+	InternalRouteSemantics   = "internal.istio.io/route-semantics"
+	RouteSemanticsIngress    = "ingress"
+	RouteSemanticsGateway    = "gateway"
+	InternalGatewaySemantics = "internal.istio.io/gateway-semantics"
+	GatewaySemanticsGateway  = "gateway"
 
 	// TrustworthyJWTPath is the default 3P token to authenticate with third party services
 	TrustworthyJWTPath = "./var/run/secrets/tokens/istio-token"

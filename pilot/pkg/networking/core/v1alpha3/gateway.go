@@ -699,18 +699,25 @@ func buildGatewayConnectionManager(proxyConfig *meshconfig.ProxyConfig, node *mo
 	httpConnManager := &hcm.HttpConnectionManager{
 		XffNumTrustedHops: xffNumTrustedHops,
 		// Forward client cert if connection is mTLS
-		ForwardClientCertDetails: forwardClientCertDetails,
-		SetCurrentClientCertDetails: &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
-			Subject: proto.BoolTrue,
-			Cert:    true,
-			Uri:     true,
-			Dns:     true,
-		},
+		ForwardClientCertDetails:   forwardClientCertDetails,
 		ServerName:                 ph.ServerName,
 		ServerHeaderTransformation: ph.ServerHeaderTransformation,
 		GenerateRequestId:          ph.GenerateRequestID,
 		HttpProtocolOptions:        httpProtoOpts,
 	}
+
+	// Only set_current_client_cert_details if forward_client_cert_details permitted
+	// See: https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/filters/network/http_connection_manager/v3/http_connection_manager.proto
+	if forwardClientCertDetails == hcm.HttpConnectionManager_APPEND_FORWARD ||
+		forwardClientCertDetails == hcm.HttpConnectionManager_SANITIZE_SET {
+		httpConnManager.SetCurrentClientCertDetails = &hcm.HttpConnectionManager_SetCurrentClientCertDetails{
+			Subject: proto.BoolTrue,
+			Cert:    true,
+			Dns:     true,
+			Uri:     true,
+		}
+	}
+
 	if http3SupportEnabled {
 		httpConnManager.Http3ProtocolOptions = &core.Http3ProtocolOptions{}
 		httpConnManager.CodecType = hcm.HttpConnectionManager_HTTP3

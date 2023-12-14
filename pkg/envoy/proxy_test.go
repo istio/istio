@@ -64,11 +64,22 @@ func TestEnvoyArgs(t *testing.T) {
 		"--log-format", "%Y-%m-%dT%T.%fZ\t%l\tenvoy %n %g:%#\t%v\tthread=%t",
 		"-l", "trace",
 		"--component-log-level", "misc:error",
-		"--config-yaml", `{"key": "value"}`,
+		"--config-yaml", `{"key":"value"}`,
 		"--concurrency", "8",
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Errorf("envoyArgs() => got:\n%v,\nwant:\n%v", got, want)
+	}
+}
+
+func TestReadToJSON(t *testing.T) {
+	got, err := readToJSON("testdata/bootstrap.yaml")
+	if err != nil {
+		t.Errorf("unexpected error: %v", err)
+	}
+	want := `{"key":"value"}`
+	if got != want {
+		t.Errorf("readToJSON() => got:\n%v,\nwant:\n%v", got, want)
 	}
 }
 

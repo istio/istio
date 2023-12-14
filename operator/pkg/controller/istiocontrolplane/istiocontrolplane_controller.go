@@ -84,7 +84,6 @@ type Options struct {
 
 const (
 	autoscalingV2MinK8SVersion = 23
-	pdbV1MinK8SVersion         = 21
 )
 
 // watchedResources contains all resources we will watch and reconcile when changed

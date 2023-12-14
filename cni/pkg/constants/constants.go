@@ -52,8 +52,7 @@ const (
 const (
 	DefaultKubeconfigMode = 0o600
 
-	UDSLogPath      = "/log"
-	SecondaryBinDir = "/host/secondary-bin-dir"
+	UDSLogPath = "/log"
 
 	// K8s liveness and readiness endpoints
 	LivenessEndpoint  = "/healthz"

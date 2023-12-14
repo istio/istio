@@ -322,6 +322,11 @@ func daemonsetsReady(daemonsets []*appsv1.DaemonSet) (bool, []string) {
 					scope.Infof("DaemonSet is not ready: %s/%s. %d out of %d expected pods are ready",
 						ds.Namespace, ds.Name, ds.Status.NumberReady, ds.Status.UpdatedNumberScheduled)
 					notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
+				} else if ds.Status.UpdatedNumberScheduled != ds.Status.DesiredNumberScheduled {
+					// Make sure all the updated pods have been scheduled
+					scope.Infof("DaemonSet is not ready: %s/%s. %d out of %d expected pods have been scheduled",
+						ds.Namespace, ds.Name, ds.Status.UpdatedNumberScheduled, ds.Status.DesiredNumberScheduled)
+					notReady = append(notReady, "DaemonSet/"+ds.Namespace+"/"+ds.Name)
 				}
 			}
 		}

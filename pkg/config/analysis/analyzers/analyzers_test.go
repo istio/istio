@@ -276,6 +276,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "injectionImageDistrolessNoMeshConfig",
+		inputFiles: []string{
+			"testdata/injection-image-distroless-no-meshconfig.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		analyzer: &injection.ImageAnalyzer{},
+		expected: []message{},
+	},
+	{
 		name: "istioInjectionProxyImageMismatchAbsolute",
 		inputFiles: []string{
 			"testdata/injection-with-mismatched-sidecar.yaml",

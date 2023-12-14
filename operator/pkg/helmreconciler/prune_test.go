@@ -53,7 +53,7 @@ func applyResourcesIntoCluster(t *testing.T, h *HelmReconciler, manifestMap name
 			if err := h.applyLabelsAndAnnotations(obju, cn); err != nil {
 				t.Errorf("failed to apply label and annotations: %v", err)
 			}
-			if err := h.ApplyObject(obj.UnstructuredObject(), false); err != nil {
+			if err := h.ApplyObject(obj.UnstructuredObject()); err != nil {
 				t.Errorf("HelmReconciler.ApplyObject() error = %v", err)
 			}
 		}
@@ -63,7 +63,7 @@ func applyResourcesIntoCluster(t *testing.T, h *HelmReconciler, manifestMap name
 func TestHelmReconciler_GetPrunedResources(t *testing.T) {
 	t.Run("get gateway pruned resources", func(t *testing.T) {
 		var h1 *HelmReconciler
-		cl := fake.NewClientBuilder().Build()
+		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
 		// init two custom gateways with revision
 		gateways := [][]byte{iopTestGwData1, iopTestGwData2}
 		for i, data := range gateways {
@@ -111,7 +111,7 @@ func TestHelmReconciler_GetPrunedResources(t *testing.T) {
 
 func TestPilotExist(t *testing.T) {
 	t.Run("exist", func(t *testing.T) {
-		cl := fake.NewClientBuilder().Build()
+		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
 		iop := &v1alpha1.IstioOperator{}
 		h := &HelmReconciler{
 			client:     cl,
@@ -140,7 +140,7 @@ func TestPilotExist(t *testing.T) {
 	})
 
 	t.Run("non-exist", func(t *testing.T) {
-		cl := fake.NewClientBuilder().Build()
+		cl := fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
 		iop := &v1alpha1.IstioOperator{}
 		kc := kube.NewFakeClientWithVersion("24")
 		h := &HelmReconciler{
