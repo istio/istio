@@ -2133,7 +2133,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 		},
 		Spec: &networking.DestinationRule{
 			Host:     testhost,
-			ExportTo: []string{"test2", "ns1", "test1"},
+			ExportTo: []string{"test2", "ns1", "test1", "newNS"},
 			Subsets: []*networking.Subset{
 				{
 					Name: "subset3",
@@ -2317,6 +2317,12 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 		{
 			proxyNs:     "test2",
 			serviceNs:   "test1",
+			host:        testhost,
+			wantSubsets: []string{"subset3", "subset4"},
+		},
+		{
+			proxyNs:     "newNS",
+			serviceNs:   "test2",
 			host:        testhost,
 			wantSubsets: []string{"subset3", "subset4"},
 		},
