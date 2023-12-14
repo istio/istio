@@ -33,6 +33,8 @@ import (
 
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
@@ -161,6 +163,21 @@ spec:
 			objs, _ := getRemainingResourcesCluster(cs, gvr.MutatingWebhookConfiguration, ls)
 			if len(objs) == 0 {
 				t.Fatalf("expect custom webhook to exist")
+			}
+
+			for _, ogvk := range allGVKs {
+				ogvr, ok := gvk.ToGVR(config.GroupVersionKind{
+					Group:   ogvk.Group,
+					Version: ogvk.Version,
+					Kind:    ogvk.Kind,
+				})
+				if !ok {
+					continue
+				}
+				objs, _ = getRemainingResourcesCluster(cs, ogvr, ls)
+				if len(objs) != 0 {
+					t.Logf("hanxiaop: existing resources kind %v: %v", ogvk, objs)
+				}
 			}
 
 			uninstallCmd := []string{
