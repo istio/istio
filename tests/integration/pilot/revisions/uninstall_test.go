@@ -20,6 +20,7 @@ package revisions
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,6 +33,7 @@ import (
 
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -130,6 +132,64 @@ func TestUninstallPurge(t *testing.T) {
 			istioCtl.InvokeOrFail(t, uninstallCmd)
 			cs := t.Clusters().Default()
 			checkCPResourcesUninstalled(t, cs, allGVKs, helmreconciler.IstioComponentLabelStr, true)
+		})
+}
+
+func TestUninstallCustomFile(t *testing.T) {
+	framework.
+		NewTest(t).
+		Features("installation.istioctl.uninstall_file").
+		Run(func(t framework.TestContext) {
+			tempFile, err := os.CreateTemp("", "custom-install.yaml")
+			if err != nil {
+				t.Fatalf("failed to create temp file: %v", err)
+			}
+
+			// remote profile will install a webhook, which will be pruned with uninstall -f, and other webhook will be kept.
+			customFile := `apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: custom-install
+  namespace: istio-system
+spec:
+  profile: remote`
+			if _, err = tempFile.WriteString(customFile); err != nil {
+				t.Fatalf("failed to write to temp file: %v", err)
+			}
+			if err = tempFile.Close(); err != nil {
+				t.Fatalf("failed to close temp file: %v", err)
+			}
+
+			// install gateway component with custom file
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			installCmd := []string{
+				"install",
+				"-f", tempFile.Name(), "--skip-confirmation",
+			}
+			istioCtl.InvokeOrFail(t, installCmd)
+
+			// check custom webhook is installed
+			ls := fmt.Sprintf("%s=%s", helmreconciler.OwningResourceName, "installed-state-custom-install")
+			cs := t.Clusters().Default()
+			objs, _ := getRemainingResourcesCluster(cs, gvr.MutatingWebhookConfiguration, ls)
+			if len(objs) == 0 {
+				t.Fatalf("expect custom webhook to exist")
+			}
+
+			uninstallCmd := []string{
+				"uninstall",
+				"--filename=" + tempFile.Name(), "--skip-confirmation",
+			}
+			istioCtl.InvokeOrFail(t, uninstallCmd)
+
+			// should have no resource from the custom file
+			checkCPResourcesUninstalled(t, cs, allGVKs, ls, true)
+
+			// should still have other components that are not installed by the custom file
+			objs, _ = getRemainingResourcesCluster(cs, gvr.MutatingWebhookConfiguration, helmreconciler.IstioComponentLabelStr)
+			if len(objs) == 0 {
+				t.Fatalf("expect other components to exist but were removed")
+			}
 		})
 }
 
