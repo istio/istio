@@ -14,11 +14,11 @@ spec:
       enabled: true
     # Istio Gateway feature
     ingressGateways:
-      - name: istio-ingressgateway
-        enabled: true
+    - name: istio-ingressgateway
+      enabled: true
     egressGateways:
-      - name: istio-egressgateway
-        enabled: false
+    - name: istio-egressgateway
+      enabled: false
 
   # Most default values come from the helm chart's values.yaml
   # Below are the things that differ
