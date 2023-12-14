@@ -241,6 +241,11 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 		fx.WaitOrFail(t, "eds")
+		// headless service update must trigger nds push.
+		ev := fx.WaitOrFail(t, "xds")
+		if !ev.Reason.Has(model.HeadlessEndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v", model.HeadlessEndpointUpdate)
+		}
 		// pure HTTP headless services should not need a full push since they do not
 		// require a Listener based on IP: https://github.com/istio/istio/issues/48207
 		instances := []EndpointResponse{{
@@ -257,7 +262,11 @@ func TestWorkloadInstances(t *testing.T) {
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "tcp", Port: 70}}, []string{pod.Status.PodIP})
 		fx.WaitOrFail(t, "eds")
-		fx.WaitOrFail(t, "xds full")
+		ev := fx.WaitOrFail(t, "xds full")
+		// headless service update must trigger nds push.
+		if !ev.Reason.Has(model.HeadlessEndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v", model.HeadlessEndpointUpdate)
+		}
 		instances := []EndpointResponse{{
 			Address: pod.Status.PodIP,
 			Port:    70,
