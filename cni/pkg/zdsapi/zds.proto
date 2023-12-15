@@ -23,7 +23,7 @@ option go_package="pkg/zdsapi";
 // Add a workload to the ztunnel. Ancillary data containing
 // the workload's netns file descriptor will be appended to the end of this message.
 message AddWorkload {
-  string uid = 2;
+  string uid = 1;
 }
 
 // Keep workload that we can't find in the fd cache. This can only be sent before SnapshotSent is sent
