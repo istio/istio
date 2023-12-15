@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 48336
+releaseNotes:
+- |
+  **Fixed** an issue where the QUIC listeners were not correctly created when dual-stack is enabled
