@@ -27,6 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	tb "istio.io/istio/pilot/pkg/trustbundle"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/sleep"
@@ -69,16 +70,18 @@ func (s *Server) initDNSCerts() error {
 			return err
 		}
 		// MeshConfig:Add callback for mesh config update
-		s.environment.AddMeshHandler(func() {
-			newCaBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
-			if newCaBundle != nil && !bytes.Equal(newCaBundle, s.istiodCertBundleWatcher.GetKeyCertBundle().CABundle) {
-				newCertChain, newKeyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
-					strings.Join(s.dnsNames, ","), "", signerName, true, SelfSignedCACertTTL.Get())
-				if err != nil {
-					log.Fatalf("failed regenerating key and cert for istiod by kubernetes: %v", err)
+		s.environment.AddMeshHandler(&mesh.WatcherHandler{
+			Handler: func() {
+				newCaBundle, _ := s.RA.GetRootCertFromMeshConfig(signerName)
+				if newCaBundle != nil && !bytes.Equal(newCaBundle, s.istiodCertBundleWatcher.GetKeyCertBundle().CABundle) {
+					newCertChain, newKeyPEM, _, err := chiron.GenKeyCertK8sCA(s.kubeClient.Kube(),
+						strings.Join(s.dnsNames, ","), "", signerName, true, SelfSignedCACertTTL.Get())
+					if err != nil {
+						log.Fatalf("failed regenerating key and cert for istiod by kubernetes: %v", err)
+					}
+					s.istiodCertBundleWatcher.SetAndNotify(newKeyPEM, newCertChain, newCaBundle)
 				}
-				s.istiodCertBundleWatcher.SetAndNotify(newKeyPEM, newCertChain, newCaBundle)
-			}
+			},
 		})
 
 		s.addStartFunc("istiod server certificate rotation", func(stop <-chan struct{}) error {

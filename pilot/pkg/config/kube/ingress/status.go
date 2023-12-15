@@ -103,7 +103,9 @@ func NewStatusSyncer(meshHolder mesh.Watcher, kc kubelib.Client, options kubecon
 		}
 	}))
 	// Mesh may have changed ingress fields, enqueue everything
-	c.meshConfig.AddMeshHandler(c.enqueueAll)
+	c.meshConfig.AddMeshHandler(&mesh.WatcherHandler{
+		Handler: c.enqueueAll,
+	})
 	return c
 }
 

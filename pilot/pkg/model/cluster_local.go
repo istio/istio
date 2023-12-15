@@ -19,6 +19,7 @@ import (
 	"sync"
 
 	"istio.io/istio/pkg/config/host"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -53,8 +54,10 @@ func NewClusterLocalProvider(e *Environment) ClusterLocalProvider {
 	c := &clusterLocalProvider{}
 
 	// Register a handler to update the environment when the mesh config is updated.
-	e.AddMeshHandler(func() {
-		c.onMeshUpdated(e)
+	e.AddMeshHandler(&mesh.WatcherHandler{
+		Handler: func() {
+			c.onMeshUpdated(e)
+		},
 	})
 
 	// Update the cluster-local hosts now.

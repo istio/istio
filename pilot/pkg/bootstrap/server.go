@@ -1198,13 +1198,15 @@ func (s *Server) startCA(caOpts *caOptions) {
 func (s *Server) initMeshHandlers() {
 	log.Info("initializing mesh handlers")
 	// When the mesh config or networks change, do a full push.
-	s.environment.AddMeshHandler(func() {
-		spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
-		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
-		s.XDSServer.ConfigUpdate(&model.PushRequest{
-			Full:   true,
-			Reason: model.NewReasonStats(model.GlobalUpdate),
-		})
+	s.environment.AddMeshHandler(&mesh.WatcherHandler{
+		Handler: func() {
+			spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
+			s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
+			s.XDSServer.ConfigUpdate(&model.PushRequest{
+				Full:   true,
+				Reason: model.NewReasonStats(model.GlobalUpdate),
+			})
+		},
 	})
 }
 
@@ -1253,8 +1255,10 @@ func (s *Server) initWorkloadTrustBundle(args *PilotArgs) error {
 	}
 
 	// MeshConfig:Add callback for mesh config update
-	s.environment.AddMeshHandler(func() {
-		_ = s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+	s.environment.AddMeshHandler(&mesh.WatcherHandler{
+		Handler: func() {
+			_ = s.workloadTrustBundle.AddMeshConfigUpdate(s.environment.Mesh())
+		},
 	})
 
 	err = s.addIstioCAToTrustBundle(args)
