@@ -25,7 +25,7 @@ import (
 var ErrPodNotFound = errors.New("netns not provided, but is needed as pod is not in cache")
 
 type PodNetnsCache interface {
-	ReadCurrentPodSnapshot(func(map[string]Netns) error) error
+	ReadCurrentPodSnapshot() map[string]Netns
 }
 
 // Hold a cache of node local pods with their netns
@@ -33,16 +33,16 @@ type PodNetnsCache interface {
 type podNetnsCache struct {
 	openNetns func(nspath string) (NetnsCloser, error)
 
-	currentPodSnapshot map[string]Netns
-	mu                 sync.RWMutex
+	currentPodCache map[string]Netns
+	mu              sync.RWMutex
 }
 
 var _ PodNetnsCache = &podNetnsCache{}
 
 func newPodNetnsCache(openNetns func(nspath string) (NetnsCloser, error)) *podNetnsCache {
 	return &podNetnsCache{
-		openNetns:          openNetns,
-		currentPodSnapshot: map[string]Netns{},
+		openNetns:       openNetns,
+		currentPodCache: map[string]Netns{},
 	}
 }
 
@@ -59,7 +59,7 @@ func (p *podNetnsCache) UpsertPodCacheWithNetns(uid string, newnetns NetnsCloser
 	// lock current snapshot pod map
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if existingNs := p.currentPodSnapshot[uid]; existingNs != nil {
+	if existingNs := p.currentPodCache[uid]; existingNs != nil {
 		if newnetns == nil || (existingNs.Inode() == newnetns.Inode()) {
 			if newnetns != nil {
 				newnetns.Close()
@@ -80,15 +80,15 @@ func (p *podNetnsCache) Get(uid string) Netns {
 	// lock current snapshot pod map
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return p.currentPodSnapshot[uid]
+	return p.currentPodCache[uid]
 }
 
 // make sure uid is in the cache, even if we don't have a netns
 func (p *podNetnsCache) Ensure(uid string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if _, ok := p.currentPodSnapshot[uid]; !ok {
-		p.currentPodSnapshot[uid] = nil
+	if _, ok := p.currentPodCache[uid]; !ok {
+		p.currentPodCache[uid] = nil
 	}
 }
 
@@ -96,28 +96,34 @@ func (p *podNetnsCache) addToCacheUnderLock(uid string, newnetns NetnsCloser) {
 	if newnetns != nil {
 		runtime.SetFinalizer(newnetns, closeNetns)
 	}
-	p.currentPodSnapshot[uid] = newnetns
+	p.currentPodCache[uid] = newnetns
 }
 
 func closeNetns(netns NetnsCloser) {
 	netns.Close()
 }
 
-func (p *podNetnsCache) ReadCurrentPodSnapshot(cb func(map[string]Netns) error) error {
+func (p *podNetnsCache) ReadCurrentPodSnapshot() map[string]Netns {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-	return cb(p.currentPodSnapshot)
+
+	// snapshot the cache to avoid long locking
+	snap := make(map[string]Netns)
+	for key, value := range p.currentPodCache {
+		snap[key] = value
+	}
+	return snap
 }
 
 // Remove and return the Netns for the given uid
 // No need to return NetnsCloser here it will be closed automatically on GC.
 // (it may be used in parallel by other parts of the code, so we want it to be used only when not used)
 func (p *podNetnsCache) Take(uid string) Netns {
-	// lock current snapshot pod map
+	// lock current pod map
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if ns, ok := p.currentPodSnapshot[uid]; ok {
-		delete(p.currentPodSnapshot, uid)
+	if ns, ok := p.currentPodCache[uid]; ok {
+		delete(p.currentPodCache, uid)
 		// already in cache
 		return ns
 	}

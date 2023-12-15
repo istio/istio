@@ -95,16 +95,11 @@ func TestPodsAppearsWithNilNetnsWhenEnsureIsUsed(t *testing.T) {
 	p.Ensure("123")
 
 	found := false
-	err := p.ReadCurrentPodSnapshot(func(pods map[string]Netns) error {
-		for k, v := range pods {
-			if k == "123" && v == nil {
-				found = true
-			}
+	snap := p.ReadCurrentPodSnapshot()
+	for k, v := range snap {
+		if k == "123" && v == nil {
+			found = true
 		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
 	}
 	if !found {
 		t.Fatalf("expected pod 123 to be in the cache")

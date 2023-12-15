@@ -309,42 +309,36 @@ func (z *ztunnelServer) PodAdded(ctx context.Context, uid string, netns Netns) e
 // TODO ctx is unused here
 // nolint: unparam
 func (z *ztunnelServer) sendSnapshot(ctx context.Context, conn *ZtunnelConnection) error {
-	err := z.pods.ReadCurrentPodSnapshot(func(m map[string]Netns) error {
-		for uid, netns := range m {
-			var resp *zdsapi.WorkloadResponse
-			var err error
-			if netns != nil {
-
-				fd := int(netns.Fd())
-				log.Debugf("Sending local pod %s ztunnel", uid)
-				resp, err = conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
-					Payload: &zdsapi.WorkloadRequest_Add{
-						Add: &zdsapi.AddWorkload{
-							Uid: uid,
-						},
+	snap := z.pods.ReadCurrentPodSnapshot()
+	for uid, netns := range snap {
+		var resp *zdsapi.WorkloadResponse
+		var err error
+		if netns != nil {
+			fd := int(netns.Fd())
+			log.Debugf("Sending local pod %s ztunnel", uid)
+			resp, err = conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
+				Payload: &zdsapi.WorkloadRequest_Add{
+					Add: &zdsapi.AddWorkload{
+						Uid: uid,
 					},
-				}, &fd)
-			} else {
-				log.Infof("netns not available for local pod %s. sending keep to ztunnel", uid)
-				resp, err = conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
-					Payload: &zdsapi.WorkloadRequest_Keep{
-						Keep: &zdsapi.KeepWorkload{
-							Uid: uid,
-						},
+				},
+			}, &fd)
+		} else {
+			log.Infof("netns not available for local pod %s. sending keep to ztunnel", uid)
+			resp, err = conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
+				Payload: &zdsapi.WorkloadRequest_Keep{
+					Keep: &zdsapi.KeepWorkload{
+						Uid: uid,
 					},
-				}, nil)
-			}
-			if err != nil {
-				return err
-			}
-			if resp.GetAck().GetError() != "" {
-				log.Errorf("add-workload: got ack error: %s", resp.GetAck().GetError())
-			}
+				},
+			}, nil)
 		}
-		return nil
-	})
-	if err != nil {
-		return err
+		if err != nil {
+			return err
+		}
+		if resp.GetAck().GetError() != "" {
+			log.Errorf("add-workload: got ack error: %s", resp.GetAck().GetError())
+		}
 	}
 	resp, err := conn.sendMsgAndWaitForAck(&zdsapi.WorkloadRequest{
 		Payload: &zdsapi.WorkloadRequest_SnapshotSent{
