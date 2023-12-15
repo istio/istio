@@ -1,0 +1,71 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    gateway.networking.k8s.io/gateway-name: bookinfo-gateway
+  name: bookinfo-gateway-istio-6ff4cf9645-xbqmc
+  namespace: default
+spec:
+  containers:
+  - image: proxyv2:1.3.1
+    name: istio-proxy
+---
+# only selector is set, should be ineffective
+apiVersion: security.istio.io/v1
+kind: RequestAuthentication
+metadata:
+  namespace: default
+  name: ra-ineffective
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: bookinfo-gateway
+---
+# only selector is set, should be ineffective
+apiVersion: security.istio.io/v1
+kind: AuthorizationPolicy
+metadata:
+  namespace: default
+  name: ap-ineffective
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: bookinfo-gateway
+---
+# only selector is set, should be ineffective
+apiVersion: extensions.istio.io/v1alpha1
+kind: WasmPlugin
+metadata:
+  name: wasmplugin-ineffective
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: bookinfo-gateway
+  url: google.com
+---
+# only selector is set, should be ineffective
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: telemetry-ineffective
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: bookinfo-gateway
+---
+# has targetRef set, should be effective
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: telemetry-effective
+  namespace: default
+spec:
+  selector:
+    matchLabels:
+      gateway.networking.k8s.io/gateway-name: bookinfo-gateway
+  targetRef:
+    group: gateway.networking.k8s.io
+    kind: Gateway
+    name: bookinfo-gateway
