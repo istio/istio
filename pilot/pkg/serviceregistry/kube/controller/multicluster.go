@@ -396,6 +396,14 @@ func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
 		log.Infof("cluster %s does not exist, maybe caused by invalid kubeconfig", clusterID)
 		return
 	}
+
+	// Unregister networks handler
+	if kc.opts.MeshNetworksWatcher != nil {
+		kc.opts.MeshNetworksWatcher.DeleteNetworksHandler(kc.networksHandler)
+	}
+	// Unregister mesh handler
+	kc.unregisterMeshWatcherHandler()
+
 	if kc.workloadEntryController != nil {
 		m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.External)
 	}

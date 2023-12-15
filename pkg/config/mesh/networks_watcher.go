@@ -32,9 +32,9 @@ type NetworksHolder interface {
 	PrevNetworks() *meshconfig.MeshNetworks
 }
 
-// NetworksHandler is a wrapper for func, in order to find the added function
-// through a pointer and delete it
-type NetworksHandler struct {
+// WatcherHandler is a wrapper for Handler func, in order to
+// unregister handler when remote cluster is removed.
+type WatcherHandler struct {
 	Handler func()
 }
 
@@ -42,16 +42,18 @@ type NetworksHandler struct {
 type NetworksWatcher interface {
 	NetworksHolder
 
-	AddNetworksHandler(*NetworksHandler)
+	// AddNetworksHandler registers a callback handler for changes to the networks config.
+	AddNetworksHandler(*WatcherHandler)
 
-	DeleteNetworksHandler(*NetworksHandler)
+	// DeleteNetworksHandler unregisters a callback handler when remote cluster is removed.
+	DeleteNetworksHandler(*WatcherHandler)
 }
 
 var _ NetworksWatcher = &internalNetworkWatcher{}
 
 type internalNetworkWatcher struct {
 	mutex        sync.RWMutex
-	handlers     []*NetworksHandler
+	handlers     []*WatcherHandler
 	networks     *meshconfig.MeshNetworks
 	prevNetworks *meshconfig.MeshNetworks
 }
@@ -113,7 +115,7 @@ func (w *internalNetworkWatcher) PrevNetworks() *meshconfig.MeshNetworks {
 
 // SetNetworks will use the given value for mesh networks and notify all handlers of the change
 func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetworks) {
-	var handlers []*NetworksHandler
+	var handlers []*WatcherHandler
 
 	w.mutex.Lock()
 	if !reflect.DeepEqual(meshNetworks, w.networks) {
@@ -123,7 +125,7 @@ func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetwor
 		// Store the new config.
 		w.prevNetworks = w.networks
 		w.networks = meshNetworks
-		handlers = append([]*NetworksHandler{}, w.handlers...)
+		handlers = append([]*WatcherHandler{}, w.handlers...)
 	}
 	w.mutex.Unlock()
 
@@ -134,21 +136,39 @@ func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetwor
 }
 
 // AddNetworksHandler registers a callback handler for changes to the mesh network config.
-func (w *internalNetworkWatcher) AddNetworksHandler(h *NetworksHandler) {
+func (w *internalNetworkWatcher) AddNetworksHandler(h *WatcherHandler) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	w.handlers = append(w.handlers, h)
 }
 
 // DeleteNetworksHandler deregister a callback handler for changes to the mesh network config.
-func (w *internalNetworkWatcher) DeleteNetworksHandler(h *NetworksHandler) {
+func (w *internalNetworkWatcher) DeleteNetworksHandler(h *WatcherHandler) {
+	if h == nil {
+		return
+	}
+
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	var handlers []*NetworksHandler
-	for _, handler := range w.handlers {
-		if !reflect.DeepEqual(h, handler) {
-			handlers = append(handlers, handler)
+
+	if len(w.handlers) == 0 {
+		return
+	}
+
+	index, ok := getWatcherHandlerIndex(h, w.handlers)
+	if !ok {
+		return
+	}
+	w.handlers[index] = nil
+	w.handlers = append(w.handlers[:index], w.handlers[index+1:]...)
+}
+
+// getWatcherHandlerIndex return the index of specified WatcherHandler.
+func getWatcherHandlerIndex(input *WatcherHandler, handlers []*WatcherHandler) (int, bool) {
+	for i, handler := range handlers {
+		if handler == input {
+			return i, true
 		}
 	}
-	w.handlers = handlers
+	return 0, false
 }

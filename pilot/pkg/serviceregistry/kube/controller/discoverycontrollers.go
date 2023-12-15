@@ -72,9 +72,17 @@ func (c *Controller) initDiscoveryNamespaceHandlers(discoveryNamespacesFilter fi
 // which requires updating the DiscoveryNamespaceFilter and triggering create/delete event handlers for services/pods/endpoints
 // for membership changes
 func (c *Controller) initMeshWatcherHandler(meshWatcher mesh.Watcher, discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) {
-	meshWatcher.AddMeshHandler(func() {
-		discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
-	})
+	c.meshHandler = &mesh.WatcherHandler{
+		Handler: func() {
+			discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
+		},
+	}
+	meshWatcher.AddMeshHandler(c.meshHandler)
+}
+
+// when remote cluster is removed or kubeconfig is updated, we should unregisterMeshWatcherHandler for old controller.
+func (c *Controller) unregisterMeshWatcherHandler() {
+	c.meshWatcher.DeleteMeshHandler(c.meshHandler)
 }
 
 // HandleSelectedNamespace processes pods, workload entries and services for the selected namespace

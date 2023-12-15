@@ -48,7 +48,7 @@ func TestNetworksWatcherShouldNotifyHandlers(t *testing.T) {
 	doneCh := make(chan struct{}, 1)
 
 	var newN *meshconfig.MeshNetworks
-	w.AddNetworksHandler(&mesh.NetworksHandler{
+	w.AddNetworksHandler(&mesh.WatcherHandler{
 		Handler: func() {
 			newN = w.Networks()
 			close(doneCh)

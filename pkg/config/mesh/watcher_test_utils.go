@@ -33,8 +33,10 @@ func NewTestWatcher(meshConfig *meshconfig.MeshConfig) *TestWatcher {
 	}
 	w.internalWatcher.MeshConfig.Store(meshConfig)
 	w.doneCh = make(chan struct{}, 1)
-	w.AddMeshHandler(func() {
-		w.doneCh <- struct{}{}
+	w.AddMeshHandler(&WatcherHandler{
+		Handler: func() {
+			w.doneCh <- struct{}{}
+		},
 	})
 	return w
 }

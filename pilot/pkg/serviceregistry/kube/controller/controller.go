@@ -224,7 +224,8 @@ type Controller struct {
 	configController model.ConfigStoreController
 	configCluster    bool
 
-	networksHandler *mesh.NetworksHandler
+	networksHandler *mesh.WatcherHandler
+	meshHandler     *mesh.WatcherHandler
 }
 
 // NewController creates a new Kubernetes controller
@@ -297,13 +298,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.imports = newServiceImportCache(c)
 
 	c.meshWatcher = options.MeshWatcher
-	c.networksHandler = &mesh.NetworksHandler{
-		Handler: func() {
-			c.reloadMeshNetworks()
-			c.onNetworkChange()
-		},
-	}
 	if c.opts.MeshNetworksWatcher != nil {
+		c.networksHandler = &mesh.WatcherHandler{
+			Handler: func() {
+				c.reloadMeshNetworks()
+				c.onNetworkChange()
+			},
+		}
 		c.opts.MeshNetworksWatcher.AddNetworksHandler(c.networksHandler)
 		c.reloadMeshNetworks()
 	}
@@ -611,10 +612,6 @@ func (c *Controller) Run(stop <-chan struct{}) {
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue
 	c.queue.Run(stop)
-
-	// after controller stop, we should unregister the handler to remove the MeshNetworksWatcher's reference
-	// of the controller, so that the controller can be recycled by runtime.GC
-	c.opts.MeshNetworksWatcher.DeleteNetworksHandler(c.networksHandler)
 	log.Infof("Controller terminated")
 }
 
