@@ -125,8 +125,7 @@ func TestServerAndZtunIntegration(t *testing.T) {
 
 	err = netServer.RemovePodFromMesh(ctx, fakePod)
 	if err != nil {
-		log.Infof("error removing pod %v", err)
-		panic(err)
+		t.Fatalf("error removing pod %v", err)
 	}
 
 	// TODO: make sure the ztunnel has started its proxy in the netns
