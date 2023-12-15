@@ -45,8 +45,7 @@ var annotationRemovePatch = []byte(fmt.Sprintf(
 // PodRedirectionEnabled determines if a pod should or should not be configured
 // to have traffic redirected thru the node proxy.
 func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
-	nsLabels := namespace.GetLabels()
-	if nsLabels == nil || nsLabels[constants.DataplaneMode] != constants.DataplaneModeAmbient {
+	if namespace.GetLabels()[constants.DataplaneMode] != constants.DataplaneModeAmbient {
 		// Namespace does not have ambient mode enabled
 		return false
 	}
@@ -54,7 +53,7 @@ func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 		// Ztunnel and sidecar for a single pod is currently not supported; opt out.
 		return false
 	}
-	if pod.Annotations != nil && pod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionDisabled {
+	if pod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionDisabled {
 		// Pod explicitly asked to not have redirection enabled
 		return false
 	}
@@ -62,22 +61,14 @@ func PodRedirectionEnabled(namespace *corev1.Namespace, pod *corev1.Pod) bool {
 }
 
 func podHasSidecar(pod *corev1.Pod) bool {
-	annotations := pod.GetAnnotations()
-	if annotations == nil {
-		return false
-	}
-	if _, f := annotations[annotation.SidecarStatus.Name]; f {
+	if _, f := pod.GetAnnotations()[annotation.SidecarStatus.Name]; f {
 		return true
 	}
 	return false
 }
 
 func IsZtunnelPod(systemNs string, pod *corev1.Pod) bool {
-	labels := pod.GetLabels()
-	if labels == nil {
-		return false
-	}
-	return pod.Namespace == systemNs && labels["app"] == "ztunnel"
+	return pod.Namespace == systemNs && pod.GetLabels()["app"] == "ztunnel"
 }
 
 func AnnotateEnrolledPod(client kubernetes.Interface, pod *metav1.ObjectMeta) error {
@@ -96,7 +87,7 @@ func AnnotateEnrolledPod(client kubernetes.Interface, pod *metav1.ObjectMeta) er
 }
 
 func AnnotateUnenrollPod(client kubernetes.Interface, pod *metav1.ObjectMeta) error {
-	if pod.Annotations == nil || pod.Annotations[constants.AmbientRedirection] != constants.AmbientRedirectionEnabled {
+	if pod.Annotations[constants.AmbientRedirection] != constants.AmbientRedirectionEnabled {
 		return nil
 	}
 	// TODO: do not overwrite if already none
