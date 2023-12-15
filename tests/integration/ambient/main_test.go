@@ -91,9 +91,6 @@ func TestMain(m *testing.M) {
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
 values:
-  pilot:
-    env:
-      ISTIO_MULTIROOT_MESH: true
   ztunnel:
     env:
       SECRET_TTL: 5m
