@@ -301,6 +301,6 @@ type fakePodCache struct {
 	pods map[string]Netns
 }
 
-func (f fakePodCache) ReadCurrentPodSnapshot(cb func(map[string]Netns) error) error {
-	return cb(f.pods)
+func (f fakePodCache) ReadCurrentPodSnapshot() map[string]Netns {
+	return f.pods
 }
