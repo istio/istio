@@ -66,7 +66,6 @@ type connMgr struct {
 
 func (c *connMgr) addConn(conn *ZtunnelConnection) {
 	log.Debug("ztunnel connected")
-	ztunnelConnected.Increment()
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	c.connectionSet[conn] = struct{}{}

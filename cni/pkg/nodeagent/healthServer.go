@@ -22,27 +22,27 @@ import (
 )
 
 // StartServer initializes and starts a web server that exposes liveness and readiness endpoints at port 8000.
-func StartHealthServer() (*atomic.Value, *atomic.Value) {
+func StartHealthServer() (installReady *atomic.Value, watchReady *atomic.Value) {
 	router := http.NewServeMux()
-	installReady, watchReady := initRouter(router)
+	installReady, watchReady = initRouter(router)
 
 	go func() {
 		_ = http.ListenAndServe(":"+constants.ReadinessPort, router)
 	}()
 
-	return installReady, watchReady
+	return
 }
 
-func initRouter(router *http.ServeMux) (*atomic.Value, *atomic.Value) {
-	installDaemonReady := &atomic.Value{}
-	watchServerReady := &atomic.Value{}
-	installDaemonReady.Store(false)
-	watchServerReady.Store(false)
+func initRouter(router *http.ServeMux) (installReady *atomic.Value, watchReady *atomic.Value) {
+	installReady = &atomic.Value{}
+	watchReady = &atomic.Value{}
+	installReady.Store(false)
+	watchReady.Store(false)
 
 	router.HandleFunc(constants.LivenessEndpoint, healthz)
-	router.HandleFunc(constants.ReadinessEndpoint, readyz(installDaemonReady, watchServerReady))
+	router.HandleFunc(constants.ReadinessEndpoint, readyz(installReady, watchReady))
 
-	return installDaemonReady, watchServerReady
+	return
 }
 
 func healthz(w http.ResponseWriter, _ *http.Request) {
