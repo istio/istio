@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  creationTimestamp: null
+  name: hello
+spec:
+  replicas: 7
+  selector:
+    matchLabels:
+      app: hello
+      tier: backend
+      track: stable
+  strategy: {}
+  template:
+    metadata:
+      annotations:
+        prometheus.io/path: /stats/prometheus
+        prometheus.io/port: "15020"
+        prometheus.io/scrape: "true"
+        sidecar.istio.io/status: '{"initContainers":["istio-validation"],"containers":null,"volumes":null,"imagePullSecrets":null,"revision":"default"}'
+      creationTimestamp: null
+      labels:
+        app: hello
+        tier: backend
+        track: stable
+    spec:
+      containers:
+      - image: fake.docker.io/google-samples/hello-go-gke:1.0
+        name: hello
+        ports:
+        - containerPort: 80
+          name: http
+        resources: {}
+      initContainers:
+      - args:
+        - istio-ambient
+        - --validate-ambient
+        image: gcr.io/istio-testing/proxyv2:latest
+        name: istio-validation
+        resources: {}
+        securityContext:
+          allowPrivilegeEscalation: true
+          capabilities:
+            drop:
+            - ALL
+          privileged: false
+          readOnlyRootFilesystem: true
+          runAsGroup: 1337
+          runAsNonRoot: true
+          runAsUser: 1337
+status: {}
+---

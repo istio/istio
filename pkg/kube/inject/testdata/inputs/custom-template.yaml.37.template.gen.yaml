@@ -802,6 +802,29 @@ templates:
         - name: {{ . }}
         {{- end }}
       {{- end }}
+  ztunnel: |
+    spec:
+      initContainers:
+      - name: istio-validation
+      {{- if contains "/" (annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image) }}
+        image: "{{ annotation .ObjectMeta `sidecar.istio.io/proxyImage` .Values.global.proxy_init.image }}"
+      {{- else }}
+        image: "{{ .ProxyImage }}"
+      {{- end }}
+        args:
+        - istio-ambient
+        - "--validate-ambient"
+        {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
+        securityContext:
+          allowPrivilegeEscalation: true
+          privileged: false
+          capabilities:
+            drop:
+            - ALL
+          readOnlyRootFilesystem: true
+          runAsGroup: {{ .ProxyGID | default "1337" }}
+          runAsUser: {{ .ProxyUID | default "1337" }}
+          runAsNonRoot: true
   grpc-simple: |
     metadata:
       annotations:

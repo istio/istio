@@ -5,6 +5,7 @@
 {{- $whv := dict
  "revision" .Values.revision
   "injectionURL" .Values.istiodRemote.injectionURL
+  "injectionSuffix" ""
   "namespace" .Release.Namespace }}
 {{- define "core" }}
 - name: {{.Prefix}}sidecar-injector.istio.io
@@ -15,7 +16,7 @@
     service:
       name: istiod{{- if not (eq .revision "") }}-{{ .revision }}{{- end }}
       namespace: {{ .namespace }}
-      path: "/inject"
+      path: "/inject{{ .injectionSuffix }}"
     {{- end }}
   sideEffects: None
   rules:
@@ -123,3 +124,18 @@ webhooks:
     - key: istio.io/rev
       operator: DoesNotExist
 {{- end }}
+
+{{- /* Case 4: Ambient */}}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "ambient." "injectionSuffix" "/redirection/ambient") ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/dataplane-mode
+      operator: In
+      values:
+      - ambient
+  objectSelector:
+    matchExpressions:
+    - key: ambient.istio.io/redirection
+      operator: NotIn
+      values:
+      - "disabled"

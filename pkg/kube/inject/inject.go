@@ -129,6 +129,9 @@ type Config struct {
 	// DefaultTemplates defines the default template to use for pods that do not explicitly specify a template
 	DefaultTemplates []string `json:"defaultTemplates"`
 
+	// DefaultAmbientTemplates defines the default template to use for ambient pods that do not explicitly specify a template
+	DefaultAmbientTemplates []string `json:"defaultAmbientTemplates"`
+
 	// RawTemplates defines a set of templates to be used. The specified template will be run, provided with
 	// SidecarTemplateData, and merged with the original pod spec using a strategic merge patch.
 	RawTemplates RawTemplates `json:"templates"`
@@ -159,6 +162,7 @@ type Config struct {
 
 const (
 	SidecarTemplateName = "sidecar"
+	ZtunnelTemplateName = "ztunnel"
 )
 
 // UnmarshalConfig unmarshals the provided YAML configuration, while normalizing the resulting configuration
@@ -172,6 +176,9 @@ func UnmarshalConfig(yml []byte) (Config, error) {
 	}
 	if len(injectConfig.DefaultTemplates) == 0 {
 		injectConfig.DefaultTemplates = []string{SidecarTemplateName}
+	}
+	if len(injectConfig.DefaultAmbientTemplates) == 0 {
+		injectConfig.DefaultAmbientTemplates = []string{ZtunnelTemplateName}
 	}
 	if len(injectConfig.RawTemplates) == 0 {
 		log.Warnf("injection templates are empty." +
@@ -555,7 +562,7 @@ func runTemplate(tmpl *template.Template, data SidecarTemplateData) (bytes.Buffe
 // kubernetes YAML file.
 // nolint: lll
 func IntoResourceFile(injector Injector, sidecarTemplate Templates,
-	valuesConfig ValuesConfig, revision string, meshconfig *meshconfig.MeshConfig, in io.Reader, out io.Writer, warningHandler func(string),
+	valuesConfig ValuesConfig, revision string, meshconfig *meshconfig.MeshConfig, ambientMode bool, in io.Reader, out io.Writer, warningHandler func(string),
 ) error {
 	reader := yamlDecoder.NewYAMLReader(bufio.NewReaderSize(in, 4096))
 	for {
@@ -574,7 +581,7 @@ func IntoResourceFile(injector Injector, sidecarTemplate Templates,
 
 		var updated []byte
 		if err == nil {
-			outObject, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
+			outObject, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, ambientMode, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return err
 			}
@@ -617,7 +624,7 @@ func FromRawToObject(raw []byte) (runtime.Object, error) {
 // IntoObject convert the incoming resources into Injected resources
 // nolint: lll
 func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig ValuesConfig,
-	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, warningHandler func(string),
+	revision string, meshconfig *meshconfig.MeshConfig, in runtime.Object, ambientMode bool, warningHandler func(string),
 ) (any, error) {
 	out := in.DeepCopyObject()
 
@@ -639,7 +646,7 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 				return nil, err
 			}
 
-			r, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, warningHandler) // nolint: vetshadow
+			r, err := IntoObject(injector, sidecarTemplate, valuesConfig, revision, meshconfig, obj, ambientMode, warningHandler) // nolint: vetshadow
 			if err != nil {
 				return nil, err
 			}
@@ -761,13 +768,17 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 			warningHandler(warningStr)
 			return out, nil
 		}
+		defaultTemplate := []string{SidecarTemplateName}
+		if ambientMode {
+			defaultTemplate = []string{ZtunnelTemplateName}
+		}
 		params := InjectionParameters{
 			pod:        pod,
 			deployMeta: deploymentMetadata,
 			typeMeta:   typeMeta,
 			// Todo replace with some template resolver abstraction
 			templates:           sidecarTemplate,
-			defaultTemplate:     []string{SidecarTemplateName},
+			defaultTemplate:     defaultTemplate,
 			meshConfig:          meshconfig,
 			proxyConfig:         meshconfig.GetDefaultConfig(),
 			valuesConfig:        valuesConfig,

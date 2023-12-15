@@ -150,5 +150,20 @@ webhooks:
       operator: DoesNotExist
 {{- end }}
 
+{{- /* Case 4: Ambient */}}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "ambient." "injectionPath" (printf "%s%s" .Values.istiodRemote.injectionPath "/redirection/ambient")) ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/dataplane-mode
+      operator: In
+      values:
+      - ambient
+  objectSelector:
+    matchExpressions:
+    - key: ambient.istio.io/redirection
+      operator: NotIn
+      values:
+      - "disabled"
+
 {{- end }}
 {{- end }}

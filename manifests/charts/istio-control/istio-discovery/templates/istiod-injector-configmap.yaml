@@ -52,6 +52,10 @@ data:
       gateway: |
 {{ .Files.Get "files/gateway-injection-template.yaml" | trim | indent 8 }}
 {{- end }}
+{{- if not (hasKey .Values.sidecarInjectorWebhook.templates "ztunnel") }}
+      ztunnel: |
+{{ .Files.Get "files/ztunnel-injection-template.yaml" | trim | indent 8 }}
+{{- end }}
 {{- if not (hasKey .Values.sidecarInjectorWebhook.templates "grpc-simple") }}
       grpc-simple: |
 {{ .Files.Get "files/grpc-simple.yaml" | trim | indent 8 }}

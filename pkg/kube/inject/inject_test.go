@@ -59,6 +59,7 @@ func TestInjection(t *testing.T) {
 		expectedError string
 		expectedLog   string
 		setup         func(t test.Failer)
+		ambient       bool
 	}
 	cases := []testCase{
 		// verify cni
@@ -341,6 +342,11 @@ func TestInjection(t *testing.T) {
 			in:   "truncate-canonical-name-custom-controller-pod.yaml",
 			want: "truncate-canonical-name-custom-controller-pod.yaml.injected",
 		},
+		{
+			in:      "hello.yaml",
+			want:    "hello.yaml.ambient.injected",
+			ambient: true,
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones
@@ -437,7 +443,7 @@ func TestInjection(t *testing.T) {
 					logs = append(logs, s)
 					t.Log(s)
 				}
-				if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "", mc, in, &got, warn); err != nil {
+				if err = IntoResourceFile(nil, sidecarTemplate.Templates, valuesConfig, "", mc, c.ambient, in, &got, warn); err != nil {
 					if c.expectedError != "" {
 						if !strings.Contains(strings.ToLower(err.Error()), c.expectedError) {
 							t.Fatalf("expected error %q got %q", c.expectedError, err)
@@ -494,9 +500,13 @@ func TestInjection(t *testing.T) {
 				// Split multi-part yaml documents. Input and output will have the same number of parts.
 				inputYAMLs := splitYamlFile(inputFilePath, t)
 				wantYAMLs := splitYamlFile(wantFilePath, t)
+				path := ""
+				if c.ambient {
+					path = "/inject/redirection/ambient"
+				}
 				for i := 0; i < len(inputYAMLs); i++ {
 					t.Run(fmt.Sprintf("yamlPart[%d]", i), func(t *testing.T) {
-						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i], true)
+						runWebhook(t, webhook, inputYAMLs[i], wantYAMLs[i], path, true)
 					})
 				}
 			})
@@ -530,7 +540,7 @@ func testInjectionTemplate(t *testing.T, template, input, expected string) {
 		},
 		env: env,
 	}
-	runWebhook(t, webhook, []byte(input), []byte(expected), false)
+	runWebhook(t, webhook, []byte(input), []byte(expected), "", false)
 }
 
 func TestMultipleInjectionTemplates(t *testing.T) {
@@ -610,8 +620,8 @@ spec:
     - name: istio-proxy
       image: proxy
 `
-	runWebhook(t, webhook, []byte(input), []byte(fmt.Sprintf(expected, "sidecar,init")), false)
-	runWebhook(t, webhook, []byte(inputAlias), []byte(fmt.Sprintf(expected, "both")), false)
+	runWebhook(t, webhook, []byte(input), []byte(fmt.Sprintf(expected, "sidecar,init")), "", false)
+	runWebhook(t, webhook, []byte(inputAlias), []byte(fmt.Sprintf(expected, "both")), "", false)
 }
 
 // TestStrategicMerge ensures we can use https://github.com/kubernetes/community/blob/master/contributors/devel/sig-api-machinery/strategic-merge-patch.md
@@ -663,7 +673,7 @@ spec:
 `)
 }
 
-func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byte, idempotencyCheck bool) {
+func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byte, path string, idempotencyCheck bool) {
 	// Convert the input YAML to a deployment.
 	inputRaw, err := FromRawToObject(inputYAML)
 	if err != nil {
@@ -689,7 +699,7 @@ func runWebhook(t *testing.T, webhook *Webhook, inputYAML []byte, wantYAML []byt
 			},
 			Namespace: jsonToUnstructured(inputYAML, t).GetNamespace(),
 		},
-	}, "")
+	}, path)
 	var gotPod *corev1.Pod
 	// Apply the generated patch to the template.
 	if got.Patch != nil {
@@ -954,6 +964,20 @@ func Test_updateClusterEnvs(t *testing.T) {
 					{
 						Name:  "ISTIO_META_NETWORK",
 						Value: "network1",
+					},
+				},
+			},
+		},
+		{
+			args: args{
+				container: &corev1.Container{},
+				newKVs:    parseInjectEnvs("/inject/redirection/ambient"),
+			},
+			want: &corev1.Container{
+				Env: []corev1.EnvVar{
+					{
+						Name:  "REDIRECTION",
+						Value: "ambient",
 					},
 				},
 			},

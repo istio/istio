@@ -1069,21 +1069,26 @@ func (wh *Webhook) inject(ar *kube.AdmissionReview, path string) *kube.Admission
 	if wh.namespaces != nil {
 		podNamespace = wh.namespaces.Get(pod.Namespace, "")
 	}
-
+	defaultTemplate := wh.Config.DefaultTemplates
+	proxyEnvs := parseInjectEnvs(path)
+	if proxyEnvs["REDIRECTION"] == "ambient" {
+		defaultTemplate = wh.Config.DefaultAmbientTemplates
+		delete(proxyEnvs, "REDIRECTION")
+	}
 	params := InjectionParameters{
 		pod:                 &pod,
 		deployMeta:          deploy,
 		namespace:           podNamespace,
 		typeMeta:            typeMeta,
 		templates:           wh.Config.Templates,
-		defaultTemplate:     wh.Config.DefaultTemplates,
+		defaultTemplate:     defaultTemplate,
 		aliases:             wh.Config.Aliases,
 		meshConfig:          wh.meshConfig,
 		proxyConfig:         proxyConfig,
 		valuesConfig:        wh.valuesConfig,
 		revision:            wh.revision,
 		injectedAnnotations: wh.Config.InjectedAnnotations,
-		proxyEnvs:           parseInjectEnvs(path),
+		proxyEnvs:           proxyEnvs,
 	}
 	wh.mu.RUnlock()
 

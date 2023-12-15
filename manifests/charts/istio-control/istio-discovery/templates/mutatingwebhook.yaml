@@ -1,7 +1,7 @@
 {{- /* Core defines the common configuration used by all webhook segments */}}
 {{/* Copy just what we need to avoid expensive deepCopy */}}
 {{- $whv := dict
- "revision" .Values.revision
+  "revision" .Values.revision
   "injectionPath" .Values.istiodRemote.injectionPath
   "injectionURL" .Values.istiodRemote.injectionURL
   "reinvocationPolicy" .Values.sidecarInjectorWebhook.reinvocationPolicy
@@ -149,6 +149,21 @@ webhooks:
     - key: istio.io/rev
       operator: DoesNotExist
 {{- end }}
+
+{{- /* Case 4: Ambient */}}
+{{- include "core" (mergeOverwrite (deepCopy $whv) (dict "Prefix" "ambient." "injectionPath" (printf "%s%s" .Values.istiodRemote.injectionPath "/redirection/ambient")) ) }}
+  namespaceSelector:
+    matchExpressions:
+    - key: istio.io/dataplane-mode
+      operator: In
+      values:
+      - ambient
+  objectSelector:
+    matchExpressions:
+    - key: ambient.istio.io/redirection
+      operator: NotIn
+      values:
+      - "disabled"
 
 {{- end }}
 {{- end }}

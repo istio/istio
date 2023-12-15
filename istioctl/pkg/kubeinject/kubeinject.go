@@ -484,6 +484,7 @@ var (
 	injectConfigMapName string
 	whcName             string
 	iopFilename         string
+	ambientMode         bool
 )
 
 const (
@@ -607,7 +608,7 @@ It's best to do kube-inject when the resource is initially created.
 			if err != nil {
 				return err
 			}
-			retval := inject.IntoResourceFile(injector, templs, vc, rev, meshConfig,
+			retval := inject.IntoResourceFile(injector, templs, vc, rev, meshConfig, ambientMode,
 				reader, writer, func(warning string) {
 					warnings = append(warnings, warning)
 				})
@@ -648,6 +649,7 @@ It's best to do kube-inject when the resource is initially created.
 	injectCmd.PersistentFlags().StringVar(&iopFilename, "operatorFileName", "",
 		"Path to file containing IstioOperator custom resources. If configs from files like "+
 			"meshConfigFile, valuesFile are provided, they will be overridden by iop config values.")
+	injectCmd.PersistentFlags().BoolVar(&ambientMode, "ambient", false, "Inject for ambient mode.")
 
 	injectCmd.PersistentFlags().StringVar(&meshConfigMapName, "meshConfigMapName", defaultMeshConfigMapName,
 		fmt.Sprintf("ConfigMap name for Istio mesh configuration, key should be %q", configMapKey))

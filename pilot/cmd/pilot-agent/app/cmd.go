@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/version"
 	stsserver "istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager"
+	ambient "istio.io/istio/tools/ambient/pkg/cmd"
 	cleaniptables "istio.io/istio/tools/istio-clean-iptables/pkg/cmd"
 	iptables "istio.io/istio/tools/istio-iptables/pkg/cmd"
 	iptableslog "istio.io/istio/tools/istio-iptables/pkg/log"
@@ -84,6 +85,7 @@ func NewRootCommand() *cobra.Command {
 	rootCmd.AddCommand(waitCmd)
 	rootCmd.AddCommand(version.CobraCommand())
 	rootCmd.AddCommand(iptables.GetCommand())
+	rootCmd.AddCommand(ambient.GetCommand())
 	rootCmd.AddCommand(cleaniptables.GetCommand())
 
 	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, collateral.Metadata{
