@@ -129,4 +129,3 @@ else
 	$(call run-test,./tests/integration/security/ ./tests/integration/pilot,-run="TestReachability|TestTraffic|TestGatewayConformance")
 endif
 
-
