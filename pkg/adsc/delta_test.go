@@ -399,7 +399,7 @@ RDS/test-route:
 				return nil
 			},
 			expectedDeltaResources: &Client{
-				received: expected,
+				lastReceived: expected,
 			},
 			expectedTree: desc.expectedTree,
 		}
@@ -437,12 +437,12 @@ RDS/test-route:
 			assert.EventuallyEqual(t, func() bool {
 				tt.inClient.mutex.Lock()
 				defer tt.inClient.mutex.Unlock()
-				rec := tt.inClient.received
+				rec := tt.inClient.lastReceived
 
-				if rec == nil && len(rec) != len(tt.expectedDeltaResources.received) {
+				if rec == nil && len(rec) != len(tt.expectedDeltaResources.lastReceived) {
 					return false
 				}
-				for tpe, rsrcs := range tt.expectedDeltaResources.received {
+				for tpe, rsrcs := range tt.expectedDeltaResources.lastReceived {
 					if _, ok := rec[tpe]; !ok {
 						return false
 					}
@@ -453,8 +453,8 @@ RDS/test-route:
 				return true
 			}, true, retry.Timeout(time.Second), retry.Delay(time.Millisecond))
 
-			if !cmp.Equal(tt.inClient.received, tt.expectedDeltaResources.received, protocmp.Transform()) {
-				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedDeltaResources.received, tt.inClient.received)
+			if !cmp.Equal(tt.inClient.lastReceived, tt.expectedDeltaResources.lastReceived, protocmp.Transform()) {
+				t.Errorf("%s: expected recv %v got %v", tt.desc, tt.expectedDeltaResources.lastReceived, tt.inClient.lastReceived)
 			}
 
 			tree := tt.inClient.dumpTree()

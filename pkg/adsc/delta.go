@@ -141,10 +141,6 @@ type HandlerFunc func(ctx HandlerContext, res proto.Message, event Event)
 //     - Event Handling: Triggers specific handlers for each resource, as register using Register function during client initialization.
 //     - Tree Update: Modifies its 'tree' to reflect changes in resources, such as adding new resources,
 //     updating relationships between parents and children, and removing or unlinking resources.
-//     - Resource Caching: If 'EnableDeletedResourceCache' is enabled, newly added resources are cached.
-//     This cache plays a critical role when resources are subsequently removed from the stream, allowing
-//     the client to trigger delete events with the cached resource. In the absence of caching, delete
-//     events carry only the resource's name.
 //
 //  3. State Synchronization: Post-processing the delta response, the client updates its internal state. This involves:
 //     - Acknowledgements and Errors: Communicating acknowledgements or errors back to the server based on the
@@ -199,8 +195,8 @@ type Client struct {
 	sendNodeMeta atomic.Bool
 
 	mutex sync.RWMutex
-	// Last received message, by type
-	received        map[string]*discovery.DeltaDiscoveryResponse
+	// lastReceived message, by type
+	lastReceived    map[string]*discovery.DeltaDiscoveryResponse
 	deltaXDSUpdates chan *discovery.DeltaDiscoveryResponse
 
 	// errChan is used to signal errors from the delta stream
@@ -276,6 +272,9 @@ func (c *Client) reconnect() {
 	err := c.Run(context.Background())
 	if err != nil {
 		time.AfterFunc(c.cfg.BackoffPolicy.NextBackOff(), c.reconnect)
+	} else if c.cfg.BackoffPolicy != nil {
+		// We connected, so reset the backoff
+		c.cfg.BackoffPolicy.Reset()
 	}
 }
 
@@ -293,7 +292,7 @@ func NewDelta(discoveryAddr string, config *DeltaADSConfig, opts ...Option) *Cli
 		tree:            map[resourceKey]resourceNode{},
 		errChan:         make(chan error, 10),
 		deltaXDSUpdates: make(chan *discovery.DeltaDiscoveryResponse, 100),
-		received:        map[string]*discovery.DeltaDiscoveryResponse{},
+		lastReceived:    map[string]*discovery.DeltaDiscoveryResponse{},
 		mutex:           sync.RWMutex{},
 	}
 	for _, o := range opts {
@@ -344,6 +343,7 @@ func initWatch(typeURL string, resourceName string) Option {
 		if f {
 			// We are watching directly now, so erase any parents
 			existing.Parents = nil
+			existing.Children = nil
 		} else {
 			c.tree[key] = resourceNode{
 				Parents:  make(keySet),
@@ -355,10 +355,6 @@ func initWatch(typeURL string, resourceName string) Option {
 }
 
 func (c *Client) handleRecv() {
-	// We connected, so reset the backoff
-	if c.cfg.BackoffPolicy != nil {
-		c.cfg.BackoffPolicy.Reset()
-	}
 	for {
 		deltaLog.Infof("Start Recv for node %v", c.nodeID)
 		msg, err := c.xdsClient.Recv()
@@ -373,9 +369,6 @@ func (c *Client) handleRecv() {
 				time.AfterFunc(c.cfg.BackoffPolicy.NextBackOff(), c.reconnect)
 			} else {
 				c.Close()
-				c.WaitClear()
-				c.deltaXDSUpdates <- nil
-				close(c.errChan)
 			}
 			return
 		}
@@ -386,7 +379,7 @@ func (c *Client) handleRecv() {
 			return
 		}
 		c.mutex.Lock()
-		c.received[msg.TypeUrl] = msg
+		c.lastReceived[msg.TypeUrl] = msg
 		c.mutex.Unlock()
 		c.deltaXDSUpdates <- msg
 	}
@@ -622,14 +615,17 @@ func (c *Client) dumpNode(sb *strings.Builder, key resourceKey, indent string) {
 
 func (c *Client) Close() {
 	c.mutex.Lock()
+	defer c.mutex.Unlock()
 	c.conn.Close()
 	c.closed = true
-	c.mutex.Unlock()
+	c.WaitClear()
+	// Signal the channel to close
+	c.deltaXDSUpdates <- nil
 }
 
 func (c *Client) request(w resourceKey) {
 	c.mutex.Lock()
-	ex := c.received[w.TypeURL]
+	ex := c.lastReceived[w.TypeURL]
 	c.mutex.Unlock()
 	nonce := ""
 	if ex != nil {
@@ -697,6 +693,7 @@ func (c *Client) WaitClear() {
 	for {
 		select {
 		case <-c.deltaXDSUpdates:
+		case <-c.errChan:
 		default:
 			return
 		}
@@ -707,7 +704,7 @@ func (c *Client) WaitClear() {
 func (c *Client) WaitResp(to time.Duration, typeURL string) (*discovery.DeltaDiscoveryResponse, error) {
 	t := time.NewTimer(to)
 	c.mutex.Lock()
-	ex := c.received[typeURL]
+	ex := c.lastReceived[typeURL]
 	c.mutex.Unlock()
 	if ex != nil {
 		return ex, nil
