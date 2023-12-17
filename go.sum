@@ -181,8 +181,8 @@ github.com/emicklei/go-restful/v3 v3.11.0/go.mod h1:6n3XBCmQQb25CM2LCACGz8ukIrRr
 github.com/envoyproxy/go-control-plane v0.9.0/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.1-0.20191026205805-5f8ba28d4473/go.mod h1:YTl/9mNaCwkRvm6d1a2C3ymFceY/DCBVvsKhRF0iEA4=
 github.com/envoyproxy/go-control-plane v0.9.4/go.mod h1:6rpuAdCZL397s3pYoYcLgu1mIlRU8Am5FuJP05cCM98=
-github.com/envoyproxy/go-control-plane v0.11.2-0.20231209013151-42a65e415d60 h1:H1n/2fVp1CJchlmq2+ETQL7hD8JTnNgfwGY06i3rNn4=
-github.com/envoyproxy/go-control-plane v0.11.2-0.20231209013151-42a65e415d60/go.mod h1:RcMvamiwQuntyVOp5brrKC4qK2pylAw/v4BQEdo4FU4=
+github.com/envoyproxy/go-control-plane v0.11.2-0.20231214164415-675dd80de776 h1:dTPAlU0eaUoUUiJu7eaYbeDAvxTSB9BOE8KEvzlpQ8Y=
+github.com/envoyproxy/go-control-plane v0.11.2-0.20231214164415-675dd80de776/go.mod h1:RcMvamiwQuntyVOp5brrKC4qK2pylAw/v4BQEdo4FU4=
 github.com/envoyproxy/protoc-gen-validate v0.1.0/go.mod h1:iSmxcyjqTsJpI2R4NaDN7+kN2VEUnK/pcBlmesArF7c=
 github.com/envoyproxy/protoc-gen-validate v1.0.2 h1:QkIBuU5k+x7/QXPvPPnWXWlCdaBFApVqftFV6k087DA=
 github.com/envoyproxy/protoc-gen-validate v1.0.2/go.mod h1:GpiZQP3dDbg4JouG/NNS7QWXpgx6x8QiMKdmN72jogE=
