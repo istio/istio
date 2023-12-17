@@ -141,6 +141,7 @@ spec:
         resources:
           requests:
             cpu: "4"
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
@@ -207,6 +208,7 @@ spec:
         resources:
           requests:
             cpu: "4"
+            memory: 128Mi
         securityContext:
           allowPrivilegeEscalation: false
           capabilities:
