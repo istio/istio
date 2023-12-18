@@ -56,6 +56,14 @@ func Empty[T any]() T {
 	return empty
 }
 
+// ToList returns an empty list if t is nil, or a list with a single element
+func ToList[T any](t *T) []T {
+	if t == nil {
+		return nil
+	}
+	return []T{*t}
+}
+
 // TypeName returns the name of the type
 func TypeName[T any]() string {
 	var empty T

@@ -88,7 +88,7 @@ func Equal[T any](t test.Failer, a, b T, context ...string) {
 		if len(context) > 0 {
 			cs = " " + strings.Join(context, ", ") + ":"
 		}
-		t.Fatalf("found diff:%s %v\nLeft: %v\nRight: %v", cs, cmp.Diff(a, b, opts(a)...), a, b)
+		t.Fatalf("found diff:%s %v\nLeft:  %v\nRight: %v", cs, cmp.Diff(a, b, opts(a)...), a, b)
 	}
 }
 
@@ -97,7 +97,7 @@ func EventuallyEqual[T any](t test.Failer, fetch func() T, expected T, retryOpts
 	t.Helper()
 	var a T
 	// Unit tests typically need shorter default; opts can override though
-	ro := []retry.Option{retry.Timeout(time.Second * 2)}
+	ro := []retry.Option{retry.Timeout(time.Second * 2), retry.BackoffDelay(time.Millisecond * 2)}
 	ro = append(ro, retryOpts...)
 	err := retry.UntilSuccess(func() error {
 		a = fetch()
@@ -107,7 +107,7 @@ func EventuallyEqual[T any](t test.Failer, fetch func() T, expected T, retryOpts
 		return nil
 	}, ro...)
 	if err != nil {
-		t.Fatalf("found diff: %v\nLeft: %v\nRight: %v", cmp.Diff(a, expected, opts(expected)...), a, expected)
+		t.Fatalf("found diff: %v\nGot: %v\nWant: %v", cmp.Diff(a, expected, opts(expected)...), a, expected)
 	}
 }
 
