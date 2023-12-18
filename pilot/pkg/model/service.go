@@ -945,10 +945,20 @@ func serviceResourceName(s *workloadapi.Service) string {
 	return s.Namespace + "/" + s.Hostname
 }
 
+type WorkloadSource string
+
+const (
+	WorkloadSourcePod           WorkloadSource = "pod"
+	WorkloadSourceServiceEntry  WorkloadSource = "serviceentry"
+	WorkloadSourceWorkloadEntry WorkloadSource = "workloadentry"
+)
+
 type WorkloadInfo struct {
 	*workloadapi.Workload
 	// Labels for the workload. Note these are only used internally, not sent over XDS
 	Labels map[string]string
+	// Source of the workload. Note this is used internally only.
+	Source WorkloadSource
 }
 
 func workloadResourceName(w *workloadapi.Workload) string {
@@ -959,6 +969,7 @@ func (i *WorkloadInfo) Clone() *WorkloadInfo {
 	return &WorkloadInfo{
 		Workload: proto.Clone(i).(*workloadapi.Workload),
 		Labels:   maps.Clone(i.Labels),
+		Source:   i.Source,
 	}
 }
 
