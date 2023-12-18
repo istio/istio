@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"go.uber.org/atomic"
 	"google.golang.org/grpc"
@@ -95,11 +94,12 @@ func (c *CitadelClient) CSRSign(csrPEM []byte, certValidTTLInSec int64) (res []s
 	}
 	// TODO(hzxuzhonghu): notify caclient rebuilding only when root cert is updated.
 	// It can happen when the istiod dns certs is resigned after root cert is updated,
-	// in this case, the ca grpc client can not automiatically connect to istiod after the underlying network connection closed.
+	// in this case, the ca grpc client can not automatically connect to istiod after the underlying network connection closed.
 	// Becase that the grpc client still use the old tls configuration to reconnect to istiod.
 	// So here we need to rebuild the caClient in order to use the new root cert.
 	defer func() {
-		if err != nil && strings.Contains(err.Error(), "x509: certificate signed by unknown authority") {
+		if err != nil {
+			citadelClientLog.Errorf("failed to sign CSR: %v", err)
 			if err := c.reconnect(); err != nil {
 				citadelClientLog.Errorf("failed reconnect: %v", err)
 			}
@@ -165,7 +165,7 @@ func (c *CitadelClient) reconnect() error {
 	}
 	c.conn = conn
 	c.client = pb.NewIstioCertificateServiceClient(conn)
-	citadelClientLog.Errorf("recreated connection")
+	citadelClientLog.Info("recreated connection")
 	return nil
 }
 
