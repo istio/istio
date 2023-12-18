@@ -547,6 +547,14 @@ func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []
 				},
 			},
 		},
+		{
+			Tag: "istio.cluster_id",
+			Type: &tracing.CustomTag_Environment_{
+				Environment: &tracing.CustomTag_Environment{
+					Name: "ISTIO_META_CLUSTER_ID",
+				},
+			},
+		},
 	}
 }
 
