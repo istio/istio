@@ -19,7 +19,6 @@ import (
 	"errors"
 	"fmt"
 
-	"go.uber.org/atomic"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -39,12 +38,11 @@ var citadelClientLog = log.RegisterScope("citadelclient", "citadel client debugg
 
 type CitadelClient struct {
 	// It means enable tls connection to Citadel if this is not nil.
-	tlsOpts   *TLSOptions
-	client    pb.IstioCertificateServiceClient
-	conn      *grpc.ClientConn
-	provider  *caclient.TokenProvider
-	opts      *security.Options
-	usingMtls *atomic.Bool
+	tlsOpts  *TLSOptions
+	client   pb.IstioCertificateServiceClient
+	conn     *grpc.ClientConn
+	provider *caclient.TokenProvider
+	opts     *security.Options
 }
 
 type TLSOptions struct {
@@ -56,10 +54,9 @@ type TLSOptions struct {
 // NewCitadelClient create a CA client for Citadel.
 func NewCitadelClient(opts *security.Options, tlsOpts *TLSOptions) (*CitadelClient, error) {
 	c := &CitadelClient{
-		tlsOpts:   tlsOpts,
-		opts:      opts,
-		provider:  caclient.NewCATokenProvider(opts),
-		usingMtls: atomic.NewBool(false),
+		tlsOpts:  tlsOpts,
+		opts:     opts,
+		provider: caclient.NewCATokenProvider(opts),
 	}
 
 	conn, err := c.buildConnection()
@@ -127,9 +124,6 @@ func (c *CitadelClient) getTLSOptions() *istiogrpc.TLSOptions {
 			Cert:          c.tlsOpts.Cert,
 			ServerAddress: c.opts.CAEndpoint,
 			SAN:           c.opts.CAEndpointSAN,
-			GetClientCertificateCb: func() {
-				c.usingMtls.Store(true)
-			},
 		}
 	}
 	return nil
