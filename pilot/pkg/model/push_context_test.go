@@ -2133,7 +2133,7 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 		},
 		Spec: &networking.DestinationRule{
 			Host:     testhost,
-			ExportTo: []string{"test2", "ns1", "test1"},
+			ExportTo: []string{"test2", "ns1", "test1", "newNS"},
 			Subsets: []*networking.Subset{
 				{
 					Name: "subset3",
@@ -2317,6 +2317,12 @@ func TestSetDestinationRuleWithExportTo(t *testing.T) {
 		{
 			proxyNs:     "test2",
 			serviceNs:   "test1",
+			host:        testhost,
+			wantSubsets: []string{"subset3", "subset4"},
+		},
+		{
+			proxyNs:     "newNS",
+			serviceNs:   "test2",
 			host:        testhost,
 			wantSubsets: []string{"subset3", "subset4"},
 		},
@@ -2922,8 +2928,8 @@ func TestGetHostsFromMeshConfig(t *testing.T) {
 	ps.initTelemetry(env)
 	ps.initDefaultExportMaps()
 	ps.initVirtualServices(env)
-	got := ps.virtualServiceIndex.destinationsByGateway[gatewayName]
-	assert.Equal(t, []string{"otel.foo.svc.cluster.local"}, sets.SortedList(got))
+	assert.Equal(t, ps.virtualServiceIndex.destinationsByGateway[gatewayName], sets.String{})
+	assert.Equal(t, ps.extraGatewayServices(nil), sets.New("otel.foo.svc.cluster.local"))
 }
 
 func TestWellKnownProvidersCount(t *testing.T) {

@@ -227,7 +227,7 @@ func PodTLSMode(pod *corev1.Pod) string {
 // A user who wishes to expose multi-network connectivity should create a listener named "tls-passthrough"
 // with TLS.Mode Passthrough.
 // For some backwards compatibility, we assume any listener with TLS specified and a port matching
-// 15443 (or the label-override for gateway port) is auto-passtrough as well.
+// 15443 (or the label-override for gateway port) is auto-passthrough as well.
 func IsAutoPassthrough(gwLabels map[string]string, l v1beta1.Listener) bool {
 	if l.TLS == nil {
 		return false

@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	kubeconfig "istio.io/istio/pkg/config/gateway/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -1952,13 +1953,15 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 				continue
 			}
 			meta := parentMeta(obj, &l.Name)
+			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
+
 			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
 			gatewayConfig := config.Config{
 				Meta: config.Meta{
 					CreationTimestamp: obj.CreationTimestamp,
 					GroupVersionKind:  gvk.Gateway,
-					Name:              fmt.Sprintf("%s-%s-%s", obj.Name, constants.KubernetesGatewayName, l.Name),
+					Name:              kubeconfig.InternalGatewayName(obj.Name, string(l.Name)),
 					Annotations:       meta,
 					Namespace:         obj.Namespace,
 					Domain:            r.Domain,
@@ -2247,6 +2250,15 @@ func getNamespaceLabelReferences(routes *k8s.AllowedRoutes) []string {
 		res = append(res, k)
 	}
 	for _, me := range routes.Namespaces.Selector.MatchExpressions {
+		if me.Operator == metav1.LabelSelectorOpNotIn || me.Operator == metav1.LabelSelectorOpDoesNotExist {
+			// Over-matching is fine because this only controls the set of namespace
+			// label change events to watch and the actual binding enforcement happens
+			// by checking the intersection of the generated VirtualService.spec.hosts
+			// and Istio Gateway.spec.servers.hosts arrays - we just can't miss
+			// potentially relevant namespace label events here.
+			res = append(res, "*")
+		}
+
 		res = append(res, me.Key)
 	}
 	return res
@@ -2413,7 +2425,7 @@ func parentRefString(ref k8s.ParentReference) string {
 		ptr.OrEmpty(ref.Namespace))
 }
 
-// buildHostnameMatch generates a VirtualService.spec.hosts section from a listener
+// buildHostnameMatch generates a Gateway.spec.servers.hosts section from a listener
 func buildHostnameMatch(localNamespace string, r GatewayResources, l k8s.Listener) []string {
 	// We may allow all hostnames or a specific one
 	hostname := "*"
@@ -2423,7 +2435,10 @@ func buildHostnameMatch(localNamespace string, r GatewayResources, l k8s.Listene
 
 	resp := []string{}
 	for _, ns := range namespacesFromSelector(localNamespace, r, l.AllowedRoutes) {
-		resp = append(resp, fmt.Sprintf("%s/%s", ns, hostname))
+		// This check is necessary to prevent adding a hostname with an invalid empty namespace
+		if len(ns) > 0 {
+			resp = append(resp, fmt.Sprintf("%s/%s", ns, hostname))
+		}
 	}
 
 	// If nothing matched use ~ namespace (match nothing). We need this since its illegal to have an

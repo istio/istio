@@ -70,6 +70,23 @@ func NewStatusGen(s *DiscoveryServer) *StatusGen {
 // - NACKs
 // We can also expose ACKS.
 func (sg *StatusGen) Generate(proxy *model.Proxy, w *model.WatchedResource, req *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
+	return sg.handleInternalRequest(proxy, w, req)
+}
+
+// Generate delta XDS responses about internal events:
+// - connection status
+// - NACKs
+// We can also expose ACKS.
+func (sg *StatusGen) GenerateDeltas(
+	proxy *model.Proxy,
+	req *model.PushRequest,
+	w *model.WatchedResource,
+) (model.Resources, model.DeletedResources, model.XdsLogDetails, bool, error) {
+	res, detail, err := sg.handleInternalRequest(proxy, w, req)
+	return res, nil, detail, true, err
+}
+
+func (sg *StatusGen) handleInternalRequest(_ *model.Proxy, w *model.WatchedResource, _ *model.PushRequest) (model.Resources, model.XdsLogDetails, error) {
 	res := model.Resources{}
 
 	switch w.TypeUrl {

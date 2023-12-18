@@ -49,7 +49,7 @@ endif
 export VERSION
 
 # Base version of Istio image to use
-BASE_VERSION ?= master-2023-11-28T19-01-20
+BASE_VERSION ?= master-2023-12-11T19-01-39
 ISTIO_BASE_REGISTRY ?= gcr.io/istio-release
 
 export GO111MODULE ?= on
@@ -93,7 +93,7 @@ endif
 -include .istiorc.mk
 
 # Environment for tests, the directory containing istio and deps binaries.
-# Typically same as GOPATH/bin, so tests work seemlessly with IDEs.
+# Typically same as GOPATH/bin, so tests work seamlessly with IDEs.
 
 export ISTIO_BIN=$(GOBIN)
 
@@ -126,7 +126,7 @@ ifeq ($(HUB),)
   $(error "HUB cannot be empty")
 endif
 
-# For dockerx builds, allow HUBS which is a space seperated list of hubs. Default to HUB.
+# For dockerx builds, allow HUBS which is a space separated list of hubs. Default to HUB.
 HUBS ?= $(HUB)
 
 # If tag not explicitly set in users' .istiorc.mk or command line, default to the git sha.
@@ -340,7 +340,6 @@ copy-templates:
 	cp manifests/charts/istio-control/istio-discovery/templates/istiod-injector-configmap.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/configmap.yaml manifests/charts/istiod-remote/templates
 	cp manifests/charts/istio-control/istio-discovery/templates/_helpers.tpl manifests/charts/istiod-remote/templates
-	cp manifests/charts/istio-control/istio-discovery/templates/telemetryv2_*.yaml manifests/charts/istiod-remote/templates
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/crds/crd-all.gen.yaml > manifests/charts/istiod-remote/templates/crd-all.gen.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/base/templates/default.yaml > manifests/charts/istiod-remote/templates/default.yaml
 	sed -e '1 i {{- if .Values.global.configCluster }}' -e '$$ a {{- end }}' manifests/charts/istio-control/istio-discovery/templates/validatingwebhookconfiguration.yaml > manifests/charts/istiod-remote/templates/validatingwebhookconfiguration.yaml

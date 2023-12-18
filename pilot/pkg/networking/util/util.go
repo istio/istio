@@ -694,14 +694,6 @@ func BuildInternalAddressWithIdentifier(name, identifier string) *core.Address {
 	}
 }
 
-func BuildTunnelMetadata(address string, port int, waypoint string) *core.Metadata {
-	return &core.Metadata{
-		FilterMetadata: map[string]*structpb.Struct{
-			OriginalDstMetadataKey: BuildTunnelMetadataStruct(address, port, waypoint),
-		},
-	}
-}
-
 func BuildTunnelMetadataStruct(address string, port int, waypoint string) *structpb.Struct {
 	m := map[string]interface{}{
 		// logical destination behind the tunnel, on which policy and telemetry will be applied
@@ -783,6 +775,8 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 		mergedPolicy.LoadBalancer = original.LoadBalancer
 		mergedPolicy.OutlierDetection = original.OutlierDetection
 		mergedPolicy.Tls = original.Tls
+		mergedPolicy.Tunnel = original.Tunnel
+		mergedPolicy.ProxyProtocol = original.ProxyProtocol
 	}
 
 	// Override with subset values.
@@ -797,6 +791,12 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 	}
 	if subsetPolicy.Tls != nil {
 		mergedPolicy.Tls = subsetPolicy.Tls
+	}
+	if subsetPolicy.Tunnel != nil {
+		mergedPolicy.Tunnel = subsetPolicy.Tunnel
+	}
+	if subsetPolicy.ProxyProtocol != nil {
+		mergedPolicy.ProxyProtocol = subsetPolicy.ProxyProtocol
 	}
 
 	// Check if port level overrides exist, if yes override with them.

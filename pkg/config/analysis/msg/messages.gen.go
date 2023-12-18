@@ -239,6 +239,14 @@ var (
 	// ExternalControlPlaneAddressIsNotAHostname defines a diag.MessageType for message "ExternalControlPlaneAddressIsNotAHostname".
 	// Description: Address for the ingress gateway on the external control plane is an IP address and not a hostname
 	ExternalControlPlaneAddressIsNotAHostname = diag.NewMessageType(diag.Info, "IST0164", "The address (%s) that was provided for the webhook (%s) to reach the ingress gateway on the external control plane cluster is an IP address. This is not recommended for a production environment.")
+
+	// ReferencedInternalGateway defines a diag.MessageType for message "ReferencedInternalGateway".
+	// Description: VirtualServices should not reference internal Gateways.
+	ReferencedInternalGateway = diag.NewMessageType(diag.Warning, "IST0165", "Gateway reference in VirtualService %s is to an implementation-generated internal Gateway: %s.")
+
+	// IneffectiveSelector defines a diag.MessageType for message "IneffectiveSelector".
+	// Description: Selector has no effect when applied to Kubernetes Gateways.
+	IneffectiveSelector = diag.NewMessageType(diag.Warning, "IST0166", "Ineffective selector on Kubernetes Gateway %s. Use the TargetRef field instead.")
 )
 
 // All returns a list of all known message types.
@@ -302,6 +310,8 @@ func All() []*diag.MessageType {
 		GatewayPortNotDefinedOnService,
 		InvalidExternalControlPlaneConfig,
 		ExternalControlPlaneAddressIsNotAHostname,
+		ReferencedInternalGateway,
+		IneffectiveSelector,
 	}
 }
 
@@ -874,5 +884,24 @@ func NewExternalControlPlaneAddressIsNotAHostname(r *resource.Instance, hostname
 		r,
 		hostname,
 		webhook,
+	)
+}
+
+// NewReferencedInternalGateway returns a new diag.Message based on ReferencedInternalGateway.
+func NewReferencedInternalGateway(r *resource.Instance, virtualservice string, gateway string) diag.Message {
+	return diag.NewMessage(
+		ReferencedInternalGateway,
+		r,
+		virtualservice,
+		gateway,
+	)
+}
+
+// NewIneffectiveSelector returns a new diag.Message based on IneffectiveSelector.
+func NewIneffectiveSelector(r *resource.Instance, gateway string) diag.Message {
+	return diag.NewMessage(
+		IneffectiveSelector,
+		r,
+		gateway,
 	)
 }

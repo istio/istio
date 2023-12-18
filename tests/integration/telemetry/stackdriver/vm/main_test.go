@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/tests/integration/telemetry"
@@ -143,9 +144,7 @@ meshConfig:
 			cfg.Values["meshConfig.defaultConfig.tracing.sampling"] = "100.0"
 			cfg.Values["global.meshID"] = "proj-test-mesh"
 			cfg.Values["global.proxy.tracer"] = "stackdriver"
-			cfg.Values["telemetry.v2.enabled"] = "true"
 			cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
-			cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
 
 			// conditionally use a fake metadata server for testing off of GCP
 			if sdtest.GCEInst != nil {
@@ -175,7 +174,7 @@ func testSetup(ctx resource.Context) error {
 	if err = ctx.ConfigKube().EvalFile(ns.Name(), map[string]any{
 		"StackdriverAddress": sdInst.Address(),
 		"EchoNamespace":      ns.Name(),
-	}, stackdriverBootstrapOverride).Apply(); err != nil {
+	}, stackdriverBootstrapOverride).Apply(apply.CleanupConditionally); err != nil {
 		return err
 	}
 
@@ -193,7 +192,7 @@ func testSetup(ctx resource.Context) error {
 		"ISTIO_BOOTSTRAP_OVERRIDE": "/etc/istio-custom-bootstrap/custom_bootstrap.json",
 	}
 	if sdtest.GCEInst != nil {
-		vmEnv["GCE_METADATA_HOST"] = sdtest.GCEInst.Address()
+		vmEnv["GCE_METADATA_HOST"] = sdtest.GCEInst.AddressVM()
 	}
 
 	trustDomain := telemetry.GetTrustDomain(ctx.Clusters()[0], istioInst.Settings().SystemNamespace)

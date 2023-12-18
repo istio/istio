@@ -183,6 +183,30 @@ func WaitUntilServiceEndpointsAreReady(a kubernetes.Interface, ns string, name s
 	return service, endpoints, nil
 }
 
+func WaitUntilServiceLoadBalancerReady(a kubernetes.Interface, ns string, name string, opts ...retry.Option) (string, error) {
+	var addr string
+	err := retry.UntilSuccess(func() error {
+		s, err := a.CoreV1().Services(ns).Get(context.TODO(), name, metav1.GetOptions{})
+		if err != nil {
+			return err
+		}
+		if len(s.Status.LoadBalancer.Ingress) == 0 {
+			return fmt.Errorf("no LB assigned")
+		}
+		lb := s.Status.LoadBalancer.Ingress[0]
+		if lb.IP != "" {
+			addr = lb.IP
+			return nil
+		}
+		if lb.Hostname != "" {
+			addr = lb.Hostname
+			return nil
+		}
+		return fmt.Errorf("unexpected LoadBalancer %v", lb)
+	}, newRetryOptions(opts...)...)
+	return addr, err
+}
+
 // WaitForSecretToExist waits for the given secret up to the given waitTime.
 func WaitForSecretToExist(a kubernetes.Interface, namespace, name string, waitTime time.Duration) (*corev1.Secret, error) {
 	secret := a.CoreV1().Secrets(namespace)

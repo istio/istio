@@ -47,8 +47,18 @@ const (
 	policyMatchIgnore policyMatch = "ignore"
 )
 
+func KubernetesGatewayNameAndExists(l labels.Instance) (string, bool) {
+	gwName, exists := l[constants.GatewayNameLabel]
+	if !exists {
+		// TODO: Remove deprecated gateway name label (1.22 or 1.23)
+		gwName, exists = l[constants.DeprecatedGatewayNameLabel]
+	}
+
+	return gwName, exists
+}
+
 func getPolicyMatcher(kind config.GroupVersionKind, policyName string, opts WorkloadSelectionOpts, policy policyTargetGetter) policyMatch {
-	gatewayName, isGatewayAPI := opts.WorkloadLabels[constants.GatewayNameLabel]
+	gatewayName, isGatewayAPI := KubernetesGatewayNameAndExists(opts.WorkloadLabels)
 	targetRef := policy.GetTargetRef()
 	if isGatewayAPI && targetRef == nil && policy.GetSelector() != nil {
 		if opts.IsWaypoint || !features.EnableSelectorBasedK8sGatewayPolicy {

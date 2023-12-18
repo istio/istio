@@ -17,6 +17,10 @@ spec:
       averageValue: 111
       metricName: cpu
     type: Resource
+  - object:
+      averageValue: 111
+      metricName: memory
+    type: Resource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1
@@ -42,6 +46,10 @@ spec:
   metrics:
   - resource:
       name: cpu
+      targetAverageUtilization: 444
+    type: Resource
+  - resource:
+      name: memory
       targetAverageUtilization: 444
     type: Resource
   minReplicas: 1

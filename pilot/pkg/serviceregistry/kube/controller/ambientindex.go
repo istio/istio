@@ -56,7 +56,7 @@ type AmbientIndex interface {
 		workloadEntries map[networkAddress]*apiv1alpha3.WorkloadEntry,
 		seEndpoints map[*apiv1alpha3.ServiceEntry]sets.Set[*v1alpha3.WorkloadEntry],
 		c *Controller) map[model.ConfigKey]struct{}
-	HandleSelectedNamespace(ns string, pods []*v1.Pod, c *Controller)
+	HandleSelectedNamespace(ns string, pods []*v1.Pod, services []*v1.Service, c *Controller)
 }
 
 // AmbientIndexImpl maintains an index of ambient WorkloadInfo objects by various keys.
@@ -964,7 +964,8 @@ func (c *Controller) syncAllWorkloadsForAmbient() {
 		}
 		for _, ns := range namespaces {
 			pods := c.podsClient.List(ns, klabels.Everything())
-			c.ambientIndex.HandleSelectedNamespace(ns, pods, c)
+			services := c.services.List(ns, klabels.Everything())
+			c.ambientIndex.HandleSelectedNamespace(ns, pods, services, c)
 		}
 	}
 }

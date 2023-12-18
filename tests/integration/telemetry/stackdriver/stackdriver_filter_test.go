@@ -45,6 +45,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
 		Run(func(t framework.TestContext) {
+			t.ConfigIstio().EvalFile(EchoNsInst.Name(), nil, filepath.Join(env.IstioSrc, accessLogPolicyEnvoyFilter)).ApplyOrFail(t)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range Clt {
 				cltInstance := cltInstance
@@ -106,14 +107,10 @@ meshConfig:
 `
 	// enable stackdriver filter
 	cfg.Values["telemetry.v2.stackdriver.enabled"] = "true"
-	cfg.Values["telemetry.v2.stackdriver.logging"] = "true"
-	cfg.Values["telemetry.v2.stackdriver.topology"] = "true"
-	cfg.Values["telemetry.v2.stackdriver.configOverride.enable_audit_log"] = "true"
 	cfg.Values["global.proxy.tracer"] = "stackdriver"
 	cfg.Values["pilot.traceSampling"] = "100"
-	cfg.Values["telemetry.v2.accessLogPolicy.enabled"] = "true"
-	cfg.Values["telemetry.v2.accessLogPolicy.logWindowDuration"] = "1s"
-	cfg.Values["global.proxy.componentLogLevel"] = "rbac:debug,wasm:debug"
+	cfg.Values["pilot.env.STACKDRIVER_AUDIT_LOG"] = "true"
+	cfg.Values["global.proxy.componentLogLevel"] = "misc:warning,rbac:debug,wasm:debug"
 
 	// conditionally use a fake metadata server for testing off of GCP
 	if GCEInst != nil {

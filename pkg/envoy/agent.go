@@ -129,12 +129,6 @@ func (a *Agent) Run(ctx context.Context) {
 
 	case <-ctx.Done():
 		a.terminate()
-		status := <-a.statusCh
-		if status.err == errAbort {
-			log.Infof("Envoy aborted normally")
-		} else {
-			log.Warnf("Envoy aborted abnormally")
-		}
 		log.Info("Agent has successfully terminated")
 	}
 }
@@ -175,31 +169,52 @@ func (a *Agent) terminate() {
 		log.Infof("Checking for active connections...")
 		ticker := time.NewTicker(activeConnectionCheckDelay)
 		defer ticker.Stop()
+	graceful_loop:
 		for range ticker.C {
 			ac, err := a.activeProxyConnections()
-			if err != nil {
-				log.Errorf(err.Error())
-				a.abortCh <- errAbort
+			select {
+			case status := <-a.statusCh:
+				log.Infof("Envoy exited with status %v", status.err)
+				log.Infof("Graceful termination logic ended prematurely, envoy process terminated early")
 				return
+			default:
+				if err != nil {
+					log.Errorf(err.Error())
+					a.abortCh <- errAbort
+					log.Infof("Graceful termination logic ended prematurely, error while obtaining downstream_cx_active stat")
+					break graceful_loop
+				}
+				if ac == -1 {
+					log.Info("downstream_cx_active are not available. This either means there are no downstream connection established yet" +
+						" or the stats are not enabled. Skipping active connections check...")
+					a.abortCh <- errAbort
+					break graceful_loop
+				}
+				if ac == 0 {
+					log.Info("There are no more active connections. terminating proxy...")
+					a.abortCh <- errAbort
+					break graceful_loop
+				}
+				log.Infof("There are still %d active connections", ac)
 			}
-			if ac == -1 {
-				log.Info("downstream_cx_active are not available. This either means there are no downstream connection established yet" +
-					" or the stats are not enabled. Skipping active connections check...")
-				a.abortCh <- errAbort
-				return
-			}
-			if ac == 0 {
-				log.Info("There are no more active connections. terminating proxy...")
-				a.abortCh <- errAbort
-				return
-			}
-			log.Infof("There are still %d active connections", ac)
 		}
 	} else {
 		log.Infof("Graceful termination period is %v, starting...", a.terminationDrainDuration)
-		time.Sleep(a.terminationDrainDuration)
-		log.Infof("Graceful termination period complete, terminating remaining proxies.")
-		a.abortCh <- errAbort
+		select {
+		case status := <-a.statusCh:
+			log.Infof("Envoy exited with status %v", status.err)
+			log.Infof("Graceful termination logic ended prematurely, envoy process terminated early")
+			return
+		case <-time.After(a.terminationDrainDuration):
+			log.Infof("Graceful termination period complete, terminating remaining proxies.")
+			a.abortCh <- errAbort
+		}
+	}
+	status := <-a.statusCh
+	if status.err == errAbort {
+		log.Infof("Envoy aborted normally")
+	} else {
+		log.Warnf("Envoy aborted abnormally")
 	}
 	log.Warnf("Aborted proxy instance")
 }

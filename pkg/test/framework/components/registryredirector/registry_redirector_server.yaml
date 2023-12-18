@@ -18,6 +18,7 @@ metadata:
   labels:
     app: registry-redirector
 spec:
+  type: LoadBalancer
   ports:
   - name: http
     port: 1338

@@ -155,7 +155,7 @@ func (s *realStackdriver) ListTimeSeries(namespace, project string) ([]*monitori
 		}
 	}
 
-	return trimMetricLabels(ret), nil
+	return trimMetricLabels(true, ret), nil
 }
 
 func (s *realStackdriver) ListLogEntries(filter LogType, namespace, project string) ([]*loggingpb.LogEntry, error) {

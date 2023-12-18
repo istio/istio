@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/externalcontrolplane"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/pkg/config/analysis/analyzers/k8sgateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/analyzers/multicluster"
 	schemaValidation "istio.io/istio/pkg/config/analysis/analyzers/schema"
@@ -276,6 +277,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "injectionImageDistrolessNoMeshConfig",
+		inputFiles: []string{
+			"testdata/injection-image-distroless-no-meshconfig.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		analyzer: &injection.ImageAnalyzer{},
+		expected: []message{},
+	},
+	{
 		name: "istioInjectionProxyImageMismatchAbsolute",
 		inputFiles: []string{
 			"testdata/injection-with-mismatched-sidecar.yaml",
@@ -413,6 +423,14 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.JWTClaimRouteAnalyzer{},
 		expected: []message{
 			{msg.JwtClaimBasedRoutingWithoutRequestAuthN, "VirtualService foo"},
+		},
+	},
+	{
+		name:       "virtualServiceInternalGatewayRef",
+		inputFiles: []string{"testdata/virtualservice_internal_gateway_ref.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.ReferencedInternalGateway, "VirtualService httpbin"},
 		},
 	},
 	{
@@ -860,6 +878,17 @@ var testGrid = []testCase{
 		meshConfigFile: "testdata/telemetry-lightstep-meshconfig.yaml",
 		expected: []message{
 			{msg.Deprecated, "Telemetry istio-system/mesh-default"},
+		},
+	},
+	{
+		name:       "KubernetesGatewaySelector",
+		inputFiles: []string{"testdata/k8sgateway-selector.yaml"},
+		analyzer:   &k8sgateway.SelectorAnalyzer{},
+		expected: []message{
+			{msg.IneffectiveSelector, "RequestAuthentication default/ra-ineffective"},
+			{msg.IneffectiveSelector, "AuthorizationPolicy default/ap-ineffective"},
+			{msg.IneffectiveSelector, "WasmPlugin default/wasmplugin-ineffective"},
+			{msg.IneffectiveSelector, "Telemetry default/telemetry-ineffective"},
 		},
 	},
 }

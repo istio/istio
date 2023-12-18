@@ -312,21 +312,23 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	if s.statusManager == nil && writeStatus {
 		s.initStatusManager(args)
 	}
-	s.statusReporter = &distribution.Reporter{
-		UpdateInterval: features.StatusUpdateInterval,
-		PodName:        args.PodName,
-	}
-	s.addStartFunc("status reporter init", func(stop <-chan struct{}) error {
-		s.statusReporter.Init(s.environment.GetLedger(), stop)
-		return nil
-	})
-	s.addTerminatingStartFunc("status reporter", func(stop <-chan struct{}) error {
-		if writeStatus {
-			s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
+	if features.EnableDistributionTracking {
+		s.statusReporter = &distribution.Reporter{
+			UpdateInterval: features.StatusUpdateInterval,
+			PodName:        args.PodName,
 		}
-		return nil
-	})
-	s.XDSServer.StatusReporter = s.statusReporter
+		s.addStartFunc("status reporter init", func(stop <-chan struct{}) error {
+			s.statusReporter.Init(s.environment.GetLedger(), stop)
+			return nil
+		})
+		s.addTerminatingStartFunc("status reporter", func(stop <-chan struct{}) error {
+			if writeStatus {
+				s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
+			}
+			return nil
+		})
+		s.XDSServer.StatusReporter = s.statusReporter
+	}
 	if writeStatus {
 		s.addTerminatingStartFunc("status distribution", func(stop <-chan struct{}) error {
 			leaderelection.

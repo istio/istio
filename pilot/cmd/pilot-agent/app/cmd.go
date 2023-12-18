@@ -40,6 +40,7 @@ import (
 	istio_agent "istio.io/istio/pkg/istio-agent"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/security"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
@@ -285,31 +286,30 @@ func initProxy(args []string) (*model.Proxy, error) {
 
 	podIP, _ := netip.ParseAddr(options.InstanceIPVar.Get()) // protobuf encoding of IP_ADDRESS type
 	if podIP.IsValid() {
+		// The first one must be the pod ip as we pick the first ip as pod ip in istiod.
 		proxy.IPAddresses = []string{podIP.String()}
 	}
 
 	// Obtain all the IPs from the node
+	proxyAddrs := make([]string, 0)
 	if ipAddrs, ok := network.GetPrivateIPs(context.Background()); ok {
-		if len(proxy.IPAddresses) == 1 {
-			for _, ip := range ipAddrs {
-				// prevent duplicate ips, the first one must be the pod ip
-				// as we pick the first ip as pod ip in istiod
-				if proxy.IPAddresses[0] != ip {
-					proxy.IPAddresses = append(proxy.IPAddresses, ip)
-				}
-			}
-		} else {
-			proxy.IPAddresses = append(proxy.IPAddresses, ipAddrs...)
-		}
+		proxyAddrs = append(proxyAddrs, ipAddrs...)
 	}
 
 	// No IP addresses provided, append 127.0.0.1 for ipv4 and ::1 for ipv6
-	if len(proxy.IPAddresses) == 0 {
-		proxy.IPAddresses = append(proxy.IPAddresses, localHostIPv4, localHostIPv6)
+	if len(proxyAddrs) == 0 {
+		proxyAddrs = append(proxyAddrs, localHostIPv4, localHostIPv6)
 	}
 
-	// Apply exclusions from traffic.sidecar.istio.io/excludeInterfaces
-	proxy.IPAddresses = applyExcludeInterfaces(proxy.IPAddresses)
+	// Get exclusions from traffic.sidecar.istio.io/excludeInterfaces
+	excludeAddrs := getExcludeInterfaces()
+	excludeAddrs.InsertAll(proxy.IPAddresses...) // prevent duplicate IPs
+	proxyAddrs = slices.FilterInPlace(proxyAddrs, func(s string) bool {
+		return !excludeAddrs.Contains(s)
+	})
+
+	proxy.IPAddresses = append(proxy.IPAddresses, proxyAddrs...)
+	log.Debugf("proxy IPAddresses: %v", proxy.IPAddresses)
 
 	// After IP addresses are set, let us discover IPMode.
 	proxy.DiscoverIPMode()
@@ -325,23 +325,24 @@ func initProxy(args []string) (*model.Proxy, error) {
 	return proxy, nil
 }
 
-func applyExcludeInterfaces(ifaces []string) []string {
+func getExcludeInterfaces() sets.String {
+	excludeAddrs := sets.New[string]()
+
 	// Get list of excluded interfaces from pod annotation
 	// TODO: Discuss other input methods such as env, flag (ssuvasanth)
 	annotations, err := bootstrap.ReadPodAnnotations("")
 	if err != nil {
 		log.Debugf("Reading podInfoAnnotations file to get excludeInterfaces was unsuccessful. Continuing without exclusions. msg: %v", err)
-		return ifaces
+		return excludeAddrs
 	}
 	value, ok := annotations[annotation.SidecarTrafficExcludeInterfaces.Name]
 	if !ok {
-		log.Debugf("ExcludeInterfaces annotation is not present. Proxy IPAddresses: %v", ifaces)
-		return ifaces
+		log.Debugf("%s annotation is not present", annotation.SidecarTrafficExcludeInterfaces.Name)
+		return excludeAddrs
 	}
 	exclusions := strings.Split(value, ",")
 
 	// Find IP addr of excluded interfaces and add to a map for instant lookup
-	exclusionMap := sets.New[string]()
 	for _, ifaceName := range exclusions {
 		iface, err := net.InterfaceByName(ifaceName)
 		if err != nil {
@@ -377,21 +378,12 @@ func applyExcludeInterfaces(ifaces []string) []string {
 			}
 
 			// Add to map
-			exclusionMap.Insert(unwrapAddr.String())
+			excludeAddrs.Insert(unwrapAddr.String())
 		}
 	}
 
-	// Remove excluded IP addresses from the input IP addresses list.
-	var selectedInterfaces []string
-	for _, ip := range ifaces {
-		if exclusionMap.Contains(ip) {
-			log.Infof("Excluding ip %s from proxy IPaddresses list", ip)
-			continue
-		}
-		selectedInterfaces = append(selectedInterfaces, ip)
-	}
-
-	return selectedInterfaces
+	log.Infof("Exclude IPs %v based on %s annotation", excludeAddrs, annotation.SidecarTrafficExcludeInterfaces.Name)
+	return excludeAddrs
 }
 
 func logLimits() {

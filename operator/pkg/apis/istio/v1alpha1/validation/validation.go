@@ -107,10 +107,6 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 		{"Values.global.tracer.lightstep.address", "meshConfig.defaultConfig.tracing.lightstep.address", ""},
 		{"Values.global.tracer.lightstep.accessToken", "meshConfig.defaultConfig.tracing.lightstep.accessToken", ""},
 		{"Values.global.tracer.zipkin.address", "meshConfig.defaultConfig.tracing.zipkin.address", nil},
-		{"Values.global.tracer.stackdriver.debug", "meshConfig.defaultConfig.tracing.stackdriver.debug", false},
-		{"Values.global.tracer.stackdriver.maxNumberOfAttributes", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes", 0},
-		{"Values.global.tracer.stackdriver.maxNumberOfAnnotations", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations", 0},
-		{"Values.global.tracer.stackdriver.maxNumberOfMessageEvents", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents", 0},
 		{"Values.global.tracer.datadog.address", "meshConfig.defaultConfig.tracing.datadog.address", ""},
 		{"Values.global.meshExpansion.enabled", "Gateway and other Istio networking resources, such as in samples/multicluster/", false},
 		{"Values.gateways.istio-ingressgateway.meshExpansionPorts", "components.ingressGateways[name=istio-ingressgateway].k8s.service.ports", nil},
@@ -118,10 +114,6 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 		{"Values.istiocoredns.enabled", "the in-proxy DNS capturing (ISTIO_META_DNS_CAPTURE)", false},
 		// nolint: lll
 		{"Values.global.jwtPolicy", "Values.global.jwtPolicy=third-party-jwt. See https://istio.io/latest/docs/ops/best-practices/security/#configure-third-party-service-account-tokens for more information", "third-party-jwt"},
-		{
-			"Values.telemetry.v2.stackdriver.logging", "Values.telemetry.v2.stackdriver.outboundAccessLogging and Values.telemetry.v2.stackdriver.inboundAccessLogging",
-			false,
-		},
 		{"Values.global.centralIstiod", "Values.global.externalIstiod", false},
 		{"Values.global.arch", "the affinity of k8s settings", nil},
 	}
@@ -135,6 +127,14 @@ func checkDeprecatedSettings(iop *v1alpha1.IstioOperatorSpec) (util.Errors, []st
 		{"AddonComponents.tracing.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.kiali.Enabled", "the samples/addons/ deployments", false},
 		{"AddonComponents.prometheus.Enabled", "the samples/addons/ deployments", false},
+		{"Values.global.tracer.stackdriver.debug", "meshConfig.defaultConfig.tracing.stackdriver.debug", false},
+		{"Values.global.tracer.stackdriver.maxNumberOfAttributes", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAttributes", 0},
+		{"Values.global.tracer.stackdriver.maxNumberOfAnnotations", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfAnnotations", 0},
+		{"Values.global.tracer.stackdriver.maxNumberOfMessageEvents", "meshConfig.defaultConfig.tracing.stackdriver.maxNumberOfMessageEvents", 0},
+		{"telemetry.v2.prometheus.configOverride", "custom configuration", nil},
+		{"telemetry.v2.stackdriver.configOverride", "custom configuration", nil},
+		{"telemetry.v2.stackdriver.disableOutbound", "custom configuration", nil},
+		{"telemetry.v2.stackdriver.outboundAccessLogging", "custom configuration", nil},
 	}
 
 	for _, d := range warningSettings {

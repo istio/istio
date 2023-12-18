@@ -48,6 +48,12 @@ spec:
         averageUtilization: 90
         type: Utilization
     type: Resource
+  - resource:
+      name: memory
+      target:
+        averageUtilization: 90
+        type: Utilization
+    type: Resource
   minReplicas: 1
   scaleTargetRef:
     apiVersion: apps/v1

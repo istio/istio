@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/schema/kind"
+	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -28,7 +29,7 @@ type CdsGenerator struct {
 var _ model.XdsDeltaResourceGenerator = &CdsGenerator{}
 
 // Map of all configs that do not impact CDS
-var skippedCdsConfigs = sets.New[kind.Kind](
+var skippedCdsConfigs = sets.New(
 	kind.Gateway,
 	kind.WorkloadEntry,
 	kind.WorkloadGroup,
@@ -41,10 +42,16 @@ var skippedCdsConfigs = sets.New[kind.Kind](
 )
 
 // Map all configs that impact CDS for gateways when `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG = true`.
-var pushCdsGatewayConfig = sets.New[kind.Kind](
-	kind.VirtualService,
-	kind.Gateway,
-)
+var pushCdsGatewayConfig = func() sets.Set[kind.Kind] {
+	s := sets.New(
+		kind.VirtualService,
+		kind.Gateway,
+	)
+	if features.JwksFetchMode != jwt.Istiod {
+		s.Insert(kind.RequestAuthentication)
+	}
+	return s
+}()
 
 func cdsNeedsPush(req *model.PushRequest, proxy *model.Proxy) bool {
 	if req == nil {

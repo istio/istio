@@ -6,22 +6,12 @@ spec:
   hub: gcr.io/istio-testing
   tag: latest
 
-  # You may override parts of meshconfig by uncommenting the following lines.
-  meshConfig:
-    defaultConfig:
-      proxyMetadata: {}
-    enablePrometheusMerge: true
-    # Opt-out of global http2 upgrades.
-    # Destination rule is used to opt-in.
-    # h2_upgrade_policy: DO_NOT_UPGRADE
-
-  # Traffic management feature
+  # Turn on default components: base, pilot, and ingress gateway
   components:
     base:
       enabled: true
     pilot:
       enabled: true
-
     # Istio Gateway feature
     ingressGateways:
     - name: istio-ingressgateway
@@ -30,149 +20,13 @@ spec:
     - name: istio-egressgateway
       enabled: false
 
-    # Istio CNI feature
-    cni:
-      enabled: false
-    
-    # Remote and config cluster configuration for an external istiod
-    istiodRemote:
-      enabled: false
-
-  # Global values passed through to helm global.yaml.
-  # Please keep this in sync with manifests/charts/global.yaml
+  # Most default values come from the helm chart's values.yaml
+  # Below are the things that differ
   values:
     defaultRevision: ""
     global:
       istioNamespace: istio-system
-      istiod:
-        enableAnalysis: false
-      logging:
-        level: "default:info"
-      logAsJson: false
-      pilotCertProvider: istiod
-      jwtPolicy: third-party-jwt
-      proxy:
-        image: proxyv2
-        clusterDomain: "cluster.local"
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 2000m
-            memory: 1024Mi
-        logLevel: warning
-        componentLogLevel: "misc:error"
-        privileged: false
-        enableCoreDump: false
-        statusPort: 15020
-        readinessInitialDelaySeconds: 0
-        readinessPeriodSeconds: 15
-        readinessFailureThreshold: 4
-        startupProbe:
-          enabled: true
-          failureThreshold: 600
-        includeIPRanges: "*"
-        excludeIPRanges: ""
-        excludeOutboundPorts: ""
-        excludeInboundPorts: ""
-        autoInject: enabled
-        tracer: "zipkin"
-      proxy_init:
-        image: proxyv2
-      # Specify image pull policy if default behavior isn't desired.
-      # Default behavior: latest images will be Always else IfNotPresent.
-      imagePullPolicy: ""
-      operatorManageWebhooks: false
-      tracer:
-        lightstep: {}
-        zipkin: {}
-        datadog: {}
-        stackdriver: {}
-      imagePullSecrets: []
-      oneNamespace: false
-      defaultNodeSelector: {}
       configValidation: true
-      multiCluster:
-        enabled: false
-        clusterName: ""
-      omitSidecarInjectorConfigMap: false
-      network: ""
-      defaultResources:
-        requests:
-          cpu: 10m
-      defaultPodDisruptionBudget:
-        enabled: true
-      priorityClassName: ""
-      useMCP: false
-      sds:
-        token:
-          aud: istio-ca
-      sts:
-        servicePort: 0
-      meshNetworks: {}
-      mountMtlsCerts: false
-    base:
-      enableCRDTemplates: false
-      validationURL: ""
-    pilot:
-      autoscaleEnabled: true
-      autoscaleMin: 1
-      autoscaleMax: 5
-      replicaCount: 1
-      image: pilot
-      traceSampling: 1.0
-      env: {}
-      cpu:
-        targetAverageUtilization: 80
-      nodeSelector: {}
-      keepaliveMaxServerConnectionAge: 30m
-      deploymentLabels:
-      podLabels: {}
-      configMap: true
-
-    telemetry:
-      enabled: true
-      v2:
-        enabled: true
-        metadataExchange:
-          wasmEnabled: false
-        prometheus:
-          wasmEnabled: false
-          enabled: true
-        stackdriver:
-          enabled: false
-          logging: false
-          monitoring: false
-          topology: false
-          configOverride: {}
-
-    istiodRemote:
-      injectionURL: ""
-      
     gateways:
-      istio-egressgateway:
-        env: {}
-        autoscaleEnabled: true
-        type: ClusterIP
-        name: istio-egressgateway
-        secretVolumes:
-          - name: egressgateway-certs
-            secretName: istio-egressgateway-certs
-            mountPath: /etc/istio/egressgateway-certs
-          - name: egressgateway-ca-certs
-            secretName: istio-egressgateway-ca-certs
-            mountPath: /etc/istio/egressgateway-ca-certs
-
-      istio-ingressgateway:
-        autoscaleEnabled: true
-        type: LoadBalancer
-        name: istio-ingressgateway
-        env: {}
-        secretVolumes:
-          - name: ingressgateway-certs
-            secretName: istio-ingressgateway-certs
-            mountPath: /etc/istio/ingressgateway-certs
-          - name: ingressgateway-ca-certs
-            secretName: istio-ingressgateway-ca-certs
-            mountPath: /etc/istio/ingressgateway-ca-certs
+      istio-ingressgateway: {}
+      istio-egressgateway: {}

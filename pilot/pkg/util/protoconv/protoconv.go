@@ -28,7 +28,7 @@ import (
 
 // MessageToAnyWithError converts from proto message to proto Any
 func MessageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
-	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(msg)
+	b, err := marshal(msg)
 	if err != nil {
 		return nil, err
 	}
@@ -37,6 +37,16 @@ func MessageToAnyWithError(msg proto.Message) (*anypb.Any, error) {
 		TypeUrl: "type.googleapis.com/" + string(msg.ProtoReflect().Descriptor().FullName()),
 		Value:   b,
 	}, nil
+}
+
+func marshal(msg proto.Message) ([]byte, error) {
+	if vt, ok := msg.(vtStrictMarshal); ok {
+		// Attempt to use more efficient implementation
+		// "Strict" is the equivalent to Deterministic=true below
+		return vt.MarshalVTStrict()
+	}
+	// If not available, fallback to normal implementation
+	return proto.MarshalOptions{Deterministic: true}.Marshal(msg)
 }
 
 // MessageToAny converts from proto message to proto Any
@@ -81,4 +91,9 @@ func UnmarshalAny[T any](a *anypb.Any) (*T, error) {
 		return nil, fmt.Errorf("failed to unmarshal to %T: %v", dst, err)
 	}
 	return any(dst).(*T), nil
+}
+
+// https://github.com/planetscale/vtprotobuf#available-features
+type vtStrictMarshal interface {
+	MarshalVTStrict() ([]byte, error)
 }

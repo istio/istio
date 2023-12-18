@@ -23,6 +23,7 @@ import (
 	"sync"
 	"testing"
 
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/tests/util"
 )
 
@@ -60,6 +61,8 @@ func (p *pilotStubHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		w.Write([]byte(fmt.Sprintf("wanted method %q got %q", p.States[0].wantMethod, r.Method)))
 	}
+
+	p.States[0] = ptr.Empty[pilotStubState]()
 	p.States = p.States[1:]
 	p.Unlock()
 }

@@ -102,7 +102,7 @@ func TestXfccAuthenticator(t *testing.T) {
 		{
 			name:               "junk xfcc header",
 			xfccHeader:         `junk xfcc header`,
-			authenticateErrMsg: `error in parsing xfcc header: invalid header format: unexpected token "junk xfcc header"`,
+			authenticateErrMsg: `error in parsing xfcc header: invalid header format: 0:16: unexpected token "<EOF>" (expected "=")`,
 		},
 		{
 			name: "Xfcc Header single hop",
@@ -139,7 +139,7 @@ func TestXfccAuthenticator(t *testing.T) {
 		{
 			name:               "junk xfcc header with http",
 			xfccHeader:         `junk xfcc header`,
-			authenticateErrMsg: `error in parsing xfcc header: invalid header format: unexpected token "junk xfcc header"`,
+			authenticateErrMsg: `error in parsing xfcc header: invalid header format: 0:16: unexpected token "<EOF>" (expected "=")`,
 			useHttpRequest:     true,
 		},
 		{
@@ -202,7 +202,7 @@ func TestXfccAuthenticator(t *testing.T) {
 				if err == nil {
 					t.Errorf("Succeeded. Error expected: %v", err)
 				} else if err.Error() != tt.authenticateErrMsg {
-					t.Errorf("Incorrect error message: want %s but got %s",
+					t.Errorf("Incorrect error message: want %q but got %q",
 						tt.authenticateErrMsg, err.Error())
 				}
 			} else if err != nil {
