@@ -382,8 +382,8 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, 
 		// This can be by name or the entire type.
 		// objectRelations stores each input key to dependency specification.
 		for iKey, dependencies := range h.objectDependencies {
-			if k, changed := h.objectChanged(iKey, dependencies, sourceCollection, ev); changed {
-				changedInputKeys.Insert(k)
+			if changed := h.objectChanged(iKey, dependencies, sourceCollection, ev); changed {
+				changedInputKeys.Insert(iKey)
 			}
 		}
 	}
@@ -423,7 +423,7 @@ func (h *manyCollection[I, O]) onSecondaryDependencyEvent(sourceCollection any, 
 	h.onPrimaryInputEventLocked(toRun)
 }
 
-func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []dependency, sourceCollection any, ev Event[any]) (Key[I], bool) {
+func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []dependency, sourceCollection any, ev Event[any]) bool {
 	for _, dep := range dependencies {
 		if dep.collection.original != sourceCollection {
 			continue
@@ -437,11 +437,11 @@ func (h *manyCollection[I, O]) objectChanged(iKey Key[I], dependencies []depende
 			}
 			if match {
 				// Its a match! Return now. We don't need to check all dependencies, since we just need to find if any of them changed
-				return iKey, true
+				return true
 			}
 		}
 	}
-	return ptr.Empty[Key[I]](), false
+	return false
 }
 
 func (h *manyCollection[I, O]) _internalHandler() {
