@@ -27,19 +27,26 @@ var allClasses = []networking.ListenerClass{
 	networking.ListenerClassSidecarOutbound,
 }
 
+var protocols = []networking.ListenerProtocol{
+	networking.ListenerProtocolHTTP,
+	networking.ListenerProtocolTCP,
+}
+
 func InsertedExtensionConfigurations(proxy *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig {
 	hasNames := sets.New(extensionConfigNames...)
 	result := make([]*core.TypedExtensionConfig, 0)
 
 	for _, c := range allClasses {
-		resourceName := model.ECDSResourceName(networking.ListenerProtocolHTTP, c, proxy.Type)
-		if hasNames.Contains(resourceName) {
-			result = append(result, push.Telemetry.HTTPTypedExtensionConfigFilters(proxy, c)...)
-		}
-
-		resourceName = model.ECDSResourceName(networking.ListenerProtocolTCP, c, proxy.Type)
-		if hasNames.Contains(resourceName) {
-			result = append(result, push.Telemetry.TCPTypedExtensionConfigFilters(proxy, c)...)
+		for _, p := range protocols {
+			resourceName := model.StatsECDSResourceName(model.StatsConfig{
+				Provider:         model.StatsProviderStackdriver,
+				NodeType:         proxy.Type,
+				ListenerClass:    c,
+				ListenerProtocol: p,
+			})
+			if hasNames.Contains(resourceName) {
+				result = append(result, push.Telemetry.HTTPTypedExtensionConfigFilters(proxy, c)...)
+			}
 		}
 	}
 
