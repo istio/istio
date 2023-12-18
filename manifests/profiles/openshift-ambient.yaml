@@ -23,6 +23,7 @@ spec:
     cni:
       ambient:
         enabled: true
+        redirectMode: "inpod"
       cniBinDir: /var/lib/cni/bin
       cniConfDir: /etc/cni/multus/net.d
       chained: false
@@ -47,3 +48,6 @@ spec:
         PILOT_ENABLE_AMBIENT_CONTROLLERS: "true"
     ztunnel:
       variant: distroless
+      redirectMode: "inpod"
+      seLinuxOptions:
+        type: spc_t
