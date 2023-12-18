@@ -321,7 +321,6 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 				// new endpoint. Always send new healthy endpoints.
 				// Also send new unhealthy endpoints when SendUnhealthyEndpoints is enabled.
 				// This is OK since we disable panic threshold when SendUnhealthyEndpoints is enabled.
-				// For headless services, the Kubernetes controller will trigger the push .
 				if nie.HealthStatus != UnHealthy || features.SendUnhealthyEndpoints.Load() {
 					needPush = true
 				}
