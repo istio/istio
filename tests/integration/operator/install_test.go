@@ -70,7 +70,8 @@ func TestReInstallAfterFailure(t *testing.T) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 
 			// Install with a fake tag to make the installation fail
-			_, _, err := istioCtl.Invoke([]string{"install", "--skip-confirmation",
+			_, _, err := istioCtl.Invoke([]string{
+				"install", "--skip-confirmation",
 				"--set", "tag=0.20.0-faketag",
 				"--readiness-timeout", "5s",
 			})
