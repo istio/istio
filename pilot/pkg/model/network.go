@@ -27,7 +27,6 @@ import (
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/network"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/istiomultierror"
@@ -110,9 +109,7 @@ func NewNetworkManager(env *Environment, xdsUpdater XDSUpdater) (*NetworkManager
 	mgr.NetworkGateways.mu = &mgr.mu
 	mgr.Unresolved.mu = &mgr.mu
 
-	env.AddNetworksHandler(&mesh.WatcherHandler{
-		Handler: mgr.reloadGateways,
-	})
+	env.AddNetworksHandler(mgr.reloadGateways)
 	// register to per registry, will be called when gateway service changed
 	env.AppendNetworkGatewayHandler(mgr.reloadGateways)
 	nameCache.AppendNetworkGatewayHandler(mgr.reloadGateways)

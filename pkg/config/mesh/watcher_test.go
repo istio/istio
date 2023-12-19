@@ -56,11 +56,9 @@ func watcherShouldNotifyHandlers(t *testing.T, multi bool) {
 	doneCh := make(chan struct{}, 1)
 
 	var newM *meshconfig.MeshConfig
-	w.AddMeshHandler(&mesh.WatcherHandler{
-		Handler: func() {
-			newM = w.Mesh()
-			close(doneCh)
-		},
+	w.AddMeshHandler(func() {
+		newM = w.Mesh()
+		close(doneCh)
 	})
 
 	// Change the file to trigger the update.

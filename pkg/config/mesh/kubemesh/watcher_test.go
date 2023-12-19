@@ -206,12 +206,10 @@ func TestNewConfigMapWatcher(t *testing.T) {
 
 	var mu sync.Mutex
 	newM := mesh.DefaultMeshConfig()
-	w.AddMeshHandler(&mesh.WatcherHandler{
-		Handler: func() {
-			mu.Lock()
-			defer mu.Unlock()
-			newM = w.Mesh()
-		},
+	w.AddMeshHandler(func() {
+		mu.Lock()
+		defer mu.Unlock()
+		newM = w.Mesh()
 	})
 
 	steps := []struct {
