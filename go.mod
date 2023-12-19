@@ -5,8 +5,6 @@ go 1.21
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
-replace istio.io/api v1.19.0-alpha.1.0.20231116180706-2565f6197ca8 => github.com/jewertow/api v0.0.0-20231122123127-9e624f9eda5f
-
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
 	cloud.google.com/go/logging v1.9.0
