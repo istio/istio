@@ -981,8 +981,9 @@ func TestPolicyAfterPod(t *testing.T) {
 		map[string]string{},
 		map[string]string{},
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.assertEvent(t, s.svcXdsName("svc1"))
 	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
-	s.assertEvent(t, s.podXdsName("pod1"), s.svcXdsName("svc1"))
+	s.assertEvent(t, s.podXdsName("pod1"))
 	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, nil)
 	s.assertEvent(t, s.podXdsName("pod1"))
 	assert.Equal(t, s.lookup(s.svcXdsName("svc1"))[1].GetWorkload().GetAuthorizationPolicies(), []string{"ns1/selector"})
