@@ -377,7 +377,6 @@ func getProtoMessageType(protoMessageName string) reflect.Type {
 	if err != nil || t == nil {
 		return nil
 	}
-	t.New().Interface()
 	return reflect.TypeOf(t.Zero().Interface())
 }
 
