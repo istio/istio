@@ -82,7 +82,7 @@ func (s *CniPluginServer) Stop() {
 	s.cniListenServerCancel()
 }
 
-// startCNIPluginListener starts up a UDS server which receives events from the CNI chain plugin.
+// Start starts up a UDS server which receives events from the CNI chain plugin.
 func (s *CniPluginServer) Start() error {
 	if s.sockAddress == "" {
 		return fmt.Errorf("no socket address provided")
