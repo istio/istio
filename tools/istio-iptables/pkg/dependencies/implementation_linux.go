@@ -22,7 +22,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/containernetworking/plugins/pkg/ns"
+	netns "github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
 	utilversion "k8s.io/apimachinery/pkg/util/version"
@@ -49,7 +49,7 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reade
 		}
 		externalCommand.Env = append(externalCommand.Env, fmt.Sprintf("%s=%v", strings.ToUpper(repl.Replace(k)), v))
 	}
-	err := r.runCommand(externalCommand)
+	err := externalCommand.Run()
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())
 	}
@@ -59,21 +59,6 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reade
 	}
 
 	return err
-}
-
-func (r *RealDependencies) runCommand(c *exec.Cmd) error {
-	if r.CNIMode {
-		n, err := ns.GetNS(r.NetworkNamespace)
-		if err != nil {
-			return err
-		}
-		defer n.Close()
-
-		return n.Do(func(ns.NetNS) error {
-			return c.Run()
-		})
-	}
-	return c.Run()
 }
 
 var (
