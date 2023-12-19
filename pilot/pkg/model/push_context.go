@@ -33,6 +33,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -1449,7 +1450,18 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
 		}
-		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+		// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
+		// arbitrary hostnames. In these cases, we want to pick the first Service, which is the oldest. This ensures
+		// newly created Services cannot take ownership unexpectedly.
+		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
+		// "domain squatting" on the hostname before a Kubernetes Service is created.
+		if existing := ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace]; existing != nil &&
+			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
+			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
+				existing.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname)
+		} else {
+			ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+		}
 
 		ns := s.Attributes.Namespace
 		if s.Attributes.ExportTo.IsEmpty() {

@@ -40,6 +40,7 @@ import (
 	selectorpb "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	istionetworking "istio.io/istio/pilot/pkg/networking"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -2804,34 +2805,50 @@ func TestServiceWithExportTo(t *testing.T) {
 	svc4 := &Service{
 		Hostname: "svc4",
 		Attributes: ServiceAttributes{
-			Namespace: "test4",
+			Namespace:       "test4",
+			ServiceRegistry: provider.External,
+		},
+	}
+	svc4_1 := &Service{
+		Hostname: "svc4",
+		Attributes: ServiceAttributes{
+			Namespace:       "test4",
+			ServiceRegistry: provider.External,
+		},
+	}
+	// kubernetes service will override non kubernetes
+	svc4_2 := &Service{
+		Hostname: "svc4",
+		Attributes: ServiceAttributes{
+			Namespace:       "test4",
+			ServiceRegistry: provider.Kubernetes,
 		},
 	}
 	env.ServiceDiscovery = &localServiceDiscovery{
-		services: []*Service{svc1, svc2, svc3, svc4},
+		services: []*Service{svc1, svc2, svc3, svc4, svc4_1, svc4_2},
 	}
 	ps.initDefaultExportMaps()
 	ps.initServiceRegistry(env, nil)
-
+	assert.Equal(t, ps.ServiceIndex.HostnameAndNamespace[svc4.Hostname][svc4.Attributes.Namespace].Attributes.ServiceRegistry, provider.Kubernetes)
 	cases := []struct {
 		proxyNs   string
 		wantHosts []string
 	}{
 		{
 			proxyNs:   "test1",
-			wantHosts: []string{"svc1", "svc2", "svc3", "svc4"},
+			wantHosts: []string{"svc1", "svc2", "svc3", "svc4", "svc4", "svc4"},
 		},
 		{
 			proxyNs:   "test2",
-			wantHosts: []string{"svc2", "svc3", "svc4"},
+			wantHosts: []string{"svc2", "svc3", "svc4", "svc4", "svc4"},
 		},
 		{
 			proxyNs:   "ns1",
-			wantHosts: []string{"svc1", "svc2", "svc3", "svc4"},
+			wantHosts: []string{"svc1", "svc2", "svc3", "svc4", "svc4", "svc4"},
 		},
 		{
 			proxyNs:   "random",
-			wantHosts: []string{"svc3", "svc4"},
+			wantHosts: []string{"svc3", "svc4", "svc4", "svc4"},
 		},
 	}
 	for _, tt := range cases {
