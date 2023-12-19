@@ -132,6 +132,79 @@ func TestFilter(t *testing.T) {
 	}
 }
 
+func TestFilterInPlace(t *testing.T) {
+	type item struct {
+		value int
+	}
+
+	type testCase[E any] struct {
+		elements      []E
+		fn            func(E) bool
+		want          []E
+		startIndex    int
+		endIndex      int
+		validateEmpty func(start, end int, input []E) bool
+	}
+
+	testCase1 := testCase[string]{
+		elements: []string{"aaa", "bbb", "ccc", "ddd"},
+		fn: func(s string) bool {
+			return s != "aaa"
+		},
+		want:       []string{"bbb", "ccc", "ddd"},
+		startIndex: 3,
+		endIndex:   3,
+		validateEmpty: func(start, end int, input []string) bool {
+			if end >= len(input) {
+				return false
+			}
+			for ; start <= end; start++ {
+				if input[start] != "" {
+					return false
+				}
+			}
+			return true
+		},
+	}
+
+	filterInPlace1 := FilterInPlace(testCase1.elements, testCase1.fn)
+	if !reflect.DeepEqual(filterInPlace1, testCase1.want) {
+		t.Errorf("FilterInPlace got %v, want %v", filterInPlace1, testCase1.want)
+	}
+	if !testCase1.validateEmpty(testCase1.startIndex, testCase1.endIndex, testCase1.elements) {
+		t.Error("The useless elements should be empty")
+	}
+
+	testCase2 := testCase[*item]{
+		elements: []*item{{1}, &item{1}, &item{2}, &item{3}},
+		fn: func(s *item) bool {
+			return s.value != 1
+		},
+		want:       []*item{&item{2}, &item{3}},
+		startIndex: 2,
+		endIndex:   3,
+		validateEmpty: func(start, end int, input []*item) bool {
+			if end >= len(input) {
+				return false
+			}
+			for ; start <= end; start++ {
+				if input[start] != nil {
+					return false
+				}
+			}
+			return true
+		},
+	}
+
+	filterInPlace2 := FilterInPlace(testCase2.elements, testCase2.fn)
+	if !reflect.DeepEqual(filterInPlace2, testCase2.want) {
+		t.Errorf("FilterInPlace got %v, want %v", filterInPlace2, testCase2.want)
+	}
+	if !testCase2.validateEmpty(testCase2.startIndex, testCase2.endIndex, testCase2.elements) {
+		t.Error("The useless elements should be empty")
+	}
+}
+
 func TestMap(t *testing.T) {
 	tests := []struct {
 		name     string
