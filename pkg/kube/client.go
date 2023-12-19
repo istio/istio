@@ -34,7 +34,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	kubeExtClient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	extfake "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -47,19 +46,12 @@ import (
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
-	"k8s.io/apimachinery/pkg/watch"
-	"k8s.io/apiserver/pkg/storage/names"
 	"k8s.io/client-go/discovery"
-	fakediscovery "k8s.io/client-go/discovery/fake"
 	"k8s.io/client-go/dynamic"
-	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/kubernetes/fake"
 	kubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/metadata"
-	metadatafake "k8s.io/client-go/metadata/fake"
 	"k8s.io/client-go/rest"
-	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
@@ -67,7 +59,6 @@ import (
 	gatewayapi "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	gatewayapibeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 	gatewayapiclient "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned"
-	gatewayapifake "sigs.k8s.io/gateway-api/pkg/client/clientset/versioned/fake"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
@@ -77,7 +68,6 @@ import (
 	clientsecurity "istio.io/client-go/pkg/apis/security/v1beta1"
 	clienttelemetry "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	istioclient "istio.io/client-go/pkg/clientset/versioned"
-	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/kube/informerfactory"
@@ -217,100 +207,6 @@ var (
 	_ Client    = &client{}
 	_ CLIClient = &client{}
 )
-
-// NewFakeClient creates a new, fake, client
-func NewFakeClient(objects ...runtime.Object) CLIClient {
-	c := &client{
-		informerWatchesPending: atomic.NewInt32(0),
-		clusterID:              "fake",
-	}
-	c.kube = fake.NewSimpleClientset(objects...)
-
-	c.config = &rest.Config{
-		Host: "server",
-	}
-
-	c.informerFactory = informerfactory.NewSharedInformerFactory()
-	s := FakeIstioScheme
-
-	c.metadata = metadatafake.NewSimpleMetadataClient(s)
-	c.dynamic = dynamicfake.NewSimpleDynamicClient(s)
-	c.istio = istiofake.NewSimpleClientset()
-	c.gatewayapi = gatewayapifake.NewSimpleClientset()
-	c.extSet = extfake.NewSimpleClientset()
-
-	// https://github.com/kubernetes/kubernetes/issues/95372
-	// There is a race condition in the client fakes, where events that happen between the List and Watch
-	// of an informer are dropped. To avoid this, we explicitly manage the list and watch, ensuring all lists
-	// have an associated watch before continuing.
-	// This would likely break any direct calls to List(), but for now our tests don't do that anyways. If we need
-	// to in the future we will need to identify the Lists that have a corresponding Watch, possibly by looking
-	// at created Informers
-	// an atomic.Int is used instead of sync.WaitGroup because wg.Add and wg.Wait cannot be called concurrently
-	listReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
-		c.informerWatchesPending.Inc()
-		return false, nil, nil
-	}
-	watchReactor := func(tracker clienttesting.ObjectTracker) func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
-		return func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
-			gvr := action.GetResource()
-			ns := action.GetNamespace()
-			watch, err := tracker.Watch(gvr, ns)
-			if err != nil {
-				return false, nil, err
-			}
-			c.informerWatchesPending.Dec()
-			return true, watch, nil
-		}
-	}
-	// https://github.com/kubernetes/client-go/issues/439
-	createReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
-		ret = action.(clienttesting.CreateAction).GetObject()
-		meta, ok := ret.(metav1.Object)
-		if !ok {
-			return
-		}
-
-		if meta.GetName() == "" && meta.GetGenerateName() != "" {
-			meta.SetName(names.SimpleNameGenerator.GenerateName(meta.GetGenerateName()))
-		}
-
-		return
-	}
-	for _, fc := range []fakeClient{
-		c.kube.(*fake.Clientset),
-		c.istio.(*istiofake.Clientset),
-		c.gatewayapi.(*gatewayapifake.Clientset),
-		c.dynamic.(*dynamicfake.FakeDynamicClient),
-		c.metadata.(*metadatafake.FakeMetadataClient),
-	} {
-		fc.PrependReactor("list", "*", listReactor)
-		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
-		fc.PrependReactor("create", "*", createReactor)
-	}
-
-	c.fastSync = true
-
-	c.version = lazy.NewWithRetry(c.kube.Discovery().ServerVersion)
-
-	if NewCrdWatcher != nil {
-		c.crdWatcher = NewCrdWatcher(c)
-	}
-
-	return c
-}
-
-func NewFakeClientWithVersion(minor string, objects ...runtime.Object) CLIClient {
-	c := NewFakeClient(objects...).(*client)
-	c.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: minor, GitVersion: fmt.Sprintf("v1.%v.0", minor)}
-	return c
-}
-
-type fakeClient interface {
-	PrependReactor(verb, resource string, reaction clienttesting.ReactionFunc)
-	PrependWatchReactor(resource string, reaction clienttesting.WatchReactionFunc)
-	Tracker() clienttesting.ObjectTracker
-}
 
 // Client is a helper wrapper around the Kube RESTClient for istioctl -> Pilot/Envoy/Mesh related things
 type client struct {

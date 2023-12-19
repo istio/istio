@@ -211,7 +211,7 @@ func GetClient[T, TL runtime.Object](c ClientGetter, namespace string) ktypes.Re
 	}
 }
 
-func gvrToObject(g schema.GroupVersionResource) runtime.Object {
+func GVRToObject(g schema.GroupVersionResource) runtime.Object {
 	switch g {
 	case gvr.AuthorizationPolicy:
 		return &apiistioioapisecurityv1beta1.AuthorizationPolicy{}
@@ -609,7 +609,7 @@ func getInformerFiltered(c ClientGetter, opts ktypes.InformerOptions, g schema.G
 					return w(options)
 				},
 			},
-			gvrToObject(g),
+			GVRToObject(g),
 			0,
 			cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc},
 		)
