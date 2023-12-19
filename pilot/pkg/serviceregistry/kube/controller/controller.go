@@ -267,7 +267,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	if !c.opts.ConfigCluster || c.opts.DiscoveryNamespacesFilter == nil {
 		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
-	c.registerSelfAsHandler()
+	c.initDiscoveryHandlers(c.opts.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
 
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
 
@@ -298,6 +298,13 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.imports = newServiceImportCache(c)
 
 	c.meshWatcher = options.MeshWatcher
+	if c.opts.MeshNetworksWatcher != nil {
+		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
+			c.reloadMeshNetworks()
+			c.onNetworkChange()
+		})
+		c.reloadMeshNetworks()
+	}
 	return c
 }
 
@@ -354,18 +361,6 @@ func (c *Controller) Network(endpointIP string, labels labels.Instance) network.
 	}
 
 	return ""
-}
-
-// RegisterSelfAsHandler register controller as handler for global subscribed targets, such as MeshConfig and NetworkConfig.
-func (c *Controller) registerSelfAsHandler() {
-	c.initDiscoveryHandlers(c.opts.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
-	if c.opts.MeshNetworksWatcher != nil {
-		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
-			c.reloadMeshNetworks()
-			c.onNetworkChange()
-		})
-		c.reloadMeshNetworks()
-	}
 }
 
 func (c *Controller) Cleanup() error {
