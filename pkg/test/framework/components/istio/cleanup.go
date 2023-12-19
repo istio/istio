@@ -16,6 +16,7 @@ package istio
 
 import (
 	"context"
+	"fmt"
 	"regexp"
 	"time"
 
@@ -27,6 +28,7 @@ import (
 	"istio.io/istio/pkg/test/framework/resource"
 	kube2 "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/test/util/yml"
 )
 
@@ -109,16 +111,18 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 		if e := i.installer.Close(c); e != nil {
 			err = multierror.Append(err, e)
 		}
-		notClean := true
-		for notClean {
+
+		err = multierror.Append(err, retry.UntilSuccess(func() error {
 			if podList, e := c.Kube().CoreV1().Pods(i.cfg.SystemNamespace).List(context.Background(), metav1.ListOptions{}); e == nil {
 				if len(podList.Items) == 0 {
-					break
-				} else {
-					scopes.Framework.Infof("waiting on pods to terminate")
+					return nil
 				}
+				scopes.Framework.Infof("waiting for pods in namespace/%s to terminate in cluster %s", i.cfg.SystemNamespace, c.Name())
+			} else if e != nil {
+				return e
 			}
-		}
+			return fmt.Errorf("pods in namespace/%s in cluster %s are still terminating", i.cfg.SystemNamespace, c.Name())
+		}, retry.Delay(time.Second*2), retry.MaxAttempts(4)))
 
 		// Cleanup all secrets and configmaps - these are dynamically created by tests and/or istiod so they are not captured above
 		// This includes things like leader election locks (allowing next test to start without 30s delay),

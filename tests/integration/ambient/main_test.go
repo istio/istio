@@ -92,6 +92,7 @@ func TestMain(m *testing.M) {
 			cfg.ControlPlaneValues = `
 values:
   ztunnel:
+    terminationGracePeriodSeconds: 5
     env:
       SECRET_TTL: 5m
 `
