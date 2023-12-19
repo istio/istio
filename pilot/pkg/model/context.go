@@ -164,13 +164,13 @@ func (e *Environment) GetDiscoveryAddress() (host.Name, string, error) {
 	return host.Name(hostname), port, nil
 }
 
-func (e *Environment) AddMeshHandler(h *mesh.WatcherHandler) {
+func (e *Environment) AddMeshHandler(h func()) {
 	if e != nil && e.Watcher != nil {
 		e.Watcher.AddMeshHandler(h)
 	}
 }
 
-func (e *Environment) AddNetworksHandler(h *mesh.WatcherHandler) {
+func (e *Environment) AddNetworksHandler(h func()) {
 	if e != nil && e.NetworksWatcher != nil {
 		e.NetworksWatcher.AddNetworksHandler(h)
 	}

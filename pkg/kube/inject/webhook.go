@@ -222,12 +222,10 @@ func NewWebhook(p WebhookParameters) (*Webhook, error) {
 	p.Mux.HandleFunc("/inject", wh.serveInject)
 	p.Mux.HandleFunc("/inject/", wh.serveInject)
 
-	p.Env.Watcher.AddMeshHandler(&mesh.WatcherHandler{
-		Handler: func() {
-			wh.mu.Lock()
-			wh.meshConfig = p.Env.Mesh()
-			wh.mu.Unlock()
-		},
+	p.Env.Watcher.AddMeshHandler(func() {
+		wh.mu.Lock()
+		wh.meshConfig = p.Env.Mesh()
+		wh.mu.Unlock()
 	})
 
 	return wh, nil

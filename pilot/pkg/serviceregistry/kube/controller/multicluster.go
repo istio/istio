@@ -397,13 +397,6 @@ func (m *Multicluster) deleteCluster(clusterID cluster.ID) {
 		return
 	}
 
-	// Unregister networks handler
-	if kc.opts.MeshNetworksWatcher != nil {
-		kc.opts.MeshNetworksWatcher.DeleteNetworksHandler(kc.networksHandler)
-	}
-	// Unregister mesh handler
-	kc.unregisterMeshWatcherHandler()
-
 	if kc.workloadEntryController != nil {
 		m.opts.MeshServiceController.DeleteRegistry(clusterID, provider.External)
 	}

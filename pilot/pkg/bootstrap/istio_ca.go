@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	securityModel "istio.io/istio/pilot/pkg/security/model"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/kube/namespace"
@@ -559,12 +558,10 @@ func (s *Server) createIstioRA(opts *caOptions) (ra.RegistrationAuthority, error
 		return nil, err
 	}
 	raServer.SetCACertificatesFromMeshConfig(s.environment.Mesh().CaCertificates)
-	s.environment.AddMeshHandler(&mesh.WatcherHandler{
-		Handler: func() {
-			meshConfig := s.environment.Mesh()
-			caCertificates := meshConfig.CaCertificates
-			s.RA.SetCACertificatesFromMeshConfig(caCertificates)
-		},
+	s.environment.AddMeshHandler(func() {
+		meshConfig := s.environment.Mesh()
+		caCertificates := meshConfig.CaCertificates
+		s.RA.SetCACertificatesFromMeshConfig(caCertificates)
 	})
 	return raServer, err
 }

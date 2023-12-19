@@ -224,8 +224,8 @@ type Controller struct {
 	configController model.ConfigStoreController
 	configCluster    bool
 
-	networksHandler *mesh.WatcherHandler
-	meshHandler     *mesh.WatcherHandler
+	networksHandlerRegistration mesh.WatcherHandlerRegistration
+	meshHandlerRegistration     mesh.WatcherHandlerRegistration
 }
 
 // NewController creates a new Kubernetes controller
@@ -267,7 +267,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	if !c.opts.ConfigCluster || c.opts.DiscoveryNamespacesFilter == nil {
 		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
-	c.initDiscoveryHandlers(options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
+	c.registerSelfAsHandler()
 
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
 
@@ -298,17 +298,6 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	c.imports = newServiceImportCache(c)
 
 	c.meshWatcher = options.MeshWatcher
-	if c.opts.MeshNetworksWatcher != nil {
-		c.networksHandler = &mesh.WatcherHandler{
-			Handler: func() {
-				c.reloadMeshNetworks()
-				c.onNetworkChange()
-			},
-		}
-		c.opts.MeshNetworksWatcher.AddNetworksHandler(c.networksHandler)
-		c.reloadMeshNetworks()
-	}
-
 	return c
 }
 
@@ -367,6 +356,18 @@ func (c *Controller) Network(endpointIP string, labels labels.Instance) network.
 	return ""
 }
 
+// RegisterSelfAsHandler register controller as handler for global subscribed targets, such as MeshConfig and NetworkConfig.
+func (c *Controller) registerSelfAsHandler() {
+	c.initDiscoveryHandlers(c.opts.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
+	if c.opts.MeshNetworksWatcher != nil {
+		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
+			c.reloadMeshNetworks()
+			c.onNetworkChange()
+		})
+		c.reloadMeshNetworks()
+	}
+}
+
 func (c *Controller) Cleanup() error {
 	if err := queue.WaitForClose(c.queue, 30*time.Second); err != nil {
 		log.Warnf("queue for removed kube registry %q may not be done processing: %v", c.Cluster(), err)
@@ -374,6 +375,17 @@ func (c *Controller) Cleanup() error {
 	if c.opts.XDSUpdater != nil {
 		c.opts.XDSUpdater.RemoveShard(model.ShardKeyFromRegistry(c))
 	}
+
+	// Unregister networks handler
+	if c.networksHandlerRegistration != nil {
+		c.opts.MeshNetworksWatcher.DeleteNetworksHandler(c.networksHandlerRegistration)
+	}
+
+	// Unregister mesh handler
+	if c.meshHandlerRegistration != nil {
+		c.opts.MeshWatcher.DeleteMeshHandler(c.meshHandlerRegistration)
+	}
+
 	return nil
 }
 
