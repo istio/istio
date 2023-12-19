@@ -109,6 +109,17 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 		if e := i.installer.Close(c); e != nil {
 			err = multierror.Append(err, e)
 		}
+		notClean := true
+		for notClean {
+			if podList, e := c.Kube().CoreV1().Pods(i.cfg.SystemNamespace).List(context.Background(), metav1.ListOptions{}); e == nil {
+				if len(podList.Items) == 0 {
+					break
+				} else {
+					scopes.Framework.Infof("waiting on pods to terminate")
+				}
+			}
+		}
+
 		// Cleanup all secrets and configmaps - these are dynamically created by tests and/or istiod so they are not captured above
 		// This includes things like leader election locks (allowing next test to start without 30s delay),
 		// custom cacerts, custom kubeconfigs, etc.
