@@ -176,11 +176,11 @@ func TestFilterInPlace(t *testing.T) {
 	}
 
 	testCase2 := testCase[*item]{
-		elements: []*item{{1}, &item{1}, &item{2}, &item{3}},
+		elements: []*item{{1}, {1}, {2}, {3}},
 		fn: func(s *item) bool {
 			return s.value != 1
 		},
-		want:       []*item{&item{2}, &item{3}},
+		want:       []*item{{2}, {3}},
 		startIndex: 2,
 		endIndex:   3,
 		validateEmpty: func(start, end int, input []*item) bool {
