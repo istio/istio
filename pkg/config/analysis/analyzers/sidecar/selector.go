@@ -122,7 +122,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 			if util.PodInAmbientMode(podResource) {
 				if !reportedResources[rs.Metadata.FullName.String()] {
 					c.Report(gvk.Sidecar, msg.NewIneffectivePolicy(rs,
-						fmt.Sprintf("selected workload is in ambient mode, the policy has no impact")))
+						"selected workload is in ambient mode, the policy has no impact"))
 					reportedResources[rs.Metadata.FullName.String()] = true
 				}
 				continue
@@ -148,7 +148,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 			for _, rs := range sList {
 				if !reportedResources[rs.Metadata.FullName.String()] {
 					c.Report(gvk.Sidecar, msg.NewIneffectivePolicy(rs,
-						fmt.Sprintf("namespace is in ambient mode, the policy has no impact")))
+						"namespace is in ambient mode, the policy has no impact"))
 					reportedResources[rs.Metadata.FullName.String()] = true
 				}
 			}
