@@ -116,20 +116,6 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 			return true, watch, nil
 		}
 	}
-	// https://github.com/kubernetes/client-go/issues/439
-	createReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
-		ret = action.(clienttesting.CreateAction).GetObject()
-		meta, ok := ret.(metav1.Object)
-		if !ok {
-			return
-		}
-
-		if meta.GetName() == "" && meta.GetGenerateName() != "" {
-			meta.SetName(names.SimpleNameGenerator.GenerateName(meta.GetGenerateName()))
-		}
-
-		return
-	}
 	for _, fc := range []fakeClient{
 		c.kube.(*fake.Clientset),
 		c.istio.(*istiofake.Clientset),
@@ -140,9 +126,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
 	}
 	df.PrependReactor("list", "*", listReactor)
-	df.PrependReactor("create", "*", createReactor)
 	c.metadata.(*metadatafake.FakeMetadataClient).PrependReactor("list", "*", listReactor)
-	c.metadata.(*metadatafake.FakeMetadataClient).PrependReactor("create", "*", createReactor)
 
 	c.fastSync = true
 
@@ -217,6 +201,8 @@ func insertPatchReactor(f clienttesting.FakeClient, fmf *fieldManagerFactory) {
 				}
 
 				if isNew {
+					// TODO: add name generation here
+					generateNameOnCreate(typedResult)
 					err = f.Tracker().Create(pa.GetResource(), typedResult, pa.GetNamespace())
 				} else if !reflect.DeepEqual(original, typedResult) {
 					err = f.Tracker().Update(pa.GetResource(), typedResult, pa.GetNamespace())
@@ -284,6 +270,14 @@ func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClie
 	var tObj, uObj runtime.Object
 	if o, ok := action.(objectiveAction); ok {
 		uObj = o.GetObject()
+		// ensure object kind is properly set
+		if uObj.GetObjectKind().GroupVersionKind().Empty() {
+			if myGVK, ok := gvk.FromGVR(action.GetResource()); ok {
+				uObj.GetObjectKind().SetGroupVersionKind(myGVK.Kubernetes())
+			} else {
+				log.Warnf("Could not detect kind for %v, proceeding with empty GVK", action.GetResource())
+			}
+		}
 		if _, ok := destination.(*dynamicfake.FakeDynamicClient); ok {
 			tObj = &unstructured.Unstructured{}
 		} else {
@@ -305,20 +299,22 @@ func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClie
 	switch newAction := action.DeepCopy().(type) {
 	case clienttesting.CreateActionImpl:
 		newAction.Object = tObj
+		generateNameOnCreate(tObj)
+		generateNameOnCreate(action.(clienttesting.CreateActionImpl).Object)
 		_, err := destination.Invokes(newAction, defaultObj)
 		if err != nil {
-			log.Errorf("Propagating Invoke resulted in error for fake %v: %v", destination, err)
+			log.Errorf("Propagating Invoke resulted in error for fake %T: %s", destination, err)
 		}
 	case clienttesting.UpdateActionImpl:
 		newAction.Object = tObj
 		_, err := destination.Invokes(newAction, defaultObj)
 		if err != nil {
-			log.Errorf("Propagating Invoke resulted in error for fake %v: %v", destination, err)
+			log.Errorf("Propagating Invoke resulted in error for fake %T: %s", destination, err)
 		}
 	default:
 		_, err := destination.Invokes(newAction, defaultObj)
 		if err != nil {
-			log.Errorf("Propagating Invoke resulted in error for fake %v: %v", destination, err)
+			log.Errorf("Propagating Invoke resulted in error for fake %T: %s", destination, err)
 		}
 	}
 	fm.mergeLock.Lock()
@@ -386,4 +382,18 @@ func (fmf *fieldManagerFactory) FieldManager(gvk schema.GroupVersionKind) *manag
 	}
 	fmf.existing[gvk] = result
 	return result
+}
+
+func generateNameOnCreate(ret runtime.Object) {
+	// https://github.com/kubernetes/client-go/issues/439
+	meta, ok := ret.(metav1.Object)
+	if !ok {
+		return
+	}
+
+	if meta.GetName() == "" && meta.GetGenerateName() != "" {
+		meta.SetName(names.SimpleNameGenerator.GenerateName(meta.GetGenerateName()))
+	}
+
+	return
 }

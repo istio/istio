@@ -23,6 +23,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/dynamic/dynamicinformer"
@@ -145,4 +146,23 @@ func TestMergeDynamicToTyped(t *testing.T) {
 	g.Expect(ucm.Data).To(gomega.HaveKey("foo"))
 
 	g.Eventually(z.Load).Should(gomega.Equal(int32(1)))
+}
+
+func TestNameGeneration(t *testing.T) {
+	g := gomega.NewGomegaWithT(t)
+	c := NewFakeClient()
+	cm := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			GenerateName: "foo",
+		},
+	}
+	unsObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
+	ucm := &unstructured.Unstructured{Object: unsObj}
+	out, err := c.Kube().CoreV1().ConfigMaps("default").Create(context.Background(), cm, metav1.CreateOptions{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(out.Name).To(gomega.HavePrefix("foo"))
+
+	out2, err := c.Dynamic().Resource(gvr.ConfigMap).Namespace("default").Create(context.Background(), ucm, metav1.CreateOptions{})
+	g.Expect(err).NotTo(gomega.HaveOccurred())
+	g.Expect(out2.GetName()).To(gomega.HavePrefix("foo"))
 }
