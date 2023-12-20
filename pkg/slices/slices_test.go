@@ -25,10 +25,11 @@ import (
 	"istio.io/istio/tests/util/leak"
 )
 
+type s struct {
+	Junk string
+}
+
 func TestDelete(t *testing.T) {
-	type s struct {
-		Junk string
-	}
 	var input []*s
 	var output []*s
 	t.Run("inner", func(t *testing.T) {
@@ -133,76 +134,32 @@ func TestFilter(t *testing.T) {
 }
 
 func TestFilterInPlace(t *testing.T) {
-	type item struct {
-		value int
-	}
+	var input []*s
+	var output []*s
+	a := &s{"a"}
+	b := &s{"b"}
+	c := &s{"c"}
+	input = []*s{a, b, c}
 
-	type testCase[E any] struct {
-		elements      []E
-		fn            func(E) bool
-		want          []E
-		startIndex    int
-		endIndex      int
-		validateEmpty func(start, end int, input []E) bool
-	}
+	t.Run("delete first element a", func(t *testing.T) {
+		// Check that we can garbage collect elements when we delete them.
+		leak.MustGarbageCollect(t, a)
+		output = FilterInPlace(input, func(s *s) bool {
+			return s != nil && s.Junk != "a"
+		})
+	})
+	assert.Equal(t, output, []*s{{"b"}, {"c"}})
+	assert.Equal(t, input, []*s{{"b"}, {"c"}, nil})
 
-	testCase1 := testCase[string]{
-		elements: []string{"aaa", "bbb", "ccc", "ddd"},
-		fn: func(s string) bool {
-			return s != "aaa"
-		},
-		want:       []string{"bbb", "ccc", "ddd"},
-		startIndex: 3,
-		endIndex:   3,
-		validateEmpty: func(start, end int, input []string) bool {
-			if end >= len(input) {
-				return false
-			}
-			for ; start <= end; start++ {
-				if input[start] != "" {
-					return false
-				}
-			}
-			return true
-		},
-	}
-
-	filterInPlace1 := FilterInPlace(testCase1.elements, testCase1.fn)
-	if !reflect.DeepEqual(filterInPlace1, testCase1.want) {
-		t.Errorf("FilterInPlace got %v, want %v", filterInPlace1, testCase1.want)
-	}
-	if !testCase1.validateEmpty(testCase1.startIndex, testCase1.endIndex, testCase1.elements) {
-		t.Error("The useless elements should be empty")
-	}
-
-	testCase2 := testCase[*item]{
-		elements: []*item{{1}, {1}, {2}, {3}},
-		fn: func(s *item) bool {
-			return s.value != 1
-		},
-		want:       []*item{{2}, {3}},
-		startIndex: 2,
-		endIndex:   3,
-		validateEmpty: func(start, end int, input []*item) bool {
-			if end >= len(input) {
-				return false
-			}
-			for ; start <= end; start++ {
-				if input[start] != nil {
-					return false
-				}
-			}
-			return true
-		},
-	}
-
-	filterInPlace2 := FilterInPlace(testCase2.elements, testCase2.fn)
-	if !reflect.DeepEqual(filterInPlace2, testCase2.want) {
-		t.Errorf("FilterInPlace got %v, want %v", filterInPlace2, testCase2.want)
-	}
-	if !testCase2.validateEmpty(testCase2.startIndex, testCase2.endIndex, testCase2.elements) {
-		t.Error("The useless elements should be empty")
-	}
+	t.Run("delete end element c", func(t *testing.T) {
+		// Check that we can garbage collect elements when we delete them.
+		leak.MustGarbageCollect(t, c)
+		output = FilterInPlace(input, func(s *s) bool {
+			return s != nil && s.Junk != "c"
+		})
+	})
+	assert.Equal(t, output, []*s{{"b"}})
+	assert.Equal(t, input, []*s{{"b"}, nil, nil})
 }
 
 func TestMap(t *testing.T) {
