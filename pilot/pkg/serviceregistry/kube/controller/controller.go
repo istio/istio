@@ -224,8 +224,8 @@ type Controller struct {
 	configController model.ConfigStoreController
 	configCluster    bool
 
-	networksHandlerRegistration mesh.WatcherHandlerRegistration
-	meshHandlerRegistration     mesh.WatcherHandlerRegistration
+	networksHandlerRegistration *mesh.WatcherHandlerRegistration
+	meshHandlerRegistration     *mesh.WatcherHandlerRegistration
 }
 
 // NewController creates a new Kubernetes controller
