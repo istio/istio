@@ -1839,16 +1839,59 @@ func (ps *PushContext) initSidecarScopes(env *Environment) {
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
-	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, len(sidecarConfigs))
 	for i, sidecarConfig := range sidecarConfigs {
-		ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
-			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
-		if rootNSConfig == nil && sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
+		if sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
 			sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
 			rootNSConfig = &sidecarConfigs[i]
+			break
 		}
 	}
 	ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
+	ps.doConvertToSidecarScope(sidecarConfigs)
+}
+
+func (ps *PushContext) doConvertToSidecarScope(sidecarConfigs []config.Config) {
+	if len(sidecarConfigs) <= 0 {
+		return
+	}
+	type taskItem struct {
+		idx int
+		cfg config.Config
+	}
+
+	var l sync.Mutex
+	var wg sync.WaitGroup
+	taskItems := make(chan taskItem)
+	// note: sidecarConfigs order matters
+	sidecarScopes := make([]*SidecarScope, len(sidecarConfigs))
+	for i := 0; i < features.ConvertSidecarScopeConcurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				item, ok := <-taskItems
+				if !ok {
+					break
+				}
+				sc := ConvertToSidecarScope(ps, &item.cfg, item.cfg.Namespace)
+				l.Lock()
+				sidecarScopes[item.idx] = sc
+				l.Unlock()
+			}
+		}()
+	}
+
+	for idx, cfg := range sidecarConfigs {
+		taskItems <- taskItem{idx: idx, cfg: cfg}
+	}
+
+	close(taskItems)
+	wg.Wait()
+
+	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope)
+	for _, sc := range sidecarScopes {
+		ps.sidecarIndex.sidecarsByNamespace[sc.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sc.Namespace], sc)
+	}
 }
 
 // Split out of DestinationRule expensive conversions - once per push.
