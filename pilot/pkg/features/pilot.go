@@ -100,7 +100,8 @@ var (
 		"PILOT_CONVERT_SIDECAR_SCOPE_CONCURRENCY",
 		1,
 		"Used to adjust the concurrency of SidecarScope conversions. "+
-			"When istiod is deployed on a multi-core CPU, increasing this value will help to use the CPU to accelerate configuration push, but it also means that istiod will consume more CPU resources.",
+			"When istiod is deployed on a multi-core CPU server, increasing this value will help to use the CPU to "+
+			"accelerate configuration push, but it also means that istiod will consume more CPU resources.",
 	).Get()
 
 	SendUnhealthyEndpoints = atomic.NewBool(env.Register(
