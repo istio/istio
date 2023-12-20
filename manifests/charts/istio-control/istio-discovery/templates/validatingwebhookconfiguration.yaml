@@ -31,9 +31,6 @@ webhooks:
           - networking.istio.io
           - telemetry.istio.io
           - extensions.istio.io
-          {{- if .Values.base.validateGateway }}
-          - gateway.networking.k8s.io
-          {{- end }}
         apiVersions:
           - "*"
         resources:
