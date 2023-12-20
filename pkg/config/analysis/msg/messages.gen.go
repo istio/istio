@@ -247,6 +247,10 @@ var (
 	// IneffectiveSelector defines a diag.MessageType for message "IneffectiveSelector".
 	// Description: Selector has no effect when applied to Kubernetes Gateways.
 	IneffectiveSelector = diag.NewMessageType(diag.Warning, "IST0166", "Ineffective selector on Kubernetes Gateway %s. Use the TargetRef field instead.")
+
+	// IneffectivePolicy defines a diag.MessageType for message "IneffectivePolicy".
+	// Description: The policy applied has no impact.
+	IneffectivePolicy = diag.NewMessageType(diag.Warning, "IST0167", "The policy has no impact: %s.")
 )
 
 // All returns a list of all known message types.
@@ -312,6 +316,7 @@ func All() []*diag.MessageType {
 		ExternalControlPlaneAddressIsNotAHostname,
 		ReferencedInternalGateway,
 		IneffectiveSelector,
+		IneffectivePolicy,
 	}
 }
 
@@ -903,5 +908,14 @@ func NewIneffectiveSelector(r *resource.Instance, gateway string) diag.Message {
 		IneffectiveSelector,
 		r,
 		gateway,
+	)
+}
+
+// NewIneffectivePolicy returns a new diag.Message based on IneffectivePolicy.
+func NewIneffectivePolicy(r *resource.Instance, reason string) diag.Message {
+	return diag.NewMessage(
+		IneffectivePolicy,
+		r,
+		reason,
 	)
 }

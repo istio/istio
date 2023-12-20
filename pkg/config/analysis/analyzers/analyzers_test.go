@@ -336,10 +336,12 @@ var testGrid = []testCase{
 	{
 		name:       "sidecarDefaultSelector",
 		inputFiles: []string{"testdata/sidecar-default-selector.yaml"},
-		analyzer:   &sidecar.DefaultSelectorAnalyzer{},
+		analyzer:   &sidecar.SelectorAnalyzer{},
 		expected: []message{
 			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar ns2/has-conflict-2"},
 			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar ns2/has-conflict-1"},
+			{msg.IneffectivePolicy, "Sidecar ns-ambient/namespace-scoped"},
+			{msg.IneffectivePolicy, "Sidecar ns-ambient/pod-scoped"},
 		},
 	},
 	{

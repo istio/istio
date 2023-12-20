@@ -42,7 +42,18 @@ func PodInMesh(r *resource.Instance, c analysis.Context) bool {
 
 // PodInAmbientMode returns true if a Pod is in the service mesh with the ambient mode
 func PodInAmbientMode(r *resource.Instance) bool {
+	if r == nil {
+		return false
+	}
 	return r.Metadata.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
+}
+
+// NamespaceInAmbientMode returns true if a Namespace is configured as a ambient namespace.
+func NamespaceInAmbientMode(r *resource.Instance) bool {
+	if r == nil {
+		return false
+	}
+	return r.Metadata.Labels[constants.DataplaneMode] == constants.DataplaneModeAmbient
 }
 
 func inMesh(annos, labels map[string]string, namespace resource.Namespace, containers []v1.Container, c analysis.Context) bool {

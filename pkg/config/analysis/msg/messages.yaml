@@ -645,3 +645,12 @@ messages:
     args:
       - name: gateway
         type: string
+
+  - name: "IneffectivePolicy"
+    code: IST0167
+    level: Warning
+    description: "The policy applied has no impact."
+    template: "The policy has no impact: %s."
+    args:
+      - name: reason
+        type: string
