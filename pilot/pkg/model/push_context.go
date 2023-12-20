@@ -1851,7 +1851,7 @@ func (ps *PushContext) initSidecarScopes(env *Environment) {
 }
 
 func (ps *PushContext) doConvertToSidecarScope(sidecarConfigs []config.Config) {
-	if len(sidecarConfigs) <= 0 {
+	if len(sidecarConfigs) == 0 {
 		return
 	}
 	type taskItem struct {
