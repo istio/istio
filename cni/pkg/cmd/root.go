@@ -150,6 +150,7 @@ func init() {
 	registerStringParameter(constants.CNIConfName, "", "Name of the CNI configuration file")
 	registerBooleanParameter(constants.ChainedCNIPlugin, true, "Whether to install CNI plugin as a chained or standalone")
 	registerStringParameter(constants.CNINetworkConfig, "", "CNI configuration template as a string")
+	registerStringParameter(constants.Revision, "", "The Istio revision to associate CNI binaries with")
 	registerStringParameter(constants.LogLevel, "warn", "Fallback value for log level in CNI config file, if not specified in helm template")
 
 	// Not configurable in CNI helm charts
@@ -228,6 +229,7 @@ func constructConfig() (*config.Config, error) {
 		CNINetworkConfigFile: viper.GetString(constants.CNINetworkConfigFile),
 		CNINetworkConfig:     viper.GetString(constants.CNINetworkConfig),
 
+		Revision:           viper.GetString(constants.Revision),
 		LogLevel:           viper.GetString(constants.LogLevel),
 		KubeconfigFilename: viper.GetString(constants.KubeconfigFilename),
 		KubeconfigMode:     viper.GetInt(constants.KubeconfigMode),

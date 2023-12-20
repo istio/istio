@@ -23,6 +23,7 @@ const (
 	ChainedCNIPlugin     = "chained-cni-plugin"
 	CNINetworkConfigFile = "cni-network-config-file"
 	CNINetworkConfig     = "cni-network-config"
+	Revision             = "revision"
 	LogLevel             = "log-level"
 	KubeconfigFilename   = "kubecfg-file-name"
 	KubeconfigMode       = "kubeconfig-mode"

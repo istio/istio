@@ -304,6 +304,7 @@ func TestInsertCNIConfig(t *testing.T) {
 		expectedFailure      bool
 		existingConfFilename string
 		newConfFilename      string
+		revision             string
 	}{
 		{
 			name:                 "invalid existing config format (map)",
@@ -338,6 +339,12 @@ func TestInsertCNIConfig(t *testing.T) {
 			existingConfFilename: "list-with-istio.conflist",
 			newConfFilename:      "istio-cni.conf",
 		},
+		{
+			name:                 "revision provided",
+			existingConfFilename: "list-with-revision.conflist",
+			newConfFilename:      "istio-cni-revisioned.conf",
+			revision:             "canary",
+		},
 	}
 
 	for _, c := range cases {
@@ -346,7 +353,7 @@ func TestInsertCNIConfig(t *testing.T) {
 			existingConfFilepath := filepath.Join("testdata", c.existingConfFilename)
 			existingConf := testutils.ReadFile(t, existingConfFilepath)
 
-			output, err := insertCNIConfig(istioConf, existingConf)
+			output, err := insertCNIConfig(istioConf, existingConf, c.revision)
 			if err != nil {
 				if !c.expectedFailure {
 					t.Fatal(err)

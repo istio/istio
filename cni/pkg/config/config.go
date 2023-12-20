@@ -40,6 +40,8 @@ type InstallConfig struct {
 	// CNI config template string
 	CNINetworkConfig string
 
+	// The Istio revision to associate CNI binaries with
+	Revision string
 	// Logging level
 	LogLevel string
 	// Name of the kubeconfig file used by the CNI plugin
@@ -117,6 +119,7 @@ func (c InstallConfig) String() string {
 	b.WriteString("CNINetworkConfigFile: " + c.CNINetworkConfigFile + "\n")
 	b.WriteString("CNINetworkConfig: " + c.CNINetworkConfig + "\n")
 
+	b.WriteString("Revision: " + c.Revision + "\n")
 	b.WriteString("LogLevel: " + c.LogLevel + "\n")
 	b.WriteString("KubeconfigFilename: " + c.KubeconfigFilename + "\n")
 	b.WriteString("KubeconfigMode: " + fmt.Sprintf("%#o", c.KubeconfigMode) + "\n")

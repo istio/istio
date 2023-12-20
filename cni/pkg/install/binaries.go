@@ -15,6 +15,7 @@
 package install
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -24,7 +25,7 @@ import (
 
 // Copies/mirrors any files present in a single source dir to N number of target dirs
 // and returns a set of the filenames copied.
-func copyBinaries(srcDir string, targetDirs []string) (sets.String, error) {
+func copyBinaries(srcDir string, targetDirs []string, revision string) (sets.String, error) {
 	copiedFilenames := sets.String{}
 	srcFiles, err := os.ReadDir(srcDir)
 	if err != nil {
@@ -39,15 +40,22 @@ func copyBinaries(srcDir string, targetDirs []string) (sets.String, error) {
 		filename := f.Name()
 		srcFilepath := filepath.Join(srcDir, filename)
 
+		var targetFilename string
+		if revision != "" {
+			targetFilename = fmt.Sprintf("%s-%s", filename, revision)
+		} else {
+			targetFilename = filename
+		}
+
 		for _, targetDir := range targetDirs {
-			if err := file.AtomicCopy(srcFilepath, targetDir, filename); err != nil {
+			if err := file.AtomicCopy(srcFilepath, targetDir, targetFilename); err != nil {
 				installLog.Errorf("Failed file copy of %s to %s: %s", srcFilepath, targetDir, err.Error())
 				return copiedFilenames, err
 			}
 			installLog.Infof("Copied %s to %s.", filename, targetDir)
 		}
 
-		copiedFilenames.Insert(filename)
+		copiedFilenames.Insert(targetFilename)
 	}
 
 	return copiedFilenames, nil

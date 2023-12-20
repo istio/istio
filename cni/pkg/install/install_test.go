@@ -37,6 +37,7 @@ func TestCheckInstall(t *testing.T) {
 		cniConfName       string
 		chainedCNIPlugin  bool
 		existingConfFiles map[string]string // {srcFilename: targetFilename, ...}
+		revision          string
 	}{
 		{
 			name:              "preempted config",
@@ -89,6 +90,12 @@ func TestCheckInstall(t *testing.T) {
 			cniConfigFilename: "istio-cni.conf",
 			existingConfFiles: map[string]string{"istio-cni.conf": "istio-cni.conf"},
 		},
+		{
+			name:              "include revision",
+			cniConfigFilename: "istio-cni.conf",
+			revision:          "canary",
+			existingConfFiles: map[string]string{"istio-cni-revisioned.conf": "istio-cni.conf"},
+		},
 	}
 
 	for _, c := range cases {
@@ -107,6 +114,7 @@ func TestCheckInstall(t *testing.T) {
 				MountedCNINetDir: tempDir,
 				CNIConfName:      c.cniConfName,
 				ChainedCNIPlugin: c.chainedCNIPlugin,
+				Revision:         c.revision,
 			}
 			err := checkValidCNIConfig(cfg, filepath.Join(tempDir, c.cniConfigFilename))
 			if (c.expectedFailure && err == nil) || (!c.expectedFailure && err != nil) {

@@ -33,6 +33,7 @@ import (
 type pluginConfig struct {
 	mountedCNINetDir string
 	cniConfName      string
+	revision         string
 	chainedCNIPlugin bool
 }
 
@@ -55,6 +56,7 @@ func getPluginConfig(cfg *config.InstallConfig) pluginConfig {
 	return pluginConfig{
 		mountedCNINetDir: cfg.MountedCNINetDir,
 		cniConfName:      cfg.CNIConfName,
+		revision:         cfg.Revision,
 		chainedCNIPlugin: cfg.ChainedCNIPlugin,
 	}
 }
@@ -67,9 +69,15 @@ func getCNIConfigTemplate(cfg *config.InstallConfig) cniConfigTemplate {
 }
 
 func getCNIConfigVars(cfg *config.InstallConfig) cniConfigVars {
+	var kubeconfigFilename string
+	if cfg.Revision != "" {
+		kubeconfigFilename = fmt.Sprintf("%s-%s", cfg.KubeconfigFilename, cfg.Revision)
+	} else {
+		kubeconfigFilename = cfg.KubeconfigFilename
+	}
 	return cniConfigVars{
 		cniNetDir:          cfg.CNINetDir,
-		kubeconfigFilename: cfg.KubeconfigFilename,
+		kubeconfigFilename: kubeconfigFilename,
 		logLevel:           cfg.LogLevel,
 		k8sServiceHost:     cfg.K8sServiceHost,
 		k8sServicePort:     cfg.K8sServicePort,
@@ -138,7 +146,7 @@ func writeCNIConfig(ctx context.Context, cniConfig []byte, cfg pluginConfig) (st
 		if err != nil {
 			return "", err
 		}
-		cniConfig, err = insertCNIConfig(cniConfig, existingCNIConfig)
+		cniConfig, err = insertCNIConfig(cniConfig, existingCNIConfig, cfg.revision)
 		if err != nil {
 			return "", err
 		}
@@ -171,7 +179,11 @@ func getCNIConfigFilepath(ctx context.Context, cfg pluginConfig) (string, error)
 
 	if !cfg.chainedCNIPlugin {
 		if len(filename) == 0 {
-			filename = "YYY-istio-cni.conf"
+			if len(cfg.revision) == 0 {
+				filename = "YYY-istio-cni.conf"
+			} else {
+				filename = fmt.Sprintf("YYY-istio-cni-%s.conf", cfg.revision)
+			}
 		}
 		return filepath.Join(cfg.mountedCNINetDir, filename), nil
 	}
@@ -267,7 +279,7 @@ func getDefaultCNINetwork(confDir string) (string, error) {
 }
 
 // newCNIConfig = istio-cni config, that should be inserted into existingCNIConfig
-func insertCNIConfig(newCNIConfig, existingCNIConfig []byte) ([]byte, error) {
+func insertCNIConfig(newCNIConfig, existingCNIConfig []byte, revision string) ([]byte, error) {
 	var istioMap map[string]any
 	err := json.Unmarshal(newCNIConfig, &istioMap)
 	if err != nil {
@@ -305,12 +317,19 @@ func insertCNIConfig(newCNIConfig, existingCNIConfig []byte) ([]byte, error) {
 			return nil, fmt.Errorf("existing CNI config: %v", err)
 		}
 
+		var istioCniExecutableName string
+		if revision != "" {
+			istioCniExecutableName = "istio-cni-" + revision
+		} else {
+			istioCniExecutableName = "istio-cni"
+		}
+
 		for i, rawPlugin := range plugins {
 			plugin, err := util.GetPlugin(rawPlugin)
 			if err != nil {
 				return nil, fmt.Errorf("existing CNI plugin: %v", err)
 			}
-			if plugin["type"] == "istio-cni" {
+			if plugin["type"] == istioCniExecutableName {
 				plugins = append(plugins[:i], plugins[i+1:]...)
 				break
 			}

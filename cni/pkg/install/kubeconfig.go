@@ -132,9 +132,16 @@ func maybeWriteKubeConfigFile(cfg *config.InstallConfig) error {
 		return err
 	}
 
-	if err := checkExistingKubeConfigFile(cfg, kc); err != nil {
+	var kubeconfigFilename string
+	if cfg.Revision != "" {
+		kubeconfigFilename = fmt.Sprintf("%s-%s", cfg.KubeconfigFilename, cfg.Revision)
+	} else {
+		kubeconfigFilename = cfg.KubeconfigFilename
+	}
+	kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, kubeconfigFilename)
+
+	if err := checkExistingKubeConfigFile(kubeconfigFilepath, kc); err != nil {
 		installLog.Info("kubeconfig either does not exist or is out of date, writing a new one")
-		kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
 		if err := file.AtomicWrite(kubeconfigFilepath, []byte(kc.Full), os.FileMode(cfg.KubeconfigMode)); err != nil {
 			return err
 		}
@@ -146,9 +153,7 @@ func maybeWriteKubeConfigFile(cfg *config.InstallConfig) error {
 // checkExistingKubeConfigFile returns an error if no kubeconfig exists at the configured path,
 // or if a kubeconfig exists there, but differs from the current config.
 // In any case, an error indicates the file must be (re)written, and no error means no action need be taken
-func checkExistingKubeConfigFile(cfg *config.InstallConfig, expectedKC kubeconfig) error {
-	kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
-
+func checkExistingKubeConfigFile(kubeconfigFilepath string, expectedKC kubeconfig) error {
 	existingKC, err := os.ReadFile(kubeconfigFilepath)
 	if err != nil {
 		installLog.Debugf("no preexisting kubeconfig at %s, assuming we need to create one", kubeconfigFilepath)

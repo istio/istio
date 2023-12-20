@@ -154,7 +154,8 @@ func TestCheckNoExistingKubeConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error: %+v", err)
 	}
-	err = checkExistingKubeConfigFile(cfg, expectedKC)
+	kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, kubeconfigFilename)
+	err = checkExistingKubeConfigFile(kubeconfigFilepath, expectedKC)
 
 	if err == nil {
 		t.Fatalf("expected error, no kubeconfig present")
@@ -179,9 +180,10 @@ func TestCheckMismatchedExistingKubeConfig(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error: %+v", err)
 	}
-	os.WriteFile(filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename), []byte(expectedKC.Full), 0o644)
+	kubeconfigFilepath := filepath.Join(cfg.MountedCNINetDir, cfg.KubeconfigFilename)
+	os.WriteFile(kubeconfigFilepath, []byte(expectedKC.Full), 0o644)
 
-	err = checkExistingKubeConfigFile(cfg, expectedKC)
+	err = checkExistingKubeConfigFile(kubeconfigFilepath, expectedKC)
 
 	if err != nil {
 		t.Fatalf("expected no error, matching kubeconfig present, got %+v", err)

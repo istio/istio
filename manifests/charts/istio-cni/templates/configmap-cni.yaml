@@ -6,7 +6,7 @@
 kind: ConfigMap
 apiVersion: v1
 metadata:
-  name: istio-cni-config
+  name: istio-cni-config{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   namespace: {{ .Release.Namespace }}
   labels:
     app: istio-cni
@@ -21,7 +21,7 @@ data:
         {
           "cniVersion": "0.3.1",
           "name": "istio-cni",
-          "type": "istio-cni",
+          "type": "istio-cni{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}",
           "log_level": {{ quote .Values.cni.logLevel }},
           "log_uds_address": "__LOG_UDS_ADDRESS__",
           {{if .Values.cni.ambient.enabled}}"ambient_enabled": true,{{end}}
