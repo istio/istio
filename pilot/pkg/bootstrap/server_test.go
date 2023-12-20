@@ -28,6 +28,7 @@ import (
 	. "github.com/onsi/gomega"
 	"golang.org/x/net/http2"
 	cert "k8s.io/api/certificates/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -37,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/krt"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -603,20 +605,13 @@ func TestWatchDNSCertForK8sCA(t *testing.T) {
 		},
 	}
 
-	csr := &cert.CertificateSigningRequest{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "abc.xyz",
-		},
-		Status: cert.CertificateSigningRequestStatus{
-			Certificate: testcerts.ServerCert,
-		},
-	}
 	s := &Server{
 		server:                  server.New(),
 		istiodCertBundleWatcher: keycertbundle.NewWatcher(),
-		kubeClient:              kube.NewFakeClient(csr),
+		kubeClient:              kube.NewFakeClient(),
 		dnsNames:                []string{"abc.xyz"},
 	}
+	setupTestSigner(s.kubeClient)
 	s.kubeClient.RunAndWait(test.NewStop(t))
 
 	for _, tt := range tests {
@@ -766,4 +761,23 @@ func TestGetDNSNames(t *testing.T) {
 			assert.Equal(t, sans, tc.sans)
 		})
 	}
+}
+
+func setupTestSigner(c kube.Client) {
+	csrs := krt.NewInformer[*cert.CertificateSigningRequest](c)
+	krt.NewCollection[*cert.CertificateSigningRequest, struct{}](csrs,
+		func(ctx krt.HandlerContext, csr *cert.CertificateSigningRequest) *struct{} {
+			if len(csr.Status.Certificate) > 0 {
+				return nil
+			}
+			for _, cond := range csr.Status.Conditions {
+				if cond.Type == cert.CertificateApproved && cond.Status == corev1.ConditionTrue {
+					// for this test only, sign the request when it is approved
+					csr.Status.Certificate = testcerts.ServerCert
+					c.Kube().CertificatesV1().CertificateSigningRequests().UpdateStatus(context.Background(), csr, metav1.UpdateOptions{})
+					return nil
+				}
+			}
+			return nil
+		})
 }

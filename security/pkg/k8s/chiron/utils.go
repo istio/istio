@@ -253,9 +253,12 @@ func readSignedCsr(client clientset.Interface, csr string, watchTimeout time.Dur
 		FieldSelector: selector,
 	})
 	if l != nil && len(l.Items) > 0 {
-		reqSigned := l.Items[0]
-		if reqSigned.Status.Certificate != nil {
-			return reqSigned.Status.Certificate, nil
+		for _, reqSigned := range l.Items {
+			// technically, our fieldSelector means there should only be one item,
+			// however fake clients don't respect these..
+			if reqSigned.Name == csr && reqSigned.Status.Certificate != nil {
+				return reqSigned.Status.Certificate, nil
+			}
 		}
 	}
 	var rv string
@@ -276,7 +279,7 @@ func readSignedCsr(client clientset.Interface, csr string, watchTimeout time.Dur
 		select {
 		case r := <-watcher.ResultChan():
 			reqSigned := r.Object.(*cert.CertificateSigningRequest)
-			if reqSigned.Status.Certificate != nil {
+			if reqSigned.Name == csr && reqSigned.Status.Certificate != nil {
 				return reqSigned.Status.Certificate, nil
 			}
 		case <-timer:
