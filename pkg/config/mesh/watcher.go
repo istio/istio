@@ -146,7 +146,7 @@ func (w *internalWatcher) DeleteMeshHandler(registration WatcherHandlerRegistrat
 		return
 	}
 
-	slices.FilterInPlace(w.handlers, func(handler *watchHandler) bool {
+	w.handlers = slices.FilterInPlace(w.handlers, func(handler *watchHandler) bool {
 		input, ok := registration.(*watchHandler)
 		if !ok {
 			log.Warnf("invalid key type %t", registration)
