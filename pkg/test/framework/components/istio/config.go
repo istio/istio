@@ -393,6 +393,7 @@ func ClaimSystemNamespace(ctx resource.Context) (namespace.Instance, error) {
 		Inject: false,
 		// Already handled directly
 		SkipDump: true,
+		SkipCleanup: true,
 	}
 	return namespace.Claim(ctx, nsCfg)
 }
