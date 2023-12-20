@@ -134,7 +134,7 @@ func (n *kubeNamespace) Close() error {
 	// Perform the cleanup across all clusters concurrently.
 	var err error
 	if len(cleanupFuncs) > 0 {
-		scopes.Framework.Debugf("%s deleting namespace", n.id)
+		scopes.Framework.Debugf("%s deleting namespace %v", n.id, n.name)
 
 		g := multierror.Group{}
 		for _, cleanup := range cleanupFuncs {
