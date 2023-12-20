@@ -200,7 +200,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateGRPCRoute,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	Gateway = resource.Builder{
@@ -237,7 +237,7 @@ var (
 		ClusterScoped: true,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateGatewayClass,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	HTTPRoute = resource.Builder{
@@ -256,7 +256,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateHTTPRoute,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	Ingress = resource.Builder{
@@ -305,7 +305,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateKubernetesGateway,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	Lease = resource.Builder{
@@ -587,7 +587,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateTCPRoute,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	TLSRoute = resource.Builder{
@@ -602,7 +602,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateTLSRoute,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	Telemetry = resource.Builder{
@@ -632,7 +632,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateUDPRoute,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	ValidatingWebhookConfiguration = resource.Builder{
