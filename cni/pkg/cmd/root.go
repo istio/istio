@@ -257,6 +257,7 @@ func constructConfig() (*config.Config, error) {
 
 	repairCfg := config.RepairConfig{
 		Enabled:            viper.GetBool(constants.RepairEnabled),
+		RepairPods:         viper.GetBool(constants.RepairRepairPods),
 		DeletePods:         viper.GetBool(constants.RepairDeletePods),
 		LabelPods:          viper.GetBool(constants.RepairLabelPods),
 		LabelKey:           viper.GetString(constants.RepairLabelKey),

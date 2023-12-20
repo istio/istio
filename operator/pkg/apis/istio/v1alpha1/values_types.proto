@@ -116,6 +116,7 @@ message CNIRepairConfig {
 
   // Controls whether various repair behaviors are enabled.
   bool labelPods = 5;
+  bool repairPods = 11;
 
   string createEvents = 6 [deprecated=true];
 

@@ -36,6 +36,7 @@ const (
 	// Repair
 	RepairEnabled            = "repair-enabled"
 	RepairDeletePods         = "repair-delete-pods"
+	RepairRepairPods         = "repair-repair-pods"
 	RepairLabelPods          = "repair-label-pods"
 	RepairLabelKey           = "repair-broken-pod-label-key"
 	RepairLabelValue         = "repair-broken-pod-label-value"
