@@ -1,10 +1,10 @@
 {{- if and .Values.telemetry.enabled .Values.telemetry.v2.enabled }}
-{{ $prom := not (include "prometheus" . | eq "true") }}
-{{ $sdMetrics := not (include "sd-metrics" . | eq "true") }}
-{{ $sdLogs := not (include "sd-logs" .  | eq "true") }}
+{{ $customProm := not (include "default-prometheus" . | eq "true") }}
+{{ $customSdMetrics := not (include "default-sd-metrics" . | eq "true") }}
+{{ $customSdLogs := not (include "default-sd-logs" . | eq "true") }}
 ---
 # Note: http stats filter is wasm enabled only in sidecars.
-{{- if and .Values.telemetry.v2.prometheus.enabled $prom }}
+{{- if and .Values.telemetry.v2.prometheus.enabled $customProm }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
@@ -310,7 +310,7 @@ spec:
 ---
 {{- end }}
 {{/*TODO: this is broken, we do not handle the split quite right! */}}
-{{- if and .Values.telemetry.v2.stackdriver.enabled $sdLogs $sdMetrics }}
+{{- if and .Values.telemetry.v2.stackdriver.enabled (or $customSdLogs $customSdMetrics) }}
 apiVersion: networking.istio.io/v1alpha3
 kind: EnvoyFilter
 metadata:
