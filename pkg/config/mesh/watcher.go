@@ -37,10 +37,10 @@ type Watcher interface {
 	Holder
 
 	// AddMeshHandler registers a callback handler for changes to the mesh config.
-	AddMeshHandler(h func()) WatcherHandlerRegistration
+	AddMeshHandler(h func()) *WatcherHandlerRegistration
 
 	// DeleteMeshHandler unregisters a callback handler when remote cluster is removed.
-	DeleteMeshHandler(registration WatcherHandlerRegistration)
+	DeleteMeshHandler(registration *WatcherHandlerRegistration)
 
 	// HandleUserMeshConfig keeps track of user mesh config overrides. These are merged with the standard
 	// mesh config, which takes precedence.
@@ -65,7 +65,7 @@ var _ Watcher = &internalWatcher{}
 
 type internalWatcher struct {
 	mutex    sync.Mutex
-	handlers []*watchHandler
+	handlers []*WatcherHandlerRegistration
 	// Current merged mesh config
 	MeshConfig atomic.Pointer[meshconfig.MeshConfig]
 
@@ -127,18 +127,18 @@ func (w *internalWatcher) Mesh() *meshconfig.MeshConfig {
 }
 
 // AddMeshHandler registers a callback handler for changes to the mesh config.
-func (w *internalWatcher) AddMeshHandler(h func()) WatcherHandlerRegistration {
+func (w *internalWatcher) AddMeshHandler(h func()) *WatcherHandlerRegistration {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
-	handler := &watchHandler{
+	handler := &WatcherHandlerRegistration{
 		handler: h,
 	}
 	w.handlers = append(w.handlers, handler)
 	return handler
 }
 
-func (w *internalWatcher) DeleteMeshHandler(registration WatcherHandlerRegistration) {
+func (w *internalWatcher) DeleteMeshHandler(registration *WatcherHandlerRegistration) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 
@@ -146,14 +146,8 @@ func (w *internalWatcher) DeleteMeshHandler(registration WatcherHandlerRegistrat
 		return
 	}
 
-	slices.FilterInPlace(w.handlers, func(handler *watchHandler) bool {
-		input, ok := registration.(*watchHandler)
-		if !ok {
-			log.Warnf("invalid key type %t", registration)
-			return true
-		}
-
-		return handler != input
+	w.handlers = slices.FilterInPlace(w.handlers, func(handler *WatcherHandlerRegistration) bool {
+		return handler != registration
 	})
 }
 
@@ -211,7 +205,7 @@ func (w *internalWatcher) HandleMeshConfig(meshConfig *meshconfig.MeshConfig) {
 
 // handleMeshConfigInternal behaves the same as HandleMeshConfig but must be called under a lock
 func (w *internalWatcher) handleMeshConfigInternal(meshConfig *meshconfig.MeshConfig) {
-	var handlers []*watchHandler
+	var handlers []*WatcherHandlerRegistration
 
 	current := w.MeshConfig.Load()
 	if !reflect.DeepEqual(meshConfig, current) {
