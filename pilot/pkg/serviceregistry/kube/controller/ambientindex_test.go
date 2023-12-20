@@ -971,6 +971,24 @@ func TestEmptyVIPsExcluded(t *testing.T) {
 	assert.Equal(t, 0, len(vips), "optional IP fields should be ignored if empty")
 }
 
+// This is a regression test for a case where policies added after pods were not applied when
+// querying by service
+func TestPolicyAfterPod(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, testC, testNW)
+
+	s.addService(t, "svc1",
+		map[string]string{},
+		map[string]string{},
+		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
+	s.assertEvent(t, s.svcXdsName("svc1"))
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	s.addPolicy(t, "selector", testNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, nil)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	assert.Equal(t, s.lookup(s.svcXdsName("svc1"))[1].GetWorkload().GetAuthorizationPolicies(), []string{"ns1/selector"})
+}
+
 type ambientTestServer struct {
 	cfg        *memory.Controller
 	controller *FakeController
@@ -978,6 +996,7 @@ type ambientTestServer struct {
 	pc         clienttest.TestClient[*corev1.Pod]
 	sc         clienttest.TestClient[*corev1.Service]
 	grc        clienttest.TestClient[*k8sbeta.Gateway]
+	t          *testing.T
 }
 
 func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.ID) *ambientTestServer {
@@ -1001,6 +1020,7 @@ func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.
 	go cfg.Run(test.NewStop(t))
 
 	return &ambientTestServer{
+		t:          t,
 		cfg:        cfg,
 		controller: controller,
 		fx:         fx,
@@ -1324,7 +1344,57 @@ func (s *ambientTestServer) addService(t *testing.T, name string, labels, annota
 	s.sc.CreateOrUpdate(service)
 }
 
+// assertIndexConsistency ensures that all indexes store the same data across the different indexes.
+func (s *ambientTestServer) assertIndexConsistency(t test.Failer) {
+	a := s.controller.ambientIndex.(*AmbientIndexImpl)
+	a.mu.RLock()
+	defer a.mu.RUnlock()
+	// UID -> workload
+	workloads := map[string]*model.WorkloadInfo{}
+	addWorkload := func(w *model.WorkloadInfo) {
+		e, f := workloads[w.ResourceName()]
+		if !f {
+			workloads[w.ResourceName()] = w
+			return
+		}
+		// Already exists, make sure its identical
+		assert.Equal(t, e, w, "found inconsistency in workloads")
+	}
+	for _, w := range a.byUID {
+		addWorkload(w)
+	}
+	for _, w := range a.byPod {
+		addWorkload(w)
+	}
+	for _, w := range a.byWorkloadEntry {
+		addWorkload(w)
+	}
+	for _, m := range a.byService {
+		for _, w := range m {
+			addWorkload(w)
+		}
+	}
+
+	services := map[string]*model.ServiceInfo{}
+	addServices := func(w *model.ServiceInfo) {
+		e, f := services[w.ResourceName()]
+		if !f {
+			services[w.ResourceName()] = w
+			return
+		}
+		// Already exists, make sure its identical
+		assert.Equal(t, e, w, "found inconsistency in services")
+	}
+	for _, s := range a.serviceByAddr {
+		addServices(s)
+	}
+	for _, s := range a.serviceByNamespacedHostname {
+		addServices(s)
+	}
+}
+
 func (s *ambientTestServer) lookup(key string) []*model.AddressInfo {
+	s.assertIndexConsistency(s.t)
 	if key == "" {
 		return s.controller.ambientIndex.All()
 	}

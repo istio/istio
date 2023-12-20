@@ -374,6 +374,7 @@ func (a *AmbientIndexImpl) extractWorkload(p *v1.Pod, c *Controller) *model.Work
 	return &model.WorkloadInfo{
 		Workload: wl,
 		Labels:   p.Labels,
+		Source:   model.WorkloadSourcePod,
 	}
 }
 
@@ -578,37 +579,53 @@ func (a *AmbientIndexImpl) handlePod(oldObj, newObj any, isDelete bool, c *Contr
 	if !isDelete {
 		wl = a.extractWorkload(p, c)
 	}
-	wlNetwork := c.Network(p.Status.PodIP, p.Labels).String()
-	networkAddr := networkAddress{network: wlNetwork, ip: p.Status.PodIP}
 	uid := c.generatePodUID(p)
 	oldWl := a.byUID[uid]
 	if wl == nil {
-		// This is an explicit delete event, or there is no longer a Workload to create (pod NotReady, etc)
-		delete(a.byPod, networkAddr)
-		delete(a.byUID, uid)
-		if oldWl != nil {
-			// If we already knew about this workload, we need to make sure we drop all service references as well
-			for namespacedHostname := range oldWl.Services {
-				a.dropWorkloadFromService(namespacedHostname, oldWl.ResourceName())
-			}
-			log.Debugf("%v: workload removed, pushing", p.Status.PodIP)
-			// TODO: namespace for network?
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: oldWl.ResourceName()})
-			return updates
-		}
-		// It was a 'delete' for a resource we didn't know yet, no need to send an event
-
+		a.updateWorkloadIndexes(oldWl, nil, updates)
 		return updates
 	}
 	if oldWl != nil && proto.Equal(wl.Workload, oldWl.Workload) {
 		log.Debugf("%v: no change, skipping", wl.ResourceName())
-
 		return updates
 	}
-	for _, networkAddr := range networkAddressFromWorkload(wl) {
-		a.byPod[networkAddr] = wl
+	a.updateWorkloadIndexes(oldWl, wl, updates)
+
+	return updates
+}
+
+// updateWorkloadIndexes, given and old and new instance, updates the various indexes for workloads.
+// Any changes are reported in `updates`.
+func (a *AmbientIndexImpl) updateWorkloadIndexes(oldWl *model.WorkloadInfo, newWl *model.WorkloadInfo, updates sets.Set[model.ConfigKey]) {
+	if newWl == nil {
+		if oldWl == nil {
+			// No change needed
+			return
+		}
+		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: oldWl.ResourceName()})
+		for _, addr := range networkAddressFromWorkload(oldWl) {
+			if oldWl.Source == model.WorkloadSourcePod {
+				delete(a.byPod, addr)
+			} else {
+				delete(a.byWorkloadEntry, addr)
+			}
+		}
+		delete(a.byUID, oldWl.Uid)
+		// If we already knew about this workload, we need to make sure we drop all service references as well
+		for namespacedHostname := range oldWl.Services {
+			a.dropWorkloadFromService(namespacedHostname, oldWl.ResourceName())
+		}
+		return
 	}
-	a.byUID[wl.Uid] = wl
+	updates.Insert(model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()})
+	for _, networkAddr := range networkAddressFromWorkload(newWl) {
+		if newWl.Source == model.WorkloadSourcePod {
+			a.byPod[networkAddr] = newWl
+		} else {
+			a.byWorkloadEntry[networkAddr] = newWl
+		}
+	}
+	a.byUID[newWl.Uid] = newWl
 	if oldWl != nil {
 		// For updates, we will drop the service and then add the new ones back. This could be optimized
 		for namespacedHostname := range oldWl.Services {
@@ -616,14 +633,9 @@ func (a *AmbientIndexImpl) handlePod(oldObj, newObj any, isDelete bool, c *Contr
 		}
 	}
 	// Update the service indexes as well, as needed
-	for namespacedHostname := range wl.Services {
-		a.insertWorkloadToService(namespacedHostname, wl)
+	for namespacedHostname := range newWl.Services {
+		a.insertWorkloadToService(namespacedHostname, newWl)
 	}
-
-	log.Debugf("%v: workload updated, pushing", wl.ResourceName())
-	updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
-
-	return updates
 }
 
 func networkAddressFromWorkload(wl *model.WorkloadInfo) []networkAddress {
@@ -656,67 +668,38 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 	si := c.constructService(svc)
 	networkAddrs := toInternalNetworkAddresses(si.GetAddresses())
 	pods := c.getPodsInService(svc)
-	wls := make(map[string]*model.WorkloadInfo, len(pods))
 	for _, p := range pods {
 		// Can be nil if it's not ready, hostNetwork, etc
+		uid := c.generatePodUID(p)
+		oldWl := a.byUID[uid]
 		wl := a.extractWorkload(p, c)
-		if wl != nil {
-			// Update the pod, since it now has new VIP info
-			for _, networkAddr := range networkAddressFromWorkload(wl) {
-				a.byPod[networkAddr] = wl
-			}
-			a.byUID[wl.Uid] = wl
-			wls[wl.Uid] = wl
-		}
+		a.updateWorkloadIndexes(oldWl, wl, updates)
 	}
 
 	if features.EnableK8SServiceSelectWorkloadEntries {
 		workloadEntries := c.getSelectedWorkloadEntries(svc.GetNamespace(), svc.Spec.Selector)
 		for _, w := range workloadEntries {
+			uid := c.generateWorkloadEntryUID(w.Namespace, w.Name)
+			oldWl := a.byUID[uid]
 			wl := a.extractWorkloadEntry(w, c)
-			// Can be nil if the WorkloadEntry IP has not been mapped yet
-			//
-			// Note: this is a defensive check that mimics the logic for
-			// pods above. WorkloadEntries are mapped by their IP address
-			// in the following cases:
-			// 1. WorkloadEntry add/update
-			// 2. AuthorizationPolicy add/update
-			// 3. Namespace Ambient label add/update
-			if wl != nil {
-				// Update the WorkloadEntry, since it now has new VIP info
-				for _, networkAddr := range networkAddressFromWorkload(wl) {
-					a.byWorkloadEntry[networkAddr] = wl
-				}
-				a.byUID[wl.Uid] = wl
-				wls[wl.Uid] = wl
-			}
+			a.updateWorkloadIndexes(oldWl, wl, updates)
 		}
 	}
-
-	// We send an update for each *workload* IP address previously in the service; they may have changed
 	namespacedName := si.ResourceName()
-	for _, wl := range a.byService[namespacedName] {
-		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
-	}
-	// Update indexes
 	if isDelete {
 		for _, networkAddr := range networkAddrs {
 			delete(a.serviceByAddr, networkAddr)
 		}
-		delete(a.byService, namespacedName)
 		delete(a.serviceByNamespacedHostname, si.ResourceName())
+		// Cleanup byService fully here. We don't use DeleteCleanupLast so we can distinguish between an empty service and missing service.
+		delete(a.byService, namespacedName)
 		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: namespacedName})
 	} else {
 		for _, networkAddr := range networkAddrs {
 			a.serviceByAddr[networkAddr] = si
 		}
-		a.byService[namespacedName] = wls
 		a.serviceByNamespacedHostname[namespacedName] = si
 		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: namespacedName})
-	}
-	// Fetch updates again, in case it changed from adding new workloads
-	for _, wl := range a.byService[namespacedName] {
-		updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 	}
 
 	return updates
