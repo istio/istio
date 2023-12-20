@@ -157,6 +157,7 @@ func TestNameGeneration(t *testing.T) {
 		},
 	}
 	unsObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
+	g.Expect(err).NotTo(gomega.HaveOccurred())
 	ucm := &unstructured.Unstructured{Object: unsObj}
 	out, err := c.Kube().CoreV1().ConfigMaps("default").Create(context.Background(), cm, metav1.CreateOptions{})
 	g.Expect(err).NotTo(gomega.HaveOccurred())

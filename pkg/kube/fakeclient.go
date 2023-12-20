@@ -394,6 +394,4 @@ func generateNameOnCreate(ret runtime.Object) {
 	if meta.GetName() == "" && meta.GetGenerateName() != "" {
 		meta.SetName(names.SimpleNameGenerator.GenerateName(meta.GetGenerateName()))
 	}
-
-	return
 }
