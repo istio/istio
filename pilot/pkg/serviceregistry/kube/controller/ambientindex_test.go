@@ -1394,11 +1394,10 @@ func (s *ambientTestServer) assertIndexConsistency(t test.Failer) {
 }
 
 func (s *ambientTestServer) lookup(key string) []*model.AddressInfo {
+	s.assertIndexConsistency(s.t)
 	if key == "" {
-		s.assertIndexConsistency(s.t)
 		return s.controller.ambientIndex.All()
 	}
-	s.assertIndexConsistency(s.t)
 	return s.controller.ambientIndex.Lookup(key)
 }
 
