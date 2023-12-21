@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"math"
 	"net"
-	"net/netip"
 	"os"
 	"sort"
 	"strings"
@@ -49,6 +48,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
+	"istio.io/istio/pilot/pkg/util/network"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/config"
@@ -301,7 +301,10 @@ func setDefaultConfig(config *Config) Config {
 		config.NodeType = model.SidecarProxy
 	}
 	if config.IP == "" {
-		config.IP = getPrivateIPIfAvailable().String()
+		ips, ok := network.GetPrivateIPsIfAvailable()
+		if ok && len(ips) > 0 {
+			config.IP = ips[0]
+		}
 	}
 	if config.Workload == "" {
 		config.Workload = "test-1"
@@ -349,32 +352,6 @@ func dialWithConfig(config *Config) (*grpc.ClientConn, error) {
 		return nil, err
 	}
 	return conn, nil
-}
-
-// Returns a private IP address, or unspecified IP (0.0.0.0) if no IP is available
-func getPrivateIPIfAvailable() netip.Addr {
-	addrs, _ := net.InterfaceAddrs()
-	for _, addr := range addrs {
-		var ip net.IP
-		switch v := addr.(type) {
-		case *net.IPNet:
-			ip = v.IP
-		case *net.IPAddr:
-			ip = v.IP
-		default:
-			continue
-		}
-		ipAddr, ok := netip.AddrFromSlice(ip)
-		if !ok {
-			continue
-		}
-		// unwrap the IPv4-mapped IPv6 address
-		unwrapAddr := ipAddr.Unmap()
-		if !unwrapAddr.IsLoopback() {
-			return unwrapAddr
-		}
-	}
-	return netip.IPv4Unspecified()
 }
 
 func tlsConfig(config *Config) (*tls.Config, error) {
