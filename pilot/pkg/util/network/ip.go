@@ -59,9 +59,9 @@ func GetPrivateIPs(ctx context.Context) ([]string, bool) {
 	for {
 		select {
 		case <-ctx.Done():
-			return getPrivateIPsIfAvailable()
+			return GetPrivateIPsIfAvailable()
 		default:
-			addr, ok := getPrivateIPsIfAvailable()
+			addr, ok := GetPrivateIPsIfAvailable()
 			if ok {
 				return addr, true
 			}
@@ -70,8 +70,8 @@ func GetPrivateIPs(ctx context.Context) ([]string, bool) {
 	}
 }
 
-// Returns all the private IP addresses
-func getPrivateIPsIfAvailable() ([]string, bool) {
+// GetPrivateIPsIfAvailable returns all the private IP addresses
+func GetPrivateIPsIfAvailable() ([]string, bool) {
 	ok := true
 	ipAddresses := make([]string, 0)
 
