@@ -107,10 +107,10 @@ func (c *grpcCall) makeRequest(ctx context.Context, cfg *Config, requestID int) 
 	outMD.Set("X-Request-Id", strconv.Itoa(requestID))
 	fwLog.Info("making gRPC request")
 	// Propagate previous response cookies if any
-	if cfg.PropagateResponse != nil {
-		fwLog.Info("invoking propagate response")
-		cfg.PropagateResponse(outMD, cfg.previousResponse)
-	}
+	// if cfg.PropagateResponse != nil {
+	// 	fwLog.Info("invoking propagate response")
+	// 	cfg.PropagateResponse(outMD, cfg.previousResponse)
+	// }
 	ctx = metadata.NewOutgoingContext(ctx, outMD)
 
 	var outBuffer bytes.Buffer

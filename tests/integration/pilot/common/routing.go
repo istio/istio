@@ -28,7 +28,6 @@ import (
 	"time"
 
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/metadata"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pilot/pkg/model"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pkg/http/headers"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common/deployment"
@@ -2488,31 +2488,29 @@ spec:
 					check.NotOK(),
 					ConsistentHostChecker,
 				),
-				PropagateResponse: func(md metadata.MD, res *http.Response) {
+				PropagateResponse: func(requestHeaders []*proto.Header, responseHeaders http.Header) []*proto.Header {
 					scopes.Framework.Infof("invoking propagate response")
-					if res == nil {
+					if responseHeaders == nil {
 						scopes.Framework.Infof("no response")
-						return
+						return nil
 					}
-					if res.Cookies() == nil {
-						scopes.Framework.Infof("no cookies")
-						return
-					}
-					var sessionCookie *http.Cookie
-					for _, cookie := range res.Cookies() {
-						if cookie.Name == "session-cookie" {
-							sessionCookie = cookie
+					set := false
+					for key, cookie := range responseHeaders {
+						if key == "session-cookie" {
+							scopes.Framework.Infof("setting the request cookie back in the request: %v",
+								cookie)
+							requestHeaders = append(requestHeaders, &proto.Header{
+								Key:   key,
+								Value: cookie[0],
+							})
+							set = true
 							break
 						}
 					}
-					if sessionCookie != nil {
-						scopes.Framework.Infof("setting the request cookie back in the request: %v %b",
-							sessionCookie.Value, sessionCookie.Expires)
-						s := fmt.Sprintf("%s=%s", sessionCookie.Name, sessionCookie.Value)
-						md.Set("Cookie", s)
-					} else {
-						scopes.Framework.Infof("no session cookie found in the response")
+					if !set {
+						scopes.Framework.Infof("session cookie not found")
 					}
+					return requestHeaders
 				},
 			}
 			cookieWithoutTTLCallOpts := cookieCallOpts

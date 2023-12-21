@@ -20,13 +20,13 @@ import (
 	"net/http"
 	"time"
 
-	"google.golang.org/grpc/metadata"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	"istio.io/istio/pkg/http/headers"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/echo/proto"
 	"istio.io/istio/pkg/test/util/retry"
 )
 
@@ -184,7 +184,7 @@ type CallOptions struct {
 	// https://www.haproxy.org/download/1.8/doc/proxy-protocol.txt
 	ProxyProtocolVersion int
 
-	PropagateResponse func(md metadata.MD, resp *http.Response)
+	PropagateResponse func(requestHeaders []*proto.Header, responseHeaders http.Header) []*proto.Header
 }
 
 // GetHost returns the best default host for the call. Returns the first host defined from the following

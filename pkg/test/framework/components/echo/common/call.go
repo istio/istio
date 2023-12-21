@@ -37,16 +37,25 @@ var fwLog = log.RegisterScope("echocommon", "echo common clientside")
 type sendFunc func(req *proto.ForwardEchoRequest) (echoclient.Responses, error)
 
 func callInternal(srcName string, from echo.Caller, opts echo.CallOptions, send sendFunc) (echo.CallResult, error) {
+	count := opts.Count
+	var responses echoclient.Responses
 	// Create the proto request.
 	req := newForwardRequest(opts)
+	var err error
 	sendAndValidate := func() (echo.CallResult, error) {
-		fwLog.Infof("sending request from src %s to %s", srcName, getTargetURL(opts))
-		responses, err := send(req)
+		for i := 0; i < count; i++ {
+			fwLog.Infof("sending request from src %s to %s", srcName, getTargetURL(opts))
+			callresponses, err := send(req)
 
-		// Verify the number of responses matches the expected.
-		if err == nil && len(responses) != opts.Count {
-			err = fmt.Errorf("unexpected number of responses: expected %d, received %d",
-				opts.Count, len(responses))
+			// Verify the number of responses matches the expected.
+			if err == nil && len(callresponses) != opts.Count {
+				err = fmt.Errorf("unexpected number of responses: expected %d, received %d",
+					opts.Count, len(callresponses))
+			}
+			responses = append(responses, callresponses...)
+			if opts.PropagateResponse != nil {
+				req.Headers = opts.PropagateResponse(req.Headers, callresponses[0].ResponseHeaders)
+			}
 		}
 
 		// Convert to a CallResult.
@@ -77,7 +86,6 @@ func callInternal(srcName string, from echo.Caller, opts echo.CallOptions, send 
 
 	// Retry the call until it succeeds or times out.
 	var result echo.CallResult
-	var err error
 	_, _ = retry.UntilComplete(func() (any, bool, error) {
 		result, err = sendAndValidate()
 		if err != nil {
