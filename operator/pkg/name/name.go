@@ -48,6 +48,7 @@ const (
 	SecretStr                         = "Secret"
 	StatefulSetStr                    = "StatefulSet"
 	ValidatingWebhookConfigurationStr = "ValidatingWebhookConfiguration"
+	GatewayClassStr                   = "GatewayClass"
 )
 
 const (

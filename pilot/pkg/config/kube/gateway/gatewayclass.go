@@ -83,6 +83,9 @@ func (c *ClassController) reconcileClass(class gateway.ObjectName) error {
 	gc := &gateway.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: string(class),
+			Labels: map[string]string{
+				"operator.istio.io/component": "gateway",
+			},
 		},
 		Spec: gateway.GatewayClassSpec{
 			ControllerName: gateway.GatewayController(classInfo.controller),

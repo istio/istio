@@ -63,6 +63,7 @@ var (
 		{Group: "admissionregistration.k8s.io", Version: "v1", Kind: name.ValidatingWebhookConfigurationStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
+		{Group: "gateway.networking.k8s.io", Version: "v1", Kind: name.GatewayClassStr},
 	}
 	// AllClusterResources lists all cluster scope resources types which should be deleted in purge case, including CRD.
 	AllClusterResources = append(ClusterResources,
