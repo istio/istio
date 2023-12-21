@@ -2621,12 +2621,20 @@ spec:
 				config: svc + tmpl.MustEvaluate(cookieWithTTLDest, ""),
 				call:   c.CallOrFail,
 				opts:   cookieCallOpts,
+				skip: skip{
+					skip:   true,
+					reason: "https://github.com/istio/istio/issues/48156: not currently working, as test framework is not passing the cookies back",
+				},
 			})
 			t.RunTraffic(TrafficTestCase{
 				name:   "http cookie without ttl" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(cookieWithoutTTLDest, ""),
 				call:   c.CallOrFail,
 				opts:   cookieWithoutTTLCallOpts,
+				skip: skip{
+					skip:   true,
+					reason: "https://github.com/istio/istio/issues/48156: not currently working, as test framework is not passing the cookies back",
+				},
 			})
 		}
 	}
