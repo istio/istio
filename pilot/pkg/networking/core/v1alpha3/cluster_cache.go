@@ -68,60 +68,60 @@ func (t *clusterCache) Key() any {
 	// nolint: gosec
 	// Not security sensitive code
 	h := hash.New()
-	h.Write([]byte(t.clusterName))
+	h.WriteString(t.clusterName)
 	h.Write(Separator)
-	h.Write([]byte(t.proxyVersion))
+	h.WriteString(t.proxyVersion)
 	h.Write(Separator)
-	h.Write([]byte(util.LocalityToString(t.locality)))
+	h.WriteString(util.LocalityToString(t.locality))
 	h.Write(Separator)
-	h.Write([]byte(t.proxyClusterID))
+	h.WriteString(t.proxyClusterID)
 	h.Write(Separator)
-	h.Write([]byte(strconv.FormatBool(t.proxySidecar)))
+	h.WriteString(strconv.FormatBool(t.proxySidecar))
 	h.Write(Separator)
-	h.Write([]byte(strconv.FormatBool(t.http2)))
+	h.WriteString(strconv.FormatBool(t.http2))
 	h.Write(Separator)
-	h.Write([]byte(strconv.FormatBool(t.downstreamAuto)))
+	h.WriteString(strconv.FormatBool(t.downstreamAuto))
 	h.Write(Separator)
-	h.Write([]byte(strconv.FormatBool(t.supportsIPv4)))
+	h.WriteString(strconv.FormatBool(t.supportsIPv4))
 	h.Write(Separator)
-	h.Write([]byte(strconv.FormatBool(t.hbone)))
+	h.WriteString(strconv.FormatBool(t.hbone))
 	h.Write(Separator)
 
 	if t.proxyView != nil {
-		h.Write([]byte(t.proxyView.String()))
+		h.WriteString(t.proxyView.String())
 	}
 	h.Write(Separator)
 
 	if t.metadataCerts != nil {
-		h.Write([]byte(t.metadataCerts.String()))
+		h.WriteString(t.metadataCerts.String())
 	}
 	h.Write(Separator)
 
 	if t.service != nil {
-		h.Write([]byte(t.service.Hostname))
+		h.WriteString(string(t.service.Hostname))
 		h.Write(Slash)
-		h.Write([]byte(t.service.Attributes.Namespace))
+		h.WriteString(t.service.Attributes.Namespace)
 	}
 	h.Write(Separator)
 
 	for _, dr := range t.destinationRule.GetFrom() {
-		h.Write([]byte(dr.Name))
+		h.WriteString(dr.Name)
 		h.Write(Slash)
-		h.Write([]byte(dr.Namespace))
+		h.WriteString(dr.Namespace)
 	}
 	h.Write(Separator)
 
 	for _, efk := range t.envoyFilterKeys {
-		h.Write([]byte(efk))
+		h.WriteString(efk)
 		h.Write(Separator)
 	}
 	h.Write(Separator)
 
-	h.Write([]byte(t.peerAuthVersion))
+	h.WriteString(t.peerAuthVersion)
 	h.Write(Separator)
 
 	for _, sa := range t.serviceAccounts {
-		h.Write([]byte(sa))
+		h.WriteString(sa)
 		h.Write(Separator)
 	}
 	h.Write(Separator)

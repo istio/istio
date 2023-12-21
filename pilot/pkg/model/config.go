@@ -47,10 +47,10 @@ func (key ConfigKey) HashCode() ConfigHash {
 	h := hash.New()
 	h.Write([]byte{byte(key.Kind)})
 	// Add separator / to avoid collision.
-	h.Write([]byte("/"))
-	h.Write([]byte(key.Namespace))
-	h.Write([]byte("/"))
-	h.Write([]byte(key.Name))
+	h.WriteString("/")
+	h.WriteString(key.Namespace)
+	h.WriteString("/")
+	h.WriteString(key.Name)
 	return ConfigHash(h.Sum64())
 }
 

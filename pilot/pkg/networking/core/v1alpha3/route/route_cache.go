@@ -145,36 +145,36 @@ func (r *Cache) Key() any {
 	// Not security sensitive code
 	h := hash.New()
 
-	h.Write([]byte(r.RouteName))
+	h.WriteString(r.RouteName)
 	h.Write(Separator)
-	h.Write([]byte(r.ProxyVersion))
+	h.WriteString(r.ProxyVersion)
 	h.Write(Separator)
-	h.Write([]byte(r.ClusterID))
+	h.WriteString(r.ClusterID)
 	h.Write(Separator)
-	h.Write([]byte(r.DNSDomain))
+	h.WriteString(r.DNSDomain)
 	h.Write(Separator)
-	h.Write([]byte(strconv.FormatBool(r.DNSCapture)))
+	h.WriteString(strconv.FormatBool(r.DNSCapture))
 	h.Write(Separator)
-	h.Write([]byte(strconv.FormatBool(r.DNSAutoAllocate)))
+	h.WriteString(strconv.FormatBool(r.DNSAutoAllocate))
 	h.Write(Separator)
-	h.Write([]byte(strconv.FormatBool(r.AllowAny)))
+	h.WriteString(strconv.FormatBool(r.AllowAny))
 	h.Write(Separator)
 
 	for _, svc := range r.Services {
-		h.Write([]byte(svc.Hostname))
+		h.WriteString(string(svc.Hostname))
 		h.Write(Slash)
-		h.Write([]byte(svc.Attributes.Namespace))
+		h.WriteString(svc.Attributes.Namespace)
 		h.Write(Separator)
 	}
 	h.Write(Separator)
 
 	for _, vs := range r.VirtualServices {
 		for _, cfg := range model.VirtualServiceDependencies(vs) {
-			h.Write([]byte(cfg.Kind.String()))
+			h.WriteString(cfg.Kind.String())
 			h.Write(Slash)
-			h.Write([]byte(cfg.Name))
+			h.WriteString(cfg.Name)
 			h.Write(Slash)
-			h.Write([]byte(cfg.Namespace))
+			h.WriteString(cfg.Namespace)
 			h.Write(Separator)
 		}
 	}
@@ -188,16 +188,16 @@ func (r *Cache) Key() any {
 
 	for _, mergedDR := range r.DestinationRules {
 		for _, dr := range mergedDR.GetFrom() {
-			h.Write([]byte(dr.Name))
+			h.WriteString(dr.Name)
 			h.Write(Slash)
-			h.Write([]byte(dr.Namespace))
+			h.WriteString(dr.Namespace)
 			h.Write(Separator)
 		}
 	}
 	h.Write(Separator)
 
 	for _, efk := range r.EnvoyFilterKeys {
-		h.Write([]byte(efk))
+		h.WriteString(efk)
 		h.Write(Separator)
 	}
 	h.Write(Separator)
