@@ -2584,6 +2584,14 @@ func customTracingTags() []*tracing.CustomTag {
 			},
 		},
 		&tracing.CustomTag{
+			Tag: "istio.cluster_id",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: "unknown",
+				},
+			},
+		},
+		&tracing.CustomTag{
 			Tag: "istio.mesh_id",
 			Type: &tracing.CustomTag_Literal_{
 				Literal: &tracing.CustomTag_Literal{
