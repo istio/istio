@@ -31,7 +31,7 @@ func RealNlDeps() NetlinkIpsetDeps {
 type realDeps struct{}
 
 func (m *realDeps) ipsetIPPortCreate(name string) error {
-	err := netlink.IpsetCreate(name, "hash:ip,port", netlink.IpsetCreateOptions{Comments: true, Replace: true})
+	err := netlink.IpsetCreate(name, "hash:ip", netlink.IpsetCreateOptions{Comments: true, Replace: true})
 	if ipsetErr, ok := err.(nl.IPSetError); ok && ipsetErr == nl.IPSET_ERR_EXIST {
 		return nil
 	}
@@ -43,28 +43,26 @@ func (m *realDeps) destroySet(name string) error {
 	return err
 }
 
-func (m *realDeps) addIPPort(name string, ip netip.Addr, port uint16, ipProto uint8, comment string, replace bool) error {
+func (m *realDeps) addIP(name string, ip netip.Addr, ipProto uint8, comment string, replace bool) error {
 	err := netlink.IpsetAdd(name, &netlink.IPSetEntry{
 		Comment:  comment,
 		IP:       net.IP(ip.Unmap().AsSlice()),
-		Port:     &port,
 		Protocol: &ipProto,
 		Replace:  replace,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to add IP %s with port %d and proto %d to ipset %s: %w", ip, port, ipProto, name, err)
+		return fmt.Errorf("failed to add IP %s with and proto %d to ipset %s: %w", ip, ipProto, name, err)
 	}
 	return nil
 }
 
-func (m *realDeps) deleteIPPort(name string, ip netip.Addr, port uint16, ipProto uint8) error {
+func (m *realDeps) deleteIP(name string, ip netip.Addr, ipProto uint8) error {
 	err := netlink.IpsetDel(name, &netlink.IPSetEntry{
 		IP:       net.IP(ip.Unmap().AsSlice()),
-		Port:     &port,
 		Protocol: &ipProto,
 	})
 	if err != nil {
-		return fmt.Errorf("failed to delete IP %s with port %d and proto %d from ipset %s: %w", ip, port, ipProto, name, err)
+		return fmt.Errorf("failed to delete IP %s with and proto %d from ipset %s: %w", ip, ipProto, name, err)
 	}
 	return nil
 }
@@ -80,7 +78,7 @@ func (m *realDeps) flush(name string) error {
 // Alpine and some distros struggles with this - ipset CLI utilities support this, but
 // the kernel can be out of sync with the CLI utility, leading to errors like:
 //
-// ipset v7.10: Argument `comment' is supported in the kernel module of the set type hash:ip,port
+// ipset v7.10: Argument `comment' is supported in the kernel module of the set type hash:ip
 // starting from the revision 3 and you have installed revision 1 only.
 // Your kernel is behind your ipset utility.
 //

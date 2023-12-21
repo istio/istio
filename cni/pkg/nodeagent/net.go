@@ -44,14 +44,14 @@ type NetServer struct {
 	podNs                PodNetnsFinder
 	// allow overriding for tests
 	netnsRunner        func(fdable NetnsFd, toRun func() error) error
-	hostsideProbeIPSet ipset.IPPortSet
+	hostsideProbeIPSet ipset.IPSet
 }
 
 var _ MeshDataplane = &NetServer{}
 
 func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache,
 	iptablesConfigurator *iptables.IptablesConfigurator, podNs PodNetnsFinder,
-	probeSet ipset.IPPortSet,
+	probeSet ipset.IPSet,
 ) *NetServer {
 	return &NetServer{
 		ztunnelServer:        ztunnelServer,
@@ -168,7 +168,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 	}
 
 	// Handle node healthcheck probe rewrites
-	pPorts, err := addPodProbePortsToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
+	err = addPodToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
 	if err != nil {
 		log.Errorf("failed to add pod to ipset: %s/%s %v", pod.Namespace, pod.Name, err)
 		return err
@@ -176,7 +176,7 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.iptablesConfigurator.CreateInpodRules(pPorts, &HostProbeSNATIP)
+		return s.iptablesConfigurator.CreateInpodRules(&HostProbeSNATIP)
 	}); err != nil {
 		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
 		return err
@@ -263,7 +263,7 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) erro
 		return fmt.Errorf("failed to delete inpod rules %w", err)
 	}
 
-	if err := removePodProbePortsFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
+	if err := removePodFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
 		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)
 		return err
 	}
@@ -280,7 +280,7 @@ func (s *NetServer) DelPodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	log.Debug("Pod is now stopped or opt out... cleaning up.")
 
-	if err := removePodProbePortsFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
+	if err := removePodFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
 		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)
 		return err
 	}
@@ -307,7 +307,7 @@ func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
 		if len(podIPs) == 0 {
 			log.Warnf("pod %s does not appear to have any assigned IPs, not syncing with ipset", pod.Name)
 		} else {
-			_, err := addPodProbePortsToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
+			err := addPodToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
 			if err != nil {
 				return err
 			}
@@ -318,14 +318,12 @@ func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
 	return pruneHostIPset(sets.New(addedIPSnapshot...), &s.hostsideProbeIPSet)
 }
 
-// addPodProbePortsToHostNSIpset:
+// addPodToHostNSIpset:
 // 1. get pod manifest
 // 2. look for probes of the 3 kinds
 // 2. Get all pod ips (might be several, v6/v4)
 // 3. update ipsets accordingly
-func addPodProbePortsToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet *ipset.IPPortSet) (sets.Set[uint16], error) {
-	pPorts := getPodProbePorts(pod)
-
+func addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet *ipset.IPSet) error {
 	// Add the pod UID as an ipset entry comment, so we can (more) easily find and delete
 	// all relevant entries for a pod later.
 	podUID := string(pod.ObjectMeta.UID)
@@ -335,23 +333,21 @@ func addPodProbePortsToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsid
 
 	// For each pod IP
 	for _, pip := range podIPs {
-		for pp := range pPorts {
-			// Add to host ipset
-			log.Debugf("adding pod %s probe port %d to ipset %s with ip %s", pod.Name, pp, hostsideProbeSet.Name, pip)
-			// Add IP/port combo to set. Note that we set Replace to true - a pod ip/port combo already being
-			// in the set is perfectly fine, and something we can always safely overwrite, so we will.
-			if err := hostsideProbeSet.AddIPPort(pip, pp, ipProto, podUID, true); err != nil {
-				ipsetAddrErrs = append(ipsetAddrErrs, err)
-				log.Warnf("failed adding pod %s probe port %d to ipset %s with ip %s, error was %s",
-					pod.Name, pp, hostsideProbeSet.Name, pip, err)
-			}
+		// Add to host ipset
+		log.Debugf("adding pod %s probe to ipset %s with ip %s", pod.Name, hostsideProbeSet.Name, pip)
+		// Add IP/port combo to set. Note that we set Replace to true - a pod ip/port combo already being
+		// in the set is perfectly fine, and something we can always safely overwrite, so we will.
+		if err := hostsideProbeSet.AddIP(pip, ipProto, podUID, true); err != nil {
+			ipsetAddrErrs = append(ipsetAddrErrs, err)
+			log.Warnf("failed adding pod %s to ipset %s with ip %s, error was %s",
+				pod.Name, hostsideProbeSet.Name, pip, err)
 		}
 	}
 
-	return pPorts, errors.Join(ipsetAddrErrs...)
+	return errors.Join(ipsetAddrErrs...)
 }
 
-func removePodProbePortsFromHostNSIpset(pod *corev1.Pod, hostsideProbeSet *ipset.IPPortSet) error {
+func removePodFromHostNSIpset(pod *corev1.Pod, hostsideProbeSet *ipset.IPSet) error {
 	podIPs := util.GetPodIPsIfPresent(pod)
 	for _, pip := range podIPs {
 		if err := hostsideProbeSet.ClearEntriesWithIP(pip); err != nil {
@@ -363,7 +359,7 @@ func removePodProbePortsFromHostNSIpset(pod *corev1.Pod, hostsideProbeSet *ipset
 	return nil
 }
 
-func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPPortSet) error {
+func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPSet) error {
 	actualIPSetContents, err := hostsideProbeSet.ListEntriesByIP()
 	if err != nil {
 		log.Warnf("unable to list IPSet: %v", err)
@@ -385,12 +381,12 @@ func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPPor
 	return nil
 }
 
-func getPodProbePorts(pod *corev1.Pod) sets.Set[uint16] {
+func getPod(pod *corev1.Pod) sets.Set[uint16] {
 	// Use sets since
 	// - While you can in terms of the K8S control plane
 	//   have multiple containers using the same defined readiness port, this results in a crashlooping pod
 	//   and is effectively an invalid state from the perspective of K8S.
-	// - For the purposes of our podip,port IPset, we only care about unique ports.
+	// - For the purposes of our podip IPset, we only care about unique ports.
 
 	ppPorts := sets.New[uint16]()
 

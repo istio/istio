@@ -38,13 +38,13 @@ func (m *MockedIpsetDeps) destroySet(name string) error {
 	return args.Error(0)
 }
 
-func (m *MockedIpsetDeps) addIPPort(name string, ip netip.Addr, port uint16, ipProto uint8, comment string, replace bool) error {
-	args := m.Called(name, ip, port, ipProto, comment, replace)
+func (m *MockedIpsetDeps) addIP(name string, ip netip.Addr, ipProto uint8, comment string, replace bool) error {
+	args := m.Called(name, ip, ipProto, comment, replace)
 	return args.Error(0)
 }
 
-func (m *MockedIpsetDeps) deleteIPPort(name string, ip netip.Addr, port uint16, ipProto uint8) error {
-	args := m.Called(name, ip, port, ipProto)
+func (m *MockedIpsetDeps) deleteIP(name string, ip netip.Addr, ipProto uint8) error {
+	args := m.Called(name, ip, ipProto)
 	return args.Error(0)
 }
 

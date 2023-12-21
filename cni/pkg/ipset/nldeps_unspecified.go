@@ -36,11 +36,11 @@ func (m *realDeps) destroySet(name string) error {
 	return errors.New("not implemented on this platform")
 }
 
-func (m *realDeps) addIPPort(name string, ip netip.Addr, port uint16, ipProto uint8, comment string, replace bool) error {
+func (m *realDeps) addIP(name string, ip netip.Addr, ipProto uint8, comment string, replace bool) error {
 	return errors.New("not implemented on this platform")
 }
 
-func (m *realDeps) deleteIPPort(name string, ip netip.Addr, port uint16, ipProto uint8) error {
+func (m *realDeps) deleteIP(name string, ip netip.Addr, ipProto uint8) error {
 	return errors.New("not implemented on this platform")
 }
 

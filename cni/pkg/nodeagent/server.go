@@ -145,9 +145,9 @@ func buildKubeClient(kubeConfig string) (kube.Client, error) {
 // Note that if the ipset already exist by name, Create will not return an error.
 //
 // We will unconditionally flush our set before use here, so it shouldn't matter.
-func createHostsideProbeIpset() (ipset.IPPortSet, error) {
+func createHostsideProbeIpset() (ipset.IPSet, error) {
 	linDeps := ipset.RealNlDeps()
-	probeSet, err := ipset.NewIPPortSet(constants.ProbeIPSet, linDeps)
+	probeSet, err := ipset.NewIPSet(constants.ProbeIPSet, linDeps)
 	if err != nil {
 		return probeSet, err
 	}
