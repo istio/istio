@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Improved** the variables `PILOT_MAX_REQUESTS_PER_SECOND` (which rate limits the incoming requests, previously defaulted to 25.0)
+    and `PILOT_PUSH_THROTTLE` (which limits the number of concurrent responses, previously defaulted to 100) to automatically scale with the
+    CPU size Istiod is running on if not explicitly configured.

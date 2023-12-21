@@ -15,6 +15,7 @@
 package features
 
 import (
+	"runtime"
 	"strings"
 	"time"
 
@@ -58,17 +59,43 @@ var (
 		return f
 	}()
 
-	PushThrottle = env.Register(
-		"PILOT_PUSH_THROTTLE",
-		100,
-		"Limits the number of concurrent pushes allowed. On larger machines this can be increased for faster pushes",
-	).Get()
+	PushThrottle = func() int {
+		v := env.Register(
+			"PILOT_PUSH_THROTTLE",
+			0,
+			"Limits the number of concurrent pushes allowed. On larger machines this can be increased for faster pushes. "+
+				"If set to 0 or unset, the max will be automatically determined based on the machine size",
+		).Get()
+		if v > 0 {
+			return v
+		}
+		procs := runtime.GOMAXPROCS(0)
+		// Heuristic to scale with cores. We end up with...
+		// 1: 20
+		// 2: 25
+		// 4: 35
+		// 32: 100
+		return min(15+5*procs, 100)
+	}()
 
-	RequestLimit = env.Register(
-		"PILOT_MAX_REQUESTS_PER_SECOND",
-		25.0,
-		"Limits the number of incoming XDS requests per second. On larger machines this can be increased to handle more proxies concurrently.",
-	).Get()
+	RequestLimit = func() float64 {
+		v := env.Register(
+			"PILOT_MAX_REQUESTS_PER_SECOND",
+			0.0,
+			"Limits the number of incoming XDS requests per second. On larger machines this can be increased to handle more proxies concurrently. "+
+				"If set to 0 or unset, the max will be automatically determined based on the machine size",
+		).Get()
+		if v > 0 {
+			return v
+		}
+		procs := runtime.GOMAXPROCS(0)
+		// Heuristic to scale with cores. We end up with...
+		// 1: 20
+		// 2: 25
+		// 4: 35
+		// 32: 100
+		return min(float64(15+5*procs), 100.0)
+	}()
 
 	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
 	FilterGatewayClusterConfig = env.Register("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
