@@ -82,6 +82,8 @@ type InstallConfig struct {
 
 	// Whether ambient DNS capture is enabled
 	AmbientDNSCapture bool
+
+	AmbientBlockPorts bool
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -142,6 +144,7 @@ func (c InstallConfig) String() string {
 
 	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")
 	b.WriteString("AmbientDNSCapture: " + fmt.Sprint(c.AmbientDNSCapture) + "\n")
+	b.WriteString("AmbientBlockPorts: " + fmt.Sprint(c.AmbientBlockPorts) + "\n")
 
 	return b.String()
 }

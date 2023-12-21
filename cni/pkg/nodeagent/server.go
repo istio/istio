@@ -28,6 +28,7 @@ import (
 	"k8s.io/client-go/rest"
 
 	pconstants "istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/cni/pkg/ebpf"
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/nodeagent/constants"
@@ -60,10 +61,23 @@ type Server struct {
 	cniServerStopFunc func()
 }
 
-func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, args AmbientArgs) (*Server, error) {
+func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, blockPorts bool, args AmbientArgs) (*Server, error) {
 	client, err := buildKubeClient(args.KubeConfig)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing kube client: %w", err)
+	}
+
+	if blockPorts {
+		// TODO: move these to constants
+		loader, err := ebpf.NewLoader("/sys/fs/bpf", "/host/sys/fs/cgroup")
+		if err != nil {
+			log.Warnf("failed set-up ztunnel port blocking: %v", err)
+		} else {
+			err := loader.LoadPrograms()
+			if err != nil {
+				log.Warnf("failed set-up ztunnel port blocking: %v", err)
+			}
+		}
 	}
 
 	log.Debug("creating ipsets in the node netns")
