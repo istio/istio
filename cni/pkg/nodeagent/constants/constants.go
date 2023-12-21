@@ -21,4 +21,5 @@ const (
 	ZtunnelInboundPort          = 15008
 	ZtunnelOutboundPort         = 15001
 	ZtunnelInboundPlaintextPort = 15006
+	ProbeIPSet                  = "istio-inpod-probes"
 )
