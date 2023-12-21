@@ -233,9 +233,11 @@ func (n *kubeNamespace) createInCluster(c cluster.Cluster, cfg Config) error {
 		return err
 	}
 
-	n.addCleanup(func() error {
-		return c.Kube().CoreV1().Namespaces().Delete(context.TODO(), n.name, kube2.DeleteOptionsForeground())
-	})
+	if !cfg.SkipCleanup {
+		n.addCleanup(func() error {
+			return c.Kube().CoreV1().Namespaces().Delete(context.TODO(), n.name, kube2.DeleteOptionsForeground())
+		})
+	}
 
 	s := n.ctx.Settings()
 	if s.Image.PullSecret != "" {
