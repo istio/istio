@@ -1847,10 +1847,19 @@ func (ps *PushContext) initSidecarScopes(env *Environment) {
 		}
 	}
 	ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
-	ps.doConvertToSidecarScope(sidecarConfigs)
+
+	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope)
+	if features.ConvertSidecarScopeConcurrency > 1 {
+		ps.concurrentConvertToSidecarScope(sidecarConfigs)
+	} else {
+		for _, sidecarConfig := range sidecarConfigs {
+			ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
+				ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
+		}
+	}
 }
 
-func (ps *PushContext) doConvertToSidecarScope(sidecarConfigs []config.Config) {
+func (ps *PushContext) concurrentConvertToSidecarScope(sidecarConfigs []config.Config) {
 	if len(sidecarConfigs) == 0 {
 		return
 	}
@@ -1859,7 +1868,6 @@ func (ps *PushContext) doConvertToSidecarScope(sidecarConfigs []config.Config) {
 		cfg config.Config
 	}
 
-	var l sync.Mutex
 	var wg sync.WaitGroup
 	taskItems := make(chan taskItem)
 	// note: sidecarConfigs order matters
@@ -1874,9 +1882,7 @@ func (ps *PushContext) doConvertToSidecarScope(sidecarConfigs []config.Config) {
 					break
 				}
 				sc := ConvertToSidecarScope(ps, &item.cfg, item.cfg.Namespace)
-				l.Lock()
 				sidecarScopes[item.idx] = sc
-				l.Unlock()
 			}
 		}()
 	}
@@ -1888,7 +1894,6 @@ func (ps *PushContext) doConvertToSidecarScope(sidecarConfigs []config.Config) {
 	close(taskItems)
 	wg.Wait()
 
-	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope)
 	for _, sc := range sidecarScopes {
 		ps.sidecarIndex.sidecarsByNamespace[sc.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sc.Namespace], sc)
 	}
