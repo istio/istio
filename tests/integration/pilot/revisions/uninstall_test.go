@@ -20,6 +20,7 @@ package revisions
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -32,6 +33,7 @@ import (
 
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
@@ -43,6 +45,7 @@ import (
 
 const (
 	stableRevision       = "stable"
+	canaryRevision       = "canary"
 	notFoundRevision     = "not-found"
 	checkResourceTimeout = time.Second * 120
 	checkResourceDelay   = time.Millisecond * 100
@@ -114,6 +117,67 @@ func TestUninstallWithSetFlag(t *testing.T) {
 				ls := fmt.Sprintf("istio.io/rev=%s", stableRevision)
 				checkCPResourcesUninstalled(t, cs, allGVKs, ls, false)
 			})
+		})
+}
+
+func TestUninstallCustomFile(t *testing.T) {
+	framework.NewTest(t).
+		Features("installation.istioctl.uninstall_file").
+		Run(func(t framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+
+			createIstioOperatorTempFile := func(name, revision string) (fileName string) {
+				tempFile, err := os.CreateTemp("", name)
+				if err != nil {
+					t.Fatalf("failed to create temp file: %v", err)
+				}
+				defer tempFile.Close()
+				contents := fmt.Sprintf(`apiVersion: install.istio.io/v1alpha1
+kind: IstioOperator
+metadata:
+  name: %s
+  namespace: istio-system
+spec:
+  profile: remote
+  revision: %s
+`, name, revision)
+				if _, err = tempFile.WriteString(contents); err != nil {
+					t.Fatalf("failed to write to temp file: %v", err)
+				}
+				return tempFile.Name()
+			}
+
+			// Creating custom installation and empty uninstallation files
+			customFileName := createIstioOperatorTempFile("custom-install", canaryRevision)
+			randomFileName := createIstioOperatorTempFile("random-uninstall", canaryRevision)
+
+			// Install webhook with custom file
+			istioCtl.InvokeOrFail(t, []string{"install", "-f", customFileName, "--skip-confirmation"})
+
+			// Check if custom webhook is installed
+			validateWebhookExistence := func() {
+				ls := fmt.Sprintf("%s=%s", helmreconciler.IstioComponentLabelStr, name.IstiodRemoteComponentName)
+				cs := t.Clusters().Default()
+				objs, _ := getRemainingResourcesCluster(cs, gvr.MutatingWebhookConfiguration, ls)
+				if len(objs) == 0 {
+					t.Fatalf("expected custom webhook to exist")
+				}
+			}
+
+			validateWebhookExistence()
+
+			// Uninstall with a different file (should have no effect)
+			istioCtl.InvokeOrFail(t, []string{"uninstall", "-f", randomFileName, "-r" + canaryRevision, "--skip-confirmation"})
+
+			// Check the webhook still exists
+			validateWebhookExistence()
+
+			// Uninstall with the correct file
+			istioCtl.InvokeOrFail(t, []string{"uninstall", "-f=" + customFileName, "-r=" + canaryRevision, "--skip-confirmation"})
+
+			// Check no resources from the custom file exist
+			checkCPResourcesUninstalled(t, t.Clusters().Default(), allGVKs,
+				fmt.Sprintf("%s=%s", helmreconciler.IstioComponentLabelStr, name.IstiodRemoteComponentName), true)
 		})
 }
 

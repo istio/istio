@@ -6,12 +6,6 @@ base:
   # Validation webhook configuration url
   # For example: https://$remotePilotAddress:15017/validate
   validationURL: ""
-  # If enabled, gateway-api types will be validated using the standard upstream validation logic.
-  # This is an alternative to deploying the standalone validation server the project provides.
-  # This is disabled by default, as the cluster may already have a validation server; while technically
-  # it works to have multiple redundant validations, this adds complexity and operational risks.
-  # Users should consider enabling this if they want full gateway-api validation but don't have other validation servers.
-  validateGateway: false
 
 istiodRemote:
   # Sidecar injector mutating webhook configuration url

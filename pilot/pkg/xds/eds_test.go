@@ -528,7 +528,27 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 
 			validateEndpoints(true, []string{"10.0.0.53:53"}, nil)
 
-			// Remove last healthy endpoint
+			// Add another healthy endpoint and validate Eds is pushed.
+			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "",
+				[]*model.IstioEndpoint{
+					{
+						Address:         "10.0.0.53",
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Healthy,
+					},
+					{
+						Address:         "10.0.0.54",
+						EndpointPort:    53,
+						ServicePortName: "tcp-dns",
+						HealthStatus:    model.Healthy,
+					},
+				})
+
+			// Validate that endpoints are pushed.
+			validateEndpoints(true, []string{"10.0.0.53:53", "10.0.0.54:53"}, nil)
+
+			// Remove last healthy endpoints
 			s.MemRegistry.SetEndpoints("unhealthy.svc.cluster.local", "", []*model.IstioEndpoint{})
 			validateEndpoints(true, nil, nil)
 		})

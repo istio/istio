@@ -1020,11 +1020,11 @@ func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {
 		return &NodeMetadata{}, nil
 	}
 
-	boostrapNodeMeta, err := ParseBootstrapNodeMetadata(metadata)
+	bootstrapNodeMeta, err := ParseBootstrapNodeMetadata(metadata)
 	if err != nil {
 		return nil, err
 	}
-	return &boostrapNodeMeta.NodeMetadata, nil
+	return &bootstrapNodeMeta.NodeMetadata, nil
 }
 
 // ParseBootstrapNodeMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.

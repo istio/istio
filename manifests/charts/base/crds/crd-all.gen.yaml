@@ -340,6 +340,9 @@ spec:
                                 connectTimeout:
                                   description: TCP connection timeout.
                                   type: string
+                                idleTimeout:
+                                  description: The idle timeout for TCP connections.
+                                  type: string
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
                                   type: string
@@ -624,6 +627,9 @@ spec:
                                     properties:
                                       connectTimeout:
                                         description: TCP connection timeout.
+                                        type: string
+                                      idleTimeout:
+                                        description: The idle timeout for TCP connections.
                                         type: string
                                       maxConnectionDuration:
                                         description: The maximum duration of a connection.
@@ -1050,6 +1056,9 @@ spec:
                           connectTimeout:
                             description: TCP connection timeout.
                             type: string
+                          idleTimeout:
+                            description: The idle timeout for TCP connections.
+                            type: string
                           maxConnectionDuration:
                             description: The maximum duration of a connection.
                             type: string
@@ -1329,6 +1338,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                idleTimeout:
+                                  description: The idle timeout for TCP connections.
                                   type: string
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
@@ -1809,6 +1821,9 @@ spec:
                                 connectTimeout:
                                   description: TCP connection timeout.
                                   type: string
+                                idleTimeout:
+                                  description: The idle timeout for TCP connections.
+                                  type: string
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
                                   type: string
@@ -2093,6 +2108,9 @@ spec:
                                     properties:
                                       connectTimeout:
                                         description: TCP connection timeout.
+                                        type: string
+                                      idleTimeout:
+                                        description: The idle timeout for TCP connections.
                                         type: string
                                       maxConnectionDuration:
                                         description: The maximum duration of a connection.
@@ -2519,6 +2537,9 @@ spec:
                           connectTimeout:
                             description: TCP connection timeout.
                             type: string
+                          idleTimeout:
+                            description: The idle timeout for TCP connections.
+                            type: string
                           maxConnectionDuration:
                             description: The maximum duration of a connection.
                             type: string
@@ -2798,6 +2819,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                idleTimeout:
+                                  description: The idle timeout for TCP connections.
                                   type: string
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
@@ -4269,6 +4293,9 @@ spec:
                       connectTimeout:
                         description: TCP connection timeout.
                         type: string
+                      idleTimeout:
+                        description: The idle timeout for TCP connections.
+                        type: string
                       maxConnectionDuration:
                         description: The maximum duration of a connection.
                         type: string
@@ -4365,6 +4392,9 @@ spec:
                           properties:
                             connectTimeout:
                               description: TCP connection timeout.
+                              type: string
+                            idleTimeout:
+                              description: The idle timeout for TCP connections.
                               type: string
                             maxConnectionDuration:
                               description: The maximum duration of a connection.
@@ -4647,6 +4677,9 @@ spec:
                       connectTimeout:
                         description: TCP connection timeout.
                         type: string
+                      idleTimeout:
+                        description: The idle timeout for TCP connections.
+                        type: string
                       maxConnectionDuration:
                         description: The maximum duration of a connection.
                         type: string
@@ -4743,6 +4776,9 @@ spec:
                           properties:
                             connectTimeout:
                               description: TCP connection timeout.
+                              type: string
+                            idleTimeout:
+                              description: The idle timeout for TCP connections.
                               type: string
                             maxConnectionDuration:
                               description: The maximum duration of a connection.

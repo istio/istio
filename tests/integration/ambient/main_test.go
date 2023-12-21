@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
+	"istio.io/istio/tests/integration/security/util/cert"
 )
 
 var (
@@ -88,7 +89,16 @@ func TestMain(m *testing.M) {
 			// can't deploy VMs without eastwest gateway
 			ctx.Settings().SkipVMs()
 			cfg.DeployEastWestGW = false
-		})).
+			cfg.ControlPlaneValues = `
+values:
+  pilot:
+    env:
+      ISTIO_MULTIROOT_MESH: true
+  ztunnel:
+    env:
+      SECRET_TTL: 5m
+`
+		}, cert.CreateCASecretAlt)).
 		Setup(func(t resource.Context) error {
 			gatewayConformanceInputs.Client = t.Clusters().Default()
 			gatewayConformanceInputs.Cleanup = !t.Settings().NoCleanup

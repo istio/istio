@@ -800,15 +800,15 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 		return nil, err
 	}
 
-	extentionsConfig := make([]*admin.EcdsConfigDump_EcdsFilterConfig, 0)
+	extensionsConfig := make([]*admin.EcdsConfigDump_EcdsFilterConfig, 0)
 	for _, ext := range dump[v3.ExtensionConfigurationType] {
-		extentionsConfig = append(extentionsConfig, &admin.EcdsConfigDump_EcdsFilterConfig{
+		extensionsConfig = append(extensionsConfig, &admin.EcdsConfigDump_EcdsFilterConfig{
 			VersionInfo: version,
 			EcdsFilter:  ext.Resource,
 		})
 	}
-	extentionsAny, err := protoconv.MessageToAnyWithError(&admin.EcdsConfigDump{
-		EcdsFilters: extentionsConfig,
+	extensionsAny, err := protoconv.MessageToAnyWithError(&admin.EcdsConfigDump{
+		EcdsFilters: extensionsConfig,
 	})
 	if err != nil {
 		return nil, err
@@ -848,7 +848,7 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 		scopedRoutesAny,
 		routesAny,
 		secretsAny,
-		extentionsAny,
+		extensionsAny,
 	)
 	configDump := &admin.ConfigDump{
 		Configs: configs,

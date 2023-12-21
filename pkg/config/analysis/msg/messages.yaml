@@ -488,7 +488,7 @@ messages:
         type: string
       - name: pod
         type: string
-        
+
   - name: "ExternalNameServiceTypeInvalidPortName"
     code: IST0150
     level: Warning
@@ -500,25 +500,25 @@ messages:
     level: Warning
     description: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
     template: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST of ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
-   
+
   - name: "EnvoyFilterUsesReplaceOperationIncorrectly"
     code: IST0152
     level: Error
     description: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
     template: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
-    
+
   - name: "EnvoyFilterUsesAddOperationIncorrectly"
     code: IST0153
     level: Error
     description: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
     template: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
-  
+
   - name: "EnvoyFilterUsesRemoveOperationIncorrectly"
     code: IST0154
     level: Error
     description: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
     template: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
-    
+
   - name: "EnvoyFilterUsesRelativeOperationWithProxyVersion"
     code: IST0155
     level: Warning
@@ -634,5 +634,14 @@ messages:
     args:
       - name: virtualservice
         type: string
+      - name: gateway
+        type: string
+
+  - name: "IneffectiveSelector"
+    code: IST0166
+    level: Warning
+    description: "Selector has no effect when applied to Kubernetes Gateways."
+    template: "Ineffective selector on Kubernetes Gateway %s. Use the TargetRef field instead."
+    args:
       - name: gateway
         type: string

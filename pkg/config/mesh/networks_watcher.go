@@ -22,6 +22,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pkg/filewatcher"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 )
 
@@ -32,18 +33,27 @@ type NetworksHolder interface {
 	PrevNetworks() *meshconfig.MeshNetworks
 }
 
+// WatcherHandlerRegistration will be returned to caller to remove the handler later.
+type WatcherHandlerRegistration struct {
+	handler func()
+}
+
 // NetworksWatcher watches changes to the mesh networks config.
 type NetworksWatcher interface {
 	NetworksHolder
 
-	AddNetworksHandler(func())
+	// AddNetworksHandler registers a callback handler for changes to the networks config.
+	AddNetworksHandler(func()) *WatcherHandlerRegistration
+
+	// DeleteNetworksHandler unregisters a callback handler when remote cluster is removed.
+	DeleteNetworksHandler(registration *WatcherHandlerRegistration)
 }
 
 var _ NetworksWatcher = &internalNetworkWatcher{}
 
 type internalNetworkWatcher struct {
 	mutex        sync.RWMutex
-	handlers     []func()
+	handlers     []*WatcherHandlerRegistration
 	networks     *meshconfig.MeshNetworks
 	prevNetworks *meshconfig.MeshNetworks
 }
@@ -105,7 +115,7 @@ func (w *internalNetworkWatcher) PrevNetworks() *meshconfig.MeshNetworks {
 
 // SetNetworks will use the given value for mesh networks and notify all handlers of the change
 func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetworks) {
-	var handlers []func()
+	var handlers []*WatcherHandlerRegistration
 
 	w.mutex.Lock()
 	if !reflect.DeepEqual(meshNetworks, w.networks) {
@@ -115,19 +125,39 @@ func (w *internalNetworkWatcher) SetNetworks(meshNetworks *meshconfig.MeshNetwor
 		// Store the new config.
 		w.prevNetworks = w.networks
 		w.networks = meshNetworks
-		handlers = append([]func(){}, w.handlers...)
+		handlers = append([]*WatcherHandlerRegistration{}, w.handlers...)
 	}
 	w.mutex.Unlock()
 
 	// Notify the handlers of the change.
 	for _, h := range handlers {
-		h()
+		h.handler()
 	}
 }
 
 // AddNetworksHandler registers a callback handler for changes to the mesh network config.
-func (w *internalNetworkWatcher) AddNetworksHandler(h func()) {
+func (w *internalNetworkWatcher) AddNetworksHandler(h func()) *WatcherHandlerRegistration {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
-	w.handlers = append(w.handlers, h)
+	handler := &WatcherHandlerRegistration{
+		handler: h,
+	}
+	w.handlers = append(w.handlers, handler)
+	return handler
+}
+
+// DeleteNetworksHandler deregister a callback handler for changes to the mesh network config.
+func (w *internalNetworkWatcher) DeleteNetworksHandler(registration *WatcherHandlerRegistration) {
+	if registration == nil {
+		return
+	}
+	w.mutex.Lock()
+	defer w.mutex.Unlock()
+	if len(w.handlers) == 0 {
+		return
+	}
+
+	w.handlers = slices.FilterInPlace(w.handlers, func(handler *WatcherHandlerRegistration) bool {
+		return handler != registration
+	})
 }

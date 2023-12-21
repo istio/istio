@@ -77,15 +77,17 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithSingleDestination(
 	statPrefix, clusterName, subsetName string, port *model.Port, destinationRule *networking.DestinationRule, applyTunnelingConfig tunnelingconfig.ApplyFunc,
 	includeMx bool,
 ) []*listener.Filter {
+	idleTimeout := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetIdleTimeout()
+	if idleTimeout == nil {
+		idleTimeout = parseDuration(lb.node.Metadata.IdleTimeout)
+	}
 	tcpProxy := &tcp.TcpProxy{
-		StatPrefix:       statPrefix,
-		ClusterSpecifier: &tcp.TcpProxy_Cluster{Cluster: clusterName},
-		IdleTimeout:      parseDuration(lb.node.Metadata.IdleTimeout),
+		StatPrefix:                      statPrefix,
+		ClusterSpecifier:                &tcp.TcpProxy_Cluster{Cluster: clusterName},
+		IdleTimeout:                     idleTimeout,
+		MaxDownstreamConnectionDuration: destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration(),
 	}
-	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
-	if maxConnectionDuration != nil {
-		tcpProxy.MaxDownstreamConnectionDuration = maxConnectionDuration
-	}
+
 	maybeSetHashPolicy(destinationRule, tcpProxy, subsetName)
 	applyTunnelingConfig(tcpProxy, destinationRule, subsetName)
 	class := model.OutboundListenerClass(lb.node.Type)
@@ -142,16 +144,15 @@ func (lb *ListenerBuilder) buildOutboundNetworkFiltersWithWeightedClusters(route
 		WeightedClusters: &tcp.TcpProxy_WeightedCluster{},
 	}
 
-	tcpProxy := &tcp.TcpProxy{
-		StatPrefix:       statPrefix,
-		ClusterSpecifier: clusterSpecifier,
-
-		IdleTimeout: parseDuration(lb.node.Metadata.IdleTimeout),
+	idleTimeout := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetIdleTimeout()
+	if idleTimeout == nil {
+		idleTimeout = parseDuration(lb.node.Metadata.IdleTimeout)
 	}
-
-	maxConnectionDuration := destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration()
-	if maxConnectionDuration != nil {
-		tcpProxy.MaxDownstreamConnectionDuration = maxConnectionDuration
+	tcpProxy := &tcp.TcpProxy{
+		StatPrefix:                      statPrefix,
+		ClusterSpecifier:                clusterSpecifier,
+		IdleTimeout:                     idleTimeout,
+		MaxDownstreamConnectionDuration: destinationRule.GetTrafficPolicy().GetConnectionPool().GetTcp().GetMaxConnectionDuration(),
 	}
 
 	for _, route := range routes {

@@ -475,41 +475,25 @@ func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
 
 	updates := map[model.ConfigKey]struct{}{}
 	for _, pod := range pods {
+		uid := c.generatePodUID(pod)
+		oldWl := a.byUID[uid]
 		newWl := a.extractWorkload(pod, c)
-		if newWl != nil {
-			// Update the pod, since it now has new VIP info
-			networkAddrs := networkAddressFromWorkload(newWl)
-			for _, networkAddr := range networkAddrs {
-				a.byPod[networkAddr] = newWl
-			}
-			a.byUID[c.generatePodUID(pod)] = newWl
-			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
-		}
+		a.updateWorkloadIndexes(oldWl, newWl, updates)
 	}
 
 	for _, w := range workloadEntries {
+		uid := c.generateWorkloadEntryUID(w.Namespace, w.Name)
+		oldWl := a.byUID[uid]
 		newWl := a.extractWorkloadEntry(w, c)
-		if newWl != nil {
-			// Update the WorkloadEntry, since it now has new VIP info
-			networkAddrs := networkAddressFromWorkload(newWl)
-			for _, networkAddr := range networkAddrs {
-				a.byWorkloadEntry[networkAddr] = newWl
-			}
-			a.byUID[c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())] = newWl
-			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
-		}
+		a.updateWorkloadIndexes(oldWl, newWl, updates)
 	}
 
 	for svcEntry, weSet := range seEndpoints {
 		for we := range weSet {
-			wli := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
-			if wli != nil {
-				for _, networkAddr := range networkAddressFromWorkload(wli) {
-					a.byWorkloadEntry[networkAddr] = wli
-				}
-				a.byUID[wli.Uid] = wli
-				updates[model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()}] = struct{}{}
-			}
+			uid := c.generateServiceEntryUID(svcEntry.Namespace, svcEntry.Name, we.Address)
+			newWl := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
+			oldWl := a.byUID[uid]
+			a.updateWorkloadIndexes(oldWl, newWl, updates)
 		}
 	}
 

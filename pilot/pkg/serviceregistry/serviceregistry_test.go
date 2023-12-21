@@ -135,7 +135,7 @@ func TestWorkloadInstances(t *testing.T) {
 			ClusterIP: "9.9.9.9",
 		},
 	}
-	headlessService := &v1.Service{
+	headlessServiceHTTP := &v1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "service",
 			Namespace: namespace,
@@ -143,6 +143,20 @@ func TestWorkloadInstances(t *testing.T) {
 		Spec: v1.ServiceSpec{
 			Ports: []v1.ServicePort{{
 				Name: "http",
+				Port: 80,
+			}},
+			Selector:  labels,
+			ClusterIP: v1.ClusterIPNone,
+		},
+	}
+	headlessServiceTCP := &v1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "service",
+			Namespace: namespace,
+		},
+		Spec: v1.ServiceSpec{
+			Ports: []v1.ServicePort{{
+				Name: "tcp",
 				Port: 80,
 			}},
 			Selector:  labels,
@@ -183,6 +197,10 @@ func TestWorkloadInstances(t *testing.T) {
 			Name:     "http2",
 			Port:     90,
 			Protocol: "http",
+		}, {
+			Name:     "tcp",
+			Port:     70,
+			Protocol: "tcp",
 		}},
 		Attributes: model.ServiceAttributes{
 			Namespace:      namespace,
@@ -216,19 +234,44 @@ func TestWorkloadInstances(t *testing.T) {
 		xdsUpdater.WaitOrFail(t, "proxy")
 	})
 
-	t.Run("Kubernetes only: headless service", func(t *testing.T) {
+	t.Run("Kubernetes only: headless pure HTTP service", func(t *testing.T) {
 		_, kube, fx := setupTest(t)
-		makeService(t, kube, headlessService)
+		makeService(t, kube, headlessServiceHTTP)
 		fx.WaitOrFail(t, "service")
 		makePod(t, kube, pod)
 		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "http", Port: 80}}, []string{pod.Status.PodIP})
 		fx.WaitOrFail(t, "eds")
-		fx.WaitOrFail(t, "xds full")
+		// headless service update must trigger nds push.
+		ev := fx.WaitOrFail(t, "xds")
+		if !ev.Reason.Has(model.HeadlessEndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v", model.HeadlessEndpointUpdate)
+		}
+		// pure HTTP headless services should not need a full push since they do not
+		// require a Listener based on IP: https://github.com/istio/istio/issues/48207
 		instances := []EndpointResponse{{
 			Address: pod.Status.PodIP,
 			Port:    80,
 		}}
 		expectServiceEndpoints(t, fx, expectedSvc, 80, instances)
+	})
+
+	t.Run("Kubernetes only: headless non-HTTP service", func(t *testing.T) {
+		_, kube, fx := setupTest(t)
+		makeService(t, kube, headlessServiceTCP)
+		fx.WaitOrFail(t, "service")
+		makePod(t, kube, pod)
+		createEndpoints(t, kube, service.Name, namespace, []v1.EndpointPort{{Name: "tcp", Port: 70}}, []string{pod.Status.PodIP})
+		fx.WaitOrFail(t, "eds")
+		ev := fx.WaitOrFail(t, "xds full")
+		// headless service update must trigger nds push.
+		if !ev.Reason.Has(model.HeadlessEndpointUpdate) {
+			t.Fatalf("xds push reason does not contain %v", model.HeadlessEndpointUpdate)
+		}
+		instances := []EndpointResponse{{
+			Address: pod.Status.PodIP,
+			Port:    70,
+		}}
+		expectServiceEndpoints(t, fx, expectedSvc, 70, instances)
 	})
 
 	t.Run("Kubernetes only: endpoint occur earlier", func(t *testing.T) {

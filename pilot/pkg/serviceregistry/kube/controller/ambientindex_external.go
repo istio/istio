@@ -114,15 +114,13 @@ func (a *AmbientIndexImpl) handleServiceEntry(svcEntry *apiv1alpha3.ServiceEntry
 	}
 
 	for _, we := range svcEntry.Spec.Endpoints {
-		wli := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
-		if wli != nil && event != model.EventDelete {
-			for _, networkAddr := range networkAddressFromWorkload(wli) {
-				a.byWorkloadEntry[networkAddr] = wli
-			}
-			a.byUID[c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), we.GetAddress())] = wli
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()})
-			wls[wli.Uid] = wli
+		uid := c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), we.GetAddress())
+		oldWl := a.byUID[uid]
+		var wl *model.WorkloadInfo
+		if event != model.EventDelete {
+			wl = a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
 		}
+		a.updateWorkloadIndexes(oldWl, wl, updates)
 	}
 
 	vips := getVIPsFromServiceEntry(svcEntry)
@@ -247,9 +245,14 @@ func (a *AmbientIndexImpl) extractWorkloadEntrySpec(w *v1alpha3.WorkloadEntry, n
 	if wl == nil {
 		return nil
 	}
+	source := model.WorkloadSourceWorkloadEntry
+	if parentServiceEntry != nil {
+		source = model.WorkloadSourceServiceEntry
+	}
 	return &model.WorkloadInfo{
 		Workload: wl,
 		Labels:   w.Labels,
+		Source:   source,
 	}
 }
 

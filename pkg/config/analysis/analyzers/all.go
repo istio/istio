@@ -25,6 +25,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/externalcontrolplane"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/pkg/config/analysis/analyzers/k8sgateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/multicluster"
 	"istio.io/istio/pkg/config/analysis/analyzers/schema"
 	"istio.io/istio/pkg/config/analysis/analyzers/service"
@@ -52,6 +53,7 @@ func All() []analysis.Analyzer {
 		&injection.Analyzer{},
 		&injection.ImageAnalyzer{},
 		&injection.ImageAutoAnalyzer{},
+		&k8sgateway.SelectorAnalyzer{},
 		&multicluster.MeshNetworksAnalyzer{},
 		&service.PortNameAnalyzer{},
 		&sidecar.DefaultSelectorAnalyzer{},

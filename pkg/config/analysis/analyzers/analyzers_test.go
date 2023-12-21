@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/externalcontrolplane"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/pkg/config/analysis/analyzers/k8sgateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/analyzers/multicluster"
 	schemaValidation "istio.io/istio/pkg/config/analysis/analyzers/schema"
@@ -274,6 +275,15 @@ var testGrid = []testCase{
 		expected: []message{
 			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
 		},
+	},
+	{
+		name: "injectionImageDistrolessNoMeshConfig",
+		inputFiles: []string{
+			"testdata/injection-image-distroless-no-meshconfig.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		analyzer: &injection.ImageAnalyzer{},
+		expected: []message{},
 	},
 	{
 		name: "istioInjectionProxyImageMismatchAbsolute",
@@ -868,6 +878,17 @@ var testGrid = []testCase{
 		meshConfigFile: "testdata/telemetry-lightstep-meshconfig.yaml",
 		expected: []message{
 			{msg.Deprecated, "Telemetry istio-system/mesh-default"},
+		},
+	},
+	{
+		name:       "KubernetesGatewaySelector",
+		inputFiles: []string{"testdata/k8sgateway-selector.yaml"},
+		analyzer:   &k8sgateway.SelectorAnalyzer{},
+		expected: []message{
+			{msg.IneffectiveSelector, "RequestAuthentication default/ra-ineffective"},
+			{msg.IneffectiveSelector, "AuthorizationPolicy default/ap-ineffective"},
+			{msg.IneffectiveSelector, "WasmPlugin default/wasmplugin-ineffective"},
+			{msg.IneffectiveSelector, "Telemetry default/telemetry-ineffective"},
 		},
 	},
 }

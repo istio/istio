@@ -72,7 +72,7 @@ func (t *Tracker[T]) WaitOrdered(events ...T) {
 			t.events[0] = ptr.Empty[T]()
 			t.events = t.events[1:]
 			return nil
-		}, retry.Timeout(time.Second))
+		}, retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond))
 		if err != nil {
 			t.t.Fatal(err)
 		}
@@ -87,6 +87,7 @@ func (t *Tracker[T]) WaitUnordered(events ...T) {
 	for _, e := range events {
 		want[e] = struct{}{}
 	}
+	var err error
 	retry.UntilSuccessOrFail(t.t, func() error {
 		t.mu.Lock()
 		defer t.mu.Unlock()
@@ -95,7 +96,9 @@ func (t *Tracker[T]) WaitUnordered(events ...T) {
 		}
 		got := t.events[0]
 		if _, f := want[got]; !f {
-			return fmt.Errorf("got events %v, want %v", t.events, want)
+			// Exit early instead of continuing to retry
+			err = fmt.Errorf("got events %v, want %v", t.events, want)
+			return nil
 		}
 		// clear the event
 		t.events[0] = ptr.Empty[T]()
@@ -107,5 +110,35 @@ func (t *Tracker[T]) WaitUnordered(events ...T) {
 		}
 		return nil
 	}, retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond))
+	if err != nil {
+		t.t.Fatal(err)
+	}
+	t.Empty()
+}
+
+// WaitCompare waits for an event to happen and ensures it meets a custom comparison function
+func (t *Tracker[T]) WaitCompare(f func(T) bool) {
+	t.t.Helper()
+	var err error
+	retry.UntilSuccessOrFail(t.t, func() error {
+		t.mu.Lock()
+		defer t.mu.Unlock()
+		if len(t.events) == 0 {
+			return fmt.Errorf("no events")
+		}
+		got := t.events[0]
+		if !f(got) {
+			// Exit early instead of continuing to retry
+			err = fmt.Errorf("got events %v, which does not match criteria", t.events)
+			return nil
+		}
+		// clear the event
+		t.events[0] = ptr.Empty[T]()
+		t.events = t.events[1:]
+		return nil
+	}, retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond))
+	if err != nil {
+		t.t.Fatal(err)
+	}
 	t.Empty()
 }

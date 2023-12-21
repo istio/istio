@@ -132,7 +132,8 @@ func TestADSC_Run(t *testing.T) {
 				Received:   make(map[string]*discovery.DiscoveryResponse),
 				Updates:    make(chan string),
 				XDSUpdates: make(chan *discovery.DiscoveryResponse),
-				cfg: &Config{
+				cfg: &ADSConfig{
+					Config:                   Config{},
 					InitialDiscoveryRequests: desc.initialRequests,
 				},
 				VersionInfo: map[string]string{},
@@ -163,7 +164,7 @@ func TestADSC_Run(t *testing.T) {
 				t.Errorf("Unable to listen with tcp err %v", err)
 				return
 			}
-			tt.inAdsc.url = l.Addr().String()
+			tt.inAdsc.cfg.Address = l.Addr().String()
 			xds := grpc.NewServer()
 			discovery.RegisterAggregatedDiscoveryServiceServer(xds, new(testAdscRunServer))
 			go func() {
@@ -406,7 +407,11 @@ func TestADSC_handleMCP(t *testing.T) {
 	adsc := &ADSC{
 		VersionInfo: map[string]string{},
 		Store:       memory.Make(collections.Pilot),
-		cfg:         &Config{Revision: rev},
+		cfg: &ADSConfig{
+			Config: Config{
+				Revision: rev,
+			},
+		},
 	}
 
 	patchLabel := func(lbls map[string]string, name, value string) map[string]string {

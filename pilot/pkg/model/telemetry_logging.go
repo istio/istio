@@ -487,7 +487,7 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
-		DisableBuiltinLabels: !features.EnableOTELBuiltinResourceLables,
+		DisableBuiltinLabels: !features.EnableOTELBuiltinResourceLabels,
 	}
 
 	if format != "" {
