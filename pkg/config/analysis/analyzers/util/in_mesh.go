@@ -45,12 +45,20 @@ func PodInAmbientMode(r *resource.Instance) bool {
 	if r == nil {
 		return false
 	}
+
 	return r.Metadata.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 }
 
 // NamespaceInAmbientMode returns true if a Namespace is configured as a ambient namespace.
 func NamespaceInAmbientMode(r *resource.Instance) bool {
 	if r == nil {
+		return false
+	}
+	// If there is a sidecar injection label, then we assume the namespace is not in ambient mode
+	if r.Metadata.Labels[InjectionLabelName] == InjectionLabelEnableValue {
+		return false
+	}
+	if v, ok := r.Metadata.Labels[label.IoIstioRev.Name]; ok && v != "" {
 		return false
 	}
 	return r.Metadata.Labels[constants.DataplaneMode] == constants.DataplaneModeAmbient

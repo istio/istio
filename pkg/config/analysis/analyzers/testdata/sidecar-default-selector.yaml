@@ -96,3 +96,31 @@ spec:
   workloadSelector:
     labels:
       app: ambient
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-not-ambient
+  labels:
+    istio.io/dataplane-mode: ambient
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-not-ambient-rev
+  labels:
+    istio.io/dataplane-mode: ambient
+    istio.io/rev: canary
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: namespace-not-ambient
+  namespace: ns-not-ambient
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: namespace-not-ambient
+  namespace: ns-not-ambient-rev
