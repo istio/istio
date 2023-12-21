@@ -250,28 +250,35 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	svc := esc.c.GetService(hostName)
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
 
+	// make sure that an IstioEndpoint instance per pod
+	podMap := make(map[string]*corev1.Pod)
 	for _, e := range slice.Endpoints {
 		// Draining tracking is only enabled if persistent sessions is enabled.
 		// If we start using them for other features, this can be adjusted.
 		healthStatus := endpointHealthStatus(svc, e)
-		pod, expectedPod := getPod(esc.c, e.Addresses[0], &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
-		if pod == nil && expectedPod {
-			continue
-		}
-		builder := NewEndpointBuilder(esc.c, pod)
-		// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
-		for _, port := range slice.Ports {
-			var portNum int32
-			if port.Port != nil {
-				portNum = *port.Port
+		for _, a := range e.Addresses {
+			pod, expectedPod := getPod(esc.c, a, &metav1.ObjectMeta{Name: slice.Name, Namespace: slice.Namespace}, e.TargetRef, hostName)
+			if pod == nil && expectedPod {
+				continue
 			}
-			var portName string
-			if port.Name != nil {
-				portName = *port.Name
-			}
+			builder := NewEndpointBuilder(esc.c, pod)
+			// EDS and ServiceEntry use name for service port - ADS will need to map to numbers.
+			for _, port := range slice.Ports {
+				var portNum int32
+				if port.Port != nil {
+					portNum = *port.Port
+				}
+				var portName string
+				if port.Name != nil {
+					portName = *port.Name
+				}
 
-			istioEndpoint := builder.buildIstioEndpoint(e.Addresses, portNum, portName, discoverabilityPolicy, healthStatus)
-			endpoints = append(endpoints, istioEndpoint)
+				istioEndpoint := builder.buildIstioEndpoint([]string{a}, portNum, portName, discoverabilityPolicy, healthStatus)
+				if _, ok := podMap[istioEndpoint.Key()]; !ok {
+					podMap[istioEndpoint.Key()] = pod
+					endpoints = append(endpoints, istioEndpoint)
+				}
+			}
 		}
 	}
 	esc.endpointCache.Update(hostName, slice.Name, endpoints)
