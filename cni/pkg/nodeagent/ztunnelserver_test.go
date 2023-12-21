@@ -26,9 +26,9 @@ import (
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 
-	"istio.io/istio/cni/pkg/zdsapi"
 	"istio.io/istio/pkg/monitoring/monitortest"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/zdsapi"
 )
 
 var ztunnelTestCounter atomic.Uint32

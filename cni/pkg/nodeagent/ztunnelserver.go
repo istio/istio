@@ -27,8 +27,8 @@ import (
 	"golang.org/x/sys/unix"
 	"google.golang.org/protobuf/proto"
 
-	"istio.io/istio/cni/pkg/zdsapi"
 	"istio.io/istio/pkg/monitoring"
+	"istio.io/istio/pkg/zdsapi"
 )
 
 var (
