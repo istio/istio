@@ -18,7 +18,7 @@ import (
 	"net/netip"
 )
 
-type IPPortSet struct {
+type IPSet struct {
 	Name string
 	Deps NetlinkIpsetDeps
 }
@@ -26,16 +26,16 @@ type IPPortSet struct {
 type NetlinkIpsetDeps interface {
 	ipsetIPPortCreate(name string) error
 	destroySet(name string) error
-	addIPPort(name string, ip netip.Addr, port uint16, ipProto uint8, comment string, replace bool) error
-	deleteIPPort(name string, ip netip.Addr, port uint16, ipProto uint8) error
+	addIP(name string, ip netip.Addr, ipProto uint8, comment string, replace bool) error
+	deleteIP(name string, ip netip.Addr, ipProto uint8) error
 	flush(name string) error
 	clearEntriesWithComment(name, comment string) error
 	clearEntriesWithIP(name string, ip netip.Addr) error
 	listEntriesByIP(name string) ([]netip.Addr, error)
 }
 
-func NewIPPortSet(name string, deps NetlinkIpsetDeps) (IPPortSet, error) {
-	set := IPPortSet{
+func NewIPSet(name string, deps NetlinkIpsetDeps) (IPSet, error) {
+	set := IPSet{
 		Name: name,
 		Deps: deps,
 	}
@@ -43,30 +43,30 @@ func NewIPPortSet(name string, deps NetlinkIpsetDeps) (IPPortSet, error) {
 	return set, err
 }
 
-func (m *IPPortSet) DestroySet() error {
+func (m *IPSet) DestroySet() error {
 	return m.Deps.destroySet(m.Name)
 }
 
-func (m *IPPortSet) AddIPPort(ip netip.Addr, port uint16, ipProto uint8, comment string, replace bool) error {
-	return m.Deps.addIPPort(m.Name, ip, port, ipProto, comment, replace)
+func (m *IPSet) AddIP(ip netip.Addr, ipProto uint8, comment string, replace bool) error {
+	return m.Deps.addIP(m.Name, ip, ipProto, comment, replace)
 }
 
-func (m *IPPortSet) DeleteIPPort(ip netip.Addr, port uint16, ipProto uint8) error {
-	return m.Deps.deleteIPPort(m.Name, ip, port, ipProto)
+func (m *IPSet) DeleteIP(ip netip.Addr, ipProto uint8) error {
+	return m.Deps.deleteIP(m.Name, ip, ipProto)
 }
 
-func (m *IPPortSet) Flush() error {
+func (m *IPSet) Flush() error {
 	return m.Deps.flush(m.Name)
 }
 
-func (m *IPPortSet) ClearEntriesWithComment(comment string) error {
+func (m *IPSet) ClearEntriesWithComment(comment string) error {
 	return m.Deps.clearEntriesWithComment(m.Name, comment)
 }
 
-func (m *IPPortSet) ClearEntriesWithIP(ip netip.Addr) error {
+func (m *IPSet) ClearEntriesWithIP(ip netip.Addr) error {
 	return m.Deps.clearEntriesWithIP(m.Name, ip)
 }
 
-func (m *IPPortSet) ListEntriesByIP() ([]netip.Addr, error) {
+func (m *IPSet) ListEntriesByIP() ([]netip.Addr, error) {
 	return m.Deps.listEntriesByIP(m.Name)
 }

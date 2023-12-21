@@ -22,7 +22,6 @@ import (
 
 	"istio.io/istio/cni/pkg/nodeagent/constants"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/builder"
 	iptablesconfig "istio.io/istio/tools/istio-iptables/pkg/config"
 	iptablesconstants "istio.io/istio/tools/istio-iptables/pkg/constants"
@@ -129,9 +128,9 @@ func (cfg *IptablesConfigurator) executeDeleteCommands() error {
 
 // Setup iptables rules for in-pod mode. Ideally this should be an idempotent function.
 // NOTE that this expects to be run from within the pod network namespace!
-func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSet sets.Set[uint16], hostProbeSNAT *netip.Addr) error {
+func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSNAT *netip.Addr) error {
 	// Append our rules here
-	builder := cfg.appendInpodRules(hostProbeSet, hostProbeSNAT)
+	builder := cfg.appendInpodRules(hostProbeSNAT)
 
 	if err := cfg.addLoopbackRoute(); err != nil {
 		return err
@@ -150,7 +149,7 @@ func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSet sets.Set[uint16],
 	return nil
 }
 
-func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16], hostProbeSNAT *netip.Addr) *builder.IptablesBuilder {
+func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *builder.IptablesBuilder {
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodTProxyMask)
 
@@ -196,31 +195,27 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSet sets.Set[uint16],
 	//
 	// Note that SortedList is used here because the istio sets class has no order guarantees,
 	// and our unit tests will flake if rules have a nondeterministic ordering.
-	for _, probeP := range sets.SortedList(hostProbeSet) {
-		// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
-		//
-		// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
-		iptablesBuilder.AppendRule(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-			"-s", hostProbeSNAT.String(),
-			"-p", "tcp",
-			"-m", "tcp",
-			"--dport", fmt.Sprintf("%d", probeP),
-			"-j", "ACCEPT",
-		)
+	// CLI: -t mangle -A ISTIO_PRERT -s 169.254.7.127 -p tcp -m tcp --dport <PROBEPORT> -j ACCEPT
+	//
+	// DESC: If this is one of our node-probe ports and is from our SNAT-ed/"special" hostside IP, short-circuit out here
+	iptablesBuilder.AppendRule(iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
+		"-s", hostProbeSNAT.String(),
+		"-p", "tcp",
+		"-m", "tcp",
+		"-j", "ACCEPT",
+	)
 
-		// CLI: -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp --sport <PROBEPORT> -j ACCEPT
-		//
-		// DESC: Anything coming BACK from the pod healthcheck port with a dest of our SNAT-ed hostside IP
-		// we also short-circuit.
-		iptablesBuilder.AppendRule(
-			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
-			"-d", hostProbeSNAT.String(),
-			"-p", "tcp",
-			"-m", "tcp",
-			"--sport", fmt.Sprintf("%d", probeP),
-			"-j", "ACCEPT",
-		)
-	}
+	// CLI: -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp --sport <PROBEPORT> -j ACCEPT
+	//
+	// DESC: Anything coming BACK from the pod healthcheck port with a dest of our SNAT-ed hostside IP
+	// we also short-circuit.
+	iptablesBuilder.AppendRule(
+		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
+		"-d", hostProbeSNAT.String(),
+		"-p", "tcp",
+		"-m", "tcp",
+		"-j", "ACCEPT",
+	)
 
 	// CLI: -A ISTIO_PRERT -p tcp -m tcp --dport <INPORT> -m mark ! --mark 0x3/0xfff -j TPROXY --on-port <INPORT> --on-ip 127.0.0.1 --tproxy-mark 0x111/0xfff
 	//
@@ -467,7 +462,7 @@ func (cfg *IptablesConfigurator) appendHostRules(hostSNATIP *netip.Addr) *builde
 		"-p", "tcp",
 		"-m", "set",
 		"--match-set", constants.ProbeIPSet,
-		"dst,dst",
+		"dst",
 		"-j", "SNAT",
 		"--to-source", hostSNATIP.String(),
 	)

@@ -62,7 +62,7 @@ func getTestFixure(ctx context.Context) netTestFixture {
 	ztunnelServer := &fakeZtunnel{}
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPPortSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
 	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, NewPodNetnsProcFinder(fakeFs()), set)
 
 	netServer.netnsRunner = func(fdable NetnsFd, toRun func() error) error {
@@ -172,6 +172,15 @@ func TestServerAddPod(t *testing.T) {
 	}
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
+
+	fixture.ipsetDeps.On("addIP",
+		"foo",
+		netip.MustParseAddr("99.9.9.9"),
+		uint8(unix.IPPROTO_TCP),
+		string(podMeta.UID),
+		true,
+	).Return(nil)
+
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "fakenetns")
 	assert.NoError(t, err)
 	assert.Equal(t, 1, ztunnelServer.addedPods.Load())
@@ -246,6 +255,16 @@ func TestServerDeletePod(t *testing.T) {
 	assertNSClosed(t, closed)
 }
 
+func expectPodAddedToIpSet(ipsetDeps *ipset.MockedIpsetDeps, podMeta metav1.ObjectMeta) {
+	ipsetDeps.On("addIP",
+		"foo",
+		netip.MustParseAddr("99.9.9.9"),
+		uint8(unix.IPPROTO_TCP),
+		string(podMeta.UID),
+		true,
+	).Return(nil)
+}
+
 func TestServerAddPodWithNoNetns(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -261,6 +280,8 @@ func TestServerAddPodWithNoNetns(t *testing.T) {
 	}
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
+	expectPodAddedToIpSet(fixture.ipsetDeps, podMeta)
+
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "")
 	assert.NoError(t, err)
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 1)
@@ -282,6 +303,8 @@ func TestReturnsPartialErrorOnZtunnelFail(t *testing.T) {
 	ztunnelServer.addError = errors.New("fake error")
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
+
+	expectPodAddedToIpSet(fixture.ipsetDeps, podMeta)
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "faksens")
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 1)
 	if !errors.Is(err, ErrPartialAdd) {
@@ -306,6 +329,8 @@ func TestDoesntReturnsPartialErrorOnIptablesFail(t *testing.T) {
 	}
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
+
+	expectPodAddedToIpSet(fixture.ipsetDeps, podMeta)
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "faksens")
 	// no calls to ztunnel if iptables failed
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 0)
@@ -341,72 +366,35 @@ func TestConstructInitialSnap(t *testing.T) {
 	}
 }
 
-func TestGetPodProbePorts(t *testing.T) {
-	pod := buildConvincingPod(true)
-	probePorts := getPodProbePorts(pod)
-	assert.Equal(t, len(probePorts), 4)
-
-	assert.Equal(t, probePorts.Contains(8020), true)
-	assert.Equal(t, probePorts.Contains(7777), true)
-	assert.Equal(t, probePorts.Contains(7010), true)
-	assert.Equal(t, probePorts.Contains(6666), true)
-	assert.Equal(t, probePorts.Contains(7020), false)
-	assert.Equal(t, probePorts.Contains(8010), false)
-}
-
-func TestAddPodProbePortsToHostNSIPSets(t *testing.T) {
+func TestAddPodToHostNSIPSets(t *testing.T) {
 	pod := buildConvincingPod(false)
 
 	var podUID string = string(pod.ObjectMeta.UID)
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPPortSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
 	ipProto := uint8(unix.IPPROTO_TCP)
 
-	fakeIPSetDeps.On("addIPPort",
+	fakeIPSetDeps.On("addIP",
 		"foo",
 		netip.MustParseAddr("99.9.9.9"),
-		uint16(8020),
 		ipProto,
 		podUID,
 		true,
 	).Return(nil)
 
-	fakeIPSetDeps.On("addIPPort",
-		"foo",
-		netip.MustParseAddr("99.9.9.9"),
-		uint16(7777),
-		ipProto,
-		podUID,
-		true,
-	).Return(nil)
-
-	fakeIPSetDeps.On("addIPPort",
+	fakeIPSetDeps.On("addIP",
 		"foo",
 		netip.MustParseAddr("2.2.2.2"),
-		uint16(8020),
-		ipProto,
-		podUID,
-		true,
-	).Return(nil)
-
-	fakeIPSetDeps.On("addIPPort",
-		"foo",
-		netip.MustParseAddr("2.2.2.2"),
-		uint16(7777),
 		ipProto,
 		podUID,
 		true,
 	).Return(nil)
 
 	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
-	probePorts, err := addPodProbePortsToHostNSIpset(pod, podIPs, &set)
+	err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.NoError(t, err)
 
 	fakeIPSetDeps.AssertExpectations(t)
-	assert.Equal(t, len(probePorts), 2)
-
-	assert.Equal(t, probePorts.Contains(8020), true)
-	assert.Equal(t, probePorts.Contains(7777), true)
 }
 
 func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
@@ -414,61 +402,38 @@ func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 
 	var podUID string = string(pod.ObjectMeta.UID)
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPPortSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
 	ipProto := uint8(unix.IPPROTO_TCP)
 
-	fakeIPSetDeps.On("addIPPort",
+	fakeIPSetDeps.On("addIP",
 		"foo",
 		netip.MustParseAddr("99.9.9.9"),
-		uint16(8020),
 		ipProto,
 		podUID,
 		true,
 	).Return(nil)
 
-	fakeIPSetDeps.On("addIPPort",
-		"foo",
-		netip.MustParseAddr("99.9.9.9"),
-		uint16(7777),
-		ipProto,
-		podUID,
-		true,
-	).Return(nil)
-
-	fakeIPSetDeps.On("addIPPort",
+	fakeIPSetDeps.On("addIP",
 		"foo",
 		netip.MustParseAddr("2.2.2.2"),
-		uint16(8020),
 		ipProto,
 		podUID,
 		true,
 	).Return(errors.New("bwoah"))
 
-	fakeIPSetDeps.On("addIPPort",
-		"foo",
-		netip.MustParseAddr("2.2.2.2"),
-		uint16(7777),
-		ipProto,
-		podUID,
-		true,
-	).Return(nil)
-
 	podIPs := []netip.Addr{netip.MustParseAddr("99.9.9.9"), netip.MustParseAddr("2.2.2.2")}
-	probePorts, err := addPodProbePortsToHostNSIpset(pod, podIPs, &set)
+
+	err := addPodToHostNSIpset(pod, podIPs, &set)
 	assert.Error(t, err)
 
 	fakeIPSetDeps.AssertExpectations(t)
-	assert.Equal(t, len(probePorts), 2)
-
-	assert.Equal(t, probePorts.Contains(8020), true)
-	assert.Equal(t, probePorts.Contains(7777), true)
 }
 
 func TestRemovePodProbePortsFromHostNSIPSets(t *testing.T) {
 	pod := buildConvincingPod(false)
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
-	set := ipset.IPPortSet{Name: "foo", Deps: fakeIPSetDeps}
+	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
 
 	fakeIPSetDeps.On("clearEntriesWithIP",
 		"foo",
@@ -480,7 +445,7 @@ func TestRemovePodProbePortsFromHostNSIPSets(t *testing.T) {
 		netip.MustParseAddr("2.2.2.2"),
 	).Return(nil)
 
-	err := removePodProbePortsFromHostNSIpset(pod, &set)
+	err := removePodFromHostNSIpset(pod, &set)
 	assert.NoError(t, err)
 	fakeIPSetDeps.AssertExpectations(t)
 }
@@ -498,37 +463,17 @@ func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 	setupLogging()
 
 	// expectations
-	fixture.ipsetDeps.On("addIPPort",
+	fixture.ipsetDeps.On("addIP",
 		"foo",
 		netip.MustParseAddr("3.3.3.3"),
-		uint16(8020),
 		ipProto,
 		podUID,
 		true,
 	).Return(nil)
 
-	fixture.ipsetDeps.On("addIPPort",
-		"foo",
-		netip.MustParseAddr("3.3.3.3"),
-		uint16(7777),
-		ipProto,
-		podUID,
-		true,
-	).Return(nil)
-
-	fixture.ipsetDeps.On("addIPPort",
+	fixture.ipsetDeps.On("addIP",
 		"foo",
 		netip.MustParseAddr("2.2.2.2"),
-		uint16(8020),
-		ipProto,
-		podUID,
-		true,
-	).Return(nil)
-
-	fixture.ipsetDeps.On("addIPPort",
-		"foo",
-		netip.MustParseAddr("2.2.2.2"),
-		uint16(7777),
 		ipProto,
 		podUID,
 		true,
@@ -580,37 +525,17 @@ func TestSyncHostIPSetsPrunesIfExtras(t *testing.T) {
 	setupLogging()
 
 	// expectations
-	fixture.ipsetDeps.On("addIPPort",
+	fixture.ipsetDeps.On("addIP",
 		"foo",
 		netip.MustParseAddr("3.3.3.3"),
-		uint16(8020),
 		ipProto,
 		podUID,
 		true,
 	).Return(nil)
 
-	fixture.ipsetDeps.On("addIPPort",
-		"foo",
-		netip.MustParseAddr("3.3.3.3"),
-		uint16(7777),
-		ipProto,
-		podUID,
-		true,
-	).Return(nil)
-
-	fixture.ipsetDeps.On("addIPPort",
+	fixture.ipsetDeps.On("addIP",
 		"foo",
 		netip.MustParseAddr("2.2.2.2"),
-		uint16(8020),
-		ipProto,
-		podUID,
-		true,
-	).Return(nil)
-
-	fixture.ipsetDeps.On("addIPPort",
-		"foo",
-		netip.MustParseAddr("2.2.2.2"),
-		uint16(7777),
 		ipProto,
 		podUID,
 		true,
