@@ -250,8 +250,6 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 	svc := esc.c.GetService(hostName)
 	discoverabilityPolicy := esc.c.exports.EndpointDiscoverabilityPolicy(svc)
 
-	// make sure that an IstioEndpoint instance per pod
-	podMap := make(map[string]*corev1.Pod)
 	for _, e := range slice.Endpoints {
 		// Draining tracking is only enabled if persistent sessions is enabled.
 		// If we start using them for other features, this can be adjusted.
@@ -273,11 +271,12 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 					portName = *port.Name
 				}
 
-				istioEndpoint := builder.buildIstioEndpoint([]string{a}, portNum, portName, discoverabilityPolicy, healthStatus)
-				if _, ok := podMap[istioEndpoint.Key()]; !ok {
-					podMap[istioEndpoint.Key()] = pod
-					endpoints = append(endpoints, istioEndpoint)
+				var epAddrs []string
+				for _, podIP := pod.Status.PodIPs {
+					epAddrs = append(epAddrs, podIP.IP)
 				}
+				istioEndpoint := builder.buildIstioEndpoint(epAddrs, portNum, portName, discoverabilityPolicy, healthStatus)
+				endpoints = append(endpoints, istioEndpoint)
 			}
 		}
 	}
