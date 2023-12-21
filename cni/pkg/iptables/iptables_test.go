@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	testutil "istio.io/istio/pilot/test/util"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestIptables(t *testing.T) {
@@ -37,6 +38,7 @@ func TestIptables(t *testing.T) {
 	}
 	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
 	probeSNATipv6 := netip.MustParseAddr("e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164")
+	hostProbePorts := sets.New[uint16](8018, 8017, 8016)
 
 	for _, tt := range cases {
 		for _, ipv6 := range []bool{false, true} {
@@ -52,7 +54,7 @@ func TestIptables(t *testing.T) {
 				} else {
 					probeIP = &probeSNATipv4
 				}
-				err := iptConfigurator.CreateInpodRules(probeIP)
+				err := iptConfigurator.CreateInpodRules(hostProbePorts, probeIP)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -113,12 +115,13 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 	}
 
 	probeSNATipv4 := netip.MustParseAddr("169.254.7.127")
+	hostProbePorts := sets.New[uint16](8018, 8017, 8016)
 
 	cfg := constructTestConfig()
 	tt.config(cfg)
 	ext := &DependenciesStub{}
 	iptConfigurator := NewIptablesConfigurator(cfg, ext, EmptyNlDeps())
-	err := iptConfigurator.CreateInpodRules(&probeSNATipv4)
+	err := iptConfigurator.CreateInpodRules(hostProbePorts, &probeSNATipv4)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,7 +129,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 
 	*ext = DependenciesStub{}
 	// run another time to make sure we are idempotent
-	err = iptConfigurator.CreateInpodRules(&probeSNATipv4)
+	err = iptConfigurator.CreateInpodRules(hostProbePorts, &probeSNATipv4)
 	if err != nil {
 		t.Fatal(err)
 	}

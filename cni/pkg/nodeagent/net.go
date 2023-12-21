@@ -20,10 +20,13 @@ import (
 	"fmt"
 	"net/netip"
 
+	"golang.org/x/sys/unix"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 
+	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
 	"istio.io/istio/cni/pkg/util"
 	istiolog "istio.io/istio/pkg/log"
@@ -40,13 +43,15 @@ type NetServer struct {
 	iptablesConfigurator *iptables.IptablesConfigurator
 	podNs                PodNetnsFinder
 	// allow overriding for tests
-	netnsRunner func(fdable NetnsFd, toRun func() error) error
+	netnsRunner        func(fdable NetnsFd, toRun func() error) error
+	hostsideProbeIPSet ipset.IPPortSet
 }
 
 var _ MeshDataplane = &NetServer{}
 
 func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache,
 	iptablesConfigurator *iptables.IptablesConfigurator, podNs PodNetnsFinder,
+	probeSet ipset.IPPortSet,
 ) *NetServer {
 	return &NetServer{
 		ztunnelServer:        ztunnelServer,
@@ -54,6 +59,7 @@ func newNetServer(ztunnelServer ZtunnelServer, podNsMap *podNetnsCache,
 		podNs:                podNs,
 		iptablesConfigurator: iptablesConfigurator,
 		netnsRunner:          NetnsDo,
+		hostsideProbeIPSet:   probeSet,
 	}
 }
 
@@ -66,6 +72,11 @@ func (s *NetServer) Stop() {
 	log.Debug("removing host iptables rules")
 	s.iptablesConfigurator.DeleteHostRules()
 
+	log.Debug("destroying host ipset")
+	s.hostsideProbeIPSet.Flush()
+	if err := s.hostsideProbeIPSet.DestroySet(); err != nil {
+		log.Warnf("could not destroy host ipset on shutdown")
+	}
 	log.Debug("stopping ztunnel server")
 	s.ztunnelServer.Close()
 }
@@ -156,9 +167,16 @@ func (s *NetServer) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []
 		return err
 	}
 
+	// Handle node healthcheck probe rewrites
+	pPorts, err := addPodProbePortsToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
+	if err != nil {
+		log.Errorf("failed to add pod to ipset: %s/%s %v", pod.Namespace, pod.Name, err)
+		return err
+	}
+
 	log.Debug("calling CreateInpodRules")
 	if err := s.netnsRunner(openNetns, func() error {
-		return s.iptablesConfigurator.CreateInpodRules(&HostProbeSNATIP)
+		return s.iptablesConfigurator.CreateInpodRules(pPorts, &HostProbeSNATIP)
 	}); err != nil {
 		log.Errorf("failed to update POD inpod: %s/%s %v", pod.Namespace, pod.Name, err)
 		return err
@@ -184,6 +202,11 @@ func (s *NetServer) sendPodToZtunnelAndWaitForAck(ctx context.Context, pod *meta
 // 2. Syncs the host ipset
 func (s *NetServer) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {
 	var consErr []error
+
+	if err := s.syncHostIPSets(ambientPods); err != nil {
+		log.Warnf("failed to sync host IPset: %v", err)
+		consErr = append(consErr, err)
+	}
 
 	if err := s.buildZtunnelSnapshot(util.GetUniquePodUIDs(ambientPods)); err != nil {
 		log.Warnf("failed to construct initial ztunnel snapshot: %v", err)
@@ -240,6 +263,11 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) erro
 		return fmt.Errorf("failed to delete inpod rules %w", err)
 	}
 
+	if err := removePodProbePortsFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
+		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)
+		return err
+	}
+
 	log.Debug("in pod mode - removing pod from ztunnel")
 	if err := s.ztunnelServer.PodDeleted(ctx, string(pod.UID)); err != nil {
 		log.Errorf("failed to delete pod from ztunnel: %v", err)
@@ -251,6 +279,11 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) erro
 func (s *NetServer) DelPodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	log.Debug("Pod is now stopped or opt out... cleaning up.")
+
+	if err := removePodProbePortsFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
+		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)
+		return err
+	}
 
 	log.Info("in pod mode - deleting pod from ztunnel")
 
@@ -264,4 +297,159 @@ func (s *NetServer) DelPodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 		return err
 	}
 	return nil
+}
+
+func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
+	var addedIPSnapshot []netip.Addr
+
+	for _, pod := range ambientPods {
+		podIPs := util.GetPodIPsIfPresent(pod)
+		if len(podIPs) == 0 {
+			log.Warnf("pod %s does not appear to have any assigned IPs, not syncing with ipset", pod.Name)
+		} else {
+			_, err := addPodProbePortsToHostNSIpset(pod, podIPs, &s.hostsideProbeIPSet)
+			if err != nil {
+				return err
+			}
+			addedIPSnapshot = append(addedIPSnapshot, podIPs...)
+		}
+
+	}
+	return pruneHostIPset(sets.New(addedIPSnapshot...), &s.hostsideProbeIPSet)
+}
+
+// addPodProbePortsToHostNSIpset:
+// 1. get pod manifest
+// 2. look for probes of the 3 kinds
+// 2. Get all pod ips (might be several, v6/v4)
+// 3. update ipsets accordingly
+func addPodProbePortsToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet *ipset.IPPortSet) (sets.Set[uint16], error) {
+	pPorts := getPodProbePorts(pod)
+
+	// Add the pod UID as an ipset entry comment, so we can (more) easily find and delete
+	// all relevant entries for a pod later.
+	podUID := string(pod.ObjectMeta.UID)
+	ipProto := uint8(unix.IPPROTO_TCP)
+
+	var ipsetAddrErrs []error
+
+	// For each pod IP
+	for _, pip := range podIPs {
+		for pp := range pPorts {
+			// Add to host ipset
+			log.Debugf("adding pod %s probe port %d to ipset %s with ip %s", pod.Name, pp, hostsideProbeSet.Name, pip)
+			// Add IP/port combo to set. Note that we set Replace to true - a pod ip/port combo already being
+			// in the set is perfectly fine, and something we can always safely overwrite, so we will.
+			if err := hostsideProbeSet.AddIPPort(pip, pp, ipProto, podUID, true); err != nil {
+				ipsetAddrErrs = append(ipsetAddrErrs, err)
+				log.Warnf("failed adding pod %s probe port %d to ipset %s with ip %s, error was %s",
+					pod.Name, pp, hostsideProbeSet.Name, pip, err)
+			}
+		}
+	}
+
+	return pPorts, errors.Join(ipsetAddrErrs...)
+}
+
+func removePodProbePortsFromHostNSIpset(pod *corev1.Pod, hostsideProbeSet *ipset.IPPortSet) error {
+	podIPs := util.GetPodIPsIfPresent(pod)
+	for _, pip := range podIPs {
+		if err := hostsideProbeSet.ClearEntriesWithIP(pip); err != nil {
+			return err
+		}
+		log.Debugf("removed pod name %s with UID %s from host ipset %s by ip %s", pod.Name, pod.UID, hostsideProbeSet.Name, pip)
+	}
+
+	return nil
+}
+
+func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPPortSet) error {
+	actualIPSetContents, err := hostsideProbeSet.ListEntriesByIP()
+	if err != nil {
+		log.Warnf("unable to list IPSet: %v", err)
+		return err
+	}
+	actual := sets.New[netip.Addr]()
+	for _, ip := range actualIPSetContents {
+		actual.Insert(ip)
+	}
+
+	stales := actual.Difference(expected)
+
+	for staleIP := range stales {
+		if err := hostsideProbeSet.ClearEntriesWithIP(staleIP); err != nil {
+			return err
+		}
+		log.Debugf("removed stale ip %s from host ipset %s", staleIP, hostsideProbeSet.Name)
+	}
+	return nil
+}
+
+func getPodProbePorts(pod *corev1.Pod) sets.Set[uint16] {
+	// Use sets since
+	// - While you can in terms of the K8S control plane
+	//   have multiple containers using the same defined readiness port, this results in a crashlooping pod
+	//   and is effectively an invalid state from the perspective of K8S.
+	// - For the purposes of our podip,port IPset, we only care about unique ports.
+
+	ppPorts := sets.New[uint16]()
+
+	// Get all probe ports from all containers
+	for _, c := range pod.Spec.Containers {
+		cpMap := map[string]uint16{}
+		for _, p := range c.Ports {
+			if p.Name != "" {
+				cpMap[p.Name] = uint16(p.ContainerPort)
+			}
+		}
+
+		if c.LivenessProbe != nil {
+			livePort := getPortForProbe(c.LivenessProbe, cpMap)
+			ppPorts.Insert(livePort)
+		}
+
+		if c.StartupProbe != nil {
+			startPort := getPortForProbe(c.StartupProbe, cpMap)
+			ppPorts.Insert(startPort)
+		}
+
+		if c.ReadinessProbe != nil {
+			readiPort := getPortForProbe(c.ReadinessProbe, cpMap)
+			ppPorts.Insert(readiPort)
+		}
+	}
+
+	return ppPorts
+}
+
+func getPortForProbe(probe *corev1.Probe, portMap map[string]uint16) uint16 {
+	if probe == nil {
+		return 0
+	}
+	// GRPC probe?
+	if probe.GRPC != nil {
+		// don't need to update for gRPC probe port as it only supports integer
+		return uint16(probe.GRPC.Port)
+	}
+
+	// If TCP or HTTP, could be a string-named port OR a plain number
+	var probePort *intstr.IntOrString
+	if probe.HTTPGet != nil {
+		probePort = &probe.HTTPGet.Port
+	} else if probe.TCPSocket != nil {
+		probePort = &probe.TCPSocket.Port
+	} else {
+		return 0
+	}
+
+	// If a string, find the port number by name
+	if probePort.Type == intstr.String {
+		port, exists := portMap[probePort.StrVal]
+		if !exists {
+			return 0
+		}
+		return port
+	}
+	// Otherwise, just get the port number
+	return uint16(probePort.IntVal)
 }

@@ -27,8 +27,10 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"istio.io/istio/cni/pkg/constants"
+	pconstants "istio.io/istio/cni/pkg/constants"
+	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
+	"istio.io/istio/cni/pkg/nodeagent/constants"
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/kube"
 )
@@ -64,7 +66,13 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing kube client: %w", err)
 	}
 
-	podNsMap := newPodNetnsCache(OpenNetnsInRoot(constants.HostMountsPath))
+	log.Debug("creating ipsets in the node netns")
+	set, err := createHostsideProbeIpset()
+	if err != nil {
+		return nil, fmt.Errorf("error initializing hostside probe ipset: %w", err)
+	}
+
+	podNsMap := newPodNetnsCache(OpenNetnsInRoot(pconstants.HostMountsPath))
 	ztunnelServer, err := newZtunnelServer(args.ServerSocket, podNsMap)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
@@ -75,13 +83,12 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 	// Later we will reuse this same configurator inside the pod netns for adding other rules
 	iptablesConfigurator.DeleteHostRules()
 
-	// TODO BML rename
 	if err := iptablesConfigurator.CreateHostRulesForHealthChecks(&HostProbeSNATIP); err != nil {
 		return nil, fmt.Errorf("error initializing the host rules for health checks: %w", err)
 	}
 
-	podNetns := NewPodNetnsProcFinder(os.DirFS(filepath.Join(constants.HostMountsPath, "proc")))
-	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, podNetns)
+	podNetns := NewPodNetnsProcFinder(os.DirFS(filepath.Join(pconstants.HostMountsPath, "proc")))
+	netServer := newNetServer(ztunnelServer, podNsMap, iptablesConfigurator, podNetns, set)
 
 	// Set some defaults
 	s := &Server{
@@ -132,6 +139,20 @@ func buildKubeClient(kubeConfig string) (kube.Client, error) {
 	}
 
 	return client, nil
+}
+
+// createHostsideProbeIpset creates an ipset. This is designed to be called from the host netns.
+// Note that if the ipset already exist by name, Create will not return an error.
+//
+// We will unconditionally flush our set before use here, so it shouldn't matter.
+func createHostsideProbeIpset() (ipset.IPPortSet, error) {
+	linDeps := ipset.RealNlDeps()
+	probeSet, err := ipset.NewIPPortSet(constants.ProbeIPSet, linDeps)
+	if err != nil {
+		return probeSet, err
+	}
+	probeSet.Flush()
+	return probeSet, nil
 }
 
 func (s *Server) Start() {
