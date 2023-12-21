@@ -170,9 +170,10 @@ spec:
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
-            {{- if .Values.cni.repair.repairPods }}
+            {{- if or .Values.cni.repair.repairPods .Values.cni.ambient.enabled }}
             - mountPath: /host/proc
               name: cni-host-procfs
+              readOnly: true
             {{- end }}
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
@@ -184,9 +185,6 @@ spec:
               name: cni-netns-dir
             - mountPath: /var/run/ztunnel
               name: cni-ztunnel-sock-dir
-            - mountPath: /host/proc
-              name: cni-host-proc
-              readOnly: true
             {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
             - mountPath: /sys/fs/bpf
               mountPropagation: Bidirectional
@@ -204,7 +202,7 @@ spec:
         - name: cni-bin-dir
           hostPath:
             path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
-        {{- if .Values.cni.repair.repairPods }}
+        {{- if or .Values.cni.repair.repairPods .Values.cni.ambient.enabled }}
         - name: cni-host-procfs
           hostPath:
             path: /proc
@@ -215,10 +213,6 @@ spec:
           hostPath:
             path: /var/run/ztunnel
             type: DirectoryOrCreate
-        - name: cni-host-proc
-          hostPath:
-            path: /proc
-            type: Directory
         {{- end }}
         - name: cni-net-dir
           hostPath:
