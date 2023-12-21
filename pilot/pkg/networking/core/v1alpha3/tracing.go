@@ -514,6 +514,10 @@ func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []
 	if namespace == "" {
 		namespace = "default"
 	}
+	clusterID := string(metadata.ClusterID)
+	if clusterID == "" {
+		clusterID = "unknown"
+	}
 	return []*tracing.CustomTag{
 		{
 			Tag: "istio.canonical_revision",
@@ -549,9 +553,9 @@ func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []
 		},
 		{
 			Tag: "istio.cluster_id",
-			Type: &tracing.CustomTag_Environment_{
-				Environment: &tracing.CustomTag_Environment{
-					Name: "ISTIO_META_CLUSTER_ID",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: clusterID,
 				},
 			},
 		},
