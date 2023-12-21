@@ -271,7 +271,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 					portName = *port.Name
 				}
 
-				istioEndpoint := builder.buildIstioEndpoint([]string{pod.Status.PodIP}, portNum, portName, discoverabilityPolicy, healthStatus)
+				istioEndpoint := builder.buildIstioEndpoint([]string{a}, portNum, portName, discoverabilityPolicy, healthStatus)
 				endpoints = append(endpoints, istioEndpoint)
 			}
 		}
