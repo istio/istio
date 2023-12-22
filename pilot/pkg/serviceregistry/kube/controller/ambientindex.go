@@ -389,10 +389,10 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 	}
 
 	podHandler := func(old, pod *v1.Pod, ev model.Event) error {
-		log.Infof("PodHandler pod %s/%s, event %v", pod.Namespace, pod.Name, ev)
+		log.Debugf("ambient podHandler pod %s/%s, event %v", pod.Namespace, pod.Name, ev)
 		idx.mu.Lock()
 		defer idx.mu.Unlock()
-		updates := idx.handlePod(nil, pod, ev, c)
+		updates := idx.handlePod(old, pod, ev, c)
 		if len(updates) > 0 {
 			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
 				ConfigsUpdated: updates,
@@ -402,7 +402,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 		return nil
 	}
 
-	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", podHandler, nil)
+	registerHandlers[*v1.Pod](c, c.podsClient, "", podHandler, nil)
 
 	// We only handle WLE and SE from config cluster, otherwise we could get duplicate workload from remote clusters.
 	if c.configCluster {
@@ -468,7 +468,7 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 	c.configController.RegisterEventHandler(gvk.PeerAuthentication, c.PeerAuthenticationHandler)
 
 	serviceHandler := func(old, svc *v1.Service, ev model.Event) error {
-		log.Infof("ServiceHandler service %s/%s, event %v", svc.Namespace, svc.Name, ev)
+		log.Debugf("ambient serviceHandler service %s/%s, event %v", svc.Namespace, svc.Name, ev)
 		var updates sets.Set[model.ConfigKey]
 		idx.mu.Lock()
 		defer idx.mu.Unlock()
@@ -496,16 +496,16 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 		return nil
 	}
 
-	registerHandlers[*v1.Service](c, c.services, "Services", serviceHandler, nil)
+	registerHandlers[*v1.Service](c, c.services, "", serviceHandler, nil)
 
 	kubeGatewayHandler := func(old, newGateway *k8sbeta.Gateway, ev model.Event) error {
-		log.Debugf("KubeGatewayHandler gateway %s/%s, event %v", newGateway.Namespace, newGateway.Name, ev)
+		log.Debugf("ambient kubeGatewayHandler gateway %s/%s, event %v", newGateway.Namespace, newGateway.Name, ev)
 		idx.handleKubeGateway(old, newGateway, ev, c)
 		return nil
 	}
 
 	// initNetworkManager initializes the gatewayResourceClient, it should not be re-initialized in setupIndex
-	registerHandlers[*k8sbeta.Gateway](c, c.gatewayResourceClient, "K8sGateways", kubeGatewayHandler, nil)
+	registerHandlers[*k8sbeta.Gateway](c, c.gatewayResourceClient, "", kubeGatewayHandler, nil)
 
 	return &idx
 }
