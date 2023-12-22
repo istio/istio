@@ -508,14 +508,9 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 							// Skip build outbound listener to the node itself,
 							// as when app access itself by pod ip will not flow through this listener.
 							// Simultaneously, it will be duplicate with inbound listener.
-							shouldContinue := false
-							// should continue if current IstioEndpoint instance has the same ip with any of node IPaddresses
-							for _, naddr := range node.IPAddresses {
-								if instance.Key() == naddr {
-									shouldContinue = true
-								}
-							}
-							if shouldContinue {
+							// should continue if current IstioEndpoint instance has the same ip with the
+							// first ip of node IPaddresses
+							if instance.Key() == node.IPAddresses[0] {
 								continue
 							}
 							listenerOpts.bind.binds = instance.Addresses
