@@ -388,7 +388,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	if shouldUnsubscribe(request) {
 		log.Debugf("ADS:%s: UNSUBSCRIBE %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
-		delete(con.proxy.WatchedResources, request.TypeUrl)
+		deleteWatchedResource(con.proxy, request.TypeUrl)
 		con.proxy.Unlock()
 		return false, emptyResourceDelta
 	}
@@ -405,7 +405,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	if request.ResponseNonce == "" || previousInfo == nil {
 		log.Debugf("ADS:%s: INIT/RECONNECT %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		con.proxy.Lock()
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames}
+		addWatchedResource(con.proxy, &model.WatchedResource{TypeUrl: request.TypeUrl, ResourceNames: request.ResourceNames})
 		// For all EDS requests that we have already responded with in the same stream let us
 		// force the response. It is important to respond to those requests for Envoy to finish
 		// warming of those resources(Clusters).
@@ -474,6 +474,29 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		Subscribed:   added,
 		Unsubscribed: removed,
 	}
+}
+
+// addWatchedResource adds a WatchedResource to the proxy and updates push order.
+// This should always be called in the context of a proxy lock.
+func addWatchedResource(proxy *model.Proxy, wr *model.WatchedResource) {
+	proxy.WatchedResources[wr.TypeUrl] = wr
+	proxy.OrderedWatchedResources = orderWatchedResources(proxy.WatchedResources)
+	proxy.KnownTypeUrls = sets.New[string]()
+	for k := range proxy.WatchedResources {
+		proxy.KnownTypeUrls.Insert(k)
+	}
+}
+
+// deleteWatchedResource deletes a WatchedResource to the proxy and updates push order.
+func deleteWatchedResource(proxy *model.Proxy, typeURL string) {
+	proxy.Lock()
+	delete(proxy.WatchedResources, typeURL)
+	proxy.OrderedWatchedResources = orderWatchedResources(proxy.WatchedResources)
+	proxy.KnownTypeUrls = sets.New[string]()
+	for k := range proxy.WatchedResources {
+		proxy.KnownTypeUrls.Insert(k)
+	}
+	proxy.Unlock()
 }
 
 // shouldUnsubscribe checks if we should unsubscribe. This is done when Envoy is
@@ -937,7 +960,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				addWatchedResource(conn.proxy, &model.WatchedResource{TypeUrl: res.TypeUrl})
 			}
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 			conn.proxy.Unlock()
@@ -1009,16 +1032,12 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 
 // pushDetails returns the details needed for current push. It returns ordered list of
 // watched resources for the proxy, ordered in accordance with known push order.
-// It also returns the lis of typeUrls.
+// It also returns the list of typeUrls.
 // nolint
 func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.String) {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
-	typeUrls := sets.New[string]()
-	for k := range conn.proxy.WatchedResources {
-		typeUrls.Insert(k)
-	}
-	return orderWatchedResources(conn.proxy.WatchedResources), typeUrls
+	return conn.proxy.OrderedWatchedResources, conn.proxy.KnownTypeUrls
 }
 
 func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {

@@ -249,7 +249,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				addWatchedResource(conn.proxy, &model.WatchedResource{TypeUrl: res.TypeUrl})
 			}
 			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
 			if features.EnableUnsafeDeltaTest {
@@ -353,11 +353,11 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		defer con.proxy.Unlock()
 
 		res, wildcard := deltaWatchedResources(nil, request)
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
+		addWatchedResource(con.proxy, &model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
 			ResourceNames: res,
 			Wildcard:      wildcard,
-		}
+		})
 		// For all EDS requests that we have already responded with in the same stream let us
 		// force the response. It is important to respond to those requests for Envoy to finish
 		// warming of those resources(Clusters).

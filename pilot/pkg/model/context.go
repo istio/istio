@@ -369,6 +369,12 @@ type Proxy struct {
 	// WatchedResources contains the list of watched resources for the proxy, keyed by the DiscoveryRequest TypeUrl.
 	WatchedResources map[string]*WatchedResource
 
+	// OrderedWatchedResources contains the watched resources for the proxy, ordered in accordance with known push order.
+	OrderedWatchedResources []*WatchedResource
+
+	// KnownTypeUrls contains the set of known type URLs for the proxy.
+	KnownTypeUrls sets.String
+
 	// XdsNode is the xDS node identifier
 	XdsNode *core.Node
 
