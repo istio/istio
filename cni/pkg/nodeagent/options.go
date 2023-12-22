@@ -55,5 +55,4 @@ type AmbientArgs struct {
 	KubeConfig      string
 	RedirectMode    RedirectMode
 	ServerSocket    string
-	LogLevel        string
 }
