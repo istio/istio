@@ -488,15 +488,14 @@ func addWatchedResource(proxy *model.Proxy, wr *model.WatchedResource) {
 }
 
 // deleteWatchedResource deletes a WatchedResource to the proxy and updates push order.
+// This should always be called in the context of a proxy lock.
 func deleteWatchedResource(proxy *model.Proxy, typeURL string) {
-	proxy.Lock()
 	delete(proxy.WatchedResources, typeURL)
 	proxy.OrderedWatchedResources = orderWatchedResources(proxy.WatchedResources)
 	proxy.KnownTypeUrls = sets.New[string]()
 	for k := range proxy.WatchedResources {
 		proxy.KnownTypeUrls.Insert(k)
 	}
-	proxy.Unlock()
 }
 
 // shouldUnsubscribe checks if we should unsubscribe. This is done when Envoy is
