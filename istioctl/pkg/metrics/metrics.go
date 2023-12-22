@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/dashboard"
-	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -100,7 +99,7 @@ type workloadMetrics struct {
 }
 
 func run(c *cobra.Command, ctx cli.Context, args []string) error {
-	log.Debugf("metrics command invoked for workload(s): %v", args)
+	fmt.Fprintf(c.OutOrStderr(), "metrics command invoked for workload(s): %v", args)
 
 	client, err := ctx.CLIClientWithRevision(metricsOpts.Revision)
 	if err != nil {
@@ -131,7 +130,7 @@ func run(c *cobra.Command, ctx cli.Context, args []string) error {
 	defer fw.Close()
 	dashboard.ClosePortForwarderOnInterrupt(fw)
 
-	log.Debugf("port-forward to prometheus pod ready")
+	fmt.Fprintf(c.OutOrStderr(), "port-forward to prometheus pod ready: %s", fw.Address())
 
 	promAPI, err := prometheusAPI(fmt.Sprintf("http://%s", fw.Address()))
 	if err != nil {
@@ -142,7 +141,7 @@ func run(c *cobra.Command, ctx cli.Context, args []string) error {
 
 	workloads := args
 	for _, workload := range workloads {
-		sm, err := metrics(promAPI, workload, metricsDuration)
+		sm, err := metrics(promAPI, workload, metricsDuration, c.OutOrStderr())
 		if err != nil {
 			return fmt.Errorf("could not build metrics for workload '%s': %v", workload, err)
 		}
@@ -160,7 +159,7 @@ func prometheusAPI(address string) (promv1.API, error) {
 	return promv1.NewAPI(promClient), nil
 }
 
-func metrics(promAPI promv1.API, workload string, duration time.Duration) (workloadMetrics, error) {
+func metrics(promAPI promv1.API, workload string, duration time.Duration, stdErr io.Writer) (workloadMetrics, error) {
 	parts := strings.Split(workload, ".")
 	wname := parts[0]
 	wns := ""
@@ -176,29 +175,29 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 	var me *multierror.Error
 	var err error
 	sm := workloadMetrics{workload: workload}
-	sm.totalRPS, err = vectorValue(promAPI, rpsQuery)
+	sm.totalRPS, err = vectorValue(promAPI, rpsQuery, stdErr)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 
-	sm.errorRPS, err = vectorValue(promAPI, errRPSQuery)
+	sm.errorRPS, err = vectorValue(promAPI, errRPSQuery, stdErr)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 
-	p50Latency, err := getLatency(promAPI, wname, wns, duration, 0.5)
+	p50Latency, err := getLatency(promAPI, wname, wns, duration, 0.5, stdErr)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p50Latency = p50Latency
 
-	p90Latency, err := getLatency(promAPI, wname, wns, duration, 0.9)
+	p90Latency, err := getLatency(promAPI, wname, wns, duration, 0.9, stdErr)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
 	sm.p90Latency = p90Latency
 
-	p99Latency, err := getLatency(promAPI, wname, wns, duration, 0.99)
+	p99Latency, err := getLatency(promAPI, wname, wns, duration, 0.99, stdErr)
 	if err != nil {
 		me = multierror.Append(me, err)
 	}
@@ -211,11 +210,12 @@ func metrics(promAPI promv1.API, workload string, duration time.Duration) (workl
 	return sm, nil
 }
 
-func getLatency(promAPI promv1.API, workloadName, workloadNamespace string, duration time.Duration, quantile float64) (time.Duration, error) {
+func getLatency(promAPI promv1.API, workloadName, workloadNamespace string, duration time.Duration, quantile float64,
+	stdErr io.Writer) (time.Duration, error) {
 	latencyQuery := fmt.Sprintf(`histogram_quantile(%f, sum(rate(%s_bucket{%s=~"%s.*", %s=~"%s.*",reporter="destination"}[%s])) by (le))`,
 		quantile, reqDur, destWorkloadLabel, workloadName, destWorkloadNamespaceLabel, workloadNamespace, duration)
 
-	letency, err := vectorValue(promAPI, latencyQuery)
+	letency, err := vectorValue(promAPI, latencyQuery, stdErr)
 	if err != nil {
 		return time.Duration(0), err
 	}
@@ -223,18 +223,18 @@ func getLatency(promAPI promv1.API, workloadName, workloadNamespace string, dura
 	return convertLatencyToDuration(letency), nil
 }
 
-func vectorValue(promAPI promv1.API, query string) (float64, error) {
+func vectorValue(promAPI promv1.API, query string, stdErr io.Writer) (float64, error) {
 	val, _, err := promAPI.Query(context.Background(), query, time.Now())
 	if err != nil {
 		return 0, fmt.Errorf("query() failure for '%s': %v", query, err)
 	}
 
-	log.Debugf("executing query: %s  result:%s", query, val)
+	fmt.Fprintf(stdErr, "executing query: %s  result:%s", query, val)
 
 	switch v := val.(type) {
 	case model.Vector:
 		if v.Len() < 1 {
-			log.Debugf("no values for query: %s", query)
+			fmt.Fprintf(stdErr, "no values for query: %s", query)
 			return 0, nil
 		}
 

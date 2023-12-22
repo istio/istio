@@ -27,7 +27,6 @@ import (
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 )
 
 var configDumpFile string
@@ -64,7 +63,7 @@ The command also supports reading from a standalone config dump file with flag -
 			}
 			var configDump *configdump.Wrapper
 			if configDumpFile != "" {
-				configDump, err = getConfigDumpFromFile(configDumpFile)
+				configDump, err = getConfigDumpFromFile(configDumpFile, cmd.OutOrStderr())
 				if err != nil {
 					return fmt.Errorf("failed to get config dump from file %s: %s", configDumpFile, err)
 				}
@@ -85,7 +84,7 @@ The command also supports reading from a standalone config dump file with flag -
 			if err != nil {
 				return err
 			}
-			analyzer.Print(cmd.OutOrStdout())
+			analyzer.Print(cmd.OutOrStdout(), cmd.OutOrStderr())
 			return nil
 		},
 	}
@@ -94,14 +93,14 @@ The command also supports reading from a standalone config dump file with flag -
 	return cmd
 }
 
-func getConfigDumpFromFile(filename string) (*configdump.Wrapper, error) {
+func getConfigDumpFromFile(filename string, stdErr io.Writer) (*configdump.Wrapper, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.Errorf("failed to close %s: %s", filename, err)
+			fmt.Fprintf(stdErr, "failed to close %s: %s", filename, err)
 		}
 	}()
 	data, err := io.ReadAll(file)

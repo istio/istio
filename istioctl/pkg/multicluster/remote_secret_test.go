@@ -218,7 +218,8 @@ func TestCreateRemoteSecrets(t *testing.T) {
 			if err != nil {
 				tt.Fatalf("failed to create client: %v", err)
 			}
-			got, _, err := CreateRemoteSecret(client, opts)
+			var out bytes.Buffer
+			got, _, err := CreateRemoteSecret(client, opts, &out)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
@@ -380,7 +381,8 @@ func TestGetServiceAccountSecretToken(t *testing.T) {
 	doCase := func(t *testing.T, c tc, k8sMinorVer string) {
 		t.Run(fmt.Sprintf("%v", c.name), func(tt *testing.T) {
 			client := kube.NewFakeClientWithVersion(k8sMinorVer, c.objs...)
-			got, err := getServiceAccountSecret(client, c.opts)
+			var out bytes.Buffer
+			got, err := getServiceAccountSecret(client, c.opts, &out)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but got none", c.wantErrStr)
@@ -558,7 +560,8 @@ users:
 			}
 			client := kube.NewFakeClient(obj...)
 
-			got, err := createRemoteSecretFromTokenAndServer(client, c.haveTokenSecret, c.clusterName, c.server, secName)
+			var out bytes.Buffer
+			got, err := createRemoteSecretFromTokenAndServer(client, c.haveTokenSecret, c.clusterName, c.server, secName, &out)
 			if c.wantErrStr != "" {
 				if err == nil {
 					tt.Fatalf("wanted error including %q but none", c.wantErrStr)

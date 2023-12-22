@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 )
 
 const (
@@ -177,7 +176,7 @@ func setupPodConfigdumpWriter(kubeClient kube.CLIClient, podName, podNamespace s
 	return setupConfigdumpEnvoyConfigWriter(debug, out)
 }
 
-func readFile(filename string) ([]byte, error) {
+func readFile(filename string, stdErr io.Writer) ([]byte, error) {
 	file := os.Stdin
 	if filename != "-" {
 		var err error
@@ -188,22 +187,22 @@ func readFile(filename string) ([]byte, error) {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.Errorf("failed to close %s: %s", filename, err)
+			fmt.Fprintf(stdErr, "failed to close %s: %s", filename, err)
 		}
 	}()
 	return io.ReadAll(file)
 }
 
-func setupFileZtunnelConfigdumpWriter(filename string, out io.Writer) (*ztunnelDump.ConfigWriter, error) {
-	data, err := readFile(filename)
+func setupFileZtunnelConfigdumpWriter(filename string, out, stdErr io.Writer) (*ztunnelDump.ConfigWriter, error) {
+	data, err := readFile(filename, stdErr)
 	if err != nil {
 		return nil, err
 	}
 	return setupConfigdumpZtunnelConfigWriter(data, out)
 }
 
-func setupFileConfigdumpWriter(filename string, out io.Writer) (*configdump.ConfigWriter, error) {
-	data, err := readFile(filename)
+func setupFileConfigdumpWriter(filename string, out, stdErr io.Writer) (*configdump.ConfigWriter, error) {
+	data, err := readFile(filename, stdErr)
 	if err != nil {
 		return nil, err
 	}
@@ -311,8 +310,8 @@ func setupPodClustersWriter(kubeClient kube.CLIClient, podName, podNamespace str
 	return setupClustersEnvoyConfigWriter(debug, out)
 }
 
-func setupFileClustersWriter(filename string, out io.Writer) (*clusters.ConfigWriter, error) {
-	data, err := readFile(filename)
+func setupFileClustersWriter(filename string, out, stdErr io.Writer) (*clusters.ConfigWriter, error) {
+	data, err := readFile(filename, stdErr)
 	if err != nil {
 		return nil, err
 	}
@@ -370,7 +369,7 @@ func clusterConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout(), c.OutOrStderr())
 			}
 			if err != nil {
 				return err
@@ -456,7 +455,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 						return err
 					}
 				} else {
-					dump, err = readFile(configDumpFile)
+					dump, err = readFile(configDumpFile, c.OutOrStderr())
 					if err != nil {
 						return err
 					}
@@ -496,7 +495,7 @@ func allConfigCmd(ctx cli.Context) *cobra.Command {
 					}
 				} else {
 					var err error
-					configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+					configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout(), c.OutOrStderr())
 					if err != nil {
 						return err
 					}
@@ -606,7 +605,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupZtunnelConfigDumpWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout(), c.OutOrStderr())
 			}
 			if err != nil {
 				return err
@@ -681,7 +680,7 @@ func listenerConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout(), c.OutOrStderr())
 			}
 			if err != nil {
 				return err
@@ -851,7 +850,7 @@ func logCmd(ctx cli.Context) *cobra.Command {
 					return err
 				}
 			} else {
-				if podNames, podNamespace, err = getPodNames(ctx, args[0], ctx.Namespace()); err != nil {
+				if podNames, podNamespace, err = getPodNames(ctx, args[0], ctx.Namespace(), c.OutOrStderr()); err != nil {
 					return err
 				}
 			}
@@ -876,7 +875,8 @@ func logCmd(ctx cli.Context) *cobra.Command {
 				if ok {
 					destLoggerLevels[defaultLoggerName] = level
 				} else {
-					log.Warnf("unable to get logLevel from ConfigMap istio-sidecar-injector, using default value %q for envoy proxies and \"info\" for ztunnel",
+					fmt.Fprintf(c.OutOrStderr(), "unable to get logLevel from ConfigMap istio-sidecar-injector, "+
+						"using default value %q for envoy proxies and \"info\" for ztunnel",
 						levelToString[defaultEnvoyOutputLevel])
 					destLoggerLevels[defaultLoggerName] = defaultEnvoyOutputLevel
 				}
@@ -1020,7 +1020,7 @@ func routeConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout(), c.OutOrStderr())
 			}
 			if err != nil {
 				return err
@@ -1097,7 +1097,7 @@ func endpointConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodClustersWriter(kubeClient, podName, podNamespace, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileClustersWriter(configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileClustersWriter(configDumpFile, c.OutOrStdout(), c.OutOrStderr())
 			}
 			if err != nil {
 				return err
@@ -1185,7 +1185,7 @@ func edsConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout(), c.OutOrStderr())
 			}
 			if err != nil {
 				return err
@@ -1263,7 +1263,7 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout(), c.OutOrStderr())
 			}
 			if err != nil {
 				return err
@@ -1328,14 +1328,14 @@ func secretConfigCmd(ctx cli.Context) *cobra.Command {
 					newWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, false, c.OutOrStdout())
 				}
 			} else {
-				newWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				newWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout(), c.OutOrStderr())
 				if err != nil {
 					envoyError := err
-					newWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout())
+					newWriter, err = setupFileZtunnelConfigdumpWriter(configDumpFile, c.OutOrStdout(), c.OutOrStderr())
 					if err != nil {
 						// failed to parse envoy and ztunnel formats
-						log.Warnf("couldn't parse envoy secrets dump: %v", envoyError)
-						log.Warnf("couldn't parse ztunnel secrets dump %v", err)
+						_, _ = fmt.Fprintf(c.OutOrStderr(), "couldn't parse envoy secrets dump: %v\n", envoyError)
+						_, _ = fmt.Fprintf(c.OutOrStderr(), "couldn't parse ztunnel secrets dump %v", err)
 					}
 				}
 			}
@@ -1474,10 +1474,10 @@ func ProxyConfig(ctx cli.Context) *cobra.Command {
 	return configCmd
 }
 
-func getPodNames(ctx cli.Context, podflag, ns string) ([]string, string, error) {
+func getPodNames(ctx cli.Context, podflag, ns string, stdErr io.Writer) ([]string, string, error) {
 	podNames, ns, err := ctx.InferPodsFromTypedResource(podflag, ns)
 	if err != nil {
-		log.Errorf("pods lookup failed")
+		_, _ = fmt.Fprintf(stdErr, "pods lookup failed")
 		return []string{}, "", err
 	}
 	return podNames, ns, nil
@@ -1554,7 +1554,7 @@ func ecdsConfigCmd(ctx cli.Context) *cobra.Command {
 				}
 				configWriter, err = setupPodConfigdumpWriter(kubeClient, podName, podNamespace, true, c.OutOrStdout())
 			} else {
-				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout())
+				configWriter, err = setupFileConfigdumpWriter(configDumpFile, c.OutOrStdout(), c.OutOrStderr())
 			}
 			if err != nil {
 				return err

@@ -118,7 +118,8 @@ func TestPrintMetrics(t *testing.T) {
 	}
 	workload := "details"
 
-	sm, err := metrics(mockProm, workload, time.Minute)
+	var errOut bytes.Buffer
+	sm, err := metrics(mockProm, workload, time.Minute, &errOut)
 	if err != nil {
 		t.Fatalf("Unwanted exception %v", err)
 	}

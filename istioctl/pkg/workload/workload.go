@@ -48,7 +48,6 @@ import (
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/labels"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 	netutil "istio.io/istio/pkg/util/net"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -150,7 +149,7 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 					Annotations: convertToStringMap(annotations),
 				},
 				Template: &networkingv1alpha3.WorkloadEntry{
-					Ports:          convertToUnsignedInt32Map(ports),
+					Ports:          convertToUnsignedInt32Map(ports, cmd.OutOrStderr()),
 					ServiceAccount: serviceAccount,
 				},
 			}
@@ -239,7 +238,8 @@ Configure requires either the WorkloadGroup artifact path or its location on the
 				}
 			}
 
-			if err = createConfig(kubeClient, wg, ctx.IstioNamespace(), clusterID, ingressIP, internalIP, externalIP, outputDir, cmd.OutOrStderr()); err != nil {
+			if err = createConfig(kubeClient, wg, ctx.IstioNamespace(), clusterID, ingressIP, internalIP, externalIP,
+				outputDir, cmd.OutOrStderr()); err != nil {
 				return err
 			}
 			fmt.Printf("Configuration generation into directory %s was successful\n", outputDir)
@@ -315,7 +315,7 @@ func createConfig(kubeClient kube.CLIClient, wg *clientv1alpha3.WorkloadGroup, i
 	if err := createCertsTokens(kubeClient, wg, outputDir, out); err != nil {
 		return err
 	}
-	if err := createHosts(kubeClient, istioNamespace, ingressIP, outputDir, revision); err != nil {
+	if err := createHosts(kubeClient, istioNamespace, ingressIP, outputDir, revision, out); err != nil {
 		return err
 	}
 	return nil
@@ -562,7 +562,7 @@ func marshalWorkloadEntryPodPorts(p map[string]uint32) string {
 }
 
 // Retrieves the external IP of the ingress-gateway for the hosts file additions
-func createHosts(kubeClient kube.CLIClient, istioNamespace, ingressIP, dir string, revision string) error {
+func createHosts(kubeClient kube.CLIClient, istioNamespace, ingressIP, dir string, revision string, stdErr io.Writer) error {
 	// try to infer the ingress IP if the provided one is invalid
 	if validation.ValidateIPAddress(ingressIP) != nil {
 		p := strings.Split(ingressSvc, ".")
@@ -586,7 +586,8 @@ func createHosts(kubeClient kube.CLIClient, istioNamespace, ingressIP, dir strin
 	if netutil.IsValidIPAddress(ingressIP) {
 		hosts = fmt.Sprintf("%s %s\n", ingressIP, IstiodHost(istioNamespace, revision))
 	} else {
-		log.Warnf("Could not auto-detect IP for %s/%s. Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
+		fmt.Fprintf(stdErr, "Could not auto-detect IP for %s/%s. "+
+			"Use --ingressIP to manually specify the Gateway address to reach istiod from the VM.",
 			IstiodHost(istioNamespace, revision), istioNamespace)
 	}
 	return os.WriteFile(filepath.Join(dir, "hosts"), []byte(hosts), filePerms)
@@ -663,13 +664,13 @@ func unstructureIstioType(spec any) (map[string]any, error) {
 	return iSpec, nil
 }
 
-func convertToUnsignedInt32Map(s []string) map[string]uint32 {
+func convertToUnsignedInt32Map(s []string, stdErr io.Writer) map[string]uint32 {
 	out := make(map[string]uint32, len(s))
 	for _, l := range s {
 		k, v := splitEqual(l)
 		u64, err := strconv.ParseUint(v, 10, 32)
 		if err != nil {
-			log.Errorf("failed to convert to uint32: %v", err)
+			fmt.Fprintf(stdErr, "failed to convert to uint32: %v", err)
 		}
 		out[k] = uint32(u64)
 	}

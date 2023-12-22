@@ -65,7 +65,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/labels"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/url"
 	"istio.io/istio/pkg/wellknown"
@@ -151,7 +150,7 @@ the configuration objects that affect that pod.`,
 
 			podsLabels := []klabels.Set{klabels.Set(pod.ObjectMeta.Labels)}
 			fmt.Fprintf(writer, "--------------------\n")
-			err = describePodServices(writer, kubeClient, configClient, pod, matchingServices, podsLabels)
+			err = describePodServices(writer, kubeClient, configClient, pod, matchingServices, podsLabels, cmd.OutOrStderr())
 			if err != nil {
 				return err
 			}
@@ -1123,7 +1122,7 @@ the configuration objects that affect that service.`,
 			// Only consider the service invoked with this command, not other services that might select the pod
 			svcs := []corev1.Service{*svc}
 
-			err = describePodServices(writer, kubeClient, configClient, &pod, svcs, podsLabels)
+			err = describePodServices(writer, kubeClient, configClient, &pod, svcs, podsLabels, cmd.OutOrStderr())
 			if err != nil {
 				return err
 			}
@@ -1142,7 +1141,8 @@ the configuration objects that affect that service.`,
 	return cmd
 }
 
-func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *corev1.Pod, matchingServices []corev1.Service, podsLabels []klabels.Set) error { // nolint: lll
+func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClient istioclient.Interface, pod *corev1.Pod,
+	matchingServices []corev1.Service, podsLabels []klabels.Set, stdErr io.Writer) error {
 	byConfigDump, err := kubeClient.EnvoyDo(context.TODO(), pod.ObjectMeta.Name, pod.ObjectMeta.Namespace, "GET", "config_dump")
 	if err != nil {
 		if ignoreUnmeshed {
@@ -1169,7 +1169,7 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 			nonmatchingSubsets := []string{}
 			drName, drNamespace, err := getIstioDestinationRuleNameForSvc(&cd, svc, port.Port)
 			if err != nil {
-				log.Errorf("fetch destination rule for %v: %v", svc.Name, err)
+				fmt.Fprintf(stdErr, "fetch destination rule for %v: %v", svc.Name, err)
 			}
 			var dr *clientnetworking.DestinationRule
 			if err == nil && drName != "" && drNamespace != "" {
@@ -1206,7 +1206,7 @@ func describePodServices(writer io.Writer, kubeClient kube.CLIClient, configClie
 
 			policies, err := getIstioRBACPolicies(&cd, port.Port)
 			if err != nil {
-				log.Errorf("error getting rbac policies: %v", err)
+				fmt.Fprintf(stdErr, "error getting rbac policies: %v", err)
 			}
 			if len(policies) > 0 {
 				if len(svc.Spec.Ports) > 1 {

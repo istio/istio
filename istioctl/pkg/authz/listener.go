@@ -29,7 +29,6 @@ import (
 	rbactcp "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/rbac/v3"
 	"google.golang.org/protobuf/proto"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/wellknown"
 )
 
@@ -59,10 +58,10 @@ func getFilterConfig(filter *listener.Filter, out proto.Message) error {
 	return nil
 }
 
-func getHTTPConnectionManager(filter *listener.Filter) *hcm.HttpConnectionManager {
+func getHTTPConnectionManager(filter *listener.Filter, stdErr io.Writer) *hcm.HttpConnectionManager {
 	cm := &hcm.HttpConnectionManager{}
 	if err := getFilterConfig(filter, cm); err != nil {
-		log.Errorf("failed to get HTTP connection manager config: %s", err)
+		fmt.Fprintf(stdErr, "found HTTP connection manager filter but failed to parse: %s", err)
 		return nil
 	}
 	return cm
@@ -78,7 +77,7 @@ func getHTTPFilterConfig(filter *hcm.HttpFilter, out proto.Message) error {
 	return nil
 }
 
-func parse(listeners []*listener.Listener) []*parsedListener {
+func parse(listeners []*listener.Listener, stdErr io.Writer) []*parsedListener {
 	var parsedListeners []*parsedListener
 	for _, l := range listeners {
 		parsed := &parsedListener{}
@@ -87,13 +86,13 @@ func parse(listeners []*listener.Listener) []*parsedListener {
 			for _, filter := range fc.Filters {
 				switch filter.Name {
 				case wellknown.HTTPConnectionManager, "envoy.http_connection_manager":
-					if cm := getHTTPConnectionManager(filter); cm != nil {
+					if cm := getHTTPConnectionManager(filter, stdErr); cm != nil {
 						for _, httpFilter := range cm.GetHttpFilters() {
 							switch httpFilter.GetName() {
 							case wellknown.HTTPRoleBasedAccessControl:
 								rbacHTTP := &rbachttp.RBAC{}
 								if err := getHTTPFilterConfig(httpFilter, rbacHTTP); err != nil {
-									log.Errorf("found RBAC HTTP filter but failed to parse: %s", err)
+									fmt.Fprintf(stdErr, "found RBAC HTTP filter but failed to parse: %s", err)
 								} else {
 									parsedFC.rbacHTTP = append(parsedFC.rbacHTTP, rbacHTTP)
 								}
@@ -103,7 +102,7 @@ func parse(listeners []*listener.Listener) []*parsedListener {
 				case wellknown.RoleBasedAccessControl:
 					rbacTCP := &rbactcp.RBAC{}
 					if err := getFilterConfig(filter, rbacTCP); err != nil {
-						log.Errorf("found RBAC network filter but failed to parse: %s", err)
+						fmt.Fprintf(stdErr, "found RBAC network filter but failed to parse: %s", err)
 					} else {
 						parsedFC.rbacTCP = append(parsedFC.rbacTCP, rbacTCP)
 					}
@@ -117,19 +116,19 @@ func parse(listeners []*listener.Listener) []*parsedListener {
 	return parsedListeners
 }
 
-func extractName(name string) (string, string) {
+func extractName(name string, err io.Writer) (string, string) {
 	// parts[1] is the namespace, parts[2] is the policy name, parts[3] is the rule index.
 	parts := re.FindStringSubmatch(name)
 	if len(parts) != 4 {
-		log.Errorf("failed to parse policy name: %s", name)
+		fmt.Fprintf(err, "failed to parse policy name: %s", name)
 		return "", ""
 	}
 	return fmt.Sprintf("%s.%s", parts[2], parts[1]), parts[3]
 }
 
 // Print prints the AuthorizationPolicy in the listener.
-func Print(writer io.Writer, listeners []*listener.Listener) {
-	parsedListeners := parse(listeners)
+func Print(writer io.Writer, listeners []*listener.Listener, stdErr io.Writer) {
+	parsedListeners := parse(listeners, stdErr)
 	if parsedListeners == nil {
 		return
 	}
@@ -153,7 +152,7 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 			for _, rbacHTTP := range fc.rbacHTTP {
 				action := rbacHTTP.GetRules().GetAction()
 				for name := range rbacHTTP.GetRules().GetPolicies() {
-					nameOfPolicy, indexOfRule := extractName(name)
+					nameOfPolicy, indexOfRule := extractName(name, stdErr)
 					addPolicy(action, nameOfPolicy, indexOfRule)
 				}
 				if len(rbacHTTP.GetRules().GetPolicies()) == 0 {
@@ -163,7 +162,7 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 			for _, rbacTCP := range fc.rbacTCP {
 				action := rbacTCP.GetRules().GetAction()
 				for name := range rbacTCP.GetRules().GetPolicies() {
-					nameOfPolicy, indexOfRule := extractName(name)
+					nameOfPolicy, indexOfRule := extractName(name, stdErr)
 					addPolicy(action, nameOfPolicy, indexOfRule)
 				}
 				if len(rbacTCP.GetRules().GetPolicies()) == 0 {
@@ -190,7 +189,7 @@ func Print(writer io.Writer, listeners []*listener.Listener) {
 
 	w := new(tabwriter.Writer).Init(writer, 0, 8, 3, ' ', 0)
 	if _, err := fmt.Fprint(w, buf.String()); err != nil {
-		log.Errorf("failed to print output: %s", err)
+		fmt.Fprintf(stdErr, "failed to print output: %s", err)
 	}
 	_ = w.Flush()
 }

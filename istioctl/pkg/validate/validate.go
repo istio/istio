@@ -42,7 +42,6 @@ import (
 	"istio.io/istio/pkg/config/schema/resource"
 	"istio.io/istio/pkg/config/validation"
 	"istio.io/istio/pkg/kube/labels"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/url"
 )
@@ -300,7 +299,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 		}
 		err = reader.Close()
 		if err != nil {
-			log.Infof("file: %s is not closed: %v", path, err)
+			_, _ = fmt.Fprintf(writer, "file: %s is not closed: %v", path, err)
 		}
 		warningsByFilename[path] = warning
 	}

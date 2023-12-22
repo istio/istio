@@ -54,7 +54,6 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/version"
 )
@@ -303,7 +302,7 @@ func readInjectConfigFile(f []byte) (inject.RawTemplates, error) {
 	return cfg.RawTemplates, err
 }
 
-func getInjectConfigFromConfigMap(ctx cli.Context, revision string) (inject.RawTemplates, error) {
+func getInjectConfigFromConfigMap(ctx cli.Context, revision string, stdErr io.Writer) (inject.RawTemplates, error) {
 	client, err := ctx.CLIClient()
 	if err != nil {
 		return nil, err
@@ -331,7 +330,7 @@ func getInjectConfigFromConfigMap(ctx cli.Context, revision string) (inject.RawT
 		return nil, fmt.Errorf("unable to convert data from configmap %q: %v",
 			injectConfigMapName, err)
 	}
-	log.Debugf("using inject template from configmap %q", injectConfigMapName)
+	fmt.Fprintf(stdErr, "using inject template from configmap %q", injectConfigMapName)
 	return injectConfig.RawTemplates, nil
 }
 
@@ -373,7 +372,7 @@ func validateFlags() error {
 }
 
 func setupKubeInjectParameters(cliContext cli.Context, sidecarTemplate *inject.RawTemplates, valuesConfig *string,
-	revision, injectorAddress string,
+	revision, injectorAddress string, stdErr io.Writer,
 ) (*ExternalInjector, *meshconfig.MeshConfig, error) {
 	var err error
 	// Get configs from IOP files firstly, and if not exists, get configs from files and configmaps.
@@ -407,9 +406,9 @@ func setupKubeInjectParameters(cliContext cli.Context, sidecarTemplate *inject.R
 	} else {
 		injector, err = setUpExternalInjector(cliContext, revision, injectorAddress)
 		if err != nil || injector.clientConfig == nil {
-			log.Warnf("failed to get injection config from mutatingWebhookConfigurations %q, will fall back to "+
+			fmt.Fprintf(stdErr, "failed to get injection config from mutatingWebhookConfigurations %q, will fall back to "+
 				"get injection from the injection configmap %q : %v", whcName, defaultInjectWebhookConfigName, err)
-			if *sidecarTemplate, err = getInjectConfigFromConfigMap(cliContext, revision); err != nil {
+			if *sidecarTemplate, err = getInjectConfigFromConfigMap(cliContext, revision, stdErr); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -545,7 +544,7 @@ It's best to do kube-inject when the resource is initially created.
 				reader = in
 				defer func() {
 					if errClose := in.Close(); errClose != nil {
-						log.Errorf("Error: close file from %s, %s", inFilename, errClose)
+						fmt.Fprintf(c.OutOrStderr(), "Error: close file from %s, %s", inFilename, errClose)
 
 						// don't overwrite the previous error
 						if err == nil {
@@ -566,7 +565,7 @@ It's best to do kube-inject when the resource is initially created.
 				writer = out
 				defer func() {
 					if errClose := out.Close(); errClose != nil {
-						log.Errorf("Error: close file from %s, %s", outFilename, errClose)
+						fmt.Fprintf(c.OutOrStderr(), "Error: close file from %s, %s", outFilename, errClose)
 
 						// don't overwrite the previous error
 						if err == nil {
@@ -588,7 +587,7 @@ It's best to do kube-inject when the resource is initially created.
 			if index != -1 {
 				injectorAddress = injectorAddress[:index]
 			}
-			injector, meshConfig, err := setupKubeInjectParameters(cliContext, &sidecarTemplate, &valuesConfig, rev, injectorAddress)
+			injector, meshConfig, err := setupKubeInjectParameters(cliContext, &sidecarTemplate, &valuesConfig, rev, injectorAddress, c.OutOrStderr())
 			if err != nil {
 				return err
 			}

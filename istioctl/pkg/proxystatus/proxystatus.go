@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/istioctl/pkg/writer/compare"
 	"istio.io/istio/istioctl/pkg/writer/pilot"
 	pilotxds "istio.io/istio/pilot/pkg/xds"
-	"istio.io/istio/pkg/log"
 )
 
 var configDumpFile string
@@ -84,7 +83,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				}
 				var envoyDump []byte
 				if configDumpFile != "" {
-					envoyDump, err = readConfigFile(configDumpFile)
+					envoyDump, err = readConfigFile(configDumpFile, c.OutOrStderr())
 				} else {
 					path := "config_dump"
 					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)
@@ -124,7 +123,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 	return statusCmd
 }
 
-func readConfigFile(filename string) ([]byte, error) {
+func readConfigFile(filename string, strErr io.Writer) ([]byte, error) {
 	file := os.Stdin
 	if filename != "-" {
 		var err error
@@ -135,7 +134,7 @@ func readConfigFile(filename string) ([]byte, error) {
 	}
 	defer func() {
 		if err := file.Close(); err != nil {
-			log.Errorf("failed to close %s: %s", filename, err)
+			_, _ = fmt.Fprintf(strErr, "failed to close %s: %s", filename, err)
 		}
 	}()
 	data, err := io.ReadAll(file)
@@ -200,7 +199,7 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				}
 				var envoyDump []byte
 				if configDumpFile != "" {
-					envoyDump, err = readConfigFile(configDumpFile)
+					envoyDump, err = readConfigFile(configDumpFile, c.OutOrStderr())
 				} else {
 					path := "config_dump"
 					envoyDump, err = kubeClient.EnvoyDo(context.TODO(), podName, ns, "GET", path)

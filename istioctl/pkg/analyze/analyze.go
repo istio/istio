@@ -17,6 +17,7 @@ package analyze
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -39,7 +40,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/url"
 )
 
@@ -340,7 +340,7 @@ func gatherFiles(cmd *cobra.Command, args []string) ([]local.ReaderSource, error
 		// Handle "-" as stdin as a special case.
 		if f == "-" {
 			if isatty.IsTerminal(os.Stdin.Fd()) && !isJSONorYAMLOutputFormat() {
-				fmt.Fprint(cmd.OutOrStdout(), "Reading from stdin:\n")
+				fmt.Fprint(cmd.OutOrStderr(), "Reading from stdin:\n")
 			}
 			r = os.Stdin
 			readers = append(readers, local.ReaderSource{Name: f, Reader: r})
@@ -363,7 +363,7 @@ func gatherFiles(cmd *cobra.Command, args []string) ([]local.ReaderSource, error
 				fmt.Fprintf(cmd.ErrOrStderr(), "Skipping file %v, recognized file extensions are: %v\n", f, fileExtensions)
 				continue
 			}
-			rs, err := gatherFile(f)
+			rs, err := gatherFile(f, cmd.OutOrStderr())
 			if err != nil {
 				return nil, err
 			}
@@ -373,7 +373,7 @@ func gatherFiles(cmd *cobra.Command, args []string) ([]local.ReaderSource, error
 	return readers, nil
 }
 
-func gatherFile(f string) (local.ReaderSource, error) {
+func gatherFile(f string, stdErr io.Writer) (local.ReaderSource, error) {
 	r, err := os.Open(f)
 	if err != nil {
 		return local.ReaderSource{}, err
@@ -381,7 +381,7 @@ func gatherFile(f string) (local.ReaderSource, error) {
 	runtime.SetFinalizer(r, func(x *os.File) {
 		err = x.Close()
 		if err != nil {
-			log.Infof("file : %s is not closed: %v", f, err)
+			fmt.Fprintf(stdErr, "file: %s is not closed: %v", f, err)
 		}
 	})
 	return local.ReaderSource{Name: f, Reader: r}, nil
@@ -415,7 +415,7 @@ func gatherFilesInDirectory(cmd *cobra.Command, dir string) ([]local.ReaderSourc
 		runtime.SetFinalizer(r, func(x *os.File) {
 			err = x.Close()
 			if err != nil {
-				log.Infof("file: %s is not closed: %v", path, err)
+				fmt.Fprintf(cmd.OutOrStderr(), "file: %s is not closed: %v", path, err)
 			}
 		})
 		readers = append(readers, local.ReaderSource{Name: path, Reader: r})

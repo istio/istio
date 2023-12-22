@@ -95,7 +95,8 @@ func TestPrint(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var buf bytes.Buffer
-			a.Print(&buf)
+			var out bytes.Buffer
+			a.Print(&buf, &out)
 			expectedOutput := "ACTION   AuthorizationPolicy   RULES\n"
 			actualOutput := buf.String()
 			if !reflect.DeepEqual(expectedOutput, actualOutput) {

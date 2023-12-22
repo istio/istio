@@ -35,7 +35,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/pkg/log"
 )
 
 type flagState interface {
@@ -439,7 +438,8 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 				}
 
 				if len(pl.Items) > 1 {
-					log.Warnf("more than 1 pods fits selector: %s; will use pod: %s", istiodLabelSelector, pl.Items[0].Name)
+					fmt.Fprintf(logCmd.OutOrStderr(),
+						"more than 1 pods fits selector: %s; will use pod: %s\n", istiodLabelSelector, pl.Items[0].Name)
 				}
 
 				// only use the first pod in the list

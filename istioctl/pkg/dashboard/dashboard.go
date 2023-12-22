@@ -25,12 +25,10 @@ import (
 	"runtime"
 
 	"github.com/spf13/cobra"
-
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/log"
 )
 
 var (
@@ -256,7 +254,7 @@ func createDashCmd(ctx cli.Context, config CreateProxyDashCmdConfig) *cobra.Comm
 				}
 
 				if len(pl.Items) > 1 {
-					log.Warnf("more than 1 pods fits selector: %s; will use pod: %s", labelSelector, pl.Items[0].Name)
+					fmt.Fprintf(c.OutOrStderr(), "more than 1 pods fits selector: %s; will use pod: %s", labelSelector, pl.Items[0].Name)
 				}
 
 				// only use the first pod in the list
@@ -368,7 +366,7 @@ func controlZDashCmd(ctx cli.Context) *cobra.Command {
 				}
 
 				if len(pl.Items) > 1 {
-					log.Warnf("more than 1 pods fits selector: %s; will use pod: %s", labelSelector, pl.Items[0].Name)
+					fmt.Fprintf(c.OutOrStderr(), "more than 1 pods fits selector: %s; will use pod: %s", labelSelector, pl.Items[0].Name)
 				}
 
 				// only use the first pod in the list
@@ -450,7 +448,6 @@ func portForward(podName, namespace, flavor, urlFormat, localAddress string, rem
 		// Close the port forwarder when the command is terminated.
 		ClosePortForwarderOnInterrupt(fw)
 
-		log.Debugf(fmt.Sprintf("port-forward to %s pod ready", flavor))
 		openBrowser(fmt.Sprintf(urlFormat, fw.Address()), writer, browser)
 
 		// Wait for stop
