@@ -33,10 +33,10 @@ rules:
     resources: ["pods"]
     verbs: ["delete"]
 {{- else if .Values.cni.repair.labelPods }}
-- apiGroups: [""]
-  {{/* pods/status is less privileged than the full pod, and either can label. So use the lower pods/status */}}
-  resources: ["pods/status"]
-  verbs: ["patch", "update"]
+  - apiGroups: [""]
+    {{- /* pods/status is less privileged than the full pod, and either can label. So use the lower pods/status */}}
+    resources: ["pods/status"]
+    verbs: ["patch", "update"]
 {{- end }}
 {{- end }}
 ---
@@ -53,7 +53,7 @@ metadata:
     operator.istio.io/component: "Cni"
 rules:
 - apiGroups: [""]
-  {{/* pods/status is less privileged than the full pod, and either can label. So use the lower pods/status */}}
+  {{- /* pods/status is less privileged than the full pod, and either can label. So use the lower pods/status */}}
   resources: ["pods/status"]
   verbs: ["patch", "update"]
 {{- end }}
