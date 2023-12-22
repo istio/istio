@@ -37,6 +37,8 @@ func TestServiceInstancesStore(t *testing.T) {
 		makeInstance(selector, []string{"1.1.1.1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 		makeInstance(selector, []string{"1.1.1.1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 		makeInstance(dnsSelector, []string{"1.1.1.1"}, 444, dnsSelector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}
 	cKey := configKey{
 		namespace: "default",
@@ -64,6 +66,8 @@ func TestServiceInstancesStore(t *testing.T) {
 	expected := []*model.ServiceInstance{
 		makeInstance(selector, []string{"1.1.1.1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 		makeInstance(selector, []string{"1.1.1.1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}
 	if !reflect.DeepEqual(gotInstances, expected) {
 		t.Errorf("got unexpected instances : %v", gotInstances)
@@ -73,6 +77,8 @@ func TestServiceInstancesStore(t *testing.T) {
 	expectedSeInstances := map[configKey][]*model.ServiceInstance{cKey: {
 		makeInstance(selector, []string{"1.1.1.1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 		makeInstance(selector, []string{"1.1.1.1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}}
 	key := selector.NamespacedName()
 	store.updateServiceEntryInstances(key, expectedSeInstances)
@@ -151,6 +157,7 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	instances := []*model.ServiceInstance{
 		makeInstance(dnsRoundRobinLBSE1, []string{"1.1.1.1"}, 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 		makeInstance(dnsRoundRobinLBSE1, []string{"1.1.1.1"}, 445, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE3, []string{"3.3.3.3", "2001:1::3"}, 444, dnsRoundRobinLBSE3.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 	}
 	cKey := configKey{
 		namespace: "dns",
@@ -158,13 +165,21 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	}
 	// Add instance related to first Service Entry and validate they are added correctly.
 	store.addInstances(cKey, instances)
-	gotInstances := store.getByKey(instancesKey{
+	gotInstances1 := store.getByKey(instancesKey{
 		hostname:  "example.com",
 		namespace: "dns",
 	})
+	gotInstances2 := store.getByKey(instancesKey{
+		hostname:  "muladdrs.example.com",
+		namespace: "dns",
+	})
+	gotInstances := []*model.ServiceInstance{}
+	gotInstances = append(gotInstances, gotInstances1...)
+	gotInstances = append(gotInstances, gotInstances2...)
 	expected := []*model.ServiceInstance{
 		makeInstance(dnsRoundRobinLBSE1, []string{"1.1.1.1"}, 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 		makeInstance(dnsRoundRobinLBSE1, []string{"1.1.1.1"}, 445, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(dnsRoundRobinLBSE3, []string{"3.3.3.3", "2001:1::3"}, 444, dnsRoundRobinLBSE3.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 	}
 	if !reflect.DeepEqual(gotInstances, expected) {
 		t.Errorf("got unexpected instances : %v", gotInstances)
@@ -184,6 +199,7 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		hostname:  "example.com",
 		namespace: "dns",
 	})
+	gotInstances = append(gotInstances, gotInstances2...)
 	if !reflect.DeepEqual(gotInstances, expected) {
 		t.Errorf("got unexpected instances : %v", gotInstances)
 	}

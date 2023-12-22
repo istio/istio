@@ -62,15 +62,14 @@ func BuildNameTable(cfg Config) *dnsProto.NameTable {
 			// IP allocation logic for service entry was unable to allocate an IP.
 			if svc.Resolution == model.Passthrough && len(svc.Ports) > 0 {
 				for _, instance := range cfg.Push.ServiceEndpointsByPort(svc, svc.Ports[0].Port, nil) {
-					// empty addresses are possible here
+					// addresses may be empty or invalid here
 					isValidInstance := true
 					for _, addr := range instance.Addresses {
 						if !netutil.IsValidIPAddress(addr) {
 							isValidInstance = false
-							break
 						}
 					}
-					if !isValidInstance {
+					if len(instance.Addresses) == 0 || !isValidInstance {
 						continue
 					}
 					// TODO(stevenctl): headless across-networks https://github.com/istio/istio/issues/38327

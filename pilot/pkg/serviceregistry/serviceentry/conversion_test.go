@@ -481,6 +481,23 @@ var dnsRoundRobinLBSE2 = &config.Config{
 	},
 }
 
+var dnsRoundRobinLBSE3 = &config.Config{
+	Meta: config.Meta{
+		GroupVersionKind:  gvk.ServiceEntry,
+		Name:              "dns-round-robin-1",
+		Namespace:         "dns",
+		CreationTimestamp: GlobalTime,
+		Labels:            map[string]string{label.SecurityTlsMode.Name: model.IstioMutualTLSModeLabel},
+	},
+	Spec: &networking.ServiceEntry{
+		Hosts: []string{"muladdrs.example.com"},
+		Ports: []*networking.ServicePort{
+			{Number: 445, Name: "http-445", Protocol: "http"},
+		},
+		Resolution: networking.ServiceEntry_DNS_ROUND_ROBIN,
+	},
+}
+
 func createWorkloadEntry(name, namespace string, spec *networking.WorkloadEntry) *config.Config {
 	return &config.Config{
 		Meta: config.Meta{

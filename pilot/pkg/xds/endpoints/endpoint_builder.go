@@ -616,12 +616,14 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	// connecting to will depend on the one that ends up "winning" using the Happy Eyeballs algorithm.
 	// Please refer to https://docs.google.com/document/d/1AjmTcMWwb7nia4rAgqE-iqIbSbfiXCI4h1vk-FONFdM/ for more details.
 	var additionalAddrs []*endpoint.Endpoint_AdditionalAddress
-	for _, itemAddr := range e.Addresses[1:] {
-		coreAddr := util.BuildAddress(itemAddr, e.EndpointPort)
-		additionalAddr := &endpoint.Endpoint_AdditionalAddress{
-			Address: coreAddr,
+	if features.EnableDualStack {
+		for _, itemAddr := range e.Addresses[1:] {
+			coreAddr := util.BuildAddress(itemAddr, e.EndpointPort)
+			additionalAddr := &endpoint.Endpoint_AdditionalAddress{
+				Address: coreAddr,
+			}
+			additionalAddrs = append(additionalAddrs, additionalAddr)
 		}
-		additionalAddrs = append(additionalAddrs, additionalAddr)
 	}
 	healthStatus := e.HealthStatus
 	if features.DrainingLabel != "" && e.Labels[features.DrainingLabel] != "" {
@@ -672,6 +674,12 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 
 	waypoint := ""
 	addresses, port := e.Addresses, int(e.EndpointPort)
+	// If Dual Stack feature is enable, the `e.Addresses` has both IPv4 and IPv6
+	// `supportTunnel` returns the IP address which supports Tunnel based on `e`'s
+	// networkID and IP address information.
+	// Note: Waypoint is not deployed in Dual Stack mode, so it still keeps the single
+	// stack behaviors, so `supportTunnel` returns the first IP here if `e` is waypoint`
+	// because it does support Tunnel
 	tunnel, supportTunnelAddr := supportTunnel(b, e)
 	if supportTunnelAddr == "" {
 		supportTunnelAddr = addresses[0]
@@ -733,7 +741,7 @@ func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) (bool, string) {
 
 	// Other side is a waypoint proxy.
 	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
-		return true, ""
+		return true, e.Addresses[0]
 	}
 
 	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
