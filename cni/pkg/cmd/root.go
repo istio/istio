@@ -97,7 +97,6 @@ var rootCmd = &cobra.Command{
 					Revision:        nodeagent.Revision,
 					RedirectMode:    redirectMode,
 					ServerSocket:    cfg.InstallConfig.ZtunnelUDSAddress,
-					LogLevel:        cfg.InstallConfig.LogLevel,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
