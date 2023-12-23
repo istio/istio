@@ -25,6 +25,7 @@ import (
 var allClasses = []networking.ListenerClass{
 	networking.ListenerClassSidecarInbound,
 	networking.ListenerClassSidecarOutbound,
+	networking.ListenerClassGateway,
 }
 
 var providers = []model.StatsProvider{
