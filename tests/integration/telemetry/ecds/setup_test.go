@@ -64,7 +64,6 @@ values:
     env:
       ENABLE_ECDS_FOR_STATS: "true"
 `
-	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 }
 
 // SetupSuite set up echo app for stats testing.

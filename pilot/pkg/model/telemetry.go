@@ -425,7 +425,6 @@ func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass) [
 							ConfigSource: defaultConfigSource,
 							TypeUrls: []string{
 								xds.StatsFilterType,
-								xds.RBACNetworkFilterType,
 							},
 						},
 					},
