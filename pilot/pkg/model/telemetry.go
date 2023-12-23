@@ -374,34 +374,34 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 	return &cfg
 }
 
-var defaultConfigSource = &core.ConfigSource{
-	ConfigSourceSpecifier: &core.ConfigSource_Ads{
-		Ads: &core.AggregatedConfigSource{},
+var statsConfigDiscovery = &core.ExtensionConfigSource{
+	ConfigSource: &core.ConfigSource{
+		ConfigSourceSpecifier: &core.ConfigSource_Ads{
+			Ads: &core.AggregatedConfigSource{},
+		},
+		ResourceApiVersion:  core.ApiVersion_V3,
+		InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
 	},
-	ResourceApiVersion:  core.ApiVersion_V3,
-	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
+	TypeUrls: []string{
+		xds.StatsFilterType,
+	},
 }
 
 // HTTPFilters computes the HttpFilter for a given proxy/class
 func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
 	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
 		if features.EnableECDSForStats {
-			return []*hcm.HttpFilter{
-				{
-					Name: StatsECDSResourceName(StatsConfig{
-						Provider:         StatsProviderPrometheus,
-						NodeType:         proxy.Type,
-						ListenerClass:    class,
-						ListenerProtocol: networking.ListenerProtocolHTTP,
-					}),
+			filters := res.([]*core.TypedExtensionConfig)
+			result := make([]*hcm.HttpFilter, 0, len(filters))
+			for _, f := range filters {
+				result = append(result, &hcm.HttpFilter{
+					Name: f.Name,
 					ConfigType: &hcm.HttpFilter_ConfigDiscovery{
-						ConfigDiscovery: &core.ExtensionConfigSource{
-							ConfigSource: defaultConfigSource,
-							TypeUrls:     []string{xds.StatsFilterType},
-						},
+						ConfigDiscovery: statsConfigDiscovery,
 					},
-				},
+				})
 			}
+			return result
 		}
 		return res.([]*hcm.HttpFilter)
 	}
@@ -412,24 +412,17 @@ func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) 
 func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass) []*listener.Filter {
 	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
 		if features.EnableECDSForStats {
-			return []*listener.Filter{
-				{
-					Name: StatsECDSResourceName(StatsConfig{
-						Provider:         StatsProviderPrometheus,
-						NodeType:         proxy.Type,
-						ListenerClass:    class,
-						ListenerProtocol: networking.ListenerProtocolTCP,
-					}),
+			filters := res.([]*core.TypedExtensionConfig)
+			result := make([]*listener.Filter, 0, len(filters))
+			for _, f := range filters {
+				result = append(result, &listener.Filter{
+					Name: f.Name,
 					ConfigType: &listener.Filter_ConfigDiscovery{
-						ConfigDiscovery: &core.ExtensionConfigSource{
-							ConfigSource: defaultConfigSource,
-							TypeUrls: []string{
-								xds.StatsFilterType,
-							},
-						},
+						ConfigDiscovery: statsConfigDiscovery,
 					},
-				},
+				})
 			}
+			return result
 		}
 
 		return res.([]*listener.Filter)
@@ -1049,10 +1042,7 @@ func buildHTTPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []
 						ListenerClass:    class,
 						ListenerProtocol: networking.ListenerProtocolHTTP,
 					}),
-					TypedConfig: protoconv.MessageToAny(&hcm.HttpFilter{
-						Name:       xds.StatsFilterName,
-						ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: waypointStatsConfig},
-					}),
+					TypedConfig: protoconv.MessageToAny(waypointStatsConfig),
 				})
 			} else {
 				if statsCfg := generateStatsConfig(class, cfg); statsCfg != nil {
@@ -1063,10 +1053,7 @@ func buildHTTPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []
 							ListenerClass:    class,
 							ListenerProtocol: networking.ListenerProtocolHTTP,
 						}),
-						TypedConfig: protoconv.MessageToAny(&hcm.HttpFilter{
-							Name:       xds.StatsFilterName,
-							ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: statsCfg},
-						}),
+						TypedConfig: protoconv.MessageToAny(statsCfg),
 					})
 				}
 			}
@@ -1088,10 +1075,7 @@ func buildHTTPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []
 					ListenerClass:    class,
 					ListenerProtocol: networking.ListenerProtocolHTTP,
 				}),
-				TypedConfig: protoconv.MessageToAny(&hcm.HttpFilter{
-					Name:       xds.StackdriverFilterName,
-					ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
-				}),
+				TypedConfig: protoconv.MessageToAny(wasmConfig),
 			})
 		default:
 			// Only prometheus and SD supported currently
@@ -1114,10 +1098,7 @@ func buildTCPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []t
 						ListenerClass:    class,
 						ListenerProtocol: networking.ListenerProtocolTCP,
 					}),
-					TypedConfig: protoconv.MessageToAny(&listener.Filter{
-						Name:       xds.StatsFilterName,
-						ConfigType: &listener.Filter_TypedConfig{TypedConfig: waypointStatsConfig},
-					}),
+					TypedConfig: protoconv.MessageToAny(waypointStatsConfig),
 				})
 			} else {
 				if statsCfg := generateStatsConfig(class, cfg); statsCfg != nil {
@@ -1128,10 +1109,7 @@ func buildTCPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []t
 							ListenerClass:    class,
 							ListenerProtocol: networking.ListenerProtocolTCP,
 						}),
-						TypedConfig: protoconv.MessageToAny(&listener.Filter{
-							Name:       xds.StatsFilterName,
-							ConfigType: &listener.Filter_TypedConfig{TypedConfig: statsCfg},
-						}),
+						TypedConfig: protoconv.MessageToAny(statsCfg),
 					})
 				}
 			}
@@ -1153,10 +1131,7 @@ func buildTCPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []t
 					ListenerClass:    class,
 					ListenerProtocol: networking.ListenerProtocolHTTP,
 				}),
-				TypedConfig: protoconv.MessageToAny(&listener.Filter{
-					Name:       xds.StackdriverFilterName,
-					ConfigType: &listener.Filter_TypedConfig{TypedConfig: protoconv.MessageToAny(wasmConfig)},
-				}),
+				TypedConfig: protoconv.MessageToAny(wasmConfig),
 			})
 		default:
 			// Only prometheus and SD supported currently
