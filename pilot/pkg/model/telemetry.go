@@ -374,30 +374,31 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 	return &cfg
 }
 
-var statsConfigDiscovery = &core.ExtensionConfigSource{
-	ConfigSource: &core.ConfigSource{
-		ConfigSourceSpecifier: &core.ConfigSource_Ads{
-			Ads: &core.AggregatedConfigSource{},
-		},
-		ResourceApiVersion:  core.ApiVersion_V3,
-		InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
+var defaultConfigSource = &core.ConfigSource{
+	ConfigSourceSpecifier: &core.ConfigSource_Ads{
+		Ads: &core.AggregatedConfigSource{},
 	},
-	TypeUrls: []string{
-		xds.StatsFilterType,
-	},
+	ResourceApiVersion:  core.ApiVersion_V3,
+	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
 }
 
 // HTTPFilters computes the HttpFilter for a given proxy/class
 func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
 	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
-		if features.EnableECDSForStats {
+		if features.EnableECDSForStats.Get() {
 			filters := res.([]*core.TypedExtensionConfig)
 			result := make([]*hcm.HttpFilter, 0, len(filters))
 			for _, f := range filters {
 				result = append(result, &hcm.HttpFilter{
 					Name: f.Name,
 					ConfigType: &hcm.HttpFilter_ConfigDiscovery{
-						ConfigDiscovery: statsConfigDiscovery,
+						ConfigDiscovery: &core.ExtensionConfigSource{
+							ConfigSource: defaultConfigSource,
+							TypeUrls: []string{
+								xds.StatsFilterType,
+								xds.WasmHTTPFilterType, // for stackdriver
+							},
+						},
 					},
 				})
 			}
@@ -411,14 +412,20 @@ func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) 
 // TCPFilters computes the TCPFilters for a given proxy/class
 func (t *Telemetries) TCPFilters(proxy *Proxy, class networking.ListenerClass) []*listener.Filter {
 	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
-		if features.EnableECDSForStats {
+		if features.EnableECDSForStats.Get() {
 			filters := res.([]*core.TypedExtensionConfig)
 			result := make([]*listener.Filter, 0, len(filters))
 			for _, f := range filters {
 				result = append(result, &listener.Filter{
 					Name: f.Name,
 					ConfigType: &listener.Filter_ConfigDiscovery{
-						ConfigDiscovery: statsConfigDiscovery,
+						ConfigDiscovery: &core.ExtensionConfigSource{
+							ConfigSource: defaultConfigSource,
+							TypeUrls: []string{
+								xds.StatsFilterType,
+								xds.WasmNetworkFilterType, // for stackdriver
+							},
+						},
 					},
 				})
 			}
@@ -597,7 +604,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	}
 
 	var res any
-	if features.EnableECDSForStats {
+	if features.EnableECDSForStats.Get() {
 		switch protocol {
 		case networking.ListenerProtocolHTTP:
 			res = buildHTTPTypedExtensionConfig(class, m)
@@ -620,7 +627,7 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 }
 
 func (t *Telemetries) HTTPTypedExtensionConfigFilters(proxy *Proxy, class networking.ListenerClass) []*core.TypedExtensionConfig {
-	if !features.EnableECDSForStats {
+	if !features.EnableECDSForStats.Get() {
 		return nil
 	}
 
@@ -631,7 +638,7 @@ func (t *Telemetries) HTTPTypedExtensionConfigFilters(proxy *Proxy, class networ
 }
 
 func (t *Telemetries) TCPTypedExtensionConfigFilters(proxy *Proxy, class networking.ListenerClass) []*core.TypedExtensionConfig {
-	if !features.EnableECDSForStats {
+	if !features.EnableECDSForStats.Get() {
 		return nil
 	}
 
