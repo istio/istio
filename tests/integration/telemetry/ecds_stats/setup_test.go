@@ -19,6 +19,7 @@ package ecds_stats
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"golang.org/x/sync/errgroup"
@@ -28,6 +29,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	echodeployment "istio.io/istio/pkg/test/framework/components/echo/common/deployment"
 	"istio.io/istio/pkg/test/framework/components/istio"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
@@ -92,9 +94,21 @@ func TestStats(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stats.ecds").
 		Run(func(t framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			g, _ := errgroup.WithContext(context.Background())
 			for _, item := range apps.A {
 				from := item
+
+				podID, err := getPodID(from)
+				if err != nil {
+					t.Fatalf("failed to get pod ID: %v", err)
+				}
+				args := []string{
+					"pc", "ecds", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
+				}
+				// ECDS is enabled for stats, so we should see the ECDS config dump
+				_, _ = istioCtl.InvokeOrFail(t, args)
+
 				g.Go(func() error {
 					err := retry.UntilSuccess(func() error {
 						if err := SendTraffic(from); err != nil {
@@ -170,4 +184,17 @@ func SendTraffic(from echo.Instance) error {
 		return err
 	}
 	return nil
+}
+
+func getPodID(i echo.Instance) (string, error) {
+	wls, err := i.Workloads()
+	if err != nil {
+		return "", nil
+	}
+
+	for _, wl := range wls {
+		return wl.PodName(), nil
+	}
+
+	return "", fmt.Errorf("no workloads")
 }
