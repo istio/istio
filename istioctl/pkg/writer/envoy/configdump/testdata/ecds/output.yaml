@@ -39,3 +39,19 @@ ecdsFilters:
           runtime: envoy.wasm.runtime.v8
   lastUpdated: "2022-12-08T11:03:53.225Z"
   versionInfo: 2022-12-08T09:07:09Z/10
+- ecdsFilter:
+    '@type': type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig
+    name: istio.io/telemetry/stats/prometheus/sidecar/Outbound/HTTP
+  lastUpdated: "2023-12-23T13:46:00.701Z"
+- ecdsFilter:
+    '@type': type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig
+    name: istio.io/telemetry/stats/prometheus/sidecar/Inbound/HTTP
+  lastUpdated: "2023-12-23T13:46:00.708Z"
+- ecdsFilter:
+    '@type': type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig
+    name: istio.io/telemetry/stats/prometheus/sidecar/Inbound/TCP
+  lastUpdated: "2023-12-23T13:46:00.707Z"
+- ecdsFilter:
+    '@type': type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig
+    name: istio.io/telemetry/stats/prometheus/sidecar/Outbound/TCP
+  lastUpdated: "2023-12-23T13:46:00.699Z"
