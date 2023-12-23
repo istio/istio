@@ -1304,6 +1304,7 @@ func TestECDSTelemetryFilters(t *testing.T) {
 			networking.ListenerClassSidecarOutbound,
 			networking.ListenerProtocolHTTP,
 			nil,
+			// nolint: lll
 			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Outbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/google.protobuf.Any\",\"value\":\"CiZ0eXBlLmdvb2dsZWFwaXMuY29tL3N0YXRzLlBsdWdpbkNvbmZpZw==\"}}]",
 		},
 		{
@@ -1313,6 +1314,7 @@ func TestECDSTelemetryFilters(t *testing.T) {
 			networking.ListenerClassSidecarInbound,
 			networking.ListenerProtocolHTTP,
 			nil,
+			// nolint: lll
 			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Inbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/google.protobuf.Any\",\"value\":\"CiZ0eXBlLmdvb2dsZWFwaXMuY29tL3N0YXRzLlBsdWdpbkNvbmZpZxICMAE=\"}}]",
 		},
 		{
@@ -1325,6 +1327,7 @@ func TestECDSTelemetryFilters(t *testing.T) {
 				Metrics:       []string{"stackdriver"},
 				AccessLogging: []string{"stackdriver"},
 			},
+			// nolint: lll
 			"[{\"name\":\"istio.io/telemetry/stats/stackdriver/sidecar/Inbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/envoy.extensions.wasm.v3.PluginConfig\",\"value\":\"EhNzdGFja2RyaXZlcl9pbmJvdW5kIpMBCi90eXBlLmdvb2dsZWFwaXMuY29tL2dvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZRJgCl57ImRpc2FibGVfaG9zdF9oZWFkZXJfZmFsbGJhY2siOnRydWUsImFjY2Vzc19sb2dnaW5nIjoiRlVMTCIsIm1ldHJpY19leHBpcnlfZHVyYXRpb24iOiIzNjAwcyJ9Gk8KE3N0YWNrZHJpdmVyX2luYm91bmQSF2Vudm95Lndhc20ucnVudGltZS5udWxsGh8KHRobZW52b3kud2FzbS5udWxsLnN0YWNrZHJpdmVy\"}}]",
 		},
 	}
