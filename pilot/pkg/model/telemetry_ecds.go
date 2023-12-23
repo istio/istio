@@ -19,11 +19,21 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 )
+
+var defaultConfigSource = &core.ConfigSource{
+	ConfigSourceSpecifier: &core.ConfigSource_Ads{
+		Ads: &core.AggregatedConfigSource{},
+	},
+	ResourceApiVersion:  core.ApiVersion_V3,
+	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
+}
 
 // StatsProvider is the type of stats provider
 // Only prometheus and stackdriver are supported currently
@@ -159,4 +169,26 @@ func buildTCPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []t
 		}
 	}
 	return res
+}
+
+func (t *Telemetries) HTTPTypedExtensionConfigFilters(proxy *Proxy, class networking.ListenerClass) []*core.TypedExtensionConfig {
+	if !features.EnableECDSForStats.Get() {
+		return nil
+	}
+
+	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
+		return res.([]*core.TypedExtensionConfig)
+	}
+	return nil
+}
+
+func (t *Telemetries) TCPTypedExtensionConfigFilters(proxy *Proxy, class networking.ListenerClass) []*core.TypedExtensionConfig {
+	if !features.EnableECDSForStats.Get() {
+		return nil
+	}
+
+	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
+		return res.([]*core.TypedExtensionConfig)
+	}
+	return nil
 }

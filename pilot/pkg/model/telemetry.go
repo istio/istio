@@ -374,14 +374,6 @@ func (t *Telemetries) Tracing(proxy *Proxy) *TracingConfig {
 	return &cfg
 }
 
-var defaultConfigSource = &core.ConfigSource{
-	ConfigSourceSpecifier: &core.ConfigSource_Ads{
-		Ads: &core.AggregatedConfigSource{},
-	},
-	ResourceApiVersion:  core.ApiVersion_V3,
-	InitialFetchTimeout: &durationpb.Duration{Seconds: 0},
-}
-
 // HTTPFilters computes the HttpFilter for a given proxy/class
 func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) []*hcm.HttpFilter {
 	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
@@ -624,28 +616,6 @@ func (t *Telemetries) telemetryFilters(proxy *Proxy, class networking.ListenerCl
 	// Update cache
 	t.computedMetricsFilters[key] = res
 	return res
-}
-
-func (t *Telemetries) HTTPTypedExtensionConfigFilters(proxy *Proxy, class networking.ListenerClass) []*core.TypedExtensionConfig {
-	if !features.EnableECDSForStats.Get() {
-		return nil
-	}
-
-	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolHTTP); res != nil {
-		return res.([]*core.TypedExtensionConfig)
-	}
-	return nil
-}
-
-func (t *Telemetries) TCPTypedExtensionConfigFilters(proxy *Proxy, class networking.ListenerClass) []*core.TypedExtensionConfig {
-	if !features.EnableECDSForStats.Get() {
-		return nil
-	}
-
-	if res := t.telemetryFilters(proxy, class, networking.ListenerProtocolTCP); res != nil {
-		return res.([]*core.TypedExtensionConfig)
-	}
-	return nil
 }
 
 // default value for metric rotation interval and graceful deletion interval,
