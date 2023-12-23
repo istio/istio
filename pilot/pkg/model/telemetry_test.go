@@ -1305,7 +1305,7 @@ func TestECDSTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			// nolint: lll
-			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Outbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/google.protobuf.Any\",\"value\":\"CiZ0eXBlLmdvb2dsZWFwaXMuY29tL3N0YXRzLlBsdWdpbkNvbmZpZw==\"}}]",
+			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Outbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\"}}]",
 		},
 		{
 			"sidecar-inbound",
@@ -1315,7 +1315,7 @@ func TestECDSTelemetryFilters(t *testing.T) {
 			networking.ListenerProtocolHTTP,
 			nil,
 			// nolint: lll
-			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Inbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/google.protobuf.Any\",\"value\":\"CiZ0eXBlLmdvb2dsZWFwaXMuY29tL3N0YXRzLlBsdWdpbkNvbmZpZxICMAE=\"}}]",
+			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Inbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\",\"value\":\"MAE=\"}}]",
 		},
 		{
 			"stackdriver-inbound",
