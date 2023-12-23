@@ -247,7 +247,7 @@ func convertToWasmPluginWrapper(originPlugin config.Config) *WasmPluginWrapper {
 	return &WasmPluginWrapper{
 		Name:            plugin.Name,
 		Namespace:       plugin.Namespace,
-		ResourceName:    plugin.Namespace + "." + plugin.Name,
+		ResourceName:    "istio.io/wasmplugin/" + plugin.Namespace + "." + plugin.Name,
 		WasmPlugin:      wasmPlugin,
 		ResourceVersion: plugin.ResourceVersion,
 	}
