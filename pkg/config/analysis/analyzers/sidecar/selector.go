@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package sidecar
 
 import (
@@ -43,6 +44,7 @@ func (a *SelectorAnalyzer) Metadata() analysis.Metadata {
 		Inputs: []config.GroupVersionKind{
 			gvk.Sidecar,
 			gvk.Pod,
+			gvk.Namespace,
 		},
 	}
 }
@@ -50,15 +52,16 @@ func (a *SelectorAnalyzer) Metadata() analysis.Metadata {
 // Analyze implements Analyzer
 func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 	podsToSidecars := make(map[resource.FullName][]*resource.Instance)
+	pods := make(map[resource.FullName]*resource.Instance)
+	namespacesToSidecars := make(map[resource.Namespace][]*resource.Instance)
+	namespaces := make(map[string]*resource.Instance)
 
-	// This is using an unindexed approach for matching selectors.
-	// Using an index for selectoes is problematic because selector != label
-	// We can match a label to a selector, but we can't generate a selector from a label.
 	c.ForEach(gvk.Sidecar, func(rs *resource.Instance) bool {
 		s := rs.Message.(*v1alpha3.Sidecar)
 
-		// For this analysis, ignore Sidecars with no workload selectors specified at all.
+		// record namespace-scoped sidecars
 		if s.WorkloadSelector == nil || len(s.WorkloadSelector.Labels) == 0 {
+			namespacesToSidecars[rs.Metadata.FullName.Namespace] = append(namespacesToSidecars[rs.Metadata.FullName.Namespace], rs)
 			return true
 		}
 
@@ -78,6 +81,7 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 			if sel.Matches(podLabels) {
 				foundPod = true
 				podsToSidecars[rp.Metadata.FullName] = append(podsToSidecars[rp.Metadata.FullName], rs)
+				pods[rp.Metadata.FullName] = rp
 			}
 
 			return true
@@ -97,14 +101,32 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
+	c.ForEach(gvk.Namespace, func(r *resource.Instance) bool {
+		namespaces[r.Metadata.FullName.Name.String()] = r
+		return true
+	})
+
+	reportedResources := make(map[string]bool)
 	for p, sList := range podsToSidecars {
-		if len(sList) == 1 {
+		podResource := pods[p]
+
+		if len(sList) == 1 && !util.PodInAmbientMode(podResource) {
 			continue
 		}
 
 		sNames := getNames(sList)
 
 		for _, rs := range sList {
+			// We don't want to report errors for pods in ambient mode, since there is no sidecar,
+			// but we do want to warn that the policy is ineffective.
+			if util.PodInAmbientMode(podResource) {
+				if !reportedResources[rs.Metadata.FullName.String()] {
+					c.Report(gvk.Sidecar, msg.NewIneffectivePolicy(rs,
+						"selected workload is in ambient mode, the policy has no impact"))
+					reportedResources[rs.Metadata.FullName.String()] = true
+				}
+				continue
+			}
 
 			m := msg.NewConflictingSidecarWorkloadSelectors(rs, sNames,
 				p.Namespace.String(), p.Name.String())
@@ -114,6 +136,29 @@ func (a *SelectorAnalyzer) Analyze(c analysis.Context) {
 			}
 
 			c.Report(gvk.Sidecar, m)
+		}
+	}
+
+	for ns, sList := range namespacesToSidecars {
+		nsResource := namespaces[ns.String()]
+		// We don't want to report errors for namespaces in ambient mode, since there is no sidecar,
+		// but we do want to warn that the policy is ineffective.
+		// TODO: do we need to check mixed mode?
+		if util.NamespaceInAmbientMode(nsResource) {
+			for _, rs := range sList {
+				if !reportedResources[rs.Metadata.FullName.String()] {
+					c.Report(gvk.Sidecar, msg.NewIneffectivePolicy(rs,
+						"namespace is in ambient mode, the policy has no impact"))
+					reportedResources[rs.Metadata.FullName.String()] = true
+				}
+			}
+			continue
+		}
+		if len(sList) > 1 {
+			sNames := getNames(sList)
+			for _, r := range sList {
+				c.Report(gvk.Sidecar, msg.NewMultipleSidecarsWithoutWorkloadSelectors(r, sNames, string(ns)))
+			}
 		}
 	}
 }
