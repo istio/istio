@@ -27,9 +27,9 @@ var allClasses = []networking.ListenerClass{
 	networking.ListenerClassSidecarOutbound,
 }
 
-var protocols = []networking.ListenerProtocol{
-	networking.ListenerProtocolHTTP,
-	networking.ListenerProtocolTCP,
+var providers = []model.StatsProvider{
+	model.StatsProviderStackdriver,
+	model.StatsProviderPrometheus,
 }
 
 func InsertedExtensionConfigurations(proxy *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig {
@@ -37,15 +37,25 @@ func InsertedExtensionConfigurations(proxy *model.Proxy, push *model.PushContext
 	result := make([]*core.TypedExtensionConfig, 0)
 
 	for _, c := range allClasses {
-		for _, p := range protocols {
+		for _, p := range providers {
 			resourceName := model.StatsECDSResourceName(model.StatsConfig{
-				Provider:         model.StatsProviderStackdriver,
+				Provider:         p,
 				NodeType:         proxy.Type,
 				ListenerClass:    c,
-				ListenerProtocol: p,
+				ListenerProtocol: networking.ListenerProtocolHTTP,
 			})
 			if hasNames.Contains(resourceName) {
 				result = append(result, push.Telemetry.HTTPTypedExtensionConfigFilters(proxy, c)...)
+			}
+
+			resourceName = model.StatsECDSResourceName(model.StatsConfig{
+				Provider:         p,
+				NodeType:         proxy.Type,
+				ListenerClass:    c,
+				ListenerProtocol: networking.ListenerProtocolTCP,
+			})
+			if hasNames.Contains(resourceName) {
+				result = append(result, push.Telemetry.TCPTypedExtensionConfigFilters(proxy, c)...)
 			}
 		}
 	}
