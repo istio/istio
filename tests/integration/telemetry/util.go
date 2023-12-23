@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/util/retry"
 )
@@ -159,4 +160,74 @@ func ValidateMetric(t framework.TestContext, cluster cluster.Cluster, prometheus
 		PromDiff(t, prometheus, cluster, query)
 		t.Fatal(err)
 	}
+}
+
+func BuildQuery(ns namespace.Instance, sourceCluster string) (sourceQuery, destinationQuery, appQuery prometheus.Query) {
+	labels := map[string]string{
+		"request_protocol":               "http",
+		"response_code":                  "200",
+		"destination_app":                "b",
+		"destination_version":            "v1",
+		"destination_service":            "b." + ns.Name() + ".svc.cluster.local",
+		"destination_service_name":       "b",
+		"destination_workload_namespace": ns.Name(),
+		"destination_service_namespace":  ns.Name(),
+		"source_app":                     "a",
+		"source_version":                 "v1",
+		"source_workload":                "a-v1",
+		"source_workload_namespace":      ns.Name(),
+		"source_cluster":                 sourceCluster,
+	}
+
+	return BuildQueryCommon(labels, ns.Name())
+}
+
+func BuildOutOfMeshServerQuery(ns namespace.Instance, sourceCluster string) prometheus.Query {
+	labels := map[string]string{
+		"request_protocol": "http",
+		"response_code":    "200",
+		// For out of mesh server, client side metrics rely on endpoint resource metadata
+		// to fill in workload labels. To limit size of endpoint resource, we only populate
+		// workload name and namespace, canonical service name and version in endpoint metadata.
+		// Thus destination_app and destination_version labels are unknown.
+		// However, they are known with WDS, so we can relax this check.
+		// "destination_app":                "unknown",
+		// "destination_version":            "unknown",
+		"destination_service":            "naked." + ns.Name() + ".svc.cluster.local",
+		"destination_service_name":       "naked",
+		"destination_workload_namespace": ns.Name(),
+		"destination_service_namespace":  ns.Name(),
+		"source_app":                     "a",
+		"source_version":                 "v1",
+		"source_workload":                "a-v1",
+		"source_workload_namespace":      ns.Name(),
+		"source_cluster":                 sourceCluster,
+	}
+
+	source, _, _ := BuildQueryCommon(labels, ns.Name())
+	return source
+}
+
+// BuildQueryCommon is the shared function to construct prom query for istio_request_total metric.
+func BuildQueryCommon(labels map[string]string, ns string) (sourceQuery, destinationQuery, appQuery prometheus.Query) {
+	sourceQuery.Metric = "istio_requests_total"
+	sourceQuery.Labels = clone(labels)
+	sourceQuery.Labels["reporter"] = "source"
+
+	destinationQuery.Metric = "istio_requests_total"
+	destinationQuery.Labels = clone(labels)
+	destinationQuery.Labels["reporter"] = "destination"
+
+	appQuery.Metric = "istio_echo_http_requests_total"
+	appQuery.Labels = map[string]string{"namespace": ns}
+
+	return
+}
+
+func clone(labels map[string]string) map[string]string {
+	ret := map[string]string{}
+	for k, v := range labels {
+		ret[k] = v
+	}
+	return ret
 }
