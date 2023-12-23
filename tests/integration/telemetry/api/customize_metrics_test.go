@@ -195,6 +195,6 @@ func buildCustomMetricsQuery(protocol string) (destinationQuery prometheus.Query
 		labels["request_protocol"] = "grpc"
 	}
 
-	_, destinationQuery, _ = BuildQueryCommon(labels, apps.Namespace.Name())
+	_, destinationQuery, _ = util.BuildQueryCommon(labels, apps.Namespace.Name())
 	return destinationQuery
 }

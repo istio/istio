@@ -21,6 +21,7 @@ features:
       stackdriver:
       logging:
       stats:
+        ecds:
         prometheus:
           ambient:
           customize-metric:
