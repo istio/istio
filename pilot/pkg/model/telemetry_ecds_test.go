@@ -17,6 +17,10 @@ package model
 import (
 	"encoding/json"
 	"testing"
+	"time"
+
+	"google.golang.org/protobuf/types/known/durationpb"
+	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshv1a1 "istio.io/api/mesh/v1alpha1"
 	telemetryv1a1 "istio.io/api/telemetry/v1alpha1"
@@ -27,7 +31,112 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 )
 
-func TestTelemetryFiltersForECDS(t *testing.T) {
+func TestHTTPTypedExtensionConfigFilters(t *testing.T) {
+	t.Setenv("ENABLE_ECDS_FOR_STATS", "true")
+
+	sidecar := &Proxy{
+		ConfigNamespace: "default",
+		Labels:          map[string]string{"app": "test"},
+		Metadata:        &NodeMetadata{Labels: map[string]string{"app": "test"}},
+		Type:            SidecarProxy,
+	}
+
+	tests := []struct {
+		name             string
+		cfgs             []config.Config
+		proxy            *Proxy
+		class            networking.ListenerClass
+		defaultProviders *meshv1a1.MeshConfig_DefaultProviders
+		want             string
+	}{
+		{
+			"empty",
+			nil,
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			nil,
+			"[]",
+		},
+		{
+			"router",
+			nil,
+			&Proxy{
+				ConfigNamespace: "default",
+				Labels:          map[string]string{"app": "test"},
+				Metadata:        &NodeMetadata{Labels: map[string]string{"app": "test"}},
+				Type:            Router,
+			},
+			networking.ListenerClassGateway,
+			&meshv1a1.MeshConfig_DefaultProviders{
+				Metrics: []string{"prometheus"},
+			},
+			"[{\"name\":\"istio.io/telemetry/stats/prometheus/router/Gateway/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\",\"value\":\"MAE=\"}}]",
+		},
+		{
+			"sidecar-outbound",
+			nil,
+			sidecar,
+			networking.ListenerClassSidecarOutbound,
+			&meshv1a1.MeshConfig_DefaultProviders{
+				Metrics: []string{"prometheus"},
+			},
+			// nolint: lll
+			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Outbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\"}}]",
+		},
+		{
+			"sidecar-inbound",
+			[]config.Config{newTelemetry("istio-system", &telemetryv1a1.Telemetry{
+				Metrics: []*telemetryv1a1.Metrics{
+					{
+						Providers: []*telemetryv1a1.ProviderRef{{Name: "prometheus"}},
+						Overrides: []*telemetryv1a1.MetricsOverrides{
+							{
+								Match: &telemetryv1a1.MetricSelector{
+									MetricMatch: &telemetryv1a1.MetricSelector_Metric{
+										Metric: telemetryv1a1.MetricSelector_REQUEST_COUNT,
+									},
+								},
+								Disabled: &wrapperspb.BoolValue{Value: true},
+							},
+						},
+						ReportingInterval: durationpb.New(10 * time.Second),
+					},
+				},
+			})},
+			sidecar,
+			networking.ListenerClassSidecarInbound,
+			nil,
+			// nolint: lll
+			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Inbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\",\"value\":\"MAE6AggKQhISDnJlcXVlc3RzX3RvdGFsKAE=\"}}]",
+		},
+		{
+			"stackdriver-inbound",
+			nil,
+			sidecar,
+			networking.ListenerClassSidecarInbound,
+			&meshv1a1.MeshConfig_DefaultProviders{
+				Metrics:       []string{"stackdriver"},
+				AccessLogging: []string{"stackdriver"},
+			},
+			// nolint: lll
+			"[{\"name\":\"istio.io/telemetry/stats/stackdriver/sidecar/Inbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/envoy.extensions.wasm.v3.PluginConfig\",\"value\":\"EhNzdGFja2RyaXZlcl9pbmJvdW5kIpMBCi90eXBlLmdvb2dsZWFwaXMuY29tL2dvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZRJgCl57ImRpc2FibGVfaG9zdF9oZWFkZXJfZmFsbGJhY2siOnRydWUsImFjY2Vzc19sb2dnaW5nIjoiRlVMTCIsIm1ldHJpY19leHBpcnlfZHVyYXRpb24iOiIzNjAwcyJ9Gk8KE3N0YWNrZHJpdmVyX2luYm91bmQSF2Vudm95Lndhc20ucnVudGltZS5udWxsGh8KHRobZW52b3kud2FzbS5udWxsLnN0YWNrZHJpdmVy\"}}]",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			test.SetEnvForTest(t, features.EnableECDSForStats.Name, "true")
+			telemetry, _ := createTestTelemetries(tc.cfgs, t)
+			telemetry.meshConfig.DefaultProviders = tc.defaultProviders
+			got := telemetry.HTTPTypedExtensionConfigFilters(tc.proxy, tc.class)
+			b, err := json.Marshal(got)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.want, string(b))
+		})
+	}
+}
+
+func TestTCPTypedExtensionConfigFilters(t *testing.T) {
 	t.Setenv("ENABLE_ECDS_FOR_STATS", "true")
 
 	sidecar := &Proxy{
@@ -50,7 +159,6 @@ func TestTelemetryFiltersForECDS(t *testing.T) {
 		cfgs             []config.Config
 		proxy            *Proxy
 		class            networking.ListenerClass
-		protocol         networking.ListenerProtocol
 		defaultProviders *meshv1a1.MeshConfig_DefaultProviders
 		want             string
 	}{
@@ -59,42 +167,51 @@ func TestTelemetryFiltersForECDS(t *testing.T) {
 			nil,
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
-			networking.ListenerProtocolHTTP,
 			nil,
 			"[]",
+		},
+		{
+			"router",
+			[]config.Config{newTelemetry("istio-system", emptyPrometheus)},
+			&Proxy{
+				ConfigNamespace: "default",
+				Labels:          map[string]string{"app": "test"},
+				Metadata:        &NodeMetadata{Labels: map[string]string{"app": "test"}},
+				Type:            Router,
+			},
+			networking.ListenerClassGateway,
+			nil,
+			"[{\"name\":\"istio.io/telemetry/stats/prometheus/router/Gateway/TCP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\",\"value\":\"MAE=\"}}]",
 		},
 		{
 			"sidecar-outbound",
 			[]config.Config{newTelemetry("istio-system", emptyPrometheus)},
 			sidecar,
 			networking.ListenerClassSidecarOutbound,
-			networking.ListenerProtocolHTTP,
 			nil,
 			// nolint: lll
-			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Outbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\"}}]",
+			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Outbound/TCP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\"}}]",
 		},
 		{
 			"sidecar-inbound",
 			[]config.Config{newTelemetry("istio-system", emptyPrometheus)},
 			sidecar,
 			networking.ListenerClassSidecarInbound,
-			networking.ListenerProtocolHTTP,
 			nil,
 			// nolint: lll
-			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Inbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\",\"value\":\"MAE=\"}}]",
+			"[{\"name\":\"istio.io/telemetry/stats/prometheus/sidecar/Inbound/TCP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\",\"value\":\"MAE=\"}}]",
 		},
 		{
 			"stackdriver-inbound",
 			nil,
 			sidecar,
 			networking.ListenerClassSidecarInbound,
-			networking.ListenerProtocolHTTP,
 			&meshv1a1.MeshConfig_DefaultProviders{
 				Metrics:       []string{"stackdriver"},
 				AccessLogging: []string{"stackdriver"},
 			},
 			// nolint: lll
-			"[{\"name\":\"istio.io/telemetry/stats/stackdriver/sidecar/Inbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/envoy.extensions.wasm.v3.PluginConfig\",\"value\":\"EhNzdGFja2RyaXZlcl9pbmJvdW5kIpMBCi90eXBlLmdvb2dsZWFwaXMuY29tL2dvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZRJgCl57ImRpc2FibGVfaG9zdF9oZWFkZXJfZmFsbGJhY2siOnRydWUsImFjY2Vzc19sb2dnaW5nIjoiRlVMTCIsIm1ldHJpY19leHBpcnlfZHVyYXRpb24iOiIzNjAwcyJ9Gk8KE3N0YWNrZHJpdmVyX2luYm91bmQSF2Vudm95Lndhc20ucnVudGltZS5udWxsGh8KHRobZW52b3kud2FzbS5udWxsLnN0YWNrZHJpdmVy\"}}]",
+			"[{\"name\":\"istio.io/telemetry/stats/stackdriver/sidecar/Inbound/TCP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/envoy.extensions.wasm.v3.PluginConfig\",\"value\":\"EhNzdGFja2RyaXZlcl9pbmJvdW5kIpMBCi90eXBlLmdvb2dsZWFwaXMuY29tL2dvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZRJgCl57ImRpc2FibGVfaG9zdF9oZWFkZXJfZmFsbGJhY2siOnRydWUsImFjY2Vzc19sb2dnaW5nIjoiRlVMTCIsIm1ldHJpY19leHBpcnlfZHVyYXRpb24iOiIzNjAwcyJ9Gk8KE3N0YWNrZHJpdmVyX2luYm91bmQSF2Vudm95Lndhc20ucnVudGltZS5udWxsGh8KHRobZW52b3kud2FzbS5udWxsLnN0YWNrZHJpdmVy\"}}]",
 		},
 	}
 
@@ -103,7 +220,7 @@ func TestTelemetryFiltersForECDS(t *testing.T) {
 			test.SetEnvForTest(t, features.EnableECDSForStats.Name, "true")
 			telemetry, _ := createTestTelemetries(tc.cfgs, t)
 			telemetry.meshConfig.DefaultProviders = tc.defaultProviders
-			got := telemetry.telemetryFilters(tc.proxy, tc.class, tc.protocol)
+			got := telemetry.TCPTypedExtensionConfigFilters(tc.proxy, tc.class)
 			b, err := json.Marshal(got)
 			assert.NoError(t, err)
 			assert.Equal(t, tc.want, string(b))

@@ -93,7 +93,6 @@ func TestStats(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stats.ecds").
 		Run(func(t framework.TestContext) {
-			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
 			g, _ := errgroup.WithContext(context.Background())
 			for _, item := range apps.A {
 				from := item
@@ -105,6 +104,8 @@ func TestStats(t *testing.T) {
 				args := []string{
 					"pc", "ecds", fmt.Sprintf("%s.%s", podID, apps.Namespace.Name()),
 				}
+
+				istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: from.Config().Cluster})
 				// ECDS is enabled for stats, so we should see the ECDS config dump
 				_, _ = istioCtl.InvokeOrFail(t, args)
 

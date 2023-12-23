@@ -159,7 +159,7 @@ func buildTCPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []t
 					Provider:         StatsProviderStackdriver,
 					NodeType:         cfg.NodeType,
 					ListenerClass:    class,
-					ListenerProtocol: networking.ListenerProtocolHTTP,
+					ListenerProtocol: networking.ListenerProtocolTCP,
 				}),
 				TypedConfig: protoconv.MessageToAny(wasmConfig),
 			})
