@@ -70,6 +70,7 @@ func TestHTTPTypedExtensionConfigFilters(t *testing.T) {
 			&meshv1a1.MeshConfig_DefaultProviders{
 				Metrics: []string{"prometheus"},
 			},
+			// nolint: lll
 			"[{\"name\":\"istio.io/telemetry/stats/prometheus/router/Gateway/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\",\"value\":\"MAE=\"}}]",
 		},
 		{
@@ -181,6 +182,7 @@ func TestTCPTypedExtensionConfigFilters(t *testing.T) {
 			},
 			networking.ListenerClassGateway,
 			nil,
+			// nolint: lll
 			"[{\"name\":\"istio.io/telemetry/stats/prometheus/router/Gateway/TCP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/stats.PluginConfig\",\"value\":\"MAE=\"}}]",
 		},
 		{
