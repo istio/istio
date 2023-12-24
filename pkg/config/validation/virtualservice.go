@@ -153,11 +153,17 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 					errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
 				}
 
+				// uri use RouteMatch
 				errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
+
 				errs = appendErrors(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
+				errs = appendErrors(errs, validateStringMatchPrefix(match.GetScheme(), "scheme"))
+
 				errs = appendErrors(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
 				errs = appendErrors(errs, validateStringMatchPrefix(match.GetMethod(), "method"))
+
 				errs = appendErrors(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
+				errs = appendErrors(errs, validateStringMatchPrefix(match.GetAuthority(), "authority"))
 				for _, qp := range match.GetQueryParams() {
 					errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
 				}
