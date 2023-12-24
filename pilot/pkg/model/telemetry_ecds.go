@@ -16,6 +16,8 @@ package model
 
 import (
 	"fmt"
+	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
+	wasmfilter "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/wasm/v3"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
@@ -92,10 +94,12 @@ func buildHTTPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []
 			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
-			wasmConfig := &wasm.PluginConfig{
-				RootId:        vmConfig.VmConfig.VmId,
-				Vm:            vmConfig,
-				Configuration: sdCfg,
+			wasmConfig := &httpwasm.Wasm{
+				Config: &wasm.PluginConfig{
+					RootId:        vmConfig.VmConfig.VmId,
+					Vm:            vmConfig,
+					Configuration: sdCfg,
+				},
 			}
 
 			res = append(res, &core.TypedExtensionConfig{
@@ -148,10 +152,12 @@ func buildTCPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []t
 			vmConfig := ConstructVMConfig("envoy.wasm.null.stackdriver")
 			vmConfig.VmConfig.VmId = stackdriverVMID(class)
 
-			wasmConfig := &wasm.PluginConfig{
-				RootId:        vmConfig.VmConfig.VmId,
-				Vm:            vmConfig,
-				Configuration: sdCfg,
+			wasmConfig := &wasmfilter.Wasm{
+				Config: &wasm.PluginConfig{
+					RootId:        vmConfig.VmConfig.VmId,
+					Vm:            vmConfig,
+					Configuration: sdCfg,
+				},
 			}
 
 			res = append(res, &core.TypedExtensionConfig{
