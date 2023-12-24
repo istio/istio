@@ -22,6 +22,7 @@ import (
 
 type Hash interface {
 	Write(p []byte) (n int)
+	WriteString(p string) (n int)
 	Sum() string
 	Sum64() uint64
 }
@@ -42,6 +43,13 @@ func New() Hash {
 // Hash.Write error always return nil, this func simplify caller handle error
 func (i *instance) Write(p []byte) (n int) {
 	n, _ = i.hash.Write(p)
+	return
+}
+
+// WriteString wraps the Hash.WriteString function call
+// Hash.Write error always return nil, this func simplify caller handle error
+func (i *instance) WriteString(p string) (n int) {
+	n, _ = i.hash.WriteString(p)
 	return
 }
 

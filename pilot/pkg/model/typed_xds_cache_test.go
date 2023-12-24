@@ -36,7 +36,7 @@ type entry struct {
 
 func (e entry) Key() uint64 {
 	h := hash.New()
-	h.Write([]byte(e.key))
+	h.WriteString(e.key)
 	return h.Sum64()
 }
 

@@ -38,13 +38,24 @@ func TestFactory(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			h := New()
+			var (
+				hs []Hash
+				h  Hash
+			)
+			h = New()
 			h.Write([]byte(tt.str))
-			if gotStr := h.Sum(); tt.wantStr != gotStr {
-				t.Errorf("wantStr %v, but got %v", tt.wantStr, gotStr)
-			}
-			if gotUint64 := h.Sum64(); tt.wantUint64 != gotUint64 {
-				t.Errorf("wantUint64 %v, but got %v", tt.wantUint64, gotUint64)
+			hs = append(hs, h)
+			h = New()
+			h.WriteString(tt.str)
+			hs = append(hs, h)
+
+			for _, h := range hs {
+				if gotStr := h.Sum(); tt.wantStr != gotStr {
+					t.Errorf("wantStr %v, but got %v", tt.wantStr, gotStr)
+				}
+				if gotUint64 := h.Sum64(); tt.wantUint64 != gotUint64 {
+					t.Errorf("wantUint64 %v, but got %v", tt.wantUint64, gotUint64)
+				}
 			}
 		})
 	}
