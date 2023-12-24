@@ -120,7 +120,7 @@ func TestHTTPTypedExtensionConfigFilters(t *testing.T) {
 				AccessLogging: []string{"stackdriver"},
 			},
 			// nolint: lll
-			"[{\"name\":\"istio.io/telemetry/stats/stackdriver/sidecar/Inbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/envoy.extensions.wasm.v3.PluginConfig\",\"value\":\"EhNzdGFja2RyaXZlcl9pbmJvdW5kIpMBCi90eXBlLmdvb2dsZWFwaXMuY29tL2dvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZRJgCl57ImRpc2FibGVfaG9zdF9oZWFkZXJfZmFsbGJhY2siOnRydWUsImFjY2Vzc19sb2dnaW5nIjoiRlVMTCIsIm1ldHJpY19leHBpcnlfZHVyYXRpb24iOiIzNjAwcyJ9Gk8KE3N0YWNrZHJpdmVyX2luYm91bmQSF2Vudm95Lndhc20ucnVudGltZS5udWxsGh8KHRobZW52b3kud2FzbS5udWxsLnN0YWNrZHJpdmVy\"}}]",
+			"[{\"name\":\"istio.io/telemetry/stats/stackdriver/sidecar/Inbound/HTTP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/envoy.extensions.filters.http.wasm.v3.Wasm\",\"value\":\"CvwBEhNzdGFja2RyaXZlcl9pbmJvdW5kIpMBCi90eXBlLmdvb2dsZWFwaXMuY29tL2dvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZRJgCl57ImRpc2FibGVfaG9zdF9oZWFkZXJfZmFsbGJhY2siOnRydWUsImFjY2Vzc19sb2dnaW5nIjoiRlVMTCIsIm1ldHJpY19leHBpcnlfZHVyYXRpb24iOiIzNjAwcyJ9Gk8KE3N0YWNrZHJpdmVyX2luYm91bmQSF2Vudm95Lndhc20ucnVudGltZS5udWxsGh8KHRobZW52b3kud2FzbS5udWxsLnN0YWNrZHJpdmVy\"}}]",
 		},
 	}
 
@@ -213,7 +213,7 @@ func TestTCPTypedExtensionConfigFilters(t *testing.T) {
 				AccessLogging: []string{"stackdriver"},
 			},
 			// nolint: lll
-			"[{\"name\":\"istio.io/telemetry/stats/stackdriver/sidecar/Inbound/TCP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/envoy.extensions.wasm.v3.PluginConfig\",\"value\":\"EhNzdGFja2RyaXZlcl9pbmJvdW5kIpMBCi90eXBlLmdvb2dsZWFwaXMuY29tL2dvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZRJgCl57ImRpc2FibGVfaG9zdF9oZWFkZXJfZmFsbGJhY2siOnRydWUsImFjY2Vzc19sb2dnaW5nIjoiRlVMTCIsIm1ldHJpY19leHBpcnlfZHVyYXRpb24iOiIzNjAwcyJ9Gk8KE3N0YWNrZHJpdmVyX2luYm91bmQSF2Vudm95Lndhc20ucnVudGltZS5udWxsGh8KHRobZW52b3kud2FzbS5udWxsLnN0YWNrZHJpdmVy\"}}]",
+			"[{\"name\":\"istio.io/telemetry/stats/stackdriver/sidecar/Inbound/TCP\",\"typed_config\":{\"type_url\":\"type.googleapis.com/envoy.extensions.filters.network.wasm.v3.Wasm\",\"value\":\"CvwBEhNzdGFja2RyaXZlcl9pbmJvdW5kIpMBCi90eXBlLmdvb2dsZWFwaXMuY29tL2dvb2dsZS5wcm90b2J1Zi5TdHJpbmdWYWx1ZRJgCl57ImRpc2FibGVfaG9zdF9oZWFkZXJfZmFsbGJhY2siOnRydWUsImFjY2Vzc19sb2dnaW5nIjoiRlVMTCIsIm1ldHJpY19leHBpcnlfZHVyYXRpb24iOiIzNjAwcyJ9Gk8KE3N0YWNrZHJpdmVyX2luYm91bmQSF2Vudm95Lndhc20ucnVudGltZS5udWxsGh8KHRobZW52b3kud2FzbS5udWxsLnN0YWNrZHJpdmVy\"}}]",
 		},
 	}
 
