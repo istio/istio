@@ -2923,6 +2923,34 @@ func TestValidateHTTPRoute(t *testing.T) {
 				Destination: &networking.Destination{Host: "foo.baz"},
 			}},
 		}, valid: false},
+		{name: "empty prefix scheme match", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{
+				{
+					Scheme: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Prefix{
+							Prefix: "",
+						},
+					},
+				},
+			},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+		}, valid: false},
+		{name: "empty prefix authority match", route: &networking.HTTPRoute{
+			Match: []*networking.HTTPMatchRequest{
+				{
+					Authority: &networking.StringMatch{
+						MatchType: &networking.StringMatch_Prefix{
+							Prefix: "",
+						},
+					},
+				},
+			},
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.baz"},
+			}},
+		}, valid: false},
 	}
 
 	for _, tc := range testCases {
