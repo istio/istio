@@ -210,7 +210,7 @@ func queryDebugSynczViaAgents(all bool, dr *discovery.DiscoveryRequest, istioNam
 				}
 				namespacedName := pod.Name + "." + pod.Namespace
 				if visited[namespacedName] {
-					// If we alredy have information about the pod, skip it.
+					// If we already have information about the pod, skip it.
 					continue
 				}
 				resp, err := queryToOnePod(&pod)

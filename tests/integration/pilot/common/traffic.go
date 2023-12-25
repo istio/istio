@@ -291,11 +291,11 @@ func RunAllTrafficTests(t framework.TestContext, i istio.Instance, apps deployme
 	RunSkipAmbient("externalname", externalNameCases, "Relies on X-Forwarded-Client-Cert in checker")
 	RunSkipAmbient("host", hostCases, "Relies on X-Forwarded-Client-Cert in checker")
 	RunSkipAmbient("envoyfilter", envoyFilterCases, "not supported")
-	RunSkipAmbient("consistent-hash", consistentHashCases, "likey the same issue as https://github.com/istio/istio/issues/43161")
-	RunSkipAmbient("use-client-protocol", useClientProtocolCases, "https://github.com/istio/istio/issues/43161")
+	RunCase("consistent-hash", consistentHashCases)
+	RunCase("use-client-protocol", useClientProtocolCases)
 	RunCase("destinationrule", destinationRuleCases)
 	RunCase("vm", VMTestCases(apps.VM))
-	RunSkipAmbient("dns", DNSTestCases, "https://github.com/istio/istio/issues/45923")
+	RunCase("dns", DNSTestCases)
 	RunCase("externalservice", TestExternalService)
 }
 

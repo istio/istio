@@ -36,6 +36,7 @@ const (
 	// Repair
 	RepairEnabled            = "repair-enabled"
 	RepairDeletePods         = "repair-delete-pods"
+	RepairRepairPods         = "repair-repair-pods"
 	RepairLabelPods          = "repair-label-pods"
 	RepairLabelKey           = "repair-broken-pod-label-key"
 	RepairLabelValue         = "repair-broken-pod-label-value"
@@ -52,8 +53,7 @@ const (
 const (
 	DefaultKubeconfigMode = 0o600
 
-	UDSLogPath      = "/log"
-	SecondaryBinDir = "/host/secondary-bin-dir"
+	UDSLogPath = "/log"
 
 	// K8s liveness and readiness endpoints
 	LivenessEndpoint  = "/healthz"

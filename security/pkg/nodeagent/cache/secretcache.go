@@ -593,6 +593,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	outgoingLatency.With(RequestType.Value(monitoring.CSR)).Record(csrLatency)
 	if err != nil {
 		numFailedOutgoingRequests.With(RequestType.Value(monitoring.CSR)).Increment()
+		cacheLog.Errorf("%s failed to sign: %v", logPrefix, err)
 		return nil, err
 	}
 

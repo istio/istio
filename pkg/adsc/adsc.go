@@ -68,8 +68,10 @@ const (
 	defaultInitialWindowSize           = 1024 * 1024 // default gRPC ConnWindowSize
 )
 
-// Config for the ADS connection.
 type Config struct {
+	// Address of the xDS server
+	Address string
+
 	// Namespace defaults to 'default'
 	Namespace string
 
@@ -85,7 +87,7 @@ type Config struct {
 	Locality *core.Locality
 
 	// NodeType defaults to sidecar. "ingress" and "router" are also supported.
-	NodeType string
+	NodeType model.NodeType
 
 	// IP is currently the primary key used to locate inbound configs. It is sent by client,
 	// must match a known endpoint IP. Tests can use a ServiceEntry to register fake IPs.
@@ -117,21 +119,26 @@ type Config struct {
 	// InsecureSkipVerify skips client verification the server's certificate chain and host name.
 	InsecureSkipVerify bool
 
-	// InitialDiscoveryRequests is a list of resources to watch at first, represented as URLs (for new XDS resource naming)
-	// or type URLs.
-	InitialDiscoveryRequests []*discovery.DiscoveryRequest
-
 	// BackoffPolicy determines the reconnect policy. Based on MCP client.
 	BackoffPolicy backoff.BackOff
-
-	// ResponseHandler will be called on each DiscoveryResponse.
-	// TODO: mirror Generator, allow adding handler per type
-	ResponseHandler ResponseHandler
 
 	GrpcOpts []grpc.DialOption
 }
 
-func DefaultGrpcDialOptions() []grpc.DialOption {
+// ADSConfig for the ADS connection.
+type ADSConfig struct {
+	Config
+
+	// InitialDiscoveryRequests is a list of resources to watch at first, represented as URLs (for new XDS resource naming)
+	// or type URLs.
+	InitialDiscoveryRequests []*discovery.DiscoveryRequest
+
+	// ResponseHandler will be called on each DiscoveryResponse.
+	// TODO: mirror Generator, allow adding handler per type
+	ResponseHandler ResponseHandler
+}
+
+func defaultGrpcDialOptions() []grpc.DialOption {
 	return []grpc.DialOption{
 		// TODO(SpecialYang) maybe need to make it configurable.
 		grpc.WithInitialWindowSize(int32(defaultInitialWindowSize)),
@@ -155,8 +162,6 @@ type ADSC struct {
 
 	// NodeID is the node identity sent to Pilot.
 	nodeID string
-
-	url string
 
 	watchTime time.Time
 
@@ -210,7 +215,7 @@ type ADSC struct {
 	// restarts.
 	LocalCacheDir string
 
-	cfg *Config
+	cfg *ADSConfig
 
 	// sendNodeMeta is set to true if the connection is new - and we need to send node meta.,
 	sendNodeMeta bool
@@ -241,7 +246,7 @@ func (p jsonMarshalProtoWithName) MarshalJSON() ([]byte, error) {
 
 var adscLog = log.RegisterScope("adsc", "adsc debugging")
 
-func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy backoff.BackOff) (*ADSC, error) {
+func NewWithBackoffPolicy(discoveryAddr string, opts *ADSConfig, backoffPolicy backoff.BackOff) (*ADSC, error) {
 	adsc, err := New(discoveryAddr, opts)
 	if err != nil {
 		return nil, err
@@ -257,42 +262,26 @@ func NewWithBackoffPolicy(discoveryAddr string, opts *Config, backoffPolicy back
 // - send initial request for watched resources
 // - wait for response from XDS server
 // - on success, start a background thread to maintain the connection, with exp. backoff.
-func New(discoveryAddr string, opts *Config) (*ADSC, error) {
+func New(discoveryAddr string, opts *ADSConfig) (*ADSC, error) {
 	if opts == nil {
-		opts = &Config{}
+		opts = &ADSConfig{}
 	}
-	// We want to recreate stream
-	if opts.BackoffPolicy == nil {
-		opts.BackoffPolicy = backoff.NewExponentialBackOff(backoff.DefaultOption())
-	}
+	opts.Config = setDefaultConfig(&opts.Config)
+	opts.Address = discoveryAddr
 	adsc := &ADSC{
 		Updates:     make(chan string, 100),
 		XDSUpdates:  make(chan *discovery.DiscoveryResponse, 100),
 		VersionInfo: map[string]string{},
-		url:         discoveryAddr,
 		Received:    map[string]*discovery.DiscoveryResponse{},
 		cfg:         opts,
 		sync:        map[string]time.Time{},
 		errChan:     make(chan error, 10),
 	}
 
-	if opts.Namespace == "" {
-		opts.Namespace = "default"
-	}
-	if opts.NodeType == "" {
-		opts.NodeType = "sidecar"
-	}
-	if opts.IP == "" {
-		opts.IP = getPrivateIPIfAvailable().String()
-	}
-	if opts.Workload == "" {
-		opts.Workload = "test-1"
-	}
 	adsc.Metadata = opts.Meta
 	adsc.Locality = opts.Locality
 
-	adsc.nodeID = fmt.Sprintf("%s~%s~%s.%s~%s.svc.%s", opts.NodeType, opts.IP,
-		opts.Workload, opts.Namespace, opts.Namespace, constants.DefaultClusterLocalDomain)
+	adsc.nodeID = nodeID(&adsc.cfg.Config)
 
 	if err := adsc.Dial(); err != nil {
 		return nil, err
@@ -301,21 +290,50 @@ func New(discoveryAddr string, opts *Config) (*ADSC, error) {
 	return adsc, nil
 }
 
+func setDefaultConfig(config *Config) Config {
+	if config == nil {
+		config = &Config{}
+	}
+	if config.Namespace == "" {
+		config.Namespace = "default"
+	}
+	if config.NodeType == "" {
+		config.NodeType = model.SidecarProxy
+	}
+	if config.IP == "" {
+		config.IP = getPrivateIPIfAvailable().String()
+	}
+	if config.Workload == "" {
+		config.Workload = "test-1"
+	}
+	if config.BackoffPolicy == nil {
+		config.BackoffPolicy = backoff.NewExponentialBackOff(backoff.DefaultOption())
+	}
+	return *config
+}
+
 // Dial connects to a ADS server, with optional MTLS authentication if a cert dir is specified.
 func (a *ADSC) Dial() error {
-	opts := a.cfg
+	conn, err := dialWithConfig(&a.cfg.Config)
+	if err != nil {
+		return err
+	}
+	a.conn = conn
+	return nil
+}
 
-	defaultGrpcDialOptions := DefaultGrpcDialOptions()
+func dialWithConfig(config *Config) (*grpc.ClientConn, error) {
+	defaultGrpcDialOptions := defaultGrpcDialOptions()
 	var grpcDialOptions []grpc.DialOption
 	grpcDialOptions = append(grpcDialOptions, defaultGrpcDialOptions...)
-	grpcDialOptions = append(grpcDialOptions, opts.GrpcOpts...)
+	grpcDialOptions = append(grpcDialOptions, config.GrpcOpts...)
 
 	var err error
 	// If we need MTLS - CertDir or Secrets provider is set.
-	if len(opts.CertDir) > 0 || opts.SecretManager != nil {
-		tlsCfg, err := a.tlsConfig()
+	if len(config.CertDir) > 0 || config.SecretManager != nil {
+		tlsCfg, err := tlsConfig(config)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		creds := credentials.NewTLS(tlsCfg)
 		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(creds))
@@ -326,11 +344,11 @@ func (a *ADSC) Dial() error {
 		grpcDialOptions = append(grpcDialOptions, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	a.conn, err = grpc.Dial(a.url, grpcDialOptions...)
+	conn, err := grpc.Dial(config.Address, grpcDialOptions...)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return conn, nil
 }
 
 // Returns a private IP address, or unspecified IP (0.0.0.0) if no IP is available
@@ -359,31 +377,31 @@ func getPrivateIPIfAvailable() netip.Addr {
 	return netip.IPv4Unspecified()
 }
 
-func (a *ADSC) tlsConfig() (*tls.Config, error) {
+func tlsConfig(config *Config) (*tls.Config, error) {
 	var clientCerts []tls.Certificate
 	var serverCABytes []byte
 	var err error
 
-	getClientCertificate := getClientCertFn(a.cfg)
+	getClientCertificate := getClientCertFn(config)
 
 	// Load the root CAs
-	if a.cfg.RootCert != nil {
-		serverCABytes = a.cfg.RootCert
-	} else if a.cfg.XDSRootCAFile != "" {
-		serverCABytes, err = os.ReadFile(a.cfg.XDSRootCAFile)
+	if config.RootCert != nil {
+		serverCABytes = config.RootCert
+	} else if config.XDSRootCAFile != "" {
+		serverCABytes, err = os.ReadFile(config.XDSRootCAFile)
 		if err != nil {
 			return nil, err
 		}
-	} else if a.cfg.SecretManager != nil {
+	} else if config.SecretManager != nil {
 		// This is a bit crazy - we could just use the file
-		rootCA, err := a.cfg.SecretManager.GenerateSecret(security.RootCertReqResourceName)
+		rootCA, err := config.SecretManager.GenerateSecret(security.RootCertReqResourceName)
 		if err != nil {
 			return nil, err
 		}
 
 		serverCABytes = rootCA.RootCert
-	} else if a.cfg.CertDir != "" {
-		serverCABytes, err = os.ReadFile(a.cfg.CertDir + "/root-cert.pem")
+	} else if config.CertDir != "" {
+		serverCABytes, err = os.ReadFile(config.CertDir + "/root-cert.pem")
 		if err != nil {
 			return nil, err
 		}
@@ -394,9 +412,9 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		return nil, err
 	}
 
-	shost, _, _ := net.SplitHostPort(a.url)
-	if a.cfg.XDSSAN != "" {
-		shost = a.cfg.XDSSAN
+	shost, _, _ := net.SplitHostPort(config.Address)
+	if config.XDSSAN != "" {
+		shost = config.XDSSAN
 	}
 
 	// nolint: gosec
@@ -406,7 +424,7 @@ func (a *ADSC) tlsConfig() (*tls.Config, error) {
 		Certificates:         clientCerts,
 		RootCAs:              serverCAs,
 		ServerName:           shost,
-		InsecureSkipVerify:   a.cfg.InsecureSkipVerify,
+		InsecureSkipVerify:   config.InsecureSkipVerify,
 	}, nil
 }
 
@@ -882,20 +900,29 @@ func (a *ADSC) handleCDS(ll []*cluster.Cluster) {
 }
 
 func (a *ADSC) node() *core.Node {
+	return buildNode(&a.cfg.Config)
+}
+
+func nodeID(config *Config) string {
+	return fmt.Sprintf("%s~%s~%s.%s~%s.svc.%s", config.NodeType, config.IP,
+		config.Workload, config.Namespace, config.Namespace, constants.DefaultClusterLocalDomain)
+}
+
+func buildNode(config *Config) *core.Node {
 	n := &core.Node{
-		Id:       a.nodeID,
-		Locality: a.Locality,
+		Id:       nodeID(config),
+		Locality: config.Locality,
 	}
-	if a.Metadata == nil {
+	if config.Meta == nil {
 		n.Metadata = &pstruct.Struct{
 			Fields: map[string]*pstruct.Value{
 				"ISTIO_VERSION": {Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}},
 			},
 		}
 	} else {
-		n.Metadata = a.Metadata
-		if a.Metadata.Fields["ISTIO_VERSION"] == nil {
-			a.Metadata.Fields["ISTIO_VERSION"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}}
+		n.Metadata = config.Meta
+		if config.Meta.Fields["ISTIO_VERSION"] == nil {
+			config.Meta.Fields["ISTIO_VERSION"] = &pstruct.Value{Kind: &pstruct.Value_StringValue{StringValue: "65536.65536.65536"}}
 		}
 	}
 	return n
@@ -1093,16 +1120,6 @@ func (a *ADSC) EndpointsJSON() string {
 	defer a.mutex.Unlock()
 	out, _ := json.MarshalIndent(a.eds, " ", " ")
 	return string(out)
-}
-
-// Watch will start watching resources, starting with CDS. Based on the CDS response
-// it will start watching RDS and LDS.
-func (a *ADSC) Watch() {
-	a.watchTime = time.Now()
-	_ = a.stream.Send(&discovery.DiscoveryRequest{
-		Node:    a.node(),
-		TypeUrl: v3.ClusterType,
-	})
 }
 
 func ConfigInitialRequests() []*discovery.DiscoveryRequest {

@@ -225,7 +225,7 @@ var (
 		"The group to be used for the Kubernetes Multi-Cluster Services (MCS) API.").Get()
 
 	MCSAPIVersion = env.Register("MCS_API_VERSION", "v1alpha1",
-		"The version to be used for the Kubernets Multi-Cluster Services (MCS) API.").Get()
+		"The version to be used for the Kubernetes Multi-Cluster Services (MCS) API.").Get()
 
 	EnableMCSAutoExport = env.Register(
 		"ENABLE_MCS_AUTO_EXPORT",
@@ -686,8 +686,8 @@ var (
 		"If enabled, istiod will skip verifying the certificate of the JWKS server.").Get()
 
 	// User should not rely on builtin resource labels, this flag will be removed in future releases(1.20).
-	EnableOTELBuiltinResourceLables = env.Register("ENABLE_OTEL_BUILTIN_RESOURCE_LABELS", false,
-		"If enabled, envoy will send builtin lables(e.g. node_name) via OTel sink.").Get()
+	EnableOTELBuiltinResourceLabels = env.Register("ENABLE_OTEL_BUILTIN_RESOURCE_LABELS", false,
+		"If enabled, envoy will send builtin labels(e.g. node_name) via OTel sink.").Get()
 
 	EnableSelectorBasedK8sGatewayPolicy = env.Register("ENABLE_SELECTOR_BASED_K8S_GATEWAY_POLICY", true,
 		"If disabled, Gateway API gateways will ignore workloadSelector policies, only"+
@@ -701,6 +701,13 @@ var (
 	UseCacertsForSelfSignedCA = env.Register("USE_CACERTS_FOR_SELF_SIGNED_CA", false,
 		"If enabled, istiod will use a secret named cacerts to store its self-signed istio-"+
 			"generated root certificate.").Get()
+
+	StackdriverAuditLog = env.Register("STACKDRIVER_AUDIT_LOG", false, ""+
+		"If enabled, StackDriver audit logging will be enabled.").Get()
+
+	PersistOldestWinsHeuristicForVirtualServiceHostMatching = env.Register("PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", false,
+		"If enabled, istiod will persist the oldest first heuristic for subtly conflicting traffic policy selection"+
+			"(such as with overlapping wildcard hosts)").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

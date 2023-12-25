@@ -21,6 +21,7 @@ import (
 var (
 	typeLabel  = monitoring.CreateLabel("type")
 	deleteType = "delete"
+	repairType = "repair"
 	labelType  = "label"
 
 	resultLabel   = monitoring.CreateLabel("result")

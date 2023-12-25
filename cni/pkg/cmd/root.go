@@ -169,7 +169,7 @@ func init() {
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
 	registerBooleanParameter(constants.RepairLabelPods, false, "Controller will label pods when detecting pod broken by race condition")
 	registerStringParameter(constants.RepairLabelKey, "cni.istio.io/uninitialized",
-		"The key portion of the label which will be set by the ace repair if label pods is true")
+		"The key portion of the label which will be set by the race repair if label pods is true")
 	registerStringParameter(constants.RepairLabelValue, "true",
 		"The value portion of the label which will be set by the race repair if label pods is true")
 	registerStringParameter(constants.RepairNodeName, "", "The name of the managed node (will manage all nodes if unset)")
@@ -239,7 +239,7 @@ func constructConfig() (*config.Config, error) {
 		K8sNodeName:        os.Getenv("KUBERNETES_NODE_NAME"),
 
 		CNIBinSourceDir:  constants.CNIBinDir,
-		CNIBinTargetDirs: []string{constants.HostCNIBinDir, constants.SecondaryBinDir},
+		CNIBinTargetDirs: []string{constants.HostCNIBinDir},
 		MonitoringPort:   viper.GetInt(constants.MonitoringPort),
 		LogUDSAddress:    viper.GetString(constants.LogUDSAddress),
 
@@ -257,6 +257,7 @@ func constructConfig() (*config.Config, error) {
 
 	repairCfg := config.RepairConfig{
 		Enabled:            viper.GetBool(constants.RepairEnabled),
+		RepairPods:         viper.GetBool(constants.RepairRepairPods),
 		DeletePods:         viper.GetBool(constants.RepairDeletePods),
 		LabelPods:          viper.GetBool(constants.RepairLabelPods),
 		LabelKey:           viper.GetString(constants.RepairLabelKey),

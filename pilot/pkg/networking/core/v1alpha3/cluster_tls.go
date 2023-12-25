@@ -86,7 +86,11 @@ var hboneOrPlaintextSocket = []*cluster.Cluster_TransportSocketMatch{
 }
 
 // applyUpstreamTLSSettings applies upstream tls context to the cluster
-func (cb *ClusterBuilder) applyUpstreamTLSSettings(opts *buildClusterOpts, tls *networking.ClientTLSSettings, mtlsCtxType mtlsContextType) {
+func (cb *ClusterBuilder) applyUpstreamTLSSettings(
+	opts *buildClusterOpts,
+	tls *networking.ClientTLSSettings,
+	mtlsCtxType mtlsContextType,
+) {
 	c := opts.mutable
 	tlsContext, err := cb.buildUpstreamClusterTLSContext(opts, tls)
 	if err != nil {
@@ -308,7 +312,7 @@ func (cb *ClusterBuilder) setAutoSniAndAutoSanValidation(mc *clusterWrapper, tls
 	if len(tls.Sni) == 0 {
 		setAutoSni = true
 	}
-	if features.VerifyCertAtClient && len(tls.SubjectAltNames) == 0 && !tls.GetInsecureSkipVerify().GetValue() {
+	if features.VerifyCertAtClient && setAutoSni && len(tls.SubjectAltNames) == 0 && !tls.GetInsecureSkipVerify().GetValue() {
 		setAutoSanValidation = true
 	}
 

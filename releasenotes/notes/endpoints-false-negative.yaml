@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue: 
+  - 48373
+releaseNotes:
+  - |
+    **Fixed** an issue where new endpoints may not be sent to proxies.

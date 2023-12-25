@@ -19,7 +19,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-FINDFILES=find . \( -path ./common-protos -o -path ./.git -o -path ./out -o -path ./.github -o -path ./licenses -o -path ./vendor \) -prune -o -type f
+FINDFILES=find . \( -path ./common-protos -o -path ./.git -o -path ./out -o -path ./.github -o -path ./licenses -o -path ./vendor $(if $(strip ${FINDFILES_IGNORE}), -o ${FINDFILES_IGNORE}) \) -prune -o -type f
+
 XARGS = xargs -0 -r
 
 lint-dockerfiles:

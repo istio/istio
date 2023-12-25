@@ -39,8 +39,8 @@ cni:
   # Some k8s flavors (e.g. OpenShift) do not support the chain approach, set to false if this is the case
   chained: true
 
-  # Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift)
-  privileged: false
+  # Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift) or features (repairPods)
+  privileged: true
 
   # Custom configuration happens based on the CNI provider.
   # Possible values: "default", "multus"
@@ -61,8 +61,20 @@ cni:
     hub: ""
     tag: ""
 
-    labelPods: true
-    deletePods: true
+    # Repair controller has 3 modes. Pick which one meets your use cases. Note only one may be used.
+    # This defines the action the controller will take when a pod is detected as broken.
+
+    # labelPods will label all pods with <brokenPodLabelKey>=<brokenPodLabelValue>.
+    # This is only capable of identifying broken pods; the user is responsible for fixing them (generally, by deleting them).
+    # Note this gives the DaemonSet a relatively high privilege, as modifying pod metadata/status can have wider impacts.
+    labelPods: false
+    # deletePods will delete any broken pod. These will then be rescheduled, hopefully onto a node that is fully ready.
+    # Note this gives the DaemonSet a relatively high privilege, as it can delete any Pod.
+    deletePods: false
+    # repairPods will dynamically repair any broken pod by setting up the pod networking configuration even after it has started.
+    # Note the pod will be crashlooping, so this may take a few minutes to become fully functional based on when the retry occurs.
+    # This requires no RBAC privilege, but does require `securityContext.privileged`.
+    repairPods: true
 
     initContainerName: "istio-validation"
 

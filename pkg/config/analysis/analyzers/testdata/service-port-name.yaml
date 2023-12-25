@@ -36,7 +36,7 @@ spec:
     protocol: TCP
     targetPort: 15008
   selector:
-    istio.io/gateway-name: reviews
+    gateway.networking.k8s.io/gateway-name: reviews
   sessionAffinity: None
   type: ClusterIP
 ---
@@ -65,5 +65,5 @@ spec:
     protocol: TCP
     targetPort: 80
   selector:
-    istio.io/gateway-name: gateway
+    gateway.networking.k8s.io/gateway-name: gateway
   type: LoadBalancer

@@ -116,29 +116,42 @@ func (esc *endpointSliceController) onEventInternal(_, ep *v1.EndpointSlice, eve
 	hostnames := esc.c.hostNamesForNamespacedName(namespacedName)
 	// Trigger EDS push for all hostnames.
 	esc.pushEDS(hostnames, namespacedName.Namespace)
-
 	name := serviceNameForEndpointSlice(esLabels)
 	namespace := ep.GetNamespace()
 	svc := esc.c.services.Get(name, namespace)
 	if svc == nil || svc.Spec.ClusterIP != corev1.ClusterIPNone {
 		return
 	}
-	// For headless services, trigger a full push if EnableHeadlessService is true,
-	// otherwise push endpoint updates - needed for NDS output.
+
+	configsUpdated := sets.New[model.ConfigKey]()
+	pureHTTP := true
 	for _, modelSvc := range esc.c.servicesForNamespacedName(config.NamespacedName(svc)) {
 		// skip push if it is not exported
 		if modelSvc.Attributes.ExportTo.Contains(visibility.None) {
 			continue
 		}
+		configsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace})
 
+		for _, p := range modelSvc.Ports {
+			if !p.Protocol.IsHTTP() {
+				pureHTTP = false
+				break
+			}
+		}
+	}
+
+	if len(configsUpdated) > 0 {
+		// For headless services, trigger a full push if EnableHeadlessService is true and svc ports are not pure HTTP.
+		// otherwise push endpoint updates - needed for NDS output.
 		esc.c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-			Full: features.EnableHeadlessService,
+			// pure HTTP headless services should not need a full push since they do not
+			// require a Listener based on IP: https://github.com/istio/istio/issues/48207
+			Full: !pureHTTP && features.EnableHeadlessService,
 			// TODO: extend and set service instance type, so no need to re-init push context
-			ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.ServiceEntry, Name: modelSvc.Hostname.String(), Namespace: svc.Namespace}),
+			ConfigsUpdated: configsUpdated,
 
 			Reason: model.NewReasonStats(model.HeadlessEndpointUpdate),
 		})
-		break
 	}
 }
 
@@ -157,7 +170,7 @@ func (esc *endpointSliceController) GetProxyServiceTargets(proxy *model.Proxy) [
 }
 
 func serviceNameForEndpointSlice(labels map[string]string) string {
-	return labels[v1beta1.LabelServiceName]
+	return labels[v1.LabelServiceName]
 }
 
 func (esc *endpointSliceController) serviceTargets(ep *v1.EndpointSlice, proxy *model.Proxy) []model.ServiceTarget {

@@ -47,7 +47,7 @@ func IsHTTPServer(server *v1alpha3.Server) bool {
 		return true
 	}
 
-	if p == protocol.HTTPS && server.Tls != nil && !IsPassThroughServer(server) {
+	if p == protocol.HTTPS && !IsPassThroughServer(server) {
 		return true
 	}
 
@@ -62,7 +62,7 @@ func IsEligibleForHTTP3Upgrade(server *v1alpha3.Server) bool {
 		return false
 	}
 	p := protocol.Parse(server.Port.Protocol)
-	return p == protocol.HTTPS && server.Tls != nil && !IsPassThroughServer(server)
+	return p == protocol.HTTPS && !IsPassThroughServer(server)
 }
 
 // IsPassThroughServer returns true if this server does TLS passthrough (auto or manual)
@@ -81,7 +81,7 @@ func IsPassThroughServer(server *v1alpha3.Server) bool {
 
 // IsTCPServerWithTLSTermination returns true if this server is TCP(non-HTTP) server with some TLS settings for termination
 func IsTCPServerWithTLSTermination(server *v1alpha3.Server) bool {
-	if server.Tls != nil && !IsPassThroughServer(server) {
+	if !IsPassThroughServer(server) {
 		p := protocol.Parse(server.Port.Protocol)
 		if !p.IsHTTP() && !p.IsHTTPS() {
 			return true

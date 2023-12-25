@@ -36,6 +36,7 @@ import (
 	"net"
 	"net/netip"
 	"os"
+	"path/filepath"
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/asm"
@@ -47,6 +48,7 @@ import (
 	"github.com/josharian/native"
 	"golang.org/x/sys/unix"
 
+	"istio.io/istio/cni/pkg/ambient/constants"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/istiomultierror"
 	"istio.io/istio/pkg/util/sets"
@@ -147,7 +149,7 @@ func (r *RedirectServer) SetLogLevel(level string) {
 
 func (r *RedirectServer) UpdateHostIP(ips []string) error {
 	if len(ips) > 2 {
-		return fmt.Errorf("too may ips inputed: %d", len(ips))
+		return fmt.Errorf("too may ips inputted: %d", len(ips))
 	}
 	for _, v := range ips {
 		ip, err := netip.ParseAddr(v)
@@ -197,7 +199,7 @@ func AddPodToMesh(ifIndex uint32, macAddr net.HardwareAddr, ips []netip.Addr) er
 	copy(mapInfo.MacAddr[:], macAddr)
 
 	if len(ips) == 0 {
-		return fmt.Errorf("nil ips inputed")
+		return fmt.Errorf("nil ips inputted")
 	}
 	// TODO: support multiple IPs and IPv6
 	ipAddr := ips[0]
@@ -365,7 +367,7 @@ func (r *RedirectServer) Start(stop <-chan struct{}) {
 
 func (r *RedirectServer) parseIPs(ipAddrs []netip.Addr) ([][]byte, error) {
 	if len(ipAddrs) == 0 {
-		return nil, fmt.Errorf("nil ipAddrs inputed")
+		return nil, fmt.Errorf("nil ipAddrs inputted")
 	}
 	// TODO: support multiple IPs and IPv6
 	ipAddr := ipAddrs[0]
@@ -533,7 +535,7 @@ func (r *RedirectServer) attachTCForWorkLoad(ifindex uint32) error {
 func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction string, fd uint32, name string) error {
 	config := &tc.Config{}
 	if namespace != "" {
-		nsHdlr, err := ns.GetNS(fmt.Sprintf("/var/run/netns/%s", namespace))
+		nsHdlr, err := ns.GetNS(filepath.Join(constants.NetNsPath, namespace))
 		if err != nil {
 			return err
 		}
@@ -627,7 +629,7 @@ func (r *RedirectServer) attachTC(namespace string, ifindex uint32, direction st
 func (r *RedirectServer) delClsactQdisc(namespace string, ifindex uint32) error {
 	config := &tc.Config{}
 	if namespace != "" {
-		nsHdlr, err := ns.GetNS(fmt.Sprintf("/var/run/netns/%s", namespace))
+		nsHdlr, err := ns.GetNS(filepath.Join(constants.NetNsPath, namespace))
 		if err != nil {
 			return err
 		}
@@ -658,7 +660,7 @@ func (r *RedirectServer) delClsactQdisc(namespace string, ifindex uint32) error 
 	}
 	err = rtnl.Qdisc().Delete(&info)
 	if errors.Is(err, os.ErrNotExist) {
-		log.Debugf("No qdisc configed for Ifindex: %d, %v", ifindex, err)
+		log.Debugf("No qdisc configured for Ifindex: %d, %v", ifindex, err)
 		return nil
 	}
 

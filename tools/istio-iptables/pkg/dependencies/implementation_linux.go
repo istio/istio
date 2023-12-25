@@ -22,7 +22,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/containernetworking/plugins/pkg/ns"
 	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
 	utilversion "k8s.io/apimachinery/pkg/util/version"
@@ -56,7 +55,7 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reade
 		}
 		externalCommand.Env = append(externalCommand.Env, fmt.Sprintf("%s=%v", strings.ToUpper(repl.Replace(k)), v))
 	}
-	err := r.runCommand(externalCommand)
+	err := externalCommand.Run()
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())
 	}
@@ -66,21 +65,6 @@ func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reade
 	}
 
 	return err
-}
-
-func (r *RealDependencies) runCommand(c *exec.Cmd) error {
-	if r.CNIMode {
-		n, err := ns.GetNS(r.NetworkNamespace)
-		if err != nil {
-			return err
-		}
-		defer n.Close()
-
-		return n.Do(func(ns.NetNS) error {
-			return c.Run()
-		})
-	}
-	return c.Run()
 }
 
 var (
@@ -104,18 +88,36 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin i
 			// In both cases we are setting the lockfile to `r.NetworkNamespace`.
 			// * /dev/null looks like a good option, but actually doesn't work (it will ensure only one actor can access it)
 			// * `mktemp` works, but it is slightly harder to deal with cleanup and in some platforms we may not have write access.
+			//
+			// In some setups, iptables can make remote network calls(!!). Since these come from a partially initialized pod network namespace,
+			// these calls can be blocked (or NetworkPolicy, etc could block them anyways).
+			// This is triggered by NSS, which allows various things to use arbitrary code to lookup configuration that typically comes from files.
+			// In our case, the culprit is the `xt_owner` (`-m owner`) module in iptables calls the `passwd` service to lookup the user.
+			// To disallow this, bindmount /dev/null over nsswitch.conf so this never happens.
+			// This should be safe to do, even if the user has an nsswitch entry that would work fine: we always use a numeric ID
+			// so the passwd lookup doesn't need to succeed at all for Istio to function.
+			// Effectively, we want a mini-container. In fact, running in a real container would be ideal but it is hard to do portably.
+			// See https://github.com/istio/istio/issues/48416 for a real world example of this case.
 			if r.IptablesVersion.version.LessThan(IptablesLockfileEnv) {
 				// Older iptables cannot turn off the lock explicitly, so we hack around it...
-				// Overwrite the lock file with /dev/null
+				// Overwrite the lock file with the network namespace file (which is assumed to be unique).
+				// Overwrite the nsswitch with /dev/null, see above.
 				// cmd is repeated twice as the first 'cmd' instance becomes $0
-				args := append([]string{"-c", fmt.Sprintf("mount --bind %s /run/xtables.lock; exec $@", r.NetworkNamespace), cmd, cmd}, args...)
+				sh := fmt.Sprintf(
+					"mount --bind /dev/null /etc/nsswitch.conf; mount --bind %s /run/xtables.lock; exec $@", r.NetworkNamespace)
+				args := append([]string{"-c", sh, cmd, cmd}, args...)
 				c = exec.Command("sh", args...)
 				// Run in a new mount namespace so our mount doesn't impact any other processes.
 				c.SysProcAttr = &syscall.SysProcAttr{Unshareflags: unix.CLONE_NEWNS}
 				mode = "without lock by mount"
 			} else {
 				// Available since iptables 1.8.6+, just point to a different file directly
-				c = exec.Command(cmd, args...)
+				// Overwrite the nsswitch with /dev/null, see above.
+				// cmd is repeated twice as the first 'cmd' instance becomes $0
+				args := append([]string{"-c", "mount --bind /dev/null /etc/nsswitch.conf; exec $@", cmd, cmd}, args...)
+				c = exec.Command("sh", args...)
+				// Run in a new mount namespace so our mount doesn't impact any other processes.
+				c.SysProcAttr = &syscall.SysProcAttr{Unshareflags: unix.CLONE_NEWNS}
 				c.Env = append(c.Env, "XTABLES_LOCKFILE="+r.NetworkNamespace)
 				mode = "without lock by environment"
 			}
@@ -134,7 +136,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin i
 	c.Stdout = stdout
 	c.Stderr = stderr
 	c.Stdin = stdin
-	err := r.runCommand(c)
+	err := c.Run()
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())
 	}

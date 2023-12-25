@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
@@ -168,6 +167,26 @@ func createTestController(t *testing.T) (*Controller, *atomic.Pointer[error]) {
 	go control.Run(stop)
 	kube.WaitForCacheSync("test", stop, control.queue.HasSynced)
 
+	gatewayError := setupGatewayError(c)
+
+	return control, gatewayError
+}
+
+func unstartedTestController(c kube.Client) *Controller {
+	revision := "default"
+	ns := "default"
+	watcher := keycertbundle.NewWatcher()
+	watcher.SetAndNotify(nil, nil, caBundle0)
+	control := newController(Options{
+		WatchedNamespace: ns,
+		CABundleWatcher:  watcher,
+		Revision:         revision,
+		ServiceName:      "istiod",
+	}, c)
+	return control
+}
+
+func setupGatewayError(c kube.Client) *atomic.Pointer[error] {
 	gatewayError := atomic.NewPointer[error](nil)
 	c.Istio().(*istiofake.Clientset).PrependReactor("*", "gateways", func(action ktesting.Action) (bool, runtime.Object, error) {
 		e := gatewayError.Load()
@@ -176,12 +195,17 @@ func createTestController(t *testing.T) (*Controller, *atomic.Pointer[error]) {
 		}
 		return true, &v1alpha3.Gateway{}, *e
 	})
-
-	return control, gatewayError
+	return gatewayError
 }
 
 func TestGreenfield(t *testing.T) {
-	c, gatewayError := createTestController(t)
+	controllerStop := make(chan struct{})
+	clientStop := test.NewStop(t)
+	kc := kube.NewFakeClient()
+	gatewayError := setupGatewayError(kc)
+	c := unstartedTestController(kc)
+	kc.RunAndWait(clientStop)
+	go c.Run(controllerStop)
 	webhooks := clienttest.Wrap(t, c.webhooks)
 	fetch := func(name string) func() *admission.ValidatingWebhookConfiguration {
 		return func() *admission.ValidatingWebhookConfiguration {
@@ -221,11 +245,36 @@ func TestGreenfield(t *testing.T) {
 		retry.Message("istiod config created when endpoint is ready and invalid config is denied"),
 		LongRetry,
 	)
+
+	// If we start having issues, we should not flip back to Ignore
+	gatewayError.Store(ptr.Of[error](kerrors.NewInternalError(errors.New("unknown error"))))
+	c.syncAll()
+	assert.EventuallyEqual(
+		t,
+		fetch(unpatchedWebhookConfig.Name),
+		webhookConfigWithCABundleFail,
+		retry.Message("should not go from Fail -> Ignore"),
+		LongRetry,
+	)
+
+	// We also should not flip back to Ignore in a new instance
+	close(controllerStop)
+	_ = c.queue.WaitForClose(time.Second)
+	controllerStop2 := test.NewStop(t)
+	c2 := unstartedTestController(kc)
+	go c2.Run(controllerStop2)
+	assert.EventuallyEqual(
+		t,
+		fetch(unpatchedWebhookConfig.Name),
+		webhookConfigWithCABundleFail,
+		retry.Message("should not go from Fail -> Ignore"),
+		LongRetry,
+	)
+	_ = c2
 }
 
 // TestCABundleChange ensures that we create request to update all webhooks when CA bundle changes.
 func TestCABundleChange(t *testing.T) {
-	log.FindScope("retry").SetOutputLevel(log.DebugLevel)
 	c, gatewayError := createTestController(t)
 	gatewayError.Store(ptr.Of[error](kerrors.NewInternalError(errors.New(deniedRequestMessageFragment))))
 	webhooks := clienttest.Wrap(t, c.webhooks)
@@ -258,7 +307,7 @@ func TestCABundleChange(t *testing.T) {
 
 // LongRetry is used when comparing webhook values. Apparently the values are so large that with -race
 // on the comparison can take a few seconds, meaning we never retry with the default settings.
-var LongRetry = retry.Timeout(time.Second * 20)
+var LongRetry = retry.Timeout(time.Second * 1)
 
 func TestLoadCaCertPem(t *testing.T) {
 	cases := []struct {

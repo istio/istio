@@ -26,7 +26,6 @@ import (
 	"sort"
 	"strings"
 
-	"cloud.google.com/go/compute/metadata"
 	loggingpb "cloud.google.com/go/logging/apiv2/loggingpb"
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	cloudtrace "cloud.google.com/go/trace/apiv1/tracepb"
@@ -45,6 +44,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/stackdriver"
 	"istio.io/istio/pkg/test/framework/resource"
+	"istio.io/istio/pkg/test/framework/resource/config/apply"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/tmpl"
 	"istio.io/istio/pkg/util/protomarshal"
@@ -56,6 +56,7 @@ const (
 	serverRequestCount           = "tests/integration/telemetry/stackdriver/testdata/server_request_count.json.tmpl"
 	clientRequestCount           = "tests/integration/telemetry/stackdriver/testdata/client_request_count.json.tmpl"
 	serverLogEntry               = "tests/integration/telemetry/stackdriver/testdata/server_access_log.json.tmpl"
+	accessLogPolicyEnvoyFilter   = "tests/integration/telemetry/stackdriver/testdata/accesslogpolicy.yaml"
 	sdBootstrapConfigMap         = "stackdriver-bootstrap-config"
 
 	FakeGCEMetadataServerValues = `
@@ -91,7 +92,7 @@ func TestSetup(ctx resource.Context) (err error) {
 		"StackdriverAddress": SDInst.Address(),
 		"EchoNamespace":      EchoNsInst.Name(),
 		"UseRealSD":          stackdriver.UseRealStackdriver(),
-	}, filepath.Join(env.IstioSrc, stackdriverBootstrapOverride)).Apply()
+	}, filepath.Join(env.IstioSrc, stackdriverBootstrapOverride)).Apply(apply.CleanupConditionally)
 	if err != nil {
 		return
 	}
@@ -226,10 +227,10 @@ func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, cl
 	t.Helper()
 
 	var wantClient, wantServer monitoring.TimeSeries
-	if err := unmarshalFromTemplateFile(serverReqCount, &wantServer, clName, trustDomain); err != nil {
+	if err := unmarshalFromTemplateFile(t, serverReqCount, &wantServer, clName, trustDomain); err != nil {
 		return fmt.Errorf("metrics: error generating wanted server request: %v", err)
 	}
-	if err := unmarshalFromTemplateFile(clientReqCount, &wantClient, clName, trustDomain); err != nil {
+	if err := unmarshalFromTemplateFile(t, clientReqCount, &wantClient, clName, trustDomain); err != nil {
 		return fmt.Errorf("metrics: error generating wanted client request: %v", err)
 	}
 
@@ -239,6 +240,7 @@ func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, cl
 	}
 
 	t.Logf("number of timeseries: %v", len(ts))
+	var matchSeries []*monitoring.TimeSeries
 	var gotServer, gotClient bool
 	for _, tt := range ts {
 		if tt == nil {
@@ -247,6 +249,7 @@ func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, cl
 		if tt.Metric.Type != wantClient.Metric.Type && tt.Metric.Type != wantServer.Metric.Type {
 			continue
 		}
+		matchSeries = append(matchSeries, tt)
 		// Do a fuzzy match for proxy_version label
 		// Remove any extra version information
 		if proxyVersion, ok := tt.Metric.Labels["proxy_version"]; ok {
@@ -260,17 +263,17 @@ func ValidateMetrics(t framework.TestContext, serverReqCount, clientReqCount, cl
 		}
 	}
 	if !gotServer {
-		LogMetricsDiff(t, &wantServer, ts)
-		return fmt.Errorf("metrics: did not get expected metrics for cluster %s", clName)
+		LogMetricsDiff(t, &wantServer, matchSeries)
+		return fmt.Errorf("metrics: did not get expected server metrics for cluster %s", clName)
 	}
 	if !gotClient {
-		LogMetricsDiff(t, &wantClient, ts)
-		return fmt.Errorf("metrics: did not get expected metrics for cluster %s", clName)
+		LogMetricsDiff(t, &wantClient, matchSeries)
+		return fmt.Errorf("metrics: did not get expected client metrics for cluster %s", clName)
 	}
 	return nil
 }
 
-func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDomain string) error {
+func unmarshalFromTemplateFile(t framework.TestContext, file string, out proto.Message, clName, trustDomain string) error {
 	templateFile, err := os.ReadFile(file)
 	if err != nil {
 		return err
@@ -283,7 +286,7 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 		"EchoNamespace": EchoNsInst.Name(),
 		"ClusterName":   clName,
 		"TrustDomain":   trustDomain,
-		"OnGCE":         metadata.OnGCE(),
+		"OnGCE":         OnGKE(t),
 		"ProxyVersion":  proxyVersion,
 	})
 	if err != nil {
@@ -292,23 +295,26 @@ func unmarshalFromTemplateFile(file string, out proto.Message, clName, trustDoma
 	return protomarshal.Unmarshal([]byte(resource), out)
 }
 
+func OnGKE(ctx resource.Context) bool {
+	ver, _ := ctx.Clusters().Kube()[0].GetKubernetesVersion()
+	return strings.Contains(ver.String(), "-gke")
+}
+
 func ConditionallySetupMetadataServer(ctx resource.Context) (err error) {
-	// TODO: this looks at the machine the node is running on. This would not work if the host and test
-	// cluster differ.
-	if !metadata.OnGCE() {
-		scopes.Framework.Infof("Not on GCE, setup fake GCE metadata server")
+	if !OnGKE(ctx) {
+		scopes.Framework.Infof("Not on GKE, setup fake GCE metadata server")
 		if GCEInst, err = gcemetadata.New(ctx, gcemetadata.Config{}); err != nil {
 			return
 		}
 	} else {
-		scopes.Framework.Infof("On GCE, use the real GCE metadata server")
+		scopes.Framework.Infof("On GKE, use the real GCE metadata server")
 	}
 	return nil
 }
 
 func ValidateLogs(t framework.TestContext, srvLogEntry, clName, trustDomain string, filter stackdriver.LogType) error {
 	var wantLog loggingpb.LogEntry
-	if err := unmarshalFromTemplateFile(srvLogEntry, &wantLog, clName, trustDomain); err != nil {
+	if err := unmarshalFromTemplateFile(t, srvLogEntry, &wantLog, clName, trustDomain); err != nil {
 		return fmt.Errorf("logs: failed to parse wanted log entry: %v", err)
 	}
 	return ValidateLogEntry(t, &wantLog, filter, clusterProject(t, clName))
@@ -380,6 +386,11 @@ func logDiff(t test.Failer, tp string, query map[string]string, entries []map[st
 			}
 		}
 		if len(misMatched) == 0 {
+			// Should never happen, since we call Diff only on mismatches. Log in case it does
+			t.Logf("Entry has no mismatch. Bug?")
+			for k, want := range query {
+				t.Logf("  for label %q, got %q", k, want)
+			}
 			continue
 		}
 		allMismatches = append(allMismatches, misMatched)
@@ -440,6 +451,10 @@ func normalizeMetrics(l *monitoring.TimeSeries) map[string]string {
 		r["metric.labels."+k] = v
 	}
 	r["metric.type"] = l.Metric.Type
+	r["resource.type"] = l.GetResource().GetType()
+	for k, v := range l.GetResource().GetLabels() {
+		r["resource.labels."+k] = v
+	}
 	return r
 }
 

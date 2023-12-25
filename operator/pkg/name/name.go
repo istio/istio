@@ -182,7 +182,7 @@ func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOper
 
 	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Namespace")
 	if err != nil {
-		return "", fmt.Errorf("error in Namepsace GetFromStructPath componentNamespace for component=%s: %s", componentName, err)
+		return "", fmt.Errorf("error in Namespace GetFromStructPath componentNamespace for component=%s: %s", componentName, err)
 	}
 	if !found {
 		return defaultNamespace, nil

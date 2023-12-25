@@ -233,9 +233,10 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	if componentName != "" {
 		labels[IstioComponentLabelStr] = componentName
 	}
-	// gateway resources associated with specific istiooperator CR
-	if name.ComponentName(componentName).IsGateway() && h.iop.GetName() != "" && h.iop.GetNamespace() != "" {
+	if h.iop.GetName() != "" {
 		labels[OwningResourceName] = h.iop.GetName()
+	}
+	if h.iop.GetNamespace() != "" {
 		labels[OwningResourceNamespace] = h.iop.GetNamespace()
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
@@ -287,6 +288,9 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
 			metrics.AddResource(objName, gvk.GroupKind())
 		}
+		if len(objects.Items) == 0 {
+			continue
+		}
 		usList = append(usList, objects)
 	}
 
@@ -306,53 +310,6 @@ func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
 		scope.Errorf("failed to list IstioOperator CR: %v", err)
 	}
 	return objects
-}
-
-// DeleteControlPlaneByManifests removed resources by manifests with matching revision label.
-// If purge option is set to true, all manifests would be removed regardless of labels match.
-func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.ManifestMap,
-	revision string, includeClusterResources bool,
-) error {
-	labels := map[string]string{
-		operatorLabelStr: operatorReconcileStr,
-	}
-	cpManifestMap := make(name.ManifestMap)
-	if revision != "" {
-		labels[label.IoIstioRev.Name] = revision
-	}
-	if !includeClusterResources {
-		// only delete istiod resources if revision is empty and --purge flag is not true.
-		cpManifestMap[name.PilotComponentName] = manifestMap[name.PilotComponentName]
-		manifestMap = cpManifestMap
-	}
-	for cn, mf := range manifestMap.Consolidated() {
-		if cn == string(name.IstioBaseComponentName) && !includeClusterResources {
-			continue
-		}
-		objects, err := object.ParseK8sObjectsFromYAMLManifest(mf)
-		if err != nil {
-			return fmt.Errorf("failed to parse k8s objects from yaml: %v", err)
-		}
-		if objects == nil {
-			continue
-		}
-		unstructuredObjects := unstructured.UnstructuredList{}
-		for _, obj := range objects {
-			if h.opts.DryRun {
-				h.opts.Log.LogAndPrintf("Not deleting object %s because of dry run.", obj.Hash())
-				continue
-			}
-			obju := obj.UnstructuredObject()
-			if err := h.applyLabelsAndAnnotations(obju, cn); err != nil {
-				return err
-			}
-			unstructuredObjects.Items = append(unstructuredObjects.Items, *obju)
-		}
-		if err := h.deleteResources(nil, labels, cn, &unstructuredObjects, includeClusterResources); err != nil {
-			return fmt.Errorf("failed to delete resources: %v", err)
-		}
-	}
-	return nil
 }
 
 // runForAllTypes will collect all existing resource types we care about. For each type, the callback function

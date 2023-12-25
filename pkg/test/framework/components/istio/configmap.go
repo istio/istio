@@ -24,6 +24,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
@@ -299,6 +300,11 @@ func (mc *meshConfig) UpdateMeshConfig(t resource.Context, update func(*meshconf
 
 			cfgMap, err := mc.getConfigMap(c, cfgMapName)
 			if err != nil {
+				// Remote clusters typically don't have mesh config, allow it to skip
+				if c.IsRemote() && kerrors.IsNotFound(err) {
+					scopes.Framework.Infof("skipped %s meshconfig patch, as it is a remote", c.Name())
+					return nil
+				}
 				return err
 			}
 

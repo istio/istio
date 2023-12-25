@@ -223,6 +223,9 @@ type Controller struct {
 	ambientIndex     AmbientIndex
 	configController model.ConfigStoreController
 	configCluster    bool
+
+	networksHandlerRegistration *mesh.WatcherHandlerRegistration
+	meshHandlerRegistration     *mesh.WatcherHandlerRegistration
 }
 
 // NewController creates a new Kubernetes controller
@@ -264,7 +267,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	if !c.opts.ConfigCluster || c.opts.DiscoveryNamespacesFilter == nil {
 		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
-	c.initDiscoveryHandlers(options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
+	c.initDiscoveryHandlers(c.opts.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
 
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
 
@@ -296,13 +299,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.meshWatcher = options.MeshWatcher
 	if c.opts.MeshNetworksWatcher != nil {
-		c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
+		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
 			c.reloadMeshNetworks()
 			c.onNetworkChange()
 		})
 		c.reloadMeshNetworks()
 	}
-
 	return c
 }
 
@@ -368,6 +370,17 @@ func (c *Controller) Cleanup() error {
 	if c.opts.XDSUpdater != nil {
 		c.opts.XDSUpdater.RemoveShard(model.ShardKeyFromRegistry(c))
 	}
+
+	// Unregister networks handler
+	if c.networksHandlerRegistration != nil {
+		c.opts.MeshNetworksWatcher.DeleteNetworksHandler(c.networksHandlerRegistration)
+	}
+
+	// Unregister mesh handler
+	if c.meshHandlerRegistration != nil {
+		c.opts.MeshWatcher.DeleteMeshHandler(c.meshHandlerRegistration)
+	}
+
 	return nil
 }
 
