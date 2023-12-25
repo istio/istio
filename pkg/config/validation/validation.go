@@ -2872,17 +2872,28 @@ func validateTCPMatch(match *networking.L4MatchAttributes) (errs error) {
 	return
 }
 
-func validateStringMatchPrefix(sm *networking.StringMatch, where string) error {
-	switch sm.GetMatchType().(type) {
+func validateStringMatch(sm *networking.StringMatch, where string) (errs error) {
+	if sm == nil {
+		return errs
+	}
+
+	var mt, match string
+	switch sm.MatchType.(type) {
+	case *networking.StringMatch_Exact:
+		match = sm.GetExact()
+		mt = "exact"
 	case *networking.StringMatch_Prefix:
-	default:
-		return nil
+		match = sm.GetPrefix()
+		mt = "prefix"
+	case *networking.StringMatch_Regex:
+		match = sm.GetRegex()
+		mt = "regex"
 	}
-	prefix := sm.GetPrefix()
-	if prefix == "" {
-		return fmt.Errorf("%q: prefix string match should not be empty", where)
+	if match == "" {
+		return fmt.Errorf("%q: %s string match should not be empty", where, mt)
 	}
-	return nil
+
+	return validateStringMatchRegexp(sm, where)
 }
 
 func validateStringMatchRegexp(sm *networking.StringMatch, where string) error {
@@ -3062,7 +3073,7 @@ func validateAllowOrigins(origin *networking.StringMatch) error {
 	if match == "" {
 		return fmt.Errorf("'%v' is not a valid match type for CORS allow origins", match)
 	}
-	return validateStringMatchRegexp(origin, "corsPolicy.allowOrigins")
+	return validateStringMatch(origin, "corsPolicy.allowOrigins")
 }
 
 func validateHTTPMethod(method string) error {
