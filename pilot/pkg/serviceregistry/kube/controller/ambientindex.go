@@ -23,7 +23,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/client-go/tools/cache"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
 	"istio.io/api/networking/v1alpha3"
@@ -39,7 +38,6 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	kubeutil "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
 	kubelabels "istio.io/istio/pkg/kube/labels"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/spiffe"
@@ -387,45 +385,24 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 		waypoints:                   map[model.WaypointScope]*workloadapi.GatewayAddress{},
 		serviceByAddr:               map[networkAddress]*model.ServiceInfo{},
 		serviceByNamespacedHostname: map[string]*model.ServiceInfo{},
+		servicesMap:                 map[types.NamespacedName]*apiv1alpha3.ServiceEntry{},
 	}
 
-	podHandler := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) {
-			idx.mu.Lock()
-			defer idx.mu.Unlock()
-			updates := idx.handlePod(nil, obj, false, c)
-			if len(updates) > 0 {
-				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					ConfigsUpdated: updates,
-					Reason:         model.NewReasonStats(model.AmbientUpdate),
-				})
-			}
-		},
-		UpdateFunc: func(oldObj, newObj any) {
-			idx.mu.Lock()
-			defer idx.mu.Unlock()
-			updates := idx.handlePod(oldObj, newObj, false, c)
-			if len(updates) > 0 {
-				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					ConfigsUpdated: updates,
-					Reason:         model.NewReasonStats(model.AmbientUpdate),
-				})
-			}
-		},
-		DeleteFunc: func(obj any) {
-			idx.mu.Lock()
-			defer idx.mu.Unlock()
-			updates := idx.handlePod(nil, obj, true, c)
-			if len(updates) > 0 {
-				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					ConfigsUpdated: updates,
-					Reason:         model.NewReasonStats(model.AmbientUpdate),
-				})
-			}
-		},
+	podHandler := func(old, pod *v1.Pod, ev model.Event) error {
+		log.Debugf("ambient podHandler pod %s/%s, event %v", pod.Namespace, pod.Name, ev)
+		idx.mu.Lock()
+		defer idx.mu.Unlock()
+		updates := idx.handlePod(old, pod, ev, c)
+		if len(updates) > 0 {
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+				ConfigsUpdated: updates,
+				Reason:         model.NewReasonStats(model.AmbientUpdate),
+			})
+		}
+		return nil
 	}
 
-	c.podsClient.AddEventHandler(podHandler)
+	registerHandlers[*v1.Pod](c, c.podsClient, "", podHandler, nil)
 
 	// We only handle WLE and SE from config cluster, otherwise we could get duplicate workload from remote clusters.
 	if c.configCluster {
@@ -490,79 +467,51 @@ func (c *Controller) setupIndex() *AmbientIndexImpl {
 	c.configController.RegisterEventHandler(gvk.AuthorizationPolicy, c.AuthorizationPolicyHandler)
 	c.configController.RegisterEventHandler(gvk.PeerAuthentication, c.PeerAuthenticationHandler)
 
-	serviceHandler := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) {
-			idx.mu.Lock()
-			defer idx.mu.Unlock()
-			updates := idx.handleService(obj, false, c)
-			if len(updates) > 0 {
-				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					ConfigsUpdated: updates,
-					Reason:         model.NewReasonStats(model.AmbientUpdate),
-				})
-			}
-		},
-		UpdateFunc: func(oldObj, newObj any) {
-			idx.mu.Lock()
-			defer idx.mu.Unlock()
-			updates := idx.handleService(oldObj, true, c)
-			updates2 := idx.handleService(newObj, false, c)
+	serviceHandler := func(old, svc *v1.Service, ev model.Event) error {
+		log.Debugf("ambient serviceHandler service %s/%s, event %v", svc.Namespace, svc.Name, ev)
+		var updates sets.Set[model.ConfigKey]
+		idx.mu.Lock()
+		defer idx.mu.Unlock()
+		switch ev {
+		case model.EventAdd:
+			updates = idx.handleService(svc, ev, c)
+		case model.EventUpdate:
+			// TODO(hzxuzhonghu): handle svc update within `handleService`, so that we donot need to check event type here.
+			updates = idx.handleService(old, model.EventDelete, c)
+			updates2 := idx.handleService(svc, ev, c)
 			if updates == nil {
 				updates = updates2
 			} else {
-				for k, v := range updates2 {
-					updates[k] = v
-				}
+				updates.Union(updates2)
 			}
-
-			if len(updates) > 0 {
-				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					ConfigsUpdated: updates,
-					Reason:         model.NewReasonStats(model.AmbientUpdate),
-				})
-			}
-		},
-		DeleteFunc: func(obj any) {
-			idx.mu.Lock()
-			defer idx.mu.Unlock()
-			updates := idx.handleService(obj, true, c)
-			if len(updates) > 0 {
-				c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
-					ConfigsUpdated: updates,
-					Reason:         model.NewReasonStats(model.AmbientUpdate),
-				})
-			}
-		},
+		case model.EventDelete:
+			updates = idx.handleService(svc, ev, c)
+		}
+		if len(updates) > 0 {
+			c.opts.XDSUpdater.ConfigUpdate(&model.PushRequest{
+				ConfigsUpdated: updates,
+				Reason:         model.NewReasonStats(model.AmbientUpdate),
+			})
+		}
+		return nil
 	}
 
-	idx.servicesMap = make(map[types.NamespacedName]*apiv1alpha3.ServiceEntry)
-	c.services.AddEventHandler(serviceHandler)
+	registerHandlers[*v1.Service](c, c.services, "", serviceHandler, nil)
 
-	kubeGatewayHandler := cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj any) {
-			log.Debug("KubeGatewayHandler AddFunc")
-			idx.handleKubeGateway(nil, obj, false, c)
-		},
-		UpdateFunc: func(oldObj, newObj any) {
-			log.Debug("KubeGatewayHandler UpdateFunc")
-			idx.handleKubeGateway(oldObj, newObj, false, c)
-		},
-		DeleteFunc: func(obj any) {
-			log.Debug("KubeGatewayHandler DeleteFunc")
-			idx.handleKubeGateway(nil, obj, true, c)
-		},
+	kubeGatewayHandler := func(old, newGateway *k8sbeta.Gateway, ev model.Event) error {
+		log.Debugf("ambient kubeGatewayHandler gateway %s/%s, event %v", newGateway.Namespace, newGateway.Name, ev)
+		idx.handleKubeGateway(old, newGateway, ev, c)
+		return nil
 	}
 
 	// initNetworkManager initializes the gatewayResourceClient, it should not be re-initialized in setupIndex
-	c.gatewayResourceClient.AddEventHandler(kubeGatewayHandler)
+	registerHandlers[*k8sbeta.Gateway](c, c.gatewayResourceClient, "", kubeGatewayHandler, nil)
 
 	return &idx
 }
 
 // NOTE: Mutex is locked prior to being called.
-func (a *AmbientIndexImpl) handlePod(oldObj, newObj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
-	p := controllers.Extract[*v1.Pod](newObj)
-	old := controllers.Extract[*v1.Pod](oldObj)
+func (a *AmbientIndexImpl) handlePod(old, p *v1.Pod, ev model.Event, c *Controller) sets.Set[model.ConfigKey] {
 	if old != nil {
 		// compare only labels and pod phase, which are what we care about
 		if maps.Equal(old.Labels, p.Labels) &&
@@ -576,7 +525,7 @@ func (a *AmbientIndexImpl) handlePod(oldObj, newObj any, isDelete bool, c *Contr
 	updates := sets.New[model.ConfigKey]()
 
 	var wl *model.WorkloadInfo
-	if !isDelete {
+	if ev != model.EventDelete {
 		wl = a.extractWorkload(p, c)
 	}
 	uid := c.generatePodUID(p)
@@ -661,8 +610,7 @@ func toInternalNetworkAddresses(nwAddrs []*workloadapi.NetworkAddress) []network
 }
 
 // NOTE: Mutex is locked prior to being called.
-func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) sets.Set[model.ConfigKey] {
-	svc := controllers.Extract[*v1.Service](obj)
+func (a *AmbientIndexImpl) handleService(svc *v1.Service, ev model.Event, c *Controller) sets.Set[model.ConfigKey] {
 	updates := sets.New[model.ConfigKey]()
 
 	si := c.constructService(svc)
@@ -686,7 +634,7 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 		}
 	}
 	namespacedName := si.ResourceName()
-	if isDelete {
+	if ev == model.EventDelete {
 		for _, networkAddr := range networkAddrs {
 			delete(a.serviceByAddr, networkAddr)
 		}
@@ -705,9 +653,7 @@ func (a *AmbientIndexImpl) handleService(obj any, isDelete bool, c *Controller) 
 	return updates
 }
 
-func (a *AmbientIndexImpl) handleKubeGateway(_, newObj any, isDelete bool, c *Controller) {
-	gateway := controllers.Extract[*k8sbeta.Gateway](newObj)
-
+func (a *AmbientIndexImpl) handleKubeGateway(_, gateway *k8sbeta.Gateway, event model.Event, c *Controller) {
 	// gateway.Status.Addresses should only be populated once the Waypoint's deployment has at least 1 ready pod, it should never be removed after going ready
 	// ignore Kubernetes Gateways which aren't waypoints
 	// TODO: should this be WaypointGatewayClass or matches a label?
@@ -740,7 +686,7 @@ func (a *AmbientIndexImpl) handleKubeGateway(_, newObj any, isDelete bool, c *Co
 		updates := sets.New[model.ConfigKey]()
 		a.mu.Lock()
 		defer a.mu.Unlock()
-		if isDelete {
+		if event == model.EventDelete {
 			delete(a.waypoints, scope)
 			updates.Merge(a.updateWaypoint(scope, addr, true))
 		} else if !proto.Equal(a.waypoints[scope], addr) {

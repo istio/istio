@@ -96,6 +96,9 @@ var (
 )
 
 func incrementEvent(kind, event string) {
+	if kind == "" || event == "" {
+		return
+	}
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
@@ -531,6 +534,8 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 // FilterOutFunc func for filtering out objects during update callback
 type FilterOutFunc[T controllers.Object] func(old, cur T) bool
 
+// registerHandlers registers a handler for a given informer
+// Note: `otype` is used for metric, if empty, no metric will be reported
 func registerHandlers[T controllers.ComparableObject](c *Controller,
 	informer kclient.Informer[T], otype string,
 	handler func(T, T, model.Event) error, filter FilterOutFunc[T],
@@ -559,7 +564,6 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 						return
 					}
 				}
-
 				incrementEvent(otype, "update")
 				c.queue.Push(func() error {
 					return wrappedHandler(old, cur, model.EventUpdate)
