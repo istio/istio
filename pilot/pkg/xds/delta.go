@@ -169,15 +169,11 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl, ignoreEvents := con.pushDetails()
+	wrl := con.pushDetails()
 	for _, w := range wrl {
 		if err := s.pushDeltaXds(con, w, pushRequest); err != nil {
 			return err
 		}
-	}
-	if pushRequest.Full {
-		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, ignoreEvents)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())

@@ -782,15 +782,11 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl, ignoreEvents := con.pushDetails()
+	wrl := con.pushDetails()
 	for _, w := range wrl {
 		if err := s.pushXds(con, w, pushRequest); err != nil {
 			return err
 		}
-	}
-	if pushRequest.Full {
-		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, ignoreEvents)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -1011,18 +1007,14 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 // watched resources for the proxy, ordered in accordance with known push order.
 // It also returns the lis of typeUrls.
 // nolint
-func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.String) {
+func (conn *Connection) pushDetails() []*model.WatchedResource {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
-	typeUrls := sets.New[string]()
-	for k := range conn.proxy.WatchedResources {
-		typeUrls.Insert(k)
-	}
-	return orderWatchedResources(conn.proxy.WatchedResources), typeUrls
+	return orderWatchedResources(conn.proxy.WatchedResources)
 }
 
 func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
-	wr := make([]*model.WatchedResource, 0, len(resources))
+	wr := make([]*model.WatchedResource, len(resources))
 	// first add all known types, in order
 	for _, tp := range PushOrder {
 		if w, f := resources[tp]; f {
