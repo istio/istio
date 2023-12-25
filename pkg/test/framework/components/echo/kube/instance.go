@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/pkg/config/protocol"
+	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test"
 	echoClient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -48,6 +49,8 @@ var (
 
 	startDelay = retry.BackoffDelay(time.Millisecond * 100)
 )
+
+var fwLog = log.RegisterScope("forwarder", "echo kubeinstance")
 
 type instance struct {
 	id             resource.ID
@@ -321,6 +324,8 @@ func (c *instance) aggregateResponses(opts echo.CallOptions) (echo.CallResult, e
 		// for gRPC calls, use XDS resolver
 		opts.Scheme = scheme.XDS
 	}
+
+	fwLog.Infof("forwarding request to scheme %v", opts.Scheme)
 
 	resps := make(echoClient.Responses, 0)
 	workloads, err := c.Workloads()

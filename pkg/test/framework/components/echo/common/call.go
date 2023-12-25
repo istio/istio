@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"time"
 
+	"istio.io/istio/pkg/log"
 	echoclient "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common"
 	"istio.io/istio/pkg/test/echo/common/scheme"
@@ -30,6 +31,8 @@ import (
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/pkg/test/util/retry"
 )
+
+var fwLog = log.RegisterScope("call", "echo kubeinstance")
 
 type sendFunc func(req *proto.ForwardEchoRequest) (echoclient.Responses, error)
 
@@ -194,6 +197,7 @@ func ForwardEcho(srcName string, from echo.Caller, opts echo.CallOptions, client
 		if err != nil {
 			return nil, err
 		}
+		fwLog.Infof("forwarding request to scheme %v", opts.Scheme)
 		return c.ForwardEcho(context.Background(), req)
 	})
 	if err != nil {
