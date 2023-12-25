@@ -2756,6 +2756,26 @@ func TestValidateHTTPRoute(t *testing.T) {
 				},
 			}},
 		}, valid: false},
+		{name: "empty exact header match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"emptyexact": {MatchType: &networking.StringMatch_Exact{Exact: ""}},
+				},
+			}},
+		}, valid: false},
+		{name: "empty regex header match", route: &networking.HTTPRoute{
+			Route: []*networking.HTTPRouteDestination{{
+				Destination: &networking.Destination{Host: "foo.bar"},
+			}},
+			Match: []*networking.HTTPMatchRequest{{
+				Headers: map[string]*networking.StringMatch{
+					"emptyregex": {MatchType: &networking.StringMatch_Regex{Regex: ""}},
+				},
+			}},
+		}, valid: false},
 		{name: "nil match", route: &networking.HTTPRoute{
 			Route: []*networking.HTTPRouteDestination{{
 				Destination: &networking.Destination{Host: "foo.bar"},
