@@ -484,7 +484,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				}
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
-			if err := sendUpstream(con.upstream, req); err != nil {
+			if err := con.upstream.Send(req); err != nil {
 				err = fmt.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
 				con.upstreamError <- err
 				return
@@ -591,7 +591,7 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 		proxyLog.Errorf("downstream [%d] dropped xds push to Envoy, connection already closed", con.conID)
 		return
 	}
-	if err := sendDownstream(con.downstream, resp); err != nil {
+	if err := con.downstream.Send(resp); err != nil {
 		select {
 		case con.downstreamError <- err:
 			// we cannot return partial error and hope to restart just the downstream
@@ -684,16 +684,6 @@ func (p *XdsProxy) getTLSOptions(agent *Agent) (*istiogrpc.TLSOptions, error) {
 		ServerAddress: agent.proxyConfig.DiscoveryAddress,
 		SAN:           p.istiodSAN,
 	}, nil
-}
-
-// sendUpstream sends discovery request.
-func sendUpstream(upstream xds.DiscoveryClient, request *discovery.DiscoveryRequest) error {
-	return istiogrpc.Send(upstream.Context(), func() error { return upstream.Send(request) })
-}
-
-// sendDownstream sends discovery response.
-func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse) error {
-	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
 }
 
 // tapRequest() sends "req" to Istiod, and returns a matching response, or `nil` on timeout.

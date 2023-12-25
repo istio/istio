@@ -207,7 +207,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
 
-			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
+			if err := con.upstreamDeltas.Send(req); err != nil {
 				err = fmt.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
 				con.upstreamError <- err
 				return
@@ -314,7 +314,7 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 		proxyLog.Errorf("downstream [%d] dropped delta xds push to Envoy, connection already closed", con.conID)
 		return
 	}
-	if err := sendDownstreamDelta(con.downstreamDeltas, resp); err != nil {
+	if err := con.downstreamDeltas.Send(resp); err != nil {
 		select {
 		case con.downstreamError <- err:
 			proxyLog.Errorf("downstream [%d] send error: %v", con.conID, err)
@@ -324,14 +324,6 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 
 		return
 	}
-}
-
-func sendUpstreamDelta(deltaUpstream xds.DeltaDiscoveryClient, req *discovery.DeltaDiscoveryRequest) error {
-	return istiogrpc.Send(deltaUpstream.Context(), func() error { return deltaUpstream.Send(req) })
-}
-
-func sendDownstreamDelta(deltaDownstream xds.DeltaDiscoveryStream, res *discovery.DeltaDiscoveryResponse) error {
-	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) })
 }
 
 func (p *XdsProxy) sendDeltaHealthRequest(req *discovery.DeltaDiscoveryRequest) {

@@ -925,14 +925,13 @@ func (s *DiscoveryServer) removeCon(conID string) {
 	}
 }
 
-// Send with timeout if configured.
 func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
-	sendHandler := func() error {
+	sendResponse := func() error {
 		start := time.Now()
 		defer func() { recordSendTime(time.Since(start)) }()
 		return conn.stream.Send(res)
 	}
-	err := istiogrpc.Send(conn.stream.Context(), sendHandler)
+	err := sendResponse()
 	if err == nil {
 		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()

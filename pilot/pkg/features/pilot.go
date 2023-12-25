@@ -487,12 +487,6 @@ var (
 	XDSCacheIndexClearInterval = env.Register("PILOT_XDS_CACHE_INDEX_CLEAR_INTERVAL", 5*time.Second,
 		"The interval for xds cache index clearing.").Get()
 
-	XdsPushSendTimeout = env.Register(
-		"PILOT_XDS_SEND_TIMEOUT",
-		0*time.Second,
-		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
-	).Get()
-
 	RemoteClusterTimeout = env.Register(
 		"PILOT_REMOTE_CLUSTER_TIMEOUT",
 		30*time.Second,
