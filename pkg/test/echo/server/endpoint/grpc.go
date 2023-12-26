@@ -293,6 +293,7 @@ func (h *EchoGrpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*pr
 	}
 
 	epLog.WithLabels("id", id).Infof("GRPC Response")
+	epLog.Infof("GRPC Response: %s", body.String())
 	return &proto.EchoResponse{Message: body.String()}, nil
 }
 
