@@ -1271,7 +1271,7 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 
 			switch outputFormat {
 			case summaryOutput:
-				return configWriter.PrintVersionSummary()
+				return configWriter.PrintBootstrapSummary()
 			case jsonOutput, yamlOutput:
 				return configWriter.PrintBootstrapDump(outputFormat)
 			default:
