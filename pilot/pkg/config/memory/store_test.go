@@ -53,6 +53,19 @@ func BenchmarkStoreGet(b *testing.B) {
 	}
 }
 
+func BenchmarkStoreList(b *testing.B) {
+	s := initStore(b)
+	gvk := config.GroupVersionKind{
+		Group:   "networking.istio.io",
+		Version: "v1alpha3",
+		Kind:    "ServiceEntry",
+	}
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		s.List(gvk, "")
+	}
+}
+
 func BenchmarkStoreCreate(b *testing.B) {
 	for n := 0; n < b.N; n++ {
 		initStore(b)
