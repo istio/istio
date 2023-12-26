@@ -202,7 +202,11 @@ func ForwardEcho(srcName string, from echo.Caller, opts echo.CallOptions, client
 		if opts.PropagateResponse != nil {
 			opts.PropagateResponse(&http.Request{}, &http.Response{})
 		}
-		return c.ForwardEcho(context.Background(), req)
+		responses, err := c.ForwardEcho(context.Background(), req)
+		for _, res := range responses {
+			fwLog.Infof("response headers %v", res.ResponseHeaders)
+		}
+		return responses, err
 	})
 	if err != nil {
 		return echo.CallResult{}, fmt.Errorf("failed calling %s->'%s': %v",
