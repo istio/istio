@@ -144,12 +144,6 @@ func (z *ztunnelServer) Close() error {
 	return z.listener.Close()
 }
 
-// this is used in tests
-// nolint: unused
-func (z *ztunnelServer) numConns() int {
-	return z.conns.len()
-}
-
 func (z *ztunnelServer) Run(ctx context.Context) {
 	go func() {
 		<-ctx.Done()
@@ -195,6 +189,12 @@ func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection)
 	z.conns.addConn(conn)
 	defer z.conns.deleteConn(conn)
 
+	// get hello message from ztunnel
+	m, _, err := readProto[zdsapi.ZdsHello](conn.u, readWriteDeadline, nil)
+	if err != nil {
+		return err
+	}
+	log.Infof("received hello from ztunnel. %v", m.Version)
 	log.Debug("sending snapshot to ztunnel")
 	if err := z.sendSnapshot(ctx, conn); err != nil {
 		return err
