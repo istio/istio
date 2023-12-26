@@ -163,7 +163,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 	// This is mostly just for visual tidiness and cleanup, as we can delete the secondary chains and jumps
 	// without polluting the main table too much.
 
-	// -t mangle -A OUTPUT -j ISTIO_PRERT
+	// -t mangle -A PREROUTING -j ISTIO_PRERT
 	iptablesBuilder.AppendRule(
 		iptableslog.UndefinedCommand, iptablesconstants.PREROUTING, iptablesconstants.MANGLE,
 		"-j", ChainInpodPrerouting,
@@ -220,6 +220,14 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 		"-m", "tcp",
 		"-j", "ACCEPT",
 	)
+
+	// prevent intercept traffic from app ==> app by pod ip
+	iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
+		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
+		"!", "-d", iptablesconstants.IPVersionSpecific, // ignore traffic to localhost ip, as this rule means to catch traffic to pod ip.
+		"-p", iptablesconstants.TCP,
+		"-i", "lo",
+		"-j", "ACCEPT")
 
 	// CLI: -A ISTIO_PRERT -p tcp -m tcp --dport <INPORT> -m mark ! --mark 0x3/0xfff -j TPROXY --on-port <INPORT> --on-ip 127.0.0.1 --tproxy-mark 0x111/0xfff
 	//
@@ -301,6 +309,16 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 		"--mark", inpodTproxyMark,
 		"-j", "ACCEPT",
 	)
+
+	// Do not redirect app calls to back itself via Ztunnel when using the endpoint address
+	// e.g. appN => appN by lo
+	iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
+		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
+		"!", "-d", iptablesconstants.IPVersionSpecific,
+		"-o", "lo",
+		"-j", "ACCEPT",
+	)
+
 	// CLI: -A ISTIO_OUTPUT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x3/0xfff -j REDIRECT --to-ports <OUTPORT>
 	//
 	// DESC: If this is outbound, not bound for localhost, and does not have our packet mark, redirect to ztunnel proxy <OUTPORT>
