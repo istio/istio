@@ -48,6 +48,7 @@ type Config struct {
 	RestoreFormat     bool `json:"RESTORE_FORMAT"`
 	TraceLogging      bool `json:"IPTABLES_TRACE_LOGGING"`
 	EnableInboundIPv6 bool `json:"ENABLE_INBOUND_IPV6"`
+	RedirectDNS       bool `json:"REDIRECT_DNS"`
 }
 
 type IptablesConfigurator struct {
@@ -61,6 +62,7 @@ func ipbuildConfig(c *Config) *iptablesconfig.Config {
 		RestoreFormat:     c.RestoreFormat,
 		TraceLogging:      c.TraceLogging,
 		EnableInboundIPv6: c.EnableInboundIPv6,
+		RedirectDNS:       c.RedirectDNS,
 	}
 }
 
@@ -150,6 +152,8 @@ func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSNAT *netip.Addr) err
 }
 
 func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *builder.IptablesBuilder {
+	redirectDns := cfg.cfg.RedirectDNS
+
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodTProxyMask)
 
@@ -275,15 +279,17 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 	// CLI: -A ISTIO_OUTPUT ! -o lo -p udp -m udp --dport 53 -j REDIRECT --to-port 15053
 	//
 	// DESC: If this is a UDP DNS request to a non-localhost resolver, send it to ztunnel DNS proxy port
-	iptablesBuilder.AppendRule(
-		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
-		"!", "-o", "lo",
-		"-p", "udp",
-		"-m", "udp",
-		"--dport", "53",
-		"-j", "REDIRECT",
-		"--to-port", fmt.Sprintf("%d", constants.DNSCapturePort),
-	)
+	if redirectDns {
+		iptablesBuilder.AppendRule(
+			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
+			"!", "-o", "lo",
+			"-p", "udp",
+			"-m", "udp",
+			"--dport", "53",
+			"-j", "REDIRECT",
+			"--to-port", fmt.Sprintf("%d", constants.DNSCapturePort),
+		)
+	}
 
 	// CLI: -A ISTIO_OUTPUT -p tcp -m mark --mark 0x111/0xfff -j ACCEPT
 	//
