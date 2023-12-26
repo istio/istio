@@ -217,6 +217,7 @@ func connect(ctx context.Context) struct {
 		uid: ns,
 	}
 	ret := connectWithPods(ctx, pods)
+
 	return struct {
 		ztunClient *net.UnixConn
 		ztunServer *ztunnelServer
@@ -245,6 +246,10 @@ func connectWithPods(ctx context.Context, pods PodNetnsCache) struct {
 	if err != nil {
 		panic(err)
 	}
+
+	// send hello
+	sendHello(ztunClient)
+
 	return struct {
 		ztunClient *net.UnixConn
 		ztunServer *ztunnelServer
@@ -285,6 +290,21 @@ func sendAck(c *net.UnixConn) {
 		Payload: &zdsapi.WorkloadResponse_Ack{
 			Ack: &zdsapi.Ack{},
 		},
+	}
+	data, err := proto.Marshal(ack)
+	if err != nil {
+		panic(err)
+	}
+	err = c.SetWriteDeadline(time.Now().Add(time.Second))
+	if err != nil {
+		panic(err)
+	}
+	c.Write(data)
+}
+
+func sendHello(c *net.UnixConn) {
+	ack := &zdsapi.ZdsHello{
+		Version: zdsapi.Version_V1,
 	}
 	data, err := proto.Marshal(ack)
 	if err != nil {
