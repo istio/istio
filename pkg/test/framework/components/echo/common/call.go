@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -198,6 +199,9 @@ func ForwardEcho(srcName string, from echo.Caller, opts echo.CallOptions, client
 			return nil, err
 		}
 		fwLog.Infof("forwarding request to scheme %v", opts.Scheme)
+		if opts.PropagateResponse != nil {
+			opts.PropagateResponse(&http.Request{}, &http.Response{})
+		}
 		return c.ForwardEcho(context.Background(), req)
 	})
 	if err != nil {
