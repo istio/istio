@@ -53,6 +53,7 @@ func ParseResponses(req *proto.ForwardEchoRequest, resp *proto.ForwardEchoRespon
 }
 
 func parseResponse(output string) Response {
+	fwLog.Infof("parsing response %s", output)
 	out := Response{
 		RawContent:      output,
 		RequestHeaders:  make(http.Header),
@@ -138,7 +139,7 @@ func parseResponse(output string) Response {
 	matches = responseHeaderFieldRegex.FindAllStringSubmatch(output, -1)
 	for _, kv := range matches {
 		sl := strings.SplitN(kv[1], ":", 2)
-		fwLog.Infof("response header %v", kv)
+		// fwLog.Infof("response header %v", kv)
 		if len(sl) != 2 {
 			continue
 		}
