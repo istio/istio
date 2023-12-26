@@ -2778,7 +2778,7 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 			Meta: config.Meta{
 				Name:              "foo2",
 				Namespace:         "default",
-				CreationTimestamp: olderTime.Add(30 * time.Minute), // Make sure we're newer than wild.default
+				CreationTimestamp: olderTime.Add(30 * time.Minute), // This should not be used despite being older than foo
 			},
 			Spec: &networking.VirtualService{
 				Hosts: []string{"foo.example.com"},
@@ -2843,7 +2843,7 @@ func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
 			virtualServices: virtualServices,
 			services:        services,
 			expectedIndex: map[host.Name]types.NamespacedName{
-				"foo.example.com":     {Name: "foo2", Namespace: "default"},
+				"foo.example.com":     {Name: "foo", Namespace: "default"},
 				"baz.example.com":     {Name: "wild", Namespace: "default"},
 				"qux.bar.example.com": {Name: "barwild", Namespace: "default"},
 				"*.bar.example.com":   {Name: "barwild", Namespace: "default"},
