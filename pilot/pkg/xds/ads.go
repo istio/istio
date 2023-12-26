@@ -990,7 +990,7 @@ func (conn *Connection) pushDetails() []*model.WatchedResource {
 }
 
 func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
-	wr := make([]*model.WatchedResource, len(resources))
+	wr := make([]*model.WatchedResource, 0, len(resources))
 	// first add all known types, in order
 	for _, tp := range PushOrder {
 		if w, f := resources[tp]; f {
