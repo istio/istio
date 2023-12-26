@@ -139,7 +139,6 @@ func parseResponse(output string) Response {
 	matches = responseHeaderFieldRegex.FindAllStringSubmatch(output, -1)
 	for _, kv := range matches {
 		sl := strings.SplitN(kv[1], ":", 2)
-		// fwLog.Infof("response header %v", kv)
 		if len(sl) != 2 {
 			continue
 		}

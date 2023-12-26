@@ -2481,7 +2481,7 @@ spec:
       consistentHash:
         httpCookie:
           name: session-cookie
-          ttl: 3600s
+          ttl: 0s
 `, svcName, svcName)
 
 			cookieWithoutTTLDest := fmt.Sprintf(`
