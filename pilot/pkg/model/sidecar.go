@@ -792,7 +792,6 @@ func computeWildcardHostVirtualServiceIndex(virtualServices []config.Config, ser
 				_, exists := fqdnVirtualServiceHostIndex[host.Name(h)]
 				if !exists {
 					fqdnVirtualServiceHostIndex[host.Name(h)] = vs
-					continue
 				}
 			}
 		}
