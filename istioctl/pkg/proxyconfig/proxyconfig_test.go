@@ -235,8 +235,10 @@ func TestPrintProxyConfigSummary(t *testing.T) {
 	cmd := ProxyConfig(cli.NewFakeContext(&cli.NewFakeContextOption{
 		Namespace: "default",
 	}))
-	cmd.SetArgs([]string{"all",
-		"-f", "testdata/config_dump.json"})
+	cmd.SetArgs([]string{
+		"all",
+		"-f", "testdata/config_dump.json",
+	})
 	out := bytes.Buffer{}
 	cmd.SetOut(&out)
 	assert.NoError(t, cmd.Execute())
