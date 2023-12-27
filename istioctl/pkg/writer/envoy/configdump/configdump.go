@@ -65,7 +65,7 @@ func (c *ConfigWriter) PrintBootstrapDump(outputFormat string) error {
 	}
 	out, err := protomarshal.ToJSONWithIndent(bootstrapDump, "    ")
 	if err != nil {
-		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump")
+		return fmt.Errorf("unable to marshal bootstrap in Envoy config dump: %v", err)
 	}
 	if outputFormat == "yaml" {
 		outbyte, err := yaml.JSONToYAML([]byte(out))
@@ -89,7 +89,7 @@ func (c *ConfigWriter) PrintSecretDump(outputFormat string) error {
 	}
 	out, err := protomarshal.ToJSONWithIndent(secretDump, "    ")
 	if err != nil {
-		return fmt.Errorf("unable to marshal secrets in Envoy config dump")
+		return fmt.Errorf("unable to marshal secrets in Envoy config dump: %v", err)
 	}
 	if outputFormat == "yaml" {
 		outbyte, err := yaml.JSONToYAML([]byte(out))
