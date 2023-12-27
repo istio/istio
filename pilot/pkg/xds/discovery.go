@@ -664,3 +664,7 @@ func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
 	defer cancel()
 	return s.RequestRateLimit.Wait(wait)
 }
+
+func (s *DiscoveryServer) NextVersion() string {
+	return time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(s.pushVersion.Inc(), 10)
+}
