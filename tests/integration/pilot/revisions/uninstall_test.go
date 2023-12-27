@@ -21,7 +21,6 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -35,7 +34,6 @@ import (
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/test"
-	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/cluster"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
@@ -52,8 +50,6 @@ const (
 
 	revisionNotFound = "could not find target revision"
 )
-
-var ManifestPath = filepath.Join(env.IstioSrc, "manifests")
 
 var allGVKs = append(helmreconciler.NamespacedResources(&version.Info{Major: "1", Minor: "24"}), helmreconciler.ClusterCPResources...)
 
