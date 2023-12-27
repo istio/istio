@@ -50,12 +50,11 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream)
 	proxyLog.Debugf("accepted delta xds connection from envoy, forwarding to upstream")
 
 	con := &ProxyConnection{
-		conID:             connectionNumber.Inc(),
-		upstreamError:     make(chan error, 2), // can be produced by recv and send
-		downstreamError:   make(chan error, 2), // can be produced by recv and send
-		deltaRequestsChan: channels.NewUnbounded[*discovery.DeltaDiscoveryRequest](),
-		// Allow a buffer of 1. This ensures we queue up at most 2 (one in process, 1 pending) responses before forwarding.
-		deltaResponsesChan: make(chan *discovery.DeltaDiscoveryResponse, 1),
+		conID:              connectionNumber.Inc(),
+		upstreamError:      make(chan error, 2), // can be produced by recv and send
+		downstreamError:    make(chan error, 2), // can be produced by recv and send
+		deltaRequestsChan:  channels.NewUnbounded[*discovery.DeltaDiscoveryRequest](),
+		deltaResponsesChan: channels.NewUnbounded[*discovery.DeltaDiscoveryResponse](),
 		stopChan:           make(chan struct{}),
 		downstreamDeltas:   downstream,
 	}
@@ -108,10 +107,7 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 				}
 				return
 			}
-			select {
-			case con.deltaResponsesChan <- resp:
-			case <-con.stopChan:
-			}
+			con.deltaResponsesChan.Put(resp)
 		}
 	}()
 
@@ -222,7 +218,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 	forwardEnvoyCh := make(chan *discovery.DeltaDiscoveryResponse, 1)
 	for {
 		select {
-		case resp := <-con.deltaResponsesChan:
+		case resp := <-con.deltaResponsesChan.Get():
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()

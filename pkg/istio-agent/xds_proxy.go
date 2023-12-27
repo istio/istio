@@ -258,9 +258,9 @@ type ProxyConnection struct {
 	upstreamError      chan error
 	downstreamError    chan error
 	requestsChan       *channels.Unbounded[*discovery.DiscoveryRequest]
-	responsesChan      chan *discovery.DiscoveryResponse
+	responsesChan      *channels.Unbounded[*discovery.DiscoveryResponse]
 	deltaRequestsChan  *channels.Unbounded[*discovery.DeltaDiscoveryRequest]
-	deltaResponsesChan chan *discovery.DeltaDiscoveryResponse
+	deltaResponsesChan *channels.Unbounded[*discovery.DeltaDiscoveryResponse]
 	stopChan           chan struct{}
 	downstream         adsStream
 	upstream           xds.DiscoveryClient
@@ -321,9 +321,8 @@ func (p *XdsProxy) handleStream(downstream adsStream) error {
 		// the control plane requires substantial changes. Instead, we make the requests channel
 		// unbounded. This is the least likely to cause issues as the messages we store here are the
 		// smallest relative to other channels.
-		requestsChan: channels.NewUnbounded[*discovery.DiscoveryRequest](),
-		// Allow a buffer of 1. This ensures we queue up at most 2 (one in process, 1 pending) responses before forwarding.
-		responsesChan: make(chan *discovery.DiscoveryResponse, 1),
+		requestsChan:  channels.NewUnbounded[*discovery.DiscoveryRequest](),
+		responsesChan: channels.NewUnbounded[*discovery.DiscoveryResponse](),
 		stopChan:      make(chan struct{}),
 		downstream:    downstream,
 	}
@@ -385,10 +384,7 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 				}
 				return
 			}
-			select {
-			case con.responsesChan <- resp:
-			case <-con.stopChan:
-			}
+			con.responsesChan.Put(resp)
 		}
 	}()
 
@@ -499,7 +495,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 	forwardEnvoyCh := make(chan *discovery.DiscoveryResponse, 1)
 	for {
 		select {
-		case resp := <-con.responsesChan:
+		case resp := <-con.responsesChan.Get():
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
