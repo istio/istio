@@ -45,6 +45,7 @@ import (
 	opconfig "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config/mesh"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
@@ -661,9 +662,9 @@ func IntoObject(injector Injector, sidecarTemplate Templates, valuesConfig Value
 		podSpec = &job.Spec.JobTemplate.Spec.Template.Spec
 	case *corev1.Pod:
 		pod := v
-		typeMeta = pod.TypeMeta
 		metadata = &pod.ObjectMeta
-		deploymentMetadata = pod.ObjectMeta
+		// sync from webhook inject
+		deploymentMetadata, typeMeta = kube.GetDeployMetaFromPod(pod)
 		podSpec = &pod.Spec
 	case *appsv1.Deployment: // Added to be explicit about the most expected case
 		deploy := v
