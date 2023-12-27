@@ -296,6 +296,7 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 }
 `
 
+// nolint: lll
 const clientsTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
@@ -393,10 +394,10 @@ func GetInformerFiltered[T runtime.Object](c ClientGetter, opts ktypes.InformerO
 	{{- if not .Resource.Synthetic }}
 	case *{{ .IstioAwareClientImport }}.{{ .Resource.Kind }}:
 		l = func(options metav1.ListOptions) (runtime.Object, error) {
-			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}""{{end}}).List(context.Background(), options)
+			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}features.InformerWatchNamespace{{end}}).List(context.Background(), options)
 		}
 		w = func(options metav1.ListOptions) (watch.Interface, error) {
-			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}""{{end}}).Watch(context.Background(), options)
+			return c.{{.ClientGetter}}().{{ .ClientGroupPath }}().{{ .ClientTypePath }}({{if not .Resource.ClusterScoped}}features.InformerWatchNamespace{{end}}).Watch(context.Background(), options)
 		}
 	{{- end }}
 {{- end }}
