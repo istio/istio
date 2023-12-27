@@ -384,7 +384,12 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 				}
 				return
 			}
-			con.responsesChan.Put(resp)
+			select {
+			case <-con.stopChan:
+				return
+			default:
+				con.responsesChan.Put(resp)
+			}
 		}
 	}()
 

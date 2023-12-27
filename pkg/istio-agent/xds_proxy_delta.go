@@ -107,7 +107,12 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 				}
 				return
 			}
-			con.deltaResponsesChan.Put(resp)
+			select {
+			case <-con.stopChan:
+				return
+			default:
+				con.deltaResponsesChan.Put(resp)
+			}
 		}
 	}()
 
