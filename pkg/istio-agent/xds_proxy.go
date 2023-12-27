@@ -472,6 +472,9 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 	for {
 		select {
 		case req := <-con.requestsChan.Get():
+			if con.isClosed() {
+				return
+			}
 			con.requestsChan.Load()
 			if req.TypeUrl == v3.HealthInfoType && !initialRequestsSent.Load() {
 				// only send healthcheck probe after LDS request has been sent
@@ -487,7 +490,10 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 			}
 			if err := sendUpstream(con.upstream, req); err != nil {
 				err = fmt.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
-				con.upstreamError <- err
+				select {
+				case con.upstreamError <- err:
+				case <-con.stopChan:
+				}
 				return
 			}
 		case <-con.stopChan:
@@ -501,6 +507,10 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 	for {
 		select {
 		case resp := <-con.responsesChan.Get():
+			if con.isClosed() {
+				return
+			}
+			con.responsesChan.Load()
 			// TODO: separate upstream response handling from requests sending, which are both time costly
 			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
