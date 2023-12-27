@@ -1241,7 +1241,7 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl proxy-config bootstrap --file envoy-config.json
 
   # Show a human-readable Istio and Envoy version summary
-  istioctl proxy-config bootstrap -o short
+  istioctl proxy-config bootstrap <pod-name[.namespace]> -o short
 `,
 		Aliases: []string{"b"},
 		Args: func(cmd *cobra.Command, args []string) error {

@@ -368,8 +368,8 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 		metrics.IstiodConnectionErrors.Increment()
 		return err
 	}
-	proxyLog.Infof("connected to upstream XDS server: %s", p.istiodAddress)
-	defer proxyLog.Debugf("disconnected from XDS server: %s", p.istiodAddress)
+	proxyLog.Infof("connected to upstream XDS server[%d]: %s", con.conID, p.istiodAddress)
+	defer proxyLog.Debugf("disconnected from XDS server[%d]: %s", con.conID, p.istiodAddress)
 
 	con.upstream = upstream
 
@@ -419,7 +419,7 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
-			proxyLog.Debugf("stream stopped")
+			proxyLog.Debugf("stream [%d] stopped", con.conID)
 			return nil
 		}
 	}
@@ -501,7 +501,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 		select {
 		case resp := <-con.responsesChan:
 			// TODO: separate upstream response handling from requests sending, which are both time costly
-			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
+			proxyLog.Debugf("upstream [%d] response for type url %s", con.conID, resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {

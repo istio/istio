@@ -89,12 +89,12 @@ func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod
 
 	// Handle Pods.
 	for _, p := range pods {
-		updates = updates.Merge(a.handlePod(nil, p, false, c))
+		updates = updates.Merge(a.handlePod(nil, p, model.EventAdd, c))
 	}
 
 	// Handle Services.
 	for _, s := range services {
-		updates = updates.Merge(a.handleService(s, false, c))
+		updates = updates.Merge(a.handleService(s, model.EventAdd, c))
 	}
 
 	if c.configCluster {
