@@ -296,6 +296,7 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 }
 `
 
+// nolint: lll
 const clientsTemplate = `
 // GENERATED FILE -- DO NOT EDIT
 //
