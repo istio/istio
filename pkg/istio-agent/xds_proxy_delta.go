@@ -92,8 +92,8 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 		metrics.IstiodConnectionErrors.Increment()
 		return err
 	}
-	proxyLog.Infof("connected to delta upstream XDS server: %s", p.istiodAddress)
-	defer proxyLog.Debugf("disconnected from delta XDS server: %s", p.istiodAddress)
+	proxyLog.Infof("connected to delta upstream XDS server[%d]: %s", con.conID, p.istiodAddress)
+	defer proxyLog.Debugf("disconnected from delta XDS server[%d]: %s", con.conID, p.istiodAddress)
 
 	con.upstreamDeltas = deltaUpstream
 
@@ -142,7 +142,7 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
-			proxyLog.Debugf("stream stopped")
+			proxyLog.Debugf("stream [%d] stopped", con.conID)
 			return nil
 		}
 	}
@@ -224,7 +224,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 		select {
 		case resp := <-con.deltaResponsesChan:
 			// TODO: separate upstream response handling from requests sending, which are both time costly
-			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
+			proxyLog.Debugf("upstream [%d] response for type url %s", con.conID, resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {
@@ -331,6 +331,13 @@ func sendUpstreamDelta(deltaUpstream xds.DeltaDiscoveryClient, req *discovery.De
 }
 
 func sendDownstreamDelta(deltaDownstream xds.DeltaDiscoveryStream, res *discovery.DeltaDiscoveryResponse) error {
+	tStart := time.Now()
+	defer func() {
+		// This is a hint to help debug slow responses.
+		if time.Since(tStart) > 10*time.Second {
+			proxyLog.Warnf("sendDownstreamDelta took %v", time.Since(tStart))
+		}
+	}()
 	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) })
 }
 
