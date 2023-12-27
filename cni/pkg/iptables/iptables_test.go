@@ -32,6 +32,7 @@ func TestIptables(t *testing.T) {
 		{
 			"default",
 			func(cfg *Config) {
+				cfg.RedirectDNS = true
 			},
 		},
 	}
@@ -109,6 +110,7 @@ func TestInvokedTwiceIsIdempotent(t *testing.T) {
 	}{
 		"default",
 		func(cfg *Config) {
+			cfg.RedirectDNS = true
 		},
 	}
 
