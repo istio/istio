@@ -282,11 +282,12 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 	}
 
 	if err := wasm.MaybeConvertWasmExtensionConfig(resources, p.wasmCache); err != nil {
-		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
+		proxyLog.Debugf("sending NACK for ECDS resources %+v, err: %+v", resp.Resources, err)
 		con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
-			TypeUrl:       v3.ExtensionConfigurationType,
+			TypeUrl:       resp.TypeUrl,
 			ResponseNonce: resp.Nonce,
 			ErrorDetail: &google_rpc.Status{
+				Code:    int32(codes.Internal),
 				Message: err.Error(),
 			},
 		})

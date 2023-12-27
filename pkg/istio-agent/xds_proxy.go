@@ -559,12 +559,13 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 
 func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.DiscoveryResponse, forward func(resp *discovery.DiscoveryResponse)) {
 	if err := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache); err != nil {
-		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
+		proxyLog.Debugf("sending NACK for ECDS resources %+v, err: %+v", resp.Resources, err)
 		con.sendRequest(&discovery.DiscoveryRequest{
 			VersionInfo:   p.ecdsLastAckVersion.Load(),
-			TypeUrl:       v3.ExtensionConfigurationType,
+			TypeUrl:       resp.TypeUrl,
 			ResponseNonce: resp.Nonce,
 			ErrorDetail: &google_rpc.Status{
+				Code:    int32(codes.Internal),
 				Message: err.Error(),
 			},
 		})
