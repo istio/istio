@@ -414,7 +414,8 @@ func newClientInternal(clientFactory *clientFactory, revision string) (*client, 
 	if err != nil {
 		return nil, err
 	}
-	// We do not use features.InformerWatchNamespace as MetadataInformer will not detect ClusterScoped resources properly. We only use this with ClusterScope resources.
+	// We do not use features.InformerWatchNamespace as MetadataInformer will not detect ClusterScoped resources properly.
+	// We only use this with ClusterScope resources.
 	c.metadataInformer = metadatainformer.NewFilteredSharedInformerFactory(c.metadata, resyncInterval, "", nil)
 
 	c.dynamic, err = dynamic.NewForConfig(c.config)
