@@ -2542,7 +2542,7 @@ spec:
 				},
 				Port: echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
 				Check: check.And(
-					check.NotOK(),
+					check.OK(),
 					ConsistentHostChecker,
 				),
 				PropagateResponse: func(req *http.Request, res *http.Response) {
