@@ -111,18 +111,11 @@ func (c *Client) Echo(ctx context.Context, request *proto.EchoRequest) (Response
 func (c *Client) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequest) (Responses, error) {
 	// Forward a request from 'this' service to the destination service.
 	GlobalEchoRequests.Add(uint64(request.Count))
-	count := request.Count
-	request.Count = 1
-	responses := make([]string, count)
-	for i := 0; i < int(count); i++ {
-		resp, err := c.client.ForwardEcho(ctx, request)
-		if err != nil {
-			return nil, err
-		}
-		fwLog.Infof("forward echo response %v", resp)
-		responses = append(responses, resp.Output[0])
+	resp, err := c.client.ForwardEcho(ctx, request)
+	if err != nil {
+		return nil, err
 	}
-	return ParseResponses(request, &proto.ForwardEchoResponse{Output: responses}), nil
+	return ParseResponses(request, resp), nil
 }
 
 // GlobalEchoRequests records how many echo calls we have made total, from all sources.

@@ -120,7 +120,7 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 				fwLog.Debugf("request failed: %v", err)
 				return err
 			}
-			fwLog.Debugf("got resp: %v", resp)
+			fwLog.Infof("got resp: %v", resp)
 
 			responsesMu.Lock()
 			responses[index] = resp
