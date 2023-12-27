@@ -151,7 +151,7 @@ func (b *EndpointBuilder) EndpointsByNetworkFilter(endpoints []*LocalityEndpoint
 			util.AppendLbEndpointMetadata(&model.EndpointMetadata{
 				Network:   gw.Network,
 				TLSMode:   model.IstioMutualTLSModeLabel,
-				ClusterID: b.clusterID,
+				ClusterID: gw.Cluster,
 				Labels:    labels.Instance{},
 			}, gwEp.Metadata)
 			// Currently gateway endpoint does not support tunnel.
