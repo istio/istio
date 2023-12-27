@@ -2537,8 +2537,8 @@ spec:
 				Count:   10,
 				Address: svcName,
 				HTTP: echo.HTTP{
-					Path:    "/?some-query-param=bar",
-					Headers: headers.New().With("x-some-header", "baz").Build(),
+					Path:    "/?some-with-ttl=bar",
+					Headers: headers.New().With("x-some-header-ttl", "baz").Build(),
 				},
 				Port: echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
 				Check: check.And(

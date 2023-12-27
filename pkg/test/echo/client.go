@@ -115,7 +115,7 @@ func (c *Client) ForwardEcho(ctx context.Context, request *proto.ForwardEchoRequ
 	if err != nil {
 		return nil, err
 	}
-
+	fwLog.Infof("forward echo response %v", resp)
 	return ParseResponses(request, resp), nil
 }
 

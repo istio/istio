@@ -53,7 +53,6 @@ func ParseResponses(req *proto.ForwardEchoRequest, resp *proto.ForwardEchoRespon
 }
 
 func parseResponse(output string) Response {
-	fwLog.Infof("parsing response %s", output)
 	out := Response{
 		RawContent:      output,
 		RequestHeaders:  make(http.Header),
@@ -123,6 +122,9 @@ func parseResponse(output string) Response {
 	match = IPFieldRegex.FindStringSubmatch(output)
 	if match != nil {
 		out.IP = match[1]
+	}
+	if strings.Contains(out.URL, "some-with-ttl") {
+		fwLog.Infof("parsing response %s", output)
 	}
 
 	out.rawBody = map[string]string{}
