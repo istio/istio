@@ -772,6 +772,9 @@ var (
 		"If enabled, will validate the identity of a workload matches the identity of the "+
 			"WorkloadEntry it is associating with for health checks and auto registration. "+
 			"This flag is added for backwards compatibility only and will be removed in future releases").Get()
+	PersistOldestWinsHeuristicForVirtualServiceHostMatching = env.Register("PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", false,
+		"If enabled, istiod will persist the oldest first heuristic for subtly conflicting traffic policy selection"+
+			"(such as with overlapping wildcard hosts)").Get()
 )
 
 // EnableEndpointSliceController returns the value of the feature flag and whether it was actually specified.

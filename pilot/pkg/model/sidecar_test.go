@@ -20,13 +20,16 @@ import (
 	"reflect"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/protobuf/types/known/durationpb"
+	"k8s.io/apimachinery/pkg/types"
 
 	"istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/type/v1beta1"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -34,6 +37,7 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/config/visibility"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -2371,7 +2375,7 @@ func TestSidecarOutboundTrafficPolicy(t *testing.T) {
 	}
 
 	meshConfigWithRegistryOnly, err := mesh.ApplyMeshConfigDefaults(`
-outboundTrafficPolicy: 
+outboundTrafficPolicy:
   mode: REGISTRY_ONLY
 `)
 	if err != nil {
@@ -2538,5 +2542,122 @@ func benchmarkConvertIstioListenerToWrapper(b *testing.B, vsNum int, hostNum int
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		convertIstioListenerToWrapper(ps, "this-test-not-use-ns", istioListener)
+	}
+}
+
+func TestComputeWildcardHostVirtualServiceIndex(t *testing.T) {
+	oldestTime := time.Now().Add(-2 * time.Hour)
+	olderTime := time.Now().Add(-1 * time.Hour)
+	newerTime := time.Now()
+	virtualServices := []config.Config{
+		{
+			Meta: config.Meta{
+				Name:              "foo",
+				Namespace:         "default",
+				CreationTimestamp: newerTime,
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"foo.example.com"},
+			},
+		},
+		{
+			Meta: config.Meta{
+				Name:              "foo2",
+				Namespace:         "default",
+				CreationTimestamp: olderTime.Add(30 * time.Minute), // This should not be used despite being older than foo
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"foo.example.com"},
+			},
+		},
+		{
+			Meta: config.Meta{
+				Name:              "wild",
+				Namespace:         "default",
+				CreationTimestamp: olderTime,
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"*.example.com"},
+			},
+		},
+		{
+			Meta: config.Meta{
+				Name:              "barwild",
+				Namespace:         "default",
+				CreationTimestamp: oldestTime,
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"*.bar.example.com"},
+			},
+		},
+		{
+			Meta: config.Meta{
+				Name:              "barwild2",
+				Namespace:         "default",
+				CreationTimestamp: olderTime,
+			},
+			Spec: &networking.VirtualService{
+				Hosts: []string{"*.bar.example.com"},
+			},
+		},
+	}
+
+	services := []*Service{
+		{
+			Hostname: "foo.example.com",
+		},
+		{
+			Hostname: "baz.example.com",
+		},
+		{
+			Hostname: "qux.bar.example.com",
+		},
+		{
+			Hostname: "*.bar.example.com",
+		},
+	}
+
+	tests := []struct {
+		name            string
+		virtualServices []config.Config
+		services        []*Service
+		expectedIndex   map[host.Name]types.NamespacedName
+		oldestWins      bool
+	}{
+		{
+			name:            "most specific",
+			virtualServices: virtualServices,
+			services:        services,
+			expectedIndex: map[host.Name]types.NamespacedName{
+				"foo.example.com":     {Name: "foo", Namespace: "default"},
+				"baz.example.com":     {Name: "wild", Namespace: "default"},
+				"qux.bar.example.com": {Name: "barwild", Namespace: "default"},
+				"*.bar.example.com":   {Name: "barwild", Namespace: "default"},
+			},
+		},
+		{
+			name:            "oldest wins",
+			virtualServices: virtualServices,
+			services:        services,
+			expectedIndex: map[host.Name]types.NamespacedName{
+				"foo.example.com":     {Name: "wild", Namespace: "default"},
+				"baz.example.com":     {Name: "wild", Namespace: "default"},
+				"qux.bar.example.com": {Name: "barwild", Namespace: "default"},
+				"*.bar.example.com":   {Name: "barwild", Namespace: "default"},
+			},
+			oldestWins: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.oldestWins {
+				test.SetForTest(t, &features.PersistOldestWinsHeuristicForVirtualServiceHostMatching, true)
+			}
+			index := computeWildcardHostVirtualServiceIndex(tt.virtualServices, tt.services)
+			if !reflect.DeepEqual(tt.expectedIndex, index) {
+				t.Errorf("Expected index %v, got %v", tt.expectedIndex, index)
+			}
+		})
 	}
 }

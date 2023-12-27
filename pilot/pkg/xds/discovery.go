@@ -150,6 +150,12 @@ type DiscoveryServer struct {
 	// ClusterAliases are aliase names for cluster. When a proxy connects with a cluster ID
 	// and if it has a different alias we should use that a cluster ID for proxy.
 	ClusterAliases map[cluster.ID]cluster.ID
+
+	// pushVersion stores the numeric push version. This should be accessed via NextVersion()
+	pushVersion atomic.Uint64
+
+	// discoveryStartTime is the time since the binary started
+	discoveryStartTime time.Time
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -171,9 +177,10 @@ func NewDiscoveryServer(env *model.Environment, instanceID string, clusterID clu
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
-		Cache:      model.DisabledCache{},
-		instanceID: instanceID,
-		clusterID:  clusterID,
+		Cache:              model.DisabledCache{},
+		instanceID:         instanceID,
+		clusterID:          clusterID,
+		discoveryStartTime: processStartTime,
 	}
 
 	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
@@ -227,7 +234,7 @@ var processStartTime = time.Now()
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
-	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(processStartTime))
+	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(s.discoveryStartTime))
 	s.serverReady.Store(true)
 }
 
@@ -656,4 +663,8 @@ func (s *DiscoveryServer) WaitForRequestLimit(ctx context.Context) error {
 	wait, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 	return s.RequestRateLimit.Wait(wait)
+}
+
+func (s *DiscoveryServer) NextVersion() string {
+	return time.Now().Format(time.RFC3339) + "/" + strconv.FormatUint(s.pushVersion.Inc(), 10)
 }
