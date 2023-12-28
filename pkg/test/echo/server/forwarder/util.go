@@ -153,10 +153,13 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 		}
 
 		if cfg.PropagateResponse != nil {
-			workFn() // nolint: errcheck
-		} else {
-			g.Go(ctx, workFn)
+			fwLog.Infof("cfg.PropagateResponse is nil")
 		}
+		//	if cfg.PropagateResponse != nil {
+		workFn() // nolint: errcheck
+		// } else {
+		// 	g.Go(ctx, workFn)
+		// }
 	}
 
 	// Convert the result of the wait into a channel.
