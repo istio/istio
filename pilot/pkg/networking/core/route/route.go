@@ -384,7 +384,7 @@ func BuildHTTPRoutesForVirtualService(
 	out := make([]*route.Route, 0, len(vs.Http))
 
 	catchall := false
-	for _, http := range vs.Http {
+	for i, http := range vs.Http {
 		if len(http.Match) == 0 {
 			if r := translateRoute(node, http, nil, listenPort, virtualService, serviceRegistry,
 				hashByDestination, gatewayNames, opts); r != nil {
@@ -406,6 +406,10 @@ func BuildHTTPRoutesForVirtualService(
 			}
 		}
 		if catchall {
+			// log the skipped remaining routes in vs.Http to avoid silent skip
+			if i < len(vs.Http)-1 {
+				log.Warnf("Below routes are skipped due to the catch all route : %v", vs.Http[i+1:])
+			}
 			break
 		}
 	}
