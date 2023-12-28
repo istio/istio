@@ -68,10 +68,6 @@ var (
 	// Description: Port name is not under naming convention. Protocol detection is applied to the port.
 	PortNameIsNotUnderNamingConvention = diag.NewMessageType(diag.Info, "IST0118", "Port name %s (port: %d, targetPort: %s) doesn't follow the naming convention of Istio port.")
 
-	// JwtFailureDueToInvalidServicePortPrefix defines a diag.MessageType for message "JwtFailureDueToInvalidServicePortPrefix".
-	// Description: Authentication policy with JWT targets Service with invalid port specification.
-	JwtFailureDueToInvalidServicePortPrefix = diag.NewMessageType(diag.Warning, "IST0119", "Authentication policy with JWT targets Service with invalid port specification (port: %d, name: %s, protocol: %s, targetPort: %s).")
-
 	// InvalidRegexp defines a diag.MessageType for message "InvalidRegexp".
 	// Description: Invalid Regex
 	InvalidRegexp = diag.NewMessageType(diag.Warning, "IST0122", "Field %q regular expression invalid: %q (%s)")
@@ -271,7 +267,6 @@ func All() []*diag.MessageType {
 		MTLSPolicyConflict,
 		DeploymentAssociatedToMultipleServices,
 		PortNameIsNotUnderNamingConvention,
-		JwtFailureDueToInvalidServicePortPrefix,
 		InvalidRegexp,
 		NamespaceMultipleInjectionLabels,
 		InvalidAnnotation,
@@ -467,18 +462,6 @@ func NewPortNameIsNotUnderNamingConvention(r *resource.Instance, portName string
 		r,
 		portName,
 		port,
-		targetPort,
-	)
-}
-
-// NewJwtFailureDueToInvalidServicePortPrefix returns a new diag.Message based on JwtFailureDueToInvalidServicePortPrefix.
-func NewJwtFailureDueToInvalidServicePortPrefix(r *resource.Instance, port int, portName string, protocol string, targetPort string) diag.Message {
-	return diag.NewMessage(
-		JwtFailureDueToInvalidServicePortPrefix,
-		r,
-		port,
-		portName,
-		protocol,
 		targetPort,
 	)
 }
