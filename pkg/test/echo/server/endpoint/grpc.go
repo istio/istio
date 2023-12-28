@@ -300,7 +300,7 @@ func (h *EchoGrpcHandler) Echo(ctx context.Context, req *proto.EchoRequest) (*pr
 func (h *EchoGrpcHandler) ForwardEcho(ctx context.Context, req *proto.ForwardEchoRequest) (*proto.ForwardEchoResponse, error) {
 	id := uuid.New()
 	l := epLog.WithLabels("url", req.Url, "id", id)
-	l.Infof("ForwardEcho request")
+	l.Infof("ForwardEcho request in grpc handler")
 	t0 := time.Now()
 
 	ret, err := h.Forwarder.ForwardEcho(ctx, &forwarder.Config{Request: req})

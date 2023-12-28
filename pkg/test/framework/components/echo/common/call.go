@@ -203,9 +203,6 @@ func ForwardEcho(srcName string, from echo.Caller, opts echo.CallOptions, client
 			opts.PropagateResponse(&http.Request{}, &http.Response{})
 		}
 		responses, err := c.ForwardEcho(context.Background(), req)
-		for _, res := range responses {
-			fwLog.Infof("response headers %v", res.ResponseHeaders)
-		}
 		return responses, err
 	})
 	if err != nil {
