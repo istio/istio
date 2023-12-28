@@ -21,6 +21,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -152,14 +153,12 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 			}
 		}
 
-		if cfg.PropagateResponse != nil {
-			fwLog.Infof("cfg.PropagateResponse is nil")
+		if strings.Contains(cfg.Request.Url, "ttl") {
+			fwLog.Infof("calling work fn in sequence")
+			workFn() // nolint: errcheck
+		} else {
+			g.Go(ctx, workFn)
 		}
-		//	if cfg.PropagateResponse != nil {
-		workFn() // nolint: errcheck
-		// } else {
-		// 	g.Go(ctx, workFn)
-		// }
 	}
 
 	// Convert the result of the wait into a channel.
