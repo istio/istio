@@ -112,9 +112,9 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 	}
 
 	g := e.NewGroup()
+	prevResp := ""
 	for index := 0; index < cfg.count; index++ {
 		index := index
-		prevResp := ""
 		workFn := func() error {
 			st := time.Now()
 			if prevResp != "" {
