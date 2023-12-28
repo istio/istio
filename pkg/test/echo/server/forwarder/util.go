@@ -117,6 +117,14 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 		index := index
 		workFn := func() error {
 			st := time.Now()
+			fwLog.Infof("sending request %d", index)
+			fwLog.Infof("prevResp: %v", prevResp)
+			if index > 0 {
+				responsesMu.Lock()
+				prevResp = responses[index-1]
+				responsesMu.Unlock()
+			}
+			fwLog.Infof("prevResp after: %v", prevResp)
 			if prevResp != "" {
 				response := echo.ParseResponse(prevResp)
 				fwLog.Infof("response: %v", response)
@@ -128,10 +136,10 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 				return err
 			}
 			fwLog.Infof("got resp: %v", resp)
+			prevResp = resp
 
 			responsesMu.Lock()
 			responses[index] = resp
-			prevResp = resp
 			responseTimes[index] = time.Since(st)
 			responsesMu.Unlock()
 			return nil
