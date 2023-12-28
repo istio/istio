@@ -104,7 +104,7 @@ func (c *Client) Echo(ctx context.Context, request *proto.EchoRequest) (Response
 	if err != nil {
 		return Response{}, err
 	}
-	return parseResponse(resp.Message), nil
+	return ParseResponse(resp.Message), nil
 }
 
 // ForwardEcho sends the given forward request and parses the response for easier processing. Only fails if the request fails.

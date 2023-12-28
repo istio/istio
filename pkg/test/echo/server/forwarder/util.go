@@ -114,8 +114,14 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 	g := e.NewGroup()
 	for index := 0; index < cfg.count; index++ {
 		index := index
+		prevResp := ""
 		workFn := func() error {
 			st := time.Now()
+			if prevResp != "" {
+				response := echo.ParseResponse(prevResp)
+				fwLog.Infof("response: %v", response)
+				fwLog.Infof("response headers: %v", response.ResponseHeaders)
+			}
 			resp, err := doReq(ctx, cfg, index)
 			if err != nil {
 				fwLog.Debugf("request failed: %v", err)
@@ -125,6 +131,7 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 
 			responsesMu.Lock()
 			responses[index] = resp
+			prevResp = resp
 			responseTimes[index] = time.Since(st)
 			responsesMu.Unlock()
 			return nil

@@ -46,13 +46,13 @@ var (
 func ParseResponses(req *proto.ForwardEchoRequest, resp *proto.ForwardEchoResponse) Responses {
 	responses := make([]Response, len(resp.Output))
 	for i, output := range resp.Output {
-		responses[i] = parseResponse(output)
+		responses[i] = ParseResponse(output)
 		responses[i].RequestURL = req.Url
 	}
 	return responses
 }
 
-func parseResponse(output string) Response {
+func ParseResponse(output string) Response {
 	out := Response{
 		RawContent:      output,
 		RequestHeaders:  make(http.Header),
