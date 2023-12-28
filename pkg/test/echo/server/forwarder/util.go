@@ -27,6 +27,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"golang.org/x/net/proxy"
+	"google.golang.org/grpc/metadata"
 
 	"istio.io/istio/pkg/hbone"
 	"istio.io/istio/pkg/log"
@@ -130,6 +131,9 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 				response := echo.ParseResponse(prevResp)
 				fwLog.Infof("response: %v", response)
 				fwLog.Infof("response headers: %v", response.ResponseHeaders)
+				cookie := response.ResponseHeaders.Get("Set-Cookie")
+				fwLog.Infof("setting cookie: %v", cookie)
+				ctx = metadata.AppendToOutgoingContext(ctx, "Set-Cookie", cookie)
 			}
 			resp, err := doReq(ctx, cfg, index)
 			if err != nil {
