@@ -21,7 +21,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -115,32 +114,29 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 
 	g := e.NewGroup()
 	prevResp := ""
+	headers := cfg.Request.Headers
+	cookieRequest := false
+	for _, header := range headers {
+		if header.Key == "Cookie-Name" {
+			cookieRequest = true
+			break
+		}
+	}
 	for index := 0; index < cfg.count; index++ {
 		index := index
 		workFn := func() error {
 			st := time.Now()
-			fwLog.Infof("sending request %d", index)
-			fwLog.Infof("prevResp: %v", prevResp)
-			if index > 0 {
-				responsesMu.Lock()
-				prevResp = responses[index-1]
-				responsesMu.Unlock()
-			}
-			fwLog.Infof("prevResp after: %v", prevResp)
-			if prevResp != "" {
+			if cookieRequest && prevResp != "" {
 				response := echo.ParseResponse(prevResp)
-				fwLog.Infof("response: %v", response)
-				fwLog.Infof("response headers: %v", response.ResponseHeaders)
 				cookie := response.ResponseHeaders.Get("Set-Cookie")
-				fwLog.Infof("setting cookie: %v", cookie)
 				ctx = metadata.AppendToOutgoingContext(ctx, "Set-Cookie", cookie)
+				fwLog.Infof("cookie set to metadata: %v", ctx.Value("Set-Cookie").(string))
 			}
 			resp, err := doReq(ctx, cfg, index)
 			if err != nil {
 				fwLog.Debugf("request failed: %v", err)
 				return err
 			}
-			fwLog.Infof("got resp: %v", resp)
 			prevResp = resp
 
 			responsesMu.Lock()
@@ -157,7 +153,7 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 			}
 		}
 
-		if strings.Contains(cfg.Request.Url, "ttl") {
+		if cookieRequest {
 			fwLog.Infof("calling work fn in sequence")
 			workFn() // nolint: errcheck
 		} else {

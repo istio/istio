@@ -2538,7 +2538,7 @@ spec:
 				Address: svcName,
 				HTTP: echo.HTTP{
 					Path:    "/?some-with-ttl=bar",
-					Headers: headers.New().With("x-some-header-ttl", "baz").Build(),
+					Headers: headers.New().With("cookie-name", "session-cookie").Build(),
 				},
 				Port: echo.Port{ServicePort: ports.HTTP.ServicePort, Protocol: protocol.HTTP},
 				Check: check.And(
