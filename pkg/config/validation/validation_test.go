@@ -2221,15 +2221,15 @@ func TestValidateVirtualService(t *testing.T) {
 				Match: []*networking.HTTPMatchRequest{
 					{
 						Uri: &networking.StringMatch{
-							MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
-						},
-					},
-					{
-						Uri: &networking.StringMatch{
 							MatchType: &networking.StringMatch_Exact{Exact: "/"},
 						},
 						Method: &networking.StringMatch{
 							MatchType: &networking.StringMatch_Exact{Exact: "GET"},
+						},
+					},
+					{
+						Uri: &networking.StringMatch{
+							MatchType: &networking.StringMatch_Prefix{Prefix: "/"},
 						},
 					},
 				},

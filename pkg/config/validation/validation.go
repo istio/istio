@@ -1848,11 +1848,11 @@ func validateByPassedRouteForCatchAll(routes []*networking.HTTPRoute, reportUnre
 		return
 	}
 	for rulen, route := range routes {
-		if len(route.Match) == 0 {
+		if len(route.Match) == 0 && route.Mirror == nil && route.Fault == nil {
 			catchall = true
 		} else {
-			for _, match := range route.Match {
-				if isCatchAllMatch(match) {
+			for i, match := range route.Match {
+				if isCatchAllMatch(match) && i != len(route.Match)-1 {
 					catchall = true
 					break
 				}
