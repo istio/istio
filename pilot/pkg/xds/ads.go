@@ -39,7 +39,6 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	istiolog "istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -1013,15 +1012,19 @@ func (s *DiscoveryServer) orderedXdsPush(
 		}
 	}
 
-	conn.proxy.RLock()
-	resources := maps.Values(conn.proxy.WatchedResources)
-	conn.proxy.RUnlock()
 	// Then push any undeclared ordered types
-	for _, w := range resources {
+	conn.proxy.RLock()
+	resources := make([]*model.WatchedResource, 0, len(conn.proxy.WatchedResources))
+	for _, w := range conn.proxy.WatchedResources {
 		if _, f := KnownOrderedTypeUrls[w.TypeUrl]; !f {
-			if err := push(conn, w, pushRequest); err != nil {
-				return err
-			}
+			resources = append(resources, w)
+		}
+	}
+	conn.proxy.RUnlock()
+
+	for _, w := range resources {
+		if err := push(conn, w, pushRequest); err != nil {
+			return err
 		}
 	}
 	return nil
