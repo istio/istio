@@ -333,10 +333,10 @@ func pluginResponse(conf *Config) error {
 			CNIVersion: cniv1.ImplementedSpecVersion,
 		}
 		return types.PrintResult(result, conf.CNIVersion)
-	} else {
-		// Pass through the result for the next plugin
-		return types.PrintResult(conf.PrevResult, conf.CNIVersion)
 	}
+
+	// Pass through the result for the next plugin
+	return types.PrintResult(conf.PrevResult, conf.CNIVersion)
 }
 
 func CmdCheck(args *skel.CmdArgs) (err error) {
