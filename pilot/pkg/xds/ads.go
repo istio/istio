@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	istiolog "istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -782,11 +783,8 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl := con.pushDetails()
-	for _, w := range wrl {
-		if err := s.pushXds(con, w, pushRequest); err != nil {
-			return err
-		}
+	if err := s.orderedXdsPush(con, pushRequest, s.pushXds); err != nil {
+		return err
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -798,13 +796,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
 
 // KnownOrderedTypeUrls has typeUrls for which we know the order of push.
-var KnownOrderedTypeUrls = map[string]struct{}{
-	v3.ClusterType:  {},
-	v3.EndpointType: {},
-	v3.ListenerType: {},
-	v3.RouteType:    {},
-	v3.SecretType:   {},
-}
+var KnownOrderedTypeUrls = sets.New(PushOrder...)
 
 func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.String) {
 	if s == nil {
@@ -1003,29 +995,34 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 	return nil
 }
 
-// pushDetails returns the details needed for current push. It returns ordered list of
-// watched resources for the proxy, ordered in accordance with known push order.
-// It also returns the lis of typeUrls.
-// nolint
-func (conn *Connection) pushDetails() []*model.WatchedResource {
-	conn.proxy.RLock()
-	defer conn.proxy.RUnlock()
-	return orderWatchedResources(conn.proxy.WatchedResources)
-}
-
-func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
-	wr := make([]*model.WatchedResource, 0, len(resources))
-	// first add all known types, in order
+// orderedXdsPush pushes xds to the connection in order.
+func (s *DiscoveryServer) orderedXdsPush(
+	conn *Connection,
+	pushRequest *model.PushRequest,
+	push func(con *Connection, w *model.WatchedResource, req *model.PushRequest) error,
+) error {
+	// first push all known types, in order
 	for _, tp := range PushOrder {
-		if w, f := resources[tp]; f {
-			wr = append(wr, w)
+		conn.proxy.RLock()
+		w, f := conn.proxy.WatchedResources[tp]
+		conn.proxy.RUnlock()
+		if f {
+			if err := push(conn, w, pushRequest); err != nil {
+				return err
+			}
 		}
 	}
-	// Then add any undeclared types
-	for tp, w := range resources {
-		if _, f := KnownOrderedTypeUrls[tp]; !f {
-			wr = append(wr, w)
+
+	conn.proxy.RLock()
+	resources := maps.Values(conn.proxy.WatchedResources)
+	conn.proxy.RUnlock()
+	// Then push any undeclared ordered types
+	for _, w := range resources {
+		if _, f := KnownOrderedTypeUrls[w.TypeUrl]; !f {
+			if err := push(conn, w, pushRequest); err != nil {
+				return err
+			}
 		}
 	}
-	return wr
+	return nil
 }

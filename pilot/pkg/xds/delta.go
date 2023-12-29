@@ -169,11 +169,8 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl := con.pushDetails()
-	for _, w := range wrl {
-		if err := s.pushDeltaXds(con, w, pushRequest); err != nil {
-			return err
-		}
+	if err := s.orderedXdsPush(con, pushRequest, s.pushDeltaXds); err != nil {
+		return err
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
