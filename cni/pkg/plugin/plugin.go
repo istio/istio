@@ -189,16 +189,17 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 	// Check if the workload is running under Kubernetes.
 	podNamespace := string(k8sArgs.K8S_POD_NAMESPACE)
 	podName := string(k8sArgs.K8S_POD_NAME)
-	for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
-		if podNamespace == excludeNs {
-			log.Info("pod namespace excluded")
-			return nil
-		}
-	}
 	log := log.WithLabels("pod", podNamespace+"/"+podName)
 	if podNamespace == "" || podName == "" {
 		log.Debugf("Not a kubernetes pod")
 		return nil
+	}
+
+	for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
+		if podNamespace == excludeNs {
+			log.Infof("pod namespace excluded")
+			return nil
+		}
 	}
 
 	client, err := newKubeClient(*conf)
