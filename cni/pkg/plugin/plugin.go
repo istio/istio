@@ -52,31 +52,15 @@ const (
 
 // Kubernetes a K8s specific struct to hold config
 type Kubernetes struct {
-	K8sAPIRoot           string   `json:"k8s_api_root"`
-	Kubeconfig           string   `json:"kubeconfig"`
-	InterceptRuleMgrType string   `json:"intercept_type"`
-	NodeName             string   `json:"node_name"`
-	ExcludeNamespaces    []string `json:"exclude_namespaces"`
-	CNIBinDir            string   `json:"cni_bin_dir"`
+	Kubeconfig           string `json:"kubeconfig"`
+	InterceptRuleMgrType string `json:"intercept_type"`
 }
 
 // Config is whatever you expect your configuration json to be. This is whatever
 // is passed in on stdin. Your plugin may wish to expose its functionality via
 // runtime args, see CONVENTIONS.md in the CNI spec.
 type Config struct {
-	types.NetConf           // You may wish to not nest this type
-	RuntimeConfig *struct { // SampleConfig map[string]interface{} `json:"sample"`
-	} `json:"runtimeConfig"`
-
-	// This is the previous result, when called in the context of a chained
-	// plugin. Because this plugin supports multiple versions, we'll have to
-	// parse this in two passes. If your plugin is not chained, this can be
-	// removed (though you may wish to error if a non-chainable plugin is
-	// chained.
-	// If you need to modify the result before returning it, you will need
-	// to actually convert it to a concrete versioned struct.
-	RawPrevResult *map[string]any `json:"prevResult"`
-	PrevResult    *cniv1.Result   `json:"-"`
+	types.NetConf
 
 	// Add plugin-specific flags here
 	LogLevel       string     `json:"log_level"`
@@ -86,10 +70,10 @@ type Config struct {
 }
 
 // K8sArgs is the valid CNI_ARGS used for Kubernetes
-// The field names need to match exact keys in kubelet args for unmarshalling
+// The field names need to match exact keys in containerd args for unmarshalling
+// https://github.com/containerd/containerd/blob/ced9b18c231a28990617bc0a4b8ce2e81ee2ffa1/pkg/cri/server/sandbox_run.go#L526-L532
 type K8sArgs struct {
 	types.CommonArgs
-	IP                         net.IP
 	K8S_POD_NAME               types.UnmarshallableString // nolint: revive, stylecheck
 	K8S_POD_NAMESPACE          types.UnmarshallableString // nolint: revive, stylecheck
 	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: revive, stylecheck
@@ -210,13 +194,6 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 		return nil
 	}
 
-	for _, excludeNs := range conf.Kubernetes.ExcludeNamespaces {
-		if podNamespace == excludeNs {
-			log.Infof("pod namespace excluded")
-			return nil
-		}
-	}
-
 	client, err := newKubeClient(*conf)
 	if err != nil {
 		return err
@@ -231,7 +208,8 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 
 		log.Debugf("ambientConf.ZTunnelReady: %v", ambientConf.ZTunnelReady)
 		added := false
-		podIPs, err := getPodIPs(args.IfName, conf.PrevResult)
+		prevResult := conf.PrevResult.(*cniv1.Result)
+		podIPs, err := getPodIPs(args.IfName, prevResult)
 		if err != nil {
 			log.Errorf("istio-cni cmdAdd failed to get pod IPs: %s", err)
 			return err
@@ -346,11 +324,11 @@ func pluginResponse(conf *Config) error {
 		result = &cniv1.Result{
 			CNIVersion: cniv1.ImplementedSpecVersion,
 		}
+		return types.PrintResult(result, conf.CNIVersion)
 	} else {
 		// Pass through the result for the next plugin
-		result = conf.PrevResult
+		return types.PrintResult(conf.PrevResult, conf.CNIVersion)
 	}
-	return types.PrintResult(result, conf.CNIVersion)
 }
 
 func CmdCheck(args *skel.CmdArgs) (err error) {
