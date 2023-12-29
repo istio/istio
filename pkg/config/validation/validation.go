@@ -1838,6 +1838,55 @@ func analyzeUnreachableHTTPRules(routes []*networking.HTTPRoute,
 			}
 		}
 	}
+
+	validateByPassedRouteForCatchAll(routes, reportUnreachable)
+}
+
+func validateByPassedRouteForCatchAll(routes []*networking.HTTPRoute, reportUnreachable func(ruleno string, reason string)) {
+	catchall := false
+	if len(routes) == 1 && (len(routes[0].Match) == 1 || len(routes[0].Match) == 0) {
+		return
+	}
+	for rulen, route := range routes {
+		if len(route.Match) == 0 {
+			catchall = true
+		} else {
+			for _, match := range route.Match {
+				if isCatchAllMatch(match) {
+					catchall = true
+					break
+				}
+			}
+		}
+		if catchall {
+			reportUnreachable(routeName(route, rulen), "unreachable route detected, as a catch-all or default route is defined above")
+		}
+	}
+}
+
+func isCatchAllMatch(m *networking.HTTPMatchRequest) bool {
+	catchall := false
+	if m.Uri != nil {
+		switch m := m.Uri.MatchType.(type) {
+		case *networking.StringMatch_Prefix:
+			catchall = m.Prefix == "/"
+		case *networking.StringMatch_Regex:
+			catchall = m.Regex == "*"
+		}
+	}
+	// A Match is catch all if and only if it has no match set
+	// and URI has a prefix / or regex *.
+	return catchall &&
+		len(m.Headers) == 0 &&
+		len(m.QueryParams) == 0 &&
+		len(m.SourceLabels) == 0 &&
+		len(m.WithoutHeaders) == 0 &&
+		len(m.Gateways) == 0 &&
+		m.Method == nil &&
+		m.Scheme == nil &&
+		m.Port == 0 &&
+		m.Authority == nil &&
+		m.SourceNamespace == ""
 }
 
 // NOTE: This method identical to analyzeUnreachableHTTPRules.

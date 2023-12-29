@@ -138,12 +138,87 @@ func TestValidateChainingVirtualService(t *testing.T) {
 			},
 			valid: true,
 		},
+		{
+			name: "valdiate bypass route due to catch all route",
+			in: &networking.VirtualService{
+				Hosts: []string{},
+				Http: []*networking.HTTPRoute{{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/",
+								},
+							},
+						},
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/api",
+								},
+							},
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{{
+						Destination: &networking.Destination{Host: "foo.baz"},
+					}},
+				}},
+			},
+			valid: true,
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			if _, err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid {
 				t.Fatalf("got valid=%v but wanted valid=%v: %v", err == nil, tc.valid, err)
+			}
+		})
+	}
+}
+
+func TestValidateSkipBypassedRouteWithWarning(t *testing.T) {
+	testCases := []struct {
+		name    string
+		in      proto.Message
+		valid   bool
+		warning bool
+	}{
+		{
+			name: "validate bypass route due to catch all route",
+			in: &networking.VirtualService{
+				Hosts: []string{},
+				Http: []*networking.HTTPRoute{{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/",
+								},
+							},
+						},
+						{
+							Headers: map[string]*networking.StringMatch{
+								"header": {
+									MatchType: &networking.StringMatch_Prefix{Prefix: "test"},
+								},
+							},
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{{
+						Destination: &networking.Destination{Host: "foo.baz"},
+					}},
+				}},
+			},
+			valid:   true,
+			warning: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if warning, err := ValidateVirtualService(config.Config{Spec: tc.in}); (err == nil) != tc.valid || (warning != nil) != tc.warning {
+				t.Fatalf("got valid=%v but wanted valid=%v: %v, got warning=%v but wanted warning=%v: %v", err == nil, tc.valid, err, warning == nil, tc.warning, warning)
 			}
 		})
 	}
