@@ -29,9 +29,9 @@ spec:
   - name: "send product to sample.foo"
     match:
     - uri:
-        prefix: "/"
-    - uri:
         exact: "/"
+    - uri:
+        prefix: "/"
       method:
         exact: GET
     route:
