@@ -408,7 +408,7 @@ func BuildHTTPRoutesForVirtualService(
 		if catchall {
 			// log the skipped remaining routes in vs.Http to avoid silent skip
 			if i < len(vs.Http)-1 {
-				log.Warnf("Below routes are skipped due to the catch all route : %v", vs.Http[i+1:])
+				log.Warnf("Skipping [%d] routes for %s due to the catch all route", len(vs.Http)-i, virtualService.Name)
 			}
 			break
 		}
