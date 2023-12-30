@@ -15,15 +15,20 @@
 package injector
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func Test_extractRevisionFromPod(t *testing.T) {
@@ -67,5 +72,36 @@ func Test_extractRevisionFromPod(t *testing.T) {
 		t.Run(fmt.Sprintf("case %d %s", i, c.name), func(t *testing.T) {
 			assert.Equal(t, c.expectedRevision, extractRevisionFromPod(c.pod))
 		})
+	}
+}
+
+func Test_getNamespaces(t *testing.T) {
+	createNamespace := func(name string, labels map[string]string) *corev1.Namespace {
+		return &corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:   name,
+				Labels: labels,
+			},
+		}
+	}
+	nss := []runtime.Object{
+		createNamespace("default", nil),
+		createNamespace("kube-system", nil),
+		createNamespace("istio-system", nil),
+		createNamespace("ambient", map[string]string{
+			constants.DataplaneMode: constants.DataplaneModeAmbient,
+		}),
+		createNamespace("no-ambient", map[string]string{
+			constants.DataplaneMode: constants.DataplaneModeAmbient,
+			"istio-injection":       "enabled",
+		}),
+	}
+
+	client := kube.NewFakeClient(nss...)
+	expected := sets.New[string]("default", "no-ambient")
+	actual, err := getNamespaces(context.TODO(), client, "istio-system")
+	assert.NoError(t, err)
+	for _, ns := range actual {
+		assert.Equal(t, true, expected.Contains(ns.Name))
 	}
 }
