@@ -229,18 +229,22 @@ func getInjectedRevision(namespace *corev1.Namespace, hooks []admitv1.MutatingWe
 }
 
 func getMatchingNamespaces(hook *admitv1.MutatingWebhookConfiguration, namespaces []corev1.Namespace) []corev1.Namespace {
-	retval := make([]corev1.Namespace, 0)
+	matched := map[string]corev1.Namespace{}
 	for _, webhook := range hook.Webhooks {
 		nsSelector, err := metav1.LabelSelectorAsSelector(webhook.NamespaceSelector)
 		if err != nil {
-			return retval
+			return nil
 		}
 
 		for _, namespace := range namespaces {
 			if nsSelector.Matches(api_pkg_labels.Set(namespace.Labels)) {
-				retval = append(retval, namespace)
+				matched[namespace.Name] = namespace
 			}
 		}
+	}
+	retval := make([]corev1.Namespace, 0)
+	for _, ns := range matched {
+		retval = append(retval, ns)
 	}
 	return retval
 }
@@ -253,12 +257,7 @@ func getPods(ctx context.Context, client kube.CLIClient) (map[resource.Namespace
 		return retval, err
 	}
 	for _, pod := range pods.Items {
-		podList, ok := retval[resource.Namespace(pod.GetNamespace())]
-		if !ok {
-			retval[resource.Namespace(pod.GetNamespace())] = []corev1.Pod{pod}
-		} else {
-			retval[resource.Namespace(pod.GetNamespace())] = append(podList, pod)
-		}
+		retval[resource.Namespace(pod.GetNamespace())] = append(retval[resource.Namespace(pod.GetNamespace())], pod)
 	}
 	return retval, nil
 }
