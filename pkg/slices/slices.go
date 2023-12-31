@@ -158,6 +158,9 @@ func Map[E any, O any](s []E, f func(E) O) []O {
 // MapFilter runs f() over all elements in s and returns any non-nil results
 func MapFilter[E any, O any](s []E, f func(E) *O) []O {
 	n := make([]O, 0, len(s))
+	if f == nil {
+		return n
+	}
 	for _, e := range s {
 		if res := f(e); res != nil {
 			n = append(n, *res)
@@ -189,6 +192,9 @@ func Dereference[E any](s []*E) []E {
 
 // Flatten merges a slice of slices into a single slice.
 func Flatten[E any](s [][]E) []E {
+	if s == nil {
+		return nil
+	}
 	res := make([]E, 0)
 	for _, v := range s {
 		res = append(res, v...)
