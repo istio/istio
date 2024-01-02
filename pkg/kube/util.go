@@ -90,10 +90,10 @@ func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.Con
 	return clientcmd.NewNonInteractiveDeferredLoadingClientConfig(loadingRules, configOverrides)
 }
 
-// NewRemoteRestConfig returns the rest.Config for the given kube config context.
+// NewUntrustedRestConfig returns the rest.Config for the given kube config context.
 // This is suitable for access to remote clusters from untrusted kubeConfig inputs.
 // The kubeconfig is sanitized and unsafe auth methods are denied.
-func NewRemoteRestConfig(kubeConfig []byte, configOverrides ...func(*rest.Config)) (*rest.Config, error) {
+func NewUntrustedRestConfig(kubeConfig []byte, configOverrides ...func(*rest.Config)) (*rest.Config, error) {
 	if len(kubeConfig) == 0 {
 		return nil, fmt.Errorf("kubeconfig is empty")
 	}
