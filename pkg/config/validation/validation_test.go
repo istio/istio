@@ -7504,3 +7504,156 @@ func TestValidateHTTPHeaderValue(t *testing.T) {
 		})
 	}
 }
+
+func TestCatchAllMatch(t *testing.T) {
+	cases := []struct {
+		name  string
+		http  *networking.HTTPMatchRequest
+		match bool
+	}{
+		{
+			name: "catch all virtual service",
+			http: &networking.HTTPMatchRequest{
+				Name: "catch-all",
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{
+						Prefix: "/",
+					},
+				},
+			},
+			match: true,
+		},
+		{
+			name: "uri regex",
+			http: &networking.HTTPMatchRequest{
+				Name: "regex-catch-all",
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{
+						Regex: "*",
+					},
+				},
+			},
+			match: true,
+		},
+		{
+			name: "uri regex with query params",
+			http: &networking.HTTPMatchRequest{
+				Name: "regex-catch-all",
+				QueryParams: map[string]*networking.StringMatch{
+					"Authentication": {
+						MatchType: &networking.StringMatch_Regex{
+							Regex: "Bearer .+?\\..+?\\..+?",
+						},
+					},
+				},
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{
+						Regex: "*",
+					},
+				},
+			},
+			match: false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			match := isCatchAllMatch(tt.http)
+			if tt.match != match {
+				t.Errorf("Expected a match=%v but got match=%v", tt.match, match)
+			}
+		})
+	}
+}
+
+func TestIsCatchAllMatch(t *testing.T) {
+	cases := []struct {
+		name  string
+		match *networking.HTTPMatchRequest
+		want  bool
+	}{
+		{
+			name: "catch all prefix",
+			match: &networking.HTTPMatchRequest{
+				Name: "catch-all",
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{
+						Prefix: "/",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "specific prefix match",
+			match: &networking.HTTPMatchRequest{
+				Name: "specific match",
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Prefix{
+						Prefix: "/a",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "uri regex catch all",
+			match: &networking.HTTPMatchRequest{
+				Name: "regex-catch-all",
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{
+						Regex: "*",
+					},
+				},
+			},
+			want: true,
+		},
+		{
+			name: "uri regex with headers",
+			match: &networking.HTTPMatchRequest{
+				Name: "regex with headers",
+				Headers: map[string]*networking.StringMatch{
+					"Authentication": {
+						MatchType: &networking.StringMatch_Regex{
+							Regex: "Bearer .+?\\..+?\\..+?",
+						},
+					},
+				},
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{
+						Regex: "*",
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "uri regex with query params",
+			match: &networking.HTTPMatchRequest{
+				Name: "regex with query params",
+				QueryParams: map[string]*networking.StringMatch{
+					"Authentication": {
+						MatchType: &networking.StringMatch_Regex{
+							Regex: "Bearer .+?\\..+?\\..+?",
+						},
+					},
+				},
+				Uri: &networking.StringMatch{
+					MatchType: &networking.StringMatch_Regex{
+						Regex: "*",
+					},
+				},
+			},
+			want: false,
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			match := isCatchAllMatch(tt.match)
+			if match != tt.want {
+				t.Errorf("Unexpected catchAllMatch want %v, got %v", tt.want, match)
+			}
+		})
+	}
+}
