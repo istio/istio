@@ -164,8 +164,9 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 		if maxConnectionDuration != nil {
 			options.CommonHttpProtocolOptions.MaxConnectionDuration = maxConnectionDuration
 		}
-		if cb.isHttp2Cluster(mc) && maxConcurrentStreams > 0 {
-			http2ProtocolOptions := options.GetExplicitHttpConfig().GetHttp2ProtocolOptions()
+		// Check if cluster is HTTP2
+		http2ProtocolOptions := options.GetExplicitHttpConfig().GetHttp2ProtocolOptions()
+		if http2ProtocolOptions != nil && maxConcurrentStreams > 0 {
 			http2ProtocolOptions.MaxConcurrentStreams = &wrapperspb.UInt32Value{Value: maxConcurrentStreams}
 		}
 	}
