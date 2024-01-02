@@ -126,10 +126,14 @@ func doForward(ctx context.Context, cfg *Config, e *executor, doReq func(context
 		index := index
 		workFn := func() error {
 			st := time.Now()
+			fwLog.Infof("prevResp: %v", prevResp)
 			if cookieRequest && prevResp != "" {
 				response := echo.ParseResponse(prevResp)
+				fwLog.Infof("response: %v", response)
+				fwLog.Infof("response headers: %v", response.ResponseHeaders)
 				cookie := response.ResponseHeaders.Get("Set-Cookie")
 				ctx = metadata.AppendToOutgoingContext(ctx, "Set-Cookie", cookie)
+				fwLog.Infof("cookie set to metadata:")
 			}
 			resp, err := doReq(ctx, cfg, index)
 			if err != nil {
