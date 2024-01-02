@@ -56,10 +56,6 @@ var (
 	// Description: A VirtualService routes to a service with more than one port exposed, but does not specify which to use.
 	VirtualServiceDestinationPortSelectorRequired = diag.NewMessageType(diag.Error, "IST0112", "This VirtualService routes to a service %q that exposes multiple ports %v. Specifying a port in the destination is required to disambiguate.")
 
-	// MTLSPolicyConflict defines a diag.MessageType for message "MTLSPolicyConflict".
-	// Description: A DestinationRule and Policy are in conflict with regards to mTLS.
-	MTLSPolicyConflict = diag.NewMessageType(diag.Error, "IST0113", "A DestinationRule and Policy are in conflict with regards to mTLS for host %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s.")
-
 	// DeploymentAssociatedToMultipleServices defines a diag.MessageType for message "DeploymentAssociatedToMultipleServices".
 	// Description: The resulting pods of a service mesh deployment can't be associated with multiple services using the same port but different protocols.
 	DeploymentAssociatedToMultipleServices = diag.NewMessageType(diag.Warning, "IST0116", "This deployment %s is associated with multiple services using port %d but different protocols: %v")
@@ -264,7 +260,6 @@ func All() []*diag.MessageType {
 		ConflictingSidecarWorkloadSelectors,
 		MultipleSidecarsWithoutWorkloadSelectors,
 		VirtualServiceDestinationPortSelectorRequired,
-		MTLSPolicyConflict,
 		DeploymentAssociatedToMultipleServices,
 		PortNameIsNotUnderNamingConvention,
 		InvalidRegexp,
@@ -428,19 +423,6 @@ func NewVirtualServiceDestinationPortSelectorRequired(r *resource.Instance, dest
 		r,
 		destHost,
 		destPorts,
-	)
-}
-
-// NewMTLSPolicyConflict returns a new diag.Message based on MTLSPolicyConflict.
-func NewMTLSPolicyConflict(r *resource.Instance, host string, destinationRuleName string, destinationRuleMTLSMode bool, policyName string, policyMTLSMode string) diag.Message {
-	return diag.NewMessage(
-		MTLSPolicyConflict,
-		r,
-		host,
-		destinationRuleName,
-		destinationRuleMTLSMode,
-		policyName,
-		policyMTLSMode,
 	)
 }
 
