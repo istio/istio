@@ -25,6 +25,7 @@ package model
 import (
 	"fmt"
 	"net/netip"
+	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -959,6 +960,8 @@ type WorkloadInfo struct {
 	Labels map[string]string
 	// Source of the workload. Note this is used internally only.
 	Source WorkloadSource
+	// CreationTime is the time when the workload was created. Note this is used internally only.
+	CreationTime time.Time
 }
 
 func workloadResourceName(w *workloadapi.Workload) string {
@@ -967,9 +970,10 @@ func workloadResourceName(w *workloadapi.Workload) string {
 
 func (i *WorkloadInfo) Clone() *WorkloadInfo {
 	return &WorkloadInfo{
-		Workload: proto.Clone(i).(*workloadapi.Workload),
-		Labels:   maps.Clone(i.Labels),
-		Source:   i.Source,
+		Workload:     proto.Clone(i).(*workloadapi.Workload),
+		Labels:       maps.Clone(i.Labels),
+		Source:       i.Source,
+		CreationTime: i.CreationTime,
 	}
 }
 
@@ -986,6 +990,16 @@ func ExtractWorkloadsFromAddresses(addrs []*AddressInfo) []WorkloadInfo {
 			return nil
 		}
 	})
+}
+
+func SortWorkloadsByCreationTime(workloads []*WorkloadInfo) []*WorkloadInfo {
+	sort.SliceStable(workloads, func(i, j int) bool {
+		if workloads[i].CreationTime.Equal(workloads[j].CreationTime) {
+			return workloads[i].Uid < workloads[j].Uid
+		}
+		return workloads[i].CreationTime.Before(workloads[j].CreationTime)
+	})
+	return workloads
 }
 
 // MCSServiceInfo combines the name of a service with a particular Kubernetes cluster. This
