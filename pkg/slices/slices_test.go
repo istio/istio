@@ -32,7 +32,7 @@ type s struct {
 }
 
 func TestEqual(t *testing.T) {
-	var tests = []struct {
+	tests := []struct {
 		name string
 		s1   []int
 		s2   []int
