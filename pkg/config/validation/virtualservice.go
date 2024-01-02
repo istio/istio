@@ -143,18 +143,22 @@ func validateHTTPRouteMatchRequest(http *networking.HTTPRoute, routeType HTTPRou
 						errs = appendErrors(errs, fmt.Errorf("header match %v cannot be null", name))
 					}
 
+					if _, ok := header.GetMatchType().(*networking.StringMatch_Prefix); ok {
+						if header.GetPrefix() == "" {
+							errs = appendErrors(errs, fmt.Errorf("header prefix match %v may not be empty", name))
+						}
+					}
+
 					errs = appendErrors(errs, ValidateHTTPHeaderName(name))
-					errs = appendErrors(errs, validateStringMatch(header, "headers"))
+					errs = appendErrors(errs, validateStringMatchRegexp(header, "headers"))
 				}
 
-				// uri use RouteMatch
 				errs = appendErrors(errs, validateStringMatchRegexp(match.GetUri(), "uri"))
-
-				errs = appendErrors(errs, validateStringMatch(match.GetScheme(), "scheme"))
-				errs = appendErrors(errs, validateStringMatch(match.GetMethod(), "method"))
-				errs = appendErrors(errs, validateStringMatch(match.GetAuthority(), "authority"))
+				errs = appendErrors(errs, validateStringMatchRegexp(match.GetScheme(), "scheme"))
+				errs = appendErrors(errs, validateStringMatchRegexp(match.GetMethod(), "method"))
+				errs = appendErrors(errs, validateStringMatchRegexp(match.GetAuthority(), "authority"))
 				for _, qp := range match.GetQueryParams() {
-					errs = appendErrors(errs, validateStringMatch(qp, "queryParams"))
+					errs = appendErrors(errs, validateStringMatchRegexp(qp, "queryParams"))
 				}
 			}
 		}
