@@ -233,7 +233,9 @@ func (a *AmbientIndexImpl) WorkloadsForWaypoint(scope model.WaypointScope) []*mo
 	defer a.mu.RUnlock()
 	var res []*model.WorkloadInfo
 	// TODO: try to precompute
-	for _, w := range a.byUID {
+	workloads := maps.Values(a.byUID)
+	workloads = model.SortWorkloadsByCreationTime(workloads)
+	for _, w := range workloads {
 		if a.matchesScope(scope, w) {
 			res = append(res, w)
 		}
@@ -370,9 +372,10 @@ func (a *AmbientIndexImpl) extractWorkload(p *v1.Pod, c *Controller) *model.Work
 		return nil
 	}
 	return &model.WorkloadInfo{
-		Workload: wl,
-		Labels:   p.Labels,
-		Source:   model.WorkloadSourcePod,
+		Workload:     wl,
+		Labels:       p.Labels,
+		Source:       model.WorkloadSourcePod,
+		CreationTime: p.CreationTimestamp.Time,
 	}
 }
 

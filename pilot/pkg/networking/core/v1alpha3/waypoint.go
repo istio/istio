@@ -19,7 +19,6 @@ import (
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/maps"
-	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -53,7 +52,7 @@ func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]*model
 }
 
 func findWorkloadServices(workloads []*model.WorkloadInfo, push *model.PushContext) *waypointServices {
-	ws := &waypointServices{}
+	wps := &waypointServices{}
 	for _, wl := range workloads {
 		for _, ns := range push.ServiceIndex.HostnameAndNamespace {
 			svc := ns[wl.Namespace]
@@ -61,19 +60,18 @@ func findWorkloadServices(workloads []*model.WorkloadInfo, push *model.PushConte
 				continue
 			}
 			if labels.Instance(svc.Attributes.LabelSelectors).Match(wl.Labels) {
-				if ws.services == nil {
-					ws.services = map[host.Name]*model.Service{}
+				if wps.services == nil {
+					wps.services = map[host.Name]*model.Service{}
 				}
-				ws.services[svc.Hostname] = svc
+				wps.services[svc.Hostname] = svc
 			}
 		}
 	}
-	keys := maps.Keys(ws.services)
-	slices.Sort(keys)
-	for _, k := range keys {
-		ws.orderedServices = append(ws.orderedServices, ws.services[k])
+	services := maps.Values(wps.services)
+	if len(services) > 0 {
+		wps.orderedServices = model.SortServicesByCreationTime(services)
 	}
-	return ws
+	return wps
 }
 
 // filterWaypointOutboundServices is used to determine the set of outbound clusters we need to build for waypoints.

@@ -493,6 +493,7 @@ func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
 			uid := c.generateServiceEntryUID(svcEntry.Namespace, svcEntry.Name, we.Address)
 			newWl := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
 			oldWl := a.byUID[uid]
+			handleWorkloadCreationTime(oldWl, newWl)
 			a.updateWorkloadIndexes(oldWl, newWl, updates)
 		}
 	}

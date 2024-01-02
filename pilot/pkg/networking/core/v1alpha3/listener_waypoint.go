@@ -664,8 +664,8 @@ func (lb *ListenerBuilder) GetDestinationCluster(destination *networking.Destina
 	}
 
 	if service != nil {
-		_, svcs := findWaypointResources(lb.node, lb.push)
-		_, f := svcs.services[service.Hostname]
+		_, wps := findWaypointResources(lb.node, lb.push)
+		_, f := wps.services[service.Hostname]
 		if !f || service.MeshExternal {
 			// this waypoint proxy isn't responsible for this service so we use outbound; TODO quicker lookup
 			dir, subset = model.TrafficDirectionOutbound, destination.Subset
