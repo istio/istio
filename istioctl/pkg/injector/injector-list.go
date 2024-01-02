@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type revisionCount struct {
@@ -229,22 +230,20 @@ func getInjectedRevision(namespace *corev1.Namespace, hooks []admitv1.MutatingWe
 }
 
 func getMatchingNamespaces(hook *admitv1.MutatingWebhookConfiguration, namespaces []corev1.Namespace) []corev1.Namespace {
-	matched := map[string]corev1.Namespace{}
+	retval := make([]corev1.Namespace, 0, len(namespaces))
+	seen := sets.String{}
 	for _, webhook := range hook.Webhooks {
 		nsSelector, err := metav1.LabelSelectorAsSelector(webhook.NamespaceSelector)
 		if err != nil {
-			return nil
+			return retval
 		}
 
 		for _, namespace := range namespaces {
-			if nsSelector.Matches(api_pkg_labels.Set(namespace.Labels)) {
-				matched[namespace.Name] = namespace
+			if !seen.Contains(namespace.Name) && nsSelector.Matches(api_pkg_labels.Set(namespace.Labels)) {
+				retval = append(retval, namespace)
+				seen.Insert(namespace.Name)
 			}
 		}
-	}
-	retval := make([]corev1.Namespace, 0)
-	for _, ns := range matched {
-		retval = append(retval, ns)
 	}
 	return retval
 }
