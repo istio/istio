@@ -75,24 +75,13 @@ spec:
 		Run()
 }
 
-func setupConfig(c resource.Context, cfg *istio.Config) {
+func setupConfig(_ resource.Context, cfg *istio.Config) {
 	if cfg == nil {
 		return
 	}
 	cfg.ControlPlaneValues = `
 meshConfig:
   accessLogFile: "" # disable from install, we will enable via Telemetry layer
-  defaultConfig:
-    proxyStatsMatcher:
-      inclusionPrefixes:
-      - istio_custom_total
-    extraStatTags:
-    - url_path
-    - response_status
-values:
- telemetry:
-   v2:
-     enabled: false # disable from install, we will enable via Telemetry layer
 `
 	cfg.RemoteClusterValues = cfg.ControlPlaneValues
 }
