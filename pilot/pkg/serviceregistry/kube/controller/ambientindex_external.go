@@ -17,7 +17,6 @@ package controller
 import (
 	"fmt"
 	"net/netip"
-	"time"
 
 	"google.golang.org/protobuf/proto"
 	v1 "k8s.io/api/core/v1"
@@ -120,7 +119,6 @@ func (a *AmbientIndexImpl) handleServiceEntry(svcEntry *apiv1alpha3.ServiceEntry
 		var wl *model.WorkloadInfo
 		if event != model.EventDelete {
 			wl = a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
-			handleWorkloadCreationTime(oldWl, wl)
 		}
 		a.updateWorkloadIndexes(oldWl, wl, updates)
 	}
@@ -225,7 +223,6 @@ func (a *AmbientIndexImpl) extractWorkloadEntry(w *apiv1alpha3.WorkloadEntry, c 
 	if wl != nil {
 		wl.CreationTime = w.CreationTimestamp.Time
 	}
-	handleWorkloadCreationTime(nil, wl)
 	return wl
 }
 
@@ -256,25 +253,15 @@ func (a *AmbientIndexImpl) extractWorkloadEntrySpec(w *v1alpha3.WorkloadEntry, n
 	if parentServiceEntry != nil {
 		source = model.WorkloadSourceServiceEntry
 	}
-	return &model.WorkloadInfo{
+	wli := &model.WorkloadInfo{
 		Workload: wl,
 		Labels:   w.Labels,
 		Source:   source,
 	}
-}
-
-func handleWorkloadCreationTime(old, cur *model.WorkloadInfo) {
-	if cur == nil {
-		return
+	if parentServiceEntry != nil {
+		wli.CreationTime = parentServiceEntry.CreationTimestamp.Time
 	}
-	if !cur.CreationTime.IsZero() {
-		return
-	}
-	if old == nil || old.CreationTime.IsZero() {
-		cur.CreationTime = time.Now()
-	} else {
-		cur.CreationTime = old.CreationTime
-	}
+	return wli
 }
 
 // NOTE: Mutex is locked prior to being called.

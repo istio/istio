@@ -995,9 +995,7 @@ func ExtractWorkloadsFromAddresses(addrs []*AddressInfo) []WorkloadInfo {
 func SortWorkloadsByCreationTime(workloads []*WorkloadInfo) []*WorkloadInfo {
 	sort.SliceStable(workloads, func(i, j int) bool {
 		if workloads[i].CreationTime.Equal(workloads[j].CreationTime) {
-			in := workloads[i].Name + "." + workloads[i].Namespace
-			jn := workloads[j].Name + "." + workloads[j].Namespace
-			return in < jn
+			return workloads[i].Uid < workloads[j].Uid
 		}
 		return workloads[i].CreationTime.Before(workloads[j].CreationTime)
 	})
