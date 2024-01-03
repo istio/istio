@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type revisionCount struct {
@@ -229,7 +230,8 @@ func getInjectedRevision(namespace *corev1.Namespace, hooks []admitv1.MutatingWe
 }
 
 func getMatchingNamespaces(hook *admitv1.MutatingWebhookConfiguration, namespaces []corev1.Namespace) []corev1.Namespace {
-	retval := make([]corev1.Namespace, 0)
+	retval := make([]corev1.Namespace, 0, len(namespaces))
+	seen := sets.String{}
 	for _, webhook := range hook.Webhooks {
 		nsSelector, err := metav1.LabelSelectorAsSelector(webhook.NamespaceSelector)
 		if err != nil {
@@ -237,8 +239,9 @@ func getMatchingNamespaces(hook *admitv1.MutatingWebhookConfiguration, namespace
 		}
 
 		for _, namespace := range namespaces {
-			if nsSelector.Matches(api_pkg_labels.Set(namespace.Labels)) {
+			if !seen.Contains(namespace.Name) && nsSelector.Matches(api_pkg_labels.Set(namespace.Labels)) {
 				retval = append(retval, namespace)
+				seen.Insert(namespace.Name)
 			}
 		}
 	}
@@ -253,12 +256,7 @@ func getPods(ctx context.Context, client kube.CLIClient) (map[resource.Namespace
 		return retval, err
 	}
 	for _, pod := range pods.Items {
-		podList, ok := retval[resource.Namespace(pod.GetNamespace())]
-		if !ok {
-			retval[resource.Namespace(pod.GetNamespace())] = []corev1.Pod{pod}
-		} else {
-			retval[resource.Namespace(pod.GetNamespace())] = append(podList, pod)
-		}
+		retval[resource.Namespace(pod.GetNamespace())] = append(retval[resource.Namespace(pod.GetNamespace())], pod)
 	}
 	return retval, nil
 }
