@@ -25,6 +25,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -52,6 +53,7 @@ import (
 	kubescheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/metadata"
 	"k8s.io/client-go/rest"
+	clienttesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/remotecommand"
@@ -226,7 +228,8 @@ type client struct {
 	started atomic.Bool
 	// If enabled, will wait for cache syncs with extremely short delay. This should be used only for tests
 	fastSync               bool
-	informerWatchesPending *atomic.Int32
+	informerWatchesPending map[clienttesting.ObjectTracker]*atomic.Int32
+	iwpmu                  sync.Mutex
 
 	// These may be set only when creating an extended client.
 	revision        string
@@ -411,10 +414,14 @@ func (c *client) RunAndWait(stop <-chan struct{}) {
 				return false, fmt.Errorf("channel closed")
 			default:
 			}
-			if c.informerWatchesPending.Load() == 0 {
-				return true, nil
+			c.iwpmu.Lock()
+			defer c.iwpmu.Unlock()
+			for _, pending := range c.informerWatchesPending {
+				if pending.Load() != 0 {
+					return false, nil
+				}
 			}
-			return false, nil
+			return true, nil
 		})
 	} else {
 		if c.crdWatcher != nil {
@@ -527,7 +534,14 @@ func (c *client) WaitForCacheSync(name string, stop <-chan struct{}, cacheSyncs 
 		return WaitForCacheSync(name, stop, cacheSyncs...)
 	}
 	syncFns := append(cacheSyncs, func() bool {
-		return c.informerWatchesPending.Load() == 0
+		c.iwpmu.Lock()
+		defer c.iwpmu.Unlock()
+		for _, pending := range c.informerWatchesPending {
+			if pending.Load() != 0 {
+				return false
+			}
+		}
+		return true
 	})
 	return WaitForCacheSync(name, stop, syncFns...)
 }

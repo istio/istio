@@ -25,22 +25,21 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
 	corev1ac "k8s.io/client-go/applyconfigurations/core/v1"
-	"k8s.io/client-go/dynamic"
-	"k8s.io/client-go/dynamic/dynamicinformer"
 	dynamicfake "k8s.io/client-go/dynamic/fake"
 	"k8s.io/client-go/informers"
-	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/cache"
 
 	istiofake "istio.io/client-go/pkg/clientset/versioned/fake"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestFakeApply(t *testing.T) {
 	c := NewFakeClient()
 	g := gomega.NewWithT(t)
+	// create a cm by applying
 	cma := corev1ac.ConfigMap("name", "default").
 		WithData(map[string]string{
 			"key": string("value"),
@@ -48,61 +47,19 @@ func TestFakeApply(t *testing.T) {
 	out, err := c.Kube().CoreV1().ConfigMaps("default").Apply(context.Background(), cma, metav1.ApplyOptions{
 		FieldManager: "istio",
 	})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	assert.NoError(t, err)
 	outac, err := corev1ac.ExtractConfigMap(out, "istio")
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	assert.NoError(t, err)
 	g.Expect(outac).To(gomega.Equal(cma))
-}
-
-func helpTestMergeTypedToDynamic(g gomega.Gomega, f kubernetes.Interface, df dynamic.Interface) {
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "name",
-			Namespace: "default",
-		},
-		Data: map[string]string{
-			"key": "value",
-		},
-	}
-	z := atomic.Int32{}
-	di := dynamicinformer.NewFilteredDynamicSharedInformerFactory(df, 0, "default", nil).ForResource(gvr.ConfigMap).Informer()
-
-	di.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc: func(obj interface{}) { z.Add(1) },
+	// modify the cm by applying
+	cma.Data["key2"] = "value2"
+	out, err = c.Kube().CoreV1().ConfigMaps("default").Apply(context.Background(), cma, metav1.ApplyOptions{
+		FieldManager: "istio",
 	})
-
-	stopper := make(chan struct{})
-	go di.Run(stopper)
-
-	_, err := f.CoreV1().ConfigMaps("default").Create(context.Background(), cm, metav1.CreateOptions{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-
-	ro, err := df.(*dynamicfake.FakeDynamicClient).Tracker().Get(gvr.ConfigMap, "default", "name")
-	ucm := ro.(*unstructured.Unstructured)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
-	g.Expect(ucm.Object).To(gomega.HaveKey("data"))
-
-	g.Eventually(z.Load).Should(gomega.Equal(int32(1)))
-}
-
-func TestFakeClientMerge(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	c := NewFakeClient()
-	helpTestMergeTypedToDynamic(g, c.Kube(), c.Dynamic())
-}
-
-func TestMergeTypedToDynamic(t *testing.T) {
-	g := gomega.NewGomegaWithT(t)
-	f := fake.NewSimpleClientset()
-	s := FakeIstioScheme
-	df := dynamicfake.NewSimpleDynamicClient(s)
-	fm := fakeMerger{
-		scheme: s,
-	}
-
-	fm.Merge(f)
-	fm.MergeDynamic(df)
-	helpTestMergeTypedToDynamic(g, f, df)
+	assert.NoError(t, err)
+	outac, err = corev1ac.ExtractConfigMap(out, "istio")
+	assert.NoError(t, err)
+	g.Expect(outac).To(gomega.Equal(cma))
 }
 
 func TestMergeDynamicToTyped(t *testing.T) {
@@ -138,11 +95,11 @@ func TestMergeDynamicToTyped(t *testing.T) {
 	go inf.Run(stopper)
 
 	_, err := df.Resource(gvr.ConfigMap).Namespace("default").Create(context.Background(), cm, metav1.CreateOptions{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	assert.NoError(t, err)
 
 	ro, err := f.Tracker().Get(gvr.ConfigMap, "default", "second")
 	ucm := ro.(*corev1.ConfigMap)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	assert.NoError(t, err)
 	g.Expect(ucm.Data).To(gomega.HaveKey("foo"))
 
 	g.Eventually(z.Load).Should(gomega.Equal(int32(1)))
@@ -157,13 +114,13 @@ func TestNameGeneration(t *testing.T) {
 		},
 	}
 	unsObj, err := runtime.DefaultUnstructuredConverter.ToUnstructured(cm)
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	assert.NoError(t, err)
 	ucm := &unstructured.Unstructured{Object: unsObj}
 	out, err := c.Kube().CoreV1().ConfigMaps("default").Create(context.Background(), cm, metav1.CreateOptions{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	assert.NoError(t, err)
 	g.Expect(out.Name).To(gomega.HavePrefix("foo"))
 
 	out2, err := c.Dynamic().Resource(gvr.ConfigMap).Namespace("default").Create(context.Background(), ucm, metav1.CreateOptions{})
-	g.Expect(err).NotTo(gomega.HaveOccurred())
+	assert.NoError(t, err)
 	g.Expect(out2.GetName()).To(gomega.HavePrefix("foo"))
 }

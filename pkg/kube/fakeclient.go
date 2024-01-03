@@ -55,7 +55,7 @@ import (
 // NewFakeClient creates a new, fake, client
 func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c := &client{
-		informerWatchesPending: atomic.NewInt32(0),
+		informerWatchesPending: map[clienttesting.ObjectTracker]*atomic.Int32{},
 		clusterID:              "fake",
 	}
 	c.config = &rest.Config{
@@ -65,7 +65,7 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c.informerFactory = informerfactory.NewSharedInformerFactory()
 
 	s := FakeIstioScheme
-	fmf := newFieldManagerFacotry(s)
+	fmf := newFieldManagerFactory(s)
 	merger := fakeMerger{
 		scheme: s,
 	}
@@ -92,6 +92,17 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	c.gatewayapi = gf
 	c.extSet = extfake.NewSimpleClientset()
 
+	getInformerWatchesPending := func(tracker clienttesting.ObjectTracker) *atomic.Int32 {
+		c.iwpmu.Lock()
+		defer c.iwpmu.Unlock()
+		iwp, ok := c.informerWatchesPending[tracker]
+		if !ok {
+			iwp = atomic.NewInt32(0)
+			c.informerWatchesPending[tracker] = iwp
+		}
+		return iwp
+	}
+
 	// https://github.com/kubernetes/kubernetes/issues/95372
 	// There is a race condition in the client fakes, where events that happen between the List and Watch
 	// of an informer are dropped. To avoid this, we explicitly manage the list and watch, ensuring all lists
@@ -100,9 +111,11 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 	// to in the future we will need to identify the Lists that have a corresponding Watch, possibly by looking
 	// at created Informers
 	// an atomic.Int is used instead of sync.WaitGroup because wg.Add and wg.Wait cannot be called concurrently
-	listReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
-		c.informerWatchesPending.Inc()
-		return false, nil, nil
+	listReactor := func(tracker clienttesting.ObjectTracker) func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		return func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+			getInformerWatchesPending(tracker).Inc()
+			return false, nil, nil
+		}
 	}
 	watchReactor := func(tracker clienttesting.ObjectTracker) func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
 		return func(action clienttesting.Action) (handled bool, ret watch.Interface, err error) {
@@ -112,10 +125,15 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 			if err != nil {
 				return false, nil, err
 			}
-			c.informerWatchesPending.Dec()
+			getInformerWatchesPending(tracker).Dec()
 			return true, watch, nil
 		}
 	}
+	createReactor := func(action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+		generateNameOnCreate(action.(clienttesting.CreateAction).GetObject())
+		return false, nil, nil
+	}
+
 	for _, fc := range []fakeClient{
 		c.kube.(*fake.Clientset),
 		c.istio.(*istiofake.Clientset),
@@ -124,9 +142,11 @@ func NewFakeClient(objects ...runtime.Object) CLIClient {
 		c.metadata.(*metadatafake.FakeMetadataClient),
 	} {
 		fc.PrependWatchReactor("*", watchReactor(fc.Tracker()))
+		fc.PrependReactor("list", "*", listReactor(fc.Tracker()))
+		// note: it's important that this create reactor be prepended after all others,
+		// to ensure all other reactors see the generated name.
+		fc.PrependReactor("create", "*", createReactor)
 	}
-	df.PrependReactor("list", "*", listReactor)
-	c.metadata.(*metadatafake.FakeMetadataClient).PrependReactor("list", "*", listReactor)
 
 	c.fastSync = true
 
@@ -201,7 +221,6 @@ func insertPatchReactor(f clienttesting.FakeClient, fmf *fieldManagerFactory) {
 				}
 
 				if isNew {
-					// TODO: add name generation here
 					generateNameOnCreate(typedResult)
 					err = f.Tracker().Create(pa.GetResource(), typedResult, pa.GetNamespace())
 				} else if !reflect.DeepEqual(original, typedResult) {
@@ -299,8 +318,6 @@ func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClie
 	switch newAction := action.DeepCopy().(type) {
 	case clienttesting.CreateActionImpl:
 		newAction.Object = tObj
-		generateNameOnCreate(tObj)
-		generateNameOnCreate(action.(clienttesting.CreateActionImpl).Object)
 		_, err := destination.Invokes(newAction, defaultObj)
 		if err != nil {
 			log.Errorf("Propagating Invoke resulted in error for fake %T: %s", destination, err)
@@ -329,11 +346,6 @@ func (fm *fakeMerger) Merge(f clienttesting.FakeClient) {
 	fm.mergeLock.Lock()
 	defer fm.mergeLock.Unlock()
 	fm.alertList = append(fm.alertList, f)
-	myPropagator := func(action clienttesting.Action) (bool, runtime.Object, error) {
-		// propagate from typed client to dynamic
-		return fm.propagateReactionSingle(fm.dynamic, action)
-	}
-	f.PrependReactor("*", "*", myPropagator)
 }
 
 func (fm *fakeMerger) MergeDynamic(df *dynamicfake.FakeDynamicClient) {
@@ -360,7 +372,7 @@ type fieldManagerFactory struct {
 	mu        sync.Mutex
 }
 
-func newFieldManagerFacotry(myschema *runtime.Scheme) *fieldManagerFactory {
+func newFieldManagerFactory(myschema *runtime.Scheme) *fieldManagerFactory {
 	return &fieldManagerFactory{
 		schema:    myschema,
 		converter: managedfields.NewDeducedTypeConverter(),
