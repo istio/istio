@@ -269,7 +269,7 @@ func TestScopeWithLabel(t *testing.T) {
 	lines, err := captureStdout(func() {
 		Configure(DefaultOptions())
 		funcs.Store(funcs.Load().(patchTable))
-		s2 := s.WithLabels("foo", "bar").WithLabels("baz", 123, "qux", 0.123)
+		s2 := s.WithLabels("foo", "bar").WithLabels("baz", 123, "qux", 0.123).WithLabels("foo", "override")
 		s2.Debug("Hello")
 		// s should be unmodified.
 		s.Debug("Hello")
@@ -280,7 +280,7 @@ func TestScopeWithLabel(t *testing.T) {
 		t.Errorf("Got error '%v', expected success", err)
 	}
 
-	mustRegexMatchString(t, lines[0], `Hello	foo=bar baz=123 qux=0.123`)
+	mustRegexMatchString(t, lines[0], `Hello	foo=override baz=123 qux=0.123`)
 	mustRegexMatchString(t, lines[1], "Hello$")
 }
 
