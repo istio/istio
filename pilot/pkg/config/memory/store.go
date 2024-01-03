@@ -99,7 +99,17 @@ func (cr *store) List(kind config.GroupVersionKind, namespace string) []config.C
 	if !exists {
 		return nil
 	}
-	out := make([]config.Config, 0, len(cr.data[kind]))
+
+	var size int
+	if namespace == "" {
+		for _, ns := range data {
+			size += len(ns)
+		}
+	} else {
+		size = len(data[namespace])
+	}
+
+	out := make([]config.Config, 0, size)
 	if namespace == "" {
 		for _, ns := range data {
 			for _, value := range ns {

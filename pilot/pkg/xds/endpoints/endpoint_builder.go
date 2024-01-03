@@ -203,52 +203,52 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	if b == nil {
 		return
 	}
-	h.Write([]byte(b.clusterName))
+	h.WriteString(b.clusterName)
 	h.Write(Separator)
-	h.Write([]byte(b.network))
+	h.WriteString(string(b.network))
 	h.Write(Separator)
-	h.Write([]byte(b.clusterID))
+	h.WriteString(string(b.clusterID))
 	h.Write(Separator)
-	h.Write([]byte(b.nodeType))
+	h.WriteString(string(b.nodeType))
 	h.Write(Separator)
-	h.Write([]byte(strconv.FormatBool(b.clusterLocal)))
+	h.WriteString(strconv.FormatBool(b.clusterLocal))
 	h.Write(Separator)
 	if features.EnableHBONE && b.proxy != nil {
-		h.Write([]byte(strconv.FormatBool(b.proxy.IsProxylessGrpc())))
+		h.WriteString(strconv.FormatBool(b.proxy.IsProxylessGrpc()))
 		h.Write(Separator)
 	}
-	h.Write([]byte(util.LocalityToString(b.locality)))
+	h.WriteString(util.LocalityToString(b.locality))
 	h.Write(Separator)
 	if len(b.failoverPriorityLabels) > 0 {
 		h.Write(b.failoverPriorityLabels)
 		h.Write(Separator)
 	}
 	if b.service.Attributes.NodeLocal {
-		h.Write([]byte(b.proxy.GetNodeName()))
+		h.WriteString(b.proxy.GetNodeName())
 		h.Write(Separator)
 	}
 
 	if b.push != nil && b.push.AuthnPolicies != nil {
-		h.Write([]byte(b.push.AuthnPolicies.GetVersion()))
+		h.WriteString(b.push.AuthnPolicies.GetVersion())
 	}
 	h.Write(Separator)
 
 	for _, dr := range b.destinationRule.GetFrom() {
-		h.Write([]byte(dr.Name))
+		h.WriteString(dr.Name)
 		h.Write(Slash)
-		h.Write([]byte(dr.Namespace))
+		h.WriteString(dr.Namespace)
 	}
 	h.Write(Separator)
 
 	if b.service != nil {
-		h.Write([]byte(b.service.Hostname))
+		h.WriteString(string(b.service.Hostname))
 		h.Write(Slash)
-		h.Write([]byte(b.service.Attributes.Namespace))
+		h.WriteString(b.service.Attributes.Namespace)
 	}
 	h.Write(Separator)
 
 	if b.proxyView != nil {
-		h.Write([]byte(b.proxyView.String()))
+		h.WriteString(b.proxyView.String())
 	}
 	h.Write(Separator)
 }

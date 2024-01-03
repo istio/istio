@@ -943,7 +943,7 @@ func (conn *Connection) send(res *discovery.DiscoveryResponse) error {
 			conn.proxy.Unlock()
 		}
 	} else if status.Convert(err).Code() == codes.DeadlineExceeded {
-		log.Infof("Timeout writing %s", conn.conID)
+		log.Infof("Timeout writing %s: ", conn.conID, v3.GetShortType(res.TypeUrl))
 		xdsResponseWriteTimeouts.Increment()
 	}
 	return err

@@ -859,32 +859,26 @@ func serviceMatchingVirtualServicePorts(service *Service, vsDestPorts sets.Set[i
 }
 
 // computeWildcardHostVirtualServiceIndex computes the wildcardHostVirtualServiceIndex for a given
-// list of virtualServices. This is used to optimize the lookup of the most specific wildcard host
+// (sorted) list of virtualServices. This is used to optimize the lookup of the most specific wildcard host.
+//
+// N.B the caller MUST presort virtualServices based on the desired precedence for duplicate hostnames.
+// This function will persist that order and not overwrite any previous entries for a given hostname.
 func computeWildcardHostVirtualServiceIndex(virtualServices []config.Config, services []*Service) map[host.Name]types.NamespacedName {
 	fqdnVirtualServiceHostIndex := make(map[host.Name]config.Config, len(virtualServices))
 	wildcardVirtualServiceHostIndex := make(map[host.Name]config.Config, len(virtualServices))
 	for _, vs := range virtualServices {
 		v := vs.Spec.(*networking.VirtualService)
 		for _, h := range v.Hosts {
-			// We may have duplicate (not just overlapping) hosts; in the case of exact duplicates, take the oldest one first
+			// We may have duplicate (not just overlapping) hosts; assume the list of VS is sorted already
+			// and never overwrite existing entries
 			if host.Name(h).IsWildCarded() {
-				existingVs, exists := wildcardVirtualServiceHostIndex[host.Name(h)]
+				_, exists := wildcardVirtualServiceHostIndex[host.Name(h)]
 				if !exists {
-					wildcardVirtualServiceHostIndex[host.Name(h)] = vs
-					continue
-				}
-				// Only replace if this VS is older than the existing one for this hostname
-				if vs.GetCreationTimestamp().Before(existingVs.GetCreationTimestamp()) {
 					wildcardVirtualServiceHostIndex[host.Name(h)] = vs
 				}
 			} else {
-				existingVs, exists := fqdnVirtualServiceHostIndex[host.Name(h)]
+				_, exists := fqdnVirtualServiceHostIndex[host.Name(h)]
 				if !exists {
-					fqdnVirtualServiceHostIndex[host.Name(h)] = vs
-					continue
-				}
-				// Only replace if this VS is older than the existing one for this hostname
-				if vs.GetCreationTimestamp().Before(existingVs.GetCreationTimestamp()) {
 					fqdnVirtualServiceHostIndex[host.Name(h)] = vs
 				}
 			}

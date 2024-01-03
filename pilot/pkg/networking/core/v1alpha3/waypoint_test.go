@@ -65,22 +65,25 @@ func TestFindWorkloadServices(t *testing.T) {
 	tests := []struct {
 		name      string
 		workloads []*model.WorkloadInfo
-		want      map[host.Name]*model.Service
+		want      *waypointServices
 	}{
 		{
 			name:      "no workloads",
 			workloads: []*model.WorkloadInfo{},
-			want:      map[host.Name]*model.Service{},
+			want:      &waypointServices{},
 		},
 		{
 			name:      "not matched",
 			workloads: []*model.WorkloadInfo{b, foo},
-			want:      map[host.Name]*model.Service{},
+			want:      &waypointServices{},
 		},
 		{
 			name:      "matched",
 			workloads: []*model.WorkloadInfo{a, b, foo},
-			want:      map[host.Name]*model.Service{svcA.Hostname: svcA},
+			want: &waypointServices{
+				services:        map[host.Name]*model.Service{svcA.Hostname: svcA},
+				orderedServices: []*model.Service{svcA},
+			},
 		},
 	}
 	for _, tt := range tests {

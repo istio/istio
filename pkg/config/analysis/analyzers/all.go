@@ -56,7 +56,6 @@ func All() []analysis.Analyzer {
 		&k8sgateway.SelectorAnalyzer{},
 		&multicluster.MeshNetworksAnalyzer{},
 		&service.PortNameAnalyzer{},
-		&sidecar.DefaultSelectorAnalyzer{},
 		&sidecar.SelectorAnalyzer{},
 		&virtualservice.ConflictingMeshGatewayHostsAnalyzer{},
 		&virtualservice.DestinationHostAnalyzer{},

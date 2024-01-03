@@ -20,6 +20,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -262,7 +263,6 @@ func TestRotateAndStdout(t *testing.T) {
 
 func TestRotateMaxBackups(t *testing.T) {
 	dir := t.TempDir()
-
 	file := dir + "/rot.log"
 
 	o := DefaultOptions()
@@ -271,6 +271,7 @@ func TestRotateMaxBackups(t *testing.T) {
 	o.RotationMaxSize = 1
 	o.RotationMaxBackups = 2
 	o.RotationMaxAge = 30
+
 	if err := Configure(o); err != nil {
 		t.Fatalf("Unable to configure logger: %v", err)
 	}
@@ -282,24 +283,44 @@ func TestRotateMaxBackups(t *testing.T) {
 	}
 
 	// make sure that all log outputs is much larger than 2M
-	for i := 0; i < 4*1024; i++ {
-		for j := 0; j < 8; j++ {
-			log.Println(line)
-		}
+	wg := sync.WaitGroup{}
+	for i := 0; i < 4; i++ {
+		wg.Add(1)
+		go func() {
+			for ii := 0; ii < 1024; ii++ {
+				for j := 0; j < 8; j++ {
+					log.Println(line)
+				}
+			}
+			wg.Done()
+		}()
 	}
+	wg.Wait()
 	Sync()
 
-	rd, err := os.ReadDir(dir)
-	if err != nil {
-		t.Fatalf("Unable to read dir: %v", err)
-	}
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
 
-	if len(rd) == o.RotationMaxBackups+1 {
-		// perfect, we're done
-		return
-	}
+	var rd []os.DirEntry
 
-	t.Errorf("Expecting at most %d backup logs", o.RotationMaxBackups)
+	for {
+		select {
+		case <-ticker.C:
+			rd, err := os.ReadDir(dir)
+			if err != nil {
+				t.Fatalf("Unable to read dir: %v", err)
+			}
+			if len(rd) == o.RotationMaxBackups+1 {
+				// perfect, we're done
+				return
+			}
+		case <-time.After(5 * time.Second):
+			for _, f := range rd {
+				t.Log(f.Name())
+			}
+			t.Errorf("Expecting at most %d backup logs, but %s has %d", o.RotationMaxBackups, dir, len(rd)-1)
+		}
+	}
 }
 
 func TestCapture(t *testing.T) {

@@ -35,6 +35,8 @@ type Config struct {
 	// SkipDump, if enabled, will disable dumping the namespace. This is useful to avoid duplicate
 	// dumping of istio-system.
 	SkipDump bool
+	// SkipCleanup, if enabled, the namespace will not be deleted during cleanup. Used for istio-system namespace
+	SkipCleanup bool
 }
 
 func (c *Config) overwriteRevisionIfEmpty(revision string) {

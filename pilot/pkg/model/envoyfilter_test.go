@@ -18,8 +18,11 @@ import (
 	"reflect"
 	"testing"
 
+	"google.golang.org/protobuf/types/known/structpb"
+
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/util/protomarshal"
 )
 
 // TestEnvoyFilterMatch tests the matching logic for EnvoyFilter, in particular the regex -> prefix optimization
@@ -119,6 +122,12 @@ func TestEnvoyFilterMatch(t *testing.T) {
 }
 
 func TestConvertEnvoyFilter(t *testing.T) {
+	buildPatchStruct := func(config string) *structpb.Struct {
+		val := &structpb.Struct{}
+		_ = protomarshal.UnmarshalString(config, val)
+		return val
+	}
+
 	cfilter := convertToEnvoyFilterWrapper(&config.Config{
 		Meta: config.Meta{Name: "test", Namespace: "testns"},
 		Spec: &networking.EnvoyFilter{
@@ -129,11 +138,43 @@ func TestConvertEnvoyFilter(t *testing.T) {
 						Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
 					},
 				},
+				{ // valid http route patch
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_MERGE,
+						Value:     buildPatchStruct(`{"statPrefix": "bar"}`),
+					},
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+					},
+					ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+				},
+				{ // invalid http route patch
+					Patch: &networking.EnvoyFilter_Patch{
+						Operation: networking.EnvoyFilter_Patch_MERGE,
+						Value: buildPatchStruct(`{
+							"typed_per_filter_config": {
+								"envoy.filters.http.ratelimit": {
+									"@type": "type.googleapis.com/thisisaninvalidtype"
+								}
+							}
+						}`),
+					},
+					Match: &networking.EnvoyFilter_EnvoyConfigObjectMatch{
+						Proxy: &networking.EnvoyFilter_ProxyMatch{ProxyVersion: `foobar`},
+					},
+					ApplyTo: networking.EnvoyFilter_HTTP_ROUTE,
+				},
 			},
 		},
 	})
 	if cfilter.Name != "test" && cfilter.Namespace != "testns" {
 		t.Errorf("expected name %s got %s and namespace %s got %s", "test", cfilter.Name, "testns", cfilter.Namespace)
+	}
+	if patches := cfilter.Patches[networking.EnvoyFilter_INVALID]; len(patches) != 1 {
+		t.Fatalf("unexpected patches of %v: %v", networking.EnvoyFilter_INVALID, cfilter.Patches)
+	}
+	if patches := cfilter.Patches[networking.EnvoyFilter_HTTP_ROUTE]; len(patches) != 1 { // check num of invalid http route patches
+		t.Fatalf("unexpected patches of %v: %v", networking.EnvoyFilter_HTTP_ROUTE, cfilter.Patches)
 	}
 }
 

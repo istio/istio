@@ -113,7 +113,7 @@ func Reverse[E any](r []E) []E {
 
 // FilterInPlace retains all elements in []E that f(E) returns true for.
 // The array is *mutated in place* and returned.
-// Used Filter to avoid mutation
+// Use Filter to avoid mutation
 func FilterInPlace[E any](s []E, f func(E) bool) []E {
 	n := 0
 	for _, val := range s {

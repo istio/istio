@@ -10,6 +10,7 @@ spans:{
     labels:{key:"http.url"  value:"http://server.{{ .EchoNamespace }}.svc.cluster.local/"}
     labels:{key:"istio.canonical_service"  value:"vm-server"}
     labels:{key:"istio.canonical_revision"  value:"v1"}
+    labels:{key:"istio.cluster_id"  value:"Kubernetes"}
     labels:{key:"istio.mesh_id"  value:"proj-test-mesh"}
     labels:{key:"istio.namespace"  value:"{{ .EchoNamespace }}"}
     labels:{key:"request_size"  value:"0"}
@@ -28,6 +29,7 @@ spans:{
     labels:{key:"http.url"  value:"http://server.{{ .EchoNamespace }}.svc.cluster.local/"}
     labels:{key:"istio.canonical_service"  value:"client"}
     labels:{key:"istio.canonical_revision"  value:"v1"}
+    labels:{key:"istio.cluster_id"  value:"Kubernetes"}
     labels:{key:"istio.mesh_id"  value:"proj-test-mesh"}
     labels:{key:"istio.namespace"  value:"{{ .EchoNamespace }}"}
     labels:{key:"request_size"  value:"0"}

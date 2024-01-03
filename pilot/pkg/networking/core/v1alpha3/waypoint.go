@@ -18,6 +18,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/labels"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -38,15 +39,20 @@ const (
 	ConnectUpgradeType = "CONNECT"
 )
 
+type waypointServices struct {
+	services        map[host.Name]*model.Service
+	orderedServices []*model.Service
+}
+
 // findWaypointResources returns workloads and services associated with the waypoint proxy
-func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]*model.WorkloadInfo, map[host.Name]*model.Service) {
+func findWaypointResources(node *model.Proxy, push *model.PushContext) ([]*model.WorkloadInfo, *waypointServices) {
 	scope := node.WaypointScope()
 	workloads := push.WorkloadsForWaypoint(scope)
 	return workloads, findWorkloadServices(workloads, push)
 }
 
-func findWorkloadServices(workloads []*model.WorkloadInfo, push *model.PushContext) map[host.Name]*model.Service {
-	svcs := map[host.Name]*model.Service{}
+func findWorkloadServices(workloads []*model.WorkloadInfo, push *model.PushContext) *waypointServices {
+	wps := &waypointServices{}
 	for _, wl := range workloads {
 		for _, ns := range push.ServiceIndex.HostnameAndNamespace {
 			svc := ns[wl.Namespace]
@@ -54,11 +60,18 @@ func findWorkloadServices(workloads []*model.WorkloadInfo, push *model.PushConte
 				continue
 			}
 			if labels.Instance(svc.Attributes.LabelSelectors).Match(wl.Labels) {
-				svcs[svc.Hostname] = svc
+				if wps.services == nil {
+					wps.services = map[host.Name]*model.Service{}
+				}
+				wps.services[svc.Hostname] = svc
 			}
 		}
 	}
-	return svcs
+	services := maps.Values(wps.services)
+	if len(services) > 0 {
+		wps.orderedServices = model.SortServicesByCreationTime(services)
+	}
+	return wps
 }
 
 // filterWaypointOutboundServices is used to determine the set of outbound clusters we need to build for waypoints.
