@@ -35,6 +35,24 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
+// Added by ingress
+var defaultServerCipherSuites = []string{
+	"ECDHE-ECDSA-AES128-GCM-SHA256",
+	"ECDHE-ECDSA-CHACHA20-POLY1305",
+	"ECDHE-RSA-AES128-GCM-SHA256",
+	"ECDHE-RSA-CHACHA20-POLY1305",
+	"ECDHE-ECDSA-AES128-SHA",
+	"ECDHE-RSA-AES128-SHA",
+	"AES128-GCM-SHA256",
+	"AES128-SHA",
+	"ECDHE-ECDSA-AES256-GCM-SHA384",
+	"ECDHE-RSA-AES256-GCM-SHA384",
+	"ECDHE-ECDSA-AES256-SHA",
+	"ECDHE-RSA-AES256-SHA",
+	"AES256-GCM-SHA384",
+	"AES256-SHA",
+}
+
 // DefaultProxyConfig for individual proxies
 func DefaultProxyConfig() *meshconfig.ProxyConfig {
 	// TODO: include revision based on REVISION env
@@ -257,6 +275,21 @@ func ApplyMeshConfig(yaml string, defaultConfig *meshconfig.MeshConfig) (*meshco
 	}
 
 	defaultConfig.TrustDomainAliases = sets.SortedList(sets.New(append(defaultConfig.TrustDomainAliases, prevTrustDomainAliases...)...))
+
+	// Added by ingress
+	if defaultConfig.MseIngressGlobalConfig != nil {
+		global := defaultConfig.MseIngressGlobalConfig
+		// Add default tls settings for back compatibility.
+		if global.TlsMinProtocolVersion == "" {
+			global.TlsMinProtocolVersion = "TLSv1.0"
+		}
+		if global.TlsMaxProtocolVersion == "" {
+			global.TlsMaxProtocolVersion = "TLSv1.3"
+		}
+		if len(global.TlsCipherSuites) == 0 {
+			global.TlsCipherSuites = defaultServerCipherSuites
+		}
+	}
 
 	warn, err := validation.ValidateMeshConfig(defaultConfig)
 	if err != nil {
