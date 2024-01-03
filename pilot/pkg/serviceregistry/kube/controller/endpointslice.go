@@ -273,7 +273,7 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 				}
 
 				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus)
-				if features.EnableDualStack && len(pod.Status.PodIPs) > 1 {
+				if features.EnableDualStack && (pod != nil) && len(pod.Status.PodIPs) > 1 {
 					var addrs []string
 					for _, addr := range pod.Status.PodIPs {
 						addrs = append(addrs, addr.IP)
