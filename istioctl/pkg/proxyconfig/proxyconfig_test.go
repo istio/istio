@@ -30,6 +30,7 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/pilot/test/util"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 type execTestCase struct {
@@ -227,6 +228,24 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 		if fErr != nil {
 			t.Fatalf("Unwanted exception for 'istioctl %s': %v", strings.Join(c.args, " "), fErr)
 		}
+	}
+}
+
+func TestPrintProxyConfigSummary(t *testing.T) {
+	cmd := ProxyConfig(cli.NewFakeContext(&cli.NewFakeContextOption{
+		Namespace: "default",
+	}))
+	cmd.SetArgs([]string{
+		"all",
+		"-f", "testdata/config_dump.json",
+	})
+	out := bytes.Buffer{}
+	cmd.SetOut(&out)
+	assert.NoError(t, cmd.Execute())
+	expected := util.ReadFile(t, "testdata/config_dump_summary.txt")
+
+	if err := assert.Compare(out.String(), string(expected)); err != nil {
+		t.Fatalf("Unexpected output for 'istioctl proxy-config all'\n got: %q\nwant: %q", out.String(), expected)
 	}
 }
 
