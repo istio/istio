@@ -243,6 +243,7 @@ func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus 
 
 func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, slice *v1.EndpointSlice) {
 	var endpoints []*model.IstioEndpoint
+	addedEndpointMap := make(map[*model.IstioEndpoint]bool)
 	if slice.AddressType == v1.AddressTypeFQDN {
 		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 		return
@@ -271,8 +272,20 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 					portName = *port.Name
 				}
 
-				istioEndpoint := builder.buildIstioEndpoint([]string{a}, portNum, portName, discoverabilityPolicy, healthStatus)
-				endpoints = append(endpoints, istioEndpoint)
+				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus)
+				if features.EnableDualStack && len(pod.Status.PodIPs) > 1 {
+					var addrs []string
+					for _, addr := range pod.Status.PodIPs {
+						addrs = append(addrs, addr.IP)
+					}
+					istioEndpoint.Addresses = addrs
+					if _, ok := addedEndpointMap[istioEndpoint]; !ok {
+						endpoints = append(endpoints, istioEndpoint)
+						addedEndpointMap[istioEndpoint] = true
+					}
+				} else {
+					endpoints = append(endpoints, istioEndpoint)
+				}
 			}
 		}
 	}
