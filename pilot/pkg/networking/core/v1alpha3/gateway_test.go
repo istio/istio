@@ -16,7 +16,6 @@ package v1alpha3
 
 import (
 	"reflect"
-	"slices"
 	"sort"
 	"testing"
 	"time"
@@ -54,6 +53,7 @@ import (
 	"istio.io/istio/pkg/config/xds"
 	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
