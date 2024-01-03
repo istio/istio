@@ -197,6 +197,19 @@ func TestValidateSkipBypassedRouteWithWarning(t *testing.T) {
 								},
 							},
 						},
+					},
+					Route: []*networking.HTTPRouteDestination{{
+						Destination: &networking.Destination{Host: "foo.baz"},
+					}},
+				}, {
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/abc",
+								},
+							},
+						},
 						{
 							Headers: map[string]*networking.StringMatch{
 								"header": {
@@ -212,6 +225,41 @@ func TestValidateSkipBypassedRouteWithWarning(t *testing.T) {
 			},
 			valid:   true,
 			warning: true,
+		},
+		{
+			name: "validate no bypass route due to catch all route",
+			in: &networking.VirtualService{
+				Hosts: []string{},
+				Http: []*networking.HTTPRoute{{
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/abc",
+								},
+							},
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{{
+						Destination: &networking.Destination{Host: "foo.baz"},
+					}},
+				}, {
+					Match: []*networking.HTTPMatchRequest{
+						{
+							Uri: &networking.StringMatch{
+								MatchType: &networking.StringMatch_Prefix{
+									Prefix: "/",
+								},
+							},
+						},
+					},
+					Route: []*networking.HTTPRouteDestination{{
+						Destination: &networking.Destination{Host: "foo.baz"},
+					}},
+				}},
+			},
+			valid:   true,
+			warning: false,
 		},
 	}
 
