@@ -278,30 +278,28 @@ func TestCABundleChange(t *testing.T) {
 	c, gatewayError := createTestController(t)
 	gatewayError.Store(ptr.Of[error](kerrors.NewInternalError(errors.New(deniedRequestMessageFragment))))
 	webhooks := clienttest.Wrap(t, c.webhooks)
-	fetch := func(name string) func() *admission.ValidatingWebhookConfiguration {
-		return func() *admission.ValidatingWebhookConfiguration {
-			return webhooks.Get(name, "")
-		}
+	fetch := func(name string) *admission.ValidatingWebhookConfiguration {
+		return webhooks.Get(name, "")
 	}
+	tracker := assert.NewTracker[string](t)
+	c.webhooks.AddEventHandler(clienttest.TrackerHandler(tracker))
 	webhooks.Create(unpatchedWebhookConfig)
-	assert.EventuallyEqual(
+	tracker.WaitSpecific("update/" + webhookName)
+	assert.Equal(
 		t,
 		fetch(unpatchedWebhookConfig.Name),
 		webhookConfigWithCABundleFail,
-		retry.Message("istiod config created when endpoint is ready"),
-		LongRetry,
 	)
 
 	c.o.CABundleWatcher.SetAndNotify(nil, nil, caBundle1)
 	webhookConfigAfterCAUpdate := webhookConfigWithCABundleFail.DeepCopyObject().(*admission.ValidatingWebhookConfiguration)
 	webhookConfigAfterCAUpdate.Webhooks[0].ClientConfig.CABundle = caBundle1
 	webhookConfigAfterCAUpdate.Webhooks[1].ClientConfig.CABundle = caBundle1
-	assert.EventuallyEqual(
+	tracker.WaitSpecific("update/" + webhookName)
+	assert.Equal(
 		t,
 		fetch(unpatchedWebhookConfig.Name),
 		webhookConfigAfterCAUpdate,
-		retry.Message("webhook should change after cert change"),
-		LongRetry,
 	)
 }
 
