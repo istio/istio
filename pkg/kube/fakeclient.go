@@ -268,7 +268,7 @@ func (fm *fakeMerger) init() {
 	})
 }
 
-func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClient, action clienttesting.Action) (handled bool, ret runtime.Object, err error) {
+func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClient, action clienttesting.Action) {
 	// prevent recursion with inProgress
 	// TODO: this is probably excessive locking
 	key := actionKey(action)
@@ -276,7 +276,7 @@ func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClie
 	if fm.inProgress.Contains(key) {
 		// this is an action 'echoing' back after we propagated it.  drop it.
 		fm.mergeLock.RUnlock()
-		return false, nil, nil
+		return
 	}
 	fm.mergeLock.RUnlock()
 	fm.mergeLock.Lock()
@@ -287,6 +287,11 @@ func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClie
 	// otherwise the obj var is ignored, and is traditionally defaulted to metav1.status
 	defaultObj := &metav1.Status{Status: "metadata get fail"}
 	var tObj, uObj runtime.Object
+	if action.GetVerb() == "list" {
+		// due to the counting of list and watch actions in the fake client,
+		// propagating lists is not only futile but also harmful.  see watchreactor above.
+		return
+	}
 	if o, ok := action.(objectiveAction); ok {
 		uObj = o.GetObject()
 		// ensure object kind is properly set
@@ -303,14 +308,15 @@ func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClie
 			if _, ok := collections.All.FindByGroupVersionResource(action.GetResource()); ok {
 				tObj = kubeclient.GVRToObject(action.GetResource())
 			} else {
-				return false, nil, fmt.Errorf("cannot find gvk for %v", action.GetResource())
+				log.Errorf("cannot find gvk for %v", action.GetResource())
+				return
 			}
 		}
 		// convert the object to the required type
-		err = fm.scheme.Convert(uObj, tObj, nil)
+		err := fm.scheme.Convert(uObj, tObj, nil)
 		if err != nil {
 			log.Errorf("Cannot convert %v to the desired type for %v: %v", defaultObj, destination, err)
-			return false, nil, nil
+			return
 		}
 		// Convert from unstructured to typed sometimes drops the gvk, re-add it here.
 		tObj.GetObjectKind().SetGroupVersionKind(uObj.GetObjectKind().GroupVersionKind())
@@ -337,8 +343,7 @@ func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClie
 	fm.mergeLock.Lock()
 	fm.inProgress.Delete(key)
 	fm.mergeLock.Unlock()
-	// even if others return handled=true, we still want this client to react.
-	return false, nil, nil
+	return
 }
 
 func (fm *fakeMerger) Merge(f clienttesting.FakeClient) {
@@ -353,7 +358,7 @@ func (fm *fakeMerger) MergeDynamic(df *dynamicfake.FakeDynamicClient) {
 	myPropagator := func(action clienttesting.Action) (bool, runtime.Object, error) {
 		for _, f := range fm.alertList {
 			// propagate from dynamic to any typed client that cares.
-			_, _, _ = fm.propagateReactionSingle(f, action)
+			fm.propagateReactionSingle(f, action)
 		}
 		// even if others return handled=true, we still want this client to react.
 		return false, nil, nil
