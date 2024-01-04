@@ -294,8 +294,8 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 	return out
 }
 
-// ConvertToSidecarScope converts from Sidecar config to SidecarScope object
-func ConvertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, configNamespace string) *SidecarScope {
+// convertToSidecarScope converts from Sidecar config to SidecarScope object
+func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, configNamespace string) *SidecarScope {
 	if sidecarConfig == nil {
 		return DefaultSidecarScopeForNamespace(ps, configNamespace)
 	}
