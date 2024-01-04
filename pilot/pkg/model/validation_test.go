@@ -39,6 +39,14 @@ func TestServiceInstanceValidate(t *testing.T) {
 		}
 	}
 
+	endpointWithLabelsAndMulAddrs := func(lbls labels.Instance) *IstioEndpoint {
+		return &IstioEndpoint{
+			Addresses:    []string{"192.168.1.1", "2001:1::1"},
+			EndpointPort: 10001,
+			Labels:       lbls,
+		}
+	}
+
 	cases := []struct {
 		name     string
 		instance *ServiceInstance
@@ -51,10 +59,23 @@ func TestServiceInstanceValidate(t *testing.T) {
 			},
 		},
 		{
+			name: "nil service with multiple addresses",
+			instance: &ServiceInstance{
+				Endpoint: endpointWithLabelsAndMulAddrs(labels.Instance{}),
+			},
+		},
+		{
 			name: "bad label",
 			instance: &ServiceInstance{
 				Service:  service1,
 				Endpoint: endpointWithLabels(labels.Instance{"*": "-"}),
+			},
+		},
+		{
+			name: "bad label with multiple addresses",
+			instance: &ServiceInstance{
+				Service:  service1,
+				Endpoint: endpointWithLabelsAndMulAddrs(labels.Instance{"*": "-"}),
 			},
 		},
 		{
@@ -75,6 +96,16 @@ func TestServiceInstanceValidate(t *testing.T) {
 			},
 		},
 		{
+			name: "invalid endpoint port and service port with multiple addresses",
+			instance: &ServiceInstance{
+				Service: service1,
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2", "2001:1::2"},
+					EndpointPort: 1000000,
+				},
+			},
+		},
+		{
 			name: "endpoint missing service port",
 			instance: &ServiceInstance{
 				Service: service1,
@@ -90,6 +121,21 @@ func TestServiceInstanceValidate(t *testing.T) {
 			},
 		},
 		{
+			name: "endpoint missing service port with multiple addresses",
+			instance: &ServiceInstance{
+				Service: service1,
+				ServicePort: &Port{
+					Name:     service1.Ports[1].Name + "-extra",
+					Port:     service1.Ports[1].Port,
+					Protocol: service1.Ports[1].Protocol,
+				},
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2", "2001:1::2"},
+					EndpointPort: uint32(service1.Ports[1].Port),
+				},
+			},
+		},
+		{
 			name: "endpoint port and protocol mismatch",
 			instance: &ServiceInstance{
 				Service: service1,
@@ -100,6 +146,21 @@ func TestServiceInstanceValidate(t *testing.T) {
 				},
 				Endpoint: &IstioEndpoint{
 					Addresses:    []string{"192.168.1.2"},
+					EndpointPort: uint32(service1.Ports[1].Port),
+				},
+			},
+		},
+		{
+			name: "endpoint port and protocol mismatch with multiple addresses",
+			instance: &ServiceInstance{
+				Service: service1,
+				ServicePort: &Port{
+					Name:     "http",
+					Port:     service1.Ports[1].Port + 1,
+					Protocol: protocol.GRPC,
+				},
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2", "2001:1::2"},
 					EndpointPort: uint32(service1.Ports[1].Port),
 				},
 			},

@@ -1259,13 +1259,22 @@ func TestServiceIndex(t *testing.T) {
 				},
 			},
 		},
-		serviceInstances: []*ServiceInstance{{
-			Endpoint: &IstioEndpoint{
-				Addresses:    []string{"192.168.1.2"},
-				EndpointPort: 8000,
-				TLSMode:      DisabledTLSModeLabel,
+		serviceInstances: []*ServiceInstance{
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
 			},
-		}},
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.3", "2001:1::3"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
+			},
+		},
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(m)
@@ -1514,13 +1523,22 @@ func TestInitPushContext(t *testing.T) {
 				},
 			},
 		},
-		serviceInstances: []*ServiceInstance{{
-			Endpoint: &IstioEndpoint{
-				Addresses:    []string{"192.168.1.2"},
-				EndpointPort: 8000,
-				TLSMode:      DisabledTLSModeLabel,
+		serviceInstances: []*ServiceInstance{
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.2"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
 			},
-		}},
+			{
+				Endpoint: &IstioEndpoint{
+					Addresses:    []string{"192.168.1.3", "2001:1::3"},
+					EndpointPort: 8000,
+					TLSMode:      DisabledTLSModeLabel,
+				},
+			},
+		},
 	}
 	m := mesh.DefaultMeshConfig()
 	env.Watcher = mesh.NewFixedWatcher(m)
