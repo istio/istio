@@ -93,6 +93,7 @@ func TestMergeDynamicToTyped(t *testing.T) {
 	})
 	stopper := make(chan struct{})
 	go inf.Run(stopper)
+	g.Eventually(inf.HasSynced).Should(gomega.BeTrue())
 
 	_, err := df.Resource(gvr.ConfigMap).Namespace("default").Create(context.Background(), cm, metav1.CreateOptions{})
 	assert.NoError(t, err)
