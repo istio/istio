@@ -269,7 +269,7 @@ func TestScopeWithLabel(t *testing.T) {
 	lines, err := captureStdout(func() {
 		Configure(DefaultOptions())
 		funcs.Store(funcs.Load().(patchTable))
-		s2 := s.WithLabels("foo", "bar").WithLabels("baz", 123, "qux", 0.123)
+		s2 := s.WithLabels("foo", "bar").WithLabels("baz", 123, "qux", 0.123).WithLabels("foo", "override")
 		s2.Debug("Hello")
 		// s should be unmodified.
 		s.Debug("Hello")
@@ -280,7 +280,7 @@ func TestScopeWithLabel(t *testing.T) {
 		t.Errorf("Got error '%v', expected success", err)
 	}
 
-	mustRegexMatchString(t, lines[0], `Hello	foo=bar baz=123 qux=0.123`)
+	mustRegexMatchString(t, lines[0], `Hello	foo=override baz=123 qux=0.123`)
 	mustRegexMatchString(t, lines[1], "Hello$")
 }
 
@@ -442,4 +442,35 @@ func TestBadWriter(t *testing.T) {
 	// for now, we just make sure this doesn't crash. To be totally correct, we'd need to capture stderr and
 	// inspect it, but it's just not worth it
 	defaultScope.Error("TestBadWriter")
+}
+
+func BenchmarkLog(b *testing.B) {
+	run := func(name string, f func()) {
+		b.Run(name, func(b *testing.B) {
+			o := testOptions()
+			o.OutputPaths = []string{"/dev/null"}
+			if err := Configure(o); err != nil {
+				b.Fatalf("Got err '%v', expecting success", err)
+			}
+			for n := 0; n < b.N; n++ {
+				f()
+			}
+		})
+	}
+	run("default", func() {
+		Info("some message")
+	})
+	run("formatted", func() {
+		Infof("some %s", "message")
+	})
+	scope := WithLabels("some", "value", "foo", 123)
+	run("precreated labels", func() {
+		scope.Infof("some %s", "message")
+	})
+	run("labels", func() {
+		WithLabels("some", "value", "foo", 123).Infof("some %s", "message")
+	})
+	run("precreated and dynamic labels", func() {
+		scope.WithLabels("fruit", "apply").Infof("some %s", "message")
+	})
 }

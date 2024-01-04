@@ -1563,6 +1563,7 @@ func TestInitPushContext(t *testing.T) {
 }
 
 func TestSidecarScope(t *testing.T) {
+	test.SetForTest(t, &features.ConvertSidecarScopeConcurrency, 10)
 	ps := NewPushContext()
 	env := &Environment{Watcher: mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: "istio-system"})}
 	ps.Mesh = env.Mesh()
