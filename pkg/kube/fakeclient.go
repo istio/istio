@@ -343,7 +343,6 @@ func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClie
 	fm.mergeLock.Lock()
 	fm.inProgress.Delete(key)
 	fm.mergeLock.Unlock()
-	return
 }
 
 func (fm *fakeMerger) Merge(f clienttesting.FakeClient) {
