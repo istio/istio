@@ -1,0 +1,7 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: telemetry
+releaseNotes:
+  - |
+    **Fixed** a bug where `destination_cluster` reported by client proxies may be wrong
+    when accessing workloads in a different network.

@@ -272,7 +272,7 @@ In addition to this conversion, `Ingress` requires writing the address it can be
 
 #### Gateway
 
-Gateway (referring to the [Kubernetes API](http://gateway-api.org/), not the same-named Istio type) works very similarly to [Ingress](#ingress). The Gateway controller also coverts Gateway API types into `VirtualService` and `Gateway`, implementing the `ConfigStore` interface.
+Gateway (referring to the [Kubernetes API](http://gateway-api.org/), not the same-named Istio type) works very similarly to [Ingress](#ingress). The Gateway controller also converts Gateway API types into `VirtualService` and `Gateway`, implementing the `ConfigStore` interface.
 
 However, there is also a bit of additional logic. Gateway types have extensive status reporting. Unlike Ingress, this is status reporting is done inline in the main controller, allowing status generation to be done directly in the logic processing the resources.
 

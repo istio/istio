@@ -7817,7 +7817,7 @@ spec:
                 description: Port specific mutual TLS settings.
                 type: object
               selector:
-                description: The selector determines the workloads to apply the ChannelAuthentication
+                description: The selector determines the workloads to apply the PeerAuthentication
                   on.
                 properties:
                   matchLabels:

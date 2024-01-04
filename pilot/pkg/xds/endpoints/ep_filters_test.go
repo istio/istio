@@ -27,6 +27,7 @@ import (
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	"istio.io/istio/pilot/test/xdstest"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 )
 
@@ -59,6 +61,14 @@ var networkFiltered = []networkFilterCase{
 				Weight: 36,
 			},
 		},
+		wantWorkloadMetadata: []string{
+			";ns;example;;cluster1a",
+			";ns;example;;cluster1b",
+			";ns;example;;cluster4",
+			";;;;cluster2a",
+			";;;;cluster2b",
+			";;;;cluster2b",
+		},
 	},
 	{
 		name:  "from_network1_cluster1b",
@@ -80,6 +90,14 @@ var networkFiltered = []networkFilterCase{
 				Weight: 36,
 			},
 		},
+		wantWorkloadMetadata: []string{
+			";ns;example;;cluster1a",
+			";ns;example;;cluster1b",
+			";ns;example;;cluster4",
+			";;;;cluster2a",
+			";;;;cluster2b",
+			";;;;cluster2b",
+		},
 	},
 	{
 		name:  "from_network2_cluster2a",
@@ -98,6 +116,13 @@ var networkFiltered = []networkFilterCase{
 				},
 				Weight: 36,
 			},
+		},
+		wantWorkloadMetadata: []string{
+			";ns;example;;cluster2a",
+			";ns;example;;cluster2b",
+			";ns;example;;cluster2b",
+			";ns;example;;cluster4",
+			";;;;cluster1a",
 		},
 	},
 	{
@@ -118,6 +143,13 @@ var networkFiltered = []networkFilterCase{
 				Weight: 36,
 			},
 		},
+		wantWorkloadMetadata: []string{
+			";ns;example;;cluster2a",
+			";ns;example;;cluster2b",
+			";ns;example;;cluster2b",
+			";ns;example;;cluster4",
+			";;;;cluster1a",
+		},
 	},
 	{
 		name:  "from_network3_cluster3",
@@ -125,7 +157,7 @@ var networkFiltered = []networkFilterCase{
 		want: []xdstest.LocLbEpInfo{
 			{
 				LbEps: []xdstest.LbEpInfo{
-					// 2 endpoint on network2 with weight aggregated at the gateway
+					// 2 endpoint on network1 with weight aggregated at the gateway
 					{Address: "1.1.1.1", Weight: 12},
 					// 1 endpoint on network2, cluster2a
 					{Address: "2.2.2.2", Weight: 6},
@@ -138,6 +170,13 @@ var networkFiltered = []networkFilterCase{
 				Weight: 36,
 			},
 		},
+		wantWorkloadMetadata: []string{
+			";ns;example;;cluster4",
+			";;;;cluster1a",
+			";;;;cluster2a",
+			";;;;cluster2b",
+			";;;;cluster2b",
+		},
 	},
 	{
 		name:  "from_network4_cluster4",
@@ -147,7 +186,7 @@ var networkFiltered = []networkFilterCase{
 				LbEps: []xdstest.LbEpInfo{
 					// 1 local endpoint on network4
 					{Address: "40.0.0.1", Weight: 6},
-					// 2 endpoint on network2 with weight aggregated at the gateway
+					// 2 endpoint on network1 with weight aggregated at the gateway
 					{Address: "1.1.1.1", Weight: 12},
 					// 1 endpoint on network2, cluster2a
 					{Address: "2.2.2.2", Weight: 6},
@@ -157,6 +196,13 @@ var networkFiltered = []networkFilterCase{
 				},
 				Weight: 36,
 			},
+		},
+		wantWorkloadMetadata: []string{
+			";ns;example;;cluster4",
+			";;;;cluster1a",
+			";;;;cluster2a",
+			";;;;cluster2b",
+			";;;;cluster2b",
 		},
 	},
 }
@@ -454,6 +500,11 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					Weight: 18,
 				},
 			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1b",
+				";ns;example;;cluster4",
+			},
 		},
 		{
 			name:  "from_network1_cluster1b",
@@ -469,6 +520,11 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					},
 					Weight: 18,
 				},
+			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster1a",
+				";ns;example;;cluster1b",
+				";ns;example;;cluster4",
 			},
 		},
 		{
@@ -487,6 +543,12 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					Weight: 24,
 				},
 			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster2a",
+				";ns;example;;cluster2b",
+				";ns;example;;cluster2b",
+				";ns;example;;cluster4",
+			},
 		},
 		{
 			name:  "from_network2_cluster2b",
@@ -504,6 +566,12 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					Weight: 24,
 				},
 			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster2a",
+				";ns;example;;cluster2b",
+				";ns;example;;cluster2b",
+				";ns;example;;cluster4",
+			},
 		},
 		{
 			name:  "from_network3_cluster3",
@@ -517,6 +585,9 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					Weight: 6,
 				},
 			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster4",
+			},
 		},
 		{
 			name:  "from_network4_cluster4",
@@ -529,6 +600,9 @@ func TestEndpointsByNetworkFilter_WithConfig(t *testing.T) {
 					},
 					Weight: 6,
 				},
+			},
+			wantWorkloadMetadata: []string{
+				";ns;example;;cluster4",
 			},
 		},
 	}
@@ -591,9 +665,10 @@ func TestEndpointsByNetworkFilter_SkipLBWithHostname(t *testing.T) {
 }
 
 type networkFilterCase struct {
-	name  string
-	proxy *model.Proxy
-	want  []xdstest.LocLbEpInfo
+	name                 string
+	proxy                *model.Proxy
+	want                 []xdstest.LocLbEpInfo
+	wantWorkloadMetadata []string
 }
 
 // runNetworkFilterTest calls the endpoints filter from each one of the
@@ -606,6 +681,17 @@ func runNetworkFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []net
 			b := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
 			filtered := b.BuildClusterLoadAssignment(testShards()).Endpoints
 			xdstest.CompareEndpointsOrFail(t, cn, filtered, tt.want)
+			// check workload metadata
+			var gotWorkloadMetadata []string
+			for _, llbEndpoints := range filtered {
+				for _, ep := range llbEndpoints.LbEndpoints {
+					metadata := ep.Metadata.FilterMetadata[util.IstioMetadataKey].Fields["workload"].GetStringValue()
+					gotWorkloadMetadata = append(gotWorkloadMetadata, metadata)
+				}
+			}
+			if !slices.Equal(gotWorkloadMetadata, tt.wantWorkloadMetadata) {
+				t.Errorf("incorrect workload metadata: got %v, want %v", gotWorkloadMetadata, tt.wantWorkloadMetadata)
+			}
 
 			b2 := endpoints.NewEndpointBuilder(cn, proxy, ds.PushContext())
 			filtered2 := b2.BuildClusterLoadAssignment(testShards()).Endpoints
