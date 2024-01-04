@@ -142,28 +142,3 @@ func (t *Tracker[T]) WaitCompare(f func(T) bool) {
 	}
 	t.Empty()
 }
-
-// WaitSpecific waits for a specific event to happen and discards all other events
-func (t *Tracker[T]) WaitSpecific(event T) {
-	t.t.Helper()
-	retry.UntilSuccessOrFail(t.t, func() error {
-		t.mu.Lock()
-		defer t.mu.Unlock()
-		if len(t.events) == 0 {
-			return fmt.Errorf("no events")
-		}
-		got := t.events[0]
-		if got != event {
-			t.events[0] = ptr.Empty[T]()
-			t.events = t.events[1:]
-			return fmt.Errorf("got event %v, want %v", got, event)
-		}
-		// clear the event
-		for len(t.events) > 0 {
-			t.events[0] = ptr.Empty[T]()
-			t.events = t.events[1:]
-		}
-		return nil
-	}, retry.Timeout(time.Second), retry.BackoffDelay(time.Millisecond))
-	t.Empty()
-}
