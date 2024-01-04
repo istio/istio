@@ -1870,7 +1870,6 @@ func (ps *PushContext) concurrentConvertToSidecarScope(sidecarConfigs []config.C
 
 	var wg sync.WaitGroup
 	taskItems := make(chan taskItem)
-	// note: sidecarConfigs order matters
 	sidecarScopes := make([]*SidecarScope, len(sidecarConfigs))
 	for i := 0; i < features.ConvertSidecarScopeConcurrency; i++ {
 		wg.Add(1)
@@ -1887,6 +1886,8 @@ func (ps *PushContext) concurrentConvertToSidecarScope(sidecarConfigs []config.C
 		}()
 	}
 
+	// note: sidecarScopes order matters and needs to be kept in the same order as sidecarConfigs.
+	// The order indicates priority, see getSidecarScope.
 	for idx, cfg := range sidecarConfigs {
 		taskItems <- taskItem{idx: idx, cfg: cfg}
 	}
