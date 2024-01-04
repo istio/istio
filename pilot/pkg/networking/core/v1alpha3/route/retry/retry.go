@@ -21,6 +21,7 @@ import (
 
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	previouspriorities "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/priority/previous_priorities/v3"
+	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	networking "istio.io/api/networking/v1alpha3"
@@ -28,7 +29,28 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 )
 
+// Add by ingress
+const NonIdempotent = "non-idempotent"
+
 var defaultRetryPriorityTypedConfig = protoconv.MessageToAny(buildPreviousPrioritiesConfig())
+
+// Add by ingress
+var OnlyRetryIdempotent = []*route.HeaderMatcher{
+	{
+		Name: ":method",
+		HeaderMatchSpecifier: &route.HeaderMatcher_StringMatch{
+			StringMatch: &matcher.StringMatcher{
+				MatchPattern: &matcher.StringMatcher_SafeRegex{
+					SafeRegex: &matcher.RegexMatcher{
+						EngineType: &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}},
+						Regex:      "POST|PATCH|LOCK",
+					},
+				},
+			},
+		},
+		InvertMatch: true,
+	},
+}
 
 // DefaultPolicy gets a copy of the default retry policy.
 func DefaultPolicy() *route.RetryPolicy {
@@ -43,6 +65,9 @@ func DefaultPolicy() *route.RetryPolicy {
 		},
 		// TODO: allow this to be configured via API.
 		HostSelectionRetryMaxAttempts: 5,
+		// Add by ingress
+		RetriableRequestHeaders: OnlyRetryIdempotent,
+		// End add by ingress
 	}
 	return &policy
 }
@@ -83,6 +108,10 @@ func ConvertPolicy(in *networking.HTTPRetry) *route.RetryPolicy {
 		// If user has just specified HTTP status codes in retryOn but have not specified "retriable-status-codes", let us add it.
 		if len(out.RetriableStatusCodes) > 0 && !strings.Contains(out.RetryOn, "retriable-status-codes") {
 			out.RetryOn += ",retriable-status-codes"
+		}
+		// Add by ingress
+		if hasNonIdempotent(in.RetryOn) {
+			out.RetriableRequestHeaders = nil
 		}
 	}
 
@@ -132,4 +161,16 @@ func buildPreviousPrioritiesConfig() *previouspriorities.PreviousPrioritiesConfi
 	return &previouspriorities.PreviousPrioritiesConfig{
 		UpdateFrequency: int32(2),
 	}
+}
+
+// Add by ingress
+func hasNonIdempotent(retryOn string) bool {
+	parts := strings.Split(retryOn, ",")
+	for _, part := range parts {
+		part = strings.TrimSpace(part)
+		if part == NonIdempotent {
+			return true
+		}
+	}
+	return false
 }

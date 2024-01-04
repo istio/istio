@@ -117,6 +117,7 @@ func (configgen *ConfigGeneratorImpl) BuildListeners(node *model.Proxy,
 
 func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 	proxy *model.Proxy, mesh *meshconfig.MeshConfig, transportProtocol istionetworking.TransportProtocol, gatewayTCPServerWithTerminatingTLS bool,
+	extraOpts *buildListenerFilterChainExtraOpts,
 ) *auth.DownstreamTlsContext {
 	alpnByTransport := util.ALPNHttp
 	if transportProtocol == istionetworking.TransportProtocolQUIC {
@@ -125,6 +126,8 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL &&
 		gatewayTCPServerWithTerminatingTLS {
 		alpnByTransport = util.ALPNDownstreamWithMxc
+	} else if shouldDisableH2(extraOpts) {
+		alpnByTransport = util.ALPNH11Only
 	}
 
 	ctx := &auth.DownstreamTlsContext{
@@ -167,11 +170,18 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, validateClient)
 	}
 
-	if isSimpleOrMutual(serverTLSSettings.Mode) {
-		// If Mesh TLSDefaults are set, use them.
-		applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
-		applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
-	}
+	// Delete by ingress
+	//if isSimpleOrMutual(serverTLSSettings.Mode) {
+	//	// If Mesh TLSDefaults are set, use them.
+	//	applyDownstreamTLSDefaults(mesh.GetTlsDefaults(), ctx.CommonTlsContext)
+	//	applyServerTLSSettings(serverTLSSettings, ctx.CommonTlsContext)
+	//}
+	// End deleted by ingress
+
+	// Add by ingress
+	ctx.CommonTlsContext.TlsParams = applyTls(serverTLSSettings, extraOpts)
+	// End by ingress
+
 	return ctx
 }
 
