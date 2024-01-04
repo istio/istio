@@ -28,7 +28,7 @@
 # As a result, there are two layers of make involved.
 
 docker: ## Build all docker images
-	./tools/docker
+	./tools/docker --architectures linux/amd64,linux/arm64 --push
 
 docker.save: ## Build docker images and save to tar.gz
 	./tools/docker --save
