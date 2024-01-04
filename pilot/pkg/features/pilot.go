@@ -31,14 +31,14 @@ import (
 
 var (
 	MaxConcurrentStreams = env.Register(
-		"ISTIO_GPRC_MAXSTREAMS",
+		"ISTIO_GRPC_MAXSTREAMS",
 		100000,
 		"Sets the maximum number of concurrent grpc streams.",
 	).Get()
 
 	// MaxRecvMsgSize The max receive buffer size of gRPC received channel of Pilot in bytes.
 	MaxRecvMsgSize = env.Register(
-		"ISTIO_GPRC_MAXRECVMSGSIZE",
+		"ISTIO_GRPC_MAXRECVMSGSIZE",
 		4*1024*1024,
 		"Sets the max receive buffer size of gRPC stream in bytes.",
 	).Get()

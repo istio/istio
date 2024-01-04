@@ -34,7 +34,7 @@ const (
 	maxRetryTimes = 5
 )
 
-// Server is the gPRC server that exposes SDS through UDS.
+// Server is the gRPC server that exposes SDS through UDS.
 type Server struct {
 	workloadSds *sdsservice
 
