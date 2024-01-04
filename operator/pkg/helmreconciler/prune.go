@@ -245,7 +245,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	if includeClusterResources {
 		gvkList = append(resources, AllClusterResources...)
 		// Cleanup IstioOperator, which may be used with in-cluster operator.
-		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
+		if ioplist := h.getIstioOperatorCR(); ioplist != nil && len(ioplist.Items) > 0 {
 			usList = append(usList, ioplist)
 		}
 	}
@@ -301,12 +301,16 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 // otherwise the resources would be reconciled back later if there is in-cluster operator deployment.
 // And it is needed to remove the IstioOperator CRD.
 func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
-	objects := &unstructured.UnstructuredList{}
-	objects.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "install.istio.io",
-		Version: "v1alpha1", Kind: name.IstioOperatorStr,
-	})
-	if err := h.client.List(context.TODO(), objects); err != nil {
+	iopGVR := schema.GroupVersionResource{
+		Group:    "install.istio.io",
+		Version:  "v1alpha1",
+		Resource: "istiooperators",
+	}
+	objects, err := h.kubeClient.Dynamic().Resource(iopGVR).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
 		scope.Errorf("failed to list IstioOperator CR: %v", err)
 	}
 	return objects
