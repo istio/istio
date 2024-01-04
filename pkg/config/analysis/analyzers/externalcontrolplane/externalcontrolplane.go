@@ -17,6 +17,7 @@ package externalcontrolplane
 import (
 	"net"
 	"net/url"
+	"strings"
 
 	v1 "k8s.io/api/admissionregistration/v1"
 
@@ -25,7 +26,6 @@ import (
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/slices"
 )
 
 type ExternalControlPlaneAnalyzer struct{}
@@ -45,78 +45,88 @@ func (s *ExternalControlPlaneAnalyzer) Metadata() analysis.Metadata {
 	}
 }
 
+const defaultIstioValidatingWebhookName = "istiod-default-validator"
+const istioValidatingWebhookNamePrefix = "istio-validator"
+const istioMutatingWebhookNamePrefix = "istio-sidecar-injector"
+
 // Analyze implements Analyzer
 func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
-	isRemoteCluster := c.Exists(gvk.ValidatingWebhookConfiguration, resource.NewShortOrFullName("", "istio-validator-external-istiod")) &&
-		c.Exists(gvk.MutatingWebhookConfiguration, resource.NewShortOrFullName("", "istio-sidecar-injector-external-istiod"))
+	c.ForEach(gvk.ValidatingWebhookConfiguration, func(resource *resource.Instance) bool {
+		webhookConfig := resource.Message.(*v1.ValidatingWebhookConfiguration)
 
-	if isRemoteCluster {
-		requiredValidatingWebhooks := []string{"istio-validator-external-istiod", "istiod-default-validator"}
-		c.ForEach(gvk.ValidatingWebhookConfiguration, func(resource *resource.Instance) bool {
-			webhookConfig := resource.Message.(*v1.ValidatingWebhookConfiguration)
+		// 1. ValidatingWebhookConfiguration: istio-validator or istiod-default-validator(default)
+		//			istio-validator{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Values.global.istioNamespace }}
+		if webhookConfig.GetName() != "" &&
+			(webhookConfig.Name == defaultIstioValidatingWebhookName ||
+				strings.HasPrefix(webhookConfig.Name, istioValidatingWebhookNamePrefix)) {
 
-			if slices.Contains(requiredValidatingWebhooks, webhookConfig.Name) {
-				for _, hook := range webhookConfig.Webhooks {
-					if hook.ClientConfig.URL != nil {
+			for _, hook := range webhookConfig.Webhooks {
+				// If defined, it means that an external istiod has been adopted
+				if hook.ClientConfig.URL != nil {
+					webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL)
 
-						webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL)
+					switch webhookLintResults {
+					case "":
+						return true
 
-						switch webhookLintResults {
-						case "":
-							return true
+					case "is an IP address instead of a hostname":
+						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewExternalControlPlaneAddressIsNotAHostname(resource, *hook.ClientConfig.URL, hook.Name))
+						return false
 
-						case "is an IP address instead of a hostname":
-							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewExternalControlPlaneAddressIsNotAHostname(resource, *hook.ClientConfig.URL, hook.Name))
-							return false
-
-						default:
-							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, *hook.ClientConfig.URL, hook.Name, webhookLintResults))
-							return false
-						}
-
-					} else {
-						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, "", hook.Name, "is blank"))
+					default:
+						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, *hook.ClientConfig.URL, hook.Name, webhookLintResults))
 						return false
 					}
+
+				} else {
+					c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, "", hook.Name, "is blank"))
+					return false
 				}
 			}
+		}
 
-			return true
-		})
+		return true
+	})
 
-		requiredMutatingWebhooks := []string{"istio-sidecar-injector-external-istiod"}
-		c.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
-			webhookConfig := resource.Message.(*v1.MutatingWebhookConfiguration)
+	c.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
+		webhookConfig := resource.Message.(*v1.MutatingWebhookConfiguration)
 
-			if slices.Contains(requiredMutatingWebhooks, webhookConfig.Name) {
-				for _, hook := range webhookConfig.Webhooks {
-					if hook.ClientConfig.URL != nil {
+		// 2. MutatingWebhookConfiguration: istio-sidecar-injector
+		//            {{- if eq .Release.Namespace "istio-system"}}
+		//              name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
+		//            {{- else }}
+		//              name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
+		//            {{- end }}
+		if strings.HasPrefix(webhookConfig.Name, istioMutatingWebhookNamePrefix) {
 
-						webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL)
+			for _, hook := range webhookConfig.Webhooks {
+				// If defined, it means that an external istiod has been adopted
+				if hook.ClientConfig.URL != nil {
 
-						switch webhookLintResults {
-						case "":
-							return true
+					webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL)
 
-						case "is an IP address instead of a hostname":
-							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewExternalControlPlaneAddressIsNotAHostname(resource, *hook.ClientConfig.URL, hook.Name))
-							return false
+					switch webhookLintResults {
+					case "":
+						return true
 
-						default:
-							c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, *hook.ClientConfig.URL, hook.Name, webhookLintResults))
-							return false
-						}
+					case "is an IP address instead of a hostname":
+						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewExternalControlPlaneAddressIsNotAHostname(resource, *hook.ClientConfig.URL, hook.Name))
+						return false
 
-					} else {
-						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, "", hook.Name, "is blank"))
+					default:
+						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, *hook.ClientConfig.URL, hook.Name, webhookLintResults))
 						return false
 					}
+
+				} else {
+					c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, "", hook.Name, "is blank"))
+					return false
 				}
 			}
+		}
 
-			return true
-		})
-	}
+		return true
+	})
 }
 
 func lintWebhookURL(webhookURL string) string {
