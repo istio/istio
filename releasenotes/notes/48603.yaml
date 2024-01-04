@@ -3,4 +3,4 @@ kind: feature
 area: istioctl
 releaseNotes:
 - |
-  **Added** completion for Kubernetes pods for some commands that can select pods, such as `istioctl proxy-config <pod>`.`
+  **Added** completion for Kubernetes pods for some commands that can select pods, such as `istioctl proxy-status <pod>`.
