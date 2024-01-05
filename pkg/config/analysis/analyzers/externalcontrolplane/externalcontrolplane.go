@@ -80,7 +80,7 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 						return false
 					}
 
-				} else {
+				} else if hook.ClientConfig.Service == nil {
 					c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, "", hook.Name, "is blank"))
 					return false
 				}
@@ -119,7 +119,7 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 						return false
 					}
 
-				} else {
+				} else if hook.ClientConfig.Service == nil {
 					c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, "", hook.Name, "is blank"))
 					return false
 				}
