@@ -54,23 +54,20 @@ const (
 
 // Analyze implements Analyzer
 func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
-	reportWebhookURL := func(r *resource.Instance, hName string, clientConf v1.WebhookClientConfig) bool {
+	reportWebhookURL := func(r *resource.Instance, hName string, clientConf v1.WebhookClientConfig) {
 		// If defined, it means that an external istiod has been adopted
 		if clientConf.URL != nil {
 			result, err := lintWebhookURL(*clientConf.URL)
 			if err != nil {
 				c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(r, *clientConf.URL, hName, err.Error()))
-				return false
+				return
 			}
-			if result.isIp() {
+			if result.isIP() {
 				c.Report(gvk.ValidatingWebhookConfiguration, msg.NewExternalControlPlaneAddressIsNotAHostname(r, *clientConf.URL, hName))
-				return false
 			}
 		} else if clientConf.Service == nil {
 			c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(r, "", hName, "is blank"))
-			return false
 		}
-		return true
 	}
 
 	c.ForEach(gvk.ValidatingWebhookConfiguration, func(resource *resource.Instance) bool {
@@ -81,12 +78,8 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 		if webhookConfig.GetName() != "" &&
 			(webhookConfig.Name == defaultIstioValidatingWebhookName ||
 				strings.HasPrefix(webhookConfig.Name, istioValidatingWebhookNamePrefix)) {
-
 			for _, hook := range webhookConfig.Webhooks {
-				// If defined, it means that an external istiod has been adopted
-				if !reportWebhookURL(resource, hook.Name, hook.ClientConfig) {
-					return false
-				}
+				reportWebhookURL(resource, hook.Name, hook.ClientConfig)
 			}
 		}
 
@@ -104,9 +97,7 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 		//            {{- end }}
 		if strings.HasPrefix(webhookConfig.Name, istioMutatingWebhookNamePrefix) {
 			for _, hook := range webhookConfig.Webhooks {
-				if !reportWebhookURL(resource, hook.Name, hook.ClientConfig) {
-					return false
-				}
+				reportWebhookURL(resource, hook.Name, hook.ClientConfig)
 			}
 		}
 
@@ -121,7 +112,7 @@ type webhookURLResult struct {
 	resolvesIPs []net.IP
 }
 
-func (r *webhookURLResult) isIp() bool {
+func (r *webhookURLResult) isIP() bool {
 	if r == nil {
 		return false
 	}
