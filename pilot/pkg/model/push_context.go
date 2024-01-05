@@ -775,6 +775,9 @@ func virtualServiceDestinations(v *networking.VirtualService) map[string]sets.Se
 			if r.Destination != nil {
 				addDestination(r.Destination.Host, r.Destination.GetPort())
 			}
+			for _, d := range r.FallbackClusters {
+				addDestination(d.Host, d.GetPort())
+			}
 		}
 		if h.Mirror != nil {
 			addDestination(h.Mirror.Host, h.Mirror.GetPort())
@@ -1557,6 +1560,10 @@ func (ps *PushContext) initVirtualServices(env *Environment) {
 		vservices[i] = virtualServices[i].DeepCopy()
 	}
 
+	// Added by ingress
+	vservices = VirtualServiceFilter(vservices)
+	// End added by ingress
+
 	totalVirtualServices.Record(float64(len(virtualServices)))
 
 	// TODO(rshriram): parse each virtual service and maintain a map of the
@@ -1753,6 +1760,10 @@ func (ps *PushContext) initDestinationRules(env *Environment) {
 	for i := range destRules {
 		destRules[i] = configs[i]
 	}
+
+	// Add by ingress
+	destRules = DestinationFilter(destRules)
+	// End Add by ingress
 
 	ps.setDestinationRules(destRules)
 }
@@ -2066,6 +2077,17 @@ func (ps *PushContext) initGateways(env *Environment) {
 	gatewayConfigs := env.List(gvk.Gateway, NamespaceAll)
 
 	sortConfigByCreationTime(gatewayConfigs)
+
+	// Added by ingress
+	// values returned from ConfigStore.List are immutable.
+	// Therefore, we make a copy
+	gateways := make([]config.Config, len(gatewayConfigs))
+
+	for i := range gateways {
+		gateways[i] = gatewayConfigs[i].DeepCopy()
+	}
+	gatewayConfigs = GatewayFilter(gateways)
+	// End added by ingress
 
 	if features.ScopeGatewayToNamespace {
 		ps.gatewayIndex.namespace = make(map[string][]config.Config)

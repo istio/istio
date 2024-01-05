@@ -68,7 +68,8 @@ func (s *Server) initConfigController(args *PilotArgs) error {
 		}
 	} else if args.RegistryOptions.FileDir != "" {
 		// Local files - should be added even if other options are specified
-		store := memory.Make(collections.Pilot)
+		// changed by ingress
+		store := memory.MakeSkipValidation(collections.Pilot)
 		configController := memory.NewController(store)
 
 		err := s.makeFileMonitor(args.RegistryOptions.FileDir, args.RegistryOptions.KubeOptions.DomainSuffix, configController)

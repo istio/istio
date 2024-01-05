@@ -22,6 +22,10 @@ COPY ${TARGETARCH:-amd64}/pilot-discovery /usr/local/bin/pilot-discovery
 COPY envoy_bootstrap.json /var/lib/istio/envoy/envoy_bootstrap_tmpl.json
 COPY gcp_envoy_bootstrap.json /var/lib/istio/envoy/gcp_envoy_bootstrap_tmpl.json
 
+COPY higress-pilot-start.sh /usr/local/bin/higress-pilot-start.sh
+
+RUN chmod +x /usr/local/bin/higress-pilot-start.sh
+
 USER 1337:1337
 
 ENTRYPOINT ["/usr/local/bin/pilot-discovery"]

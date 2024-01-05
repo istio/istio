@@ -35,6 +35,7 @@ import (
 	discoveryv3 "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"google.golang.org/protobuf/proto"
 	anypb "google.golang.org/protobuf/types/known/anypb"
+	"istio.io/istio/pkg/config/schema/gvk"
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/features"
@@ -218,8 +219,14 @@ func (s *DiscoveryServer) addDebugHandler(mux *http.ServeMux, internalMux *http.
 	if internalMux != nil {
 		internalMux.HandleFunc(path, handler)
 	}
+
+	// Add by ingress
+	handlerFunc := http.HandlerFunc(handler)
+	if features.DebugAuth {
+		handlerFunc = s.allowAuthenticatedOrLocalhost(handlerFunc)
+	}
 	// Add handler with auth; this is expose on an HTTP server
-	mux.HandleFunc(path, s.allowAuthenticatedOrLocalhost(http.HandlerFunc(handler)))
+	mux.HandleFunc(path, handlerFunc)
 }
 
 func (s *DiscoveryServer) allowAuthenticatedOrLocalhost(next http.Handler) http.HandlerFunc {
@@ -469,6 +476,21 @@ func (s *DiscoveryServer) configz(w http.ResponseWriter, req *http.Request) {
 	}
 	s.Env.ConfigStore.Schemas().ForEach(func(schema resource.Schema) bool {
 		cfg := s.Env.ConfigStore.List(schema.GroupVersionKind(), "")
+		// Added by ingress
+		copied := make([]config.Config, len(cfg))
+		for i := range copied {
+			copied[i] = cfg[i].DeepCopy()
+		}
+		cfg = copied
+		switch schema.GroupVersionKind().String() {
+		case gvk.Gateway.String():
+			cfg = model.GatewayFilter(cfg)
+		case gvk.VirtualService.String():
+			cfg = model.VirtualServiceFilter(cfg)
+		case gvk.DestinationRule.String():
+			cfg = model.DestinationFilter(cfg)
+		}
+		// End added by ingress
 		for _, c := range cfg {
 			configs = append(configs, kubernetesConfig{c})
 		}
