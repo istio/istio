@@ -15,6 +15,7 @@
 package externalcontrolplane
 
 import (
+	"fmt"
 	"net"
 	"net/url"
 	"strings"
@@ -53,6 +54,25 @@ const (
 
 // Analyze implements Analyzer
 func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
+	reportWebhookURL := func(r *resource.Instance, hName string, clientConf v1.WebhookClientConfig) bool {
+		// If defined, it means that an external istiod has been adopted
+		if clientConf.URL != nil {
+			result, err := lintWebhookURL(*clientConf.URL)
+			if err != nil {
+				c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(r, *clientConf.URL, hName, err.Error()))
+				return false
+			}
+			if result.isIp() {
+				c.Report(gvk.ValidatingWebhookConfiguration, msg.NewExternalControlPlaneAddressIsNotAHostname(r, *clientConf.URL, hName))
+				return false
+			}
+		} else if clientConf.Service == nil {
+			c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(r, "", hName, "is blank"))
+			return false
+		}
+		return true
+	}
+
 	c.ForEach(gvk.ValidatingWebhookConfiguration, func(resource *resource.Instance) bool {
 		webhookConfig := resource.Message.(*v1.ValidatingWebhookConfiguration)
 
@@ -64,24 +84,7 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 
 			for _, hook := range webhookConfig.Webhooks {
 				// If defined, it means that an external istiod has been adopted
-				if hook.ClientConfig.URL != nil {
-					webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL)
-
-					switch webhookLintResults {
-					case "":
-						return true
-
-					case "is an IP address instead of a hostname":
-						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewExternalControlPlaneAddressIsNotAHostname(resource, *hook.ClientConfig.URL, hook.Name))
-						return false
-
-					default:
-						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, *hook.ClientConfig.URL, hook.Name, webhookLintResults))
-						return false
-					}
-
-				} else if hook.ClientConfig.Service == nil {
-					c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, "", hook.Name, "is blank"))
+				if !reportWebhookURL(resource, hook.Name, hook.ClientConfig) {
 					return false
 				}
 			}
@@ -101,26 +104,7 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 		//            {{- end }}
 		if strings.HasPrefix(webhookConfig.Name, istioMutatingWebhookNamePrefix) {
 			for _, hook := range webhookConfig.Webhooks {
-				// If defined, it means that an external istiod has been adopted
-				if hook.ClientConfig.URL != nil {
-
-					webhookLintResults := lintWebhookURL(*hook.ClientConfig.URL)
-
-					switch webhookLintResults {
-					case "":
-						return true
-
-					case "is an IP address instead of a hostname":
-						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewExternalControlPlaneAddressIsNotAHostname(resource, *hook.ClientConfig.URL, hook.Name))
-						return false
-
-					default:
-						c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, *hook.ClientConfig.URL, hook.Name, webhookLintResults))
-						return false
-					}
-
-				} else if hook.ClientConfig.Service == nil {
-					c.Report(gvk.ValidatingWebhookConfiguration, msg.NewInvalidExternalControlPlaneConfig(resource, "", hook.Name, "is blank"))
+				if !reportWebhookURL(resource, hook.Name, hook.ClientConfig) {
 					return false
 				}
 			}
@@ -130,24 +114,42 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 	})
 }
 
-func lintWebhookURL(webhookURL string) string {
+type webhookURLResult struct {
+	ip       net.IP
+	hostName string
+
+	resolvesIPs []net.IP
+}
+
+func (r *webhookURLResult) isIp() bool {
+	if r == nil {
+		return false
+	}
+	return r.ip != nil
+}
+
+func lintWebhookURL(webhookURL string) (result *webhookURLResult, err error) {
+	result = &webhookURLResult{}
 	parsedWebhookURL, err := url.Parse(webhookURL)
 	if err != nil {
-		return "was provided in an invalid format"
+		return result, fmt.Errorf("was provided in an invalid format")
 	}
 
 	parsedHostname := parsedWebhookURL.Hostname()
-	if net.ParseIP(parsedHostname) != nil {
-		return "is an IP address instead of a hostname"
+	if ip := net.ParseIP(parsedHostname); ip != nil {
+		result.ip = ip
+		return result, nil
 	}
 
+	result.hostName = parsedHostname
 	ips, err := net.LookupIP(parsedHostname)
 	if err != nil {
-		return "cannot be resolved via a DNS lookup"
+		return result, fmt.Errorf("cannot be resolved via a DNS lookup")
 	}
+	result.resolvesIPs = ips
 	if len(ips) == 0 {
-		return "resolves with zero IP addresses"
+		return result, fmt.Errorf("resolves with zero IP addresses")
 	}
 
-	return ""
+	return result, nil
 }
