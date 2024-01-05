@@ -93,7 +93,7 @@ func BuildClientCmd(kubeconfig, context string, overrides ...func(*clientcmd.Con
 // NewUntrustedRestConfig returns the rest.Config for the given kube config context.
 // This is suitable for access to remote clusters from untrusted kubeConfig inputs.
 // The kubeconfig is sanitized and unsafe auth methods are denied.
-func NewUntrustedRestConfig(kubeConfig []byte, configOverrides ...func(*rest.Config)) (*rest.Config, error) {
+func NewUntrustedRestConfig(kubeConfig []byte, configOverrides ...func(*rest.Config) error) (*rest.Config, error) {
 	if len(kubeConfig) == 0 {
 		return nil, fmt.Errorf("kubeconfig is empty")
 	}
@@ -113,7 +113,9 @@ func NewUntrustedRestConfig(kubeConfig []byte, configOverrides ...func(*rest.Con
 		return nil, err
 	}
 	for _, co := range configOverrides {
-		co(restConfig)
+		if err := co(restConfig); err != nil {
+			return nil, err
+		}
 	}
 
 	return SetRestDefaults(restConfig), nil
@@ -121,14 +123,16 @@ func NewUntrustedRestConfig(kubeConfig []byte, configOverrides ...func(*rest.Con
 
 // InClusterConfig returns the rest.Config for in cluster usage.
 // Typically, DefaultRestConfig is used and this is auto detected; usage directly allows explicitly overriding to use in-cluster.
-func InClusterConfig(fns ...func(*rest.Config)) (*rest.Config, error) {
+func InClusterConfig(fns ...func(*rest.Config) error) (*rest.Config, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err
 	}
 
 	for _, fn := range fns {
-		fn(config)
+		if err := fn(config); err != nil {
+			return nil, err
+		}
 	}
 
 	return SetRestDefaults(config), nil

@@ -98,17 +98,20 @@ func TestKubeConfigOverride(t *testing.T) {
 		expectedBurst = 200
 	)
 	fakeRestConfig := &rest.Config{}
-	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config) error) (kube.Client, error) {
 		for _, override := range configOverrides {
-			override(fakeRestConfig)
+			if err := override(fakeRestConfig); err != nil {
+				return nil, err
+			}
 		}
 		return kube.NewFakeClient(), nil
 	}
 	clientset := kube.NewFakeClient()
 	stopCh := test.NewStop(t)
-	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil), func(cfg *rest.Config) {
+	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil), func(cfg *rest.Config) error {
 		cfg.QPS = expectedQPS
 		cfg.Burst = expectedBurst
+		return nil
 	})
 	clientset.RunAndWait(stopCh)
 	c.AddHandler(&handler{})
@@ -138,7 +141,7 @@ func TestKubeConfigOverride(t *testing.T) {
 }
 
 func TestSecretController(t *testing.T) {
-	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config) error) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
 

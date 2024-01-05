@@ -73,7 +73,7 @@ type Controller struct {
 	configClusterClient kube.Client
 	queue               controllers.Queue
 	secrets             kclient.Client[*corev1.Secret]
-	configOverrides     []func(*rest.Config)
+	configOverrides     []func(*rest.Config) error
 
 	namespaces kclient.Client[*corev1.Namespace]
 
@@ -85,7 +85,7 @@ type Controller struct {
 
 // NewController returns a new secret controller
 func NewController(kubeclientset kube.Client, namespace string, clusterID cluster.ID,
-	meshWatcher mesh.Watcher, configOverrides ...func(*rest.Config),
+	meshWatcher mesh.Watcher, configOverrides ...func(*rest.Config) error,
 ) *Controller {
 	informerClient := kubeclientset
 
@@ -202,7 +202,7 @@ func (c *Controller) processItem(key types.NamespacedName) error {
 }
 
 // BuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overridden for testing only
-var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config) error) (kube.Client, error) {
 	restConfig, err := kube.NewUntrustedRestConfig(kubeConfig, configOverrides...)
 	if err != nil {
 		return nil, err

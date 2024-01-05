@@ -1116,9 +1116,10 @@ func (s *Server) initMulticluster(args *PilotArgs) {
 	if s.kubeClient == nil {
 		return
 	}
-	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID, s.environment.Watcher, func(r *rest.Config) {
+	s.multiclusterController = multicluster.NewController(s.kubeClient, args.Namespace, s.clusterID, s.environment.Watcher, func(r *rest.Config) error {
 		r.QPS = args.RegistryOptions.KubeOptions.KubernetesAPIQPS
 		r.Burst = args.RegistryOptions.KubeOptions.KubernetesAPIBurst
+		return nil
 	})
 	s.XDSServer.ListRemoteClusters = s.multiclusterController.ListRemoteClusters
 	s.addStartFunc("multicluster controller", func(stop <-chan struct{}) error {

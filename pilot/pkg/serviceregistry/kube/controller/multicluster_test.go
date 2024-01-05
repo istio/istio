@@ -89,7 +89,7 @@ func initController(client kube.CLIClient, ns string, stop <-chan struct{}, mc *
 }
 
 func Test_KubeSecretController(t *testing.T) {
-	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config) error) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
 	clientset := kube.NewFakeClient()
@@ -134,7 +134,7 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	test.SetForTest(t, &features.ExternalIstiod, true)
 	test.SetForTest(t, &features.InjectionWebhookConfigName, "")
 	clientset := kube.NewFakeClient()
-	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config) error) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
 	stop := test.NewStop(t)

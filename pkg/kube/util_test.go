@@ -24,6 +24,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
@@ -440,6 +441,75 @@ func TestSanitizeKubeConfig(t *testing.T) {
 			}
 			if diff := cmp.Diff(tt.config, tt.want); diff != "" {
 				t.Fatal(diff)
+			}
+		})
+	}
+}
+
+func TestNewUntrustedRestConfig(t *testing.T) {
+	config := `apiVersion: v1
+kind: Config
+clusters:
+- cluster:
+    insecure-skip-tls-verify: true
+    server: https://1.1.1.1:8001
+  name: cluster.local
+contexts:
+- context:
+    cluster: cluster.local
+    namespace: default
+    user: admin
+  name: cluster.local-context
+current-context: cluster.local-context
+preferences: {}
+users:
+- name: admin
+  user:
+    token: sdsddsd`
+
+	tests := []struct {
+		name            string
+		configOverrides []func(*rest.Config) error
+		wantErr         bool
+		wantHost        string
+	}{
+		{
+			name:            "SuccessWithNoOverride",
+			configOverrides: []func(*rest.Config) error{},
+			wantErr:         false,
+			wantHost:        "https://1.1.1.1:8001",
+		},
+		{
+			name: "SuccessWithOverride",
+			configOverrides: []func(*rest.Config) error{
+				func(c *rest.Config) error {
+					c.Host = "https://overridden.com"
+					return nil
+				},
+			},
+			wantErr:  false,
+			wantHost: "https://overridden.com",
+		},
+		{
+			name: "FailedToOverride",
+			configOverrides: []func(*rest.Config) error{
+				func(c *rest.Config) error {
+					return fmt.Errorf("failed to override the rest config")
+				},
+			},
+			wantErr:  true,
+			wantHost: "",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			resp, err := NewUntrustedRestConfig([]byte(config), tc.configOverrides...)
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("NewUntrustedRestConfig() error = %v, wantErr %v", err, tc.wantErr)
+			}
+			if resp != nil && resp.Host != tc.wantHost {
+				t.Fatalf("Incorrect host. Got: %s, Want: %s", resp.Host, tc.wantHost)
 			}
 		})
 	}
