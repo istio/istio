@@ -430,14 +430,19 @@ func (l StringList) MarshalJSON() ([]byte, error) {
 	if l == nil {
 		return nil, nil
 	}
-	return []byte(`"` + strings.Join(l, ",") + `"`), nil
+	return json.Marshal(strings.Join(l, ","))
 }
 
 func (l *StringList) UnmarshalJSON(data []byte) error {
-	if len(data) < 2 || string(data) == `""` {
+	var inner string
+	err := json.Unmarshal(data, &inner)
+	if err != nil {
+		return err
+	}
+	if len(inner) == 0 {
 		*l = []string{}
 	} else {
-		*l = strings.Split(string(data[1:len(data)-1]), ",")
+		*l = strings.Split(inner, ",")
 	}
 	return nil
 }
