@@ -3,4 +3,4 @@ kind: bug-fix
 area: istioctl
 releaseNotes:
   - |
-    **Fixed** Webhook Configuration Hardcoding in External Control Plane Analyzer.
+    **Fixed** an issue where the External Control Plane Analyzer may not work in some remote control plane setups.
