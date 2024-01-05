@@ -3173,7 +3173,7 @@ func TestValidateVirtualService(t *testing.T) {
 					},
 				}},
 			}},
-		}, valid: false, warning: false},
+		}, valid: true, warning: false},
 		{name: "set authority in rewrite and header", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
 			Http: []*networking.HTTPRoute{{

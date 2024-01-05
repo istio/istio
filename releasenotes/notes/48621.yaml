@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** support set `:authority` in virtual service's HTTPRouteDestination, now we support host rewrite with both `host` and `:authority`.
