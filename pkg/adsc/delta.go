@@ -15,6 +15,7 @@
 package adsc
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -26,7 +27,6 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	"github.com/envoyproxy/go-control-plane/pkg/resource/v3"
 	"go.uber.org/atomic"
-	"golang.org/x/net/context"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/proto"
