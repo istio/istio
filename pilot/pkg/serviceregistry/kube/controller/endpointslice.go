@@ -294,6 +294,8 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 		}
 	}
 
+	// revert the addresses of istioEndpoint from pod.Status.IPs to endpointslice addresses
+	// to make non dual stack pod and dual stack pod have the same logic in istioEndpoint Addresses
 	for istioEP, epAddresses := range addedEndpointMap {
 		istioEP.Addresses = epAddresses
 	}
