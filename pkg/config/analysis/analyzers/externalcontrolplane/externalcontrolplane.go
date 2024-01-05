@@ -45,9 +45,11 @@ func (s *ExternalControlPlaneAnalyzer) Metadata() analysis.Metadata {
 	}
 }
 
-const defaultIstioValidatingWebhookName = "istiod-default-validator"
-const istioValidatingWebhookNamePrefix = "istio-validator"
-const istioMutatingWebhookNamePrefix = "istio-sidecar-injector"
+const (
+	defaultIstioValidatingWebhookName = "istiod-default-validator"
+	istioValidatingWebhookNamePrefix  = "istio-validator"
+	istioMutatingWebhookNamePrefix    = "istio-sidecar-injector"
+)
 
 // Analyze implements Analyzer
 func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
@@ -98,7 +100,6 @@ func (s *ExternalControlPlaneAnalyzer) Analyze(c analysis.Context) {
 		//              name: istio-sidecar-injector{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}-{{ .Release.Namespace }}
 		//            {{- end }}
 		if strings.HasPrefix(webhookConfig.Name, istioMutatingWebhookNamePrefix) {
-
 			for _, hook := range webhookConfig.Webhooks {
 				// If defined, it means that an external istiod has been adopted
 				if hook.ClientConfig.URL != nil {
