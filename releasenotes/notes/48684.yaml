@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 48665
+releaseNotes:
+- |
+  **Fixed** an issue where in-cluster analysis was unnecessarily performed when there's no config change.
