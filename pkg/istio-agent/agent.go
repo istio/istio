@@ -255,7 +255,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	})
 }
 
-func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
+func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 	node, err := a.generateNodeMetadata()
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
