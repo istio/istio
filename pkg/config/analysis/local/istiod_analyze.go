@@ -203,7 +203,9 @@ func (sa *IstiodAnalyzer) Init(cancel <-chan struct{}) error {
 	}
 	allstores := append(sa.stores, dfCache{ConfigStore: sa.internalStore})
 	if sa.fileSource != nil {
-		allstores = append(allstores, sa.fileSource)
+		// File source takes the highest precedence, since files are resources to be configured to in-cluster resources.
+		// The order here does matter - aggregated store takes the first available resource.
+		allstores = append([]model.ConfigStoreController{sa.fileSource}, allstores...)
 	}
 
 	for _, c := range sa.clientsToRun {
