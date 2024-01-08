@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+- |
+  **Removed** using BOOTSTRAP_XDS_AGENT to apply EnvoyFilters at startup experimental feature.
