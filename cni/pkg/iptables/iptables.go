@@ -152,7 +152,7 @@ func (cfg *IptablesConfigurator) CreateInpodRules(hostProbeSNAT *netip.Addr) err
 }
 
 func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *builder.IptablesBuilder {
-	redirectDns := cfg.cfg.RedirectDNS
+	redirectDNS := cfg.cfg.RedirectDNS
 
 	inpodMark := fmt.Sprintf("0x%x", InpodMark) + "/" + fmt.Sprintf("0x%x", InpodMask)
 	inpodTproxyMark := fmt.Sprintf("0x%x", InpodTProxyMark) + "/" + fmt.Sprintf("0x%x", InpodTProxyMask)
@@ -287,7 +287,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 	// CLI: -A ISTIO_OUTPUT ! -o lo -p udp -m udp --dport 53 -j REDIRECT --to-port 15053
 	//
 	// DESC: If this is a UDP DNS request to a non-localhost resolver, send it to ztunnel DNS proxy port
-	if redirectDns {
+	if redirectDNS {
 		iptablesBuilder.AppendRule(
 			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
 			"!", "-o", "lo",

@@ -20,7 +20,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
 	"runtime/debug"
 	"strconv"
 	"time"
@@ -55,12 +54,9 @@ const (
 
 // Kubernetes a K8s specific struct to hold config
 type Kubernetes struct {
-	K8sAPIRoot           string   `json:"k8s_api_root"`
 	Kubeconfig           string   `json:"kubeconfig"`
 	InterceptRuleMgrType string   `json:"intercept_type"`
-	NodeName             string   `json:"node_name"`
 	ExcludeNamespaces    []string `json:"exclude_namespaces"`
-	CNIBinDir            string   `json:"cni_bin_dir"`
 }
 
 // Config is whatever you expect your configuration json to be. This is whatever
@@ -82,7 +78,6 @@ type Config struct {
 // https://github.com/containerd/containerd/blob/ced9b18c231a28990617bc0a4b8ce2e81ee2ffa1/pkg/cri/server/sandbox_run.go#L526-L532
 type K8sArgs struct {
 	types.CommonArgs
-	IP                         net.IP
 	K8S_POD_NAME               types.UnmarshallableString // nolint: revive, stylecheck
 	K8S_POD_NAMESPACE          types.UnmarshallableString // nolint: revive, stylecheck
 	K8S_POD_INFRA_CONTAINER_ID types.UnmarshallableString // nolint: revive, stylecheck
@@ -341,6 +336,7 @@ func pluginResponse(conf *Config) error {
 		}
 		return types.PrintResult(result, conf.CNIVersion)
 	}
+
 	// Pass through the result for the next plugin
 	return types.PrintResult(conf.PrevResult, conf.CNIVersion)
 }
