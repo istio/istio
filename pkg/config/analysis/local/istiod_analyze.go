@@ -132,11 +132,12 @@ func (sa *IstiodAnalyzer) ReAnalyze(cancel <-chan struct{}) (AnalysisResult, err
 }
 
 func (sa *IstiodAnalyzer) internalAnalyze(a *analysis.CombinedAnalyzer, cancel <-chan struct{}) (AnalysisResult, error) {
-	var result AnalysisResult
-	result.MappedMessages = map[string]diag.Messages{}
 	store := sa.initializedStore
+
+	var result AnalysisResult
 	result.ExecutedAnalyzers = a.AnalyzerNames()
 	result.SkippedAnalyzers = a.RemoveSkipped(store.Schemas())
+	result.MappedMessages = make(map[string]diag.Messages, len(result.ExecutedAnalyzers))
 
 	kubelib.WaitForCacheSync("istiod analyzer", cancel, store.HasSynced)
 

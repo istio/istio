@@ -130,6 +130,17 @@ func TestSchemaValidationWrapper(t *testing.T) {
 	})
 }
 
+func BenchmarkMetadata(b *testing.B) {
+	a := ValidationAnalyzer{
+		s: schemaWithValidateFn(validation.EmptyValidate),
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		a.Metadata()
+	}
+}
+
 func schemaWithValidateFn(validateFn func(cfg config.Config) (validation.Warning, error)) resource2.Schema {
 	original := collections.VirtualService
 	return resource2.Builder{
