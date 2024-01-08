@@ -22,6 +22,7 @@ import (
 	"syscall"
 
 	"google.golang.org/protobuf/types/known/durationpb"
+	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/pilot/pkg/util/network"
 	"istio.io/istio/pkg/env"
@@ -117,7 +118,7 @@ func (e *envoy) UpdateConfig(config []byte) error {
 	return os.WriteFile(e.ConfigPath, config, 0o666)
 }
 
-func (e *envoy) args(fname string, bootstrapConfig string) []string {
+func (e *envoy) args(fname string, overrideFname string) []string {
 	proxyLocalAddressType := "v4"
 	if network.AllIPv6(e.NodeIPs) {
 		proxyLocalAddressType = "v6"
@@ -150,12 +151,13 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 
 	startupArgs = append(startupArgs, e.extraArgs...)
 
-	if bootstrapConfig != "" {
-		bytes, err := os.ReadFile(bootstrapConfig)
+	if overrideFname != "" {
+		s, err := readToJSON(overrideFname)
 		if err != nil {
-			log.Warnf("Failed to read bootstrap override %s, %v", bootstrapConfig, err)
+			log.Warnf("Failed to read bootstrap override: %v", err)
 		} else {
-			startupArgs = append(startupArgs, "--config-yaml", string(bytes))
+			// Despite the name Envoy also accepts JSON string
+			startupArgs = append(startupArgs, "--config-yaml", s)
 		}
 	}
 
@@ -164,6 +166,20 @@ func (e *envoy) args(fname string, bootstrapConfig string) []string {
 	}
 
 	return startupArgs
+}
+
+// readToJSON reads a config file, in YAML or JSON, and returns JSON string
+func readToJSON(fname string) (string, error) {
+	bytes, err := os.ReadFile(fname)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %s, %v", fname, err)
+	}
+
+	converted, err := yaml.YAMLToJSON(bytes)
+	if err != nil {
+		return "", fmt.Errorf("failed to convert to JSON: %s, %v", fname, err)
+	}
+	return string(converted), nil
 }
 
 var (

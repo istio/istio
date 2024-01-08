@@ -459,8 +459,14 @@ func buildHTTPVirtualServices(
 				routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
 				routeKey += fmt.Sprintf("/%d", *parent.OriginalReference.Port)
 			}
-			vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
-				parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
+			if parent.InternalKind == gvk.ServiceEntry {
+				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
+					string(parent.OriginalReference.Name),
+					string(ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace))))
+			} else {
+				vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
+					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
+			}
 		}
 		if len(routes) == 0 {
 			continue
@@ -512,6 +518,22 @@ func buildHTTPVirtualServices(
 			sortHTTPRoutes(vs.Http)
 		}
 	}
+}
+
+func serviceEntryHosts(ses []config.Config, name, namespace string) []string {
+	for _, obj := range ses {
+		if obj.Meta.Name == name {
+			ns := obj.Meta.Namespace
+			if ns == "" {
+				ns = metav1.NamespaceDefault
+			}
+			if ns == namespace {
+				se := obj.Spec.(*istio.ServiceEntry)
+				return se.Hosts
+			}
+		}
+	}
+	return []string{}
 }
 
 func buildMeshAndGatewayRoutes[T any](parentRefs []routeParentReference, convertRules func(mesh bool) T) (T, T) {
@@ -598,7 +620,7 @@ func buildGRPCVirtualServices(
 	meshRoutes map[string]map[string]*config.Config,
 ) {
 	route := obj.Spec.(*k8s.GRPCRouteSpec)
-	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, obj.Namespace)
+	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, route.Hostnames, gvk.GRPCRoute, obj.Namespace)
 	reportStatus := func(results []RouteParentResult) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			rs := s.(*k8s.GRPCRouteStatus)
@@ -820,11 +842,13 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (pa
 	group := ptr.OrDefault((*string)(p.Group), gvk.KubernetesGateway.Group)
 	var ik config.GroupVersionKind
 	var ns string
-	// Currently supported types are Gateway and Service
+	// Currently supported types are Gateway, Service, and ServiceEntry
 	if kind == gvk.KubernetesGateway.Kind && group == gvk.KubernetesGateway.Group {
 		ik = gvk.KubernetesGateway
 	} else if kind == gvk.Service.Kind && group == gvk.Service.Group {
 		ik = gvk.Service
+	} else if kind == gvk.ServiceEntry.Kind && group == gvk.ServiceEntry.Group {
+		ik = gvk.ServiceEntry
 	} else {
 		return empty, fmt.Errorf("unsupported parentKey: %v/%v", p.Group, kind)
 	}
@@ -844,7 +868,7 @@ func referenceAllowed(
 	hostnames []k8s.Hostname,
 	namespace string,
 ) *ParentError {
-	if parentRef.Kind == gvk.Service {
+	if parentRef.Kind == gvk.Service || parentRef.Kind == gvk.ServiceEntry {
 		// TODO: check if the service reference is valid
 		if false {
 			return &ParentError{
@@ -948,6 +972,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 		appendParent := func(pr *parentInfo, pk parentReference) {
 			rpi := routeParentReference{
 				InternalName:      pr.InternalName,
+				InternalKind:      ir.Kind,
 				Hostname:          pr.OriginalHostname,
 				DeniedReason:      referenceAllowed(pr, kind, pk, hostnames, localNamespace),
 				OriginalReference: ref,
@@ -959,7 +984,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 			parentRefs = append(parentRefs, rpi)
 		}
 		gk := ir
-		if ir.Kind == gvk.Service {
+		if ir.Kind == gvk.Service || ir.Kind == gvk.ServiceEntry {
 			gk = meshParentKey
 		}
 		for _, gw := range gateways[gk] {
@@ -1875,6 +1900,8 @@ type parentInfo struct {
 type routeParentReference struct {
 	// InternalName refers to the internal name of the parent we can reference it by. For example, "mesh" or "my-ns/my-gateway"
 	InternalName string
+	// InternalKind is the Group/Kind of the parent
+	InternalKind config.GroupVersionKind
 	// DeniedReason, if present, indicates why the reference was not valid
 	DeniedReason *ParentError
 	// OriginalReference contains the original reference
@@ -1953,7 +1980,9 @@ func convertGateways(r configContext) ([]config.Config, map[parentKey][]*parentI
 				continue
 			}
 			meta := parentMeta(obj, &l.Name)
+			meta[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
 			meta[model.InternalGatewayServiceAnnotation] = strings.Join(gatewayServices, ",")
+
 			// Each listener generates an Istio Gateway with a single Server. This allows binding to a specific listener.
 			gatewayConfig := config.Config{
 				Meta: config.Meta{
@@ -2248,6 +2277,15 @@ func getNamespaceLabelReferences(routes *k8s.AllowedRoutes) []string {
 		res = append(res, k)
 	}
 	for _, me := range routes.Namespaces.Selector.MatchExpressions {
+		if me.Operator == metav1.LabelSelectorOpNotIn || me.Operator == metav1.LabelSelectorOpDoesNotExist {
+			// Over-matching is fine because this only controls the set of namespace
+			// label change events to watch and the actual binding enforcement happens
+			// by checking the intersection of the generated VirtualService.spec.hosts
+			// and Istio Gateway.spec.servers.hosts arrays - we just can't miss
+			// potentially relevant namespace label events here.
+			res = append(res, "*")
+		}
+
 		res = append(res, me.Key)
 	}
 	return res
@@ -2414,7 +2452,7 @@ func parentRefString(ref k8s.ParentReference) string {
 		ptr.OrEmpty(ref.Namespace))
 }
 
-// buildHostnameMatch generates a VirtualService.spec.hosts section from a listener
+// buildHostnameMatch generates a Gateway.spec.servers.hosts section from a listener
 func buildHostnameMatch(localNamespace string, r GatewayResources, l k8s.Listener) []string {
 	// We may allow all hostnames or a specific one
 	hostname := "*"
@@ -2424,7 +2462,10 @@ func buildHostnameMatch(localNamespace string, r GatewayResources, l k8s.Listene
 
 	resp := []string{}
 	for _, ns := range namespacesFromSelector(localNamespace, r, l.AllowedRoutes) {
-		resp = append(resp, fmt.Sprintf("%s/%s", ns, hostname))
+		// This check is necessary to prevent adding a hostname with an invalid empty namespace
+		if len(ns) > 0 {
+			resp = append(resp, fmt.Sprintf("%s/%s", ns, hostname))
+		}
 	}
 
 	// If nothing matched use ~ namespace (match nothing). We need this since its illegal to have an

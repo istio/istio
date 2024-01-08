@@ -117,7 +117,7 @@ func (configgen *ConfigGeneratorImpl) BuildDeltaClusters(proxy *model.Proxy, upd
 	}
 	clusters, log := configgen.buildClusters(proxy, updates, services)
 	// DeletedClusters contains list of all subset clusters for the deleted DR or updated DR.
-	// When clusters are rebuilt, it rebuilts the subset clusters as well. So, we know what
+	// When clusters are rebuilt, it rebuilt the subset clusters as well. So, we know what
 	// subset clusters are really needed. So if deleted cluster is not rebuilt, then it is really deleted.
 	builtClusters := sets.New[string]()
 	for _, c := range clusters {
@@ -225,15 +225,16 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	case model.Waypoint:
-		_, svcs := findWaypointResources(proxy, req.Push)
+		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(req.Push.ServicesAttachedToMesh(), svcs, services))
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(
+			req.Push.ServicesAttachedToMesh(), wps.services, services))
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, svcs)...)
+		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, wps.services)...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
@@ -721,7 +722,7 @@ type buildClusterOpts struct {
 	serviceMTLSMode model.MutualTLSMode
 	// Indicates the service registry of the cluster being built.
 	serviceRegistry provider.ID
-	// Indicates if the destionationRule has a workloadSelector
+	// Indicates if the destinationRule has a workloadSelector
 	isDrWithSelector bool
 }
 

@@ -23,6 +23,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/collection"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -107,21 +108,33 @@ func (cr *store) Get(typ config.GroupVersionKind, name, namespace string) *confi
 
 // List all configs in the stores.
 func (cr *store) List(typ config.GroupVersionKind, namespace string) []config.Config {
-	if len(cr.stores[typ]) == 0 {
+	stores := cr.stores[typ]
+	if len(stores) == 0 {
 		return nil
 	}
-	var configs []config.Config
-	// Used to remove duplicated config
-	configMap := sets.New[types.NamespacedName]()
 
-	for _, store := range cr.stores[typ] {
-		storeConfigs := store.List(typ, namespace)
-		for _, cfg := range storeConfigs {
-			if !configMap.InsertContains(cfg.NamespacedName()) {
-				configs = append(configs, cfg)
-			}
-		}
+	var (
+		configs      []config.Config
+		storeConfigs = make([][]config.Config, 0, len(stores))
+		configCnt    int
+	)
+
+	for _, store := range stores {
+		curConfigs := store.List(typ, namespace)
+		storeConfigs = append(storeConfigs, curConfigs)
+		configCnt += len(curConfigs)
 	}
+
+	configs = make([]config.Config, 0, configCnt)
+	// Used to remove duplicated config
+	configMap := sets.NewWithLength[types.NamespacedName](configCnt)
+	for _, curConfigs := range storeConfigs {
+		configs = append(configs, curConfigs...)
+	}
+	configs = slices.FilterInPlace[config.Config](configs, func(cfg config.Config) bool {
+		return !configMap.InsertContains(cfg.NamespacedName())
+	})
+
 	return configs
 }
 

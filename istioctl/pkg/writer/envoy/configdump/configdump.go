@@ -123,6 +123,10 @@ func (c *ConfigWriter) PrintSecretSummary() error {
 }
 
 func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf RouteFilter, epf EndpointFilter) error {
+	if err := c.PrintBootstrapSummary(); err != nil {
+		return err
+	}
+	_, _ = c.Stdout.Write([]byte("\n"))
 	if err := c.PrintClusterSummary(cf); err != nil {
 		return err
 	}
@@ -145,8 +149,8 @@ func (c *ConfigWriter) PrintFullSummary(cf ClusterFilter, lf ListenerFilter, rf 
 	return nil
 }
 
-// PrintVersionSummary prints version information for Istio and Envoy from the config dump
-func (c *ConfigWriter) PrintVersionSummary() error {
+// PrintBootstrapSummary prints bootstrap information for Istio and Envoy from the config dump
+func (c *ConfigWriter) PrintBootstrapSummary() error {
 	if c.configDump == nil {
 		return fmt.Errorf("config writer has not been primed")
 	}

@@ -90,6 +90,9 @@ type RepairConfig struct {
 	LabelKey   string
 	LabelValue string
 
+	// Whether to fix race condition by repairing them
+	RepairPods bool
+
 	// Whether to fix race condition by delete broken pods
 	DeletePods bool
 

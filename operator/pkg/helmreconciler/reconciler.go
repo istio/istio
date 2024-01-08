@@ -28,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/yaml"
 
@@ -49,10 +48,11 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/webhook"
 	"istio.io/istio/pkg/config/analysis/diag"
 	"istio.io/istio/pkg/config/analysis/local"
-	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/resource"
+	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/version"
 )
 
@@ -92,17 +92,10 @@ type Options struct {
 	SkipPrune bool
 }
 
-var (
-	defaultOptions = &Options{
-		Log:         clog.NewDefaultLogger(),
-		ProgressLog: progress.NewLog(),
-	}
-	conflictBackoff = wait.Backoff{
-		Duration: time.Millisecond * 10,
-		Factor:   2,
-		Steps:    3,
-	}
-)
+var defaultOptions = &Options{
+	Log:         clog.NewDefaultLogger(),
+	ProgressLog: progress.NewLog(),
+}
 
 // NewHelmReconciler creates a HelmReconciler and returns a ptr to it
 func NewHelmReconciler(client client.Client, kubeClient kube.Client, iop *istioV1Alpha1.IstioOperator, opts *Options) (*HelmReconciler, error) {
@@ -192,8 +185,6 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	// wg waits for all manifest processing goroutines to finish
 	var wg sync.WaitGroup
 
-	serverSideApply := h.CheckSSAEnabled()
-
 	for c, ms := range manifests {
 		c, ms := c, ms
 		wg.Add(1)
@@ -219,7 +210,7 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 					Name:    c,
 					Content: name.MergeManifestSlices(ms),
 				}
-				appliedResult, err = h.ApplyManifest(m, serverSideApply)
+				appliedResult, err = h.ApplyManifest(m)
 				if err != nil {
 					status = v1alpha1.InstallStatus_ERROR
 				} else if appliedResult.Succeed() {
@@ -248,38 +239,6 @@ func (h *HelmReconciler) processRecursive(manifests name.ManifestMap) *v1alpha1.
 	}
 
 	return out
-}
-
-// CheckSSAEnabled is a helper function to check whether ServerSideApply should be used when applying manifests.
-func (h *HelmReconciler) CheckSSAEnabled() bool {
-	if TestMode {
-		return false // our unit test setup doesn't work with SSA
-	}
-	if h.kubeClient != nil {
-		// SSA went GA in k8s 1.22
-		if kube.IsAtLeastVersion(h.kubeClient, 22) {
-			return true
-		}
-		// For versions greater than 1.18, detect if SSA is enabled.
-		// There is a known issue with this detection logic for k8s clusters that were upgraded.
-		// See: https://github.com/istio/istio/issues/37946#issuecomment-1072875625
-		if kube.IsAtLeastVersion(h.kubeClient, 18) {
-			// todo(kebe7jun) a more general test method
-			// API Server does not support detecting whether ServerSideApply is enabled
-			// through the API for the time being.
-			ns, err := h.kubeClient.Kube().CoreV1().Namespaces().Get(context.TODO(), constants.KubeSystemNamespace, metav1.GetOptions{})
-			if err != nil {
-				scope.Warnf("failed to get namespace: %v", err)
-				return false
-			}
-			if ns.ManagedFields == nil {
-				scope.Infof("k8s support ServerSideApply but was manually disabled")
-				return false
-			}
-			return true
-		}
-	}
-	return false
 }
 
 // Delete resources associated with the custom resource instance
@@ -539,12 +498,50 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 		return nil
 	}
 
+	skippedWebhooks := sets.New[string]()
+	exists := revtag.PreviousInstallExists(context.Background(), h.kubeClient.Kube())
+	// Here if we need to create a default tag, we need to skip the webhooks that are going to be deactivated.
+	if detectIfTagWebhookIsNeeded(h.iop, exists) {
+		whs, err := revtag.GetWebhooksWithRevision(context.Background(), h.kubeClient.Kube(), revtag.DefaultRevisionName)
+		if err != nil {
+			return err
+		}
+		for _, wh := range whs {
+			skippedWebhooks.Insert(wh.GetName())
+		}
+	}
+
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
 		SkipServiceCheck: true,
+		SkippedWebhooks:  skippedWebhooks,
 	}), resource.Namespace(h.iop.Spec.GetNamespace()), resource.Namespace(istioV1Alpha1.Namespace(h.iop.Spec)), nil)
+
+	// Add in-cluster webhooks
+	objects := &unstructured.UnstructuredList{}
+	objects.SetGroupVersionKind(gvk.MutatingWebhookConfiguration.Kubernetes())
+	err := h.client.List(context.Background(), objects, &client.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for i, obj := range objects.Items {
+		objYAML, err := object.NewK8sObject(&obj, nil, nil).YAML()
+		if err != nil {
+			return err
+		}
+		whReaderSource := local.ReaderSource{
+			Name:   fmt.Sprintf("in-cluster-webhook-%d", i),
+			Reader: strings.NewReader(string(objYAML)),
+		}
+		err = sa.AddReaderKubeSource([]local.ReaderSource{whReaderSource})
+		if err != nil {
+			return err
+		}
+	}
+
+	// Add webhook manifests to be applied
 	var localWebhookYAMLReaders []local.ReaderSource
 	var parsedK8sObjects object.K8sObjects
-	for _, wh := range whs {
+	for i, wh := range whs {
 		k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(wh)
 		if err != nil {
 			return err
@@ -554,19 +551,15 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 			return err
 		}
 		whReaderSource := local.ReaderSource{
-			Name:   "",
+			Name:   fmt.Sprintf("installed-webhook-%d", i),
 			Reader: strings.NewReader(objYaml),
 		}
 		localWebhookYAMLReaders = append(localWebhookYAMLReaders, whReaderSource)
 		parsedK8sObjects = append(parsedK8sObjects, k8sObjects...)
 	}
-	err := sa.AddReaderKubeSource(localWebhookYAMLReaders)
+	err = sa.AddReaderKubeSource(localWebhookYAMLReaders)
 	if err != nil {
 		return err
-	}
-
-	if h.kubeClient != nil {
-		sa.AddRunningKubeSource(h.kubeClient)
 	}
 
 	// Analyze webhooks
@@ -619,38 +612,44 @@ type ProcessDefaultWebhookOptions struct {
 	DryRun    bool
 }
 
-func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
-	// Detect whether previous installation exists prior to performing the installation.
+func detectIfTagWebhookIsNeeded(iop *istioV1Alpha1.IstioOperator, exists bool) bool {
 	rev := iop.Spec.Revision
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	operatorManageWebhooks := operatorManageWebhooks(iop)
-	if !operatorManageWebhooks && (!exists || isDefaultInstallation) {
-		if rev == "" {
-			rev = revtag.DefaultRevisionName
-		}
-		autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
+	return !operatorManageWebhooks && (!exists || isDefaultInstallation)
+}
 
-		ignorePruneLabel := map[string]string{
-			OwningResourceNotPruned: "true",
-		}
-
-		o := &revtag.GenerateOptions{
-			Tag:                  revtag.DefaultRevisionName,
-			Revision:             rev,
-			Overwrite:            true,
-			AutoInjectNamespaces: autoInjectNamespaces,
-			CustomLabels:         ignorePruneLabel,
-		}
-		// If tag cannot be created could be remote cluster install, don't fail out.
-		tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)
-		if err == nil && !opt.DryRun {
-			if err = applyManifests(client, tagManifests); err != nil {
-				return false, err
-			}
-		}
-		processed = true
+func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
+	// Detect whether previous installation exists prior to performing the installation.
+	if !detectIfTagWebhookIsNeeded(iop, exists) {
+		return false, nil
 	}
-	return processed, nil
+	rev := iop.Spec.Revision
+	if rev == "" {
+		rev = revtag.DefaultRevisionName
+	}
+	autoInjectNamespaces := validateEnableNamespacesByDefault(iop)
+
+	ignorePruneLabel := map[string]string{
+		OwningResourceNotPruned: "true",
+	}
+
+	o := &revtag.GenerateOptions{
+		Tag:                  revtag.DefaultRevisionName,
+		Revision:             rev,
+		Overwrite:            true,
+		AutoInjectNamespaces: autoInjectNamespaces,
+		CustomLabels:         ignorePruneLabel,
+		Generate:             opt.DryRun,
+	}
+	// If tag cannot be created could be remote cluster install, don't fail out.
+	tagManifests, err := revtag.Generate(context.Background(), client, o, opt.Namespace)
+	if err == nil && !opt.DryRun {
+		if err = applyManifests(client, tagManifests); err != nil {
+			return false, err
+		}
+	}
+	return true, nil
 }
 
 func applyManifests(kubeClient kube.Client, manifests string) error {

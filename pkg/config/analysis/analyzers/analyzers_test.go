@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/externalcontrolplane"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/pkg/config/analysis/analyzers/k8sgateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/analyzers/multicluster"
 	schemaValidation "istio.io/istio/pkg/config/analysis/analyzers/schema"
@@ -276,6 +277,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "injectionImageDistrolessNoMeshConfig",
+		inputFiles: []string{
+			"testdata/injection-image-distroless-no-meshconfig.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		analyzer: &injection.ImageAnalyzer{},
+		expected: []message{},
+	},
+	{
 		name: "istioInjectionProxyImageMismatchAbsolute",
 		inputFiles: []string{
 			"testdata/injection-with-mismatched-sidecar.yaml",
@@ -326,10 +336,12 @@ var testGrid = []testCase{
 	{
 		name:       "sidecarDefaultSelector",
 		inputFiles: []string{"testdata/sidecar-default-selector.yaml"},
-		analyzer:   &sidecar.DefaultSelectorAnalyzer{},
+		analyzer:   &sidecar.SelectorAnalyzer{},
 		expected: []message{
 			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar ns2/has-conflict-2"},
 			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar ns2/has-conflict-1"},
+			{msg.IneffectivePolicy, "Sidecar ns-ambient/namespace-scoped"},
+			{msg.IneffectivePolicy, "Sidecar ns-ambient/pod-scoped"},
 		},
 	},
 	{
@@ -868,6 +880,17 @@ var testGrid = []testCase{
 		meshConfigFile: "testdata/telemetry-lightstep-meshconfig.yaml",
 		expected: []message{
 			{msg.Deprecated, "Telemetry istio-system/mesh-default"},
+		},
+	},
+	{
+		name:       "KubernetesGatewaySelector",
+		inputFiles: []string{"testdata/k8sgateway-selector.yaml"},
+		analyzer:   &k8sgateway.SelectorAnalyzer{},
+		expected: []message{
+			{msg.IneffectiveSelector, "RequestAuthentication default/ra-ineffective"},
+			{msg.IneffectiveSelector, "AuthorizationPolicy default/ap-ineffective"},
+			{msg.IneffectiveSelector, "WasmPlugin default/wasmplugin-ineffective"},
+			{msg.IneffectiveSelector, "Telemetry default/telemetry-ineffective"},
 		},
 	},
 }

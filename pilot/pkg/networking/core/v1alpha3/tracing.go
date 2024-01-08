@@ -237,7 +237,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 		*meshconfig.MeshConfig_ExtensionProvider_EnvoyFileAccessLog,
 		*meshconfig.MeshConfig_ExtensionProvider_Prometheus:
 		return nil, false, fmt.Errorf("provider %T does not support tracing", provider)
-		// Should enver happen, but just in case we forget to add one
+		// Should never happen, but just in case we forget to add one
 	default:
 		return nil, false, fmt.Errorf("provider %T does not support tracing", provider)
 	}
@@ -514,6 +514,10 @@ func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []
 	if namespace == "" {
 		namespace = "default"
 	}
+	clusterID := string(metadata.ClusterID)
+	if clusterID == "" {
+		clusterID = "unknown"
+	}
 	return []*tracing.CustomTag{
 		{
 			Tag: "istio.canonical_revision",
@@ -544,6 +548,14 @@ func buildServiceTags(metadata *model.NodeMetadata, labels map[string]string) []
 			Type: &tracing.CustomTag_Literal_{
 				Literal: &tracing.CustomTag_Literal{
 					Value: namespace,
+				},
+			},
+		},
+		{
+			Tag: "istio.cluster_id",
+			Type: &tracing.CustomTag_Literal_{
+				Literal: &tracing.CustomTag_Literal{
+					Value: clusterID,
 				},
 			},
 		},

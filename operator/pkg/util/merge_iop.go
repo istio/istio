@@ -222,10 +222,8 @@ type telemetryConfig struct {
 }
 
 type telemetryV2Config struct {
-	MetadataExchange *v1alpha12.TelemetryV2MetadataExchangeConfig      `json:"metadataExchange" patchStrategy:"merge"`
-	Prometheus       *v1alpha12.TelemetryV2PrometheusConfig            `json:"prometheus" patchStrategy:"merge"`
-	Stackdriver      *v1alpha12.TelemetryV2StackDriverConfig           `json:"stackdriver" patchStrategy:"merge"`
-	AccessLogPolicy  *v1alpha12.TelemetryV2AccessLogPolicyFilterConfig `json:"accessLogPolicy" patchStrategy:"merge"`
+	Prometheus  *v1alpha12.TelemetryV2PrometheusConfig  `json:"prometheus" patchStrategy:"merge"`
+	Stackdriver *v1alpha12.TelemetryV2StackDriverConfig `json:"stackdriver" patchStrategy:"merge"`
 }
 
 var iopMergeStruct iopMergeStructType

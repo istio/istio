@@ -41,9 +41,15 @@ func roundTripperFor(restConfig *rest.Config) (http.RoundTripper, spdy.Upgrader,
 
 	var upgrader *spdyStream.SpdyRoundTripper
 	if restConfig.Proxy != nil {
-		upgrader = spdyStream.NewRoundTripperWithProxy(tlsConfig, restConfig.Proxy)
+		upgrader, err = spdyStream.NewRoundTripperWithProxy(tlsConfig, restConfig.Proxy)
+		if err != nil {
+			return nil, nil, err
+		}
 	} else {
-		upgrader = spdyStream.NewRoundTripper(tlsConfig)
+		upgrader, err = spdyStream.NewRoundTripper(tlsConfig)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 	wrapper, err := rest.HTTPWrappersForConfig(restConfig, upgrader)
 	if err != nil {

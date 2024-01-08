@@ -92,7 +92,7 @@ func newClientFactory(clientConfig clientcmd.ClientConfig, diskCache bool) *clie
 		if err != nil {
 			return nil, err
 		}
-		return restmapper.NewShortcutExpander(mapper, discoveryClient), nil
+		return restmapper.NewShortcutExpander(mapper, discoveryClient, func(string) {}), nil
 	})
 	return out
 }

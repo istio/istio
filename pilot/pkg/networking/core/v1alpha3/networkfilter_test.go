@@ -186,6 +186,131 @@ func TestInboundNetworkFilterIdleTimeout(t *testing.T) {
 	}
 }
 
+func TestOutboundNetworkFilterIdleTimeout(t *testing.T) {
+	singleDestination := []*networking.RouteDestination{
+		{
+			Destination: &networking.Destination{
+				Host: "example.com",
+				Port: &networking.PortSelector{Number: 443},
+			},
+		},
+	}
+	cases := []struct {
+		name                 string
+		istioMetaIdleTimeout string
+		expected             *durationpb.Duration
+		destRule             *networking.DestinationRule
+		routes               []*networking.RouteDestination
+	}{
+		{
+			name:                 "no ISTIO_META_IDLE_TIMEOUT, no destination rule",
+			istioMetaIdleTimeout: "",
+			expected:             nil,
+			destRule:             nil,
+			routes:               singleDestination,
+		},
+		{
+			name:                 "invalid ISTIO_META_IDLE_TIMEOUT, no destination rule",
+			istioMetaIdleTimeout: "30 s",
+			expected:             nil,
+			destRule:             nil,
+			routes:               singleDestination,
+		},
+		{
+			name:                 "valid ISTIO_META_IDLE_TIMEOUT, no destination rule",
+			istioMetaIdleTimeout: "30s",
+			expected:             durationpb.New(30 * time.Second),
+			destRule:             nil,
+			routes:               singleDestination,
+		},
+		{
+			name:                 "valid ISTIO_META_IDLE_TIMEOUT ignored, because destination rule with idle timeout exists",
+			istioMetaIdleTimeout: "30s",
+			expected:             durationpb.New(1 * time.Minute),
+			destRule: &networking.DestinationRule{
+				Host: "example.com",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+							IdleTimeout: durationpb.New(1 * time.Minute),
+						},
+					},
+				},
+			},
+			routes: singleDestination,
+		},
+		{
+			name:                 "weighted routes, valid ISTIO_META_IDLE_TIMEOUT ignored, because destination rule with idle timeout exists",
+			istioMetaIdleTimeout: "30s",
+			expected:             durationpb.New(1 * time.Minute),
+			destRule: &networking.DestinationRule{
+				Host: "example.com",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+							IdleTimeout: durationpb.New(1 * time.Minute),
+						},
+					},
+				},
+			},
+			routes: []*networking.RouteDestination{
+				{
+					Destination: &networking.Destination{
+						Host:   "example.com",
+						Port:   &networking.PortSelector{Number: 443},
+						Subset: "prod",
+					},
+					Weight: 75,
+				},
+				{
+					Destination: &networking.Destination{
+						Host:   "example-canary.com",
+						Port:   &networking.PortSelector{Number: 443},
+						Subset: "canary",
+					},
+					Weight: 25,
+				},
+			},
+		},
+	}
+
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			var configs []*config.Config
+			if tt.destRule != nil {
+				destinationRuleConfig := config.Config{
+					Meta: config.Meta{
+						GroupVersionKind: gvk.DestinationRule,
+						Name:             "tcp-idle-timeout",
+						Namespace:        "not-default",
+					},
+					Spec: tt.destRule,
+				}
+				configs = append(configs, &destinationRuleConfig)
+			}
+			cg := NewConfigGenTest(t, TestOptions{
+				ConfigPointers: configs,
+				Services: []*model.Service{
+					buildServiceWithPort("example.com", 443, protocol.TLS, tnow),
+					buildServiceWithPort("example-canary.com", 443, protocol.TLS, tnow),
+				},
+			})
+			proxy := cg.SetupProxy(&model.Proxy{
+				ConfigNamespace: "not-default",
+				Metadata:        &model.NodeMetadata{IdleTimeout: tt.istioMetaIdleTimeout},
+			})
+			lb := ListenerBuilder{node: proxy, push: cg.PushContext()}
+			filters := lb.buildOutboundNetworkFilters(tt.routes, &model.Port{Port: 443},
+				config.Meta{Name: "routing-config-for-example-com", Namespace: "not-default"}, false)
+
+			tcpProxy := xdstest.ExtractTCPProxy(t, &listener.FilterChain{Filters: filters})
+			if !reflect.DeepEqual(tcpProxy.IdleTimeout, tt.expected) {
+				t.Fatalf("Unexpected IdleTimeout, Expecting %s, Got %s", tt.expected, tcpProxy.IdleTimeout)
+			}
+		})
+	}
+}
+
 func TestBuildOutboundNetworkFiltersTunnelingConfig(t *testing.T) {
 	type tunnelingConfig struct {
 		hostname string

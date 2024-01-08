@@ -25,6 +25,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/istioctl/pkg/multixds"
 	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/istioctl/pkg/writer/compare"
@@ -149,6 +150,9 @@ Retrieves last sent and last acknowledged xDS sync from Istiod to each Envoy in 
 				Namespace: ctx.Namespace(),
 			}
 			return sw.PrintAll(xdsResponses)
+		},
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 

@@ -36,8 +36,6 @@ type TLSOptions struct {
 	Cert          string
 	ServerAddress string
 	SAN           string
-	// This is to notify caller when successfully load tls certificate
-	GetClientCertificateCb func()
 }
 
 func getTLSDialOption(opts *TLSOptions) (grpc.DialOption, error) {
@@ -63,9 +61,6 @@ func getTLSDialOption(opts *TLSOptions) (grpc.DialOption, error) {
 				certificate, err = tls.LoadX509KeyPair(cert, key)
 				if err != nil {
 					return nil, err
-				}
-				if opts.GetClientCertificateCb != nil {
-					opts.GetClientCertificateCb()
 				}
 			}
 			return &certificate, nil

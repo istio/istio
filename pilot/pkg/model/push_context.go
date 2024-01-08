@@ -33,6 +33,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -858,7 +859,7 @@ func (ps *PushContext) ServiceAttachedToGateway(hostname string, proxy *Proxy) b
 	return ps.extraGatewayServices(proxy).Contains(hostname)
 }
 
-// wellknownProviders is a lsit of all known providers.
+// wellknownProviders is a list of all known providers.
 // This exists
 var wellknownProviders = sets.New(
 	"envoy_ext_authz_http",
@@ -1116,7 +1117,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 				return sc
 			}
 			// We need to compute this namespace
-			computed := ConvertToSidecarScope(ps, ps.sidecarIndex.meshRootSidecarConfig, proxy.ConfigNamespace)
+			computed := convertToSidecarScope(ps, ps.sidecarIndex.meshRootSidecarConfig, proxy.ConfigNamespace)
 			ps.sidecarIndex.meshRootSidecarsByNamespace[proxy.ConfigNamespace] = computed
 			return computed
 		}
@@ -1125,7 +1126,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 			return sc
 		}
 		// We need to compute this namespace
-		computed := ConvertToSidecarScope(ps, ps.sidecarIndex.meshRootSidecarConfig, proxy.ConfigNamespace)
+		computed := convertToSidecarScope(ps, ps.sidecarIndex.meshRootSidecarConfig, proxy.ConfigNamespace)
 		ps.sidecarIndex.defaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
 		return computed
 	}
@@ -1449,7 +1450,18 @@ func (ps *PushContext) initServiceRegistry(env *Environment, configsUpdate sets.
 		if _, f := ps.ServiceIndex.HostnameAndNamespace[s.Hostname]; !f {
 			ps.ServiceIndex.HostnameAndNamespace[s.Hostname] = map[string]*Service{}
 		}
-		ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+		// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
+		// arbitrary hostnames. In these cases, we want to pick the first Service, which is the oldest. This ensures
+		// newly created Services cannot take ownership unexpectedly.
+		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
+		// "domain squatting" on the hostname before a Kubernetes Service is created.
+		if existing := ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace]; existing != nil &&
+			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
+			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
+				existing.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname)
+		} else {
+			ps.ServiceIndex.HostnameAndNamespace[s.Hostname][s.Attributes.Namespace] = s
+		}
 
 		ns := s.Attributes.Namespace
 		if s.Attributes.ExportTo.IsEmpty() {
@@ -1827,16 +1839,69 @@ func (ps *PushContext) initSidecarScopes(env *Environment) {
 	// Root namespace can have only one sidecar config object
 	// Currently we expect that it has no workloadSelectors
 	var rootNSConfig *config.Config
-	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope, len(sidecarConfigs))
 	for i, sidecarConfig := range sidecarConfigs {
-		ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
-			ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
-		if rootNSConfig == nil && sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
+		if sidecarConfig.Namespace == ps.Mesh.RootNamespace &&
 			sidecarConfig.Spec.(*networking.Sidecar).WorkloadSelector == nil {
 			rootNSConfig = &sidecarConfigs[i]
+			break
 		}
 	}
 	ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
+
+	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope)
+	ps.convertSidecarScopes(sidecarConfigs)
+}
+
+func (ps *PushContext) convertSidecarScopes(sidecarConfigs []config.Config) {
+	if len(sidecarConfigs) == 0 {
+		return
+	}
+	if features.ConvertSidecarScopeConcurrency > 1 {
+		ps.concurrentConvertToSidecarScope(sidecarConfigs)
+	} else {
+		for _, sidecarConfig := range sidecarConfigs {
+			ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
+				convertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
+		}
+	}
+}
+
+func (ps *PushContext) concurrentConvertToSidecarScope(sidecarConfigs []config.Config) {
+	type taskItem struct {
+		idx int
+		cfg config.Config
+	}
+
+	var wg sync.WaitGroup
+	taskItems := make(chan taskItem)
+	sidecarScopes := make([]*SidecarScope, len(sidecarConfigs))
+	for i := 0; i < features.ConvertSidecarScopeConcurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				item, ok := <-taskItems
+				if !ok {
+					break
+				}
+				sc := convertToSidecarScope(ps, &item.cfg, item.cfg.Namespace)
+				sidecarScopes[item.idx] = sc
+			}
+		}()
+	}
+
+	// note: sidecarScopes order matters and needs to be kept in the same order as sidecarConfigs.
+	// The order indicates priority, see getSidecarScope.
+	for idx, cfg := range sidecarConfigs {
+		taskItems <- taskItem{idx: idx, cfg: cfg}
+	}
+
+	close(taskItems)
+	wg.Wait()
+
+	for _, sc := range sidecarScopes {
+		ps.sidecarIndex.sidecarsByNamespace[sc.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sc.Namespace], sc)
+	}
 }
 
 // Split out of DestinationRule expensive conversions - once per push.
@@ -1914,7 +1979,7 @@ func (ps *PushContext) setDestinationRules(configs []config.Config) {
 		// We only honor . and *
 		if exportToSet.IsEmpty() && ps.exportToDefaults.destinationRule.Contains(visibility.Private) {
 			isPrivateOnly = true
-		} else if exportToSet.Len() == 1 && exportToSet.Contains(visibility.Private) || exportToSet.Contains(visibility.Instance(configs[i].Namespace)) {
+		} else if exportToSet.Len() == 1 && (exportToSet.Contains(visibility.Private) || exportToSet.Contains(visibility.Instance(configs[i].Namespace))) {
 			isPrivateOnly = true
 		}
 

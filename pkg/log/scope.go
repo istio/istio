@@ -302,7 +302,12 @@ func (s *Scope) WithLabels(kvlist ...any) *Scope {
 			out.labels["WithLabels error"] = fmt.Sprintf("label name %v must be a string, got %T ", keyi, keyi)
 			return out
 		}
+		_, override := out.labels[key]
 		out.labels[key] = kvlist[i+1]
+		if override {
+			// Key already set, just modify the value
+			continue
+		}
 		out.labelKeys = append(out.labelKeys, key)
 	}
 	return out

@@ -241,15 +241,15 @@ func analyzeWebhooksMatchStatus(whs []admitv1.MutatingWebhook, podLabels, nsLabe
 			return labels
 		}
 
-		var isDeactived bool
+		var isDeactivated bool
 		for _, wh := range whs {
 			if reflect.DeepEqual(wh.NamespaceSelector, util.NeverMatch) && reflect.DeepEqual(wh.ObjectSelector, util.NeverMatch) {
-				isDeactived = true
+				isDeactivated = true
 			}
 			nsMatchedLabels = append(nsMatchedLabels, extractMatchLabels(wh.NamespaceSelector)...)
 			podMatchedLabels = append(podMatchedLabels, extractMatchLabels(wh.ObjectSelector)...)
 		}
-		if isDeactived {
+		if isDeactivated {
 			return "The injection webhook is deactivated, and will never match labels."
 		}
 		return fmt.Sprintf("No matching namespace labels (%s) "+

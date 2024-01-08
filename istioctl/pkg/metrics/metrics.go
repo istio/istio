@@ -31,6 +31,7 @@ import (
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/istioctl/pkg/dashboard"
 	"istio.io/istio/pkg/log"
 )
@@ -86,6 +87,9 @@ calculated over a time interval of 1 minute.
 			return run(cmd, ctx, args)
 		},
 		DisableFlagsInUseLine: true,
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
+		},
 	}
 
 	cmd.PersistentFlags().DurationVarP(&metricsDuration, "duration", "d", time.Minute, "Duration of query metrics, default value is 1m.")

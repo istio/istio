@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: security
+releaseNotes:
+  - |
+    **Fixed** an issue where auto-san-validation was enabled even when sni was explicitly set in the DestinationRule.

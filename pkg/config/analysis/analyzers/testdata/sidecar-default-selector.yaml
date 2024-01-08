@@ -40,3 +40,87 @@ spec:
   egress:
   - hosts:
     - "./*"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns1
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns2
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: random-pod
+  namespace: ns1
+  labels:
+    app: foo
+spec:
+  containers:
+  - image: proxyv2
+---
+# some tests for ambient
+# pod in ambient mode should throw error for sidecar resource
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-ambient
+  labels:
+    istio.io/dataplane-mode: ambient
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: random-pod-ambient
+  namespace: ns-ambient
+  labels:
+    app: ambient
+  annotations:
+    ambient.istio.io/redirection: enabled
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: namespace-scoped
+  namespace: ns-ambient
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: pod-scoped
+  namespace: ns-ambient
+spec:
+  workloadSelector:
+    labels:
+      app: ambient
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-not-ambient
+  labels:
+    istio.io/dataplane-mode: ambient
+    istio-injection: enabled
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ns-not-ambient-rev
+  labels:
+    istio.io/dataplane-mode: ambient
+    istio.io/rev: canary
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: namespace-not-ambient
+  namespace: ns-not-ambient
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Sidecar
+metadata:
+  name: namespace-not-ambient
+  namespace: ns-not-ambient-rev

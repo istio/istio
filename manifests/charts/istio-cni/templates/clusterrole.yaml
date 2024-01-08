@@ -25,10 +25,40 @@ metadata:
     install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
     operator.istio.io/component: "Cni"
 rules:
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["watch", "get", "list"]
+{{- if .Values.cni.repair.repairPods }}
+{{- /*  No privileges needed*/}}
+{{- else if .Values.cni.repair.deletePods }}
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["delete"]
+{{- else if .Values.cni.repair.labelPods }}
+  - apiGroups: [""]
+    {{- /* pods/status is less privileged than the full pod, and either can label. So use the lower pods/status */}}
+    resources: ["pods/status"]
+    verbs: ["patch", "update"]
+{{- end }}
+{{- end }}
+---
+{{- if .Values.cni.ambient.enabled }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: istio-cni-ambient
+  labels:
+    app: istio-cni
+    release: {{ .Release.Name }}
+    istio.io/rev: {{ .Values.revision | default "default" }}
+    install.operator.istio.io/owning-resource: {{ .Values.ownerName | default "unknown" }}
+    operator.istio.io/component: "Cni"
+rules:
 - apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "list", "watch", "delete", "patch", "update" ]
-- apiGroups: [""]
-  resources: ["events"]
-  verbs: ["get", "list", "watch", "delete", "patch", "update", "create" ]
+  {{- /* pods/status is less privileged than the full pod, and either can label. So use the lower pods/status */}}
+  resources: ["pods/status"]
+  verbs: ["patch", "update"]
 {{- end }}

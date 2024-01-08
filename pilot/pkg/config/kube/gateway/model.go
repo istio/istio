@@ -44,6 +44,7 @@ type GatewayResources struct {
 	TCPRoute       []config.Config
 	TLSRoute       []config.Config
 	ReferenceGrant []config.Config
+	ServiceEntry   []config.Config
 	// Namespaces stores all namespace in the cluster, keyed by name
 	Namespaces map[string]*corev1.Namespace
 	// Credentials stores all credentials in the cluster

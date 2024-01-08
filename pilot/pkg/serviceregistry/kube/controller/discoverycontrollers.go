@@ -72,16 +72,16 @@ func (c *Controller) initDiscoveryNamespaceHandlers(discoveryNamespacesFilter fi
 // which requires updating the DiscoveryNamespaceFilter and triggering create/delete event handlers for services/pods/endpoints
 // for membership changes
 func (c *Controller) initMeshWatcherHandler(meshWatcher mesh.Watcher, discoveryNamespacesFilter filter.DiscoveryNamespacesFilter) {
-	meshWatcher.AddMeshHandler(func() {
+	c.meshHandlerRegistration = meshWatcher.AddMeshHandler(func() {
 		discoveryNamespacesFilter.SelectorsChanged(meshWatcher.Mesh().GetDiscoverySelectors())
 	})
 }
 
-// HandleSelectedNamespace processes pods and workload entries for the selected namespace
+// HandleSelectedNamespace processes pods, workload entries and services for the selected namespace
 // and sends an XDS update as needed.
 //
 // NOTE: As an interface method of AmbientIndex, this locks the index.
-func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod, c *Controller) {
+func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod, services []*corev1.Service, c *Controller) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
@@ -89,7 +89,12 @@ func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod
 
 	// Handle Pods.
 	for _, p := range pods {
-		updates = updates.Merge(a.handlePod(nil, p, false, c))
+		updates = updates.Merge(a.handlePod(nil, p, model.EventAdd, c))
+	}
+
+	// Handle Services.
+	for _, s := range services {
+		updates = updates.Merge(a.handleService(s, model.EventAdd, c))
 	}
 
 	if c.configCluster {
@@ -97,6 +102,10 @@ func (a *AmbientIndexImpl) HandleSelectedNamespace(ns string, pods []*corev1.Pod
 		allWorkloadEntries := c.getControllerWorkloadEntries(ns)
 		for _, w := range allWorkloadEntries {
 			updates = updates.Merge(a.handleWorkloadEntry(nil, w, false, c))
+		}
+		allServiceEntries := c.getControllerServiceEntries(ns)
+		for _, s := range allServiceEntries {
+			updates = updates.Merge(a.handleServiceEntry(s, model.EventUpdate, c))
 		}
 	}
 
@@ -113,7 +122,8 @@ func (c *Controller) handleSelectedNamespace(ns string) {
 	var errs *multierror.Error
 
 	// for each resource type, issue create events for objects in the labeled namespace
-	for _, svc := range c.services.List(ns, labels.Everything()) {
+	services := c.services.List(ns, labels.Everything())
+	for _, svc := range services {
 		errs = multierror.Append(errs, c.onServiceEvent(nil, svc, model.EventAdd))
 	}
 
@@ -123,7 +133,7 @@ func (c *Controller) handleSelectedNamespace(ns string) {
 	}
 
 	if c.ambientIndex != nil {
-		c.ambientIndex.HandleSelectedNamespace(ns, pods, c)
+		c.ambientIndex.HandleSelectedNamespace(ns, pods, services, c)
 	}
 
 	errs = multierror.Append(errs, c.endpoints.initializeNamespace(ns, false))

@@ -1402,7 +1402,7 @@ func TestBuildUpstreamClusterTLSContext(t *testing.T) {
 				if len(tc.tls.Sni) == 0 {
 					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSni, true)
 				}
-				if tc.enableVerifyCertAtClient && len(tc.tls.SubjectAltNames) == 0 {
+				if tc.enableVerifyCertAtClient && len(tc.tls.Sni) == 0 && len(tc.tls.SubjectAltNames) == 0 {
 					assert.Equal(t, tc.opts.mutable.httpProtocolOptions.UpstreamHttpProtocolOptions.AutoSanValidation, true)
 				}
 			}

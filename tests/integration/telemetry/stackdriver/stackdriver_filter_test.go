@@ -45,6 +45,7 @@ func TestStackdriverMonitoring(t *testing.T) {
 	framework.NewTest(t).
 		Features("observability.telemetry.stackdriver").
 		Run(func(t framework.TestContext) {
+			t.ConfigIstio().EvalFile(EchoNsInst.Name(), nil, filepath.Join(env.IstioSrc, accessLogPolicyEnvoyFilter)).ApplyOrFail(t)
 			g, _ := errgroup.WithContext(context.Background())
 			for _, cltInstance := range Clt {
 				cltInstance := cltInstance

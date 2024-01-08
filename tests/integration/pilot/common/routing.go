@@ -304,6 +304,35 @@ spec:
 		workloadAgnostic: true,
 	})
 	t.RunTraffic(TrafficTestCase{
+		name: "set authority header in destination",
+		config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            :authority: my-custom-authority`,
+		opts: echo.CallOptions{
+			Port: echo.Port{
+				Name: "http",
+			},
+			Count: 1,
+			Check: check.And(
+				check.OK(),
+				check.Host("my-custom-authority")),
+		},
+		workloadAgnostic: true,
+	})
+	t.RunTraffic(TrafficTestCase{
 		name: "set host header in route and destination",
 		config: `
 apiVersion: networking.istio.io/v1alpha3
@@ -1842,6 +1871,64 @@ func ProxyProtocolFilterAppliedGatewayCase(apps *deployment.SingleNamespaceView,
 	return cases
 }
 
+func UpstreamProxyProtocolCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
+	var cases []TrafficTestCase
+	gatewayListenPort := 80
+	gatewayListenPortName := "tcp"
+
+	destinationSets := []echo.Instances{
+		apps.A,
+	}
+
+	destRule := fmt.Sprintf(`
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: custom-gateway
+spec:
+  host: %s
+  trafficPolicy:
+    proxyProtocol:
+      version: V1
+---
+`, gateway)
+
+	for _, d := range destinationSets {
+		d := d
+		if len(d) == 0 {
+			continue
+		}
+
+		fqdn := d[0].Config().ClusterLocalFQDN()
+		cases = append(cases, TrafficTestCase{
+			name: d[0].Config().Service,
+			// This creates a Gateway with a TCP listener that will accept TCP traffic from host
+			// `fqdn` and forward that traffic back to `fqdn`, from srcPort to targetPort
+			config: httpGateway("*", gatewayListenPort, gatewayListenPortName, "TCP", "") + // use the default label since this test creates its own gateway
+				tcpVirtualService("gateway", fqdn, "", 80, ports.TCP.ServicePort) +
+				destRule,
+			call: apps.A[0].CallOrFail,
+			opts: echo.CallOptions{
+				Count:   1,
+				Port:    echo.Port{ServicePort: 80},
+				Scheme:  scheme.TCP,
+				Address: gateway,
+				Message: "This is a test TCP message",
+				Check: check.Each(
+					func(r echoClient.Response) error {
+						body := r.RawContent
+						ok := strings.Contains(body, "PROXY TCP4")
+						if ok {
+							return fmt.Errorf("sent proxy protocol header, and it was echoed back")
+						}
+						return nil
+					}),
+			},
+		})
+	}
+	return cases
+}
+
 func XFFGatewayCase(apps *deployment.SingleNamespaceView, gateway string) []TrafficTestCase {
 	var cases []TrafficTestCase
 	gatewayListenPort := 80
@@ -2563,12 +2650,20 @@ spec:
 				config: svc + tmpl.MustEvaluate(cookieWithTTLDest, ""),
 				call:   c.CallOrFail,
 				opts:   cookieCallOpts,
+				skip: skip{
+					skip:   true,
+					reason: "https://github.com/istio/istio/issues/48156: not currently working, as test framework is not passing the cookies back",
+				},
 			})
 			t.RunTraffic(TrafficTestCase{
 				name:   "http cookie without ttl" + c.Config().Service,
 				config: svc + tmpl.MustEvaluate(cookieWithoutTTLDest, ""),
 				call:   c.CallOrFail,
 				opts:   cookieWithoutTTLCallOpts,
+				skip: skip{
+					skip:   true,
+					reason: "https://github.com/istio/istio/issues/48156: not currently working, as test framework is not passing the cookies back",
+				},
 			})
 		}
 	}

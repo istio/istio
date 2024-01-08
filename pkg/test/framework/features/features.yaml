@@ -161,6 +161,7 @@ features:
       uninstall_revision:
       uninstall_manifest:
       uninstall_purge:
+      uninstall_file:
       postinstall_verify:
       revision_centric_view:
       revision_tags:

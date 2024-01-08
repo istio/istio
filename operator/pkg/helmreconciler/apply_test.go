@@ -16,22 +16,53 @@ package helmreconciler
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"reflect"
 	"sync"
 	"testing"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 
 	v1alpha12 "istio.io/api/operator/v1alpha1"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 )
+
+var interceptorFunc = interceptor.Funcs{Patch: func(
+	ctx context.Context,
+	clnt client.WithWatch,
+	obj client.Object,
+	patch client.Patch,
+	opts ...client.PatchOption,
+) error {
+	// Apply patches are supposed to upsert, but fake client fails if the object doesn't exist,
+	// if an apply patch occurs for an object that doesn't yet exist, create it.
+	if patch.Type() != types.ApplyPatchType {
+		return clnt.Patch(ctx, obj, patch, opts...)
+	}
+	check, ok := obj.DeepCopyObject().(client.Object)
+	if !ok {
+		return errors.New("could not check for object in fake client")
+	}
+	if err := clnt.Get(ctx, client.ObjectKeyFromObject(obj), check); kerrors.IsNotFound(err) {
+		if err := clnt.Create(ctx, check); err != nil {
+			return fmt.Errorf("could not inject object creation for fake: %w", err)
+		}
+	} else if err != nil {
+		return err
+	}
+	obj.SetResourceVersion(check.GetResourceVersion())
+	return clnt.Update(ctx, obj)
+}}
 
 func TestHelmReconciler_ApplyObject(t *testing.T) {
 	tests := []struct {
@@ -70,13 +101,15 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 			obj := loadData(t, tt.input)
 			var k8sClient client.Client
 			if tt.currentState != "" {
-				k8sClient = fake.NewClientBuilder().WithRuntimeObjects(loadData(t, tt.currentState).UnstructuredObject()).Build()
+				k8sClient = fake.NewClientBuilder().
+					WithRuntimeObjects(loadData(t, tt.currentState).
+						UnstructuredObject()).WithInterceptorFuncs(interceptorFunc).Build()
 			} else {
 				// no current state provided, initialize fake client without runtime object
-				k8sClient = fake.NewClientBuilder().Build()
+				k8sClient = fake.NewClientBuilder().WithInterceptorFuncs(interceptorFunc).Build()
 			}
 
-			cl := &fakeClientWrapper{k8sClient}
+			cl := k8sClient
 			h := &HelmReconciler{
 				client: cl,
 				opts:   &Options{},
@@ -90,7 +123,7 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 				countLock:     &sync.Mutex{},
 				prunedKindSet: map[schema.GroupKind]struct{}{},
 			}
-			if err := h.ApplyObject(obj.UnstructuredObject(), false); (err != nil) != tt.wantErr {
+			if err := h.ApplyObject(obj.UnstructuredObject()); (err != nil) != tt.wantErr {
 				t.Errorf("HelmReconciler.ApplyObject() error = %v, wantErr %v", err, tt.wantErr)
 			}
 
@@ -113,31 +146,6 @@ func TestHelmReconciler_ApplyObject(t *testing.T) {
 			}
 		})
 	}
-}
-
-type fakeClientWrapper struct {
-	client.Client
-}
-
-// Patch converts apply patches to merge patches because fakeclient does not support apply patch.
-func (c *fakeClientWrapper) Patch(ctx context.Context, obj client.Object, patch client.Patch, opts ...client.PatchOption) error {
-	patch, opts = convertApplyToMergePatch(patch, opts...)
-	return c.Client.Patch(ctx, obj, patch, opts...)
-}
-
-func convertApplyToMergePatch(patch client.Patch, opts ...client.PatchOption) (client.Patch, []client.PatchOption) {
-	if patch.Type() == types.ApplyPatchType {
-		patch = client.Merge
-		patchOptions := make([]client.PatchOption, 0, len(opts))
-		for _, opt := range opts {
-			if opt == client.ForceOwnership {
-				continue
-			}
-			patchOptions = append(patchOptions, opt)
-		}
-		opts = patchOptions
-	}
-	return patch, opts
 }
 
 func loadData(t *testing.T, file string) *object.K8sObject {

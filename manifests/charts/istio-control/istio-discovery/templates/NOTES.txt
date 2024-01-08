@@ -53,3 +53,17 @@ For further documentation see https://istio.io website
 WARNING: {{$dep|quote}} is deprecated; use {{$replace|quote}} instead.
 {{- end }}
 {{- end }}
+{{-
+  $failDeps := dict
+    "telemetry.v2.prometheus.configOverride"
+    "telemetry.v2.stackdriver.configOverride"
+    "telemetry.v2.stackdriver.disableOutbound"
+    "telemetry.v2.stackdriver.outboundAccessLogging"
+}}
+{{- range $dep, $replace := $failDeps }}
+{{- /* Complex logic to turn the string above into a null-safe traversal like ((.Values.global).certificates */}}
+{{- $res := tpl (print "{{" (repeat (split "." $dep | len) "(")  ".Values." (replace "." ")." $dep) ")}}") $}}
+{{- if not (eq $res "")}}
+{{fail (print $dep " is removed")}}
+{{- end }}
+{{- end }}

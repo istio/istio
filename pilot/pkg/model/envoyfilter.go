@@ -100,6 +100,7 @@ func convertToEnvoyFilterWrapper(local *config.Config) *EnvoyFilterWrapper {
 		// Should only happen in tests or without validation
 		if err != nil {
 			log.Errorf("failed to build envoy filter value: %v", err)
+			continue
 		}
 		if cp.Match == nil {
 			// create a match all object

@@ -128,23 +128,7 @@ messages:
       - name: destPorts
         type: "[]int"
 
-  - name: "MTLSPolicyConflict"
-    code: IST0113
-    level: Error
-    description: "A DestinationRule and Policy are in conflict with regards to mTLS."
-    template: "A DestinationRule and Policy are in conflict with regards to mTLS for host %s. The DestinationRule %q specifies that mTLS must be %t but the Policy object %q specifies %s."
-    args:
-      - name: host
-        type: string
-      - name: destinationRuleName
-        type: string
-      - name: destinationRuleMTLSMode
-        type: bool
-      - name: policyName
-        type: string
-      - name: policyMTLSMode
-        type: string
-
+  # IST0113 RETIRED
   # IST0114 RETIRED
   # IST0115 RETIRED
 
@@ -176,21 +160,7 @@ messages:
       - name: targetPort
         type: string
 
-  - name: "JwtFailureDueToInvalidServicePortPrefix"
-    code: IST0119
-    level: Warning
-    description: "Authentication policy with JWT targets Service with invalid port specification."
-    template: "Authentication policy with JWT targets Service with invalid port specification (port: %d, name: %s, protocol: %s, targetPort: %s)."
-    args:
-      - name: port
-        type: int
-      - name: portName
-        type: string
-      - name: protocol
-        type: string
-      - name: targetPort
-        type: string
-
+  # IST0119 RETIRED
   # IST0120 RETIRED
   # IST0121 RETIRED
 
@@ -488,7 +458,7 @@ messages:
         type: string
       - name: pod
         type: string
-        
+
   - name: "ExternalNameServiceTypeInvalidPortName"
     code: IST0150
     level: Warning
@@ -500,25 +470,25 @@ messages:
     level: Warning
     description: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST or ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
     template: "This EnvoyFilter does not have a priority and has a relative patch operation set which can cause the EnvoyFilter not to be applied. Using the INSERT_FIRST of ADD option or setting the priority may help in ensuring the EnvoyFilter is applied correctly."
-   
+
   - name: "EnvoyFilterUsesReplaceOperationIncorrectly"
     code: IST0152
     level: Error
     description: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
     template: "The REPLACE operation is only valid for HTTP_FILTER and NETWORK_FILTER."
-    
+
   - name: "EnvoyFilterUsesAddOperationIncorrectly"
     code: IST0153
     level: Error
     description: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
     template: "The ADD operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
-  
+
   - name: "EnvoyFilterUsesRemoveOperationIncorrectly"
     code: IST0154
     level: Error
     description: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
     template: "The REMOVE operation will be ignored when applyTo is set to ROUTE_CONFIGURATION, or HTTP_ROUTE."
-    
+
   - name: "EnvoyFilterUsesRelativeOperationWithProxyVersion"
     code: IST0155
     level: Warning
@@ -635,4 +605,22 @@ messages:
       - name: virtualservice
         type: string
       - name: gateway
+        type: string
+
+  - name: "IneffectiveSelector"
+    code: IST0166
+    level: Warning
+    description: "Selector has no effect when applied to Kubernetes Gateways."
+    template: "Ineffective selector on Kubernetes Gateway %s. Use the TargetRef field instead."
+    args:
+      - name: gateway
+        type: string
+
+  - name: "IneffectivePolicy"
+    code: IST0167
+    level: Warning
+    description: "The policy applied has no impact."
+    template: "The policy has no impact: %s."
+    args:
+      - name: reason
         type: string

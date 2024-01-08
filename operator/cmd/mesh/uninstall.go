@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
-	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
@@ -159,46 +158,36 @@ func uninstall(cmd *cobra.Command, ctx cli.Context, rootArgs *RootArgs, uiArgs *
 		l.LogAndPrint(PurgeWithRevisionOrOperatorSpecifiedWarning)
 	}
 	// If only revision flag is set, we would prune resources by the revision label.
-	// Otherwise we would merge the revision flag and the filename flag and delete resources by generated manifests.
+	// Otherwise we would merge the revision flag and the filename flag and delete resources by following the
+	// owning name label.
+	var iop *iopv1alpha1.IstioOperator
 	if uiArgs.filename == "" {
 		emptyiops := &v1alpha1.IstioOperatorSpec{Profile: "empty", Revision: uiArgs.revision}
-		iop, err := translate.IOPStoIOP(emptyiops, "empty", iopv1alpha1.Namespace(emptyiops))
+		iop, err = translate.IOPStoIOP(emptyiops, "", "")
 		if err != nil {
 			return err
 		}
-		h, err := helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
-		if err != nil {
-			return fmt.Errorf("failed to create reconciler: %v", err)
-		}
-		objectsList, err := h.GetPrunedResources(uiArgs.revision, uiArgs.purge, "")
+	} else {
+		_, iop, err = manifest.GenManifests([]string{uiArgs.filename},
+			applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, nil, kubeClient, l)
 		if err != nil {
 			return err
 		}
-		preCheckWarnings(cmd, kubeClientWithRev, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
+		iop.Name = savedIOPName(iop)
+	}
 
-		if err := h.DeleteObjectsList(objectsList, ""); err != nil {
-			return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
-		}
-		opts.ProgressLog.SetState(progress.StateUninstallComplete)
-		return nil
-	}
-	manifestMap, iop, err := manifest.GenManifests([]string{uiArgs.filename},
-		applyFlagAliases(uiArgs.set, uiArgs.manifestsPath, uiArgs.revision), uiArgs.force, nil, kubeClient, l)
-	if err != nil {
-		return err
-	}
-	cpManifest := manifestMap[name.PilotComponentName]
-	cpObjects, err := object.ParseK8sObjectsFromYAMLManifest(strings.Join(cpManifest, object.YAMLSeparator))
-	if err != nil {
-		return err
-	}
-	preCheckWarnings(cmd, kubeClientWithRev, uiArgs, ctx.IstioNamespace(), iop.Spec.Revision, nil, cpObjects, l, rootArgs.DryRun)
 	h, err = helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
 	if err != nil {
 		return fmt.Errorf("failed to create reconciler: %v", err)
 	}
-	if err := h.DeleteControlPlaneByManifests(manifestMap, iop.Spec.Revision, uiArgs.purge); err != nil {
-		return fmt.Errorf("failed to delete control plane by manifests: %v", err)
+	objectsList, err := h.GetPrunedResources(uiArgs.revision, uiArgs.purge, "")
+	if err != nil {
+		return err
+	}
+	preCheckWarnings(cmd, kubeClientWithRev, uiArgs, ctx.IstioNamespace(), uiArgs.revision, objectsList, nil, l, rootArgs.DryRun)
+
+	if err := h.DeleteObjectsList(objectsList, ""); err != nil {
+		return fmt.Errorf("failed to delete control plane resources by revision: %v", err)
 	}
 	opts.ProgressLog.SetState(progress.StateUninstallComplete)
 	return nil

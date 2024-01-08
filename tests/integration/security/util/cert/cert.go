@@ -73,6 +73,13 @@ func CreateCASecret(ctx resource.Context) error {
 		"cert-chain.pem", "root-cert.pem")
 }
 
+// CreateCASecretAlt creates a k8s secret "cacerts" to store the CA key and cert using an alternative set of certs.
+func CreateCASecretAlt(ctx resource.Context) error {
+	return CreateCustomCASecret(ctx,
+		"ca-cert-alt.pem", "ca-key-alt.pem",
+		"cert-chain-alt.pem", "root-cert-alt.pem")
+}
+
 func CreateCustomCASecret(ctx resource.Context, caCertFile, caKeyFile, certChainFile, rootCertFile string) error {
 	name := "cacerts"
 	systemNs, err := istio.ClaimSystemNamespace(ctx)
