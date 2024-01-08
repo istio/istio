@@ -79,7 +79,7 @@ func getTestFixure(ctx context.Context) netTestFixture {
 	}
 }
 
-func buildConvincingPod(multipleContainers bool) *corev1.Pod {
+func buildConvincingPod() *corev1.Pod {
 	app1 := corev1.Container{
 		Name: "app1",
 		Ports: []corev1.ContainerPort{
@@ -107,40 +107,8 @@ func buildConvincingPod(multipleContainers bool) *corev1.Pod {
 			},
 		},
 	}
-	app2 := corev1.Container{
-		Name: "app2",
-		Ports: []corev1.ContainerPort{
-			{
-				Name:          "bar-port",
-				ContainerPort: 7010,
-			},
-			{
-				Name:          "bar-2-port",
-				ContainerPort: 7020,
-			},
-		},
-		LivenessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				TCPSocket: &corev1.TCPSocketAction{
-					Port: intstr.FromString("bar-port"),
-				},
-			},
-		},
-		ReadinessProbe: &corev1.Probe{
-			ProbeHandler: corev1.ProbeHandler{
-				GRPC: &corev1.GRPCAction{
-					Port: 6666,
-				},
-			},
-		},
-	}
 
-	var containers []corev1.Container
-	if multipleContainers {
-		containers = []corev1.Container{app1, app2}
-	} else {
-		containers = []corev1.Container{app1}
-	}
+	containers := []corev1.Container{app1}
 
 	return &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
@@ -255,7 +223,7 @@ func TestServerDeletePod(t *testing.T) {
 	assertNSClosed(t, closed)
 }
 
-func expectPodAddedToIpSet(ipsetDeps *ipset.MockedIpsetDeps, podMeta metav1.ObjectMeta) {
+func expectPodAddedToIPSet(ipsetDeps *ipset.MockedIpsetDeps, podMeta metav1.ObjectMeta) {
 	ipsetDeps.On("addIP",
 		"foo",
 		netip.MustParseAddr("99.9.9.9"),
@@ -280,7 +248,7 @@ func TestServerAddPodWithNoNetns(t *testing.T) {
 	}
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
-	expectPodAddedToIpSet(fixture.ipsetDeps, podMeta)
+	expectPodAddedToIPSet(fixture.ipsetDeps, podMeta)
 
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "")
 	assert.NoError(t, err)
@@ -304,7 +272,7 @@ func TestReturnsPartialErrorOnZtunnelFail(t *testing.T) {
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
 
-	expectPodAddedToIpSet(fixture.ipsetDeps, podMeta)
+	expectPodAddedToIPSet(fixture.ipsetDeps, podMeta)
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "faksens")
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 1)
 	if !errors.Is(err, ErrPartialAdd) {
@@ -330,7 +298,7 @@ func TestDoesntReturnsPartialErrorOnIptablesFail(t *testing.T) {
 	podIP := netip.MustParseAddr("99.9.9.9")
 	podIPs := []netip.Addr{podIP}
 
-	expectPodAddedToIpSet(fixture.ipsetDeps, podMeta)
+	expectPodAddedToIPSet(fixture.ipsetDeps, podMeta)
 	err := netServer.AddPodToMesh(ctx, &corev1.Pod{ObjectMeta: podMeta}, podIPs, "faksens")
 	// no calls to ztunnel if iptables failed
 	assert.Equal(t, ztunnelServer.addedPods.Load(), 0)
@@ -367,7 +335,7 @@ func TestConstructInitialSnap(t *testing.T) {
 }
 
 func TestAddPodToHostNSIPSets(t *testing.T) {
-	pod := buildConvincingPod(false)
+	pod := buildConvincingPod()
 
 	var podUID string = string(pod.ObjectMeta.UID)
 	fakeIPSetDeps := ipset.FakeNLDeps()
@@ -398,7 +366,7 @@ func TestAddPodToHostNSIPSets(t *testing.T) {
 }
 
 func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
-	pod := buildConvincingPod(false)
+	pod := buildConvincingPod()
 
 	var podUID string = string(pod.ObjectMeta.UID)
 	fakeIPSetDeps := ipset.FakeNLDeps()
@@ -430,7 +398,7 @@ func TestAddPodProbePortsToHostNSIPSetsReturnsErrorIfOneFails(t *testing.T) {
 }
 
 func TestRemovePodProbePortsFromHostNSIPSets(t *testing.T) {
-	pod := buildConvincingPod(false)
+	pod := buildConvincingPod()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 	set := ipset.IPSet{Name: "foo", Deps: fakeIPSetDeps}
@@ -451,7 +419,7 @@ func TestRemovePodProbePortsFromHostNSIPSets(t *testing.T) {
 }
 
 func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
-	pod := buildConvincingPod(false)
+	pod := buildConvincingPod()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 
@@ -490,7 +458,7 @@ func TestSyncHostIPSetsPrunesNothingIfNoExtras(t *testing.T) {
 }
 
 func TestSyncHostIPSetsAddsNothingIfPodHasNoIPs(t *testing.T) {
-	pod := buildConvincingPod(false)
+	pod := buildConvincingPod()
 
 	pod.Status.PodIP = ""
 	pod.Status.PodIPs = []corev1.PodIP{}
@@ -513,7 +481,7 @@ func TestSyncHostIPSetsAddsNothingIfPodHasNoIPs(t *testing.T) {
 }
 
 func TestSyncHostIPSetsPrunesIfExtras(t *testing.T) {
-	pod := buildConvincingPod(false)
+	pod := buildConvincingPod()
 
 	fakeIPSetDeps := ipset.FakeNLDeps()
 

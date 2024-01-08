@@ -24,7 +24,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/intstr"
 
 	"istio.io/istio/cni/pkg/ipset"
 	"istio.io/istio/cni/pkg/iptables"
@@ -379,73 +378,4 @@ func pruneHostIPset(expected sets.Set[netip.Addr], hostsideProbeSet *ipset.IPSet
 		log.Debugf("removed stale ip %s from host ipset %s", staleIP, hostsideProbeSet.Name)
 	}
 	return nil
-}
-
-func getPod(pod *corev1.Pod) sets.Set[uint16] {
-	// Use sets since
-	// - While you can in terms of the K8S control plane
-	//   have multiple containers using the same defined readiness port, this results in a crashlooping pod
-	//   and is effectively an invalid state from the perspective of K8S.
-	// - For the purposes of our podip IPset, we only care about unique ports.
-
-	ppPorts := sets.New[uint16]()
-
-	// Get all probe ports from all containers
-	for _, c := range pod.Spec.Containers {
-		cpMap := map[string]uint16{}
-		for _, p := range c.Ports {
-			if p.Name != "" {
-				cpMap[p.Name] = uint16(p.ContainerPort)
-			}
-		}
-
-		if c.LivenessProbe != nil {
-			livePort := getPortForProbe(c.LivenessProbe, cpMap)
-			ppPorts.Insert(livePort)
-		}
-
-		if c.StartupProbe != nil {
-			startPort := getPortForProbe(c.StartupProbe, cpMap)
-			ppPorts.Insert(startPort)
-		}
-
-		if c.ReadinessProbe != nil {
-			readiPort := getPortForProbe(c.ReadinessProbe, cpMap)
-			ppPorts.Insert(readiPort)
-		}
-	}
-
-	return ppPorts
-}
-
-func getPortForProbe(probe *corev1.Probe, portMap map[string]uint16) uint16 {
-	if probe == nil {
-		return 0
-	}
-	// GRPC probe?
-	if probe.GRPC != nil {
-		// don't need to update for gRPC probe port as it only supports integer
-		return uint16(probe.GRPC.Port)
-	}
-
-	// If TCP or HTTP, could be a string-named port OR a plain number
-	var probePort *intstr.IntOrString
-	if probe.HTTPGet != nil {
-		probePort = &probe.HTTPGet.Port
-	} else if probe.TCPSocket != nil {
-		probePort = &probe.TCPSocket.Port
-	} else {
-		return 0
-	}
-
-	// If a string, find the port number by name
-	if probePort.Type == intstr.String {
-		port, exists := portMap[probePort.StrVal]
-		if !exists {
-			return 0
-		}
-		return port
-	}
-	// Otherwise, just get the port number
-	return uint16(probePort.IntVal)
 }
