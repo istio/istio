@@ -75,3 +75,7 @@ caAddress: ""
 
 # Used to locate istiod.
 istioNamespace: istio-system
+
+# Configuration log level of ztunnel binary, default is info.
+# Valid values are: trace, debug, info, warn, error
+logLevel: info
