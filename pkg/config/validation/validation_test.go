@@ -4024,6 +4024,7 @@ func TestValidateConnectionPool(t *testing.T) {
 					MaxRequestsPerConnection: 5,
 					MaxRetries:               4,
 					IdleTimeout:              &durationpb.Duration{Seconds: 30},
+					MaxConcurrentStreams:     5,
 				},
 			},
 			valid: true,
@@ -4047,6 +4048,7 @@ func TestValidateConnectionPool(t *testing.T) {
 					MaxRequestsPerConnection: 5,
 					MaxRetries:               4,
 					IdleTimeout:              &durationpb.Duration{Seconds: 30},
+					MaxConcurrentStreams:     5,
 				},
 			},
 			valid: true,
@@ -4059,6 +4061,7 @@ func TestValidateConnectionPool(t *testing.T) {
 					Http2MaxRequests:         11,
 					MaxRequestsPerConnection: 5,
 					MaxRetries:               4,
+					MaxConcurrentStreams:     5,
 				},
 			},
 			valid: true,
@@ -4113,6 +4116,13 @@ func TestValidateConnectionPool(t *testing.T) {
 		{
 			name: "invalid connection pool, bad idle timeout", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &durationpb.Duration{Seconds: 30, Nanos: 5}},
+			},
+			valid: false,
+		},
+
+		{
+			name: "invalid connection pool, bad max concurrent streams", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxConcurrentStreams: -1},
 			},
 			valid: false,
 		},

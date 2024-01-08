@@ -1459,6 +1459,9 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		if httpSettings.H2UpgradePolicy == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE && httpSettings.UseClientProtocol {
 			errs = appendErrors(errs, fmt.Errorf("use client protocol must not be true when H2UpgradePolicy is UPGRADE"))
 		}
+		if httpSettings.MaxConcurrentStreams < 0 {
+			errs = appendErrors(errs, fmt.Errorf("max concurrent streams must be non-negative"))
+		}
 	}
 
 	if tcp := settings.Tcp; tcp != nil {
