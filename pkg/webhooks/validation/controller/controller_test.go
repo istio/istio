@@ -307,7 +307,7 @@ func TestCABundleChange(t *testing.T) {
 
 // LongRetry is used when comparing webhook values. Apparently the values are so large that with -race
 // on the comparison can take a few seconds, meaning we never retry with the default settings.
-var LongRetry = retry.Timeout(time.Second * 1)
+var LongRetry = retry.Timeout(time.Second * 20)
 
 func TestLoadCaCertPem(t *testing.T) {
 	cases := []struct {

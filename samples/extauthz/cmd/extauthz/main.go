@@ -15,6 +15,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -33,7 +34,6 @@ import (
 	authv3 "github.com/envoyproxy/go-control-plane/envoy/service/auth/v3"
 	typev2 "github.com/envoyproxy/go-control-plane/envoy/type"
 	typev3 "github.com/envoyproxy/go-control-plane/envoy/type/v3"
-	"golang.org/x/net/context"
 	"google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

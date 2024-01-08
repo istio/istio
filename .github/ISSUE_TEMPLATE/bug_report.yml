@@ -37,8 +37,9 @@ body:
         client version: 1.0.0
         control plane version: 1.0.0
         data plane version: 1.0.0 (100 proxies)
-        $ kubectl version --short
+        $ kubectl version
         Client Version: v1.0.0
+        Kustomize Version: v1.0.0
         Server Version: v1.0.0
       render: Text
     validations:

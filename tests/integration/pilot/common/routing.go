@@ -304,6 +304,35 @@ spec:
 		workloadAgnostic: true,
 	})
 	t.RunTraffic(TrafficTestCase{
+		name: "set authority header in destination",
+		config: `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: default
+spec:
+  hosts:
+  - {{ (index .dst 0).Config.Service }}
+  http:
+  - route:
+    - destination:
+        host: {{ (index .dst 0).Config.Service }}
+      headers:
+        request:
+          set:
+            :authority: my-custom-authority`,
+		opts: echo.CallOptions{
+			Port: echo.Port{
+				Name: "http",
+			},
+			Count: 1,
+			Check: check.And(
+				check.OK(),
+				check.Host("my-custom-authority")),
+		},
+		workloadAgnostic: true,
+	})
+	t.RunTraffic(TrafficTestCase{
 		name: "set host header in route and destination",
 		config: `
 apiVersion: networking.istio.io/v1alpha3
