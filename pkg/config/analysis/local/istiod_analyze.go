@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/leaderelection"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -310,7 +311,7 @@ func isIstioConfigMap(obj any) bool {
 	if !ok {
 		return false
 	}
-	return strings.HasPrefix(cObj.GetName(), "istio")
+	return strings.HasPrefix(cObj.GetName(), "istio") && !leaderelection.IsIstioLocks(cObj.GetName())
 }
 
 var secretFieldSelector = fields.AndSelectors(
