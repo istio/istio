@@ -2507,6 +2507,23 @@ func TestWorkloadInstanceHandler_WorkloadInstanceIndex(t *testing.T) {
 	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
 	verifyGetByIP("3.3.3.3", []*model.WorkloadInstance{wi2})
 
+	wiWithMulAddrs := &model.WorkloadInstance{
+		Name:      "details-2",
+		Namespace: "bookinfo",
+		Endpoint: &model.IstioEndpoint{
+			Labels:       labels.Instance{"app": "details"},
+			Addresses:    []string{"4.4.4.4", "2001:1::4"},
+			EndpointPort: 9090,
+		},
+	}
+
+	// simulate adding a workload entry
+	ctl.workloadInstanceHandler(wiWithMulAddrs, model.EventAdd)
+	verifyGetByIP("2.2.2.2", []*model.WorkloadInstance{wi1})
+	verifyGetByIP("3.3.3.3", []*model.WorkloadInstance{wi2})
+	// TODO: change from "4.4.4.4" to "4.4.4.4,2001:1::4"
+	verifyGetByIP("4.4.4.4", []*model.WorkloadInstance{wiWithMulAddrs})
+
 	wi3 := &model.WorkloadInstance{
 		Name:      "details-1",
 		Namespace: "bookinfo",

@@ -82,8 +82,14 @@ func TestEndpointSliceCache(t *testing.T) {
 		Addresses:       []string{"1.2.3.4"},
 		ServicePortName: "http",
 	}
-	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1})
-	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1}) {
+
+	// add a endpoint with multiple addresses
+	epMulAddrs := &model.IstioEndpoint{
+		Addresses:       []string{"1.1.1.1", "2001:1::1"},
+		ServicePortName: "http",
+	}
+	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, epMulAddrs})
+	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, epMulAddrs}) {
 		t.Fatalf("unexpected endpoints")
 	}
 	if !cache.Has(hostname) {
@@ -94,8 +100,8 @@ func TestEndpointSliceCache(t *testing.T) {
 		Addresses:       []string{"2.3.4.5"},
 		ServicePortName: "http",
 	}
-	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, ep2})
-	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, ep2}) {
+	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, epMulAddrs, ep2})
+	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, epMulAddrs, ep2}) {
 		t.Fatalf("unexpected endpoints")
 	}
 
@@ -104,12 +110,16 @@ func TestEndpointSliceCache(t *testing.T) {
 		Addresses:       []string{"1.2.3.4"},
 		ServicePortName: "http2",
 	}
+	epMulAddrs = &model.IstioEndpoint{
+		Addresses:       []string{"1.1.1.1", "2001:1::1"},
+		ServicePortName: "http2",
+	}
 	ep2 = &model.IstioEndpoint{
 		Addresses:       []string{"2.3.4.5"},
 		ServicePortName: "http2",
 	}
-	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, ep2})
-	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, ep2}) {
+	cache.Update(hostname, "slice1", []*model.IstioEndpoint{ep1, epMulAddrs, ep2})
+	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, epMulAddrs, ep2}) {
 		t.Fatalf("unexpected endpoints")
 	}
 
@@ -119,13 +129,13 @@ func TestEndpointSliceCache(t *testing.T) {
 		ServicePortName: "http2",
 	}
 	cache.Update(hostname, "slice2", []*model.IstioEndpoint{ep3})
-	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, ep2, ep3}) {
+	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, epMulAddrs, ep2, ep3}) {
 		t.Fatalf("unexpected endpoints")
 	}
 
 	// dedup when transitioning
 	cache.Update(hostname, "slice2", []*model.IstioEndpoint{ep2, ep3})
-	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, ep2, ep3}) {
+	if !testEndpointsEqual(cache.Get(hostname), []*model.IstioEndpoint{ep1, epMulAddrs, ep2, ep3}) {
 		t.Fatalf("unexpected endpoints")
 	}
 

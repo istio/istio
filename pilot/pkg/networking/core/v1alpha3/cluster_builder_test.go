@@ -678,6 +678,21 @@ func TestApplyDestinationRule(t *testing.T) {
 						TLSMode: model.IstioMutualTLSModeLabel,
 					},
 				},
+				{
+					Service:     tt.service,
+					ServicePort: tt.port,
+					Endpoint: &model.IstioEndpoint{
+						ServicePortName: tt.port.Name,
+						Addresses:       []string{"192.168.1.2", "2001:1::2"},
+						EndpointPort:    10001,
+						Locality: model.Locality{
+							ClusterID: "",
+							Label:     "region1/zone1/subzone1",
+						},
+						Labels:  tt.service.Attributes.Labels,
+						TLSMode: model.IstioMutualTLSModeLabel,
+					},
+				},
 			}
 
 			var cfg *config.Config

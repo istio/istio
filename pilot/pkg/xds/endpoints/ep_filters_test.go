@@ -836,7 +836,7 @@ func testShards() *model.EndpointIndex {
 			{Network: "network1", Addresses: []string{"10.0.0.1"}},
 		},
 		{Cluster: "cluster1b"}: {
-			{Network: "network1", Addresses: []string{"10.0.0.2"}},
+			{Network: "network1", Addresses: []string{"10.0.0.2", "2001:1::10.2"}},
 		},
 
 		// network2 has an imbalance of endpoints between its clusters
@@ -845,7 +845,7 @@ func testShards() *model.EndpointIndex {
 		},
 		{Cluster: "cluster2b"}: {
 			{Network: "network2", Addresses: []string{"20.0.0.2"}},
-			{Network: "network2", Addresses: []string{"20.0.0.3"}},
+			{Network: "network2", Addresses: []string{"20.0.0.3", "2001:1::20.3"}},
 		},
 
 		// network3 has no endpoints.

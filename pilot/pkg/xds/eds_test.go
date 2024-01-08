@@ -203,6 +203,48 @@ func TestSAUpdate(t *testing.T) {
 	}
 }
 
+// Regression test for https://github.com/istio/istio/issues/38709
+func TestSAUpdateWithMulAddrsInstance(t *testing.T) {
+	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, false)
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	ads := s.Connect(s.SetupProxy(nil), nil, []string{v3.ClusterType})
+
+	ports := model.PortList{
+		{
+			Name:     "http",
+			Port:     80,
+			Protocol: protocol.HTTP,
+		},
+	}
+	svc := &model.Service{
+		Ports:    ports,
+		Hostname: host.Name("test1"),
+	}
+	s.MemRegistry.AddService(svc)
+	if _, err := ads.Wait(time.Second*10, watchAll...); err != nil {
+		t.Fatal(err)
+	}
+	i := &model.ServiceInstance{
+		Service:     svc,
+		ServicePort: svc.Ports[0],
+		Endpoint: &model.IstioEndpoint{
+			Addresses:      []string{"1.2.3.4", "2001:1::1"},
+			ServiceAccount: "spiffe://td1/ns/def/sa/def",
+			HealthStatus:   model.UnHealthy,
+		},
+	}
+	s.MemRegistry.AddInstance(i)
+	if _, err := ads.Wait(time.Second*10, v3.EndpointType); err != nil {
+		t.Fatal(err)
+	}
+	transport := &tls.UpstreamTlsContext{}
+	ads.GetEdsClusters()["outbound|80||test1"].GetTransportSocketMatches()[0].GetTransportSocket().GetTypedConfig().UnmarshalTo(transport)
+	sans := transport.GetCommonTlsContext().GetCombinedValidationContext().GetDefaultValidationContext().GetMatchSubjectAltNames() //nolint: staticcheck
+	if len(sans) != 1 {
+		t.Fatalf("expected 1 san, got %v", sans)
+	}
+}
+
 func TestEds(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml"),
