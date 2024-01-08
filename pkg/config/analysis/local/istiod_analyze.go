@@ -48,7 +48,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
@@ -307,7 +306,7 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 }
 
 func isIstioConfigMap(obj any) bool {
-	cObj, ok := obj.(controllers.Object)
+	cObj, ok := obj.(*v1.ConfigMap)
 	if !ok {
 		return false
 	}
