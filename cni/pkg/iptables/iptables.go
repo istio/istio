@@ -33,7 +33,7 @@ const (
 	// INPOD marks/masks
 	InpodTProxyMark      = 0x111
 	InpodTProxyMask      = 0xfff
-	InpodMark            = 0x1 // this needs to match the inpod config mark in ztunnel.
+	InpodMark            = 1337 // this needs to match the inpod config mark in ztunnel.
 	InpodMask            = 0xfff
 	InpodRestoreMask     = 0xffffffff
 	ChainInpodOutput     = "ISTIO_OUTPUT"
