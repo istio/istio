@@ -24,16 +24,17 @@ import (
 
 func NewStatusServerOptions(proxy *model.Proxy, proxyConfig *meshconfig.ProxyConfig, agent *istioagent.Agent) *status.Options {
 	return &status.Options{
-		IPv6:           proxy.IsIPv6(),
-		PodIP:          InstanceIPVar.Get(),
-		AdminPort:      uint16(proxyConfig.ProxyAdminPort),
-		StatusPort:     uint16(proxyConfig.StatusPort),
-		KubeAppProbers: kubeAppProberNameVar.Get(),
-		NodeType:       proxy.Type,
-		Probes:         []ready.Prober{agent},
-		NoEnvoy:        agent.EnvoyDisabled(),
-		FetchDNS:       agent.GetDNSTable,
-		GRPCBootstrap:  agent.GRPCBootstrapPath(),
+		IPv6:            proxy.IsIPv6(),
+		PodIP:           InstanceIPVar.Get(),
+		AdminPort:       uint16(proxyConfig.ProxyAdminPort),
+		StatusPort:      uint16(proxyConfig.StatusPort),
+		EnvoyStatusPort: agent.EnvoyStatusPort(),
+		KubeAppProbers:  kubeAppProberNameVar.Get(),
+		NodeType:        proxy.Type,
+		Probes:          []ready.Prober{agent},
+		NoEnvoy:         agent.EnvoyDisabled(),
+		FetchDNS:        agent.GetDNSTable,
+		GRPCBootstrap:   agent.GRPCBootstrapPath(),
 		TriggerDrain: func() {
 			agent.DrainNow()
 		},

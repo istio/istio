@@ -222,6 +222,11 @@ func (a *Agent) EnvoyDisabled() bool {
 	return a.envoyOpts.TestOnly || a.cfg.DisableEnvoy
 }
 
+// EnvoyStatusPort is the readiness check that was hosted by Envoy.
+func (a *Agent) EnvoyStatusPort() uint16 {
+	return uint16(a.cfg.EnvoyStatusPort)
+}
+
 // WaitForSigterm if true indicates calling Run will block until SIGTERM or SIGNT is received.
 func (a *Agent) WaitForSigterm() bool {
 	return a.EnvoyDisabled() && !a.envoyOpts.TestOnly

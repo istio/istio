@@ -121,6 +121,7 @@ type Options struct {
 	KubeAppProbers      string
 	NodeType            model.NodeType
 	StatusPort          uint16
+	EnvoyStatusPort     uint16
 	AdminPort           uint16
 	IPv6                bool
 	Probes              []ready.Prober
@@ -145,6 +146,7 @@ type Server struct {
 	appKubeProbers        KubeAppProbers
 	appProbeClient        map[string]*http.Client
 	statusPort            uint16
+	envoyStatusPort       uint16
 	lastProbeSuccessful   bool
 	envoyStatsPort        int
 	fetchDNS              func() *dnsProto.NameTable
@@ -211,6 +213,7 @@ func NewServer(config Options) (*Server, error) {
 	}
 	s := &Server{
 		statusPort:            config.StatusPort,
+		envoyStatusPort:       config.EnvoyStatusPort,
 		ready:                 probes,
 		http:                  &http.Client{},
 		appProbersDestination: config.PodIP,
@@ -414,10 +417,39 @@ func (s *Server) Run(ctx context.Context) {
 			}
 		}
 	}()
+	s.spawnEnvoyReadinessListener(ctx)
 
 	// Wait for the agent to be shut down.
 	<-ctx.Done()
 	log.Info("Status server has successfully terminated")
+}
+
+func (s *Server) spawnEnvoyReadinessListener(ctx context.Context) {
+	log.Infof("Opening Envoy status port %d", s.envoyStatusPort)
+	mux := http.NewServeMux()
+	mux.HandleFunc(readyPath, s.handleReadyProbe)
+	l, err := net.Listen("tcp", fmt.Sprintf(":%d", s.envoyStatusPort))
+	if err != nil {
+		log.Errorf("Error listening on Envoy status port: %v", err.Error())
+		return
+	}
+	go func() {
+		defer l.Close()
+		if err := http.Serve(l, mux); err != nil {
+			if network.IsUnexpectedListenerError(err) {
+				log.Error(err)
+			}
+			select {
+			case <-ctx.Done():
+				// We are shutting down already, don't trigger SIGTERM
+				return
+			default:
+				// If the server errors then pilot-agent can never pass readiness or liveness probes
+				// Therefore, trigger graceful termination by sending SIGTERM to the binary pid
+				notifyExit()
+			}
+		}
+	}()
 }
 
 func (s *Server) handlePprofIndex(w http.ResponseWriter, r *http.Request) {
