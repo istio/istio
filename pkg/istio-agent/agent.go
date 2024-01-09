@@ -26,7 +26,6 @@ import (
 	"sync"
 	"time"
 
-	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
@@ -48,10 +47,7 @@ import (
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/wasm"
 	"istio.io/istio/security/pkg/nodeagent/cache"
-	"istio.io/istio/security/pkg/nodeagent/caclient"
 	citadel "istio.io/istio/security/pkg/nodeagent/caclient/providers/citadel"
-	gca "istio.io/istio/security/pkg/nodeagent/caclient/providers/google"
-	cas "istio.io/istio/security/pkg/nodeagent/caclient/providers/google-cas"
 	"istio.io/istio/security/pkg/nodeagent/sds"
 )
 
@@ -752,26 +748,6 @@ func (a *Agent) newSecretManager() (*cache.SecretManagerClient, error) {
 		return cache.NewSecretManagerClient(nil, a.secOpts)
 	}
 	log.Infof("CA Endpoint %s, provider %s", a.secOpts.CAEndpoint, a.secOpts.CAProviderName)
-
-	// TODO: this should all be packaged in a plugin, possibly with optional compilation.
-	if a.secOpts.CAProviderName == security.GoogleCAProvider {
-		// Use a plugin to an external CA - this has direct support for the K8S JWT token
-		// This is only used if the proper env variables are injected - otherwise the existing Citadel or Istiod will be
-		// used.
-		caClient, err := gca.NewGoogleCAClient(a.secOpts.CAEndpoint, true, caclient.NewCATokenProvider(a.secOpts))
-		if err != nil {
-			return nil, err
-		}
-		return cache.NewSecretManagerClient(caClient, a.secOpts)
-	} else if a.secOpts.CAProviderName == security.GoogleCASProvider {
-		// Use a plugin
-		caClient, err := cas.NewGoogleCASClient(a.secOpts.CAEndpoint,
-			option.WithGRPCDialOption(grpc.WithPerRPCCredentials(caclient.NewCATokenProvider(a.secOpts))))
-		if err != nil {
-			return nil, err
-		}
-		return cache.NewSecretManagerClient(caClient, a.secOpts)
-	}
 
 	// Using citadel CA
 	var tlsOpts *citadel.TLSOptions

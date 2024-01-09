@@ -22,7 +22,6 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"istio.io/istio/pkg/security"
-	"istio.io/istio/security/pkg/nodeagent/plugin/providers/google/stsclient"
 	"istio.io/istio/security/pkg/stsservice"
 	"istio.io/istio/security/pkg/stsservice/server"
 	"istio.io/istio/security/pkg/stsservice/tokenmanager/google"
@@ -120,7 +119,7 @@ func (t *TokenProvider) exchangeXDSToken(token string) (string, error) {
 		return "", fmt.Errorf("the token for XDS token exchange is empty")
 	}
 	params := security.StsRequestParameters{
-		Scope:            stsclient.Scope,
+		Scope:            "https://www.googleapis.com/auth/cloud-platform",
 		GrantType:        server.TokenExchangeGrantType,
 		SubjectToken:     token,
 		SubjectTokenType: server.SubjectTokenType,
