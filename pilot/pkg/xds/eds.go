@@ -82,7 +82,8 @@ func (s *DiscoveryServer) RemoveShard(shardKey model.ShardKey) {
 // EdsGenerator implements the new Generate method for EDS, using the in-memory, optimized endpoint
 // storage in DiscoveryServer.
 type EdsGenerator struct {
-	Server *DiscoveryServer
+	Cache         model.XdsCache
+	EndpointIndex *model.EndpointIndex
 }
 
 var _ model.XdsDeltaResourceGenerator = &EdsGenerator{}
@@ -193,7 +194,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 		if !features.EnableUnsafeAssertions {
-			cachedEndpoint := eds.Server.Cache.Get(&builder)
+			cachedEndpoint := eds.Cache.Get(&builder)
 			if cachedEndpoint != nil {
 				resources = append(resources, cachedEndpoint)
 				cached++
@@ -203,7 +204,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 
 		// generate eds from beginning
 		{
-			l := builder.BuildClusterLoadAssignment(eds.Server.Env.EndpointIndex)
+			l := builder.BuildClusterLoadAssignment(eds.EndpointIndex)
 			if l == nil {
 				continue
 			}
@@ -217,7 +218,7 @@ func (eds *EdsGenerator) buildEndpoints(proxy *model.Proxy,
 				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(&builder, req, resource)
+			eds.Cache.Add(&builder, req, resource)
 		}
 	}
 	return resources, model.XdsLogDetails{
@@ -253,7 +254,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 
 		// We skip cache if assertions are enabled, so that the cache will assert our eviction logic is correct
 		if !features.EnableUnsafeAssertions {
-			cachedEndpoint := eds.Server.Cache.Get(&builder)
+			cachedEndpoint := eds.Cache.Get(&builder)
 			if cachedEndpoint != nil {
 				resources = append(resources, cachedEndpoint)
 				cached++
@@ -262,7 +263,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 		}
 		// generate new eds cache
 		{
-			l := builder.BuildClusterLoadAssignment(eds.Server.Env.EndpointIndex)
+			l := builder.BuildClusterLoadAssignment(eds.EndpointIndex)
 			if l == nil {
 				removed = append(removed, clusterName)
 				continue
@@ -276,7 +277,7 @@ func (eds *EdsGenerator) buildDeltaEndpoints(proxy *model.Proxy,
 				Resource: protoconv.MessageToAny(l),
 			}
 			resources = append(resources, resource)
-			eds.Server.Cache.Add(&builder, req, resource)
+			eds.Cache.Add(&builder, req, resource)
 		}
 	}
 	return resources, removed, model.XdsLogDetails{
