@@ -367,6 +367,9 @@ func TestIsIstioConfigMap(t *testing.T) {
 			obj: &v1.ConfigMap{
 				ObjectMeta: metav1.ObjectMeta{
 					Name: "istio-namespace-controller-election",
+					Annotations: map[string]string{
+						"control-plane.alpha.kubernetes.io/leader": `{}`,
+					},
 				},
 			},
 			expect: false,

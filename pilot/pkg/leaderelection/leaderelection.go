@@ -32,7 +32,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
-	"istio.io/istio/pkg/util/sets"
 )
 
 // Various locks used throughout the code
@@ -56,20 +55,6 @@ const (
 	// * Other types use "prioritized leader election", which isn't implemented for Lease
 	GatewayDeploymentController = "istio-gateway-deployment"
 )
-
-var istioLocks = sets.New[string](
-	NamespaceController,
-	ServiceExportController,
-	IngressController,
-	GatewayStatusController,
-	StatusController,
-	AnalyzeController,
-	GatewayDeploymentController,
-)
-
-func IsIstioLocks(name string) bool {
-	return istioLocks.Contains(name)
-}
 
 // Leader election key prefix for remote istiod managed clusters
 const remoteIstiodPrefix = "^"
