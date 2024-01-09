@@ -18,13 +18,11 @@ import (
 	"fmt"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -121,21 +119,6 @@ func (eds *EdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, 
 	}
 	resources, logDetails := eds.buildEndpoints(proxy, req, w)
 	return resources, logDetails, nil
-}
-
-func endpointDiscoveryResponse(loadAssignments []*anypb.Any, version, noncePrefix string) *discovery.DiscoveryResponse {
-	out := &discovery.DiscoveryResponse{
-		TypeUrl: v3.EndpointType,
-		// Pilot does not really care for versioning. It always supplies what's currently
-		// available to it, irrespective of whether Envoy chooses to accept or reject EDS
-		// responses. Pilot believes in eventual consistency and that at some point, Envoy
-		// will begin seeing results it deems to be good.
-		VersionInfo: version,
-		Nonce:       nonce(noncePrefix),
-		Resources:   loadAssignments,
-	}
-
-	return out
 }
 
 func (eds *EdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,

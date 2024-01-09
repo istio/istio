@@ -17,7 +17,6 @@ package xdsfake
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pilot/pkg/xds"
 	"net"
 	"strings"
 	"time"
@@ -47,6 +46,7 @@ import (
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -124,12 +124,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		m = mesh.DefaultMeshConfig()
 	}
 
-	// Disable debounce to reduce test times
-	old := features.DebounceAfter
-	features.DebounceAfter = opts.DebounceTime
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
 	s := xds.NewDiscoveryServer(model.NewEnvironment(), map[string]string{})
-	features.DebounceAfter = old
+	// Disable debounce to reduce test times
+	s.DebounceOptions.DebounceAfter = opts.DebounceTime
+	// Setup time to Now instead of process start to make logs not misleading
 	s.DiscoveryStartTime = time.Now()
 	s.InitGenerators(s.Env, "istio-system", "", nil)
 	t.Cleanup(s.Shutdown)

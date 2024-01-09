@@ -17,8 +17,6 @@ package xds
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pkg/config/schema/kind"
-	"istio.io/istio/pkg/util/sets"
 	"reflect"
 	"sync"
 	"sync/atomic"
@@ -31,7 +29,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func createProxies(n int) []*Connection {
@@ -185,8 +185,8 @@ func TestDebounce(t *testing.T) {
 	// This test tests the timeout and debouncing of config updates
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
-	opts := debounceOptions{
-		debounceAfter:     time.Millisecond * 50,
+	opts := DebounceOptions{
+		DebounceAfter:     time.Millisecond * 50,
 		debounceMax:       time.Millisecond * 100,
 		enableEDSDebounce: false,
 	}
@@ -242,13 +242,13 @@ func TestDebounce(t *testing.T) {
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				// Send many requests within debounce window
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
+				time.Sleep(opts.DebounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
+				time.Sleep(opts.DebounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
+				time.Sleep(opts.DebounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
+				time.Sleep(opts.DebounceAfter / 2)
 				expect(0, 1)
 			},
 		},
@@ -256,7 +256,7 @@ func TestDebounce(t *testing.T) {
 			name: "Should push synchronously after debounce",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter + 10*time.Millisecond)
+				time.Sleep(opts.DebounceAfter + 10*time.Millisecond)
 				updateCh <- &model.PushRequest{Full: true}
 				expect(0, 2)
 			},
@@ -313,7 +313,7 @@ func TestDebounce(t *testing.T) {
 						}
 						return nil
 					}
-				}, retry.Timeout(opts.debounceAfter*8), retry.Delay(opts.debounceAfter/2))
+				}, retry.Timeout(opts.DebounceAfter*8), retry.Delay(opts.DebounceAfter/2))
 				if err != nil {
 					t.Error(err)
 				}

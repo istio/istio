@@ -45,14 +45,14 @@ import (
 
 var periodicRefreshMetrics = 10 * time.Second
 
-type debounceOptions struct {
-	// debounceAfter is the delay added to events to wait
+type DebounceOptions struct {
+	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
 	// This will delay the push by at least this interval, plus
 	// the time getting subsequent events. If no change is
 	// detected the push will happen, otherwise we'll keep
 	// delaying until things settle.
-	debounceAfter time.Duration
+	DebounceAfter time.Duration
 
 	// debounceMax is the maximum time to wait for events
 	// while debouncing. Defaults to 10 seconds. If events keep
@@ -121,7 +121,7 @@ type DiscoveryServer struct {
 	// serverReady indicates caches have been synced up and server is ready to process requests.
 	serverReady atomic.Bool
 
-	debounceOptions debounceOptions
+	DebounceOptions DebounceOptions
 
 	// Cache for XDS resources
 	Cache model.XdsCache
@@ -157,8 +157,8 @@ func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string
 		pushQueue:           NewPushQueue(),
 		debugHandlers:       map[string]string{},
 		adsClients:          map[string]*Connection{},
-		debounceOptions: debounceOptions{
-			debounceAfter:     features.DebounceAfter,
+		DebounceOptions: DebounceOptions{
+			DebounceAfter:     features.DebounceAfter,
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
@@ -322,11 +322,11 @@ func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 // It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
 // It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
 func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
-	debounce(s.pushChannel, stopCh, s.debounceOptions, s.Push, s.CommittedUpdates)
+	debounce(s.pushChannel, stopCh, s.DebounceOptions, s.Push, s.CommittedUpdates)
 }
 
 // The debounce helper function is implemented to enable mocking
-func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceOptions, pushFn func(req *model.PushRequest), updateSent *atomic.Int64) {
+func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceOptions, pushFn func(req *model.PushRequest), updateSent *atomic.Int64) {
 	var timeChan <-chan time.Time
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
@@ -351,7 +351,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 		eventDelay := time.Since(startDebounce)
 		quietTime := time.Since(lastConfigUpdateTime)
 		// it has been too long or quiet enough
-		if eventDelay >= opts.debounceMax || quietTime >= opts.debounceAfter {
+		if eventDelay >= opts.debounceMax || quietTime >= opts.DebounceAfter {
 			if req != nil {
 				pushCounter++
 				if req.ConfigsUpdated == nil {
@@ -369,7 +369,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 				debouncedEvents = 0
 			}
 		} else {
-			timeChan = time.After(opts.debounceAfter - quietTime)
+			timeChan = time.After(opts.DebounceAfter - quietTime)
 		}
 	}
 
@@ -394,7 +394,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 
 			lastConfigUpdateTime = time.Now()
 			if debouncedEvents == 0 {
-				timeChan = time.After(opts.debounceAfter)
+				timeChan = time.After(opts.DebounceAfter)
 				startDebounce = lastConfigUpdateTime
 			}
 			debouncedEvents++
