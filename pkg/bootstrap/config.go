@@ -311,7 +311,6 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 	opts = append(opts,
 		option.NodeMetadata(node.Metadata, node.RawMetadata),
 		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig)),
-		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
 	return opts
 }
