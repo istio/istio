@@ -38,8 +38,9 @@ import (
 )
 
 var (
-	injectAnnotationKey = annotation.SidecarInject.Name
-	sidecarStatusKey    = annotation.SidecarStatus.Name
+	injectAnnotationKey   = annotation.SidecarInject.Name
+	sidecarStatusKey      = annotation.SidecarStatus.Name
+	revisionAnnotationKey = annotation.IoIstioRev.Name
 
 	podRetrievalMaxRetries = 30
 	podRetrievalInterval   = 1 * time.Second
@@ -79,6 +80,7 @@ type Config struct {
 	PrevResult    *cniv1.Result   `json:"-"`
 
 	// Add plugin-specific flags here
+	Revision       string     `json:"revision"`
 	LogLevel       string     `json:"log_level"`
 	LogUDSAddress  string     `json:"log_uds_address"`
 	AmbientEnabled bool       `json:"ambient_enabled"`
@@ -267,6 +269,12 @@ func doRun(args *skel.CmdArgs, conf *Config) error {
 	// Check if istio-init container is present; in that case exclude pod
 	if pi.Containers.Contains(ISTIOINIT) {
 		log.Infof("excluded due to being already injected with istio-init container")
+		return nil
+	}
+
+	podRevision, exists := pi.Annotations[revisionAnnotationKey]
+	if exists && podRevision != conf.Revision {
+		log.Infof("excluded because pod's revision does not match CNI config's revision")
 		return nil
 	}
 

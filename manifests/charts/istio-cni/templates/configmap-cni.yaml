@@ -20,10 +20,11 @@ data:
   cni_network_config: |-
         {
           "cniVersion": "0.3.1",
-          "name": "istio-cni",
+          "name": "istio-cni{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}",
           "type": "istio-cni{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}",
           "log_level": {{ quote .Values.cni.logLevel }},
           "log_uds_address": "__LOG_UDS_ADDRESS__",
+          "revision": {{ .Values.revision | default "default" | quote }},
           {{if .Values.cni.ambient.enabled}}"ambient_enabled": true,{{end}}
           "kubernetes": {
               "kubeconfig": "__KUBECONFIG_FILEPATH__",
