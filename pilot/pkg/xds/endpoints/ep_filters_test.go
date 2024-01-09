@@ -28,8 +28,8 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
-	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -673,7 +673,7 @@ type networkFilterCase struct {
 
 // runNetworkFilterTest calls the endpoints filter from each one of the
 // networks and examines the returned filtered endpoints
-func runNetworkFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networkFilterCase, subset string) {
+func runNetworkFilterTest(t *testing.T, ds *xdsfake.FakeDiscoveryServer, tests []networkFilterCase, subset string) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			cn := fmt.Sprintf("outbound|80|%s|example.ns.svc.cluster.local", subset)
@@ -738,7 +738,7 @@ func TestEndpointsWithMTLSFilter(t *testing.T) {
 	}
 }
 
-func runMTLSFilterTest(t *testing.T, ds *xds.FakeDiscoveryServer, tests []networkFilterCase, subset string) {
+func runMTLSFilterTest(t *testing.T, ds *xdsfake.FakeDiscoveryServer, tests []networkFilterCase, subset string) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			proxy := ds.SetupProxy(tt.proxy)
@@ -770,8 +770,8 @@ func makeProxy(nw network.ID, c cluster.ID) *model.Proxy {
 //   - 3 gateway for network2
 //   - 1 gateway for network3
 //   - 0 gateways for network4
-func environment(t test.Failer, c ...config.Config) *xds.FakeDiscoveryServer {
-	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+func environment(t test.Failer, c ...config.Config) *xdsfake.FakeDiscoveryServer {
+	ds := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		Configs: c,
 		Services: []*model.Service{{
 			Hostname:   "example.ns.svc.cluster.local",

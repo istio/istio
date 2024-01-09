@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/simulation"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -954,7 +954,7 @@ spec:
 				Result: c.Disabled,
 			})
 		}
-		runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		runSimulationTest(t, nil, xdsfake.FakeOptions{}, simulationTest{
 			config: svc + mtlsMode("DISABLE"),
 			calls:  calls,
 		})
@@ -969,7 +969,7 @@ spec:
 				Result: c.Permissive,
 			})
 		}
-		runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		runSimulationTest(t, nil, xdsfake.FakeOptions{}, simulationTest{
 			config: svc + mtlsMode("PERMISSIVE"),
 			calls:  calls,
 		})
@@ -984,7 +984,7 @@ spec:
 				Result: c.Strict,
 			})
 		}
-		runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+		runSimulationTest(t, nil, xdsfake.FakeOptions{}, simulationTest{
 			config: svc + mtlsMode("STRICT"),
 			calls:  calls,
 		})
@@ -1027,7 +1027,7 @@ func TestHeadlessServices(t *testing.T) {
 			},
 		})
 	}
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+	runSimulationTest(t, nil, xdsfake.FakeOptions{}, simulationTest{
 		kubeConfig: `apiVersion: v1
 kind: Service
 metadata:
@@ -1110,13 +1110,13 @@ metadata:
 spec:
   clusterIP: 1.2.3.4
   ports:` + ports
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+	runSimulationTest(t, nil, xdsfake.FakeOptions{}, simulationTest{
 		kubeConfig: service,
 		calls:      calls,
 	})
 
 	// HTTP Routes
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+	runSimulationTest(t, nil, xdsfake.FakeOptions{}, simulationTest{
 		config: `apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -1191,7 +1191,7 @@ spec:
 	})
 
 	// TCP Routes
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+	runSimulationTest(t, nil, xdsfake.FakeOptions{}, simulationTest{
 		config: `apiVersion: networking.istio.io/v1alpha3
 kind: VirtualService
 metadata:
@@ -1280,7 +1280,7 @@ func TestPassthroughTraffic(t *testing.T) {
 		meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY,
 	} {
 		t.Run(tp.String(), func(t *testing.T) {
-			o := xds.FakeOptions{
+			o := xdsfake.FakeOptions{
 				MeshConfig: func() *meshconfig.MeshConfig {
 					m := mesh.DefaultMeshConfig()
 					m.OutboundTrafficPolicy.Mode = tp
@@ -1375,7 +1375,7 @@ spec:
 }
 
 func TestLoop(t *testing.T) {
-	runSimulationTest(t, nil, xds.FakeOptions{}, simulationTest{
+	runSimulationTest(t, nil, xdsfake.FakeOptions{}, simulationTest{
 		calls: []simulation.Expect{
 			{
 				Name: "direct request to outbound port",
@@ -1669,7 +1669,7 @@ spec:
 	}
 	test.SetForTest(t, &features.EnableTLSOnSidecarIngress, true)
 	for _, tt := range cases {
-		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
+		runSimulationTest(t, proxy, xdsfake.FakeOptions{}, simulationTest{
 			name:   tt.name,
 			config: tt.config,
 			calls:  tt.calls,
@@ -2660,7 +2660,7 @@ spec:
 					if err != nil {
 						t.Fatal(err)
 					}
-					s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+					s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 						Configs:           istio,
 						KubernetesObjects: kubeo,
 					})

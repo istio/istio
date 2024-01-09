@@ -32,8 +32,8 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
@@ -312,7 +312,7 @@ func TestGenerateSDS(t *testing.T) {
 				tt.proxy.Metadata = &model.NodeMetadata{}
 			}
 			tt.proxy.Metadata.ClusterID = "Kubernetes"
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertCrl, genericMtlsCertSplit, genericMtlsCertSplitCa},
 			})
 			cc := s.KubeClient().Kube().(*fake.Clientset)
@@ -321,7 +321,7 @@ func TestGenerateSDS(t *testing.T) {
 			if tt.accessReviewResponse != nil {
 				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
 			} else {
-				xds.DisableAuthorizationForSecret(cc)
+				xdsfake.DisableAuthorizationForSecret(cc)
 			}
 			cc.Fake.Unlock()
 
@@ -350,11 +350,11 @@ func TestGenerateSDS(t *testing.T) {
 // since it is order dependent.
 // Regression test for https://github.com/istio/istio/issues/33368
 func TestCaching(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		KubernetesObjects: []runtime.Object{genericCert},
 		KubeClientModifier: func(c kube.Client) {
 			cc := c.Kube().(*fake.Clientset)
-			xds.DisableAuthorizationForSecret(cc)
+			xdsfake.DisableAuthorizationForSecret(cc)
 		},
 	})
 	gen := s.Discovery.Generators[v3.SecretType]
@@ -412,11 +412,11 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 		Type:             model.Router,
 		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
 	}
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		KubernetesObjects: []runtime.Object{genericCert},
 		KubeClientModifier: func(c kube.Client) {
 			cc := c.Kube().(*fake.Clientset)
-			xds.DisableAuthorizationForSecret(cc)
+			xdsfake.DisableAuthorizationForSecret(cc)
 		},
 	})
 	gen := s.Discovery.Generators[v3.SecretType]

@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xdsfake"
 )
 
 const se = `
@@ -118,7 +118,7 @@ func TestServiceEntry(t *testing.T) {
 				Labels:   map[string]string{"app": "foo"},
 				Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}},
 			}
-			runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
+			runSimulationTest(t, proxy, xdsfake.FakeOptions{}, simulationTest{
 				name:   tt.name,
 				config: tt.config,
 				calls:  tt.calls,
@@ -202,7 +202,7 @@ func TestServiceEntryDuplicatedHostname(t *testing.T) {
 					DNSAutoAllocate: true,
 				},
 			}
-			runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
+			runSimulationTest(t, proxy, xdsfake.FakeOptions{}, simulationTest{
 				name:   tt.name,
 				config: tt.config,
 				calls:  tt.calls,

@@ -29,7 +29,7 @@ import (
 	_ "google.golang.org/grpc/xds"
 
 	networking "istio.io/api/networking/v1alpha3"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -49,7 +49,7 @@ type echoCfg struct {
 type configGenTest struct {
 	*testing.T
 	endpoints []endpoint.Instance
-	ds        *xds.FakeDiscoveryServer
+	ds        *xdsfake.FakeDiscoveryServer
 	xdsPort   int
 }
 
@@ -65,7 +65,7 @@ type configGenTest struct {
 //	  address: {grpcEchoHost}
 //	  ports:
 //	    grpc: {generated portnum}
-func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...echoCfg) *configGenTest {
+func newConfigGenTest(t *testing.T, discoveryOpts xdsfake.FakeOptions, servers ...echoCfg) *configGenTest {
 	if runtime.GOOS == "darwin" && len(servers) > 1 {
 		// TODO always skip if this breaks anywhere else
 		t.Skip("cannot use 127.0.0.2-255 on OSX without manual setup")
@@ -79,7 +79,7 @@ func newConfigGenTest(t *testing.T, discoveryOpts xds.FakeOptions, servers ...ec
 		return net.Listen("tcp", "127.0.0.1:0")
 	}
 	// Start XDS server
-	cgt.ds = xds.NewFakeDiscoveryServer(t, discoveryOpts)
+	cgt.ds = xdsfake.NewFakeDiscoveryServer(t, discoveryOpts)
 	_, xdsPorts, _ := net.SplitHostPort(cgt.ds.Listener.Addr().String())
 	xdsPort, _ := strconv.Atoi(xdsPorts)
 	cgt.xdsPort = xdsPort
@@ -162,7 +162,7 @@ func (t *configGenTest) dialEcho(addr string) *echo.Client {
 }
 
 func TestTrafficShifting(t *testing.T) {
-	tt := newConfigGenTest(t, xds.FakeOptions{
+	tt := newConfigGenTest(t, xdsfake.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1
 kind: Service
@@ -240,7 +240,7 @@ spec:
 }
 
 func TestMtls(t *testing.T) {
-	tt := newConfigGenTest(t, xds.FakeOptions{
+	tt := newConfigGenTest(t, xdsfake.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1
 kind: Service
@@ -295,7 +295,7 @@ spec:
 }
 
 func TestFault(t *testing.T) {
-	tt := newConfigGenTest(t, xds.FakeOptions{
+	tt := newConfigGenTest(t, xdsfake.FakeOptions{
 		KubernetesObjectString: `
 apiVersion: v1
 kind: Service

@@ -25,8 +25,6 @@ import (
 	"text/template"
 	"time"
 
-	"istio.io/istio/pilot/pkg/xds"
-
 	"github.com/Masterminds/sprig/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
@@ -39,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -266,7 +265,7 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 
 	for _, tt := range tests {
 		b.Run(fmt.Sprintf("%d/%d", tt.endpoints, tt.services), func(b *testing.B) {
-			s := xds.NewFakeDiscoveryServer(b, xds.FakeOptions{
+			s := xdsfake.NewFakeDiscoveryServer(b, xdsfake.FakeOptions{
 				Configs: createEndpointsConfig(tt.endpoints, tt.services, numNetworks),
 				NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 					Networks: createGateways(numNetworks),
@@ -345,7 +344,7 @@ func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 	}
 }
 
-func getWatchedResources(tpe string, tt ConfigInput, s *xds.FakeDiscoveryServer, proxy *model.Proxy) *model.WatchedResource {
+func getWatchedResources(tpe string, tt ConfigInput, s *xdsfake.FakeDiscoveryServer, proxy *model.Proxy) *model.WatchedResource {
 	switch tpe {
 	case v3.SecretType:
 		watchedResources := []string{}
@@ -363,7 +362,7 @@ func getWatchedResources(tpe string, tt ConfigInput, s *xds.FakeDiscoveryServer,
 
 // Setup test builds a mock test environment. Note: push context is not initialized, to be able to benchmark separately
 // most should just call setupAndInitializeTest
-func setupTest(t testing.TB, config ConfigInput) (*xds.FakeDiscoveryServer, *model.Proxy) {
+func setupTest(t testing.TB, config ConfigInput) (*xdsfake.FakeDiscoveryServer, *model.Proxy) {
 	proxyType := config.ProxyType
 	if proxyType == "" {
 		proxyType = model.SidecarProxy
@@ -404,7 +403,7 @@ func setupTest(t testing.TB, config ConfigInput) (*xds.FakeDiscoveryServer, *mod
 			},
 		},
 	})
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		Configs:                configs,
 		KubernetesObjectString: k8sConfig,
 		// Allow debounce to avoid overwhelming with writes
@@ -483,7 +482,7 @@ func parseKubernetesTypes(inputs string) (string, int) {
 	return sb.String(), matches
 }
 
-func setupAndInitializeTest(t testing.TB, config ConfigInput) (*xds.FakeDiscoveryServer, *model.Proxy) {
+func setupAndInitializeTest(t testing.TB, config ConfigInput) (*xdsfake.FakeDiscoveryServer, *model.Proxy) {
 	s, proxy := setupTest(t, config)
 	initPushContext(s.Env(), proxy)
 	return s, proxy

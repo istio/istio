@@ -17,7 +17,6 @@ package xds_test
 import (
 	"context"
 	"fmt"
-	"istio.io/istio/pilot/pkg/xds"
 	"strings"
 	"testing"
 	"time"
@@ -35,6 +34,7 @@ import (
 	"istio.io/api/security/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
@@ -76,7 +76,7 @@ func TestNetworkGatewayUpdates(t *testing.T) {
 		configObjects = append(configObjects, w.configs()...)
 	}
 	meshNetworks := mesh.NewFixedNetworksWatcher(nil)
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		KubernetesObjects: kubeObjects,
 		Configs:           configObjects,
 		NetworksWatcher:   meshNetworks,
@@ -604,7 +604,7 @@ func runMeshNetworkingTest(t *testing.T, tt meshNetworkingTest, configs ...confi
 		}
 		configObjects = append(configObjects, w.configs()...)
 	}
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		KubernetesObjectsByCluster:      kubeObjects,
 		KubernetesObjectStringByCluster: tt.kubeObjectsYAML,
 		ConfigString:                    tt.configYAML,
@@ -662,7 +662,7 @@ func (w *workload) ExpectWithWeight(target *workload, subset string, eps ...xdst
 	w.weightedExpectations[target.clusterName(subset)] = eps
 }
 
-func (w *workload) Test(t *testing.T, s *xds.FakeDiscoveryServer) {
+func (w *workload) Test(t *testing.T, s *xdsfake.FakeDiscoveryServer) {
 	if w.expectations == nil && w.weightedExpectations == nil {
 		return
 	}
@@ -672,7 +672,7 @@ func (w *workload) Test(t *testing.T, s *xds.FakeDiscoveryServer) {
 	})
 }
 
-func (w *workload) testUnweighted(t *testing.T, s *xds.FakeDiscoveryServer) {
+func (w *workload) testUnweighted(t *testing.T, s *xdsfake.FakeDiscoveryServer) {
 	if w.expectations == nil {
 		return
 	}
@@ -702,7 +702,7 @@ func (w *workload) testUnweighted(t *testing.T, s *xds.FakeDiscoveryServer) {
 	})
 }
 
-func (w *workload) testWeighted(t *testing.T, s *xds.FakeDiscoveryServer) {
+func (w *workload) testWeighted(t *testing.T, s *xdsfake.FakeDiscoveryServer) {
 	if w.weightedExpectations == nil {
 		return
 	}
@@ -770,7 +770,7 @@ func (w *workload) configs() []config.Config {
 	return nil
 }
 
-func (w *workload) setupProxy(s *xds.FakeDiscoveryServer) {
+func (w *workload) setupProxy(s *xdsfake.FakeDiscoveryServer) {
 	p := &model.Proxy{
 		ID:     strings.Join([]string{w.name, w.namespace}, "."),
 		Labels: w.labels,

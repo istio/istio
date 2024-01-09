@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -1046,15 +1046,15 @@ func runGatewayTest(t *testing.T, cases ...simulationTest) {
 			},
 			Type: model.Router,
 		}
-		runSimulationTest(t, proxy, xds.FakeOptions{}, tt)
+		runSimulationTest(t, proxy, xdsfake.FakeOptions{}, tt)
 	}
 }
 
-func runSimulationTest(t *testing.T, proxy *model.Proxy, o xds.FakeOptions, tt simulationTest) {
+func runSimulationTest(t *testing.T, proxy *model.Proxy, o xdsfake.FakeOptions, tt simulationTest) {
 	runTest := func(t *testing.T) {
 		o.ConfigString = tt.config
 		o.KubernetesObjectString = tt.kubeConfig
-		s := xds.NewFakeDiscoveryServer(t, o)
+		s := xdsfake.NewFakeDiscoveryServer(t, o)
 		sim := simulation.NewSimulation(t, s, s.SetupProxy(proxy))
 		sim.RunExpectations(tt.calls)
 		if t.Failed() && debugMode {

@@ -25,8 +25,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdsfake"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 
@@ -76,7 +76,7 @@ func TestNDS(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 				ConfigString: mustReadFile(t, "./testdata/nds-se.yaml"),
 			})
 
@@ -142,7 +142,7 @@ func TestGenerate(t *testing.T) {
 				tt.proxy.Metadata = &model.NodeMetadata{}
 			}
 			tt.proxy.Metadata.ClusterID = "Kubernetes"
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 
 			gen := s.Discovery.Generators[v3.NameTableType]
 			tt.request.Start = time.Now()

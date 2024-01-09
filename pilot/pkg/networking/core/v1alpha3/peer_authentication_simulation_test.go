@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xdsfake"
 )
 
 // TestPeerAuthenticationPassthrough tests the PeerAuthentication policy applies correctly on the passthrough filter chain,
@@ -347,7 +347,7 @@ spec:
 		Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}},
 	}
 	for _, tt := range cases {
-		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
+		runSimulationTest(t, proxy, xdsfake.FakeOptions{}, simulationTest{
 			name:   tt.name,
 			config: tt.config,
 			calls:  tt.calls,
@@ -614,7 +614,7 @@ spec:
 		Metadata: &model.NodeMetadata{Labels: map[string]string{"app": "foo"}},
 	}
 	for _, tt := range cases {
-		runSimulationTest(t, proxy, xds.FakeOptions{}, simulationTest{
+		runSimulationTest(t, proxy, xdsfake.FakeOptions{}, simulationTest{
 			name:   tt.name,
 			config: tt.config,
 			calls:  tt.calls,

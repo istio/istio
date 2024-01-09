@@ -28,8 +28,8 @@ import (
 	metav1beta1 "istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -90,7 +90,7 @@ func buildExpectAddedAndRemoved(t *testing.T) func(resp *discovery.DeltaDiscover
 func TestWorkloadReconnect(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	expect := buildExpect(t)
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		KubernetesObjects: []runtime.Object{mkPod("pod", "sa", "127.0.0.1", "not-node")},
 	})
 	ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
@@ -124,7 +124,7 @@ func TestWorkload(t *testing.T) {
 	t.Run("ondemand", func(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
@@ -197,7 +197,7 @@ func TestWorkload(t *testing.T) {
 	t.Run("wildcard", func(t *testing.T) {
 		expect := buildExpect(t)
 		expectRemoved := buildExpectExpectRemoved(t)
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 		ads := s.ConnectDeltaADS().WithType(v3.AddressType).WithMetadata(model.NodeMetadata{NodeName: "node"})
 
 		ads.Request(&discovery.DeltaDiscoveryRequest{
@@ -230,14 +230,14 @@ func TestWorkload(t *testing.T) {
 	})
 }
 
-func deletePod(s *xds.FakeDiscoveryServer, name string) {
+func deletePod(s *xdsfake.FakeDiscoveryServer, name string) {
 	err := s.KubeClient().Kube().CoreV1().Pods("default").Delete(context.Background(), name, metav1.DeleteOptions{})
 	if err != nil {
 		s.T().Fatal(err)
 	}
 }
 
-func createAuthorizationPolicy(s *xds.FakeDiscoveryServer, name string, ns string) {
+func createAuthorizationPolicy(s *xdsfake.FakeDiscoveryServer, name string, ns string) {
 	_, err := s.Env().Create(config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.AuthorizationPolicy,
@@ -251,7 +251,7 @@ func createAuthorizationPolicy(s *xds.FakeDiscoveryServer, name string, ns strin
 	}
 }
 
-func createPeerAuthentication(s *xds.FakeDiscoveryServer, name string, ns string, f func(*config.Config)) {
+func createPeerAuthentication(s *xdsfake.FakeDiscoveryServer, name string, ns string, f func(*config.Config)) {
 	c := config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.PeerAuthentication,
@@ -304,7 +304,7 @@ func mkPod(name string, sa string, ip string, node string) *corev1.Pod {
 	}
 }
 
-func createPod(s *xds.FakeDiscoveryServer, name string, sa string, ip string, node string) {
+func createPod(s *xdsfake.FakeDiscoveryServer, name string, sa string, ip string, node string) {
 	pod := mkPod(name, sa, ip, node)
 	pods := clienttest.NewWriter[*corev1.Pod](s.T(), s.KubeClient())
 	pods.CreateOrUpdate(pod)
@@ -312,7 +312,7 @@ func createPod(s *xds.FakeDiscoveryServer, name string, sa string, ip string, no
 }
 
 // nolint: unparam
-func createService(s *xds.FakeDiscoveryServer, name, namespace string, selector map[string]string) {
+func createService(s *xdsfake.FakeDiscoveryServer, name, namespace string, selector map[string]string) {
 	service := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
@@ -338,7 +338,7 @@ func TestWorkloadAuthorizationPolicy(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	expect := buildExpect(t)
 	expectRemoved := buildExpectExpectRemoved(t)
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectDeltaADS().WithType(v3.WorkloadAuthorizationType).WithTimeout(time.Second * 10).WithNodeType(model.Ztunnel)
 
 	ads.Request(&discovery.DeltaDiscoveryRequest{
@@ -366,7 +366,7 @@ func TestWorkloadPeerAuthentication(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
 	expect := buildExpect(t)
 	expectAddedAndRemoved := buildExpectAddedAndRemoved(t)
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectDeltaADS().WithType(v3.WorkloadAuthorizationType).WithTimeout(time.Second * 10).WithNodeType(model.Ztunnel)
 
 	ads.Request(&discovery.DeltaDiscoveryRequest{

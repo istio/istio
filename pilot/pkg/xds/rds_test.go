@@ -19,8 +19,8 @@ import (
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdsfake"
 )
 
 func TestRDS(t *testing.T) {
@@ -48,7 +48,7 @@ func TestRDS(t *testing.T) {
 		},
 	}
 
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ads := s.ConnectADS().WithType(v3.RouteType).WithID(tt.node)

@@ -48,8 +48,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/protocol"
@@ -134,7 +134,7 @@ func init() {
 
 func TestGRPC(t *testing.T) {
 	// Init Istiod in-process server.
-	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	ds := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		ListenerBuilder: func() (net.Listener, error) {
 			return net.Listen("tcp", "127.0.0.1:0")
 		},

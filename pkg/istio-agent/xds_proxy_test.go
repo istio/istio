@@ -41,8 +41,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/status"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
@@ -88,7 +88,7 @@ func sendDownstreamWithoutResponse(t *testing.T, downstream discovery.Aggregated
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestXdsProxyBasicFlow(t *testing.T) {
 	proxy := setupXdsProxy(t)
-	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	f := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	setDialOptions(proxy, f.BufListener)
 	conn := setupDownstreamConnection(t, proxy)
 	downstream := stream(t, conn)
@@ -117,7 +117,7 @@ func TestXdsProxyHealthCheck(t *testing.T) {
 	}
 	proxy := setupXdsProxy(t)
 
-	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	f := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	if _, err := f.Store().Create(config.Config{
 		Meta: config.Meta{
 			Name:             "group",
@@ -313,7 +313,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 	}
 	t.Run("Envoy close and open stream", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
-		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		f := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 		setDialOptions(proxy, f.BufListener)
 
 		conn := setupDownstreamConnection(t, proxy)
@@ -334,7 +334,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 	})
 	t.Run("Envoy opens multiple stream", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
-		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		f := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 		setDialOptions(proxy, f.BufListener)
 
 		conn := setupDownstreamConnection(t, proxy)
@@ -351,7 +351,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 	})
 	t.Run("Envoy closes connection", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
-		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		f := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 		setDialOptions(proxy, f.BufListener)
 
 		conn := setupDownstreamConnection(t, proxy)
@@ -373,7 +373,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 		// Envoy doesn't really do this, in reality it should only have a single connection. However,
 		// this ensures we are robust against cases where envoy rapidly disconnects and reconnects
 		proxy := setupXdsProxy(t)
-		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		f := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 		setDialOptions(proxy, f.BufListener)
 
 		conn := setupDownstreamConnection(t, proxy)
@@ -398,7 +398,7 @@ func TestXdsProxyReconnects(t *testing.T) {
 	})
 	t.Run("Istiod closes connection", func(t *testing.T) {
 		proxy := setupXdsProxy(t)
-		f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		f := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 
 		// Here we set up a real listener (instead of in memory) since we need to close and re-open
 		// a new listener on the same port, which we cannot do with the in memory listener.
@@ -475,7 +475,7 @@ func TestECDSWasmConversion(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	f := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		ConfigString: string(ef),
 	})
 	setDialOptions(proxy, f.BufListener)
@@ -536,7 +536,7 @@ func TestECDSWasmConversion(t *testing.T) {
 
 	// reset wasm cache to a NACK cache, and recreate xds server as well to simulate a version bump
 	proxy.wasmCache = &fakeNackCache{}
-	f = xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	f = xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		ConfigString: string(ef),
 	})
 	setDialOptions(proxy, f.BufListener)

@@ -20,15 +20,15 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 )
 
 // Creates an in-process discovery server, using the same code as Istiod, but
 // backed by an in-memory config and endpoint Store.
-func initDS(t *testing.T) *xds.FakeDiscoveryServer {
-	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+func initDS(t *testing.T) *xdsfake.FakeDiscoveryServer {
+	ds := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	sd := ds.MemRegistry
 	sd.AddHTTPService("fortio1.fortio.svc.cluster.local", "10.10.10.1", 8081)
 	sd.SetEndpoints("fortio1.fortio.svc.cluster.local", "", []*model.IstioEndpoint{
@@ -51,7 +51,7 @@ func TestAPIGen(t *testing.T) {
 		proxy := &model.Proxy{Metadata: &model.NodeMetadata{
 			Generator: "api",
 		}}
-		adscConn := ds.ConnectUnstarted(ds.SetupProxy(proxy), xds.APIWatches())
+		adscConn := ds.ConnectUnstarted(ds.SetupProxy(proxy), xdsfake.APIWatches())
 		store := memory.Make(collections.Pilot)
 		configController := memory.NewController(store)
 		adscConn.Store = configController

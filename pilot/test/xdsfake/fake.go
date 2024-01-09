@@ -1,6 +1,3 @@
-//go:build !agent
-// +build !agent
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -15,11 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package xdsfake
 
 import (
 	"context"
 	"fmt"
+	"istio.io/istio/pilot/pkg/xds"
 	"net"
 	"strings"
 	"time"
@@ -111,7 +109,7 @@ type FakeOptions struct {
 type FakeDiscoveryServer struct {
 	*v1alpha3.ConfigGenTest
 	t            test.Failer
-	Discovery    *DiscoveryServer
+	Discovery    *xds.DiscoveryServer
 	Listener     net.Listener
 	BufListener  *bufconn.Listener
 	kubeClient   kubelib.Client
@@ -126,14 +124,15 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		m = mesh.DefaultMeshConfig()
 	}
 
+	// Disable debounce to reduce test times
+	old := features.DebounceAfter
+	features.DebounceAfter = opts.DebounceTime
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(model.NewEnvironment(), map[string]string{})
-	s.discoveryStartTime = time.Now()
+	s := xds.NewDiscoveryServer(model.NewEnvironment(), map[string]string{})
+	features.DebounceAfter = old
+	s.DiscoveryStartTime = time.Now()
 	s.InitGenerators(s.Env, "istio-system", "", nil)
-	t.Cleanup(func() {
-		s.JwtKeyResolver.Close()
-		s.pushQueue.ShutDown()
-	})
+	t.Cleanup(s.Shutdown)
 
 	serviceHandler := func(_, curr *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
@@ -164,8 +163,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		xdsUpdater = xdsfake.NewWithDelegate(s)
 	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
-	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
-	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
+	s.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
+	s.Generators[v3.ExtensionConfigurationType].(*xds.EcdsGenerator).SetCredController(creds)
 
 	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	for k8sCluster, objs := range k8sObjects {
@@ -242,8 +241,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		t.Fatal(err)
 	}
 	s.Generators["api"] = apigen.NewGenerator(s.Env.ConfigStore)
-	// Disable debounce to reduce test times
-	s.debounceOptions.debounceAfter = opts.DebounceTime
 	memRegistry := cg.MemRegistry
 	memRegistry.XdsUpdater = s
 
@@ -354,7 +351,7 @@ func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
 }
 
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
-func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
+func (f *FakeDiscoveryServer) ConnectADS() *xds.AdsTest {
 	conn, err := grpc.Dial("buffcon",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
@@ -364,11 +361,11 @@ func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
 	}
-	return NewAdsTest(f.t, conn)
+	return xds.NewAdsTest(f.t, conn)
 }
 
 // ConnectDeltaADS starts a Delta ADS connection to the server. It will automatically be cleaned up when the test ends
-func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
+func (f *FakeDiscoveryServer) ConnectDeltaADS() *xds.DeltaAdsTest {
 	conn, err := grpc.Dial("buffcon",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
@@ -378,7 +375,7 @@ func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
 	}
-	return NewDeltaAdsTest(f.t, conn)
+	return xds.NewDeltaAdsTest(f.t, conn)
 }
 
 func APIWatches() []string {

@@ -22,7 +22,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xdsfake"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
@@ -35,7 +35,7 @@ import (
 func TestRegistration(t *testing.T) {
 	// TODO: allow fake XDS to be "authenticated"
 	test.SetForTest(t, &features.ValidateWorkloadEntryIdentity, false)
-	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	ds := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ds.Store().Create(config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.WorkloadGroup,
