@@ -44,6 +44,7 @@ case "${1}" in
       --test-arg "--count=${BENCHMARK_COUNT}" \
       --test-arg "--cpu=${BENCHMARK_CPUS}" \
       --test-arg "--test.timeout=30m"
+      --test-arg "-tags=vtprotobuf"
     # Print out the results as well for ease of debugging, so they are in the logs instead of just output
     cat "${REPORT_PLAINTEXT}"
     ;;
