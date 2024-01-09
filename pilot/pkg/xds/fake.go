@@ -194,7 +194,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
 			defaultKubeClient = client
 			if opts.DisableSecretAuthorization {
-				disableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
+				DisableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
 			}
 			defaultKubeController = k8s
 		} else {
@@ -452,9 +452,14 @@ func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadA
 	return loadAssignments
 }
 
+func (f *FakeDiscoveryServer) T() test.Failer {
+	return f.t
+}
+
 // EnsureSynced checks that all ConfigUpdates sent have been established
 // This does NOT ensure that the change has been sent to all proxies; only that PushContext is updated
 // Typically, if trying to ensure changes are sent, its better to wait for the push event.
+
 func (f *FakeDiscoveryServer) EnsureSynced(t test.Failer) {
 	c := f.Discovery.InboundUpdates.Load()
 	retry.UntilOrFail(t, func() bool {
@@ -510,8 +515,8 @@ func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 	return objects, nil
 }
 
-// disableAuthorizationForSecret makes the authorization check always pass. Should be used only for tests.
-func disableAuthorizationForSecret(fake *fake.Clientset) {
+// DisableAuthorizationForSecret makes the authorization check always pass. Should be used only for tests.
+func DisableAuthorizationForSecret(fake *fake.Clientset) {
 	fake.Fake.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, &authorizationv1.SubjectAccessReview{
 			Status: authorizationv1.SubjectAccessReviewStatus{

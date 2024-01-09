@@ -393,7 +393,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
-	oldAck := listEqualUnordered(previousResources, currentResources)
+	oldAck := slices.EqualUnordered(previousResources, currentResources)
 	// Spontaneous DeltaDiscoveryRequests from the client.
 	// This can be done to dynamically add or remove elements from the tracked resource_names set.
 	// In this case response_nonce is empty.

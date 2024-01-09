@@ -36,6 +36,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/tests/util/leak"
 )
 
 const (
@@ -964,4 +965,16 @@ func TestEdsCache(t *testing.T) {
 	}
 	assertEndpoints(ads)
 	t.Logf("endpoints: %+v", ads.GetEndpoints())
+}
+
+// TestPushQueueLeak is a regression test for https://github.com/grpc/grpc-go/issues/4758
+func TestPushQueueLeak(t *testing.T) {
+	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	p := ds.ConnectADS()
+	p.RequestResponseAck(t, nil)
+	for _, c := range ds.Discovery.AllClients() {
+		leak.MustGarbageCollect(t, c)
+	}
+	ds.Discovery.AdsPushAll(&model.PushRequest{Push: ds.PushContext()})
+	p.Cleanup()
 }
