@@ -20,7 +20,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      k8s-app: istio-cni-node
+      k8s-app: istio-cni-node{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
@@ -28,7 +28,7 @@ spec:
   template:
     metadata:
       labels:
-        k8s-app: istio-cni-node
+        k8s-app: istio-cni-node{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}
         sidecar.istio.io/inject: "false"
       annotations:
         sidecar.istio.io/inject: "false"
@@ -118,6 +118,8 @@ spec:
             - name: REVISION
               value: "{{ .Values.revision }}"
 {{- end }}
+            - name: LOG_UDS_ADDRESS
+              value: /var/run/istio-cni/{{ .Values.revision | default "default" }}/log.sock
             - name: REPAIR_ENABLED
               value: "{{ .Values.cni.repair.enabled }}"
             - name: REPAIR_NODE_NAME
@@ -167,7 +169,7 @@ spec:
               name: cni-bin-dir
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
-            - mountPath: /var/run/istio-cni
+            - mountPath: /var/run/istio-cni/{{ .Values.revision | default "default" }}
               name: cni-log-dir
             {{- if .Values.cni.ambient.enabled }}
             - mountPath: /etc/ambient-config
@@ -203,7 +205,7 @@ spec:
         # Used for UDS log
         - name: cni-log-dir
           hostPath:
-            path: /var/run/istio-cni
+            path: /var/run/istio-cni/{{ .Values.revision | default "default" }}
         - name: cni-netns-dir
           hostPath:
             path: {{ .Values.cni.cniNetnsDir | default "/var/run/netns" }}
