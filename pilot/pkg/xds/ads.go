@@ -568,10 +568,6 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 		s.closeConnection(con)
 		return err
 	}
-
-	if s.StatusGen != nil {
-		s.StatusGen.OnConnect(con)
-	}
 	return nil
 }
 
