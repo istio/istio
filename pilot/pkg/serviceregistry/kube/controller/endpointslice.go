@@ -15,6 +15,8 @@
 package controller
 
 import (
+	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -57,6 +59,14 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 	}
 	registerHandlers[*v1.EndpointSlice](c, slices, "EndpointSlice", out.onEvent, nil)
 	return out
+}
+
+// getEndpointKey generates a unique key for the endpoints based on ip addresses, portName and portNum.
+func getEndpointKey(portName string, portNum int32, ips []string) string {
+	var ipaddrs []string
+	ipaddrs = append(ipaddrs, ips...)
+	ipString := strings.Join(ipaddrs, ", ")
+	return fmt.Sprintf("%s-%s-%d", ipString, portName, portNum)
 }
 
 func (esc *endpointSliceController) podArrived(name, ns string) error {
@@ -243,7 +253,7 @@ func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus 
 
 func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, slice *v1.EndpointSlice) {
 	var endpoints []*model.IstioEndpoint
-	addedEndpointMap := make(map[*model.IstioEndpoint][]string)
+	addEPMap := make(map[string]*model.IstioEndpoint)
 	if slice.AddressType == v1.AddressTypeFQDN {
 		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 		return
@@ -278,14 +288,14 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 					for _, addr := range pod.Status.PodIPs {
 						addrs = append(addrs, addr.IP)
 					}
-					istioEndpoint.Addresses = addrs
-					if _, ok := addedEndpointMap[istioEndpoint]; !ok {
+					epKey := getEndpointKey(portName, portNum, addrs)
+					if _, ok := addEPMap[epKey]; !ok {
+						istioEndpoint.Addresses = []string{a}
+						addEPMap[epKey] = istioEndpoint
 						endpoints = append(endpoints, istioEndpoint)
-						addedEndpointMap[istioEndpoint] = []string{a}
 					} else {
-						addresses := addedEndpointMap[istioEndpoint]
-						addresses = append(addresses, a)
-						addedEndpointMap[istioEndpoint] = addresses
+						istioEndpoint = addEPMap[epKey]
+						istioEndpoint.Addresses = append(istioEndpoint.Addresses, a)
 					}
 				} else {
 					endpoints = append(endpoints, istioEndpoint)
@@ -294,11 +304,6 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 		}
 	}
 
-	// revert the addresses of istioEndpoint from pod.Status.IPs to endpointslice addresses
-	// to make non dual stack pod and dual stack pod have the same logic in istioEndpoint Addresses
-	for istioEP, epAddresses := range addedEndpointMap {
-		istioEP.Addresses = epAddresses
-	}
 	esc.endpointCache.Update(hostName, slice.Name, endpoints)
 }
 
