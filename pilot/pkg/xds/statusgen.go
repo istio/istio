@@ -32,14 +32,6 @@ const (
 	// TypeURLConnect generate connect event.
 	TypeURLConnect = "istio.io/connect"
 
-	// TypeURLDisconnect generate disconnect event.
-	TypeURLDisconnect = "istio.io/disconnect"
-
-	// TypeURLNACK will receive messages of type DiscoveryRequest, containing
-	// the 'NACK' from envoy on rejected configs. Only ID is set in metadata.
-	// This includes all the info that envoy (client) provides.
-	TypeURLNACK = "istio.io/nack"
-
 	TypeDebugPrefix = v3.DebugType + "/"
 
 	// TypeDebugSyncronization requests Envoy CSDS for proxy sync status
@@ -211,19 +203,6 @@ func (sg *StatusGen) debugConfigDump(proxyID string) (model.Resources, error) {
 
 func (sg *StatusGen) OnConnect(con *Connection) {
 	sg.pushStatusEvent(TypeURLConnect, []proto.Message{con.node})
-}
-
-func (sg *StatusGen) OnDisconnect(con *Connection) {
-	sg.pushStatusEvent(TypeURLDisconnect, []proto.Message{con.node})
-}
-
-func (sg *StatusGen) OnNack(node *model.Proxy, dr *discovery.DiscoveryRequest) {
-	// Make sure we include the ID - the DR may not include metadata
-	if dr.Node == nil {
-		dr.Node = &core.Node{}
-	}
-	dr.Node.Id = node.ID
-	sg.pushStatusEvent(TypeURLNACK, []proto.Message{dr})
 }
 
 // pushStatusEvent is similar with DiscoveryServer.pushStatusEvent() - but called directly,

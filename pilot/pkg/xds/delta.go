@@ -325,9 +325,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		errCode := codes.Code(request.ErrorDetail.Code)
 		deltaLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.conID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
-		if s.StatusGen != nil {
-			s.StatusGen.OnNack(con.proxy, deltaToSotwRequest(request))
-		}
 		return false
 	}
 
