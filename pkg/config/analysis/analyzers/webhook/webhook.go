@@ -33,9 +33,6 @@ import (
 
 type Analyzer struct {
 	SkipServiceCheck bool
-	// SkippedWebhooks is a list of webhooks to skip, this happens when the webhook is not actually
-	// going to be used in the current revision.
-	SkippedWebhooks sets.Set[string]
 }
 
 var _ analysis.Analyzer = &Analyzer{}
@@ -76,9 +73,6 @@ func (a *Analyzer) Analyze(context analysis.Context) {
 	resources := map[string]*resource.Instance{}
 	revisions := sets.New[string]()
 	context.ForEach(gvk.MutatingWebhookConfiguration, func(resource *resource.Instance) bool {
-		if a.SkippedWebhooks.Contains(resource.Metadata.FullName.Name.String()) {
-			return true
-		}
 		wh := resource.Message.(*v1.MutatingWebhookConfiguration)
 		revs := extractRevisions(wh)
 		if len(revs) == 0 && !isIstioWebhook(wh) {
