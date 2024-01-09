@@ -284,16 +284,19 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 
 				istioEndpoint := builder.buildIstioEndpoint(a, portNum, portName, discoverabilityPolicy, healthStatus)
 				if features.EnableDualStack && (pod != nil) && len(pod.Status.PodIPs) > 1 {
+					// get the IP addresses for the dual stack pod
 					var addrs []string
 					for _, addr := range pod.Status.PodIPs {
 						addrs = append(addrs, addr.IP)
 					}
 					epKey := getEndpointKey(portName, portNum, addrs)
+					// add the istioEndpoint pointer in map based on the unique key
 					if _, ok := addEPMap[epKey]; !ok {
 						istioEndpoint.Addresses = []string{a}
 						addEPMap[epKey] = istioEndpoint
 						endpoints = append(endpoints, istioEndpoint)
 					} else {
+						// append other ip addresses in field Addresses of istioEndpoint
 						istioEndpoint = addEPMap[epKey]
 						istioEndpoint.Addresses = append(istioEndpoint.Addresses, a)
 					}
