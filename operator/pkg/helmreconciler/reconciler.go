@@ -501,24 +501,24 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 	var localWebhookYAMLReaders []local.ReaderSource
 	var parsedK8sObjects object.K8sObjects
 	exists := revtag.PreviousInstallExists(context.Background(), h.kubeClient.Kube())
-	// Here if we need to create a default tag, we need to skip the webhooks that are going to be deactivated.
-	if !detectIfTagWebhookIsNeeded(h.iop, exists) {
-		for i, wh := range whs {
-			k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(wh)
-			if err != nil {
-				return err
-			}
-			objYaml, err := k8sObjects.YAMLManifest()
-			if err != nil {
-				return err
-			}
+	for i, wh := range whs {
+		k8sObjects, err := object.ParseK8sObjectsFromYAMLManifest(wh)
+		if err != nil {
+			return err
+		}
+		objYaml, err := k8sObjects.YAMLManifest()
+		if err != nil {
+			return err
+		}
+		// Here if we need to create a default tag, we need to skip the webhooks that are going to be deactivated.
+		if !detectIfTagWebhookIsNeeded(h.iop, exists) {
 			whReaderSource := local.ReaderSource{
 				Name:   fmt.Sprintf("installed-webhook-%d", i),
 				Reader: strings.NewReader(objYaml),
 			}
 			localWebhookYAMLReaders = append(localWebhookYAMLReaders, whReaderSource)
-			parsedK8sObjects = append(parsedK8sObjects, k8sObjects...)
 		}
+		parsedK8sObjects = append(parsedK8sObjects, k8sObjects...)
 	}
 
 	sa := local.NewSourceAnalyzer(analysis.Combine("webhook", &webhook.Analyzer{
