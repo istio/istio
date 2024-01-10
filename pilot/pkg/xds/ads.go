@@ -991,7 +991,9 @@ func (conn *Connection) orderWatchedResources() []*model.WatchedResource {
 
 // reportAllEvents is to simplify the logic of reporting events to the status reporter.
 // 1. if typeUrl is empty, report all events
-// 2. if typeUrl is not empty, report the given event type and all tracking event types that are not being watched. e.g. there is no rds if no route configured for gateway.
+// 2. if typeUrl is not empty, report the given event type and all tracking event types that are not being watched.
+// e.g. there is no rds if no route configured for gateway.
+// nolint
 func reportAllEvents(con *Connection, statusReporter DistributionStatusCache, typeUrl, nonce string) {
 	if statusReporter == nil {
 		return
