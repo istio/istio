@@ -833,7 +833,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-ratings",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "ratings"},
-			Addresses:    []string{"2.2.2.21"},
+			Addresses:    []string{"2.2.2.21", "2001:1::21"},
 			EndpointPort: 8080,
 		},
 	}
@@ -873,7 +873,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		Namespace: "bookinfo-productpage",
 		Endpoint: &model.IstioEndpoint{
 			Labels:       labels.Instance{"app": "productpage"},
-			Addresses:    []string{"4.4.4.41"},
+			Addresses:    []string{"4.4.4.41", "2001:1::41"},
 			EndpointPort: 6060,
 		},
 	}
@@ -899,7 +899,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		},
 		{
 			name:  "proxy with IP from the registry, 1 matching WE, but no matching Service",
-			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"4.4.4.41"}},
+			proxy: &model.Proxy{Metadata: &model.NodeMetadata{}, IPAddresses: []string{"4.4.4.41", "2001:1::41"}},
 			want:  nil,
 		},
 		{
@@ -963,7 +963,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID == WE name",
 			proxy: &model.Proxy{
-				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21", "2001:1::21"},
 				ID: "ratings-1.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
 			},
 			want: []model.ServiceTarget{{
@@ -979,7 +979,7 @@ func TestGetProxyServiceTargets_WorkloadInstance(t *testing.T) {
 		{
 			name: "proxy with IP from the registry, 2 matching WE, and matching Service, and proxy.ID != WE name, but proxy.ConfigNamespace == WE namespace",
 			proxy: &model.Proxy{
-				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21"},
+				Metadata: &model.NodeMetadata{}, IPAddresses: []string{"2.2.2.21", "2001:1::21"},
 				ID: "wrong-name.bookinfo-ratings", ConfigNamespace: "bookinfo-ratings",
 			},
 			want: []model.ServiceTarget{{
@@ -1638,7 +1638,7 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 		Namespace: "bookinfo-ratings",
 		Endpoint: &model.IstioEndpoint{
 			Labels:    labels.Instance{"app": "ratings"},
-			Addresses: []string{"2.2.2.2"},
+			Addresses: []string{"2.2.2.2", "2001:1::2"},
 		},
 		PortMap: map[string]uint32{
 			"http": 8083, // should be used
@@ -1657,7 +1657,7 @@ func TestEndpoints_WorkloadInstances(t *testing.T) {
 
 	endpoints := GetEndpoints(svcs[0], ctl.Endpoints)
 
-	want := []string{"2.2.2.2:8082", "2.2.2.2:8083"} // expect both WorkloadEntries even though they have the same IP
+	want := []string{"2.2.2.2:8082", "2.2.2.2:8083", "[2001:1::2]:8083"} // expect both WorkloadEntries even though they have the same IP
 
 	var got []string
 	for _, instance := range endpoints {
@@ -2412,12 +2412,12 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 		Endpoint: &model.IstioEndpoint{
 			Labels:         labels.Instance{"app": "prod-app"},
 			ServiceAccount: "account",
-			Addresses:      []string{"2.2.2.2"},
+			Addresses:      []string{"2.2.2.2", "2001:1::2"},
 			EndpointPort:   8080,
 		},
 	}, model.EventAdd)
 
-	expectedEndpointIPs := []string{"172.0.1.1", "2.2.2.2"}
+	expectedEndpointIPs := []string{"172.0.1.1", "2.2.2.2", "2001:1::2"}
 	// Check if an EDS event is fired
 	ev := fx.WaitOrFail(t, "eds")
 	// check if the hostname matches that of k8s service svc1.nsA
@@ -2459,7 +2459,7 @@ func TestWorkloadInstanceHandlerMultipleEndpoints(t *testing.T) {
 	for _, ep := range ev.Endpoints {
 		gotEndpointIPs = append(gotEndpointIPs, ep.Addresses...)
 	}
-	expectedEndpointIPs = []string{"172.0.1.1", "172.0.1.2", "2.2.2.2"}
+	expectedEndpointIPs = []string{"172.0.1.1", "172.0.1.2", "2.2.2.2", "2001:1::2"}
 	if !reflect.DeepEqual(gotEndpointIPs, expectedEndpointIPs) {
 		t.Fatalf("eds update after adding pod did not match expected list. got %v, want %v",
 			gotEndpointIPs, expectedEndpointIPs)

@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -293,6 +294,9 @@ func TestUpdateEndpointCacheForSliceWithMulAddrs(t *testing.T) {
 	portName := "tcp-port"
 	portNum := int32(8080)
 
+	// Enable the Dual Stack features for testing UpdateEndpointCacheForSlice
+	test.SetForTest(t, &features.EnableDualStack, true)
+
 	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
 
 	node := generateNode("node1", map[string]string{
@@ -357,7 +361,7 @@ func TestUpdateEndpointCacheForSliceWithMulAddrs(t *testing.T) {
 
 	sliceEndpoint := make([]discovery.Endpoint, 0, 2)
 	// Add both IPv4 and IPv6 slice endpoint for the istioEndpoint
-	sliceEndpoint = append(sliceEndpoint,
+	sliceEndpoint = append(sliceEndpoint, 
 		discovery.Endpoint{
 			Addresses: []string{"128.0.0.1"},
 			TargetRef: ref,
