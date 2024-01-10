@@ -362,7 +362,7 @@ func TestUpdateEndpointCacheForSliceWithMulAddrs(t *testing.T) {
 
 	sliceEndpoint := make([]discovery.Endpoint, 0, 2)
 	// Add both IPv4 and IPv6 slice endpoint for the istioEndpoint
-	sliceEndpoint = append(sliceEndpoint, 
+	sliceEndpoint = append(sliceEndpoint,
 		discovery.Endpoint{
 			Addresses: []string{"128.0.0.1"},
 			TargetRef: ref,

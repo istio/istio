@@ -1226,6 +1226,7 @@ func TestClusterDnsLookupFamily(t *testing.T) {
 }
 
 func TestBuildLocalityLbEndpoints(t *testing.T) {
+	test.SetForTest(t, &features.EnableDualStack, true)
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{
 			ClusterID:            "cluster-1",
@@ -1292,7 +1293,7 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 					Service:     service,
 					ServicePort: servicePort,
 					Endpoint: &model.IstioEndpoint{
-						Addresses:    []string{"192.168.1.2"},
+						Addresses:    []string{"192.168.1.2", "2001:1::2"},
 						EndpointPort: 10001,
 						WorkloadName: "workload-2",
 						Namespace:    "namespace-2",
@@ -1377,6 +1378,20 @@ func TestBuildLocalityLbEndpoints(t *testing.T) {
 												Address: "192.168.1.2",
 												PortSpecifier: &core.SocketAddress_PortValue{
 													PortValue: 10001,
+												},
+											},
+										},
+									},
+									AdditionalAddresses: []*endpoint.Endpoint_AdditionalAddress{
+										{
+											Address: &core.Address{
+												Address: &core.Address_SocketAddress{
+													SocketAddress: &core.SocketAddress{
+														Address: "2001:1::2",
+														PortSpecifier: &core.SocketAddress_PortValue{
+															PortValue: 10001,
+														},
+													},
 												},
 											},
 										},
@@ -1669,6 +1684,7 @@ func drWithLabels(lbls labels.Instance) *model.ConsolidatedDestRule {
 
 func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 	test.SetForTest(t, &features.CanonicalServiceForMeshExternalServiceEntry, true)
+	test.SetForTest(t, &features.EnableDualStack, true)
 	proxy := &model.Proxy{
 		Metadata: &model.NodeMetadata{
 			ClusterID:            "cluster-1",
@@ -1713,7 +1729,7 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 			Service:     service,
 			ServicePort: servicePort,
 			Endpoint: &model.IstioEndpoint{
-				Addresses:    []string{"192.168.1.1"},
+				Addresses:    []string{"192.168.1.1", "2001:1::1"},
 				EndpointPort: 10001,
 				WorkloadName: "workload-1",
 				Namespace:    "namespace-1",
@@ -1815,6 +1831,20 @@ func TestConcurrentBuildLocalityLbEndpoints(t *testing.T) {
 										Address: "192.168.1.1",
 										PortSpecifier: &core.SocketAddress_PortValue{
 											PortValue: 10001,
+										},
+									},
+								},
+							},
+							AdditionalAddresses: []*endpoint.Endpoint_AdditionalAddress{
+								{
+									Address: &core.Address{
+										Address: &core.Address_SocketAddress{
+											SocketAddress: &core.SocketAddress{
+												Address: "2001:1::1",
+												PortSpecifier: &core.SocketAddress_PortValue{
+													PortValue: 10001,
+												},
+											},
 										},
 									},
 								},
