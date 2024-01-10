@@ -25,12 +25,10 @@ import (
 	mcs "sigs.k8s.io/mcs-api/pkg/apis/v1alpha1"
 
 	"istio.io/api/label"
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/kube"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
-	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 )
 
@@ -193,19 +191,6 @@ func TestUpdateEndpointCacheForSlice(t *testing.T) {
 	pod := generatePod("128.0.0.1", podName, ns, "svcaccount", "node1",
 		map[string]string{"app": appName}, map[string]string{})
 
-	// Enable the Dual Stack features for testing UpdateEndpointCacheForSlice
-	test.SetForTest(t, &features.EnableDualStack, true)
-	if features.EnableDualStack {
-		// set the dual stack pods
-		pod.Status.PodIPs = []corev1.PodIP{
-			{
-				IP: "128.0.0.1",
-			},
-			{
-				IP: "2001:1::1",
-			},
-		}
-	}
 	addPods(t, controller, fx, pod)
 
 	createServiceWait(controller, svcName, ns, nil, nil,
@@ -253,13 +238,7 @@ func TestUpdateEndpointCacheForSlice(t *testing.T) {
 		Addresses: []string{"128.0.0.1"},
 		TargetRef: ref,
 	})
-	if features.EnableDualStack {
-		// Add IPv6 slice endpoint the istioEndpoint
-		sliceEndpoint = append(sliceEndpoint, discovery.Endpoint{
-			Addresses: []string{"2001:1::1"},
-			TargetRef: ref,
-		})
-	}
+
 	// Add slice endpoint for a istioEndpoint
 	endpointSlice := &discovery.EndpointSlice{
 		ObjectMeta: metav1.ObjectMeta{
@@ -271,17 +250,137 @@ func TestUpdateEndpointCacheForSlice(t *testing.T) {
 		Ports:     esps,
 	}
 
-	var expectedIstioEP *model.IstioEndpoint
-	if features.EnableDualStack {
-		expectedIstioEP = &model.IstioEndpoint{
-			Addresses:       []string{"128.0.0.1", "2001:1::1"},
-			ServicePortName: "tcp-port",
+	expectedIstioEP := &model.IstioEndpoint{
+		Addresses:       []string{"128.0.0.1"},
+		ServicePortName: "tcp-port",
+	}
+	controller.endpoints.updateEndpointCacheForSlice(hostname, endpointSlice)
+	istioEPs := controller.endpoints.endpointCache.Get(hostname)
+
+	if len(istioEPs) == 0 {
+		t.Errorf("Failed: no istioEndpoint instance can be found based on host name [%v]", hostname)
+	}
+	if len(istioEPs) != 1 {
+		t.Errorf("Failed: the number of istioEndpoint instance is incorrect, expected %v, but got %v", 1, len(istioEPs))
+	}
+	if len(istioEPs[0].Addresses) != len(expectedIstioEP.Addresses) {
+		t.Errorf("Failed: the istioEndpoint has different Addresses, expected %v, but got %v", len(expectedIstioEP.Addresses), len(istioEPs[0].Addresses))
+	}
+
+	// Check the IP address of the istioEndpoint
+	var containIPaddr bool
+	for _, addr := range istioEPs[0].Addresses {
+		containIPaddr = false
+		for _, expectedAddr := range expectedIstioEP.Addresses {
+			if addr == expectedAddr {
+				containIPaddr = true
+			}
 		}
-	} else {
-		expectedIstioEP = &model.IstioEndpoint{
-			Addresses:       []string{"128.0.0.1"},
-			ServicePortName: "tcp-port",
+		if !containIPaddr {
+			t.Errorf("The istioEndpoint IP address [%v] is unexpected", addr)
 		}
+	}
+}
+
+func TestUpdateEndpointCacheForSliceWithMulAddrs(t *testing.T) {
+	const (
+		ns      = "nsa"
+		svcName = "svc1"
+		podName = "pod1"
+		appName = "prod-app"
+	)
+
+	portName := "tcp-port"
+	portNum := int32(8080)
+
+	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{})
+
+	node := generateNode("node1", map[string]string{
+		NodeZoneLabel:              "zone1",
+		NodeRegionLabel:            "region1",
+		label.TopologySubzone.Name: "subzone1",
+	})
+	addNodes(t, controller, node)
+
+	pod := generatePod("128.0.0.1", podName, ns, "svcaccount", "node1",
+		map[string]string{"app": appName}, map[string]string{})
+
+	// set the dual stack pods
+	pod.Status.PodIPs = []corev1.PodIP{
+		{
+			IP: "128.0.0.1",
+		},
+		{
+			IP: "2001:1::1",
+		},
+	}
+	addPods(t, controller, fx, pod)
+
+	createServiceWait(controller, svcName, ns, nil, nil,
+		[]int32{portNum}, map[string]string{"app": appName}, t)
+
+	// Ensure that the service is available.
+	hostname := kube.ServiceHostname(svcName, ns, controller.opts.DomainSuffix)
+	svc := controller.GetService(hostname)
+	if svc == nil {
+		t.Fatal("failed to get service")
+	}
+
+	ref := &corev1.ObjectReference{
+		Kind:      "Pod",
+		Namespace: ns,
+		Name:      podName,
+	}
+	// Add the reference to the service. Used by EndpointSlice logic only.
+	labels := make(map[string]string)
+	labels[discovery.LabelServiceName] = svcName
+	eas := make([]corev1.EndpointAddress, 0)
+	eas = append(eas, corev1.EndpointAddress{IP: "128.0.0.1", TargetRef: ref})
+
+	eps := make([]corev1.EndpointPort, 0)
+	eps = append(eps, corev1.EndpointPort{Name: portName, Port: portNum})
+	endpoint := &corev1.Endpoints{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svcName,
+			Namespace: ns,
+			Labels:    labels,
+		},
+		Subsets: []corev1.EndpointSubset{{
+			Addresses: eas,
+			Ports:     eps,
+		}},
+	}
+	clienttest.NewWriter[*corev1.Endpoints](t, controller.client).CreateOrUpdate(endpoint)
+
+	esps := make([]discovery.EndpointPort, 0)
+	esps = append(esps, discovery.EndpointPort{Name: &portName, Port: &portNum})
+
+	sliceEndpoint := make([]discovery.Endpoint, 0, 2)
+	// Add both IPv4 and IPv6 slice endpoint for the istioEndpoint
+	sliceEndpoint = append(sliceEndpoint,
+		discovery.Endpoint{
+			Addresses: []string{"128.0.0.1"},
+			TargetRef: ref,
+		},
+		discovery.Endpoint{
+			Addresses: []string{"2001:1::1"},
+			TargetRef: ref,
+		},
+	)
+	// Add slice endpoint for a istioEndpoint
+	endpointSlice := &discovery.EndpointSlice{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      svcName,
+			Namespace: ns,
+			Labels:    labels,
+		},
+		Endpoints: sliceEndpoint,
+		Ports:     esps,
+	}
+
+	expectedIstioEP := &model.IstioEndpoint{
+		Addresses:       []string{"128.0.0.1", "2001:1::1"},
+		ServicePortName: "tcp-port",
 	}
 	controller.endpoints.updateEndpointCacheForSlice(hostname, endpointSlice)
 	istioEPs := controller.endpoints.endpointCache.Get(hostname)
