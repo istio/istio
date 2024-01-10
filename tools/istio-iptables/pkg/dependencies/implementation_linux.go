@@ -22,7 +22,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
 	utilversion "k8s.io/apimachinery/pkg/util/version"
 
@@ -34,37 +33,6 @@ func (v IptablesVersion) NoLocks() bool {
 	// nf_tables does not use locks
 	// legacy added locks in 1.6.2
 	return !v.legacy || v.version.LessThan(IptablesRestoreLocking)
-}
-
-func (r *RealDependencies) execute(cmd string, ignoreErrors bool, stdin io.Reader, args ...string) error {
-	log.Infof("Running command: %s %s", cmd, strings.Join(args, " "))
-
-	externalCommand := exec.Command(cmd, args...)
-	stdout := &bytes.Buffer{}
-	stderr := &bytes.Buffer{}
-	externalCommand.Stdout = stdout
-	externalCommand.Stderr = stderr
-	externalCommand.Stdin = stdin
-
-	// Grab all viper config and propagate it as environment variables to the child process
-	repl := strings.NewReplacer("-", "_")
-	for _, k := range viper.AllKeys() {
-		v := viper.Get(k)
-		if v == nil {
-			continue
-		}
-		externalCommand.Env = append(externalCommand.Env, fmt.Sprintf("%s=%v", strings.ToUpper(repl.Replace(k)), v))
-	}
-	err := externalCommand.Run()
-	if len(stdout.String()) != 0 {
-		log.Infof("Command output: \n%v", stdout.String())
-	}
-
-	if !ignoreErrors && len(stderr.Bytes()) != 0 {
-		log.Errorf("Command error output: \n%v", stderr.String())
-	}
-
-	return err
 }
 
 var (
