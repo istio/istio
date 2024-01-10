@@ -440,10 +440,6 @@ func appendMxFilter(httpOpts *httpListenerOpts, node *model.Proxy, filters []*hc
 	if !features.MetadataExchange || httpOpts.hbone {
 		return filters
 	}
-	if !features.NativeMetadataExchange || !util.IsIstioVersionGE119(node.IstioVersion) {
-		return append(filters, xdsfilters.HTTPMx)
-	}
-
 	if httpOpts.class == istionetworking.ListenerClassSidecarInbound {
 		return append(filters, xdsfilters.SidecarInboundMetadataFilter)
 	}
