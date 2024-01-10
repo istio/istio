@@ -431,13 +431,21 @@ func TestOutboundListenerConfig_WithSidecar(t *testing.T) {
 	testOutboundListenerConfigWithSidecar(t, services...)
 }
 
-func TestOutboundListenerConflictWithStaticListener(t *testing.T) {
+func TestOutboundListenerConflictWithReservedListener(t *testing.T) {
 	// Add a service and verify it's config
-	services := []*model.Service{
+	servicesConflictWithStaticListener := []*model.Service{
 		buildServiceWithPort("test1.com", 15021, protocol.HTTP, tnow.Add(1*time.Second)),
 		buildServiceWithPort("test2.com", 15090, protocol.TCP, tnow),
 		buildServiceWithPort("test3.com", 8080, protocol.HTTP, tnow.Add(2*time.Second)),
 	}
+	servicesConflictWithVirtualListener := []*model.Service{
+		buildServiceWithPort("test4.com", 15001, protocol.HTTP, tnow.Add(1*time.Second)),
+		buildServiceWithPort("test5.com", 15006, protocol.TCP, tnow),
+		buildServiceWithPort("test6.com", 8081, protocol.HTTP, tnow.Add(2*time.Second)),
+	}
+	services := append([]*model.Service(nil), servicesConflictWithStaticListener...)
+	services = append(services, servicesConflictWithVirtualListener...)
+
 	// with sidecar
 	sidecarConfig := &config.Config{
 		Meta: config.Meta{
@@ -455,6 +463,14 @@ func TestOutboundListenerConflictWithStaticListener(t *testing.T) {
 					},
 					Hosts: []string{"*/*"},
 				},
+				{
+					Port: &networking.SidecarPort{
+						Number:   15001,
+						Protocol: "HTTP",
+						Name:     "http",
+					},
+					Hosts: []string{"*/*"},
+				},
 			},
 		},
 	}
@@ -466,12 +482,18 @@ func TestOutboundListenerConflictWithStaticListener(t *testing.T) {
 	}{
 		{
 			name:             "service port conflict with proxy static listener",
-			services:         services,
+			services:         servicesConflictWithStaticListener,
 			sidecar:          nil,
 			expectedListener: []int{15090, 8080},
 		},
 		{
-			name:             "sidecar listener port conflict with proxy static listener",
+			name:             "service port conflict with proxy virtual listener",
+			services:         servicesConflictWithVirtualListener,
+			sidecar:          nil,
+			expectedListener: []int{15006, 8081},
+		},
+		{
+			name:             "sidecar listener port conflict with proxy reserved listener",
 			services:         services,
 			sidecar:          sidecarConfig,
 			expectedListener: []int{},
@@ -484,7 +506,7 @@ func TestOutboundListenerConflictWithStaticListener(t *testing.T) {
 
 	for _, tc := range testcases {
 		t.Run(tc.name, func(t *testing.T) {
-			listeners := buildOutboundListeners(t, proxy, nil, tc.sidecar, services...)
+			listeners := buildOutboundListeners(t, proxy, nil, tc.sidecar, tc.services...)
 			if len(listeners) != len(tc.expectedListener) {
 				t.Logf("listeners: %v", listeners[0].GetAddress().GetSocketAddress().GetPortValue())
 				t.Fatalf("expected %d listeners, found %d", len(tc.expectedListener), len(listeners))

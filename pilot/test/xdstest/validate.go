@@ -19,6 +19,7 @@ import (
 	"testing"
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
+	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	endpoint "github.com/envoyproxy/go-control-plane/envoy/config/endpoint/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
@@ -64,6 +65,10 @@ func validateListenerFilters(t testing.TB, l *listener.Listener) {
 func validateInboundListener(t testing.TB, l *listener.Listener) {
 	if l.GetAddress().GetSocketAddress().GetPortValue() != 15006 {
 		// Not an inbound port
+		return
+	}
+	if l.GetTrafficDirection() != core.TrafficDirection_INBOUND {
+		// Not an inbound listener
 		return
 	}
 	for i, fc := range l.GetFilterChains() {
