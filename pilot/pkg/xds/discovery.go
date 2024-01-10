@@ -197,7 +197,6 @@ func (s *DiscoveryServer) closeJwksResolver() {
 	if s.JwtKeyResolver != nil {
 		s.JwtKeyResolver.Close()
 	}
-	s.JwtKeyResolver = nil
 }
 
 // Register adds the ADS handler to the grpc server
