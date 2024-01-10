@@ -2416,6 +2416,9 @@ func TestApplyConnectionPool(t *testing.T) {
 						Seconds: 10,
 					},
 				},
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					IdleTimeout: nil,
+				},
 			},
 			expectedHTTPPOpt: &http.HttpProtocolOptions{
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{

@@ -102,7 +102,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 	}
 
 	threshold := getDefaultCircuitBreakerThresholds()
-	idleTimeout := settings.GetTcp().GetIdleTimeout()
+	var idleTimeout *durationpb.Duration
 	var maxRequestsPerConnection uint32
 	var maxConcurrentStreams uint32
 	var maxConnectionDuration *duration.Duration
@@ -138,6 +138,9 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 		}
 		if settings.Tcp.MaxConnectionDuration != nil {
 			maxConnectionDuration = settings.Tcp.MaxConnectionDuration
+		}
+		if idleTimeout == nil {
+			idleTimeout = settings.Tcp.IdleTimeout
 		}
 	}
 	applyTCPKeepalive(mesh, mc.cluster, settings.Tcp)
