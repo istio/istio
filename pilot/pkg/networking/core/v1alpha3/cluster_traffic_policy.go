@@ -102,7 +102,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 	}
 
 	threshold := getDefaultCircuitBreakerThresholds()
-	var idleTimeout *durationpb.Duration
+	idleTimeout := settings.GetTcp().GetIdleTimeout()
 	var maxRequestsPerConnection uint32
 	var maxConcurrentStreams uint32
 	var maxConnectionDuration *duration.Duration

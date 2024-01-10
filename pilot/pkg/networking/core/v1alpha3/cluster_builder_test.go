@@ -2403,6 +2403,59 @@ func TestApplyConnectionPool(t *testing.T) {
 			},
 		},
 		{
+			name:    "set TCP idle timeout",
+			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			httpProtocolOptions: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
+				},
+			},
+			connectionPool: &networking.ConnectionPoolSettings{
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 10,
+					},
+				},
+			},
+			expectedHTTPPOpt: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 10,
+					},
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
+				},
+			},
+		},
+		{
+			name:    "ignore TCP idle timeout when HTTP idle timeout is specified",
+			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			httpProtocolOptions: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
+				},
+			},
+			connectionPool: &networking.ConnectionPoolSettings{
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 10,
+					},
+				},
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 20,
+					},
+				},
+			},
+			expectedHTTPPOpt: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 20,
+					},
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
+				},
+			},
+		},
+		{
 			name:    "only update MaxRequestsPerConnection ",
 			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
 			httpProtocolOptions: &http.HttpProtocolOptions{
