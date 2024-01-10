@@ -760,7 +760,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl := con.pushDetails()
+	wrl := con.orderWatchedResources()
 	for _, w := range wrl {
 		if err := s.pushXds(con, w, pushRequest); err != nil {
 			return err
@@ -966,17 +966,13 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 	return nil
 }
 
-// pushDetails returns the details needed for current push. It returns ordered list of
+// orderWatchedResources returns the ordered list of
 // watched resources for the proxy, ordered in accordance with known push order.
-// It also returns the lis of typeUrls.
 // nolint
-func (conn *Connection) pushDetails() []*model.WatchedResource {
+func (conn *Connection) orderWatchedResources() []*model.WatchedResource {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
-	return orderWatchedResources(conn.proxy.WatchedResources)
-}
-
-func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
+	resources := conn.proxy.WatchedResources
 	wr := make([]*model.WatchedResource, 0, len(resources))
 	// first add all known types, in order
 	for _, tp := range PushOrder {

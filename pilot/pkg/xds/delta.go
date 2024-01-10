@@ -169,7 +169,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl := con.pushDetails()
+	wrl := con.orderWatchedResources()
 	for _, w := range wrl {
 		if err := s.pushDeltaXds(con, w, pushRequest); err != nil {
 			return err
