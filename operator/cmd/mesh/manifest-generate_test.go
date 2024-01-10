@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/version"
 )
 
@@ -329,6 +330,36 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 			tc.assertFunc(g, objs, err)
 		})
 	}
+}
+
+func TestManifestGenerateDefaultWithRevisionedWebhook(t *testing.T) {
+	recreateSimpleTestEnv()
+	testResourceFile := "minimal-revisioned"
+	tmpDir := t.TempDir()
+	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
+	err := copyDir(string(liveCharts), string(tmpCharts))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add a default tag which is the webhook that will be processed post-install
+	whSource := "default_tag"
+	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", whSource+".yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writeFile(filepath.Join(tmpDir, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fakeControllerReconcile(testResourceFile, tmpCharts, &helmreconciler.Options{Force: false, SkipPrune: true})
+	assert.NoError(t, err)
+
+	// Install a default revision should not cause any error
+	minimal := "minimal"
+	_, err = fakeControllerReconcile(minimal, tmpCharts, &helmreconciler.Options{Force: false, SkipPrune: true})
+	assert.NoError(t, err)
 }
 
 func TestManifestGenerateIstiodRemote(t *testing.T) {

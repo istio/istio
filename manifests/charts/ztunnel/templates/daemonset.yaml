@@ -83,6 +83,8 @@ spec:
         {{- end }}
         - name: XDS_ADDRESS
           value: istiod{{- if not (eq .Values.revision "") }}-{{ .Values.revision }}{{- end }}.{{ .Values.istioNamespace }}.svc:15012
+        - name: RUST_LOG
+          value: {{ .Values.logLevel | quote }}
         - name: ISTIO_META_CLUSTER_ID
           value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
         - name: POD_NAME
