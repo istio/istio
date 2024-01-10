@@ -15,6 +15,8 @@
 package controller
 
 import (
+	"os"
+
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
@@ -45,6 +47,8 @@ const (
 
 var configMapLabel = map[string]string{"istio.io/config": "true"}
 
+var podNs = os.Getenv("POD_NAMESPACE")
+
 // NamespaceController manages reconciles a configmap in each namespace with a desired set of data.
 type NamespaceController struct {
 	caBundleWatcher *keycertbundle.Watcher
@@ -70,8 +74,14 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		controllers.WithReconciler(c.reconcileCACert),
 		controllers.WithMaxAttempts(maxRetries))
 
+	// Added by ingress
+	selector := CACertNamespaceConfigMap
+	if features.CustomCACertConfigMapName != "" {
+		selector = features.CustomCACertConfigMapName
+	}
+	// End added by ingress
 	c.configmaps = kclient.NewFiltered[*v1.ConfigMap](kubeClient, kclient.Filter{
-		FieldSelector: "metadata.name=" + CACertNamespaceConfigMap,
+		FieldSelector: "metadata.name=" + selector,
 		ObjectFilter:  c.GetFilter(),
 	})
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
@@ -160,6 +170,11 @@ func (nc *NamespaceController) reconcileCACert(o types.NamespacedName) error {
 // On namespace change, update the config map.
 // If terminating, this will be skipped
 func (nc *NamespaceController) namespaceChange(ns *v1.Namespace) {
+	// Added by ingress
+	if ns.Name != podNs {
+		return
+	}
+	// End added by ingress
 	if ns.Status.Phase != v1.NamespaceTerminating {
 		nc.syncNamespace(ns.Name)
 	}

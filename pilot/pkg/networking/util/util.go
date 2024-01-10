@@ -96,6 +96,8 @@ const (
 // ALPNH11Only advertises that Proxy is going to talking http 1.1.
 var ALPNH11Only = []string{"http/1.1"}
 
+var regexEngine = &matcher.RegexMatcher_GoogleRe2{GoogleRe2: &matcher.RegexMatcher_GoogleRE2{}}
+
 // ALPNH2Only advertises that Proxy is going to use HTTP/2 when talking to the cluster.
 var ALPNH2Only = []string{"h2"}
 
@@ -585,7 +587,8 @@ func ConvertToEnvoyMatch(in *networking.StringMatch) *matcher.StringMatcher {
 		return &matcher.StringMatcher{
 			MatchPattern: &matcher.StringMatcher_SafeRegex{
 				SafeRegex: &matcher.RegexMatcher{
-					Regex: m.Regex,
+					EngineType: regexEngine,
+					Regex:      m.Regex,
 				},
 			},
 		}

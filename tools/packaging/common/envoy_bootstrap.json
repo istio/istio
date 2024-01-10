@@ -61,6 +61,14 @@
     "use_all_default_tags": false,
     "stats_tags": [
       {
+        "tag_name": "phase",
+        "regex": "(_phase=([a-z_]+))"
+      },
+      {
+        "tag_name": "ruleid",
+        "regex": "(_ruleid=([0-9]+))"
+      },
+      {
         "tag_name": "cluster_name",
         "regex": "^cluster\\.((.+?(\\..+?\\.svc\\.cluster\\.local)?)\\.)"
       },

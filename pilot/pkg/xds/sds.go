@@ -282,6 +282,14 @@ func filterAuthorizedResources(resources []SecretResource, proxy *model.Proxy, s
 			} else {
 				deniedResources = append(deniedResources, r.Name)
 			}
+			// Add by ingress
+		case credentials.KubernetesIngressSecretType:
+			if isAuthorized() {
+				allowedResources = append(allowedResources, r)
+			} else {
+				deniedResources = append(deniedResources, r.Name)
+			}
+			// End Add by ingress
 		default:
 			// Should never happen
 			log.Warnf("unknown credential type %q", r.Type)
