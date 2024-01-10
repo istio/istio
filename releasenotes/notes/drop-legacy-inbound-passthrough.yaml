@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+- |
+  **Removed** the `PILOT_ENABLE_INBOUND_PASSTHROUGH` setting, which has been enabled-by-default for the past 8 releases.
