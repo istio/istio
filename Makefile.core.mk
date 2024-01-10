@@ -325,6 +325,7 @@ gen: \
 
 gen-check: gen check-clean-repo
 
+CHARTS = gateway default ztunnel istio-operator base "gateways/istio-ingress" "gateways/istio-egress" "istio-control/istio-discovery" istiod-remote istio-cni
 copy-templates:
 	rm manifests/charts/istiod-remote/templates/*
 	rm manifests/charts/gateways/istio-egress/templates/*
@@ -359,7 +360,13 @@ copy-templates:
 
 	# copy istio-discovery values, but apply some local customizations
 	cp manifests/charts/istio-control/istio-discovery/values.yaml manifests/charts/istiod-remote/
-	yq -i '.telemetry.enabled=false | .global.externalIstiod=true | .global.omitSidecarInjectorConfigMap=true | .pilot.configMap=false' manifests/charts/istiod-remote/values.yaml
+	yq -i '.defaults.telemetry.enabled=false | .defaults.global.externalIstiod=true | .defaults.global.omitSidecarInjectorConfigMap=true | .defaults.pilot.configMap=false' manifests/charts/istiod-remote/values.yaml
+	for chart in $(CHARTS) ; do \
+		for profile in manifests/helm-profiles/*.yaml ; do \
+			cp $$profile manifests/charts/$$chart/files/profile-$$(basename $$profile) ; \
+		done; \
+		cp manifests/zzz_profile.yaml manifests/charts/$$chart/templates ; \
+	done
 
 #-----------------------------------------------------------------------------
 # Target: go build
