@@ -51,8 +51,8 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream)
 
 	con := &ProxyConnection{
 		conID:             connectionNumber.Inc(),
-		upstreamError:     make(chan error, 2), // can be produced by recv and send
-		downstreamError:   make(chan error, 2), // can be produced by recv and send
+		upstreamError:     make(chan error), // can be produced by recv and send
+		downstreamError:   make(chan error), // can be produced by recv and send
 		deltaRequestsChan: channels.NewUnbounded[*discovery.DeltaDiscoveryRequest](),
 		// Allow a buffer of 1. This ensures we queue up at most 2 (one in process, 1 pending) responses before forwarding.
 		deltaResponsesChan: make(chan *discovery.DeltaDiscoveryResponse, 1),
@@ -102,10 +102,7 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 		for {
 			resp, err := con.upstreamDeltas.Recv()
 			if err != nil {
-				select {
-				case con.upstreamError <- err:
-				case <-con.stopChan:
-				}
+				upstreamErr(con, err)
 				return
 			}
 			select {
@@ -155,10 +152,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 			// recv delta xds requests from envoy
 			req, err := con.downstreamDeltas.Recv()
 			if err != nil {
-				select {
-				case con.downstreamError <- err:
-				case <-con.stopChan:
-				}
+				downstreamErr(con, err)
 				return
 			}
 
@@ -208,8 +202,8 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 			}
 
 			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
-				err = fmt.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
-				con.upstreamError <- err
+				err = fmt.Errorf("send error for type url %s: %v", req.TypeUrl, err)
+				upstreamErr(con, err)
 				return
 			}
 		case <-con.stopChan:
@@ -316,13 +310,8 @@ func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryRes
 		return
 	}
 	if err := sendDownstreamDelta(con.downstreamDeltas, resp); err != nil {
-		select {
-		case con.downstreamError <- err:
-			proxyLog.Errorf("downstream [%d] send error: %v", con.conID, err)
-		default:
-			proxyLog.Debugf("downstream [%d] error channel full, but get downstream send error: %v", con.conID, err)
-		}
-
+		err = fmt.Errorf("send error for type url %s: %v", resp.TypeUrl, err)
+		downstreamErr(con, err)
 		return
 	}
 }
