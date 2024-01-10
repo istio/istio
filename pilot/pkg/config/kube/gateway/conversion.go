@@ -690,8 +690,14 @@ func buildGRPCVirtualServices(
 				routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
 				routeKey += fmt.Sprintf("/%d", *parent.OriginalReference.Port)
 			}
-			vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
-				parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
+			if parent.InternalKind == gvk.ServiceEntry {
+				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
+					string(parent.OriginalReference.Name),
+					string(ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace))))
+			} else {
+				vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
+					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
+			}
 		}
 		if len(routes) == 0 {
 			continue
@@ -1047,32 +1053,43 @@ func buildTCPVirtualService(ctx configContext, obj config.Config) []config.Confi
 	vs := []config.Config{}
 	for _, parent := range filteredReferences(parentRefs) {
 		routes := gwResult.routes
-		vsHost := "*"
+		vsHosts := []string{"*"}
 		if parent.IsMesh() {
 			routes = meshResult.routes
 			if parent.OriginalReference.Port != nil {
 				routes = augmentTCPPortMatch(routes, *parent.OriginalReference.Port)
 			}
-			vsHost = fmt.Sprintf("%s.%s.svc.%s",
-				parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)
+			if parent.InternalKind == gvk.ServiceEntry {
+				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
+					string(parent.OriginalReference.Name),
+					string(ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace))))
+			} else {
+				vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
+					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
+			}
 		}
-		vs = append(vs, config.Config{
-			Meta: config.Meta{
-				CreationTimestamp: obj.CreationTimestamp,
-				GroupVersionKind:  gvk.VirtualService,
-				Name:              fmt.Sprintf("%s-tcp-%s", obj.Name, constants.KubernetesGatewayName),
-				Annotations:       routeMeta(obj),
-				Namespace:         obj.Namespace,
-				Domain:            ctx.Domain,
-			},
-			Spec: &istio.VirtualService{
-				// We can use wildcard here since each listener can have at most one route bound to it, so we have
-				// a single VS per Gateway.
-				Hosts:    []string{vsHost},
-				Gateways: []string{parent.InternalName},
-				Tcp:      routes,
-			},
-		})
+		for i, host := range vsHosts {
+			name := fmt.Sprintf("%s-tcp-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
+			// Create one VS per hostname with a single hostname.
+			// This ensures we can treat each hostname independently, as the spec requires
+			vs = append(vs, config.Config{
+				Meta: config.Meta{
+					CreationTimestamp: obj.CreationTimestamp,
+					GroupVersionKind:  gvk.VirtualService,
+					Name:              name,
+					Annotations:       routeMeta(obj),
+					Namespace:         obj.Namespace,
+					Domain:            ctx.Domain,
+				},
+				Spec: &istio.VirtualService{
+					// We can use wildcard here since each listener can have at most one route bound to it, so we have
+					// a single VS per Gateway.
+					Hosts:    []string{host},
+					Gateways: []string{parent.InternalName},
+					Tcp:      routes,
+				},
+			})
+		}
 	}
 	return vs
 }
@@ -1129,9 +1146,15 @@ func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Confi
 		if parent.IsMesh() {
 			routes = meshResult.routes
 			routes, tcpRoutes = augmentTLSPortMatch(routes, parent.OriginalReference.Port)
-			host := fmt.Sprintf("%s.%s.svc.%s",
-				parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)
-			vsHosts = []string{host}
+			if parent.InternalKind == gvk.ServiceEntry {
+				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
+					string(parent.OriginalReference.Name),
+					string(ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace))))
+			} else {
+				host := fmt.Sprintf("%s.%s.svc.%s",
+					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)
+				vsHosts = []string{host}
+			}
 		}
 
 		for i, host := range vsHosts {
