@@ -87,18 +87,14 @@ func (a *anyTransformer) AnyToTypedStruct(pbst *structpb.Struct) *structpb.Struc
 	typeURL, f := pbst.Fields["@type"]
 	if f && typeURL.GetStringValue() != "" && !isTypeKnown(typeURL.GetStringValue()) {
 		// need to transform!
+		transformed, _ := structpb.NewStruct(make(map[string]any, 3))
+		transformed.Fields["@type"] = structpb.NewStringValue(typedStructTypeURL)
+		transformed.Fields["type_url"] = typeURL
 		pbst := proto.Clone(pbst).(*structpb.Struct)
-		pbst.Fields["@type"] = structpb.NewStringValue(typedStructTypeURL)
-		pbst.Fields["type_url"] = typeURL
-		st, _ := structpb.NewStruct(nil)
-		for k, v := range pbst.Fields {
-			if k != "@type" && k != "type_url" {
-				st.Fields[k] = v
-			}
-		}
-		pbst.Fields["value"] = structpb.NewStructValue(st)
+		delete(pbst.Fields, "@type")
+		transformed.Fields["value"] = structpb.NewStructValue(pbst)
 		a.unknownTypes.Insert(typeURL.GetStringValue())
-		return pbst
+		return transformed
 	}
 	var parent *structpb.Struct
 
