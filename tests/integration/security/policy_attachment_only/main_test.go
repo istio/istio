@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/jwt"
 	"istio.io/istio/pkg/test/framework/components/namespace"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 )
 
@@ -46,6 +47,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, func(c resource.Context, cfg *istio.Config) {
 			if !c.Settings().EnableDualStack {
 				cfg.ControlPlaneValues = `
