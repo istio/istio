@@ -22,6 +22,7 @@ import (
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	statusv3 "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -157,7 +158,7 @@ func XdsVersionCommand(ctx cli.Context) *cobra.Command {
 func xdsRemoteVersionWrapper(ctx cli.Context, opts *clioptions.ControlPlaneOptions, centralOpts *clioptions.CentralControlPlaneOptions, outXDS **discovery.DiscoveryResponse) func() (*istioVersion.MeshInfo, error) {
 	return func() (*istioVersion.MeshInfo, error) {
 		xdsRequest := discovery.DiscoveryRequest{
-			TypeUrl: xds.TypeURLConnect,
+			TypeUrl: xds.TypeDebugSyncronization,
 		}
 		kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
 		if err != nil {
@@ -210,6 +211,17 @@ func xdsProxyVersionWrapper(xdsResponse **discovery.DiscoveryResponse) func() (*
 					// Skip non-sidecars (e.g. istioctl queries)
 					continue
 				}
+				pi = append(pi, istioVersion.ProxyInfo{
+					ID:           node.Id,
+					IstioVersion: getIstioVersionFromXdsMetadata(node.Metadata),
+				})
+			case "type.googleapis.com/envoy.service.status.v3.ClientConfig":
+				cc := statusv3.ClientConfig{}
+				err := resource.UnmarshalTo(&cc)
+				if err != nil {
+					return nil, fmt.Errorf("could not unmarshal Node: %w", err)
+				}
+				node := cc.Node
 				pi = append(pi, istioVersion.ProxyInfo{
 					ID:           node.Id,
 					IstioVersion: getIstioVersionFromXdsMetadata(node.Metadata),

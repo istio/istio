@@ -20,8 +20,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 	status "github.com/envoyproxy/go-control-plane/envoy/service/status/v3"
-	"google.golang.org/protobuf/proto"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
@@ -29,9 +27,6 @@ import (
 )
 
 const (
-	// TypeURLConnect generate connect event.
-	TypeURLConnect = "istio.io/connect"
-
 	TypeDebugPrefix = v3.DebugType + "/"
 
 	// TypeDebugSyncronization requests Envoy CSDS for proxy sync status
@@ -82,13 +77,6 @@ func (sg *StatusGen) handleInternalRequest(_ *model.Proxy, w *model.WatchedResou
 	res := model.Resources{}
 
 	switch w.TypeUrl {
-	case TypeURLConnect:
-		for _, v := range sg.Server.Clients() {
-			res = append(res, &discovery.Resource{
-				Name:     v.node.Id,
-				Resource: protoconv.MessageToAny(v.node),
-			})
-		}
 	case TypeDebugSyncronization:
 		res = sg.debugSyncz()
 	case TypeDebugConfigDump:
@@ -199,30 +187,4 @@ func (sg *StatusGen) debugConfigDump(proxyID string) (model.Resources, error) {
 	}
 
 	return model.AnyToUnnamedResources(dump.Configs), nil
-}
-
-func (sg *StatusGen) OnConnect(con *Connection) {
-	sg.pushStatusEvent(TypeURLConnect, []proto.Message{con.node})
-}
-
-// pushStatusEvent is similar with DiscoveryServer.pushStatusEvent() - but called directly,
-// since status discovery is not driven by config change events.
-// We also want connection events to be dispatched as soon as possible,
-// they may be consumed by other instances of Istiod to update internal state.
-func (sg *StatusGen) pushStatusEvent(typeURL string, data []proto.Message) {
-	clients := sg.Server.ClientsOf(typeURL)
-	if len(clients) == 0 {
-		return
-	}
-
-	resources := make([]*anypb.Any, 0, len(data))
-	for _, v := range data {
-		resources = append(resources, protoconv.MessageToAny(v))
-	}
-	dr := &discovery.DiscoveryResponse{
-		TypeUrl:   typeURL,
-		Resources: resources,
-	}
-
-	sg.Server.SendResponse(clients, dr)
 }
