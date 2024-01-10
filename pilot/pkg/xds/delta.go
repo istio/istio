@@ -276,7 +276,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
-	if s.StatusReporter != nil {
+	if s.StatusReporter != nil && AllTrackingEventTypes.Contains(req.TypeUrl) {
 		reportAllEvents(con, s.StatusReporter, req.TypeUrl, req.ResponseNonce)
 	}
 	shouldRespond := s.shouldRespondDelta(con, req)
