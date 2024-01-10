@@ -22,6 +22,9 @@ webhooks:
         namespace: {{ .Values.global.istioNamespace }}
         path: "/validate"
       {{- end }}
+      {{- if not (eq .Values.webhookConfig.caBundle "") }}
+      caBundle: "{{ .Values.webhookConfig.caBundle }}"
+      {{- end }}
     rules:
       - operations:
           - CREATE

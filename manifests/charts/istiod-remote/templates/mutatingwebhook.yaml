@@ -20,6 +20,9 @@ a unique prefix to each. */}}
       path: "{{ .injectionPath }}"
       port: 443
     {{- end }}
+    {{- if not (eq .caBundle "") }}
+    caBundle: "{{ .caBundle }}"
+    {{- end }}
   sideEffects: None
   rules:
   - operations: [ "CREATE" ]
