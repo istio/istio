@@ -628,6 +628,7 @@ spec:
 `
 
 func TestInboundListenerFilters(t *testing.T) {
+	test.SetForTest(t, &features.EnableDualStack, true)
 	services := []*model.Service{
 		buildServiceWithPort("test1.com", 80, protocol.HTTP, tnow),
 		buildServiceWithPort("test2.com", 81, protocol.Unsupported, tnow),
@@ -639,7 +640,7 @@ func TestInboundListenerFilters(t *testing.T) {
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
 				EndpointPort: uint32(s.Ports[0].Port),
-				Addresses:    []string{"1.1.1.1"},
+				Addresses:    []string{"1.1.1.1", "2001:1::1"},
 			},
 			ServicePort: s.Ports[0],
 		})
@@ -735,6 +736,7 @@ func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.Listener
 }
 
 func TestSidecarInboundListenerFilters(t *testing.T) {
+	test.SetForTest(t, &features.EnableDualStack, true)
 	services := []*model.Service{buildServiceWithPort("test.com", 80, protocol.HTTPS, tnow)}
 
 	expectIstioMTLS := func(t test.Failer, filterChain *listener.FilterChain) {
@@ -757,7 +759,7 @@ func TestSidecarInboundListenerFilters(t *testing.T) {
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
 				EndpointPort: uint32(s.Ports[0].Port),
-				Addresses:    []string{"1.1.1.1"},
+				Addresses:    []string{"1.1.1.1", "2001:1::1"},
 			},
 			ServicePort: s.Ports[0],
 		})
