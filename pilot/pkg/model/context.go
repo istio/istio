@@ -724,6 +724,9 @@ type NodeMetadata struct {
 // if not present.
 func (m NodeMetadata) ProxyConfigOrDefault(def *meshconfig.ProxyConfig) *meshconfig.ProxyConfig {
 	if m.ProxyConfig != nil {
+		if def != nil {
+			(*meshconfig.ProxyConfig)(m.ProxyConfig).DisableAlpnH2 = def.DisableAlpnH2
+		}
 		return (*meshconfig.ProxyConfig)(m.ProxyConfig)
 	}
 	return def

@@ -20,6 +20,7 @@ import (
 	"strconv"
 	"strings"
 
+	fallback "github.com/envoyproxy/go-control-plane/contrib/envoy/extensions/custom_cluster_plugins/cluster_fallback/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
 	xdsfault "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/common/fault/v3"
@@ -488,6 +489,8 @@ func applyHTTPRouteDestination(
 	action := &route.RouteAction{
 		Cors:        TranslateCORSPolicy(in.CorsPolicy),
 		RetryPolicy: retry.ConvertPolicy(policy),
+		// Added by ingress
+		InternalActiveRedirectPolicy: TranslateInternalActiveRedirectPolicy(in.InternalActiveRedirect, util.RegexEngine),
 	}
 
 	setTimeout(action, in.Timeout, node)
@@ -535,20 +538,81 @@ func applyHTTPRouteDestination(
 		}
 	}
 
+	// Added by ingress
+	convertFallbackClusters := func(original string, fallbackClusters []*networking.Destination) *fallback.ClusterFallbackConfig_ClusterConfig {
+		var clusters []string
+		for _, cluster := range fallbackClusters {
+			hostname := host.Name(cluster.GetHost())
+			clusters = append(clusters, GetDestinationCluster(cluster, serviceRegistry[hostname], listenerPort))
+		}
+		return &fallback.ClusterFallbackConfig_ClusterConfig{
+			RoutingCluster:   original,
+			FallbackClusters: clusters,
+		}
+	}
+
+	var singleClusterConfig *fallback.ClusterFallbackConfig
+	var weightedClusterConfig *fallback.ClusterFallbackConfig
+	weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
+	for _, dst := range in.Route {
+		if dst.Weight == 0 {
+			// Ignore 0 weighted clusters if there are other clusters in the route.
+			continue
+		}
+		weighted = append(weighted, processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action))
+	}
 	if len(in.Route) == 1 {
-		processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action)
+		route := in.Route[0]
+		if len(route.FallbackClusters) > 0 {
+			singleClusterConfig = &fallback.ClusterFallbackConfig{
+				ConfigSpecifier: &fallback.ClusterFallbackConfig_ClusterConfig_{
+					ClusterConfig: convertFallbackClusters(weighted[0].Name, route.FallbackClusters),
+				},
+			}
+		}
 	} else {
-		weighted := make([]*route.WeightedCluster_ClusterWeight, 0)
+		var clusterConfigList []*fallback.ClusterFallbackConfig_ClusterConfig
+		idx := 0
 		for _, dst := range in.Route {
 			if dst.Weight == 0 {
-				// Ignore 0 weighted clusters if there are other clusters in the route.
 				continue
 			}
-			weighted = append(weighted, processWeightedDestination(dst, serviceRegistry, listenerPort, hashByDestination, action))
+			if len(dst.FallbackClusters) > 0 {
+				clusterConfigList = append(clusterConfigList, convertFallbackClusters(weighted[idx].Name, dst.FallbackClusters))
+			}
+			idx++
 		}
+		if len(clusterConfigList) == 1 {
+			singleClusterConfig = &fallback.ClusterFallbackConfig{
+				ConfigSpecifier: &fallback.ClusterFallbackConfig_ClusterConfig_{
+					ClusterConfig: clusterConfigList[0],
+				},
+			}
+		} else if len(clusterConfigList) > 1 {
+			weightedClusterConfig = &fallback.ClusterFallbackConfig{
+				ConfigSpecifier: &fallback.ClusterFallbackConfig_WeightedClusterConfig_{
+					WeightedClusterConfig: &fallback.ClusterFallbackConfig_WeightedClusterConfig{
+						Config: clusterConfigList,
+					},
+				},
+			}
+		}
+	}
+
+	if len(in.Route) == 1 {
+		processDestination(in.Route[0], serviceRegistry, listenerPort, hashByDestination, out, action)
+		// Added by ingress
+		if singleClusterConfig != nil {
+			action.ClusterSpecifier = &route.RouteAction_InlineClusterSpecifierPlugin{
+				InlineClusterSpecifierPlugin: buildClusterSpecifierPlugin(singleClusterConfig),
+			}
+		}
+	} else {
 		action.ClusterSpecifier = &route.RouteAction_WeightedClusters{
 			WeightedClusters: &route.WeightedCluster{
 				Clusters: weighted,
+				// Added by ingress
+				InlineClusterSpecifierPlugin: buildClusterSpecifierPlugin(weightedClusterConfig),
 			},
 		}
 	}
@@ -1451,4 +1515,18 @@ func cutPrefix(s, prefix string) (after string, found bool) {
 		return s, false
 	}
 	return s[len(prefix):], true
+}
+
+// Added by ingress
+func buildClusterSpecifierPlugin(config *fallback.ClusterFallbackConfig) *route.ClusterSpecifierPlugin {
+	if config == nil {
+		return nil
+	}
+
+	return &route.ClusterSpecifierPlugin{
+		Extension: &core.TypedExtensionConfig{
+			Name:        "envoy.router.cluster_specifier_plugin.cluster_fallback",
+			TypedConfig: protoconv.MessageToAny(config),
+		},
+	}
 }

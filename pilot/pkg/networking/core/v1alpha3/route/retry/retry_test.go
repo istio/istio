@@ -214,6 +214,26 @@ func TestRetry(t *testing.T) {
 				}
 			},
 		},
+		// Add by ingress
+		{
+			name: "TestDefaultRetryRequestHeaders",
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy.RetriableRequestHeaders).To(Equal(retry.OnlyRetryIdempotent))
+			},
+		},
+		{
+			name: "TestDefaultRetryRequestHeaders",
+			route: &networking.HTTPRoute{
+				Retries: &networking.HTTPRetry{
+					Attempts: 1,
+					RetryOn:  retry.NonIdempotent,
+				},
+			},
+			assertFunc: func(g *WithT, policy *envoyroute.RetryPolicy) {
+				g.Expect(policy.RetriableRequestHeaders).To(BeNil())
+			},
+		},
+		// End by ingress
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {

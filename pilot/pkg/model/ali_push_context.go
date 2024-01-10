@@ -8,9 +8,10 @@ import (
 
 	httpConn "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 	"google.golang.org/protobuf/proto"
-
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
+  core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+  
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
@@ -67,6 +68,7 @@ type IngressDomainCollection struct {
 	Valid   []IngressDomain
 	Invalid []IngressDomain
 }
+
 
 func SortStableForIngressRoutes(routes []IngressRoute) {
 	isAllMatch := func(route IngressRoute) bool {
@@ -280,4 +282,22 @@ func mergeProxyConfigWhenNeeded(dest *meshconfig.ProxyConfig, src *meshconfig.Pr
 	if src != nil {
 		dest.DisableAlpnH2 = src.DisableAlpnH2
 	}
+}
+
+
+func (ps *PushContext) GetExtensionConfigsFromEnvoyFilter(node *Proxy) []*core.TypedExtensionConfig {
+	var out []*core.TypedExtensionConfig
+	envoyFilterWrapper := ps.EnvoyFilters(node)
+	if envoyFilterWrapper != nil && len(envoyFilterWrapper.Patches) > 0 {
+		extensionConfigs := envoyFilterWrapper.Patches[networking.EnvoyFilter_EXTENSION_CONFIG]
+		if len(extensionConfigs) > 0 {
+			for _, extension := range extensionConfigs {
+				if extension.Operation == networking.EnvoyFilter_Patch_ADD {
+					out = append(out, proto.Clone(extension.Value).(*core.TypedExtensionConfig))
+				}
+			}
+		}
+	}
+
+	return out
 }
