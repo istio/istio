@@ -221,7 +221,7 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 	}
 
 	if s.StatusReporter != nil && AllTrackingEventTypes.Contains(req.TypeUrl) {
-		newFunction(con, s, req)
+		reportAllEvents(con, s.StatusReporter, req.TypeUrl, req.ResponseNonce)
 	}
 
 	shouldRespond, delta := s.shouldRespond(con, req)
