@@ -105,6 +105,7 @@ func incrementEvent(kind, event string) {
 // Options stores the configurable attributes of a Controller.
 type Options struct {
 	SystemNamespace string
+	Revision        string
 
 	// MeshServiceController is a mesh-wide service Controller.
 	MeshServiceController *aggregate.Controller
@@ -144,6 +145,8 @@ type Options struct {
 
 	ConfigController model.ConfigStoreController
 	ConfigCluster    bool
+
+	CniNamespace string
 }
 
 func (o *Options) GetFilter() namespace.DiscoveryFilter {
@@ -190,9 +193,10 @@ type Controller struct {
 	// With this, we can populate mesh's gateway address with the node ips.
 	nodes kclient.Client[*v1.Node]
 
-	exports serviceExportCache
-	imports serviceImportCache
-	pods    *PodCache
+	nodeUntainter *nodeUntainter
+	exports       serviceExportCache
+	imports       serviceImportCache
+	pods          *PodCache
 
 	crdHandlers                []func(name string)
 	handlers                   model.ControllerHandlers
@@ -296,6 +300,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	if features.EnableAmbientControllers {
 		c.configController = options.ConfigController
 		c.ambientIndex = c.setupIndex()
+	}
+	if features.EnableNodeUntaintControllers {
+		c.nodeUntainter = newNodeUntainter(c)
 	}
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
@@ -618,7 +625,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
-
+	if c.nodeUntainter != nil {
+		go c.nodeUntainter.Run(stop)
+	}
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue

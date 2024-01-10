@@ -566,6 +566,11 @@ var (
 		false,
 		"If enabled, controllers required for ambient will run. This is required to run ambient mesh.").Get()
 
+	EnableNodeUntaintControllers = env.Register(
+		"PILOT_ENABLE_NODE_UNTAINT_CONTROLLERS",
+		false,
+		"If enabled, controllers that untaint nodes with cni pods ready. This should be enabled if you disabled ambient init containers.").Get()
+
 	// EnableUnsafeAssertions enables runtime checks to test assertions in our code. This should never be enabled in
 	// production; when assertions fail Istio will panic.
 	EnableUnsafeAssertions = env.Register(

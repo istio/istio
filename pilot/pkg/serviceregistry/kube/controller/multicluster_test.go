@@ -41,7 +41,9 @@ const (
 	DomainSuffix        = "fake_domain"
 )
 
-var mockserviceController = aggregate.NewController(aggregate.Options{})
+func newMockserviceController() *aggregate.Controller {
+	return aggregate.NewController(aggregate.Options{})
+}
 
 func createMultiClusterSecret(k8s kube.Client, sname, cname string) error {
 	data := map[string][]byte{}
@@ -89,6 +91,7 @@ func initController(client kube.CLIClient, ns string, stop <-chan struct{}, mc *
 }
 
 func Test_KubeSecretController(t *testing.T) {
+	mockserviceController := newMockserviceController()
 	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		return kube.NewFakeClient(), nil
 	}
@@ -133,6 +136,7 @@ func Test_KubeSecretController(t *testing.T) {
 func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	test.SetForTest(t, &features.ExternalIstiod, true)
 	test.SetForTest(t, &features.InjectionWebhookConfigName, "")
+	mockserviceController := newMockserviceController()
 	clientset := kube.NewFakeClient()
 	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		return kube.NewFakeClient(), nil

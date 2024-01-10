@@ -33,6 +33,10 @@ defaults:
 
     env: {}
 
+    taint:
+      enabled: false
+      namespace: ""
+
     affinity: {}
 
     tolerations: []
