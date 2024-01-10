@@ -150,7 +150,9 @@ func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages,
 		}
 		// PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING
 		// TODO
-		messages.Add(msg.NewUnknownUpgradeCompatibility(nil, "PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", "1.20", "consult upgrade notes for more information", "1.20"))
+		messages.Add(msg.NewUnknownUpgradeCompatibility(nil,
+			"PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", "1.20",
+			"consult upgrade notes for more information", "1.20"))
 	}
 	return messages, nil
 }
@@ -165,7 +167,9 @@ func checkExternalNameAlias(cli kube.CLIClient, messages *diag.Messages) error {
 			continue
 		}
 		res := ObjectToInstance(&svc)
-		messages.Add(msg.NewUpdateIncompatibility(res, "ENABLE_EXTERNAL_NAME_ALIAS", "1.20", "ExternalName services now behavior differently; consult upgrade notes for more information", "1.20"))
+		messages.Add(msg.NewUpdateIncompatibility(res,
+			"ENABLE_EXTERNAL_NAME_ALIAS", "1.20",
+			"ExternalName services now behavior differently; consult upgrade notes for more information", "1.20"))
 
 	}
 	return nil
@@ -177,7 +181,8 @@ func checkDestinationRuleTLS(cli kube.CLIClient, messages *diag.Messages) error 
 		return err
 	}
 	checkVerify := func(tls *networking.ClientTLSSettings) bool {
-		return tls != nil && tls.CaCertificates == "" && tls.CredentialName == "" && tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL && !tls.InsecureSkipVerify.GetValue()
+		return tls != nil && tls.CaCertificates == "" && tls.CredentialName == "" &&
+			tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL && !tls.InsecureSkipVerify.GetValue()
 	}
 	checkSNI := func(tls *networking.ClientTLSSettings) bool {
 		return tls != nil && tls.Sni == "" && tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL
@@ -201,11 +206,15 @@ func checkDestinationRuleTLS(cli kube.CLIClient, messages *diag.Messages) error 
 		}
 		if verificationImpacted {
 			res := ObjectToInstance(dr)
-			messages.Add(msg.NewUpdateIncompatibility(res, "VERIFY_CERTIFICATE_AT_CLIENT", "1.20", "previously, TLS verification was skipped. Set `insecureSkipVerify` if this behavior is desired", "1.20"))
+			messages.Add(msg.NewUpdateIncompatibility(res,
+				"VERIFY_CERTIFICATE_AT_CLIENT", "1.20",
+				"previously, TLS verification was skipped. Set `insecureSkipVerify` if this behavior is desired", "1.20"))
 		}
 		if sniImpacted {
 			res := ObjectToInstance(dr)
-			messages.Add(msg.NewUpdateIncompatibility(res, "ENABLE_AUTO_SNI", "1.20", "previously, no SNI would be set; now it will be automatically set", "1.20"))
+			messages.Add(msg.NewUpdateIncompatibility(res,
+				"ENABLE_AUTO_SNI", "1.20",
+				"previously, no SNI would be set; now it will be automatically set", "1.20"))
 		}
 	}
 	return nil
