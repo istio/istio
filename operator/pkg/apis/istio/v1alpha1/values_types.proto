@@ -971,6 +971,13 @@ message PilotConfig {
 
   // Configures whether to use an existing CNI installation for workloads
   CNIUsageConfig cni = 55;
+
+  PilotTaintControllerConfig taint = 57;
+}
+
+message PilotTaintControllerConfig {
+  bool enabled = 1;
+  string namespace = 2;
 }
 
 // Controls legacy k8s ingress. Only one pilot profile should enable ingress support.

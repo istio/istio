@@ -143,6 +143,8 @@ type Options struct {
 	Revision string
 
 	ConfigCluster bool
+
+	CniNamespace string
 }
 
 // kubernetesNode represents a kubernetes node that is reachable externally
@@ -184,9 +186,10 @@ type Controller struct {
 	// With this, we can populate mesh's gateway address with the node ips.
 	nodes kclient.Client[*v1.Node]
 
-	exports serviceExportCache
-	imports serviceImportCache
-	pods    *PodCache
+	nodeUntainter *nodeUntainter
+	exports       serviceExportCache
+	imports       serviceImportCache
+	pods          *PodCache
 
 	crdHandlers                []func(name string)
 	handlers                   model.ControllerHandlers
@@ -290,6 +293,9 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 			XDSUpdater:      options.XDSUpdater,
 			LookupNetwork:   c.Network,
 		})
+	}
+	if features.EnableNodeUntaintControllers {
+		c.nodeUntainter = newNodeUntainter(c)
 	}
 	c.exports = newServiceExportCache(c)
 	c.imports = newServiceImportCache(c)
@@ -615,7 +621,9 @@ func (c *Controller) Run(stop <-chan struct{}) {
 
 	go c.imports.Run(stop)
 	go c.exports.Run(stop)
-
+	if c.nodeUntainter != nil {
+		go c.nodeUntainter.Run(stop)
+	}
 	kubelib.WaitForCacheSync("kube controller", stop, c.informersSynced)
 	log.Infof("kube controller for %s synced after %v", c.opts.ClusterID, time.Since(st))
 	// after the in-order sync we can start processing the queue

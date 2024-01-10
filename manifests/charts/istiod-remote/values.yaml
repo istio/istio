@@ -30,6 +30,9 @@ defaults:
     # Additional container arguments
     extraContainerArgs: []
     env: {}
+    taint:
+      enabled: false
+      namespace: ""
     affinity: {}
     tolerations: []
     cpu:

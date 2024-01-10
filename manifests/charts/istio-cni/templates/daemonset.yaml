@@ -21,6 +21,7 @@ spec:
   selector:
     matchLabels:
       k8s-app: istio-cni-node
+      istio.io/rev: {{ .Values.revision | default "default" }}
   updateStrategy:
     type: RollingUpdate
     rollingUpdate:
@@ -29,6 +30,7 @@ spec:
     metadata:
       labels:
         k8s-app: istio-cni-node
+        istio.io/rev: {{ .Values.revision | default "default" }}
         sidecar.istio.io/inject: "false"
       annotations:
         sidecar.istio.io/inject: "false"
