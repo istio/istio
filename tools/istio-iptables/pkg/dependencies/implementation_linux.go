@@ -16,8 +16,8 @@ package dependencies
 
 import (
 	"bytes"
-	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"strings"
 	"syscall"
@@ -45,56 +45,35 @@ var (
 func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
 	mode := "without lock"
 	var c *exec.Cmd
-	_, needLock := XTablesWriteCmds[cmd]
-	if !needLock || r.IptablesVersion.NoLocks() {
-		// No locking supported/needed, just run as is. Nothing special
-		c = exec.Command(cmd, args...)
-	} else {
-		if r.CNIMode {
-			// In CNI, we are running the pod network namespace, but the host filesystem. Locking the host is both useless and harmful,
-			// as it opens the risk of lock contention with other node actors (such as kube-proxy), and isn't actually needed at all.
-			// In both cases we are setting the lockfile to `r.NetworkNamespace`.
-			// * /dev/null looks like a good option, but actually doesn't work (it will ensure only one actor can access it)
-			// * `mktemp` works, but it is slightly harder to deal with cleanup and in some platforms we may not have write access.
-			//
-			// In some setups, iptables can make remote network calls(!!). Since these come from a partially initialized pod network namespace,
-			// these calls can be blocked (or NetworkPolicy, etc could block them anyways).
-			// This is triggered by NSS, which allows various things to use arbitrary code to lookup configuration that typically comes from files.
-			// In our case, the culprit is the `xt_owner` (`-m owner`) module in iptables calls the `passwd` service to lookup the user.
-			// To disallow this, bindmount /dev/null over nsswitch.conf so this never happens.
-			// This should be safe to do, even if the user has an nsswitch entry that would work fine: we always use a numeric ID
-			// so the passwd lookup doesn't need to succeed at all for Istio to function.
-			// Effectively, we want a mini-container. In fact, running in a real container would be ideal but it is hard to do portably.
-			// See https://github.com/istio/istio/issues/48416 for a real world example of this case.
-			if r.IptablesVersion.version.LessThan(IptablesLockfileEnv) {
-				// Older iptables cannot turn off the lock explicitly, so we hack around it...
-				// Overwrite the lock file with the network namespace file (which is assumed to be unique).
-				// Overwrite the nsswitch with /dev/null, see above.
-				// cmd is repeated twice as the first 'cmd' instance becomes $0
-				sh := fmt.Sprintf(
-					"mount --bind /dev/null /etc/nsswitch.conf; mount --bind %s /run/xtables.lock; exec $@", r.NetworkNamespace)
-				args := append([]string{"-c", sh, cmd, cmd}, args...)
-				c = exec.Command("sh", args...)
-				// Run in a new mount namespace so our mount doesn't impact any other processes.
-				c.SysProcAttr = &syscall.SysProcAttr{Unshareflags: unix.CLONE_NEWNS}
-				mode = "without lock by mount"
-			} else {
-				// Available since iptables 1.8.6+, just point to a different file directly
-				// Overwrite the nsswitch with /dev/null, see above.
-				// cmd is repeated twice as the first 'cmd' instance becomes $0
-				args := append([]string{"-c", "mount --bind /dev/null /etc/nsswitch.conf; exec $@", cmd, cmd}, args...)
-				c = exec.Command("sh", args...)
-				// Run in a new mount namespace so our mount doesn't impact any other processes.
-				c.SysProcAttr = &syscall.SysProcAttr{Unshareflags: unix.CLONE_NEWNS}
-				c.Env = append(c.Env, "XTABLES_LOCKFILE="+r.NetworkNamespace)
-				mode = "without lock by environment"
-			}
+	_, isWriteCommand := XTablesWriteCmds[cmd]
+	needLock := isWriteCommand && !r.IptablesVersion.NoLocks()
+	if r.CNIMode {
+		// In CNI, we are running the pod network namespace, but the host filesystem, so we need to do some tricks
+		// Call our binary again, but with <original binary> "unshare (subcommand to trigger mounts)" --lock-file=<network namespace> <original command...>
+		// We do not shell out and call `mount` since this and sh are not available on all systems
+		var args []string
+		if needLock {
+			args = append([]string{"unshare", "--lock-file=" + r.NetworkNamespace, cmd}, args...)
+			mode = "without lock or nss"
 		} else {
+			// We still need unshare for the nsswitch case.
+			args = append([]string{"unshare", cmd}, args...)
+			mode = "without nss"
+		}
+
+		c = exec.Command(os.Args[0], args...)
+		// Run in a new mount namespace so our mount doesn't impact any other processes.
+		c.SysProcAttr = &syscall.SysProcAttr{Unshareflags: unix.CLONE_NEWNS}
+	} else {
+		if needLock {
 			// We want the lock. Wait up to 30s for it.
 			args = append(args, "--wait=30")
 			c = exec.Command(cmd, args...)
 			log.Debugf("running with lock")
 			mode = "with wait lock"
+		} else {
+			// No locking supported/needed, just run as is. Nothing special
+			c = exec.Command(cmd, args...)
 		}
 	}
 
