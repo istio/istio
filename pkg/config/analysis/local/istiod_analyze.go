@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/analysis"
@@ -47,7 +48,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
@@ -306,8 +306,11 @@ func (sa *IstiodAnalyzer) AddRunningKubeSource(c kubelib.Client) {
 }
 
 func isIstioConfigMap(obj any) bool {
-	cObj, ok := obj.(controllers.Object)
+	cObj, ok := obj.(*v1.ConfigMap)
 	if !ok {
+		return false
+	}
+	if _, ok = cObj.GetAnnotations()[k8sresourcelock.LeaderElectionRecordAnnotationKey]; ok {
 		return false
 	}
 	return strings.HasPrefix(cObj.GetName(), "istio")
