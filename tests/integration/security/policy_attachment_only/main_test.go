@@ -46,6 +46,7 @@ var (
 func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
+		Label(label.CustomSetup).
 		Setup(istio.Setup(&i, func(c resource.Context, cfg *istio.Config) {
 			if !c.Settings().EnableDualStack {
 				cfg.ControlPlaneValues = `

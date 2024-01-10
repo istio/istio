@@ -42,7 +42,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		Label("CustomSetup").
 		Setup(istio.Setup(&ist, setupConfig)).
 		Setup(func(ctx resource.Context) error {
 			var err error
