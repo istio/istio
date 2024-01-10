@@ -279,7 +279,7 @@ func (r *Reporter) RegisterEvent(conID string, distributionType xds.EventType, n
 	// Skip unsupported event types. This ensures we do not leak memory for types
 	// which may not be handled properly. For example, a type not in AllEventTypes
 	// will not be properly unregistered.
-	if _, f := xds.AllEventTypes[distributionType]; !f {
+	if _, f := xds.AllTrackingEventTypes[distributionType]; !f {
 		return
 	}
 	d := distributionEvent{nonce: nonce, distributionType: distributionType, conID: conID}
@@ -328,10 +328,10 @@ func (r *Reporter) deleteKeyFromReverseMap(key string) {
 }
 
 // RegisterDisconnect : when a dataplane disconnects, we should no longer count it, nor expect it to ack config.
-func (r *Reporter) RegisterDisconnect(conID string, types []xds.EventType) {
+func (r *Reporter) RegisterDisconnect(conID string, types sets.Set[xds.EventType]) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	for _, xdsType := range types {
+	for xdsType := range types {
 		key := GenStatusReporterMapKey(conID, xdsType)
 		r.deleteKeyFromReverseMap(key)
 		delete(r.status, key)

@@ -219,9 +219,11 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
-	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.conID, req.TypeUrl, req.ResponseNonce)
+
+	if s.StatusReporter != nil && AllTrackingEventTypes.Contains(req.TypeUrl) {
+		newFunction(con, s, req)
 	}
+
 	shouldRespond, delta := s.shouldRespond(con, req)
 	if !shouldRespond {
 		return nil
@@ -563,7 +565,7 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 	}
 	s.removeCon(con.conID)
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterDisconnect(con.conID, AllEventTypesList)
+		s.StatusReporter.RegisterDisconnect(con.conID, AllTrackingEventTypes)
 	}
 	s.WorkloadEntryController.OnDisconnect(con)
 }
@@ -751,7 +753,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		log.Debugf("Skipping push to %v, no updates required", con.conID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version.
-			reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, nil)
+			reportAllEvents(con, s.StatusReporter, "", pushRequest.Push.LedgerVersion)
 		}
 		return nil
 	}
@@ -780,21 +782,6 @@ var KnownOrderedTypeUrls = map[string]struct{}{
 	v3.ListenerType: {},
 	v3.RouteType:    {},
 	v3.SecretType:   {},
-}
-
-func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.String) {
-	if s == nil {
-		return
-	}
-	// this version of the config will never be distributed to this envoy because it is not a relevant diff.
-	// inform distribution status reporter that this connection has been updated, because it effectively has
-	for distributionType := range AllEventTypes {
-		if ignored.Contains(distributionType) {
-			// Skip this type
-			continue
-		}
-		s.RegisterEvent(id, distributionType, version)
-	}
 }
 
 func (s *DiscoveryServer) adsClientCount() int {
@@ -1004,4 +991,36 @@ func orderWatchedResources(resources map[string]*model.WatchedResource) []*model
 		}
 	}
 	return wr
+}
+
+// reportAllEvents is to simplify the logic of reporting events to the status reporter.
+// 1. if typeUrl is empty, report all events
+// 2. if typeUrl is not empty, report the given event type and all tracking event types that are not being watched. e.g. there is no rds if no route configured for gateway.
+func reportAllEvents(con *Connection, statusReporter DistributionStatusCache, typeUrl, nonce string) {
+	if statusReporter == nil {
+		return
+	}
+	// if typeUrl is empty, report all events
+	if typeUrl == "" {
+		for distributionType := range AllTrackingEventTypes {
+			statusReporter.RegisterEvent(con.conID, distributionType, nonce)
+		}
+		return
+	}
+
+	// report the given event type
+	statusReporter.RegisterEvent(con.conID, typeUrl, nonce)
+
+	// if typeUrl is not empty, report all events that are not being watched
+	unWatched := sets.NewWithLength[EventType](len(AllTrackingEventTypes))
+	con.proxy.RLock()
+	for tyeUrl := range AllTrackingEventTypes {
+		if _, exists := con.proxy.WatchedResources[tyeUrl]; !exists {
+			unWatched.Insert(tyeUrl)
+		}
+	}
+	con.proxy.RUnlock()
+	for tyeUrl := range unWatched {
+		statusReporter.RegisterEvent(con.conID, tyeUrl, nonce)
+	}
 }

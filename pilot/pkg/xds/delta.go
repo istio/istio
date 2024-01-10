@@ -162,7 +162,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		deltaLog.Debugf("Skipping push to %v, no updates required", con.conID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version
-			reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, nil)
+			reportAllEvents(con, s.StatusReporter, "", pushRequest.Push.LedgerVersion)
 		}
 		return nil
 	}
@@ -277,7 +277,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterEvent(con.conID, req.TypeUrl, req.ResponseNonce)
+		reportAllEvents(con, s.StatusReporter, req.TypeUrl, req.ResponseNonce)
 	}
 	shouldRespond := s.shouldRespondDelta(con, req)
 	if !shouldRespond {
