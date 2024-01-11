@@ -243,20 +243,19 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				deploymentReady := false
 				for {
 					if !deploymentReady {
-						if deploymentReady, _ = isWaypointDeploymentReady(ctx, kubeClient, gw); !deploymentReady {
-							time.Sleep(1 * time.Second)
-							continue
-						}
+						deploymentReady, _ = isWaypointDeploymentReady(ctx, kubeClient, gw)
 					}
-					if waypointSynced, _ := isWaypointSynced(ctx, kubeClient, gw); waypointSynced {
-						break
+					if deploymentReady {
+						if waypointSynced, _ := isWaypointSynced(ctx, kubeClient, gw); waypointSynced {
+							break
+						}
 					}
 					if time.Since(startTime) > waitTimeout {
 						var errorMsg string
 						if !deploymentReady {
 							errorMsg = "Ambient Waypoint deployment is not ready"
 						} else {
-							errorMsg = "Ambient Waypoint workload is not synced with controller"
+							errorMsg = "Ambient Waypoint workload is not synced"
 						}
 						manifestLog.ReportError(errorMsg)
 						return errors.New("timed out while waiting for Ambient Waypoint")
