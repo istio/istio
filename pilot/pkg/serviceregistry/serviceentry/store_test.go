@@ -204,3 +204,37 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 		t.Errorf("got unexpected instances : %v", gotInstances)
 	}
 }
+
+func TestUpdateInstances(t *testing.T) {
+	store := serviceInstancesStore{
+		ip2instance:            map[string][]*model.ServiceInstance{},
+		instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
+		instancesBySE:          map[types.NamespacedName]map[configKey][]*model.ServiceInstance{},
+		instancesByHostAndPort: sets.Set[hostPort]{},
+	}
+	expectedInstances := []*model.ServiceInstance{
+		makeInstance(selector, []string{"1.1.1.1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+	}
+	cKey := configKey{
+		namespace: "default",
+		name:      "test-wle",
+	}
+	store.addInstances(cKey, expectedInstances)
+	gotInstances := store.getAll()
+	if !reflect.DeepEqual(gotInstances, expectedInstances) {
+		t.Errorf("got unexpected instances : %v", gotInstances)
+	}
+
+	// 4. test update instances
+	expectedSeInstances := []*model.ServiceInstance{
+		makeInstance(selector, []string{"2.2.2.2", "2001:1::2"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(selector, []string{"2.2.2.2"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+	}
+	store.updateInstances(cKey, expectedSeInstances)
+
+	gotSeInstances := store.getAll()
+	if !reflect.DeepEqual(gotSeInstances, expectedSeInstances) {
+		t.Errorf("got unexpected se instances : %v", gotSeInstances)
+	}
+}
