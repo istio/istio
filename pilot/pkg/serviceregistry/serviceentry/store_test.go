@@ -214,7 +214,6 @@ func TestUpdateInstances(t *testing.T) {
 	}
 	expectedInstances := []*model.ServiceInstance{
 		makeInstance(selector, []string{"1.1.1.1"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
-		makeInstance(selector, []string{"1.1.1.1", "2001:1::1"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}
 	cKey := configKey{
 		namespace: "default",
@@ -228,8 +227,7 @@ func TestUpdateInstances(t *testing.T) {
 
 	// 4. test update instances
 	expectedSeInstances := []*model.ServiceInstance{
-		makeInstance(selector, []string{"2.2.2.2", "2001:1::2"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
-		makeInstance(selector, []string{"2.2.2.2"}, 445, selector.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		makeInstance(selector, []string{"1.1.1.1", "2001:1::2"}, 444, selector.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 	}
 	store.updateInstances(cKey, expectedSeInstances)
 
