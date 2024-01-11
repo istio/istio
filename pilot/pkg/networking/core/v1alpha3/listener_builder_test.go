@@ -628,104 +628,14 @@ spec:
 `
 
 func TestInboundListenerFilters(t *testing.T) {
-	services := []*model.Service{
-		buildServiceWithPort("test1.com", 80, protocol.HTTP, tnow),
-		buildServiceWithPort("test2.com", 81, protocol.Unsupported, tnow),
-		buildServiceWithPort("test3.com", 82, protocol.TCP, tnow),
-	}
-	instances := make([]*model.ServiceInstance, 0, len(services))
-	for _, s := range services {
-		instances = append(instances, &model.ServiceInstance{
-			Service: s,
-			Endpoint: &model.IstioEndpoint{
-				EndpointPort: uint32(s.Ports[0].Port),
-				Addresses:    []string{"1.1.1.1"},
-			},
-			ServicePort: s.Ports[0],
-		})
-	}
-	cases := []struct {
-		name   string
-		config string
-		http   map[int]bool
-		tls    map[int]bool
-	}{
-		{
-			name:   "permissive",
-			config: "",
-			http: map[int]bool{
-				// Should not see HTTP inspector if we declare ports
-				80: true,
-				82: true,
-				// But should see for passthrough or unnamed ports
-				81:   false,
-				1000: false,
-			},
-			tls: map[int]bool{
-				// Permissive mode: inspector is set everywhere
-				80:   false,
-				82:   false,
-				81:   false,
-				1000: false,
-			},
-		},
-		{
-			name:   "disable",
-			config: disableMode,
-			http: map[int]bool{
-				// Should not see HTTP inspector if we declare ports
-				80: true,
-				82: true,
-				// But should see for passthrough or unnamed ports
-				81:   false,
-				1000: false,
-			},
-		},
-		{
-			name:   "strict",
-			config: strictMode,
-			http: map[int]bool{
-				// Should not see HTTP inspector if we declare ports
-				80: true,
-				82: true,
-				// This is 'auto', but for STRICT we always get requests over TLS so HTTP inspector is not in play
-				81: true,
-				// Even for passthrough, we do not need HTTP inspector because it is handled by TLS inspector
-				1000: true,
-			},
-			tls: map[int]bool{
-				// strict mode: inspector is set everywhere.
-				80:   false,
-				82:   false,
-				81:   false,
-				1000: false,
-			},
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{
-				Services:     services,
-				Instances:    instances,
-				ConfigString: tt.config,
-			})
-			listeners := cg.Listeners(cg.SetupProxy(nil))
-			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
-			filters := xdstest.ExtractListenerFilters(virtualInbound)
-			evaluateListenerFilterPredicates(t, filters[wellknown.HTTPInspector].GetFilterDisabled(), tt.http)
-			if filters[wellknown.TLSInspector] == nil {
-				if len(tt.tls) > 0 {
-					t.Fatalf("Expected tls inspector, got none")
-				}
-			} else {
-				evaluateListenerFilterPredicates(t, filters[wellknown.TLSInspector].FilterDisabled, tt.tls)
-			}
-		})
-	}
+	testInboundListenerFilters(t, false)
+	testInboundListenerFilters(t, true)
 }
 
-func TestInboundListenerFiltersWithMulAddrsIstioEndpoint(t *testing.T) {
-	test.SetForTest(t, &features.EnableDualStack, true)
+func testInboundListenerFilters(t *testing.T, enableDualStack bool) {
+	if enableDualStack {
+		test.SetForTest(t, &features.EnableDualStack, true)
+	}
 	services := []*model.Service{
 		buildServiceWithPort("test1.com", 80, protocol.HTTP, tnow),
 		buildServiceWithPort("test2.com", 81, protocol.Unsupported, tnow),
@@ -733,11 +643,17 @@ func TestInboundListenerFiltersWithMulAddrsIstioEndpoint(t *testing.T) {
 	}
 	instances := make([]*model.ServiceInstance, 0, len(services))
 	for _, s := range services {
+		var addrs []string
+		if enableDualStack {
+			addrs = []string{"1.1.1.1", "2001:1::1"}
+		} else {
+			addrs = []string{"1.1.1.1"}
+		}
 		instances = append(instances, &model.ServiceInstance{
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
 				EndpointPort: uint32(s.Ports[0].Port),
-				Addresses:    []string{"1.1.1.1", "2001:1::1"},
+				Addresses:    addrs,
 			},
 			ServicePort: s.Ports[0],
 		})
@@ -833,135 +749,14 @@ func evaluateListenerFilterPredicates(t testing.TB, predicate *listener.Listener
 }
 
 func TestSidecarInboundListenerFilters(t *testing.T) {
-	services := []*model.Service{buildServiceWithPort("test.com", 80, protocol.HTTPS, tnow)}
-
-	expectIstioMTLS := func(t test.Failer, filterChain *listener.FilterChain) {
-		tlsContext := &tls.DownstreamTlsContext{}
-		if err := filterChain.GetTransportSocket().GetTypedConfig().UnmarshalTo(tlsContext); err != nil {
-			t.Fatal(err)
-		}
-		commonTLSContext := tlsContext.CommonTlsContext
-		if len(commonTLSContext.TlsCertificateSdsSecretConfigs) == 0 {
-			t.Fatal("expected tls certificates")
-		}
-		if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "default" {
-			t.Fatalf("expected certificate default, actual %s",
-				commonTLSContext.TlsCertificates[0].CertificateChain.String())
-		}
-	}
-	instances := make([]*model.ServiceInstance, 0, len(services))
-	for _, s := range services {
-		instances = append(instances, &model.ServiceInstance{
-			Service: s,
-			Endpoint: &model.IstioEndpoint{
-				EndpointPort: uint32(s.Ports[0].Port),
-				Addresses:    []string{"1.1.1.1"},
-			},
-			ServicePort: s.Ports[0],
-		})
-	}
-	cases := []struct {
-		name           string
-		sidecarScope   *model.SidecarScope
-		mtlsMode       model.MutualTLSMode
-		expectedResult func(t test.Failer, filterChain *listener.FilterChain)
-	}{
-		{
-			name: "simulate peer auth disabled on port 80",
-			sidecarScope: &model.SidecarScope{
-				Sidecar: &networking.Sidecar{
-					Ingress: []*networking.IstioIngressListener{
-						{
-							Port: &networking.SidecarPort{Name: "https-port", Protocol: "https", Number: 80},
-							Tls: &networking.ServerTLSSettings{
-								Mode:              networking.ServerTLSSettings_SIMPLE,
-								ServerCertificate: "cert.pem",
-								PrivateKey:        "privatekey.pem",
-							},
-						},
-					},
-				},
-			},
-			mtlsMode: model.MTLSDisable,
-			expectedResult: func(t test.Failer, filterChain *listener.FilterChain) {
-				tlsContext := &tls.DownstreamTlsContext{}
-				if err := filterChain.GetTransportSocket().GetTypedConfig().UnmarshalTo(tlsContext); err != nil {
-					t.Fatal(err)
-				}
-				commonTLSContext := tlsContext.CommonTlsContext
-				if len(commonTLSContext.TlsCertificateSdsSecretConfigs) == 0 {
-					t.Fatal("expected tls certificates")
-				}
-				if commonTLSContext.TlsCertificateSdsSecretConfigs[0].Name != "file-cert:cert.pem~privatekey.pem" {
-					t.Fatalf("expected certificate httpbin.pem, actual %s",
-						commonTLSContext.TlsCertificates[0].CertificateChain.String())
-				}
-				if tlsContext.RequireClientCertificate.Value {
-					t.Fatalf("expected RequireClientCertificate to be false")
-				}
-			},
-		},
-		{
-			name: "simulate peer auth strict",
-			sidecarScope: &model.SidecarScope{
-				Sidecar: &networking.Sidecar{
-					Ingress: []*networking.IstioIngressListener{
-						{
-							Port: &networking.SidecarPort{Name: "https-port", Protocol: "https", Number: 80},
-							Tls: &networking.ServerTLSSettings{
-								Mode:              networking.ServerTLSSettings_SIMPLE,
-								ServerCertificate: "cert.pem",
-								PrivateKey:        "privatekey.pem",
-							},
-						},
-					},
-				},
-			},
-			mtlsMode:       model.MTLSStrict,
-			expectedResult: expectIstioMTLS,
-		},
-		{
-			name: "simulate peer auth permissive",
-			sidecarScope: &model.SidecarScope{
-				Sidecar: &networking.Sidecar{
-					Ingress: []*networking.IstioIngressListener{
-						{
-							Port: &networking.SidecarPort{Name: "https-port", Protocol: "https", Number: 80},
-							Tls: &networking.ServerTLSSettings{
-								Mode:              networking.ServerTLSSettings_SIMPLE,
-								ServerCertificate: "cert.pem",
-								PrivateKey:        "privatekey.pem",
-							},
-						},
-					},
-				},
-			},
-			mtlsMode:       model.MTLSPermissive,
-			expectedResult: expectIstioMTLS,
-		},
-	}
-	for _, tt := range cases {
-		t.Run(tt.name, func(t *testing.T) {
-			cg := NewConfigGenTest(t, TestOptions{
-				Services:     services,
-				Instances:    instances,
-				ConfigString: mtlsMode(tt.mtlsMode.String()),
-			})
-			proxy := cg.SetupProxy(nil)
-			proxy.Metadata = &model.NodeMetadata{Labels: map[string]string{"app": "foo"}}
-			proxy.Labels = proxy.Metadata.Labels
-			proxy.SidecarScope = tt.sidecarScope
-			test.SetForTest(t, &features.EnableTLSOnSidecarIngress, true)
-			listeners := cg.Listeners(proxy)
-			virtualInbound := xdstest.ExtractListener("virtualInbound", listeners)
-			filterChain := xdstest.ExtractFilterChain("1.1.1.1_80", virtualInbound)
-			tt.expectedResult(t, filterChain)
-		})
-	}
+	testSidecarInboundListenerFilters(t, false)
+	testSidecarInboundListenerFilters(t, true)
 }
 
-func TestSidecarInboundListenerFiltersWithMulAddrsIstioEndpoint(t *testing.T) {
-	test.SetForTest(t, &features.EnableDualStack, true)
+func testSidecarInboundListenerFilters(t *testing.T, enableDualStack bool) {
+	if enableDualStack {
+		test.SetForTest(t, &features.EnableDualStack, true)
+	}
 	services := []*model.Service{buildServiceWithPort("test.com", 80, protocol.HTTPS, tnow)}
 
 	expectIstioMTLS := func(t test.Failer, filterChain *listener.FilterChain) {
@@ -980,11 +775,17 @@ func TestSidecarInboundListenerFiltersWithMulAddrsIstioEndpoint(t *testing.T) {
 	}
 	instances := make([]*model.ServiceInstance, 0, len(services))
 	for _, s := range services {
+		var addrs []string
+		if enableDualStack {
+			addrs = []string{"1.1.1.1", "2001:1::1"}
+		} else {
+			addrs = []string{"1.1.1.1"}
+		}
 		instances = append(instances, &model.ServiceInstance{
 			Service: s,
 			Endpoint: &model.IstioEndpoint{
 				EndpointPort: uint32(s.Ports[0].Port),
-				Addresses:    []string{"1.1.1.1", "2001:1::1"},
+				Addresses:    addrs,
 			},
 			ServicePort: s.Ports[0],
 		})
