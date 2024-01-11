@@ -443,7 +443,6 @@ data:
   mesh: |-
     defaultConfig:
       discoveryAddress: istiod.istio-system.svc:15012
-      proxyMetadata: {}
       tracing:
         zipkin:
           address: zipkin.istio-system:9411
@@ -2310,7 +2309,6 @@ data:
         "certSigners": [],
         "configCluster": false,
         "configValidation": true,
-        "defaultNodeSelector": {},
         "defaultPodDisruptionBudget": {
           "enabled": true
         },
@@ -2394,13 +2392,6 @@ data:
           "servicePort": 0
         },
         "tag": "1.1.4",
-        "tracer": {
-          "datadog": {},
-          "lightstep": {},
-          "stackdriver": {},
-          "zipkin": {}
-        },
-        "useMCP": false,
         "variant": ""
       },
       "istio_cni": {

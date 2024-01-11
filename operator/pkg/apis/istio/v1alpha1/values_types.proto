@@ -1174,6 +1174,8 @@ message Values {
   repeated string revisionTags = 39;
 
   string defaultRevision = 40;
+
+  string profile = 42;
 }
 
 

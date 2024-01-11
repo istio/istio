@@ -379,9 +379,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		errCode := codes.Code(request.ErrorDetail.Code)
 		log.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.conID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
-		if s.StatusGen != nil {
-			s.StatusGen.OnNack(con.proxy, request)
-		}
 		return false, emptyResourceDelta
 	}
 
@@ -571,10 +568,6 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 		s.closeConnection(con)
 		return err
 	}
-
-	if s.StatusGen != nil {
-		s.StatusGen.OnConnect(con)
-	}
 	return nil
 }
 
@@ -583,9 +576,6 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 		return
 	}
 	s.removeCon(con.conID)
-	if s.StatusGen != nil {
-		s.StatusGen.OnDisconnect(con)
-	}
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterDisconnect(con.conID, AllEventTypesList)
 	}
