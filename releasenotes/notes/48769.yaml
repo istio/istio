@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+issue:
+  - 33949
+releaseNotes:
+  - |
+    **Added** --wait-ready and --timeout option to 'istioctl waypoint apply' command
