@@ -17,14 +17,17 @@ package waypoint
 import (
 	"cmp"
 	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"text/tabwriter"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	"k8s.io/apimachinery/pkg/api/errors"
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -34,7 +37,11 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/completion"
+	"istio.io/istio/operator/pkg/name"
+	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -43,12 +50,88 @@ import (
 )
 
 var (
-	revision = ""
-
+	revision      = ""
+	waitReady     bool
+	waitTimeout   time.Duration
 	allNamespaces bool
+	revisionLabel = "istio.io/rev"
 
 	deleteAll bool
 )
+
+func isWaypointDeploymentReady(ctx cli.Context, kubeClient kube.CLIClient, gw *gateway.Gateway) (bool, error) {
+	deploymentName := fmt.Sprintf("%s-%s", gw.Name, gw.Spec.GatewayClassName)
+	deployment, err := kubeClient.Kube().AppsV1().Deployments(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), deploymentName, metav1.GetOptions{})
+	if err != nil {
+		return false, err
+	}
+	// Check if all replicas are available and ready
+	if deployment.Status.AvailableReplicas == deployment.Status.Replicas {
+		return true, nil
+	} else {
+		return false, nil
+	}
+}
+
+type sidecarSyncStatus struct {
+	// nolint: structcheck, unused
+	pilot string
+	xds.SyncStatus
+}
+
+func xdsStatus(sent, acked string, typ model.NodeType) string {
+	if sent == "" {
+		if typ == model.Ztunnel {
+			return "IGNORED"
+		}
+		return "NOT SENT"
+	}
+	if sent == acked {
+		return "SYNCED"
+	}
+	// acked will be empty string when there is never Acknowledged
+	if acked == "" {
+		return "STALE"
+	}
+	// Since the Nonce changes to uuid, so there is no more any time diff info
+	return "STALE"
+}
+
+func isWaypointSynched(ctx cli.Context, kubeClient kube.CLIClient, gw *gateway.Gateway) (bool, error) {
+	podPrefix := fmt.Sprintf("%s-%s", gw.Name, gw.Spec.GatewayClassName)
+	ns := ctx.NamespaceOrDefault(ctx.Namespace())
+	pods, err := kubeClient.PodsForSelector(context.TODO(), ns, fmt.Sprintf("%s=%s", revisionLabel, revision))
+	if err != nil {
+		return false, err
+	}
+	for _, pod := range pods.Items {
+		if len(pod.Name) >= len(podPrefix) && pod.Name[:len(podPrefix)] == podPrefix {
+			queryStr := "debug/syncz"
+			if ctx.Namespace() != "" {
+				queryStr += "?namespace=" + ctx.Namespace()
+			}
+			allSyncz, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), queryStr)
+			for _, syncz := range allSyncz {
+				var statuses []*sidecarSyncStatus
+				err = json.Unmarshal(syncz, &statuses)
+				if err != nil {
+					return false, err
+				}
+				for _, status := range statuses {
+					if status.ProxyID == fmt.Sprintf("%s.%s", pod.Name, ns) {
+						clusterSynced := xdsStatus(status.ClusterSent, status.ClusterAcked, status.ProxyType)
+						listenerSynced := xdsStatus(status.ListenerSent, status.ListenerAcked, status.ProxyType)
+						routeSynced := xdsStatus(status.RouteSent, status.RouteAcked, status.ProxyType)
+						endpointSynced := xdsStatus(status.EndpointSent, status.EndpointAcked, status.ProxyType)
+						extensionconfigSynced := xdsStatus(status.ExtensionConfigSent, status.ExtensionConfigAcked, status.ProxyType)
+						return clusterSynced != "STALE" && listenerSynced != "STALE" && routeSynced != "STALE" && endpointSynced != "STALE" && extensionconfigSynced != "STALE", nil
+					}
+				}
+			}
+		}
+	}
+	return false, nil
+}
 
 func Cmd(ctx cli.Context) *cobra.Command {
 	var waypointServiceAccount string
@@ -123,7 +206,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
   # Apply a waypoint to a specific namespace for a specific service account
   istioctl x waypoint apply --service-account something --namespace default`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := ctx.CLIClient()
+			kubeClient, err := ctx.CLIClientWithRevision(revision)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -141,12 +224,43 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				FieldManager: "istioctl",
 			})
 			if err != nil {
-				if errors.IsNotFound(err) {
+				if kerrors.IsNotFound(err) {
 					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint: %s", err)
 				}
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v applied\n", gw.Namespace, gw.Name)
+			progressLog := progress.NewLog()
+			manifestLog := progressLog.NewComponent(string(name.WaypointComponentName))
+			if waitReady {
+				manifestLog.ReportWaiting([]string{"deployment", "synchronization"})
+				startTime := time.Now()
+				deploymentReady := false
+				for {
+					if time.Since(startTime) > waitTimeout {
+						var errorMsg string
+						if !deploymentReady {
+							errorMsg = "Ambient Waypoint deployment is not ready"
+						} else {
+							errorMsg = "Ambient Waypoint workload is not synched with controller"
+						}
+						// Set generic error if no other errors are set
+						err = errors.New("Timed out while waiting for condition")
+						manifestLog.ReportError(errorMsg)
+						return err
+					}
+					if !deploymentReady {
+						deploymentReady, err = isWaypointDeploymentReady(ctx, kubeClient, gw)
+					}
+					if deploymentReady {
+						var waypointSynced bool
+						if waypointSynced, err = isWaypointSynched(ctx, kubeClient, gw); waypointSynced {
+							break
+						}
+					}
+					time.Sleep(1 * time.Second)
+				}
+			}
+			manifestLog.ReportFinished()
 			return nil
 		},
 	}
@@ -157,11 +271,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Long:  "Delete a waypoint configuration from the cluster",
 		Example: `  # Delete a waypoint from the default namespace
   istioctl x waypoint delete
-  
+
   # Delete a waypoint from a specific namespace for a specific service account
   istioctl x waypoint delete --service-account something --namespace default
 
-  # Delete a waypoint by name, which can obtain from istioctl x waypoint list 
+  # Delete a waypoint by name, which can obtain from istioctl x waypoint list
   istioctl x waypoint delete waypoint-name --namespace default
 
   # Delete several waypoints by name
@@ -310,6 +424,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	}
 
 	waypointApplyCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
+	waypointApplyCmd.PersistentFlags().BoolVarP(&waitReady, "wait-ready", "W", false, "Wait for the waypoint to be ready and synchronized")
+	waypointApplyCmd.PersistentFlags().DurationVar(&waitTimeout, "timeout", 90*time.Second,
+		"The duration to wait for pod to be ready and synchronized before failing")
 	waypointCmd.AddCommand(waypointApplyCmd)
 	waypointGenerateCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointCmd.AddCommand(waypointGenerateCmd)
@@ -349,7 +466,7 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 			defer wg.Done()
 			if err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(namespace).
 				Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
-				if errors.IsNotFound(err) {
+				if kerrors.IsNotFound(err) {
 					fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
 				} else {
 					mu.Lock()
