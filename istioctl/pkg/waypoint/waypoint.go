@@ -243,7 +243,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				deploymentReady := false
 				for {
 					if !deploymentReady {
-						if deploymentReady, _ = isWaypointDeploymentReady(ctx, kubeClient, gw); deploymentReady {
+						if deploymentReady, _ = isWaypointDeploymentReady(ctx, kubeClient, gw); !deploymentReady {
 							time.Sleep(1 * time.Second)
 							continue
 						}
