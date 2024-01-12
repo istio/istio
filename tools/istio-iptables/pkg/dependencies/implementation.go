@@ -51,16 +51,6 @@ var exittypeToString = map[XTablesExittype]string{
 	XTablesResourceProblem:  "xtables resource problem",
 }
 
-// XTablesCmds is the set of all the xtables-related commands currently supported.
-var XTablesCmds = sets.New(
-	constants.IPTABLES,
-	constants.IP6TABLES,
-	constants.IPTABLESRESTORE,
-	constants.IP6TABLESRESTORE,
-	constants.IPTABLESSAVE,
-	constants.IP6TABLESSAVE,
-)
-
 // XTablesWriteCmds contains all xtables commands that do write actions (and thus need a lock)
 var XTablesWriteCmds = sets.New(
 	constants.IPTABLES,
@@ -137,20 +127,11 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 }
 
 // Run runs a command
-func (r *RealDependencies) Run(cmd string, stdin io.ReadSeeker, args ...string) (err error) {
-	if XTablesCmds.Contains(cmd) {
-		err = r.executeXTables(cmd, false, stdin, args...)
-	} else {
-		err = r.execute(cmd, false, stdin, args...)
-	}
-	return err
+func (r *RealDependencies) Run(cmd string, stdin io.ReadSeeker, args ...string) error {
+	return r.executeXTables(cmd, false, stdin, args...)
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
 func (r *RealDependencies) RunQuietlyAndIgnore(cmd string, stdin io.ReadSeeker, args ...string) {
-	if XTablesCmds.Contains(cmd) {
-		_ = r.executeXTables(cmd, true, stdin, args...)
-	} else {
-		_ = r.execute(cmd, true, stdin, args...)
-	}
+	_ = r.executeXTables(cmd, true, stdin, args...)
 }

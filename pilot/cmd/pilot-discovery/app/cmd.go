@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/cobra/doc"
 
 	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/features"
@@ -59,7 +58,7 @@ func NewRootCommand() *cobra.Command {
 	addFlags(discoveryCmd)
 	rootCmd.AddCommand(discoveryCmd)
 	rootCmd.AddCommand(version.CobraCommand())
-	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, collateral.Metadata{
 		Title:   "Istio Pilot Discovery",
 		Section: "pilot-discovery CLI",
 		Manual:  "Istio Pilot Discovery",

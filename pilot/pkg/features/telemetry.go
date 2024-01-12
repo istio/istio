@@ -48,4 +48,7 @@ var (
 	MetadataExchange = env.Register("PILOT_ENABLE_METADATA_EXCHANGE", true,
 		"If true, pilot will add metadata exchange filters, which will be consumed by telemetry filter.",
 	).Get()
+
+	StackdriverAuditLog = env.Register("STACKDRIVER_AUDIT_LOG", false, ""+
+		"If enabled, StackDriver audit logging will be enabled.").Get()
 )

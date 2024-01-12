@@ -27,7 +27,6 @@ import (
 	router "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/router/v3"
 	sfs "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/set_filter_state/v3"
 	statefulsession "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/stateful_session/v3"
-	httpwasm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/http/wasm/v3"
 	httpinspector "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/http_inspector/v3"
 	originaldst "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_dst/v3"
 	originalsrc "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/listener/original_src/v3"
@@ -37,12 +36,9 @@ import (
 	sfsnetwork "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/set_filter_state/v3"
 	previoushost "github.com/envoyproxy/go-control-plane/envoy/extensions/retry/host/previous_hosts/v3"
 	rawbuffer "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/raw_buffer/v3"
-	wasm "github.com/envoyproxy/go-control-plane/envoy/extensions/wasm/v3"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
 	alpn "istio.io/api/envoy/config/filter/http/alpn/v2alpha1"
-	"istio.io/api/envoy/config/filter/network/metadata_exchange"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/wellknown"
@@ -189,8 +185,6 @@ var (
 		Name:        MxFilterName,
 		TypedConfig: tcpMx,
 	}
-
-	HTTPMx = buildHTTPMxFilter()
 
 	WaypointDownstreamMetadataFilter = &hcm.HttpFilter{
 		Name: "waypoint_downstream_peer_metadata",
@@ -430,16 +424,3 @@ var (
 	mtlsHTTP11ALPN = []string{"istio-http/1.1", "istio", "http/1.1"}
 	mtlsHTTP2ALPN  = []string{"istio-h2", "istio", "h2"}
 )
-
-func buildHTTPMxFilter() *hcm.HttpFilter {
-	httpMxConfigProto := &httpwasm.Wasm{
-		Config: &wasm.PluginConfig{
-			Vm:            model.ConstructVMConfig("envoy.wasm.metadata_exchange"),
-			Configuration: protoconv.MessageToAny(&metadata_exchange.MetadataExchange{}),
-		},
-	}
-	return &hcm.HttpFilter{
-		Name:       MxFilterName,
-		ConfigType: &hcm.HttpFilter_TypedConfig{TypedConfig: protoconv.MessageToAny(httpMxConfigProto)},
-	}
-}

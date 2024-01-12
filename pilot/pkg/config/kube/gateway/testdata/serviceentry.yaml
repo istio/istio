@@ -41,6 +41,9 @@ spec:
   - number: 80
     name: http
     protocol: HTTP
+  - number: 443
+    name: tls
+    protocol: TLS
 ---
 apiVersion: gateway.networking.k8s.io/v1beta1
 kind: HTTPRoute
@@ -58,4 +61,38 @@ spec:
       group: networking.istio.io
       name: google.com
       port: 80
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TLSRoute
+metadata:
+  name: egress
+  namespace: default
+spec:
+  parentRefs:
+  - kind: ServiceEntry
+    group: networking.istio.io
+    name: egress
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: google.com
+      port: 443
+---
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: egress
+  namespace: default
+spec:
+  parentRefs:
+  - kind: ServiceEntry
+    group: networking.istio.io
+    name: egress
+  rules:
+  - backendRefs:
+    - kind: Hostname
+      group: networking.istio.io
+      name: google.com
+      port: 443
 ---

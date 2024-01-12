@@ -351,19 +351,6 @@ func ValidateHTTPHeaderWithAuthorityOperationName(name string) error {
 	return nil
 }
 
-// ValidateHTTPHeaderWithHostOperationName validates a header name when used to destination specific add/set in request.
-// TODO(https://github.com/envoyproxy/envoy/issues/16775) merge with ValidateHTTPHeaderWithAuthorityOperationName
-func ValidateHTTPHeaderWithHostOperationName(name string) error {
-	if name == "" {
-		return fmt.Errorf("header name cannot be empty")
-	}
-	// Authority header is validated later
-	if isInternalHeader(name) && !strings.EqualFold(name, "host") {
-		return fmt.Errorf(`invalid header %q: header cannot have ":" prefix`, name)
-	}
-	return nil
-}
-
 // ValidateHTTPHeaderOperationName validates a header name when used to remove from request or modify response.
 func ValidateHTTPHeaderOperationName(name string) error {
 	if name == "" {
@@ -1471,6 +1458,9 @@ func validateConnectionPool(settings *networking.ConnectionPoolSettings) (errs e
 		}
 		if httpSettings.H2UpgradePolicy == networking.ConnectionPoolSettings_HTTPSettings_UPGRADE && httpSettings.UseClientProtocol {
 			errs = appendErrors(errs, fmt.Errorf("use client protocol must not be true when H2UpgradePolicy is UPGRADE"))
+		}
+		if httpSettings.MaxConcurrentStreams < 0 {
+			errs = appendErrors(errs, fmt.Errorf("max concurrent streams must be non-negative"))
 		}
 	}
 
@@ -2949,11 +2939,11 @@ func validateHTTPRouteDestinations(weights []*networking.HTTPRouteDestination, g
 
 		// header manipulations
 		for name, val := range weight.Headers.GetRequest().GetAdd() {
-			errs = appendErrors(errs, ValidateHTTPHeaderWithHostOperationName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for name, val := range weight.Headers.GetRequest().GetSet() {
-			errs = appendErrors(errs, ValidateHTTPHeaderWithHostOperationName(name))
+			errs = appendErrors(errs, ValidateHTTPHeaderWithAuthorityOperationName(name))
 			errs = appendErrors(errs, ValidateHTTPHeaderValue(val))
 		}
 		for _, name := range weight.Headers.GetRequest().GetRemove() {

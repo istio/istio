@@ -93,7 +93,4 @@ var (
 	UseCacertsForSelfSignedCA = env.Register("USE_CACERTS_FOR_SELF_SIGNED_CA", false,
 		"If enabled, istiod will use a secret named cacerts to store its self-signed istio-"+
 			"generated root certificate.").Get()
-
-	StackdriverAuditLog = env.Register("STACKDRIVER_AUDIT_LOG", false, ""+
-		"If enabled, StackDriver audit logging will be enabled.").Get()
 )

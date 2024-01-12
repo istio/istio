@@ -1,77 +1,82 @@
-# Hub to pull from. Image will be `Hub/Image:Tag-Variant`
-hub: gcr.io/istio-testing
-# Tag to pull from. Image will be `Hub/Image:Tag-Variant`
-tag: latest
-# Variant to pull. Options are "debug" or "distroless". Unset will use the default for the given version.
-variant: ""
+defaults:
+  # Hub to pull from. Image will be `Hub/Image:Tag-Variant`
+  hub: gcr.io/istio-testing
+  # Tag to pull from. Image will be `Hub/Image:Tag-Variant`
+  tag: latest
+  # Variant to pull. Options are "debug" or "distroless". Unset will use the default for the given version.
+  variant: ""
 
-# Image name to pull from. Image will be `Hub/Image:Tag-Variant`
-# If Image contains a "/", it will replace the entire `image` in the pod.
-image: ztunnel
+  # Image name to pull from. Image will be `Hub/Image:Tag-Variant`
+  # If Image contains a "/", it will replace the entire `image` in the pod.
+  image: ztunnel
 
-# Labels to apply to all top level resources
-labels: {}
-# Annotations to apply to all top level resources
-annotations: {}
+  # Labels to apply to all top level resources
+  labels: {}
+  # Annotations to apply to all top level resources
+  annotations: {}
 
-# Additional volumeMounts to the ztunnel container
-volumeMounts: []
+  # Additional volumeMounts to the ztunnel container
+  volumeMounts: []
 
-# Additional volumes to the ztunnel pod
-volumes: []
+  # Additional volumes to the ztunnel pod
+  volumes: []
 
-# Annotations added to each pod. The default annotations are required for scraping prometheus (in most environments).
-podAnnotations:
-  prometheus.io/port: "15020"
-  prometheus.io/scrape: "true"
+  # Annotations added to each pod. The default annotations are required for scraping prometheus (in most environments).
+  podAnnotations:
+    prometheus.io/port: "15020"
+    prometheus.io/scrape: "true"
 
-# Additional labels to apply on the pod level
-podLabels: {}
+  # Additional labels to apply on the pod level
+  podLabels: {}
 
-# Pod resource configuration
-resources:
-  requests:
-    cpu: 500m
-    memory: 2048Mi
+  # Pod resource configuration
+  resources:
+    requests:
+      cpu: 500m
+      memory: 2048Mi
 
-# List of secret names to add to the service account as image pull secrets
-imagePullSecrets: []
+  # List of secret names to add to the service account as image pull secrets
+  imagePullSecrets: []
 
-# A `key: value` mapping of environment variables to add to the pod
-env: {}
+  # A `key: value` mapping of environment variables to add to the pod
+  env: {}
 
-# Override for the pod imagePullPolicy
-imagePullPolicy: ""
+  # Override for the pod imagePullPolicy
+  imagePullPolicy: ""
 
-# Settings for multicluster
-multiCluster:
-  # The name of the cluster we are installing in. Note this is a user-defined name, which must be consistent
-  # with Istiod configuration.
-  clusterName: ""
+  # Settings for multicluster
+  multiCluster:
+    # The name of the cluster we are installing in. Note this is a user-defined name, which must be consistent
+    # with Istiod configuration.
+    clusterName: ""
 
-# meshConfig defines runtime configuration of components.
-# For ztunnel, only defaultConfig is used, but this is nested under `meshConfig` for consistency with other
-# components.
-# TODO: https://github.com/istio/istio/issues/43248
-meshConfig:
-  defaultConfig:
-    proxyMetadata: {}
+  # meshConfig defines runtime configuration of components.
+  # For ztunnel, only defaultConfig is used, but this is nested under `meshConfig` for consistency with other
+  # components.
+  # TODO: https://github.com/istio/istio/issues/43248
+  meshConfig:
+    defaultConfig:
+      proxyMetadata: {}
 
-# Ambient redirection mode: "iptables" or "ebpf"
-redirectMode: "iptables"
+  # Ambient redirection mode: "iptables" or "ebpf"
+  redirectMode: "iptables"
 
-# This value defines:
-# 1. how many seconds kube waits for ztunnel pod to gracefully exit before forcibly terminating it (this value)
-# 2. how many seconds ztunnel waits to drain its own connections (this value - 1 sec)
-# Default K8S value is 30 seconds
-terminationGracePeriodSeconds: 30
+  # This value defines:
+  # 1. how many seconds kube waits for ztunnel pod to gracefully exit before forcibly terminating it (this value)
+  # 2. how many seconds ztunnel waits to drain its own connections (this value - 1 sec)
+  # Default K8S value is 30 seconds
+  terminationGracePeriodSeconds: 30
 
-# Revision is set as 'version' label and part of the resource names when installing multiple control planes.
-revision: ""
+  # Revision is set as 'version' label and part of the resource names when installing multiple control planes.
+  revision: ""
 
-# The customized CA address to retrieve certificates for the pods in the cluster.
-# CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
-caAddress: ""
+  # The customized CA address to retrieve certificates for the pods in the cluster.
+  # CSR clients such as the Istio Agent and ingress gateways can use this to specify the CA endpoint.
+  caAddress: ""
 
-# Used to locate istiod.
-istioNamespace: istio-system
+  # Used to locate istiod.
+  istioNamespace: istio-system
+
+  # Configuration log level of ztunnel binary, default is info.
+  # Valid values are: trace, debug, info, warn, error
+  logLevel: info

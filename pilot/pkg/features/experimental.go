@@ -17,12 +17,25 @@ package features
 import (
 	"time"
 
+	"go.uber.org/atomic"
 	"istio.io/istio/pkg/env"
 	"istio.io/istio/pkg/log"
 )
 
 // Define experimental features here.
 var (
+	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
+	FilterGatewayClusterConfig = env.Register("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
+		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
+
+	SendUnhealthyEndpoints = atomic.NewBool(env.Register(
+		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
+		false,
+		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing."+
+			"  To avoid, sending traffic to non ready endpoints, enabling this flag, disables panic threshold in Envoy i.e. Envoy does not load balance requests"+
+			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
+	).Get())
+
 	EnablePersistentSessionFilter = env.Register(
 		"PILOT_ENABLE_PERSISTENT_SESSION_FILTER",
 		false,
@@ -133,30 +146,6 @@ var (
 		false,
 		"If enabled, pilot will update the CRD Status field of all istio resources with reconciliation status.",
 	).Get()
-
-	StatusUpdateInterval = env.Register(
-		"PILOT_STATUS_UPDATE_INTERVAL",
-		500*time.Millisecond,
-		"Interval to update the XDS distribution status.",
-	).Get()
-
-	StatusQPS = env.Register(
-		"PILOT_STATUS_QPS",
-		100,
-		"If status is enabled, controls the QPS with which status will be updated.  "+
-			"See https://godoc.org/k8s.io/client-go/rest#Config QPS",
-	).Get()
-
-	StatusBurst = env.Register(
-		"PILOT_STATUS_BURST",
-		500,
-		"If status is enabled, controls the Burst rate with which status will be updated.  "+
-			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
-	).Get()
-
-	StatusMaxWorkers = env.Register("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
-		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
-		"but larger numbers may impact CPU in high scale environments.").Get()
 
 	EnableGatewayAPI = env.Register("PILOT_ENABLE_GATEWAY_API", true,
 		"If this is set to true, support for Kubernetes gateway-api (github.com/kubernetes-sigs/gateway-api) will "+

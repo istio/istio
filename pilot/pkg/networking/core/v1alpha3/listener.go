@@ -402,7 +402,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 				Name:     egressListener.IstioListener.Port.Name,
 			}
 
-			if conflictWithStaticListener(node, bind.Primary(), listenPort.Port, listenPort.Protocol) {
+			if conflictWithReservedListener(node, push, bind.Primary(), listenPort.Port, listenPort.Protocol) {
 				log.Warnf("buildSidecarOutboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
 					egressListener.IstioListener.Port.Number, node.ID)
 				continue
@@ -458,7 +458,7 @@ func (lb *ListenerBuilder) buildSidecarOutboundListeners(node *model.Proxy,
 						continue
 					}
 
-					if conflictWithStaticListener(node, bind.Primary(), servicePort.Port, servicePort.Protocol) {
+					if conflictWithReservedListener(node, push, bind.Primary(), servicePort.Port, servicePort.Protocol) {
 						log.Debugf("buildSidecarOutboundListeners: skipping service port %s:%d for node %s as it conflicts with static listener",
 							service.Hostname, servicePort.Port, node.ID)
 						continue
@@ -1358,9 +1358,10 @@ type listenerKey struct {
 	port int
 }
 
-// conflictWithStaticListener checks whether the listener address bind:port conflicts with static listener port
-// default is 15021 and 15090
-func conflictWithStaticListener(proxy *model.Proxy, bind string, port int, protocol protocol.Instance) bool {
+// conflictWithReservedListener checks whether the listener address bind:port conflicts with
+// - static listener port：default is 15021 and 15090
+// - virtual listener port: default is 15001 and 15006 (only need to check for outbound listener)
+func conflictWithReservedListener(proxy *model.Proxy, push *model.PushContext, bind string, port int, protocol protocol.Instance) bool {
 	if bind != "" {
 		if bind != wildCards[proxy.GetIPMode()][0] {
 			return false
@@ -1370,10 +1371,15 @@ func conflictWithStaticListener(proxy *model.Proxy, bind string, port int, proto
 		return false
 	}
 
+	var conflictWithStaticListener, conflictWithVirtualListener bool
+
 	// bind == wildcard
 	// or bind unspecified, but protocol is HTTP
-	if proxy.Metadata == nil {
-		return false
+	if proxy.Metadata != nil {
+		conflictWithStaticListener = proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port
 	}
-	return proxy.Metadata.EnvoyStatusPort == port || proxy.Metadata.EnvoyPrometheusPort == port
+	if push != nil {
+		conflictWithVirtualListener = int(push.Mesh.ProxyListenPort) == port || int(push.Mesh.ProxyInboundListenPort) == port
+	}
+	return conflictWithStaticListener || conflictWithVirtualListener
 }

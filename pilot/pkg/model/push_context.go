@@ -1117,7 +1117,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 				return sc
 			}
 			// We need to compute this namespace
-			computed := ConvertToSidecarScope(ps, ps.sidecarIndex.meshRootSidecarConfig, proxy.ConfigNamespace)
+			computed := convertToSidecarScope(ps, ps.sidecarIndex.meshRootSidecarConfig, proxy.ConfigNamespace)
 			ps.sidecarIndex.meshRootSidecarsByNamespace[proxy.ConfigNamespace] = computed
 			return computed
 		}
@@ -1126,7 +1126,7 @@ func (ps *PushContext) getSidecarScope(proxy *Proxy, workloadLabels labels.Insta
 			return sc
 		}
 		// We need to compute this namespace
-		computed := ConvertToSidecarScope(ps, ps.sidecarIndex.meshRootSidecarConfig, proxy.ConfigNamespace)
+		computed := convertToSidecarScope(ps, ps.sidecarIndex.meshRootSidecarConfig, proxy.ConfigNamespace)
 		ps.sidecarIndex.defaultSidecarsByNamespace[proxy.ConfigNamespace] = computed
 		return computed
 	}
@@ -1849,20 +1849,24 @@ func (ps *PushContext) initSidecarScopes(env *Environment) {
 	ps.sidecarIndex.meshRootSidecarConfig = rootNSConfig
 
 	ps.sidecarIndex.sidecarsByNamespace = make(map[string][]*SidecarScope)
+	ps.convertSidecarScopes(sidecarConfigs)
+}
+
+func (ps *PushContext) convertSidecarScopes(sidecarConfigs []config.Config) {
+	if len(sidecarConfigs) == 0 {
+		return
+	}
 	if features.ConvertSidecarScopeConcurrency > 1 {
 		ps.concurrentConvertToSidecarScope(sidecarConfigs)
 	} else {
 		for _, sidecarConfig := range sidecarConfigs {
 			ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace] = append(ps.sidecarIndex.sidecarsByNamespace[sidecarConfig.Namespace],
-				ConvertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
+				convertToSidecarScope(ps, &sidecarConfig, sidecarConfig.Namespace))
 		}
 	}
 }
 
 func (ps *PushContext) concurrentConvertToSidecarScope(sidecarConfigs []config.Config) {
-	if len(sidecarConfigs) == 0 {
-		return
-	}
 	type taskItem struct {
 		idx int
 		cfg config.Config
@@ -1870,7 +1874,6 @@ func (ps *PushContext) concurrentConvertToSidecarScope(sidecarConfigs []config.C
 
 	var wg sync.WaitGroup
 	taskItems := make(chan taskItem)
-	// note: sidecarConfigs order matters
 	sidecarScopes := make([]*SidecarScope, len(sidecarConfigs))
 	for i := 0; i < features.ConvertSidecarScopeConcurrency; i++ {
 		wg.Add(1)
@@ -1881,12 +1884,14 @@ func (ps *PushContext) concurrentConvertToSidecarScope(sidecarConfigs []config.C
 				if !ok {
 					break
 				}
-				sc := ConvertToSidecarScope(ps, &item.cfg, item.cfg.Namespace)
+				sc := convertToSidecarScope(ps, &item.cfg, item.cfg.Namespace)
 				sidecarScopes[item.idx] = sc
 			}
 		}()
 	}
 
+	// note: sidecarScopes order matters and needs to be kept in the same order as sidecarConfigs.
+	// The order indicates priority, see getSidecarScope.
 	for idx, cfg := range sidecarConfigs {
 		taskItems <- taskItem{idx: idx, cfg: cfg}
 	}

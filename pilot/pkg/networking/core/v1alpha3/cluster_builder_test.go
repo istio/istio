@@ -73,9 +73,29 @@ func TestApplyDestinationRule(t *testing.T) {
 			Protocol: protocol.Unsupported,
 		},
 	}
+	http2ServicePort := model.PortList{
+		&model.Port{
+			Name:     "default",
+			Port:     8080,
+			Protocol: protocol.HTTP2,
+		},
+		&model.Port{
+			Name:     "auto",
+			Port:     9090,
+			Protocol: protocol.Unsupported,
+		},
+	}
 	service := &model.Service{
 		Hostname:   host.Name("foo.default.svc.cluster.local"),
 		Ports:      servicePort,
+		Resolution: model.ClientSideLB,
+		Attributes: model.ServiceAttributes{
+			Namespace: TestServiceNamespace,
+		},
+	}
+	http2Service := &model.Service{
+		Hostname:   host.Name("foo.default.svc.cluster.local"),
+		Ports:      http2ServicePort,
 		Resolution: model.ClientSideLB,
 		Attributes: model.ServiceAttributes{
 			Namespace: TestServiceNamespace,
@@ -279,6 +299,26 @@ func TestApplyDestinationRule(t *testing.T) {
 						Http: &networking.ConnectionPoolSettings_HTTPSettings{
 							MaxRetries:               10,
 							MaxRequestsPerConnection: 10,
+						},
+					},
+				},
+			},
+			expectedSubsetClusters: []*cluster.Cluster{},
+		},
+		{
+			name:        "destination rule with maxConcurrentStreams",
+			cluster:     &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			clusterMode: DefaultClusterMode,
+			service:     http2Service,
+			port:        http2ServicePort[0],
+			proxyView:   model.ProxyViewAll,
+			destRule: &networking.DestinationRule{
+				Host: "foo.default.svc.cluster.local",
+				TrafficPolicy: &networking.TrafficPolicy{
+					ConnectionPool: &networking.ConnectionPoolSettings{
+						Http: &networking.ConnectionPoolSettings_HTTPSettings{
+							MaxRetries:           10,
+							MaxConcurrentStreams: 10,
 						},
 					},
 				},
@@ -702,6 +742,10 @@ func TestApplyDestinationRule(t *testing.T) {
 			tt.cluster.CommonLbConfig = &cluster.Cluster_CommonLbConfig{}
 
 			ec := newClusterWrapper(tt.cluster)
+			// Set cluster wrapping with HTTP2 options if port protocol is HTTP2
+			if tt.port.Protocol == protocol.HTTP2 {
+				setH2Options(ec)
+			}
 			destRule := proxy.SidecarScope.DestinationRule(model.TrafficDirectionOutbound, proxy, tt.service.Hostname)
 			eb := endpoints.NewCDSEndpointBuilder(proxy, cb.req.Push, tt.cluster.Name,
 				model.TrafficDirectionOutbound, "", tt.service.Hostname, tt.port.Port,
@@ -725,7 +769,7 @@ func TestApplyDestinationRule(t *testing.T) {
 				}
 			}
 
-			// Validate that use client protocol configures cluster correctly.
+			// Validate that max requests per connection configures cluster correctly.
 			if tt.destRule != nil && tt.destRule.TrafficPolicy != nil && tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().GetMaxRequestsPerConnection() > 0 {
 				if ec.httpProtocolOptions == nil {
 					t.Errorf("Expected cluster %s to have http protocol options but not found", tt.cluster.Name)
@@ -736,6 +780,22 @@ func TestApplyDestinationRule(t *testing.T) {
 				if ec.httpProtocolOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection.GetValue() !=
 					uint32(tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().MaxRequestsPerConnection) {
 					t.Errorf("Unexpected max_requests_per_connection found")
+				}
+			}
+
+			if tt.destRule.GetTrafficPolicy().GetConnectionPool().GetHttp().GetMaxConcurrentStreams() > 0 {
+				if ec.httpProtocolOptions == nil {
+					t.Errorf("Expected cluster %s to have http protocol options but not found", tt.cluster.Name)
+				}
+				if ec.httpProtocolOptions.GetExplicitHttpConfig() == nil {
+					t.Errorf("Expected cluster %s to have explicit http config but not found", tt.cluster.Name)
+				}
+				if ec.httpProtocolOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions() == nil {
+					t.Errorf("Expected cluster %s to have HTTP2 protocol options but not found", tt.cluster.Name)
+				}
+				if ec.httpProtocolOptions.GetExplicitHttpConfig().GetHttp2ProtocolOptions().GetMaxConcurrentStreams().GetValue() !=
+					uint32(tt.destRule.TrafficPolicy.GetConnectionPool().GetHttp().MaxConcurrentStreams) {
+					t.Errorf("Unexpected max_concurrent_streams found")
 				}
 			}
 
@@ -2337,6 +2397,62 @@ func TestApplyConnectionPool(t *testing.T) {
 				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
 					IdleTimeout: &durationpb.Duration{
 						Seconds: 22,
+					},
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
+				},
+			},
+		},
+		{
+			name:    "set TCP idle timeout",
+			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			httpProtocolOptions: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
+				},
+			},
+			connectionPool: &networking.ConnectionPoolSettings{
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 10,
+					},
+				},
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					IdleTimeout: nil,
+				},
+			},
+			expectedHTTPPOpt: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 10,
+					},
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
+				},
+			},
+		},
+		{
+			name:    "ignore TCP idle timeout when HTTP idle timeout is specified",
+			cluster: &cluster.Cluster{Name: "foo", ClusterDiscoveryType: &cluster.Cluster_Type{Type: cluster.Cluster_EDS}},
+			httpProtocolOptions: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
+				},
+			},
+			connectionPool: &networking.ConnectionPoolSettings{
+				Tcp: &networking.ConnectionPoolSettings_TCPSettings{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 10,
+					},
+				},
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 20,
+					},
+				},
+			},
+			expectedHTTPPOpt: &http.HttpProtocolOptions{
+				CommonHttpProtocolOptions: &core.HttpProtocolOptions{
+					IdleTimeout: &durationpb.Duration{
+						Seconds: 20,
 					},
 					MaxRequestsPerConnection: &wrappers.UInt32Value{Value: 10},
 				},

@@ -15,27 +15,11 @@
 package features
 
 import (
-	"time"
-
-	"go.uber.org/atomic"
-
 	"istio.io/istio/pkg/env"
 )
 
 // Define flags that affect XDS config generation here.
 var (
-	// FilterGatewayClusterConfig controls if a subset of clusters(only those required) should be pushed to gateways
-	FilterGatewayClusterConfig = env.Register("PILOT_FILTER_GATEWAY_CLUSTER_CONFIG", false,
-		"If enabled, Pilot will send only clusters that referenced in gateway virtual services attached to gateway").Get()
-
-	SendUnhealthyEndpoints = atomic.NewBool(env.Register(
-		"PILOT_SEND_UNHEALTHY_ENDPOINTS",
-		false,
-		"If enabled, Pilot will include unhealthy endpoints in EDS pushes and even if they are sent Envoy does not use them for load balancing."+
-			"  To avoid, sending traffic to non ready endpoints, enabling this flag, disables panic threshold in Envoy i.e. Envoy does not load balance requests"+
-			" to unhealthy/non-ready hosts even if the percentage of healthy hosts fall below minimum health percentage(panic threshold).",
-	).Get())
-
 	// EnableMysqlFilter enables injection of `envoy.filters.network.mysql_proxy` in the filter chain.
 	// Pilot injects this outbound filter if the service port name is `mysql`.
 	EnableMysqlFilter = env.Register(
@@ -98,16 +82,4 @@ var (
 
 	EnableXDSCacheMetrics = env.Register("PILOT_XDS_CACHE_STATS", false,
 		"If true, Pilot will collect metrics for XDS cache efficiency.").Get()
-
-	XDSCacheMaxSize = env.Register("PILOT_XDS_CACHE_SIZE", 60000,
-		"The maximum number of cache entries for the XDS cache.").Get()
-
-	XDSCacheIndexClearInterval = env.Register("PILOT_XDS_CACHE_INDEX_CLEAR_INTERVAL", 5*time.Second,
-		"The interval for xds cache index clearing.").Get()
-
-	XdsPushSendTimeout = env.Register(
-		"PILOT_XDS_SEND_TIMEOUT",
-		0*time.Second,
-		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
-	).Get()
 )

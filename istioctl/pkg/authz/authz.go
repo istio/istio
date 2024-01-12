@@ -24,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"istio.io/istio/istioctl/pkg/cli"
+	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/istioctl/pkg/util/configdump"
 	"istio.io/istio/pkg/kube"
@@ -87,6 +88,9 @@ The command also supports reading from a standalone config dump file with flag -
 			}
 			analyzer.Print(cmd.OutOrStdout())
 			return nil
+		},
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 	cmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",

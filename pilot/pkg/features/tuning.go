@@ -108,4 +108,40 @@ var (
 		"If set to a non-zero value, enables mutex profiling a rate of 1/MUTEX_PROFILE_FRACTION events."+
 			" For example, '1000' will record 0.1% of events. "+
 			"Set to 0 to disable entirely.").Get()
+
+	StatusUpdateInterval = env.Register(
+		"PILOT_STATUS_UPDATE_INTERVAL",
+		500*time.Millisecond,
+		"Interval to update the XDS distribution status.",
+	).Get()
+
+	StatusQPS = env.Register(
+		"PILOT_STATUS_QPS",
+		100,
+		"If status is enabled, controls the QPS with which status will be updated.  "+
+			"See https://godoc.org/k8s.io/client-go/rest#Config QPS",
+	).Get()
+
+	StatusBurst = env.Register(
+		"PILOT_STATUS_BURST",
+		500,
+		"If status is enabled, controls the Burst rate with which status will be updated.  "+
+			"See https://godoc.org/k8s.io/client-go/rest#Config Burst",
+	).Get()
+
+	StatusMaxWorkers = env.Register("PILOT_STATUS_MAX_WORKERS", 100, "The maximum number of workers"+
+		" Pilot will use to keep configuration status up to date.  Smaller numbers will result in higher status latency, "+
+		"but larger numbers may impact CPU in high scale environments.").Get()
+
+	XDSCacheMaxSize = env.Register("PILOT_XDS_CACHE_SIZE", 60000,
+		"The maximum number of cache entries for the XDS cache.").Get()
+
+	XDSCacheIndexClearInterval = env.Register("PILOT_XDS_CACHE_INDEX_CLEAR_INTERVAL", 5*time.Second,
+		"The interval for xds cache index clearing.").Get()
+
+	XdsPushSendTimeout = env.Register(
+		"PILOT_XDS_SEND_TIMEOUT",
+		0*time.Second,
+		"The timeout to send the XDS configuration to proxies. After this timeout is reached, Pilot will discard that push.",
+	).Get()
 )

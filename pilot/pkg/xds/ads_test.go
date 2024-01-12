@@ -45,43 +45,6 @@ const (
 	routeB = "https.443.https.my-gateway.testns"
 )
 
-func TestStatusEvents(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-
-	ads := s.Connect(
-		&model.Proxy{
-			Metadata: &model.NodeMetadata{
-				Generator: "event",
-			},
-		},
-		[]string{xds.TypeURLConnect},
-		[]string{},
-	)
-	defer ads.Close()
-
-	dr, err := ads.WaitVersion(5*time.Second, xds.TypeURLConnect, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if dr.Resources == nil || len(dr.Resources) == 0 {
-		t.Error("Expected connections, but not found")
-	}
-
-	// Create a second connection - we should get an event.
-	ads2 := s.Connect(nil, nil, nil)
-	defer ads2.Close()
-
-	dr, err = ads.WaitVersion(5*time.Second, xds.TypeURLConnect,
-		dr.VersionInfo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if dr.Resources == nil || len(dr.Resources) == 0 {
-		t.Error("Expected connections, but not found")
-	}
-}
-
 func TestAdsReconnectAfterRestart(t *testing.T) {
 	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 

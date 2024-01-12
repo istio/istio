@@ -116,8 +116,6 @@ type DiscoveryServer struct {
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
 	Authenticators []security.Authenticator
 
-	// StatusGen is notified of connect/disconnect/nack on all connections
-	StatusGen               *StatusGen
 	WorkloadEntryController *autoregistration.Controller
 
 	// serverReady indicates caches have been synced up and server is ready to process requests.
@@ -529,7 +527,6 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 // InitGenerators initializes generators to be used by XdsServer.
 func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string, clusterID cluster.ID, internalDebugMux *http.ServeMux) {
 	edsGen := &EdsGenerator{Server: s}
-	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
 	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
@@ -557,11 +554,8 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen
 
-	s.Generators["api/"+TypeURLConnect] = s.StatusGen
-
-	s.Generators["event"] = s.StatusGen
+	s.Generators["event"] = NewStatusGen(s)
 	s.Generators[v3.DebugType] = NewDebugGen(s, systemNameSpace, internalDebugMux)
-	s.Generators[v3.BootstrapType] = &BootstrapGenerator{Server: s}
 }
 
 // Shutdown shuts down DiscoveryServer components.

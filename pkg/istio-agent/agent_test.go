@@ -530,31 +530,6 @@ func TestAgent(t *testing.T) {
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		envoyReady(t, "second agent", 25000)
 	})
-	t.Run("Envoy bootstrap discovery", func(t *testing.T) {
-		Setup(t, func(a AgentTest) AgentTest {
-			a.envoyEnable = true
-			a.ProxyConfig.StatusPort = 15020
-			a.ProxyConfig.ProxyAdminPort = 15000
-			a.AgentConfig.EnvoyPrometheusPort = 15090
-			a.AgentConfig.EnvoyStatusPort = 15021
-			a.AgentConfig.EnableDynamicBootstrap = true
-			return a
-		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-		envoyReady(t, "bootstrap discovery", 15000)
-	})
-	t.Run("Envoy bootstrap retry", func(t *testing.T) {
-		Setup(t, func(a AgentTest) AgentTest {
-			a.envoyEnable = true
-			a.ProxyConfig.StatusPort = 15020
-			a.ProxyConfig.ProxyAdminPort = 15000
-			a.AgentConfig.EnvoyPrometheusPort = 15090
-			a.AgentConfig.EnvoyStatusPort = 15021
-			a.AgentConfig.EnableDynamicBootstrap = true
-			a.bootstrapGenerator = &FakeBootstrapGenerator{}
-			return a
-		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-		envoyReady(t, "bootstrap discovery", 15000)
-	})
 	t.Run("gRPC XDS bootstrap", func(t *testing.T) {
 		bootstrapPath := path.Join(mktemp(), "grpc-bootstrap.json")
 		a := Setup(t, func(a AgentTest) AgentTest {

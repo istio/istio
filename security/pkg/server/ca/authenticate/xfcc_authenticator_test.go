@@ -15,6 +15,7 @@
 package authenticate
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/netip"
@@ -23,7 +24,6 @@ import (
 	"testing"
 
 	"github.com/alecholmes/xfccparser"
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 
