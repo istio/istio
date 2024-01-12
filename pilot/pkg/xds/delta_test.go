@@ -24,7 +24,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pilot/test/xdsfake"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -34,13 +34,13 @@ import (
 )
 
 func TestDeltaAds(t *testing.T) {
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectDeltaADS().WithType(v3.ClusterType)
 	ads.RequestResponseAck(nil)
 }
 
 func TestDeltaAdsClusterUpdate(t *testing.T) {
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectDeltaADS().WithType(v3.EndpointType)
 	nonce := ""
 	sendEDSReqAndVerify := func(add, remove, expect []string) {
@@ -68,7 +68,7 @@ func TestDeltaAdsClusterUpdate(t *testing.T) {
 }
 
 func TestDeltaEDS(t *testing.T) {
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml"),
 	})
 	addTestClientEndpoints(s.MemRegistry)
@@ -138,7 +138,7 @@ func TestDeltaEDS(t *testing.T) {
 }
 
 func TestDeltaReconnectRequests(t *testing.T) {
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		Services: []*model.Service{
 			{
 				Hostname:       "adsupdate.example.com",
@@ -220,7 +220,7 @@ func TestDeltaReconnectRequests(t *testing.T) {
 
 func TestDeltaWDS(t *testing.T) {
 	test.SetForTest(t, &features.EnableAmbientControllers, true)
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	wlA := &model.WorkloadInfo{
 		Workload: &workloadapi.Workload{
 			Uid:       fmt.Sprintf("Kubernetes//Pod/%s/%s", "test", "a"),

@@ -26,7 +26,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pilot/test/xdsfake"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -36,7 +36,7 @@ import (
 )
 
 func TestCDS(t *testing.T) {
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.ClusterType)
 	ads.RequestResponseAck(t, nil)
 }
@@ -203,7 +203,7 @@ func TestSAN(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 				Configs:           tt.configs,
 				KubernetesObjects: tt.objs,
 			})

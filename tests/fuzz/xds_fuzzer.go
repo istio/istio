@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/test/xdsfake"
+	"istio.io/istio/pilot/test/xds"
 )
 
 func init() {
@@ -34,7 +34,7 @@ func FuzzXds(data []byte) int {
 	if err != nil {
 		return 0
 	}
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: string(data),
 	})
 	proxy := s.SetupProxy(&model.Proxy{

@@ -25,7 +25,7 @@ import (
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pilot/test/xdsfake"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
@@ -35,7 +35,7 @@ import (
 
 // TestLDS using isolated namespaces
 func TestLDSIsolated(t *testing.T) {
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{ConfigString: mustReadfolder(t, "tests/testdata/config")})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadfolder(t, "tests/testdata/config")})
 
 	// Sidecar in 'none' mode
 	t.Run("sidecar_none", func(t *testing.T) {
@@ -119,7 +119,7 @@ func TestLDSIsolated(t *testing.T) {
 
 // TestLDS using default sidecar in root namespace
 func TestLDSWithDefaultSidecar(t *testing.T) {
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: mustReadfolder(t, "tests/testdata/networking/sidecar-ns-scope"),
 		MeshConfig: func() *meshconfig.MeshConfig {
 			m := mesh.DefaultMeshConfig()
@@ -151,7 +151,7 @@ func TestLDSWithDefaultSidecar(t *testing.T) {
 
 // TestLDS using gateways
 func TestLDSWithIngressGateway(t *testing.T) {
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: mustReadfolder(t, "tests/testdata/networking/ingress-gateway"),
 		MeshConfig: func() *meshconfig.MeshConfig {
 			m := mesh.DefaultMeshConfig()
@@ -187,14 +187,14 @@ func TestLDSWithIngressGateway(t *testing.T) {
 // TestLDS is running LDS tests.
 func TestLDS(t *testing.T) {
 	t.Run("sidecar", func(t *testing.T) {
-		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 		ads := s.ConnectADS().WithType(v3.ListenerType)
 		ads.RequestResponseAck(t, nil)
 	})
 
 	// 'router' or 'gateway' type of listener
 	t.Run("gateway", func(t *testing.T) {
-		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{ConfigString: mustReadfolder(t, "tests/testdata/config")})
+		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadfolder(t, "tests/testdata/config")})
 		// Matches Gateway config in test data
 		labels := map[string]string{"version": "v2", "app": "my-gateway-controller"}
 		ads := s.ConnectADS().WithType(v3.ListenerType).WithID(gatewayID(gatewayIP))
@@ -209,7 +209,7 @@ func TestLDS(t *testing.T) {
 
 // TestLDS using sidecar scoped on workload without Service
 func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: mustReadfolder(t, "tests/testdata/networking/sidecar-without-service"),
 		MeshConfig: func() *meshconfig.MeshConfig {
 			m := mesh.DefaultMeshConfig()
@@ -258,7 +258,7 @@ func TestLDSWithSidecarForWorkloadWithoutService(t *testing.T) {
 
 // TestLDS using default sidecar in root namespace
 func TestLDSEnvoyFilterWithWorkloadSelector(t *testing.T) {
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		ConfigString: mustReadfolder(t, "tests/testdata/networking/envoyfilter-without-service"),
 	})
 	// The labels of 98.1.1.1 must match the envoyfilter workload selector

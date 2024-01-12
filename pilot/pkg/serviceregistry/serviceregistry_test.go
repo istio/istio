@@ -43,7 +43,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	xds "istio.io/istio/pilot/test/xdsfake"
+	xds "istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"

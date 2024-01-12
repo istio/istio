@@ -27,7 +27,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pilot/test/xdsfake"
+	xdsfake "istio.io/istio/pilot/test/xds"
 )
 
 func TestSyncz(t *testing.T) {

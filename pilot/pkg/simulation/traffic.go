@@ -35,7 +35,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
-	"istio.io/istio/pilot/test/xdsfake"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/host"
 	istiolog "istio.io/istio/pkg/log"
@@ -244,7 +244,7 @@ func NewSimulationFromConfigGen(t *testing.T, s *v1alpha3.ConfigGenTest, proxy *
 	return sim
 }
 
-func NewSimulation(t *testing.T, s *xdsfake.FakeDiscoveryServer, proxy *model.Proxy) *Simulation {
+func NewSimulation(t *testing.T, s *xds.FakeDiscoveryServer, proxy *model.Proxy) *Simulation {
 	return NewSimulationFromConfigGen(t, s.ConfigGenTest, proxy)
 }
 

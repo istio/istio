@@ -31,7 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pilot/test/xdsfake"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
@@ -61,7 +61,7 @@ func (r expectedResults) getAddrs() []string {
 // the Split Horizon EDS - all local endpoints + endpoint per remote network that also has
 // endpoints for the service.
 func TestSplitHorizonEds(t *testing.T) {
-	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{NetworksWatcher: mesh.NewFixedNetworksWatcher(nil)})
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{NetworksWatcher: mesh.NewFixedNetworksWatcher(nil)})
 
 	// Set up a cluster registry for network 1 with 1 instance for the service 'service5'
 	// Network has 1 gateway
@@ -196,7 +196,7 @@ func TestSplitHorizonEds(t *testing.T) {
 }
 
 // Tests whether an EDS response from the provided network matches the expected results
-func verifySplitHorizonResponse(t *testing.T, s *xdsfake.FakeDiscoveryServer, network string, sidecarID string, expected expectedResults) {
+func verifySplitHorizonResponse(t *testing.T, s *xds.FakeDiscoveryServer, network string, sidecarID string, expected expectedResults) {
 	t.Helper()
 	ads := s.ConnectADS().WithID(sidecarID)
 
@@ -254,7 +254,7 @@ func verifySplitHorizonResponse(t *testing.T, s *xdsfake.FakeDiscoveryServer, ne
 // initRegistry creates and initializes a memory registry that holds a single
 // service with the provided amount of endpoints. It also creates a service for
 // the ingress with the provided external IP
-func initRegistry(server *xdsfake.FakeDiscoveryServer, networkNum int, gatewaysIP []string, numOfEndpoints int) {
+func initRegistry(server *xds.FakeDiscoveryServer, networkNum int, gatewaysIP []string, numOfEndpoints int) {
 	clusterID := cluster.ID(fmt.Sprintf("cluster%d", networkNum))
 	networkID := network.ID(fmt.Sprintf("network%d", networkNum))
 	memRegistry := memory.NewServiceDiscovery()
@@ -324,7 +324,7 @@ func initRegistry(server *xdsfake.FakeDiscoveryServer, networkNum int, gatewaysI
 	memRegistry.SetEndpoints("service5.default.svc.cluster.local", "default", istioEndpoints)
 }
 
-func addNetwork(server *xdsfake.FakeDiscoveryServer, id network.ID, network *meshconfig.Network) {
+func addNetwork(server *xds.FakeDiscoveryServer, id network.ID, network *meshconfig.Network) {
 	meshNetworks := server.Env().NetworksWatcher.Networks()
 	// copy old networks if they exist
 	c := map[string]*meshconfig.Network{}

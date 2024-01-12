@@ -41,7 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	testutil "istio.io/istio/pilot/test/util"
-	"istio.io/istio/pilot/test/xdsfake"
+	xdsfake "istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"

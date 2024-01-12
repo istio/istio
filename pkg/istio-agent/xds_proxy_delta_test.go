@@ -24,7 +24,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pilot/test/xdsfake"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 )
 
@@ -61,7 +61,7 @@ func sendDeltaDownstreamWithoutResponse(t *testing.T, downstream discovery.Aggre
 // Validates basic xds proxy flow by proxying one CDS requests end to end.
 func TestDeltaXdsProxyBasicFlow(t *testing.T) {
 	proxy := setupXdsProxy(t)
-	f := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	f := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	setDialOptions(proxy, f.BufListener)
 	conn := setupDownstreamConnection(t, proxy)
 	downstream := deltaStream(t, conn)
