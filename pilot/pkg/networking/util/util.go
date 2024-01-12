@@ -780,14 +780,14 @@ func GetPortLevelTrafficPolicy(policy *networking.TrafficPolicy, port *model.Por
 		return policy, false
 	}
 
-	// only override the policy when port level traffic policy is found.
+	// settings specified at the destination-level will not be inherited when
+	// overridden by port-level settings, i.e. default values will be applied
+	// to fields omitted in port-level traffic policies.
 	ret := &networking.TrafficPolicy{}
 	ret.ConnectionPool = portTrafficPolicy.ConnectionPool
 	ret.LoadBalancer = portTrafficPolicy.LoadBalancer
 	ret.OutlierDetection = portTrafficPolicy.OutlierDetection
 	ret.Tls = portTrafficPolicy.Tls
-	ret.Tunnel = policy.Tunnel
-	ret.ProxyProtocol = policy.ProxyProtocol
 	return ret, true
 }
 
