@@ -25,7 +25,7 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
@@ -148,7 +148,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				FieldManager: "istioctl",
 			})
 			if err != nil {
-				if kerrors.IsNotFound(err) {
+				if errors.IsNotFound(err) {
 					return fmt.Errorf("missing Kubernetes Gateway CRDs need to be installed before applying a waypoint: %s", err)
 				}
 				return err
@@ -390,7 +390,7 @@ func deleteWaypoints(cmd *cobra.Command, kubeClient kube.CLIClient, namespace st
 			defer wg.Done()
 			if err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(namespace).
 				Delete(context.Background(), name, metav1.DeleteOptions{}); err != nil {
-				if kerrors.IsNotFound(err) {
+				if errors.IsNotFound(err) {
 					fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v not found\n", namespace, name)
 				} else {
 					mu.Lock()
