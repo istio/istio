@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue: []
+releaseNotes:
+  - |
+    **Added** setting .Values.sidecarInjectiorWebhook.enableNamespacesByDefault for default revision
+    based control-planes so sidecar injection on namesapaces with istio-injection=enabled will be ignored.

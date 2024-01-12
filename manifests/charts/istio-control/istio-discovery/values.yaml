@@ -114,6 +114,9 @@ defaults:
     # Only one environment should have this enabled.
     enableNamespacesByDefault: false
 
+    # When using the default revision ignore the following namespaces even if istio-injection=enabled is set to true.
+    disableInjectionForNamespaces: []
+
     # Mutations that occur after the sidecar injector are not handled by default, as the Istio sidecar injector is only run
     # once. For example, an OPA sidecar injected after the Istio sidecar will not have it's liveness/readiness probes rewritten.
     # Setting this to `IfNeeded` will result in the sidecar injector being run again if additional mutations occur.
