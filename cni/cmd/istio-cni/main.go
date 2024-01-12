@@ -29,12 +29,14 @@ import (
 )
 
 func main() {
-	os.Exit(runPlugin())
+	if err := runPlugin(); err != nil {
+		os.Exit(1)
+	}
 }
 
-func runPlugin() int {
+func runPlugin() error {
 	if err := log.Configure(plugin.GetLoggingOptions("")); err != nil {
-		return 1
+		return err
 	}
 	defer func() {
 		// Log sync will send logs to install-cni container via UDS.
@@ -52,8 +54,8 @@ func runPlugin() int {
 			log.Infof("Error writing error JSON to stdout: ", err)
 		}
 
-		return 1
+		return err
 	}
 
-	return 0
+	return nil
 }
