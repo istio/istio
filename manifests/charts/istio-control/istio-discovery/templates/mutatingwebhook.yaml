@@ -106,11 +106,11 @@ webhooks:
       operator: In
       values:
       - enabled
-    {{- if .Values.sidecarInjectiorWebhook.disableInjectionForNamespaces }}
+    {{- if .Values.sidecarInjectorWebhook.disableInjectionForNamespaces }}
     - key: kubernetes.io/metadata.name
       operator: NotIn
       values:
-      {{- range .Values.sidecarInjectiorWebhook.disableInjectionForNamespaces }}
+      {{- range .Values.sidecarInjectorWebhook.disableInjectionForNamespaces }}
         - {{ . }}
       {{- end }}
     {{- end }}

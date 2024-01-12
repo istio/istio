@@ -106,6 +106,14 @@ webhooks:
       operator: In
       values:
       - enabled
+    {{- if .Values.sidecarInjectorWebhook.disableInjectionForNamespaces }}
+    - key: kubernetes.io/metadata.name
+      operator: NotIn
+      values:
+      {{- range .Values.sidecarInjectorWebhook.disableInjectionForNamespaces }}
+        - {{ . }}
+      {{- end }}
+    {{- end }}
   objectSelector:
     matchExpressions:
     - key: sidecar.istio.io/inject

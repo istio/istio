@@ -99,6 +99,7 @@
   "sidecarInjectorWebhook": {
     "alwaysInjectSelector": [],
     "defaultTemplates": [],
+    "disableInjectionForNamespaces": [],
     "enableNamespacesByDefault": false,
     "injectedAnnotations": {},
     "neverInjectSelector": [],
