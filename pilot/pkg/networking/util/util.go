@@ -791,6 +791,7 @@ func GetPortLevelTrafficPolicy(policy *networking.TrafficPolicy, port *model.Por
 	return ret
 }
 
+// MergeSubsetTrafficPolicy merges the destination and subset level traffic policy for the given port.
 func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
 	// First get DR port level traffic policy
 	original = GetPortLevelTrafficPolicy(original, port)
