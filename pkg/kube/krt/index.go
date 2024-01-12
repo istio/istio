@@ -17,6 +17,7 @@ package krt
 import (
 	"sync"
 
+	"istio.io/istio/pkg/ptr"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -42,6 +43,16 @@ func (i *Index[I, K]) Lookup(k K) []I {
 		res = append(res, *item)
 	}
 	return res
+}
+
+func (i *Index[I, K]) Dump() {
+	i.mu.RLock()
+	defer i.mu.RUnlock()
+	log.Errorf("> BEGIN DUMP (index %v[%T])", i.c.(internalCollection[I]).name(), ptr.TypeName[K]())
+	for k, v := range i.objects {
+		log.Errorf("key %v: %v", k, v.UnsortedList())
+	}
+	log.Errorf("< END DUMP (index %v[%T]", i.c.(internalCollection[I]).name(), ptr.TypeName[K]())
 }
 
 // CreateIndex creates a simple index, keyed by key K, over an informer for O. This is similar to

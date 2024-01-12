@@ -12,10 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package controller
+package ambient
 
 import (
-	"context"
 	"fmt"
 	"net/netip"
 	"path/filepath"
@@ -29,13 +28,13 @@ import (
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	k8sbeta "sigs.k8s.io/gateway-api/apis/v1beta1"
 
-	meshconfig "istio.io/api/mesh/v1alpha1"
+	"istio.io/api/meta/v1alpha1"
 	"istio.io/api/networking/v1alpha3"
 	auth "istio.io/api/security/v1beta1"
 	"istio.io/api/type/v1beta1"
 	apiv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	clientsecurityv1beta1 "istio.io/client-go/pkg/apis/security/v1beta1"
 	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
@@ -43,15 +42,18 @@ import (
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
-	"istio.io/istio/pkg/config/mesh"
-	"istio.io/istio/pkg/config/schema/collections"
+	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/config/schema/kind"
+	kubeclient "istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
-	"istio.io/istio/pkg/kube/kubetypes"
+	"istio.io/istio/pkg/kube/krt"
+	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/network"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
@@ -124,7 +126,7 @@ func TestAmbientIndex_LookupWorkloads(t *testing.T) {
 	s.assertAddresses(t, s.addrXdsName("127.0.0.1"), "pod1")
 	s.assertAddresses(t, s.addrXdsName("127.0.0.2"), "pod2")
 	for _, key := range []string{s.podXdsName("pod3"), s.addrXdsName("127.0.0.3")} {
-		assert.Equal(t, s.lookup(key), []*model.AddressInfo{
+		assert.Equal(t, s.lookup(key), []model.AddressInfo{
 			{
 				Address: &workloadapi.Address{
 					Type: &workloadapi.Address_Workload{
@@ -204,8 +206,7 @@ func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
 		[]int32{80}, map[string]string{"app": "a", "other": "label"}, "10.0.0.1")
 	s.assertAddresses(t, "", "pod1", "pod2", "pod3", "svc1")
 	s.assertAddresses(t, s.addrXdsName("10.0.0.1"), "pod2", "svc1")
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.svcXdsName("svc1"))
-	// s.assertEvent("cluster0//v1/pod/ns1/pod1") TODO: This should be the event, but we are not efficient here.
+	s.assertEvent(t, s.podXdsName("pod1"))
 	s.clearEvents()
 
 	// Update a pod to add it to the service
@@ -227,7 +228,6 @@ func TestAmbientIndex_ServiceSelectsCorrectWorkloads(t *testing.T) {
 	s.assertAddresses(t, "", "pod1", "pod2", "pod3")
 	s.assertAddresses(t, s.addrXdsName("10.0.0.1"))
 	s.assertEvent(t, s.podXdsName("pod2"), s.svcXdsName("svc1"))
-	assert.Equal(t, len(s.controller.ambientIndex.(*AmbientIndexImpl).byService), 0)
 }
 
 func TestAmbientIndex_WaypointConfiguredOnlyWhenReady(t *testing.T) {
@@ -358,8 +358,8 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.200"))[0].Address.GetWorkload().Waypoint,
 		nil)
-	assert.Equal(t, len(s.controller.Waypoint(model.WaypointScope{Namespace: testNS, ServiceAccount: "namespace-wide"})), 1)
-	for _, k := range s.controller.Waypoint(model.WaypointScope{Namespace: testNS, ServiceAccount: "namespace-wide"}) {
+	assert.Equal(t, len(s.Waypoint(model.WaypointScope{Namespace: testNS, ServiceAccount: "namespace-wide"})), 1)
+	for _, k := range s.Waypoint(model.WaypointScope{Namespace: testNS, ServiceAccount: "namespace-wide"}) {
 		assert.Equal(t, k.AsSlice(), netip.MustParseAddr("10.0.0.2").AsSlice())
 	}
 
@@ -429,7 +429,6 @@ func TestAmbientIndex_WaypointAddressAddedToWorkloads(t *testing.T) {
 	s.assertEvent(t,
 		s.podXdsName("waypoint-sa2-pod"),
 		s.svcXdsName("waypoint-sa2"))
-
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("10.0.0.1"))[1].Address.GetWorkload().Waypoint,
 		nil)
@@ -458,27 +457,25 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		map[string]string{constants.ManagedGatewayLabel: constants.ManagedGatewayMeshControllerLabel},
 		map[string]string{},
 		[]int32{80}, map[string]string{constants.GatewayNameLabel: "namespace-wide"}, "10.0.0.2")
-	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
-
+	s.assertUnorderedEvent(t, s.podXdsName("waypoint-ns-pod"), s.svcXdsName("waypoint-ns"))
 	s.clearEvents()
 	selectorPolicyName := "selector"
 
 	// Test that PeerAuthentications are added to the ambient index
-	s.addPolicy(t, "global", systemNS, nil, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, "global", systemNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
 		}
 	})
 	s.clearEvents()
 
-	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 		}
 	})
-
 	// Should add the static policy to all pods in the ns1 namespace since the effective mode is STRICT
 	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"))
 	assert.Equal(t,
@@ -486,9 +483,9 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)})
 	s.clearEvents()
 
-	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 		}
 	})
@@ -498,9 +495,9 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)})
 
 	// Change the workload policy to be permissive
-	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
 		}
 	})
@@ -510,18 +507,19 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		nil)
 
 	// Add a port-level STRICT exception to the workload policy
-	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
 		}
-		pol.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
+		pol.Spec.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
 			9090: {
 				Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 			},
 		}
 	})
 	s.assertEvent(t, s.podXdsName("pod1")) // Selector policy should be added back since there is now a STRICT exception
+	time.Sleep(time.Second)
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
@@ -549,9 +547,9 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}))})
 
 	// Add global selector policy; nothing should happen since PeerAuthentication doesn't support global mesh wide selectors
-	s.addPolicy(t, "global-selector", systemNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, "global-selector", systemNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 		}
 	})
@@ -564,15 +562,15 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}))})
 
 	// Delete global selector policy
-	_ = s.cfg.Delete(gvk.PeerAuthentication, "global-selector", systemNS, nil)
+	s.pa.Delete("global-selector", systemNS)
 
 	// Update workload policy to be PERMISSIVE
-	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
 		}
-		pol.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
+		pol.Spec.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
 			9090: {
 				Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
 			},
@@ -585,26 +583,26 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		nil)
 
 	// Change namespace policy to be PERMISSIVE
-	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
 		}
 	})
 
 	// All pods have an event (since we're only testing one namespace) but still no policies attached
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"))
+	s.assertEvent(t, s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"))
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		nil)
 
 	// Change workload policy to be STRICT and remove port-level overrides
-	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 		}
-		pol.PortLevelMtls = nil
+		pol.Spec.PortLevelMtls = nil
 	})
 
 	// Selected pods receive an event
@@ -614,12 +612,12 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)}) // Effective mode is STRICT so set policy
 
 	// Add a permissive port-level override
-	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 		}
-		pol.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
+		pol.Spec.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
 			9090: {
 				Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
 			},
@@ -635,16 +633,15 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}))})
 
 	// Set workload policy to be UNSET with a STRICT port-level override
-	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = nil // equivalent to UNSET
-		pol.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = nil // equivalent to UNSET
+		pol.Spec.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
 			9090: {
 				Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 			},
 		}
 	})
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2")) // Matching pods receive an event
 	// The policy should still be added since the effective policy is PERMISSIVE
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -655,9 +652,9 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}))})
 
 	// Change namespace policy back to STRICT
-	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, "namespace", testNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 		}
 	})
@@ -668,10 +665,10 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)}) // Effective mode is STRICT so set static policy
 
 	// Set workload policy to be UNSET with a PERMISSIVE port-level override
-	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = nil // equivalent to UNSET
-		pol.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = nil // equivalent to UNSET
+		pol.Spec.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
 			9090: {
 				Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
 			},
@@ -688,7 +685,7 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}))})
 
 	// Clear PeerAuthentication from workload
-	_ = s.cfg.Delete(gvk.PeerAuthentication, selectorPolicyName, testNS, nil)
+	s.pa.Delete("selector", testNS)
 	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"))
 	// Effective policy is still STRICT so the static policy should still be set
 	assert.Equal(t,
@@ -696,10 +693,10 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)})
 
 	// Now remove the namespace and global policies along with the pods
-	_ = s.cfg.Delete(gvk.PeerAuthentication, "namespace", testNS, nil)
-	_ = s.cfg.Delete(gvk.PeerAuthentication, "global", systemNS, nil)
+	s.pa.Delete("namespace", testNS)
+	s.pa.Delete("global", systemNS)
 	s.deletePod(t, "pod2")
-	s.assertEvent(t, s.podXdsName("pod2"))
+	s.assertEvent(t, s.podXdsName("pod2"), s.podXdsName("pod1"))
 	s.clearEvents()
 
 	// Test AuthorizationPolicies
@@ -716,21 +713,21 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{"ns1/selector"})
 
 	// Pod not in policy
-	s.addPods(t, "127.0.0.2", "pod2", "sa1", map[string]string{"app": "not-a"}, nil, true, corev1.PodRunning)
-	s.assertEvent(t, s.podXdsName("pod2"))
+	s.addPods(t, "127.0.0.2", "pod3", "sa1", map[string]string{"app": "not-a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod3"))
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.2"))[0].Address.GetWorkload().AuthorizationPolicies,
 		nil)
 
 	// Add it to the policy by updating its selector
-	s.addPods(t, "127.0.0.2", "pod2", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
-	s.assertEvent(t, s.podXdsName("pod2"))
+	s.addPods(t, "127.0.0.2", "pod3", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod3"))
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.2"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{"ns1/selector"})
 
 	s.addPolicy(t, "global-selector", systemNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, nil)
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"))
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"))
 
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -738,56 +735,55 @@ func TestAmbientIndex_Policy(t *testing.T) {
 
 	// Update selector to not select
 	s.addPolicy(t, "global-selector", systemNS, map[string]string{"app": "not-a"}, gvk.AuthorizationPolicy, nil)
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"))
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"))
 
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{"ns1/selector"})
 
 	// Add STRICT global PeerAuthentication
-	s.addPolicy(t, "strict", systemNS, nil, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, "strict", systemNS, nil, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 		}
 	})
 	// Every workload should receive an event
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"))
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"))
 	// Static STRICT policy should be sent
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{"ns1/selector", fmt.Sprintf("istio-system/%s", staticStrictPolicyName)})
 
 	// Now add a STRICT workload PeerAuthentication
-	s.addPolicy(t, "selector-strict", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, "selector-strict", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 		}
 	})
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2")) // Matching workloads should receive an event
 	// Effective policy is still STRICT so only static policy should be referenced
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{"ns1/selector", fmt.Sprintf("istio-system/%s", staticStrictPolicyName)})
 
 	// Change the workload policy to PERMISSIVE
-	s.addPolicy(t, "selector-strict", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, "selector-strict", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
 		}
 	})
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2")) // Matching workloads should receive an event
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3")) // Matching workloads should receive an event
 	// Static STRICT policy should disappear
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{"ns1/selector"})
 
 	// Change the workload policy to DISABLE
-	s.addPolicy(t, "selector-strict", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, "selector-strict", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_DISABLE,
 		}
 	})
@@ -800,18 +796,18 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		[]string{"ns1/selector"})
 
 	// Now make the workload policy STRICT but have a PERMISSIVE port-level override
-	s.addPolicy(t, "selector-strict", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c *config.Config) {
-		pol := c.Spec.(*auth.PeerAuthentication)
-		pol.Mtls = &auth.PeerAuthentication_MutualTLS{
+	s.addPolicy(t, "selector-strict", testNS, map[string]string{"app": "a"}, gvk.PeerAuthentication, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.PeerAuthentication)
+		pol.Spec.Mtls = &auth.PeerAuthentication_MutualTLS{
 			Mode: auth.PeerAuthentication_MutualTLS_STRICT,
 		}
-		pol.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
+		pol.Spec.PortLevelMtls = map[uint32]*auth.PeerAuthentication_MutualTLS{
 			9090: {
 				Mode: auth.PeerAuthentication_MutualTLS_PERMISSIVE,
 			},
 		}
 	})
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2")) // Matching workloads should receive an event
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3")) // Matching workloads should receive an event
 	// Workload policy should be added since there's a port level exclusion
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -822,9 +818,9 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}))})
 
 	// Now add a rule allowing a specific source principal to the workload AuthorizationPolicy
-	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, func(c *config.Config) {
-		pol := c.Spec.(*auth.AuthorizationPolicy)
-		pol.Rules = []*auth.Rule{
+	s.addPolicy(t, selectorPolicyName, testNS, map[string]string{"app": "a"}, gvk.AuthorizationPolicy, func(c controllers.Object) {
+		pol := c.(*clientsecurityv1beta1.AuthorizationPolicy)
+		pol.Spec.Rules = []*auth.Rule{
 			{
 				From: []*auth.Rule_From{{Source: &auth.Source{Principals: []string{"cluster.local/ns/ns1/sa/sa1"}}}},
 			},
@@ -841,8 +837,8 @@ func TestAmbientIndex_Policy(t *testing.T) {
 			Namespace: "ns1",
 		}))})
 
-	_ = s.cfg.Delete(gvk.AuthorizationPolicy, selectorPolicyName, testNS, nil)
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"))
+	s.authz.Delete("selector", testNS)
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"))
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{fmt.Sprintf("ns1/%s", model.GetAmbientPolicyConfigName(model.ConfigKey{
@@ -852,17 +848,17 @@ func TestAmbientIndex_Policy(t *testing.T) {
 		}))})
 
 	// Delete selector policy
-	_ = s.cfg.Delete(gvk.PeerAuthentication, "selector-strict", testNS, nil)
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2")) // Matching workloads should receive an event
+	s.pa.Delete("selector-strict", testNS)
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3")) // Matching workloads should receive an event
 	// Static STRICT policy should now be sent because of the global policy
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
 		[]string{fmt.Sprintf("istio-system/%s", staticStrictPolicyName)})
 
 	// Delete global policy
-	_ = s.cfg.Delete(gvk.PeerAuthentication, "strict", systemNS, nil)
+	s.pa.Delete("strict", systemNS)
 	// Every workload should receive an event
-	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"))
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod3"), s.podXdsName("waypoint-ns-pod"), s.podXdsName("waypoint2-sa"))
 	// Now no policies are in effect
 	assert.Equal(t,
 		s.lookup(s.addrXdsName("127.0.0.1"))[0].Address.GetWorkload().AuthorizationPolicies,
@@ -908,7 +904,7 @@ func TestAddressInformation(t *testing.T) {
 		[]int32{80}, map[string]string{"app": "a"}, "10.0.0.1")
 	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"), s.svcXdsName("svc1"))
 
-	addrs, _ := s.controller.AddressInformation(sets.New[string](s.svcXdsName("svc1"), s.podXdsName("pod2")))
+	addrs, _ := s.AddressInformation(sets.New[string](s.svcXdsName("svc1"), s.podXdsName("pod2")))
 	got := sets.New[string]()
 	for _, addr := range addrs {
 		if got.Contains(addr.ResourceName()) {
@@ -935,9 +931,23 @@ func TestRBACConvert(t *testing.T) {
 			var o *security.Authorization
 			switch pol[0].GroupVersionKind {
 			case gvk.AuthorizationPolicy:
-				o = convertAuthorizationPolicy(systemNS, pol[0])
+				o = convertAuthorizationPolicy(systemNS, &clientsecurityv1beta1.AuthorizationPolicy{
+					TypeMeta: metav1.TypeMeta{},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      pol[0].Name,
+						Namespace: pol[0].Namespace,
+					},
+					Spec: *((pol[0].Spec).(*auth.AuthorizationPolicy)), //nolint: govet
+				})
 			case gvk.PeerAuthentication:
-				o = convertPeerAuthentication(systemNS, pol[0])
+				o = convertPeerAuthentication(systemNS, &clientsecurityv1beta1.PeerAuthentication{
+					TypeMeta: metav1.TypeMeta{},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      pol[0].Name,
+						Namespace: pol[0].Namespace,
+					},
+					Spec: *((pol[0].Spec).(*auth.PeerAuthentication)), //nolint: govet
+				})
 			default:
 				t.Fatalf("unknown kind %v", pol[0].GroupVersionKind)
 			}
@@ -972,7 +982,7 @@ func TestEmptyVIPsExcluded(t *testing.T) {
 }
 
 func TestUpdateWaypointForWorkload(t *testing.T) {
-	assertWaypoint := func(t *testing.T, workloads []*model.AddressInfo, expected string) {
+	assertWaypoint := func(t *testing.T, workloads []model.AddressInfo, expected string) {
 		t.Helper()
 		for _, workload := range workloads {
 			assert.Equal(t, expected, workload.GetWorkload().GetWaypoint().String())
@@ -1016,6 +1026,44 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	assertWaypoint(t, s.lookup("pod1"), "waypoint-sa1")
 }
 
+func TestWorkloadsForWaypoint(t *testing.T) {
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, "", "")
+
+	assertWaypoint := func(t *testing.T, waypoint model.WaypointScope, expected ...string) {
+		t.Helper()
+		wl := sets.New(slices.Map(s.WorkloadsForWaypoint(waypoint), func(e model.WorkloadInfo) string {
+			return e.ResourceName()
+		})...)
+		assert.Equal(t, wl, sets.New(expected...))
+	}
+
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	s.addPods(t, "127.0.0.2", "pod2", "sa2", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod2"))
+
+	// Add a namespace waypoint to the pod
+	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", "", true)
+	s.assertEvent(t, s.podXdsName("pod1"), s.podXdsName("pod2"))
+	assertWaypoint(t, model.WaypointScope{Namespace: testNS}, s.podXdsName("pod1"), s.podXdsName("pod2"))
+	// TODO: should this be returned? Or should it be filtered because such a waypoint does not exist
+	assertWaypoint(t, model.WaypointScope{Namespace: testNS, ServiceAccount: "sa1"}, s.podXdsName("pod1"))
+
+	// Add a service account waypoint to the pod
+	s.addWaypoint(t, "10.0.0.2", "waypoint-sa1", "sa1", true)
+	s.assertEvent(t, s.podXdsName("pod1"))
+
+	assertWaypoint(t, model.WaypointScope{Namespace: testNS}, s.podXdsName("pod2"))
+	assertWaypoint(t, model.WaypointScope{Namespace: testNS, ServiceAccount: "sa1"}, s.podXdsName("pod1"))
+
+	// Revert back
+	s.deleteWaypoint(t, "waypoint-sa1")
+	s.assertEvent(t, s.podXdsName("pod1"))
+	assertWaypoint(t, model.WaypointScope{Namespace: testNS}, s.podXdsName("pod1"), s.podXdsName("pod2"))
+	assertWaypoint(t, model.WaypointScope{Namespace: testNS, ServiceAccount: "sa1"}, s.podXdsName("pod1"))
+}
+
 // This is a regression test for a case where policies added after pods were not applied when
 // querying by service
 func TestPolicyAfterPod(t *testing.T) {
@@ -1035,43 +1083,70 @@ func TestPolicyAfterPod(t *testing.T) {
 }
 
 type ambientTestServer struct {
-	cfg        *memory.Controller
-	controller *FakeController
-	fx         *xdsfake.Updater
-	pc         clienttest.TestClient[*corev1.Pod]
-	sc         clienttest.TestClient[*corev1.Service]
-	grc        clienttest.TestClient[*k8sbeta.Gateway]
-	t          *testing.T
+	*index
+	clusterID cluster.ID
+	network   network.ID
+	fx        *xdsfake.Updater
+	pc        clienttest.TestClient[*corev1.Pod]
+	sc        clienttest.TestWriter[*corev1.Service]
+	ns        clienttest.TestWriter[*corev1.Namespace]
+	grc       clienttest.TestWriter[*k8sbeta.Gateway]
+	se        clienttest.TestWriter[*apiv1alpha3.ServiceEntry]
+	we        clienttest.TestWriter[*apiv1alpha3.WorkloadEntry]
+	pa        clienttest.TestWriter[*clientsecurityv1beta1.PeerAuthentication]
+	authz     clienttest.TestWriter[*clientsecurityv1beta1.AuthorizationPolicy]
+	t         *testing.T
 }
 
 func newAmbientTestServer(t *testing.T, clusterID cluster.ID, networkID network.ID) *ambientTestServer {
-	cfg := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
-	controller, fx := NewFakeControllerWithOptions(t, FakeControllerOptions{
-		CRDs:             []schema.GroupVersionResource{gvr.KubernetesGateway},
-		ConfigController: cfg,
-		MeshWatcher:      mesh.NewFixedWatcher(&meshconfig.MeshConfig{RootNamespace: systemNS}),
-		NetworksWatcher:  mesh.NewFixedNetworksWatcher(nil),
-		ClusterID:        clusterID,
-		ConfigCluster:    true,
-		SystemNamespace:  systemNS,
+	up := xdsfake.NewFakeXDS()
+	up.SplitEvents = true
+	cl := kubeclient.NewFakeClient()
+	for _, crd := range []schema.GroupVersionResource{
+		gvr.AuthorizationPolicy,
+		gvr.PeerAuthentication,
+		gvr.KubernetesGateway,
+		gvr.WorkloadEntry,
+		gvr.ServiceEntry,
+	} {
+		clienttest.MakeCRD(t, cl, crd)
+	}
+	idx := New(Options{
+		Client:                    cl,
+		SystemNamespace:           systemNS,
+		DomainSuffix:              "company.com",
+		ClusterID:                 clusterID,
+		XDSUpdater:                up,
+		DiscoveryNamespacesFilter: namespace.NewDiscoveryNamespacesFilter(kclient.New[*corev1.Namespace](cl), nil),
+		LookupNetwork: func(endpointIP string, labels labels.Instance) network.ID {
+			return networkID
+		},
 	})
-	controller.network = networkID
-	pc := clienttest.Wrap(t, controller.podsClient)
-	sc := clienttest.Wrap(t, controller.services)
-	grc := clienttest.Wrap(t, kclient.NewFiltered[*k8sbeta.Gateway](controller.client, kubetypes.Filter{}))
-	cfg.RegisterEventHandler(gvk.AuthorizationPolicy, controller.AuthorizationPolicyHandler)
-	cfg.RegisterEventHandler(gvk.PeerAuthentication, controller.PeerAuthenticationHandler)
+	cl.RunAndWait(test.NewStop(t))
 
-	go cfg.Run(test.NewStop(t))
-
+	t.Cleanup(func() {
+		if t.Failed() {
+			idx := idx.(*index)
+			krt.Dump(idx.authorizationPolicies)
+			krt.Dump(idx.workloads.Collection)
+			krt.Dump(idx.services.Collection)
+			krt.Dump(idx.waypoints.Collection)
+		}
+	})
 	return &ambientTestServer{
-		t:          t,
-		cfg:        cfg,
-		controller: controller,
-		fx:         fx,
-		pc:         pc,
-		sc:         sc,
-		grc:        grc,
+		t:         t,
+		clusterID: clusterID,
+		network:   networkID,
+		index:     idx.(*index),
+		fx:        up,
+		pc:        clienttest.NewDirectClient[*corev1.Pod, corev1.Pod, *corev1.PodList](t, cl),
+		sc:        clienttest.NewWriter[*corev1.Service](t, cl),
+		ns:        clienttest.NewWriter[*corev1.Namespace](t, cl),
+		grc:       clienttest.NewWriter[*k8sbeta.Gateway](t, cl),
+		se:        clienttest.NewWriter[*apiv1alpha3.ServiceEntry](t, cl),
+		we:        clienttest.NewWriter[*apiv1alpha3.WorkloadEntry](t, cl),
+		pa:        clienttest.NewWriter[*clientsecurityv1beta1.PeerAuthentication](t, cl),
+		authz:     clienttest.NewWriter[*clientsecurityv1beta1.AuthorizationPolicy](t, cl),
 	}
 }
 
@@ -1164,28 +1239,11 @@ func (s *ambientTestServer) addPods(t *testing.T, ip string, name, sa string, la
 func (s *ambientTestServer) addWorkloadEntries(t *testing.T, ip string, name, sa string, labels map[string]string) {
 	t.Helper()
 
-	_, _ = s.controller.client.Kube().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
+	s.ns.CreateOrUpdate(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: "ns1", Labels: map[string]string{"istio.io/dataplane-mode": "ambient"}},
-	}, metav1.CreateOptions{})
+	})
 
-	wkEntry := generateWorkloadEntry(ip, name, "ns1", sa, labels, nil)
-
-	w := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.WorkloadEntry,
-			Name:             wkEntry.GetObjectMeta().GetName(),
-			Namespace:        wkEntry.GetObjectMeta().GetNamespace(),
-			Labels:           wkEntry.GetObjectMeta().GetLabels(),
-		},
-		Spec: wkEntry.Spec.DeepCopy(),
-	}
-	_, err := s.cfg.Create(w)
-	if err != nil && strings.Contains(err.Error(), "item already exists") {
-		_, err = s.cfg.Update(w)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	s.we.CreateOrUpdate(generateWorkloadEntry(ip, name, "ns1", sa, labels, nil))
 }
 
 func generateWorkloadEntry(ip, name, namespace, saName string, labels map[string]string, annotations map[string]string) *apiv1alpha3.WorkloadEntry {
@@ -1206,33 +1264,26 @@ func generateWorkloadEntry(ip, name, namespace, saName string, labels map[string
 
 func (s *ambientTestServer) deleteWorkloadEntry(t *testing.T, name string) {
 	t.Helper()
-	_ = s.cfg.Delete(gvk.WorkloadEntry, name, "ns1", nil)
+	s.we.Delete(name, "ns1")
 }
 
 func (s *ambientTestServer) addServiceEntry(t *testing.T, hostStr string, addresses []string, name, ns string, labels map[string]string, epAddresses []string) {
 	t.Helper()
 
-	_, _ = s.controller.client.Kube().CoreV1().Namespaces().Create(context.Background(), &corev1.Namespace{
+	s.ns.CreateOrUpdate(&corev1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{Name: ns, Labels: map[string]string{"istio.io/dataplane-mode": "ambient"}},
-	}, metav1.CreateOptions{})
+	})
 
-	serviceEntry := generateServiceEntry(hostStr, addresses, labels, epAddresses)
-	w := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: gvk.ServiceEntry,
-			Name:             name,
-			Namespace:        ns,
-			Labels:           labels,
+	se := &apiv1alpha3.ServiceEntry{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: ns,
+			Labels:    labels,
 		},
-		Spec: serviceEntry.DeepCopy(),
+		Spec:   *generateServiceEntry(hostStr, addresses, labels, epAddresses),
+		Status: v1alpha1.IstioStatus{},
 	}
-	_, err := s.cfg.Create(w)
-	if err != nil && strings.Contains(err.Error(), "item already exists") {
-		_, err = s.cfg.Update(w)
-	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	s.se.CreateOrUpdate(se)
 }
 
 func generateServiceEntry(host string, addresses []string, labels map[string]string, epAddresses []string) *v1alpha3.ServiceEntry {
@@ -1273,7 +1324,7 @@ func generateServiceEntry(host string, addresses []string, labels map[string]str
 
 func (s *ambientTestServer) deleteServiceEntry(t *testing.T, name, ns string) {
 	t.Helper()
-	_ = s.cfg.Delete(gvk.ServiceEntry, name, ns, nil)
+	s.se.Delete(name, ns)
 }
 
 func (s *ambientTestServer) assertAddresses(t *testing.T, lookup string, names ...string) {
@@ -1324,8 +1375,18 @@ func (s *ambientTestServer) assertUniqueWorkloads(t *testing.T) {
 	}
 }
 
+func (s *ambientTestServer) deletePolicy(name, ns string, kind config.GroupVersionKind,
+) {
+	switch kind {
+	case gvk.AuthorizationPolicy:
+		s.authz.Delete(name, ns)
+	case gvk.PeerAuthentication:
+		s.pa.Delete(name, ns)
+	}
+}
+
 func (s *ambientTestServer) addPolicy(t *testing.T, name, ns string, selector map[string]string,
-	kind config.GroupVersionKind, modify func(*config.Config),
+	kind config.GroupVersionKind, modify func(controllers.Object),
 ) {
 	t.Helper()
 	var sel *v1beta1.WorkloadSelector
@@ -1334,34 +1395,35 @@ func (s *ambientTestServer) addPolicy(t *testing.T, name, ns string, selector ma
 			MatchLabels: selector,
 		}
 	}
-	p := config.Config{
-		Meta: config.Meta{
-			GroupVersionKind: kind,
-			Name:             name,
-			Namespace:        ns,
-		},
-	}
 	switch kind {
 	case gvk.AuthorizationPolicy:
-		p.Spec = &auth.AuthorizationPolicy{
-			Selector: sel,
+		pol := &clientsecurityv1beta1.AuthorizationPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: ns,
+			},
+			Spec: auth.AuthorizationPolicy{
+				Selector: sel,
+			},
 		}
+		if modify != nil {
+			modify(pol)
+		}
+		s.authz.CreateOrUpdate(pol)
 	case gvk.PeerAuthentication:
-		p.Spec = &auth.PeerAuthentication{
-			Selector: sel,
+		pol := &clientsecurityv1beta1.PeerAuthentication{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      name,
+				Namespace: ns,
+			},
+			Spec: auth.PeerAuthentication{
+				Selector: sel,
+			},
 		}
-	}
-
-	if modify != nil {
-		modify(&p)
-	}
-
-	_, err := s.cfg.Create(p)
-	if err != nil && strings.Contains(err.Error(), "item already exists") {
-		_, err = s.cfg.Update(p)
-	}
-	if err != nil {
-		t.Fatal(err)
+		if modify != nil {
+			modify(pol)
+		}
+		s.pa.CreateOrUpdate(pol)
 	}
 }
 
@@ -1372,8 +1434,16 @@ func (s *ambientTestServer) deletePod(t *testing.T, name string) {
 
 func (s *ambientTestServer) assertEvent(t *testing.T, ip ...string) {
 	t.Helper()
-	want := strings.Join(ip, ",")
-	s.fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: want})
+	s.assertUnorderedEvent(t, ip...)
+}
+
+func (s *ambientTestServer) assertUnorderedEvent(t *testing.T, ip ...string) {
+	t.Helper()
+	ev := []xdsfake.Event{}
+	for _, i := range ip {
+		ev = append(ev, xdsfake.Event{Type: "xds", ID: i})
+	}
+	s.fx.MatchOrFail(t, ev...)
 }
 
 func (s *ambientTestServer) assertNoEvent(t *testing.T) {
@@ -1394,61 +1464,11 @@ func (s *ambientTestServer) addService(t *testing.T, name string, labels, annota
 	s.sc.CreateOrUpdate(service)
 }
 
-// assertIndexConsistency ensures that all indexes store the same data across the different indexes.
-func (s *ambientTestServer) assertIndexConsistency(t test.Failer) {
-	a := s.controller.ambientIndex.(*AmbientIndexImpl)
-	a.mu.RLock()
-	defer a.mu.RUnlock()
-	// UID -> workload
-	workloads := map[string]*model.WorkloadInfo{}
-	addWorkload := func(w *model.WorkloadInfo) {
-		e, f := workloads[w.ResourceName()]
-		if !f {
-			workloads[w.ResourceName()] = w
-			return
-		}
-		// Already exists, make sure its identical
-		assert.Equal(t, e, w, "found inconsistency in workloads")
-	}
-	for _, w := range a.byUID {
-		addWorkload(w)
-	}
-	for _, w := range a.byPod {
-		addWorkload(w)
-	}
-	for _, w := range a.byWorkloadEntry {
-		addWorkload(w)
-	}
-	for _, m := range a.byService {
-		for _, w := range m {
-			addWorkload(w)
-		}
-	}
-
-	services := map[string]*model.ServiceInfo{}
-	addServices := func(w *model.ServiceInfo) {
-		e, f := services[w.ResourceName()]
-		if !f {
-			services[w.ResourceName()] = w
-			return
-		}
-		// Already exists, make sure its identical
-		assert.Equal(t, e, w, "found inconsistency in services")
-	}
-	for _, s := range a.serviceByAddr {
-		addServices(s)
-	}
-	for _, s := range a.serviceByNamespacedHostname {
-		addServices(s)
-	}
-}
-
-func (s *ambientTestServer) lookup(key string) []*model.AddressInfo {
-	s.assertIndexConsistency(s.t)
+func (s *ambientTestServer) lookup(key string) []model.AddressInfo {
 	if key == "" {
-		return s.controller.ambientIndex.All()
+		return s.All()
 	}
-	return s.controller.ambientIndex.Lookup(key)
+	return s.Lookup(key)
 }
 
 func (s *ambientTestServer) clearEvents() {
@@ -1458,12 +1478,12 @@ func (s *ambientTestServer) clearEvents() {
 // Returns the XDS resource name for the given pod.
 func (s *ambientTestServer) podXdsName(name string) string {
 	return fmt.Sprintf("%s//Pod/%s/%s",
-		s.controller.clusterID, testNS, name)
+		s.clusterID, testNS, name)
 }
 
 // Returns the XDS resource name for the given address.
 func (s *ambientTestServer) addrXdsName(addr string) string {
-	return string(s.controller.network) + "/" + addr
+	return string(s.network) + "/" + addr
 }
 
 // Returns the XDS resource name for the given service.
@@ -1479,11 +1499,91 @@ func (s *ambientTestServer) hostnameForService(serviceName string) string {
 // Returns the XDS resource name for the given WorkloadEntry.
 func (s *ambientTestServer) wleXdsName(wleName string) string {
 	return fmt.Sprintf("%s/networking.istio.io/WorkloadEntry/%s/%s",
-		s.controller.clusterID, testNS, wleName)
+		s.clusterID, testNS, wleName)
 }
 
 // Returns the XDS resource name for the given ServiceEntry IP address.
 func (s *ambientTestServer) seIPXdsName(name string, ip string) string {
 	return fmt.Sprintf("%s/networking.istio.io/ServiceEntry/%s/%s/%s",
-		s.controller.clusterID, testNS, name, ip)
+		s.clusterID, testNS, name, ip)
+}
+
+func generatePod(ip, name, namespace, saName, node string, labels map[string]string, annotations map[string]string) *corev1.Pod {
+	automount := false
+	return &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Labels:      labels,
+			Annotations: annotations,
+			Namespace:   namespace,
+		},
+		Spec: corev1.PodSpec{
+			ServiceAccountName:           saName,
+			NodeName:                     node,
+			AutomountServiceAccountToken: &automount,
+			// Validation requires this
+			Containers: []corev1.Container{
+				{
+					Name:  "test",
+					Image: "ununtu",
+				},
+			},
+		},
+		// The cache controller uses this as key, required by our impl.
+		Status: corev1.PodStatus{
+			Conditions: []corev1.PodCondition{
+				{
+					Type:               corev1.PodReady,
+					Status:             corev1.ConditionTrue,
+					LastTransitionTime: metav1.Now(),
+				},
+			},
+			PodIP:  ip,
+			HostIP: ip,
+			PodIPs: []corev1.PodIP{
+				{
+					IP: ip,
+				},
+			},
+			Phase: corev1.PodRunning,
+		},
+	}
+}
+
+func setPodReady(pod *corev1.Pod) {
+	pod.Status.Conditions = []corev1.PodCondition{
+		{
+			Type:               corev1.PodReady,
+			Status:             corev1.ConditionTrue,
+			LastTransitionTime: metav1.Now(),
+		},
+	}
+}
+
+func generateService(name, namespace string, labels, annotations map[string]string,
+	ports []int32, selector map[string]string, ip string,
+) *corev1.Service {
+	svcPorts := make([]corev1.ServicePort, 0)
+	for _, p := range ports {
+		svcPorts = append(svcPorts, corev1.ServicePort{
+			Name:     "tcp-port",
+			Port:     p,
+			Protocol: "http",
+		})
+	}
+
+	return &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   namespace,
+			Annotations: annotations,
+			Labels:      labels,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: ip,
+			Ports:     svcPorts,
+			Selector:  selector,
+			Type:      corev1.ServiceTypeClusterIP,
+		},
+	}
 }

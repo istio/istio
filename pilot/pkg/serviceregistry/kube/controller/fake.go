@@ -51,9 +51,8 @@ type FakeControllerOptions struct {
 	XDSUpdater        model.XDSUpdater
 	Stop              chan struct{}
 	SkipRun           bool
-	ConfigController  model.ConfigStoreController
-	ConfigCluster     bool
-	SystemNamespace   string
+	ConfigCluster             bool
+	SystemNamespace           string
 }
 
 type FakeController struct {
@@ -105,8 +104,7 @@ func NewFakeControllerWithOptions(t test.Failer, opts FakeControllerOptions) (*F
 		ClusterID:             opts.ClusterID,
 		MeshServiceController: meshServiceController,
 		ConfigCluster:         opts.ConfigCluster,
-		ConfigController:      opts.ConfigController,
-		SystemNamespace:       opts.SystemNamespace,
+		SystemNamespace:           opts.SystemNamespace,
 	}
 	c := NewController(opts.Client, options)
 	meshServiceController.AddRegistry(c)

@@ -120,6 +120,14 @@ func FindFunc[E any](s []E, f func(E) bool) *E {
 	return &s[idx]
 }
 
+// First returns the first item in the slice, if there is one
+func First[E any](s []E) *E {
+	if len(s) == 0 {
+		return nil
+	}
+	return &s[0]
+}
+
 // Reverse returns its argument array reversed
 func Reverse[E any](r []E) []E {
 	for i, j := 0, len(r)-1; i < len(r)/2; i, j = i+1, j-1 {

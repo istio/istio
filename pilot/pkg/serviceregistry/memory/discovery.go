@@ -30,7 +30,6 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/workloadapi"
-	"istio.io/istio/pkg/workloadapi/security"
 )
 
 // ServiceDiscovery is a mock discovery interface
@@ -57,7 +56,7 @@ type ServiceDiscovery struct {
 	// Used by GetProxyWorkloadLabels
 	ip2workloadLabels map[string]labels.Instance
 
-	addresses map[string]*model.AddressInfo
+	addresses map[string]model.AddressInfo
 
 	// XDSUpdater will push EDS changes to the ADS model.
 	XdsUpdater model.XDSUpdater
@@ -83,7 +82,7 @@ func NewServiceDiscovery(services ...*model.Service) *ServiceDiscovery {
 		instancesByPortName: map[string][]*model.ServiceInstance{},
 		ip2instance:         map[string][]*model.ServiceInstance{},
 		ip2workloadLabels:   map[string]labels.Instance{},
-		addresses:           map[string]*model.AddressInfo{},
+		addresses:           map[string]model.AddressInfo{},
 	}
 }
 
@@ -335,14 +334,14 @@ func (sd *ServiceDiscovery) Run(<-chan struct{}) {}
 // HasSynced always returns true
 func (sd *ServiceDiscovery) HasSynced() bool { return true }
 
-func (sd *ServiceDiscovery) AddressInformation(requests sets.String) ([]*model.AddressInfo, sets.String) {
+func (sd *ServiceDiscovery) AddressInformation(requests sets.String) ([]model.AddressInfo, sets.String) {
 	sd.mutex.Lock()
 	defer sd.mutex.Unlock()
 	if len(requests) == 0 {
 		return maps.Values(sd.addresses), nil
 	}
 
-	var infos []*model.AddressInfo
+	var infos []model.AddressInfo
 	removed := sets.String{}
 	for req := range requests {
 		if _, found := sd.addresses[req]; !found {
@@ -362,7 +361,7 @@ func (sd *ServiceDiscovery) AdditionalPodSubscriptions(
 	return nil
 }
 
-func (sd *ServiceDiscovery) Policies(sets.Set[model.ConfigKey]) []*security.Authorization {
+func (sd *ServiceDiscovery) Policies(sets.Set[model.ConfigKey]) []model.WorkloadAuthorization {
 	return nil
 }
 
@@ -370,7 +369,7 @@ func (sd *ServiceDiscovery) Waypoint(model.WaypointScope) []netip.Addr {
 	return nil
 }
 
-func (sd *ServiceDiscovery) WorkloadsForWaypoint(scope model.WaypointScope) []*model.WorkloadInfo {
+func (sd *ServiceDiscovery) WorkloadsForWaypoint(scope model.WaypointScope) []model.WorkloadInfo {
 	return nil
 }
 
@@ -402,8 +401,8 @@ func (sd *ServiceDiscovery) RemoveServiceInfo(info *model.ServiceInfo) {
 	delete(sd.addresses, info.ResourceName())
 }
 
-func workloadToAddressInfo(w *workloadapi.Workload) *model.AddressInfo {
-	return &model.AddressInfo{
+func workloadToAddressInfo(w *workloadapi.Workload) model.AddressInfo {
+	return model.AddressInfo{
 		Address: &workloadapi.Address{
 			Type: &workloadapi.Address_Workload{
 				Workload: w,
@@ -412,8 +411,8 @@ func workloadToAddressInfo(w *workloadapi.Workload) *model.AddressInfo {
 	}
 }
 
-func serviceToAddressInfo(s *workloadapi.Service) *model.AddressInfo {
-	return &model.AddressInfo{
+func serviceToAddressInfo(s *workloadapi.Service) model.AddressInfo {
+	return model.AddressInfo{
 		Address: &workloadapi.Address{
 			Type: &workloadapi.Address_Service{
 				Service: s,

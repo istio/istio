@@ -155,6 +155,10 @@ func (h *manyCollection[I, O]) onPrimaryInputEvent(items []Event[I]) {
 		iObj := h.parent.GetKey(iKey)
 		if iObj == nil {
 			ev.Event = controllers.EventDelete
+			if ev.Old == nil {
+				// This was an add, now its a Delete. Make sure we don't have Old and New nil, which we claim to be illegal
+				ev.Old = ev.New
+			}
 			ev.New = nil
 		} else {
 			ev.New = iObj
@@ -177,7 +181,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		i := a.Latest()
 		iKey := GetKey(i)
 
-		ctx := &collectionDependencyTracker[I, O]{h, nil}
+		ctx := &collectionDependencyTracker[I, O]{h, nil, iKey}
 		results := slices.GroupUnique(h.transformation(ctx, i), GetKey[O])
 		recomputedResults[idx] = results
 		// Update the I -> Dependency mapping
@@ -262,7 +266,7 @@ func (h *manyCollection[I, O]) onPrimaryInputEventLocked(items []Event[I]) {
 		h.log.WithLabels("events", len(events), "handlers", len(handlers)).Debugf("calling handlers")
 	}
 	for _, handler := range handlers {
-		handler(events)
+		handler(slices.Clone(events))
 	}
 }
 
@@ -516,7 +520,12 @@ func (h *manyCollection[I, O]) name() string {
 // for a given transformation call at once, then apply it in a single transaction to the manyCollection.
 type collectionDependencyTracker[I, O any] struct {
 	*manyCollection[I, O]
-	d []dependency
+	d   []dependency
+	key Key[I]
+}
+
+func (i *collectionDependencyTracker[I, O]) name() string {
+	return fmt.Sprintf("%s{%s}", i.collectionName, i.key)
 }
 
 // registerDependency track a dependency. This is in the context of a specific input I type, as we create a collectionDependencyTracker
