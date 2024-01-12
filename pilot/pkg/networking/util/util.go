@@ -759,12 +759,12 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 }
 
 // GetPortLevelTrafficPolicy return the port level traffic policy
-func GetPortLevelTrafficPolicy(policy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+func GetPortLevelTrafficPolicy(policy *networking.TrafficPolicy, port *model.Port) (*networking.TrafficPolicy, bool) {
 	if port == nil {
-		return policy
+		return policy, false
 	}
 	if policy == nil {
-		return nil
+		return nil, false
 	}
 
 	var portTrafficPolicy *networking.TrafficPolicy_PortTrafficPolicy
@@ -777,7 +777,7 @@ func GetPortLevelTrafficPolicy(policy *networking.TrafficPolicy, port *model.Por
 		}
 	}
 	if portTrafficPolicy == nil {
-		return policy
+		return policy, false
 	}
 
 	// only override the policy when port level traffic policy is found.
@@ -788,17 +788,17 @@ func GetPortLevelTrafficPolicy(policy *networking.TrafficPolicy, port *model.Por
 	ret.Tls = portTrafficPolicy.Tls
 	ret.Tunnel = policy.Tunnel
 	ret.ProxyProtocol = policy.ProxyProtocol
-	return ret
+	return ret, true
 }
 
 // MergeSubsetTrafficPolicy merges the destination and subset level traffic policy for the given port.
 func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
 	// First get DR port level traffic policy
-	original = GetPortLevelTrafficPolicy(original, port)
+	original, _ = GetPortLevelTrafficPolicy(original, port)
 	if subsetPolicy == nil {
 		return original
 	}
-	subsetPolicy = GetPortLevelTrafficPolicy(subsetPolicy, port)
+	subsetPolicy, hasPortLevel := GetPortLevelTrafficPolicy(subsetPolicy, port)
 	if original == nil {
 		return subsetPolicy
 	}
@@ -807,18 +807,23 @@ func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, 
 	mergedPolicy := CloneTrafficPolicy(original)
 
 	// Override with subset values.
-	if subsetPolicy.ConnectionPool != nil {
+
+	// settings specified at the destination-level will not be inherited when
+	// overridden by port-level settings, i.e. default values will be applied
+	// to fields omitted in port-level traffic policies.
+	if subsetPolicy.ConnectionPool != nil || hasPortLevel {
 		mergedPolicy.ConnectionPool = subsetPolicy.ConnectionPool
 	}
-	if subsetPolicy.OutlierDetection != nil {
+	if subsetPolicy.OutlierDetection != nil || hasPortLevel {
 		mergedPolicy.OutlierDetection = subsetPolicy.OutlierDetection
 	}
-	if subsetPolicy.LoadBalancer != nil {
+	if subsetPolicy.LoadBalancer != nil || hasPortLevel {
 		mergedPolicy.LoadBalancer = subsetPolicy.LoadBalancer
 	}
-	if subsetPolicy.Tls != nil {
+	if subsetPolicy.Tls != nil || hasPortLevel {
 		mergedPolicy.Tls = subsetPolicy.Tls
 	}
+
 	if subsetPolicy.Tunnel != nil {
 		mergedPolicy.Tunnel = subsetPolicy.Tunnel
 	}

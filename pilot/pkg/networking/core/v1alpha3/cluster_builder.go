@@ -218,7 +218,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 ) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
-	trafficPolicy := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), port)
+	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
 		mesh:           cb.req.Push.Mesh,
 		serviceTargets: cb.serviceTargets,
@@ -382,7 +382,7 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		destinationRule := CastDestinationRule(cfg)
 		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
 		if destinationRule.TrafficPolicy != nil {
-			opts.policy = util.GetPortLevelTrafficPolicy(destinationRule.TrafficPolicy, instance.Port.ServicePort)
+			opts.policy, _ = util.GetPortLevelTrafficPolicy(destinationRule.TrafficPolicy, instance.Port.ServicePort)
 			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg.Meta)
 		}
 	}
