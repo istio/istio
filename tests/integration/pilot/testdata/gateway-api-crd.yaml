@@ -1,4 +1,4 @@
-# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=8b6ff014127f13e366a2ed04383eee7645ab24a3"`
+# Generated with `kubectl kustomize "https://github.com/kubernetes-sigs/gateway-api/config/crd/experimental?ref=444631bfe06f3bcca5d0eadf1857eac1d369421d"`
 apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
@@ -1077,6 +1077,9 @@ spec:
                     'UDP']
                   rule: 'self.all(l, l.protocol in [''HTTP'', ''TCP'', ''UDP''] ?
                     !has(l.tls) : true)'
+                - message: tls mode must be Terminate for protocol HTTPS
+                  rule: 'self.all(l, (l.protocol == ''HTTPS'' && has(l.tls)) ? (l.tls.mode
+                    == '''' || l.tls.mode == ''Terminate'') : true)'
                 - message: hostname must not be specified for protocols ['TCP', 'UDP']
                   rule: 'self.all(l, l.protocol in [''TCP'', ''UDP'']  ? (!has(l.hostname)
                     || l.hostname == '''') : true)'
@@ -1965,6 +1968,9 @@ spec:
                     'UDP']
                   rule: 'self.all(l, l.protocol in [''HTTP'', ''TCP'', ''UDP''] ?
                     !has(l.tls) : true)'
+                - message: tls mode must be Terminate for protocol HTTPS
+                  rule: 'self.all(l, (l.protocol == ''HTTPS'' && has(l.tls)) ? (l.tls.mode
+                    == '''' || l.tls.mode == ''Terminate'') : true)'
                 - message: hostname must not be specified for protocols ['TCP', 'UDP']
                   rule: 'self.all(l, l.protocol in [''TCP'', ''UDP'']  ? (!has(l.hostname)
                     || l.hostname == '''') : true)'
@@ -5208,23 +5214,32 @@ spec:
                       type: array
                     filters:
                       description: "Filters define the filters that are applied to
-                        requests that match this rule. \n The effects of ordering
-                        of multiple behaviors are currently unspecified. This can
-                        change in the future based on feedback during the alpha stage.
-                        \n Conformance-levels at this level are defined based on the
-                        type of filter: \n - ALL core filters MUST be supported by
-                        all implementations. - Implementers are encouraged to support
-                        extended filters. - Implementation-specific custom filters
-                        have no API guarantees across implementations. \n Specifying
-                        the same filter multiple times is not supported unless explicitly
-                        indicated in the filter. \n All filters are expected to be
-                        compatible with each other except for the URLRewrite and RequestRedirect
-                        filters, which may not be combined. If an implementation can
-                        not support other combinations of filters, they must clearly
-                        document that limitation. In cases where incompatible or unsupported
-                        filters are specified and cause the `Accepted` condition to
-                        be set to status `False`, implementations may use the `IncompatibleFilters`
-                        reason to specify this configuration error. \n Support: Core"
+                        requests that match this rule. \n Wherever possible, implementations
+                        SHOULD implement filters in the order they are specified.
+                        \n Implementations MAY choose to implement this ordering strictly,
+                        rejecting any combination or order of filters that can not
+                        be supported. If implementations choose a strict interpretation
+                        of filter ordering, they MUST clearly document that behavior.
+                        \n To reject an invalid combination or order of filters, implementations
+                        SHOULD consider the Route Rules with this configuration invalid.
+                        If all Route Rules in a Route are invalid, the entire Route
+                        would be considered invalid. If only a portion of Route Rules
+                        are invalid, implementations MUST set the \"PartiallyInvalid\"
+                        condition for the Route. \n Conformance-levels at this level
+                        are defined based on the type of filter: \n - ALL core filters
+                        MUST be supported by all implementations. - Implementers are
+                        encouraged to support extended filters. - Implementation-specific
+                        custom filters have no API guarantees across implementations.
+                        \n Specifying the same filter multiple times is not supported
+                        unless explicitly indicated in the filter. \n All filters
+                        are expected to be compatible with each other except for the
+                        URLRewrite and RequestRedirect filters, which may not be combined.
+                        If an implementation can not support other combinations of
+                        filters, they must clearly document that limitation. In cases
+                        where incompatible or unsupported filters are specified and
+                        cause the `Accepted` condition to be set to status `False`,
+                        implementations may use the `IncompatibleFilters` reason to
+                        specify this configuration error. \n Support: Core"
                       items:
                         description: HTTPRouteFilter defines processing steps that
                           must be completed during the request or response lifecycle.
@@ -7674,23 +7689,32 @@ spec:
                       type: array
                     filters:
                       description: "Filters define the filters that are applied to
-                        requests that match this rule. \n The effects of ordering
-                        of multiple behaviors are currently unspecified. This can
-                        change in the future based on feedback during the alpha stage.
-                        \n Conformance-levels at this level are defined based on the
-                        type of filter: \n - ALL core filters MUST be supported by
-                        all implementations. - Implementers are encouraged to support
-                        extended filters. - Implementation-specific custom filters
-                        have no API guarantees across implementations. \n Specifying
-                        the same filter multiple times is not supported unless explicitly
-                        indicated in the filter. \n All filters are expected to be
-                        compatible with each other except for the URLRewrite and RequestRedirect
-                        filters, which may not be combined. If an implementation can
-                        not support other combinations of filters, they must clearly
-                        document that limitation. In cases where incompatible or unsupported
-                        filters are specified and cause the `Accepted` condition to
-                        be set to status `False`, implementations may use the `IncompatibleFilters`
-                        reason to specify this configuration error. \n Support: Core"
+                        requests that match this rule. \n Wherever possible, implementations
+                        SHOULD implement filters in the order they are specified.
+                        \n Implementations MAY choose to implement this ordering strictly,
+                        rejecting any combination or order of filters that can not
+                        be supported. If implementations choose a strict interpretation
+                        of filter ordering, they MUST clearly document that behavior.
+                        \n To reject an invalid combination or order of filters, implementations
+                        SHOULD consider the Route Rules with this configuration invalid.
+                        If all Route Rules in a Route are invalid, the entire Route
+                        would be considered invalid. If only a portion of Route Rules
+                        are invalid, implementations MUST set the \"PartiallyInvalid\"
+                        condition for the Route. \n Conformance-levels at this level
+                        are defined based on the type of filter: \n - ALL core filters
+                        MUST be supported by all implementations. - Implementers are
+                        encouraged to support extended filters. - Implementation-specific
+                        custom filters have no API guarantees across implementations.
+                        \n Specifying the same filter multiple times is not supported
+                        unless explicitly indicated in the filter. \n All filters
+                        are expected to be compatible with each other except for the
+                        URLRewrite and RequestRedirect filters, which may not be combined.
+                        If an implementation can not support other combinations of
+                        filters, they must clearly document that limitation. In cases
+                        where incompatible or unsupported filters are specified and
+                        cause the `Accepted` condition to be set to status `False`,
+                        implementations may use the `IncompatibleFilters` reason to
+                        specify this configuration error. \n Support: Core"
                       items:
                         description: HTTPRouteFilter defines processing steps that
                           must be completed during the request or response lifecycle.
