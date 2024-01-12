@@ -97,6 +97,8 @@ func ParseValue(valueStr string) any {
 		value = v
 	} else {
 		value = strings.ReplaceAll(valueStr, "\\,", ",")
+		value = strings.Trim(value.(string), "\"")
+		value = strings.Trim(value.(string), "'")
 	}
 	return value
 }

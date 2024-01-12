@@ -85,6 +85,16 @@ func TestParseValue(t *testing.T) {
 			in:   "123foobar",
 			want: "123foobar",
 		},
+		{
+			desc: "string-quote",
+			in:   "\"123foobar\"",
+			want: "123foobar",
+		},
+		{
+			desc: "string-single-quote",
+			in:   "'123foobar'",
+			want: "123foobar",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.desc, func(t *testing.T) {
