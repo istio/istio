@@ -54,7 +54,7 @@ var (
 )
 
 const (
-	waitTimeout = 5 * time.Second
+	waitTimeout = 90 * time.Second
 )
 
 func Cmd(ctx cli.Context) *cobra.Command {
