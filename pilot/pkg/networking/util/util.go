@@ -758,26 +758,58 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 	return nil
 }
 
-// MergeTrafficPolicy returns the merged TrafficPolicy for a destination-level and subset-level policy on a given port.
-func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+// GetPortLevelTrafficPolicy return the port level traffic policy
+func GetPortLevelTrafficPolicy(policy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	if port == nil {
+		return policy
+	}
+	if policy == nil {
+		return nil
+	}
+
+	var portTrafficPolicy *networking.TrafficPolicy_PortTrafficPolicy
+	// Check if port level overrides exist, if yes override with them.
+	for _, p := range policy.PortLevelSettings {
+		if p.Port != nil && uint32(port.Port) == p.Port.Number {
+			// per the docs, port level policies do not inherit and instead to defaults if not provided
+			portTrafficPolicy = p
+			break
+		}
+	}
+	if portTrafficPolicy == nil {
+		return policy
+	}
+
+	// only override the policy when port level traffic policy is found.
+	ret := &networking.TrafficPolicy{}
+	ret.ConnectionPool = portTrafficPolicy.ConnectionPool
+	ret.LoadBalancer = portTrafficPolicy.LoadBalancer
+	ret.OutlierDetection = portTrafficPolicy.OutlierDetection
+	ret.Tls = portTrafficPolicy.Tls
+	ret.Tunnel = policy.Tunnel
+	ret.ProxyProtocol = policy.ProxyProtocol
+	return ret
+}
+
+func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *model.Port) *networking.TrafficPolicy {
+	// First get DR port level traffic policy
+	original = GetPortLevelTrafficPolicy(original, port)
 	if subsetPolicy == nil {
 		return original
 	}
-
-	// Sanity check that top-level port level settings have already been merged for the given port
-	if original != nil && len(original.PortLevelSettings) != 0 {
-		original = MergeTrafficPolicy(nil, original, port)
+	subsetPolicy = GetPortLevelTrafficPolicy(subsetPolicy, port)
+	if original == nil {
+		return subsetPolicy
 	}
 
+	// merge DR with subset traffic policy
 	mergedPolicy := &networking.TrafficPolicy{}
-	if original != nil {
-		mergedPolicy.ConnectionPool = original.ConnectionPool
-		mergedPolicy.LoadBalancer = original.LoadBalancer
-		mergedPolicy.OutlierDetection = original.OutlierDetection
-		mergedPolicy.Tls = original.Tls
-		mergedPolicy.Tunnel = original.Tunnel
-		mergedPolicy.ProxyProtocol = original.ProxyProtocol
-	}
+	mergedPolicy.ConnectionPool = original.ConnectionPool
+	mergedPolicy.LoadBalancer = original.LoadBalancer
+	mergedPolicy.OutlierDetection = original.OutlierDetection
+	mergedPolicy.Tls = original.Tls
+	mergedPolicy.Tunnel = original.Tunnel
+	mergedPolicy.ProxyProtocol = original.ProxyProtocol
 
 	// Override with subset values.
 	if subsetPolicy.ConnectionPool != nil {
@@ -797,20 +829,6 @@ func MergeTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, port *
 	}
 	if subsetPolicy.ProxyProtocol != nil {
 		mergedPolicy.ProxyProtocol = subsetPolicy.ProxyProtocol
-	}
-
-	// Check if port level overrides exist, if yes override with them.
-	if port != nil {
-		for _, p := range subsetPolicy.PortLevelSettings {
-			if p.Port != nil && uint32(port.Port) == p.Port.Number {
-				// per the docs, port level policies do not inherit and instead to defaults if not provided
-				mergedPolicy.ConnectionPool = p.ConnectionPool
-				mergedPolicy.OutlierDetection = p.OutlierDetection
-				mergedPolicy.LoadBalancer = p.LoadBalancer
-				mergedPolicy.Tls = p.Tls
-				break
-			}
-		}
 	}
 	return mergedPolicy
 }
