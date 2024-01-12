@@ -164,11 +164,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					if err == nil {
 						// Check if gateway has programmed condition set to true
 						for _, cond := range gwc.Status.Conditions {
-							if cond.Type == string(gatewayv1.GatewayConditionProgrammed) {
-								if string(cond.Status) == "True" {
-									programmed = true
-									break
-								}
+							if cond.Type == string(gatewayv1.GatewayConditionProgrammed) && string(cond.Status) == "True" {
+								programmed = true
+								break
 							}
 						}
 					}
