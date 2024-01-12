@@ -393,6 +393,9 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		if opts.policy == nil {
 			// There was no destination rule, so no inbound traffic policy; we'll create a default
 			opts.policy = &networking.TrafficPolicy{}
+		} else {
+			// copy policy to prevent mutating the original destinationRule trafficPolicy
+			opts.policy = util.CloneTrafficPolicy(opts.policy)
 		}
 		opts.policy.ConnectionPool = sidecarConnPool
 	}

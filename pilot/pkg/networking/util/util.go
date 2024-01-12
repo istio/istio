@@ -804,13 +804,7 @@ func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, 
 	}
 
 	// merge DR with subset traffic policy
-	mergedPolicy := &networking.TrafficPolicy{}
-	mergedPolicy.ConnectionPool = original.ConnectionPool
-	mergedPolicy.LoadBalancer = original.LoadBalancer
-	mergedPolicy.OutlierDetection = original.OutlierDetection
-	mergedPolicy.Tls = original.Tls
-	mergedPolicy.Tunnel = original.Tunnel
-	mergedPolicy.ProxyProtocol = original.ProxyProtocol
+	mergedPolicy := CloneTrafficPolicy(original)
 
 	// Override with subset values.
 	if subsetPolicy.ConnectionPool != nil {
@@ -832,4 +826,19 @@ func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, 
 		mergedPolicy.ProxyProtocol = subsetPolicy.ProxyProtocol
 	}
 	return mergedPolicy
+}
+
+// Shallowcopy a traffic policy, portLevelSettings are ignorred.
+func CloneTrafficPolicy(original *networking.TrafficPolicy) *networking.TrafficPolicy {
+	if original == nil {
+		return nil
+	}
+	ret := &networking.TrafficPolicy{}
+	ret.ConnectionPool = original.ConnectionPool
+	ret.LoadBalancer = original.LoadBalancer
+	ret.OutlierDetection = original.OutlierDetection
+	ret.Tls = original.Tls
+	ret.Tunnel = original.Tunnel
+	ret.ProxyProtocol = original.ProxyProtocol
+	return ret
 }
