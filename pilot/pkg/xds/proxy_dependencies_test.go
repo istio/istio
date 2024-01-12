@@ -16,7 +16,6 @@ package xds
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 
 	mesh "istio.io/api/mesh/v1alpha1"
@@ -412,28 +411,6 @@ func TestProxyNeedsPush(t *testing.T) {
 				t.Fatalf("Got needs push = %v, expected %v", push, true)
 			}
 		})
-	}
-}
-
-func BenchmarkListEquals(b *testing.B) {
-	size := 100
-	var l []string
-	for i := 0; i < size; i++ {
-		l = append(l, strconv.Itoa(i))
-	}
-	var equal []string
-	for i := 0; i < size; i++ {
-		equal = append(equal, strconv.Itoa(i))
-	}
-	var notEqual []string
-	for i := 0; i < size; i++ {
-		notEqual = append(notEqual, strconv.Itoa(i))
-	}
-	notEqual[size-1] = "z"
-
-	for n := 0; n < b.N; n++ {
-		listEqualUnordered(l, equal)
-		listEqualUnordered(l, notEqual)
 	}
 }
 

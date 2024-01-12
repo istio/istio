@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package xds_test
 
 import (
 	"bytes"
@@ -27,7 +27,6 @@ import (
 
 	"github.com/Masterminds/sprig/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
-	anypb "google.golang.org/protobuf/types/known/anypb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	networking "istio.io/api/networking/v1alpha3"
@@ -37,22 +36,19 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/route"
-	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/env"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/spiffe"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/yml"
 	"istio.io/istio/pkg/util/protomarshal"
-	"istio.io/istio/pkg/util/sets"
 )
 
 // ConfigInput defines inputs passed to the test config templates
@@ -267,10 +263,9 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 		{1000, 1},
 	}
 
-	var response *discovery.DiscoveryResponse
 	for _, tt := range tests {
 		b.Run(fmt.Sprintf("%d/%d", tt.endpoints, tt.services), func(b *testing.B) {
-			s := NewFakeDiscoveryServer(b, FakeOptions{
+			s := xds.NewFakeDiscoveryServer(b, xds.FakeOptions{
 				Configs: createEndpointsConfig(tt.endpoints, tt.services, numNetworks),
 				NetworksWatcher: mesh.NewFixedNetworksWatcher(&meshconfig.MeshNetworks{
 					Networks: createGateways(numNetworks),
@@ -286,16 +281,16 @@ func BenchmarkEndpointGeneration(b *testing.B) {
 			push := s.PushContext()
 			proxy.SetSidecarScope(push)
 			b.ResetTimer()
+			var c model.Resources
 			for n := 0; n < b.N; n++ {
-				loadAssignments := make([]*anypb.Any, 0)
+				watchedResources := []string{}
 				for svc := 0; svc < tt.services; svc++ {
-					builder := endpoints.NewEndpointBuilder(fmt.Sprintf("outbound|80||foo-%d.com", svc), proxy, push)
-					l := builder.BuildClusterLoadAssignment(s.Discovery.Env.EndpointIndex)
-					loadAssignments = append(loadAssignments, protoconv.MessageToAny(l))
+					watchedResources = append(watchedResources, fmt.Sprintf("outbound|80||foo-%d.com", svc))
 				}
-				response = endpointDiscoveryResponse(loadAssignments, push.PushVersion, push.LedgerVersion)
+				wr := &model.WatchedResource{ResourceNames: watchedResources}
+				c, _, _ = s.Discovery.Generators[v3.EndpointType].Generate(proxy, wr, &model.PushRequest{Full: true, Push: s.PushContext()})
 			}
-			logDebug(b, model.AnyToUnnamedResources(response.GetResources()))
+			logDebug(b, c)
 		})
 	}
 }
@@ -349,7 +344,7 @@ func testBenchmark(t *testing.T, tpe string, testCases []ConfigInput) {
 	}
 }
 
-func getWatchedResources(tpe string, tt ConfigInput, s *FakeDiscoveryServer, proxy *model.Proxy) *model.WatchedResource {
+func getWatchedResources(tpe string, tt ConfigInput, s *xds.FakeDiscoveryServer, proxy *model.Proxy) *model.WatchedResource {
 	switch tpe {
 	case v3.SecretType:
 		watchedResources := []string{}
@@ -367,7 +362,7 @@ func getWatchedResources(tpe string, tt ConfigInput, s *FakeDiscoveryServer, pro
 
 // Setup test builds a mock test environment. Note: push context is not initialized, to be able to benchmark separately
 // most should just call setupAndInitializeTest
-func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.Proxy) {
+func setupTest(t testing.TB, config ConfigInput) (*xds.FakeDiscoveryServer, *model.Proxy) {
 	proxyType := config.ProxyType
 	if proxyType == "" {
 		proxyType = model.SidecarProxy
@@ -408,7 +403,7 @@ func setupTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.P
 			},
 		},
 	})
-	s := NewFakeDiscoveryServer(t, FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		Configs:                configs,
 		KubernetesObjectString: k8sConfig,
 		// Allow debounce to avoid overwhelming with writes
@@ -487,7 +482,7 @@ func parseKubernetesTypes(inputs string) (string, int) {
 	return sb.String(), matches
 }
 
-func setupAndInitializeTest(t testing.TB, config ConfigInput) (*FakeDiscoveryServer, *model.Proxy) {
+func setupAndInitializeTest(t testing.TB, config ConfigInput) (*xds.FakeDiscoveryServer, *model.Proxy) {
 	s, proxy := setupTest(t, config)
 	initPushContext(s.Env(), proxy)
 	return s, proxy
@@ -597,48 +592,6 @@ func createEndpointsConfig(numEndpoints, numServices, numNetworks int) []config.
 			},
 		})
 	return result
-}
-
-func BenchmarkPushRequest(b *testing.B) {
-	// allTriggers contains all triggers, so we can pick one at random.
-	// It is not a big issue if it falls out of sync, as we are just trying to generate test data
-	allTriggers := []model.TriggerReason{
-		model.EndpointUpdate,
-		model.ConfigUpdate,
-		model.ServiceUpdate,
-		model.ProxyUpdate,
-		model.GlobalUpdate,
-		model.UnknownTrigger,
-		model.DebugTrigger,
-		model.SecretTrigger,
-		model.NetworksTrigger,
-		model.ProxyRequest,
-		model.NamespaceUpdate,
-	}
-	// Number of (simulated) proxies
-	proxies := 500
-	// Number of (simulated) pushes merged
-	pushesMerged := 10
-	// Number of configs per push
-	configs := 1
-
-	for n := 0; n < b.N; n++ {
-		var req *model.PushRequest
-		for i := 0; i < pushesMerged; i++ {
-			trigger := allTriggers[i%len(allTriggers)]
-			nreq := &model.PushRequest{
-				ConfigsUpdated: sets.New[model.ConfigKey](),
-				Reason:         model.NewReasonStats(trigger),
-			}
-			for c := 0; c < configs; c++ {
-				nreq.ConfigsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"})
-			}
-			req = req.Merge(nreq)
-		}
-		for p := 0; p < proxies; p++ {
-			recordPushTriggers(req.Reason)
-		}
-	}
 }
 
 func makeCacheKey(n int) model.XdsCacheEntry {
