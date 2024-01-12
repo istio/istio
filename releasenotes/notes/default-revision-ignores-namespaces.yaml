@@ -5,4 +5,4 @@ issue: []
 releaseNotes:
   - |
     **Added** setting .Values.sidecarInjectiorWebhook.enableNamespacesByDefault for default revision
-    based control-planes so sidecar injection on namesapaces with istio-injection=enabled will be ignored.
+    based control-planes so sidecar injection on namespaces with istio-injection=enabled will be ignored.
