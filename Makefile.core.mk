@@ -237,9 +237,8 @@ RELEASE_SIZE_TEST_BINARIES:=pilot-discovery pilot-agent istioctl bug-report envo
 # disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
 # not set vtprotobuf: this adds some performance improvement, but at a binary cost increase that is not worth it for the agent
 AGENT_TAGS=agent,disable_pgv
-# disable_pgv: disables protoc-gen-validation. This is not used buts adds many MB to Envoy protos
 # vtprotobuf: enables optimized protobuf marshalling
-STANDARD_TAGS=disable_pgv,vtprotobuf
+STANDARD_TAGS=vtprotobuf
 
 .PHONY: build
 build: depend ## Builds all go binaries.
