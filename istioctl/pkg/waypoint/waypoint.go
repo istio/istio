@@ -17,8 +17,6 @@ package waypoint
 import (
 	"cmp"
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -39,9 +37,7 @@ import (
 	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util/progress"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/kstatus"
-	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/config/schema/gvk"
@@ -52,92 +48,14 @@ import (
 var (
 	revision      = ""
 	waitReady     bool
-	waitTimeout   time.Duration
 	allNamespaces bool
-	revisionLabel = "istio.io/rev"
 
 	deleteAll bool
 )
 
-func isWaypointDeploymentReady(ctx cli.Context, kubeClient kube.CLIClient, gw *gateway.Gateway) (bool, error) {
-	deploymentName := fmt.Sprintf("%s-%s", gw.Name, gw.Spec.GatewayClassName)
-	deployment, err := kubeClient.Kube().AppsV1().Deployments(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), deploymentName, metav1.GetOptions{})
-	if err != nil {
-		return false, err
-	}
-	// Check if all replicas are available and ready
-	if deployment.Status.AvailableReplicas == deployment.Status.Replicas {
-		return true, nil
-	}
-	return false, nil
-}
-
-type sidecarSyncStatus struct {
-	// nolint: structcheck, unused
-	pilot string
-	xds.SyncStatus
-}
-
-func xdsStatus(sent, acked string, typ model.NodeType) string {
-	if sent == "" {
-		if typ == model.Ztunnel {
-			return "IGNORED"
-		}
-		return "NOT SENT"
-	}
-	if sent == acked {
-		return "SYNCED"
-	}
-	// acked will be empty string when there is never Acknowledged
-	if acked == "" {
-		return "STALE"
-	}
-	// Since the Nonce changes to uuid, so there is no more any time diff info
-	return "STALE"
-}
-
-func isWaypointSynced(ctx cli.Context, kubeClient kube.CLIClient, gw *gateway.Gateway) (bool, error) {
-	podPrefix := fmt.Sprintf("%s-%s", gw.Name, gw.Spec.GatewayClassName)
-	ns := ctx.NamespaceOrDefault(ctx.Namespace())
-	pods, err := kubeClient.PodsForSelector(context.TODO(), ns, fmt.Sprintf("%s=%s", revisionLabel, revision))
-	if err != nil {
-		return false, err
-	}
-	for _, pod := range pods.Items {
-		if len(pod.Name) >= len(podPrefix) && pod.Name[:len(podPrefix)] == podPrefix {
-			queryStr := "debug/syncz"
-			if ctx.Namespace() != "" {
-				queryStr += "?namespace=" + ctx.Namespace()
-			}
-			allSyncz, err := kubeClient.AllDiscoveryDo(context.TODO(), ctx.IstioNamespace(), queryStr)
-			if err != nil {
-				return false, err
-			}
-			for _, syncz := range allSyncz {
-				var statuses []*sidecarSyncStatus
-				err = json.Unmarshal(syncz, &statuses)
-				if err != nil {
-					return false, err
-				}
-				for _, status := range statuses {
-					if status.ProxyID == fmt.Sprintf("%s.%s", pod.Name, ns) {
-						clusterSynced := xdsStatus(status.ClusterSent, status.ClusterAcked, status.ProxyType)
-						listenerSynced := xdsStatus(status.ListenerSent, status.ListenerAcked, status.ProxyType)
-						routeSynced := xdsStatus(status.RouteSent, status.RouteAcked, status.ProxyType)
-						endpointSynced := xdsStatus(status.EndpointSent, status.EndpointAcked, status.ProxyType)
-						extensionconfigSynced := xdsStatus(status.ExtensionConfigSent, status.ExtensionConfigAcked, status.ProxyType)
-						return clusterSynced != "STALE" &&
-							listenerSynced != "STALE" &&
-							routeSynced != "STALE" &&
-							endpointSynced != "STALE" &&
-							extensionconfigSynced != "STALE", nil
-					}
-				}
-			}
-		}
-	}
-	return false, nil
-}
+const (
+	waitTimeout = 5 * time.Second
+)
 
 func Cmd(ctx cli.Context) *cobra.Command {
 	var waypointServiceAccount string
@@ -238,27 +156,32 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			progressLog := progress.NewLog()
 			manifestLog := progressLog.NewComponent(string(name.WaypointComponentName))
 			if waitReady {
-				manifestLog.ReportWaiting([]string{"deployment", "sync"})
+				manifestLog.ReportWaiting([]string{"Gateway"})
 				startTime := time.Now()
-				deploymentReady := false
 				for {
-					if !deploymentReady {
-						deploymentReady, _ = isWaypointDeploymentReady(ctx, kubeClient, gw)
-					}
-					if deploymentReady {
-						if waypointSynced, _ := isWaypointSynced(ctx, kubeClient, gw); waypointSynced {
-							break
+					programmed := false
+					gwc, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), gw.Name, metav1.GetOptions{})
+					if err == nil {
+						// Check if gateway has programmed condition set to true
+						for _, cond := range gwc.Status.Conditions {
+							if cond.Type == string(gatewayv1.GatewayConditionProgrammed) {
+								if string(cond.Status) == "True" {
+									programmed = true
+									break
+								}
+							}
 						}
+					}
+					if programmed {
+						break
 					}
 					if time.Since(startTime) > waitTimeout {
-						var errorMsg string
-						if !deploymentReady {
-							errorMsg = "Ambient Waypoint deployment is not ready"
-						} else {
-							errorMsg = "Ambient Waypoint workload is not synced"
+						manifestLog.ReportError("Ambient Waypoint gateway is not ready")
+						errorMsg := "timed out while waiting for Ambient Waypoint"
+						if err != nil {
+							errorMsg += fmt.Sprintf(": %s", err)
 						}
-						manifestLog.ReportError(errorMsg)
-						return errors.New("timed out while waiting for Ambient Waypoint")
+						return fmt.Errorf(errorMsg)
 					}
 					time.Sleep(1 * time.Second)
 				}
@@ -428,8 +351,6 @@ func Cmd(ctx cli.Context) *cobra.Command {
 
 	waypointApplyCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointApplyCmd.PersistentFlags().BoolVarP(&waitReady, "wait-ready", "W", false, "Wait for the waypoint to be ready and synced")
-	waypointApplyCmd.PersistentFlags().DurationVar(&waitTimeout, "timeout", 90*time.Second,
-		"The duration to wait for pod to be ready and synced before failing")
 	waypointCmd.AddCommand(waypointApplyCmd)
 	waypointGenerateCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointCmd.AddCommand(waypointGenerateCmd)
