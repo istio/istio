@@ -23,8 +23,6 @@ import (
 	"net/http"
 	"net/netip"
 
-	"github.com/containernetworking/cni/pkg/skel"
-
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/pluginlistener"
 	"istio.io/istio/pkg/network"
@@ -32,7 +30,7 @@ import (
 
 // Just a composite of the CNI plugin add event struct + some extracted "args"
 type CNIPluginAddEvent struct {
-	CmdAddEvent  skel.CmdArgs
+	Netns        string
 	PodName      string
 	PodNamespace string
 	IPs          []IPConfig
@@ -173,7 +171,7 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 		}
 		// Note that we use the IP info from the CNI plugin here - the Pod struct as reported by K8S doesn't have this info
 		// yet (because the K8S control plane doesn't), so it will be empty there.
-		err := s.dataplane.AddPodToMesh(ctx, ambientPod, podIps, addCmd.CmdAddEvent.Netns)
+		err := s.dataplane.AddPodToMesh(ctx, ambientPod, podIps, addCmd.Netns)
 		if err != nil {
 			return err
 		}

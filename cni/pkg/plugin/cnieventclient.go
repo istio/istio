@@ -63,7 +63,8 @@ func PushCNIEvent(cniClient CNIEventClient, event *skel.CmdArgs, prevResIps []*c
 	for _, ipc := range prevResIps {
 		ncconfigs = append(ncconfigs, nodeagent.IPConfig{Interface: ipc.Interface, Address: ipc.Address, Gateway: ipc.Gateway})
 	}
-	addEvent := nodeagent.CNIPluginAddEvent{CmdAddEvent: *event, PodName: podName, PodNamespace: podNamespace, IPs: ncconfigs}
+	// Currently we only use the netns from the original CNI event
+	addEvent := nodeagent.CNIPluginAddEvent{Netns: event.Netns, PodName: podName, PodNamespace: podNamespace, IPs: ncconfigs}
 	eventData, err := json.Marshal(addEvent)
 	if err != nil {
 		return err
