@@ -161,10 +161,14 @@ func TestECDSGenerate(t *testing.T) {
 			name:           "root_and_default",
 			proxyNamespace: "default",
 			request:        &model.PushRequest{Full: true},
-			watchedResources: []string{"extenstions.istio.io/wasmplugin/default.default-plugin-with-sec",
-				"extenstions.istio.io/wasmplugin/istio-system.root-plugin"},
-			wantExtensions: sets.String{"extenstions.istio.io/wasmplugin/default.default-plugin-with-sec": {},
-				"extenstions.istio.io/wasmplugin/istio-system.root-plugin": {}},
+			watchedResources: []string{
+				"extenstions.istio.io/wasmplugin/default.default-plugin-with-sec",
+				"extenstions.istio.io/wasmplugin/istio-system.root-plugin",
+			},
+			wantExtensions: sets.String{
+				"extenstions.istio.io/wasmplugin/default.default-plugin-with-sec": {},
+				"extenstions.istio.io/wasmplugin/istio-system.root-plugin":        {},
+			},
 			wantSecrets: sets.String{"default-docker-credential": {}, "root-docker-credential": {}},
 		},
 		{
@@ -250,10 +254,14 @@ func TestECDSGenerate(t *testing.T) {
 				Full:           false,
 				ConfigsUpdated: sets.New(model.ConfigKey{Kind: kind.Secret, Name: "default-pull-secret", Namespace: "default"}),
 			},
-			watchedResources: []string{"extenstions.istio.io/wasmplugin/default.default-plugin-with-sec",
-				"extenstions.istio.io/wasmplugin/istio-system.root-plugin"},
-			wantExtensions: sets.String{"extenstions.istio.io/wasmplugin/default.default-plugin-with-sec": {},
-				"extenstions.istio.io/wasmplugin/istio-system.root-plugin": {}},
+			watchedResources: []string{
+				"extenstions.istio.io/wasmplugin/default.default-plugin-with-sec",
+				"extenstions.istio.io/wasmplugin/istio-system.root-plugin",
+			},
+			wantExtensions: sets.String{
+				"extenstions.istio.io/wasmplugin/default.default-plugin-with-sec": {},
+				"extenstions.istio.io/wasmplugin/istio-system.root-plugin":        {},
+			},
 			wantSecrets: sets.String{"default-docker-credential": {}, "root-docker-credential": {}},
 		},
 	}
