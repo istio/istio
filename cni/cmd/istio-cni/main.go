@@ -50,8 +50,9 @@ func runPlugin() error {
 	err := skel.PluginMainWithError(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDelete, version.All,
 		fmt.Sprintf("CNI plugin istio-cni %v", istioversion.Info.Version))
 	if err != nil {
+		log.Errorf("istio-cni failed with: %v", err)
 		if err := err.Print(); err != nil {
-			log.Infof("Error writing error JSON to stdout: ", err)
+			log.Errorf("istio-cni failed to write error JSON to stdout: %v", err)
 		}
 
 		return err
