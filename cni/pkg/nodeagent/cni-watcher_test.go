@@ -18,17 +18,12 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/containernetworking/cni/pkg/skel"
-
 	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestProcessAddEventGoodPayload(t *testing.T) {
 	valid := CNIPluginAddEvent{
-		CmdAddEvent: skel.CmdArgs{
-			ContainerID: "aaa-bbbb",
-			Netns:       "/var/netns/foo",
-		},
+		Netns:        "/var/netns/foo",
 		PodName:      "pod-bingo",
 		PodNamespace: "funkyns",
 	}
@@ -43,10 +38,7 @@ func TestProcessAddEventGoodPayload(t *testing.T) {
 
 func TestProcessAddEventBadPayload(t *testing.T) {
 	valid := CNIPluginAddEvent{
-		CmdAddEvent: skel.CmdArgs{
-			ContainerID: "aaa-bbbb",
-			Netns:       "/var/netns/foo",
-		},
+		Netns:        "/var/netns/foo",
 		PodName:      "pod-bingo",
 		PodNamespace: "funkyns",
 	}
