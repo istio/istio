@@ -26,6 +26,7 @@ import (
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	listener "github.com/envoyproxy/go-control-plane/envoy/config/listener/v3"
 	route "github.com/envoyproxy/go-control-plane/envoy/config/route/v3"
+	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	configaggregate "istio.io/istio/pilot/pkg/config/aggregate"
@@ -37,7 +38,6 @@ import (
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pilot/pkg/serviceregistry/serviceentry"
-	"istio.io/istio/pilot/test/xdstest"
 	cluster2 "istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/mesh"
@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/pkg/wellknown"
 )
 
 type TestOptions struct {
@@ -297,7 +298,7 @@ func (f *ConfigGenTest) DeltaClusters(
 }
 
 func (f *ConfigGenTest) RoutesFromListeners(p *model.Proxy, l []*listener.Listener) []*route.RouteConfiguration {
-	resources, _ := f.ConfigGen.BuildHTTPRoutes(p, &model.PushRequest{Push: f.PushContext()}, xdstest.ExtractRoutesFromListeners(l))
+	resources, _ := f.ConfigGen.BuildHTTPRoutes(p, &model.PushRequest{Push: f.PushContext()}, ExtractRoutesFromListeners(l))
 	out := make([]*route.RouteConfiguration, 0, len(resources))
 	for _, resource := range resources {
 		routeConfig := &route.RouteConfiguration{}
@@ -359,4 +360,24 @@ func getConfigs(t test.Failer, opts TestOptions) []config.Config {
 		}
 	}
 	return cfgs
+}
+
+// copied from xdstest to avoid import issues
+func ExtractRoutesFromListeners(ll []*listener.Listener) []string {
+	routes := []string{}
+	for _, l := range ll {
+		for _, fc := range l.FilterChains {
+			for _, filter := range fc.Filters {
+				if filter.Name == wellknown.HTTPConnectionManager {
+					h := &hcm.HttpConnectionManager{}
+					_ = filter.GetTypedConfig().UnmarshalTo(h)
+					switch r := h.GetRouteSpecifier().(type) {
+					case *hcm.HttpConnectionManager_Rds:
+						routes = append(routes, r.Rds.RouteConfigName)
+					}
+				}
+			}
+		}
+	}
+	return routes
 }
