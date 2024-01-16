@@ -111,8 +111,8 @@ func TestBinarySizes(t *testing.T) {
 		// TODO(https://github.com/kubernetes/kubernetes/issues/101384) bump this down a bit?
 		"pilot-discovery": {60, 75},
 		"bug-report":      {60, 70},
-		"client":          {20, 30},
-		"server":          {20, 30},
+		"client":          {15, 30},
+		"server":          {15, 30},
 		"envoy":           {60, 130},
 		"ztunnel":         {15, 25},
 	}
