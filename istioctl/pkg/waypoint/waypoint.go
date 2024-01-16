@@ -127,8 +127,8 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Example: `  # Apply a waypoint to the current namespace
   istioctl x waypoint apply
 
-  # Apply a waypoint to a specific namespace for a specific service account
-  istioctl x waypoint apply --service-account something --namespace default`,
+  # Apply a waypoint to a specific namespace for a specific service account and wait for it to be ready
+  istioctl x waypoint apply --service-account something --namespace default --wait-ready`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := ctx.CLIClientWithRevision(revision)
 			if err != nil {
@@ -162,7 +162,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					programmed := false
 					gwc, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), gw.Name, metav1.GetOptions{})
 					if err == nil {
-						// Check if gateway has programmed condition set to true
+						// Check if gateway has Programmed condition set to true
 						for _, cond := range gwc.Status.Conditions {
 							if cond.Type == string(gatewayv1.GatewayConditionProgrammed) && string(cond.Status) == "True" {
 								programmed = true
@@ -348,7 +348,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	}
 
 	waypointApplyCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
-	waypointApplyCmd.PersistentFlags().BoolVarP(&waitReady, "wait-ready", "W", false, "Wait for the waypoint to be ready and synced")
+	waypointApplyCmd.PersistentFlags().BoolVarP(&waitReady, "wait-ready", "w", false, "Wait for the waypoint to be ready")
 	waypointCmd.AddCommand(waypointApplyCmd)
 	waypointGenerateCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointCmd.AddCommand(waypointGenerateCmd)
