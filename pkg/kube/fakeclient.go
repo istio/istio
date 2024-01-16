@@ -18,7 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 	"sync"
 
 	"go.uber.org/atomic"
@@ -233,23 +232,6 @@ func insertPatchReactor(f clienttesting.FakeClient, fmf *fieldManagerFactory) {
 	)
 }
 
-func actionKey(action clienttesting.Action) string {
-	out := strings.Builder{}
-	out.WriteString(action.GetVerb())
-	out.WriteString("/")
-	out.WriteString(action.GetResource().String())
-	out.WriteString("/")
-	out.WriteString(action.GetNamespace())
-	if n, ok := action.(named); ok {
-		out.WriteString("/")
-		out.WriteString(n.GetName())
-	}
-	return out.String()
-}
-
-type named interface {
-	GetName() string
-}
 type fakeMerger struct {
 	mergeLock sync.RWMutex
 	alertList []clienttesting.FakeClient
