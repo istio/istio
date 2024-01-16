@@ -49,7 +49,6 @@ import (
 	"istio.io/istio/pkg/kube/informerfactory"
 	"istio.io/istio/pkg/lazy"
 	"istio.io/istio/pkg/log"
-	"istio.io/istio/pkg/util/sets"
 )
 
 // NewFakeClient creates a new, fake, client
@@ -252,36 +251,13 @@ type named interface {
 	GetName() string
 }
 type fakeMerger struct {
-	inProgress sets.Set[string]
-	mergeLock  sync.RWMutex
-	initOnce   sync.Once
-	alertList  []clienttesting.FakeClient
-	scheme     *runtime.Scheme
-	dynamic    *dynamicfake.FakeDynamicClient
-}
-
-func (fm *fakeMerger) init() {
-	fm.initOnce.Do(func() {
-		fm.mergeLock.Lock()
-		defer fm.mergeLock.Unlock()
-		fm.inProgress = sets.Set[string]{}
-	})
+	mergeLock sync.RWMutex
+	alertList []clienttesting.FakeClient
+	scheme    *runtime.Scheme
+	dynamic   *dynamicfake.FakeDynamicClient
 }
 
 func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClient, action clienttesting.Action) {
-	// prevent recursion with inProgress
-	// TODO: this is probably excessive locking
-	key := actionKey(action)
-	fm.mergeLock.RLock()
-	if fm.inProgress.Contains(key) {
-		// this is an action 'echoing' back after we propagated it.  drop it.
-		fm.mergeLock.RUnlock()
-		return
-	}
-	fm.mergeLock.RUnlock()
-	fm.mergeLock.Lock()
-	fm.inProgress.Insert(key)
-	fm.mergeLock.Unlock()
 	// if action is update or create, it includes a runtim.Object, which needs to be
 	// passed to Invokes (either as unstructured [in the case of dynamic], or typed),
 	// otherwise the obj var is ignored, and is traditionally defaulted to metav1.status
@@ -340,13 +316,9 @@ func (fm *fakeMerger) propagateReactionSingle(destination clienttesting.FakeClie
 			log.Errorf("Propagating Invoke resulted in error for fake %T: %s", destination, err)
 		}
 	}
-	fm.mergeLock.Lock()
-	fm.inProgress.Delete(key)
-	fm.mergeLock.Unlock()
 }
 
 func (fm *fakeMerger) Merge(f clienttesting.FakeClient) {
-	fm.init()
 	fm.mergeLock.Lock()
 	defer fm.mergeLock.Unlock()
 	fm.alertList = append(fm.alertList, f)
