@@ -34,13 +34,13 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/autoregistration"
+	"istio.io/istio/pilot/pkg/bootstrap"
 	"istio.io/istio/pilot/pkg/config/kube/gateway"
 	ingress "istio.io/istio/pilot/pkg/config/kube/ingress"
 	"istio.io/istio/pilot/pkg/config/memory"
 	kubesecrets "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/apigen"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/serviceregistry"
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
@@ -130,7 +130,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	s.DebounceOptions.DebounceAfter = opts.DebounceTime
 	// Setup time to Now instead of process start to make logs not misleading
 	s.DiscoveryStartTime = time.Now()
-	s.InitGenerators(s.Env, "istio-system", "", nil)
 	t.Cleanup(s.Shutdown)
 
 	serviceHandler := func(_, curr *model.Service, _ model.Event) {
@@ -162,8 +161,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		xdsUpdater = xdsfake.NewWithDelegate(s)
 	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
-	s.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
-	s.Generators[v3.ExtensionConfigurationType].(*xds.EcdsGenerator).SetCredController(creds)
 
 	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	for k8sCluster, objs := range k8sObjects {
@@ -239,7 +236,11 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if err := s.Env.InitNetworksManager(s); err != nil {
 		t.Fatal(err)
 	}
-	s.Generators["api"] = apigen.NewGenerator(s.Env.ConfigStore)
+
+	bootstrap.InitGenerators(s, v1alpha3.NewConfigGenerator(s.Cache), "istio-system", "", nil)
+	s.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
+	s.Generators[v3.ExtensionConfigurationType].(*xds.EcdsGenerator).SetCredController(creds)
+
 	memRegistry := cg.MemRegistry
 	memRegistry.XdsUpdater = s
 

@@ -17,7 +17,6 @@ package xds
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"sort"
 	"strconv"
 	"sync"
@@ -32,11 +31,7 @@ import (
 	"istio.io/istio/pilot/pkg/autoregistration"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/apigen"
-	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/envoyfilter"
-	"istio.io/istio/pilot/pkg/networking/grpcgen"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/maps"
@@ -67,10 +62,6 @@ type DebounceOptions struct {
 type DiscoveryServer struct {
 	// Env is the model environment.
 	Env *model.Environment
-
-	// ConfigGenerator is responsible for generating data plane configuration using Istio networking
-	// APIs and service registry info
-	ConfigGenerator core.ConfigGenerator
 
 	// Generators allow customizing the generated config, based on the client metadata.
 	// Key is the generator type - will match the Generator metadata to set the per-connection
@@ -172,7 +163,6 @@ func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string
 	}
 
 	out.initJwksResolver()
-	out.ConfigGenerator = core.NewConfigGenerator(env.Cache)
 
 	return out
 }
@@ -521,40 +511,6 @@ func (s *DiscoveryServer) initPushContext(req *model.PushRequest, oldPushContext
 
 func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 	doSendPushes(stopCh, s.concurrentPushLimit, s.pushQueue)
-}
-
-// InitGenerators initializes generators to be used by XdsServer.
-func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string, clusterID cluster.ID, internalDebugMux *http.ServeMux) {
-	edsGen := &EdsGenerator{Server: s}
-	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
-	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
-	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
-	s.Generators[v3.EndpointType] = edsGen
-	ecdsGen := &EcdsGenerator{Server: s}
-	if env.CredentialsController != nil {
-		s.Generators[v3.SecretType] = NewSecretGen(env.CredentialsController, s.Cache, clusterID, env.Mesh())
-		ecdsGen.SetCredController(env.CredentialsController)
-	}
-	s.Generators[v3.ExtensionConfigurationType] = ecdsGen
-	s.Generators[v3.NameTableType] = &NdsGenerator{Server: s}
-	s.Generators[v3.ProxyConfigType] = &PcdsGenerator{Server: s, TrustBundle: env.TrustBundle}
-
-	workloadGen := &WorkloadGenerator{s: s}
-	s.Generators[v3.AddressType] = workloadGen
-	s.Generators[v3.WorkloadType] = workloadGen
-	s.Generators[v3.WorkloadAuthorizationType] = &WorkloadRBACGenerator{s: s}
-
-	s.Generators["grpc"] = &grpcgen.GrpcConfigGenerator{}
-	s.Generators["grpc/"+v3.EndpointType] = edsGen
-	s.Generators["grpc/"+v3.ListenerType] = s.Generators["grpc"]
-	s.Generators["grpc/"+v3.RouteType] = s.Generators["grpc"]
-	s.Generators["grpc/"+v3.ClusterType] = s.Generators["grpc"]
-
-	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
-	s.Generators["api/"+v3.EndpointType] = edsGen
-
-	s.Generators["event"] = NewStatusGen(s)
-	s.Generators[v3.DebugType] = NewDebugGen(s, systemNameSpace, internalDebugMux)
 }
 
 // Shutdown shuts down DiscoveryServer components.

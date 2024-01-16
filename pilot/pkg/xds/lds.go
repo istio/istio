@@ -18,13 +18,14 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
 
 type LdsGenerator struct {
-	Server *DiscoveryServer
+	ConfigGenerator core.ConfigGenerator
 }
 
 var _ model.XdsResourceGenerator = &LdsGenerator{}
@@ -93,7 +94,7 @@ func (l LdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	if !ldsNeedsPush(proxy, req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	listeners := l.Server.ConfigGenerator.BuildListeners(proxy, req.Push)
+	listeners := l.ConfigGenerator.BuildListeners(proxy, req.Push)
 	resources := model.Resources{}
 	for _, c := range listeners {
 		resources = append(resources, &discovery.Resource{

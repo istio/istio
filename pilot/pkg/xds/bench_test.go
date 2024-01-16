@@ -353,7 +353,7 @@ func getWatchedResources(tpe string, tt ConfigInput, s *xds.FakeDiscoveryServer,
 		}
 		return &model.WatchedResource{ResourceNames: watchedResources}
 	case v3.RouteType:
-		l := s.Discovery.ConfigGenerator.BuildListeners(proxy, s.PushContext())
+		l := s.ConfigGen.BuildListeners(proxy, s.PushContext())
 		routeNames := xdstest.ExtractRoutesFromListeners(l)
 		return &model.WatchedResource{ResourceNames: routeNames}
 	}
