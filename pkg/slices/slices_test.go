@@ -196,6 +196,72 @@ func TestMap(t *testing.T) {
 	}
 }
 
+func TestGroup(t *testing.T) {
+	tests := []struct {
+		name     string
+		elements []string
+		fn       func(string) int
+		want     map[int][]string
+	}{
+		{
+			name:     "empty element",
+			elements: []string{},
+			fn: func(s string) int {
+				return len(s)
+			},
+			want: map[int][]string{},
+		},
+		{
+			name:     "group by the length of each element",
+			elements: []string{"", "a", "b", "cc"},
+			fn: func(s string) int {
+				return len(s)
+			},
+			want: map[int][]string{0: {""}, 1: {"a", "b"}, 2: {"cc"}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Group(tt.elements, tt.fn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GroupUnique got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGroupUnique(t *testing.T) {
+	tests := []struct {
+		name     string
+		elements []string
+		fn       func(string) int
+		want     map[int]string
+	}{
+		{
+			name:     "empty element",
+			elements: []string{},
+			fn: func(s string) int {
+				return len(s)
+			},
+			want: map[int]string{},
+		},
+		{
+			name:     "group by the length of each element",
+			elements: []string{"", "a", "bb", "ccc"},
+			fn: func(s string) int {
+				return len(s)
+			},
+			want: map[int]string{0: "", 1: "a", 2: "bb", 3: "ccc"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GroupUnique(tt.elements, tt.fn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GroupUnique got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 var (
 	i1, i2, i3 = 1, 2, 3
 	s1, s2, s3 = "a", "b", "c"
