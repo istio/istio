@@ -63,7 +63,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
   istioctl x precheck
 
   # Check only a single namespace
-  istioctl x precheck --namespace default`,
+  istioctl x precheck --namespace default
+
+  # Check for behavioral changes since a specific version
+  istioctl x precheck --from-version 1.10`,
 		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			msgs := diag.Messages{}
 			if !skipControlPlane {

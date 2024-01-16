@@ -493,7 +493,7 @@ func getInstallPackagePath(iopYAML string) (string, error) {
 
 // alwaysString represents types that should always be decoded as strings
 // TODO: this could be automatically derived from the value_types.proto?
-var alwaysString = sets.New("values.compatibilityVersion")
+var alwaysString = sets.New("values.compatibilityVersion", "compatibilityVersion")
 
 // overlaySetFlagValues overlays each of the setFlags on top of the passed in IOP YAML string.
 func overlaySetFlagValues(iopYAML string, setFlags []string) (string, error) {
