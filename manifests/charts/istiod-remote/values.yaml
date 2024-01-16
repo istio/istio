@@ -133,6 +133,8 @@ defaults:
     # Sidecar injector mutating webhook configuration path value for the clientConfig.service field.
     # Override to pass env variables, for example: /inject/cluster/remote/net/network2
     injectionPath: "/inject"
+    # Mutating webhook caBundle value. Useful when running pilot with a well known cert
+    injectionCABundle: ""
   telemetry:
     enabled: false
     v2:
@@ -413,3 +415,4 @@ defaults:
     # `chained` has been deprecated and will be removed in a future release. use `provider` instead
     chained: true
     provider: default
+
