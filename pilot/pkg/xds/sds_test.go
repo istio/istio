@@ -433,8 +433,12 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	secrets, _, _ = gen.Generate(s.SetupProxy(pkpProxy), &model.WatchedResource{ResourceNames: []string{"kubernetes://generic"}}, fullPush)
 	raw = xdstest.ExtractTLSSecrets(t, model.ResourcesToAny(secrets))
 	for _, scrt := range raw {
-		if scrt.GetTlsCertificate().GetPrivateKeyProvider() == nil {
+		privateKeyProvider := scrt.GetTlsCertificate().GetPrivateKeyProvider()
+		if privateKeyProvider == nil {
 			t.Fatalf("expect private key provider in secret")
+		}
+		if privateKeyProvider.GetFallback() {
+			t.Fatalf("expect fallback for private key provider in secret as false")
 		}
 	}
 
