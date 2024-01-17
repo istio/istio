@@ -264,7 +264,7 @@ func generateLabels(whLabels, curLabels, customLabels map[string]string, userMan
 	whLabels = maps.MergeCopy(whLabels, curLabels)
 	whLabels = maps.MergeCopy(whLabels, customLabels)
 	if userManaged {
-		for _, label := range whLabels {
+		for label := range whLabels {
 			if strings.Contains(label, operatorNamespace) {
 				delete(whLabels, label)
 			}
