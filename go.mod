@@ -97,17 +97,17 @@ require (
 	golang.org/x/time v0.5.0
 	gomodules.xyz/jsonpatch/v2 v2.4.0
 	google.golang.org/api v0.154.0
-	google.golang.org/genproto v0.0.0-20240108191215-35c7eff3a6b1
-	google.golang.org/genproto/googleapis/api v0.0.0-20240108191215-35c7eff3a6b1
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240108191215-35c7eff3a6b1
+	google.golang.org/genproto v0.0.0-20240116215550-a9fa1716bcac
+	google.golang.org/genproto/googleapis/api v0.0.0-20240116215550-a9fa1716bcac
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20240116215550-a9fa1716bcac
 	google.golang.org/grpc v1.60.1
 	google.golang.org/protobuf v1.32.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.13.3
-	istio.io/api v1.19.0-alpha.1.0.20240116213343-f706c459186d
-	istio.io/client-go v1.19.0-alpha.1.0.20240116213743-da72b4dea8b9
+	istio.io/api v1.19.0-alpha.1.0.20240117170358-06018d723c6f
+	istio.io/client-go v1.19.0-alpha.1.0.20240117170958-298c9674a076
 	k8s.io/api v0.29.0
 	k8s.io/apiextensions-apiserver v0.29.0
 	k8s.io/apimachinery v0.29.0
