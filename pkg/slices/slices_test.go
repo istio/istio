@@ -493,12 +493,6 @@ func TestMapFilter(t *testing.T) {
 			},
 			want: []int{2, 4},
 		},
-		{
-			name:     "NilFunction",
-			input:    []int{1, 2, 3, 4, 5},
-			function: nil,
-			want:     []int{},
-		},
 	}
 
 	for _, tc := range tests {

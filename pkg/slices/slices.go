@@ -158,9 +158,6 @@ func Map[E any, O any](s []E, f func(E) O) []O {
 // MapFilter runs f() over all elements in s and returns any non-nil results
 func MapFilter[E any, O any](s []E, f func(E) *O) []O {
 	n := make([]O, 0, len(s))
-	if f == nil {
-		return n
-	}
 	for _, e := range s {
 		if res := f(e); res != nil {
 			n = append(n, *res)
