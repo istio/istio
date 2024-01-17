@@ -16,9 +16,11 @@ package v1alpha3
 
 import (
 	"fmt"
+	"net"
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 
 	opb "github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -40,6 +42,7 @@ import (
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/wellknown"
@@ -87,6 +90,10 @@ func configureTracingFromTelemetry(
 		h.Tracing = &hcm.HttpConnectionManager_Tracing{}
 		configureSampling(h.Tracing, proxyConfigSamplingValue(proxyCfg))
 		configureCustomTags(h.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, proxy)
+		// if disable bootstrap tracing is set, we should configure tracing provider in HCM.
+		if features.DisableBootstrapTracing {
+			configureTracingProvider(h.Tracing, push, proxyCfg, proxy)
+		}
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
 			h.Tracing.MaxPathTagLength = wrapperspb.UInt32(proxyCfg.GetTracing().MaxPathTagLength)
 		}
@@ -633,6 +640,150 @@ func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 		}
 	}
 	return sampling
+}
+
+func configureTracingProvider(hcmTracing *hcm.HttpConnectionManager_Tracing, pushCtx *model.PushContext, proxyCfg *meshconfig.ProxyConfig, node *model.Proxy) {
+	var serviceCluster string
+	if node.XdsNode != nil {
+		serviceCluster = node.XdsNode.Cluster
+	}
+
+	switch tracer := proxyCfg.Tracing.Tracer.(type) {
+	case *meshconfig.Tracing_Datadog_:
+		hostname, clusterName, err := getHostCluster(pushCtx, tracer.Datadog.Address)
+		if err != nil {
+			model.IncLookupClusterFailures("datadog")
+			return
+		}
+
+		cfg, _ := datadogConfig(serviceCluster, hostname, clusterName)
+		hcmTracing.Provider = &tracingcfg.Tracing_Http{
+			Name: envoyDatadog,
+			ConfigType: &tracingcfg.Tracing_Http_TypedConfig{
+				TypedConfig: cfg,
+			},
+		}
+	case *meshconfig.Tracing_Lightstep_:
+		hostname, clusterName, err := getHostCluster(pushCtx, tracer.Lightstep.Address)
+		if err != nil {
+			model.IncLookupClusterFailures("lightstep")
+			return
+		}
+
+		cfg, _ := otelLightStepConfig(clusterName, hostname, tracer.Lightstep.GetAccessToken())
+		hcmTracing.Provider = &tracingcfg.Tracing_Http{
+			Name: envoyOpenTelemetry,
+			ConfigType: &tracingcfg.Tracing_Http_TypedConfig{
+				TypedConfig: cfg,
+			},
+		}
+	case *meshconfig.Tracing_OpenCensusAgent_:
+		ocContext := tracer.OpenCensusAgent.GetContext()
+		oc := &tracingcfg.OpenCensusConfig{
+			OcagentAddress:         tracer.OpenCensusAgent.Address,
+			OcagentExporterEnabled: true,
+			// this is incredibly dangerous for proxy stability, as switching provider config for OC providers
+			// is not allowed during the lifetime of a proxy.
+			IncomingTraceContext: convertOpenCensusAgentTraceContext(ocContext),
+			OutgoingTraceContext: convertOpenCensusAgentTraceContext(ocContext),
+		}
+		cfg, err := protoconv.MessageToAnyWithError(oc)
+		if err != nil {
+			return
+		}
+
+		hcmTracing.Provider = &tracingcfg.Tracing_Http{
+			Name: envoyOpenCensus,
+			ConfigType: &tracingcfg.Tracing_Http_TypedConfig{
+				TypedConfig: cfg,
+			},
+		}
+	case *meshconfig.Tracing_Stackdriver_:
+		sd := tracer.Stackdriver
+		cfg, _ := stackdriverConfig(node.Metadata, &meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider{
+			Debug:                    sd.Debug,
+			MaxNumberOfAnnotations:   sd.MaxNumberOfAnnotations,
+			MaxNumberOfAttributes:    sd.MaxNumberOfAttributes,
+			MaxNumberOfMessageEvents: sd.MaxNumberOfMessageEvents,
+		})
+		hcmTracing.Provider = &tracingcfg.Tracing_Http{
+			Name: envoyOpenCensus,
+			ConfigType: &tracingcfg.Tracing_Http_TypedConfig{
+				TypedConfig: cfg,
+			},
+		}
+	case *meshconfig.Tracing_Zipkin_:
+		hostname, clusterName, err := getHostCluster(pushCtx, tracer.Zipkin.Address)
+		if err != nil {
+			log.Warnf("get host cluster failed: %v", err)
+			model.IncLookupClusterFailures("zipkin")
+			return
+		}
+		cfg, _ := zipkinConfig(hostname, clusterName, false)
+		hcmTracing.Provider = &tracingcfg.Tracing_Http{
+			Name: envoyZipkin,
+			ConfigType: &tracingcfg.Tracing_Http_TypedConfig{
+				TypedConfig: cfg,
+			},
+		}
+	default:
+		log.Warn("Tracing provider not configured")
+	}
+}
+
+func convertOpenCensusAgentTraceContext(traceContexts []meshconfig.Tracing_OpenCensusAgent_TraceContext) []tracingcfg.OpenCensusConfig_TraceContext {
+	if len(traceContexts) == 0 {
+		return allContexts
+	}
+	converted := make([]tracingcfg.OpenCensusConfig_TraceContext, 0, len(traceContexts))
+	for _, c := range traceContexts {
+		switch c {
+		case meshconfig.Tracing_OpenCensusAgent_B3:
+			converted = append(converted, tracingcfg.OpenCensusConfig_B3)
+		case meshconfig.Tracing_OpenCensusAgent_CLOUD_TRACE_CONTEXT:
+			converted = append(converted, tracingcfg.OpenCensusConfig_CLOUD_TRACE_CONTEXT)
+		case meshconfig.Tracing_OpenCensusAgent_GRPC_BIN:
+			converted = append(converted, tracingcfg.OpenCensusConfig_GRPC_TRACE_BIN)
+		case meshconfig.Tracing_OpenCensusAgent_W3C_TRACE_CONTEXT:
+			converted = append(converted, tracingcfg.OpenCensusConfig_TRACE_CONTEXT)
+		}
+	}
+	return converted
+}
+
+func getHostCluster(push *model.PushContext, address string) (string, string, error) {
+	host, port, err := net.SplitHostPort(address)
+	if err != nil {
+		return "", "", fmt.Errorf("could not parse address %q: %v", address, err)
+	}
+	h := model.ResolveShortnameToFQDN(host, config.Meta{
+		Namespace: push.Mesh.RootNamespace,
+		Domain:    push.Mesh.TrustDomain,
+	})
+	p, err := strconv.Atoi(port)
+	if err != nil {
+		return "", "", fmt.Errorf("could not parse address %q: %v", address, err)
+	}
+	hostname, clusterName, err := clusterLookupFn(push, string(h), p)
+	if err != nil {
+		// support short service names for tracing providers, e.g. "zipkin.istio-system:9411"
+		if len(strings.Split(host, ".")) == 2 {
+			hostname, clusterName, err = clusterLookupFn(push, fmt.Sprintf("%s.svc.%s", host, push.Mesh.TrustDomain), p)
+			if err == nil {
+				return hostname, clusterName, nil
+			}
+		}
+
+		if parts := strings.Split(host, "."); len(parts) == 3 && parts[2] == "svc" {
+			hostname, clusterName, err = clusterLookupFn(push, fmt.Sprintf("%s.%s", host, push.Mesh.TrustDomain), p)
+			if err == nil {
+				return hostname, clusterName, nil
+			}
+		}
+
+		return "", "", fmt.Errorf("could not find cluster for tracing provider %q: %v", address, err)
+	}
+	return hostname, clusterName, nil
 }
 
 func configureCustomTags(hcmTracing *hcm.HttpConnectionManager_Tracing,

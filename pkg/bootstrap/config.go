@@ -425,7 +425,8 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 		option.XDSRootCert(metadata.XDSRootCert))
 
 	// Add tracing options.
-	if config.Tracing != nil {
+	if config.Tracing != nil &&
+		!features.DisableBootstrapTracing {
 		isH2 := false
 		switch tracer := config.Tracing.Tracer.(type) {
 		case *meshAPI.Tracing_Zipkin_:
