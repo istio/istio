@@ -343,6 +343,10 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 				},
 			},
 		})
+		fallback := false
+		if crypto.GetFallback() != nil {
+			fallback = crypto.GetFallback().Value
+		}
 		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{
@@ -357,6 +361,7 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 						ConfigType: &envoytls.PrivateKeyProvider_TypedConfig{
 							TypedConfig: msg,
 						},
+						Fallback: fallback,
 					},
 				},
 			},
@@ -371,6 +376,10 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 				},
 			},
 		})
+		fallback := false
+		if qatConf.GetFallback() != nil {
+			fallback = qatConf.GetFallback().Value
+		}
 		res = protoconv.MessageToAny(&envoytls.Secret{
 			Name: name,
 			Type: &envoytls.Secret_TlsCertificate{
@@ -385,6 +394,7 @@ func toEnvoyTLSSecret(name string, certInfo *credscontroller.CertInfo, proxy *mo
 						ConfigType: &envoytls.PrivateKeyProvider_TypedConfig{
 							TypedConfig: msg,
 						},
+						Fallback: fallback,
 					},
 				},
 			},

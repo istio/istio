@@ -269,6 +269,10 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 					},
 				},
 			})
+			fallback := false
+			if crypto.GetFallback() != nil {
+				fallback = crypto.GetFallback().Value
+			}
 			secret.Type = &tls.Secret_TlsCertificate{
 				TlsCertificate: &tls.TlsCertificate{
 					CertificateChain: &core.DataSource{
@@ -281,6 +285,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 						ConfigType: &tls.PrivateKeyProvider_TypedConfig{
 							TypedConfig: msg,
 						},
+						Fallback: fallback,
 					},
 				},
 			}
@@ -294,6 +299,10 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 					},
 				},
 			})
+			fallback := false
+			if qatConf.GetFallback() != nil {
+				fallback = qatConf.GetFallback().Value
+			}
 			secret.Type = &tls.Secret_TlsCertificate{
 				TlsCertificate: &tls.TlsCertificate{
 					CertificateChain: &core.DataSource{
@@ -306,6 +315,7 @@ func toEnvoySecret(s *security.SecretItem, caRootPath string, pkpConf *mesh.Priv
 						ConfigType: &tls.PrivateKeyProvider_TypedConfig{
 							TypedConfig: msg,
 						},
+						Fallback: fallback,
 					},
 				},
 			}
