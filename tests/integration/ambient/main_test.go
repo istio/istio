@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
 	"istio.io/istio/tests/integration/security/util/cert"
@@ -79,6 +80,7 @@ func TestMain(m *testing.M) {
 		SkipIf("https://github.com/istio/istio/issues/43243", func(ctx resource.Context) bool {
 			return strings.Contains(ctx.Settings().Image.Tag, "distroless")
 		}).
+		Label(label.IPv4). // https://github.com/istio/istio/issues/41008
 		Setup(func(t resource.Context) error {
 			t.Settings().Ambient = true
 			return nil
