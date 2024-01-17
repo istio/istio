@@ -64,11 +64,12 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 
 // getEndpointKey generates a unique key for the endpoints based on ip addresses, portName and portNum.
 func getEndpointKey(portName string, portNum int32, ips []string) string {
-	var ipaddrs []string
+	var ipaddrs, epkey []string
 	ipaddrs = append(ipaddrs, ips...)
-	ipString := strings.Join(ipaddrs, ", ")
-	portNumStr := strconv.FormatInt(int64(portNum), 10)
-	return fmt.Sprintf("%s-%s-%s", ipString, portName, portNumStr)
+	ipString := strings.Join(ipaddrs, ",")
+	portNumStr := strconv.Itoa(int(portNum))
+	epkey = append(epkey, ipString, portName, portNumStr)
+	return strings.Join(epkey, "-")
 }
 
 func (esc *endpointSliceController) podArrived(name, ns string) error {
