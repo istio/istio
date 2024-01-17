@@ -117,16 +117,22 @@ func (esc *endpointSliceController) sliceServiceInstances(ep *v1.EndpointSlice, 
 				log.Warnf("unexpected state, svc %v missing port %v", svc.Hostname, instance.ServicePortName)
 				continue
 			}
-			si := &model.ServiceInstance{
-				Service:     svc,
-				ServicePort: port,
-				Endpoint:    instance,
+			// consider multiple IP scenarios
+			for _, ip := range proxy.IPAddresses {
+				if ip != instance.Address {
+					continue
+				}
+				si := &model.ServiceInstance{
+					Service:     svc,
+					ServicePort: port,
+					Endpoint:    instance,
+				}
+				// If the endpoint isn't ready, report this
+				if instance.HealthStatus == model.UnHealthy && esc.c.opts.Metrics != nil {
+					esc.c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
+				}
+				out = append(out, si)
 			}
-			// If the endpoint isn't ready, report this
-			if instance.HealthStatus == model.UnHealthy && esc.c.opts.Metrics != nil {
-				esc.c.opts.Metrics.AddMetric(model.ProxyStatusEndpointNotReady, proxy.ID, proxy.ID, "")
-			}
-			out = append(out, si)
 		}
 	}
 	return out
