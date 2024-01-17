@@ -26,18 +26,35 @@ if [[ "${TARGET_OUT_LINUX:-}" == "" ]]; then
   exit 1
 fi
 
+# Setup arch suffix for envoy binary. For backwards compatibility, amd64 has no suffix.
+if [[ "${TARGET_ARCH}" == "amd64" ]]; then
+	ISTIO_ENVOY_ARCH_SUFFIX=""
+else
+	ISTIO_ENVOY_ARCH_SUFFIX="-${TARGET_ARCH}"
+fi
+
 # Populate the git version for istio/proxy (i.e. Envoy)
 PROXY_REPO_SHA="${PROXY_REPO_SHA:-$(grep PROXY_REPO_SHA istio.deps  -A 4 | grep lastStableSHA | cut -f 4 -d '"')}"
 
 # Envoy binary variables
-ENVOY_VERSION="${ENVOY_VERSION:-v1.3.0}"
-ISTIO_ENVOY_BASE_URL="${ISTIO_ENVOY_BASE_URL:-https://github.com/alibaba/higress/releases/download/${ENVOY_VERSION}}"
+ISTIO_ENVOY_BASE_URL="${ISTIO_ENVOY_BASE_URL:-https://storage.googleapis.com/istio-build/proxy}"
+
+# If we are not using the default, assume its private and we need to authenticate
+if [[ "${ISTIO_ENVOY_BASE_URL}" != "https://storage.googleapis.com/istio-build/proxy" ]]; then
+  AUTH_HEADER="Authorization: Bearer $(gcloud auth print-access-token)"
+  export AUTH_HEADER
+fi
+
 SIDECAR="${SIDECAR:-envoy}"
 
 # OS-neutral vars. These currently only work for linux.
 ISTIO_ENVOY_VERSION="${ISTIO_ENVOY_VERSION:-${PROXY_REPO_SHA}}"
-ISTIO_ENVOY_DEBUG_URL="${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-${TARGET_ARCH}.tar.gz}"
-ISTIO_ENVOY_RELEASE_URL="${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-${TARGET_ARCH}.tar.gz}"
+ISTIO_ENVOY_DEBUG_URL="${ISTIO_ENVOY_DEBUG_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-debug-${ISTIO_ENVOY_VERSION}${ISTIO_ENVOY_ARCH_SUFFIX}.tar.gz}"
+ISTIO_ENVOY_RELEASE_URL="${ISTIO_ENVOY_RELEASE_URL:-${ISTIO_ENVOY_BASE_URL}/envoy-alpha-${ISTIO_ENVOY_VERSION}${ISTIO_ENVOY_ARCH_SUFFIX}.tar.gz}"
+
+# Higress patch
+ISTIO_ENVOY_DEBUG_URL="${ENVOY_PACKAGE_URL_PATTERN/ARCH/$TARGET_ARCH}"
+ISTIO_ENVOY_RELEASE_URL="${ENVOY_PACKAGE_URL_PATTERN/ARCH/$TARGET_ARCH}"
 
 # Envoy Linux vars.
 ISTIO_ENVOY_LINUX_VERSION="${ISTIO_ENVOY_LINUX_VERSION:-${ISTIO_ENVOY_VERSION}}"
