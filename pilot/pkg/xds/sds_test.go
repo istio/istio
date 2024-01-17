@@ -436,6 +436,7 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 		privateKeyProvider := scrt.GetTlsCertificate().GetPrivateKeyProvider()
 		if privateKeyProvider == nil {
 			t.Fatalf("expect private key provider in secret")
+		} else {
 			if privateKeyProvider.GetFallback() == true {
 				t.Fatalf("expect fallback for private key provider in secret as false")
 			}
