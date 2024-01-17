@@ -262,7 +262,6 @@ func (a *Agent) activeProxyConnections() (int, error) {
 
 // runWait runs the start-up command as a go routine and waits for it to finish
 func (a *Agent) runWait(abortCh <-chan error) {
-	log.Infof("starting")
 	err := a.proxy.Run(abortCh)
 	a.proxy.Cleanup()
 	a.statusCh <- exitStatus{err: err}

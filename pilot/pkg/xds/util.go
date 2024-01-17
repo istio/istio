@@ -12,35 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package fuzz
+package xds
 
 import (
-	"testing"
-
-	"istio.io/istio/pilot/pkg/config/kube/crd"
-	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/test/xds"
+	"fmt"
+	"strings"
 )
 
-func init() {
-	testing.Init()
-}
-
-func FuzzXds(data []byte) int {
-	t := &testing.T{}
-
-	// Use crd.ParseInputs to verify data
-	_, _, err := crd.ParseInputs(string(data))
-	if err != nil {
-		return 0
+func atMostNJoin(data []string, limit int) string {
+	if limit == 0 || limit == 1 {
+		// Assume limit >1, but make sure we dpn't crash if someone does pass those
+		return strings.Join(data, ", ")
 	}
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
-		ConfigString: string(data),
-	})
-	proxy := s.SetupProxy(&model.Proxy{
-		ConfigNamespace: "app",
-	})
-	_ = s.Listeners(proxy)
-	_ = s.Routes(proxy)
-	return 1
+	if len(data) == 0 {
+		return ""
+	}
+	if len(data) < limit {
+		return strings.Join(data, ", ")
+	}
+	return strings.Join(data[:limit-1], ", ") + fmt.Sprintf(", and %d others", len(data)-limit+1)
 }

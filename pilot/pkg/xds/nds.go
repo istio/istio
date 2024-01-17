@@ -18,6 +18,7 @@ import (
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
@@ -30,7 +31,7 @@ import (
 // in the pod the agent will capture all DNS requests and attempt to resolve locally before
 // forwarding to upstream dns servers.
 type NdsGenerator struct {
-	Server *DiscoveryServer
+	ConfigGenerator core.ConfigGenerator
 }
 
 var _ model.XdsResourceGenerator = &NdsGenerator{}
@@ -81,7 +82,7 @@ func (n NdsGenerator) Generate(proxy *model.Proxy, _ *model.WatchedResource, req
 	if !ndsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	nt := n.Server.ConfigGenerator.BuildNameTable(proxy, req.Push)
+	nt := n.ConfigGenerator.BuildNameTable(proxy, req.Push)
 	if nt == nil {
 		return nil, model.DefaultXdsLogDetails, nil
 	}

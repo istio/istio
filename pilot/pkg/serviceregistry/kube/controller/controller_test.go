@@ -557,6 +557,30 @@ func TestGetProxyServiceTargets(t *testing.T) {
 	if !reflect.DeepEqual(expected, podServices[0]) {
 		t.Fatalf("expected instance %v, got %v", expected, podServices[0])
 	}
+
+	// pod with no services should return no service targets
+	p = generatePod("130.0.0.1", "pod4", "nsa", "foo", "node1", map[string]string{"app": "no-service-app"}, map[string]string{})
+	addPods(t, controller, fx, p)
+
+	podServices = controller.GetProxyServiceTargets(&model.Proxy{
+		Type:            "sidecar",
+		IPAddresses:     []string{"130.0.0.1"},
+		Locality:        &core.Locality{Region: "r", Zone: "z"},
+		ConfigNamespace: "nsa",
+		Labels: map[string]string{
+			"app": "no-service-app",
+		},
+		Metadata: &model.NodeMetadata{
+			ServiceAccount: "account",
+			ClusterID:      clusterID,
+			Labels: map[string]string{
+				"app": "no-service-app",
+			},
+		},
+	})
+	if len(podServices) != 0 {
+		t.Fatalf("expect 0 instance, got %v", len(podServices))
+	}
 }
 
 func TestGetProxyServiceTargetsWithMultiIPsAndTargetPorts(t *testing.T) {

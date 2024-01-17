@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"istio.io/istio/pkg/test/util/assert"
@@ -190,6 +191,72 @@ func TestMap(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := Map(tt.elements, tt.fn); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Map got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGroup(t *testing.T) {
+	tests := []struct {
+		name     string
+		elements []string
+		fn       func(string) int
+		want     map[int][]string
+	}{
+		{
+			name:     "empty element",
+			elements: []string{},
+			fn: func(s string) int {
+				return len(s)
+			},
+			want: map[int][]string{},
+		},
+		{
+			name:     "group by the length of each element",
+			elements: []string{"", "a", "b", "cc"},
+			fn: func(s string) int {
+				return len(s)
+			},
+			want: map[int][]string{0: {""}, 1: {"a", "b"}, 2: {"cc"}},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := Group(tt.elements, tt.fn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GroupUnique got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGroupUnique(t *testing.T) {
+	tests := []struct {
+		name     string
+		elements []string
+		fn       func(string) int
+		want     map[int]string
+	}{
+		{
+			name:     "empty element",
+			elements: []string{},
+			fn: func(s string) int {
+				return len(s)
+			},
+			want: map[int]string{},
+		},
+		{
+			name:     "group by the length of each element",
+			elements: []string{"", "a", "bb", "ccc"},
+			fn: func(s string) int {
+				return len(s)
+			},
+			want: map[int]string{0: "", 1: "a", 2: "bb", 3: "ccc"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := GroupUnique(tt.elements, tt.fn); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("GroupUnique got %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -412,4 +479,26 @@ func ExampleSort() {
 
 	// Output:
 	// [{0 a a} {0 b a} {0 b b} {0 c a} {1 a a} {1 c a} {2 z a}]
+}
+
+func BenchmarkEqualUnordered(b *testing.B) {
+	size := 100
+	var l []string
+	for i := 0; i < size; i++ {
+		l = append(l, strconv.Itoa(i))
+	}
+	var equal []string
+	for i := 0; i < size; i++ {
+		equal = append(equal, strconv.Itoa(i))
+	}
+	var notEqual []string
+	for i := 0; i < size; i++ {
+		notEqual = append(notEqual, strconv.Itoa(i))
+	}
+	notEqual[size-1] = "z"
+
+	for n := 0; n < b.N; n++ {
+		EqualUnordered(l, equal)
+		EqualUnordered(l, notEqual)
+	}
 }

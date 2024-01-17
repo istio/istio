@@ -27,11 +27,12 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	xdsfake "istio.io/istio/pilot/test/xds"
 )
 
 func TestSyncz(t *testing.T) {
 	t.Run("return the sent and ack status of adsClient connections", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 		ads := s.ConnectADS()
 
 		ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
@@ -49,7 +50,7 @@ func TestSyncz(t *testing.T) {
 		verifySyncStatus(t, s.Discovery, node.ID, true, true)
 	})
 	t.Run("sync status not set when Nackd", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 		ads := s.ConnectADS()
 
 		ads.RequestResponseNack(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
@@ -66,7 +67,7 @@ func TestSyncz(t *testing.T) {
 		verifySyncStatus(t, s.Discovery, node.ID, true, false)
 	})
 	t.Run("sync ecds", func(t *testing.T) {
-		s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+		s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 			ConfigString: mustReadFile(t, "./testdata/ecds.yaml"),
 		})
 		ads := s.ConnectADS()
@@ -173,7 +174,7 @@ func TestConfigDump(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 			ads := s.ConnectADS()
 			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ClusterType})
 			ads.RequestResponseAck(t, &discovery.DiscoveryRequest{TypeUrl: v3.ListenerType})
@@ -220,7 +221,7 @@ func getConfigDump(t *testing.T, s *xds.DiscoveryServer, proxyID string, wantCod
 }
 
 func TestDebugHandlers(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	req, err := http.NewRequest(http.MethodGet, "/debug", nil)
 	if err != nil {
 		t.Fatal(err)
