@@ -207,7 +207,7 @@ func TestSAUpdate(t *testing.T) {
 // Regression test for https://github.com/istio/istio/issues/38709
 func TestSAUpdateWithMulAddrsInstance(t *testing.T) {
 	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, false)
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.Connect(s.SetupProxy(nil), nil, []string{v3.ClusterType})
 
 	ports := model.PortList{

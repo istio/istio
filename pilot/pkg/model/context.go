@@ -903,6 +903,19 @@ func (node *Proxy) ServiceNode() string {
 	}, serviceNodeSeparator)
 }
 
+// Key returns the key of Proxy based on its addresses, have the same logic as Key() of IstioEndpoint
+func (node *Proxy) Key() string {
+	if node == nil {
+		return ""
+	}
+
+	if len(node.IPAddresses) == 0 {
+		return ""
+	}
+
+	return node.IPAddresses[0]
+}
+
 // SetSidecarScope identifies the sidecar scope object associated with this
 // proxy and updates the proxy Node. This is a convenience hack so that
 // callers can simply call push.Services(node) while the implementation of
