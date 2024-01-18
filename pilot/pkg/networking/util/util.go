@@ -805,10 +805,8 @@ func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, 
 	}
 
 	// merge DR with subset traffic policy
-	mergedPolicy := ShallowcopyTrafficPolicy(original)
-
 	// Override with subset values.
-
+	mergedPolicy := ShallowcopyTrafficPolicy(original)
 	// settings specified at the destination-level will not be inherited when
 	// overridden by port-level settings, i.e. default values will be applied
 	// to fields omitted in port-level traffic policies.
