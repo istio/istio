@@ -91,7 +91,7 @@ func configureTracingFromTelemetry(
 		configureSampling(h.Tracing, proxyConfigSamplingValue(proxyCfg))
 		configureCustomTags(h.Tracing, map[string]*telemetrypb.Tracing_CustomTag{}, proxyCfg, proxy)
 		// if disable bootstrap tracing is set, we should configure tracing provider in HCM.
-		if features.DisableBootstrapTracing {
+		if features.DisableBootstrapTracing.Get() {
 			configureTracingProvider(h.Tracing, push, proxyCfg, proxy)
 		}
 		if proxyCfg.GetTracing().GetMaxPathTagLength() != 0 {
@@ -686,40 +686,8 @@ func configureTracingProvider(hcmTracing *hcm.HttpConnectionManager_Tracing, pus
 			},
 		}
 	case *meshconfig.Tracing_OpenCensusAgent_:
-		ocContext := tracer.OpenCensusAgent.GetContext()
-		oc := &tracingcfg.OpenCensusConfig{
-			OcagentAddress:         tracer.OpenCensusAgent.Address,
-			OcagentExporterEnabled: true,
-			// this is incredibly dangerous for proxy stability, as switching provider config for OC providers
-			// is not allowed during the lifetime of a proxy.
-			IncomingTraceContext: convertOpenCensusAgentTraceContext(ocContext),
-			OutgoingTraceContext: convertOpenCensusAgentTraceContext(ocContext),
-		}
-		cfg, err := protoconv.MessageToAnyWithError(oc)
-		if err != nil {
-			return
-		}
-
-		hcmTracing.Provider = &tracingcfg.Tracing_Http{
-			Name: envoyOpenCensus,
-			ConfigType: &tracingcfg.Tracing_Http_TypedConfig{
-				TypedConfig: cfg,
-			},
-		}
 	case *meshconfig.Tracing_Stackdriver_:
-		sd := tracer.Stackdriver
-		cfg, _ := stackdriverConfig(node.Metadata, &meshconfig.MeshConfig_ExtensionProvider_StackdriverProvider{
-			Debug:                    sd.Debug,
-			MaxNumberOfAnnotations:   sd.MaxNumberOfAnnotations,
-			MaxNumberOfAttributes:    sd.MaxNumberOfAttributes,
-			MaxNumberOfMessageEvents: sd.MaxNumberOfMessageEvents,
-		})
-		hcmTracing.Provider = &tracingcfg.Tracing_Http{
-			Name: envoyOpenCensus,
-			ConfigType: &tracingcfg.Tracing_Http_TypedConfig{
-				TypedConfig: cfg,
-			},
-		}
+		// stackdriver/opencensus always need bootstrap tracing?
 	case *meshconfig.Tracing_Zipkin_:
 		hostname, clusterName, err := getHostCluster(pushCtx, tracer.Zipkin.Address)
 		if err != nil {
@@ -737,26 +705,6 @@ func configureTracingProvider(hcmTracing *hcm.HttpConnectionManager_Tracing, pus
 	default:
 		log.Warn("Tracing provider not configured")
 	}
-}
-
-func convertOpenCensusAgentTraceContext(traceContexts []meshconfig.Tracing_OpenCensusAgent_TraceContext) []tracingcfg.OpenCensusConfig_TraceContext {
-	if len(traceContexts) == 0 {
-		return allContexts
-	}
-	converted := make([]tracingcfg.OpenCensusConfig_TraceContext, 0, len(traceContexts))
-	for _, c := range traceContexts {
-		switch c {
-		case meshconfig.Tracing_OpenCensusAgent_B3:
-			converted = append(converted, tracingcfg.OpenCensusConfig_B3)
-		case meshconfig.Tracing_OpenCensusAgent_CLOUD_TRACE_CONTEXT:
-			converted = append(converted, tracingcfg.OpenCensusConfig_CLOUD_TRACE_CONTEXT)
-		case meshconfig.Tracing_OpenCensusAgent_GRPC_BIN:
-			converted = append(converted, tracingcfg.OpenCensusConfig_GRPC_TRACE_BIN)
-		case meshconfig.Tracing_OpenCensusAgent_W3C_TRACE_CONTEXT:
-			converted = append(converted, tracingcfg.OpenCensusConfig_TRACE_CONTEXT)
-		}
-	}
-	return converted
 }
 
 func getHostCluster(push *model.PushContext, address string) (string, string, error) {

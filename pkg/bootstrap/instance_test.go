@@ -17,7 +17,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"google.golang.org/protobuf/types/known/anypb"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -37,6 +36,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/testing/protocmp"
+	"google.golang.org/protobuf/types/known/anypb"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
@@ -75,6 +75,9 @@ var (
 // REFRESH_GOLDEN=true go test ./pkg/bootstrap/...
 func TestGolden(t *testing.T) {
 	var ts *httptest.Server
+	// keep same result with previous test
+	// TODO: TestGolden with DISABLE_BOOTSTRAP_TRACING=true
+	t.Setenv("DISABLE_BOOTSTRAP_TRACING", "false")
 
 	cases := []struct {
 		base                       string
@@ -178,9 +181,10 @@ func TestGolden(t *testing.T) {
 				}
 			},
 			check: func(got *bootstrap.Bootstrap, t *testing.T) {
-				// nolint: staticcheck
 				var cfg *anypb.Any
+				// nolint: staticcheck
 				if got.Tracing != nil {
+					// nolint: staticcheck
 					cfg = got.Tracing.Http.GetTypedConfig()
 				}
 				sdMsg := &trace.OpenCensusConfig{}

@@ -424,26 +424,32 @@ func getProxyConfigOptions(metadata *model.BootstrapNodeMetadata) ([]option.Inst
 		option.StatsdAddress(config.StatsdUdpAddress),
 		option.XDSRootCert(metadata.XDSRootCert))
 
+	disableBootstrapTracing := features.DisableBootstrapTracing.Get()
 	// Add tracing options.
-	if config.Tracing != nil &&
-		!features.DisableBootstrapTracing {
+	if config.Tracing != nil {
 		isH2 := false
 		switch tracer := config.Tracing.Tracer.(type) {
 		case *meshAPI.Tracing_Zipkin_:
-			opts = append(opts, option.ZipkinAddress(tracer.Zipkin.Address))
+			if !disableBootstrapTracing {
+				opts = append(opts, option.ZipkinAddress(tracer.Zipkin.Address))
+			}
 		case *meshAPI.Tracing_Lightstep_:
 			isH2 = true
-			// Write the token file.
-			lightstepAccessTokenPath := lightstepAccessTokenFile(config.ConfigPath)
-			//nolint: staticcheck  // Lightstep deprecated
-			err := os.WriteFile(lightstepAccessTokenPath, []byte(tracer.Lightstep.AccessToken), 0o666)
-			if err != nil {
-				return nil, err
+			if !disableBootstrapTracing {
+				// Write the token file.
+				lightstepAccessTokenPath := lightstepAccessTokenFile(config.ConfigPath)
+				//nolint: staticcheck  // Lightstep deprecated
+				err := os.WriteFile(lightstepAccessTokenPath, []byte(tracer.Lightstep.AccessToken), 0o666)
+				if err != nil {
+					return nil, err
+				}
+				opts = append(opts, option.LightstepAddress(tracer.Lightstep.Address),
+					option.LightstepToken(lightstepAccessTokenPath))
 			}
-			opts = append(opts, option.LightstepAddress(tracer.Lightstep.Address),
-				option.LightstepToken(lightstepAccessTokenPath))
 		case *meshAPI.Tracing_Datadog_:
-			opts = append(opts, option.DataDogAddress(tracer.Datadog.Address))
+			if !disableBootstrapTracing {
+				opts = append(opts, option.DataDogAddress(tracer.Datadog.Address))
+			}
 		case *meshAPI.Tracing_Stackdriver_:
 			projectID, projFound := metadata.PlatformMetadata[platform.GCPProject]
 			if !projFound {

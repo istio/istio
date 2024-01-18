@@ -69,5 +69,5 @@ var (
 
 	// DisableBootstrapTracing disables the bootstrap tracing configuration. Will make the configuration more like Telemetry API.
 	DisableBootstrapTracing = env.Register("DISABLE_BOOTSTRAP_TRACING", true,
-		"If enabled, istio will not generate tracing configuration in bootstrap.").Get()
+		"If enabled, istio will not generate tracing configuration in bootstrap.")
 )
