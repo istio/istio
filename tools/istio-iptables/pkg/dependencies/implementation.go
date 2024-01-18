@@ -128,9 +128,6 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 
 // Run runs a command
 func (r *RealDependencies) Run(cmd string, stdin io.ReadSeeker, args ...string) error {
-	//if cmd != "iptables-save" {
-	//	return nil
-	//}
 	return r.executeXTables(cmd, false, stdin, args...)
 }
 

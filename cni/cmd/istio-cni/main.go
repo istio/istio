@@ -17,24 +17,18 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"os"
 
 	"github.com/containernetworking/cni/pkg/skel"
 	"github.com/containernetworking/cni/pkg/version"
 
-	"istio.io/istio/cni/pkg/mount"
 	"istio.io/istio/cni/pkg/plugin"
 	"istio.io/istio/pkg/log"
 	istioversion "istio.io/istio/pkg/version"
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "unshare" {
-		runUnshare()
-		return
-	}
 	if err := runPlugin(); err != nil {
 		os.Exit(1)
 	}
@@ -65,25 +59,4 @@ func runPlugin() error {
 	}
 
 	return nil
-}
-
-// runUnshare triggers subcommand of istio-cni. This is used to invoke ourself to avoid dependencies on the node (the *one*
-// thing we know must exist on the node is this binary, since its called from ourselves!).
-// This will prepare the mount namespace(s) before executing a command.
-func runUnshare() {
-	fs := flag.NewFlagSet("unshare", flag.ExitOnError)
-	netns := fs.String("lock-file", "", "file to override lock")
-	if err := fs.Parse(os.Args[2:]); err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	if len(fs.Args()) < 1 {
-		fmt.Fprint(os.Stderr, "usage: unshare --lock-file=file -- <command> [args...]\n")
-		os.Exit(1)
-	}
-	// Skip first arg which is "unshare"
-	if err := mount.RunSandboxed(*netns, fs.Args()); err != nil {
-		fmt.Fprint(os.Stderr, err.Error())
-		os.Exit(1)
-	}
 }
