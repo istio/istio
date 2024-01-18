@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
-	"istio.io/istio/pkg/test/framework/components/zipkin"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
@@ -92,7 +91,14 @@ func TestMain(m *testing.M) {
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
+meshConfig:
+  defaultConfig:
+    proxyMetadata:
+      DISABLE_BOOTSTRAP_TRACING: "false"
 values:
+  pilot:
+    env:
+      DISABLE_BOOTSTRAP_TRACING: "false"
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:
@@ -316,13 +322,6 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 
 	apps.WaypointProxy, err = ambient.WaypointForInstance(t, apps.Waypoint.Instances()[0])
 	if err != nil {
-		return err
-	}
-
-	// need this for disable bootstrap tracing
-	ingInst := i.IngressFor(t.Clusters().Default())
-	addr, _ := ingInst.HTTPAddress()
-	if _, err := zipkin.New(t, zipkin.Config{Cluster: t.Clusters().Default(), IngressAddr: addr}); err != nil {
 		return err
 	}
 
