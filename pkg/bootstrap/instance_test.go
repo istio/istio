@@ -17,6 +17,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"google.golang.org/protobuf/types/known/anypb"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -178,7 +179,10 @@ func TestGolden(t *testing.T) {
 			},
 			check: func(got *bootstrap.Bootstrap, t *testing.T) {
 				// nolint: staticcheck
-				cfg := got.Tracing.Http.GetTypedConfig()
+				var cfg *anypb.Any
+				if got.Tracing != nil {
+					cfg = got.Tracing.Http.GetTypedConfig()
+				}
 				sdMsg := &trace.OpenCensusConfig{}
 				if err := cfg.UnmarshalTo(sdMsg); err != nil {
 					t.Fatalf("unable to parse: %v %v", cfg, err)
@@ -498,6 +502,10 @@ func checkOpencensusConfig(t *testing.T, got, want *bootstrap.Bootstrap) {
 
 	if want.Tracing.Http.Name != "envoy.tracers.opencensus" {
 		return
+	}
+
+	if got.Tracing == nil {
+		t.Fatalf("got tracing config is nil")
 	}
 
 	if diff := cmp.Diff(got.Tracing.Http, want.Tracing.Http, protocmp.Transform()); diff != "" {

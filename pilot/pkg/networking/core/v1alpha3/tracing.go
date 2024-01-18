@@ -366,6 +366,11 @@ func stackdriverConfig(proxyMetaData *model.NodeMetadata, sdProvider *meshconfig
 		// supporting dynamic control is considered harmful, as OC can only be configured once per lifetime
 		StdoutExporterEnabled: false,
 		TraceConfig: &opb.TraceConfig{
+			Sampler: &opb.TraceConfig_ConstantSampler{
+				ConstantSampler: &opb.ConstantSampler{
+					Decision: opb.ConstantSampler_ALWAYS_PARENT,
+				},
+			},
 			MaxNumberOfAnnotations:   200,
 			MaxNumberOfAttributes:    200,
 			MaxNumberOfMessageEvents: 200,
@@ -643,6 +648,9 @@ func proxyConfigSamplingValue(config *meshconfig.ProxyConfig) float64 {
 }
 
 func configureTracingProvider(hcmTracing *hcm.HttpConnectionManager_Tracing, pushCtx *model.PushContext, proxyCfg *meshconfig.ProxyConfig, node *model.Proxy) {
+	if proxyCfg == nil || proxyCfg.Tracing == nil {
+		return
+	}
 	var serviceCluster string
 	if node.XdsNode != nil {
 		serviceCluster = node.XdsNode.Cluster
