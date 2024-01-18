@@ -330,7 +330,7 @@ func TestGolden(t *testing.T) {
 				t.Fatalf("unable to load proxy config: %s\n%v", c.base, err)
 			}
 
-			_, localEnv := createEnv(t, map[string]string{}, c.annotations)
+			localEnv := createEnv(t, map[string]string{}, c.annotations)
 			for k, v := range c.envVars {
 				localEnv = append(localEnv, k+"="+v)
 			}
@@ -502,7 +502,7 @@ func TestGoldenDisableBootstrapTracing(t *testing.T) {
 				t.Fatalf("unable to load proxy config: %s\n%v", c.base, err)
 			}
 
-			_, localEnv := createEnv(t, map[string]string{}, c.annotations)
+			localEnv := createEnv(t, map[string]string{}, c.annotations)
 			for k, v := range c.envVars {
 				localEnv = append(localEnv, k+"="+v)
 			}
@@ -793,11 +793,7 @@ func loadProxyConfig(base, out string, _ *testing.T) (*meshconfig.ProxyConfig, e
 }
 
 // createEnv takes labels and annotations are returns environment in go format.
-func createEnv(t *testing.T, labels map[string]string, anno map[string]string) (map[string]string, []string) {
-	merged := map[string]string{}
-	mergeMap(merged, labels)
-	mergeMap(merged, anno)
-
+func createEnv(t *testing.T, labels map[string]string, anno map[string]string) []string {
 	envs := make([]string, 0)
 
 	if labels != nil {
@@ -807,7 +803,7 @@ func createEnv(t *testing.T, labels map[string]string, anno map[string]string) (
 	if anno != nil {
 		envs = append(envs, encodeAsJSON(t, anno, "ANNOTATIONS"))
 	}
-	return merged, envs
+	return envs
 }
 
 func encodeAsJSON(t *testing.T, data map[string]string, name string) string {
