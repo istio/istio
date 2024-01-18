@@ -28,7 +28,7 @@ import (
 
 func TestUnshare(t *testing.T) {
 	t.Log(file.MustAsString("/proc/mounts"))
-	err := doUnshare(func() error {
+	err := DoUnshare(func() error {
 		t.Log(file.MustAsString("/proc/mounts"))
 		if err := unix.Mount("", "/", "", unix.MS_PRIVATE|unix.MS_REC, ""); err != nil {
 			return &os.PathError{Op: "mount", Path: "/", Err: err}

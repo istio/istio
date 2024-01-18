@@ -43,7 +43,7 @@ var (
 	IptablesLockfileEnv = utilversion.MustParseGeneric("1.8.6")
 )
 
-func doUnshare(lockFile string, f func() error) error {
+func DoUnshare(lockFile string, f func() error) error {
 	chErr := make(chan error, 1)
 	unshare := func() error {
 		if err := unix.Unshare(unix.CLONE_NEWNS); err != nil {
@@ -112,7 +112,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin i
 		}
 
 		run = func(c *exec.Cmd) error {
-			return doUnshare(lockFile, func() error {
+			return DoUnshare(lockFile, func() error {
 				log.Errorf("howardjohn: run in unshare")
 				return c.Run()
 			})
