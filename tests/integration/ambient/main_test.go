@@ -91,14 +91,7 @@ func TestMain(m *testing.M) {
 			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
-meshConfig:
-  defaultConfig:
-    proxyMetadata:
-      DISABLE_BOOTSTRAP_TRACING: "false"
 values:
-  pilot:
-    env:
-      DISABLE_BOOTSTRAP_TRACING: "false"
   ztunnel:
     terminationGracePeriodSeconds: 5
     env:

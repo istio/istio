@@ -36,7 +36,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/testing/protocmp"
-	"google.golang.org/protobuf/types/known/anypb"
 	"sigs.k8s.io/yaml"
 
 	"istio.io/api/annotation"
@@ -75,9 +74,6 @@ var (
 // REFRESH_GOLDEN=true go test ./pkg/bootstrap/...
 func TestGolden(t *testing.T) {
 	var ts *httptest.Server
-	// keep same result with previous test
-	// TODO: TestGolden with DISABLE_BOOTSTRAP_TRACING=true
-	t.Setenv("DISABLE_BOOTSTRAP_TRACING", "false")
 
 	cases := []struct {
 		base                       string
@@ -181,12 +177,8 @@ func TestGolden(t *testing.T) {
 				}
 			},
 			check: func(got *bootstrap.Bootstrap, t *testing.T) {
-				var cfg *anypb.Any
 				// nolint: staticcheck
-				if got.Tracing != nil {
-					// nolint: staticcheck
-					cfg = got.Tracing.Http.GetTypedConfig()
-				}
+				cfg := got.Tracing.Http.GetTypedConfig()
 				sdMsg := &trace.OpenCensusConfig{}
 				if err := cfg.UnmarshalTo(sdMsg); err != nil {
 					t.Fatalf("unable to parse: %v %v", cfg, err)
@@ -377,6 +369,177 @@ func TestGolden(t *testing.T) {
 			fn, err := New(Config{
 				Node:             node,
 				CompliancePolicy: c.compliancePolicy,
+			}).CreateFile()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			read, err := os.ReadFile(fn)
+			if err != nil {
+				t.Error("Error reading generated file ", err)
+				return
+			}
+
+			// apply minor modifications for the generated file so that tests are consistent
+			// across different env setups
+			err = os.WriteFile(fn, correctForEnvDifference(read, !c.checkLocality, out), 0o700)
+			if err != nil {
+				t.Error("Error modifying generated file ", err)
+				return
+			}
+
+			// re-read generated file with the changes having been made
+			read, err = os.ReadFile(fn)
+			if err != nil {
+				t.Error("Error reading generated file ", err)
+				return
+			}
+
+			goldenFile := "testdata/" + c.base + "_golden.json"
+			util.RefreshGoldenFile(t, read, goldenFile)
+
+			golden, err := os.ReadFile(goldenFile)
+			if err != nil {
+				golden = []byte{}
+			}
+
+			realM := &bootstrap.Bootstrap{}
+			goldenM := &bootstrap.Bootstrap{}
+
+			jgolden, err := yaml.YAMLToJSON(golden)
+			if err != nil {
+				t.Fatalf("unable to convert: %s %v", c.base, err)
+			}
+
+			if err = protomarshal.Unmarshal(jgolden, goldenM); err != nil {
+				t.Fatalf("invalid json %s %s\n%v", c.base, err, string(jgolden))
+			}
+
+			if err = goldenM.Validate(); err != nil {
+				t.Fatalf("invalid golden %s: %v", c.base, err)
+			}
+
+			if err = protomarshal.Unmarshal(read, realM); err != nil {
+				t.Fatalf("invalid json %v\n%s", err, string(read))
+			}
+
+			if err = realM.Validate(); err != nil {
+				t.Fatalf("invalid generated file %s: %v", c.base, err)
+			}
+
+			checkStatsMatcher(t, realM, goldenM, c.stats)
+
+			if c.check != nil {
+				c.check(realM, t)
+			}
+
+			checkOpencensusConfig(t, realM, goldenM)
+
+			if diff := cmp.Diff(goldenM, realM, protocmp.Transform()); diff != "" {
+				t.Logf("difference: %s", diff)
+				t.Fatalf("\n got: %s\nwant: %s", prettyPrint(read), prettyPrint(jgolden))
+			}
+
+			// Check if the LightStep access token file exists
+			_, err = os.Stat(lightstepAccessTokenFile(path.Dir(fn)))
+			if c.expectLightstepAccessToken {
+				if os.IsNotExist(err) {
+					t.Error("expected to find a LightStep access token file but none found")
+				} else if err != nil {
+					t.Error("error running Stat on file: ", err)
+				}
+			} else {
+				if err == nil {
+					t.Error("found a LightStep access token file but none was expected")
+				} else if !os.IsNotExist(err) {
+					t.Error("error running Stat on file: ", err)
+				}
+			}
+		})
+	}
+}
+
+func TestGoldenDisableBootstrapTracing(t *testing.T) {
+	t.Setenv("DISABLE_BOOTSTRAP_TRACING", "true")
+
+	cases := []struct {
+		base                       string
+		envVars                    map[string]string
+		annotations                map[string]string
+		sdsUDSPath                 string
+		sdsTokenPath               string
+		expectLightstepAccessToken bool
+		stats                      stats
+		checkLocality              bool
+		stsPort                    int
+		platformMeta               map[string]string
+		setup                      func()
+		teardown                   func()
+		check                      func(got *bootstrap.Bootstrap, t *testing.T)
+	}{
+		{
+			base: "disable_bootstrap_tracing_zipkin",
+		},
+		{
+			base: "disable_bootstrap_tracing_datadog",
+		},
+	}
+
+	test.SetForTest(t, &version.Info.Version, "binary-1.0")
+
+	for _, c := range cases {
+		t.Run("DisableBootstrapTracing-"+c.base, func(t *testing.T) {
+			out := t.TempDir()
+			if c.setup != nil {
+				c.setup()
+			}
+			if c.teardown != nil {
+				defer c.teardown()
+			}
+
+			proxyConfig, err := loadProxyConfig(c.base, out, t)
+			if err != nil {
+				t.Fatalf("unable to load proxy config: %s\n%v", c.base, err)
+			}
+
+			_, localEnv := createEnv(t, map[string]string{}, c.annotations)
+			for k, v := range c.envVars {
+				localEnv = append(localEnv, k+"="+v)
+			}
+
+			plat := &fakePlatform{
+				meta: c.platformMeta,
+			}
+
+			annoFile, err := os.CreateTemp("", "annotations")
+			if err != nil {
+				t.Fatal(err)
+			}
+			defer os.Remove(annoFile.Name())
+			for k, v := range c.annotations {
+				annoFile.WriteString(fmt.Sprintf("%s=%q\n", k, v))
+			}
+
+			node, err := GetNodeMetaData(MetadataOptions{
+				ID:          "sidecar~1.2.3.4~foo~bar",
+				Envs:        localEnv,
+				Platform:    plat,
+				InstanceIPs: []string{"10.3.3.3", "10.4.4.4", "10.5.5.5", "10.6.6.6", "10.4.4.4"},
+				StsPort:     c.stsPort,
+				ProxyConfig: proxyConfig,
+				PilotSubjectAltName: []string{
+					"spiffe://cluster.local/ns/istio-system/sa/istio-pilot-service-account",
+				},
+				OutlierLogPath:      "/dev/stdout",
+				annotationFilePath:  annoFile.Name(),
+				EnvoyPrometheusPort: 15090,
+				EnvoyStatusPort:     15021,
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			fn, err := New(Config{
+				Node: node,
 			}).CreateFile()
 			if err != nil {
 				t.Fatal(err)
