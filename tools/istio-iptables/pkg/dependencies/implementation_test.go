@@ -15,12 +15,34 @@
 package dependencies
 
 import (
+	"fmt"
+	"golang.org/x/sys/unix"
+	"istio.io/istio/pkg/test/util/file"
+	"os"
 	"testing"
 
 	utilversion "k8s.io/apimachinery/pkg/util/version"
 
 	"istio.io/istio/pkg/test/util/assert"
 )
+
+func TestUnshare(t *testing.T) {
+	t.Log(file.MustAsString("/proc/mounts"))
+	err := doUnshare(func() error {
+		t.Log(file.MustAsString("/proc/mounts"))
+		if err := unix.Mount("", "/", "", unix.MS_PRIVATE|unix.MS_REC, ""); err != nil {
+			return &os.PathError{Op: "mount", Path: "/", Err: err}
+		}
+		if err := mount("/tmp/a", "/tmp/b"); err != nil {
+			return fmt.Errorf("bind mount of %q failed: %v", "/tmp/a", err)
+		}
+		t.Log(file.MustAsString("/proc/mounts"))
+		t.Log(file.MustAsString("/tmp/b"))
+		return nil
+	})
+		t.Log(file.MustAsString("/tmp/b"))
+	assert.NoError(t, err)
+}
 
 func TestDetectIptablesVersion(t *testing.T) {
 	cases := []struct {

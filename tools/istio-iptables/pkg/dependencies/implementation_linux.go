@@ -16,9 +16,11 @@ package dependencies
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
+	"runtime"
 	"strings"
 	"syscall"
 
@@ -42,28 +44,65 @@ var (
 	IptablesLockfileEnv = utilversion.MustParseGeneric("1.8.6")
 )
 
+func doUnshare(f func() error) error {
+	chErr := make(chan error, 1)
+	go func() {
+		chErr <- func() error {
+			runtime.LockOSThread()
+			if err := unix.Unshare(unix.CLONE_NEWNS); err != nil {
+				return err
+			}
+			if err := unix.Mount("", "/", "", unix.MS_PRIVATE|unix.MS_REC, ""); err != nil {
+				return &os.PathError{Op: "mount", Path: "/", Err: err}
+			}
+			return f()
+		}()
+	}()
+	return <-chErr
+}
+
+func mount(src, dst string) error {
+	return syscall.Mount(src, dst, "", syscall.MS_BIND|syscall.MS_RDONLY, "")
+}
+
 func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin io.ReadSeeker, args ...string) error {
 	mode := "without lock"
 	var c *exec.Cmd
 	_, isWriteCommand := XTablesWriteCmds[cmd]
 	needLock := isWriteCommand && !r.IptablesVersion.NoLocks()
+	run := func(c *exec.Cmd) error {
+		return c.Run()
+	}
 	if r.CNIMode {
+		c = exec.Command(cmd, args...)
 		// In CNI, we are running the pod network namespace, but the host filesystem, so we need to do some tricks
 		// Call our binary again, but with <original binary> "unshare (subcommand to trigger mounts)" --lock-file=<network namespace> <original command...>
 		// We do not shell out and call `mount` since this and sh are not available on all systems
-		var args []string
+		var lockFile string
 		if needLock {
-			args = append([]string{"unshare", "--lock-file=" + r.NetworkNamespace, cmd}, args...)
+			lockFile = r.NetworkNamespace
 			mode = "without lock or nss"
 		} else {
-			// We still need unshare for the nsswitch case.
-			args = append([]string{"unshare", cmd}, args...)
 			mode = "without nss"
 		}
 
-		c = exec.Command(os.Args[0], args...)
-		// Run in a new mount namespace so our mount doesn't impact any other processes.
-		c.SysProcAttr = &syscall.SysProcAttr{Unshareflags: unix.CLONE_NEWNS}
+		run = func(c *exec.Cmd) error {
+			return doUnshare(func() error {
+					if err := mount("/tmp/a", "/tmp/b"); err != nil {
+						return fmt.Errorf("bind mount of %q failed: %v", lockFile, err)
+					}
+				if lockFile != "" {
+					if err := mount(lockFile, "/run/xtables.lock"); err != nil {
+						return fmt.Errorf("bind mount of %q failed: %v", lockFile, err)
+					}
+				}
+				if err := mount("/dev/null", "/etc/nsswitch.conf"); err != nil {
+					log.Warnf("bind mount to %q failed: %v", "/etc/nsswitch.conf", err)
+					//return fmt.Errorf("bind mount to %q failed: %v", "/etc/nsswitch.conf", err)
+				}
+				return c.Run()
+			})
+		}
 	} else {
 		if needLock {
 			// We want the lock. Wait up to 30s for it.
@@ -83,7 +122,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin i
 	c.Stdout = stdout
 	c.Stderr = stderr
 	c.Stdin = stdin
-	err := c.Run()
+	err := run(c)
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())
 	}
