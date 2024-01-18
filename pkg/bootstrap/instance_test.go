@@ -867,12 +867,6 @@ func TestNodeMetadata(t *testing.T) {
 	}
 }
 
-func mergeMap(to map[string]string, from map[string]string) {
-	for k, v := range from {
-		to[k] = v
-	}
-}
-
 type fakePlatform struct {
 	platform.Environment
 
