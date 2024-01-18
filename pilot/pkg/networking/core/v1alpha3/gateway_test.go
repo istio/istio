@@ -51,7 +51,9 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/visibility"
 	"istio.io/istio/pkg/config/xds"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/proto"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/pkg/wellknown"
@@ -2050,6 +2052,7 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 		expectedVirtualHostsHostPortStrip map[string][]string
 		expectedHTTPRoutes                map[string]int
 		redirect                          bool
+		expectStatefulSession             bool
 	}{
 		{
 			name:            "404 when no services",
@@ -2066,7 +2069,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 					"*",
 				},
 			},
-			expectedHTTPRoutes: map[string]int{"blackhole:80": 0},
+			expectedHTTPRoutes:    map[string]int{"blackhole:80": 0},
+			expectStatefulSession: false,
 		},
 		{
 			name:            "tls redirect without virtual services",
@@ -2082,8 +2086,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				"example.org:80": {"example.org"},
 			},
 			// We will setup a VHost which just redirects; no routes
-			expectedHTTPRoutes: map[string]int{"example.org:80": 0},
-			redirect:           true,
+			expectedHTTPRoutes:    map[string]int{"example.org:80": 0},
+			redirect:              true,
+			expectStatefulSession: false,
 		},
 		{
 			name:            "virtual services with tls redirect",
@@ -2098,8 +2103,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			expectedHTTPRoutes: map[string]int{"example.org:80": 1},
-			redirect:           true,
+			expectedHTTPRoutes:    map[string]int{"example.org:80": 1},
+			redirect:              true,
+			expectStatefulSession: true,
 		},
 		{
 			name:            "merging of virtual services when tls redirect is set",
@@ -2114,8 +2120,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			expectedHTTPRoutes: map[string]int{"example.org:80": 4},
-			redirect:           true,
+			expectedHTTPRoutes:    map[string]int{"example.org:80": 4},
+			redirect:              true,
+			expectStatefulSession: true,
 		},
 		{
 			name:            "reverse merging of virtual services when tls redirect is set",
@@ -2130,8 +2137,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			expectedHTTPRoutes: map[string]int{"example.org:80": 4},
-			redirect:           true,
+			expectedHTTPRoutes:    map[string]int{"example.org:80": 4},
+			redirect:              true,
+			expectStatefulSession: true,
 		},
 		{
 			name:            "merging of virtual services when tls redirect is set without VS",
@@ -2146,8 +2154,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			expectedHTTPRoutes: map[string]int{"example.org:80": 2},
-			redirect:           true,
+			expectedHTTPRoutes:    map[string]int{"example.org:80": 2},
+			redirect:              true,
+			expectStatefulSession: true,
 		},
 		{
 			name:            "reverse merging of virtual services when tls redirect is set without VS",
@@ -2162,8 +2171,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:80": {"example.org"},
 			},
-			expectedHTTPRoutes: map[string]int{"example.org:80": 2},
-			redirect:           true,
+			expectedHTTPRoutes:    map[string]int{"example.org:80": 2},
+			redirect:              true,
+			expectStatefulSession: false,
 		},
 		{
 			name:            "add a route for a virtual service",
@@ -2221,7 +2231,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"*.org:80": {"*.org"},
 			},
-			expectedHTTPRoutes: map[string]int{"*.org:80": 1},
+			expectedHTTPRoutes:    map[string]int{"*.org:80": 1},
+			expectStatefulSession: false,
 		},
 		{
 			name:            "http redirection not working when virtualservice not match http port",
@@ -2234,7 +2245,8 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:443": {"example.org"},
 			},
-			expectedHTTPRoutes: map[string]int{"example.org:443": 1},
+			expectedHTTPRoutes:    map[string]int{"example.org:443": 1},
+			expectStatefulSession: false,
 		},
 		{
 			name:            "http redirection not working when virtualservice not match http port",
@@ -2248,8 +2260,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				"example.org:80": {"example.org"},
 			},
 			// We will setup a VHost which just redirects; no routes
-			expectedHTTPRoutes: map[string]int{"example.org:80": 0},
-			redirect:           true,
+			expectedHTTPRoutes:    map[string]int{"example.org:80": 0},
+			redirect:              true,
+			expectStatefulSession: false,
 		},
 		{
 			name:            "http & https redirection not working when virtualservice not match http port",
@@ -2262,8 +2275,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			expectedVirtualHostsHostPortStrip: map[string][]string{
 				"example.org:443": {"example.org"},
 			},
-			expectedHTTPRoutes: map[string]int{"example.org:443": 1},
-			redirect:           true,
+			expectedHTTPRoutes:    map[string]int{"example.org:443": 1},
+			redirect:              true,
+			expectStatefulSession: false,
 		},
 		{
 			name:            "http & https redirection not working when virtualservice not match http port",
@@ -2277,8 +2291,21 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				"example.org:80": {"example.org"},
 			},
 			// We will setup a VHost which just redirects; no routes
-			expectedHTTPRoutes: map[string]int{"example.org:80": 0},
-			redirect:           true,
+			expectedHTTPRoutes:    map[string]int{"example.org:80": 0},
+			redirect:              true,
+			expectStatefulSession: false,
+		},
+	}
+	exampleService := &pilot_model.Service{
+		Hostname: host.Name("example.org"),
+		Ports: []*pilot_model.Port{{
+			Name:     "http",
+			Protocol: "HTTP",
+			Port:     80,
+		}},
+		Attributes: pilot_model.ServiceAttributes{
+			Namespace: "default",
+			Labels:    map[string]string{"istio.io/persistent-session": "session-cookie"},
 		},
 	}
 
@@ -2288,6 +2315,9 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 			cfgs = append(cfgs, tt.virtualServices...)
 			cg := NewConfigGenTest(t, TestOptions{
 				Configs: cfgs,
+				Services: []*pilot_model.Service{
+					exampleService,
+				},
 			})
 			r := cg.ConfigGen.buildGatewayHTTPRouteConfig(cg.SetupProxy(&proxyGateway), cg.PushContext(), tt.routeName)
 			if r == nil {
@@ -2308,12 +2338,15 @@ func TestGatewayHTTPRouteConfig(t *testing.T) {
 				if tt.redirect != (h.RequireTls == route.VirtualHost_ALL) {
 					t.Errorf("expected redirect %v, got %v", tt.redirect, h.RequireTls)
 				}
+				if tt.expectStatefulSession && h.TypedPerFilterConfig[util.StatefulSessionFilter] == nil {
+					t.Errorf("expected per filter config for stateful session filter, but not found")
+				}
 			}
 
-			if !reflect.DeepEqual(tt.expectedVirtualHosts, vh) {
+			if !maps.EqualFunc(tt.expectedVirtualHosts, vh, slices.Equal) {
 				t.Errorf("got unexpected virtual hosts. Expected: %v, Got: %v", tt.expectedVirtualHosts, vh)
 			}
-			if !reflect.DeepEqual(tt.expectedHTTPRoutes, hr) {
+			if !maps.Equal(tt.expectedHTTPRoutes, hr) {
 				t.Errorf("got unexpected number of http routes. Expected: %v, Got: %v", tt.expectedHTTPRoutes, hr)
 			}
 		})

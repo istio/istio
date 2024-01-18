@@ -34,11 +34,14 @@ import (
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/describe"
+	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
 	analyzer_util "istio.io/istio/pkg/config/analysis/analyzers/util"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/inject"
+	"istio.io/istio/pkg/slices"
+	"istio.io/istio/pkg/util/sets"
 )
 
 type revisionCount struct {
@@ -85,14 +88,10 @@ func injectorListCommand(ctx cli.Context) *cobra.Command {
 				return fmt.Errorf("failed to create k8s client: %v", err)
 			}
 
-			nslist, err := getNamespaces(context.Background(), client)
-			nslist = filterSystemNamespaces(nslist, ctx.IstioNamespace())
+			nslist, err := getNamespaces(context.Background(), client, ctx.IstioNamespace())
 			if err != nil {
 				return err
 			}
-			sort.Slice(nslist, func(i, j int) bool {
-				return nslist[i].Name < nslist[j].Name
-			})
 
 			hooksList, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{})
 			if err != nil {
@@ -134,12 +133,19 @@ func filterSystemNamespaces(nss []corev1.Namespace, istioNamespace string) []cor
 	return filtered
 }
 
-func getNamespaces(ctx context.Context, client kube.CLIClient) ([]corev1.Namespace, error) {
+func getNamespaces(ctx context.Context, client kube.CLIClient, istioNamespace string) ([]corev1.Namespace, error) {
 	nslist, err := client.Kube().CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return []corev1.Namespace{}, err
 	}
-	return nslist.Items, nil
+	filtered := filterSystemNamespaces(nslist.Items, istioNamespace)
+	filtered = slices.Filter(filtered, func(namespace corev1.Namespace) bool {
+		return !ambient.InAmbient(&namespace)
+	})
+	sort.Slice(filtered, func(i, j int) bool {
+		return filtered[i].Name < filtered[j].Name
+	})
+	return filtered, nil
 }
 
 func printNS(writer io.Writer, namespaces []corev1.Namespace, hooks []admitv1.MutatingWebhookConfiguration,
@@ -229,7 +235,8 @@ func getInjectedRevision(namespace *corev1.Namespace, hooks []admitv1.MutatingWe
 }
 
 func getMatchingNamespaces(hook *admitv1.MutatingWebhookConfiguration, namespaces []corev1.Namespace) []corev1.Namespace {
-	retval := make([]corev1.Namespace, 0)
+	retval := make([]corev1.Namespace, 0, len(namespaces))
+	seen := sets.String{}
 	for _, webhook := range hook.Webhooks {
 		nsSelector, err := metav1.LabelSelectorAsSelector(webhook.NamespaceSelector)
 		if err != nil {
@@ -237,8 +244,9 @@ func getMatchingNamespaces(hook *admitv1.MutatingWebhookConfiguration, namespace
 		}
 
 		for _, namespace := range namespaces {
-			if nsSelector.Matches(api_pkg_labels.Set(namespace.Labels)) {
+			if !seen.Contains(namespace.Name) && nsSelector.Matches(api_pkg_labels.Set(namespace.Labels)) {
 				retval = append(retval, namespace)
+				seen.Insert(namespace.Name)
 			}
 		}
 	}
@@ -253,12 +261,7 @@ func getPods(ctx context.Context, client kube.CLIClient) (map[resource.Namespace
 		return retval, err
 	}
 	for _, pod := range pods.Items {
-		podList, ok := retval[resource.Namespace(pod.GetNamespace())]
-		if !ok {
-			retval[resource.Namespace(pod.GetNamespace())] = []corev1.Pod{pod}
-		} else {
-			retval[resource.Namespace(pod.GetNamespace())] = append(podList, pod)
-		}
+		retval[resource.Namespace(pod.GetNamespace())] = append(retval[resource.Namespace(pod.GetNamespace())], pod)
 	}
 	return retval, nil
 }

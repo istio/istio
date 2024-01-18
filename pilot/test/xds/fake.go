@@ -1,6 +1,3 @@
-//go:build !agent
-// +build !agent
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,6 +46,7 @@ import (
 	kube "istio.io/istio/pilot/pkg/serviceregistry/kube/controller"
 	memregistry "istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
+	"istio.io/istio/pilot/pkg/xds"
 	"istio.io/istio/pilot/pkg/xds/endpoints"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pilot/test/xdstest"
@@ -111,7 +109,7 @@ type FakeOptions struct {
 type FakeDiscoveryServer struct {
 	*v1alpha3.ConfigGenTest
 	t            test.Failer
-	Discovery    *DiscoveryServer
+	Discovery    *xds.DiscoveryServer
 	Listener     net.Listener
 	BufListener  *bufconn.Listener
 	kubeClient   kubelib.Client
@@ -127,13 +125,13 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	}
 
 	// Init with a dummy environment, since we have a circular dependency with the env creation.
-	s := NewDiscoveryServer(model.NewEnvironment(), map[string]string{})
-	s.discoveryStartTime = time.Now()
+	s := xds.NewDiscoveryServer(model.NewEnvironment(), map[string]string{})
+	// Disable debounce to reduce test times
+	s.DebounceOptions.DebounceAfter = opts.DebounceTime
+	// Setup time to Now instead of process start to make logs not misleading
+	s.DiscoveryStartTime = time.Now()
 	s.InitGenerators(s.Env, "istio-system", "", nil)
-	t.Cleanup(func() {
-		s.JwtKeyResolver.Close()
-		s.pushQueue.ShutDown()
-	})
+	t.Cleanup(s.Shutdown)
 
 	serviceHandler := func(_, curr *model.Service, _ model.Event) {
 		pushReq := &model.PushRequest{
@@ -164,8 +162,8 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		xdsUpdater = xdsfake.NewWithDelegate(s)
 	}
 	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
-	s.Generators[v3.SecretType] = NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
-	s.Generators[v3.ExtensionConfigurationType].(*EcdsGenerator).SetCredController(creds)
+	s.Generators[v3.SecretType] = xds.NewSecretGen(creds, s.Cache, opts.DefaultClusterName, nil)
+	s.Generators[v3.ExtensionConfigurationType].(*xds.EcdsGenerator).SetCredController(creds)
 
 	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	for k8sCluster, objs := range k8sObjects {
@@ -194,7 +192,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		if defaultKubeClient == nil || k8sCluster == opts.DefaultClusterName {
 			defaultKubeClient = client
 			if opts.DisableSecretAuthorization {
-				disableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
+				DisableAuthorizationForSecret(defaultKubeClient.Kube().(*fake.Clientset))
 			}
 			defaultKubeController = k8s
 		} else {
@@ -242,8 +240,6 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 		t.Fatal(err)
 	}
 	s.Generators["api"] = apigen.NewGenerator(s.Env.ConfigStore)
-	// Disable debounce to reduce test times
-	s.debounceOptions.debounceAfter = opts.DebounceTime
 	memRegistry := cg.MemRegistry
 	memRegistry.XdsUpdater = s
 
@@ -354,7 +350,7 @@ func (f *FakeDiscoveryServer) PushContext() *model.PushContext {
 }
 
 // ConnectADS starts an ADS connection to the server. It will automatically be cleaned up when the test ends
-func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
+func (f *FakeDiscoveryServer) ConnectADS() *xds.AdsTest {
 	conn, err := grpc.Dial("buffcon",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
@@ -364,11 +360,11 @@ func (f *FakeDiscoveryServer) ConnectADS() *AdsTest {
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
 	}
-	return NewAdsTest(f.t, conn)
+	return xds.NewAdsTest(f.t, conn)
 }
 
 // ConnectDeltaADS starts a Delta ADS connection to the server. It will automatically be cleaned up when the test ends
-func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
+func (f *FakeDiscoveryServer) ConnectDeltaADS() *xds.DeltaAdsTest {
 	conn, err := grpc.Dial("buffcon",
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithBlock(),
@@ -378,7 +374,7 @@ func (f *FakeDiscoveryServer) ConnectDeltaADS() *DeltaAdsTest {
 	if err != nil {
 		f.t.Fatalf("failed to connect: %v", err)
 	}
-	return NewDeltaAdsTest(f.t, conn)
+	return xds.NewDeltaAdsTest(f.t, conn)
 }
 
 func APIWatches() []string {
@@ -452,9 +448,14 @@ func (f *FakeDiscoveryServer) Endpoints(p *model.Proxy) []*endpoint.ClusterLoadA
 	return loadAssignments
 }
 
+func (f *FakeDiscoveryServer) T() test.Failer {
+	return f.t
+}
+
 // EnsureSynced checks that all ConfigUpdates sent have been established
 // This does NOT ensure that the change has been sent to all proxies; only that PushContext is updated
 // Typically, if trying to ensure changes are sent, its better to wait for the push event.
+
 func (f *FakeDiscoveryServer) EnsureSynced(t test.Failer) {
 	c := f.Discovery.InboundUpdates.Load()
 	retry.UntilOrFail(t, func() bool {
@@ -510,8 +511,8 @@ func kubernetesObjectsFromString(s string) ([]runtime.Object, error) {
 	return objects, nil
 }
 
-// disableAuthorizationForSecret makes the authorization check always pass. Should be used only for tests.
-func disableAuthorizationForSecret(fake *fake.Clientset) {
+// DisableAuthorizationForSecret makes the authorization check always pass. Should be used only for tests.
+func DisableAuthorizationForSecret(fake *fake.Clientset) {
 	fake.Fake.PrependReactor("create", "subjectaccessreviews", func(action k8stesting.Action) (bool, runtime.Object, error) {
 		return true, &authorizationv1.SubjectAccessReview{
 			Status: authorizationv1.SubjectAccessReviewStatus{

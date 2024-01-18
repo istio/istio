@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package xds_test
 
 import (
 	"fmt"
@@ -22,6 +22,7 @@ import (
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/test"
@@ -34,7 +35,7 @@ import (
 func TestRegistration(t *testing.T) {
 	// TODO: allow fake XDS to be "authenticated"
 	test.SetForTest(t, &features.ValidateWorkloadEntryIdentity, false)
-	ds := NewFakeDiscoveryServer(t, FakeOptions{})
+	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
 	ds.Store().Create(config.Config{
 		Meta: config.Meta{
 			GroupVersionKind: gvk.WorkloadGroup,

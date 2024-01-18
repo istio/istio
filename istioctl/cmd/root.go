@@ -21,7 +21,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/cobra/doc"
 	"github.com/spf13/viper"
 
 	"istio.io/istio/istioctl/pkg/admin"
@@ -248,7 +247,7 @@ debug and diagnose their Istio mesh.
 	rootCmd.AddCommand(multicluster.NewCreateRemoteSecretCommand(ctx))
 	rootCmd.AddCommand(proxyconfig.ClustersCommand(ctx))
 
-	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, collateral.Metadata{
 		Title:   "Istio Control",
 		Section: "istioctl CLI",
 		Manual:  "Istio Control",

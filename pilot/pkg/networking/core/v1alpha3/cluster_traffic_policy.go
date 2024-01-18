@@ -104,6 +104,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 	threshold := getDefaultCircuitBreakerThresholds()
 	var idleTimeout *durationpb.Duration
 	var maxRequestsPerConnection uint32
+	var maxConcurrentStreams uint32
 	var maxConnectionDuration *duration.Duration
 
 	if settings.Http != nil {
@@ -123,6 +124,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 
 		idleTimeout = settings.Http.IdleTimeout
 		maxRequestsPerConnection = uint32(settings.Http.MaxRequestsPerConnection)
+		maxConcurrentStreams = uint32(settings.Http.MaxConcurrentStreams)
 	}
 
 	cb.applyDefaultConnectionPool(mc.cluster)
@@ -137,6 +139,9 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 		if settings.Tcp.MaxConnectionDuration != nil {
 			maxConnectionDuration = settings.Tcp.MaxConnectionDuration
 		}
+		if idleTimeout == nil {
+			idleTimeout = settings.Tcp.IdleTimeout
+		}
 	}
 	applyTCPKeepalive(mesh, mc.cluster, settings.Tcp)
 
@@ -144,23 +149,28 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 		Thresholds: []*cluster.CircuitBreakers_Thresholds{threshold},
 	}
 
-	if maxConnectionDuration != nil || idleTimeout != nil || maxRequestsPerConnection > 0 {
+	if maxConnectionDuration != nil || idleTimeout != nil || maxRequestsPerConnection > 0 || maxConcurrentStreams > 0 {
 		if mc.httpProtocolOptions == nil {
 			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
-		commonOptions := mc.httpProtocolOptions
-		if commonOptions.CommonHttpProtocolOptions == nil {
-			commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{}
+		options := mc.httpProtocolOptions
+		if options.CommonHttpProtocolOptions == nil {
+			options.CommonHttpProtocolOptions = &core.HttpProtocolOptions{}
 		}
 		if idleTimeout != nil {
 			idleTimeoutDuration := idleTimeout
-			commonOptions.CommonHttpProtocolOptions.IdleTimeout = idleTimeoutDuration
+			options.CommonHttpProtocolOptions.IdleTimeout = idleTimeoutDuration
 		}
 		if maxRequestsPerConnection > 0 {
-			commonOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrapperspb.UInt32Value{Value: maxRequestsPerConnection}
+			options.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrapperspb.UInt32Value{Value: maxRequestsPerConnection}
 		}
 		if maxConnectionDuration != nil {
-			commonOptions.CommonHttpProtocolOptions.MaxConnectionDuration = maxConnectionDuration
+			options.CommonHttpProtocolOptions.MaxConnectionDuration = maxConnectionDuration
+		}
+		// Check if cluster is HTTP2
+		http2ProtocolOptions := options.GetExplicitHttpConfig().GetHttp2ProtocolOptions()
+		if http2ProtocolOptions != nil && maxConcurrentStreams > 0 {
+			http2ProtocolOptions.MaxConcurrentStreams = &wrapperspb.UInt32Value{Value: maxConcurrentStreams}
 		}
 	}
 	if settings.Http != nil && settings.Http.UseClientProtocol {

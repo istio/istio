@@ -12,14 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package xds
+package xds_test
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -35,6 +33,7 @@ import (
 	credentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/kube"
@@ -88,7 +87,7 @@ func readFile(name string) string {
 	return string(cacert)
 }
 
-func TestGenerate(t *testing.T) {
+func TestGenerateSDS(t *testing.T) {
 	type Expected struct {
 		Key    string
 		Cert   string
@@ -313,7 +312,7 @@ func TestGenerate(t *testing.T) {
 				tt.proxy.Metadata = &model.NodeMetadata{}
 			}
 			tt.proxy.Metadata.ClusterID = "Kubernetes"
-			s := NewFakeDiscoveryServer(t, FakeOptions{
+			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 				KubernetesObjects: []runtime.Object{genericCert, genericMtlsCert, genericMtlsCertCrl, genericMtlsCertSplit, genericMtlsCertSplitCa},
 			})
 			cc := s.KubeClient().Kube().(*fake.Clientset)
@@ -322,7 +321,7 @@ func TestGenerate(t *testing.T) {
 			if tt.accessReviewResponse != nil {
 				cc.Fake.PrependReactor("create", "subjectaccessreviews", tt.accessReviewResponse)
 			} else {
-				disableAuthorizationForSecret(cc)
+				xds.DisableAuthorizationForSecret(cc)
 			}
 			cc.Fake.Unlock()
 
@@ -351,11 +350,11 @@ func TestGenerate(t *testing.T) {
 // since it is order dependent.
 // Regression test for https://github.com/istio/istio/issues/33368
 func TestCaching(t *testing.T) {
-	s := NewFakeDiscoveryServer(t, FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		KubernetesObjects: []runtime.Object{genericCert},
 		KubeClientModifier: func(c kube.Client) {
 			cc := c.Kube().(*fake.Clientset)
-			disableAuthorizationForSecret(cc)
+			xds.DisableAuthorizationForSecret(cc)
 		},
 	})
 	gen := s.Discovery.Generators[v3.SecretType]
@@ -388,47 +387,6 @@ func TestCaching(t *testing.T) {
 	}
 }
 
-func TestAtMostNJoin(t *testing.T) {
-	tests := []struct {
-		data  []string
-		limit int
-		want  string
-	}{
-		{
-			[]string{"a", "b", "c"},
-			2,
-			"a, and 2 others",
-		},
-		{
-			[]string{"a", "b", "c"},
-			4,
-			"a, b, c",
-		},
-		{
-			[]string{"a", "b", "c"},
-			1,
-			"a, b, c",
-		},
-		{
-			[]string{"a", "b", "c"},
-			0,
-			"a, b, c",
-		},
-		{
-			[]string{},
-			3,
-			"",
-		},
-	}
-	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%s-%d", strings.Join(tt.data, "-"), tt.limit), func(t *testing.T) {
-			if got := atMostNJoin(tt.data, tt.limit); got != tt.want {
-				t.Errorf("got %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 	pkpProxy := &model.Proxy{
 		VerifiedIdentity: &spiffe.Identity{Namespace: "istio-system"},
@@ -454,11 +412,11 @@ func TestPrivateKeyProviderProxyConfig(t *testing.T) {
 		Type:             model.Router,
 		Metadata:         &model.NodeMetadata{ClusterID: "Kubernetes"},
 	}
-	s := NewFakeDiscoveryServer(t, FakeOptions{
+	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
 		KubernetesObjects: []runtime.Object{genericCert},
 		KubeClientModifier: func(c kube.Client) {
 			cc := c.Kube().(*fake.Clientset)
-			disableAuthorizationForSecret(cc)
+			xds.DisableAuthorizationForSecret(cc)
 		},
 	})
 	gen := s.Discovery.Generators[v3.SecretType]

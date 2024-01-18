@@ -15,6 +15,7 @@ package bootstrap
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -25,7 +26,6 @@ import (
 	"time"
 
 	. "github.com/onsi/gomega"
-	"golang.org/x/net/context"
 	"golang.org/x/net/http2"
 	cert "k8s.io/api/certificates/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"

@@ -23,7 +23,6 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/cobra/doc"
 
 	"istio.io/api/annotation"
 	meshconfig "istio.io/api/mesh/v1alpha1"
@@ -87,7 +86,7 @@ func NewRootCommand() *cobra.Command {
 	rootCmd.AddCommand(iptables.GetCommand())
 	rootCmd.AddCommand(cleaniptables.GetCommand())
 
-	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, collateral.Metadata{
 		Title:   "Istio Pilot Agent",
 		Section: "pilot-agent CLI",
 		Manual:  "Istio Pilot Agent",

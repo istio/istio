@@ -459,8 +459,14 @@ func buildHTTPVirtualServices(
 				routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
 				routeKey += fmt.Sprintf("/%d", *parent.OriginalReference.Port)
 			}
-			vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
-				parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
+			if parent.InternalKind == gvk.ServiceEntry {
+				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
+					string(parent.OriginalReference.Name),
+					string(ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace))))
+			} else {
+				vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
+					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
+			}
 		}
 		if len(routes) == 0 {
 			continue
@@ -512,6 +518,22 @@ func buildHTTPVirtualServices(
 			sortHTTPRoutes(vs.Http)
 		}
 	}
+}
+
+func serviceEntryHosts(ses []config.Config, name, namespace string) []string {
+	for _, obj := range ses {
+		if obj.Meta.Name == name {
+			ns := obj.Meta.Namespace
+			if ns == "" {
+				ns = metav1.NamespaceDefault
+			}
+			if ns == namespace {
+				se := obj.Spec.(*istio.ServiceEntry)
+				return se.Hosts
+			}
+		}
+	}
+	return []string{}
 }
 
 func buildMeshAndGatewayRoutes[T any](parentRefs []routeParentReference, convertRules func(mesh bool) T) (T, T) {
@@ -598,7 +620,7 @@ func buildGRPCVirtualServices(
 	meshRoutes map[string]map[string]*config.Config,
 ) {
 	route := obj.Spec.(*k8s.GRPCRouteSpec)
-	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, route.Hostnames, gvk.HTTPRoute, obj.Namespace)
+	parentRefs := extractParentReferenceInfo(ctx.GatewayReferences, route.ParentRefs, route.Hostnames, gvk.GRPCRoute, obj.Namespace)
 	reportStatus := func(results []RouteParentResult) {
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 			rs := s.(*k8s.GRPCRouteStatus)
@@ -668,8 +690,14 @@ func buildGRPCVirtualServices(
 				routes = augmentPortMatch(routes, *parent.OriginalReference.Port)
 				routeKey += fmt.Sprintf("/%d", *parent.OriginalReference.Port)
 			}
-			vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
-				parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
+			if parent.InternalKind == gvk.ServiceEntry {
+				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
+					string(parent.OriginalReference.Name),
+					string(ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace))))
+			} else {
+				vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
+					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
+			}
 		}
 		if len(routes) == 0 {
 			continue
@@ -820,11 +848,13 @@ func toInternalParentReference(p k8s.ParentReference, localNamespace string) (pa
 	group := ptr.OrDefault((*string)(p.Group), gvk.KubernetesGateway.Group)
 	var ik config.GroupVersionKind
 	var ns string
-	// Currently supported types are Gateway and Service
+	// Currently supported types are Gateway, Service, and ServiceEntry
 	if kind == gvk.KubernetesGateway.Kind && group == gvk.KubernetesGateway.Group {
 		ik = gvk.KubernetesGateway
 	} else if kind == gvk.Service.Kind && group == gvk.Service.Group {
 		ik = gvk.Service
+	} else if kind == gvk.ServiceEntry.Kind && group == gvk.ServiceEntry.Group {
+		ik = gvk.ServiceEntry
 	} else {
 		return empty, fmt.Errorf("unsupported parentKey: %v/%v", p.Group, kind)
 	}
@@ -844,7 +874,7 @@ func referenceAllowed(
 	hostnames []k8s.Hostname,
 	namespace string,
 ) *ParentError {
-	if parentRef.Kind == gvk.Service {
+	if parentRef.Kind == gvk.Service || parentRef.Kind == gvk.ServiceEntry {
 		// TODO: check if the service reference is valid
 		if false {
 			return &ParentError{
@@ -948,6 +978,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 		appendParent := func(pr *parentInfo, pk parentReference) {
 			rpi := routeParentReference{
 				InternalName:      pr.InternalName,
+				InternalKind:      ir.Kind,
 				Hostname:          pr.OriginalHostname,
 				DeniedReason:      referenceAllowed(pr, kind, pk, hostnames, localNamespace),
 				OriginalReference: ref,
@@ -959,7 +990,7 @@ func extractParentReferenceInfo(gateways map[parentKey][]*parentInfo, routeRefs 
 			parentRefs = append(parentRefs, rpi)
 		}
 		gk := ir
-		if ir.Kind == gvk.Service {
+		if ir.Kind == gvk.Service || ir.Kind == gvk.ServiceEntry {
 			gk = meshParentKey
 		}
 		for _, gw := range gateways[gk] {
@@ -1022,32 +1053,43 @@ func buildTCPVirtualService(ctx configContext, obj config.Config) []config.Confi
 	vs := []config.Config{}
 	for _, parent := range filteredReferences(parentRefs) {
 		routes := gwResult.routes
-		vsHost := "*"
+		vsHosts := []string{"*"}
 		if parent.IsMesh() {
 			routes = meshResult.routes
 			if parent.OriginalReference.Port != nil {
 				routes = augmentTCPPortMatch(routes, *parent.OriginalReference.Port)
 			}
-			vsHost = fmt.Sprintf("%s.%s.svc.%s",
-				parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)
+			if parent.InternalKind == gvk.ServiceEntry {
+				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
+					string(parent.OriginalReference.Name),
+					string(ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace))))
+			} else {
+				vsHosts = []string{fmt.Sprintf("%s.%s.svc.%s",
+					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)}
+			}
 		}
-		vs = append(vs, config.Config{
-			Meta: config.Meta{
-				CreationTimestamp: obj.CreationTimestamp,
-				GroupVersionKind:  gvk.VirtualService,
-				Name:              fmt.Sprintf("%s-tcp-%s", obj.Name, constants.KubernetesGatewayName),
-				Annotations:       routeMeta(obj),
-				Namespace:         obj.Namespace,
-				Domain:            ctx.Domain,
-			},
-			Spec: &istio.VirtualService{
-				// We can use wildcard here since each listener can have at most one route bound to it, so we have
-				// a single VS per Gateway.
-				Hosts:    []string{vsHost},
-				Gateways: []string{parent.InternalName},
-				Tcp:      routes,
-			},
-		})
+		for i, host := range vsHosts {
+			name := fmt.Sprintf("%s-tcp-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
+			// Create one VS per hostname with a single hostname.
+			// This ensures we can treat each hostname independently, as the spec requires
+			vs = append(vs, config.Config{
+				Meta: config.Meta{
+					CreationTimestamp: obj.CreationTimestamp,
+					GroupVersionKind:  gvk.VirtualService,
+					Name:              name,
+					Annotations:       routeMeta(obj),
+					Namespace:         obj.Namespace,
+					Domain:            ctx.Domain,
+				},
+				Spec: &istio.VirtualService{
+					// We can use wildcard here since each listener can have at most one route bound to it, so we have
+					// a single VS per Gateway.
+					Hosts:    []string{host},
+					Gateways: []string{parent.InternalName},
+					Tcp:      routes,
+				},
+			})
+		}
 	}
 	return vs
 }
@@ -1104,9 +1146,15 @@ func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Confi
 		if parent.IsMesh() {
 			routes = meshResult.routes
 			routes, tcpRoutes = augmentTLSPortMatch(routes, parent.OriginalReference.Port)
-			host := fmt.Sprintf("%s.%s.svc.%s",
-				parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)
-			vsHosts = []string{host}
+			if parent.InternalKind == gvk.ServiceEntry {
+				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
+					string(parent.OriginalReference.Name),
+					string(ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace))))
+			} else {
+				host := fmt.Sprintf("%s.%s.svc.%s",
+					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)
+				vsHosts = []string{host}
+			}
 		}
 
 		for i, host := range vsHosts {
@@ -1875,6 +1923,8 @@ type parentInfo struct {
 type routeParentReference struct {
 	// InternalName refers to the internal name of the parent we can reference it by. For example, "mesh" or "my-ns/my-gateway"
 	InternalName string
+	// InternalKind is the Group/Kind of the parent
+	InternalKind config.GroupVersionKind
 	// DeniedReason, if present, indicates why the reference was not valid
 	DeniedReason *ParentError
 	// OriginalReference contains the original reference

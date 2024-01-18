@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"math/rand"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"istio.io/istio/pkg/test/util/assert"
@@ -412,4 +413,26 @@ func ExampleSort() {
 
 	// Output:
 	// [{0 a a} {0 b a} {0 b b} {0 c a} {1 a a} {1 c a} {2 z a}]
+}
+
+func BenchmarkEqualUnordered(b *testing.B) {
+	size := 100
+	var l []string
+	for i := 0; i < size; i++ {
+		l = append(l, strconv.Itoa(i))
+	}
+	var equal []string
+	for i := 0; i < size; i++ {
+		equal = append(equal, strconv.Itoa(i))
+	}
+	var notEqual []string
+	for i := 0; i < size; i++ {
+		notEqual = append(notEqual, strconv.Itoa(i))
+	}
+	notEqual[size-1] = "z"
+
+	for n := 0; n < b.N; n++ {
+		EqualUnordered(l, equal)
+		EqualUnordered(l, notEqual)
+	}
 }

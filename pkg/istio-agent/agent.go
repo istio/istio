@@ -35,7 +35,6 @@ import (
 	"istio.io/istio/pilot/cmd/pilot-agent/config"
 	"istio.io/istio/pilot/cmd/pilot-agent/status/ready"
 	"istio.io/istio/pilot/pkg/model"
-	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	"istio.io/istio/pkg/backoff"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -100,8 +99,7 @@ type Agent struct {
 	secOpts   *security.Options
 	envoyOpts envoy.ProxyConfig
 
-	envoyAgent             *envoy.Agent
-	dynamicBootstrapWaitCh chan error
+	envoyAgent *envoy.Agent
 
 	sdsServer   *sds.Server
 	secretCache *cache.SecretManagerClient
@@ -165,9 +163,6 @@ type AgentOptions struct {
 
 	// All of the proxy's IP Addresses
 	ProxyIPAddresses []string
-
-	// Enables dynamic generation of bootstrap.
-	EnableDynamicBootstrap bool
 
 	// Envoy status port (that circles back to the agent status port). Really belongs to the proxy config.
 	// Cannot be eradicated because mistakes have been made.
@@ -260,7 +255,7 @@ func (a *Agent) generateNodeMetadata() (*model.Node, error) {
 	})
 }
 
-func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
+func (a *Agent) initializeEnvoyAgent(_ context.Context) error {
 	node, err := a.generateNodeMetadata()
 	if err != nil {
 		return fmt.Errorf("failed to generate bootstrap metadata: %v", err)
@@ -309,40 +304,6 @@ func (a *Agent) initializeEnvoyAgent(ctx context.Context) error {
 	}
 	a.envoyAgent = envoy.NewAgent(envoyProxy, drainDuration, a.cfg.MinimumDrainDuration, localHostAddr,
 		int(a.proxyConfig.ProxyAdminPort), a.cfg.EnvoyStatusPort, a.cfg.EnvoyPrometheusPort, a.cfg.ExitOnZeroActiveConnections)
-	if a.cfg.EnableDynamicBootstrap {
-		a.dynamicBootstrapWaitCh = make(chan error, 1)
-		// Simulate an xDS request for a bootstrap
-		// wait indefinitely and keep retrying with jittered exponential backoff
-		b := backoff.NewExponentialBackOff(backoff.DefaultOption())
-		for {
-			// handleStream hands on to request after exit, so create a fresh one instead.
-			bsStream := &bootstrapDiscoveryStream{
-				node:        node,
-				errCh:       a.dynamicBootstrapWaitCh,
-				envoyUpdate: envoyProxy.UpdateConfig,
-			}
-			a.xdsProxy.handlers[v3.BootstrapType] = bsStream.bootStrapHandler
-			err := a.xdsProxy.handleStream(bsStream)
-			if err != nil {
-				log.Warn(err)
-			}
-			delay := b.NextBackOff()
-			select {
-			case err, ok := <-a.dynamicBootstrapWaitCh:
-				if !ok {
-					log.Infof("successfully updated bootstrap config")
-					return nil
-				}
-				// received invalid config, could not happen in normal case.
-				log.Warn(err)
-				return err
-			case <-ctx.Done():
-				return nil
-			case <-time.After(delay):
-				log.Infof("retrying bootstrap discovery request with backoff: %v", delay)
-			}
-		}
-	}
 	return nil
 }
 

@@ -225,15 +225,16 @@ func (configgen *ConfigGeneratorImpl) buildClusters(proxy *model.Proxy, req *mod
 		clusters = inboundPatcher.conditionallyAppend(clusters, nil, cb.buildInboundPassthroughClusters()...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	case model.Waypoint:
-		_, svcs := findWaypointResources(proxy, req.Push)
+		_, wps := findWaypointResources(proxy, req.Push)
 		// Waypoint proxies do not need outbound clusters in most cases, unless we have a route pointing to something
 		outboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_OUTBOUND}
-		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(req.Push.ServicesAttachedToMesh(), svcs, services))
+		ob, cs := configgen.buildOutboundClusters(cb, proxy, outboundPatcher, filterWaypointOutboundServices(
+			req.Push.ServicesAttachedToMesh(), wps.services, services))
 		cacheStats = cacheStats.merge(cs)
 		resources = append(resources, ob...)
 		// Setup inbound clusters
 		inboundPatcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_SIDECAR_INBOUND}
-		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, svcs)...)
+		clusters = append(clusters, configgen.buildWaypointInboundClusters(cb, proxy, req.Push, wps.services)...)
 		clusters = append(clusters, inboundPatcher.insertedClusters()...)
 	default: // Gateways
 		patcher := clusterPatcher{efw: envoyFilterPatches, pctx: networking.EnvoyFilter_GATEWAY}
@@ -473,7 +474,6 @@ func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.P
 	enableSidecarServiceInboundListenerMerge bool,
 ) []*cluster.Cluster {
 	clusters := make([]*cluster.Cluster, 0)
-	_, actualLocalHosts := getWildcardsAndLocalHost(proxy.GetIPMode())
 	clustersToBuild := make(map[int][]model.ServiceTarget)
 
 	ingressPortListSet := sets.New[int]()
@@ -490,10 +490,7 @@ func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.P
 		clustersToBuild[port] = append(clustersToBuild[port], instance)
 	}
 
-	bind := actualLocalHosts[0]
-	if features.EnableInboundPassthrough {
-		bind = ""
-	}
+	bind := ""
 	// For each workload port, we will construct a cluster
 	for epPort, instances := range clustersToBuild {
 		if ingressPortListSet.Contains(int(instances[0].Port.TargetPort)) {

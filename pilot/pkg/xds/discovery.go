@@ -45,14 +45,14 @@ import (
 
 var periodicRefreshMetrics = 10 * time.Second
 
-type debounceOptions struct {
-	// debounceAfter is the delay added to events to wait
+type DebounceOptions struct {
+	// DebounceAfter is the delay added to events to wait
 	// after a registry/config event for debouncing.
 	// This will delay the push by at least this interval, plus
 	// the time getting subsequent events. If no change is
 	// detected the push will happen, otherwise we'll keep
 	// delaying until things settle.
-	debounceAfter time.Duration
+	DebounceAfter time.Duration
 
 	// debounceMax is the maximum time to wait for events
 	// while debouncing. Defaults to 10 seconds. If events keep
@@ -116,14 +116,12 @@ type DiscoveryServer struct {
 	// Authenticators for XDS requests. Should be same/subset of the CA authenticators.
 	Authenticators []security.Authenticator
 
-	// StatusGen is notified of connect/disconnect/nack on all connections
-	StatusGen               *StatusGen
 	WorkloadEntryController *autoregistration.Controller
 
 	// serverReady indicates caches have been synced up and server is ready to process requests.
 	serverReady atomic.Bool
 
-	debounceOptions debounceOptions
+	DebounceOptions DebounceOptions
 
 	// Cache for XDS resources
 	Cache model.XdsCache
@@ -141,8 +139,8 @@ type DiscoveryServer struct {
 	// pushVersion stores the numeric push version. This should be accessed via NextVersion()
 	pushVersion atomic.Uint64
 
-	// discoveryStartTime is the time since the binary started
-	discoveryStartTime time.Time
+	// DiscoveryStartTime is the time since the binary started
+	DiscoveryStartTime time.Time
 }
 
 // NewDiscoveryServer creates DiscoveryServer that sources data from Pilot's internal mesh data structures
@@ -159,13 +157,13 @@ func NewDiscoveryServer(env *model.Environment, clusterAliases map[string]string
 		pushQueue:           NewPushQueue(),
 		debugHandlers:       map[string]string{},
 		adsClients:          map[string]*Connection{},
-		debounceOptions: debounceOptions{
-			debounceAfter:     features.DebounceAfter,
+		DebounceOptions: DebounceOptions{
+			DebounceAfter:     features.DebounceAfter,
 			debounceMax:       features.DebounceMax,
 			enableEDSDebounce: features.EnableEDSDebounce,
 		},
 		Cache:              env.Cache,
-		discoveryStartTime: processStartTime,
+		DiscoveryStartTime: processStartTime,
 	}
 
 	out.ClusterAliases = make(map[cluster.ID]cluster.ID)
@@ -199,7 +197,6 @@ func (s *DiscoveryServer) closeJwksResolver() {
 	if s.JwtKeyResolver != nil {
 		s.JwtKeyResolver.Close()
 	}
-	s.JwtKeyResolver = nil
 }
 
 // Register adds the ADS handler to the grpc server
@@ -212,7 +209,7 @@ var processStartTime = time.Now()
 
 // CachesSynced is called when caches have been synced so that server can accept connections.
 func (s *DiscoveryServer) CachesSynced() {
-	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(s.discoveryStartTime))
+	log.Infof("All caches have been synced up in %v, marking server ready", time.Since(s.DiscoveryStartTime))
 	s.serverReady.Store(true)
 }
 
@@ -324,11 +321,11 @@ func (s *DiscoveryServer) ConfigUpdate(req *model.PushRequest) {
 // It ensures that at minimum minQuiet time has elapsed since the last event before processing it.
 // It also ensures that at most maxDelay is elapsed between receiving an event and processing it.
 func (s *DiscoveryServer) handleUpdates(stopCh <-chan struct{}) {
-	debounce(s.pushChannel, stopCh, s.debounceOptions, s.Push, s.CommittedUpdates)
+	debounce(s.pushChannel, stopCh, s.DebounceOptions, s.Push, s.CommittedUpdates)
 }
 
 // The debounce helper function is implemented to enable mocking
-func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceOptions, pushFn func(req *model.PushRequest), updateSent *atomic.Int64) {
+func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts DebounceOptions, pushFn func(req *model.PushRequest), updateSent *atomic.Int64) {
 	var timeChan <-chan time.Time
 	var startDebounce time.Time
 	var lastConfigUpdateTime time.Time
@@ -353,7 +350,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 		eventDelay := time.Since(startDebounce)
 		quietTime := time.Since(lastConfigUpdateTime)
 		// it has been too long or quiet enough
-		if eventDelay >= opts.debounceMax || quietTime >= opts.debounceAfter {
+		if eventDelay >= opts.debounceMax || quietTime >= opts.DebounceAfter {
 			if req != nil {
 				pushCounter++
 				if req.ConfigsUpdated == nil {
@@ -371,7 +368,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 				debouncedEvents = 0
 			}
 		} else {
-			timeChan = time.After(opts.debounceAfter - quietTime)
+			timeChan = time.After(opts.DebounceAfter - quietTime)
 		}
 	}
 
@@ -396,7 +393,7 @@ func debounce(ch chan *model.PushRequest, stopCh <-chan struct{}, opts debounceO
 
 			lastConfigUpdateTime = time.Now()
 			if debouncedEvents == 0 {
-				timeChan = time.After(opts.debounceAfter)
+				timeChan = time.After(opts.DebounceAfter)
 				startDebounce = lastConfigUpdateTime
 			}
 			debouncedEvents++
@@ -529,7 +526,6 @@ func (s *DiscoveryServer) sendPushes(stopCh <-chan struct{}) {
 // InitGenerators initializes generators to be used by XdsServer.
 func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace string, clusterID cluster.ID, internalDebugMux *http.ServeMux) {
 	edsGen := &EdsGenerator{Server: s}
-	s.StatusGen = NewStatusGen(s)
 	s.Generators[v3.ClusterType] = &CdsGenerator{Server: s}
 	s.Generators[v3.ListenerType] = &LdsGenerator{Server: s}
 	s.Generators[v3.RouteType] = &RdsGenerator{Server: s}
@@ -557,11 +553,8 @@ func (s *DiscoveryServer) InitGenerators(env *model.Environment, systemNameSpace
 	s.Generators["api"] = apigen.NewGenerator(env.ConfigStore)
 	s.Generators["api/"+v3.EndpointType] = edsGen
 
-	s.Generators["api/"+TypeURLConnect] = s.StatusGen
-
-	s.Generators["event"] = s.StatusGen
+	s.Generators["event"] = NewStatusGen(s)
 	s.Generators[v3.DebugType] = NewDebugGen(s, systemNameSpace, internalDebugMux)
-	s.Generators[v3.BootstrapType] = &BootstrapGenerator{Server: s}
 }
 
 // Shutdown shuts down DiscoveryServer components.

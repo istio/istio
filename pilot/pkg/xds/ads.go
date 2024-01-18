@@ -379,9 +379,6 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 		errCode := codes.Code(request.ErrorDetail.Code)
 		log.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.conID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
-		if s.StatusGen != nil {
-			s.StatusGen.OnNack(con.proxy, request)
-		}
 		return false, emptyResourceDelta
 	}
 
@@ -517,20 +514,6 @@ func warmingDependencies(typeURL string) []string {
 	}
 }
 
-// listEqualUnordered checks that two lists contain all the same elements
-func listEqualUnordered(a []string, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	first := sets.New(a...)
-	for _, c := range b {
-		if !first.Contains(c) {
-			return false
-		}
-	}
-	return true
-}
-
 // update the node associated with the connection, after receiving a packet from envoy, also adds the connection
 // to the tracking map.
 func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, identities []string) error {
@@ -571,10 +554,6 @@ func (s *DiscoveryServer) initConnection(node *core.Node, con *Connection, ident
 		s.closeConnection(con)
 		return err
 	}
-
-	if s.StatusGen != nil {
-		s.StatusGen.OnConnect(con)
-	}
 	return nil
 }
 
@@ -583,9 +562,6 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 		return
 	}
 	s.removeCon(con.conID)
-	if s.StatusGen != nil {
-		s.StatusGen.OnDisconnect(con)
-	}
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterDisconnect(con.conID, AllEventTypesList)
 	}
@@ -887,11 +863,11 @@ func (s *DiscoveryServer) AdsPushAll(req *model.PushRequest) {
 		}
 	}
 
-	s.startPush(req)
+	s.StartPush(req)
 }
 
 // Send a signal to all connections, with a push event.
-func (s *DiscoveryServer) startPush(req *model.PushRequest) {
+func (s *DiscoveryServer) StartPush(req *model.PushRequest) {
 	// Push config changes, iterating over connected envoys.
 	if log.DebugEnabled() {
 		currentlyPending := s.pushQueue.Pending()
