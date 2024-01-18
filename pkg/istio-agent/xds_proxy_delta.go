@@ -201,7 +201,7 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
 
-			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
+			if err := con.upstreamDeltas.Send(req); err != nil {
 				err = fmt.Errorf("send error for type url %s: %v", req.TypeUrl, err)
 				upstreamErr(con, err)
 				return
