@@ -130,12 +130,17 @@ fi
 # echo ${CONDITIONAL_HOST_MOUNTS}
 
 # This function checks if the file exists. If it does, it creates a randomly named host location
-# for the file, adds it to the host KUBECONFIG, and creates a mount for it.
+# for the file, adds it to the host KUBECONFIG, and creates a mount for it. Note that we use a copy
+# of the original file, so that the container can write to it.
 add_KUBECONFIG_if_exists () {
   if [[ -f "$1" ]]; then
+    local local_config
+    local_config="$(mktemp)"
+    cp "${1}" "${local_config}"
+
     kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
     container_kubeconfig+="/config/${kubeconfig_random}:"
-    CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${1},destination=/config/${kubeconfig_random},readonly "
+    CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${local_config},destination=/config/${kubeconfig_random} "
   fi
 }
 
