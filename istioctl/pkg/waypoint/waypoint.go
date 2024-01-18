@@ -153,7 +153,9 @@ func Cmd(ctx cli.Context) *cobra.Command {
 			}
 			if waitReady {
 				startTime := time.Now()
-				for {
+				ticker := time.NewTicker(1 * time.Second)
+				defer ticker.Stop()
+				for range ticker.C {
 					programmed := false
 					gwc, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), gw.Name, metav1.GetOptions{})
 					if err == nil {
@@ -175,7 +177,6 @@ func Cmd(ctx cli.Context) *cobra.Command {
 						}
 						return fmt.Errorf(errorMsg)
 					}
-					time.Sleep(1 * time.Second)
 				}
 			}
 			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v applied\n", gw.Namespace, gw.Name)

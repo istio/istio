@@ -5,4 +5,4 @@ issue:
   - 33949
 releaseNotes:
   - |
-    **Added** --wait and --timeout option to 'istioctl waypoint apply' command
+    **Added** --wait option to 'istioctl waypoint apply' command
