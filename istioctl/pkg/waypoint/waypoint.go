@@ -35,8 +35,6 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/completion"
-	"istio.io/istio/operator/pkg/name"
-	"istio.io/istio/operator/pkg/util/progress"
 	"istio.io/istio/pilot/pkg/model/kstatus"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -128,7 +126,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
   istioctl x waypoint apply
 
   # Apply a waypoint to a specific namespace for a specific service account and wait for it to be ready
-  istioctl x waypoint apply --service-account something --namespace default --wait-ready`,
+  istioctl x waypoint apply --service-account something --namespace default --wait`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			kubeClient, err := ctx.CLIClientWithRevision(revision)
 			if err != nil {
@@ -153,10 +151,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}
 				return err
 			}
-			progressLog := progress.NewLog()
-			manifestLog := progressLog.NewComponent(string(name.WaypointComponentName))
 			if waitReady {
-				manifestLog.ReportWaiting([]string{"Gateway"})
 				startTime := time.Now()
 				for {
 					programmed := false
@@ -174,8 +169,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 						break
 					}
 					if time.Since(startTime) > waitTimeout {
-						manifestLog.ReportError("Ambient Waypoint gateway is not ready")
-						errorMsg := "timed out while waiting for Ambient Waypoint"
+						errorMsg := fmt.Sprintf("timed out while waiting for waypoint %v/%v", gw.Namespace, gw.Name)
 						if err != nil {
 							errorMsg += fmt.Sprintf(": %s", err)
 						}
@@ -184,7 +178,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					time.Sleep(1 * time.Second)
 				}
 			}
-			manifestLog.ReportFinished()
+			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v applied\n", gw.Namespace, gw.Name)
 			return nil
 		},
 	}
@@ -348,7 +342,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	}
 
 	waypointApplyCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
-	waypointApplyCmd.PersistentFlags().BoolVarP(&waitReady, "wait-ready", "w", false, "Wait for the waypoint to be ready")
+	waypointApplyCmd.PersistentFlags().BoolVarP(&waitReady, "wait", "w", false, "Wait for the waypoint to be ready")
 	waypointCmd.AddCommand(waypointApplyCmd)
 	waypointGenerateCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointCmd.AddCommand(waypointGenerateCmd)

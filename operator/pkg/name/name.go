@@ -84,7 +84,6 @@ const (
 	// Operator components
 	IstioOperatorComponentName      ComponentName = "IstioOperator"
 	IstioOperatorCustomResourceName ComponentName = "IstioOperatorCustomResource"
-	WaypointComponentName           ComponentName = "AmbientWaypoint"
 )
 
 // ComponentNamesConfig is used for unmarshaling legacy and addon naming data.
@@ -124,7 +123,6 @@ var (
 		IstioOperatorComponentName:      "Istio operator",
 		IstioOperatorCustomResourceName: "Istio operator CRDs",
 		IstiodRemoteComponentName:       "Istiod remote",
-		WaypointComponentName:           "Waypoint",
 	}
 )
 

@@ -311,7 +311,7 @@ func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa str
 		nsConfig.Name(),
 		"--service-account",
 		sa,
-		"--wait-ready",
+		"--wait",
 	})
 }
 

@@ -87,7 +87,7 @@ func TestWaypoint(t *testing.T) {
 				"apply",
 				"--namespace",
 				nsConfig.Name(),
-				"--wait-ready",
+				"--wait",
 			})
 
 			saSet := []string{"sa1", "sa2", "sa3"}
@@ -100,7 +100,7 @@ func TestWaypoint(t *testing.T) {
 					nsConfig.Name(),
 					"--service-account",
 					sa,
-					"--wait-ready",
+					"--wait",
 				})
 			}
 
