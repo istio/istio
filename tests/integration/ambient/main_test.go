@@ -19,7 +19,6 @@ package ambient
 
 import (
 	"context"
-	"istio.io/istio/pkg/test/framework/components/zipkin"
 	"strings"
 	"testing"
 
@@ -36,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
+	"istio.io/istio/pkg/test/framework/components/zipkin"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/framework/resource"
 	"istio.io/istio/pkg/test/scopes"
