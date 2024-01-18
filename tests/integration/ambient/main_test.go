@@ -19,6 +19,7 @@ package ambient
 
 import (
 	"context"
+	"istio.io/istio/pkg/test/framework/components/zipkin"
 	"strings"
 	"testing"
 
@@ -317,5 +318,11 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	if err != nil {
 		return err
 	}
+
+	// need this for disable bootstrap tracing
+	if _, err := zipkin.New(t, zipkin.Config{Cluster: t.Clusters().Default()}); err != nil {
+		return err
+	}
+
 	return nil
 }
