@@ -758,7 +758,8 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 	return nil
 }
 
-// GetPortLevelTrafficPolicy return the port level traffic policy
+// GetPortLevelTrafficPolicy return the port level traffic policy and true if it exists.
+// Otherwise returns the original policy that applies to all destination ports.
 func GetPortLevelTrafficPolicy(policy *networking.TrafficPolicy, port *model.Port) (*networking.TrafficPolicy, bool) {
 	if port == nil {
 		return policy, false
@@ -804,7 +805,7 @@ func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, 
 	}
 
 	// merge DR with subset traffic policy
-	mergedPolicy := CloneTrafficPolicy(original)
+	mergedPolicy := ShallowcopyTrafficPolicy(original)
 
 	// Override with subset values.
 
@@ -834,7 +835,7 @@ func MergeSubsetTrafficPolicy(original, subsetPolicy *networking.TrafficPolicy, 
 }
 
 // Shallowcopy a traffic policy, portLevelSettings are ignorred.
-func CloneTrafficPolicy(original *networking.TrafficPolicy) *networking.TrafficPolicy {
+func ShallowcopyTrafficPolicy(original *networking.TrafficPolicy) *networking.TrafficPolicy {
 	if original == nil {
 		return nil
 	}
