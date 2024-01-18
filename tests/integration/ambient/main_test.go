@@ -320,7 +320,9 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	}
 
 	// need this for disable bootstrap tracing
-	if _, err := zipkin.New(t, zipkin.Config{Cluster: t.Clusters().Default()}); err != nil {
+	ingInst := i.IngressFor(t.Clusters().Default())
+	addr, _ := ingInst.HTTPAddress()
+	if _, err := zipkin.New(t, zipkin.Config{Cluster: t.Clusters().Default(), IngressAddr: addr}); err != nil {
 		return err
 	}
 
