@@ -1176,6 +1176,8 @@ message Values {
   string defaultRevision = 40;
 
   string profile = 42;
+
+  string compatibilityVersion = 43;
 }
 
 

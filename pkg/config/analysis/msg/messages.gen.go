@@ -243,6 +243,14 @@ var (
 	// IneffectivePolicy defines a diag.MessageType for message "IneffectivePolicy".
 	// Description: The policy applied has no impact.
 	IneffectivePolicy = diag.NewMessageType(diag.Warning, "IST0167", "The policy has no impact: %s.")
+
+	// UnknownUpgradeCompatibility defines a diag.MessageType for message "UnknownUpgradeCompatibility".
+	// Description: We cannot automatically detect whether a change is fully compatible or not
+	UnknownUpgradeCompatibility = diag.NewMessageType(diag.Warning, "IST0168", "The configuration %q changed in release %s, but compatibility cannot be automatically detected: %s. Or, install with `--set compatibility-version=%s` to retain the old default.")
+
+	// UpdateIncompatibility defines a diag.MessageType for message "UpdateIncompatibility".
+	// Description: The provided configuration object may be incompatible due to an upgrade
+	UpdateIncompatibility = diag.NewMessageType(diag.Warning, "IST0169", "The configuration %q changed in release %s: %s. Or, install with `--set compatibility-version=%s` to retain the old default.")
 )
 
 // All returns a list of all known message types.
@@ -307,6 +315,8 @@ func All() []*diag.MessageType {
 		ReferencedInternalGateway,
 		IneffectiveSelector,
 		IneffectivePolicy,
+		UnknownUpgradeCompatibility,
+		UpdateIncompatibility,
 	}
 }
 
@@ -882,5 +892,29 @@ func NewIneffectivePolicy(r *resource.Instance, reason string) diag.Message {
 		IneffectivePolicy,
 		r,
 		reason,
+	)
+}
+
+// NewUnknownUpgradeCompatibility returns a new diag.Message based on UnknownUpgradeCompatibility.
+func NewUnknownUpgradeCompatibility(r *resource.Instance, field string, release string, info string, compatVersion string) diag.Message {
+	return diag.NewMessage(
+		UnknownUpgradeCompatibility,
+		r,
+		field,
+		release,
+		info,
+		compatVersion,
+	)
+}
+
+// NewUpdateIncompatibility returns a new diag.Message based on UpdateIncompatibility.
+func NewUpdateIncompatibility(r *resource.Instance, field string, release string, info string, compatVersion string) diag.Message {
+	return diag.NewMessage(
+		UpdateIncompatibility,
+		r,
+		field,
+		release,
+		info,
+		compatVersion,
 	)
 }

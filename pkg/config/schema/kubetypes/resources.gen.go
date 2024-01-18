@@ -13,7 +13,6 @@ import (
 	k8sioapidiscoveryv1 "k8s.io/api/discovery/v1"
 	k8sioapinetworkingv1 "k8s.io/api/networking/v1"
 	k8sioapiextensionsapiserverpkgapisapiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	sigsk8siogatewayapiapisv1alpha2 "sigs.k8s.io/gateway-api/apis/v1alpha2"
 	sigsk8siogatewayapiapisv1beta1 "sigs.k8s.io/gateway-api/apis/v1beta1"
 
@@ -30,11 +29,10 @@ import (
 	apiistioioapitelemetryv1alpha1 "istio.io/client-go/pkg/apis/telemetry/v1alpha1"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
-	"istio.io/istio/pkg/ptr"
 )
 
-func GetGVK[T runtime.Object]() config.GroupVersionKind {
-	switch any(ptr.Empty[T]()).(type) {
+func getGvk(obj any) config.GroupVersionKind {
+	switch obj.(type) {
 	case *istioioapisecurityv1beta1.AuthorizationPolicy:
 		return gvk.AuthorizationPolicy
 	case *apiistioioapisecurityv1beta1.AuthorizationPolicy:
@@ -150,6 +148,6 @@ func GetGVK[T runtime.Object]() config.GroupVersionKind {
 	case *apiistioioapinetworkingv1alpha3.WorkloadGroup:
 		return gvk.WorkloadGroup
 	default:
-		panic(fmt.Sprintf("Unknown type %T", ptr.Empty[T]()))
+		panic(fmt.Sprintf("Unknown type %T", obj))
 	}
 }
