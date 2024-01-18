@@ -78,7 +78,11 @@ func TestStackdriverMonitoring(t *testing.T) {
 							return err
 						}
 						t.Logf("logs validated")
-						// TODO: add trace validation
+
+						if err := stackdrivertest.ValidateTraces(t); err != nil {
+							return err
+						}
+						t.Logf("Traces validated")
 
 						return nil
 					}, retry.Delay(framework.TelemetryRetryDelay), retry.Timeout(framework.TelemetryRetryTimeout))
