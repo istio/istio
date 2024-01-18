@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -44,21 +43,47 @@ var (
 	IptablesLockfileEnv = utilversion.MustParseGeneric("1.8.6")
 )
 
-func doUnshare(f func() error) error {
+func doUnshare(lockFile string, f func() error) error {
 	chErr := make(chan error, 1)
+	unshare := func() error {
+		if err := unix.Unshare(unix.CLONE_NEWNS); err != nil {
+			return fmt.Errorf("failed to unshare to new mount namespace: %v", err)
+		}
+		if err := unix.Mount("", "/", "", unix.MS_PRIVATE|unix.MS_REC, ""); err != nil {
+			return fmt.Errorf("failed to remount /: %v", err)
+		}
+		if lockFile != "" {
+			if err := mount(lockFile, "/run/xtables.lock"); err != nil {
+				return fmt.Errorf("bind mount of %q failed: %v", lockFile, err)
+			}
+		}
+		if err := mount("/dev/null", "/etc/nsswitch.conf"); err != nil {
+			return fmt.Errorf("bind mount to %q failed: %v", "/etc/nsswitch.conf", err)
+		}
+		return nil
+	}
+	executed := false
 	go func() {
 		chErr <- func() error {
 			runtime.LockOSThread()
-			if err := unix.Unshare(unix.CLONE_NEWNS); err != nil {
+			if err := unshare(); err != nil {
+				log.Errorf("howardjohn: unshare err: %v", err)
 				return err
 			}
-			if err := unix.Mount("", "/", "", unix.MS_PRIVATE|unix.MS_REC, ""); err != nil {
-				return &os.PathError{Op: "mount", Path: "/", Err: err}
-			}
+			executed = true
 			return f()
 		}()
 	}()
-	return <-chErr
+	err := <-chErr
+	if err != nil && !executed {
+		// We failed to setup the environment. Now we go into best effort mode.
+		// Users running into this may have IPTables lock used unexpectedly or make unexpected NSS calls.
+		log.Warnf("failed to setup execution environment, attempting to continue anyways: %v", err)
+		// Try to execute as-is
+		return f()
+	}
+	// Otherwise, we did execute; return the error from that execution.
+	return err
 }
 
 func mount(src, dst string) error {
@@ -87,19 +112,8 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin i
 		}
 
 		run = func(c *exec.Cmd) error {
-			return doUnshare(func() error {
-					if err := mount("/tmp/a", "/tmp/b"); err != nil {
-						return fmt.Errorf("bind mount of %q failed: %v", lockFile, err)
-					}
-				if lockFile != "" {
-					if err := mount(lockFile, "/run/xtables.lock"); err != nil {
-						return fmt.Errorf("bind mount of %q failed: %v", lockFile, err)
-					}
-				}
-				if err := mount("/dev/null", "/etc/nsswitch.conf"); err != nil {
-					log.Warnf("bind mount to %q failed: %v", "/etc/nsswitch.conf", err)
-					//return fmt.Errorf("bind mount to %q failed: %v", "/etc/nsswitch.conf", err)
-				}
+			return doUnshare(lockFile, func() error {
+				log.Errorf("howardjohn: run in unshare")
 				return c.Run()
 			})
 		}
@@ -123,6 +137,7 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin i
 	c.Stderr = stderr
 	c.Stdin = stdin
 	err := run(c)
+	log.Errorf("howardjohn: err %+v %T", err, err)
 	if len(stdout.String()) != 0 {
 		log.Infof("Command output: \n%v", stdout.String())
 	}
