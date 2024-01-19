@@ -473,8 +473,8 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	} else if req.Full {
 		// similar to sotw
 		subscribed := sets.New(w.ResourceNames...)
-		subscribed.DeleteAll(currentResources...)
-		resp.RemovedResources = sets.SortedList(subscribed)
+		removed := subscribed.DeleteAll(currentResources...)
+		resp.RemovedResources = sets.SortedList(removed)
 	}
 	if len(resp.RemovedResources) > 0 {
 		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
@@ -510,7 +510,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	}
 
 	switch {
-	case !req.Full && w.TypeUrl != v3.AddressType:
+	case !req.Full:
 		if deltaLog.DebugEnabled() {
 			deltaLog.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
 				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
