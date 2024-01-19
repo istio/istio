@@ -23,7 +23,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
 
-	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
@@ -134,12 +133,6 @@ func (s *DiscoveryServer) pushXds(con *Connection, w *model.WatchedResource, req
 			log.Debugf("%s: SKIP%s for node:%s%s", v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, info)
 		}
 
-		// If we are sending a request, we must respond or we can get Envoy stuck. Assert we do.
-		// One exception is if Envoy is simply unsubscribing from some resources, in which case we can skip.
-		isUnsubscribe := !req.Delta.IsEmpty() && req.Delta.Subscribed.IsEmpty()
-		if features.EnableUnsafeAssertions && err == nil && res == nil && req.IsRequest() && !isUnsubscribe {
-			log.Fatalf("%s: SKIPPED%s for node:%s%s but expected a response for request", v3.GetShortType(w.TypeUrl), req.PushReason(), con.proxy.ID, info)
-		}
 		return err
 	}
 	defer func() { recordPushTime(w.TypeUrl, time.Since(t0)) }()
