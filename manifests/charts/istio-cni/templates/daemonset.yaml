@@ -154,10 +154,6 @@ spec:
             {{- if .Values.cni.ambient.enabled }}
             - name: AMBIENT_ENABLED
               value: "true"
-            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
-            - name: EBPF_ENABLED
-              value: "true"
-            {{- end }}
             {{- end }}
             - name: GOMEMLIMIT
               valueFrom:
@@ -185,11 +181,6 @@ spec:
               name: cni-netns-dir
             - mountPath: /var/run/ztunnel
               name: cni-ztunnel-sock-dir
-            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
-            - mountPath: /sys/fs/bpf
-              mountPropagation: Bidirectional
-              name: cni-bpffs-dir
-            {{- end }}
             {{ end }}
           resources:
 {{- if .Values.cni.resources }}
@@ -227,9 +218,3 @@ spec:
             type: DirectoryOrCreate # DirectoryOrCreate instead of Directory for the following reason - CNI may not bind mount this until a non-hostnetwork pod is scheduled on the node,
             # and we don't want to block CNI agent pod creation on waiting for the first non-hostnetwork pod.
             # Once the CNI does mount this, it will get populated and we're good.
-        {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
-        - name: cni-bpffs-dir
-          hostPath:
-            path: /sys/fs/bpf
-        {{- end }}
-
