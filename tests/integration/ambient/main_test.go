@@ -317,6 +317,5 @@ func SetupApps(t resource.Context, i istio.Instance, apps *EchoDeployments) erro
 	if err != nil {
 		return err
 	}
-
 	return nil
 }
