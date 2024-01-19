@@ -133,6 +133,7 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 		return
 	}
 
+	cfg.Values["pilot.traceSampling"] = "100"
 	// conditionally use a fake metadata server for testing off of GCP
 	if stackdrivertest.GCEInst != nil {
 		cfg.ControlPlaneValues = strings.Join([]string{cfg.ControlPlaneValues, fakeGCEMetadataServerValues, stackdrivertest.GCEInst.Address()}, "")
