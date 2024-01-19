@@ -422,6 +422,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: jsonLogStruct,
 				},
+				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
 			},
 		}
 	default:
