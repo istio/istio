@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+
+releaseNotes:
+- |
+  **Enabled** the configuration to use endpoint cache at Envoy when there is a delay
+  in sending endpoints from Istiod when a cluster is updated.
