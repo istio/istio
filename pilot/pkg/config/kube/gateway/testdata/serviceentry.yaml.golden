@@ -117,8 +117,11 @@ spec:
   - mesh
   hosts:
   - google.com
-  tcp:
-  - route:
+  tls:
+  - match:
+    - sniHosts:
+      - google.com
+    route:
     - destination:
         host: google.com
         port:
@@ -138,8 +141,11 @@ spec:
   - mesh
   hosts:
   - '*.egress.com'
-  tcp:
-  - route:
+  tls:
+  - match:
+    - sniHosts:
+      - '*.egress.com'
+    route:
     - destination:
         host: google.com
         port:
