@@ -77,7 +77,13 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 	if err != nil {
 		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
 	}
-	iptablesConfigurator := iptables.NewIptablesConfigurator(nil, realDependencies(), iptables.RealNlDeps())
+
+	cfg := &iptables.Config{
+		RestoreFormat: true,
+		RedirectDNS:   true, // TODO Currently for ambient, DNS redirection must happen to properly resolve serviceentries.
+	}
+
+	iptablesConfigurator := iptables.NewIptablesConfigurator(cfg, realDependencies(), iptables.RealNlDeps())
 
 	// Create hostprobe rules now, in the host netns
 	// Later we will reuse this same configurator inside the pod netns for adding other rules
