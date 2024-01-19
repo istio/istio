@@ -7,7 +7,6 @@ spec:
   - group: ""
     kind: Service
     name: reviews
-    port: 9080
   rules:
   - backendRefs:
     - name: reviews-v3

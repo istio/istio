@@ -7,7 +7,6 @@ spec:
   - group: ""
     kind: Service
     name: reviews
-    port: 9080
   rules:
   - backendRefs:
     - name: reviews-v1
@@ -22,7 +21,6 @@ spec:
   - group: ""
     kind: Service
     name: productpage
-    port: 9080
   rules:
   - backendRefs:
     - name: productpage-v1
@@ -37,7 +35,6 @@ spec:
   - group: ""
     kind: Service
     name: ratings
-    port: 9080
   rules:
   - backendRefs:
     - name: ratings-v1
@@ -52,7 +49,6 @@ spec:
   - group: ""
     kind: Service
     name: details
-    port: 9080
   rules:
   - backendRefs:
     - name: details-v1
