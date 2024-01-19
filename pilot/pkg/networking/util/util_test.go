@@ -38,6 +38,7 @@ import (
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/fuzz"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	xdsutil "istio.io/istio/pkg/wellknown"
@@ -1368,7 +1369,7 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 	}
 }
 
-func TestMergeTrafficPolicy(t *testing.T) {
+func TestMergeSubsetTrafficPolicy(t *testing.T) {
 	cases := []struct {
 		name     string
 		original *networking.TrafficPolicy
@@ -1636,8 +1637,16 @@ func TestMergeTrafficPolicy(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			policy := MergeTrafficPolicy(tt.original, tt.subset, tt.port)
+			policy := MergeSubsetTrafficPolicy(tt.original, tt.subset, tt.port)
 			assert.Equal(t, policy, tt.expected)
 		})
 	}
+}
+
+func FuzzShallowcopyTrafficPolicy(f *testing.F) {
+	fuzz.Fuzz(f, func(fg fuzz.Helper) {
+		r := fuzz.Struct[*networking.TrafficPolicy](fg)
+		copied := ShallowcopyTrafficPolicy(r)
+		assert.Equal(fg.T(), r, copied)
+	})
 }
