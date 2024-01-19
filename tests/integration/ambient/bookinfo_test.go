@@ -311,17 +311,8 @@ func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa str
 		nsConfig.Name(),
 		"--service-account",
 		sa,
+		"--wait",
 	})
-	waypointError := retry.UntilSuccess(func() error {
-		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+sa)
-		if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
-			return fmt.Errorf("gateway is not ready: %v", err)
-		}
-		return nil
-	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
-	if waypointError != nil {
-		t.Fatal(waypointError)
-	}
 }
 
 func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa string) {

@@ -189,7 +189,7 @@ func (i *istioImpl) InternalDiscoveryAddressFor(c cluster.Cluster) (string, erro
 	if e, f := i.istiod[c.Name()]; f {
 		return e.Address(), nil
 	}
-	// Find the Prometheus pod and service, and start forwarding a local port.
+	// Find the istiod pod and service, and start forwarding a local port.
 	fetchFn := testKube.NewSinglePodFetch(c, i.cfg.SystemNamespace, "istio=pilot")
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {
