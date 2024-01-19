@@ -5,4 +5,4 @@ issue:
   - 46297
 releaseNotes:
   - |
-    *Added** `--wait` option to `istioctl experimental waypoint apply` command.
+    **Added** `--wait` option to `istioctl experimental waypoint apply` command.
