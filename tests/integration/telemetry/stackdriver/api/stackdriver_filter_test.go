@@ -122,6 +122,10 @@ spec:
   metrics:
   - providers:
     - name: stackdriver
+  tracing:
+  - providers:
+    - name: stackdriver
+    randomSamplingPercentage: 100.0
 `).Apply()
 		}).
 		Setup(stackdrivertest.TestSetup).
