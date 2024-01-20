@@ -50,6 +50,7 @@ spec:
       clientCertificate: /etc/certs/custom/cert-chain.pem
       privateKey: /etc/certs/custom/key.pem
       caCertificates: /etc/certs/custom/root-cert.pem
+      sni: server
 `).ApplyOrFail(t)
 
 			for _, portName := range []string{"grpc", "http", "tcp"} {
