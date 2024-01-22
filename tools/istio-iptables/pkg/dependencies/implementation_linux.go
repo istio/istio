@@ -144,7 +144,6 @@ func (r *RealDependencies) executeXTables(cmd string, ignoreErrors bool, stdin i
 		// We do not shell out and call `mount` since this and sh are not available on all systems
 		var lockFile string
 		if needLock {
-			mode = "without lock and nss"
 			if r.IptablesVersion.version.LessThan(IptablesLockfileEnv) {
 				mode = "without lock by mount and nss"
 				lockFile = r.NetworkNamespace
