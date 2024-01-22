@@ -105,7 +105,7 @@ type SidecarScope struct {
 	// This is the namespace where the sidecar takes effect,
 	// maybe different from the ns where sidecar resides if sidecar is in root ns.
 	Namespace string
-	// The crd itself. Can be nil if we are constructing the default
+	// The cr itself. Can be nil if we are constructing the default
 	// sidecar scope
 	Sidecar *networking.Sidecar
 
@@ -143,12 +143,6 @@ type SidecarScope struct {
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
 	configDependencies sets.Set[ConfigHash]
-
-	// The namespace to treat as the administrative root namespace for
-	// Istio configuration.
-	//
-	// Changes to Sidecar resources in this namespace will trigger a push.
-	RootNamespace string
 }
 
 // MarshalJSON implements json.Marshaller
@@ -156,11 +150,11 @@ func (sc *SidecarScope) MarshalJSON() ([]byte, error) {
 	// Json cannot expose unexported fields, so copy the ones we want here
 	return json.MarshalIndent(map[string]any{
 		"version":               sc.Version,
-		"rootNamespace":         sc.RootNamespace,
 		"name":                  sc.Name,
 		"namespace":             sc.Namespace,
 		"outboundTrafficPolicy": sc.OutboundTrafficPolicy,
 		"services":              sc.services,
+		"servicesByHostname":    sc.servicesByHostname,
 		"sidecar":               sc.Sidecar,
 		"destinationRules":      sc.destinationRules,
 	}, "", "  ")
@@ -232,7 +226,6 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
 		servicesByHostname:      make(map[host.Name]*Service, len(defaultEgressListener.services)),
 		configDependencies:      make(sets.Set[ConfigHash]),
-		RootNamespace:           ps.Mesh.RootNamespace,
 		Version:                 ps.PushVersion,
 	}
 
@@ -306,7 +299,6 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		Namespace:          configNamespace,
 		Sidecar:            sidecar,
 		configDependencies: make(sets.Set[ConfigHash]),
-		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
 	}
 
@@ -623,14 +615,14 @@ func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardServiceIndex() map[ho
 
 // DependsOnConfig determines if the proxy depends on the given config.
 // Returns whether depends on this config or this kind of config is not scopeZd(unknown to be depended) here.
-func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
+func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	if sc == nil {
 		return true
 	}
 
 	// This kind of config will trigger a change if made in the root namespace or the same namespace
 	if clusterScopedKnownConfigTypes.Contains(config.Kind) {
-		return config.Namespace == sc.RootNamespace || config.Namespace == sc.Namespace
+		return config.Namespace == rootNs || config.Namespace == sc.Namespace
 	}
 
 	// This kind of config is unknown to sidecarScope.

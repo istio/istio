@@ -2322,7 +2322,7 @@ func TestContainsEgressDependencies(t *testing.T) {
 			}
 
 			for k, v := range tt.contains {
-				if ok := sidecarScope.DependsOnConfig(k); ok != v {
+				if ok := sidecarScope.DependsOnConfig(k, ps.Mesh.RootNamespace); ok != v {
 					t.Fatalf("Expected contains %v-%v, but no match", k, v)
 				}
 			}
@@ -2381,7 +2381,7 @@ func TestRootNsSidecarDependencies(t *testing.T) {
 			}
 
 			for k, v := range tt.contains {
-				if ok := sidecarScope.DependsOnConfig(k); ok != v {
+				if ok := sidecarScope.DependsOnConfig(k, ps.Mesh.RootNamespace); ok != v {
 					t.Fatalf("Expected contains %v-%v, but no match", k, v)
 				}
 			}
