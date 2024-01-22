@@ -29,10 +29,7 @@ var (
 	HostProbeSNATIP = netip.MustParseAddr(env.RegisterStringVar("HOST_PROBE_SNAT_IP", DefaultHostProbeSNATIP, "").Get())
 )
 
-type RedirectMode int
-
 const (
-	InPodMode RedirectMode = iota
 	// to reliably identify kubelet healthprobes from inside the pod (versus standard kube-proxy traffic,
 	// since the IP is normally the same), we SNAT identified host probes in the host netns to a fixed APIPA IP.
 	//
@@ -41,18 +38,9 @@ const (
 	DefaultHostProbeSNATIP = "169.254.7.127"
 )
 
-func (v RedirectMode) String() string {
-	switch v {
-	case InPodMode:
-		return "inpod"
-	}
-	return ""
-}
-
 type AmbientArgs struct {
 	SystemNamespace string
 	Revision        string
 	KubeConfig      string
-	RedirectMode    RedirectMode
 	ServerSocket    string
 }

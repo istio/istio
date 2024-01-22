@@ -66,9 +66,8 @@ func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
 	).Return(nil)
 
 	server := &meshDataplane{
-		kubeClient:   client.Kube(),
-		netServer:    fs,
-		redirectMode: InPodMode,
+		kubeClient: client.Kube(),
+		netServer:  fs,
 	}
 
 	server.Start(ctx)
@@ -130,9 +129,8 @@ func TestExistingPodAddedWhenDualStack(t *testing.T) {
 	).Return(nil)
 
 	server := &meshDataplane{
-		kubeClient:   client.Kube(),
-		netServer:    fs,
-		redirectMode: InPodMode,
+		kubeClient: client.Kube(),
+		netServer:  fs,
 	}
 
 	fs.Start(ctx)
@@ -183,9 +181,8 @@ func TestExistingPodNotAddedIfNoIPInAnyStatusField(t *testing.T) {
 	fs := &fakeServer{}
 
 	server := &meshDataplane{
-		kubeClient:   client.Kube(),
-		netServer:    fs,
-		redirectMode: InPodMode,
+		kubeClient: client.Kube(),
+		netServer:  fs,
 	}
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
@@ -249,9 +246,8 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 	).Return(nil)
 
 	server := &meshDataplane{
-		kubeClient:   client.Kube(),
-		netServer:    fs,
-		redirectMode: InPodMode,
+		kubeClient: client.Kube(),
+		netServer:  fs,
 	}
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
@@ -331,9 +327,8 @@ func TestAmbientEnabledReturnsPodIfEnabled(t *testing.T) {
 	fs := &fakeServer{}
 	fs.Start(ctx)
 	server := &meshDataplane{
-		kubeClient:   client.Kube(),
-		netServer:    fs,
-		redirectMode: InPodMode,
+		kubeClient: client.Kube(),
+		netServer:  fs,
 	}
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
@@ -375,9 +370,8 @@ func TestAmbientEnabledReturnsNoPodIfNotEnabled(t *testing.T) {
 	fs := &fakeServer{}
 	fs.Start(ctx)
 	server := &meshDataplane{
-		kubeClient:   client.Kube(),
-		netServer:    fs,
-		redirectMode: InPodMode,
+		kubeClient: client.Kube(),
+		netServer:  fs,
 	}
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
@@ -420,9 +414,8 @@ func TestAmbientEnabledReturnsErrorIfBogusNS(t *testing.T) {
 	fs := &fakeServer{}
 	fs.Start(ctx)
 	server := &meshDataplane{
-		kubeClient:   client.Kube(),
-		netServer:    fs,
-		redirectMode: InPodMode,
+		kubeClient: client.Kube(),
+		netServer:  fs,
 	}
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
@@ -475,9 +468,8 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 	).Return(nil)
 
 	server := &meshDataplane{
-		kubeClient:   client.Kube(),
-		netServer:    fs,
-		redirectMode: InPodMode,
+		kubeClient: client.Kube(),
+		netServer:  fs,
 	}
 	server.Start(ctx)
 

@@ -86,16 +86,14 @@ var rootCmd = &cobra.Command{
 
 		if cfg.InstallConfig.AmbientEnabled {
 			// Start ambient controller
-			redirectMode := nodeagent.InPodMode
 
 			// node agent will spawn a goroutine and watch the K8S API for events,
 			// as well as listen for messages from the CNI binary.
-			log.Infof("Starting ambient node agent with redirect mode %s", redirectMode)
+			log.Info("Starting ambient node agent with inpod redirect mode")
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cfg.InstallConfig.CNIEventAddress,
 				nodeagent.AmbientArgs{
 					SystemNamespace: nodeagent.PodNamespace,
 					Revision:        nodeagent.Revision,
-					RedirectMode:    redirectMode,
 					ServerSocket:    cfg.InstallConfig.ZtunnelUDSAddress,
 				})
 			if err != nil {
