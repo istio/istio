@@ -83,6 +83,8 @@ func (Version) EnumDescriptor() ([]byte, []int) {
 	return file_zdsapi_zds_proto_rawDescGZIP(), []int{0}
 }
 
+// Sent by the ztunnel client on first connect, as an announce message.
+// Until the server sees this announce message, the client cannot be considered connected
 type ZdsHello struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
@@ -130,8 +132,8 @@ func (x *ZdsHello) GetVersion() Version {
 	return Version_NOT_USED
 }
 
-// Add a workload to the ztunnel. this will be accompanied by ancillary data contianing
-// the workload's netns file descriptor.
+// Add a workload to the ztunnel. Contains the UID of the workload.
+// This will be accompanied by ancillary data containing the workload's netns file descriptor.
 type AddWorkload struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache
