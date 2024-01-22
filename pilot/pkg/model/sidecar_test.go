@@ -1035,6 +1035,59 @@ var (
 			},
 		},
 	}
+	services24 = []*Service{
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port803x,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns2",
+			},
+		},
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:      "baz",
+				Namespace: "ns1", // same ns as foo
+			},
+		},
+	}
+	services25 = []*Service{
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port803x,
+			Attributes: ServiceAttributes{
+				Name:      "foo",
+				Namespace: "ns1",
+			},
+		},
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port8000,
+			Attributes: ServiceAttributes{
+				Name:      "bar",
+				Namespace: "ns2",
+			},
+		},
+		{
+			Hostname: "foobar.svc.cluster.local",
+			Ports:    port7443,
+			Attributes: ServiceAttributes{
+				Name:            "baz",
+				Namespace:       "ns3",
+				ServiceRegistry: provider.Kubernetes,
+			},
+		},
+	}
 
 	virtualServices1 = []config.Config{
 		{
@@ -1291,6 +1344,57 @@ func TestCreateSidecarScope(t *testing.T) {
 			[]*Service{
 				{
 					Hostname: "bar",
+				},
+			},
+			nil,
+		},
+		{
+			"no-sidecar-config-not-merge-service-in-diff-namespaces",
+			nil,
+			services23,
+			nil,
+			[]*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    append(port803x),
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"no-sidecar-config-merge-service-ports",
+			nil,
+			services24,
+			nil,
+			[]*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    append(port803x, port7443...),
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns",
+					},
+				},
+			},
+			nil,
+		},
+		{
+			"no-sidecar-config-k8s-service-take-precedence",
+			nil,
+			services25,
+			nil,
+			[]*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:      "bar",
+						Namespace: "ns2",
+					},
 				},
 			},
 			nil,

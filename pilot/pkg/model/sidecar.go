@@ -221,7 +221,6 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		Name:                    defaultSidecar,
 		Namespace:               configNamespace,
 		EgressListeners:         []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:                defaultEgressListener.services,
 		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
 		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
 		servicesByHostname:      make(map[host.Name]*Service, len(defaultEgressListener.services)),
