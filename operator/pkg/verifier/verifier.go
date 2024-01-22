@@ -45,13 +45,11 @@ import (
 	"istio.io/istio/pkg/kube"
 )
 
-var (
-	// specialKinds is a map of special kinds to their corresponding kind names, which do not follow the
-	// standard convention of pluralizing the kind name.
-	specialKinds = map[string]string{
-		"NetworkAttachmentDefinition": "network-attachment-definitions",
-	}
-)
+// specialKinds is a map of special kinds to their corresponding kind names, which do not follow the
+// standard convention of pluralizing the kind name.
+var specialKinds = map[string]string{
+	"NetworkAttachmentDefinition": "network-attachment-definitions",
+}
 
 // StatusVerifier checks status of certain resources like deployment,
 // jobs and also verifies count of certain resource types.
