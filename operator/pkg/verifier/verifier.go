@@ -25,7 +25,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
-	apimachinery_schema "k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/cli-runtime/pkg/genericclioptions"
 	"k8s.io/cli-runtime/pkg/resource"
 	"k8s.io/client-go/dynamic"
@@ -47,12 +46,6 @@ import (
 )
 
 var (
-	istioOperatorGVR = apimachinery_schema.GroupVersionResource{
-		Group:    v1alpha1.SchemeGroupVersion.Group,
-		Version:  v1alpha1.SchemeGroupVersion.Version,
-		Resource: "istiooperators",
-	}
-
 	// specialKinds is a map of special kinds to their corresponding kind names, which do not follow the
 	// standard convention of pluralizing the kind name.
 	specialKinds = map[string]string{
@@ -465,7 +458,7 @@ func fixTimestampRelatedUnmarshalIssues(un *unstructured.Unstructured) {
 // Find all IstioOperator in the cluster.
 func AllOperatorsInCluster(client dynamic.Interface) ([]*v1alpha1.IstioOperator, error) {
 	ul, err := client.
-		Resource(istioOperatorGVR).
+		Resource(v1alpha1.IstioOperatorGVR).
 		List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		return nil, err

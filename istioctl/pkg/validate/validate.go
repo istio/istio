@@ -26,6 +26,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v2"
+	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -142,8 +143,8 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 		return nil, nil
 	}
 
-	if un.GetAPIVersion() == "install.istio.io/v1alpha1" {
-		if un.GetKind() == "IstioOperator" {
+	if un.GetAPIVersion() == istioV1Alpha1.IstioOperatorGVK.GroupVersion().String() {
+		if un.GetKind() == istioV1Alpha1.IstioOperatorGVK.Kind {
 			if err := checkFields(un); err != nil {
 				return nil, err
 			}

@@ -275,10 +275,7 @@ func (h *HelmReconciler) DeleteIOPInClusterIfExists(iop *istioV1Alpha1.IstioOper
 	// Delete the previous IstioOperator CR if it exists.
 	objectKey := client.ObjectKeyFromObject(iop)
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "install.istio.io",
-		Version: "v1alpha1", Kind: name.IstioOperatorStr,
-	})
+	receiver.SetGroupVersionKind(istioV1Alpha1.IstioOperatorGVK)
 	if err := h.client.Get(context.TODO(), objectKey, receiver); err == nil {
 		_ = h.client.Delete(context.TODO(), receiver)
 	}
