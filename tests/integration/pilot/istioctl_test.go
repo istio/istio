@@ -57,7 +57,6 @@ var (
 )
 
 func TestWait(t *testing.T) {
-	t.Skip("https://github.com/istio/istio/issues/29315")
 	// nolint: staticcheck
 	framework.NewTest(t).Features("usability.observability.wait").
 		RequiresSingleCluster().
