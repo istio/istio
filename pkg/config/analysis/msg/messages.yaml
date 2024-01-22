@@ -629,7 +629,7 @@ messages:
     code: IST0168
     level: Warning
     description: "We cannot automatically detect whether a change is fully compatible or not"
-    template: "The configuration %q changed in release %s, but compatibility cannot be automatically detected: %s. Or, install with `--set compatibility-version=%s` to retain the old default."
+    template: "The configuration %q changed in release %s, but compatibility cannot be automatically detected: %s. Or, install with `--set compatibilityVersion=%s` to retain the old default."
     args:
       - name: field
         type: string
@@ -644,7 +644,7 @@ messages:
     code: IST0169
     level: Warning
     description: "The provided configuration object may be incompatible due to an upgrade"
-    template: "The configuration %q changed in release %s: %s. Or, install with `--set compatibility-version=%s` to retain the old default."
+    template: "The configuration %q changed in release %s: %s. Or, install with `--set compatibilityVersion=%s` to retain the old default."
     args:
       - name: field
         type: string
