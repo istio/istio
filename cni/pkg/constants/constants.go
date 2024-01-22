@@ -71,5 +71,7 @@ var (
 	CNIBinDir          = "/opt/cni/bin"
 	HostCNIBinDir      = "/host/opt/cni/bin"
 	ServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
+	// Well-known subpath we will mount any needed host-mounts under,
+	// to preclude shadowing or breaking any pod-internal mounts
 	HostMountsPath     = "/host"
 )

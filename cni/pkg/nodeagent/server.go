@@ -72,7 +72,7 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		return nil, fmt.Errorf("error initializing hostside probe ipset: %w", err)
 	}
 
-	podNsMap := newPodNetnsCache(OpenNetnsInRoot(pconstants.HostMountsPath))
+	podNsMap := newPodNetnsCache(openNetnsInRoot(pconstants.HostMountsPath))
 	ztunnelServer, err := newZtunnelServer(args.ServerSocket, podNsMap)
 	if err != nil {
 		return nil, fmt.Errorf("error initializing the ztunnel server: %w", err)
