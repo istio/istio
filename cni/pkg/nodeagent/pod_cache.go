@@ -131,7 +131,7 @@ func (p *podNetnsCache) Take(uid string) Netns {
 	return nil
 }
 
-func OpenNetnsInRoot(hostMountsPath string) func(nspath string) (NetnsCloser, error) {
+func openNetnsInRoot(hostMountsPath string) func(nspath string) (NetnsCloser, error) {
 	return func(nspath string) (NetnsCloser, error) {
 		nspathInContainer := filepath.Join(hostMountsPath, nspath)
 		ns, err := OpenNetns(nspathInContainer)
