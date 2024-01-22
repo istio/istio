@@ -246,11 +246,11 @@ var (
 
 	// UnknownUpgradeCompatibility defines a diag.MessageType for message "UnknownUpgradeCompatibility".
 	// Description: We cannot automatically detect whether a change is fully compatible or not
-	UnknownUpgradeCompatibility = diag.NewMessageType(diag.Warning, "IST0168", "The configuration %q changed in release %s, but compatibility cannot be automatically detected: %s. Or, install with `--set compatibility-version=%s` to retain the old default.")
+	UnknownUpgradeCompatibility = diag.NewMessageType(diag.Warning, "IST0168", "The configuration %q changed in release %s, but compatibility cannot be automatically detected: %s. Or, install with `--set compatibilityVersion=%s` to retain the old default.")
 
 	// UpdateIncompatibility defines a diag.MessageType for message "UpdateIncompatibility".
 	// Description: The provided configuration object may be incompatible due to an upgrade
-	UpdateIncompatibility = diag.NewMessageType(diag.Warning, "IST0169", "The configuration %q changed in release %s: %s. Or, install with `--set compatibility-version=%s` to retain the old default.")
+	UpdateIncompatibility = diag.NewMessageType(diag.Warning, "IST0169", "The configuration %q changed in release %s: %s. Or, install with `--set compatibilityVersion=%s` to retain the old default.")
 )
 
 // All returns a list of all known message types.
