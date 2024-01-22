@@ -31,6 +31,7 @@ import (
 	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/api/type/v1beta1"
 	"istio.io/istio/pilot/pkg/features"
+	"istio.io/istio/pilot/pkg/serviceregistry/provider"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/host"
@@ -1018,7 +1019,7 @@ var (
 			},
 		},
 		{
-			Hostname: "foo.svc.cluster.local",
+			Hostname: "foobar.svc.cluster.local",
 			Ports:    port8000,
 			Attributes: ServiceAttributes{
 				Name:      "foo",
@@ -1026,7 +1027,7 @@ var (
 			},
 		},
 		{
-			Hostname: "baz.svc.cluster.local",
+			Hostname: "foobar.svc.cluster.local",
 			Ports:    port7443,
 			Attributes: ServiceAttributes{
 				Name:      "baz",
@@ -1955,13 +1956,284 @@ func TestCreateSidecarScope(t *testing.T) {
 			},
 		},
 		{
+			name: "k8s service no merge",
+			sidecarConfig: &config.Config{
+				Meta: config.Meta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: &networking.Sidecar{},
+			},
+			services: []*Service{
+				{
+					Hostname: "proxy",
+					Ports:    port7000,
+					Attributes: ServiceAttributes{
+						Name:            "s1",
+						Namespace:       "default",
+						ServiceRegistry: provider.Kubernetes,
+					},
+				},
+				{
+					Hostname: "proxy",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:            "s2",
+						Namespace:       "default",
+						ServiceRegistry: provider.Kubernetes,
+					},
+				},
+				{
+					Hostname: "proxy",
+					Ports:    port7442,
+					Attributes: ServiceAttributes{
+						Name:            "s3",
+						Namespace:       "default",
+						ServiceRegistry: provider.Kubernetes,
+					},
+				},
+			},
+			expectedServices: []*Service{
+				{
+					Hostname: "proxy",
+					Ports:    port7000,
+					Attributes: ServiceAttributes{
+						Name:            "s1",
+						Namespace:       "default",
+						ServiceRegistry: provider.Kubernetes,
+					},
+				},
+			},
+		},
+		{
+			name: "k8s service take precedence over external service",
+			sidecarConfig: &config.Config{
+				Meta: config.Meta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: &networking.Sidecar{},
+			},
+			services: []*Service{
+				{
+					Hostname: "proxy",
+					Ports:    port7000,
+					Attributes: ServiceAttributes{
+						Name:            "s1",
+						Namespace:       "default",
+						ServiceRegistry: provider.External,
+					},
+				},
+				{
+					Hostname: "proxy",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:            "s2",
+						Namespace:       "default",
+						ServiceRegistry: provider.External,
+					},
+				},
+				{
+					Hostname: "proxy",
+					Ports:    port7442,
+					Attributes: ServiceAttributes{
+						Name:            "s3",
+						Namespace:       "default",
+						ServiceRegistry: provider.Kubernetes,
+					},
+				},
+			},
+			expectedServices: []*Service{
+				{
+					Hostname: "proxy",
+					Ports:    port7442,
+					Attributes: ServiceAttributes{
+						Name:            "s3",
+						Namespace:       "default",
+						ServiceRegistry: provider.Kubernetes,
+					},
+				},
+			},
+		},
+		{
+			name: "k8s service take precedence over external service, but not over k8s service",
+			sidecarConfig: &config.Config{
+				Meta: config.Meta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: &networking.Sidecar{},
+			},
+			services: []*Service{
+				{
+					Hostname: "proxy",
+					Ports:    port7000,
+					Attributes: ServiceAttributes{
+						Name:            "s1",
+						Namespace:       "default",
+						ServiceRegistry: provider.External,
+					},
+				},
+				{
+					Hostname: "proxy",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:            "s2",
+						Namespace:       "default",
+						ServiceRegistry: provider.Kubernetes,
+					},
+				},
+				{
+					Hostname: "proxy",
+					Ports:    port7442,
+					Attributes: ServiceAttributes{
+						Name:            "s3",
+						Namespace:       "default",
+						ServiceRegistry: provider.Kubernetes,
+					},
+				},
+			},
+			expectedServices: []*Service{
+				{
+					Hostname: "proxy",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:            "s2",
+						Namespace:       "default",
+						ServiceRegistry: provider.Kubernetes,
+					},
+				},
+			},
+		},
+		{
 			name:          "multi-port-merge",
 			sidecarConfig: configs22,
 			services:      services23,
 			expectedServices: []*Service{
 				{
 					Hostname: "foobar.svc.cluster.local",
-					Ports:    PortList{port803x[0], port803x[1], port803x[2], port803x[3], port803x[4]},
+					Ports:    port803x,
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+			},
+		},
+		{
+			name:          "multi-port-merge: serviceentry not merge with another namespace",
+			sidecarConfig: configs22,
+			services: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x[:3],
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x[3:],
+					Attributes: ServiceAttributes{
+						Name:      "bar",
+						Namespace: "ns2",
+					},
+				},
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:      "baz",
+						Namespace: "ns3",
+					},
+				},
+			},
+			expectedServices: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x[:3],
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+			},
+		},
+		{
+			name:          "multi-port-merge: k8s service take precedence",
+			sidecarConfig: configs22,
+			services: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x,
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x,
+					Attributes: ServiceAttributes{
+						Name:            "bar",
+						Namespace:       "ns2",
+						ServiceRegistry: provider.Kubernetes,
+					},
+				},
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:      "baz",
+						Namespace: "ns3",
+					},
+				},
+			},
+			expectedServices: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x,
+					Attributes: ServiceAttributes{
+						Name:      "bar",
+						Namespace: "ns2",
+					},
+				},
+			},
+		},
+		{
+			name:          "multi-port-merge: serviceentry merge",
+			sidecarConfig: configs22,
+			services: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x[:3],
+					Attributes: ServiceAttributes{
+						Name:      "foo",
+						Namespace: "ns1",
+					},
+				},
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x[3:],
+					Attributes: ServiceAttributes{
+						Name:      "bar",
+						Namespace: "ns1",
+					},
+				},
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port7443,
+					Attributes: ServiceAttributes{
+						Name:      "baz",
+						Namespace: "ns3",
+					},
+				},
+			},
+			expectedServices: []*Service{
+				{
+					Hostname: "foobar.svc.cluster.local",
+					Ports:    port803x,
 					Attributes: ServiceAttributes{
 						Name:      "foo",
 						Namespace: "ns1",
@@ -1971,8 +2243,8 @@ func TestCreateSidecarScope(t *testing.T) {
 		},
 	}
 
-	for idx, tt := range tests {
-		t.Run(fmt.Sprintf("[%d] %s", idx, tt.name), func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
 			var serviceFound bool
 			var portsMatched bool
 			ps := NewPushContext()
