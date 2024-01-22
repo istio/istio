@@ -31,7 +31,7 @@ const (
 	MinK8SVersion               = 26
 	UnSupportedK8SVersionLogMsg = "\nThe Kubernetes version %s is not supported by Istio %s. The minimum supported Kubernetes version is 1.%d.\n" +
 		"Proceeding with the installation, but you might experience problems. " +
-		"See https://istio.io/latest/docs/setup/platform-setup/ for a list of supported versions.\n"
+		"See https://istio.io/latest/docs/releases/supported-releases/ for a list of supported versions.\n"
 )
 
 // CheckKubernetesVersion checks if this Istio version is supported in the k8s version
