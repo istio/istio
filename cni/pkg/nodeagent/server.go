@@ -102,9 +102,8 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 		kubeClient: client,
 		isReady:    ready,
 		dataplane: &meshDataplane{
-			kubeClient:   client.Kube(),
-			netServer:    netServer,
-			redirectMode: InPodMode,
+			kubeClient: client.Kube(),
+			netServer:  netServer,
 		},
 	}
 	s.NotReady()
@@ -185,9 +184,8 @@ func (s *Server) Stop() {
 }
 
 type meshDataplane struct {
-	kubeClient   kubernetes.Interface
-	netServer    MeshDataplane
-	redirectMode RedirectMode
+	kubeClient kubernetes.Interface
+	netServer  MeshDataplane
 }
 
 func (s *meshDataplane) Start(ctx context.Context) {
@@ -199,32 +197,18 @@ func (s *meshDataplane) Stop() {
 }
 
 func (s *meshDataplane) ConstructInitialSnapshot(ambientPods []*corev1.Pod) error {
-	switch s.redirectMode {
-	case InPodMode:
-		return s.netServer.ConstructInitialSnapshot(ambientPods)
-
-	default:
-		log.Errorf("unknown redirect mode: %v", s.redirectMode)
-		return fmt.Errorf("unknown redirect mode: %v", s.redirectMode)
-	}
+	return s.netServer.ConstructInitialSnapshot(ambientPods)
 }
 
 func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIPs []netip.Addr, netNs string) error {
 	var retErr error
-	switch s.redirectMode {
-	case InPodMode:
-		err := s.netServer.AddPodToMesh(ctx, pod, podIPs, netNs)
-		if err != nil {
-			log.Errorf("failed to add pod to ztunnel: %v", err)
-			if !errors.Is(err, ErrPartialAdd) {
-				return err
-			}
-			retErr = err
+	err := s.netServer.AddPodToMesh(ctx, pod, podIPs, netNs)
+	if err != nil {
+		log.Errorf("failed to add pod to ztunnel: %v", err)
+		if !errors.Is(err, ErrPartialAdd) {
+			return err
 		}
-
-	default:
-		log.Errorf("unknown redirect mode: %v", s.redirectMode)
-		return fmt.Errorf("unknown redirect mode: %v", s.redirectMode)
+		retErr = err
 	}
 
 	log.Debugf("annotating pod %s", pod.Name)
@@ -238,18 +222,13 @@ func (s *meshDataplane) AddPodToMesh(ctx context.Context, pod *corev1.Pod, podIP
 func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	log.Debug("Pod is now stopped or opt out... cleaning up.")
-	switch s.redirectMode {
-	case InPodMode:
-		err := s.netServer.RemovePodFromMesh(ctx, pod)
-		if err != nil {
-			log.Errorf("failed to remove pod to ztunnel: %v", err)
-			return err
-		}
-	default:
-		log.Errorf("unknown redirect mode: %v", s.redirectMode)
+	err := s.netServer.RemovePodFromMesh(ctx, pod)
+	if err != nil {
+		log.Errorf("failed to remove pod to ztunnel: %v", err)
+		return err
 	}
 	log.Debug("removing annotation from pod")
-	err := util.AnnotateUnenrollPod(s.kubeClient, &pod.ObjectMeta)
+	err = util.AnnotateUnenrollPod(s.kubeClient, &pod.ObjectMeta)
 	if err != nil {
 		log.Errorf("failed to annotate pod unenrollment: %v", err)
 	}
@@ -260,17 +239,11 @@ func (s *meshDataplane) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) 
 func (s *meshDataplane) DelPodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
 	log.Debug("Pod is now stopped or opt out... cleaning up.")
-	switch s.redirectMode {
-	case InPodMode:
-		log.Info("in pod mode - deleting pod from ztunnel")
-		err := s.netServer.DelPodFromMesh(ctx, pod)
-		if err != nil {
-			log.Errorf("failed to remove pod to ztunnel: %v", err)
-			return err
-		}
-	default:
-		log.Errorf("unknown redirect mode: %v", s.redirectMode)
-		return fmt.Errorf("unknown redirect mode: %v", s.redirectMode)
+	log.Info("in pod mode - deleting pod from ztunnel")
+	err := s.netServer.DelPodFromMesh(ctx, pod)
+	if err != nil {
+		log.Errorf("failed to remove pod to ztunnel: %v", err)
+		return err
 	}
 	return nil
 }

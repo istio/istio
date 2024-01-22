@@ -57,9 +57,8 @@ func TestMeshDataplaneAddsAnnotationOnAdd(t *testing.T) {
 
 	server.Start(fakeCtx)
 	m := meshDataplane{
-		kubeClient:   fakeClientSet,
-		netServer:    server,
-		redirectMode: InPodMode,
+		kubeClient: fakeClientSet,
+		netServer:  server,
 	}
 
 	err := m.AddPodToMesh(fakeCtx, pod, podIPs, "")
@@ -95,9 +94,8 @@ func TestMeshDataplaneAddsAnnotationOnAddWithPartialError(t *testing.T) {
 	server.Start(fakeCtx)
 	fakeClientSet := fake.NewSimpleClientset(pod)
 	m := meshDataplane{
-		kubeClient:   fakeClientSet,
-		netServer:    server,
-		redirectMode: InPodMode,
+		kubeClient: fakeClientSet,
+		netServer:  server,
 	}
 
 	err := m.AddPodToMesh(fakeCtx, pod, podIPs, "")
@@ -133,9 +131,8 @@ func TestMeshDataplaneDoesntAnnotateOnAddWithRealError(t *testing.T) {
 	server.Start(fakeCtx)
 	fakeClientSet := fake.NewSimpleClientset(pod)
 	m := meshDataplane{
-		kubeClient:   fakeClientSet,
-		netServer:    server,
-		redirectMode: InPodMode,
+		kubeClient: fakeClientSet,
+		netServer:  server,
 	}
 
 	err := m.AddPodToMesh(fakeCtx, pod, podIPs, "")
@@ -160,9 +157,8 @@ func TestMeshDataplaneRemovePodRemovesAnnotation(t *testing.T) {
 
 	fakeClientSet := fake.NewSimpleClientset(pod)
 	m := meshDataplane{
-		kubeClient:   fakeClientSet,
-		netServer:    server,
-		redirectMode: InPodMode,
+		kubeClient: fakeClientSet,
+		netServer:  server,
 	}
 
 	err := m.RemovePodFromMesh(fakeCtx, pod)
@@ -186,9 +182,8 @@ func TestMeshDataplaneRemovePodErrorDoesntRemoveAnnotation(t *testing.T) {
 
 	fakeClientSet := fake.NewSimpleClientset(pod)
 	m := meshDataplane{
-		kubeClient:   fakeClientSet,
-		netServer:    server,
-		redirectMode: InPodMode,
+		kubeClient: fakeClientSet,
+		netServer:  server,
 	}
 
 	err := m.RemovePodFromMesh(fakeCtx, pod)
@@ -213,9 +208,8 @@ func TestMeshDataplaneDelPod(t *testing.T) {
 
 	fakeClientSet := fake.NewSimpleClientset()
 	m := meshDataplane{
-		kubeClient:   fakeClientSet,
-		netServer:    server,
-		redirectMode: InPodMode,
+		kubeClient: fakeClientSet,
+		netServer:  server,
 	}
 
 	// pod is not in fake client, so if this will try to remove annotation, it will fail.
@@ -237,9 +231,8 @@ func TestMeshDataplaneDelPodErrorDoesntPatchPod(t *testing.T) {
 
 	fakeClientSet := fake.NewSimpleClientset()
 	m := meshDataplane{
-		kubeClient:   fakeClientSet,
-		netServer:    server,
-		redirectMode: InPodMode,
+		kubeClient: fakeClientSet,
+		netServer:  server,
 	}
 
 	// pod is not in fake client, so if this will try to remove annotation, it will fail.
