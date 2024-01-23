@@ -1150,11 +1150,13 @@ func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Ser
 		currConv.Attributes.ExportTo.Contains(visibility.None) {
 		return false
 	}
+	// Check if there are any changes we care about by comparing `model.Service`s
 	if !preConv.Equals(currConv) {
 		return true
 	}
+	// Also check if target ports are changed since they are not included in `model.Service`
+	// `preConv.Equals(currConv)` already makes sure the length of ports is not changed
 	if prev != nil && curr != nil {
-		// check if target ports are changed
 		for i := 0; i < len(prev.Spec.Ports); i++ {
 			if prev.Spec.Ports[i].TargetPort != curr.Spec.Ports[i].TargetPort {
 				return true
