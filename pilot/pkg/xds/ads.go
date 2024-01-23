@@ -474,7 +474,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 
 	return true, model.ResourceDelta{
 		Subscribed: added,
-		// we donot need to set unsubscribed for StoW
+		// we do not need to set unsubscribed for StoW
 	}
 }
 
