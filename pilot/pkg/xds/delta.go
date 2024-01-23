@@ -16,6 +16,7 @@ package xds
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -382,10 +383,19 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
+	unchanged := slices.EqualUnordered(previousResources, currentResources)
 	// Spontaneous DeltaDiscoveryRequests from the client.
 	// This can be done to dynamically add or remove elements from the tracked resource_names set.
-	// In this case watches resources change.
-	unchanged := slices.EqualUnordered(previousResources, currentResources)
+	// In this case response_nonce is empty.
+	spontaneousReq := request.ResponseNonce == ""
+	if spontaneousReq && unchanged || !spontaneousReq && !unchanged {
+		// Not sure which is better, lets just log if they don't match for now and compare.
+		deltaLog.Errorf("ADS:%s: Spontaneous request and old ACK check mismatch: %v vs %v", stype, spontaneousReq, unchanged)
+		if features.EnableUnsafeAssertions {
+			panic(fmt.Sprintf("ADS:%s: Spontaneous request and old ACK check mismatch: %v vs %v", stype, spontaneousReq, unchanged))
+		}
+	}
+
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
 	if unchanged {
