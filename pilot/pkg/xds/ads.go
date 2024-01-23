@@ -467,7 +467,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	log.Debugf("ADS:%s: RESOURCE CHANGE added %v removed %v %s %s %s", stype,
 		added, removed, con.conID, request.VersionInfo, request.ResponseNonce)
 
-	// For non wildcard resource, if no new resources are subscribed, it means we donot need to push.
+	// For non wildcard resource, if no new resources are subscribed, it means we do not need to push.
 	if !isWildcardTypeURL(request.TypeUrl) && len(added) == 0 {
 		return false, emptyResourceDelta
 	}
