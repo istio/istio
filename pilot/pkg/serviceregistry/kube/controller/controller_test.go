@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -2924,5 +2925,61 @@ func TestStripPodUnusedFields(t *testing.T) {
 	expectPod.Status.Conditions = output.Status.Conditions
 	if !reflect.DeepEqual(expectPod, output) {
 		t.Fatalf("Wanted: %v\n. Got: %v", expectPod, output)
+	}
+}
+
+func TestServiceUpdateNeedsPush(t *testing.T) {
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 80, TargetPort: intstr.FromInt32(8080)}},
+		},
+	}
+	updatedSvc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 80, TargetPort: intstr.FromInt32(8081)}},
+		},
+	}
+
+	type testcase struct {
+		name     string
+		prev     *corev1.Service
+		curr     *corev1.Service
+		prevConv *model.Service
+		currConv *model.Service
+		expect   bool
+	}
+
+	tests := []testcase{
+		{
+			name:     "target ports changed",
+			prev:     &svc,
+			curr:     &updatedSvc,
+			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
+			currConv: kube.ConvertService(updatedSvc, constants.DefaultClusterLocalDomain, ""),
+			expect:   true,
+		},
+		{
+			name:     "target ports unchanged",
+			prev:     &svc,
+			curr:     &svc,
+			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
+			currConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
+			expect:   false,
+		},
+	}
+
+	for _, test := range tests {
+		actual := serviceUpdateNeedsPush(test.prev, test.curr, test.prevConv, test.currConv)
+		if actual != test.expect {
+			t.Fatalf("%s: expected %v, got %v", test.name, test.expect, actual)
+		}
 	}
 }
