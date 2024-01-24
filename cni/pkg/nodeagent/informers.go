@@ -33,8 +33,8 @@ import (
 var (
 	eventTypeTag = monitoring.CreateLabel("type")
 	EventTotals  = monitoring.NewSum(
-		"events_total",
-		"The total number of reconcile events.",
+		"nodeagent_reconcile_events_total",
+		"The total number of node agent reconcile events.",
 	)
 )
 

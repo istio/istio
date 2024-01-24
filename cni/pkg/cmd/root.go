@@ -47,7 +47,7 @@ var (
 
 var rootCmd = &cobra.Command{
 	Use:          "install-cni",
-	Short:        "Install and configure Istio CNI plugin on a node",
+	Short:        "Install and configure Istio CNI plugin on a node, detect and repair pod which is broken by race condition.",
 	SilenceUsage: true,
 	PreRunE: func(c *cobra.Command, args []string) error {
 		if err := log.Configure(logOptions); err != nil {
@@ -178,8 +178,6 @@ func init() {
 		"The UDS server address which CNI plugin will forward ambient pod creation events to")
 	registerStringParameter(constants.ZtunnelUDSAddress, "/var/run/ztunnel/ztunnel.sock", "The UDS server address which ztunnel will connect to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
-	registerBooleanParameter(constants.InpodEnabled, false, "Whether inpod redirection is enabled")
-	registerBooleanParameter(constants.EbpfEnabled, false, "Whether ebpf redirection is enabled")
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
@@ -262,8 +260,6 @@ func constructConfig() (*config.Config, error) {
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
 		AmbientEnabled: viper.GetBool(constants.AmbientEnabled),
-		EbpfEnabled:    viper.GetBool(constants.EbpfEnabled),
-		InpodEnabled:   viper.GetBool(constants.InpodEnabled),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {

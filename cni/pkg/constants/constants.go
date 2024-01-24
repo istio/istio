@@ -33,8 +33,6 @@ const (
 	ZtunnelUDSAddress    = "ztunnel-uds-address"
 	CNIEventAddress      = "cni-event-address"
 	AmbientEnabled       = "ambient-enabled"
-	InpodEnabled         = "inpod-enabled"
-	EbpfEnabled          = "ebpf-enabled"
 
 	// Repair
 	RepairEnabled            = "repair-enabled"
