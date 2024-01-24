@@ -79,12 +79,6 @@ type InstallConfig struct {
 
 	// Whether ambient is enabled
 	AmbientEnabled bool
-
-	// Whether ambient inpod mode is enabled
-	InpodEnabled bool
-
-	// Whether ambient ebpf is enabled
-	EbpfEnabled bool
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration

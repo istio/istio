@@ -209,7 +209,7 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 		"-j", "ACCEPT",
 	)
 
-	// CLI: -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp --sport <PROBEPORT> -j ACCEPT
+	// CLI: -t NAT -A ISTIO_OUTPUT -d 169.254.7.127 -p tcp -m tcp -j ACCEPT
 	//
 	// DESC: Anything coming BACK from the pod healthcheck port with a dest of our SNAT-ed hostside IP
 	// we also short-circuit.
