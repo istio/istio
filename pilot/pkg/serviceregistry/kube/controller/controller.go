@@ -372,7 +372,7 @@ func (c *Controller) Cleanup() error {
 	return nil
 }
 
-func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) error {
+func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) error {
 	log.Debugf("Handle event %s for service %s in namespace %s", event, curr.Name, curr.Namespace)
 
 	// Create the standard (cluster.local) service.
@@ -381,7 +381,7 @@ func (c *Controller) onServiceEvent(_, curr *v1.Service, event model.Event) erro
 	case model.EventDelete:
 		c.deleteService(svcConv)
 	default:
-		c.addOrUpdateService(curr, svcConv, event, false)
+		c.addOrUpdateService(pre, curr, svcConv, event, false)
 	}
 
 	return nil
@@ -410,7 +410,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.handlers.NotifyServiceHandlers(nil, svc, event)
 }
 
-func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
+func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -455,6 +455,11 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 		if len(endpoints) > 0 {
 			c.opts.XDSUpdater.EDSCacheUpdate(shard, string(currConv.Hostname), ns, endpoints)
 		}
+	}
+
+	// filter out same service event
+	if event == model.EventUpdate && !serviceUpdateNeedsPush(pre, curr, prevConv, currConv) {
+		return
 	}
 
 	c.opts.XDSUpdater.SvcUpdate(shard, string(currConv.Hostname), ns, event)
@@ -1196,4 +1201,27 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 		return []*model.Service{svc}
 	}
 	return nil
+}
+
+func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Service) bool {
+	if !features.EnableOptimizedServicePush {
+		return true
+	}
+	if preConv == nil {
+		return true
+	}
+	// Check if there are any changes we care about by comparing `model.Service`s
+	if !preConv.Equals(currConv) {
+		return true
+	}
+	// Also check if target ports are changed since they are not included in `model.Service`
+	// `preConv.Equals(currConv)` already makes sure the length of ports is not changed
+	if prev != nil && curr != nil {
+		for i := 0; i < len(prev.Spec.Ports); i++ {
+			if prev.Spec.Ports[i].TargetPort != curr.Spec.Ports[i].TargetPort {
+				return true
+			}
+		}
+	}
+	return false
 }
