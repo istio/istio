@@ -410,7 +410,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
-	if unchanged {
+	if !subChanged {
 		// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
 		// even though Nonce match and it looks like an ACK.
 		if alwaysRespond {
