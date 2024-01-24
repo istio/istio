@@ -45,6 +45,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/util/xdsfake"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config"
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/labels"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/config/protocol"
@@ -2867,46 +2868,86 @@ func TestServiceUpdateNeedsPush(t *testing.T) {
 		return s
 	}
 
-	tests := []struct {
-		name   string
-		prev   *model.Service
-		curr   *model.Service
-		expect bool
-	}{
+	type testcase struct {
+		name     string
+		prev     *corev1.Service
+		curr     *corev1.Service
+		prevConv *model.Service
+		currConv *model.Service
+		expect   bool
+	}
+
+	tests := []testcase{
 		{
-			name:   "no change",
-			prev:   newService(visibility.Public, []int{80}),
-			curr:   newService(visibility.Public, []int{80}),
-			expect: false,
+			name:     "no change",
+			prevConv: newService(visibility.Public, []int{80}),
+			currConv: newService(visibility.Public, []int{80}),
+			expect:   false,
 		},
 		{
-			name:   "new service",
-			prev:   nil,
-			curr:   newService(visibility.Public, []int{80}),
-			expect: true,
+			name:     "new service",
+			prevConv: nil,
+			currConv: newService(visibility.Public, []int{80}),
+			expect:   true,
 		},
 		{
-			name:   "new service with none visibility",
-			prev:   nil,
-			curr:   newService(visibility.None, []int{80}),
-			expect: false,
+			name:     "new service with none visibility",
+			prevConv: nil,
+			currConv: newService(visibility.None, []int{80}),
+			expect:   false,
 		},
 		{
-			name:   "public visibility, spec change",
-			prev:   newService(visibility.Public, []int{80}),
-			curr:   newService(visibility.Public, []int{80, 443}),
-			expect: true,
+			name:     "public visibility, spec change",
+			prevConv: newService(visibility.Public, []int{80}),
+			currConv: newService(visibility.Public, []int{80, 443}),
+			expect:   true,
 		},
 		{
-			name:   "none visibility, spec change",
-			prev:   newService(visibility.None, []int{80}),
-			curr:   newService(visibility.None, []int{80, 443}),
-			expect: false,
+			name:     "none visibility, spec change",
+			prevConv: newService(visibility.None, []int{80}),
+			currConv: newService(visibility.None, []int{80, 443}),
+			expect:   false,
 		},
 	}
 
+	svc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 80, TargetPort: intstr.FromInt32(8080)}},
+		},
+	}
+	updatedSvc := corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Spec: corev1.ServiceSpec{
+			Ports: []corev1.ServicePort{{Port: 80, TargetPort: intstr.FromInt32(8081)}},
+		},
+	}
+	tests = append(tests,
+		testcase{
+			name:     "target ports changed",
+			prev:     &svc,
+			curr:     &updatedSvc,
+			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
+			currConv: kube.ConvertService(updatedSvc, constants.DefaultClusterLocalDomain, ""),
+			expect:   true,
+		},
+		testcase{
+			name:     "target ports unchanged",
+			prev:     &svc,
+			curr:     &svc,
+			prevConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
+			currConv: kube.ConvertService(svc, constants.DefaultClusterLocalDomain, ""),
+			expect:   false,
+		})
+
 	for _, test := range tests {
-		actual := serviceUpdateNeedsPush(test.prev, test.curr)
+		actual := serviceUpdateNeedsPush(test.prev, test.curr, test.prevConv, test.currConv)
 		if actual != test.expect {
 			t.Fatalf("%s: expected %v, got %v", test.name, test.expect, actual)
 		}
