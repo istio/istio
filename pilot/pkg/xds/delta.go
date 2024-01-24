@@ -393,16 +393,18 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
-	unchanged := slices.EqualUnordered(previousResources, currentResources)
+	subChanged := !slices.EqualUnordered(previousResources, currentResources)
 	// Spontaneous DeltaDiscoveryRequests from the client.
 	// This can be done to dynamically add or remove elements from the tracked resource_names set.
 	// In this case response_nonce is empty.
 	spontaneousReq := request.ResponseNonce == ""
-	if spontaneousReq && unchanged || !spontaneousReq && !unchanged {
-		// Not sure which is better, lets just log if they don't match for now and compare.
-		deltaLog.Errorf("ADS:%s: Spontaneous request and old ACK check mismatch: %v vs %v", stype, spontaneousReq, unchanged)
+	// It is invalid in the below two cases:
+	// 1. no subscribed resources change from spontaneous delta request.
+	// 2. subscribed resources changes from ACK.
+	if spontaneousReq && !subChanged || !spontaneousReq && subChanged {
+		deltaLog.Errorf("ADS:%s: Subscribed resources check mismatch: %v vs %v", stype, spontaneousReq, subChanged)
 		if features.EnableUnsafeAssertions {
-			panic(fmt.Sprintf("ADS:%s: Spontaneous request and old ACK check mismatch: %v vs %v", stype, spontaneousReq, unchanged))
+			panic(fmt.Sprintf("ADS:%s: Subscribed resources check mismatch: %v vs %v", stype, spontaneousReq, subChanged))
 		}
 	}
 
