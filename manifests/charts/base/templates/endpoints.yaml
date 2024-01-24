@@ -6,7 +6,7 @@ metadata:
   {{- if .Values.pilot.enabled }}
   name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}-remote
   {{- else }}
-  name: istiod{{- if eq .Values.revision }}-{{ .Values.revision}}{{- end }}
+  name: istiod{{- if .Values.revision }}-{{ .Values.revision}}{{- end }}
   {{- end }}
   namespace: {{ .Release.Namespace }}
 subsets:
