@@ -372,6 +372,16 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		return true
 	}
 
+	// If there is mismatch in the nonce, that is a case of expired/stale nonce.
+	// A nonce becomes stale following a newer nonce being sent to Envoy.
+	// TODO: due to concurrent unsubscribe, this probably doesn't make sense. Do we need any logic here?
+	if request.ResponseNonce != "" && request.ResponseNonce != previousInfo.NonceSent {
+		deltaLog.Debugf("ADS:%s: REQ %s Expired nonce received %s, sent %s", stype,
+			con.conID, request.ResponseNonce, previousInfo.NonceSent)
+		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
+		return false
+	}
+
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
 	con.proxy.Lock()
