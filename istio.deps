@@ -4,7 +4,11 @@
     "name": "PROXY_REPO_SHA",
     "repoName": "proxy",
     "file": "",
+<<<<<<< HEAD
     "lastStableSHA": "8ef88431c588ecef298ed47d70fe13e7f4e7f781"
+=======
+    "lastStableSHA": "9cce369787e618941a0f879d4061188b0ead88d5"
+>>>>>>> 8c8721de00 (Automator: update proxy@master in istio/istio@master (#48947))
   },
   {
     "_comment": "",
