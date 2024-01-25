@@ -37,7 +37,6 @@ import (
 
 func TestProxyNeedsPush(t *testing.T) {
 	const (
-		invalidKind    = "INVALID_KIND"
 		svcName        = "svc1.com"
 		privateSvcName = "private.com"
 		drName         = "dr1"
@@ -59,7 +58,7 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	sidecar := &model.Proxy{
 		Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{},
-		SidecarScope: &model.SidecarScope{Name: generalName, Namespace: nsName, RootNamespace: nsRoot},
+		SidecarScope: &model.SidecarScope{Name: generalName, Namespace: nsName},
 	}
 	gateway := &model.Proxy{
 		Type:     model.Router,
@@ -252,6 +251,7 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			cg.PushContext().Mesh.RootNamespace = nsRoot
 			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
