@@ -986,6 +986,7 @@ func TestPushQueueLeak(t *testing.T) {
 }
 
 func TestDistribution(t *testing.T) {
+	xds.ResetConnectionNumberForTest()
 	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	expectNonce := func(nonce, ty string) {
 		t.Helper()

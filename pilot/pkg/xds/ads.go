@@ -575,6 +575,11 @@ func connectionID(node string) string {
 	return node + "-" + strconv.FormatInt(id, 10)
 }
 
+// Only used for test
+func ResetConnectionNumberForTest() {
+	atomic.StoreInt64(&connectionNumber, 0)
+}
+
 // initProxyMetadata initializes just the basic metadata of a proxy. This is decoupled from
 // initProxyState such that we can perform authorization before attempting expensive computations to
 // fully initialize the proxy.
