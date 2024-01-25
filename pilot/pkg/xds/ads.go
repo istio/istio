@@ -453,23 +453,28 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	removed := prev.Difference(cur)
 	added := cur.Difference(prev)
 
-	if len(removed) == 0 && len(added) == 0 {
-		// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
-		// even though Nonce match and it looks like an ACK.
-		if alwaysRespond {
-			log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
-			return true, emptyResourceDelta
-		}
+	// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
+	// even though Nonce match and it looks like an ACK.
+	if alwaysRespond {
+		log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
+		return true, emptyResourceDelta
+	}
 
+	if len(removed) == 0 && len(added) == 0 {
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false, emptyResourceDelta
 	}
 	log.Debugf("ADS:%s: RESOURCE CHANGE added %v removed %v %s %s %s", stype,
 		added, removed, con.conID, request.VersionInfo, request.ResponseNonce)
 
+	// For non wildcard resource, if no new resources are subscribed, it means we do not need to push.
+	if !isWildcardTypeURL(request.TypeUrl) && len(added) == 0 {
+		return false, emptyResourceDelta
+	}
+
 	return true, model.ResourceDelta{
-		Subscribed:   added,
-		Unsubscribed: removed,
+		Subscribed: added,
+		// we do not need to set unsubscribed for StoW
 	}
 }
 
