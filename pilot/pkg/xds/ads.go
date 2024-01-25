@@ -436,7 +436,7 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	}
 
 	if s.StatusReporter != nil && AllTrackingEventTypes.Contains(request.TypeUrl) {
-		reportAllEvents(con, s.StatusReporter, request.TypeUrl, request.ResponseNonce)
+		reportEvents(con, s.StatusReporter, request.TypeUrl, request.ResponseNonce)
 	}
 
 	// If it comes here, that means nonce match.
@@ -753,7 +753,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		log.Debugf("Skipping push to %v, no updates required", con.conID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version.
-			reportAllEvents(con, s.StatusReporter, "", pushRequest.Push.LedgerVersion)
+			reportAllEventsForProxyNoPush(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 		}
 		return nil
 	}
@@ -989,20 +989,11 @@ func (conn *Connection) orderWatchedResources() []*model.WatchedResource {
 	return wr
 }
 
-// reportAllEvents is to simplify the logic of reporting events to the status reporter.
-// 1. if typeUrl is empty, report all events
-// 2. if typeUrl is not empty, report the given event type and all tracking event types that are not being watched.
+// reportEvents is to report events for the given type and all tracking types that are not being watched.
 // e.g. there is no rds if no route configured for gateway.
 // nolint
-func reportAllEvents(con *Connection, statusReporter DistributionStatusCache, typeUrl, nonce string) {
+func reportEvents(con *Connection, statusReporter DistributionStatusCache, typeUrl, nonce string) {
 	if statusReporter == nil {
-		return
-	}
-	// if typeUrl is empty, report all events
-	if typeUrl == "" {
-		for distributionType := range AllTrackingEventTypes {
-			statusReporter.RegisterEvent(con.conID, distributionType, nonce)
-		}
 		return
 	}
 
@@ -1020,5 +1011,15 @@ func reportAllEvents(con *Connection, statusReporter DistributionStatusCache, ty
 	con.proxy.RUnlock()
 	for tyeUrl := range unWatched {
 		statusReporter.RegisterEvent(con.conID, tyeUrl, nonce)
+	}
+}
+
+// reportAllEventsForProxyNoPush reports all tracking events for a proxy without need to push xds.
+func reportAllEventsForProxyNoPush(con *Connection, statusReporter DistributionStatusCache, nonce string) {
+	if statusReporter == nil {
+		return
+	}
+	for distributionType := range AllTrackingEventTypes {
+		statusReporter.RegisterEvent(con.conID, distributionType, nonce)
 	}
 }

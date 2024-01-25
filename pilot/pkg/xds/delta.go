@@ -162,7 +162,7 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		deltaLog.Debugf("Skipping push to %v, no updates required", con.conID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version
-			reportAllEvents(con, s.StatusReporter, "", pushRequest.Push.LedgerVersion)
+			reportAllEventsForProxyNoPush(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 		}
 		return nil
 	}
@@ -377,7 +377,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	}
 
 	if s.StatusReporter != nil && AllTrackingEventTypes.Contains(request.TypeUrl) {
-		reportAllEvents(con, s.StatusReporter, request.TypeUrl, request.ResponseNonce)
+		reportEvents(con, s.StatusReporter, request.TypeUrl, request.ResponseNonce)
 	}
 
 	// If it comes here, that means nonce match. This an ACK. We should record
