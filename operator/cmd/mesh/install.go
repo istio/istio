@@ -183,7 +183,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
 	err = detectDefaultWebhookChange(p, kubeClient, iop, exists)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to detect the default webhook change: %v", err)
 	}
 
 	// Warn users if they use `istioctl install` without any config args.
