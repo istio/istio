@@ -57,14 +57,6 @@ func AddRootFlags(flags *pflag.FlagSet) *RootFlags {
 	return r
 }
 
-func (r *RootFlags) KubeConfig() string {
-	return *r.kubeconfig
-}
-
-func (r *RootFlags) KubeContext() string {
-	return *r.configContext
-}
-
 // Namespace returns the namespace flag value.
 func (r *RootFlags) Namespace() string {
 	return *r.namespace
@@ -78,12 +70,12 @@ func (r *RootFlags) IstioNamespace() string {
 // DefaultNamespace returns the default namespace to use.
 func (r *RootFlags) DefaultNamespace() string {
 	if r.defaultNamespace == "" {
-		r.ConfigureDefaultNamespace()
+		r.configureDefaultNamespace()
 	}
 	return r.defaultNamespace
 }
 
-func (r *RootFlags) ConfigureDefaultNamespace() {
+func (r *RootFlags) configureDefaultNamespace() {
 	configAccess := clientcmd.NewDefaultPathOptions()
 
 	kubeconfig := *r.kubeconfig
