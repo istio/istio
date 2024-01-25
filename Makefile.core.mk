@@ -245,6 +245,9 @@ STANDARD_TAGS=disable_pgv,vtprotobuf
 build: depend ## Builds all go binaries.
 	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
 	GOOS=$(GOOS_LOCAL) GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT)/ -tags=$(AGENT_TAGS) $(AGENT_BINARIES)
+	ln -sf $(TARGET_OUT)/pilot-agent $(TARGET_OUT)/sleep
+	ln -sf $(TARGET_OUT)/pilot-agent $(TARGET_OUT)/sh
+	ln -sf $(TARGET_OUT)/pilot-agent $(TARGET_OUT)/bash
 
 # The build-linux target is responsible for building binaries used within containers.
 # This target should be expanded upon as we add more Linux architectures: i.e. build-arm64.
@@ -254,6 +257,9 @@ build: depend ## Builds all go binaries.
 build-linux: depend
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(STANDARD_TAGS) $(STANDARD_BINARIES)
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(AGENT_TAGS) $(LINUX_AGENT_BINARIES)
+	ln -sf $(TARGET_OUT)/pilot-agent $(TARGET_OUT)/sleep
+	ln -sf $(TARGET_OUT)/pilot-agent $(TARGET_OUT)/sh
+	ln -sf $(TARGET_OUT)/pilot-agent $(TARGET_OUT)/bash
 
 # Create targets for TARGET_OUT_LINUX/binary
 # There are two use cases here:
@@ -268,6 +274,9 @@ $(TARGET_OUT_LINUX)/$(shell basename $(1)): build-linux
 else
 $(TARGET_OUT_LINUX)/$(shell basename $(1)): $(TARGET_OUT_LINUX)
 	GOOS=linux GOARCH=$(GOARCH_LOCAL) LDFLAGS=$(RELEASE_LDFLAGS) common/scripts/gobuild.sh $(TARGET_OUT_LINUX)/ -tags=$(2) $(1)
+	ln -sf $(TARGET_OUT)/pilot-agent $(TARGET_OUT)/sleep
+	ln -sf $(TARGET_OUT)/pilot-agent $(TARGET_OUT)/sh
+	ln -sf $(TARGET_OUT)/pilot-agent $(TARGET_OUT)/bash
 endif
 endef
 

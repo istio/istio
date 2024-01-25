@@ -32,6 +32,9 @@ images:
   - tools/packaging/common/envoy_bootstrap.json
   - tools/packaging/common/gcp_envoy_bootstrap.json
   - ${TARGET_OUT_LINUX}/${RELEASE_MODE}/${SIDECAR}
+  -  ${TARGET_OUT_LINUX}/sleep
+  -  ${TARGET_OUT_LINUX}/sh
+  -  ${TARGET_OUT_LINUX}/bash
   targets:
   - ${TARGET_OUT_LINUX}/pilot-agent
 - name: pilot

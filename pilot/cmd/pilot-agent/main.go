@@ -15,6 +15,7 @@
 package main
 
 import (
+	"istio.io/istio/pkg/util/sets"
 	"os"
 
 	"istio.io/istio/pilot/cmd/pilot-agent/app"
@@ -23,9 +24,19 @@ import (
 
 // TODO: get the config and bootstrap from istiod, by passing the env
 
+var busybox = sets.New(
+	"/usr/bin/sleep", "sleep",
+	"/usr/bin/sh", "sh",
+	"/usr/bin/bash", "bash",
+	)
+
 // Use env variables - from injection, k8s and local namespace config map.
 // No CLI parameters.
 func main() {
+	if busybox.Contains(os.Args[0]) {
+		app.RunBusybox()
+		return
+	}
 	log.EnableKlogWithCobra()
 	rootCmd := app.NewRootCommand()
 	if err := rootCmd.Execute(); err != nil {

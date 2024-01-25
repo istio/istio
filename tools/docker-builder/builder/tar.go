@@ -27,6 +27,11 @@ func WriteArchiveFromFiles(base string, files map[string]string, out io.Writer) 
 	tw := tar.NewWriter(out)
 	defer tw.Close()
 
+	rev := map[string]string{}
+	for k, v := range files {
+		rev[v] = k
+	}
+
 	for dest, srcRel := range files {
 		src := srcRel
 		if !filepath.IsAbs(src) {
@@ -40,7 +45,7 @@ func WriteArchiveFromFiles(base string, files map[string]string, out io.Writer) 
 		ts := src
 		write := func(src string) error {
 			rel, _ := filepath.Rel(ts, src)
-			info, err := os.Stat(src)
+			info, err := os.Lstat(src)
 			if err != nil {
 				return err
 			}
@@ -50,6 +55,9 @@ func WriteArchiveFromFiles(base string, files map[string]string, out io.Writer) 
 				// fs.FS does not implement readlink, so we have this hack for now.
 				if link, err = os.Readlink(src); err != nil {
 					return err
+				}
+				if l2, f := rev[link]; f {
+					link = l2
 				}
 			}
 
