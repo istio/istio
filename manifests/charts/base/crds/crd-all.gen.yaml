@@ -8228,7 +8228,7 @@ spec:
                             nullable: true
                             type: boolean
                           match:
-                            description: Match allows provides the scope of the override.
+                            description: Match allows providing the scope of the override.
                             oneOf:
                             - not:
                                 anyOf:
@@ -8246,8 +8246,8 @@ spec:
                                 minLength: 1
                                 type: string
                               metric:
-                                description: One of the well-known Istio Standard
-                                  Metrics.
+                                description: One of the well-known [Istio Standard
+                                  Metrics](https://istio.io/latest/docs/reference/config/metrics/).
                                 enum:
                                 - ALL_METRICS
                                 - REQUEST_COUNT
@@ -8263,7 +8263,7 @@ spec:
                                 type: string
                               mode:
                                 description: 'Controls which mode of metrics generation
-                                  is selected: CLIENT and/or SERVER.'
+                                  is selected: `CLIENT`, `SERVER`, or `CLIENT_AND_SERVER`.'
                                 enum:
                                 - CLIENT_AND_SERVER
                                 - CLIENT
