@@ -276,9 +276,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
-	if s.StatusReporter != nil && AllTrackingEventTypes.Contains(req.TypeUrl) {
-		reportAllEvents(con, s.StatusReporter, req.TypeUrl, req.ResponseNonce)
-	}
+
 	shouldRespond := s.shouldRespondDelta(con, req)
 	if !shouldRespond {
 		return nil
@@ -376,6 +374,10 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 			con.conID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		return false
+	}
+
+	if s.StatusReporter != nil && AllTrackingEventTypes.Contains(request.TypeUrl) {
+		reportAllEvents(con, s.StatusReporter, request.TypeUrl, request.ResponseNonce)
 	}
 
 	// If it comes here, that means nonce match. This an ACK. We should record

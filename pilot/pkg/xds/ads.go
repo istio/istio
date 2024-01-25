@@ -220,10 +220,6 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
 
-	if s.StatusReporter != nil && AllTrackingEventTypes.Contains(req.TypeUrl) {
-		reportAllEvents(con, s.StatusReporter, req.TypeUrl, req.ResponseNonce)
-	}
-
 	shouldRespond, delta := s.shouldRespond(con, req)
 	if !shouldRespond {
 		return nil
@@ -437,6 +433,10 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 			con.conID, request.ResponseNonce, previousInfo.NonceSent)
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		return false, emptyResourceDelta
+	}
+
+	if s.StatusReporter != nil && AllTrackingEventTypes.Contains(request.TypeUrl) {
+		reportAllEvents(con, s.StatusReporter, request.TypeUrl, request.ResponseNonce)
 	}
 
 	// If it comes here, that means nonce match.
