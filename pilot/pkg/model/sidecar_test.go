@@ -16,7 +16,6 @@ package model
 
 import (
 	"encoding/json"
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
@@ -2348,7 +2347,7 @@ func TestCreateSidecarScope(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		t.Run(fmt.Sprintf("%s", tt.name), func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			var serviceFound bool
 			var portsMatched bool
 			ps := NewPushContext()
