@@ -993,6 +993,7 @@ func TestDistribution(t *testing.T) {
 			return s.Discovery.StatusReporter.QueryLastNonce("test.default-1", ty)
 		}, nonce[:xds.VersionLen])
 	}
+
 	ledger := ledger.Make(time.Minute)
 	ledger.Put("key", "value") // If there is no config, ledger would be empty
 	s.Env().SetLedger(ledger)
@@ -1005,6 +1006,7 @@ func TestDistribution(t *testing.T) {
 	ads := s.ConnectADS().WithType(v3.ClusterType)
 	// Subscribe to clusters
 	res1 := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
+	expectNonce(res1.Nonce, v3.ClusterType)
 
 	// Send a push
 	s.Discovery.Push(&model.PushRequest{Full: true, Push: s.Env().PushContext()})
