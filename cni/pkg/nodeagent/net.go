@@ -319,7 +319,6 @@ func (s *NetServer) syncHostIPSets(ambientPods []*corev1.Pod) error {
 
 // addPodToHostNSIpset:
 // 1. get pod manifest
-// 2. look for probes of the 3 kinds
 // 2. Get all pod ips (might be several, v6/v4)
 // 3. update ipsets accordingly
 func addPodToHostNSIpset(pod *corev1.Pod, podIPs []netip.Addr, hostsideProbeSet *ipset.IPSet) error {
