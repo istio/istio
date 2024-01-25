@@ -381,7 +381,7 @@ func setupTest(t testing.TB, config ConfigInput) (*xds.FakeDiscoveryServer, *mod
 				"istio.io/benchmark": "true",
 			},
 			ClusterID:    "Kubernetes",
-			IstioVersion: "1.21.0",
+			IstioVersion: "1.22.0",
 		},
 		ConfigNamespace:  "default",
 		VerifiedIdentity: &spiffe.Identity{Namespace: "default"},
