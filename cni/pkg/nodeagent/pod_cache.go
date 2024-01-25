@@ -60,10 +60,8 @@ func (p *podNetnsCache) UpsertPodCacheWithNetns(uid string, newnetns NetnsCloser
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if existingNs := p.currentPodCache[uid]; existingNs != nil {
-		if newnetns == nil || (existingNs.Inode() == newnetns.Inode()) {
-			if newnetns != nil {
-				newnetns.Close()
-			}
+		if (existingNs.Inode() == newnetns.Inode()) {
+			newnetns.Close()
 			// already in cache
 			return existingNs
 		}
@@ -93,9 +91,7 @@ func (p *podNetnsCache) Ensure(uid string) {
 }
 
 func (p *podNetnsCache) addToCacheUnderLock(uid string, newnetns NetnsCloser) {
-	if newnetns != nil {
-		runtime.SetFinalizer(newnetns, closeNetns)
-	}
+	runtime.SetFinalizer(newnetns, closeNetns)
 	p.currentPodCache[uid] = newnetns
 }
 
