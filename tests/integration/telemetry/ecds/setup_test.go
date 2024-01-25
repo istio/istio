@@ -62,7 +62,7 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 values:
   pilot:
     env:
-      ENABLE_ECDS_FOR_STATS: "true"
+      EXPERIMENTAL_ENABLE_ECDS_FOR_STATS: "true"
 `
 }
 

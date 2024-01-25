@@ -3,4 +3,4 @@ kind: feature
 area: telemetry
 releaseNotes:
   - |
-    **Added** experimental feature send stats configuration with ECDS, guarded by pilot environment flag `ENABLE_ECDS_FOR_STATS`.
+    **Added** experimental feature send stats configuration with ECDS, guarded by pilot environment flag `EXPERIMENTAL_ENABLE_ECDS_FOR_STATS`.

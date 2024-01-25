@@ -32,7 +32,7 @@ import (
 )
 
 func TestHTTPTypedExtensionConfigFilters(t *testing.T) {
-	t.Setenv("ENABLE_ECDS_FOR_STATS", "true")
+	t.Setenv("EXPERIMENTAL_ENABLE_ECDS_FOR_STATS", "true")
 
 	sidecar := &Proxy{
 		ConfigNamespace: "default",
@@ -138,7 +138,7 @@ func TestHTTPTypedExtensionConfigFilters(t *testing.T) {
 }
 
 func TestTCPTypedExtensionConfigFilters(t *testing.T) {
-	t.Setenv("ENABLE_ECDS_FOR_STATS", "true")
+	t.Setenv("EXPERIMENTAL_ENABLE_ECDS_FOR_STATS", "true")
 
 	sidecar := &Proxy{
 		ConfigNamespace: "default",
