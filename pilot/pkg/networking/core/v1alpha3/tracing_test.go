@@ -15,6 +15,7 @@
 package v1alpha3
 
 import (
+	"errors"
 	"testing"
 
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
@@ -936,5 +937,80 @@ func fakeOpenTelemetryResourceDetectorsProvider(expectClusterName, expectAuthori
 	return &tracingcfg.Tracing_Http{
 		Name:       envoyOpenTelemetry,
 		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelHTTPAny},
+	}
+}
+
+func TestGetHostCluster(t *testing.T) {
+	push := &model.PushContext{
+		Mesh: &meshconfig.MeshConfig{
+			RootNamespace: "istio-system",
+			TrustDomain:   "cluster.local",
+		},
+	}
+	clusterLookupFn = func(push *model.PushContext, service string, port int) (hostname string, cluster string, err error) {
+		if service == "zipkin.istio-system.svc.cluster.local" {
+			return "zipkin.istio-system.svc.cluster.local", "outbound|9411||zipkin.istio-system.svc.cluster.local", nil
+		}
+
+		if service == "zipkin.example.com" {
+			return "zipkin.example.com", "outbound|9411||zipkin.example.com", nil
+		}
+
+		return "", "", errors.New("unknown service")
+	}
+	defer func() {
+		clusterLookupFn = model.LookupCluster
+	}()
+
+	cases := []struct {
+		name             string
+		address          string
+		expectedError    bool
+		expectedCluster  string
+		expectedHostname string
+	}{
+		{
+			name:             "default",
+			address:          "zipkin.istio-system:9411",
+			expectedCluster:  "outbound|9411||zipkin.istio-system.svc.cluster.local",
+			expectedHostname: "zipkin.istio-system.svc.cluster.local",
+		},
+		{
+			name:             "short name",
+			address:          "zipkin:9411",
+			expectedCluster:  "outbound|9411||zipkin.istio-system.svc.cluster.local",
+			expectedHostname: "zipkin.istio-system.svc.cluster.local",
+		},
+		{
+			name:             "with svc",
+			address:          "zipkin.istio-system.svc:9411",
+			expectedCluster:  "outbound|9411||zipkin.istio-system.svc.cluster.local",
+			expectedHostname: "zipkin.istio-system.svc.cluster.local",
+		},
+		{
+			name:             "fqdn",
+			address:          "zipkin.istio-system.svc.cluster.local:9411",
+			expectedCluster:  "outbound|9411||zipkin.istio-system.svc.cluster.local",
+			expectedHostname: "zipkin.istio-system.svc.cluster.local",
+		},
+		{
+			name:             "outside mesh",
+			address:          "zipkin.example.com:9411",
+			expectedCluster:  "outbound|9411||zipkin.example.com",
+			expectedHostname: "zipkin.example.com",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			hostname, cluster, err := getHostCluster(push, tc.address)
+			if tc.expectedError {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.expectedCluster, cluster)
+				assert.Equal(t, tc.expectedHostname, hostname)
+			}
+		})
 	}
 }

@@ -717,6 +717,7 @@ func getHostCluster(push *model.PushContext, address string) (string, string, er
 	}
 	hostname, clusterName, err := clusterLookupFn(push, string(h), p)
 	if err != nil {
+		// TODO: extend model.ResolveShortnameToFQDN to support short service name(zipkin.istio-system)
 		// support short service names for tracing providers, e.g. "zipkin.istio-system:9411"
 		if len(strings.Split(host, ".")) == 2 {
 			hostname, clusterName, err = clusterLookupFn(push, fmt.Sprintf("%s.svc.%s", host, push.Mesh.TrustDomain), p)
