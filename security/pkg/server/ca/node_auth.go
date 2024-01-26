@@ -65,7 +65,8 @@ type MulticlusterNodeAuthorizor struct {
 }
 
 func NewMulticlusterNodeAuthenticator(filter func(t any) bool, trustedNodeAccounts map[types.NamespacedName]struct{},
-	addClusterHandler func(multicluster.ClusterHandler)) *MulticlusterNodeAuthorizor {
+	addClusterHandler func(multicluster.ClusterHandler),
+) *MulticlusterNodeAuthorizor {
 	m := &MulticlusterNodeAuthorizor{
 		remoteNodeAuthenticators: map[cluster.ID]*ClusterNodeAuthorizer{},
 		ztunnelPodsClient:        map[cluster.ID]kclient.Client[*v1.Pod]{},
@@ -164,7 +165,8 @@ type ClusterNodeAuthorizer struct {
 }
 
 func NewClusterNodeAuthorizer(client kube.Client, filter func(t any) bool,
-	trustedNodeAccounts map[types.NamespacedName]struct{}) (*ClusterNodeAuthorizer, error) {
+	trustedNodeAccounts map[types.NamespacedName]struct{},
+) (*ClusterNodeAuthorizer, error) {
 	pods := kclient.NewFiltered[*v1.Pod](client, kclient.Filter{
 		ObjectFilter:    filter,
 		ObjectTransform: kube.StripPodUnusedFields,
