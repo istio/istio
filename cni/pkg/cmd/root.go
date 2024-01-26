@@ -24,12 +24,12 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
-	"istio.io/istio/cni/pkg/ambient"
 	"istio.io/istio/cni/pkg/config"
 	"istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/install"
 	udsLog "istio.io/istio/cni/pkg/log"
 	"istio.io/istio/cni/pkg/monitoring"
+	"istio.io/istio/cni/pkg/nodeagent"
 	"istio.io/istio/cni/pkg/repair"
 	"istio.io/istio/pkg/cmd"
 	"istio.io/istio/pkg/collateral"
@@ -79,31 +79,45 @@ var rootCmd = &cobra.Command{
 			return
 		}
 
+		// Creates a basic health endpoint server that reports health status
+		// based on atomic flag, as set by installer
+		// TODO nodeagent watch server should affect this too, and drop atomic flag
+		installDaemonReady, watchServerReady := nodeagent.StartHealthServer()
+
 		if cfg.InstallConfig.AmbientEnabled {
 			// Start ambient controller
-			redirectMode := ambient.IptablesMode
-			if cfg.InstallConfig.EbpfEnabled {
-				redirectMode = ambient.EbpfMode
-			}
-			server, err := ambient.NewServer(ctx, ambient.AmbientArgs{
-				SystemNamespace: ambient.PodNamespace,
-				Revision:        ambient.Revision,
-				RedirectMode:    redirectMode,
-				LogLevel:        cfg.InstallConfig.LogLevel,
-			})
+
+			// node agent will spawn a goroutine and watch the K8S API for events,
+			// as well as listen for messages from the CNI binary.
+			log.Info("Starting ambient node agent with inpod redirect mode")
+			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cfg.InstallConfig.CNIEventAddress,
+				nodeagent.AmbientArgs{
+					SystemNamespace: nodeagent.PodNamespace,
+					Revision:        nodeagent.Revision,
+					ServerSocket:    cfg.InstallConfig.ZtunnelUDSAddress,
+					DNSCapture:      cfg.InstallConfig.AmbientDNSCapture,
+				})
 			if err != nil {
-				return fmt.Errorf("failed to create ambient informer service: %v", err)
+				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
 			}
-			server.Start()
-			defer server.Stop()
+
+			ambientAgent.Start()
+			defer ambientAgent.Stop()
+
+			log.Info("Ambient node agent started, starting installer...")
+
+		} else {
+			// Ambient not enabled, so this readiness flag is no-op'd
+			watchServerReady.Store(true)
 		}
 
-		isReady := install.StartServer()
-
-		installer := install.NewInstaller(&cfg.InstallConfig, isReady)
+		installer := install.NewInstaller(&cfg.InstallConfig, installDaemonReady)
 
 		repair.StartRepair(ctx, cfg.RepairConfig)
 
+		log.Info("Installer created, watching node CNI dir")
+		// installer.Run() will block indefinitely, and attempt to permanently "keep"
+		// the CNI binary installed.
 		if err = installer.Run(ctx); err != nil {
 			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 				log.Infof("installer complete: %v", err)
@@ -161,8 +175,10 @@ func init() {
 	registerBooleanParameter(constants.SkipTLSVerify, false, "Whether to use insecure TLS in kubeconfig file")
 	registerIntegerParameter(constants.MonitoringPort, 15014, "HTTP port to serve prometheus metrics")
 	registerStringParameter(constants.LogUDSAddress, "/var/run/istio-cni/log.sock", "The UDS server address which CNI plugin will copy log output to")
+	registerStringParameter(constants.CNIEventAddress, "/var/run/istio-cni/pluginevent.sock",
+		"The UDS server address which CNI plugin will forward ambient pod creation events to")
+	registerStringParameter(constants.ZtunnelUDSAddress, "/var/run/ztunnel/ztunnel.sock", "The UDS server address which ztunnel will connect to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
-	registerBooleanParameter(constants.EbpfEnabled, false, "Whether ebpf redirection is enabled")
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
@@ -237,13 +253,15 @@ func constructConfig() (*config.Config, error) {
 		K8sServicePort:     os.Getenv("KUBERNETES_SERVICE_PORT"),
 		K8sNodeName:        os.Getenv("KUBERNETES_NODE_NAME"),
 
-		CNIBinSourceDir:  constants.CNIBinDir,
-		CNIBinTargetDirs: []string{constants.HostCNIBinDir},
-		MonitoringPort:   viper.GetInt(constants.MonitoringPort),
-		LogUDSAddress:    viper.GetString(constants.LogUDSAddress),
+		CNIBinSourceDir:   constants.CNIBinDir,
+		CNIBinTargetDirs:  []string{constants.HostCNIBinDir},
+		MonitoringPort:    viper.GetInt(constants.MonitoringPort),
+		LogUDSAddress:     viper.GetString(constants.LogUDSAddress),
+		CNIEventAddress:   viper.GetString(constants.CNIEventAddress),
+		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
-		AmbientEnabled: viper.GetBool(constants.AmbientEnabled),
-		EbpfEnabled:    viper.GetBool(constants.EbpfEnabled),
+		AmbientEnabled:    viper.GetBool(constants.AmbientEnabled),
+		AmbientDNSCapture: viper.GetBool(constants.AmbientDNSCapture),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {
