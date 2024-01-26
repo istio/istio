@@ -20,7 +20,7 @@ import (
 
 	. "github.com/onsi/gomega"
 
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
+	kube2 "istio.io/istio/pkg/config/analysis/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 )
 
