@@ -333,9 +333,9 @@ type CNIConfig struct {
 	ResourceQuotas *ResourceQuotas `protobuf:"bytes,16,opt,name=resource_quotas,json=resourceQuotas,proto3" json:"resource_quotas,omitempty"`
 	// The k8s resource requests and limits for the istio-cni Pods.
 	Resources *Resources `protobuf:"bytes,17,opt,name=resources,proto3" json:"resources,omitempty"`
-	// Allow the istio-cni container to run in privileged mode, needed for some platforms (e.g. OpenShift) or features (repairPods).
-	// Note that even if this is false, the `istio-cni` container *requires* root privileges on the node to function,
-	// and setting this to false does not change that, nor will it run the container as non-root or make it "un-privileged".
+	// No longer used for CNI. See: https://github.com/istio/istio/issues/49004
+	//
+	// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 	Privileged *wrapperspb.BoolValue `protobuf:"bytes,18,opt,name=privileged,proto3" json:"privileged,omitempty"`
 	// The Container seccompProfile
 	//
@@ -521,6 +521,7 @@ func (x *CNIConfig) GetResources() *Resources {
 	return nil
 }
 
+// Deprecated: Marked as deprecated in pkg/apis/istio/v1alpha1/values_types.proto.
 func (x *CNIConfig) GetPrivileged() *wrapperspb.BoolValue {
 	if x != nil {
 		return x.Privileged
@@ -714,7 +715,7 @@ type CNIRepairConfig struct {
 	// The mode defines the action the controller will take when a pod is detected as broken.
 	// If repairPods is true, the controller will dynamically repair any broken pod by setting up the pod networking configuration even after it has started.
 	// Note the pod will be crashlooping, so this may take a few minutes to become fully functional based on when the retry occurs.
-	// This requires no RBAC privilege, but does require `securityContext.privileged`.
+	// This requires no RBAC privilege, but will require the CNI agent to run as a privileged pod.
 	RepairPods bool `protobuf:"varint,11,opt,name=repairPods,proto3" json:"repairPods,omitempty"`
 	// No longer used.
 	//
