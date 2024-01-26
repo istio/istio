@@ -33,6 +33,7 @@ const (
 	ZtunnelUDSAddress    = "ztunnel-uds-address"
 	CNIEventAddress      = "cni-event-address"
 	AmbientEnabled       = "ambient-enabled"
+	AmbientDNSCapture    = "ambient-dns-capture"
 
 	// Repair
 	RepairEnabled            = "repair-enabled"

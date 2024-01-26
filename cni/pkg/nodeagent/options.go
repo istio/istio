@@ -43,4 +43,5 @@ type AmbientArgs struct {
 	Revision        string
 	KubeConfig      string
 	ServerSocket    string
+	DNSCapture      bool
 }

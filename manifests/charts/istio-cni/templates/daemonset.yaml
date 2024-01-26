@@ -127,6 +127,10 @@ spec:
               value: "{{ .Values.cni.chained }}"
             - name: REPAIR_ENABLED
               value: "{{ .Values.cni.repair.enabled }}"
+{{- if .Values.cni.ambient.enabled }}
+            - name: AMBIENT_DNS_CAPTURE
+              value: "{{ .Values.cni.ambient.dnsCapture }}"
+{{- end }}
             - name: REPAIR_NODE_NAME
               valueFrom:
                 fieldRef:

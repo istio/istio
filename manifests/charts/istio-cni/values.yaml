@@ -55,6 +55,8 @@ defaults:
       enabled: false
       # Set ambient config dir path: defaults to /etc/ambient-config
       configDir: ""
+      # If enabled, and ambient is enabled, DNS redirection will be enabled
+      dnsCapture: false
 
 
     repair:
