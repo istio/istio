@@ -70,7 +70,6 @@ func TestExistingPodAddedWhenNsLabeled(t *testing.T) {
 		netServer:  fs,
 	}
 
-	server.Start(ctx)
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
 	go handlers.Start()
@@ -471,7 +470,6 @@ func TestExistingPodAddedWhenItPreExists(t *testing.T) {
 		kubeClient: client.Kube(),
 		netServer:  fs,
 	}
-	server.Start(ctx)
 
 	handlers := setupHandlers(ctx, client, server, "istio-system")
 	client.RunAndWait(ctx.Done())
