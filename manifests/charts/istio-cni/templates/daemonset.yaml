@@ -84,18 +84,18 @@ spec:
             runAsGroup: 0
             runAsUser: 0
             runAsNonRoot: false
-{{- if .Values.cni.ambient.enabled }}
+            # Both ambient and sidecar repair mode require elevated node privileges to function.
+{{- if or .Values.cni.ambient.enabled .Values.cni.repair.enabled }}
             capabilities:
               drop:
               - ALL
               add:
               - NET_ADMIN
+              - NET_RAW
               # TODO this, `privileged`, etc need to be reworked - both sidecar (repair) and ambient require SYS_ADMIN
               # and istio-cni is *always* privileged to some degree, regardless of the `privileged` flag
               - SYS_ADMIN
-              - NET_RAW
 {{- end }}
-            privileged: {{ .Values.cni.privileged }}
 {{- if .Values.cni.seccompProfile }}
             seccompProfile:
 {{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
