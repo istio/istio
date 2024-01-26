@@ -20,6 +20,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
+
+	"istio.io/istio/pkg/maps"
 )
 
 var ErrPodNotFound = errors.New("netns not provided, but is needed as pod is not in cache")
@@ -102,13 +104,8 @@ func closeNetns(netns NetnsCloser) {
 func (p *podNetnsCache) ReadCurrentPodSnapshot() map[string]Netns {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
-
 	// snapshot the cache to avoid long locking
-	snap := make(map[string]Netns)
-	for key, value := range p.currentPodCache {
-		snap[key] = value
-	}
-	return snap
+	return maps.Clone(p.currentPodCache)
 }
 
 // Remove and return the Netns for the given uid
