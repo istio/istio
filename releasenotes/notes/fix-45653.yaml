@@ -9,5 +9,5 @@ issue:
 
 releaseNotes:
   - |
-    **Fixed** Analyze has parse error for empty resource.
+    **Fixed** an issue where `istioctl analyze` reported errors for empty file resource blocks.
 
