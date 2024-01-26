@@ -88,6 +88,11 @@ var (
 		return res
 	}()
 
+	EnableMultiClusterNodeAuthorizer = env.Register(
+		"ENABLE_MULTICLUSTER_NODE_AUTHORIZER",
+		false,
+		"If enabled, node authorization will be performed for CSRs originating from remote clusters.").Get()
+
 	CertSignerDomain = env.Register("CERT_SIGNER_DOMAIN", "", "The cert signer domain info").Get()
 
 	UseCacertsForSelfSignedCA = env.Register("USE_CACERTS_FOR_SELF_SIGNED_CA", false,
