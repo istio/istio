@@ -1008,8 +1008,8 @@ func TestDistribution(t *testing.T) {
 	// Subscribe to clusters
 	res1 := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
 	expectNonce(res1.Nonce, v3.ClusterType)
-		// Types we are not subscribed to are updated immediately
-	expectNonce(res.Nonce, v3.RouteType)
+	// Types we are not subscribed to are updated immediately
+	expectNonce(res1.Nonce, v3.RouteType)
 
 	// Send a push
 	s.Discovery.Push(&model.PushRequest{Full: true, Push: s.Env().PushContext()})
