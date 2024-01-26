@@ -69,8 +69,7 @@ func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDa
 	// Namespaces could be anything though, so we watch all of those
 	s.namespaces = kclient.New[*corev1.Namespace](kubeClient)
 	s.namespaces.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
-		// No need to queue namespaces, just handle the events, and (potentially) queue any pods
-		s.reconcileNamespace(o)
+		s.queue.Add(o)
 	}))
 
 	return s
@@ -136,6 +135,8 @@ func (s *InformerHandlers) enqueueNamespace(o controllers.Object) {
 func (s *InformerHandlers) reconcile(input any) error {
 	event := input.(controllers.Event)
 	switch event.Latest().(type) {
+	case *corev1.Namespace:
+		return s.reconcileNamespace(input)
 	case *corev1.Pod:
 		return s.reconcilePod(input)
 	default:
@@ -143,7 +144,7 @@ func (s *InformerHandlers) reconcile(input any) error {
 	}
 }
 
-func (s *InformerHandlers) reconcileNamespace(input any) {
+func (s *InformerHandlers) reconcileNamespace(input any) error {
 	event := input.(controllers.Event)
 	ns := event.Latest().(*corev1.Namespace)
 
@@ -161,6 +162,7 @@ func (s *InformerHandlers) reconcileNamespace(input any) {
 			s.enqueueNamespace(newNs)
 		}
 	}
+	return nil
 }
 
 func getModeLabel(m map[string]string) string {
