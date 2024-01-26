@@ -40,7 +40,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/memory"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
-	kube2 "istio.io/istio/pkg/config/legacy/source/kube"
+	kube2 "istio.io/istio/pkg/config/analysis/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/collection"
 	sresource "istio.io/istio/pkg/config/schema/resource"
