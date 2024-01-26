@@ -84,6 +84,7 @@ spec:
             runAsGroup: 0
             runAsUser: 0
             runAsNonRoot: false
+{{- if .Values.cni.ambient.enabled }}
             capabilities:
               drop:
               - ALL
@@ -91,7 +92,6 @@ spec:
               - NET_ADMIN
               # TODO this, `privileged`, etc need to be reworked - both sidecar (repair) and ambient require SYS_ADMIN
               # and istio-cni is *always* privileged to some degree, regardless of the `privileged` flag
-{{- if .Values.cni.ambient.enabled }}
               - SYS_ADMIN
               - NET_RAW
 {{- end }}
