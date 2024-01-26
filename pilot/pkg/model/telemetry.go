@@ -978,11 +978,6 @@ var waypointStatsConfig = protoconv.MessageToAny(&udpa.TypedStruct{
 	},
 })
 
-var emptyStatsConfig = protoconv.MessageToAny(&udpa.TypedStruct{
-	TypeUrl: "type.googleapis.com/stats.PluginConfig",
-	Value:   &structpb.Struct{},
-})
-
 // telemetryFilterHandled contains the number of providers we handle below.
 // This is to ensure this stays in sync as new handlers are added
 // STOP. DO NOT UPDATE THIS WITHOUT UPDATING buildHTTPTelemetryFilter and buildTCPTelemetryFilter.
