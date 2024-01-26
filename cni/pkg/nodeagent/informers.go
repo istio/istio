@@ -67,6 +67,13 @@ func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDa
 	}))
 
 	// Namespaces could be anything though, so we watch all of those
+	//
+	// NOTE that we are requeueing namespaces here explicitly to work around
+	// test flakes with the fake kube client in `pkg/kube/client.go` -
+	// because we are using `List()` in the handler, without this requeue,
+	// the fake client will sometimes drop pod events leading to test flakes.
+	//
+	// WaitForCacheSync *helps*, but does not entirely fix this problem
 	s.namespaces = kclient.New[*corev1.Namespace](kubeClient)
 	s.namespaces.AddEventHandler(controllers.FromEventHandler(func(o controllers.Event) {
 		s.queue.Add(o)
@@ -88,6 +95,7 @@ func (s *InformerHandlers) GetPodIfAmbient(podName, podNamespace string) (*corev
 }
 
 func (s *InformerHandlers) Start() {
+	kube.WaitForCacheSync("informer", s.ctx.Done(), s.pods.HasSynced, s.namespaces.HasSynced)
 	go s.queue.Run(s.ctx.Done())
 }
 
