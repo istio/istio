@@ -60,7 +60,7 @@ func (p *podNetnsCache) UpsertPodCacheWithNetns(uid string, newnetns NetnsCloser
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if existingNs := p.currentPodCache[uid]; existingNs != nil {
-		if (existingNs.Inode() == newnetns.Inode()) {
+		if existingNs.Inode() == newnetns.Inode() {
 			newnetns.Close()
 			// already in cache
 			return existingNs

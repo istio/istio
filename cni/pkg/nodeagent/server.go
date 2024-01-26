@@ -80,7 +80,7 @@ func NewServer(ctx context.Context, ready *atomic.Value, pluginSocket string, ar
 
 	cfg := &iptables.Config{
 		RestoreFormat: true,
-		RedirectDNS:   true, // TODO Currently for ambient, DNS redirection must happen to properly resolve serviceentries.
+		RedirectDNS:   args.DNSCapture,
 	}
 
 	iptablesConfigurator := iptables.NewIptablesConfigurator(cfg, realDependencies(), iptables.RealNlDeps())
