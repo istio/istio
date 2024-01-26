@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: installation
-releaseNotes:
-- |
-  **Improved** the default telemetry installation to configure `meshConfig.defaultProviders` instead of custom `EnvoyFilter`s
-  when advanced customizations are not used, improving performance.

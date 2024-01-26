@@ -1,9 +1,0 @@
-# The preview profile contains features that are experimental.
-# This is intended to explore new features coming to Istio.
-# Stability, security, and performance are not guaranteed - use at your own risk.
-meshConfig:
-  defaultConfig:
-    proxyMetadata:
-      # Enable Istio agent to handle DNS requests for known hosts
-      # Unknown hosts will automatically be resolved using upstream dns servers in resolv.conf
-      ISTIO_META_DNS_CAPTURE: "true"

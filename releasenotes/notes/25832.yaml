@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: security
-issue:
-  - 25832
-
-releaseNotes:
-  - |
-    **Added** validation warning message for L7 Deny rules which will block all tcp traffic under the scope of the policy having that rule.

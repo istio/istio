@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-releaseNotes:
-  - |
-    **Improved** performance of sidecar injection, in particular with pods with a large number of environment variables.

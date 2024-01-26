@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-- 32210
-releaseNotes:
-- |
-  **Fixed** an issue causing VMs using auto-registration to ignore labels other than those defined in a WorkloadGroup.

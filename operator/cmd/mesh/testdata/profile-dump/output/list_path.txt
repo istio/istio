@@ -1,2 +1,0 @@
-[0].mountPath="/etc/istio/egressgateway-certs"
-[0].name="egressgateway-certs"

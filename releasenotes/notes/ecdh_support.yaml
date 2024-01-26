@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: security
-issue:
-  - https://github.com/istio/istio/issues/41645
-releaseNotes:
-  - |
-    **Added** ecdh_curves support for non ISTIO_MUTUAL traffic through MeshConfig API.

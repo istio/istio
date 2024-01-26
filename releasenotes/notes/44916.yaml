@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-releaseNotes:
-- |
-  **Updated** `ProxyConfig` resources with workload selector will be applied to Kubernetes `Gateway` pods
-  only if the specified label is `istio.io/gateway-name`. Other labels are ignored.
-- |
-  **Removed** support for `proxy.istio.io/config` annotation applied to Kubernetes `Gateway` pods.

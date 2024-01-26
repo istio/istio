@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management 
-issue:
-  - https://github.com/istio/istio/issues/40605
-releaseNotes:
-  - |
-    **Fixed** fixed network port forward issue to support ipv4 and ipv6

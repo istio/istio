@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-releaseNotes:
-  - |
-    **Fixed** Server Side Apply is enabled by default for Kubernetes cluster versions above 1.22
-    or be detected if it can be run in Kubernetes versions 1.18-1.21.

@@ -1,7 +1,0 @@
-ECDS NAME                                                     TYPE
-istio.io/telemetry/stats/prometheus/sidecar/Inbound/HTTP      
-istio.io/telemetry/stats/prometheus/sidecar/Inbound/TCP       
-istio.io/telemetry/stats/prometheus/sidecar/Outbound/HTTP     
-istio.io/telemetry/stats/prometheus/sidecar/Outbound/TCP      
-default.display-metadata                                      envoy.extensions.filters.http.wasm.v3.Wasm
-default.httpbin-rate-limiting                                 envoy.extensions.filters.http.wasm.v3.Wasm

@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-releaseNotes:
-  - |
-    **Fixed** an issue where istiod, when started with PILOT_ENABLE_STATUS=true, 
-    reported the following error on shutdown: failed to properly clean up distribution report: configmaps 
-    "istiod-xxx-yyy-distribution" is forbidden: User "system:serviceaccount:istio-system:istiod" cannot 
-    delete resource "configmaps" in API group "" in the namespace "istio-system"

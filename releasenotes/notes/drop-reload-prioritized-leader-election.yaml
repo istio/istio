@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-releaseNotes:
-- |
-  **Removed** the `PRIORITIZED_LEADER_ELECTION` feature flag.

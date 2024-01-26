@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-releaseNotes:
-- |
-  **Upgraded** the gateway-api integration to read `v1beta1` resources for `HTTPRoute`, `Gateway`, and `GatewayClass`. Users of the gateway-api must be on v0.5.0+ before upgrading Istio.

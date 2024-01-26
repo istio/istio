@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-  - 42249
-releaseNotes:
-  - |
-    **Fixed** initialization of secure gRPC server of Pilot, when serving certificates are provided in default location.

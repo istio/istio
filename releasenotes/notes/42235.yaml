@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-  - https://github.com/istio/istio/issues/42234
-releaseNotes:
-  - |
-    **Fixed** mutatingwebhook not being split when setting multiple revision tags.

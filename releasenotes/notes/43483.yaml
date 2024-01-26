@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-issue:
-  - 36860
-releaseNotes:
-  - |
-    **Fixed** `istioctl x precheck` displays unwanted IST0136 messages which are set by Istio as default.

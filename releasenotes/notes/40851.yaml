@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: telemetry
-
-releaseNotes:
-  - |
-    **Fixed** an issue that built-in provider should fallback to meshconfig when format is unset.

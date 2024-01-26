@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-releaseNotes:
-- |
-  **Removed** support for `EndpointSlice` version `discovery.k8s.io/v1beta1`. The `v1` version has been available since Kubernetes 1.21.
-  `EndpointSlice` `v1` is automatically used on Kubernetes 1.21+, while `Endpoints` is used on older versions.
-  This change only impacts users explicitly enabling `PILOT_USE_ENDPOINT_SLICE` on Kubernetes versions older than 1.21, which is no longer supported.

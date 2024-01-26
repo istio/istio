@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-issue: 
-  - https://github.com/istio/istio/pull/42658
-
-releaseNotes:
-  - |
-    **Added** support for missing resource types to `/config_dump` API

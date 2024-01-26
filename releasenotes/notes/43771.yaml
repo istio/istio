@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: installation
-issue:
-  - 43771
-releaseNotes:
-  - |
-    **Improved** the `downloadIstioCtl.sh` script to not change to the home directory at the end.

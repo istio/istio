@@ -1,3 +1,0 @@
-NAME     VHOST NAME     DOMAINS     MATCH                  VIRTUAL SERVICE
-         backend        *           /healthz/ready*        
-         backend        *           /stats/prometheus*

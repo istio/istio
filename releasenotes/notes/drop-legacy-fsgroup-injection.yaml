@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: installation
-releaseNotes:
-- |
-  **Removed** the `ENABLE_LEGACY_FSGROUP_INJECTION` feature flag. This was intended to support Kubernetes 1.18 and older, which are out of support.

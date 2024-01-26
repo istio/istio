@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: telemetry
-
-issue:
-- 41829
-releaseNotes:
-- |
-  **Fixed** an issue with bad request `malformed Host header` in Telemetry API when configuring datadog tracing provider.

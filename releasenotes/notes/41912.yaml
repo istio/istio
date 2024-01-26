@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-releaseNotes:
-  - |
-    **Fixed** `istioctl install` failed when specifying `--revision default`.
-  - |
-    **Fixed** `istioctl verify-install` inconsistent behavior between `--revision` is not specified and specified with `default`.

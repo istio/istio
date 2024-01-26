@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: istioctl
-issue:
-  - 41244
-releaseNotes:
-  - |
-    **Added** `--skip-confirmation` flag to `istioctl operator remove` to add confirmation mechanism for operator remove.

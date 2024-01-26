@@ -1,9 +1,0 @@
-"{{ include "gateway.name" . }}" successfully installed!
-
-To learn more about the release, try:
-  $ helm status {{ .Release.Name }}
-  $ helm get all {{ .Release.Name }}
-
-Next steps:
-  * Deploy an HTTP Gateway: https://istio.io/latest/docs/tasks/traffic-management/ingress/ingress-control/
-  * Deploy an HTTPS Gateway: https://istio.io/latest/docs/tasks/traffic-management/ingress/secure-ingress/

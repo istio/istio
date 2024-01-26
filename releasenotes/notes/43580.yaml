@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-  - 42068
-releaseNotes:
-  - |
-    **Fixed** an issue where removing field(s) from IstioOperator and re-installing did not reflect changes in existing IstioOperator spec.

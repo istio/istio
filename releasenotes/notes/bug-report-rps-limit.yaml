@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: istioctl
-releaseNotes:
-- |
-  **Added** `--rps-limit` flag to `istioctl bug-report` that allows increasing
-  the requests per second limit to the Kubernetes API server which can greatly
-  reduce the time to collect bug reports.

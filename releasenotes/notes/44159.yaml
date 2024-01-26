@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-releaseNotes:
-  - |
-    **Fixed** an issue where ServiceEntry and Service had undefined or empty workload selectors. If the workload selector is undefined or empty, 
-    ServiceEntry and Service should not select any WorkloadEntry or endpoint.

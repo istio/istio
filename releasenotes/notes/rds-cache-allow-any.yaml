@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-- 39794
-releaseNotes:
-- |
-  **Fixed** an issue causing `outboundTrafficPolicy` changes in `Sidecar` to not always take effect.

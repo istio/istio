@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: installation
-releaseNotes:
-  - |
-    **Added** check to limit the clusterrole for k8s CSR permissions for
-    external CA usecases by verifying .Values.pilot.env.EXTERNAL_CA and .Values.global.pilotCertProvider parameters.

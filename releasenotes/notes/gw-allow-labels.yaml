@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: installation
-issue:
-  - 41057
-  - 43585
-releaseNotes:
-  - |
-    **Added** support for labels to be added to the Gateway pod template via `.Values.labels`.

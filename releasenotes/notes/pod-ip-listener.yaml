@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: installation
-issue:
-  - 28178
-
-releaseNotes:
-- |
-  **Added** support for applications that bind to their pod IP address, rather than wildcard or localhost address, through the `Sidecar` API.

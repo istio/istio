@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: installation
-issue:
-- 44469
-releaseNotes:
-- |
-  **Added** support for `PodDisruptionBudget` (PDB) in the Gateway chart.

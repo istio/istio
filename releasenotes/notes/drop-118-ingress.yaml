@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-releaseNotes:
-- |
-  **Removed** support for `Ingress` version `networking.k8s.io/v1beta1`. The `v1` version has been available since Kubernetes 1.19.

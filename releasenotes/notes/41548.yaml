@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: istioctl
-issue:
-  - 41547
-releaseNotes:
-  - |
-    **Added** `--purge` flag to `istioctl operator remove` which will remove all revisions of Istio operator.

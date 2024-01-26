@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-releaseNotes:
-  - |
-    **Fixed** a bug in `istioctl analyze` where some messages are missed when there are services with no selector in the analyzed namespace.

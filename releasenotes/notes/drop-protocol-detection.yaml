@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-releaseNotes:
-- |
-  **Removed** the `PILOT_INBOUND_PROTOCOL_DETECTION_TIMEOUT` feature flag. This can be configured in MeshConfig if needed.

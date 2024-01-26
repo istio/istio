@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-  - 42612
-releaseNotes:
-  - |
-    **Fixed** pilot status to not log too many errors when PILOT_ENABLE_CONFIG_DISTRIBUTION_TRACKING is not enabled.

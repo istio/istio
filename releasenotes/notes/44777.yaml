@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue: 
-  - 41271
-releaseNotes:
-  - |
-    **Added** support for traffic.sidecar.istio.io/excludeInterfaces annotation in proxy.

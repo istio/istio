@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: security
-releaseNotes:
-  - |
-    **Added** an `fallback` field for PrivateKeyProvider to support fallback to the BoringSSL default implementation if the private key provider isn’t available.

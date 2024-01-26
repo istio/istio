@@ -1,3 +1,0 @@
-- mountPath: /etc/istio/egressgateway-certs
-  name: egressgateway-certs
-

@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: security
-issue: []
-releaseNotes:
-- |
-  **Added** support for using P384 curves when using ECDSA

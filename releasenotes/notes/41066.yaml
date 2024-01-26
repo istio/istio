@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-  - 41066
-
-releaseNotes:
-  - |
-    **Fixed** the ordering of RBAC and metadata exchange filters while generating HTTP/network filters

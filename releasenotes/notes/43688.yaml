@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-  - https://github.com/istio/istio/issues/43688
-releaseNotes:
-  - |
-    **Fixed** an issue that when there are different Binds specified in the Gateways with the same port and different protocols, listeners are not generated correctly.
-

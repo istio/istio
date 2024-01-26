@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: telemetry
-issues:
-releaseNotes:
-- |
-  **Added** Provide an option to configure the Envoy to report load stats to the LRS (LoadReportingService) server via LRS.

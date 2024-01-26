@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-releaseNotes:
-- |
-  **Removed** `alpha` Gateway API types by default. They can be explicitly re-enabled with `PILOT_ENABLE_ALPHA_GATEWAY_API=true`.

@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: security
-
-releaseNotes:
-- |
-  **Updated** dependency in Envoy to properly parse JWTs with negative values for exp, nbf or iat fields.
-

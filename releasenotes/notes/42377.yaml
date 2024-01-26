@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-issue:
-- 42377
-releaseNotes:
-- |
-  **Added** support for k8s ServiceInternalTrafficPolicy.

@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-
-releaseNotes:
-  - |
-    **Fixed** locality label missing for a sidecar without service selected.

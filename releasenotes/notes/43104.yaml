@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: security
-issue:
-  - 43104
-releaseNotes:
-  - |
-    **Enabled** the `AUTO_RELOAD_PLUGIN_CERTS` env var by default for istiod to notice cacerts file changes in common cases (e.g. reload intermediate certs).

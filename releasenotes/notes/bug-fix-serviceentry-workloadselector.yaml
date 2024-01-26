@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue: [42921]
-releaseNotes:
-- |
-    **Fixed** an issue where changing a label on a workload instance with a previously matched `ServiceEntry` would not properly get removed.

@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-releaseNotes:
-  - |
-    **Fixed** inaccuracies in analysis results when analyzing configuration files with empty content.

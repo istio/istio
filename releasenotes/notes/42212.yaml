@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-  - 42212
-
-releaseNotes:
-- |
-  **Fixed** ServiceEntries with other revision labels were being processed.

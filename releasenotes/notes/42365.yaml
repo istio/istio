@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: istioctl
-
-releaseNotes:
-- |
-  **Added** `istioctl proxy-config ecds` to support retrieving typed extension configuration from Envoy for a specified pod.

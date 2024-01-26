@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-issue:
-  - 43368
-releaseNotes:
-  - |
-    **Fixed** `istioctl experimental describe` not showing all weighted routes when the VirtualService is defined to split traffic across multiple services.

@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-
-releaseNotes:
-- |
-  **Removed** deprecated and unsupported status conditions `Ready`, `Scheduled`, and `Detached` from Gateway API.

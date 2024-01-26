@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: networking
-issue:
-- 25691
-releaseNotes:
-- |
-  **Fixed** SNI host routing issue when user uses sniHosts match in virtual service

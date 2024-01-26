@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-  - 41114
-releaseNotes:
-  - |
-    **Fixed** an issue that default `idleTimeout` for passthrough cluster has been changed to `0s` since 1.14.0 and timeout is disabled. Previous behavior is using envoy's default value.

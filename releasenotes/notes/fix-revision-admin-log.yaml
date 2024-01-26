@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: istioctl
-releaseNotes:
-  - |
-    **Added** `revision` flag to admin log to switch controls between Istiods.
-  - |
-    **Updated** `admin log`'s `-r` flag to be shorthand for `--revision` to consistent with other commands (originally was for `--reset`).

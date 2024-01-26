@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: extensibility
-releaseNotes:
-- |
-  **Added** the capability to attach `WasmPlugin` to Kubernetes `Gateway` resources via the `targetRef` field.

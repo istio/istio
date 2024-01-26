@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: installation
-releaseNotes:
-- |
-  **Removed** the following experimental `istioctl` commands: `add-to-mesh`, `remove-from-mesh` and `kube-uninject`.
-  Usage of automatic sidecar injection is recommended instead.

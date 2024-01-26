@@ -1,8 +1,0 @@
-# The preview profile contains features that are experimental.
-# This is intended to explore new features coming to Istio.
-# Stability, security, and performance are not guaranteed - use at your own risk.
-apiVersion: install.istio.io/v1alpha1
-kind: IstioOperator
-spec:
-  values:
-    profile: preview

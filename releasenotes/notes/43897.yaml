@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-  - 43893
-releaseNotes:
-  - |
-    **Fixed** `ValidatingWebhookConfiguration` not being generated correctly with operator installation when the revision is not set.

@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-  - 27293
-releaseNotes:
-  - |
-    **Fixed** a bug that locality load balancer settings were applied inbound clusters unnecessarily.

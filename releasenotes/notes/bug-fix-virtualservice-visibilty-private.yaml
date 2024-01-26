@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue: [42602]
-releaseNotes:
-- |
-    **Fixed** VirtualService delegate behaviour with `defaultVirtualServiceExportTo: ["."]` 

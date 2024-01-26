@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-  - 42184
-
-releaseNotes:
-- |
-  **Fixed** ServiceEntries using DNS_ROUND_ROBIN being able to specify 0 endpoints.

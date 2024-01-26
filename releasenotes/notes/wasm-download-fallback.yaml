@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: extensibility
-issue: []
-releaseNotes:
-  - |
-    **Improved** When Wasm module downloading fails and fail_open is true, a RBAC filter allowing all the traffics is passed to Envoy instead of the original Wasm filter.
-    Previously, the given wasm filter itself was passed to Envoy in the case, but it may cause the errors because some fields of Wasm configuration are optional in Istio, but not in Envoy.

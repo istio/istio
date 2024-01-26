@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-  - 47341
-releaseNotes:
-- |
-  **Fixed** VirtualService http header present match does not work with `header-name: {}` set.

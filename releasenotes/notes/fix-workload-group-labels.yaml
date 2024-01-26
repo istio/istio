@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: telemetry
-issue: [34395]
-releaseNotes:
-- |
-  **Fixed** an issue with WorkloadGroup and WorkloadEntry labeling of canonical revision.
-
-

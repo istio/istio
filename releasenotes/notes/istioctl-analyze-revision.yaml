@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: istioctl
-issue:
-  - 38148
-
-releaseNotes:
-- |
-  **Added** `--revision` to `istioctl analyze` to specify a specific revision.

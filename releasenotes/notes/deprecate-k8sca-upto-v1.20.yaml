@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: security
-issue:
-- https://github.com/GoogleCloudPlatform/anthos-service-mesh-packages/issues/1210
-releaseNotes:
-- |
-  **Fixed** an issue preventing istio-proxy to access root ca when automountServiceAccountToken is false and PILOT_CERT_PROVIDER is kubernetes.
-  **Deprecated** using PILOT_CERT_PROVIDER kubernetes for kubernetes versions less than 1.20.

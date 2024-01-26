@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-issue:
-  - 43835
-releaseNotes:
-  - |
-    **Fixed** an issue where specifying the directory for temporary artifacts with `--dir` when using `istioctl bug-report` did not work.

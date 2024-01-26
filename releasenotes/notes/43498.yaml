@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-  - 43498
-releaseNotes:
-  - |
-    **Fixed** reporting Programmed condition on Gateway API Gateway resources.

@@ -1,6 +1,0 @@
-{"level":"info","time":"2023-05-10T17:43:55.356647Z","msg":"FLAG: --log_as_json=\"true\""}
-{"level":"info","time":"2023-05-10T17:43:55.356669Z","msg":"FLAG: --log_caller=\"\""}
-{"level":"info","time":"2023-05-10T17:43:55.356675Z","msg":"FLAG: --log_output_level=\"default:info\""}
-{"level":"info","time":"2023-05-10T17:43:55.356681Z","msg":"FLAG: --log_rotate=\"\""}
-{"level":"info","time":"2023-05-10T17:43:55.356685Z","msg":"FLAG: --log_rotate_max_age=\"30\""}
-{"level":"info","time":"2023-05-10T17:43:55.356691Z","msg":"FLAG: --log_rotate_max_backups=\"1000\""}

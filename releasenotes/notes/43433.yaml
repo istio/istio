@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-  - 33237
-releaseNotes:
-  - |
-    **Removed** injecting label `istio.io/rev` to gateways to avoid creating pods indefinitely when `istio.io/rev=<tag>`.

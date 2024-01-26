@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: networking
-issues:
-- 25350
-releaseNotes:
-- |
-  **Fixed** an issue preventing calls to wildcard (such as `*.example.com`) domains when a port is set in the `Host` header.

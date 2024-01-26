@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: telemetry
-issue:
-  - 44074
-releaseNotes:
-  - |
-    **Added** support for `METADATA` command operator in access log.

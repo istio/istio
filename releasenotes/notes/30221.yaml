@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: istioctl
-issue:
-  - 30221
-
-releaseNotes:
-- |
-  **Fixed** installation issue in which `--readiness-timeout` flag is not honored.

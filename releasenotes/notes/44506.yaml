@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-issue:
-  - 40861
-releaseNotes:
-  - |
-    **Fixed** `istioctl analyze` no longer expects pods and runtime resources when analyzing files.

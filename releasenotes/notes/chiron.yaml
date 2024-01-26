@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: security
-issue:
-- 36231
-releaseNotes:
-- |
-  **Removed** support for the `certificates` field in `MeshConfig`. This was deprecated in 1.15, and does not work on Kubernetes 1.22+

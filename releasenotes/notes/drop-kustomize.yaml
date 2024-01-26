@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issues:
-- 44237
-releaseNotes:
-- |
-  **Removed** `kustomization.yaml` and pre-generated installation manifests (`gen-istio.yaml`, etc) from published releases.
-  These previously installed unsupported testing images, which led to accidental usage by users and tools such as Argo CD.

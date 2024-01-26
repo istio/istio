@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-releaseNotes:
-  - |
-    **Fixed** auto-passthrough gateways not getting XDS pushes on service updates 
-    if `PILOT_FILTER_GATEWAY_CLUSTER_CONFIG` is enabled.

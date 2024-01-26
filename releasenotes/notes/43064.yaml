@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-issue:
-  - 43063
-releaseNotes: 
-  - |-
-    **Fixed** `istioctl proxy-config` failure when a user specifies a custom proxy admin port with `--proxy-admin-port`.

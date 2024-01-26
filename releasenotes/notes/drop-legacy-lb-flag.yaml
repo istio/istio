@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-releaseNotes:
-- |
-  **Removed** the `ENABLE_LEGACY_LB_ALGORITHM_DEFAULT` feature flag.

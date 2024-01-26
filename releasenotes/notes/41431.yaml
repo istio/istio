@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-issue: []
-# releaseNotes is a markdown listing of any user facing changes. This will appear in the
-# release notes.
-releaseNotes:
-  - |
-    **Fixed** `istio-clean-iptables` to properly cleanup when InboundInterceptionMode is TPROXY.

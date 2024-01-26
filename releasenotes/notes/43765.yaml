@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: istioctl
-issue:
-  - 43765
-releaseNotes:
-  - |
-    **Improved** the `istioctl pc secret` output to display the certificate serial number in HEX.

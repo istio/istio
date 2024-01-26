@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: telemetry
-issue:
-  - 43359
-releaseNotes:
-- |
-  **Added** support to control trace id length on Zipkin tracing provider.

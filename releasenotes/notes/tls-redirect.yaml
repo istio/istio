@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: networking
-issue:
-- 27315
-- 27157
-releaseNotes:
-- |
-  **Fixed** issues resulting in missing routes when using `httpsRedirect` in a `Gateway`.

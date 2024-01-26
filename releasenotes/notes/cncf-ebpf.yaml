@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-  - 45162
-releaseNotes:
-  - |
-    **Removed** eBPF support is temporarily disabled pending CNCF establishing guidance around dual-licensed eBPF bytecode
-    https://github.com/cncf/toc/pull/1000#issuecomment-1564289871

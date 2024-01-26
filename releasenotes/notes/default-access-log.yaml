@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: telemetry
-issue:
-  - 27903
-
-releaseNotes:
-  - |
-    **Updated** default access log to include `RESPONSE_CODE_DETAILS` and `CONNECTION_TERMINATION_DETAILS` for proxy version >= 1.9.

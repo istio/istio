@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-issue:
-  - 39634
-releaseNotes:
-  - |
-    **Fixed** analyze ConflictingMeshGatewayVirtualServiceHosts (IST0109) message appearing when using exportTo to a specific namespace. 

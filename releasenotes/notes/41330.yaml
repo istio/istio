@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: istioctl
-issue:
-  - 40598
-releaseNotes:
-  - |
-    **Added** precheck for revision when running `istioctl uninstall`.

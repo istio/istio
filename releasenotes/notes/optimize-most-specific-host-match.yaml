@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-releaseNotes:
-- |
-  **Optimized** MostSpecificHostMatch to prevent fullscanning hosts when encountering wildcards.

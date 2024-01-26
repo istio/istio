@@ -1,7 +1,0 @@
-2020-06-29T23:37:27.336155Z	info	Channel switches to new LB policy "pick_first"
-2020-06-29T23:37:27.336189Z	info	Subchannel Connectivity change to CONNECTING
-2020-06-29T23:37:27.336222Z	info	Starting gateway SDS
-2020-06-29T23:37:27.336491Z	info	pickfirstBalancer: HandleSubConnStateChange: 0xc00087d1e0, {CONNECTING <nil>}
-2020-06-29T23:37:27.336645Z	info	Channel Connectivity change to CONNECTING
-2020-06-29T23:37:27.336838Z	info	Subchannel picks a new address "istiod.istio-system.svc:15012" to connect
-2020-06-29T23:37:27.349559Z	info	Subchannel Connectivity change to READY

@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: extensibility
-issue: [39345]
-releaseNotes:
-  - |
-    **Added** the `match` field in the WasmPlugin API. With this `match` clause, a WasmPlugin can be applied to more specific traffic (e.g., traffic to a specific port).
-

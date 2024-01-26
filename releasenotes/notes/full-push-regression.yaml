@@ -1,7 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue: [39652]
-releaseNotes:
-- |
-  **Improved** xDS pushing to trigger partial pushes when scaling workloads down to zero instances and back up.

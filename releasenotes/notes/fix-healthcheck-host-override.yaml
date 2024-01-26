@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-- 45632
-
-releaseNotes:
-- |
-  **Fixed** Regression in HTTPGet healthcheck probe translation.

@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-  - 44424
-
-releaseNotes:
-- |
-  **Updated** the VirtualService validation to fail on empty prefix header matcher.

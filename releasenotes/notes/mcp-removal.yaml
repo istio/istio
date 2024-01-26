@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-issue:
-  - 28634
-
-releaseNotes:
-- |
-  **Removed** support for reading Istio configuration over the Mesh Configuration Protocol (MCP).

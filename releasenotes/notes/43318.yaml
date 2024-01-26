@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: security
-releaseNotes:
-  - |
-    **Fixed** ignoring default CA certificate when `PeerCertificateVerifier` is created.

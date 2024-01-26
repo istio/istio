@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: networking
-issues:
-- 29909
-- 29858
-releaseNotes:
-- |
-  **Fixed** an issue causing usage of deprecated filter names in `EnvoyFilter` to overwrite other `EnvoyFilter`s.

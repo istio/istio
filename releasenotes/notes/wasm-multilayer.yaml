@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: extensibility
-issue: []
-releaseNotes:
-  - |
-    **Improved** WasmPlugin images (docker and OCI standard image) to support more than one layer as per spec changes.
-    See https://github.com/solo-io/wasm/pull/293

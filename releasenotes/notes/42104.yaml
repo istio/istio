@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: telemetry
-
-issue:
-- 42080
-releaseNotes:
-- |
-  **Fixed** OpenTelemetry tracer not working.

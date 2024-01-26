@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: security
-docs:
-  - https://docs.google.com/document/d/13LNbJnLHe_prlOg7sPr77PjLiIuGj452/edit?usp=sharing&ouid=105743966233121608166&rtpof=true&sd=true
-releaseNotes:
-  - |
-    **Added** Certificate Revocation List(CRL) support for peer certificate validation.

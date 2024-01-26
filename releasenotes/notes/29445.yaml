@@ -1,9 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-issue:
-  - 29445
-
-releaseNotes:
-  - |
-    **Added** the severity level for each analysis message in the `validationMessages` field within the `status` field.

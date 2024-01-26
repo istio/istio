@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-releaseNotes:
-- |
-  **Removed** support for XDS v2 types in `EnvoyFilter`s. These should use the v3 interface. This has been a warning for multiple releases and is now upgraded to an error.

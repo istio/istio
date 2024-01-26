@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-releaseNotes:
-  - |
-    **Fixed** `kube-inject` crashes when the pod annotation `proxy.istio.io/config` is set.

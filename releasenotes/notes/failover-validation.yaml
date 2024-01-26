@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: feature
-area: traffic-management
-
-releaseNotes:
-- |
-  **Added** warning validation messages when a DestinationRule specifies failover policies but does not provide an OutlierDetection policy.
-  Previously, istiod was silently ignoring the failover settings 

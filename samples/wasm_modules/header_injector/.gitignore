@@ -1,3 +1,0 @@
-bazel-*
-compile_commands.json
-*.wasm

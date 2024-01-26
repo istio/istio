@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: EnvoyFilter
-issue:
-  - 31573
-releaseNotes:
-  - |
-    **Fixed** a bug where the EnvoyFilter HTTP_FILTER didn't support INSERT_FIRST

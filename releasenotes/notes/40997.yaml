@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-releaseNotes:
-  - |
-    **Fixed** an issue where Remote JWKS URI's without a host port fail to parse into their host and port components.

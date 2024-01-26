@@ -1,6 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-releaseNotes:
-- |
-  **Fixed** an issue where webhook configuration was being modified in dry-run mode when installing Istio with istioctl.

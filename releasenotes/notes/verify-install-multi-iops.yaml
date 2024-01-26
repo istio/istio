@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: istioctl
-issue:
-  - 42964
-releaseNotes:
-  - |
-    **Fixed** `istioctl verify-install` fails when using multiple iops.  

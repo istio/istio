@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: traffic-management
-issue:
-- 42818
-releaseNotes:
-  - |
-    **Fixed** an issue where the network endpoints are incorrectly computed when network gateway changes.

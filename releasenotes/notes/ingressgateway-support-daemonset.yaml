@@ -1,8 +1,0 @@
-apiVersion: release-notes/v2
-kind: bug-fix
-area: installation
-issue:
-- 37610
-releaseNotes:
-- |
-  **Added** support install gateway helm chart as daemonset.
