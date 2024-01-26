@@ -95,7 +95,7 @@ including Citadel (acting as Certificate Authority), citadel agent, etc.
 extensions to the [Envoy proxy](https://github.com/envoyproxy/envoy) (in the form of
 Envoy filters) that support authentication, authorization, and telemetry collection.
 
-- [istio/ztunnel](https://github.com/istio/ztunnel). The repository contains the Rust implementation of the Ztunnel
+- [istio/ztunnel](https://github.com/istio/ztunnel). The repository contains the Rust implementation of the ztunnel
 component of Ambient mesh.
 
 ## Issue management
