@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+releaseNotes:
+- |
+  **Added** support for installations using custom configurations without the `IstioOperator` kind. Providing configs within the [spec](https://istio.io/latest/docs/reference/config/istio.operator.v1alpha1/#IstioOperatorSpec) is acceptable.

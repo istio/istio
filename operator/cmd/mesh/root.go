@@ -42,7 +42,7 @@ const (
 	revisionFlagHelpStr         = `Target control plane revision for the command.`
 	skipConfirmationFlagHelpStr = `The skipConfirmation determines whether the user is prompted for confirmation.
 If set to true, the user is not prompted and a Yes response is assumed in all cases.`
-	filenameFlagHelpStr = `Path to file containing IstioOperator custom resource
+	filenameFlagHelpStr = `Path to file containing the custom configuration.
 This flag can be specified multiple times to overlay multiple files. Multiple files are overlaid in left to right order.`
 	installationCompleteStr            = `Installation complete`
 	ForceFlagHelpStr                   = `Proceed even with validation errors.`
