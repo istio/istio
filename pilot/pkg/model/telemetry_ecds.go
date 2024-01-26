@@ -88,6 +88,7 @@ func buildHTTPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []
 						TypedConfig: statsCfg,
 					})
 				}
+				// TODO: It might be better to send something in the else clause rather than stalling the proxy.
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			sdCfg := generateSDConfig(class, cfg)
@@ -146,6 +147,7 @@ func buildTCPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []t
 						TypedConfig: statsCfg,
 					})
 				}
+				// TODO: It might be better to send something in the else clause rather than stalling the proxy.
 			}
 		case *meshconfig.MeshConfig_ExtensionProvider_Stackdriver:
 			sdCfg := generateSDConfig(class, cfg)

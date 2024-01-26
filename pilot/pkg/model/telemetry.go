@@ -381,6 +381,7 @@ func (t *Telemetries) HTTPFilters(proxy *Proxy, class networking.ListenerClass) 
 			filters := res.([]*core.TypedExtensionConfig)
 			result := make([]*hcm.HttpFilter, 0, len(filters))
 			for _, f := range filters {
+				// TODO: This could work better with a filter chain as the payload for ECDS instead of multiple filters.
 				result = append(result, &hcm.HttpFilter{
 					Name: f.Name,
 					ConfigType: &hcm.HttpFilter_ConfigDiscovery{
@@ -975,6 +976,11 @@ var waypointStatsConfig = protoconv.MessageToAny(&udpa.TypedStruct{
 			},
 		},
 	},
+})
+
+var emptyStatsConfig = protoconv.MessageToAny(&udpa.TypedStruct{
+	TypeUrl: "type.googleapis.com/stats.PluginConfig",
+	Value:   &structpb.Struct{},
 })
 
 // telemetryFilterHandled contains the number of providers we handle below.

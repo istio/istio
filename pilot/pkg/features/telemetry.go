@@ -70,5 +70,5 @@ var (
 	// EnableECDSForStats is an experimental feature flag to enable ECDS for stats filter,
 	// istio will use ECDS to send stats filter as default in the future.
 	EnableECDSForStats = env.Register("EXPERIMENTAL_ENABLE_ECDS_FOR_STATS", false,
-		"fi enabled, Istio will use ECDS send stats filter")
+		"if enabled, Istio will use ECDS send stats filter")
 )
