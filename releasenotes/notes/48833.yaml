@@ -4,4 +4,5 @@ area: telemetry
 releaseNotes:
   - |
     **Added** support for disable bootstrap tracing configuration, this feature is disabled by default and can be
-    enabled by setting the `DISABLE_BOOTSTRAP_TRACING` environment variable in istiod and proxy.
+    enabled by setting the `DISABLE_BOOTSTRAP_TRACING` environment variable in istiod and proxy, which 
+    will remove static cluster and annoying DNS log from envoy, and you don't have to restart proxies to change tracing.
