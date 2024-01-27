@@ -1,0 +1,87 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+// GRPC package - part of the URL. Service is added.
+// URL: /PACKAGE.SERVICE/METHOD
+package istio.workload.zds;
+
+option go_package="pkg/zdsapi";
+
+enum Version {
+  NOT_USED = 0;
+  V1 = 1;
+}
+
+// Sent by the ztunnel client on first connect, as an announce message.
+// Until the server sees this announce message, the client cannot be considered connected
+message ZdsHello {
+  Version version = 1;
+}
+
+// Add a workload to the ztunnel. Contains the UID of the workload.
+// This will be accompanied by ancillary data containing the workload's netns file descriptor.
+message AddWorkload {
+  string uid = 1;
+}
+
+// Keep workload that we can't find in the fd cache. This can only be sent before SnapshotSent is sent
+// to signal ztunnel to not delete the workload if it has it.
+message KeepWorkload {
+  string uid = 1;
+}
+
+// Delete a workload from the ztunnel. Ztunnel should shutdown the workload's proxy.
+message DelWorkload {
+  string uid = 2;
+}
+
+// Let ztunnel know that a full snapshot was sent. Ztunnel should reconcile its internal state
+// and remove internal entries that were not sent.
+message SnapshotSent {
+}
+
+// Ztunnel ack message. If error is not empty, this is an error message.
+message Ack {
+  string error = 1;
+}
+
+/*
+Protocol details:
+on new connection from ztunnel to CNI, the CNI agent
+- will send all the existing payloads (that it has in its cache) to the ztunnel using AddWorkload message.
+- the ztunnel will send an ack for each payload (which the CNI will wait for before sending the next one).
+- when the CNI finishes sending the content of its current cache, a SnapshotSent message will be sent.
+- the ztunnel will then remove any entries from its cache that were not sent up to this point (as these entries do not exist in the CNI
+  cache, and must have been deleted). ztunnel will ack the SnapshotSent message.
+- from now on, ztunnel will expect only AddWorkload and DelWorkload messages.
+*/
+
+// Sent from CNI to ztunnel
+message WorkloadRequest {
+  oneof payload {
+    AddWorkload add = 1;
+    KeepWorkload keep = 5;
+    DelWorkload del = 2;
+    SnapshotSent snapshot_sent = 3;
+  }
+}
+
+// Sent from ztunnel to CNI
+message WorkloadResponse {
+  oneof payload {
+    Ack ack = 1;
+  }
+}

@@ -157,7 +157,7 @@ func TestSleepCheckInstall(t *testing.T) {
 			}
 			cniConfigFilepath := filepath.Join(tempDir, c.cniConfigFilename)
 			isReady := &atomic.Value{}
-			SetNotReady(isReady)
+			setNotReady(isReady)
 			in := NewInstaller(cfg, isReady)
 			in.cniConfigFilepath = cniConfigFilepath
 

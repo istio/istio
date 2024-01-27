@@ -14,12 +14,17 @@ spec:
       # Ambient profile defaults to distroless. But this kind of breaks the test framework, which tries to set
       # its own logic for distroless or not. Instead, defer it to the framework.
       variant: ""
+    cni:
+      ambient:
+        # Some of the tests require DNS capture
+        # For that, DNS capture must be enabled in the CNI
+        # and DNS proxying must be enabled in ztunnel
+        dnsCapture: true
     ztunnel:
       meshConfig:
         defaultConfig:
           proxyMetadata:
             ISTIO_META_DNS_CAPTURE: "true"
-            DNS_PROXY_ADDR: "0.0.0.0:15053"
     meshConfig:
       defaultConfig:
         proxyMetadata:
