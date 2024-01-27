@@ -77,6 +77,7 @@ func testMesh() *meshconfig.MeshConfig {
 		EnableAutoMtls: &wrappers.BoolValue{
 			Value: false,
 		},
+		InboundTrafficPolicy: &meshconfig.MeshConfig_InboundTrafficPolicy{},
 	}
 }
 

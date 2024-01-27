@@ -238,7 +238,7 @@ spec:
           - drain
   {{- end }}
     env:
-    {{- if eq (env .MeshConfig.InboundTrafficPolicy.Mode "1") "0" }}
+    {{- if eq (env .MeshConfig.InboundTrafficPolicy.Mode 1) 0 }}
     - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
       value: "true"
     {{- end }}
