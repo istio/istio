@@ -329,6 +329,11 @@ func (s *KubeSource) parseChunk(r *collection.Schemas, name string, lineNum int,
 		return resources, fmt.Errorf("failed converting YAML to JSON: %v", err)
 	}
 
+	// ignore null json
+	if len(jsonChunk) == 0 || bytes.Equal(jsonChunk, []byte("null")) {
+		return resources, nil
+	}
+
 	// Peek at the beginning of the JSON to
 	groupVersionKind, err := kubeJson.DefaultMetaFactory.Interpret(jsonChunk)
 	if err != nil {
