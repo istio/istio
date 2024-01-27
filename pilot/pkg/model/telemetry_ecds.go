@@ -44,6 +44,8 @@ type StatsProvider string
 const (
 	StatsProviderPrometheus  StatsProvider = "prometheus"
 	StatsProviderStackdriver StatsProvider = "stackdriver"
+
+	TelemetryStatsECDSResourceNamePrefix = "istio.io/telemetry/stats"
 )
 
 type StatsConfig struct {
@@ -58,7 +60,7 @@ func (cfg StatsConfig) String() string {
 }
 
 func StatsECDSResourceName(cfg StatsConfig) string {
-	return fmt.Sprintf("istio.io/telemetry/stats/%s", cfg.String())
+	return fmt.Sprintf("%s/%s", TelemetryStatsECDSResourceNamePrefix, cfg.String())
 }
 
 func buildHTTPTypedExtensionConfig(class networking.ListenerClass, metricsCfg []telemetryFilterConfig) []*core.TypedExtensionConfig {

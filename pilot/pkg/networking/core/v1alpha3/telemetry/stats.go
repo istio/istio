@@ -16,6 +16,7 @@ package telemetry
 
 import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	"strings"
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
@@ -33,10 +34,24 @@ var providers = []model.StatsProvider{
 	model.StatsProviderPrometheus,
 }
 
-func InsertedExtensionConfigurations(proxy *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig {
-	hasNames := sets.New(extensionConfigNames...)
-	result := make([]*core.TypedExtensionConfig, 0)
+func containsStatsExtensionConfig(extensionConfigNames []string) bool {
+	for _, ecName := range extensionConfigNames {
+		if strings.HasPrefix(ecName, model.TelemetryStatsECDSResourceNamePrefix) {
+			return true
+		}
+	}
 
+	return false
+}
+
+func InsertedExtensionConfigurations(proxy *model.Proxy, push *model.PushContext, extensionConfigNames []string) []*core.TypedExtensionConfig {
+	result := make([]*core.TypedExtensionConfig, 0)
+	// skip if there's no stats extension config
+	if !containsStatsExtensionConfig(extensionConfigNames) {
+		return result
+	}
+
+	hasNames := sets.New(extensionConfigNames...)
 	for _, c := range allClasses {
 		for _, p := range providers {
 			resourceName := model.StatsECDSResourceName(model.StatsConfig{
