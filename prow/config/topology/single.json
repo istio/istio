@@ -1,9 +1,0 @@
-[
-  {
-    "kind": "Kubernetes",
-    "clusterName": "istio-testing",
-    "podSubnet": "10.10.0.0/16",
-    "svcSubnet": "10.255.10.0/24",
-    "network": "istio-testing"
-  }
-]

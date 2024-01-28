@@ -1,4 +1,4 @@
-module istio.io/istio
+module github.com/code-sealer/codesealer-cni
 
 go 1.21
 
@@ -244,6 +244,7 @@ require (
 	google.golang.org/appengine v1.6.8 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
+	istio.io/istio v0.0.0-20240126023353-3a6c87f4221c // indirect
 	k8s.io/component-base v0.29.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20240105020646-a37d4de58910 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
