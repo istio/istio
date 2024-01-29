@@ -30,8 +30,7 @@ func newNodeUntainter(c *Controller) *nodeUntainter {
 		revision = "default"
 	}
 	labels := map[string]string{
-		"k8s-app":      "istio-cni-node",
-		"istio.io/rev": revision,
+		"k8s-app": "istio-cni-node",
 	}
 	log.Debugf("starting node untainter with labels %v", labels)
 	nt := &nodeUntainter{
