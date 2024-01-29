@@ -105,7 +105,6 @@ func incrementEvent(kind, event string) {
 // Options stores the configurable attributes of a Controller.
 type Options struct {
 	SystemNamespace string
-	Revision        string
 
 	// MeshServiceController is a mesh-wide service Controller.
 	MeshServiceController *aggregate.Controller
