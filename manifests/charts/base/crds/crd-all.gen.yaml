@@ -48,7 +48,7 @@ spec:
                 type: string
               imagePullPolicy:
                 description: The pull behaviour to be applied when fetching Wasm module
-                  by either OCI image or http/https.
+                  by either OCI image or `http/https`.
                 enum:
                 - UNSPECIFIED_POLICY
                 - IfNotPresent
@@ -7361,6 +7361,8 @@ spec:
     kind: AuthorizationPolicy
     listKind: AuthorizationPolicyList
     plural: authorizationpolicies
+    shortNames:
+    - ap
     singular: authorizationpolicy
   scope: Namespaced
   versions:
