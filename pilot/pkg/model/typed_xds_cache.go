@@ -160,12 +160,6 @@ func (l *lruCache[K]) Flush() {
 	l.mu.Unlock()
 }
 
-func (l *lruCache[K]) indexLen() int {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	return len(l.configIndex)
-}
-
 func (l *lruCache[K]) recordDependentConfigSize() {
 	if !enableStats() {
 		return
@@ -247,7 +241,7 @@ func (l *lruCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *di
 	defer l.mu.Unlock()
 	if token < l.token {
 		// entry may be stale, we need to drop it. This can happen when the cache is invalidated
-		// after we call Get.
+		// after we call Clear or ClearAll.
 		return
 	}
 	cur, f := l.store.Get(k)
