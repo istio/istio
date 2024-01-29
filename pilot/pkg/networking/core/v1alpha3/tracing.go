@@ -270,6 +270,7 @@ func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.
 	var oc *tracingcfg.OpenTelemetryConfig
 
 	if otelProvider.GetHttp() == nil {
+		// export via gRPC
 		oc = &tracingcfg.OpenTelemetryConfig{
 			GrpcService: &core.GrpcService{
 				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
@@ -281,6 +282,7 @@ func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.
 			},
 		}
 	} else {
+		// export via HTTP
 		httpService := otelProvider.GetHttp()
 		te, err := url.JoinPath(hostname, httpService.GetPath())
 		if err != nil {

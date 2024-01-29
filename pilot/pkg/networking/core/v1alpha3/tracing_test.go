@@ -183,9 +183,9 @@ func TestConfigureTracing(t *testing.T) {
 		},
 		{
 			name:               "basic config (with opentelemetry provider via http)",
-			inSpec:             fakeTracingSpec(fakeOpenTelemetryHttp(), 99.999, false, true),
-			opts:               fakeOptsOnlyOpenTelemetryHttpTelemetryAPI(),
-			want:               fakeTracingConfig(fakeOpenTelemetryHttpProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			inSpec:             fakeTracingSpec(fakeOpenTelemetryHTTP(), 99.999, false, true),
+			opts:               fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI(),
+			want:               fakeTracingConfig(fakeOpenTelemetryHTTPProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantStartChildSpan: false,
 			wantReqIDExtCtx:    &defaultUUIDExtensionCtx,
 		},
@@ -560,7 +560,7 @@ func fakeOpenTelemetryGrpc() *meshconfig.MeshConfig_ExtensionProvider {
 	}
 }
 
-func fakeOpenTelemetryHttp() *meshconfig.MeshConfig_ExtensionProvider {
+func fakeOpenTelemetryHTTP() *meshconfig.MeshConfig_ExtensionProvider {
 	return &meshconfig.MeshConfig_ExtensionProvider{
 		Name: "opentelemetry",
 		Provider: &meshconfig.MeshConfig_ExtensionProvider_Opentelemetry{
@@ -610,7 +610,7 @@ func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {
 	return opts
 }
 
-func fakeOptsOnlyOpenTelemetryHttpTelemetryAPI() gatewayListenerOpts {
+func fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI() gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
 		Mesh: &meshconfig.MeshConfig{
@@ -840,7 +840,7 @@ func fakeOpenTelemetryGrpcProvider(expectClusterName, expectAuthority string) *t
 	}
 }
 
-func fakeOpenTelemetryHttpProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
+func fakeOpenTelemetryHTTPProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
 	fakeOTelHttpProviderConfig := &tracingcfg.OpenTelemetryConfig{
 		HttpService: &core.HttpService{
 			HttpUri: &core.HttpUri{
