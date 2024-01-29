@@ -15,9 +15,11 @@
 package ca
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	"google.golang.org/grpc/metadata"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -181,7 +183,7 @@ func TestSingleClusterNodeAuthorization(t *testing.T) {
 			c.RunAndWait(test.NewStop(t))
 			kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
 
-			err = na.authenticateImpersonation(tt.caller, tt.requestedIdentityString)
+			err = na.authenticateImpersonation(context.TODO(), tt.caller, tt.requestedIdentityString)
 			if tt.wantErr == "" && err != nil {
 				t.Fatalf("wanted no error, got %v", err)
 			}
@@ -296,35 +298,38 @@ func TestMultiClusterNodeAuthorization(t *testing.T) {
 	remote2Client.RunAndWait(test.NewStop(t))
 	mNa.ClusterDeleted(cluster.ID("remote2"))
 
-	kube.WaitForCacheSync("test", test.NewStop(t), mNa.ztunnelPodsClient[cluster.ID("primary")].HasSynced)
-	kube.WaitForCacheSync("test", test.NewStop(t), mNa.ztunnelPodsClient[cluster.ID("remote")].HasSynced)
 	kube.WaitForCacheSync("test", test.NewStop(t), mNa.remoteNodeAuthenticators[cluster.ID("primary")].pods.HasSynced)
 	kube.WaitForCacheSync("test", test.NewStop(t), mNa.remoteNodeAuthenticators[cluster.ID("remote")].pods.HasSynced)
 	cases := []struct {
 		name                    string
+		callerClusterID         cluster.ID
 		caller                  security.KubernetesInfo
 		requestedIdentityString string
 		wantErr                 string
 	}{
 		{
 			name:                    "allowed identities, on node of primary cluster",
+			callerClusterID:         cluster.ID("primary"),
 			caller:                  ztunnelCallerPrimary,
 			requestedIdentityString: podSameNodePrimary.Identity(),
 			wantErr:                 "",
 		},
 		{
 			name:                    "allowed identities, on node of remote cluster",
+			callerClusterID:         cluster.ID("remote"),
 			caller:                  ztunnelCallerRemote,
 			requestedIdentityString: podSameNodeRemote.Identity(),
 			wantErr:                 "",
 		},
 		{
-			name:    "ztunnel caller from removed remote cluster",
-			caller:  ztunnelCallerRemote2,
-			wantErr: "not found",
+			name:            "ztunnel caller from removed remote cluster",
+			callerClusterID: cluster.ID("remote2"),
+			caller:          ztunnelCallerRemote2,
+			wantErr:         "no node authorizer",
 		},
 		{
 			name:                    "allowed identities in remote cluster, but ztunnel caller from primary cluster",
+			callerClusterID:         cluster.ID("primary"),
 			caller:                  ztunnelCallerPrimary,
 			requestedIdentityString: podSameNodeRemote.Identity(),
 			wantErr:                 "no instance",
@@ -333,7 +338,10 @@ func TestMultiClusterNodeAuthorization(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			err := mNa.authenticateImpersonation(tt.caller, tt.requestedIdentityString)
+			ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{
+				"clusterid": []string{string(tt.callerClusterID)},
+			})
+			err := mNa.authenticateImpersonation(ctx, tt.caller, tt.requestedIdentityString)
 			if tt.wantErr == "" && err != nil {
 				t.Fatalf("wanted no error, got %v", err)
 			}

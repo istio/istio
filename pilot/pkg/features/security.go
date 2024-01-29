@@ -88,8 +88,8 @@ var (
 		return res
 	}()
 
-	EnableMultiClusterNodeAuthorizer = env.Register(
-		"ENABLE_MULTICLUSTER_NODE_AUTHORIZER",
+	EnableExternalNodeAuthorizer = env.Register(
+		"ENABLE_EXTERNAL_NODE_AUTHORIZER",
 		false,
 		"If enabled, node authorization will be performed for CSRs originating from remote clusters.").Get()
 

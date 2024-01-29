@@ -100,7 +100,7 @@ func (s *Server) CreateCertificate(ctx context.Context, request *pb.IstioCertifi
 			return nil, status.Error(codes.Unauthenticated, "request impersonation authentication failure")
 
 		}
-		if err := s.nodeAuthorizer.authenticateImpersonation(caller.KubernetesInfo, impersonatedIdentity); err != nil {
+		if err := s.nodeAuthorizer.authenticateImpersonation(ctx, caller.KubernetesInfo, impersonatedIdentity); err != nil {
 			s.monitoring.AuthnError.Increment()
 			// Return an opaque error (for security purposes) but log the full reason
 			serverCaLog.Warnf("impersonation failed for identity %s, error: %v", impersonatedIdentity, err)
@@ -201,12 +201,12 @@ func New(
 		if err != nil {
 			return nil, err
 		}
-		if features.EnableMultiClusterNodeAuthorizer {
+		if features.EnableExternalNodeAuthorizer {
 			mNa := NewMulticlusterNodeAuthenticator(filter, features.CATrustedNodeAccounts, addClusterHandler)
 			// Firstly add the cluster node authorizer for the primary cluster.
 			// Node authorizers of remote clulsters can be managed later, because
 			// multi-cluster node authorizer implement multicluster.ClusterHandler
-			mNa.addCluster(client.ClusterID(), client, na)
+			mNa.addCluster(client.ClusterID(), na)
 			server.nodeAuthorizer = mNa
 		} else {
 			server.nodeAuthorizer = na

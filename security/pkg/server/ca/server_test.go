@@ -27,6 +27,7 @@ import (
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/credentials"
+	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/peer"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/structpb"
@@ -40,6 +41,7 @@ import (
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/security"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/util/sets"
 	mockca "istio.io/istio/security/pkg/pki/ca/mock"
 	caerror "istio.io/istio/security/pkg/pki/error"
 	"istio.io/istio/security/pkg/pki/util"
@@ -288,7 +290,7 @@ func (m *mockMultiClusterController) addCluster(c *multicluster.Cluster) {
 }
 
 func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
-	allowZtunnel := map[types.NamespacedName]struct{}{
+	allowZtunnel := sets.Set[types.NamespacedName]{
 		{Name: "ztunnel", Namespace: "istio-system"}: {},
 	}
 	ztunnelCaller := security.KubernetesInfo{
@@ -347,7 +349,8 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 		certChain           []string
 		pods                []pod
 		impersonatePod      pod
-		trustedNodeAccounts map[types.NamespacedName]struct{}
+		callerClusterID     cluster.ID
+		trustedNodeAccounts sets.Set[types.NamespacedName]
 		isMultiCluster      bool
 		remoteClusterPods   []pod
 		code                codes.Code
@@ -363,7 +366,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 				KeyCertBundle: util.NewKeyCertBundleFromPem(nil, nil, []byte("cert_chain"), []byte("root_cert")),
 			},
 			certChain:           []string{"cert", "cert_chain", "root_cert"},
-			trustedNodeAccounts: map[types.NamespacedName]struct{}{},
+			trustedNodeAccounts: sets.Set[types.NamespacedName]{},
 			code:                codes.Unauthenticated,
 		},
 		{
@@ -411,6 +414,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			certChain:           []string{"cert", "cert_chain", "root_cert"},
 			pods:                []pod{ztunnelPod},
 			impersonatePod:      podSameNodeRemote,
+			callerClusterID:     cluster.ID("fake"),
 			trustedNodeAccounts: allowZtunnel,
 			isMultiCluster:      true,
 			remoteClusterPods:   []pod{ztunnelPodRemote, podSameNodeRemote},
@@ -429,6 +433,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			certChain:           []string{"cert", "cert_chain", "root_cert"},
 			pods:                []pod{ztunnelPod, podSameNode},
 			impersonatePod:      podSameNodeRemote,
+			callerClusterID:     cluster.ID("fake-remote"),
 			trustedNodeAccounts: allowZtunnel,
 			isMultiCluster:      true,
 			remoteClusterPods:   []pod{ztunnelPodRemote, podSameNodeRemote},
@@ -436,13 +441,11 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 		},
 	}
 
-	p := &peer.Peer{Addr: &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}, AuthInfo: credentials.TLSInfo{}}
-	ctx := peer.NewContext(context.Background(), p)
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
 			test.SetForTest(t, &features.CATrustedNodeAccounts, c.trustedNodeAccounts)
 			if c.isMultiCluster {
-				test.SetForTest(t, &features.EnableMultiClusterNodeAuthorizer, true)
+				test.SetForTest(t, &features.EnableExternalNodeAuthorizer, true)
 			}
 
 			var pods []runtime.Object
@@ -474,8 +477,6 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 				case *ClusterNodeAuthorizer:
 					kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
 				case *MulticlusterNodeAuthorizor:
-					kube.WaitForCacheSync("test", test.NewStop(t), na.ztunnelPodsClient[cluster.ID("fake")].HasSynced)
-					kube.WaitForCacheSync("test", test.NewStop(t), na.ztunnelPodsClient[cluster.ID("fake-remote")].HasSynced)
 					kube.WaitForCacheSync("test", test.NewStop(t), na.remoteNodeAuthenticators[cluster.ID("fake")].pods.HasSynced)
 					kube.WaitForCacheSync("test", test.NewStop(t), na.remoteNodeAuthenticators[cluster.ID("fake-remote")].pods.HasSynced)
 				}
@@ -487,6 +488,14 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			request := &pb.IstioCertificateRequest{
 				Csr:      "dumb CSR",
 				Metadata: reqMeta,
+			}
+
+			p := &peer.Peer{Addr: &net.IPAddr{IP: net.IPv4(192, 168, 1, 1)}, AuthInfo: credentials.TLSInfo{}}
+			ctx := peer.NewContext(context.Background(), p)
+			if c.callerClusterID != "" {
+				ctx = metadata.NewIncomingContext(ctx, metadata.MD{
+					"clusterid": []string{string(c.callerClusterID)},
+				})
 			}
 
 			response, err := server.CreateCertificate(ctx, request)
