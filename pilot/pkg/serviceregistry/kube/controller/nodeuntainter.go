@@ -1,3 +1,17 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package controller
 
 import (
@@ -25,21 +39,19 @@ type nodeUntainter struct {
 }
 
 func newNodeUntainter(c *Controller) *nodeUntainter {
-	revision := c.opts.Revision
-	if revision == "" {
-		revision = "default"
-	}
 	labels := map[string]string{
 		"k8s-app": "istio-cni-node",
 	}
 	log.Debugf("starting node untainter with labels %v", labels)
+	ns := c.opts.CniNamespace
+	if ns == "" {
+		ns = c.opts.SystemNamespace
+	}
 	nt := &nodeUntainter{
 		podsClient:  c.podsClient,
 		nodesClient: c.nodes,
 		cnilabels:   labels,
-		// TODO: need to support the cni deployed to kube-system
-		// need to get somehow the value of components.cni.namespace to here.
-		ourNs: c.opts.CniNamespace,
+		ourNs:       ns,
 	}
 	nt.setup()
 	return nt

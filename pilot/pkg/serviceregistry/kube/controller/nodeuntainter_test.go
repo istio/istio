@@ -1,3 +1,17 @@
+// Copyright Istio Authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package controller
 
 import (
@@ -49,7 +63,7 @@ func newNodeUntainterTestServer(t *testing.T) *nodeTainterTestServer {
 func TestNodeUntainter(t *testing.T) {
 	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
 	s := newNodeUntainterTestServer(t)
-	s.addNodes(t, "node1", "node2", "node3")
+	s.addTaintedNodes(t, "node1", "node2", "node3")
 	s.addPod(t, "node3", true, map[string]string{"k8s-app": "other-app"}, "")
 	s.addCniPod(t, "node2", false)
 	s.addCniPod(t, "node1", true)
@@ -61,7 +75,7 @@ func TestNodeUntainter(t *testing.T) {
 func TestNodeUntainterOnlyUntaintsWhenIstiocniInourNs(t *testing.T) {
 	test.SetForTest(t, &features.EnableNodeUntaintControllers, true)
 	s := newNodeUntainterTestServer(t)
-	s.addNodes(t, "node1", "node2")
+	s.addTaintedNodes(t, "node1", "node2")
 	s.addPod(t, "node2", true, cniPodLabels, "default")
 	s.addCniPod(t, "node1", true)
 
@@ -95,7 +109,7 @@ func (s *nodeTainterTestServer) isNodeUntainted(node string) bool {
 	return true
 }
 
-func (s *nodeTainterTestServer) addNodes(t *testing.T, nodes ...string) {
+func (s *nodeTainterTestServer) addTaintedNodes(t *testing.T, nodes ...string) {
 	t.Helper()
 	for _, node := range nodes {
 		node := generateNode(node, nil)
