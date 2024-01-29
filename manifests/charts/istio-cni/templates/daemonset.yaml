@@ -86,14 +86,21 @@ spec:
             runAsNonRoot: false
             # Both ambient and sidecar repair mode require elevated node privileges to function.
 {{- if or .Values.cni.ambient.enabled .Values.cni.repair.enabled }}
+            # privileged is redundant with CAP_SYS_ADMIN
+            # since it's redundant, hardcode it to `true`, then manually drop ALL + readd granular
+            # capabilities we actually require
+            privileged: true
             capabilities:
               drop:
               - ALL
               add:
+              # CAP_NET_ADMIN is required to allow ipset and route table access
               - NET_ADMIN
+              # CAP_NET_RAW is required to allow iptables mutation of the `nat` table
               - NET_RAW
-              # TODO this, `privileged`, etc need to be reworked - both sidecar (repair) and ambient require SYS_ADMIN
-              # and istio-cni is *always* privileged to some degree, regardless of the `privileged` flag
+              # CAP_SYS_ADMIN is required for both ambient and repair, in order to open
+              # network namespaces in `/proc` to obtain descriptors for entering pod netnamespaces.
+              # There does not appear to be a more granular capability for this.
               - SYS_ADMIN
 {{- end }}
 {{- if .Values.cni.seccompProfile }}
