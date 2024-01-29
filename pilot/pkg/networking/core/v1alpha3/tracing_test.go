@@ -861,9 +861,9 @@ func fakeOpenTelemetryHTTPProvider(expectClusterName, expectAuthority string) *t
 			},
 		},
 	}
-	fakeOtelHttpAny := protoconv.MessageToAny(fakeOTelHTTPProviderConfig)
+	fakeOtelHTTPAny := protoconv.MessageToAny(fakeOTelHTTPProviderConfig)
 	return &tracingcfg.Tracing_Http{
 		Name:       envoyOpenTelemetry,
-		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelHttpAny},
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelHTTPAny},
 	}
 }
