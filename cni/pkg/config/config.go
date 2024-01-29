@@ -71,11 +71,17 @@ type InstallConfig struct {
 	// The UDS server address that CNI plugin will send log to.
 	LogUDSAddress string
 
+	// The watch server socket address that CNI plugin will forward CNI events to.
+	CNIEventAddress string
+
+	// The ztunnel server socket address that the ztunnel will connect to.
+	ZtunnelUDSAddress string
+
 	// Whether ambient is enabled
 	AmbientEnabled bool
 
-	// Whether ebpf is enabled
-	EbpfEnabled bool
+	// Whether ambient DNS capture is enabled
+	AmbientDNSCapture bool
 }
 
 // RepairConfig struct defines the Istio CNI race repair configuration
@@ -131,9 +137,11 @@ func (c InstallConfig) String() string {
 	b.WriteString("K8sServicePort: " + fmt.Sprint(c.K8sServicePort) + "\n")
 	b.WriteString("K8sNodeName: " + c.K8sNodeName + "\n")
 	b.WriteString("MonitoringPort: " + fmt.Sprint(c.MonitoringPort) + "\n")
+	b.WriteString("CNIEventAddress: " + fmt.Sprint(c.CNIEventAddress) + "\n")
 	b.WriteString("LogUDSAddress: " + fmt.Sprint(c.LogUDSAddress) + "\n")
 
 	b.WriteString("AmbientEnabled: " + fmt.Sprint(c.AmbientEnabled) + "\n")
+	b.WriteString("AmbientDNSCapture: " + fmt.Sprint(c.AmbientDNSCapture) + "\n")
 
 	return b.String()
 }

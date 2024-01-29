@@ -122,6 +122,9 @@
         "revision": {
           "type": "string"
         },
+        "compatibilityVersion": {
+          "type": "string"
+        },
         "runAsRoot": {
           "type": "boolean"
         },

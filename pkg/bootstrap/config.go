@@ -325,6 +325,7 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
 		"re2.max_program_size.error_level":           "32768",
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
+		"envoy.restart_features.use_eds_cache_for_ads":                                                         true,
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted

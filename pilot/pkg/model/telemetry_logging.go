@@ -278,6 +278,7 @@ func buildFileAccessJSONLogFormat(
 			Format: &core.SubstitutionFormatString_JsonFormat{
 				JsonFormat: jsonLogStruct,
 			},
+			JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
 		},
 	}, formatters
 }
@@ -422,6 +423,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: jsonLogStruct,
 				},
+				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
 			},
 		}
 	default:

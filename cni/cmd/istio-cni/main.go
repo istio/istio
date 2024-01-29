@@ -29,8 +29,14 @@ import (
 )
 
 func main() {
-	if err := log.Configure(plugin.GetLoggingOptions("")); err != nil {
+	if err := runPlugin(); err != nil {
 		os.Exit(1)
+	}
+}
+
+func runPlugin() error {
+	if err := log.Configure(plugin.GetLoggingOptions("")); err != nil {
+		return err
 	}
 	defer func() {
 		// Log sync will send logs to install-cni container via UDS.
@@ -41,6 +47,16 @@ func main() {
 	}()
 
 	// TODO: implement plugin version
-	skel.PluginMain(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDelete, version.All,
+	err := skel.PluginMainWithError(plugin.CmdAdd, plugin.CmdCheck, plugin.CmdDelete, version.All,
 		fmt.Sprintf("CNI plugin istio-cni %v", istioversion.Info.Version))
+	if err != nil {
+		log.Errorf("istio-cni failed with: %v", err)
+		if err := err.Print(); err != nil {
+			log.Errorf("istio-cni failed to write error JSON to stdout: %v", err)
+		}
+
+		return err
+	}
+
+	return nil
 }

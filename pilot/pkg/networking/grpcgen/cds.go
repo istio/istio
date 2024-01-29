@@ -175,7 +175,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 	// resolve policy from context
 	destinationRule := corexds.CastDestinationRule(b.node.SidecarScope.DestinationRule(
 		model.TrafficDirectionOutbound, b.node, b.svc.Hostname).GetRule())
-	trafficPolicy := util.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), b.port)
+	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), b.port)
 
 	// setup default cluster
 	b.applyTrafficPolicy(defaultCluster, trafficPolicy)
@@ -189,7 +189,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 				continue
 			}
 			c := edsCluster(subsetKey)
-			trafficPolicy := util.MergeTrafficPolicy(trafficPolicy, subset.TrafficPolicy, b.port)
+			trafficPolicy := util.MergeSubsetTrafficPolicy(trafficPolicy, subset.TrafficPolicy, b.port)
 			b.applyTrafficPolicy(c, trafficPolicy)
 			subsetClusters = append(subsetClusters, c)
 		}

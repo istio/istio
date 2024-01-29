@@ -105,7 +105,7 @@ type SidecarScope struct {
 	// This is the namespace where the sidecar takes effect,
 	// maybe different from the ns where sidecar resides if sidecar is in root ns.
 	Namespace string
-	// The crd itself. Can be nil if we are constructing the default
+	// The cr itself. Can be nil if we are constructing the default
 	// sidecar scope
 	Sidecar *networking.Sidecar
 
@@ -143,12 +143,6 @@ type SidecarScope struct {
 	// This field will be used to determine the config/resource scope
 	// which means which config changes will affect the proxies within this scope.
 	configDependencies sets.Set[ConfigHash]
-
-	// The namespace to treat as the administrative root namespace for
-	// Istio configuration.
-	//
-	// Changes to Sidecar resources in this namespace will trigger a push.
-	RootNamespace string
 }
 
 // MarshalJSON implements json.Marshaller
@@ -156,11 +150,11 @@ func (sc *SidecarScope) MarshalJSON() ([]byte, error) {
 	// Json cannot expose unexported fields, so copy the ones we want here
 	return json.MarshalIndent(map[string]any{
 		"version":               sc.Version,
-		"rootNamespace":         sc.RootNamespace,
 		"name":                  sc.Name,
 		"namespace":             sc.Namespace,
 		"outboundTrafficPolicy": sc.OutboundTrafficPolicy,
 		"services":              sc.services,
+		"servicesByHostname":    sc.servicesByHostname,
 		"sidecar":               sc.Sidecar,
 		"destinationRules":      sc.destinationRules,
 	}, "", "  ")
@@ -227,31 +221,34 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 		Name:                    defaultSidecar,
 		Namespace:               configNamespace,
 		EgressListeners:         []*IstioEgressListenerWrapper{defaultEgressListener},
-		services:                defaultEgressListener.services,
 		destinationRules:        make(map[host.Name][]*ConsolidatedDestRule),
 		destinationRulesByNames: make(map[types.NamespacedName]*config.Config),
 		servicesByHostname:      make(map[host.Name]*Service, len(defaultEgressListener.services)),
 		configDependencies:      make(sets.Set[ConfigHash]),
-		RootNamespace:           ps.Mesh.RootNamespace,
 		Version:                 ps.PushVersion,
+	}
+
+	servicesAdded := make(map[host.Name]sidecarServiceIndex)
+	for _, listener := range out.EgressListeners {
+		for _, s := range listener.services {
+			out.appendSidecarServices(servicesAdded, s)
+		}
+		// add dependencies on delegate virtual services
+		delegates := ps.DelegateVirtualServices(listener.virtualServices)
+		for _, delegate := range delegates {
+			out.AddConfigDependencies(delegate)
+		}
+		for _, vs := range listener.virtualServices {
+			for _, cfg := range VirtualServiceDependencies(vs) {
+				out.AddConfigDependencies(cfg.HashCode())
+			}
+		}
 	}
 
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
 	for _, s := range out.services {
-		// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
-		// arbitrary hostnames. In these cases, we want to pick the first Service, which is the oldest. This ensures
-		// newly created Services cannot take ownership unexpectedly.
-		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
-		// "domain squatting" on the hostname before a Kubernetes Service is created.
-		if existing, f := out.servicesByHostname[s.Hostname]; f &&
-			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
-			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
-				existing.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname)
-			continue
-		}
-		out.servicesByHostname[s.Hostname] = s
 		if dr := ps.destinationRule(configNamespace, s); dr != nil {
 			out.destinationRules[s.Hostname] = dr
 			for _, cdr := range dr {
@@ -270,19 +267,6 @@ func DefaultSidecarScopeForNamespace(ps *PushContext, configNamespace string) *S
 			Name:      string(s.Hostname),
 			Namespace: s.Attributes.Namespace,
 		}.HashCode())
-	}
-
-	for _, el := range out.EgressListeners {
-		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServices(el.virtualServices)
-		for _, delegate := range delegates {
-			out.AddConfigDependencies(delegate)
-		}
-		for _, vs := range el.virtualServices {
-			for _, cfg := range VirtualServiceDependencies(vs) {
-				out.AddConfigDependencies(cfg.HashCode())
-			}
-		}
 	}
 
 	if ps.Mesh.OutboundTrafficPolicy != nil {
@@ -305,8 +289,8 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		Name:               sidecarConfig.Name,
 		Namespace:          configNamespace,
 		Sidecar:            sidecar,
+		servicesByHostname: make(map[host.Name]*Service),
 		configDependencies: make(sets.Set[ConfigHash]),
-		RootNamespace:      ps.Mesh.RootNamespace,
 		Version:            ps.PushVersion,
 	}
 
@@ -329,53 +313,11 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
-	out.services = make([]*Service, 0)
-	type serviceIndex struct {
-		svc   *Service
-		index int // index record the position of the svc in slice
-	}
-	servicesAdded := make(map[host.Name]serviceIndex)
-	addService := func(s *Service) {
-		if s == nil {
-			return
-		}
-		if foundSvc, found := servicesAdded[s.Hostname]; !found {
-			out.AddConfigDependencies(ConfigKey{
-				Kind:      kind.ServiceEntry,
-				Name:      string(s.Hostname),
-				Namespace: s.Attributes.Namespace,
-			}.HashCode())
-			out.services = append(out.services, s)
-			servicesAdded[s.Hostname] = serviceIndex{s, len(out.services) - 1}
-		} else if foundSvc.svc.Attributes.Namespace == s.Attributes.Namespace && len(s.Ports) > 0 {
-			// TODO: we should not merge k8s service with non k8s service.
-			// merge the ports to service when each listener generates partial service
-			// we only merge if the found service is in the same namespace as the one we're trying to add
-			copied := foundSvc.svc.DeepCopy()
-			for _, p := range s.Ports {
-				found := false
-				for _, osp := range copied.Ports {
-					if p.Port == osp.Port {
-						found = true
-						break
-					}
-				}
-				if !found {
-					copied.Ports = append(copied.Ports, p)
-				}
-			}
-			// replace service in slice
-			out.services[foundSvc.index] = copied
-			// Update index as well, so that future reads will merge into the new service
-			foundSvc.svc = copied
-			servicesAdded[foundSvc.svc.Hostname] = foundSvc
-		}
-	}
-
+	servicesAdded := make(map[host.Name]sidecarServiceIndex)
 	for _, listener := range out.EgressListeners {
 		// First add the explicitly requested services, which take priority
 		for _, s := range listener.services {
-			addService(s)
+			out.appendSidecarServices(servicesAdded, s)
 		}
 		// add dependencies on delegate virtual services
 		delegates := ps.DelegateVirtualServices(listener.virtualServices)
@@ -404,7 +346,7 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 						vss = serviceMatchingVirtualServicePorts(s, ports)
 					}
 					if vss != nil {
-						addService(vss)
+						out.appendSidecarServices(servicesAdded, vss)
 					}
 				} else {
 
@@ -435,7 +377,7 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 							vss = serviceMatchingVirtualServicePorts(byNamespace[ns[0]], ports)
 						}
 						if vss != nil {
-							addService(vss)
+							out.appendSidecarServices(servicesAdded, vss)
 						}
 					}
 				}
@@ -446,22 +388,9 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	out.servicesByHostname = make(map[host.Name]*Service, len(out.services))
 	out.destinationRules = make(map[host.Name][]*ConsolidatedDestRule)
 	out.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
 	for _, s := range out.services {
-		// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
-		// arbitrary hostnames. In these cases, we want to pick the first Service, which is the oldest. This ensures
-		// newly created Services cannot take ownership unexpectedly.
-		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
-		// "domain squatting" on the hostname before a Kubernetes Service is created.
-		if existing, f := out.servicesByHostname[s.Hostname]; f &&
-			!(existing.Attributes.ServiceRegistry != provider.Kubernetes && s.Attributes.ServiceRegistry == provider.Kubernetes) {
-			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry,
-				existing.Attributes.ServiceRegistry, existing.Attributes.Namespace, existing.Hostname)
-			continue
-		}
-		out.servicesByHostname[s.Hostname] = s
 		drList := ps.destinationRule(configNamespace, s)
 		if drList != nil {
 			out.destinationRules[s.Hostname] = drList
@@ -477,6 +406,11 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 				}
 			}
 		}
+		out.AddConfigDependencies(ConfigKey{
+			Kind:      kind.ServiceEntry,
+			Name:      string(s.Hostname),
+			Namespace: s.Attributes.Namespace,
+		}.HashCode())
 	}
 
 	if sidecar.OutboundTrafficPolicy == nil {
@@ -623,14 +557,14 @@ func (ilw *IstioEgressListenerWrapper) MostSpecificWildcardServiceIndex() map[ho
 
 // DependsOnConfig determines if the proxy depends on the given config.
 // Returns whether depends on this config or this kind of config is not scopeZd(unknown to be depended) here.
-func (sc *SidecarScope) DependsOnConfig(config ConfigKey) bool {
+func (sc *SidecarScope) DependsOnConfig(config ConfigKey, rootNs string) bool {
 	if sc == nil {
 		return true
 	}
 
 	// This kind of config will trigger a change if made in the root namespace or the same namespace
 	if clusterScopedKnownConfigTypes.Contains(config.Kind) {
-		return config.Namespace == sc.RootNamespace || config.Namespace == sc.Namespace
+		return config.Namespace == rootNs || config.Namespace == sc.Namespace
 	}
 
 	// This kind of config is unknown to sidecarScope.
@@ -907,4 +841,67 @@ func needsPortMatch(l *networking.IstioEgressListener) bool {
 	//  - If Port's protocol is proxy protocol(HTTP_PROXY) in which case the egress listener is used as generic egress http proxy.
 	return l != nil && l.Port.GetNumber() != 0 &&
 		protocol.Parse(l.Port.Protocol) != protocol.HTTP_PROXY
+}
+
+type sidecarServiceIndex struct {
+	svc   *Service
+	index int // index record the position of the svc in slice
+}
+
+func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sidecarServiceIndex, s *Service) {
+	if s == nil {
+		return
+	}
+	if foundSvc, found := servicesAdded[s.Hostname]; !found {
+		sc.services = append(sc.services, s)
+		servicesAdded[s.Hostname] = sidecarServiceIndex{s, len(sc.services) - 1}
+		sc.servicesByHostname[s.Hostname] = s
+	} else {
+		existing := foundSvc.svc
+		// We donot merge k8s service with any other services from other registries
+		if existing.Attributes.ServiceRegistry == provider.Kubernetes {
+			return
+		}
+		// In some scenarios, there may be multiple Services defined for the same hostname due to ServiceEntry allowing
+		// arbitrary hostnames. In these cases, we want to pick the first Service, which is the oldest. This ensures
+		// newly created Services cannot take ownership unexpectedly.
+		// However, the Service is from Kubernetes it should take precedence over ones not. This prevents someone from
+		// "domain squatting" on the hostname before a Kubernetes Service is created.
+		if s.Attributes.ServiceRegistry == provider.Kubernetes {
+			log.Debugf("Service %s/%s from registry %s ignored by %s/%s/%s", existing.Attributes.Namespace, existing.Hostname, existing.Attributes.ServiceRegistry,
+				s.Attributes.Namespace, s.Hostname, s.Attributes.ServiceRegistry)
+			// replace service in slice
+			sc.services[foundSvc.index] = s
+			// Update index as well, so that future reads will merge into the new service
+			foundSvc.svc = s
+			servicesAdded[foundSvc.svc.Hostname] = foundSvc
+			sc.servicesByHostname[s.Hostname] = s
+			return
+		}
+
+		// we merge ports for services both defined by ServiceEntry in same namespace
+		if existing.Attributes.Namespace == s.Attributes.Namespace {
+			// merge the ports to service when each listener generates partial service
+			// we only merge if the found service is in the same namespace as the one we're trying to add
+			copied := foundSvc.svc.DeepCopy()
+			for _, p := range s.Ports {
+				found := false
+				for _, osp := range copied.Ports {
+					if p.Port == osp.Port {
+						found = true
+						break
+					}
+				}
+				if !found {
+					copied.Ports = append(copied.Ports, p)
+				}
+			}
+			// replace service in slice
+			sc.services[foundSvc.index] = copied
+			// Update index as well, so that future reads will merge into the new service
+			foundSvc.svc = copied
+			servicesAdded[foundSvc.svc.Hostname] = foundSvc
+			sc.servicesByHostname[s.Hostname] = s
+		}
+	}
 }

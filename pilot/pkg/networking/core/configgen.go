@@ -21,7 +21,6 @@ import (
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 
@@ -52,9 +51,4 @@ type ConfigGenerator interface {
 
 	// MeshConfigChanged is invoked when mesh config is changed, giving a chance to rebuild any cached config.
 	MeshConfigChanged(mesh *meshconfig.MeshConfig)
-}
-
-// NewConfigGenerator creates a new instance of the dataplane configuration generator
-func NewConfigGenerator(cache model.XdsCache) ConfigGenerator {
-	return v1alpha3.NewConfigGenerator(cache)
 }

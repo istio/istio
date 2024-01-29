@@ -1,95 +1,54 @@
-# Istio CNI plugin
+# Istio CNI Node Agent
 
-For application pods in the Istio service mesh, all traffic to/from the pods needs to go through the
-sidecar proxies (istio-proxy containers).  This `istio-cni` Container Network Interface (CNI) plugin will
-set up the pods' networking to fulfill this requirement in place of the current Istio injected pod `initContainers`
-`istio-init` approach.
+The Istio CNI Node Agent is responsible for several things
 
-This is currently accomplished via configuring the iptables rules in the netns for the pods.
+- Install an Istio CNI plugin binary on each node's filesystem, updating that node's CNI config in e.g (`/etc/cni/net.d`), and watching the config and binary paths to reinstall if things are modified.
+- In sidecar mode, the CNI plugin can configure sidecar networking for pods when they are scheduled by the container runtime, using iptables. The CNI handling the netns setup replaces the current Istio approach using a `NET_ADMIN` privileged `initContainers` container, `istio-init`, injected in the pods along with `istio-proxy` sidecars. This removes the need for a privileged, `NET_ADMIN` container in the Istio users' application pods.
+- In ambient mode, the CNI plugin does not configure any networking, but is only responsible for synchronously pushing new pod events back up to an ambient watch server which runs as part of the Istio CNI node agent. The ambient server will find the pod netns and configure networking inside that pod via iptables. The ambient server will additionally watch enabled namespaces, and enroll already-started-but-newly-enrolled pods in a similar fashion.
 
-The CNI handling the netns setup replaces the current Istio approach using a `NET_ADMIN` privileged
-`initContainers` container, `istio-init`, injected in the pods along with `istio-proxy` sidecars.  This
-removes the need for a privileged, `NET_ADMIN` container in the Istio users' application pods.
+## Ambient mode details
 
-## Ambient mode
+Fundamentally, this component is responsible for the following:
 
-In addition to configuring application pods, if Ambient mode is enabled, the `istio-cni` plugin also configures the node-level
-proxy (ztunnel):
+- Sets up redirection with newly-started (or newly-added, previously-started) application pods such that traffic from application pods is forwarded to the local node's ztunnel pod.
+- Configures required iptables, sockets, and packet routing miscellanea within the `ztunnel` and application pod network namespaces to make that happen.
 
-- Sets up redirection on the node such that traffic from application pods is forwarded to ztunnel, in the host/node network namespace.
-- Configures iptables and packet routing miscellanea within the `ztunnel` network namespace.
+This component accomplishes that in the following ways:
 
-Ambient mode may also operate in the container namespace, including cases where ztunnel is run as a sidecar if the
-native CNI does not support host interception. This is treated as "sidecar interception" even if it runs ztunnel.
+1. By installing a separate, very basic "CNI plugin" binary onto the node to forward low-level pod lifecycle events (CmdAdd/CmdDel/etc) from whatever node-level CNI subsystem is in use to this node agent for processing via socket.
+1. By running as a node-level daemonset that:
 
-### Ambient redirection mode
+- listens for these UDS events from the CNI plugin (which fire when new pods are spawned in an ambient-enabled namespace), and adds those pods to the ambient mesh.
+- watches k8s resource for existing pods, so that pods that have already been started can be moved in or out of the ambient mesh.
+- sends UDS events to ztunnel via a socket whenever a pod is enabled for ambient mesh (whether from CNI plugin or node watcher), instructing ztunnel to create the "tube" socket.
 
-If Ambient mode is enabled, the CNI plugin currently supports two different mechanisms for Ambient traffic redirection.
+The ambient CNI agent is the only place where ambient network config and pod redirection machinery happens.
+In ambient mode, the CNI plugin is effectively just a shim to catch pod creation events and notify the CNI agent early enough to set up network redirection before the pod is fully started. This is necessary because the CNI plugin is effectively the first thing to see a scheduled pod - before the K8S control plane will see things like the pod IP or networking info, the CNI will - but the CNI plugin alone is not sufficient to handle all pod events (already-started pod updates, rebuilding current state on CNI restart) that the node agent cares about.
 
-1. `iptables` and `geneve` tunnels
-1. `eBPF` programs and maps
+## Reference
 
-These are not mutually compatible, and one or the other will be used, depending on the `CNIAmbientConfig.redirectMode` flag. The current default is `iptables`+`geneve`, though that is expected to change.
+### Design details
 
-## Usage
+Broadly, `istio-cni` accomplishes ambient redirection by instructing ztunnel to set up sockets within the application pod network namespace, where:
 
-A complete set of instructions on how to use and install the Istio CNI is available on the Istio documentation site under [Install Istio with the Istio CNI plugin](https://istio.io/latest/docs/setup/additional-setup/cni/).
+- one end of the socket is in the application pod
+- and the other end is in ztunnel's pod
 
-## Troubleshooting
+and setting up iptables rules to funnel traffic thru that socket "tube" to ztunnel and back.
 
-### Validate the iptables are modified
+This effectively behaves like ztunnel is an in-pod sidecar, without actually requiring the injection of ztunnel as a sidecar into the pod manifest, or mutatating the application pod in any way.
 
-1. Collect your pod's container id using kubectl.
+Additionally, it does not require any network rules/routing/config in the host network namespace, which greatly increases ambient mode compatibility with 3rd-party CNIs. In virtually all cases, this "in-pod" ambient CNI is exactly as compatible with 3rd-party CNIs as sidecars are/were.
 
-    ```console
-    $ ns=test-istio
-    $ podnm=reviews-v1-6b7f6db5c5-59jhf
-    $ container_id=$(kubectl get pod -n ${ns} ${podnm} -o jsonpath="{.status.containerStatuses[?(@.name=='istio-proxy')].containerID}" | sed -n 's/docker:\/\/\(.*\)/\1/p')
-    ```
+### Notable Env Vars
 
-1. SSH into the Kubernetes worker node that runs your pod.
+| Env Var            | Default         | Purpose                                                                                                                                       |
+|--------------------|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------|
+| HOST_PROBE_SNAT_IP | "169.254.7.127" | Applied to SNAT host probe packets, so they can be identified/skipped podside. Any link-local address in the 169.254.0.0/16 block can be used |
 
-1. Use `nsenter` (or `ip netns exec`) to view the iptables.
-
-    ```console
-    $ cpid=$(docker inspect --format '{{ .State.Pid }}' $container_id)
-    $ nsenter -t $cpid -n iptables -L -t nat -n -v --line-numbers -x
-    ```
-
-### Collecting Logs
-
-#### Using `istioctl`/helm
-
-- Set: `values.global.logging.level="cni:debug,ambient:debug"`
-- Inspect the pod logs of a `istio-cni` Daemonset pod on a specific node.
-
-#### From a specific node syslog
-
-The CNI plugins are executed by threads in the `kubelet` process.  The CNI plugins logs end up the syslog
-under the `kubelet` process. On systems with `journalctl` the following is an example command line
-to view the last 1000 `kubelet` logs via the `less` utility to allow for `vi`-style searching:
-
-```console
-$ journalctl -t kubelet -n 1000 | less
-```
-
-#### GKE via Stackdriver Log Viewer
-
-Each GKE cluster's will have many categories of logs collected by Stackdriver.  Logs can be monitored via
-the project's [log viewer](https://cloud.google.com/logging/docs/view/overview) and/or the `gcloud logging read`
-capability.
-
-The following example grabs the last 10 `kubelet` logs containing the string "cmdAdd" in the log message.
-
-```console
-$ gcloud logging read "resource.type=k8s_node AND jsonPayload.SYSLOG_IDENTIFIER=kubelet AND jsonPayload.MESSAGE:cmdAdd" --limit 10 --format json
-```
-
-## API
+## Sidecar Mode Implementation Details
 
 Istio CNI injection is currently based on the same Pod annotations used in init-container/inject mode.
-
-TODO: list all supported annotations, which are working on ambient, plans for long-term support as CRD/broader than Istio.
 
 ### Selection API
 
@@ -121,8 +80,6 @@ The annotation based control is currently only supported in 'sidecar' mode. See 
 - auto excluded inbound ports: 15020, 15021, 15090
 
 The code automatically detects the proxyUID and proxyGID from RunAsUser/RunAsGroup and exclude them from interception, defaulting to 1337
-
-## Implementation Details
 
 ### Overview
 
@@ -157,7 +114,7 @@ The code automatically detects the proxyUID and proxyGID from RunAsUser/RunAsGro
     - shared code with istio-init container
     - it will generate an iptables-save config, based on annotations/labels and other settings, and apply it.
 
-### CmdAdd Workflow
+### CmdAdd Sidecar Workflow
 
 `CmdAdd` is triggered when there is a new pod created. This runs on the node, in a chain of CNI plugins - Istio is
 run after the main CNI sets up the pod IP and networking.
@@ -172,7 +129,38 @@ run after the main CNI sets up the pod IP and networking.
         - Pod has `istio-init` initContainer - this indicates a pod running its own injection setup.
 1. Return prevResult
 
-## Reference
+## Troubleshooting
+
+### Collecting Logs
+
+#### Using `istioctl`/helm
+
+- Set: `values.global.logging.level="cni:debug,ambient:debug"`
+- Inspect the pod logs of a `istio-cni` Daemonset pod on a specific node.
+
+#### From a specific node syslog
+
+The CNI plugins are executed by threads in the `kubelet` process.  The CNI plugins logs end up the syslog
+under the `kubelet` process. On systems with `journalctl` the following is an example command line
+to view the last 1000 `kubelet` logs via the `less` utility to allow for `vi`-style searching:
+
+```console
+$ journalctl -t kubelet -n 1000 | less
+```
+
+#### GKE via Stackdriver Log Viewer
+
+Each GKE cluster's will have many categories of logs collected by Stackdriver.  Logs can be monitored via
+the project's [log viewer](https://cloud.google.com/logging/docs/view/overview) and/or the `gcloud logging read`
+capability.
+
+The following example grabs the last 10 `kubelet` logs containing the string "cmdAdd" in the log message.
+
+```console
+$ gcloud logging read "resource.type=k8s_node AND jsonPayload.SYSLOG_IDENTIFIER=kubelet AND jsonPayload.MESSAGE:cmdAdd" --limit 10 --format json
+```
+
+## Other Reference
 
 The framework for this implementation of the CNI plugin is based on the
 [containernetworking sample plugin](https://github.com/containernetworking/plugins/tree/main/plugins/sample)
@@ -185,10 +173,3 @@ Specifically:
 - The CNI installation script is containerized and deployed as a daemonset in k8s.  The relevant calico k8s manifests were used as the model for the istio-cni plugin's manifest:
     - [daemonset and configmap](https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/hosted/calico.yaml) - search for the `calico-node` Daemonset and its `install-cni` container deployment
     - [RBAC](https://docs.projectcalico.org/v3.2/getting-started/kubernetes/installation/rbac.yaml) - this creates the service account the CNI plugin is configured to use to access the kube-api-server
-
-The installation program `install-cni` injects the `istio-cni` plugin config at the end of the CNI plugin chain
-config.  It creates or modifies the file from the configmap created by the Kubernetes manifest.
-
-## TODO
-
-- Watch configmaps or CRDs and update the `istio-cni` plugin's config with these options.

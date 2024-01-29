@@ -61,10 +61,14 @@ var (
 		},
 	}
 	samplePath               = "/sample/path"
+	operatorManaged          = operatorNamespace + "/managed"
 	revisionCanonicalWebhook = admitv1.MutatingWebhookConfiguration{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:   "istio-sidecar-injector-revision",
-			Labels: map[string]string{label.IoIstioRev.Name: "revision"},
+			Name: "istio-sidecar-injector-revision",
+			Labels: map[string]string{
+				label.IoIstioRev.Name: "revision",
+				operatorManaged:       "Reconcile",
+			},
 		},
 		Webhooks: []admitv1.MutatingWebhook{
 			{
@@ -124,6 +128,7 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 		whURL          string
 		whSVC          string
 		whCA           string
+		userManaged    bool
 	}{
 		{
 			name:           "webhook-pointing-to-service",
@@ -156,6 +161,7 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			whURL:          "",
 			whSVC:          "istiod-revision",
 			whCA:           "ca",
+			userManaged:    true,
 		},
 	}
 	scheme := runtime.NewScheme()
@@ -191,6 +197,9 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 			opts := &GenerateOptions{
 				ManifestsPath: filepath.Join(env.IstioSrc, "manifests"),
 			}
+			if tc.userManaged {
+				opts.UserManaged = true
+			}
 			webhookYAML, err := generateValidatingWebhook(webhookConfig, opts)
 			if err != nil {
 				t.Fatalf("tag webhook YAML generation failed with error: %v", err)
@@ -201,6 +210,12 @@ func TestGenerateValidatingWebhook(t *testing.T) {
 				t.Fatalf("could not parse webhook from generated YAML: %s", vwhObject)
 			}
 			wh := vwhObject.(*admitv1.ValidatingWebhookConfiguration)
+
+			if tc.userManaged {
+				// User created webhooks should not have operator labels, otherwise will be pruned.
+				_, ok := wh.GetLabels()[operatorManaged]
+				assert.Equal(t, ok, false)
+			}
 
 			for _, webhook := range wh.Webhooks {
 				validationWhConf := webhook.ClientConfig

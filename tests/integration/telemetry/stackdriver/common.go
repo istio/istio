@@ -19,6 +19,7 @@ package stackdriver
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -26,7 +27,7 @@ import (
 	"sort"
 	"strings"
 
-	loggingpb "cloud.google.com/go/logging/apiv2/loggingpb"
+	"cloud.google.com/go/logging/apiv2/loggingpb"
 	monitoring "cloud.google.com/go/monitoring/apiv3/v2/monitoringpb"
 	cloudtrace "cloud.google.com/go/trace/apiv1/tracepb"
 	"google.golang.org/protobuf/proto"
@@ -467,4 +468,41 @@ func normalizeTrace(l *cloudtrace.Trace) map[string]string {
 		}
 	}
 	return r
+}
+
+func ValidateTraces(t test.Failer) error {
+	t.Helper()
+
+	// we are looking for a trace that looks something like:
+	//
+	// project_id:"test-project"
+	// trace_id:"99bc9a02417c12c4877e19a4172ae11a"
+	// spans:{
+	//   span_id:440543054939690778
+	//   name:"srv.istio-echo-1-92573.svc.cluster.local:80/*"
+	//   start_time:{seconds:1594418699  nanos:648039133}
+	//   end_time:{seconds:1594418699  nanos:669864006}
+	//   parent_span_id:18050098903530484457
+	// }
+	//
+	// we only need to validate the span value in the labels and project_id for
+	// the purposes of this test at the moment.
+	//
+	// future improvements include adding canonical service info, etc. in the
+	// span.
+
+	wantSpanName := fmt.Sprintf("srv.%s.svc.cluster.local:80/*", EchoNsInst.Name())
+	traces, err := SDInst.ListTraces(EchoNsInst.Name(), "")
+	if err != nil {
+		return fmt.Errorf("traces: could not retrieve traces from Stackdriver: %v", err)
+	}
+	for _, trace := range traces {
+		t.Logf("trace: %v\n", trace)
+		for _, span := range trace.Spans {
+			if span.Name == wantSpanName {
+				return nil
+			}
+		}
+	}
+	return errors.New("traces: could not find expected trace")
 }

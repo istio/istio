@@ -117,7 +117,7 @@ func NewWaypointProxy(ctx resource.Context, ns namespace.Instance, sa string) (W
 	}
 
 	cls := ctx.Clusters().Kube().Default()
-	// Find the Prometheus pod and service, and start forwarding a local port.
+	// Find the Waypoint pod and service, and start forwarding a local port.
 	fetchFn := testKube.NewSinglePodFetch(cls, ns.Name(), fmt.Sprintf("%s=%s", constants.GatewayNameLabel, sa))
 	pods, err := testKube.WaitUntilPodsAreReady(fetchFn)
 	if err != nil {

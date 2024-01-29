@@ -213,6 +213,7 @@ func poll(ctx cli.Context,
 			countVersions(versionCount, configVersion.ClusterVersion)
 			countVersions(versionCount, configVersion.RouteVersion)
 			countVersions(versionCount, configVersion.ListenerVersion)
+			countVersions(versionCount, configVersion.EndpointVersion)
 		}
 	}
 

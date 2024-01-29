@@ -60,9 +60,9 @@ func proxyDependentOnConfig(proxy *model.Proxy, config model.ConfigKey, push *mo
 	// Detailed config dependencies check.
 	switch proxy.Type {
 	case model.SidecarProxy:
-		if proxy.SidecarScope.DependsOnConfig(config) {
+		if proxy.SidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) {
 			return true
-		} else if proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config) {
+		} else if proxy.PrevSidecarScope != nil && proxy.PrevSidecarScope.DependsOnConfig(config, push.Mesh.RootNamespace) {
 			return true
 		}
 	case model.Router:

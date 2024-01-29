@@ -60,6 +60,8 @@ defaults:
     externalIPs: []
     ipFamilyPolicy: ""
     ipFamilies: []
+    ## Whether to automatically allocate NodePorts (only for LoadBalancers).
+    # allocateLoadBalancerNodePorts: false
 
   resources:
     requests:

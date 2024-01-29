@@ -136,11 +136,6 @@ func Generate(ctx context.Context, client kube.Client, opts *GenerateOptions, is
 			if err != nil {
 				return "", fmt.Errorf("failed deactivating existing default revision: %w", err)
 			}
-			// delete deprecated validating webhook configuration if it exists.
-			err = DeleteDeprecatedValidator(ctx, client.Kube())
-			if err != nil {
-				return "", fmt.Errorf("failed removing deprecated validating webhook: %w", err)
-			}
 		}
 
 		// TODO(Monkeyanator) should extract the validationURL from revision's validating webhook here. However,
@@ -264,7 +259,7 @@ func generateLabels(whLabels, curLabels, customLabels map[string]string, userMan
 	whLabels = maps.MergeCopy(whLabels, curLabels)
 	whLabels = maps.MergeCopy(whLabels, customLabels)
 	if userManaged {
-		for _, label := range whLabels {
+		for label := range whLabels {
 			if strings.Contains(label, operatorNamespace) {
 				delete(whLabels, label)
 			}

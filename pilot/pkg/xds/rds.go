@@ -16,12 +16,13 @@ package xds
 
 import (
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/util/sets"
 )
 
 type RdsGenerator struct {
-	Server *DiscoveryServer
+	ConfigGenerator core.ConfigGenerator
 }
 
 var _ model.XdsResourceGenerator = &RdsGenerator{}
@@ -63,6 +64,6 @@ func (c RdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req
 	if !rdsNeedsPush(req) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	resources, logDetails := c.Server.ConfigGenerator.BuildHTTPRoutes(proxy, req, w.ResourceNames)
+	resources, logDetails := c.ConfigGenerator.BuildHTTPRoutes(proxy, req, w.ResourceNames)
 	return resources, logDetails, nil
 }

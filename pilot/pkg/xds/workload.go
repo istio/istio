@@ -25,7 +25,7 @@ import (
 )
 
 type WorkloadGenerator struct {
-	s *DiscoveryServer
+	Server *DiscoveryServer
 }
 
 var (
@@ -65,7 +65,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 		// didn't explicitly request.
 		// For wildcard, they subscribe to everything already.
 		// TODO: optimize me
-		additional := e.s.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
+		additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
 		addresses.Merge(additional)
 	}
 
@@ -84,7 +84,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
 	resources := make(model.Resources, 0)
-	addrs, removed := e.s.Env.ServiceDiscovery.AddressInformation(addresses)
+	addrs, removed := e.Server.Env.ServiceDiscovery.AddressInformation(addresses)
 	// Note: while "removed" is a weird name for a resource that never existed, this is how the spec works:
 	// https://www.envoyproxy.io/docs/envoy/latest/api-docs/xds_protocol#id2
 	have := sets.New[string]()
@@ -136,7 +136,7 @@ func (e WorkloadGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource
 }
 
 type WorkloadRBACGenerator struct {
-	s *DiscoveryServer
+	Server *DiscoveryServer
 }
 
 func (e WorkloadRBACGenerator) GenerateDeltas(
@@ -167,7 +167,7 @@ func (e WorkloadRBACGenerator) GenerateDeltas(
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
 
-	policies := e.s.Env.ServiceDiscovery.Policies(updatedPolicies)
+	policies := e.Server.Env.ServiceDiscovery.Policies(updatedPolicies)
 
 	resources := make(model.Resources, 0)
 	expected := sets.New[string]()

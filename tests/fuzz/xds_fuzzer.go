@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/config/kube/crd"
 	"istio.io/istio/pilot/pkg/model"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xds"
 )
 
 func init() {

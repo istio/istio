@@ -39,6 +39,7 @@ import (
 	"istio.io/istio/pilot/pkg/serviceregistry/memory"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	xdsfake "istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config/host"
@@ -64,7 +65,7 @@ const (
 )
 
 func TestIncrementalPush(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-all.yaml") +
 			mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml"),
 	})
@@ -164,7 +165,7 @@ func TestIncrementalPush(t *testing.T) {
 // Regression test for https://github.com/istio/istio/issues/38709
 func TestSAUpdate(t *testing.T) {
 	test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, false)
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.Connect(s.SetupProxy(nil), nil, []string{v3.ClusterType})
 
 	ports := model.PortList{
@@ -204,7 +205,7 @@ func TestSAUpdate(t *testing.T) {
 }
 
 func TestEds(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		ConfigString: mustReadFile(t, "tests/testdata/config/destination-rule-locality.yaml"),
 	})
 
@@ -313,7 +314,7 @@ func mustReadfolder(t *testing.T, folder string) string {
 }
 
 func TestEdsWeightedServiceEntry(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml")})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{ConfigString: mustReadFile(t, "tests/testdata/config/static-weighted-se.yaml")})
 	adscConn := s.Connect(nil, nil, watchEds)
 	endpoints := adscConn.GetEndpoints()
 	lbe, f := endpoints["outbound|80||weighted.static.svc.cluster.local"]
@@ -345,7 +346,7 @@ var (
 )
 
 func TestEDSOverlapping(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	addOverlappingEndpoints(s)
 	adscon := s.Connect(nil, nil, watchEds)
 	testOverlappingPorts(s, adscon, t)
@@ -355,7 +356,7 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 	for _, sendUnhealthy := range []bool{true, false} {
 		t.Run(fmt.Sprint(sendUnhealthy), func(t *testing.T) {
 			test.SetAtomicBoolForTest(t, features.SendUnhealthyEndpoints, sendUnhealthy)
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 			addUnhealthyCluster(s)
 			s.EnsureSynced(t)
 			adscon := s.Connect(nil, nil, watchEds)
@@ -560,7 +561,7 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 func TestEDSServiceResolutionUpdate(t *testing.T) {
 	for _, resolution := range []model.Resolution{model.DNSLB, model.DNSRoundRobinLB} {
 		t.Run(fmt.Sprintf("resolution_%s", resolution), func(t *testing.T) {
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 			addEdsCluster(s, "edsdns.svc.cluster.local", "http", "10.0.0.53", 8080)
 			addEdsCluster(s, "other.local", "http", "1.1.1.1", 8080)
 			s.EnsureSynced(t) // Wait for debounce
@@ -606,7 +607,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+			s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 			addEdsCluster(s, "flipflop.com", "http", "10.0.0.53", 8080)
 			s.EnsureSynced(t) // Wait for debounce
 			adscConn := s.Connect(nil, nil, watchAll)
@@ -673,7 +674,7 @@ func TestEndpointFlipFlops(t *testing.T) {
 
 // Validate that deleting a service clears entries from EndpointIndex.
 func TestDeleteService(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	addEdsCluster(s, "removeservice.com", "http", "10.0.0.53", 8080)
 	adscConn := s.Connect(nil, nil, watchEds)
 
@@ -688,7 +689,7 @@ func TestDeleteService(t *testing.T) {
 	}
 }
 
-func fullPush(s *xds.FakeDiscoveryServer) {
+func fullPush(s *xdsfake.FakeDiscoveryServer) {
 	s.Discovery.Push(&model.PushRequest{Full: true})
 }
 
@@ -776,7 +777,7 @@ func testLocalityPrioritizedEndpoints(adsc *adsc.ADSC, adsc2 *adsc.ADSC, t *test
 
 // Tests that Services with multiple ports sharing the same port number are properly sent endpoints.
 // Real world use case for this is kube-dns, which uses port 53 for TCP and UDP.
-func testOverlappingPorts(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
+func testOverlappingPorts(s *xdsfake.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	// Test initial state
 	testEndpoints("10.0.0.53", "outbound|53||overlapping.cluster.local", adsc, t)
 
@@ -849,7 +850,7 @@ func testUdsEndpoints(adsc *adsc.ADSC, t *testing.T) {
 }
 
 // Update
-func edsUpdates(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
+func edsUpdates(s *xdsfake.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	// Old style (non-incremental)
 	s.MemRegistry.SetEndpoints(edsIncSvc, "",
 		newEndpointWithAccount("127.0.0.3", "hello-sa", "v1"))
@@ -876,7 +877,7 @@ func edsFullUpdateCheck(adsc *adsc.ADSC, t *testing.T) {
 // - just endpoint changes -> incremental
 // - service account changes -> full ( in future: CDS only )
 // - label changes -> full
-func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
+func edsUpdateInc(s *xdsfake.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 	// TODO: set endpoints for a different cluster (new shard)
 
 	// Verify initial state
@@ -954,7 +955,7 @@ func edsUpdateInc(s *xds.FakeDiscoveryServer, adsc *adsc.ADSC, t *testing.T) {
 // Make a direct EDS grpc request to pilot, verify the result is as expected.
 // This test includes a 'bad client' regression test, which fails to read on the
 // stream.
-func multipleRequest(s *xds.FakeDiscoveryServer, inc bool, nclients,
+func multipleRequest(s *xdsfake.FakeDiscoveryServer, inc bool, nclients,
 	nPushes int, to time.Duration, _ map[string]string, t *testing.T,
 ) {
 	wgConnect := &sync.WaitGroup{}
@@ -1169,7 +1170,7 @@ func addLocalityEndpoints(m *memory.ServiceDiscovery, hostname host.Name) {
 }
 
 // nolint: unparam
-func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string, address string, port int) {
+func addEdsCluster(s *xdsfake.FakeDiscoveryServer, hostName string, portName string, address string, port int) {
 	svc := &model.Service{
 		Hostname: host.Name(hostName),
 		Ports: model.PortList{
@@ -1199,7 +1200,7 @@ func addEdsCluster(s *xds.FakeDiscoveryServer, hostName string, portName string,
 	fullPush(s)
 }
 
-func updateServiceResolution(s *xds.FakeDiscoveryServer, resolution model.Resolution) {
+func updateServiceResolution(s *xdsfake.FakeDiscoveryServer, resolution model.Resolution) {
 	svc := &model.Service{
 		Hostname: "edsdns.svc.cluster.local",
 		Ports: model.PortList{
@@ -1230,7 +1231,7 @@ func updateServiceResolution(s *xds.FakeDiscoveryServer, resolution model.Resolu
 	fullPush(s)
 }
 
-func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
+func addOverlappingEndpoints(s *xdsfake.FakeDiscoveryServer) {
 	svc := &model.Service{
 		Hostname: "overlapping.cluster.local",
 		Ports: model.PortList{
@@ -1263,7 +1264,7 @@ func addOverlappingEndpoints(s *xds.FakeDiscoveryServer) {
 	fullPush(s)
 }
 
-func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
+func addUnhealthyCluster(s *xdsfake.FakeDiscoveryServer) {
 	svc := &model.Service{
 		Hostname: "unhealthy.svc.cluster.local",
 		Ports: model.PortList{
@@ -1297,7 +1298,7 @@ func addUnhealthyCluster(s *xds.FakeDiscoveryServer) {
 // TODO: use this in integration tests.
 // TODO: refine the output
 // TODO: dump the ServiceInstances as well
-func testEdsz(t *testing.T, s *xds.FakeDiscoveryServer, proxyID string) {
+func testEdsz(t *testing.T, s *xdsfake.FakeDiscoveryServer, proxyID string) {
 	req, err := http.NewRequest(http.MethodGet, "/debug/edsz?proxyID="+proxyID, nil)
 	if err != nil {
 		t.Fatal(err)

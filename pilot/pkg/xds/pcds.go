@@ -26,7 +26,6 @@ import (
 
 // PcdsGenerator generates proxy configuration for proxies to consume
 type PcdsGenerator struct {
-	Server      *DiscoveryServer
 	TrustBundle *tb.TrustBundle
 }
 

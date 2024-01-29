@@ -88,6 +88,7 @@ func TestMain(m *testing.M) {
 		Setup(istio.Setup(&i, func(ctx resource.Context, cfg *istio.Config) {
 			// can't deploy VMs without eastwest gateway
 			ctx.Settings().SkipVMs()
+			cfg.EnableCNI = true
 			cfg.DeployEastWestGW = false
 			cfg.ControlPlaneValues = `
 values:

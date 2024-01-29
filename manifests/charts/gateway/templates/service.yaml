@@ -15,6 +15,11 @@ spec:
 {{- with .Values.service.loadBalancerIP }}
   loadBalancerIP: "{{ . }}"
 {{- end }}
+{{- if eq .Values.service.type "LoadBalancer" }}
+  {{- if hasKey .Values.service "allocateLoadBalancerNodePorts" }}
+  allocateLoadBalancerNodePorts: {{ .Values.service.allocateLoadBalancerNodePorts }}
+  {{- end }}
+{{- end }}
 {{- if .Values.service.ipFamilyPolicy }}
   ipFamilyPolicy: {{ .Values.service.ipFamilyPolicy }}
 {{- end }}

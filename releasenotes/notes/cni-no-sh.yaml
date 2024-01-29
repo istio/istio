@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 48746
+releaseNotes:
+  - |
+    **Fixed** an issue causing Istio CNI to stop functioning on minimal/locked down nodes (such as no `sh` binary).
+    The new logic runs with no external dependencies, and will attempt to continue if errors are encountered (which could be caused by things like SELinux rules).
+    In particular, this fixes running Istio on Bottlerocket nodes.

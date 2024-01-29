@@ -760,15 +760,7 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	var lbSettings *v1alpha3.LoadBalancerSettings
 
 	port := &model.Port{Port: portNumber}
-	policy := util.MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
-
-	for _, subset := range destinationRule.Subsets {
-		if subset.Name == subsetName {
-			policy = util.MergeTrafficPolicy(policy, subset.TrafficPolicy, port)
-			break
-		}
-	}
-
+	policy := getSubsetTrafficPolicy(destinationRule, port, subsetName)
 	if policy != nil {
 		lbSettings = policy.LoadBalancer
 		if policy.OutlierDetection != nil {
@@ -777,6 +769,17 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	}
 
 	return outlierDetectionEnabled, lbSettings
+}
+
+func getSubsetTrafficPolicy(destinationRule *v1alpha3.DestinationRule, port *model.Port, subsetName string) *v1alpha3.TrafficPolicy {
+	var subSetTrafficPolicy *v1alpha3.TrafficPolicy
+	for _, subset := range destinationRule.Subsets {
+		if subset.Name == subsetName {
+			subSetTrafficPolicy = subset.TrafficPolicy
+			break
+		}
+	}
+	return util.MergeSubsetTrafficPolicy(destinationRule.TrafficPolicy, subSetTrafficPolicy, port)
 }
 
 // getSubSetLabels returns the labels associated with a subset of a given service.

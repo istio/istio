@@ -26,6 +26,7 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	xdsfake "istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/adsc"
 	"istio.io/istio/pkg/config"
@@ -36,6 +37,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/tests/util/leak"
 )
 
 const (
@@ -45,45 +47,8 @@ const (
 	routeB = "https.443.https.my-gateway.testns"
 )
 
-func TestStatusEvents(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
-
-	ads := s.Connect(
-		&model.Proxy{
-			Metadata: &model.NodeMetadata{
-				Generator: "event",
-			},
-		},
-		[]string{xds.TypeURLConnect},
-		[]string{},
-	)
-	defer ads.Close()
-
-	dr, err := ads.WaitVersion(5*time.Second, xds.TypeURLConnect, "")
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if dr.Resources == nil || len(dr.Resources) == 0 {
-		t.Error("Expected connections, but not found")
-	}
-
-	// Create a second connection - we should get an event.
-	ads2 := s.Connect(nil, nil, nil)
-	defer ads2.Close()
-
-	dr, err = ads.WaitVersion(5*time.Second, xds.TypeURLConnect,
-		dr.VersionInfo)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if dr.Resources == nil || len(dr.Resources) == 0 {
-		t.Error("Expected connections, but not found")
-	}
-}
-
 func TestAdsReconnectAfterRestart(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 
 	ads := s.ConnectADS().WithType(v3.EndpointType)
 	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
@@ -103,7 +68,7 @@ func TestAdsReconnectAfterRestart(t *testing.T) {
 // TestAdsReconnectRequests provides a regression test for a case where Envoy sends an EDS request as the first
 // request on a connection.
 func TestAdsReconnectRequests(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 
 	ads := s.ConnectADS()
 	// Send normal CDS and EDS requests
@@ -140,7 +105,7 @@ func TestAdsReconnectRequests(t *testing.T) {
 }
 
 func TestAdsUnsubscribe(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 
 	ads := s.ConnectADS().WithType(v3.EndpointType)
 	res := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{"fake-cluster"}})
@@ -155,7 +120,7 @@ func TestAdsUnsubscribe(t *testing.T) {
 
 // Regression for envoy restart and overlapping connections
 func TestAdsReconnect(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.ClusterType)
 	ads.RequestResponseAck(t, nil)
 
@@ -173,14 +138,14 @@ func TestAdsReconnect(t *testing.T) {
 
 // Regression for connection with a bad ID
 func TestAdsBadId(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS().WithID("").WithType(v3.ClusterType)
 	xds.AdsPushAll(s.Discovery)
 	ads.ExpectNoResponse(t)
 }
 
 func TestVersionNonce(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.ClusterType)
 	resp1 := ads.RequestResponseAck(t, nil)
 	fullPush(s)
@@ -194,7 +159,7 @@ func TestVersionNonce(t *testing.T) {
 }
 
 func TestAdsClusterUpdate(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.EndpointType)
 
 	version := ""
@@ -224,7 +189,7 @@ func TestAdsClusterUpdate(t *testing.T) {
 
 // nolint: lll
 func TestAdsPushScoping(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 
 	const (
 		svcSuffix = ".testPushScoping.com"
@@ -798,7 +763,7 @@ func TestAdsPushScoping(t *testing.T) {
 }
 
 func TestAdsUpdate(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS()
 
 	s.MemRegistry.AddService(&model.Service{
@@ -845,7 +810,7 @@ func TestAdsUpdate(t *testing.T) {
 }
 
 func TestEnvoyRDSProtocolError(t *testing.T) {
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.RouteType)
 	ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
 
@@ -876,7 +841,7 @@ func TestEnvoyRDSUpdatedRouteRequest(t *testing.T) {
 			t.Fatalf("expected routes %v got %v", expected, got)
 		}
 	}
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{})
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
 	ads := s.ConnectADS().WithType(v3.RouteType)
 	resp := ads.RequestResponseAck(t, &discovery.DiscoveryRequest{ResourceNames: []string{routeA}})
 	expectRoutes(resp, routeA)
@@ -931,7 +896,7 @@ func TestEdsCache(t *testing.T) {
 		}, retry.Timeout(time.Second*5))
 	}
 
-	s := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{
+	s := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{
 		Configs: []config.Config{
 			makeEndpoint([]*networking.WorkloadEntry{
 				{Address: "1.2.3.4", Locality: "region/zone"},
@@ -1001,4 +966,16 @@ func TestEdsCache(t *testing.T) {
 	}
 	assertEndpoints(ads)
 	t.Logf("endpoints: %+v", ads.GetEndpoints())
+}
+
+// TestPushQueueLeak is a regression test for https://github.com/grpc/grpc-go/issues/4758
+func TestPushQueueLeak(t *testing.T) {
+	ds := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{})
+	p := ds.ConnectADS()
+	p.RequestResponseAck(t, nil)
+	for _, c := range ds.Discovery.AllClients() {
+		leak.MustGarbageCollect(t, c)
+	}
+	ds.Discovery.AdsPushAll(&model.PushRequest{Push: ds.PushContext()})
+	p.Cleanup()
 }

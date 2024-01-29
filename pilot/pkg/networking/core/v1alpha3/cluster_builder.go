@@ -190,7 +190,7 @@ func (cb *ClusterBuilder) buildSubsetCluster(
 	opts.istioMtlsSni = defaultSni
 
 	// If subset has a traffic policy, apply it so that it overrides the destination rule traffic policy.
-	opts.policy = util.MergeTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
+	opts.policy = util.MergeSubsetTrafficPolicy(opts.policy, subset.TrafficPolicy, opts.port)
 
 	if destRule != nil {
 		destinationRule := CastDestinationRule(destRule)
@@ -218,7 +218,7 @@ func (cb *ClusterBuilder) applyDestinationRule(mc *clusterWrapper, clusterMode C
 ) []*cluster.Cluster {
 	destinationRule := CastDestinationRule(destRule)
 	// merge applicable port level traffic policy settings
-	trafficPolicy := util.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), port)
+	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), port)
 	opts := buildClusterOpts{
 		mesh:           cb.req.Push.Mesh,
 		serviceTargets: cb.serviceTargets,
@@ -382,7 +382,7 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		destinationRule := CastDestinationRule(cfg)
 		opts.isDrWithSelector = destinationRule.GetWorkloadSelector() != nil
 		if destinationRule.TrafficPolicy != nil {
-			opts.policy = util.MergeTrafficPolicy(opts.policy, destinationRule.TrafficPolicy, instance.Port.ServicePort)
+			opts.policy, _ = util.GetPortLevelTrafficPolicy(destinationRule.TrafficPolicy, instance.Port.ServicePort)
 			util.AddConfigInfoMetadata(localCluster.cluster.Metadata, cfg.Meta)
 		}
 	}
@@ -393,6 +393,9 @@ func (cb *ClusterBuilder) buildInboundCluster(clusterPort int, bind string,
 		if opts.policy == nil {
 			// There was no destination rule, so no inbound traffic policy; we'll create a default
 			opts.policy = &networking.TrafficPolicy{}
+		} else {
+			// copy policy to prevent mutating the original destinationRule trafficPolicy
+			opts.policy = util.ShallowcopyTrafficPolicy(opts.policy)
 		}
 		opts.policy.ConnectionPool = sidecarConnPool
 	}

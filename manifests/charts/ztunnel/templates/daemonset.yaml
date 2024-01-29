@@ -22,7 +22,6 @@ spec:
         app: ztunnel
 {{ with .Values.podLabels -}}{{ toYaml . | indent 8 }}{{ end }}
       annotations:
-        cni.projectcalico.org/allowedSourcePrefixes: "[\"0.0.0.0/0\"]"
         ambient.istio.io/redirection: disabled
         sidecar.istio.io/inject: "false"
 {{ with .Values.podAnnotations -}}{{ toYaml . | indent 8 }}{{ end }}
@@ -61,12 +60,18 @@ spec:
           capabilities:
             drop:
             - ALL
-            add:
-            - NET_ADMIN
+            add: # See https://man7.org/linux/man-pages/man7/capabilities.7.html
+            - NET_ADMIN # Required for TPROXY and setsockopt
+            - SYS_ADMIN # Required for `setns` - doing things in other netns
+            - NET_RAW # Required for RAW/PACKET sockets, TPROXY
           readOnlyRootFilesystem: true
           runAsGroup: 1337
           runAsNonRoot: false
           runAsUser: 0
+{{- if .Values.seLinuxOptions }}
+          seLinuxOptions:
+{{ toYaml .Values.seLinuxOptions | trim | indent 12 }}
+{{- end }}
         readinessProbe:
           httpGet:
             port: 15021
@@ -87,6 +92,10 @@ spec:
           value: {{ .Values.logLevel | quote }}
         - name: ISTIO_META_CLUSTER_ID
           value: {{ .Values.multiCluster.clusterName | default "Kubernetes" }}
+        - name: INPOD_ENABLED
+          value: "true"
+        - name: ISTIO_META_DNS_PROXY_ADDR
+          value: "127.0.0.1:15053"
         - name: POD_NAME
           valueFrom:
             fieldRef:
@@ -124,6 +133,8 @@ spec:
           name: istiod-ca-cert
         - mountPath: /var/run/secrets/tokens
           name: istio-token
+        - mountPath: /var/run/ztunnel
+          name: cni-ztunnel-sock-dir
         {{- with .Values.volumeMounts }}
           {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -140,6 +151,10 @@ spec:
       - name: istiod-ca-cert
         configMap:
           name: istio-ca-root-cert
+      - name: cni-ztunnel-sock-dir
+        hostPath:
+          path: /var/run/ztunnel
+          type: DirectoryOrCreate # ideally this would be a socket, but ztunnel may not have started yet.
       {{- with .Values.volumes }}
         {{- toYaml . | nindent 6}}
       {{- end }}

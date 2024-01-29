@@ -87,13 +87,8 @@ func TestWaypoint(t *testing.T) {
 				"apply",
 				"--namespace",
 				nsConfig.Name(),
+				"--wait",
 			})
-			retry.UntilSuccessOrFail(t, func() error {
-				if err := checkWaypointIsReady(t, nsConfig.Name(), "namespace"); err != nil {
-					return fmt.Errorf("gateway is not ready: %v", err)
-				}
-				return nil
-			}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
 
 			saSet := []string{"sa1", "sa2", "sa3"}
 			for _, sa := range saSet {
@@ -105,15 +100,8 @@ func TestWaypoint(t *testing.T) {
 					nsConfig.Name(),
 					"--service-account",
 					sa,
+					"--wait",
 				})
-			}
-			for _, sa := range saSet {
-				retry.UntilSuccessOrFail(t, func() error {
-					if err := checkWaypointIsReady(t, nsConfig.Name(), sa); err != nil {
-						return fmt.Errorf("gateway is not ready: %v", err)
-					}
-					return nil
-				}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
 			}
 
 			output, _ := istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{

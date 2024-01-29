@@ -91,3 +91,49 @@ func TestValidateOwnerGroups_Invalid(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateIPv4LoopbackCidr_Valid(t *testing.T) {
+	cases := []struct {
+		name string
+		cidr string
+	}{
+		{
+			name: "valid IPv4 loopback CIDR",
+			cidr: "127.0.0.1/32",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateIPv4LoopbackCidr(tc.cidr)
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestValidateIPv4LoopbackCidr_Invalid(t *testing.T) {
+	cases := []struct {
+		name string
+		cidr string
+	}{
+		{
+			name: "invalid IPv4 loopback CIDR",
+			cidr: "192.168.1.1/24",
+		},
+		{
+			name: "invalid CIDR with mask below range",
+			cidr: "10.0.0.1/7",
+		},
+		{
+			name: "invalid CIDR with mask above range",
+			cidr: "172.16.0.1/40",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateIPv4LoopbackCidr(tc.cidr)
+			assert.Error(t, err)
+		})
+	}
+}

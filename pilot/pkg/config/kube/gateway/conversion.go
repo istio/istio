@@ -582,27 +582,14 @@ func augmentTCPPortMatch(routes []*istio.TCPRoute, port k8sv1.PortNumber) []*ist
 	return res
 }
 
-func augmentTLSPortMatch(routes []*istio.TLSRoute, port *k8sv1.PortNumber) ([]*istio.TLSRoute, []*istio.TCPRoute) {
+func augmentTLSPortMatch(routes []*istio.TLSRoute, port *k8sv1.PortNumber, parentHosts []string) []*istio.TLSRoute {
 	res := make([]*istio.TLSRoute, 0, len(routes))
-	tcpRes := make([]*istio.TCPRoute, 0, len(routes))
 	for _, r := range routes {
-		if len(r.Match) == 1 && slices.Equal(r.Match[0].SniHosts, []string{"*"}) {
-			// For mesh, we cannot set "*" on SNI. But we also cannot set SNI to the host, or we would match on SNI which we do
-			// not want
-			// Instead, turn it into a TCPRoute
-			rt := &istio.TCPRoute{
-				Match: nil,
-				Route: r.Route,
-			}
-			if port != nil {
-				rt.Match = []*istio.L4MatchAttributes{{
-					Port: uint32(*port),
-				}}
-			}
-			tcpRes = append(tcpRes, rt)
-			continue
-		}
 		r = r.DeepCopy()
+		if len(r.Match) == 1 && slices.Equal(r.Match[0].SniHosts, []string{"*"}) {
+			// For mesh, we use parent hosts for SNI if TLSRroute.hostnames were not specified.
+			r.Match[0].SniHosts = parentHosts
+		}
 		for _, m := range r.Match {
 			if port != nil {
 				m.Port = uint32(*port)
@@ -610,7 +597,25 @@ func augmentTLSPortMatch(routes []*istio.TLSRoute, port *k8sv1.PortNumber) ([]*i
 		}
 		res = append(res, r)
 	}
-	return res, tcpRes
+	return res
+}
+
+func compatibleRoutesForHost(routes []*istio.TLSRoute, parentHost string) []*istio.TLSRoute {
+	res := make([]*istio.TLSRoute, 0, len(routes))
+	for _, r := range routes {
+		if len(r.Match) == 1 && len(r.Match[0].SniHosts) > 1 {
+			r = r.DeepCopy()
+			sniHosts := []string{}
+			for _, h := range r.Match[0].SniHosts {
+				if host.Name(parentHost).Matches(host.Name(h)) {
+					sniHosts = append(sniHosts, h)
+				}
+			}
+			r.Match[0].SniHosts = sniHosts
+		}
+		res = append(res, r)
+	}
+	return res
 }
 
 func buildGRPCVirtualServices(
@@ -1141,11 +1146,10 @@ func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Confi
 
 	vs := []config.Config{}
 	for _, parent := range filteredReferences(parentRefs) {
-		routes, tcpRoutes := gwResult.routes, []*istio.TCPRoute{}
+		routes := gwResult.routes
 		vsHosts := hostnameToStringList(route.Hostnames)
 		if parent.IsMesh() {
 			routes = meshResult.routes
-			routes, tcpRoutes = augmentTLSPortMatch(routes, parent.OriginalReference.Port)
 			if parent.InternalKind == gvk.ServiceEntry {
 				vsHosts = serviceEntryHosts(ctx.ServiceEntry,
 					string(parent.OriginalReference.Name),
@@ -1155,10 +1159,15 @@ func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Confi
 					parent.OriginalReference.Name, ptr.OrDefault(parent.OriginalReference.Namespace, k8s.Namespace(obj.Namespace)), ctx.Domain)
 				vsHosts = []string{host}
 			}
+			routes = augmentTLSPortMatch(routes, parent.OriginalReference.Port, vsHosts)
 		}
 
 		for i, host := range vsHosts {
 			name := fmt.Sprintf("%s-tls-%d-%s", obj.Name, i, constants.KubernetesGatewayName)
+			filteredRoutes := routes
+			if parent.IsMesh() {
+				filteredRoutes = compatibleRoutesForHost(routes, host)
+			}
 			// Create one VS per hostname with a single hostname.
 			// This ensures we can treat each hostname independently, as the spec requires
 			vs = append(vs, config.Config{
@@ -1173,9 +1182,7 @@ func buildTLSVirtualService(ctx configContext, obj config.Config) []config.Confi
 				Spec: &istio.VirtualService{
 					Hosts:    []string{host},
 					Gateways: []string{parent.InternalName},
-					// We cannot set both, but only one will be non empty
-					Tls: routes,
-					Tcp: tcpRoutes,
+					Tls:      filteredRoutes,
 				},
 			})
 		}

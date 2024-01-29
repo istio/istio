@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issues:
+- 48814
+releaseNotes:
+- |
+  **Fixed** a bug that results in the incorrect generation of configurations for pods without associated services, which includes all services within the same namespace. This can occasionally lead to conflicting inbound listeners error.

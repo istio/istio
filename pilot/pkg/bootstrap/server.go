@@ -36,12 +36,14 @@ import (
 	"google.golang.org/grpc/reflection"
 	"k8s.io/client-go/rest"
 
+	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/api/security/v1beta1"
 	kubecredentials "istio.io/istio/pilot/pkg/credentials/kube"
 	"istio.io/istio/pilot/pkg/features"
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/keycertbundle"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/server"
 	"istio.io/istio/pilot/pkg/serviceregistry/aggregate"
 	"istio.io/istio/pilot/pkg/serviceregistry/provider"
@@ -238,6 +240,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	// Initialize workload Trust Bundle before XDS Server
 	e.TrustBundle = s.workloadTrustBundle
 	s.XDSServer = xds.NewDiscoveryServer(e, args.RegistryOptions.KubeOptions.ClusterAliases)
+	configGen := v1alpha3.NewConfigGenerator(s.XDSServer.Cache)
 
 	grpcprom.EnableHandlingTimeHistogram()
 
@@ -261,7 +264,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 	spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
 
 	s.initMeshNetworks(args, s.fileWatcher)
-	s.initMeshHandlers()
+	s.initMeshHandlers(configGen.MeshConfigChanged)
 	s.environment.Init()
 	if err := s.environment.InitNetworksManager(s.XDSServer); err != nil {
 		return nil, err
@@ -289,7 +292,7 @@ func NewServer(args *PilotArgs, initFuncs ...func(*Server)) (*Server, error) {
 		return nil, err
 	}
 
-	s.XDSServer.InitGenerators(e, args.Namespace, s.clusterID, s.internalDebugMux)
+	InitGenerators(s.XDSServer, configGen, args.Namespace, s.clusterID, s.internalDebugMux)
 
 	// Initialize workloadTrustBundle after CA has been initialized
 	if err := s.initWorkloadTrustBundle(args); err != nil {
@@ -1195,12 +1198,12 @@ func (s *Server) startCA(caOpts *caOptions) {
 }
 
 // initMeshHandlers initializes mesh and network handlers.
-func (s *Server) initMeshHandlers() {
+func (s *Server) initMeshHandlers(changeHandler func(_ *meshconfig.MeshConfig)) {
 	log.Info("initializing mesh handlers")
 	// When the mesh config or networks change, do a full push.
 	s.environment.AddMeshHandler(func() {
 		spiffe.SetTrustDomain(s.environment.Mesh().GetTrustDomain())
-		s.XDSServer.ConfigGenerator.MeshConfigChanged(s.environment.Mesh())
+		changeHandler(s.environment.Mesh())
 		s.XDSServer.ConfigUpdate(&model.PushRequest{
 			Full:   true,
 			Reason: model.NewReasonStats(model.GlobalUpdate),

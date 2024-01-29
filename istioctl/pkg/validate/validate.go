@@ -31,10 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	operator_istio "istio.io/istio/operator/pkg/apis/istio"
+	operatoristio "istio.io/istio/operator/pkg/apis/istio"
+	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
-	operator_validate "istio.io/istio/operator/pkg/validate"
+	operatorvalidate "istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -142,8 +143,8 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 		return nil, nil
 	}
 
-	if un.GetAPIVersion() == "install.istio.io/v1alpha1" {
-		if un.GetKind() == "IstioOperator" {
+	if un.GetAPIVersion() == istioV1Alpha1.IstioOperatorGVK.GroupVersion().String() {
+		if un.GetKind() == istioV1Alpha1.IstioOperatorGVK.Kind {
 			if err := checkFields(un); err != nil {
 				return nil, err
 			}
@@ -152,11 +153,11 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 			// and ask operator code to check.
 			un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
 			by := util.ToYAML(un)
-			iop, err := operator_istio.UnmarshalIstioOperator(by, false)
+			iop, err := operatoristio.UnmarshalIstioOperator(by, false)
 			if err != nil {
 				return nil, err
 			}
-			return nil, operator_validate.CheckIstioOperator(iop, true)
+			return nil, operatorvalidate.CheckIstioOperator(iop, true)
 		}
 	}
 

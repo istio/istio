@@ -16,7 +16,6 @@ package xds
 
 import (
 	"fmt"
-	"strconv"
 	"testing"
 
 	mesh "istio.io/api/mesh/v1alpha1"
@@ -38,7 +37,6 @@ import (
 
 func TestProxyNeedsPush(t *testing.T) {
 	const (
-		invalidKind    = "INVALID_KIND"
 		svcName        = "svc1.com"
 		privateSvcName = "private.com"
 		drName         = "dr1"
@@ -60,7 +58,7 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	sidecar := &model.Proxy{
 		Type: model.SidecarProxy, IPAddresses: []string{"127.0.0.1"}, Metadata: &model.NodeMetadata{},
-		SidecarScope: &model.SidecarScope{Name: generalName, Namespace: nsName, RootNamespace: nsRoot},
+		SidecarScope: &model.SidecarScope{Name: generalName, Namespace: nsName},
 	}
 	gateway := &model.Proxy{
 		Type:     model.Router,
@@ -253,6 +251,7 @@ func TestProxyNeedsPush(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
+			cg.PushContext().Mesh.RootNamespace = nsRoot
 			got := DefaultProxyNeedsPush(tt.proxy, &model.PushRequest{ConfigsUpdated: tt.configs, Push: cg.PushContext()})
 			if got != tt.want {
 				t.Fatalf("Got needs push = %v, expected %v", got, tt.want)
@@ -412,28 +411,6 @@ func TestProxyNeedsPush(t *testing.T) {
 				t.Fatalf("Got needs push = %v, expected %v", push, true)
 			}
 		})
-	}
-}
-
-func BenchmarkListEquals(b *testing.B) {
-	size := 100
-	var l []string
-	for i := 0; i < size; i++ {
-		l = append(l, strconv.Itoa(i))
-	}
-	var equal []string
-	for i := 0; i < size; i++ {
-		equal = append(equal, strconv.Itoa(i))
-	}
-	var notEqual []string
-	for i := 0; i < size; i++ {
-		notEqual = append(notEqual, strconv.Itoa(i))
-	}
-	notEqual[size-1] = "z"
-
-	for n := 0; n < b.N; n++ {
-		listEqualUnordered(l, equal)
-		listEqualUnordered(l, notEqual)
 	}
 }
 

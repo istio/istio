@@ -302,7 +302,7 @@ func TestParsePemEncodedKey(t *testing.T) {
 		if c.errMsg != "" {
 			if err == nil {
 				t.Errorf(`%s: no error is returned, expected "%s"`, id, c.errMsg)
-			} else if c.errMsg != err.Error() {
+			} else if !strings.HasPrefix(err.Error(), c.errMsg) {
 				t.Errorf(`%s: Unexpected error message: expected "%s" but got "%s"`, id, c.errMsg, err.Error())
 			}
 		} else if err != nil {

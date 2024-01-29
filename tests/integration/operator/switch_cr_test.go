@@ -29,10 +29,10 @@ import (
 	"github.com/hashicorp/go-multierror"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
 	"istio.io/api/label"
 	api "istio.io/api/operator/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/object"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/config/schema/gvr"
@@ -222,11 +222,7 @@ func cleanupIstioResources(t framework.TestContext, cs cluster.Cluster, istioCtl
 // checkInstallStatus check the status of IstioOperator CR from the cluster
 func checkInstallStatus(cs istioKube.CLIClient, revision string) error {
 	scopes.Framework.Infof("checking IstioOperator CR status")
-	gvr := schema.GroupVersionResource{
-		Group:    "install.istio.io",
-		Version:  "v1alpha1",
-		Resource: "istiooperators",
-	}
+	gvr := iopv1alpha1.IstioOperatorGVR
 
 	var unhealthyCN []string
 	retryFunc := func() error {
@@ -280,11 +276,7 @@ func checkInstallStatus(cs istioKube.CLIClient, revision string) error {
 func cleanupInClusterCRs(t framework.TestContext, cs cluster.Cluster) {
 	// clean up hanging installed-state CR from previous tests, failing for errors is not needed here.
 	scopes.Framework.Info("cleaning up in-cluster CRs")
-	gvr := schema.GroupVersionResource{
-		Group:    "install.istio.io",
-		Version:  "v1alpha1",
-		Resource: "istiooperators",
-	}
+	gvr := iopv1alpha1.IstioOperatorGVR
 	crList, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).List(context.TODO(),
 		metav1.ListOptions{})
 	if err == nil {

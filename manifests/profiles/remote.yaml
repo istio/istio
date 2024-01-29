@@ -13,5 +13,3 @@ spec:
       enabled: false
     istiodRemote:
       enabled: true
-  values:
-    profile: remote

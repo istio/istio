@@ -28,8 +28,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	istiokube "istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
@@ -222,11 +222,7 @@ spec:
 
 func checkIopExist(cs istiokube.CLIClient, iopName string) (bool, error) {
 	scopes.Framework.Infof("checking IstioOperator CR status")
-	gvr := schema.GroupVersionResource{
-		Group:    "install.istio.io",
-		Version:  "v1alpha1",
-		Resource: "istiooperators",
-	}
+	gvr := iopv1alpha1.IstioOperatorGVR
 
 	_, err := cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Get(context.TODO(), iopName, metav1.GetOptions{})
 	if errors.IsNotFound(err) {
@@ -240,11 +236,7 @@ func checkIopExist(cs istiokube.CLIClient, iopName string) (bool, error) {
 
 func deleteIop(cs istiokube.CLIClient, iopName string) error {
 	scopes.Framework.Infof("checking IstioOperator CR status")
-	gvr := schema.GroupVersionResource{
-		Group:    "install.istio.io",
-		Version:  "v1alpha1",
-		Resource: "istiooperators",
-	}
+	gvr := iopv1alpha1.IstioOperatorGVR
 
 	return cs.Dynamic().Resource(gvr).Namespace(IstioNamespace).Delete(context.TODO(), iopName, metav1.DeleteOptions{})
 }

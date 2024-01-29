@@ -45,7 +45,6 @@ import (
 
 const (
 	envoyDatadog       = "envoy.tracers.datadog"
-	envoyLightstep     = "envoy.tracers.lightstep"
 	envoyOpenCensus    = "envoy.tracers.opencensus"
 	envoyOpenTelemetry = "envoy.tracers.opentelemetry"
 	envoySkywalking    = "envoy.tracers.skywalking"
@@ -181,7 +180,7 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 	case *meshconfig.MeshConfig_ExtensionProvider_Lightstep:
 		//nolint: staticcheck  // Lightstep deprecated
 		maxTagLength = provider.Lightstep.GetMaxTagLength()
-		providerName = envoyLightstep
+		providerName = envoyOpenTelemetry
 		//nolint: staticcheck  // Lightstep deprecated
 		providerConfig = func() (*anypb.Any, error) {
 			hostname, clusterName, err := clusterLookupFn(pushCtx, provider.Lightstep.GetService(), int(provider.Lightstep.GetPort()))

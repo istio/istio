@@ -23,6 +23,7 @@ import (
 	credscontroller "istio.io/istio/pilot/pkg/credentials"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/model/credentials"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/schema/kind"
@@ -31,7 +32,7 @@ import (
 
 // EcdsGenerator generates ECDS configuration.
 type EcdsGenerator struct {
-	Server           *DiscoveryServer
+	ConfigGenerator  core.ConfigGenerator
 	secretController credscontroller.MulticlusterController
 }
 
@@ -118,7 +119,7 @@ func (e *EcdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, r
 		}
 	}
 
-	ec := e.Server.ConfigGenerator.BuildExtensionConfiguration(proxy, req.Push, w.ResourceNames, secrets)
+	ec := e.ConfigGenerator.BuildExtensionConfiguration(proxy, req.Push, w.ResourceNames, secrets)
 
 	if ec == nil {
 		return nil, model.DefaultXdsLogDetails, nil

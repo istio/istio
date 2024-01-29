@@ -150,7 +150,7 @@ func (c *CitadelClient) buildConnection() (*grpc.ClientConn, error) {
 
 func (c *CitadelClient) reconnect() error {
 	if err := c.conn.Close(); err != nil {
-		return fmt.Errorf("failed to close connection")
+		return fmt.Errorf("failed to close connection: %v", err)
 	}
 
 	conn, err := c.buildConnection()

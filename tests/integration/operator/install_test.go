@@ -68,6 +68,10 @@ func TestReInstallAfterFailure(t *testing.T) {
 		Features("installation.istioctl.install").
 		Run(func(t framework.TestContext) {
 			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			cs := t.Clusters().Default()
+			t.Cleanup(func() {
+				cleanupIstioResources(t, cs, istioCtl)
+			})
 
 			// Install with a fake tag to make the installation fail
 			_, _, err := istioCtl.Invoke([]string{

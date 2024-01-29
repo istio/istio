@@ -312,7 +312,7 @@ func Verify(certBytes, privKeyBytes, certChainBytes, rootCertBytes []byte) error
 
 	// Verify the cert and key match.
 	if _, err := tls.X509KeyPair(certBytes, privKeyBytes); err != nil {
-		return fmt.Errorf("the cert does not match the key")
+		return fmt.Errorf("the cert does not match the key: %v", err)
 	}
 
 	return nil

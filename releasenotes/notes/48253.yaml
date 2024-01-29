@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+issue:
+- 48212
+releaseNotes:
+- |
+  **Upgraded** Ambient traffic capture and redirection compatibility by switching to an in-pod mechanism.

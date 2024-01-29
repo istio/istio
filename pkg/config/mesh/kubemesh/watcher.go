@@ -33,7 +33,7 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiW
 		meshNetworks, err := ReadNetworksConfigMap(cm, "meshNetworks")
 		if err != nil {
 			// Keep the last known config in case there's a misconfiguration issue.
-			log.Warnf("failed to read mesh config from ConfigMap: %v", err)
+			log.Errorf("failed to read meshNetworks config from ConfigMap: %v", err)
 			return
 		}
 		if meshNetworks != nil {
@@ -48,7 +48,7 @@ func NewConfigMapWatcher(client kube.Client, namespace, name, key string, multiW
 		meshConfig, err := ReadConfigMap(cm, key)
 		if err != nil {
 			// Keep the last known config in case there's a misconfiguration issue.
-			log.Warnf("failed to read mesh config from ConfigMap: %v", err)
+			log.Errorf("failed to read mesh config from ConfigMap: %v", err)
 			return
 		}
 		w.HandleMeshConfig(meshConfig)

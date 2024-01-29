@@ -64,6 +64,7 @@ spec:
   trafficPolicy:
     tls:
       mode: SIMPLE
+      insecureSkipVerify: true
 ---
 `
 
@@ -973,6 +974,7 @@ spec:
   trafficPolicy:
     tls:
       mode: SIMPLE
+      insecureSkipVerify: true
 `, t.Apps.External.All.Config().DefaultHostHeader),
 		children: []TrafficCall{},
 	}

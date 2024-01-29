@@ -17,13 +17,14 @@ package xds
 import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
+	"istio.io/istio/pilot/pkg/networking/core"
 	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/jwt"
 	"istio.io/istio/pkg/util/sets"
 )
 
 type CdsGenerator struct {
-	Server *DiscoveryServer
+	ConfigGenerator core.ConfigGenerator
 }
 
 var _ model.XdsDeltaResourceGenerator = &CdsGenerator{}
@@ -83,7 +84,7 @@ func (c CdsGenerator) Generate(proxy *model.Proxy, w *model.WatchedResource, req
 	if !cdsNeedsPush(req, proxy) {
 		return nil, model.DefaultXdsLogDetails, nil
 	}
-	clusters, logs := c.Server.ConfigGenerator.BuildClusters(proxy, req)
+	clusters, logs := c.ConfigGenerator.BuildClusters(proxy, req)
 	return clusters, logs, nil
 }
 
@@ -94,6 +95,6 @@ func (c CdsGenerator) GenerateDeltas(proxy *model.Proxy, req *model.PushRequest,
 	if !cdsNeedsPush(req, proxy) {
 		return nil, nil, model.DefaultXdsLogDetails, false, nil
 	}
-	updatedClusters, removedClusters, logs, usedDelta := c.Server.ConfigGenerator.BuildDeltaClusters(proxy, req, w)
+	updatedClusters, removedClusters, logs, usedDelta := c.ConfigGenerator.BuildDeltaClusters(proxy, req, w)
 	return updatedClusters, removedClusters, logs, usedDelta, nil
 }

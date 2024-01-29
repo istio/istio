@@ -206,7 +206,7 @@ func (in *Installer) sleepWatchInstall(ctx context.Context, installedBinFiles se
 		return err
 	}
 	defer func() {
-		SetNotReady(in.isReady)
+		setNotReady(in.isReady)
 		watcher.Close()
 	}()
 
@@ -230,7 +230,7 @@ func (in *Installer) sleepWatchInstall(ctx context.Context, installedBinFiles se
 			return ctx.Err()
 		default:
 			// Valid configuration; set isReady to true and wait for modifications before checking again
-			SetReady(in.isReady)
+			setReady(in.isReady)
 			cniInstalls.With(resultLabel.Value(resultSuccess)).Increment()
 			// Pod set to "NotReady" before termination
 			return watcher.Wait(ctx)
@@ -291,4 +291,16 @@ func checkValidCNIConfig(cfg *config.InstallConfig, cniConfigFilepath string) er
 		return fmt.Errorf("istio-cni CNI config file modified: %s", cniConfigFilepath)
 	}
 	return nil
+}
+
+// Sets isReady to true.
+func setReady(isReady *atomic.Value) {
+	installReady.Record(1)
+	isReady.Store(true)
+}
+
+// Sets isReady to false.
+func setNotReady(isReady *atomic.Value) {
+	installReady.Record(0)
+	isReady.Store(false)
 }

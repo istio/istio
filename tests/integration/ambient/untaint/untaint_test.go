@@ -33,7 +33,6 @@ func TestTaintsRemoved(t *testing.T) {
 		NewTest(t).
 		Features("traffic.cni.race-condition-repair").
 		Run(func(ctx framework.TestContext) {
-
 			// make cni not deploy to one of the nodes
 			taintNodes(ctx)
 

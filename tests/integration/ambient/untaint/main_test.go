@@ -36,9 +36,7 @@ const (
 	Captured = "captured"
 )
 
-var (
-	i istio.Instance
-)
+var i istio.Instance
 
 func TestMain(m *testing.M) {
 	// nolint: staticcheck

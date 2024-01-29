@@ -110,13 +110,9 @@ function download_envoy_if_necessary () {
 
     # Download and extract the binary to the output directory.
     echo "Downloading ${SIDECAR}: $1 to $2"
-    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" | tar xz
-
-    # Copy the extracted binary to the output location
-    cp usr/local/bin/"${SIDECAR}" "$2"
-
-    # Remove the extracted binary.
-    rm -rf usr
+    time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" |\
+      tar --extract --gzip --strip-components=3 --to-stdout > "$2"
+    chmod +x "$2"
 
     # Make a copy named just "envoy" in the same directory (overwrite if necessary).
     echo "Copying $2 to $(dirname "$2")/${3}"

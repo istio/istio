@@ -20,7 +20,9 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
+	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/ptr"
 )
 
 func GetGVR[T runtime.Object]() schema.GroupVersionResource {
@@ -30,4 +32,12 @@ func GetGVR[T runtime.Object]() schema.GroupVersionResource {
 		panic(fmt.Sprintf("unknown GVR for GVK %v", gk))
 	}
 	return gr
+}
+
+func GetGVK[T runtime.Object]() config.GroupVersionKind {
+	return getGvk(ptr.Empty[T]())
+}
+
+func GvkFromObject(obj runtime.Object) config.GroupVersionKind {
+	return getGvk(obj)
 }

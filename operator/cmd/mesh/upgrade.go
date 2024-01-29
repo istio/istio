@@ -35,8 +35,7 @@ func UpgradeCmd(ctx cli.Context, logOpts *log.Options) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "upgrade",
 		Short: "Upgrade Istio control plane in-place",
-		Long: "The upgrade command is an alias for the install command" +
-			" that performs additional upgrade-related checks.",
+		Long:  "The upgrade command is an alias for the install command",
 		RunE: func(cmd *cobra.Command, args []string) (e error) {
 			l := clog.NewConsoleLogger(cmd.OutOrStdout(), cmd.ErrOrStderr(), installerScope)
 			p := NewPrinterForWriter(cmd.OutOrStderr())

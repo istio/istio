@@ -29,7 +29,9 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pkg/config/schema/kind"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func createProxies(n int) []*Connection {
@@ -183,8 +185,8 @@ func TestDebounce(t *testing.T) {
 	// This test tests the timeout and debouncing of config updates
 	// If it is flaking, DebounceAfter may need to be increased, or the code refactored to mock time.
 	// For now, this seems to work well
-	opts := debounceOptions{
-		debounceAfter:     time.Millisecond * 50,
+	opts := DebounceOptions{
+		DebounceAfter:     time.Millisecond * 50,
 		debounceMax:       time.Millisecond * 100,
 		enableEDSDebounce: false,
 	}
@@ -240,13 +242,13 @@ func TestDebounce(t *testing.T) {
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				// Send many requests within debounce window
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
+				time.Sleep(opts.DebounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
+				time.Sleep(opts.DebounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
+				time.Sleep(opts.DebounceAfter / 2)
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter / 2)
+				time.Sleep(opts.DebounceAfter / 2)
 				expect(0, 1)
 			},
 		},
@@ -254,7 +256,7 @@ func TestDebounce(t *testing.T) {
 			name: "Should push synchronously after debounce",
 			test: func(updateCh chan *model.PushRequest, expect func(partial, full int32)) {
 				updateCh <- &model.PushRequest{Full: true}
-				time.Sleep(opts.debounceAfter + 10*time.Millisecond)
+				time.Sleep(opts.DebounceAfter + 10*time.Millisecond)
 				updateCh <- &model.PushRequest{Full: true}
 				expect(0, 2)
 			},
@@ -311,7 +313,7 @@ func TestDebounce(t *testing.T) {
 						}
 						return nil
 					}
-				}, retry.Timeout(opts.debounceAfter*8), retry.Delay(opts.debounceAfter/2))
+				}, retry.Timeout(opts.DebounceAfter*8), retry.Delay(opts.DebounceAfter/2))
 				if err != nil {
 					t.Error(err)
 				}
@@ -480,8 +482,8 @@ func TestShouldRespond(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s := NewFakeDiscoveryServer(t, FakeOptions{})
-			if response, _ := s.Discovery.shouldRespond(tt.connection, tt.request); response != tt.response {
+			s := &DiscoveryServer{}
+			if response, _ := s.shouldRespond(tt.connection, tt.request); response != tt.response {
 				t.Fatalf("Unexpected value for response, expected %v, got %v", tt.response, response)
 			}
 			if tt.name != "reconnect" && tt.response {
@@ -490,5 +492,47 @@ func TestShouldRespond(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func BenchmarkPushRequest(b *testing.B) {
+	// allTriggers contains all triggers, so we can pick one at random.
+	// It is not a big issue if it falls out of sync, as we are just trying to generate test data
+	allTriggers := []model.TriggerReason{
+		model.EndpointUpdate,
+		model.ConfigUpdate,
+		model.ServiceUpdate,
+		model.ProxyUpdate,
+		model.GlobalUpdate,
+		model.UnknownTrigger,
+		model.DebugTrigger,
+		model.SecretTrigger,
+		model.NetworksTrigger,
+		model.ProxyRequest,
+		model.NamespaceUpdate,
+	}
+	// Number of (simulated) proxies
+	proxies := 500
+	// Number of (simulated) pushes merged
+	pushesMerged := 10
+	// Number of configs per push
+	configs := 1
+
+	for n := 0; n < b.N; n++ {
+		var req *model.PushRequest
+		for i := 0; i < pushesMerged; i++ {
+			trigger := allTriggers[i%len(allTriggers)]
+			nreq := &model.PushRequest{
+				ConfigsUpdated: sets.New[model.ConfigKey](),
+				Reason:         model.NewReasonStats(trigger),
+			}
+			for c := 0; c < configs; c++ {
+				nreq.ConfigsUpdated.Insert(model.ConfigKey{Kind: kind.ServiceEntry, Name: fmt.Sprintf("%d", c), Namespace: "default"})
+			}
+			req = req.Merge(nreq)
+		}
+		for p := 0; p < proxies; p++ {
+			recordPushTriggers(req.Reason)
+		}
 	}
 }

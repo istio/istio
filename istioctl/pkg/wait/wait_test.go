@@ -45,6 +45,7 @@ func TestWaitCmd(t *testing.T) {
 			ClusterVersion:  "1",
 			ListenerVersion: "1",
 			RouteVersion:    "1",
+			EndpointVersion: "1",
 		},
 	}
 	cannedResponse, _ := json.Marshal(cannedResponseObj)

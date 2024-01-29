@@ -25,8 +25,8 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
-	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
+	"istio.io/istio/pilot/test/xds"
 	dnsProto "istio.io/istio/pkg/dns/proto"
 )
 

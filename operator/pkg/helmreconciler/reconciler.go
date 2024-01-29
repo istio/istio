@@ -275,10 +275,7 @@ func (h *HelmReconciler) DeleteIOPInClusterIfExists(iop *istioV1Alpha1.IstioOper
 	// Delete the previous IstioOperator CR if it exists.
 	objectKey := client.ObjectKeyFromObject(iop)
 	receiver := &unstructured.Unstructured{}
-	receiver.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "install.istio.io",
-		Version: "v1alpha1", Kind: name.IstioOperatorStr,
-	})
+	receiver.SetGroupVersionKind(istioV1Alpha1.IstioOperatorGVK)
 	if err := h.client.Get(context.TODO(), objectKey, receiver); err == nil {
 		_ = h.client.Delete(context.TODO(), receiver)
 	}
@@ -511,7 +508,7 @@ func (h *HelmReconciler) analyzeWebhooks(whs []string) error {
 			return err
 		}
 		// Here if we need to create a default tag, we need to skip the webhooks that are going to be deactivated.
-		if !detectIfTagWebhookIsNeeded(h.iop, exists) {
+		if !DetectIfTagWebhookIsNeeded(h.iop, exists) {
 			whReaderSource := local.ReaderSource{
 				Name:   fmt.Sprintf("installed-webhook-%d", i),
 				Reader: strings.NewReader(objYaml),
@@ -602,7 +599,7 @@ type ProcessDefaultWebhookOptions struct {
 	DryRun    bool
 }
 
-func detectIfTagWebhookIsNeeded(iop *istioV1Alpha1.IstioOperator, exists bool) bool {
+func DetectIfTagWebhookIsNeeded(iop *istioV1Alpha1.IstioOperator, exists bool) bool {
 	rev := iop.Spec.Revision
 	isDefaultInstallation := rev == "" && iop.Spec.Components.Pilot != nil && iop.Spec.Components.Pilot.Enabled.Value
 	operatorManageWebhooks := operatorManageWebhooks(iop)
@@ -611,7 +608,7 @@ func detectIfTagWebhookIsNeeded(iop *istioV1Alpha1.IstioOperator, exists bool) b
 
 func ProcessDefaultWebhook(client kube.Client, iop *istioV1Alpha1.IstioOperator, exists bool, opt *ProcessDefaultWebhookOptions) (processed bool, err error) {
 	// Detect whether previous installation exists prior to performing the installation.
-	if !detectIfTagWebhookIsNeeded(iop, exists) {
+	if !DetectIfTagWebhookIsNeeded(iop, exists) {
 		return false, nil
 	}
 	rev := iop.Spec.Revision

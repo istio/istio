@@ -139,6 +139,9 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 		if settings.Tcp.MaxConnectionDuration != nil {
 			maxConnectionDuration = settings.Tcp.MaxConnectionDuration
 		}
+		if idleTimeout == nil {
+			idleTimeout = settings.Tcp.IdleTimeout
+		}
 	}
 	applyTCPKeepalive(mesh, mc.cluster, settings.Tcp)
 

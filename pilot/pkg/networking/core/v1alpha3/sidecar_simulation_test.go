@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/simulation"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"

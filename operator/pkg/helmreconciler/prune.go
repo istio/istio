@@ -31,7 +31,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
-	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
@@ -122,7 +122,7 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 // during reconciliation process of controller.
 // It returns the install status and any error encountered.
 func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1alpha1.IstioOperatorSpec) (*v1alpha1.InstallStatus, error) {
-	ns := v1alpha12.Namespace(iopSpec)
+	ns := iopv1alpha1.Namespace(iopSpec)
 	if ns == "" {
 		ns = constants.IstioSystemNamespace
 	}
@@ -301,11 +301,7 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 // otherwise the resources would be reconciled back later if there is in-cluster operator deployment.
 // And it is needed to remove the IstioOperator CRD.
 func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
-	iopGVR := schema.GroupVersionResource{
-		Group:    "install.istio.io",
-		Version:  "v1alpha1",
-		Resource: "istiooperators",
-	}
+	iopGVR := iopv1alpha1.IstioOperatorGVR
 	objects, err := h.kubeClient.Dynamic().Resource(iopGVR).List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		if kerrors.IsNotFound(err) {

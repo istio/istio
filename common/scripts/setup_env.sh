@@ -75,7 +75,7 @@ fi
 TOOLS_REGISTRY_PROVIDER=${TOOLS_REGISTRY_PROVIDER:-gcr.io}
 PROJECT_ID=${PROJECT_ID:-istio-testing}
 if [[ "${IMAGE_VERSION:-}" == "" ]]; then
-  IMAGE_VERSION=master-c74bd02738dce6695e6206d2b517a8b69e648754
+  IMAGE_VERSION=master-41f3904fd1dcf6e138a5886355074e3be4de79d7
 fi
 if [[ "${IMAGE_NAME:-}" == "" ]]; then
   IMAGE_NAME=build-tools
@@ -130,12 +130,17 @@ fi
 # echo ${CONDITIONAL_HOST_MOUNTS}
 
 # This function checks if the file exists. If it does, it creates a randomly named host location
-# for the file, adds it to the host KUBECONFIG, and creates a mount for it.
+# for the file, adds it to the host KUBECONFIG, and creates a mount for it. Note that we use a copy
+# of the original file, so that the container can write to it.
 add_KUBECONFIG_if_exists () {
   if [[ -f "$1" ]]; then
+    local local_config
+    local_config="$(mktemp)"
+    cp "${1}" "${local_config}"
+
     kubeconfig_random="$(od -vAn -N4 -tx /dev/random | tr -d '[:space:]' | cut -c1-8)"
     container_kubeconfig+="/config/${kubeconfig_random}:"
-    CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${1},destination=/config/${kubeconfig_random},readonly "
+    CONDITIONAL_HOST_MOUNTS+="--mount type=bind,source=${local_config},destination=/config/${kubeconfig_random} "
   fi
 }
 

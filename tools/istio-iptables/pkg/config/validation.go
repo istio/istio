@@ -16,7 +16,7 @@ package config
 
 import (
 	"fmt"
-	"net"
+	"net/netip"
 )
 
 const (
@@ -44,18 +44,18 @@ func ValidateOwnerGroups(include, exclude string) error {
 }
 
 func ValidateIPv4LoopbackCidr(cidr string) error {
-	ip, ipNet, err := net.ParseCIDR(cidr)
+	ipp, err := netip.ParsePrefix(cidr)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to parse CIDR %s: %v", cidr, err)
 	}
 
-	if ip.To4() == nil || !ip.To4().IsLoopback() {
-		return fmt.Errorf("expected valid ipv4 loopback address; found %v", ip)
+	if !ipp.Addr().Is4() || !ipp.Addr().IsLoopback() {
+		return fmt.Errorf("expected valid IPv4 loopback address in CIDR %s; found %v", cidr, ipp.Addr())
 	}
 
-	ones, _ := ipNet.Mask.Size()
+	ones := ipp.Bits()
 	if ones < 8 || ones > 32 {
-		return fmt.Errorf("expected mask in range [8, 32]; found %v", ones)
+		return fmt.Errorf("expected CIDR %s to have mask in range [8, 32]; found %v", cidr, ones)
 	}
 	return nil
 }

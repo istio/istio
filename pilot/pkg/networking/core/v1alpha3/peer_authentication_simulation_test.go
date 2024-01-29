@@ -19,7 +19,7 @@ import (
 
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/simulation"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xds"
 )
 
 // TestPeerAuthenticationPassthrough tests the PeerAuthentication policy applies correctly on the passthrough filter chain,

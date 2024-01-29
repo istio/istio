@@ -1,0 +1,14 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+releaseNotes:
+- |
+  **Updated** default value of the feature flag `ENABLE_AUTO_SNI` to true.
+upgradeNotes:
+- title: Default value of the feature flag `ENABLE_AUTO_SNI` to true
+  content: |
+    [auto_sni](https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/core/v3/protocol.proto#envoy-v3-api-field-config-core-v3-upstreamhttpprotocoloptions-auto-sni)
+    is enabled by default. This means SNI will be set automatically based on the downstream HTTP host/authority header if `DestinationRule` does not explicitly set the same.
+
+    If this is not desired, use the new `compatibilityVersion` feature to fallback to old behavior.
+

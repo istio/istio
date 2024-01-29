@@ -102,19 +102,19 @@ func ParsePemEncodedKey(keyBytes []byte) (crypto.PrivateKey, error) {
 	case blockTypeECPrivateKey:
 		key, err := x509.ParseECPrivateKey(kb.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse the ECDSA private key")
+			return nil, fmt.Errorf("failed to parse the ECDSA private key: %v", err)
 		}
 		return key, nil
 	case blockTypeRSAPrivateKey:
 		key, err := x509.ParsePKCS1PrivateKey(kb.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse the RSA private key")
+			return nil, fmt.Errorf("failed to parse the RSA private key: %v", err)
 		}
 		return key, nil
 	case blockTypePKCS8PrivateKey:
 		key, err := x509.ParsePKCS8PrivateKey(kb.Bytes)
 		if err != nil {
-			return nil, fmt.Errorf("failed to parse the PKCS8 private key")
+			return nil, fmt.Errorf("failed to parse the PKCS8 private key: %v", err)
 		}
 		return key, nil
 	default:

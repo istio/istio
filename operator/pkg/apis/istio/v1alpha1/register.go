@@ -33,10 +33,13 @@ var (
 	}
 
 	// SchemeGroupVersion is group version used to register these objects
-	SchemeGroupVersion = schema.GroupVersion{Group: "install.istio.io", Version: "v1alpha1"}
+	SchemeGroupVersion = IstioOperatorGVK.GroupVersion()
 
-	// SchemeGroupKind is group version used to register these objects
-	SchemeGroupKind = schema.GroupKind{Group: "install.istio.io", Kind: "IstioOperator"}
+	IstioOperatorGVR = schema.GroupVersionResource{
+		Group:    SchemeGroupVersion.Group,
+		Version:  SchemeGroupVersion.Version,
+		Resource: "istiooperators",
+	}
 
 	// SchemeBuilder is used to add go types to the GroupVersionKind scheme
 	SchemeBuilder = &scheme.Builder{GroupVersion: SchemeGroupVersion}

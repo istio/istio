@@ -84,6 +84,17 @@ spec:
             runAsGroup: 0
             runAsUser: 0
             runAsNonRoot: false
+{{- if .Values.cni.ambient.enabled }}
+            capabilities:
+              drop:
+              - ALL
+              add:
+              - NET_ADMIN
+              # TODO this, `privileged`, etc need to be reworked - both sidecar (repair) and ambient require SYS_ADMIN
+              # and istio-cni is *always* privileged to some degree, regardless of the `privileged` flag
+              - SYS_ADMIN
+              - NET_RAW
+{{- end }}
             privileged: {{ .Values.cni.privileged }}
 {{- if .Values.cni.seccompProfile }}
             seccompProfile:
@@ -116,6 +127,10 @@ spec:
               value: "{{ .Values.cni.chained }}"
             - name: REPAIR_ENABLED
               value: "{{ .Values.cni.repair.enabled }}"
+{{- if .Values.cni.ambient.enabled }}
+            - name: AMBIENT_DNS_CAPTURE
+              value: "{{ .Values.cni.ambient.dnsCapture }}"
+{{- end }}
             - name: REPAIR_NODE_NAME
               valueFrom:
                 fieldRef:
@@ -147,10 +162,6 @@ spec:
             {{- if .Values.cni.ambient.enabled }}
             - name: AMBIENT_ENABLED
               value: "true"
-            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
-            - name: EBPF_ENABLED
-              value: "true"
-            {{- end }}
             {{- end }}
             - name: GOMEMLIMIT
               valueFrom:
@@ -163,25 +174,21 @@ spec:
           volumeMounts:
             - mountPath: /host/opt/cni/bin
               name: cni-bin-dir
-            {{- if .Values.cni.repair.repairPods }}
+            {{- if or .Values.cni.repair.repairPods .Values.cni.ambient.enabled }}
             - mountPath: /host/proc
               name: cni-host-procfs
+              readOnly: true
             {{- end }}
             - mountPath: /host/etc/cni/net.d
               name: cni-net-dir
             - mountPath: /var/run/istio-cni
-              name: cni-log-dir
+              name: cni-socket-dir
             {{- if .Values.cni.ambient.enabled }}
-            - mountPath: /etc/ambient-config
-              name: cni-ambient-config-dir
-            - mountPath: /var/run/netns
+            - mountPath: /host/var/run/netns
               mountPropagation: HostToContainer
               name: cni-netns-dir
-            {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
-            - mountPath: /sys/fs/bpf
-              mountPropagation: Bidirectional
-              name: cni-bpffs-dir
-            {{- end }}
+            - mountPath: /var/run/ztunnel
+              name: cni-ztunnel-sock-dir
             {{ end }}
           resources:
 {{- if .Values.cni.resources }}
@@ -194,31 +201,28 @@ spec:
         - name: cni-bin-dir
           hostPath:
             path: {{ .Values.cni.cniBinDir | default $defaultBinDir }}
-        {{- if .Values.cni.repair.repairPods }}
+        {{- if or .Values.cni.repair.repairPods .Values.cni.ambient.enabled }}
         - name: cni-host-procfs
           hostPath:
             path: /proc
             type: Directory
         {{- end }}
         {{- if .Values.cni.ambient.enabled }}
-        - name: cni-ambient-config-dir
+        - name: cni-ztunnel-sock-dir
           hostPath:
-            path: {{ .Values.cni.ambient.configDir | default "/etc/ambient-config" }}
+            path: /var/run/ztunnel
+            type: DirectoryOrCreate
         {{- end }}
         - name: cni-net-dir
           hostPath:
             path: {{ default "/etc/cni/net.d" .Values.cni.cniConfDir }}
-        # Used for UDS log
-        - name: cni-log-dir
+        # Used for UDS sockets for logging, ambient eventing
+        - name: cni-socket-dir
           hostPath:
             path: /var/run/istio-cni
         - name: cni-netns-dir
           hostPath:
             path: {{ .Values.cni.cniNetnsDir | default "/var/run/netns" }}
-            type: Directory # this directory must exist on the node, if it does not,
-            # consult your container runtime documentation for the appropriate path
-        {{- if eq .Values.cni.ambient.redirectMode "ebpf"}}
-        - name: cni-bpffs-dir
-          hostPath:
-            path: /sys/fs/bpf
-        {{- end }}
+            type: DirectoryOrCreate # DirectoryOrCreate instead of Directory for the following reason - CNI may not bind mount this until a non-hostnetwork pod is scheduled on the node,
+            # and we don't want to block CNI agent pod creation on waiting for the first non-hostnetwork pod.
+            # Once the CNI does mount this, it will get populated and we're good.

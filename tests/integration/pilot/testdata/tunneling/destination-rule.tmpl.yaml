@@ -30,4 +30,5 @@ spec:
       tls:
         mode: SIMPLE
         sni: external-forward-proxy.{{ .externalNamespace }}.svc.cluster.local
+        insecureSkipVerify: true
 {{ end }}
