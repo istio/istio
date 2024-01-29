@@ -137,7 +137,7 @@ func TestCleanIndexesOnAddExistant(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 1)
+	assert.Equal(t, cache.indexLength(), 1)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.DestinationRule, Name: "name", Namespace: "namespace"}.HashCode(): sets.New(secondEntry.Key()),
@@ -192,7 +192,7 @@ func TestCleanIndexesOnEvict(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 2)
+	assert.Equal(t, cache.indexLength(), 2)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
@@ -265,7 +265,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 3)
+	assert.Equal(t, cache.indexLength(), 3)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():     sets.New(secondEntry.Key()),
@@ -280,7 +280,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 5)
+	assert.Equal(t, cache.indexLength(), 5)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key(), secondEntry.Key()),
@@ -297,7 +297,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 3)
+	assert.Equal(t, cache.indexLength(), 3)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key()),
@@ -312,7 +312,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 5)
+	assert.Equal(t, cache.indexLength(), 5)
 
 	assert.Equal(t, cache.configIndexSnapshot(), map[ConfigHash]sets.Set[uint64]{
 		ConfigKey{Kind: kind.Service, Name: "name", Namespace: "namespace"}.HashCode():         sets.New(firstEntry.Key(), secondEntry.Key()),
@@ -327,7 +327,7 @@ func TestCleanIndexesOnCacheClear(t *testing.T) {
 
 	// Flush the cache and validate the index is cleaned.
 	cache.Flush()
-	assert.Equal(t, cache.indexLen(), 0)
+	assert.Equal(t, cache.indexLength(), 0)
 
 	assert.Equal(t, cache.store.Len(), 0)
 }
