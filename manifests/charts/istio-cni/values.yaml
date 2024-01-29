@@ -71,7 +71,7 @@ defaults:
       deletePods: false
       # repairPods will dynamically repair any broken pod by setting up the pod networking configuration even after it has started.
       # Note the pod will be crashlooping, so this may take a few minutes to become fully functional based on when the retry occurs.
-      # This requires no RBAC privilege, but does require `securityContext.privileged`.
+      # This requires no RBAC privilege, but does require `securityContext.privileged/CAP_SYS_ADMIN`.
       repairPods: true
 
       initContainerName: "istio-validation"
