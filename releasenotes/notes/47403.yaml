@@ -1,0 +1,10 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 47403
+releaseNotes:
+- |
+  **Updated** the sidecar injection template to set memory/cpu limits/requests with default values if only one 
+  group (cpu or memory) [annotation](https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#customizing-injection)
+  is set.
