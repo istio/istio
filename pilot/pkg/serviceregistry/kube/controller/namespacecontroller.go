@@ -75,6 +75,11 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		controllers.WithReconciler(c.reconcileCACert),
 		controllers.WithMaxAttempts(maxRetries))
 
+	c.ignoredNamespaces = inject.IgnoredNamespaces.Copy()
+	if platform.IsOpenShift() && features.EnableAmbientControllers {
+		c.ignoredNamespaces.Delete(constants.KubeSystemNamespace)
+	}
+
 	c.configmaps = kclient.NewFiltered[*v1.ConfigMap](kubeClient, kclient.Filter{
 		FieldSelector: "metadata.name=" + CACertNamespaceConfigMap,
 		ObjectFilter:  c.GetFilter(),
@@ -83,7 +88,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 
 	c.configmaps.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
 		// skip special kubernetes system namespaces
-		return !inject.IgnoredNamespaces.Contains(o.GetNamespace())
+		return !c.ignoredNamespaces.Contains(o.GetNamespace())
 	}))
 
 	if c.DiscoveryNamespacesFilter != nil {
@@ -96,17 +101,12 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 				// We are only watching one namespace, and its not this one
 				return false
 			}
-			if inject.IgnoredNamespaces.Contains(o.GetName()) {
+			if c.ignoredNamespaces.Contains(o.GetName()) {
 				// skip special kubernetes system namespaces
 				return false
 			}
 			return true
 		}))
-	}
-
-	c.ignoredNamespaces = inject.IgnoredNamespaces.Copy()
-	if platform.IsOpenShift() && features.EnableAmbientControllers {
-		c.ignoredNamespaces.Delete(constants.KubeSystemNamespace)
 	}
 
 	return c
