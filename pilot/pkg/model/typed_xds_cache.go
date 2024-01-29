@@ -155,7 +155,10 @@ func (l *lruCache[K]) Flush() {
 	for _, keyConfigs := range l.evictQueue {
 		l.clearConfigIndex(keyConfigs.key, keyConfigs.dependentConfigs)
 	}
+	// The underlying array releases references to elements so that they can be garbage collected.
+	clear(l.evictQueue)
 	l.evictQueue = l.evictQueue[:0:1000]
+
 	l.recordDependentConfigSize()
 	l.mu.Unlock()
 }
@@ -324,7 +327,11 @@ func (l *lruCache[K]) ClearAll() {
 	// create a new store.
 	l.store = newLru(l.onEvict)
 	l.configIndex = map[ConfigHash]sets.Set[K]{}
+
+	// The underlying array releases references to elements so that they can be garbage collected.
+	clear(l.evictQueue)
 	l.evictQueue = l.evictQueue[:0:1000]
+
 	size(l.store.Len())
 }
 
