@@ -81,7 +81,7 @@ spec:
       value: grpc
     - name: OUTPUT_CERTS
       value: /var/lib/istio/data
-    {{- if eq (env .MeshConfig.InboundTrafficPolicy.Mode 1) 0 }}
+    {{- if eq (env .InboundTrafficPolicyMode "localhost") "passthrough" }}
     - name: REWRITE_PROBE_LEGACY_LOCALHOST_DESTINATION
       value: "true"
     {{- end }}
