@@ -841,7 +841,7 @@ func fakeOpenTelemetryGrpcProvider(expectClusterName, expectAuthority string) *t
 }
 
 func fakeOpenTelemetryHTTPProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
-	fakeOTelHttpProviderConfig := &tracingcfg.OpenTelemetryConfig{
+	fakeOTelHTTPProviderConfig := &tracingcfg.OpenTelemetryConfig{
 		HttpService: &core.HttpService{
 			HttpUri: &core.HttpUri{
 				Uri: expectAuthority + "/v1/traces",
@@ -861,7 +861,7 @@ func fakeOpenTelemetryHTTPProvider(expectClusterName, expectAuthority string) *t
 			},
 		},
 	}
-	fakeOtelHttpAny := protoconv.MessageToAny(fakeOTelHttpProviderConfig)
+	fakeOtelHttpAny := protoconv.MessageToAny(fakeOTelHTTPProviderConfig)
 	return &tracingcfg.Tracing_Http{
 		Name:       envoyOpenTelemetry,
 		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelHttpAny},
