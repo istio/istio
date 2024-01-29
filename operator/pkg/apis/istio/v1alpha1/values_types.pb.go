@@ -3403,7 +3403,11 @@ type PilotTaintControllerConfig struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Enabled   bool   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// Enable the untaint controller for new nodes. This aims to solve a race for CNI installation on
+	// new nodes. For this to work, the newly added nodes need to have the istio CNI taint as they are
+	// added to the cluster. This is usually done by configuring the cluster infra provider.
+	Enabled bool `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	// The namespace of the CNI daemonset, incase it's not the same as istiod.
 	Namespace string `protobuf:"bytes,2,opt,name=namespace,proto3" json:"namespace,omitempty"`
 }
 
