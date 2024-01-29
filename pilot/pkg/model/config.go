@@ -384,7 +384,7 @@ func sortByCreationComparator(configs []config.Config) func(i, j int) bool {
 	}
 }
 
-// sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time
+// sortConfigByCreationTime sorts the list of config objects in ascending order by their creation time (if available)
 func sortConfigByCreationTime(configs []config.Config) []config.Config {
 	sort.Slice(configs, sortByCreationComparator(configs))
 	return configs
