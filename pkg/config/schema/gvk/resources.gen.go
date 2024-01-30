@@ -43,7 +43,6 @@ var (
 	ServiceAccount                 = config.GroupVersionKind{Group: "", Version: "v1", Kind: "ServiceAccount"}
 	ServiceEntry                   = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "ServiceEntry"}
 	Sidecar                        = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1alpha3", Kind: "Sidecar"}
-	Sidecar_v1beta1                = config.GroupVersionKind{Group: "networking.istio.io", Version: "v1beta1", Kind: "Sidecar"}
 	StatefulSet                    = config.GroupVersionKind{Group: "apps", Version: "v1", Kind: "StatefulSet"}
 	TCPRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TCPRoute"}
 	TLSRoute                       = config.GroupVersionKind{Group: "gateway.networking.k8s.io", Version: "v1alpha2", Kind: "TLSRoute"}
@@ -125,8 +124,6 @@ func ToGVR(g config.GroupVersionKind) (schema.GroupVersionResource, bool) {
 		return gvr.ServiceEntry, true
 	case Sidecar:
 		return gvr.Sidecar, true
-	case Sidecar_v1beta1:
-		return gvr.Sidecar_v1beta1, true
 	case StatefulSet:
 		return gvr.StatefulSet, true
 	case TCPRoute:
