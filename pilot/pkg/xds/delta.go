@@ -162,22 +162,23 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		deltaLog.Debugf("Skipping push to %v, no updates required", con.conID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version
-			reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, nil)
+			reportAllEventsForProxyNoPush(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 		}
 		return nil
 	}
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl, ignoreEvents := con.pushDetails()
+	wrl := con.orderWatchedResources()
 	for _, w := range wrl {
 		if err := s.pushDeltaXds(con, w, pushRequest); err != nil {
 			return err
 		}
 	}
+
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, ignoreEvents)
+		reportEventsForUnWatched(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -280,9 +281,11 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
+
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.conID, req.TypeUrl, req.ResponseNonce)
 	}
+
 	shouldRespond := s.shouldRespondDelta(con, req)
 	if !shouldRespond {
 		return nil
@@ -381,7 +384,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		return false
 	}
-
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
 	con.proxy.Lock()
