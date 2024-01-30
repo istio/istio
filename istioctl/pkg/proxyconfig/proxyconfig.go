@@ -585,7 +585,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl proxy-config workloads --file ztunnel-config.json
 
   # Retrieve workload summary for a specific namespace
-  istioctl proxy-config workloads <ztunnel-name[.namespace]> --config-namespace foo
+  istioctl proxy-config workloads <ztunnel-name[.namespace]> --workload-namespace foo
 `,
 		Aliases: []string{"workloads", "w"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -643,7 +643,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 	workloadConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 	workloadConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Ztunnel config dump JSON file")
-	workloadConfigCmd.PersistentFlags().StringVar(&configNamespace, "config-namespace", "",
+	workloadConfigCmd.PersistentFlags().StringVar(&configNamespace, "workload-namespace", "",
 		"Filter workloads by namespace field")
 
 	return workloadConfigCmd
