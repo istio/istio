@@ -135,7 +135,7 @@ func TestProxyTracingOpenTelemetryProviderHTTPExporter(t *testing.T) {
 						}
 
 						// the OTel collector exports to Zipkin
-						traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", "provider=otel")
+						traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", "provider=otel-http")
 						t.Logf("got traces %v from %s", traces, cluster)
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)

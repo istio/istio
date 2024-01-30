@@ -10,4 +10,4 @@ spec:
     customTags:
       "provider":
         literal:
-          value: "otel"
+          value: "otel-http"
