@@ -1101,8 +1101,8 @@ github.com/higress-group/api v0.0.0-20240117061537-80830f6de1b0 h1:7pyQ8t4WARyXu
 github.com/higress-group/api v0.0.0-20240117061537-80830f6de1b0/go.mod h1:KstZe4bKbXouALUJ5PqpjNEhu5nj90HrDFitZfpNhlU=
 github.com/higress-group/client-go v0.0.0-20240117062328-9b3841d7dec6 h1:gFMA7qAJz9G3S47GPE1Kwjyg3m9TTFFKd2z6s4END+g=
 github.com/higress-group/client-go v0.0.0-20240117062328-9b3841d7dec6/go.mod h1:jG3Rt/lWHlo5h9dUduY/y9PAvLVOn0JoGEcinP1kylg=
-github.com/higress-group/go-control-plane v0.0.0-20240117084647-f2fb9f19400b h1:+7OSUtZHcWiydb2gmOmlKs4Qto6wOrXGT/4TetpXuSc=
-github.com/higress-group/go-control-plane v0.0.0-20240117084647-f2fb9f19400b/go.mod h1:djL+W7LURiPM8Szxc5/47R6qMRulOSkfsDLO1CaGUNM=
+github.com/higress-group/go-control-plane v0.0.0-20240130032431-b9243474e0a8 h1:yPG3BNFmChM0CyF033kSWU8vHO//8TrUFQZ6RtEiNgc=
+github.com/higress-group/go-control-plane v0.0.0-20240130032431-b9243474e0a8/go.mod h1:djL+W7LURiPM8Szxc5/47R6qMRulOSkfsDLO1CaGUNM=
 github.com/hpcloud/tail v1.0.0/go.mod h1:ab1qPbhIpdTxEkNHXyeSf5vhxWSCs/tWer42PpOxQnU=
 github.com/huandu/xstrings v1.3.3/go.mod h1:y5/lhBue+AyNmUVz9RLU9xbLR0o4KIIExikq4ovT0aE=
 github.com/huandu/xstrings v1.4.0 h1:D17IlohoQq4UcpqD7fDk80P7l+lwAmlFaBHgOipl2FU=

@@ -81,8 +81,8 @@ func TranslateInternalActiveRedirectPolicy(in *networking.HTTPInternalActiveRedi
 				}
 			}
 
-			operations := translateHeadersOperations(inPolicy.GetHeaders())
-			sidecarPolicy.RequestHeadersToAdd = operations.requestHeadersToAdd
+			operations := TranslateHeadersOperations(inPolicy.GetHeaders())
+			sidecarPolicy.RequestHeadersToAdd = operations.RequestHeadersToAdd
 
 			outSidecarPolicy.Policies = append(outSidecarPolicy.Policies, sidecarPolicy)
 		}
@@ -120,8 +120,8 @@ func TranslateInternalActiveRedirectPolicy(in *networking.HTTPInternalActiveRedi
 		}
 	}
 
-	operations := translateHeadersOperations(in.GetHeaders())
-	policy.RequestHeadersToAdd = operations.requestHeadersToAdd
+	operations := TranslateHeadersOperations(in.GetHeaders())
+	policy.RequestHeadersToAdd = operations.RequestHeadersToAdd
 
 	return policy
 }
