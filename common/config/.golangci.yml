@@ -242,6 +242,7 @@ linters-settings:
       AllGoFiles:
         files:
           - $all
+          - "!**/tests/integration/**"
         deny:
           - pkg: golang.org/x/net/http2/h2c
             desc: "h2c.NewHandler is unsafe; use wrapper istio.io/istio/pkg/h2c"
