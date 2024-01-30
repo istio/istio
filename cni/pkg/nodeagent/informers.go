@@ -83,6 +83,11 @@ func setupHandlers(ctx context.Context, kubeClient kube.Client, dataplane MeshDa
 }
 
 func (s *InformerHandlers) GetPodIfAmbient(podName, podNamespace string) (*corev1.Pod, error) {
+	// Both the CNI plugin and the informer check the K8S API to validate that the pod in
+	// question should be part of ambient, on "both ends".
+	// In the informer, wait for cache sync here to make sure we are fresh, to avoid issues
+	// where this cache is out of date with what the plugin might have seen when contacting the k8s API directly.
+	kube.WaitForCacheSync("informer", s.ctx.Done(), s.pods.HasSynced, s.namespaces.HasSynced)
 	ns := s.namespaces.Get(podNamespace, "")
 	if ns == nil {
 		return nil, fmt.Errorf("failed to find namespace %v", ns)

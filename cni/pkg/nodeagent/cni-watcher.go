@@ -160,7 +160,7 @@ func (s *CniPluginServer) ReconcileCNIAddEvent(ctx context.Context, addCmd CNIPl
 	var ambientPod *corev1.Pod
 	var err error
 	// The plugin already consulted the k8s API - but on this end handler caches may be stale, so retry a few times if we get no pod.
-	for ambientPod, err = s.handlers.GetPodIfAmbient(addCmd.PodName, addCmd.PodNamespace); (ambientPod == nil) || (retries < maxStaleRetries); retries++ {
+	for ambientPod, err = s.handlers.GetPodIfAmbient(addCmd.PodName, addCmd.PodNamespace); (ambientPod == nil) && (retries < maxStaleRetries); retries++ {
 		if err != nil {
 			return err
 		}
