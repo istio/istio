@@ -183,7 +183,7 @@ func TestSingleClusterNodeAuthorization(t *testing.T) {
 			c.RunAndWait(test.NewStop(t))
 			kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
 
-			err = na.authenticateImpersonation(context.TODO(), tt.caller, tt.requestedIdentityString)
+			err = na.authenticateImpersonation(tt.caller, tt.requestedIdentityString)
 			if tt.wantErr == "" && err != nil {
 				t.Fatalf("wanted no error, got %v", err)
 			}

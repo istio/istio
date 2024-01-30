@@ -108,11 +108,11 @@ func (mNa *MulticlusterNodeAuthorizor) authenticateImpersonation(ctx context.Con
 	if !found {
 		return fmt.Errorf("no node authorizer for cluster %v", clusterID)
 	}
-	return na.authenticateImpersonation(ctx, caller, requestedIdentityString)
+	return na.authenticateImpersonation(caller, requestedIdentityString)
 }
 
-// ClusterNodeAuthorizer is an implementation of NodeAuthorizer for single-cluster environment.
-// Within a single cluster, it validates that a node proxy which requests certificates for
+// ClusterNodeAuthorizer implements Node Authorization within one cluster.
+// It validates that a node proxy which requests certificates for
 // workloads on its own node is requesting valid identities which run on that node.
 type ClusterNodeAuthorizer struct {
 	trustedNodeAccounts sets.Set[types.NamespacedName]
@@ -150,7 +150,7 @@ func NewClusterNodeAuthorizer(client kube.Client, filter namespace.DiscoveryFilt
 	}, nil
 }
 
-func (na *ClusterNodeAuthorizer) authenticateImpersonation(ctx context.Context, caller security.KubernetesInfo, requestedIdentityString string) error {
+func (na *ClusterNodeAuthorizer) authenticateImpersonation(caller security.KubernetesInfo, requestedIdentityString string) error {
 	callerSa := types.NamespacedName{
 		Namespace: caller.PodNamespace,
 		Name:      caller.PodServiceAccount,
