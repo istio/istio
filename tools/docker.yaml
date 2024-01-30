@@ -39,6 +39,7 @@ images:
   files:
   - tools/packaging/common/envoy_bootstrap.json
   - tools/packaging/common/gcp_envoy_bootstrap.json
+  - tools/packaging/common/higress-pilot-start.sh
   targets:
   - ${TARGET_OUT_LINUX}/pilot-discovery
 
