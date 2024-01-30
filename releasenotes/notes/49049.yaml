@@ -3,4 +3,4 @@ kind: feature
 area: istioctl
 releaseNotes:
 - |
-  **Added** namespace filtering to `istioctl pc workload` using the `--workload-namespace` flag, to display workloads in a specific namespace.
+  **Added** namespace filtering to `istioctl pc workload` using the `--workloads-namespace` flag, to display workloads in a specific namespace.

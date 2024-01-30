@@ -74,7 +74,7 @@ var (
 
 	configDumpFile string
 
-	configNamespace string
+	workloadsNamespace string
 
 	labelSelector = ""
 	name          string
@@ -585,7 +585,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl proxy-config workloads --file ztunnel-config.json
 
   # Retrieve workload summary for a specific namespace
-  istioctl proxy-config workloads <ztunnel-name[.namespace]> --workload-namespace foo
+  istioctl proxy-config workloads <ztunnel-name[.namespace]> --workloads-namespace foo
 `,
 		Aliases: []string{"workloads", "w"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -617,7 +617,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 				return err
 			}
 			filter := ztunnelDump.WorkloadFilter{
-				Namespace: configNamespace,
+				Namespace: workloadsNamespace,
 				Address:   address,
 				Node:      node,
 				Verbose:   verboseProxyConfig,
@@ -643,7 +643,7 @@ func workloadConfigCmd(ctx cli.Context) *cobra.Command {
 	workloadConfigCmd.PersistentFlags().BoolVar(&verboseProxyConfig, "verbose", true, "Output more information")
 	workloadConfigCmd.PersistentFlags().StringVarP(&configDumpFile, "file", "f", "",
 		"Ztunnel config dump JSON file")
-	workloadConfigCmd.PersistentFlags().StringVar(&configNamespace, "workload-namespace", "",
+	workloadConfigCmd.PersistentFlags().StringVar(&workloadsNamespace, "workloads-namespace", "",
 		"Filter workloads by namespace field")
 
 	return workloadConfigCmd
