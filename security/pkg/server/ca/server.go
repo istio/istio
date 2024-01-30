@@ -201,16 +201,12 @@ func New(
 		if err != nil {
 			return nil, err
 		}
-		if features.EnableExternalNodeAuthorizer {
-			mNa := NewMulticlusterNodeAuthenticator(filter, features.CATrustedNodeAccounts, addClusterHandler)
-			// Firstly add the cluster node authorizer for the primary cluster.
-			// Node authorizers of remote clulsters can be managed later, because
-			// multi-cluster node authorizer implement multicluster.ClusterHandler
-			mNa.addCluster(client.ClusterID(), na)
-			server.nodeAuthorizer = mNa
-		} else {
-			server.nodeAuthorizer = na
-		}
+		mNa := NewMulticlusterNodeAuthenticator(filter, features.CATrustedNodeAccounts, addClusterHandler)
+		// Firstly add the cluster node authorizer for the primary cluster.
+		// Node authorizers of remote clulsters can be managed later, because
+		// multi-cluster node authorizer implement multicluster.ClusterHandler
+		mNa.addCluster(client.ClusterID(), na)
+		server.nodeAuthorizer = mNa
 	}
 	return server, nil
 }

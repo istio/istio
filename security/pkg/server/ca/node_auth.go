@@ -42,8 +42,7 @@ type NodeAuthorizer interface {
 }
 
 // MulticlusterNodeAuthorizor is an implementation of NodeAuthorizer for multi-cluster environmnets.
-// It should be used when ENABLE_MULTICLUSTER_NODE_AUTHORIZER is set, which means node authorizations
-// from remote clusters could also be processed (https://docs.google.com/document/d/10uf4EvUVif4xGeCYQydaKh9Yaz9wpysao7gyLewJY2Q)
+// please refer to https://docs.google.com/document/d/10uf4EvUVif4xGeCYQydaKh9Yaz9wpysao7gyLewJY2Q.
 // It is responsible for maintaining an index of node authenticators, one per cluster.
 // node authorizations from one cluster will be forwarded to the node authorizer for the same cluster.
 type MulticlusterNodeAuthorizor struct {

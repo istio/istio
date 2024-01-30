@@ -382,6 +382,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			certChain:           []string{"cert", "cert_chain", "root_cert"},
 			pods:                []pod{ztunnelPod, podOtherNode},
 			impersonatePod:      podOtherNode,
+			callerClusterID:     cluster.ID("fake"),
 			trustedNodeAccounts: allowZtunnel,
 			code:                codes.Unauthenticated,
 		},
@@ -398,6 +399,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			certChain:           []string{"cert", "cert_chain", "root_cert"},
 			pods:                []pod{ztunnelPod, podSameNode},
 			impersonatePod:      podSameNode,
+			callerClusterID:     cluster.ID("fake"),
 			trustedNodeAccounts: allowZtunnel,
 			code:                codes.OK,
 		},
@@ -444,9 +446,6 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 	for _, c := range testCases {
 		t.Run(c.name, func(t *testing.T) {
 			test.SetForTest(t, &features.CATrustedNodeAccounts, c.trustedNodeAccounts)
-			if c.isMultiCluster {
-				test.SetForTest(t, &features.EnableExternalNodeAuthorizer, true)
-			}
 
 			var pods []runtime.Object
 			for _, p := range c.pods {
@@ -473,12 +472,8 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			}
 
 			if server.nodeAuthorizer != nil {
-				switch na := server.nodeAuthorizer.(type) {
-				case *ClusterNodeAuthorizer:
-					kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
-				case *MulticlusterNodeAuthorizor:
-					kube.WaitForCacheSync("test", test.NewStop(t), na.remoteNodeAuthenticators[cluster.ID("fake")].pods.HasSynced)
-					kube.WaitForCacheSync("test", test.NewStop(t), na.remoteNodeAuthenticators[cluster.ID("fake-remote")].pods.HasSynced)
+				for _, nodeAuthorizer := range server.nodeAuthorizer.(*MulticlusterNodeAuthorizor).remoteNodeAuthenticators {
+					kube.WaitForCacheSync("test", test.NewStop(t), nodeAuthorizer.pods.HasSynced)
 				}
 			}
 
