@@ -7,7 +7,7 @@ exclude k8s.io/kubernetes v1.13.0
 
 // Client-go does not handle different versions of mergo due to some breaking changes - use the matching version
 replace (
-	github.com/envoyproxy/go-control-plane => github.com/higress-group/go-control-plane v0.0.0-20240117084647-f2fb9f19400b
+	github.com/envoyproxy/go-control-plane => github.com/higress-group/go-control-plane v0.0.0-20240130032431-b9243474e0a8
 	github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 	istio.io/api => github.com/higress-group/api v0.0.0-20240117061537-80830f6de1b0
 	istio.io/client-go => github.com/higress-group/client-go v0.0.0-20240117062328-9b3841d7dec6
