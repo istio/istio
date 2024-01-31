@@ -1014,6 +1014,13 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", "", true)
 	s.assertNoEvent(t)
 	assertWaypoint(t, s.lookup("pod1"), "waypoint-sa1")
+
+	// Test gateway api pod
+	s.addPods(t, "127.0.0.1", "gw-pod", "sa1", map[string]string{
+		constants.GatewayNameLabel: "gw1",
+	}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("gw-pod"))
+	assertWaypoint(t, s.lookup("gw-pod"), "")
 }
 
 // This is a regression test for a case where policies added after pods were not applied when

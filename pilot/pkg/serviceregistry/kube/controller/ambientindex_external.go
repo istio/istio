@@ -450,6 +450,9 @@ func (a *AmbientIndexImpl) updateWaypointForWorkload(byWorkload map[string]*mode
 		if wl.Labels[constants.ManagedGatewayLabel] == constants.ManagedGatewayMeshControllerLabel {
 			continue
 		}
+		if _, ok := wl.Labels[constants.GatewayNameLabel]; ok {
+			continue
+		}
 		if wl.Namespace != scope.Namespace || (scope.ServiceAccount != "" && wl.ServiceAccount != scope.ServiceAccount) {
 			continue
 		}
