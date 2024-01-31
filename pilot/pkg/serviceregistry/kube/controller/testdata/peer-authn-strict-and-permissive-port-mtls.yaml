@@ -4,7 +4,6 @@ groups:
   - matches:
     - notPrincipals:
       - presence: {}
-- rules:
   - matches:
     - notDestinationPorts:
       - 9090
