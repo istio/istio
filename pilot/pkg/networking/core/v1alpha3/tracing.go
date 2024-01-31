@@ -191,9 +191,11 @@ func configureFromProviderConfig(pushCtx *model.PushContext, proxy *model.Proxy,
 			return otelLightStepConfig(clusterName, hostname, provider.Lightstep.GetAccessToken())
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
+		//nolint: staticcheck
 		maxTagLength = provider.Opencensus.GetMaxTagLength()
 		providerName = envoyOpenCensus
 		providerConfig = func() (*anypb.Any, error) {
+			//nolint: staticcheck
 			return opencensusConfig(provider.Opencensus)
 		}
 	case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
