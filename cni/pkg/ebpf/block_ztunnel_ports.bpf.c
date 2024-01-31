@@ -58,6 +58,8 @@ static __always_inline int bind_prog(struct bpf_sock_addr *ctx, int family) {
     if (port != ztunnel_dns_port) {
       return 1;
     }
+  } else {
+    return 1;
   }
 
   is_ztunnel = (sk->mark & ztunnel_mask) == ztunnel_mark;
