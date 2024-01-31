@@ -22,13 +22,14 @@ import (
 	"net/netip"
 	"testing"
 
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+
 	"istio.io/istio/cni/pkg/util"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test/util/assert"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func TestProcessAddEventGoodPayload(t *testing.T) {
@@ -64,7 +65,7 @@ func TestProcessAddEventBadPayload(t *testing.T) {
 
 func TestCNIPluginServer(t *testing.T) {
 	fakePodIP := "11.1.1.12"
-	_, addr, _ := net.ParseCIDR(fakePodIP+"/32")
+	_, addr, _ := net.ParseCIDR(fakePodIP + "/32")
 	valid := CNIPluginAddEvent{
 		Netns:        "/var/netns/foo",
 		PodName:      "pod-bingo",
@@ -142,7 +143,7 @@ func TestCNIPluginServer(t *testing.T) {
 
 func TestCNIPluginServerPrefersCNIProvidedPodIP(t *testing.T) {
 	fakePodIP := "11.1.1.12"
-	_, addr, _ := net.ParseCIDR(fakePodIP+"/32")
+	_, addr, _ := net.ParseCIDR(fakePodIP + "/32")
 	valid := CNIPluginAddEvent{
 		Netns:        "/var/netns/foo",
 		PodName:      "pod-bingo",
