@@ -40,6 +40,7 @@ import (
 	"istio.io/istio/operator/pkg/version"
 	oversion "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -560,6 +561,14 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 	return string(y), nil
 }
 
+// Fields, beyond 'global', that apply to each chart at the top level of values.yaml
+var topLevelFields = sets.New(
+	"ownerName",
+	"revision",
+	"compatibilityVersion",
+	"profile",
+)
+
 // TranslateHelmValues creates a Helm values.yaml config data tree from iop using the given translator.
 func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, componentsSpec any, componentName name.ComponentName) (string, error) {
 	apiVals := make(map[string]any)
@@ -608,6 +617,11 @@ func (t *Translator) TranslateHelmValues(iop *v1alpha1.IstioOperatorSpec, compon
 		for k, v := range apiVals {
 			_, isMap := v.(map[string]any)
 			if !isMap {
+				finalVals[k] = v
+			}
+		}
+		for k := range topLevelFields {
+			if v, f := mergedVals[k]; f {
 				finalVals[k] = v
 			}
 		}
