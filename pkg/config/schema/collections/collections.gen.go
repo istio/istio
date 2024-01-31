@@ -95,6 +95,21 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
+	DaemonSet = resource.Builder{
+		Identifier:    "DaemonSet",
+		Group:         "apps",
+		Kind:          "DaemonSet",
+		Plural:        "daemonsets",
+		Version:       "v1",
+		Proto:         "k8s.io.api.apps.v1.DaemonSetSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapiappsv1.DaemonSetSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/apps/v1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	Deployment = resource.Builder{
 		Identifier:    "Deployment",
 		Group:         "apps",
@@ -542,6 +557,21 @@ var (
 		ValidateProto: validation.ValidateSidecar,
 	}.MustBuild()
 
+	StatefulSet = resource.Builder{
+		Identifier:    "StatefulSet",
+		Group:         "apps",
+		Kind:          "StatefulSet",
+		Plural:        "statefulsets",
+		Version:       "v1",
+		Proto:         "k8s.io.api.apps.v1.StatefulSetSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapiappsv1.StatefulSetSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/apps/v1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	TCPRoute = resource.Builder{
 		Identifier: "TCPRoute",
 		Group:      "gateway.networking.k8s.io",
@@ -692,6 +722,7 @@ var (
 		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
+		MustAdd(DaemonSet).
 		MustAdd(Deployment).
 		MustAdd(DestinationRule).
 		MustAdd(EndpointSlice).
@@ -720,6 +751,7 @@ var (
 		MustAdd(ServiceAccount).
 		MustAdd(ServiceEntry).
 		MustAdd(Sidecar).
+		MustAdd(StatefulSet).
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).
 		MustAdd(Telemetry).
@@ -736,6 +768,7 @@ var (
 		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
+		MustAdd(DaemonSet).
 		MustAdd(Deployment).
 		MustAdd(EndpointSlice).
 		MustAdd(Endpoints).
@@ -754,6 +787,7 @@ var (
 		MustAdd(Secret).
 		MustAdd(Service).
 		MustAdd(ServiceAccount).
+		MustAdd(StatefulSet).
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).
 		MustAdd(UDPRoute).

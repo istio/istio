@@ -854,6 +854,24 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			Spec: &obj.Spec,
 		}
 	},
+	gvk.DaemonSet: func(r runtime.Object) config.Config {
+		obj := r.(*k8sioapiappsv1.DaemonSet)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.DaemonSet,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
+		}
+	},
 	gvk.Deployment: func(r runtime.Object) config.Config {
 		obj := r.(*k8sioapiappsv1.Deployment)
 		return config.Config{
@@ -1333,6 +1351,24 @@ var translationMap = map[config.GroupVersionKind]func(r runtime.Object) config.C
 			},
 			Spec:   &obj.Spec,
 			Status: &obj.Status,
+		}
+	},
+	gvk.StatefulSet: func(r runtime.Object) config.Config {
+		obj := r.(*k8sioapiappsv1.StatefulSet)
+		return config.Config{
+			Meta: config.Meta{
+				GroupVersionKind:  gvk.StatefulSet,
+				Name:              obj.Name,
+				Namespace:         obj.Namespace,
+				Labels:            obj.Labels,
+				Annotations:       obj.Annotations,
+				ResourceVersion:   obj.ResourceVersion,
+				CreationTimestamp: obj.CreationTimestamp.Time,
+				OwnerReferences:   obj.OwnerReferences,
+				UID:               string(obj.UID),
+				Generation:        obj.Generation,
+			},
+			Spec: &obj.Spec,
 		}
 	},
 	gvk.TCPRoute: func(r runtime.Object) config.Config {
