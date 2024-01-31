@@ -447,14 +447,19 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			test.SetForTest(t, &features.CATrustedNodeAccounts, c.trustedNodeAccounts)
 
+			multiClusterController := &mockMultiClusterController{}
+			server, _ := New(c.ca, time.Duration(1), c.authenticators, nil, multiClusterController.addHandler)
+
 			var pods []runtime.Object
 			for _, p := range c.pods {
 				pods = append(pods, toPod(p, strings.HasPrefix(p.name, "ztunnel")))
 			}
 			client := kube.NewFakeClient(pods...)
-			multiClusterController := &mockMultiClusterController{}
-
-			server, _ := New(c.ca, time.Duration(1), c.authenticators, client, nil, multiClusterController.addHandler)
+			primaryCluster := &multicluster.Cluster{
+				ID:     "fake",
+				Client: client,
+			}
+			multiClusterController.addCluster(primaryCluster)
 			client.RunAndWait(test.NewStop(t))
 
 			if c.isMultiCluster {
@@ -472,7 +477,7 @@ func TestCreateCertificateE2EWithImpersonateIdentity(t *testing.T) {
 			}
 
 			if server.nodeAuthorizer != nil {
-				for _, nodeAuthorizer := range server.nodeAuthorizer.(*MulticlusterNodeAuthorizor).remoteNodeAuthenticators {
+				for _, nodeAuthorizer := range server.nodeAuthorizer.remoteNodeAuthenticators {
 					kube.WaitForCacheSync("test", test.NewStop(t), nodeAuthorizer.pods.HasSynced)
 				}
 			}

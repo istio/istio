@@ -25,7 +25,6 @@ import (
 
 	pb "istio.io/api/security/v1alpha1"
 	"istio.io/istio/pilot/pkg/features"
-	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
@@ -178,7 +177,6 @@ func New(
 	ca CertificateAuthority,
 	ttl time.Duration,
 	authenticators []security.Authenticator,
-	client kube.Client,
 	filter namespace.DiscoveryFilter,
 	addClusterHandler func(multicluster.ClusterHandler),
 ) (*Server, error) {
@@ -194,19 +192,10 @@ func New(
 		monitoring:     newMonitoringMetrics(),
 	}
 
-	if len(features.CATrustedNodeAccounts) > 0 && client != nil {
+	if len(features.CATrustedNodeAccounts) > 0 {
 		// TODO: do we need some way to delayed readiness until this is synced? Probably
 		// Worst case is we deny some requests though which are retried
-		na, err := NewClusterNodeAuthorizer(client, filter, features.CATrustedNodeAccounts)
-		if err != nil {
-			return nil, err
-		}
-		mNa := NewMulticlusterNodeAuthenticator(filter, features.CATrustedNodeAccounts, addClusterHandler)
-		// Firstly add the cluster node authorizer for the primary cluster.
-		// Node authorizers of remote clulsters can be managed later, because
-		// multi-cluster node authorizer implement multicluster.ClusterHandler
-		mNa.addCluster(client.ClusterID(), na)
-		server.nodeAuthorizer = mNa
+		server.nodeAuthorizer = NewMulticlusterNodeAuthenticator(filter, features.CATrustedNodeAccounts, addClusterHandler)
 	}
 	return server, nil
 }
