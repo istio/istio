@@ -33,18 +33,9 @@ import (
 	"istio.io/istio/security/pkg/server/ca/authenticate/kubeauth"
 )
 
-// NodeAuthorizer is a component that implements a subset of Kubernetes Node Authorization
-// (https://kubernetes.io/docs/reference/access-authn-authz/node/) for Istio CA. Specifically, it
-// validates that a node proxy which requests certificates for workloads on its own node is requesting
-// valid identities which run on that node (rather than arbitrary ones).
-type NodeAuthorizer interface {
-	authenticateImpersonation(ctx context.Context, caller security.KubernetesInfo, requestedIdentityString string) error
-}
-
-// MulticlusterNodeAuthorizor is an implementation of NodeAuthorizer for multi-cluster environmnets.
-// please refer to https://docs.google.com/document/d/10uf4EvUVif4xGeCYQydaKh9Yaz9wpysao7gyLewJY2Q.
-// It is responsible for maintaining an index of node authenticators, one per cluster.
-// node authorizations from one cluster will be forwarded to the node authorizer for the same cluster.
+// MulticlusterNodeAuthorizor is is responsible for maintaining an index of ClusterNodeAuthenticators,
+// one per cluster (https://docs.google.com/document/d/10uf4EvUVif4xGeCYQydaKh9Yaz9wpysao7gyLewJY2Q).
+// Node authorizations from one cluster will be forwarded to the ClusterNodeAuthenticators for the same cluster.
 type MulticlusterNodeAuthorizor struct {
 	remoteNodeAuthenticators map[cluster.ID]*ClusterNodeAuthorizer
 	m                        sync.Mutex // protects remoteNodeAuthenticators
@@ -108,9 +99,11 @@ func (m *MulticlusterNodeAuthorizor) authenticateImpersonation(ctx context.Conte
 	return na.authenticateImpersonation(caller, requestedIdentityString)
 }
 
-// ClusterNodeAuthorizer implements Node Authorization within one cluster.
-// It validates that a node proxy which requests certificates for
-// workloads on its own node is requesting valid identities which run on that node.
+// ClusterNodeAuthorizer is a component that implements a subset of Kubernetes Node Authorization
+// (https://kubernetes.io/docs/reference/access-authn-authz/node/) for Istio CA within one cluster.
+// Specifically, it validates that a node proxy which requests certificates for workloads on its
+// own node is requesting valid identities which run on that node (rather than arbitrary ones).
+
 type ClusterNodeAuthorizer struct {
 	trustedNodeAccounts sets.Set[types.NamespacedName]
 	pods                kclient.Client[*v1.Pod]
