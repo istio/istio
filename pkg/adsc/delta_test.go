@@ -224,16 +224,16 @@ func TestDeltaClient(t *testing.T) {
 
 	var tests []testCase
 
-	clusterHandler := Register(func(ctx HandlerContext, res *cluster.Cluster, event Event) {
+	clusterHandler := Register(func(ctx HandlerContext, res *cluster.Cluster, event Event, resourceName string) {
 		if event == EventDelete {
 			return
 		}
 		ctx.RegisterDependency(v3.SecretType, xdstest.ExtractClusterSecretResources(t, res)...)
 		ctx.RegisterDependency(v3.EndpointType, xdstest.ExtractEdsClusterNames([]*cluster.Cluster{res})...)
 	})
-	endpointsHandler := Register(func(ctx HandlerContext, res *endpoint.ClusterLoadAssignment, event Event) {
+	endpointsHandler := Register(func(ctx HandlerContext, res *endpoint.ClusterLoadAssignment, event Event, resourceName string) {
 	})
-	listenerHandler := Register(func(ctx HandlerContext, res *listener.Listener, event Event) {
+	listenerHandler := Register(func(ctx HandlerContext, res *listener.Listener, event Event, resourceName string) {
 		if event == EventDelete {
 			return
 		}
@@ -241,9 +241,9 @@ func TestDeltaClient(t *testing.T) {
 		ctx.RegisterDependency(v3.RouteType, xdstest.ExtractRoutesFromListeners([]*listener.Listener{res})...)
 		// TODO: ECDS
 	})
-	routesHandler := Register(func(ctx HandlerContext, res *route.RouteConfiguration, event Event) {
+	routesHandler := Register(func(ctx HandlerContext, res *route.RouteConfiguration, event Event, resourceName string) {
 	})
-	secretsHandler := Register(func(ctx HandlerContext, res *tls.Secret, event Event) {
+	secretsHandler := Register(func(ctx HandlerContext, res *tls.Secret, event Event, resourceName string) {
 	})
 
 	handlers := []Option{

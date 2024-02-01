@@ -128,7 +128,7 @@ type DeltaADSConfig struct {
 	Config
 }
 
-type HandlerFunc func(ctx HandlerContext, res proto.Message, event Event)
+type HandlerFunc func(ctx HandlerContext, res proto.Message, event Event, resourceName string)
 
 // Client is a stateful ADS (Aggregated Discovery Service) client designed to handle delta updates from an xDS server.
 // Central to this client is a dynamic 'tree' of resources, representing the relationships and states of resources in the service mesh.
@@ -208,7 +208,7 @@ type Client struct {
 
 func (c *Client) trigger(ctx *handlerContext, typeURL string, r *discovery.Resource, event Event) error {
 	res := newProto(typeURL)
-	if r != nil && res != nil {
+	if r != nil && r.Resource != nil && res != nil {
 		if err := r.Resource.UnmarshalTo(res); err != nil {
 			return err
 		}
@@ -218,7 +218,7 @@ func (c *Client) trigger(ctx *handlerContext, typeURL string, r *discovery.Resou
 		deltaLog.Warnf("ignoring unknown type %v", typeURL)
 		return nil
 	}
-	handler(ctx, res, event)
+	handler(ctx, res, event, r.Name)
 	return nil
 }
 
@@ -316,10 +316,10 @@ func typeName[T proto.Message]() string {
 }
 
 // Register registers a handler for a type which is reflected by the proto message.
-func Register[T proto.Message](f func(ctx HandlerContext, res T, event Event)) Option {
+func Register[T proto.Message](f func(ctx HandlerContext, res T, event Event, resourceName string)) Option {
 	return func(c *Client) {
-		c.handlers[typeName[T]()] = func(ctx HandlerContext, res proto.Message, event Event) {
-			f(ctx, res.(T), event)
+		c.handlers[typeName[T]()] = func(ctx HandlerContext, res proto.Message, event Event, resourceName string) {
+			f(ctx, res.(T), event, resourceName)
 		}
 	}
 }
