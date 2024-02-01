@@ -8,6 +8,7 @@
 *.gen.yaml linguist-generated=true
 *.gen.json linguist-generated=true
 *_pb2.py linguist-generated=true
+manifests/charts/**/profile*.yaml linguist-generated=true
 go.sum merge=union
 vendor/**  linguist-vendored
 common/**  linguist-vendored
