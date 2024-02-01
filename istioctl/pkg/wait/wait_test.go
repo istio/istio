@@ -45,6 +45,7 @@ func TestWaitCmd(t *testing.T) {
 			ClusterVersion:  "1",
 			ListenerVersion: "1",
 			RouteVersion:    "1",
+			EndpointVersion: "1",
 		},
 	}
 	cannedResponse, _ := json.Marshal(cannedResponseObj)
@@ -68,6 +69,16 @@ func TestWaitCmd(t *testing.T) {
 			execClientConfig: cannedResponseMap,
 			args:             strings.Split("--generation=1 VirtualService foo.default", " "),
 			wantException:    false,
+		},
+		{
+			execClientConfig: cannedResponseMap,
+			args:             strings.Split("--generation=1 VirtualService foo.default --proxy foo", " "),
+			wantException:    false,
+		},
+		{
+			execClientConfig: cannedResponseMap,
+			args:             strings.Split("--generation=1 VirtualService foo.default --proxy not-proxy", " "),
+			wantException:    true,
 		},
 		{
 			execClientConfig: cannedResponseMap,

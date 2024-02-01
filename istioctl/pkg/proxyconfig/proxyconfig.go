@@ -792,7 +792,7 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
 			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
-	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|prom|prom-merged")
+	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short|prom|prom-merged")
 	statsConfigCmd.PersistentFlags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
 
 	return statsConfigCmd

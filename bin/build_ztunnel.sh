@@ -63,15 +63,8 @@ function download_ztunnel_if_necessary () {
 
   # Download and make the binary executable
   echo "Downloading ztunnel: $1 to $2"
-  BASE_NAME="$(basename "${ISTIO_ZTUNNEL_RELEASE_URL}")"
-  time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" > "${BASE_NAME}"
-  chmod +x "${BASE_NAME}"
-
-  # Copy the extracted binary to the output location
-  cp "${BASE_NAME}" "$2"
-
-  # Remove the extracted binary.
-  rm -rf usr
+  time ${DOWNLOAD_COMMAND} --header "${AUTH_HEADER:-}" "$1" > "$2"
+  chmod +x "$2"
 
   # Make a copy named just "ztunnel" in the same directory (overwrite if necessary).
   echo "Copying $2 to $(dirname "$2")/${3}"

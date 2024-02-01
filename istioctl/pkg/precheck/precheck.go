@@ -18,29 +18,21 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
-	"net/netip"
 	"strconv"
 	"strings"
 
-	admin "github.com/envoyproxy/go-control-plane/envoy/admin/v3"
-	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	"github.com/fatih/color"
-	goversion "github.com/hashicorp/go-version"
 	"github.com/spf13/cobra"
-	"golang.org/x/sync/errgroup"
-	"golang.org/x/sync/semaphore"
 	authorizationapi "k8s.io/api/authorization/v1"
-	v1 "k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	crd "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	networking "istio.io/api/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	"istio.io/istio/istioctl/pkg/install/k8sversion"
 	"istio.io/istio/istioctl/pkg/util/formatting"
-	pkgversion "istio.io/istio/operator/pkg/version"
-	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config/analysis"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/diag"
@@ -49,9 +41,10 @@ import (
 	kube3 "istio.io/istio/pkg/config/legacy/source/kube"
 	"istio.io/istio/pkg/config/resource"
 	"istio.io/istio/pkg/config/schema/gvk"
+	"istio.io/istio/pkg/config/schema/kubetypes"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/url"
-	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -60,6 +53,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	var skipControlPlane bool
 	outputThreshold := formatting.MessageThreshold{Level: diag.Warning}
 	var msgOutputFormat string
+	var fromCompatibilityVersion string
 	// cmd represents the upgradeCheck command
 	cmd := &cobra.Command{
 		Use:   "precheck",
@@ -69,13 +63,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
   istioctl x precheck
 
   # Check only a single namespace
-  istioctl x precheck --namespace default`,
-		RunE: func(cmd *cobra.Command, args []string) (err error) {
-			cli, err := ctx.CLIClientWithRevision(opts.Revision)
-			if err != nil {
-				return err
-			}
+  istioctl x precheck --namespace default
 
+  # Check for behavioral changes since a specific version
+  istioctl x precheck --from-version 1.10`,
+		RunE: func(cmd *cobra.Command, args []string) (err error) {
 			msgs := diag.Messages{}
 			if !skipControlPlane {
 				msgs, err = checkControlPlane(ctx)
@@ -83,11 +75,15 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					return err
 				}
 			}
-			nsmsgs, err := checkDataPlane(cli, ctx.Namespace())
-			if err != nil {
-				return err
+
+			if fromCompatibilityVersion != "" {
+				m, err := checkFromVersion(ctx, opts.Revision, fromCompatibilityVersion)
+				if err != nil {
+					return err
+				}
+				msgs = append(msgs, m...)
 			}
-			msgs.Add(nsmsgs...)
+
 			// Print all the messages to stdout in the specified format
 			msgs = msgs.SortedDedupedCopy()
 			outputMsgs := diag.Messages{}
@@ -96,7 +92,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 					outputMsgs = append(outputMsgs, m)
 				}
 			}
-			output, err := formatting.Print(msgs, msgOutputFormat, false)
+			output, err := formatting.Print(msgs, msgOutputFormat, true)
 			if err != nil {
 				return err
 			}
@@ -122,8 +118,124 @@ See %s for more information about causes and resolutions.`, url.ConfigAnalysis)
 		fmt.Sprintf("The severity level of precheck at which to display messages. Valid values: %v", diag.GetAllLevelStrings()))
 	cmd.PersistentFlags().StringVarP(&msgOutputFormat, "output", "o", formatting.LogFormat,
 		fmt.Sprintf("Output format: one of %v", formatting.MsgOutputFormatKeys))
+	cmd.PersistentFlags().StringVarP(&fromCompatibilityVersion, "from-version", "f", "",
+		"check changes since the provided version")
 	opts.AttachControlPlaneFlags(cmd)
 	return cmd
+}
+
+func checkFromVersion(ctx cli.Context, revision, version string) (diag.Messages, error) {
+	cli, err := ctx.CLIClientWithRevision(revision)
+	if err != nil {
+		return nil, err
+	}
+	major, minors, ok := strings.Cut(version, ".")
+	if !ok {
+		return nil, fmt.Errorf("invalid version %v, expected format like '1.0'", version)
+	}
+	if major != "1" {
+		return nil, fmt.Errorf("expected major version 1, got %v", version)
+	}
+	minor, err := strconv.Atoi(minors)
+	if err != nil {
+		return nil, fmt.Errorf("minor version is not a number: %v", minors)
+	}
+
+	var messages diag.Messages = make([]diag.Message, 0)
+	if minor <= 20 {
+		// VERIFY_CERTIFICATE_AT_CLIENT and ENABLE_AUTO_SNI
+		if err := checkDestinationRuleTLS(cli, &messages); err != nil {
+			return nil, err
+		}
+		// ENABLE_EXTERNAL_NAME_ALIAS
+		if err := checkExternalNameAlias(cli, &messages); err != nil {
+			return nil, err
+		}
+		// PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING
+		// TODO
+		messages.Add(msg.NewUnknownUpgradeCompatibility(nil,
+			"PERSIST_OLDEST_FIRST_HEURISTIC_FOR_VIRTUAL_SERVICE_HOST_MATCHING", "1.20",
+			"consult upgrade notes for more information", "1.20"))
+	}
+	return messages, nil
+}
+
+func checkExternalNameAlias(cli kube.CLIClient, messages *diag.Messages) error {
+	svcs, err := cli.Kube().CoreV1().Services(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	for _, svc := range svcs.Items {
+		if svc.Spec.Type != corev1.ServiceTypeExternalName {
+			continue
+		}
+		res := ObjectToInstance(&svc)
+		messages.Add(msg.NewUpdateIncompatibility(res,
+			"ENABLE_EXTERNAL_NAME_ALIAS", "1.20",
+			"ExternalName services now behavior differently; consult upgrade notes for more information", "1.20"))
+
+	}
+	return nil
+}
+
+func checkDestinationRuleTLS(cli kube.CLIClient, messages *diag.Messages) error {
+	drs, err := cli.Istio().NetworkingV1alpha3().DestinationRules(metav1.NamespaceAll).List(context.Background(), metav1.ListOptions{})
+	if err != nil {
+		return err
+	}
+	checkVerify := func(tls *networking.ClientTLSSettings) bool {
+		return tls != nil && tls.CaCertificates == "" && tls.CredentialName == "" &&
+			tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL && !tls.InsecureSkipVerify.GetValue()
+	}
+	checkSNI := func(tls *networking.ClientTLSSettings) bool {
+		return tls != nil && tls.Sni == "" && tls.Mode != networking.ClientTLSSettings_ISTIO_MUTUAL
+	}
+	for _, dr := range drs.Items {
+		verificationImpacted := false
+		sniImpacted := false
+		verificationImpacted = verificationImpacted || checkVerify(dr.Spec.GetTrafficPolicy().GetTls())
+		sniImpacted = sniImpacted || checkSNI(dr.Spec.GetTrafficPolicy().GetTls())
+		for _, pl := range dr.Spec.GetTrafficPolicy().GetPortLevelSettings() {
+			verificationImpacted = verificationImpacted || checkVerify(pl.GetTls())
+			sniImpacted = sniImpacted || checkSNI(pl.GetTls())
+		}
+		for _, ss := range dr.Spec.Subsets {
+			verificationImpacted = verificationImpacted || checkVerify(ss.GetTrafficPolicy().GetTls())
+			sniImpacted = sniImpacted || checkSNI(ss.GetTrafficPolicy().GetTls())
+			for _, pl := range ss.GetTrafficPolicy().GetPortLevelSettings() {
+				verificationImpacted = verificationImpacted || checkVerify(pl.GetTls())
+				sniImpacted = sniImpacted || checkSNI(pl.GetTls())
+			}
+		}
+		if verificationImpacted {
+			res := ObjectToInstance(dr)
+			messages.Add(msg.NewUpdateIncompatibility(res,
+				"VERIFY_CERTIFICATE_AT_CLIENT", "1.20",
+				"previously, TLS verification was skipped. Set `insecureSkipVerify` if this behavior is desired", "1.20"))
+		}
+		if sniImpacted {
+			res := ObjectToInstance(dr)
+			messages.Add(msg.NewUpdateIncompatibility(res,
+				"ENABLE_AUTO_SNI", "1.20",
+				"previously, no SNI would be set; now it will be automatically set", "1.20"))
+		}
+	}
+	return nil
+}
+
+func ObjectToInstance(c controllers.Object) *resource.Instance {
+	return &resource.Instance{
+		Origin: &kube3.Origin{
+			Type: kubetypes.GvkFromObject(c),
+			FullName: resource.FullName{
+				Namespace: resource.Namespace(c.GetNamespace()),
+				Name:      resource.LocalName(c.GetName()),
+			},
+			ResourceVersion: resource.Version(c.GetResourceVersion()),
+			Ref:             nil,
+			FieldsMap:       nil,
+		},
+	}
 }
 
 func checkControlPlane(ctx cli.Context) (diag.Messages, error) {
@@ -340,212 +452,6 @@ func checkServerVersion(cli kube.CLIClient) (diag.Messages, error) {
 		}, nil
 	}
 	return nil, nil
-}
-
-func checkDataPlane(cli kube.CLIClient, namespace string) (diag.Messages, error) {
-	msgs := diag.Messages{}
-
-	m, err := checkListeners(cli, namespace)
-	if err != nil {
-		return nil, err
-	}
-	msgs = append(msgs, m...)
-
-	// TODO: add more checks
-
-	return msgs, nil
-}
-
-var networkingChanges, _ = goversion.NewSemver("1.10.0")
-
-func fromLegacyNetworkingVersion(pod v1.Pod) bool {
-	for _, c := range pod.Spec.Containers {
-		if c.Name != "istio-proxy" {
-			continue
-		}
-		_, tag, _ := strings.Cut(c.Image, ":")
-		ver, err := pkgversion.TagToVersionString(tag)
-		if err != nil {
-			return true // If we aren't sure, default to doing more checks than needed
-		}
-		sv, err := goversion.NewSemver(ver)
-		if err != nil {
-			return true // If we aren't sure, default to doing more checks than needed
-		}
-		return sv.LessThan(networkingChanges)
-	}
-	return false
-}
-
-// checkListeners checks for workloads that would be broken by https://istio.io/latest/blog/2021/upcoming-networking-changes/
-func checkListeners(cli kube.CLIClient, namespace string) (diag.Messages, error) {
-	pods, err := cli.Kube().CoreV1().Pods(namespace).List(context.Background(), metav1.ListOptions{
-		// Find all running pods
-		FieldSelector: "status.phase=Running",
-		// Find all injected pods. We don't care about non-injected pods, because the new behavior
-		// mirrors Kubernetes; this is only a breaking change for existing Istio users.
-		LabelSelector: "security.istio.io/tlsMode=istio",
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	var messages diag.Messages = make([]diag.Message, 0)
-	g := errgroup.Group{}
-
-	sem := semaphore.NewWeighted(25)
-	for _, pod := range pods.Items {
-		pod := pod
-		if !fromLegacyNetworkingVersion(pod) {
-			// Skip check. This pod is already on a version where the change has been made; if they were going
-			// to break they would already be broken.
-			continue
-		}
-		g.Go(func() error {
-			_ = sem.Acquire(context.Background(), 1)
-			defer sem.Release(1)
-			// Fetch list of all clusters to get which ports we care about
-			resp, err := cli.EnvoyDo(context.Background(), pod.Name, pod.Namespace, "GET", "config_dump?resource=dynamic_active_clusters&mask=cluster.name")
-			if err != nil {
-				fmt.Println("failed to get config dump: ", err)
-				return nil
-			}
-			ports, err := extractInboundPorts(resp)
-			if err != nil {
-				fmt.Println("failed to get ports: ", err)
-				return nil
-			}
-
-			// Next, look at what ports the pod is actually listening on
-			// This requires parsing the output from ss; the version we use doesn't support JSON
-			out, _, err := cli.PodExec(pod.Name, pod.Namespace, "istio-proxy", "ss -ltnH")
-			if err != nil {
-				if strings.Contains(err.Error(), "executable file not found") {
-					// Likely distroless or other custom build without ss. Nothing we can do here...
-					return nil
-				}
-				fmt.Println("failed to get listener state: ", err)
-				return nil
-			}
-			for _, ss := range strings.Split(out, "\n") {
-				if len(ss) == 0 {
-					continue
-				}
-				bind, port, err := net.SplitHostPort(getColumn(ss, 3))
-				if err != nil {
-					fmt.Println("failed to get parse state: ", err)
-					continue
-				}
-				ip, _ := netip.ParseAddr(bind)
-				portn, _ := strconv.Atoi(port)
-				if _, f := ports[portn]; f {
-					c := ports[portn]
-					if bind == "" {
-						continue
-					} else if bind == "*" || ip.IsUnspecified() {
-						c.Wildcard = true
-					} else if ip.IsLoopback() {
-						c.Lo = true
-					} else {
-						c.Explicit = true
-					}
-					ports[portn] = c
-				}
-			}
-
-			origin := &kube3.Origin{
-				Type: gvk.Pod,
-				FullName: resource.FullName{
-					Namespace: resource.Namespace(pod.Namespace),
-					Name:      resource.LocalName(pod.Name),
-				},
-				ResourceVersion: resource.Version(pod.ResourceVersion),
-			}
-			for port, status := range ports {
-				// Binding to localhost no longer works out of the box on Istio 1.10+, give them a warning.
-				if status.Lo {
-					messages.Add(msg.NewLocalhostListener(&resource.Instance{Origin: origin}, fmt.Sprint(port)))
-				}
-			}
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return nil, err
-	}
-	return messages, nil
-}
-
-func getColumn(line string, col int) string {
-	res := []byte{}
-	prevSpace := false
-	for _, c := range line {
-		if col < 0 {
-			return string(res)
-		}
-		if c == ' ' {
-			if !prevSpace {
-				col--
-			}
-			prevSpace = true
-			continue
-		}
-		prevSpace = false
-		if col == 0 {
-			res = append(res, byte(c))
-		}
-	}
-	return string(res)
-}
-
-func extractInboundPorts(configdump []byte) (map[int]bindStatus, error) {
-	ports := map[int]bindStatus{}
-	cd := &admin.ConfigDump{}
-	if err := protomarshal.Unmarshal(configdump, cd); err != nil {
-		return nil, err
-	}
-	for _, cdump := range cd.Configs {
-		clw := &admin.ClustersConfigDump_DynamicCluster{}
-		if err := cdump.UnmarshalTo(clw); err != nil {
-			return nil, err
-		}
-		cl := &cluster.Cluster{}
-		if err := clw.Cluster.UnmarshalTo(cl); err != nil {
-			return nil, err
-		}
-		dir, _, _, port := model.ParseSubsetKey(cl.Name)
-		if dir == model.TrafficDirectionInbound {
-			ports[port] = bindStatus{}
-		}
-	}
-	return ports, nil
-}
-
-type bindStatus struct {
-	Lo       bool
-	Wildcard bool
-	Explicit bool
-}
-
-func (b bindStatus) Any() bool {
-	return b.Lo || b.Wildcard || b.Explicit
-}
-
-func (b bindStatus) String() string {
-	res := []string{}
-	if b.Lo {
-		res = append(res, "Localhost")
-	}
-	if b.Wildcard {
-		res = append(res, "Wildcard")
-	}
-	if b.Explicit {
-		res = append(res, "Explicit")
-	}
-	if len(res) == 0 {
-		return "Unknown"
-	}
-	return strings.Join(res, ", ")
 }
 
 // clusterOrigin defines an Origin that refers to the cluster

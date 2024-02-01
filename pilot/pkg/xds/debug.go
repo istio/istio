@@ -139,6 +139,7 @@ type SyncedVersions struct {
 	ClusterVersion  string `json:"cluster_acked,omitempty"`
 	ListenerVersion string `json:"listener_acked,omitempty"`
 	RouteVersion    string `json:"route_acked,omitempty"`
+	EndpointVersion string `json:"endpoint_acked,omitempty"`
 }
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
@@ -378,6 +379,8 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.ListenerType),
 						resourceID, knownVersions),
 					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.RouteType),
+						resourceID, knownVersions),
+					EndpointVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.EndpointType),
 						resourceID, knownVersions),
 				})
 			}

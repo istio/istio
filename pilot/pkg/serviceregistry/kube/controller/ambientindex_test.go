@@ -971,6 +971,51 @@ func TestEmptyVIPsExcluded(t *testing.T) {
 	assert.Equal(t, 0, len(vips), "optional IP fields should be ignored if empty")
 }
 
+func TestUpdateWaypointForWorkload(t *testing.T) {
+	assertWaypoint := func(t *testing.T, workloads []*model.AddressInfo, expected string) {
+		t.Helper()
+		for _, workload := range workloads {
+			assert.Equal(t, expected, workload.GetWorkload().GetWaypoint().String())
+		}
+	}
+	test.SetForTest(t, &features.EnableAmbientControllers, true)
+	s := newAmbientTestServer(t, "", "")
+
+	s.addPods(t, "127.0.0.1", "pod1", "sa1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertAddresses(t, "", "pod1")
+	s.assertEvent(t, s.podXdsName("pod1"))
+
+	// Add a namespace waypoint to the pod
+	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", "", true)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	assertWaypoint(t, s.lookup("pod1"), "waypoint-ns")
+
+	// Add a service account waypoint to the pod
+	s.addWaypoint(t, "10.0.0.2", "waypoint-sa1", "sa1", true)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	assertWaypoint(t, s.lookup("pod1"), "waypoint-sa1")
+
+	// Remove the service account waypoint, the namespace waypoint should still be there
+	s.deleteWaypoint(t, "waypoint-sa1")
+	s.assertEvent(t, s.podXdsName("pod1"))
+	assertWaypoint(t, s.lookup("pod1"), "waypoint-ns")
+
+	// Remove the namespace waypoint, the pod should have no waypoint
+	s.deleteWaypoint(t, "waypoint-ns")
+	s.assertEvent(t, s.podXdsName("pod1"))
+	assertWaypoint(t, s.lookup("pod1"), "")
+
+	// Add a service account waypoint to the pod
+	s.addWaypoint(t, "10.0.0.2", "waypoint-sa1", "sa1", true)
+	s.assertEvent(t, s.podXdsName("pod1"))
+	assertWaypoint(t, s.lookup("pod1"), "waypoint-sa1")
+
+	// Add a namespace waypoint to the pod, should have no update
+	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", "", true)
+	s.assertNoEvent(t)
+	assertWaypoint(t, s.lookup("pod1"), "waypoint-sa1")
+}
+
 // This is a regression test for a case where policies added after pods were not applied when
 // querying by service
 func TestPolicyAfterPod(t *testing.T) {
@@ -1329,6 +1374,11 @@ func (s *ambientTestServer) assertEvent(t *testing.T, ip ...string) {
 	t.Helper()
 	want := strings.Join(ip, ",")
 	s.fx.MatchOrFail(t, xdsfake.Event{Type: "xds", ID: want})
+}
+
+func (s *ambientTestServer) assertNoEvent(t *testing.T) {
+	t.Helper()
+	s.fx.AssertEmpty(t, time.Millisecond*10)
 }
 
 func (s *ambientTestServer) deleteService(t *testing.T, name string) {

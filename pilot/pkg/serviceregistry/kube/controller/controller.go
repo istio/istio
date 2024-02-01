@@ -397,7 +397,7 @@ func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) er
 	case model.EventDelete:
 		c.deleteService(svcConv)
 	default:
-		c.addOrUpdateService(curr, svcConv, event, false)
+		c.addOrUpdateService(pre, curr, svcConv, event, false)
 	}
 
 	return nil
@@ -425,7 +425,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.handlers.NotifyServiceHandlers(nil, svc, event)
 }
 
-func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
+func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -471,7 +471,7 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	}
 
 	// filter out same service event
-	if event == model.EventUpdate && !serviceUpdateNeedsPush(prevConv, currConv) {
+	if event == model.EventUpdate && !serviceUpdateNeedsPush(pre, curr, prevConv, currConv) {
 		return
 	}
 
@@ -1155,17 +1155,30 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 	return nil
 }
 
-func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
+func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Service) bool {
 	if !features.EnableOptimizedServicePush {
 		return true
 	}
-	if prev == nil {
-		return !curr.Attributes.ExportTo.Contains(visibility.None)
+	if preConv == nil {
+		return !currConv.Attributes.ExportTo.Contains(visibility.None)
 	}
 	// if service are not exported, no need to push
-	if prev.Attributes.ExportTo.Contains(visibility.None) &&
-		curr.Attributes.ExportTo.Contains(visibility.None) {
+	if preConv.Attributes.ExportTo.Contains(visibility.None) &&
+		currConv.Attributes.ExportTo.Contains(visibility.None) {
 		return false
 	}
-	return !prev.Equals(curr)
+	// Check if there are any changes we care about by comparing `model.Service`s
+	if !preConv.Equals(currConv) {
+		return true
+	}
+	// Also check if target ports are changed since they are not included in `model.Service`
+	// `preConv.Equals(currConv)` already makes sure the length of ports is not changed
+	if prev != nil && curr != nil {
+		for i := 0; i < len(prev.Spec.Ports); i++ {
+			if prev.Spec.Ports[i].TargetPort != curr.Spec.Ports[i].TargetPort {
+				return true
+			}
+		}
+	}
+	return false
 }

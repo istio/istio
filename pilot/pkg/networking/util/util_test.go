@@ -1368,7 +1368,7 @@ func TestStatefulSessionFilterConfig(t *testing.T) {
 	}
 }
 
-func TestMergeTrafficPolicy(t *testing.T) {
+func TestMergeSubsetTrafficPolicy(t *testing.T) {
 	cases := []struct {
 		name     string
 		original *networking.TrafficPolicy
@@ -1636,7 +1636,7 @@ func TestMergeTrafficPolicy(t *testing.T) {
 
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			policy := MergeTrafficPolicy(tt.original, tt.subset, tt.port)
+			policy := MergeSubsetTrafficPolicy(tt.original, tt.subset, tt.port)
 			assert.Equal(t, policy, tt.expected)
 		})
 	}

@@ -219,9 +219,11 @@ func (s *DiscoveryServer) processRequest(req *discovery.DiscoveryRequest, con *C
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNames},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
+
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.conID, req.TypeUrl, req.ResponseNonce)
 	}
+
 	shouldRespond, delta := s.shouldRespond(con, req)
 	if !shouldRespond {
 		return nil
@@ -453,23 +455,28 @@ func (s *DiscoveryServer) shouldRespond(con *Connection, request *discovery.Disc
 	removed := prev.Difference(cur)
 	added := cur.Difference(prev)
 
-	if len(removed) == 0 && len(added) == 0 {
-		// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
-		// even though Nonce match and it looks like an ACK.
-		if alwaysRespond {
-			log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
-			return true, emptyResourceDelta
-		}
+	// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
+	// even though Nonce match and it looks like an ACK.
+	if alwaysRespond {
+		log.Infof("ADS:%s: FORCE RESPONSE %s for warming.", stype, con.conID)
+		return true, emptyResourceDelta
+	}
 
+	if len(removed) == 0 && len(added) == 0 {
 		log.Debugf("ADS:%s: ACK %s %s %s", stype, con.conID, request.VersionInfo, request.ResponseNonce)
 		return false, emptyResourceDelta
 	}
 	log.Debugf("ADS:%s: RESOURCE CHANGE added %v removed %v %s %s %s", stype,
 		added, removed, con.conID, request.VersionInfo, request.ResponseNonce)
 
+	// For non wildcard resource, if no new resources are subscribed, it means we do not need to push.
+	if !isWildcardTypeURL(request.TypeUrl) && len(added) == 0 {
+		return false, emptyResourceDelta
+	}
+
 	return true, model.ResourceDelta{
-		Subscribed:   added,
-		Unsubscribed: removed,
+		Subscribed: added,
+		// we do not need to set unsubscribed for StoW
 	}
 }
 
@@ -563,7 +570,7 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 	}
 	s.removeCon(con.conID)
 	if s.StatusReporter != nil {
-		s.StatusReporter.RegisterDisconnect(con.conID, AllEventTypesList)
+		s.StatusReporter.RegisterDisconnect(con.conID, AllTrackingEventTypes)
 	}
 	s.WorkloadEntryController.OnDisconnect(con)
 }
@@ -571,6 +578,11 @@ func (s *DiscoveryServer) closeConnection(con *Connection) {
 func connectionID(node string) string {
 	id := atomic.AddInt64(&connectionNumber, 1)
 	return node + "-" + strconv.FormatInt(id, 10)
+}
+
+// Only used for test
+func ResetConnectionNumberForTest() {
+	atomic.StoreInt64(&connectionNumber, 0)
 }
 
 // initProxyMetadata initializes just the basic metadata of a proxy. This is decoupled from
@@ -751,14 +763,14 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 		log.Debugf("Skipping push to %v, no updates required", con.conID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version.
-			reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, nil)
+			reportAllEventsForProxyNoPush(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 		}
 		return nil
 	}
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl, ignoreEvents := con.pushDetails()
+	wrl := con.orderWatchedResources()
 	for _, w := range wrl {
 		if err := s.pushXds(con, w, pushRequest); err != nil {
 			return err
@@ -766,7 +778,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 	}
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, ignoreEvents)
+		reportEventsForUnWatched(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -778,28 +790,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
 
 // KnownOrderedTypeUrls has typeUrls for which we know the order of push.
-var KnownOrderedTypeUrls = map[string]struct{}{
-	v3.ClusterType:  {},
-	v3.EndpointType: {},
-	v3.ListenerType: {},
-	v3.RouteType:    {},
-	v3.SecretType:   {},
-}
-
-func reportAllEvents(s DistributionStatusCache, id, version string, ignored sets.String) {
-	if s == nil {
-		return
-	}
-	// this version of the config will never be distributed to this envoy because it is not a relevant diff.
-	// inform distribution status reporter that this connection has been updated, because it effectively has
-	for distributionType := range AllEventTypes {
-		if ignored.Contains(distributionType) {
-			// Skip this type
-			continue
-		}
-		s.RegisterEvent(id, distributionType, version)
-	}
-}
+var KnownOrderedTypeUrls = sets.New(PushOrder...)
 
 func (s *DiscoveryServer) adsClientCount() int {
 	s.adsClientsMutex.RLock()
@@ -983,21 +974,13 @@ func (conn *Connection) Watched(typeUrl string) *model.WatchedResource {
 	return nil
 }
 
-// pushDetails returns the details needed for current push. It returns ordered list of
+// orderWatchedResources returns the ordered list of
 // watched resources for the proxy, ordered in accordance with known push order.
-// It also returns the lis of typeUrls.
 // nolint
-func (conn *Connection) pushDetails() ([]*model.WatchedResource, sets.String) {
+func (conn *Connection) orderWatchedResources() []*model.WatchedResource {
 	conn.proxy.RLock()
 	defer conn.proxy.RUnlock()
-	typeUrls := sets.New[string]()
-	for k := range conn.proxy.WatchedResources {
-		typeUrls.Insert(k)
-	}
-	return orderWatchedResources(conn.proxy.WatchedResources), typeUrls
-}
-
-func orderWatchedResources(resources map[string]*model.WatchedResource) []*model.WatchedResource {
+	resources := conn.proxy.WatchedResources
 	wr := make([]*model.WatchedResource, 0, len(resources))
 	// first add all known types, in order
 	for _, tp := range PushOrder {
@@ -1012,4 +995,36 @@ func orderWatchedResources(resources map[string]*model.WatchedResource) []*model
 		}
 	}
 	return wr
+}
+
+// reportAllEventsForProxyNoPush reports all tracking events for a proxy without need to push xds.
+func reportAllEventsForProxyNoPush(con *Connection, statusReporter DistributionStatusCache, nonce string) {
+	if statusReporter == nil {
+		return
+	}
+	for distributionType := range AllTrackingEventTypes {
+		statusReporter.RegisterEvent(con.conID, distributionType, nonce)
+	}
+}
+
+// reportEventsForUnWatched is to report events for unwatched types after push.
+// e.g. there is no rds if no route configured for gateway.
+// nolint
+func reportEventsForUnWatched(con *Connection, statusReporter DistributionStatusCache, nonce string) {
+	if statusReporter == nil {
+		return
+	}
+
+	// if typeUrl is not empty, report all events that are not being watched
+	unWatched := sets.NewWithLength[EventType](len(AllTrackingEventTypes))
+	con.proxy.RLock()
+	for tyeUrl := range AllTrackingEventTypes {
+		if _, exists := con.proxy.WatchedResources[tyeUrl]; !exists {
+			unWatched.Insert(tyeUrl)
+		}
+	}
+	con.proxy.RUnlock()
+	for tyeUrl := range unWatched {
+		statusReporter.RegisterEvent(con.conID, tyeUrl, nonce)
+	}
 }

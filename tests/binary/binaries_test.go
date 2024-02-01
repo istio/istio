@@ -114,7 +114,7 @@ func TestBinarySizes(t *testing.T) {
 		"client":          {15, 30},
 		"server":          {15, 30},
 		"envoy":           {60, 130},
-		"ztunnel":         {15, 25},
+		"ztunnel":         {15, 30},
 	}
 
 	runBinariesTest(t, func(t *testing.T, name string) {

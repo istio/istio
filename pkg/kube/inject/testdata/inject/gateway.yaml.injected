@@ -134,6 +134,10 @@ spec:
           name: istio-token
         - mountPath: /etc/istio/pod
           name: istio-podinfo
+      securityContext:
+        sysctls:
+        - name: net.ipv4.ip_unprivileged_port_start
+          value: "0"
       volumes:
       - emptyDir: {}
         name: workload-socket

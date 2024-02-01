@@ -40,6 +40,7 @@ import (
 var (
 	forFlag      string
 	nameflag     string
+	proxyFlag    string
 	threshold    float32
 	timeout      time.Duration
 	generation   string
@@ -61,6 +62,9 @@ func Cmd(cliCtx cli.Context) *cobra.Command {
 		Example: `  # Wait until the bookinfo virtual service has been distributed to all proxies in the mesh
   istioctl experimental wait --for=distribution virtualservice bookinfo.default
 
+  # Wait until the bookinfo virtual service has been distributed to a specific proxy
+  istioctl experimental wait --for=distribution virtualservice bookinfo.default --proxy workload-instance.namespace
+
   # Wait until 99% of the proxies receive the distribution, timing out after 5 minutes
   istioctl experimental wait --for=distribution --threshold=.99 --timeout=300s virtualservice bookinfo.default
 `,
@@ -69,6 +73,10 @@ func Cmd(cliCtx cli.Context) *cobra.Command {
 				return errors.New("wait for delete is not yet implemented")
 			} else if forFlag != "distribution" {
 				return fmt.Errorf("--for must be 'delete' or 'distribution', got: %s", forFlag)
+			}
+			if proxyFlag != "" && threshold != 1 {
+				printVerbosef(cmd, "both the proxy and threshold options were provided; the threshold option is being ignored.")
+				threshold = 1
 			}
 			var w *watcher
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -96,7 +104,7 @@ func Cmd(cliCtx cli.Context) *cobra.Command {
 			for {
 				// run the check here as soon as we start
 				// because tickers won't run immediately
-				present, notpresent, sdcnum, err := poll(cliCtx, cmd, generations, targetResource, opts)
+				present, notpresent, sdcnum, err := poll(cliCtx, cmd, generations, targetResource, proxyFlag, opts)
 				printVerbosef(cmd, "Received poll result: %d/%d", present, present+notpresent)
 				if err != nil {
 					return err
@@ -119,8 +127,14 @@ func Cmd(cliCtx cli.Context) *cobra.Command {
 					printVerbosef(cmd, "timeout")
 					// I think this means the timeout has happened:
 					t.Stop()
-					return fmt.Errorf("timeout expired before resource %s became effective on all sidecars",
-						targetResource)
+					errTmpl := "timeout expired before resource %s became effective on %s"
+					var errMsg string
+					if proxyFlag != "" {
+						errMsg = fmt.Sprintf(errTmpl, targetResource, proxyFlag)
+					} else {
+						errMsg = fmt.Sprintf(errTmpl, targetResource, "all sidecars")
+					}
+					return fmt.Errorf(errMsg)
 				}
 			}
 		},
@@ -134,6 +148,8 @@ func Cmd(cliCtx cli.Context) *cobra.Command {
 	}
 	cmd.PersistentFlags().StringVar(&forFlag, "for", "distribution",
 		"Wait condition, must be 'distribution' or 'delete'")
+	cmd.PersistentFlags().StringVar(&proxyFlag, "proxy", "",
+		"Name of a specific proxy to wait for the condition to be satisfied")
 	cmd.PersistentFlags().DurationVar(&timeout, "timeout", time.Second*30,
 		"The duration to wait before failing")
 	cmd.PersistentFlags().Float32Var(&threshold, "threshold", 1,
@@ -183,6 +199,7 @@ func poll(ctx cli.Context,
 	cmd *cobra.Command,
 	acceptedVersions []string,
 	targetResource string,
+	proxyID string,
 	opts clioptions.ControlPlaneOptions,
 ) (present, notpresent, sdcnum int, err error) {
 	kubeClient, err := ctx.CLIClientWithRevision(opts.Revision)
@@ -210,9 +227,13 @@ func poll(ctx cli.Context,
 		printVerbosef(cmd, "sync status: %+v", configVersions)
 		sdcnum += len(configVersions)
 		for _, configVersion := range configVersions {
+			if proxyID != "" && configVersion.ProxyID != proxyID {
+				continue
+			}
 			countVersions(versionCount, configVersion.ClusterVersion)
 			countVersions(versionCount, configVersion.RouteVersion)
 			countVersions(versionCount, configVersion.ListenerVersion)
+			countVersions(versionCount, configVersion.EndpointVersion)
 		}
 	}
 

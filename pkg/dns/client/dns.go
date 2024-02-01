@@ -149,7 +149,7 @@ func NewLocalDNSServer(proxyNamespace, proxyDomain string, addr string, forwardT
 	v4, v6 := netutil.ParseIPsSplitToV4V6(dnsConfig.Servers)
 	host, port, err := net.SplitHostPort(addr)
 	if err != nil {
-		return nil, fmt.Errorf("dns address must be a valid host:port")
+		return nil, fmt.Errorf("dns address must be a valid host:port: %v", err)
 	}
 	addresses := []string{addr}
 	if host == "localhost" && len(v4)+len(v6) > 0 {

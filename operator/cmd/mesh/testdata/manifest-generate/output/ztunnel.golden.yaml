@@ -52,7 +52,9 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.serviceAccountName
-        image: gcr.io/istio-testing/ztunnel:latest
+        - name: ISTIO_META_ENABLE_HBONE
+          value: "true"
+        image: gcr.io/istio-testing/ztunnel:latest-distroless
         name: istio-proxy
         ports:
         - containerPort: 15020
