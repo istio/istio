@@ -364,7 +364,7 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		Ports:          extractServicePorts(gw),
 		ClusterID:      d.clusterID.String(),
 
-		KubeVersion122:            kube.IsAtLeastVersion(d.client, 22),
+		KubeVersion:               kube.GetVersionAsInt(d.client),
 		Revision:                  d.revision,
 		ServiceType:               serviceType,
 		ProxyUID:                  proxyUID,
@@ -622,7 +622,7 @@ type TemplateInput struct {
 	Ports                     []corev1.ServicePort
 	ServiceType               corev1.ServiceType
 	ClusterID                 string
-	KubeVersion122            bool
+	KubeVersion               int
 	Revision                  string
 	ProxyUID                  int64
 	ProxyGID                  int64

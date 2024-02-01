@@ -12,6 +12,14 @@ metadata:
         "gateway.networking.k8s.io/gateway-name" .Name
         "istio.io/gateway-name" .Name
       ) | nindent 4 }}
+  {{- if ge .KubeVersion 128 }}
+  # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: "{{.Name}}"
+    uid: "{{.UID}}"
+  {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -60,7 +68,7 @@ spec:
             "istio.io/gateway-name" .Name
           ) | nindent 8 }}
     spec:
-      {{- if .KubeVersion122 }}
+      {{- if ge .KubeVersion 122 }}
       {{/* safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326. */}}
       securityContext:
         sysctls:
@@ -81,7 +89,7 @@ spec:
         {{- end }}
         {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
         securityContext:
-        {{- if .KubeVersion122 }}
+        {{- if ge .KubeVersion 122 }}
           # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
           capabilities:
             drop:

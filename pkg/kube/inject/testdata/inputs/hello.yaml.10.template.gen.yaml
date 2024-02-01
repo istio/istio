@@ -1547,7 +1547,7 @@ templates:
                 "istio.io/gateway-name" .Name
               ) | nindent 8 }}
         spec:
-          {{- if .KubeVersion122 }}
+          {{- if ge .KubeVersion 122 }}
           {{/* safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326. */}}
           securityContext:
             sysctls:
@@ -1568,7 +1568,7 @@ templates:
             {{- end }}
             {{with .Values.global.imagePullPolicy }}imagePullPolicy: "{{.}}"{{end}}
             securityContext:
-            {{- if .KubeVersion122 }}
+            {{- if ge .KubeVersion 122 }}
               # Safe since 1.22: https://github.com/kubernetes/kubernetes/pull/103326
               capabilities:
                 drop:
