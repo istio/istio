@@ -10,3 +10,4 @@ spec:
       tls:
         mode: SIMPLE
         sni: external.{{ .externalNamespace }}.svc.cluster.local
+        insecureSkipVerify: true

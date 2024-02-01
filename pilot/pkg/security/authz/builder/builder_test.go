@@ -85,13 +85,14 @@ var (
 				Name: "default",
 				Provider: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExtAuthzHttp{
 					EnvoyExtAuthzHttp: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationHttpProvider{
-						Service:                         "foo/my-custom-ext-authz.foo.svc.cluster.local",
-						Port:                            9000,
-						Timeout:                         &durationpb.Duration{Seconds: 10},
-						FailOpen:                        true,
-						StatusOnError:                   "403",
-						PathPrefix:                      "/check",
-						IncludeRequestHeadersInCheck:    []string{"x-custom-id", "x-prefix-*", "*-suffix"},
+						Service:                      "foo/my-custom-ext-authz.foo.svc.cluster.local",
+						Port:                         9000,
+						Timeout:                      &durationpb.Duration{Seconds: 10},
+						FailOpen:                     true,
+						StatusOnError:                "403",
+						PathPrefix:                   "/check",
+						IncludeRequestHeadersInCheck: []string{"x-custom-id", "x-prefix-*", "*-suffix"},
+						//nolint: staticcheck
 						IncludeHeadersInCheck:           []string{"should-not-include-when-IncludeRequestHeadersInCheck-is-set"},
 						IncludeAdditionalHeadersInCheck: map[string]string{"x-header-1": "value-1", "x-header-2": "value-2"},
 						IncludeRequestBodyInCheck: &meshconfig.MeshConfig_ExtensionProvider_EnvoyExternalAuthorizationRequestBody{

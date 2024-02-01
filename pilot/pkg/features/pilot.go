@@ -232,6 +232,12 @@ var (
 	// Also see https://github.com/istio/istio/issues/46719 why this flag is required
 	EnableAdditionalIpv4OutboundListenerForIpv6Only = env.RegisterBoolVar("ISTIO_ENABLE_IPV4_OUTBOUND_LISTENER_FOR_IPV6_CLUSTERS", false,
 		"If true, pilot will configure an additional IPv4 listener for outbound traffic in IPv6 only clusters, e.g. AWS EKS IPv6 only clusters.").Get()
+
+	EnableAutoSni = env.Register("ENABLE_AUTO_SNI", true,
+		"If enabled, automatically set SNI when `DestinationRules` do not specify the same").Get()
+
+	VerifyCertAtClient = env.Register("VERIFY_CERTIFICATE_AT_CLIENT", true,
+		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

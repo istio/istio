@@ -249,8 +249,11 @@ spec:
   - mesh
   hosts:
   - echo-1.default.svc.domain.suffix
-  tcp:
-  - route:
+  tls:
+  - match:
+    - sniHosts:
+      - echo-1.default.svc.domain.suffix
+    route:
     - destination:
         host: echo.default.svc.domain.suffix
         port:

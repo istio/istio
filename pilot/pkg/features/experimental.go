@@ -188,14 +188,8 @@ var (
 		"If true, QUIC listeners will be generated wherever there are listeners terminating TLS on gateways "+
 			"if the gateway service exposes a UDP port with the same number (for example 443/TCP and 443/UDP)").Get()
 
-	VerifyCertAtClient = env.Register("VERIFY_CERTIFICATE_AT_CLIENT", false,
-		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
-
 	EnableTLSOnSidecarIngress = env.Register("ENABLE_TLS_ON_SIDECAR_INGRESS", false,
 		"If enabled, the TLS configuration on Sidecar.ingress will take effect").Get()
-
-	EnableAutoSni = env.Register("ENABLE_AUTO_SNI", false,
-		"If enabled, automatically set SNI when `DestinationRules` do not specify the same").Get()
 
 	VerifySDSCertificate = env.Register("VERIFY_SDS_CERTIFICATE", true,
 		"If enabled, certificates fetched from SDS server will be verified before sending back to proxy.").Get()

@@ -28,6 +28,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/types/known/durationpb"
+	wrappers "google.golang.org/protobuf/types/known/wrapperspb"
 
 	meshconfig "istio.io/api/mesh/v1alpha1"
 	"istio.io/istio/pilot/pkg/xds"
@@ -56,6 +57,9 @@ var (
 				PollDelay: &durationpb.Duration{
 					Seconds: 0,
 					Nanos:   10000,
+				},
+				Fallback: &wrappers.BoolValue{
+					Value: true,
 				},
 			},
 		},

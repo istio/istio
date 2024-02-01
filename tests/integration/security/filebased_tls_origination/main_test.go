@@ -54,7 +54,6 @@ func TestMain(m *testing.M) {
 	framework.
 		NewSuite(m).
 		Label(label.CustomSetup).
-		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, cert.CreateCustomEgressSecret)).
 		Setup(namespace.Setup(&appNS, namespace.Config{Prefix: "appns", Inject: true})).
 		Setup(namespace.Setup(&serviceNS, namespace.Config{Prefix: "serverns", Inject: true})).

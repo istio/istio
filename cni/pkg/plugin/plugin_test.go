@@ -16,6 +16,8 @@ package plugin
 
 import (
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"reflect"
 	"strings"
@@ -25,9 +27,16 @@ import (
 	"github.com/containernetworking/cni/pkg/types"
 	cniv1 "github.com/containernetworking/cni/pkg/types/100"
 	"github.com/containernetworking/plugins/pkg/testutils"
+	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/kubernetes/fake"
 
+	"istio.io/api/annotation"
 	"istio.io/api/label"
+	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -35,12 +44,16 @@ var (
 	ifname           = "eth0"
 	sandboxDirectory = "/tmp"
 	currentVersion   = "1.0.0"
-	k8Args           = "K8S_POD_NAMESPACE=istio-system;K8S_POD_NAME=testPodName"
+	testPodName      = "testPodName"
+	testNSName       = "testNS"
+	k8Args           = fmt.Sprintf("K8S_POD_NAMESPACE=%s;K8S_POD_NAME=%s", testNSName, testPodName)
 	invalidVersion   = "0.1.0"
 	preVersion       = "0.2.0"
+	ambientEnabled   = true
 
 	getKubePodInfoCalled = false
 	nsenterFuncCalled    = false
+	cniAddServerCalled   = false
 
 	testContainers                = sets.New("mockContainer", "foo-init")
 	testLabels                    = map[string]string{}
@@ -49,7 +62,7 @@ var (
 	singletonMockInterceptRuleMgr = &mockInterceptRuleMgr{}
 )
 
-var conf = `{
+var mockConf = `{
     "cniVersion": "%s",
 	"name": "istio-plugin-sample-test",
 	"type": "sample",
@@ -85,6 +98,8 @@ var conf = `{
 
     },
     "log_level": "debug",
+    "cni_event_address": "%s",
+    "ambient_enabled": %t,
     "kubernetes": {
         "k8s_api_root": "APIRoot",
         "kubeconfig": "testK8sConfig",
@@ -113,7 +128,7 @@ func NewMockInterceptRuleMgr() InterceptRuleMgr {
 	return singletonMockInterceptRuleMgr
 }
 
-func mocknewK8sClient(conf Config) (*kubernetes.Clientset, error) {
+func mocknewK8sClient(conf Config) (kubernetes.Interface, error) {
 	var cs kubernetes.Clientset
 
 	getKubePodInfoCalled = true
@@ -121,7 +136,7 @@ func mocknewK8sClient(conf Config) (*kubernetes.Clientset, error) {
 	return &cs, nil
 }
 
-func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace string) (*PodInfo, error) {
+func mockgetK8sPodInfo(client kubernetes.Interface, podName, podNamespace string) (*PodInfo, error) {
 	pi := PodInfo{}
 	pi.Containers = testContainers
 	pi.Labels = testLabels
@@ -131,16 +146,47 @@ func mockgetK8sPodInfo(client *kubernetes.Clientset, podName, podNamespace strin
 	return &pi, nil
 }
 
+// FIXME most of this is really unnecessarily stateful and prone to create weird test bugs
 func resetGlobalTestVariables() {
+	ambientEnabled = false
 	getKubePodInfoCalled = false
 	nsenterFuncCalled = false
+	cniAddServerCalled = false
 	testContainers = sets.New("mockContainer", "foo-init")
 	testLabels = map[string]string{}
 	testAnnotations = map[string]string{}
 	testProxyEnv = map[string]string{}
 
 	testAnnotations[sidecarStatusKey] = "true"
-	k8Args = "K8S_POD_NAMESPACE=istio-system;K8S_POD_NAME=testPodName"
+	k8Args = fmt.Sprintf("K8S_POD_NAMESPACE=%s;K8S_POD_NAME=%s", testNSName, testPodName)
+	newKubeClient = nil
+}
+
+// returns the test server URL and a dispose func for the test server
+func setupCNIEventClientWithMockServer(serverErr bool) (string, func()) {
+	// replace the global CNI client with mock
+	newCNIClient = func(address, path string) CNIEventClient {
+		c := http.DefaultClient
+
+		eventC := CNIEventClient{
+			client: c,
+			url:    address + path,
+		}
+		return eventC
+	}
+
+	testServer := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
+		cniAddServerCalled = true
+		if serverErr {
+			res.WriteHeader(http.StatusInternalServerError)
+			res.Write([]byte("server not happy"))
+			return
+		}
+		res.WriteHeader(http.StatusOK)
+		res.Write([]byte("server happy"))
+	}))
+
+	return testServer.URL, func() { testServer.Close() }
 }
 
 func testSetArgs(stdinData string) *skel.CmdArgs {
@@ -155,7 +201,7 @@ func testSetArgs(stdinData string) *skel.CmdArgs {
 }
 
 func testCmdInvalidVersion(t *testing.T, f func(args *skel.CmdArgs) error) {
-	cniConf := fmt.Sprintf(conf, invalidVersion, preVersion, ifname, sandboxDirectory, "mock")
+	cniConf := fmt.Sprintf(mockConf, invalidVersion, preVersion, ifname, sandboxDirectory, "", ambientEnabled, "mock")
 	args := testSetArgs(cniConf)
 
 	err := f(args)
@@ -168,14 +214,40 @@ func testCmdInvalidVersion(t *testing.T, f func(args *skel.CmdArgs) error) {
 	}
 }
 
+func testCmdAddExpectFail(t *testing.T, stdinData string, objects ...runtime.Object) {
+	newKubeClient = func(_ Config) (kubernetes.Interface, error) {
+		return fake.NewSimpleClientset(objects...), nil
+	}
+
+	args := testSetArgs(stdinData)
+
+	_, _, err := testutils.CmdAddWithArgs(
+		&skel.CmdArgs{
+			Netns:     sandboxDirectory,
+			IfName:    ifname,
+			StdinData: []byte(stdinData),
+		}, func() error { return CmdAdd(args) })
+	if err == nil {
+		t.Fatalf("expected to fail, but did not!")
+	}
+}
+
 func testCmdAdd(t *testing.T) {
-	cniConf := fmt.Sprintf(conf, currentVersion, currentVersion, ifname, sandboxDirectory, "mock")
+	cniConf := fmt.Sprintf(mockConf, currentVersion, currentVersion, ifname, sandboxDirectory, "", ambientEnabled, "mock")
 	testCmdAddWithStdinData(t, cniConf)
 }
 
-func testCmdAddWithStdinData(t *testing.T, stdinData string) {
-	newKubeClient = mocknewK8sClient
-	getKubePodInfo = mockgetK8sPodInfo
+func testCmdAddWithStdinData(t *testing.T, stdinData string, objects ...runtime.Object) {
+	// FIXME some older sidecar tests don't use the regular mockable kube client and won't pass an array of
+	// the expected objects.
+	if len(objects) == 0 {
+		newKubeClient = mocknewK8sClient
+		getKubePodInfo = mockgetK8sPodInfo
+	} else {
+		newKubeClient = func(_ Config) (kubernetes.Interface, error) {
+			return fake.NewSimpleClientset(objects...), nil
+		}
+	}
 
 	args := testSetArgs(stdinData)
 
@@ -210,6 +282,292 @@ func TestLoadArgs(t *testing.T) {
 		t.Fatalf("LoadArgs didn't convert args properly, K8S_POD_NAME=\"%s\";K8S_POD_NAMESPACE=\"%s\"",
 			string(k8sArgs.K8S_POD_NAME), string(k8sArgs.K8S_POD_NAMESPACE))
 	}
+}
+
+func TestCmdAddAmbientEnabledOnNS(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	url, serverClose := setupCNIEventClientWithMockServer(false)
+	defer serverClose()
+
+	ambientEnabled = true
+	cniConf := fmt.Sprintf(mockConf, currentVersion, currentVersion, ifname, sandboxDirectory, url, ambientEnabled, "mock")
+
+	fakePod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testPodName,
+			Namespace: testNSName,
+		},
+	}
+
+	fakeNS := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testNSName,
+			Namespace: "",
+			Labels:    map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient},
+		},
+	}
+
+	testCmdAddWithStdinData(t, cniConf, fakePod, fakeNS)
+
+	// Pod in namespace with enabled ambient label, should be added to mesh
+	assert.Equal(t, cniAddServerCalled, true)
+}
+
+func TestCmdAddAmbientEnabledOnNSServerFails(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	url, serverClose := setupCNIEventClientWithMockServer(true)
+	defer serverClose()
+	ambientEnabled = true
+	cniConf := fmt.Sprintf(mockConf, currentVersion, currentVersion, ifname, sandboxDirectory, url, ambientEnabled, "mock")
+
+	fakePod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testPodName,
+			Namespace: testNSName,
+		},
+	}
+
+	fakeNS := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testNSName,
+			Namespace: "",
+			Labels:    map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient},
+		},
+	}
+
+	testCmdAddExpectFail(t, cniConf, fakePod, fakeNS)
+
+	// server called, but errored
+	assert.Equal(t, cniAddServerCalled, true)
+}
+
+func TestCmdAddPodWithProxySidecarAmbientEnabledNS(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	url, serverClose := setupCNIEventClientWithMockServer(false)
+	defer serverClose()
+	ambientEnabled = true
+	cniConf := fmt.Sprintf(mockConf, currentVersion, currentVersion, ifname, sandboxDirectory, url, ambientEnabled, "mock")
+
+	proxy := corev1.Container{Name: "istio-proxy"}
+	app := corev1.Container{Name: "app"}
+	fakePod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        testPodName,
+			Namespace:   testNSName,
+			Annotations: map[string]string{annotation.SidecarStatus.Name: "true"},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{app, proxy},
+		},
+	}
+
+	fakeNS := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testNSName,
+			Namespace: "",
+			Labels:    map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient},
+		},
+	}
+
+	testCmdAddWithStdinData(t, cniConf, fakePod, fakeNS)
+
+	// Pod has sidecar annotation from injector, should not be added to mesh
+	assert.Equal(t, cniAddServerCalled, false)
+}
+
+func TestCmdAddPodWithGenericSidecar(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	url, serverClose := setupCNIEventClientWithMockServer(false)
+	defer serverClose()
+	ambientEnabled = true
+	cniConf := fmt.Sprintf(mockConf, currentVersion, currentVersion, ifname, sandboxDirectory, url, ambientEnabled, "mock")
+
+	proxy := corev1.Container{Name: "istio-proxy"}
+	app := corev1.Container{Name: "app"}
+	fakePod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testPodName,
+			Namespace: testNSName,
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{app, proxy},
+		},
+	}
+
+	fakeNS := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testNSName,
+			Namespace: "",
+			Labels:    map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient},
+		},
+	}
+
+	testCmdAddWithStdinData(t, cniConf, fakePod, fakeNS)
+
+	// Pod should be added to ambient mesh
+	assert.Equal(t, cniAddServerCalled, true)
+}
+
+func TestCmdAddPodDisabledAnnotation(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	url, serverClose := setupCNIEventClientWithMockServer(false)
+	defer serverClose()
+	ambientEnabled = true
+	cniConf := fmt.Sprintf(mockConf, currentVersion, currentVersion, ifname, sandboxDirectory, url, ambientEnabled, "mock")
+
+	app := corev1.Container{Name: "app"}
+	fakePod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        testPodName,
+			Namespace:   testNSName,
+			Annotations: map[string]string{constants.DataplaneMode: constants.AmbientRedirectionDisabled},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{app},
+		},
+	}
+
+	fakeNS := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testNSName,
+			Namespace: "",
+			Labels:    map[string]string{constants.DataplaneMode: constants.AmbientRedirectionEnabled},
+		},
+	}
+
+	testCmdAddWithStdinData(t, cniConf, fakePod, fakeNS)
+
+	// Pod has an explicit opt-out annotation, should not be added to ambient mesh
+	assert.Equal(t, cniAddServerCalled, false)
+}
+
+func TestCmdAddPodEnabledNamespaceDisabled(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	url, serverClose := setupCNIEventClientWithMockServer(false)
+	defer serverClose()
+	ambientEnabled = true
+	cniConf := fmt.Sprintf(mockConf, currentVersion, currentVersion, ifname, sandboxDirectory, url, ambientEnabled, "mock")
+
+	app := corev1.Container{Name: "app"}
+	fakePod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        testPodName,
+			Namespace:   testNSName,
+			Annotations: map[string]string{constants.DataplaneMode: constants.AmbientRedirectionEnabled},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{app},
+		},
+	}
+
+	fakeNS := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testNSName,
+			Namespace: "",
+		},
+	}
+
+	testCmdAddWithStdinData(t, cniConf, fakePod, fakeNS)
+
+	// Currently, we do not allow individual pod opt-in to ambient if namespace is not labeled, so pod
+	// shouls not be added to ambient
+	assert.Equal(t, cniAddServerCalled, false)
+}
+
+func TestCmdAddPodInExcludedNamespace(t *testing.T) {
+	defer resetGlobalTestVariables()
+
+	url, serverClose := setupCNIEventClientWithMockServer(false)
+	defer serverClose()
+	ambientEnabled = true
+	cniConf := fmt.Sprintf(mockConf, currentVersion, currentVersion, ifname, sandboxDirectory, url, ambientEnabled, "mock")
+
+	app := corev1.Container{Name: "app"}
+	fakePod := &corev1.Pod{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Pod",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      testPodName,
+			Namespace: "testExcludeNS",
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{app},
+		},
+	}
+
+	fakeNS := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "core/v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "testExcludeNS",
+			Namespace: "",
+			Labels:    map[string]string{constants.DataplaneMode: constants.AmbientRedirectionEnabled},
+		},
+	}
+
+	testCmdAddWithStdinData(t, cniConf, fakePod, fakeNS)
+
+	// If the pod is being added to a namespace that is explicitly excluded by plugin config denylist
+	// it should never be added, even if the namespace has the annotation
+	assert.Equal(t, cniAddServerCalled, false)
 }
 
 func TestCmdAdd(t *testing.T) {
@@ -432,7 +790,7 @@ func TestCmdAddInvalidK8sArgsKeyword(t *testing.T) {
 
 	k8Args = "K8S_POD_NAMESPACE_InvalidKeyword=istio-system"
 
-	cniConf := fmt.Sprintf(conf, currentVersion, currentVersion, ifname, sandboxDirectory, "mock")
+	cniConf := fmt.Sprintf(mockConf, currentVersion, currentVersion, ifname, sandboxDirectory, "", ambientEnabled, "mock")
 	args := testSetArgs(cniConf)
 
 	err := CmdAdd(args)
@@ -447,7 +805,10 @@ func TestCmdAddInvalidK8sArgsKeyword(t *testing.T) {
 
 func TestCmdAddInvalidVersion(t *testing.T) {
 	defer resetGlobalTestVariables()
-	getKubePodInfo = mockgetK8sPodInfo
+
+	newKubeClient = func(_ Config) (kubernetes.Interface, error) {
+		return fake.NewSimpleClientset(), nil
+	}
 	testCmdInvalidVersion(t, CmdAdd)
 }
 
@@ -498,7 +859,6 @@ func MockInterceptRuleMgrCtor() InterceptRuleMgr {
 
 func TestMain(m *testing.M) {
 	// call flag.Parse() here if TestMain uses flags
-
 	InterceptRuleMgrTypes["mock"] = MockInterceptRuleMgrCtor
 
 	os.Exit(m.Run())

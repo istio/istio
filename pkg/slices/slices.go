@@ -206,6 +206,9 @@ func Dereference[E any](s []*E) []E {
 
 // Flatten merges a slice of slices into a single slice.
 func Flatten[E any](s [][]E) []E {
+	if s == nil {
+		return nil
+	}
 	res := make([]E, 0)
 	for _, v := range s {
 		res = append(res, v...)

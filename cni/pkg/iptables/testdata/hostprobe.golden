@@ -1,0 +1,3 @@
+iptables -t nat -N ISTIO_POSTRT
+iptables -t nat -A POSTROUTING -j ISTIO_POSTRT
+iptables -t nat -A ISTIO_POSTRT -m owner --socket-exists -p tcp -m set --match-set istio-inpod-probes dst -j SNAT --to-source 169.254.7.127

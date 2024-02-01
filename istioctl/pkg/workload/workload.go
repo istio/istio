@@ -38,6 +38,7 @@ import (
 	clientv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/completion"
 	istioctlutil "istio.io/istio/istioctl/pkg/util"
 	"istio.io/istio/operator/pkg/tpath"
 	"istio.io/istio/operator/pkg/util"
@@ -91,18 +92,18 @@ func Cmd(ctx cli.Context) *cobra.Command {
   # workload entry configuration generation
   istioctl x workload entry configure`,
 	}
-	workloadCmd.AddCommand(groupCommand())
+	workloadCmd.AddCommand(groupCommand(ctx))
 	workloadCmd.AddCommand(entryCommand(ctx))
 	return workloadCmd
 }
 
-func groupCommand() *cobra.Command {
+func groupCommand(ctx cli.Context) *cobra.Command {
 	groupCmd := &cobra.Command{
 		Use:     "group",
 		Short:   "Commands dealing with WorkloadGroup resources",
 		Example: "  istioctl x workload group create --name foo --namespace bar --labels app=foobar",
 	}
-	groupCmd.AddCommand(createCommand())
+	groupCmd.AddCommand(createCommand(ctx))
 	return groupCmd
 }
 
@@ -116,7 +117,7 @@ func entryCommand(ctx cli.Context) *cobra.Command {
 	return entryCmd
 }
 
-func createCommand() *cobra.Command {
+func createCommand(ctx cli.Context) *cobra.Command {
 	createCmd := &cobra.Command{
 		Use:   "create",
 		Short: "Creates a WorkloadGroup resource that provides a template for associated WorkloadEntries",
@@ -168,6 +169,11 @@ The default output is serialized YAML, which can be piped into 'kubectl apply -f
 	createCmd.PersistentFlags().StringSliceVarP(&annotations, "annotations", "a", nil, "The annotations to apply to the workload instances")
 	createCmd.PersistentFlags().StringSliceVarP(&ports, "ports", "p", nil, "The incoming ports exposed by the workload instance")
 	createCmd.PersistentFlags().StringVarP(&serviceAccount, "serviceAccount", "s", "default", "The service identity to associate with the workload instances")
+	_ = createCmd.RegisterFlagCompletionFunc("serviceAccount", func(
+		cmd *cobra.Command, args []string, toComplete string,
+	) ([]string, cobra.ShellCompDirective) {
+		return completion.ValidServiceAccountArgs(cmd, ctx, args, toComplete)
+	})
 	return createCmd
 }
 

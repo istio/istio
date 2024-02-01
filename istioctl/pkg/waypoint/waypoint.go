@@ -21,6 +21,7 @@ import (
 	"strings"
 	"sync"
 	"text/tabwriter"
+	"time"
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/spf13/cobra"
@@ -43,11 +44,15 @@ import (
 )
 
 var (
-	revision = ""
-
+	revision      = ""
+	waitReady     bool
 	allNamespaces bool
 
 	deleteAll bool
+)
+
+const (
+	waitTimeout = 90 * time.Second
 )
 
 func Cmd(ctx cli.Context) *cobra.Command {
@@ -120,10 +125,10 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Example: `  # Apply a waypoint to the current namespace
   istioctl x waypoint apply
 
-  # Apply a waypoint to a specific namespace for a specific service account
-  istioctl x waypoint apply --service-account something --namespace default`,
+  # Apply a waypoint to a specific namespace for a specific service account and wait for it to be ready
+  istioctl x waypoint apply --service-account something --namespace default --wait`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			kubeClient, err := ctx.CLIClient()
+			kubeClient, err := ctx.CLIClientWithRevision(revision)
 			if err != nil {
 				return fmt.Errorf("failed to create Kubernetes client: %v", err)
 			}
@@ -146,6 +151,34 @@ func Cmd(ctx cli.Context) *cobra.Command {
 				}
 				return err
 			}
+			if waitReady {
+				startTime := time.Now()
+				ticker := time.NewTicker(1 * time.Second)
+				defer ticker.Stop()
+				for range ticker.C {
+					programmed := false
+					gwc, err := kubeClient.GatewayAPI().GatewayV1beta1().Gateways(ctx.NamespaceOrDefault(ctx.Namespace())).Get(context.TODO(), gw.Name, metav1.GetOptions{})
+					if err == nil {
+						// Check if gateway has Programmed condition set to true
+						for _, cond := range gwc.Status.Conditions {
+							if cond.Type == string(gatewayv1.GatewayConditionProgrammed) && string(cond.Status) == "True" {
+								programmed = true
+								break
+							}
+						}
+					}
+					if programmed {
+						break
+					}
+					if time.Since(startTime) > waitTimeout {
+						errorMsg := fmt.Sprintf("timed out while waiting for waypoint %v/%v", gw.Namespace, gw.Name)
+						if err != nil {
+							errorMsg += fmt.Sprintf(": %s", err)
+						}
+						return fmt.Errorf(errorMsg)
+					}
+				}
+			}
 			fmt.Fprintf(cmd.OutOrStdout(), "waypoint %v/%v applied\n", gw.Namespace, gw.Name)
 			return nil
 		},
@@ -157,11 +190,11 @@ func Cmd(ctx cli.Context) *cobra.Command {
 		Long:  "Delete a waypoint configuration from the cluster",
 		Example: `  # Delete a waypoint from the default namespace
   istioctl x waypoint delete
-  
+
   # Delete a waypoint from a specific namespace for a specific service account
   istioctl x waypoint delete --service-account something --namespace default
 
-  # Delete a waypoint by name, which can obtain from istioctl x waypoint list 
+  # Delete a waypoint by name, which can obtain from istioctl x waypoint list
   istioctl x waypoint delete waypoint-name --namespace default
 
   # Delete several waypoints by name
@@ -310,6 +343,7 @@ func Cmd(ctx cli.Context) *cobra.Command {
 	}
 
 	waypointApplyCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
+	waypointApplyCmd.PersistentFlags().BoolVarP(&waitReady, "wait", "w", false, "Wait for the waypoint to be ready")
 	waypointCmd.AddCommand(waypointApplyCmd)
 	waypointGenerateCmd.PersistentFlags().StringVarP(&revision, "revision", "r", "", "The revision to label the waypoint with")
 	waypointCmd.AddCommand(waypointGenerateCmd)

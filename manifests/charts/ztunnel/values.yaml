@@ -58,9 +58,6 @@ defaults:
     defaultConfig:
       proxyMetadata: {}
 
-  # Ambient redirection mode: "iptables" or "ebpf"
-  redirectMode: "iptables"
-
   # This value defines:
   # 1. how many seconds kube waits for ztunnel pod to gracefully exit before forcibly terminating it (this value)
   # 2. how many seconds ztunnel waits to drain its own connections (this value - 1 sec)
@@ -80,3 +77,9 @@ defaults:
   # Configuration log level of ztunnel binary, default is info.
   # Valid values are: trace, debug, info, warn, error
   logLevel: info
+
+  # Set to `type: RuntimeDefault` to use the default profile if available.
+  seLinuxOptions: {}
+  # TODO Ambient inpod - for OpenShift, set to the following to get writable sockets in hostmounts to work, eventually consider CSI driver instead
+  #seLinuxOptions:
+  #  type: spc_t
