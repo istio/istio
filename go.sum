@@ -44,8 +44,8 @@ github.com/Masterminds/semver/v3 v3.2.1/go.mod h1:qvl/7zhW3nngYb5+80sSMF+FG2BjYr
 github.com/Masterminds/sprig/v3 v3.2.3 h1:eL2fZNezLomi0uOLqjQoN6BfsDD+fyLtgbJMAj9n6YA=
 github.com/Masterminds/sprig/v3 v3.2.3/go.mod h1:rXcFaZ2zZbLRJv/xSysmlgIM1u11eBaRMhvYXJNkGuM=
 github.com/NYTimes/gziphandler v0.0.0-20170623195520-56545f4a5d46/go.mod h1:3wb06e3pkSAbeQ52E9H9iFoQsEEwGN64994WTCIhntQ=
-github.com/Nordix/api v0.0.0-20240116144515-c99b735749e9 h1:XfQDRXLWV771/mWg51NLSh4uWTUcz9KuRFJTvQuZ01I=
-github.com/Nordix/api v0.0.0-20240116144515-c99b735749e9/go.mod h1:EWEUl/dE3Q1QSR2515aIm39FFR2Hk2MGbiN71OocEhQ=
+github.com/Nordix/api v0.0.0-20240201122737-b94a77e955fe h1:e6iO7RlEvzrbqGu5/94lzV6tt7HsQYi5qJAnULr3SA4=
+github.com/Nordix/api v0.0.0-20240201122737-b94a77e955fe/go.mod h1:TFCMUCAHRjxBv1CsIsFCsYHPHi4axVI4vdIzVr8eFjY=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/PuerkitoBio/purell v1.0.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
 github.com/PuerkitoBio/purell v1.1.0/go.mod h1:c11w/QuzBsJSee3cPx9rAFu61PvFxuPbtSwDGJws/X0=
@@ -1097,10 +1097,6 @@ istio.io/api v1.19.0-alpha.1.0.20240131234440-c05505dd289b h1:DDmTP4xc8gGQ/P7rFg
 istio.io/api v1.19.0-alpha.1.0.20240131234440-c05505dd289b/go.mod h1:TFCMUCAHRjxBv1CsIsFCsYHPHi4axVI4vdIzVr8eFjY=
 istio.io/client-go v1.19.0-alpha.1.0.20240131235039-9d9307e2b2d4 h1:JX6IXimigFSvENUNl+X2Y7ErJg/86FeNSVdyzjFZ6ow=
 istio.io/client-go v1.19.0-alpha.1.0.20240131235039-9d9307e2b2d4/go.mod h1:XJr/GcS2GkXhCD8eoHB5a4upEgQbRIImbjG+bidgrOM=
-istio.io/api v1.19.0-alpha.1.0.20240110144702-0635d3ed6dd5 h1:ifAr9vvJhHqyJtENHUTDhfDAbJy63fhPqt2KIJO6lj0=
-istio.io/api v1.19.0-alpha.1.0.20240110144702-0635d3ed6dd5/go.mod h1:EWEUl/dE3Q1QSR2515aIm39FFR2Hk2MGbiN71OocEhQ=
-istio.io/client-go v1.19.0-alpha.1.0.20240110145548-69522e445097 h1:JgweEI6JGZpPQieD9WB2vaqWVp8NpSHQdZfBOpng6oY=
-istio.io/client-go v1.19.0-alpha.1.0.20240110145548-69522e445097/go.mod h1:GvtyN+xEoq7zNBvTA3a8hgL+TIhnbnUEnJYP2EsOCOs=
 k8s.io/api v0.18.2/go.mod h1:SJCWI7OLzhZSvbY7U8zwNl9UA4o1fizoug34OV/2r78=
 k8s.io/api v0.18.4/go.mod h1:lOIQAKYgai1+vz9J7YcDZwC26Z0zQewYOGWdyIPUUQ4=
 k8s.io/api v0.29.1 h1:DAjwWX/9YT7NQD4INu49ROJuZAAAP/Ijki48GUPzxqw=

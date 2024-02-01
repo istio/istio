@@ -6,7 +6,7 @@ go 1.21
 replace github.com/imdario/mergo => github.com/imdario/mergo v0.3.5
 
 // TODO: Remove once istio/api#3018 PR is merged
-replace istio.io/api => github.com/Nordix/api v0.0.0-20240116144515-c99b735749e9
+replace istio.io/api => github.com/Nordix/api v0.0.0-20240201122737-b94a77e955fe
 
 require (
 	cloud.google.com/go/compute/metadata v0.2.3
