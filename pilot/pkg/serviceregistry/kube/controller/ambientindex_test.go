@@ -985,12 +985,6 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	s.assertAddresses(t, "", "pod1")
 	s.assertEvent(t, s.podXdsName("pod1"))
 
-	s.addPods(t, "127.0.0.2", "gw-pod", "sa1", map[string]string{
-		constants.GatewayNameLabel: "gw1",
-	}, nil, true, corev1.PodRunning)
-	s.assertAddresses(t, s.addrXdsName("127.0.0.2"), "gw-pod")
-	s.assertEvent(t, s.podXdsName("gw-pod"))
-
 	// Add a namespace waypoint to the pod
 	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", "", true)
 	s.assertEvent(t, s.podXdsName("pod1"))
@@ -1019,9 +1013,7 @@ func TestUpdateWaypointForWorkload(t *testing.T) {
 	// Add a namespace waypoint to the pod, should have no update
 	s.addWaypoint(t, "10.0.0.1", "waypoint-ns", "", true)
 	s.assertNoEvent(t)
-	// pod1 with sa waypoint should not be updated, gw-pod should have no waypoint
 	assertWaypoint(t, s.lookup("pod1"), "waypoint-sa1")
-	assertWaypoint(t, s.lookup("gw-pod"), "")
 }
 
 // This is a regression test for a case where policies added after pods were not applied when

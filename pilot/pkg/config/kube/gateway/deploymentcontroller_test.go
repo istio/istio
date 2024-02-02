@@ -17,6 +17,7 @@ package gateway
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -99,6 +100,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		values                   string
 		discoveryNamespaceFilter namespace.DiscoveryNamespacesFilter
 		ignore                   bool
+		envs                     map[string]string
 	}{
 		{
 			name: "simple",
@@ -302,9 +304,56 @@ func TestConfigureIstioGateway(t *testing.T) {
 			},
 			objects: defaultObjects,
 		},
+		{
+			name: "kube-gateway-ambient-redirect",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: defaultClassName,
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  ambient:
+    kubeGatewayRedirection: true`,
+			envs: map[string]string{
+				"PILOT_ENABLE_AMBIENT_CONTROLLERS": "true",
+			},
+		},
+		{
+			name: "kube-gateway-not-ambient",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "default",
+					Namespace: "default",
+				},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: defaultClassName,
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  ambient:
+    kubeGatewayRedirection: true`,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			for k, v := range tt.envs {
+				if err := os.Setenv(k, v); err != nil {
+					t.Fatal(err)
+				}
+			}
+			t.Cleanup(func() {
+				for k := range tt.envs {
+					if err := os.Unsetenv(k); err != nil {
+						t.Fatal(err)
+					}
+				}
+			})
 			buf := &bytes.Buffer{}
 			client := kube.NewFakeClient(tt.objects...)
 			kclient.NewWriteClient[*v1beta1.GatewayClass](client).Create(customClass)

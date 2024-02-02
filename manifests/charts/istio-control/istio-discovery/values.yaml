@@ -40,7 +40,7 @@ defaults:
     cpu:
       targetAverageUtilization: 80
     memory: {}
-      # targetAverageUtilization: 80
+    # targetAverageUtilization: 80
 
     # Additional volumeMounts to the istiod container
     volumeMounts: []
@@ -482,6 +482,9 @@ defaults:
     # whether to use autoscaling/v2 template for HPA settings
     # for internal usage only, not to be configured by users.
     autoscalingv2API: true
+
+    ambient:
+      kubeGatewayRedirection: false
 
   base:
     # For istioctl usage to disable istio config crds in base
