@@ -16,6 +16,11 @@ metadata:
     should: see
   name: default-istio
   namespace: default
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: default
+    uid: ""
 ---
 apiVersion: apps/v1
 kind: Deployment
