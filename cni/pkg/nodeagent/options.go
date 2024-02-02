@@ -39,9 +39,10 @@ const (
 )
 
 type AmbientArgs struct {
-	SystemNamespace string
-	Revision        string
-	KubeConfig      string
-	ServerSocket    string
-	DNSCapture      bool
+	SystemNamespace          string
+	Revision                 string
+	KubeConfig               string
+	ServerSocket             string
+	DNSCapture               bool
+	ResetPreviousConnections bool
 }

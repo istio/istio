@@ -45,10 +45,11 @@ const (
 var log = istiolog.RegisterScope("iptables", "iptables helper")
 
 type Config struct {
-	RestoreFormat     bool `json:"RESTORE_FORMAT"`
-	TraceLogging      bool `json:"IPTABLES_TRACE_LOGGING"`
-	EnableInboundIPv6 bool `json:"ENABLE_INBOUND_IPV6"`
-	RedirectDNS       bool `json:"REDIRECT_DNS"`
+	RestoreFormat            bool `json:"RESTORE_FORMAT"`
+	TraceLogging             bool `json:"IPTABLES_TRACE_LOGGING"`
+	EnableInboundIPv6        bool `json:"ENABLE_INBOUND_IPV6"`
+	RedirectDNS              bool `json:"REDIRECT_DNS"`
+	ResetPreviousConnections bool `json:"RESET_PREVIOUS_CONNECTIONS"`
 }
 
 type IptablesConfigurator struct {
@@ -255,18 +256,21 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 		"--ctstate", "RELATED,ESTABLISHED",
 		"-j", "ACCEPT",
 	)
-	// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp -m mark --mark 0x111/0xfff -j TPROXY --on-port <OUTPORT>
-	//
-	// DESC: If this is outbound, not bound for localhost, and have our packet mark 0x111/0xfff, TPROXY to ztunnel outbound <OUTPORT>
-	iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
-		iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
-		"!", "-d", iptablesconstants.IPVersionSpecific,
-		"-p", "tcp",
-		"-m", "mark",
-		"--mark", inpodTproxyMark,
-		"-j", "TPROXY",
-		"--on-port", fmt.Sprintf("%d", constants.ZtunnelOutboundPort),
-	)
+
+	if !cfg.cfg.ResetPreviousConnections {
+		// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp -m mark --mark 0x111/0xfff -j TPROXY --on-port <OUTPORT>
+		//
+		// DESC: If this is outbound, not bound for localhost, and have our packet mark 0x111/0xfff, TPROXY to ztunnel outbound <OUTPORT>
+		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
+			iptableslog.UndefinedCommand, ChainInpodPrerouting, iptablesconstants.MANGLE,
+			"!", "-d", iptablesconstants.IPVersionSpecific,
+			"-p", "tcp",
+			"-m", "mark",
+			"--mark", inpodTproxyMark,
+			"-j", "TPROXY",
+			"--on-port", fmt.Sprintf("%d", constants.ZtunnelOutboundPort),
+		)
+	}
 
 	// CLI: -A ISTIO_PRERT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x539/0xfff -j TPROXY --on-port <INPLAINPORT> --on-ip 127.0.0.1 --tproxy-mark 0x111/0xfff
 	//
@@ -283,18 +287,20 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 		"--tproxy-mark", inpodTproxyMark,
 	)
 
-	// CLI: -t mangle -A ISTIO_OUTPUT -p tcp -m tcp --syn -m mark ! --mark 0x3/0xfff -j MARK --set-xmark 0x111/0xfff
-	//
-	// DESC: mark the first SYN packet with 0x111/0xfff, it will route to ztunnel outbound port (15001)
-	iptablesBuilder.AppendRule(
-		iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.MANGLE,
-		"-p", "tcp",
-		"-m", "tcp", "--syn",
-		"-m", "mark",
-		"!", "--mark", inpodMark,
-		"-j", "MARK",
-		"--set-xmark", inpodTproxyMark,
-	)
+	if !cfg.cfg.ResetPreviousConnections {
+		// CLI: -t mangle -A ISTIO_OUTPUT -p tcp -m tcp --syn -m mark ! --mark 0x3/0xfff -j MARK --set-xmark 0x111/0xfff
+		//
+		// DESC: mark the first SYN packet with 0x111/0xfff, it will route to ztunnel outbound port (15001)
+		iptablesBuilder.AppendRule(
+			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.MANGLE,
+			"-p", "tcp",
+			"-m", "tcp", "--syn",
+			"-m", "mark",
+			"!", "--mark", inpodMark,
+			"-j", "MARK",
+			"--set-xmark", inpodTproxyMark,
+		)
+	}
 
 	// CLI: -A ISTIO_OUTPUT -m connmark --mark 0x111/0xfff -j CONNMARK --restore-mark --nfmask 0xffffffff --ctmask 0xffffffff
 	//
@@ -343,6 +349,21 @@ func (cfg *IptablesConfigurator) appendInpodRules(hostProbeSNAT *netip.Addr) *bu
 		"-o", "lo",
 		"-j", "ACCEPT",
 	)
+
+	if cfg.cfg.ResetPreviousConnections {
+		// CLI: -A ISTIO_OUTPUT ! -d 127.0.0.1/32 -p tcp -m mark ! --mark 0x539/0xfff -j REDIRECT --to-ports <OUTPORT>
+		//
+		// DESC: If this is outbound, not bound for localhost, and does not have our packet mark, redirect to ztunnel proxy <OUTPORT>
+		iptablesBuilder.AppendVersionedRule("127.0.0.1/32", "::1/128",
+			iptableslog.UndefinedCommand, ChainInpodOutput, iptablesconstants.NAT,
+			"!", "-d", iptablesconstants.IPVersionSpecific,
+			"-p", "tcp",
+			"-m", "mark", "!",
+			"--mark", inpodMark,
+			"-j", "REDIRECT",
+			"--to-ports", fmt.Sprintf("%d", constants.ZtunnelOutboundPort),
+		)
+	}
 
 	return iptablesBuilder
 }

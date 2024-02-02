@@ -92,10 +92,11 @@ var rootCmd = &cobra.Command{
 			log.Info("Starting ambient node agent with inpod redirect mode")
 			ambientAgent, err := nodeagent.NewServer(ctx, watchServerReady, cfg.InstallConfig.CNIEventAddress,
 				nodeagent.AmbientArgs{
-					SystemNamespace: nodeagent.PodNamespace,
-					Revision:        nodeagent.Revision,
-					ServerSocket:    cfg.InstallConfig.ZtunnelUDSAddress,
-					DNSCapture:      cfg.InstallConfig.AmbientDNSCapture,
+					SystemNamespace:          nodeagent.PodNamespace,
+					Revision:                 nodeagent.Revision,
+					ServerSocket:             cfg.InstallConfig.ZtunnelUDSAddress,
+					DNSCapture:               cfg.InstallConfig.AmbientDNSCapture,
+					ResetPreviousConnections: cfg.InstallConfig.AmbientResetPreviousConnections,
 				})
 			if err != nil {
 				return fmt.Errorf("failed to create ambient nodeagent service: %v", err)
@@ -179,6 +180,8 @@ func init() {
 		"The UDS server address which CNI plugin will forward ambient pod creation events to")
 	registerStringParameter(constants.ZtunnelUDSAddress, "/var/run/ztunnel/ztunnel.sock", "The UDS server address which ztunnel will connect to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
+	registerBooleanParameter(constants.AmbientResetPreviousConnections, false,
+		"Whether reset previous connections when inject redirection iptables rule to pod network namespace")
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
 	registerBooleanParameter(constants.RepairDeletePods, false, "Controller will delete pods when detecting pod broken by race condition")
@@ -260,8 +263,9 @@ func constructConfig() (*config.Config, error) {
 		CNIEventAddress:   viper.GetString(constants.CNIEventAddress),
 		ZtunnelUDSAddress: viper.GetString(constants.ZtunnelUDSAddress),
 
-		AmbientEnabled:    viper.GetBool(constants.AmbientEnabled),
-		AmbientDNSCapture: viper.GetBool(constants.AmbientDNSCapture),
+		AmbientEnabled:                  viper.GetBool(constants.AmbientEnabled),
+		AmbientDNSCapture:               viper.GetBool(constants.AmbientDNSCapture),
+		AmbientResetPreviousConnections: viper.GetBool(constants.AmbientResetPreviousConnections),
 	}
 
 	if len(installCfg.K8sNodeName) == 0 {
