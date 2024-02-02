@@ -1857,7 +1857,7 @@ func getGatewayClasses(r GatewayResources, supportedFeatures []k8sv1.SupportedFe
 
 		// Set status. If we created it, it may already be there. If not, set it again
 		obj.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
-			gcs := s.(*k8s.GatewayClassStatus)
+			gcs := s.(*k8sv1.GatewayClassStatus)
 			*gcs = GetClassStatus(gcs, obj.Generation)
 			gcs.SupportedFeatures = supportedFeatures
 			return gcs
