@@ -231,7 +231,8 @@ func TestDeltaClient(t *testing.T) {
 		ctx.RegisterDependency(v3.SecretType, xdstest.ExtractClusterSecretResources(t, resourceEntity)...)
 		ctx.RegisterDependency(v3.EndpointType, xdstest.ExtractEdsClusterNames([]*cluster.Cluster{resourceEntity})...)
 	})
-	endpointsHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *endpoint.ClusterLoadAssignment, event Event) {
+	endpointsHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *endpoint.ClusterLoadAssignment,
+		event Event) {
 	})
 	listenerHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *listener.Listener, event Event) {
 		if event == EventDelete {

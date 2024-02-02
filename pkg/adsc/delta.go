@@ -233,7 +233,8 @@ func (c *Client) trigger(ctx *handlerContext, typeURL string, r *discovery.Resou
 			Version: r.Version,
 			Entity:  entity,
 		}
-	} else { //EventDelete
+	} else {
+		// EventDelete
 		res = &Resource{
 			Name: r.Name,
 		}
