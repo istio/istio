@@ -40,7 +40,7 @@ defaults:
     cpu:
       targetAverageUtilization: 80
     memory: {}
-    # targetAverageUtilization: 80
+      # targetAverageUtilization: 80
 
     # Additional volumeMounts to the istiod container
     volumeMounts: []
@@ -484,6 +484,7 @@ defaults:
     autoscalingv2API: true
 
     ambient:
+      # kubeGatewayRedirection controls whether the request to the kube gateway should be redirected to the ztunnel.
       kubeGatewayRedirection: false
 
   base:
