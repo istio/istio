@@ -61,7 +61,7 @@ require (
 	github.com/miekg/dns v1.1.55
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/moby/buildkit v0.12.0
+	github.com/moby/buildkit v0.12.5
 	github.com/onsi/gomega v1.27.10
 	github.com/openshift/api v0.0.0-20230720094506-afcbe27aec7c
 	github.com/pires/go-proxyproto v0.7.0
@@ -182,7 +182,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.16.5 // indirect
+	github.com/klauspost/compress v1.17.2 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lestrrat-go/backoff/v2 v2.0.8 // indirect
 	github.com/lestrrat-go/blackmagic v1.0.1 // indirect
