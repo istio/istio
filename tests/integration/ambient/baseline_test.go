@@ -1264,6 +1264,10 @@ func TestMTLS(t *testing.T) {
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/42696")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
+			// need add a netpol denying anything other than 15008
+			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/a.yaml").ApplyOrFail(t)
+
+			// t.ConfigKube(t.AllClusters()...).YAML().ApplyOrFail()
 			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
 			mtlsOnExpect := func(from echo.Instance, opts echo.CallOptions) bool {
 				if from.Config().IsNaked() || opts.To.Config().IsNaked() {
