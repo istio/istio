@@ -81,15 +81,16 @@ spec:
               path: /readyz
               port: 8000
           securityContext:
+            privileged: true # always requires privilege to be useful (install node plugin, etc)
             runAsGroup: 0
             runAsUser: 0
             runAsNonRoot: false
             # Both ambient and sidecar repair mode require elevated node privileges to function.
+            # But we don't need _everything_ in `privileged`, so drop+readd capabilities based on feature.
 {{- if or .Values.cni.ambient.enabled .Values.cni.repair.enabled }}
             # privileged is redundant with CAP_SYS_ADMIN
             # since it's redundant, hardcode it to `true`, then manually drop ALL + readd granular
             # capabilities we actually require
-            privileged: true
             capabilities:
               drop:
               - ALL
