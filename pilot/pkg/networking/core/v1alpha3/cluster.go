@@ -492,7 +492,7 @@ func buildInboundClustersFromServiceInstances(cb *ClusterBuilder, proxy *model.P
 	}
 
 	bind := actualLocalHosts[0]
-	if cb.req.Push.Mesh.InboundTrafficPolicy.Mode == meshconfig.MeshConfig_InboundTrafficPolicy_PASSTHROUGH {
+	if cb.req.Push.Mesh.GetInboundTrafficPolicy().GetMode() == meshconfig.MeshConfig_InboundTrafficPolicy_PASSTHROUGH {
 		bind = ""
 	}
 	// For each workload port, we will construct a cluster
