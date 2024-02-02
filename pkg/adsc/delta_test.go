@@ -224,26 +224,27 @@ func TestDeltaClient(t *testing.T) {
 
 	var tests []testCase
 
-	clusterHandler := Register(func(ctx HandlerContext, res *cluster.Cluster, event Event) {
+	clusterHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *cluster.Cluster, event Event) {
 		if event == EventDelete {
 			return
 		}
-		ctx.RegisterDependency(v3.SecretType, xdstest.ExtractClusterSecretResources(t, res)...)
-		ctx.RegisterDependency(v3.EndpointType, xdstest.ExtractEdsClusterNames([]*cluster.Cluster{res})...)
+		ctx.RegisterDependency(v3.SecretType, xdstest.ExtractClusterSecretResources(t, resourceEntity)...)
+		ctx.RegisterDependency(v3.EndpointType, xdstest.ExtractEdsClusterNames([]*cluster.Cluster{resourceEntity})...)
 	})
-	endpointsHandler := Register(func(ctx HandlerContext, res *endpoint.ClusterLoadAssignment, event Event) {
+	endpointsHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *endpoint.ClusterLoadAssignment,
+		event Event) {
 	})
-	listenerHandler := Register(func(ctx HandlerContext, res *listener.Listener, event Event) {
+	listenerHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *listener.Listener, event Event) {
 		if event == EventDelete {
 			return
 		}
-		ctx.RegisterDependency(v3.SecretType, xdstest.ExtractListenerSecretResources(t, res)...)
-		ctx.RegisterDependency(v3.RouteType, xdstest.ExtractRoutesFromListeners([]*listener.Listener{res})...)
+		ctx.RegisterDependency(v3.SecretType, xdstest.ExtractListenerSecretResources(t, resourceEntity)...)
+		ctx.RegisterDependency(v3.RouteType, xdstest.ExtractRoutesFromListeners([]*listener.Listener{resourceEntity})...)
 		// TODO: ECDS
 	})
-	routesHandler := Register(func(ctx HandlerContext, res *route.RouteConfiguration, event Event) {
+	routesHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *route.RouteConfiguration, event Event) {
 	})
-	secretsHandler := Register(func(ctx HandlerContext, res *tls.Secret, event Event) {
+	secretsHandler := Register(func(ctx HandlerContext, resourceName string, resourceVersion string, resourceEntity *tls.Secret, event Event) {
 	})
 
 	handlers := []Option{
@@ -380,6 +381,36 @@ LDS/:
     RDS/test-rds-config:
     SDS/kubernetes://test:
 RDS/test-route:
+`,
+		},
+
+		{
+			desc: "begin two clusters then remove one",
+			serverResponses: []*discovery.DeltaDiscoveryResponse{
+				{
+					TypeUrl: v3.ClusterType,
+					Resources: []*discovery.Resource{
+						{
+							Name:     "test-cluster1",
+							Resource: protoconv.MessageToAny(testCluster),
+						},
+						{
+							Name:     "test-cluster2",
+							Resource: protoconv.MessageToAny(testClusterNoSecret),
+						},
+					},
+				},
+				{
+					TypeUrl:          v3.ClusterType,
+					Resources:        []*discovery.Resource{},
+					RemovedResources: []string{"test-cluster2"},
+				},
+			},
+			expectedTree: `CDS/:
+  CDS/test-cluster1:
+    EDS/test-eds:
+    SDS/kubernetes://test:
+LDS/:
 `,
 		},
 	}
