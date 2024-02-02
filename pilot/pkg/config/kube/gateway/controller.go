@@ -257,9 +257,11 @@ func (c *Controller) handleStatusUpdates(configs []config.Config) {
 		if ws.Dirty {
 			res := status.ResourceFromModelConfig(cfg)
 			statusController := c.statusController.Load()
-			if statusController != nil {
-				statusController.EnqueueStatusUpdateResource(ws.Unwrap(), res)
+			if statusController == nil {
+				// leader election loss
+				break
 			}
+			statusController.EnqueueStatusUpdateResource(ws.Unwrap(), res)
 		}
 	}
 }
