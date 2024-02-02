@@ -85,7 +85,7 @@ type Controller struct {
 
 	// statusController controls the status working queue. Status will only be written if statusEnabled is true, which
 	// is only the case when we are the leader.
-	statusController *status.Controller
+	statusController *atomic.Pointer[status.Controller]
 	statusEnabled    *atomic.Bool
 
 	waitForCRD func(class schema.GroupVersionResource, stop <-chan struct{}) bool
@@ -110,7 +110,7 @@ func NewController(
 		credentialsController: credsController,
 		cluster:               options.ClusterID,
 		domain:                options.DomainSuffix,
-		statusController:      ctl,
+		statusController:      atomic.NewPointer(ctl),
 		// Disabled by default, we will enable only if we win the leader election
 		statusEnabled: atomic.NewBool(false),
 		waitForCRD:    waitForCRD,
@@ -165,11 +165,13 @@ func (c *Controller) List(typ config.GroupVersionKind, namespace string) []confi
 func (c *Controller) SetStatusWrite(enabled bool, statusManager *status.Manager) {
 	c.statusEnabled.Store(enabled)
 	if enabled && features.EnableGatewayAPIStatus && statusManager != nil {
-		c.statusController = statusManager.CreateGenericController(func(status any, context any) status.GenerationProvider {
-			return &gatewayGeneration{context}
-		})
+		c.statusController.Store(
+			statusManager.CreateGenericController(func(status any, context any) status.GenerationProvider {
+				return &gatewayGeneration{context}
+			}),
+		)
 	} else {
-		c.statusController = nil
+		c.statusController.Store(nil)
 	}
 }
 
@@ -247,14 +249,17 @@ func (c *Controller) QueueStatusUpdates(r GatewayResources) {
 }
 
 func (c *Controller) handleStatusUpdates(configs []config.Config) {
-	if c.statusController == nil || !c.statusEnabled.Load() {
+	if c.statusController.Load() == nil || !c.statusEnabled.Load() {
 		return
 	}
 	for _, cfg := range configs {
 		ws := cfg.Status.(*kstatus.WrappedStatus)
 		if ws.Dirty {
 			res := status.ResourceFromModelConfig(cfg)
-			c.statusController.EnqueueStatusUpdateResource(ws.Unwrap(), res)
+			statusController := c.statusController.Load()
+			if statusController != nil {
+				statusController.EnqueueStatusUpdateResource(ws.Unwrap(), res)
+			}
 		}
 	}
 }
