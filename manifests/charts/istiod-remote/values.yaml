@@ -408,6 +408,9 @@ defaults:
     # whether to use autoscaling/v2 template for HPA settings
     # for internal usage only, not to be configured by users.
     autoscalingv2API: true
+    ambient:
+      # kubeGatewayRedirection controls whether the request to the kube gateway should be redirected to the ztunnel.
+      kubeGatewayRedirection: false
   base:
     # For istioctl usage to disable istio config crds in base
     enableIstioConfigCRDs: true

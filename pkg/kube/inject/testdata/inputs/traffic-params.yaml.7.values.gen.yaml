@@ -1,5 +1,8 @@
 {
   "global": {
+    "ambient": {
+      "kubeGatewayRedirection": false
+    },
     "autoscalingv2API": true,
     "caAddress": "",
     "caName": "",
