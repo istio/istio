@@ -221,9 +221,6 @@ var (
 	EnableNativeSidecars = env.Register("ENABLE_NATIVE_SIDECARS", false,
 		"If set, used Kubernetes native Sidecar container support. Requires SidecarContainer feature flag.")
 
-	NativeMetadataExchange = env.Register("NATIVE_METADATA_EXCHANGE", true,
-		"If set, uses a native implementation of the HTTP metadata exchange filter").Get()
-
 	OptimizedConfigRebuild = env.Register("ENABLE_OPTIMIZED_CONFIG_REBUILD", true,
 		"If enabled, pilot will only rebuild config for resources that have changed").Get()
 
