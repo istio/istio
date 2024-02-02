@@ -97,7 +97,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	}
 
 	if ambientProfile {
-		profileArgs = fmt.Sprintf("--set profile=ambient")
+		profileArgs = "--set profile=ambient"
 	}
 	// Install base chart
 	err := h.InstallChart(BaseReleaseName, baseChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
