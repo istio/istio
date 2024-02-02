@@ -350,11 +350,12 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 	isWaypointGateway := strings.Contains(string(gw.Spec.GatewayClassName), "waypoint")
 
 	// Default the network label for waypoints if not explicitly set in gateway's labels
-	if _, ok := gw.GetLabels()["topology.istio.io/network"]; !ok && isWaypointGateway {
+	network := d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+	if _, ok := gw.GetLabels()[label.TopologyNetwork.Name]; !ok && network != "" && isWaypointGateway {
 		if gw.Labels == nil {
 			gw.Labels = make(map[string]string)
 		}
-		gw.Labels["topology.istio.io/network"] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+		gw.Labels[label.TopologyNetwork.Name] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
 	}
 
 	input := TemplateInput{
@@ -388,8 +389,8 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		// Default the network label for waypoints if not explicitly set in infra labels
 		// We do this a second time here for correctness since if infra labels are set (according to the gwapi spec),
 		// the gateway's labels are ignored.
-		if _, ok := infraLabels["topology.istio.io/network"]; !ok && isWaypointGateway {
-			infraLabels["topology.istio.io/network"] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+		if _, ok := infraLabels[label.TopologyNetwork.Name]; !ok && network != "" && isWaypointGateway {
+			infraLabels[label.TopologyNetwork.Name] = network
 		}
 
 		input.InfrastructureLabels = infraLabels
