@@ -48,6 +48,7 @@ require (
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/hashicorp/go-version v1.6.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
+	github.com/howardjohn/unshare-go v0.3.0
 	github.com/kr/pretty v0.3.1
 	github.com/kylelemons/godebug v1.1.0
 	github.com/lestrrat-go/jwx v1.2.28
@@ -55,7 +56,7 @@ require (
 	github.com/miekg/dns v1.1.58
 	github.com/mitchellh/copystructure v1.2.0
 	github.com/mitchellh/go-homedir v1.1.0
-	github.com/moby/buildkit v0.12.4
+	github.com/moby/buildkit v0.12.5
 	github.com/onsi/gomega v1.31.1
 	github.com/openshift/api v0.0.0-20240125191952-1e2afa0f76cf
 	github.com/pires/go-proxyproto v0.7.0
@@ -104,8 +105,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0
 	gopkg.in/yaml.v3 v3.0.1
 	helm.sh/helm/v3 v3.14.0
-	istio.io/api v1.19.0-alpha.1.0.20240129205532-62e5dd915062
-	istio.io/client-go v1.19.0-alpha.1.0.20240129205932-2ac5c0f04561
+	istio.io/api v1.19.0-alpha.1.0.20240131234440-c05505dd289b
+	istio.io/client-go v1.19.0-alpha.1.0.20240131235039-9d9307e2b2d4
 	k8s.io/api v0.29.1
 	k8s.io/apiextensions-apiserver v0.29.1
 	k8s.io/apimachinery v0.29.1

@@ -790,13 +790,7 @@ func (s *DiscoveryServer) pushConnection(con *Connection, pushEv *Event) error {
 var PushOrder = []string{v3.ClusterType, v3.EndpointType, v3.ListenerType, v3.RouteType, v3.SecretType}
 
 // KnownOrderedTypeUrls has typeUrls for which we know the order of push.
-var KnownOrderedTypeUrls = map[string]struct{}{
-	v3.ClusterType:  {},
-	v3.EndpointType: {},
-	v3.ListenerType: {},
-	v3.RouteType:    {},
-	v3.SecretType:   {},
-}
+var KnownOrderedTypeUrls = sets.New(PushOrder...)
 
 func (s *DiscoveryServer) adsClientCount() int {
 	s.adsClientsMutex.RLock()

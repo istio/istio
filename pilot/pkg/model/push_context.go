@@ -912,6 +912,7 @@ func (ps *PushContext) extraGatewayServices(proxy *Proxy) sets.String {
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:
 			hosts.Insert(p.Skywalking.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
+			//nolint: staticcheck
 			hosts.Insert(p.Opencensus.Service)
 		case *meshconfig.MeshConfig_ExtensionProvider_Opentelemetry:
 			hosts.Insert(p.Opentelemetry.Service)

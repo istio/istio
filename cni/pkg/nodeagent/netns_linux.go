@@ -53,6 +53,7 @@ func OpenNetns(nspath string) (NetnsCloser, error) {
 	}
 	i, err := inodeForFd(n)
 	if err != nil {
+		n.Close()
 		return nil, err
 	}
 	return &NetnsWrapper{innerNetns: n, inode: i}, nil
