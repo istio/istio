@@ -183,12 +183,26 @@ EOF
   fi
 
   # Create KinD cluster
-  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v4 --retain --image "${IMAGE}" --wait=180s); then
+  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v4 --retain --image "${IMAGE}" ); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     return 9
   fi
   # Workaround kind issue causing taints to not be removed in 1.24
   kubectl taint nodes "${NAME}"-control-plane node-role.kubernetes.io/control-plane- || true
+
+  # If using the ambient config we'll need to install our own CNI
+  # TODO: Will need updating when mc ambient tests are created if we want our own CNI
+  if [[ "$CONFIG" = *"ambient-sc.yaml" ]]; then
+    echo "Setting up ambient cluster, 3rd party CNI will be used."
+    which helm
+    helm version
+    helm repo add cilium https://helm.cilium.io/
+    helm repo update
+    helm install cilium cilium/cilium --version 1.15.0 --namespace kube-system --set cni.exclusive=false
+    kubectl wait --for=condition=ready --timeout=60s -n kube-system pod -l=k8s-app=cilium
+    kubectl rollout restart -n kube-system deployment/coredns
+    # kubectl wait --for=condition=ready --timeout=60s -n kube-system pod -l=k8s-app=kube-dns
+  fi
 
   # If metrics server configuration directory is specified then deploy in
   # the cluster just created
