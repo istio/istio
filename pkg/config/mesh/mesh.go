@@ -89,6 +89,7 @@ func DefaultMeshConfig() *meshconfig.MeshConfig {
 		TrustDomainAliases:          []string{},
 		EnableAutoMtls:              wrappers.Bool(true),
 		OutboundTrafficPolicy:       &meshconfig.MeshConfig_OutboundTrafficPolicy{Mode: meshconfig.MeshConfig_OutboundTrafficPolicy_ALLOW_ANY},
+		InboundTrafficPolicy:        &meshconfig.MeshConfig_InboundTrafficPolicy{Mode: meshconfig.MeshConfig_InboundTrafficPolicy_PASSTHROUGH},
 		LocalityLbSetting: &v1alpha3.LocalityLoadBalancerSetting{
 			Enabled: wrappers.Bool(true),
 		},
