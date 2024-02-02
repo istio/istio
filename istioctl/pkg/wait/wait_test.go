@@ -77,7 +77,7 @@ func TestWaitCmd(t *testing.T) {
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("--generation=1 VirtualService foo.default --proxy not-proxy", " "),
+			args:             strings.Split("--generation=1 --timeout 20ms VirtualService foo.default --proxy not-proxy", " "),
 			wantException:    true,
 		},
 		{
