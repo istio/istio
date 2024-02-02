@@ -70,7 +70,7 @@ func (o *Origin) Reference() resource.Reference {
 	return o.Ref
 }
 
-// GetFieldMap implements resource.Origin
+// FieldMap implements resource.Origin
 func (o *Origin) FieldMap() map[string]int {
 	return o.FieldsMap
 }
