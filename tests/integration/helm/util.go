@@ -55,6 +55,12 @@ const (
 	IngressReleaseName     = "istio-ingress"
 	ControlChartsDir       = "istio-control"
 	GatewayChartsDir       = "gateway"
+	CniChartsDir           = "istio-cni"
+	ZtunnelChartsDir       = "ztunnel"
+	RepoCniChartPath       = "cni"
+	CniReleaseName         = ReleasePrefix + "cni"
+	RepoZtunnelChartPath   = "ztunnel"
+	ZtunnelReleaseName     = "ztunnel"
 
 	RetryDelay   = 2 * time.Second
 	RetryTimeOut = 5 * time.Minute
@@ -66,14 +72,18 @@ var ManifestsChartPath = filepath.Join(env.IstioSrc, "manifests/charts")
 
 // InstallIstio install Istio using Helm charts with the provided
 // override values file and fails the tests on any failures.
-func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, overrideValuesFile, version string, installGateway bool,
+func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, overrideValuesFile, version string, installGateway bool, ambientProfile bool,
 ) {
 	CreateNamespace(t, cs, IstioNamespace)
 
 	versionArgs := ""
+	profileArgs := ""
+
 	baseChartPath := RepoBaseChartPath
 	discoveryChartPath := RepoDiscoveryChartPath
 	gatewayChartPath := RepoGatewayChartPath
+	cniChartPath := RepoCniChartPath
+	ztunnelChartPath := RepoZtunnelChartPath
 
 	if version != "" {
 		versionArgs = fmt.Sprintf("--repo %s --version %s", t.Settings().HelmRepo, version)
@@ -81,7 +91,13 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		baseChartPath = filepath.Join(ManifestsChartPath, BaseChart)
 		discoveryChartPath = filepath.Join(ManifestsChartPath, ControlChartsDir, DiscoveryChartsDir)
 		gatewayChartPath = filepath.Join(ManifestsChartPath, version, GatewayChartsDir)
+		cniChartPath = filepath.Join(ManifestsChartPath, version, CniChartsDir)
+		ztunnelChartPath = filepath.Join(ManifestsChartPath, version, ZtunnelChartsDir)
 
+	}
+
+	if ambientProfile {
+		profileArgs = fmt.Sprintf("--set profile=ambient")
 	}
 	// Install base chart
 	err := h.InstallChart(BaseReleaseName, baseChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
@@ -90,7 +106,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	}
 
 	// Install discovery chart
-	err = h.InstallChart(IstiodReleaseName, discoveryChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
+	err = h.InstallChart(IstiodReleaseName, discoveryChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs, profileArgs)
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart: %v", DiscoveryChartsDir, err)
 	}
@@ -99,6 +115,20 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		err = h.InstallChart(IngressReleaseName, gatewayChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
 			t.Fatalf("failed to install istio %s chart: %v", GatewayChartsDir, err)
+		}
+	}
+
+	if ambientProfile {
+		// Install cni chart
+		err = h.InstallChart(CniReleaseName, cniChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs, profileArgs)
+		if err != nil {
+			t.Fatalf("failed to install istio %s chart: %v", CniChartsDir, err)
+		}
+
+		// Install ztunnel chart
+		err = h.InstallChart(ZtunnelReleaseName, ztunnelChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
+		if err != nil {
+			t.Fatalf("failed to install istio %s chart: %v", ZtunnelChartsDir, err)
 		}
 	}
 }
@@ -163,14 +193,22 @@ func CreateNamespace(t test.Failer, cs cluster.Cluster, namespace string) {
 	}
 }
 
-// deleteIstio deletes installed Istio Helm charts and resources
-func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
+// DeleteIstio deletes installed Istio Helm charts and resources
+func DeleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster, isAmbient bool) {
 	scopes.Framework.Infof("cleaning up resources")
 	if err := h.DeleteChart(IngressReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release: %v", IngressReleaseName, err)
 	}
 	if err := h.DeleteChart(IstiodReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release: %v", IstiodReleaseName, err)
+	}
+	if isAmbient {
+		if err := h.DeleteChart(ZtunnelReleaseName, IstioNamespace); err != nil {
+			t.Errorf("failed to delete %s release: %v", ZtunnelReleaseName, err)
+		}
+		if err := h.DeleteChart(CniReleaseName, IstioNamespace); err != nil {
+			t.Errorf("failed to delete %s release: %v", CniReleaseName, err)
+		}
 	}
 	if err := h.DeleteChart(BaseReleaseName, IstioNamespace); err != nil {
 		t.Errorf("failed to delete %s release: %v", BaseReleaseName, err)
@@ -184,7 +222,7 @@ func deleteIstio(t framework.TestContext, h *helm.Helm, cs *kube.Cluster) {
 }
 
 // VerifyInstallation verify that the Helm installation is successful
-func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGateway bool) {
+func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGateway bool, verifyAmbient bool) {
 	scopes.Framework.Infof("=== verifying istio installation === ")
 
 	VerifyValidatingWebhookConfigurations(ctx, cs, []string{
@@ -195,7 +233,14 @@ func VerifyInstallation(ctx framework.TestContext, cs cluster.Cluster, verifyGat
 		if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istiod")); err != nil {
 			return fmt.Errorf("istiod pod is not ready: %v", err)
 		}
-
+		if verifyAmbient {
+			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=ztunnel")); err != nil {
+				return fmt.Errorf("ztunnel pod is not ready: %v", err)
+			}
+			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "k8s-app=istio-cni-node")); err != nil {
+				return fmt.Errorf("istio-cni pod is not ready: %v", err)
+			}
+		}
 		if verifyGateway {
 			if _, err := kubetest.CheckPodsAreReady(kubetest.NewPodFetch(cs, IstioNamespace, "app=istio-ingress")); err != nil {
 				return fmt.Errorf("istio ingress gateway pod is not ready: %v", err)
