@@ -69,7 +69,7 @@ func TestBookinfo(t *testing.T) {
 				t.Fatal(err)
 			}
 			setupBookinfo(t, nsConfig)
-			// pod enroll into ambient mode
+			// add namespace to ambient mesh
 			nsConfig.SetLabel(constants.DataplaneMode, "ambient")
 			applyDefaultRouting(t, nsConfig)
 
