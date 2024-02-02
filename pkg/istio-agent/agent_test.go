@@ -41,6 +41,7 @@ import (
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
 	testutil "istio.io/istio/pilot/test/util"
+	xdsfake "istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/bootstrap/platform"
@@ -530,31 +531,6 @@ func TestAgent(t *testing.T) {
 		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
 		envoyReady(t, "second agent", 25000)
 	})
-	t.Run("Envoy bootstrap discovery", func(t *testing.T) {
-		Setup(t, func(a AgentTest) AgentTest {
-			a.envoyEnable = true
-			a.ProxyConfig.StatusPort = 15020
-			a.ProxyConfig.ProxyAdminPort = 15000
-			a.AgentConfig.EnvoyPrometheusPort = 15090
-			a.AgentConfig.EnvoyStatusPort = 15021
-			a.AgentConfig.EnableDynamicBootstrap = true
-			return a
-		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-		envoyReady(t, "bootstrap discovery", 15000)
-	})
-	t.Run("Envoy bootstrap retry", func(t *testing.T) {
-		Setup(t, func(a AgentTest) AgentTest {
-			a.envoyEnable = true
-			a.ProxyConfig.StatusPort = 15020
-			a.ProxyConfig.ProxyAdminPort = 15000
-			a.AgentConfig.EnvoyPrometheusPort = 15090
-			a.AgentConfig.EnvoyStatusPort = 15021
-			a.AgentConfig.EnableDynamicBootstrap = true
-			a.bootstrapGenerator = &FakeBootstrapGenerator{}
-			return a
-		}).Check(t, security.WorkloadKeyCertResourceName, security.RootCertReqResourceName)
-		envoyReady(t, "bootstrap discovery", 15000)
-	})
 	t.Run("gRPC XDS bootstrap", func(t *testing.T) {
 		bootstrapPath := path.Join(mktemp(), "grpc-bootstrap.json")
 		a := Setup(t, func(a AgentTest) AgentTest {
@@ -953,7 +929,7 @@ func setupDiscovery(t *testing.T, auth *security.FakeAuthenticator, certPem []by
 	}
 	opt := tlsOptions(t, certPem)
 	// Set up a simple service to make sure we have mTLS requested
-	ds := xds.NewFakeDiscoveryServer(t, xds.FakeOptions{ConfigString: `
+	ds := xdsfake.NewFakeDiscoveryServer(t, xdsfake.FakeOptions{ConfigString: `
 apiVersion: networking.istio.io/v1alpha3
 kind: ServiceEntry
 metadata:

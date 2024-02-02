@@ -18,15 +18,11 @@
 package operator
 
 import (
-	"io"
+	"strings"
 	"testing"
 
-	"istio.io/istio/istioctl/pkg/clioptions"
-	"istio.io/istio/istioctl/pkg/verifier"
-	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
-	"istio.io/istio/pkg/test/scopes"
 )
 
 func TestPostInstallControlPlaneVerification(t *testing.T) {
@@ -45,19 +41,17 @@ func TestPostInstallControlPlaneVerification(t *testing.T) {
 				"install",
 				"--set", "hub=" + s.Image.Hub,
 				"--set", "tag=" + s.Image.Tag,
-				"--set", "components.cni.enabled=true",
 				"--manifests=" + ManifestPath,
 				"-y",
 			}
 			istioCtl.InvokeOrFail(t, installCmd)
-			tfLogger := clog.NewConsoleLogger(io.Discard, io.Discard, scopes.Framework)
-			statusVerifier, err := verifier.NewStatusVerifier(cs, IstioNamespace, ManifestPath, []string{},
-				clioptions.ControlPlaneOptions{}, verifier.WithLogger(tfLogger))
-			if err != nil {
-				t.Fatal(err)
+
+			verifyCmd := []string{
+				"verify-install",
 			}
-			if err := statusVerifier.Verify(); err != nil {
-				t.Fatal(err)
+			out, _ := istioCtl.InvokeOrFail(t, verifyCmd)
+			if !strings.Contains(out, "verified successfully") {
+				t.Fatalf("verify-install failed: %v", out)
 			}
 		})
 }

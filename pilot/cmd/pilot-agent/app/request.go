@@ -17,33 +17,23 @@ package app
 import (
 	"fmt"
 	"net/http"
-	"sort"
-	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
 
 	"istio.io/istio/pilot/pkg/request"
+	"istio.io/istio/pkg/util/sets"
 )
 
 var (
 	debugRequestPort int32 = 15000
-	allowedPorts           = map[int32]struct{}{
-		15000: {},
-		15021: {},
-		15020: {},
-		15004: {},
-	}
+	allowedPorts           = sets.New[int32](
+		15000,
+		15021,
+		15020,
+		15004,
+	)
 )
-
-var allowedPortsString = func() string {
-	s := []string{}
-	for k := range allowedPorts {
-		s = append(s, fmt.Sprint(k))
-	}
-	sort.Strings(s)
-	return strings.Join(s, ", ")
-}()
 
 // NB: extra standard output in addition to what's returned from envoy
 // must not be added in this command. Otherwise, it'd break istioctl proxy-config,
@@ -54,8 +44,8 @@ var (
 		Short: "Makes an HTTP request to the Envoy admin API",
 		Args:  cobra.MinimumNArgs(2),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if _, f := allowedPorts[debugRequestPort]; !f {
-				return fmt.Errorf("debug port %d is not in allowed list %v", debugRequestPort, allowedPortsString)
+			if !allowedPorts.Contains(debugRequestPort) {
+				return fmt.Errorf("debug port %d is not in allowed list %v", debugRequestPort, sets.SortedList(allowedPorts))
 			}
 			return nil
 		},

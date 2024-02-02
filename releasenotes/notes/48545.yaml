@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** an issue `Makefile.k8s.mk` `fetch-root-ca` if-condition not work and can not handle `cacerts` case.

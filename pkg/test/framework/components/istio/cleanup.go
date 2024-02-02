@@ -109,6 +109,7 @@ func (i *istioImpl) cleanupCluster(c cluster.Cluster, errG *multierror.Group) {
 		if e := i.installer.Close(c); e != nil {
 			err = multierror.Append(err, e)
 		}
+
 		// Cleanup all secrets and configmaps - these are dynamically created by tests and/or istiod so they are not captured above
 		// This includes things like leader election locks (allowing next test to start without 30s delay),
 		// custom cacerts, custom kubeconfigs, etc.

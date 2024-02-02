@@ -39,7 +39,7 @@ func validateExtensionProviderService(service string) error {
 			}
 		}
 	} else {
-		if err := validateNamespaceSlashWildcardHostname(service, false); err != nil {
+		if err := validateNamespaceSlashWildcardHostname(service, false, false); err != nil {
 			return err
 		}
 	}
@@ -258,6 +258,7 @@ func validateExtensionProvider(config *meshconfig.MeshConfig) (errs error) {
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingLightStep(provider.Lightstep))
 		case *meshconfig.MeshConfig_ExtensionProvider_Datadog:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingDatadog(provider.Datadog))
+		//nolint: staticcheck
 		case *meshconfig.MeshConfig_ExtensionProvider_Opencensus:
 			currentErrs = appendErrors(currentErrs, validateExtensionProviderTracingOpenCensusAgent(provider.Opencensus))
 		case *meshconfig.MeshConfig_ExtensionProvider_Skywalking:

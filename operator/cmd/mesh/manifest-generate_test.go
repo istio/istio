@@ -46,6 +46,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/env"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/version"
 )
 
@@ -331,6 +332,36 @@ func TestManifestGenerateWithDuplicateMutatingWebhookConfig(t *testing.T) {
 	}
 }
 
+func TestManifestGenerateDefaultWithRevisionedWebhook(t *testing.T) {
+	recreateSimpleTestEnv()
+	testResourceFile := "minimal-revisioned"
+	tmpDir := t.TempDir()
+	tmpCharts := chartSourceType(filepath.Join(tmpDir, operatorSubdirFilePath))
+	err := copyDir(string(liveCharts), string(tmpCharts))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Add a default tag which is the webhook that will be processed post-install
+	whSource := "default_tag"
+	rs, err := readFile(filepath.Join(testDataDir, "input-extra-resources", whSource+".yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	err = writeFile(filepath.Join(tmpDir, operatorSubdirFilePath+"/"+testIstioDiscoveryChartPath+"/"+testResourceFile+".yaml"), []byte(rs))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = fakeControllerReconcile(testResourceFile, tmpCharts, &helmreconciler.Options{Force: false, SkipPrune: true})
+	assert.NoError(t, err)
+
+	// Install a default revision should not cause any error
+	minimal := "minimal"
+	_, err = fakeControllerReconcile(minimal, tmpCharts, &helmreconciler.Options{Force: false, SkipPrune: true})
+	assert.NoError(t, err)
+}
+
 func TestManifestGenerateIstiodRemote(t *testing.T) {
 	g := NewWithT(t)
 
@@ -487,10 +518,10 @@ func TestManifestGeneratePilot(t *testing.T) {
 		},
 		{
 			desc:       "pilot_override_kubernetes",
-			diffSelect: "Deployment:*:istiod, Service:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector,ClusterRoleBinding::istio-reader-istio-system",
+			diffSelect: "Deployment:*:istiod, Service:*:istiod,MutatingWebhookConfiguration:*:istio-sidecar-injector,ServiceAccount:*:istio-reader-service-account",
 			fileSelect: []string{
 				"templates/deployment.yaml", "templates/mutatingwebhook.yaml",
-				"templates/service.yaml", "templates/reader-clusterrolebinding.yaml", "templates/clusterrolebinding.yaml",
+				"templates/service.yaml", "templates/reader-serviceaccount.yaml",
 			},
 		},
 		// TODO https://github.com/istio/istio/issues/22347 this is broken for overriding things to default value
@@ -498,7 +529,7 @@ func TestManifestGeneratePilot(t *testing.T) {
 		{
 			desc:       "pilot_merge_meshconfig",
 			diffSelect: "ConfigMap:*:istio$",
-			fileSelect: []string{"templates/configmap.yaml"},
+			fileSelect: []string{"templates/configmap.yaml", "templates/_helpers.tpl"},
 		},
 		{
 			desc:       "pilot_disable_tracing",

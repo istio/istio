@@ -68,6 +68,19 @@ func DumpCertFromSidecar(t test.Failer, from echo.Instance, to echo.Target, port
 
 // CreateCASecret creates a k8s secret "cacerts" to store the CA key and cert.
 func CreateCASecret(ctx resource.Context) error {
+	return CreateCustomCASecret(ctx,
+		"ca-cert.pem", "ca-key.pem",
+		"cert-chain.pem", "root-cert.pem")
+}
+
+// CreateCASecretAlt creates a k8s secret "cacerts" to store the CA key and cert using an alternative set of certs.
+func CreateCASecretAlt(ctx resource.Context) error {
+	return CreateCustomCASecret(ctx,
+		"ca-cert-alt.pem", "ca-key-alt.pem",
+		"cert-chain-alt.pem", "root-cert-alt.pem")
+}
+
+func CreateCustomCASecret(ctx resource.Context, caCertFile, caKeyFile, certChainFile, rootCertFile string) error {
 	name := "cacerts"
 	systemNs, err := istio.ClaimSystemNamespace(ctx)
 	if err != nil {
@@ -75,16 +88,16 @@ func CreateCASecret(ctx resource.Context) error {
 	}
 
 	var caCert, caKey, certChain, rootCert []byte
-	if caCert, err = ReadSampleCertFromFile("ca-cert.pem"); err != nil {
+	if caCert, err = ReadSampleCertFromFile(caCertFile); err != nil {
 		return err
 	}
-	if caKey, err = ReadSampleCertFromFile("ca-key.pem"); err != nil {
+	if caKey, err = ReadSampleCertFromFile(caKeyFile); err != nil {
 		return err
 	}
-	if certChain, err = ReadSampleCertFromFile("cert-chain.pem"); err != nil {
+	if certChain, err = ReadSampleCertFromFile(certChainFile); err != nil {
 		return err
 	}
-	if rootCert, err = ReadSampleCertFromFile("root-cert.pem"); err != nil {
+	if rootCert, err = ReadSampleCertFromFile(rootCertFile); err != nil {
 		return err
 	}
 

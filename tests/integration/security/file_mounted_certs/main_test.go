@@ -73,7 +73,6 @@ func TestMain(m *testing.M) {
 		Label(label.CustomSetup).
 		RequireSingleCluster().
 		RequireMultiPrimary().
-		Label("CustomSetup").
 		Setup(istio.Setup(&inst, setupConfig, CreateCustomIstiodSecret)).
 		Setup(namespace.Setup(&echo1NS, namespace.Config{Prefix: "echo1", Inject: true})).
 		Setup(func(ctx resource.Context) error {

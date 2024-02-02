@@ -80,7 +80,7 @@ func (i *instance) CLIClientWithRevision(rev string) (kube.CLIClient, error) {
 		i.clients = make(map[string]kube.CLIClient)
 	}
 	if i.clients[rev] == nil {
-		client, err := newKubeClientWithRevision(i.KubeConfig(), i.KubeContext(), rev)
+		client, err := newKubeClientWithRevision(*i.kubeconfig, *i.configContext, rev)
 		if err != nil {
 			return nil, err
 		}
@@ -172,14 +172,6 @@ func (f *fakeInstance) InferPodsFromTypedResource(name, namespace string) ([]str
 
 func (f *fakeInstance) NamespaceOrDefault(namespace string) string {
 	return handleNamespace(namespace, f.rootFlags.defaultNamespace)
-}
-
-func (f *fakeInstance) KubeConfig() string {
-	return ""
-}
-
-func (f *fakeInstance) KubeContext() string {
-	return ""
 }
 
 func (f *fakeInstance) Namespace() string {

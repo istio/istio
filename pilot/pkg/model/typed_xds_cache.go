@@ -155,15 +155,12 @@ func (l *lruCache[K]) Flush() {
 	for _, keyConfigs := range l.evictQueue {
 		l.clearConfigIndex(keyConfigs.key, keyConfigs.dependentConfigs)
 	}
+	// The underlying array releases references to elements so that they can be garbage collected.
+	clear(l.evictQueue)
 	l.evictQueue = l.evictQueue[:0:1000]
+
 	l.recordDependentConfigSize()
 	l.mu.Unlock()
-}
-
-func (l *lruCache[K]) indexLen() int {
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	return len(l.configIndex)
 }
 
 func (l *lruCache[K]) recordDependentConfigSize() {
@@ -247,7 +244,7 @@ func (l *lruCache[K]) Add(k K, entry dependents, pushReq *PushRequest, value *di
 	defer l.mu.Unlock()
 	if token < l.token {
 		// entry may be stale, we need to drop it. This can happen when the cache is invalidated
-		// after we call Get.
+		// after we call Clear or ClearAll.
 		return
 	}
 	cur, f := l.store.Get(k)
@@ -330,7 +327,11 @@ func (l *lruCache[K]) ClearAll() {
 	// create a new store.
 	l.store = newLru(l.onEvict)
 	l.configIndex = map[ConfigHash]sets.Set[K]{}
+
+	// The underlying array releases references to elements so that they can be garbage collected.
+	clear(l.evictQueue)
 	l.evictQueue = l.evictQueue[:0:1000]
+
 	size(l.store.Len())
 }
 

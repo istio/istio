@@ -17,11 +17,9 @@ package tag
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/go-multierror"
 	admitv1 "k8s.io/api/admissionregistration/v1"
-	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
@@ -29,9 +27,9 @@ import (
 	"istio.io/istio/istioctl/pkg/util"
 )
 
-func GetTagWebhooks(ctx context.Context, client kubernetes.Interface) ([]admitv1.MutatingWebhookConfiguration, error) {
+func GetRevisionWebhooks(ctx context.Context, client kubernetes.Interface) ([]admitv1.MutatingWebhookConfiguration, error) {
 	webhooks, err := client.AdmissionregistrationV1().MutatingWebhookConfigurations().List(ctx, metav1.ListOptions{
-		LabelSelector: IstioTagLabel,
+		LabelSelector: label.IoIstioRev.Name,
 	})
 	if err != nil {
 		return nil, err
@@ -79,11 +77,8 @@ func GetNamespacesWithTag(ctx context.Context, client kubernetes.Interface, tag 
 }
 
 // GetWebhookTagName extracts tag name from webhook object.
-func GetWebhookTagName(wh admitv1.MutatingWebhookConfiguration) (string, error) {
-	if tagName, ok := wh.ObjectMeta.Labels[IstioTagLabel]; ok {
-		return tagName, nil
-	}
-	return "", fmt.Errorf("could not extract tag name from webhook")
+func GetWebhookTagName(wh admitv1.MutatingWebhookConfiguration) string {
+	return wh.ObjectMeta.Labels[IstioTagLabel]
 }
 
 // GetWebhookRevision extracts tag target revision from webhook object.
@@ -105,29 +100,6 @@ func DeleteTagWebhooks(ctx context.Context, client kubernetes.Interface, tag str
 		result = multierror.Append(result, client.AdmissionregistrationV1().MutatingWebhookConfigurations().Delete(ctx, wh.Name, metav1.DeleteOptions{})).ErrorOrNil()
 	}
 	return result
-}
-
-// DeleteDeprecatedValidator deletes the deprecated validating webhook configuration. This is used after a user explicitly
-// sets a new default revision.
-func DeleteDeprecatedValidator(ctx context.Context, client kubernetes.Interface) error {
-	vwhs, err := client.AdmissionregistrationV1().ValidatingWebhookConfigurations().List(ctx, metav1.ListOptions{
-		LabelSelector: "app=istiod",
-	})
-	if err != nil {
-		return err
-	}
-	var errs *multierror.Error
-	for _, vwh := range vwhs.Items {
-		// hacky but we want to remove the validators that used to be in base, not the per-revision webhooks.
-		if !strings.Contains(vwh.Name, "validator") {
-			errs = multierror.Append(errs,
-				client.AdmissionregistrationV1().ValidatingWebhookConfigurations().Delete(ctx, vwh.Name, metav1.DeleteOptions{}))
-		}
-	}
-	if kerrors.IsNotFound(err) {
-		return nil
-	}
-	return errs.ErrorOrNil()
 }
 
 // PreviousInstallExists checks whether there is an existing Istio installation. Should be used in installer when deciding

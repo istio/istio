@@ -31,7 +31,7 @@ import (
 
 	"istio.io/api/label"
 	"istio.io/api/operator/v1alpha1"
-	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
+	iopv1alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
 	"istio.io/istio/operator/pkg/metrics"
 	"istio.io/istio/operator/pkg/name"
@@ -45,7 +45,6 @@ import (
 
 const (
 	autoscalingV2MinK8SVersion = 23
-	pdbV1MinK8SVersion         = 21
 )
 
 var (
@@ -84,18 +83,13 @@ func NamespacedResources(version *version.Info) []schema.GroupVersionKind {
 		{Group: "", Version: "v1", Kind: name.SAStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleBindingStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.RoleStr},
+		{Group: "policy", Version: "v1", Kind: name.PDBStr},
 	}
 	// autoscaling v2 API is available on >=1.23
 	if kube.IsKubeAtLeastOrLessThanVersion(version, autoscalingV2MinK8SVersion, true) {
 		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: name.HPAStr})
 	} else {
 		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2beta2", Kind: name.HPAStr})
-	}
-	// policy/v1 is available on >=1.21
-	if kube.IsKubeAtLeastOrLessThanVersion(version, pdbV1MinK8SVersion, true) {
-		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1", Kind: name.PDBStr})
-	} else {
-		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1beta1", Kind: name.PDBStr})
 	}
 	return res
 }
@@ -128,7 +122,7 @@ func (h *HelmReconciler) Prune(manifests name.ManifestMap, all bool) error {
 // during reconciliation process of controller.
 // It returns the install status and any error encountered.
 func (h *HelmReconciler) PruneControlPlaneByRevisionWithController(iopSpec *v1alpha1.IstioOperatorSpec) (*v1alpha1.InstallStatus, error) {
-	ns := v1alpha12.Namespace(iopSpec)
+	ns := iopv1alpha1.Namespace(iopSpec)
 	if ns == "" {
 		ns = constants.IstioSystemNamespace
 	}
@@ -239,9 +233,10 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	if componentName != "" {
 		labels[IstioComponentLabelStr] = componentName
 	}
-	// gateway resources associated with specific istiooperator CR
-	if name.ComponentName(componentName).IsGateway() && h.iop.GetName() != "" && h.iop.GetNamespace() != "" {
+	if h.iop.GetName() != "" {
 		labels[OwningResourceName] = h.iop.GetName()
+	}
+	if h.iop.GetNamespace() != "" {
 		labels[OwningResourceNamespace] = h.iop.GetNamespace()
 	}
 	selector := klabels.Set(labels).AsSelectorPreValidated()
@@ -249,23 +244,9 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 	gvkList := append(resources, ClusterCPResources...)
 	if includeClusterResources {
 		gvkList = append(resources, AllClusterResources...)
-		if ioplist := h.getIstioOperatorCR(); ioplist.Items != nil {
+		// Cleanup IstioOperator, which may be used with in-cluster operator.
+		if ioplist := h.getIstioOperatorCR(); ioplist != nil && len(ioplist.Items) > 0 {
 			usList = append(usList, ioplist)
-		}
-	} else if componentName == "" {
-		// Remove Istio operator CR with specified revision if it is uninstalled
-		ioplist := h.getIstioOperatorCR()
-		if ioplist.Items != nil {
-			for _, iop := range ioplist.Items {
-				revisionIop := getIstioOperatorCRName(revision)
-				if iop.GetName() == revisionIop {
-					if iopToList, err := iop.ToList(); err == nil {
-						iopToList.Items = []unstructured.Unstructured{iop}
-						usList = append(usList, iopToList)
-						break
-					}
-				}
-			}
 		}
 	}
 	for _, gvk := range gvkList {
@@ -307,6 +288,9 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 			objName := fmt.Sprintf("%s/%s", obj.GetNamespace(), obj.GetName())
 			metrics.AddResource(objName, gvk.GroupKind())
 		}
+		if len(objects.Items) == 0 {
+			continue
+		}
 		usList = append(usList, objects)
 	}
 
@@ -317,62 +301,15 @@ func (h *HelmReconciler) GetPrunedResources(revision string, includeClusterResou
 // otherwise the resources would be reconciled back later if there is in-cluster operator deployment.
 // And it is needed to remove the IstioOperator CRD.
 func (h *HelmReconciler) getIstioOperatorCR() *unstructured.UnstructuredList {
-	objects := &unstructured.UnstructuredList{}
-	objects.SetGroupVersionKind(schema.GroupVersionKind{
-		Group:   "install.istio.io",
-		Version: "v1alpha1", Kind: name.IstioOperatorStr,
-	})
-	if err := h.client.List(context.TODO(), objects); err != nil {
+	iopGVR := iopv1alpha1.IstioOperatorGVR
+	objects, err := h.kubeClient.Dynamic().Resource(iopGVR).List(context.TODO(), metav1.ListOptions{})
+	if err != nil {
+		if kerrors.IsNotFound(err) {
+			return nil
+		}
 		scope.Errorf("failed to list IstioOperator CR: %v", err)
 	}
 	return objects
-}
-
-// DeleteControlPlaneByManifests removed resources by manifests with matching revision label.
-// If purge option is set to true, all manifests would be removed regardless of labels match.
-func (h *HelmReconciler) DeleteControlPlaneByManifests(manifestMap name.ManifestMap,
-	revision string, includeClusterResources bool,
-) error {
-	labels := map[string]string{
-		operatorLabelStr: operatorReconcileStr,
-	}
-	cpManifestMap := make(name.ManifestMap)
-	if revision != "" {
-		labels[label.IoIstioRev.Name] = revision
-	}
-	if !includeClusterResources {
-		// only delete istiod resources if revision is empty and --purge flag is not true.
-		cpManifestMap[name.PilotComponentName] = manifestMap[name.PilotComponentName]
-		manifestMap = cpManifestMap
-	}
-	for cn, mf := range manifestMap.Consolidated() {
-		if cn == string(name.IstioBaseComponentName) && !includeClusterResources {
-			continue
-		}
-		objects, err := object.ParseK8sObjectsFromYAMLManifest(mf)
-		if err != nil {
-			return fmt.Errorf("failed to parse k8s objects from yaml: %v", err)
-		}
-		if objects == nil {
-			continue
-		}
-		unstructuredObjects := unstructured.UnstructuredList{}
-		for _, obj := range objects {
-			if h.opts.DryRun {
-				h.opts.Log.LogAndPrintf("Not deleting object %s because of dry run.", obj.Hash())
-				continue
-			}
-			obju := obj.UnstructuredObject()
-			if err := h.applyLabelsAndAnnotations(obju, cn); err != nil {
-				return err
-			}
-			unstructuredObjects.Items = append(unstructuredObjects.Items, *obju)
-		}
-		if err := h.deleteResources(nil, labels, cn, &unstructuredObjects, includeClusterResources); err != nil {
-			return fmt.Errorf("failed to delete resources: %v", err)
-		}
-	}
-	return nil
 }
 
 // runForAllTypes will collect all existing resource types we care about. For each type, the callback function

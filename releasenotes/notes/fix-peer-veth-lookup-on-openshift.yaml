@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+releaseNotes:
+  - |
+    **Fixed** veth lookup for ztunnel pod on OpenShift where default CNIs do not create routes for each veth interface.

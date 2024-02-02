@@ -31,10 +31,11 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 
 	"istio.io/istio/istioctl/pkg/cli"
-	operator_istio "istio.io/istio/operator/pkg/apis/istio"
+	operatoristio "istio.io/istio/operator/pkg/apis/istio"
+	istioV1Alpha1 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/util"
-	operator_validate "istio.io/istio/operator/pkg/validate"
+	operatorvalidate "istio.io/istio/operator/pkg/validate"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/protocol"
@@ -142,8 +143,8 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 		return nil, nil
 	}
 
-	if un.GetAPIVersion() == "install.istio.io/v1alpha1" {
-		if un.GetKind() == "IstioOperator" {
+	if un.GetAPIVersion() == istioV1Alpha1.IstioOperatorGVK.GroupVersion().String() {
+		if un.GetKind() == istioV1Alpha1.IstioOperatorGVK.Kind {
 			if err := checkFields(un); err != nil {
 				return nil, err
 			}
@@ -152,11 +153,11 @@ func (v *validator) validateResource(istioNamespace, defaultNamespace string, un
 			// and ask operator code to check.
 			un.SetCreationTimestamp(metav1.Time{}) // UnmarshalIstioOperator chokes on these
 			by := util.ToYAML(un)
-			iop, err := operator_istio.UnmarshalIstioOperator(by, false)
+			iop, err := operatoristio.UnmarshalIstioOperator(by, false)
 			if err != nil {
 				return nil, err
 			}
-			return nil, operator_validate.CheckIstioOperator(iop, true)
+			return nil, operatorvalidate.CheckIstioOperator(iop, true)
 		}
 	}
 
@@ -233,7 +234,8 @@ func GetTemplateLabels(u *unstructured.Unstructured) (map[string]string, error) 
 	return nil, nil
 }
 
-func (v *validator) validateFile(istioNamespace *string, defaultNamespace string, reader io.Reader, writer io.Writer) (validation.Warning, error) {
+func (v *validator) validateFile(path string, istioNamespace *string, defaultNamespace string, reader io.Reader, writer io.Writer,
+) (validation.Warning, error) {
 	decoder := yaml.NewDecoder(reader)
 	decoder.SetStrict(true)
 	var errs error
@@ -246,7 +248,7 @@ func (v *validator) validateFile(istioNamespace *string, defaultNamespace string
 			return warnings, errs
 		}
 		if err != nil {
-			errs = multierror.Append(errs, err)
+			errs = multierror.Append(errs, multierror.Prefix(err, fmt.Sprintf("failed to decode file %s: ", path)))
 			return warnings, errs
 		}
 		if len(raw) == 0 {
@@ -293,7 +295,7 @@ func validateFiles(istioNamespace *string, defaultNamespace string, filenames []
 				return
 			}
 		}
-		warning, err := v.validateFile(istioNamespace, defaultNamespace, reader, writer)
+		warning, err := v.validateFile(path, istioNamespace, defaultNamespace, reader, writer)
 		if err != nil {
 			errs = multierror.Append(errs, err)
 		}

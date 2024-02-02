@@ -475,41 +475,25 @@ func (a *AmbientIndexImpl) CalculateUpdatedWorkloads(pods map[string]*v1.Pod,
 
 	updates := map[model.ConfigKey]struct{}{}
 	for _, pod := range pods {
+		uid := c.generatePodUID(pod)
+		oldWl := a.byUID[uid]
 		newWl := a.extractWorkload(pod, c)
-		if newWl != nil {
-			// Update the pod, since it now has new VIP info
-			networkAddrs := networkAddressFromWorkload(newWl)
-			for _, networkAddr := range networkAddrs {
-				a.byPod[networkAddr] = newWl
-			}
-			a.byUID[c.generatePodUID(pod)] = newWl
-			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
-		}
+		a.updateWorkloadIndexes(oldWl, newWl, updates)
 	}
 
 	for _, w := range workloadEntries {
+		uid := c.generateWorkloadEntryUID(w.Namespace, w.Name)
+		oldWl := a.byUID[uid]
 		newWl := a.extractWorkloadEntry(w, c)
-		if newWl != nil {
-			// Update the WorkloadEntry, since it now has new VIP info
-			networkAddrs := networkAddressFromWorkload(newWl)
-			for _, networkAddr := range networkAddrs {
-				a.byWorkloadEntry[networkAddr] = newWl
-			}
-			a.byUID[c.generateWorkloadEntryUID(w.GetNamespace(), w.GetName())] = newWl
-			updates[model.ConfigKey{Kind: kind.Address, Name: newWl.ResourceName()}] = struct{}{}
-		}
+		a.updateWorkloadIndexes(oldWl, newWl, updates)
 	}
 
 	for svcEntry, weSet := range seEndpoints {
 		for we := range weSet {
-			wli := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
-			if wli != nil {
-				for _, networkAddr := range networkAddressFromWorkload(wli) {
-					a.byWorkloadEntry[networkAddr] = wli
-				}
-				a.byUID[wli.Uid] = wli
-				updates[model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()}] = struct{}{}
-			}
+			uid := c.generateServiceEntryUID(svcEntry.Namespace, svcEntry.Name, we.Address)
+			newWl := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
+			oldWl := a.byUID[uid]
+			a.updateWorkloadIndexes(oldWl, newWl, updates)
 		}
 	}
 
@@ -637,19 +621,15 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 	}
 
 	action := security.Action_DENY
-	var groups []*security.Group
+	var rules []*security.Rules
 
 	if mode == v1beta1.PeerAuthentication_MutualTLS_STRICT {
-		groups = append(groups, &security.Group{
-			Rules: []*security.Rules{
+		rules = append(rules, &security.Rules{
+			Matches: []*security.Match{
 				{
-					Matches: []*security.Match{
+					NotPrincipals: []*security.StringMatch{
 						{
-							NotPrincipals: []*security.StringMatch{
-								{
-									MatchType: &security.StringMatch_Presence{},
-								},
-							},
+							MatchType: &security.StringMatch_Presence{},
 						},
 					},
 				},
@@ -665,19 +645,15 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 	for port, mtls := range pa.PortLevelMtls {
 		switch portMtlsMode := mtls.GetMode(); {
 		case portMtlsMode == v1beta1.PeerAuthentication_MutualTLS_STRICT:
-			groups = append(groups, &security.Group{
-				Rules: []*security.Rules{
+			rules = append(rules, &security.Rules{
+				Matches: []*security.Match{
 					{
-						Matches: []*security.Match{
+						NotPrincipals: []*security.StringMatch{
 							{
-								NotPrincipals: []*security.StringMatch{
-									{
-										MatchType: &security.StringMatch_Presence{},
-									},
-								},
-								DestinationPorts: []uint32{port},
+								MatchType: &security.StringMatch_Presence{},
 							},
 						},
+						DestinationPorts: []uint32{port},
 					},
 				},
 			})
@@ -692,14 +668,10 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 			foundNonStrictPortmTLS = true
 
 			// If the top level policy is STRICT, we need to add a rule for the port that exempts it from the deny policy
-			groups = append(groups, &security.Group{
-				Rules: []*security.Rules{
+			rules = append(rules, &security.Rules{
+				Matches: []*security.Match{
 					{
-						Matches: []*security.Match{
-							{
-								NotDestinationPorts: []uint32{port}, // if the incoming connection does not match this port, deny (notice there's no principals requirement)
-							},
-						},
+						NotDestinationPorts: []uint32{port}, // if the incoming connection does not match this port, deny (notice there's no principals requirement)
 					},
 				},
 			})
@@ -714,14 +686,10 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 			foundNonStrictPortmTLS = true
 
 			// If the top level policy is STRICT, we need to add a rule for the port that exempts it from the deny policy
-			groups = append(groups, &security.Group{
-				Rules: []*security.Rules{
+			rules = append(rules, &security.Rules{
+				Matches: []*security.Match{
 					{
-						Matches: []*security.Match{
-							{
-								NotDestinationPorts: []uint32{port}, // if the incoming connection does not match this port, deny (notice there's no principals requirement)
-							},
-						},
+						NotDestinationPorts: []uint32{port}, // if the incoming connection does not match this port, deny (notice there's no principals requirement)
 					},
 				},
 			})
@@ -736,7 +704,7 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 		return nil
 	}
 
-	if len(groups) == 0 {
+	if len(rules) == 0 {
 		// we never added any rules; return
 		return nil
 	}
@@ -750,7 +718,7 @@ func convertPeerAuthentication(rootNamespace string, cfg config.Config) *securit
 		Namespace: cfg.Namespace,
 		Scope:     scope,
 		Action:    action,
-		Groups:    groups,
+		Groups:    []*security.Group{{Rules: rules}},
 	}
 
 	return opol

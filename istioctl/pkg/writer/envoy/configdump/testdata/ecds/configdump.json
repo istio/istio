@@ -66,6 +66,44 @@
                     "last_updated": "2022-12-08T11:03:53.225Z"
                 }
             ]
+        },
+        {
+            "@type": "type.googleapis.com/envoy.admin.v3.EcdsConfigDump",
+            "ecds_filters": [
+                {
+                    "ecds_filter": {
+                        "@type": "type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig",
+                        "name": "istio.io/telemetry/stats/prometheus/sidecar/Outbound/HTTP"
+                    },
+                    "last_updated": "2023-12-23T13:46:00.701Z"
+                },
+                {
+                    "ecds_filter": {
+                        "@type": "type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig",
+                        "name": "istio.io/telemetry/stats/prometheus/sidecar/Inbound/HTTP"
+                    },
+                    "last_updated": "2023-12-23T13:46:00.708Z"
+                }
+            ]
+        },
+        {
+            "@type": "type.googleapis.com/envoy.admin.v3.EcdsConfigDump",
+            "ecds_filters": [
+                {
+                    "ecds_filter": {
+                        "@type": "type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig",
+                        "name": "istio.io/telemetry/stats/prometheus/sidecar/Inbound/TCP"
+                    },
+                    "last_updated": "2023-12-23T13:46:00.707Z"
+                },
+                {
+                    "ecds_filter": {
+                        "@type": "type.googleapis.com/envoy.config.core.v3.TypedExtensionConfig",
+                        "name": "istio.io/telemetry/stats/prometheus/sidecar/Outbound/TCP"
+                    },
+                    "last_updated": "2023-12-23T13:46:00.699Z"
+                }
+            ]
         }
     ]
 }

@@ -153,10 +153,10 @@ func TestStringList(t *testing.T) {
 		noRoundTrip bool
 	}{
 		{in: `"a,b,c"`, expect: []string{"a", "b", "c"}},
+		{in: `"\"a,b,c"`, expect: []string{`"a`, "b", "c"}},
 		{in: `"a"`, expect: []string{"a"}},
 		{in: `""`, expect: []string{}},
 		{in: `"123,@#$#,abcdef"`, expect: []string{"123", "@#$#", "abcdef"}},
-		{in: `1`, expect: []string{}, noRoundTrip: true},
 	}
 	for _, tt := range cases {
 		t.Run(tt.in, func(t *testing.T) {
@@ -179,6 +179,9 @@ func TestStringList(t *testing.T) {
 			}
 		})
 	}
+	// Invalid case
+	var out model.StringList
+	assert.Error(t, json.Unmarshal([]byte("1"), &out))
 }
 
 func TestPodPortList(t *testing.T) {

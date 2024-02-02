@@ -16,6 +16,7 @@ package kube
 
 import (
 	"fmt"
+	"strconv"
 
 	"k8s.io/apimachinery/pkg/util/version"
 	kubeVersion "k8s.io/apimachinery/pkg/version"
@@ -58,4 +59,18 @@ func IsKubeAtLeastOrLessThanVersion(clusterVersion *kubeVersion.Info, minorVersi
 		return cv.AtLeast(ev)
 	}
 	return cv.LessThan(ev)
+}
+
+// GetVersionAsInt returns the the kubernetes version as an integer.
+// For example, on Kubernetes v1.15.2, GetVersionAsInt returns 115
+func GetVersionAsInt(client Client) int {
+	clusterVersion, err := client.GetKubernetesVersion()
+	if err != nil {
+		return -1
+	}
+	version, err := strconv.Atoi(clusterVersion.Major + clusterVersion.Minor)
+	if err != nil {
+		return -1
+	}
+	return version
 }

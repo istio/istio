@@ -430,14 +430,19 @@ func (l StringList) MarshalJSON() ([]byte, error) {
 	if l == nil {
 		return nil, nil
 	}
-	return []byte(`"` + strings.Join(l, ",") + `"`), nil
+	return json.Marshal(strings.Join(l, ","))
 }
 
 func (l *StringList) UnmarshalJSON(data []byte) error {
-	if len(data) < 2 || string(data) == `""` {
+	var inner string
+	err := json.Unmarshal(data, &inner)
+	if err != nil {
+		return err
+	}
+	if len(inner) == 0 {
 		*l = []string{}
 	} else {
-		*l = strings.Split(string(data[1:len(data)-1]), ",")
+		*l = strings.Split(inner, ",")
 	}
 	return nil
 }
@@ -1020,11 +1025,11 @@ func ParseMetadata(metadata *structpb.Struct) (*NodeMetadata, error) {
 		return &NodeMetadata{}, nil
 	}
 
-	boostrapNodeMeta, err := ParseBootstrapNodeMetadata(metadata)
+	bootstrapNodeMeta, err := ParseBootstrapNodeMetadata(metadata)
 	if err != nil {
 		return nil, err
 	}
-	return &boostrapNodeMeta.NodeMetadata, nil
+	return &bootstrapNodeMeta.NodeMetadata, nil
 }
 
 // ParseBootstrapNodeMetadata parses the opaque Metadata from an Envoy Node into string key-value pairs.
@@ -1336,6 +1341,13 @@ func (node *Proxy) WorkloadEntry() (string, bool) {
 	node.RLock()
 	defer node.RUnlock()
 	return node.workloadEntryName, node.workloadEntryAutoCreated
+}
+
+// SupportsEnvoyExtendedJwt indicates that the proxy JWT extension is capable of
+// replacing istio_authn filter.
+func (node *Proxy) SupportsEnvoyExtendedJwt() bool {
+	return node.IstioVersion == nil ||
+		node.IstioVersion.Compare(&IstioVersion{Major: 1, Minor: 21, Patch: -1}) >= 0
 }
 
 type GatewayController interface {

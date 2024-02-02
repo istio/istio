@@ -18,14 +18,13 @@ import (
 	"fmt"
 	"time"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/security/pkg/pki/util"
 )
 
 // CertUtil is an interface for utility functions on certificate.
 type CertUtil interface {
 	// GetWaitTime returns the waiting time before renewing the certificate.
-	GetWaitTime([]byte, time.Time, time.Duration) (time.Duration, error)
+	GetWaitTime([]byte, time.Time) (time.Duration, error)
 }
 
 // CertUtilImpl is the implementation of CertUtil, for production use.
@@ -42,7 +41,7 @@ func NewCertUtil(gracePeriodPercentage int) CertUtilImpl {
 
 // GetWaitTime returns the waiting time before renewing the cert, based on current time, the timestamps in cert and
 // grace period.
-func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time, minGracePeriod time.Duration) (time.Duration, error) {
+func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time) (time.Duration, error) {
 	cert, certErr := util.ParsePemEncodedCertificate(certBytes)
 	if certErr != nil {
 		return time.Duration(0), certErr
@@ -55,12 +54,6 @@ func (cu CertUtilImpl) GetWaitTime(certBytes []byte, now time.Time, minGracePeri
 	// Note: multiply time.Duration(int64) by an int (gracePeriodPercentage) will cause overflow (e.g.,
 	// when duration is time.Hour * 90000). So float64 is used instead.
 	gracePeriod := time.Duration(float64(cert.NotAfter.Sub(cert.NotBefore)) * (float64(cu.gracePeriodPercentage) / 100))
-	if gracePeriod < minGracePeriod {
-		log.Warnf("gracePeriod (%v * %f) = %v is less than minGracePeriod %v. Apply minGracePeriod.",
-			cert.NotAfter.Sub(cert.NotBefore), float64(cu.gracePeriodPercentage/100), gracePeriod, minGracePeriod)
-		gracePeriod = minGracePeriod
-	}
-
 	// waitTime is the duration between now and the grace period starts.
 	// It is the time until cert expiration minus the length of grace period.
 	waitTime := timeToExpire - gracePeriod

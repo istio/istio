@@ -21,8 +21,8 @@ import (
 )
 
 const (
-	LikelyCauseFirstPrefix = "The likely cause is "
-	LikeyCauseSecondPrefix = "Another possible cause could be "
+	LikelyCauseFirstPrefix  = "The likely cause is "
+	LikelyCauseSecondPrefix = "Another possible cause could be "
 )
 
 // General boilerplate.
@@ -98,7 +98,7 @@ var (
 			"because of incompatible Kubernetes settings",
 		Impact:      OperatorImpactNoUpdates,
 		LikelyCause: formatCauses(LikelyCauseConfiguration),
-		Action: "Esnure that IstioOperator config is compatible with current Kubernetes version." +
+		Action: "Ensure that IstioOperator config is compatible with current Kubernetes version." +
 			ActionIfErrSureCorrectConfigContactSupport,
 	}
 )
@@ -114,7 +114,7 @@ func formatCauses(causes ...string) string {
 	}
 	out := LikelyCauseFirstPrefix + fixFormat(causes[0]) + "."
 	for _, c := range causes[1:] {
-		out += LikeyCauseSecondPrefix + fixFormat(c) + "."
+		out += LikelyCauseSecondPrefix + fixFormat(c) + "."
 	}
 	return out
 }

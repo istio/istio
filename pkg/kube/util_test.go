@@ -21,10 +21,13 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/clientcmd/api"
 
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestBuildClientConfig(t *testing.T) {
@@ -370,6 +373,73 @@ func TestStripUnusedFields(t *testing.T) {
 			got, _ := StripUnusedFields(tt.obj)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("StripUnusedFields: got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSanitizeKubeConfig(t *testing.T) {
+	cases := []struct {
+		name      string
+		config    api.Config
+		allowlist sets.String
+		want      api.Config
+		wantErr   bool
+	}{
+		{
+			name:    "empty",
+			config:  api.Config{},
+			want:    api.Config{},
+			wantErr: false,
+		},
+		{
+			name: "exec",
+			config: api.Config{
+				AuthInfos: map[string]*api.AuthInfo{
+					"default": {
+						Exec: &api.ExecConfig{
+							Command: "sleep",
+						},
+					},
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name:      "exec allowlist",
+			allowlist: sets.New("exec"),
+			config: api.Config{
+				AuthInfos: map[string]*api.AuthInfo{
+					"default": {
+						Exec: &api.ExecConfig{
+							Command: "sleep",
+						},
+					},
+				},
+			},
+			want: api.Config{
+				AuthInfos: map[string]*api.AuthInfo{
+					"default": {
+						Exec: &api.ExecConfig{
+							Command: "sleep",
+						},
+					},
+				},
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			err := sanitizeKubeConfig(tt.config, tt.allowlist)
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("sanitizeKubeConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err != nil {
+				return
+			}
+			if diff := cmp.Diff(tt.config, tt.want); diff != "" {
+				t.Fatal(diff)
 			}
 		})
 	}

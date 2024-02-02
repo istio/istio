@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pkg/config/analysis/analyzers/externalcontrolplane"
 	"istio.io/istio/pkg/config/analysis/analyzers/gateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/injection"
+	"istio.io/istio/pkg/config/analysis/analyzers/k8sgateway"
 	"istio.io/istio/pkg/config/analysis/analyzers/maturity"
 	"istio.io/istio/pkg/config/analysis/analyzers/multicluster"
 	schemaValidation "istio.io/istio/pkg/config/analysis/analyzers/schema"
@@ -123,6 +124,15 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name:       "externalControlPlaneMissingWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-missing-urls-custom-ns.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected: []message{
+			{msg.InvalidExternalControlPlaneConfig, "MutatingWebhookConfiguration istio-sidecar-injector-custom-ns"},
+			{msg.InvalidExternalControlPlaneConfig, "ValidatingWebhookConfiguration istio-validator-custom-ns"},
+		},
+	},
+	{
 		name:       "externalControlPlaneUsingIpAddresses",
 		inputFiles: []string{"testdata/externalcontrolplane-using-ip-addr.yaml"},
 		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
@@ -133,6 +143,14 @@ var testGrid = []testCase{
 	{
 		name:       "externalControlPlaneValidWebhooks",
 		inputFiles: []string{"testdata/externalcontrolplane-valid-urls.yaml"},
+		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
+		expected:   []message{
+			// no messages, this test case verifies no false positives
+		},
+	},
+	{
+		name:       "externalControlPlaneValidWebhooks",
+		inputFiles: []string{"testdata/externalcontrolplane-valid-urls-custom-ns.yaml"},
 		analyzer:   &externalcontrolplane.ExternalControlPlaneAnalyzer{},
 		expected:   []message{
 			// no messages, this test case verifies no false positives
@@ -264,6 +282,27 @@ var testGrid = []testCase{
 		},
 	},
 	{
+		name: "injectionImageDistroless",
+		inputFiles: []string{
+			"testdata/injection-image-distroless.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		meshConfigFile: "testdata/common/meshconfig.yaml",
+		analyzer:       &injection.ImageAnalyzer{},
+		expected: []message{
+			{msg.PodsIstioProxyImageMismatchInNamespace, "Namespace enabled-namespace"},
+		},
+	},
+	{
+		name: "injectionImageDistrolessNoMeshConfig",
+		inputFiles: []string{
+			"testdata/injection-image-distroless-no-meshconfig.yaml",
+			"testdata/common/sidecar-injector-configmap.yaml",
+		},
+		analyzer: &injection.ImageAnalyzer{},
+		expected: []message{},
+	},
+	{
 		name: "istioInjectionProxyImageMismatchAbsolute",
 		inputFiles: []string{
 			"testdata/injection-with-mismatched-sidecar.yaml",
@@ -314,10 +353,12 @@ var testGrid = []testCase{
 	{
 		name:       "sidecarDefaultSelector",
 		inputFiles: []string{"testdata/sidecar-default-selector.yaml"},
-		analyzer:   &sidecar.DefaultSelectorAnalyzer{},
+		analyzer:   &sidecar.SelectorAnalyzer{},
 		expected: []message{
 			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar ns2/has-conflict-2"},
 			{msg.MultipleSidecarsWithoutWorkloadSelectors, "Sidecar ns2/has-conflict-1"},
+			{msg.IneffectivePolicy, "Sidecar ns-ambient/namespace-scoped"},
+			{msg.IneffectivePolicy, "Sidecar ns-ambient/pod-scoped"},
 		},
 	},
 	{
@@ -401,6 +442,14 @@ var testGrid = []testCase{
 		analyzer:   &virtualservice.JWTClaimRouteAnalyzer{},
 		expected: []message{
 			{msg.JwtClaimBasedRoutingWithoutRequestAuthN, "VirtualService foo"},
+		},
+	},
+	{
+		name:       "virtualServiceInternalGatewayRef",
+		inputFiles: []string{"testdata/virtualservice_internal_gateway_ref.yaml"},
+		analyzer:   &virtualservice.GatewayAnalyzer{},
+		expected: []message{
+			{msg.ReferencedInternalGateway, "VirtualService httpbin"},
 		},
 	},
 	{
@@ -848,6 +897,17 @@ var testGrid = []testCase{
 		meshConfigFile: "testdata/telemetry-lightstep-meshconfig.yaml",
 		expected: []message{
 			{msg.Deprecated, "Telemetry istio-system/mesh-default"},
+		},
+	},
+	{
+		name:       "KubernetesGatewaySelector",
+		inputFiles: []string{"testdata/k8sgateway-selector.yaml"},
+		analyzer:   &k8sgateway.SelectorAnalyzer{},
+		expected: []message{
+			{msg.IneffectiveSelector, "RequestAuthentication default/ra-ineffective"},
+			{msg.IneffectiveSelector, "AuthorizationPolicy default/ap-ineffective"},
+			{msg.IneffectiveSelector, "WasmPlugin default/wasmplugin-ineffective"},
+			{msg.IneffectiveSelector, "Telemetry default/telemetry-ineffective"},
 		},
 	},
 }

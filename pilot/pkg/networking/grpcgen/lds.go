@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/security/authn"
-	"istio.io/istio/pilot/pkg/security/authn/factory"
 	authzmodel "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
 	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
@@ -75,7 +74,7 @@ func buildInboundListeners(node *model.Proxy, push *model.PushContext, names []s
 		return nil
 	}
 	var out model.Resources
-	mtlsPolicy := factory.NewMtlsPolicy(push, node.Metadata.Namespace, node.Labels, node.IsWaypointProxy())
+	mtlsPolicy := authn.NewMtlsPolicy(push, node.Metadata.Namespace, node.Labels, node.IsWaypointProxy())
 	serviceInstancesByPort := map[uint32]model.ServiceTarget{}
 	for _, si := range node.ServiceTargets {
 		serviceInstancesByPort[si.Port.TargetPort] = si
@@ -270,7 +269,7 @@ func buildRBAC(node *model.Proxy, push *model.PushContext, suffix string, contex
 	for _, policy := range policies {
 		for i, rule := range policy.Spec.Rules {
 			name := fmt.Sprintf("%s-%s-%d", policy.Namespace, policy.Name, i)
-			m, err := authzmodel.New(rule)
+			m, err := authzmodel.New(rule, true)
 			if err != nil {
 				log.Warnf("Invalid rule %v: %v", rule, err)
 				continue

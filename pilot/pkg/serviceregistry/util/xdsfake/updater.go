@@ -64,7 +64,7 @@ func (fx *Updater) ConfigUpdate(req *model.PushRequest) {
 		event += " full"
 	}
 	select {
-	case fx.Events <- Event{Type: event, ID: id}:
+	case fx.Events <- Event{Type: event, ID: id, Reason: req.Reason}:
 	default:
 	}
 	if fx.Delegate != nil {
@@ -89,6 +89,8 @@ type Event struct {
 
 	// The id of the event
 	ID string
+
+	Reason model.ReasonStats
 
 	Namespace string
 

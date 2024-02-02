@@ -68,8 +68,20 @@ spec:
       - image: docker.io/kong/httpbin
         imagePullPolicy: IfNotPresent
         name: httpbin
+        # Same as found in Dockerfile's CMD but using an unprivileged port
+        command:
+        - gunicorn
+        - -b
+        - 0.0.0.0:8080
+        - httpbin:app
+        - -k
+        - gevent
+        env:
+        # Tells pipenv to use a writable directory instead of $HOME
+        - name: WORKON_HOME
+          value: /tmp
         ports:
-        - containerPort: 80
+        - containerPort: 8080
       - image: gcr.io/istio-testing/ext-authz:latest
         imagePullPolicy: IfNotPresent
         name: ext-authz
@@ -88,7 +100,7 @@ spec:
   ports:
   - name: http
     port: 8000
-    targetPort: 80
+    targetPort: 8080
   selector:
     app: httpbin
 ---

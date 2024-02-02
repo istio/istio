@@ -101,7 +101,7 @@ var (
 )
 
 func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options) error {
-	runner := kubectlcmd.NewRunner(gConfig.RequestsPerSecondLimit)
+	runner := kubectlcmd.NewRunner(gConfig.RequestConcurrency)
 	runner.ReportRunningTasks()
 	if err := configLogs(logOpts); err != nil {
 		return err
@@ -124,7 +124,7 @@ func runBugReportCommand(ctx cli.Context, _ *cobra.Command, logOpts *log.Options
 	common.LogAndPrintf("\nTarget cluster context: %s\n", clusterCtxStr)
 	common.LogAndPrintf("Running with the following config: \n\n%s\n\n", config)
 
-	restConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context, gConfig.RequestsPerSecondLimit)
+	restConfig, clientset, err := kubeclient.New(config.KubeConfigPath, config.Context)
 	if err != nil {
 		return fmt.Errorf("could not initialize k8s client: %s ", err)
 	}
@@ -240,6 +240,13 @@ func getIstioRevisions(resources *cluster2.Resources) []string {
 			}
 		}
 	}
+	for _, podAnnotations := range resources.Annotations {
+		for annotation, value := range podAnnotations {
+			if annotation == label2.IoIstioRev.Name {
+				revMap.Insert(value)
+			}
+		}
+	}
 	return sets.SortedList(revMap)
 }
 
@@ -310,7 +317,7 @@ func gatherInfo(runner *kubectlcmd.Runner, config *config.BugReportConfig, resou
 	getFromCluster(content.GetClusterInfo, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetNodeInfo, params, clusterDir, &mandatoryWg)
 	getFromCluster(content.GetSecrets, params.SetVerbose(config.FullSecrets), clusterDir, &mandatoryWg)
-	getFromCluster(content.GetDescribePods, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
+	getFromCluster(content.GetPodInfo, params.SetIstioNamespace(config.IstioNamespace), clusterDir, &mandatoryWg)
 
 	common.LogAndPrintf("\nFetching CNI logs from cluster.\n\n")
 	for _, cniPod := range resources.CniPod {

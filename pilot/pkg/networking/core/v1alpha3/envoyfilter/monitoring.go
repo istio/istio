@@ -39,7 +39,6 @@ const (
 	HttpFilter  PatchType = "httpfilter"
 	Route       PatchType = "route"
 	VirtualHost PatchType = "vhost"
-	Bootstrap   PatchType = "bootstrap"
 )
 
 var (

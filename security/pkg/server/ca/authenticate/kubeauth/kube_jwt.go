@@ -15,11 +15,11 @@
 package kubeauth
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	"k8s.io/client-go/kubernetes"
 

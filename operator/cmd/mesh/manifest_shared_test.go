@@ -17,20 +17,23 @@ package mesh
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/version"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/client/interceptor"
 	"sigs.k8s.io/controller-runtime/pkg/envtest"
-	"sigs.k8s.io/yaml"
 
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/operator/pkg/apis/istio/v1alpha1"
@@ -121,6 +124,33 @@ func recreateTestEnv() error {
 	return nil
 }
 
+var interceptorFunc = interceptor.Funcs{Patch: func(
+	ctx context.Context,
+	clnt client.WithWatch,
+	obj client.Object,
+	patch client.Patch,
+	opts ...client.PatchOption,
+) error {
+	// Apply patches are supposed to upsert, but fake client fails if the object doesn't exist,
+	// if an apply patch occurs for an object that doesn't yet exist, create it.
+	if patch.Type() != types.ApplyPatchType {
+		return clnt.Patch(ctx, obj, patch, opts...)
+	}
+	check, ok := obj.DeepCopyObject().(client.Object)
+	if !ok {
+		return errors.New("could not check for object in fake client")
+	}
+	if err := clnt.Get(ctx, client.ObjectKeyFromObject(obj), check); kerrors.IsNotFound(err) {
+		if err := clnt.Create(ctx, check); err != nil {
+			return fmt.Errorf("could not inject object creation for fake: %w", err)
+		}
+	} else if err != nil {
+		return err
+	}
+	obj.SetResourceVersion(check.GetResourceVersion())
+	return clnt.Update(ctx, obj)
+}}
+
 // recreateSimpleTestEnv mocks fake kube api server which relies on a simple object tracker
 func recreateSimpleTestEnv() {
 	log.Infof("Creating simple test environment\n")
@@ -128,7 +158,7 @@ func recreateSimpleTestEnv() {
 	s := scheme.Scheme
 	s.AddKnownTypes(v1alpha1.SchemeGroupVersion, &v1alpha1.IstioOperator{})
 
-	testClient = fake.NewClientBuilder().WithScheme(s).Build()
+	testClient = fake.NewClientBuilder().WithScheme(s).WithInterceptorFuncs(interceptorFunc).Build()
 }
 
 // runManifestCommands runs all testedManifestCmds commands with the given input IOP file, flags and chartSource.
@@ -218,7 +248,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 	if err != nil {
 		return nil, err
 	}
-	if err := fakeInstallOperator(reconciler, chartSource, iop); err != nil {
+	if err := fakeInstallOperator(reconciler, chartSource); err != nil {
 		return nil, err
 	}
 
@@ -232,7 +262,7 @@ func fakeControllerReconcile(inFile string, chartSource chartSourceType, opts *h
 // fakeInstallOperator installs the operator manifest resources into a cluster using the given reconciler.
 // The installation is for testing with a kubebuilder fake cluster only, since no functional Deployment will be
 // created.
-func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType, iop *v1alpha1.IstioOperator) error {
+func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource chartSourceType) error {
 	ocArgs := &operatorCommonArgs{
 		manifestsPath:     string(chartSource),
 		istioNamespace:    constants.IstioSystemNamespace,
@@ -250,15 +280,8 @@ func fakeInstallOperator(reconciler *helmreconciler.HelmReconciler, chartSource 
 	if err := applyWithReconciler(reconciler, mstr); err != nil {
 		return err
 	}
-	iopStr, err := yaml.Marshal(iop)
-	if err != nil {
-		return err
-	}
-	if err := saveIOPToCluster(reconciler, string(iopStr)); err != nil {
-		return err
-	}
 
-	return err
+	return nil
 }
 
 // applyWithReconciler applies the given manifest string using the given reconciler.
@@ -268,7 +291,7 @@ func applyWithReconciler(reconciler *helmreconciler.HelmReconciler, manifest str
 		Name:    name.IstioOperatorComponentName,
 		Content: manifest,
 	}
-	_, _, err := reconciler.ApplyManifest(m, false)
+	_, err := reconciler.ApplyManifest(m)
 	return err
 }
 
@@ -291,7 +314,7 @@ func runManifestCommand(command string, filenames []string, flags string, chartS
 		filters := []string{}
 		filters = append(filters, fileSelect...)
 		// Everything needs these
-		filters = append(filters, "templates/_affinity.tpl")
+		filters = append(filters, "templates/_affinity.tpl", "templates/_helpers.tpl", "templates/zzz_profile.yaml")
 		args += " --filter " + strings.Join(filters, ",")
 	}
 	args += " --set installPackagePath=" + string(chartSource)

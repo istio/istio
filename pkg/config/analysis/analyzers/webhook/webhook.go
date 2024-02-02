@@ -38,14 +38,17 @@ type Analyzer struct {
 var _ analysis.Analyzer = &Analyzer{}
 
 func (a *Analyzer) Metadata() analysis.Metadata {
-	return analysis.Metadata{
+	meta := analysis.Metadata{
 		Name:        "webhook.Analyzer",
 		Description: "Checks the validity of Istio webhooks",
 		Inputs: []config.GroupVersionKind{
 			gvk.MutatingWebhookConfiguration,
-			gvk.Service,
 		},
 	}
+	if !a.SkipServiceCheck {
+		meta.Inputs = append(meta.Inputs, gvk.Service)
+	}
+	return meta
 }
 
 func getNamespaceLabels() []klabels.Set {

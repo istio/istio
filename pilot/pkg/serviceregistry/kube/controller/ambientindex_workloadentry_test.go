@@ -339,9 +339,13 @@ func TestAmbientIndex_WorkloadEntries_DisableK8SServiceSelectWorkloadEntries(t *
 	s := newAmbientTestServer(t, testC, testNW)
 
 	s.addWorkloadEntries(t, "127.0.0.1", "name1", "sa1", map[string]string{"app": "a"})
+	s.assertEvent(t, s.wleXdsName("name1"))
 	s.addWorkloadEntries(t, "127.0.0.2", "name2", "sa2", map[string]string{"app": "a", "other": "label"})
+	s.assertEvent(t, s.wleXdsName("name2"))
 	s.addWorkloadEntries(t, "127.0.0.3", "name3", "sa3", map[string]string{"app": "other"})
+	s.assertEvent(t, s.wleXdsName("name3"))
 	s.addPods(t, "127.0.0.201", "pod1", "pod1", map[string]string{"app": "a"}, nil, true, corev1.PodRunning)
+	s.assertEvent(t, s.podXdsName("pod1"))
 
 	s.addService(t, "svc1", map[string]string{}, // labels
 		map[string]string{}, // annotations
@@ -349,6 +353,7 @@ func TestAmbientIndex_WorkloadEntries_DisableK8SServiceSelectWorkloadEntries(t *
 		map[string]string{"app": "a"}, // selector
 		"10.0.0.1",
 	)
+	s.assertEvent(t, s.podXdsName("pod1"), "ns1/svc1.ns1.svc.company.com")
 
 	s.clearEvents()
 	s.assertWorkloads(t, "", workloadapi.WorkloadStatus_HEALTHY, "name1", "name2", "name3", "pod1")

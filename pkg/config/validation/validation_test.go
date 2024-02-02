@@ -998,6 +998,16 @@ func TestValidateGateway(t *testing.T) {
 			"", "",
 		},
 		{
+			"happy k8s gateway-api server with no attached routes",
+			&networking.Gateway{
+				Servers: []*networking.Server{{
+					Hosts: []string{"~/foo.bar.com"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+				}},
+			},
+			"invalid namespace value", "",
+		},
+		{
 			"invalid port",
 			&networking.Gateway{
 				Servers: []*networking.Server{
@@ -1091,6 +1101,42 @@ func TestValidateGateway(t *testing.T) {
 	}
 }
 
+func TestValidateK8sGateway(t *testing.T) {
+	tests := []struct {
+		name    string
+		in      proto.Message
+		out     string
+		warning string
+	}{
+		{
+			"happy k8s gateway-api server with no attached routes",
+			&networking.Gateway{
+				Servers: []*networking.Server{{
+					Hosts: []string{"~/foo.bar.com"},
+					Port:  &networking.Port{Name: "name1", Number: 7, Protocol: "http"},
+				}},
+			},
+			"", "",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			annotations := map[string]string{}
+			annotations[constants.InternalGatewaySemantics] = constants.GatewaySemanticsGateway
+
+			warn, err := ValidateGateway(config.Config{
+				Meta: config.Meta{
+					Name:        someName,
+					Namespace:   someNamespace,
+					Annotations: annotations,
+				},
+				Spec: tt.in,
+			})
+			checkValidationMessage(t, warn, err, tt.warning, tt.out)
+		})
+	}
+}
+
 func TestValidateServer(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1138,6 +1184,14 @@ func TestValidateServer(t *testing.T) {
 				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
 			},
 			"",
+		},
+		{
+			"invalid ~/name",
+			&networking.Server{
+				Hosts: []string{"~/foo.bar.com"},
+				Port:  &networking.Port{Number: 7, Name: "http", Protocol: "http"},
+			},
+			"namespace",
 		},
 		{
 			"invalid domain ns/name format",
@@ -1247,7 +1301,7 @@ func TestValidateServer(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			v := validateServer(tt.in)
+			v := validateServer(tt.in, false)
 			warn, err := v.Unwrap()
 			checkValidationMessage(t, warn, err, "", tt.out)
 		})
@@ -3119,7 +3173,7 @@ func TestValidateVirtualService(t *testing.T) {
 					},
 				}},
 			}},
-		}, valid: false, warning: false},
+		}, valid: true, warning: false},
 		{name: "set authority in rewrite and header", in: &networking.VirtualService{
 			Hosts: []string{"foo.bar"},
 			Http: []*networking.HTTPRoute{{
@@ -3970,6 +4024,7 @@ func TestValidateConnectionPool(t *testing.T) {
 					MaxRequestsPerConnection: 5,
 					MaxRetries:               4,
 					IdleTimeout:              &durationpb.Duration{Seconds: 30},
+					MaxConcurrentStreams:     5,
 				},
 			},
 			valid: true,
@@ -3993,6 +4048,7 @@ func TestValidateConnectionPool(t *testing.T) {
 					MaxRequestsPerConnection: 5,
 					MaxRetries:               4,
 					IdleTimeout:              &durationpb.Duration{Seconds: 30},
+					MaxConcurrentStreams:     5,
 				},
 			},
 			valid: true,
@@ -4005,6 +4061,7 @@ func TestValidateConnectionPool(t *testing.T) {
 					Http2MaxRequests:         11,
 					MaxRequestsPerConnection: 5,
 					MaxRetries:               4,
+					MaxConcurrentStreams:     5,
 				},
 			},
 			valid: true,
@@ -4059,6 +4116,13 @@ func TestValidateConnectionPool(t *testing.T) {
 		{
 			name: "invalid connection pool, bad idle timeout", in: &networking.ConnectionPoolSettings{
 				Http: &networking.ConnectionPoolSettings_HTTPSettings{IdleTimeout: &durationpb.Duration{Seconds: 30, Nanos: 5}},
+			},
+			valid: false,
+		},
+
+		{
+			name: "invalid connection pool, bad max concurrent streams", in: &networking.ConnectionPoolSettings{
+				Http: &networking.ConnectionPoolSettings_HTTPSettings{MaxConcurrentStreams: -1},
 			},
 			valid: false,
 		},
@@ -5105,6 +5169,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "repeat target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
+				Resolution:       networking.ServiceEntry_DNS,
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 80},
@@ -5116,6 +5181,7 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "valid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
+				Resolution:       networking.ServiceEntry_DNS,
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 81},
@@ -5126,12 +5192,24 @@ func TestValidateServiceEntries(t *testing.T) {
 		{
 			name: "invalid target port", in: &networking.ServiceEntry{
 				Hosts:            []string{"google.com"},
+				Resolution:       networking.ServiceEntry_DNS,
 				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
 				Ports: []*networking.ServicePort{
 					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 65536},
 				},
 			},
 			valid: false,
+		},
+		{
+			name: "warn target port", in: &networking.ServiceEntry{
+				Hosts:            []string{"google.com"},
+				WorkloadSelector: &networking.WorkloadSelector{Labels: map[string]string{"key": "bar"}},
+				Ports: []*networking.ServicePort{
+					{Number: 80, Protocol: "http", Name: "http-valid1", TargetPort: 1234},
+				},
+			},
+			valid:   true,
+			warning: true,
 		},
 		{
 			name: "valid endpoint port", in: &networking.ServiceEntry{
@@ -8033,6 +8111,20 @@ func TestValidateRequestAuthentication(t *testing.T) {
 				},
 			},
 			valid: true,
+		},
+		{
+			name:       "bad cookie location",
+			configName: constants.DefaultAuthenticationPolicyName,
+			in: &security_beta.RequestAuthentication{
+				JwtRules: []*security_beta.JWTRule{
+					{
+						Issuer:      "foo.com",
+						JwksUri:     "https://foo.com",
+						FromCookies: []string{"", "foo"},
+					},
+				},
+			},
+			valid: false,
 		},
 		{
 			name:       "jwks ok",

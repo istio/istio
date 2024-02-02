@@ -3,6 +3,23 @@ kind: ServiceAccount
 metadata:
   name: {{.ServiceAccount | quote}}
   namespace: {{.Namespace | quote}}
+  annotations:
+    {{- toJsonMap (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+  labels:
+    {{- toJsonMap
+      .InfrastructureLabels
+      (strdict
+        "gateway.networking.k8s.io/gateway-name" .Name
+        "istio.io/gateway-name" .Name
+      ) | nindent 4 }}
+  {{- if ge .KubeVersion 128 }}
+  # Safe since 1.28: https://github.com/kubernetes/kubernetes/pull/117412
+  ownerReferences:
+  - apiVersion: gateway.networking.k8s.io/v1beta1
+    kind: Gateway
+    name: "{{.Name}}"
+    uid: "{{.UID}}"
+  {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -10,9 +27,15 @@ metadata:
   name: {{.DeploymentName | quote}}
   namespace: {{.Namespace | quote}}
   annotations:
-    {{- toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+    {{- toJsonMap (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
   labels:
-    {{- toJsonMap .Labels | nindent 4 }}
+    {{- toJsonMap
+      .InfrastructureLabels
+      (strdict
+        "gateway.networking.k8s.io/gateway-name" .Name
+        "istio.io/gateway-name" .Name
+        "gateway.istio.io/managed" "istio.io-mesh-controller"
+      ) | nindent 4 }}
   ownerReferences:
   - apiVersion: gateway.networking.k8s.io/v1beta1
     kind: Gateway
@@ -21,12 +44,12 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: "{{.Name}}"
+      "{{.GatewayNameLabel}}": "{{.Name}}"
   template:
     metadata:
       annotations:
         {{- toJsonMap
-          (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version")
+          (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version")
           (strdict "istio.io/rev" (.Revision | default "default"))
           (strdict
             "ambient.istio.io/redirection" "disabled"
@@ -41,8 +64,9 @@ spec:
             "service.istio.io/canonical-name" .DeploymentName
             "service.istio.io/canonical-revision" "latest"
            )
-          .Labels
+          .InfrastructureLabels
           (strdict
+            "gateway.networking.k8s.io/gateway-name" .Name
             "istio.io/gateway-name" .Name
             "gateway.istio.io/managed" "istio.io-mesh-controller"
           ) | nindent 8}}
@@ -126,6 +150,12 @@ spec:
         - name: PROXY_CONFIG
           value: |
                  {{ protoToJSON .ProxyConfig }}
+        {{- if .ProxyConfig.ProxyMetadata }}
+        {{- range $key, $value := .ProxyConfig.ProxyMetadata }}
+        - name: {{ $key }}
+          value: "{{ $value }}"
+        {{- end }}
+        {{- end }}
         - name: GOMEMLIMIT
           valueFrom:
             resourceFieldRef:
@@ -136,7 +166,7 @@ spec:
               resource: limits.cpu
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
-        {{- $network := valueOrDefault (index .Labels `topology.istio.io/network`) .Values.global.network }}
+        {{- $network := valueOrDefault (index .InfrastructureLabels `topology.istio.io/network`) .Values.global.network }}
         {{- if $network }}
         - name: ISTIO_META_NETWORK
           value: "{{ $network }}"
@@ -182,14 +212,15 @@ spec:
           successThreshold: 1
           timeoutSeconds: 1
         securityContext:
-          privileged: true
+          privileged: false
           runAsGroup: 1337
           runAsUser: 0
           capabilities:
-            add:
-            - NET_ADMIN
-            - NET_RAW
+            drop:
+            - ALL
         volumeMounts:
+        - name: workload-socket
+          mountPath: /var/run/secrets/workload-spiffe-uds
         - mountPath: /var/run/secrets/istio
           name: istiod-ca-cert
         - mountPath: /var/lib/istio/data
@@ -201,6 +232,8 @@ spec:
         - mountPath: /etc/istio/pod
           name: istio-podinfo
       volumes:
+      - emptyDir: {}
+        name: workload-socket
       - emptyDir:
           medium: Memory
         name: istio-envoy
@@ -241,9 +274,14 @@ apiVersion: v1
 kind: Service
 metadata:
   annotations:
-    {{ toJsonMap (omit .Annotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
+    {{ toJsonMap (omit .InfrastructureAnnotations "kubectl.kubernetes.io/last-applied-configuration" "gateway.istio.io/name-override" "gateway.istio.io/service-account" "gateway.istio.io/controller-version") | nindent 4 }}
   labels:
-    {{ toJsonMap .Labels | nindent 4}}
+    {{- toJsonMap
+      .InfrastructureLabels
+      (strdict
+        "gateway.networking.k8s.io/gateway-name" .Name
+        "istio.io/gateway-name" .Name
+      ) | nindent 4 }}
   name: {{.DeploymentName | quote}}
   namespace: {{.Namespace | quote}}
   ownerReferences:
@@ -260,7 +298,7 @@ spec:
     appProtocol: {{ $val.AppProtocol }}
   {{- end }}
   selector:
-    istio.io/gateway-name: "{{.Name}}"
+    "{{.GatewayNameLabel}}": "{{.Name}}"
   {{- if and (.Spec.Addresses) (eq .ServiceType "LoadBalancer") }}
   loadBalancerIP: {{ (index .Spec.Addresses 0).Value | quote}}
   {{- end }}

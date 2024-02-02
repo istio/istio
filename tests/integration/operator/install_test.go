@@ -23,6 +23,7 @@ import (
 
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 const InvalidRevision = "invalid revision specified"
@@ -59,5 +60,33 @@ func TestInstallCommandInput(t *testing.T) {
 					t.Errorf("istioctl install command expects to fail with error message: %s, but got: %s", test.errString, actualError)
 				}
 			}
+		})
+}
+
+func TestReInstallAfterFailure(t *testing.T) {
+	framework.NewTest(t).
+		Features("installation.istioctl.install").
+		Run(func(t framework.TestContext) {
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{})
+			cs := t.Clusters().Default()
+			t.Cleanup(func() {
+				cleanupIstioResources(t, cs, istioCtl)
+			})
+
+			// Install with a fake tag to make the installation fail
+			_, _, err := istioCtl.Invoke([]string{
+				"install", "--skip-confirmation",
+				"--set", "tag=0.20.0-faketag",
+				"--readiness-timeout", "5s",
+			})
+			assert.Error(t, err)
+
+			// Here we should have two activated webhooks, but dry-run should not report any error, which
+			// means the re-installation can be done successfully.
+			output, outErr := istioCtl.InvokeOrFail(t, []string{"install", "--dry-run"})
+			if !strings.Contains(output, "Made this installation the default for injection and validation.") {
+				t.Errorf("install expects to succeed but didn't")
+			}
+			assert.Equal(t, "", outErr)
 		})
 }

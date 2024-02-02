@@ -32,7 +32,7 @@ set -x
 ####################################################################
 
 # DEFAULT_KIND_IMAGE is used to set the Kubernetes version for KinD unless overridden in params to setup_kind_cluster(s)
-DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.27.3"
+DEFAULT_KIND_IMAGE="gcr.io/istio-testing/kind-node:v1.28.4"
 
 # COMMON_SCRIPTS contains the directory this file is in.
 COMMON_SCRIPTS=$(dirname "${BASH_SOURCE:-$0}")
@@ -364,8 +364,8 @@ function connect_kind_clusters() {
 
 function install_metallb() {
   KUBECONFIG="${1}"
-  kubectl apply --kubeconfig="$KUBECONFIG" -f "${COMMON_SCRIPTS}/metallb.yaml"
-  kubectl create --kubeconfig="$KUBECONFIG" secret generic -n metallb-system memberlist --from-literal=secretkey="$(openssl rand -base64 128)"
+  kubectl --kubeconfig="$KUBECONFIG" apply -f "${COMMON_SCRIPTS}/metallb-native.yaml"
+  kubectl --kubeconfig="$KUBECONFIG" wait -n metallb-system pod -l app=metallb --for=condition=Ready
 
   if [ -z "${METALLB_IPS4+x}" ]; then
     # Take IPs from the end of the docker kind network subnet to use for MetalLB IPs
@@ -396,17 +396,25 @@ function install_metallb() {
   done
   RANGE="${RANGE%?}]"
 
-  echo 'apiVersion: v1
-kind: ConfigMap
+  echo '
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
 metadata:
+  name: default-pool
   namespace: metallb-system
-  name: config
-data:
-  config: |
-    address-pools:
-    - name: default
-      protocol: layer2
-      addresses: '"$RANGE" | kubectl apply --kubeconfig="$KUBECONFIG" -f -
+spec:
+  addresses: '"$RANGE"'
+---
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: default-l2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - default-pool
+' | kubectl apply --kubeconfig="$KUBECONFIG" -f -
+
 }
 
 function cidr_to_ips() {

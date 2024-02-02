@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: installation
+issue:
+- 48112
+releaseNotes:
+- |
+  **Fixed** an issue where the installation might be blocked by a "conflicting webhook" error if a previous installation was interrupted or failed.

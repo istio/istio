@@ -20,7 +20,6 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking"
 	"istio.io/istio/pilot/pkg/security/authn"
-	"istio.io/istio/pilot/pkg/security/authn/factory"
 	"istio.io/istio/pkg/log"
 )
 
@@ -33,7 +32,7 @@ type Builder struct {
 }
 
 func NewBuilder(push *model.PushContext, proxy *model.Proxy) *Builder {
-	applier := factory.NewPolicyApplier(push, proxy.Metadata.Namespace, proxy.Labels, proxy.IsWaypointProxy())
+	applier := authn.NewPolicyApplier(push, proxy.Metadata.Namespace, proxy.Labels, proxy.IsWaypointProxy())
 	trustDomains := TrustDomainsForValidation(push.Mesh)
 	return &Builder{
 		applier:      applier,
@@ -99,8 +98,15 @@ func (b *Builder) BuildHTTP(class networking.ListenerClass) []*hcm.HttpFilter {
 		// Only applies to inbound and gateways
 		return nil
 	}
+	if b.proxy.SupportsEnvoyExtendedJwt() {
+		filter := b.applier.JwtFilter(true, b.proxy.Type != model.SidecarProxy)
+		if filter != nil {
+			return []*hcm.HttpFilter{filter}
+		}
+		return nil
+	}
 	res := []*hcm.HttpFilter{}
-	if filter := b.applier.JwtFilter(); filter != nil {
+	if filter := b.applier.JwtFilter(false, false); filter != nil {
 		res = append(res, filter)
 	}
 	forSidecar := b.proxy.Type == model.SidecarProxy

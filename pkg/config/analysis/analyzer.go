@@ -83,8 +83,9 @@ func (c *CombinedAnalyzer) Analyze(ctx Context) {
 // should be disabled. Any analyzers that require those output collections will be removed.
 // 2. The analyzer requires a collection not available in the current snapshot(s)
 func (c *CombinedAnalyzer) RemoveSkipped(schemas collection.Schemas) []string {
-	s := sets.New[config.GroupVersionKind]()
-	for _, sc := range schemas.All() {
+	allSchemas := schemas.All()
+	s := sets.NewWithLength[config.GroupVersionKind](len(allSchemas))
+	for _, sc := range allSchemas {
 		s.Insert(sc.GroupVersionKind())
 	}
 
@@ -109,7 +110,7 @@ mainloop:
 
 // AnalyzerNames returns the names of analyzers in this combined analyzer
 func (c *CombinedAnalyzer) AnalyzerNames() []string {
-	var result []string
+	result := make([]string, 0, len(c.analyzers))
 	for _, a := range c.analyzers {
 		result = append(result, a.Metadata().Name)
 	}
@@ -117,7 +118,7 @@ func (c *CombinedAnalyzer) AnalyzerNames() []string {
 }
 
 func combineInputs(analyzers []Analyzer) []config.GroupVersionKind {
-	result := sets.New[config.GroupVersionKind]()
+	result := sets.NewWithLength[config.GroupVersionKind](len(analyzers))
 	for _, a := range analyzers {
 		result.InsertAll(a.Metadata().Inputs...)
 	}

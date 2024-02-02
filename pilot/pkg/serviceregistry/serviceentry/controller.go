@@ -306,10 +306,10 @@ func (s *Controller) workloadEntryHandler(old, curr config.Config, event model.E
 		addConfigs(se, services)
 	}
 
-	s.serviceInstances.deleteInstances(key, instancesDeleted)
+	s.serviceInstances.deleteInstanceKeys(key, instancesDeleted)
 	if event == model.EventDelete {
 		s.workloadInstances.Delete(wi)
-		s.serviceInstances.deleteInstances(key, instancesUpdated)
+		s.serviceInstances.deleteInstanceKeys(key, instancesUpdated)
 	} else {
 		s.workloadInstances.Insert(wi)
 		s.serviceInstances.updateInstances(key, instancesUpdated)
@@ -387,7 +387,7 @@ func (s *Controller) serviceEntryHandler(_, curr config.Config, event model.Even
 	serviceInstancesByConfig, serviceInstances := s.buildServiceInstances(curr, cs)
 	oldInstances := s.serviceInstances.getServiceEntryInstances(key)
 	for configKey, old := range oldInstances {
-		s.serviceInstances.deleteInstances(configKey, old)
+		s.serviceInstances.deleteInstanceKeys(configKey, old)
 	}
 	if event == model.EventDelete {
 		s.serviceInstances.deleteAllServiceEntryInstances(key)
@@ -583,11 +583,11 @@ func (s *Controller) WorkloadInstanceHandler(wi *model.WorkloadInstance, event m
 	}
 
 	if len(instancesDeleted) > 0 {
-		s.serviceInstances.deleteInstances(key, instancesDeleted)
+		s.serviceInstances.deleteInstanceKeys(key, instancesDeleted)
 	}
 
 	if event == model.EventDelete {
-		s.serviceInstances.deleteInstances(key, instances)
+		s.serviceInstances.deleteInstanceKeys(key, instances)
 	} else {
 		s.serviceInstances.updateInstances(key, instances)
 	}
@@ -925,7 +925,6 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 	}
 
 	x := 0
-	y := 0
 	hnMap := make(map[string]octetPair)
 	for _, svc := range hashedServices {
 		if svc == nil {
@@ -939,27 +938,15 @@ func autoAllocateIPs(services []*model.Service) []*model.Service {
 			setAutoAllocatedIPs(svc, v)
 		} else {
 			var thirdOctect, fourthOctect int
-			if x/255 < 255 {
-				// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
-				// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
-				// So we bump X to 511, so that the resulting IP is 240.240.2.1
+			// To avoid allocating 240.240.(i).255, if X % 255 is 0, increment X.
+			// For example, when X=510, the resulting IP would be 240.240.2.0 (invalid)
+			// So we bump X to 511, so that the resulting IP is 240.240.2.1
+			x++
+			if x%255 == 0 {
 				x++
-				if x%255 == 0 {
-					x++
-				}
 			}
 			thirdOctect = x / 255
-			// When we reach thirdOctect 255, we need to just increment the fourthOctect
-			// keeping the thirdOctect as 255.
-			if thirdOctect >= 255 {
-				y++
-				thirdOctect = 255
-				fourthOctect = y
-			} else {
-				thirdOctect = x / 255
-				fourthOctect = x % 255
-			}
-
+			fourthOctect = x % 255
 			pair := octetPair{thirdOctect, fourthOctect}
 			setAutoAllocatedIPs(svc, pair)
 			hnMap[n] = pair

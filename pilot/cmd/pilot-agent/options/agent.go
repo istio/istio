@@ -44,7 +44,6 @@ func NewAgentOptions(proxy *model.Proxy, cfg *meshconfig.ProxyConfig) *istioagen
 		IsIPv6:                   proxy.IsIPv6(),
 		ProxyType:                proxy.Type,
 		EnableDynamicProxyConfig: enableProxyConfigXdsEnv,
-		EnableDynamicBootstrap:   enableBootstrapXdsEnv,
 		WASMOptions: wasm.Options{
 			InsecureRegistries:    sets.New(insecureRegistries...),
 			ModuleExpiry:          wasmModuleExpiry,

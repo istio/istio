@@ -72,6 +72,12 @@ const (
 	v2Suffix   = ",component,istio"
 )
 
+var envoyWellKnownCompressorLibrary = sets.String{
+	"gzip":   {},
+	"zstd":   {},
+	"brotli": {},
+}
+
 // Config for creating a bootstrap file.
 type Config struct {
 	*model.Node
@@ -274,6 +280,12 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		}
 	}
 
+	var compression string
+	// TODO: move annotation to api repo
+	if statsCompression, ok := meta.Annotations["sidecar.istio.io/statsCompression"]; ok && envoyWellKnownCompressorLibrary.Contains(statsCompression) {
+		compression = statsCompression
+	}
+
 	return []option.Instance{
 		option.EnvoyStatsMatcherInclusionPrefix(parseOption(prefixAnno,
 			requiredEnvoyStatsMatcherInclusionPrefixes, proxyConfigPrefixes)),
@@ -282,6 +294,7 @@ func getStatsOptions(meta *model.BootstrapNodeMetadata) []option.Instance {
 		option.EnvoyStatsMatcherInclusionRegexp(parseOption(RegexAnno, requiredEnvoyStatsMatcherInclusionRegexes, proxyConfigRegexps)),
 		option.EnvoyExtraStatTags(extraStatTags),
 		option.EnvoyHistogramBuckets(buckets),
+		option.EnvoyStatsCompression(compression),
 	}
 }
 
@@ -312,6 +325,7 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
 		"re2.max_program_size.error_level":           "32768",
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
+		"envoy.restart_features.use_eds_cache_for_ads":                                                         true,
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted

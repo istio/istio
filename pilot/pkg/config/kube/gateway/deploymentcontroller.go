@@ -44,6 +44,7 @@ import (
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
+	"istio.io/istio/pkg/kube/namespace"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test/util/tmpl"
@@ -121,9 +122,13 @@ var builtinClasses = getBuiltinClasses()
 
 func getBuiltinClasses() map[gateway.ObjectName]gateway.GatewayController {
 	res := map[gateway.ObjectName]gateway.GatewayController{
-		defaultClassName:                 constants.ManagedGatewayController,
-		constants.RemoteGatewayClassName: constants.UnmanagedGatewayController,
+		defaultClassName: constants.ManagedGatewayController,
 	}
+
+	if features.MultiNetworkGatewayAPI {
+		res[constants.RemoteGatewayClassName] = constants.UnmanagedGatewayController
+	}
+
 	if features.EnableAmbientControllers {
 		res[constants.WaypointGatewayClassName] = constants.ManagedGatewayMeshController
 	}
@@ -139,14 +144,17 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 			defaultServiceType: corev1.ServiceTypeLoadBalancer,
 			addressType:        gateway.HostnameAddressType,
 		},
-		constants.UnmanagedGatewayController: {
+	}
+
+	if features.MultiNetworkGatewayAPI {
+		m[constants.UnmanagedGatewayController] = classInfo{
 			// This represents a gateway that our control plane cannot discover directly via the API server.
 			// We shouldn't generate Istio resources for it. We aren't programming this gateway.
 			controller:             constants.UnmanagedGatewayController,
 			description:            "Remote to this cluster. Does not deploy or affect configuration.",
 			disableRouteGeneration: true,
 			addressType:            gateway.HostnameAddressType,
-		},
+		}
 	}
 	if features.EnableAmbientControllers {
 		m[constants.ManagedGatewayMeshController] = classInfo{
@@ -164,8 +172,13 @@ func getClassInfos() map[gateway.GatewayController]classInfo {
 // The controller will not start until Run() is called.
 func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *model.Environment,
 	webhookConfig func() inject.WebhookConfig, injectionHandler func(fn func()), tw revisions.TagWatcher, revision string,
+	nsFilter namespace.DiscoveryNamespacesFilter,
 ) *DeploymentController {
-	gateways := kclient.New[*gateway.Gateway](client)
+	var filter namespace.DiscoveryFilter
+	if nsFilter != nil {
+		filter = nsFilter.Filter
+	}
+	gateways := kclient.NewFiltered[*gateway.Gateway](client, kclient.Filter{ObjectFilter: filter})
 	gatewayClasses := kclient.New[*gateway.GatewayClass](client)
 	dc := &DeploymentController{
 		client:    client,
@@ -196,19 +209,19 @@ func NewDeploymentController(client kube.Client, clusterID cluster.ID, env *mode
 	// the Gateway to the queue and reconcile the state of the world.
 	parentHandler := controllers.ObjectHandler(controllers.EnqueueForParentHandler(dc.queue, gvk.KubernetesGateway))
 
-	dc.services = kclient.New[*corev1.Service](client)
+	dc.services = kclient.NewFiltered[*corev1.Service](client, kclient.Filter{ObjectFilter: filter})
 	dc.services.AddEventHandler(parentHandler)
 	dc.clients[gvr.Service] = NewUntypedWrapper(dc.services)
 
-	dc.deployments = kclient.New[*appsv1.Deployment](client)
+	dc.deployments = kclient.NewFiltered[*appsv1.Deployment](client, kclient.Filter{ObjectFilter: filter})
 	dc.deployments.AddEventHandler(parentHandler)
 	dc.clients[gvr.Deployment] = NewUntypedWrapper(dc.deployments)
 
-	dc.serviceAccounts = kclient.New[*corev1.ServiceAccount](client)
+	dc.serviceAccounts = kclient.NewFiltered[*corev1.ServiceAccount](client, kclient.Filter{ObjectFilter: filter})
 	dc.serviceAccounts.AddEventHandler(parentHandler)
 	dc.clients[gvr.ServiceAccount] = NewUntypedWrapper(dc.serviceAccounts)
 
-	dc.namespaces = kclient.New[*corev1.Namespace](client)
+	dc.namespaces = kclient.NewFiltered[*corev1.Namespace](client, kclient.Filter{ObjectFilter: filter})
 	dc.namespaces.AddEventHandler(controllers.ObjectHandler(func(o controllers.Object) {
 		// TODO: make this more intelligent, checking if something we care about has changed
 		// requeue this namespace
@@ -333,6 +346,17 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		serviceType = corev1.ServiceType(o)
 	}
 
+	// TODO: Codify this API (i.e how to know if a specific gateway is an Istio waypoint gateway)
+	isWaypointGateway := strings.Contains(string(gw.Spec.GatewayClassName), "waypoint")
+
+	// Default the network label for waypoints if not explicitly set in gateway's labels
+	if _, ok := gw.GetLabels()["topology.istio.io/network"]; !ok && isWaypointGateway {
+		if gw.Labels == nil {
+			gw.Labels = make(map[string]string)
+		}
+		gw.Labels["topology.istio.io/network"] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+	}
+
 	input := TemplateInput{
 		Gateway:        &gw,
 		DeploymentName: model.GetOrDefault(gw.Annotations[gatewayNameOverride], defaultName),
@@ -340,11 +364,46 @@ func (d *DeploymentController) configureIstioGateway(log *istiolog.Scope, gw gat
 		Ports:          extractServicePorts(gw),
 		ClusterID:      d.clusterID.String(),
 
-		KubeVersion122: kube.IsAtLeastVersion(d.client, 22),
-		Revision:       d.revision,
-		ServiceType:    serviceType,
-		ProxyUID:       proxyUID,
-		ProxyGID:       proxyGID,
+		KubeVersion:               kube.GetVersionAsInt(d.client),
+		Revision:                  d.revision,
+		ServiceType:               serviceType,
+		ProxyUID:                  proxyUID,
+		ProxyGID:                  proxyGID,
+		InfrastructureLabels:      gw.GetLabels(),
+		InfrastructureAnnotations: gw.GetAnnotations(),
+	}
+
+	d.setGatewayNameLabel(&input)
+	// Default to the gateway labels/annotations and overwrite if infrastructure labels/annotations are set
+	gwInfra := gw.Spec.Infrastructure
+	if gwInfra != nil && gwInfra.Labels != nil {
+		infraLabels := make(map[string]string, len(gwInfra.Labels))
+		for k, v := range gw.Spec.Infrastructure.Labels {
+			if strings.HasPrefix(string(k), "gateway.networking.k8s.io/") {
+				continue // ignore this prefix to avoid conflicts
+			}
+			infraLabels[string(k)] = string(v)
+		}
+
+		// Default the network label for waypoints if not explicitly set in infra labels
+		// We do this a second time here for correctness since if infra labels are set (according to the gwapi spec),
+		// the gateway's labels are ignored.
+		if _, ok := infraLabels["topology.istio.io/network"]; !ok && isWaypointGateway {
+			infraLabels["topology.istio.io/network"] = d.injectConfig().Values.Struct().GetGlobal().GetNetwork()
+		}
+
+		input.InfrastructureLabels = infraLabels
+	}
+
+	if gwInfra != nil && gwInfra.Annotations != nil {
+		infraAnnotations := make(map[string]string, len(gwInfra.Annotations))
+		for k, v := range gw.Spec.Infrastructure.Annotations {
+			if strings.HasPrefix(string(k), "gateway.networking.k8s.io/") {
+				continue // ignore this prefix to avoid conflicts
+			}
+			infraAnnotations[string(k)] = string(v)
+		}
+		input.InfrastructureAnnotations = infraAnnotations
 	}
 
 	if overwriteControllerVersion {
@@ -436,7 +495,7 @@ func (d *DeploymentController) render(templateName string, mi TemplateInput) ([]
 		return nil, fmt.Errorf("no %q template defined", templateName)
 	}
 
-	labelToMatch := map[string]string{constants.GatewayNameLabel: mi.Name}
+	labelToMatch := map[string]string{constants.GatewayNameLabel: mi.Name, constants.DeprecatedGatewayNameLabel: mi.Name}
 	proxyConfig := d.env.GetProxyConfigOrDefault(mi.Namespace, labelToMatch, nil, cfg.MeshConfig)
 	input := derivedInput{
 		TemplateInput: mi,
@@ -502,7 +561,7 @@ func (d *DeploymentController) apply(controller string, yml string) error {
 	return nil
 }
 
-func (d *DeploymentController) HandleTagChange(newTags sets.Set[string]) {
+func (d *DeploymentController) HandleTagChange(newTags sets.String) {
 	for _, gw := range d.gateways.List(metav1.NamespaceAll, klabels.Everything()) {
 		d.queue.AddObject(gw)
 	}
@@ -530,17 +589,46 @@ func (d *DeploymentController) canManage(gvr schema.GroupVersionResource, name, 
 	return managed, obj.GetResourceVersion()
 }
 
+// setGatewayNameLabel sets either the new or deprecated gateway name label
+// based on the template input
+func (d *DeploymentController) setGatewayNameLabel(ti *TemplateInput) {
+	ti.GatewayNameLabel = constants.GatewayNameLabel // default to the new gateway name label
+	store, f := d.clients[gvr.Deployment]            // Use deployment since those matchlabels are immutable
+	if !f {
+		log.Warnf("deployment gvr not found in deployment controller clients; defaulting to the new gateway name label")
+		return
+	}
+	dep := store.Get(ti.DeploymentName, ti.Namespace)
+	if dep == nil {
+		log.Debugf("deployment %s/%s not found in store; using to the new gateway name label", ti.DeploymentName, ti.Namespace)
+		return
+	}
+
+	// Base label choice on the deployment's selector
+	_, exists := dep.(*appsv1.Deployment).Spec.Selector.MatchLabels[constants.DeprecatedGatewayNameLabel]
+	if !exists {
+		// The old label doesn't already exist on the deployment; use the new label
+		return
+	}
+
+	// The old label exists on the deployment; use the old label
+	ti.GatewayNameLabel = constants.DeprecatedGatewayNameLabel
+}
+
 type TemplateInput struct {
 	*gateway.Gateway
-	DeploymentName string
-	ServiceAccount string
-	Ports          []corev1.ServicePort
-	ServiceType    corev1.ServiceType
-	ClusterID      string
-	KubeVersion122 bool
-	Revision       string
-	ProxyUID       int64
-	ProxyGID       int64
+	DeploymentName            string
+	ServiceAccount            string
+	Ports                     []corev1.ServicePort
+	ServiceType               corev1.ServiceType
+	ClusterID                 string
+	KubeVersion               int
+	Revision                  string
+	ProxyUID                  int64
+	ProxyGID                  int64
+	InfrastructureLabels      map[string]string
+	InfrastructureAnnotations map[string]string
+	GatewayNameLabel          string
 }
 
 func extractServicePorts(gw gateway.Gateway) []corev1.ServicePort {

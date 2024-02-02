@@ -792,7 +792,7 @@ func StatsConfigCmd(ctx cli.Context) *cobra.Command {
 			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
-	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|prom|prom-merged")
+	statsConfigCmd.PersistentFlags().StringVarP(&outputFormat, "output", "o", summaryOutput, "Output format: one of json|yaml|short|prom|prom-merged")
 	statsConfigCmd.PersistentFlags().StringVarP(&statsType, "type", "t", "server", "Where to grab the stats: one of server|clusters")
 
 	return statsConfigCmd
@@ -1241,7 +1241,7 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
   istioctl proxy-config bootstrap --file envoy-config.json
 
   # Show a human-readable Istio and Envoy version summary
-  istioctl proxy-config bootstrap -o short
+  istioctl proxy-config bootstrap <pod-name[.namespace]> -o short
 `,
 		Aliases: []string{"b"},
 		Args: func(cmd *cobra.Command, args []string) error {
@@ -1271,7 +1271,7 @@ func bootstrapConfigCmd(ctx cli.Context) *cobra.Command {
 
 			switch outputFormat {
 			case summaryOutput:
-				return configWriter.PrintVersionSummary()
+				return configWriter.PrintBootstrapSummary()
 			case jsonOutput, yamlOutput:
 				return configWriter.PrintBootstrapDump(outputFormat)
 			default:

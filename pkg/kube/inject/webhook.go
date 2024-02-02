@@ -54,6 +54,7 @@ import (
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/util/protomarshal"
 	"istio.io/istio/pkg/util/sets"
+	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
 
 var (
@@ -527,9 +528,8 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 			continue
 		}
 		overlay := *match.DeepCopy()
-		if overlay.Image == AutoImage {
-			overlay.Image = ""
-		}
+		resetFieldsInAutoImageContainer(&overlay, &c)
+
 		overrides.Containers = append(overrides.Containers, overlay)
 		newMergedPod, err := applyContainer(finalPod, overlay)
 		if err != nil {
@@ -549,9 +549,8 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 			continue
 		}
 		overlay := *match.DeepCopy()
-		if overlay.Image == AutoImage {
-			overlay.Image = ""
-		}
+		resetFieldsInAutoImageContainer(&overlay, &c)
+
 		overrides.InitContainers = append(overrides.InitContainers, overlay)
 		newMergedPod, err := applyInitContainer(finalPod, overlay)
 		if err != nil {
@@ -573,6 +572,23 @@ func reapplyOverwrittenContainers(finalPod *corev1.Pod, originalPod *corev1.Pod,
 	}
 
 	return finalPod, nil
+}
+
+func resetFieldsInAutoImageContainer(original *corev1.Container, template *corev1.Container) {
+	if original.Image == AutoImage {
+		original.Image = ""
+	}
+
+	// If the original pod comes with SecurityContext.RunAsUser and the template defines a value different than the default (1337),
+	// then ignore the original value and stick with the final (merged one)
+	// This is likely a scenario in OpenShift when the istio-proxy container with image: auto is parsed, if SecurityContext.RunAsUser
+	// does not exist, OpenShift automatically assigns a value which is based on an annotation in the namespace. Regardless if the user
+	// provided that value or if it was assigned by OpenShift, the correct value is the one in the template, as set by the `.ProxyUID` field.
+	if original.SecurityContext != nil && template.SecurityContext != nil && template.SecurityContext.RunAsUser != nil &&
+		*template.SecurityContext.RunAsUser != constants.DefaultProxyUIDInt {
+		original.SecurityContext.RunAsUser = nil
+		original.SecurityContext.RunAsGroup = nil
+	}
 }
 
 // parseStatus extracts containers from injected SidecarStatus annotation

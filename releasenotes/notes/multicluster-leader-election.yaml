@@ -1,0 +1,8 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: traffic-management
+issue:
+- 47901
+releaseNotes:
+- |
+    **Fixed** multi-cluster leader election cannot prioritize local over remote leader.

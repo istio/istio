@@ -2,6 +2,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/gateway/default.istio-system
   creationTimestamp: null
@@ -20,6 +21,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: fake-service.com
     internal.istio.io/parents: Gateway/invalid-service/default.istio-system
   creationTimestamp: null
@@ -38,6 +40,7 @@ apiVersion: networking.istio.io/v1alpha3
 kind: Gateway
 metadata:
   annotations:
+    internal.istio.io/gateway-semantics: gateway
     internal.istio.io/gateway-service: istio-ingressgateway.istio-system.svc.domain.suffix
     internal.istio.io/parents: Gateway/target-port-reference/default.istio-system
   creationTimestamp: null

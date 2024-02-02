@@ -84,7 +84,6 @@ type Options struct {
 
 const (
 	autoscalingV2MinK8SVersion = 23
-	pdbV1MinK8SVersion         = 21
 )
 
 // watchedResources contains all resources we will watch and reconcile when changed
@@ -108,18 +107,13 @@ func watchedResources(version *kubeversion.Info) []schema.GroupVersionKind {
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleStr},
 		{Group: "rbac.authorization.k8s.io", Version: "v1", Kind: name.ClusterRoleBindingStr},
 		{Group: "apiextensions.k8s.io", Version: "v1", Kind: name.CRDStr},
+		{Group: "policy", Version: "v1", Kind: name.PDBStr},
 	}
 	// autoscaling v2 API is available on >=1.23
 	if kube.IsKubeAtLeastOrLessThanVersion(version, autoscalingV2MinK8SVersion, true) {
 		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2", Kind: name.HPAStr})
 	} else {
 		res = append(res, schema.GroupVersionKind{Group: "autoscaling", Version: "v2beta2", Kind: name.HPAStr})
-	}
-	// policy/v1 is available on >=1.21
-	if kube.IsKubeAtLeastOrLessThanVersion(version, pdbV1MinK8SVersion, true) {
-		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1", Kind: name.PDBStr})
-	} else {
-		res = append(res, schema.GroupVersionKind{Group: "policy", Version: "v1beta1", Kind: name.PDBStr})
 	}
 	return res
 }

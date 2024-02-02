@@ -172,9 +172,13 @@ func (s *Server) initK8SConfigStore(args *PilotArgs) error {
 					AddRunFunction(func(leaderStop <-chan struct{}) {
 						// We can only run this if the Gateway CRD is created
 						if s.kubeClient.CrdWatcher().WaitForCRD(gvr.KubernetesGateway, leaderStop) {
+							nsFilter := args.RegistryOptions.KubeOptions.DiscoveryNamespacesFilter
+							if !features.EnableEnhancedResourceScoping {
+								nsFilter = nil
+							}
 							tagWatcher := revisions.NewTagWatcher(s.kubeClient, args.Revision)
 							controller := gateway.NewDeploymentController(s.kubeClient, s.clusterID, s.environment,
-								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision)
+								s.webhookInfo.getWebhookConfig, s.webhookInfo.addHandler, tagWatcher, args.Revision, nsFilter)
 							// Start informers again. This fixes the case where informers for namespace do not start,
 							// as we create them only after acquiring the leader lock
 							// Note: stop here should be the overall pilot stop, NOT the leader election stop. We are
@@ -228,23 +232,25 @@ func (s *Server) initConfigSources(args *PilotArgs) (err error) {
 			s.ConfigStores = append(s.ConfigStores, configController)
 			log.Infof("Started File configSource %s", configSource.Address)
 		case XDS:
-			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.Config{
-				Namespace: args.Namespace,
-				Workload:  args.PodName,
-				Revision:  args.Revision,
-				Meta: model.NodeMetadata{
-					Generator: "api",
-					// To reduce transported data if upstream server supports. Especially for custom servers.
-					IstioRevision: args.Revision,
-				}.ToStruct(),
+			xdsMCP, err := adsc.New(srcAddress.Host, &adsc.ADSConfig{
 				InitialDiscoveryRequests: adsc.ConfigInitialRequests(),
-				GrpcOpts: []grpc.DialOption{
-					args.KeepaliveOptions.ConvertToClientOption(),
-					// Because we use the custom grpc options for adsc, here we should
-					// explicitly set transport credentials.
-					// TODO: maybe we should use the tls settings within ConfigSource
-					// to secure the connection between istiod and remote xds server.
-					grpc.WithTransportCredentials(insecure.NewCredentials()),
+				Config: adsc.Config{
+					Namespace: args.Namespace,
+					Workload:  args.PodName,
+					Revision:  args.Revision,
+					Meta: model.NodeMetadata{
+						Generator: "api",
+						// To reduce transported data if upstream server supports. Especially for custom servers.
+						IstioRevision: args.Revision,
+					}.ToStruct(),
+					GrpcOpts: []grpc.DialOption{
+						args.KeepaliveOptions.ConvertToClientOption(),
+						// Because we use the custom grpc options for adsc, here we should
+						// explicitly set transport credentials.
+						// TODO: maybe we should use the tls settings within ConfigSource
+						// to secure the connection between istiod and remote xds server.
+						grpc.WithTransportCredentials(insecure.NewCredentials()),
+					},
 				},
 			})
 			if err != nil {
@@ -308,21 +314,23 @@ func (s *Server) initStatusController(args *PilotArgs, writeStatus bool) {
 	if s.statusManager == nil && writeStatus {
 		s.initStatusManager(args)
 	}
-	s.statusReporter = &distribution.Reporter{
-		UpdateInterval: features.StatusUpdateInterval,
-		PodName:        args.PodName,
-	}
-	s.addStartFunc("status reporter init", func(stop <-chan struct{}) error {
-		s.statusReporter.Init(s.environment.GetLedger(), stop)
-		return nil
-	})
-	s.addTerminatingStartFunc("status reporter", func(stop <-chan struct{}) error {
-		if writeStatus {
-			s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
+	if features.EnableDistributionTracking {
+		s.statusReporter = &distribution.Reporter{
+			UpdateInterval: features.StatusUpdateInterval,
+			PodName:        args.PodName,
 		}
-		return nil
-	})
-	s.XDSServer.StatusReporter = s.statusReporter
+		s.addStartFunc("status reporter init", func(stop <-chan struct{}) error {
+			s.statusReporter.Init(s.environment.GetLedger(), stop)
+			return nil
+		})
+		s.addTerminatingStartFunc("status reporter", func(stop <-chan struct{}) error {
+			if writeStatus {
+				s.statusReporter.Start(s.kubeClient.Kube(), args.Namespace, args.PodName, stop)
+			}
+			return nil
+		})
+		s.XDSServer.StatusReporter = s.statusReporter
+	}
 	if writeStatus {
 		s.addTerminatingStartFunc("status distribution", func(stop <-chan struct{}) error {
 			leaderelection.

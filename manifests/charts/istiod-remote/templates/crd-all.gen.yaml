@@ -49,7 +49,7 @@ spec:
                 type: string
               imagePullPolicy:
                 description: The pull behaviour to be applied when fetching Wasm module
-                  by either OCI image or http/https.
+                  by either OCI image or `http/https`.
                 enum:
                 - UNSPECIFIED_POLICY
                 - IfNotPresent
@@ -131,14 +131,19 @@ spec:
                 pattern: (^$|^[a-f0-9]{64}$)
                 type: string
               targetRef:
+                description: Optional.
                 properties:
                   group:
+                    description: group is the group of the target resource.
                     type: string
                   kind:
+                    description: kind is kind of the target resource.
                     type: string
                   name:
+                    description: name is the name of the target resource.
                     type: string
                   namespace:
+                    description: namespace is the namespace of the referent.
                     type: string
                 type: object
               type:
@@ -311,6 +316,8 @@ spec:
                                     pool connections.
                                   type: string
                                 maxConcurrentStreams:
+                                  description: The maximum number of concurrent streams
+                                    allowed for a peer on one HTTP/2 connection.
                                   format: int32
                                   type: integer
                                 maxRequestsPerConnection:
@@ -335,6 +342,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                idleTimeout:
+                                  description: The idle timeout for TCP connections.
                                   type: string
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
@@ -595,6 +605,9 @@ spec:
                                           connection pool connections.
                                         type: string
                                       maxConcurrentStreams:
+                                        description: The maximum number of concurrent
+                                          streams allowed for a peer on one HTTP/2
+                                          connection.
                                         format: int32
                                         type: integer
                                       maxRequestsPerConnection:
@@ -620,6 +633,9 @@ spec:
                                     properties:
                                       connectTimeout:
                                         description: TCP connection timeout.
+                                        type: string
+                                      idleTimeout:
+                                        description: The idle timeout for TCP connections.
                                         type: string
                                       maxConnectionDuration:
                                         description: The maximum duration of a connection.
@@ -879,10 +895,10 @@ spec:
                                       certificates.
                                     type: string
                                   insecureSkipVerify:
-                                    description: InsecureSkipVerify specifies whether
+                                    description: '`insecureSkipVerify` specifies whether
                                       the proxy should skip verifying the CA signature
                                       and SAN for the server certificate corresponding
-                                      to the host.
+                                      to the host.'
                                     nullable: true
                                     type: boolean
                                   mode:
@@ -910,6 +926,16 @@ spec:
                                 type: object
                             type: object
                           type: array
+                        proxyProtocol:
+                          description: The upstream PROXY protocol settings.
+                          properties:
+                            version:
+                              description: The PROXY protocol version to use.
+                              enum:
+                              - V1
+                              - V2
+                              type: string
+                          type: object
                         tls:
                           description: TLS related settings for connections to the
                             upstream service.
@@ -927,9 +953,10 @@ spec:
                                 certs for the client including the CA certificates.
                               type: string
                             insecureSkipVerify:
-                              description: InsecureSkipVerify specifies whether the
-                                proxy should skip verifying the CA signature and SAN
-                                for the server certificate corresponding to the host.
+                              description: '`insecureSkipVerify` specifies whether
+                                the proxy should skip verifying the CA signature and
+                                SAN for the server certificate corresponding to the
+                                host.'
                               nullable: true
                               type: boolean
                             mode:
@@ -1011,6 +1038,8 @@ spec:
                               pool connections.
                             type: string
                           maxConcurrentStreams:
+                            description: The maximum number of concurrent streams
+                              allowed for a peer on one HTTP/2 connection.
                             format: int32
                             type: integer
                           maxRequestsPerConnection:
@@ -1034,6 +1063,9 @@ spec:
                         properties:
                           connectTimeout:
                             description: TCP connection timeout.
+                            type: string
+                          idleTimeout:
+                            description: The idle timeout for TCP connections.
                             type: string
                           maxConnectionDuration:
                             description: The maximum duration of a connection.
@@ -1290,6 +1322,8 @@ spec:
                                     pool connections.
                                   type: string
                                 maxConcurrentStreams:
+                                  description: The maximum number of concurrent streams
+                                    allowed for a peer on one HTTP/2 connection.
                                   format: int32
                                   type: integer
                                 maxRequestsPerConnection:
@@ -1314,6 +1348,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                idleTimeout:
+                                  description: The idle timeout for TCP connections.
                                   type: string
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
@@ -1564,9 +1601,10 @@ spec:
                                 certs for the client including the CA certificates.
                               type: string
                             insecureSkipVerify:
-                              description: InsecureSkipVerify specifies whether the
-                                proxy should skip verifying the CA signature and SAN
-                                for the server certificate corresponding to the host.
+                              description: '`insecureSkipVerify` specifies whether
+                                the proxy should skip verifying the CA signature and
+                                SAN for the server certificate corresponding to the
+                                host.'
                               nullable: true
                               type: boolean
                             mode:
@@ -1594,6 +1632,16 @@ spec:
                           type: object
                       type: object
                     type: array
+                  proxyProtocol:
+                    description: The upstream PROXY protocol settings.
+                    properties:
+                      version:
+                        description: The PROXY protocol version to use.
+                        enum:
+                        - V1
+                        - V2
+                        type: string
+                    type: object
                   tls:
                     description: TLS related settings for connections to the upstream
                       service.
@@ -1611,9 +1659,9 @@ spec:
                           for the client including the CA certificates.
                         type: string
                       insecureSkipVerify:
-                        description: InsecureSkipVerify specifies whether the proxy
+                        description: '`insecureSkipVerify` specifies whether the proxy
                           should skip verifying the CA signature and SAN for the server
-                          certificate corresponding to the host.
+                          certificate corresponding to the host.'
                         nullable: true
                         type: boolean
                       mode:
@@ -1758,6 +1806,8 @@ spec:
                                     pool connections.
                                   type: string
                                 maxConcurrentStreams:
+                                  description: The maximum number of concurrent streams
+                                    allowed for a peer on one HTTP/2 connection.
                                   format: int32
                                   type: integer
                                 maxRequestsPerConnection:
@@ -1782,6 +1832,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                idleTimeout:
+                                  description: The idle timeout for TCP connections.
                                   type: string
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
@@ -2042,6 +2095,9 @@ spec:
                                           connection pool connections.
                                         type: string
                                       maxConcurrentStreams:
+                                        description: The maximum number of concurrent
+                                          streams allowed for a peer on one HTTP/2
+                                          connection.
                                         format: int32
                                         type: integer
                                       maxRequestsPerConnection:
@@ -2067,6 +2123,9 @@ spec:
                                     properties:
                                       connectTimeout:
                                         description: TCP connection timeout.
+                                        type: string
+                                      idleTimeout:
+                                        description: The idle timeout for TCP connections.
                                         type: string
                                       maxConnectionDuration:
                                         description: The maximum duration of a connection.
@@ -2326,10 +2385,10 @@ spec:
                                       certificates.
                                     type: string
                                   insecureSkipVerify:
-                                    description: InsecureSkipVerify specifies whether
+                                    description: '`insecureSkipVerify` specifies whether
                                       the proxy should skip verifying the CA signature
                                       and SAN for the server certificate corresponding
-                                      to the host.
+                                      to the host.'
                                     nullable: true
                                     type: boolean
                                   mode:
@@ -2357,6 +2416,16 @@ spec:
                                 type: object
                             type: object
                           type: array
+                        proxyProtocol:
+                          description: The upstream PROXY protocol settings.
+                          properties:
+                            version:
+                              description: The PROXY protocol version to use.
+                              enum:
+                              - V1
+                              - V2
+                              type: string
+                          type: object
                         tls:
                           description: TLS related settings for connections to the
                             upstream service.
@@ -2374,9 +2443,10 @@ spec:
                                 certs for the client including the CA certificates.
                               type: string
                             insecureSkipVerify:
-                              description: InsecureSkipVerify specifies whether the
-                                proxy should skip verifying the CA signature and SAN
-                                for the server certificate corresponding to the host.
+                              description: '`insecureSkipVerify` specifies whether
+                                the proxy should skip verifying the CA signature and
+                                SAN for the server certificate corresponding to the
+                                host.'
                               nullable: true
                               type: boolean
                             mode:
@@ -2458,6 +2528,8 @@ spec:
                               pool connections.
                             type: string
                           maxConcurrentStreams:
+                            description: The maximum number of concurrent streams
+                              allowed for a peer on one HTTP/2 connection.
                             format: int32
                             type: integer
                           maxRequestsPerConnection:
@@ -2481,6 +2553,9 @@ spec:
                         properties:
                           connectTimeout:
                             description: TCP connection timeout.
+                            type: string
+                          idleTimeout:
+                            description: The idle timeout for TCP connections.
                             type: string
                           maxConnectionDuration:
                             description: The maximum duration of a connection.
@@ -2737,6 +2812,8 @@ spec:
                                     pool connections.
                                   type: string
                                 maxConcurrentStreams:
+                                  description: The maximum number of concurrent streams
+                                    allowed for a peer on one HTTP/2 connection.
                                   format: int32
                                   type: integer
                                 maxRequestsPerConnection:
@@ -2761,6 +2838,9 @@ spec:
                               properties:
                                 connectTimeout:
                                   description: TCP connection timeout.
+                                  type: string
+                                idleTimeout:
+                                  description: The idle timeout for TCP connections.
                                   type: string
                                 maxConnectionDuration:
                                   description: The maximum duration of a connection.
@@ -3011,9 +3091,10 @@ spec:
                                 certs for the client including the CA certificates.
                               type: string
                             insecureSkipVerify:
-                              description: InsecureSkipVerify specifies whether the
-                                proxy should skip verifying the CA signature and SAN
-                                for the server certificate corresponding to the host.
+                              description: '`insecureSkipVerify` specifies whether
+                                the proxy should skip verifying the CA signature and
+                                SAN for the server certificate corresponding to the
+                                host.'
                               nullable: true
                               type: boolean
                             mode:
@@ -3041,6 +3122,16 @@ spec:
                           type: object
                       type: object
                     type: array
+                  proxyProtocol:
+                    description: The upstream PROXY protocol settings.
+                    properties:
+                      version:
+                        description: The PROXY protocol version to use.
+                        enum:
+                        - V1
+                        - V2
+                        type: string
+                    type: object
                   tls:
                     description: TLS related settings for connections to the upstream
                       service.
@@ -3058,9 +3149,9 @@ spec:
                           for the client including the CA certificates.
                         type: string
                       insecureSkipVerify:
-                        description: InsecureSkipVerify specifies whether the proxy
+                        description: '`insecureSkipVerify` specifies whether the proxy
                           should skip verifying the CA signature and SAN for the server
-                          certificate corresponding to the host.
+                          certificate corresponding to the host.'
                         nullable: true
                         type: boolean
                       mode:
@@ -4198,6 +4289,8 @@ spec:
                           connections.
                         type: string
                       maxConcurrentStreams:
+                        description: The maximum number of concurrent streams allowed
+                          for a peer on one HTTP/2 connection.
                         format: int32
                         type: integer
                       maxRequestsPerConnection:
@@ -4220,6 +4313,9 @@ spec:
                     properties:
                       connectTimeout:
                         description: TCP connection timeout.
+                        type: string
+                      idleTimeout:
+                        description: The idle timeout for TCP connections.
                         type: string
                       maxConnectionDuration:
                         description: The maximum duration of a connection.
@@ -4294,6 +4390,8 @@ spec:
                                 pool connections.
                               type: string
                             maxConcurrentStreams:
+                              description: The maximum number of concurrent streams
+                                allowed for a peer on one HTTP/2 connection.
                               format: int32
                               type: integer
                             maxRequestsPerConnection:
@@ -4317,6 +4415,9 @@ spec:
                           properties:
                             connectTimeout:
                               description: TCP connection timeout.
+                              type: string
+                            idleTimeout:
+                              description: The idle timeout for TCP connections.
                               type: string
                             maxConnectionDuration:
                               description: The maximum duration of a connection.
@@ -4576,6 +4677,8 @@ spec:
                           connections.
                         type: string
                       maxConcurrentStreams:
+                        description: The maximum number of concurrent streams allowed
+                          for a peer on one HTTP/2 connection.
                         format: int32
                         type: integer
                       maxRequestsPerConnection:
@@ -4598,6 +4701,9 @@ spec:
                     properties:
                       connectTimeout:
                         description: TCP connection timeout.
+                        type: string
+                      idleTimeout:
+                        description: The idle timeout for TCP connections.
                         type: string
                       maxConnectionDuration:
                         description: The maximum duration of a connection.
@@ -4672,6 +4778,8 @@ spec:
                                 pool connections.
                               type: string
                             maxConcurrentStreams:
+                              description: The maximum number of concurrent streams
+                                allowed for a peer on one HTTP/2 connection.
                               format: int32
                               type: integer
                             maxRequestsPerConnection:
@@ -4695,6 +4803,9 @@ spec:
                           properties:
                             connectTimeout:
                               description: TCP connection timeout.
+                              type: string
+                            idleTimeout:
+                              description: The idle timeout for TCP connections.
                               type: string
                             maxConnectionDuration:
                               description: The maximum duration of a connection.
@@ -7251,6 +7362,8 @@ spec:
     kind: AuthorizationPolicy
     listKind: AuthorizationPolicyList
     plural: authorizationpolicies
+    shortNames:
+    - ap
     singular: authorizationpolicy
   scope: Namespaced
   versions:
@@ -7432,14 +7545,19 @@ spec:
                     type: object
                 type: object
               targetRef:
+                description: Optional.
                 properties:
                   group:
+                    description: group is the group of the target resource.
                     type: string
                   kind:
+                    description: kind is kind of the target resource.
                     type: string
                   name:
+                    description: name is the name of the target resource.
                     type: string
                   namespace:
+                    description: namespace is the namespace of the referent.
                     type: string
                 type: object
             type: object
@@ -7629,14 +7747,19 @@ spec:
                     type: object
                 type: object
               targetRef:
+                description: Optional.
                 properties:
                   group:
+                    description: group is the group of the target resource.
                     type: string
                   kind:
+                    description: kind is kind of the target resource.
                     type: string
                   name:
+                    description: name is the name of the target resource.
                     type: string
                   namespace:
+                    description: namespace is the namespace of the referent.
                     type: string
                 type: object
             type: object
@@ -7723,7 +7846,7 @@ spec:
                 description: Port specific mutual TLS settings.
                 type: object
               selector:
-                description: The selector determines the workloads to apply the ChannelAuthentication
+                description: The selector determines the workloads to apply the PeerAuthentication
                   on.
                 properties:
                   matchLabels:
@@ -7792,6 +7915,11 @@ spec:
                       description: If set to true, the original token will be kept
                         for the upstream request.
                       type: boolean
+                    fromCookies:
+                      description: List of cookie names from which JWT is expected.
+                      items:
+                        type: string
+                      type: array
                     fromHeaders:
                       description: List of header locations from which JWT is expected.
                       items:
@@ -7859,14 +7987,19 @@ spec:
                     type: object
                 type: object
               targetRef:
+                description: Optional.
                 properties:
                   group:
+                    description: group is the group of the target resource.
                     type: string
                   kind:
+                    description: kind is kind of the target resource.
                     type: string
                   name:
+                    description: name is the name of the target resource.
                     type: string
                   namespace:
+                    description: namespace is the namespace of the referent.
                     type: string
                 type: object
             type: object
@@ -7901,6 +8034,11 @@ spec:
                       description: If set to true, the original token will be kept
                         for the upstream request.
                       type: boolean
+                    fromCookies:
+                      description: List of cookie names from which JWT is expected.
+                      items:
+                        type: string
+                      type: array
                     fromHeaders:
                       description: List of header locations from which JWT is expected.
                       items:
@@ -7968,14 +8106,19 @@ spec:
                     type: object
                 type: object
               targetRef:
+                description: Optional.
                 properties:
                   group:
+                    description: group is the group of the target resource.
                     type: string
                   kind:
+                    description: kind is kind of the target resource.
                     type: string
                   name:
+                    description: name is the name of the target resource.
                     type: string
                   namespace:
+                    description: namespace is the namespace of the referent.
                     type: string
                 type: object
             type: object
@@ -8088,7 +8231,7 @@ spec:
                             nullable: true
                             type: boolean
                           match:
-                            description: Match allows provides the scope of the override.
+                            description: Match allows providing the scope of the override.
                             oneOf:
                             - not:
                                 anyOf:
@@ -8106,8 +8249,8 @@ spec:
                                 minLength: 1
                                 type: string
                               metric:
-                                description: One of the well-known Istio Standard
-                                  Metrics.
+                                description: One of the well-known [Istio Standard
+                                  Metrics](https://istio.io/latest/docs/reference/config/metrics/).
                                 enum:
                                 - ALL_METRICS
                                 - REQUEST_COUNT
@@ -8123,7 +8266,7 @@ spec:
                                 type: string
                               mode:
                                 description: 'Controls which mode of metrics generation
-                                  is selected: CLIENT and/or SERVER.'
+                                  is selected: `CLIENT`, `SERVER`, or `CLIENT_AND_SERVER`.'
                                 enum:
                                 - CLIENT_AND_SERVER
                                 - CLIENT
@@ -8184,14 +8327,19 @@ spec:
                     type: object
                 type: object
               targetRef:
+                description: Optional.
                 properties:
                   group:
+                    description: group is the group of the target resource.
                     type: string
                   kind:
+                    description: kind is kind of the target resource.
                     type: string
                   name:
+                    description: name is the name of the target resource.
                     type: string
                   namespace:
+                    description: namespace is the namespace of the referent.
                     type: string
                 type: object
               tracing:

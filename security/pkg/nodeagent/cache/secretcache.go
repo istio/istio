@@ -593,6 +593,7 @@ func (sc *SecretManagerClient) generateNewSecret(resourceName string) (*security
 	outgoingLatency.With(RequestType.Value(monitoring.CSR)).Record(csrLatency)
 	if err != nil {
 		numFailedOutgoingRequests.With(RequestType.Value(monitoring.CSR)).Increment()
+		cacheLog.Errorf("%s failed to sign: %v", logPrefix, err)
 		return nil, err
 	}
 
@@ -744,7 +745,6 @@ func concatCerts(certsPEM []string) []byte {
 // UpdateConfigTrustBundle : Update the Configured Trust Bundle in the secret Manager client
 func (sc *SecretManagerClient) UpdateConfigTrustBundle(trustBundle []byte) error {
 	sc.configTrustBundleMutex.Lock()
-
 	if bytes.Equal(sc.configTrustBundle, trustBundle) {
 		cacheLog.Debugf("skip for same trust bundle")
 		sc.configTrustBundleMutex.Unlock()

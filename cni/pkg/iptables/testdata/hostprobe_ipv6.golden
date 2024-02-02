@@ -1,0 +1,6 @@
+iptables -t nat -N ISTIO_POSTRT
+iptables -t nat -A POSTROUTING -j ISTIO_POSTRT
+iptables -t nat -A ISTIO_POSTRT -m owner --socket-exists -p tcp -m set --match-set istio-inpod-probes dst -j SNAT --to-source e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164
+ip6tables -t nat -N ISTIO_POSTRT
+ip6tables -t nat -A POSTROUTING -j ISTIO_POSTRT
+ip6tables -t nat -A ISTIO_POSTRT -m owner --socket-exists -p tcp -m set --match-set istio-inpod-probes dst -j SNAT --to-source e9ac:1e77:90ca:399f:4d6d:ece2:2f9b:3164

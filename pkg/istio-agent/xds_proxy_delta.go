@@ -20,6 +20,7 @@ import (
 	"time"
 
 	discovery "github.com/envoyproxy/go-control-plane/envoy/service/discovery/v3"
+	"go.uber.org/atomic"
 	google_rpc "google.golang.org/genproto/googleapis/rpc/status"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -30,7 +31,6 @@ import (
 	istiogrpc "istio.io/istio/pilot/pkg/grpc"
 	"istio.io/istio/pilot/pkg/xds"
 	v3 "istio.io/istio/pilot/pkg/xds/v3"
-	"istio.io/istio/pkg/bootstrap"
 	"istio.io/istio/pkg/channels"
 	"istio.io/istio/pkg/istio-agent/metrics"
 	"istio.io/istio/pkg/wasm"
@@ -50,8 +50,9 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream)
 	proxyLog.Debugf("accepted delta xds connection from envoy, forwarding to upstream")
 
 	con := &ProxyConnection{
-		upstreamError:     make(chan error, 2), // can be produced by recv and send
-		downstreamError:   make(chan error, 2), // can be produced by recv and send
+		conID:             connectionNumber.Inc(),
+		upstreamError:     make(chan error), // can be produced by recv and send
+		downstreamError:   make(chan error), // can be produced by recv and send
 		deltaRequestsChan: channels.NewUnbounded[*discovery.DeltaDiscoveryRequest](),
 		// Allow a buffer of 1. This ensures we queue up at most 2 (one in process, 1 pending) responses before forwarding.
 		deltaResponsesChan: make(chan *discovery.DeltaDiscoveryResponse, 1),
@@ -61,50 +62,9 @@ func (p *XdsProxy) DeltaAggregatedResources(downstream xds.DeltaDiscoveryStream)
 	p.registerStream(con)
 	defer p.unregisterStream(con)
 
-	// Handle downstream xds
-	initialRequestsSent := false
-	go func() {
-		// Send initial request
-		p.connectedMutex.RLock()
-		initialRequest := p.initialDeltaHealthRequest
-		p.connectedMutex.RUnlock()
-
-		for {
-			// From Envoy
-			req, err := downstream.Recv()
-			if err != nil {
-				select {
-				case con.downstreamError <- err:
-				case <-con.stopChan:
-				}
-				return
-			}
-			// forward to istiod
-			con.sendDeltaRequest(req)
-			if !initialRequestsSent && req.TypeUrl == v3.ListenerType {
-				// fire off an initial NDS request
-				if _, f := p.handlers[v3.NameTableType]; f {
-					con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
-						TypeUrl: v3.NameTableType,
-					})
-				}
-				// fire off an initial PCDS request
-				if _, f := p.handlers[v3.ProxyConfigType]; f {
-					con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
-						TypeUrl: v3.ProxyConfigType,
-					})
-				}
-				// Fire of a configured initial request, if there is one
-				if initialRequest != nil {
-					con.sendDeltaRequest(initialRequest)
-				}
-				initialRequestsSent = true
-			}
-		}
-	}()
-
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*5)
 	defer cancel()
+
 	upstreamConn, err := p.buildUpstreamConn(ctx)
 	if err != nil {
 		proxyLog.Errorf("failed to connect to upstream %s: %v", p.istiodAddress, err)
@@ -132,20 +92,17 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 		metrics.IstiodConnectionErrors.Increment()
 		return err
 	}
-	proxyLog.Infof("connected to delta upstream XDS server: %s", p.istiodAddress)
-	defer proxyLog.Debugf("disconnected from delta XDS server: %s", p.istiodAddress)
+	proxyLog.Infof("connected to delta upstream XDS server[%d]: %s", con.conID, p.istiodAddress)
+	defer proxyLog.Debugf("disconnected from delta XDS server[%d]: %s", con.conID, p.istiodAddress)
 
 	con.upstreamDeltas = deltaUpstream
 
 	// handle responses from istiod
 	go func() {
 		for {
-			resp, err := deltaUpstream.Recv()
+			resp, err := con.upstreamDeltas.Recv()
 			if err != nil {
-				select {
-				case con.upstreamError <- err:
-				case <-con.stopChan:
-				}
+				upstreamErr(con, err)
 				return
 			}
 			select {
@@ -158,38 +115,75 @@ func (p *XdsProxy) handleDeltaUpstream(ctx context.Context, con *ProxyConnection
 	go p.handleUpstreamDeltaRequest(con)
 	go p.handleUpstreamDeltaResponse(con)
 
-	// todo wasm load conversion
 	for {
 		select {
 		case err := <-con.upstreamError:
 			// error from upstream Istiod.
 			if istiogrpc.IsExpectedGRPCError(err) {
-				proxyLog.Debugf("upstream terminated with status %v", err)
+				proxyLog.Debugf("upstream [%d] terminated with status %v", con.conID, err)
 				metrics.IstiodConnectionCancellations.Increment()
 			} else {
-				proxyLog.Warnf("upstream terminated with unexpected error %v", err)
+				proxyLog.Warnf("upstream [%d] terminated with unexpected error %v", con.conID, err)
 				metrics.IstiodConnectionErrors.Increment()
 			}
 			return err
 		case err := <-con.downstreamError:
 			// error from downstream Envoy.
 			if istiogrpc.IsExpectedGRPCError(err) {
-				proxyLog.Debugf("downstream terminated with status %v", err)
+				proxyLog.Debugf("downstream [%d] terminated with status %v", con.conID, err)
 				metrics.EnvoyConnectionCancellations.Increment()
 			} else {
-				proxyLog.Warnf("downstream terminated with unexpected error %v", err)
+				proxyLog.Warnf("downstream [%d] terminated with unexpected error %v", con.conID, err)
 				metrics.EnvoyConnectionErrors.Increment()
 			}
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
-			proxyLog.Debugf("stream stopped")
+			proxyLog.Debugf("stream [%d] stopped", con.conID)
 			return nil
 		}
 	}
 }
 
 func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
+	initialRequestsSent := atomic.NewBool(false)
+	go func() {
+		for {
+			// recv delta xds requests from envoy
+			req, err := con.downstreamDeltas.Recv()
+			if err != nil {
+				downstreamErr(con, err)
+				return
+			}
+
+			// forward to istiod
+			con.sendDeltaRequest(req)
+			if !initialRequestsSent.Load() && req.TypeUrl == v3.ListenerType {
+				// fire off an initial NDS request
+				if _, f := p.handlers[v3.NameTableType]; f {
+					con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+						TypeUrl: v3.NameTableType,
+					})
+				}
+				// fire off an initial PCDS request
+				if _, f := p.handlers[v3.ProxyConfigType]; f {
+					con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
+						TypeUrl: v3.ProxyConfigType,
+					})
+				}
+				// set flag before sending the initial request to prevent race.
+				initialRequestsSent.Store(true)
+				// Fire of a configured initial request, if there is one
+				p.connectedMutex.RLock()
+				initialRequest := p.initialDeltaHealthRequest
+				if initialRequest != nil {
+					con.sendDeltaRequest(initialRequest)
+				}
+				p.connectedMutex.RUnlock()
+			}
+		}
+	}()
+
 	defer func() {
 		_ = con.upstreamDeltas.CloseSend()
 	}()
@@ -197,23 +191,19 @@ func (p *XdsProxy) handleUpstreamDeltaRequest(con *ProxyConnection) {
 		select {
 		case req := <-con.deltaRequestsChan.Get():
 			con.deltaRequestsChan.Load()
+			if req.TypeUrl == v3.HealthInfoType && !initialRequestsSent.Load() {
+				// only send healthcheck probe after LDS request has been sent
+				continue
+			}
 			proxyLog.Debugf("delta request for type url %s", req.TypeUrl)
 			metrics.XdsProxyRequests.Increment()
 			if req.TypeUrl == v3.ExtensionConfigurationType {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
-			// override the first xds request node metadata labels
-			if req.Node != nil {
-				node, err := p.ia.generateNodeMetadata()
-				if err != nil {
-					proxyLog.Warnf("Generate node mata failed during reconnect: %v", err)
-				} else if node.ID != "" {
-					req.Node = bootstrap.ConvertNodeToXDSNode(node)
-				}
-			}
+
 			if err := sendUpstreamDelta(con.upstreamDeltas, req); err != nil {
-				err = fmt.Errorf("upstream send error for type url %s: %v", req.TypeUrl, err)
-				con.upstreamError <- err
+				err = fmt.Errorf("send error for type url %s: %v", req.TypeUrl, err)
+				upstreamErr(con, err)
 				return
 			}
 		case <-con.stopChan:
@@ -228,7 +218,7 @@ func (p *XdsProxy) handleUpstreamDeltaResponse(con *ProxyConnection) {
 		select {
 		case resp := <-con.deltaResponsesChan:
 			// TODO: separate upstream response handling from requests sending, which are both time costly
-			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
+			proxyLog.Debugf("upstream [%d] response for type url %s", con.conID, resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {
@@ -286,29 +276,42 @@ func (p *XdsProxy) deltaRewriteAndForward(con *ProxyConnection, resp *discovery.
 	}
 
 	if err := wasm.MaybeConvertWasmExtensionConfig(resources, p.wasmCache); err != nil {
-		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
+		proxyLog.Debugf("sending NACK for ECDS resources %+v, err: %+v", resp.Resources, err)
 		con.sendDeltaRequest(&discovery.DeltaDiscoveryRequest{
-			TypeUrl:       v3.ExtensionConfigurationType,
+			TypeUrl:       resp.TypeUrl,
 			ResponseNonce: resp.Nonce,
 			ErrorDetail: &google_rpc.Status{
+				Code:    int32(codes.Internal),
 				Message: err.Error(),
 			},
 		})
 		return
 	}
+
+	respResources := make([]*discovery.Resource, 0, len(resources))
+	for i := range resources {
+		respResources = append(respResources, &discovery.Resource{
+			Resource: resources[i],
+		})
+	}
+	resp.Resources = respResources
+
 	proxyLog.Debugf("forward ECDS resources %+v", resp.Resources)
 	forward(resp)
 }
 
 func forwardDeltaToEnvoy(con *ProxyConnection, resp *discovery.DeltaDiscoveryResponse) {
+	if !v3.IsEnvoyType(resp.TypeUrl) && resp.TypeUrl != v3.WorkloadType {
+		proxyLog.Errorf("Skipping forwarding type url %s to Envoy as is not a valid Envoy type", resp.TypeUrl)
+		return
+	}
+	if con.isClosed() {
+		proxyLog.Errorf("downstream [%d] dropped delta xds push to Envoy, connection already closed", con.conID)
+		return
+	}
 	if err := sendDownstreamDelta(con.downstreamDeltas, resp); err != nil {
-		select {
-		case con.downstreamError <- err:
-			proxyLog.Errorf("downstream send error: %v", err)
-		default:
-			proxyLog.Debugf("downstream error channel full, but get downstream send error: %v", err)
-		}
-
+		err = fmt.Errorf("send error for type url %s: %v", resp.TypeUrl, err)
+		downstreamErr(con, err)
 		return
 	}
 }
@@ -318,6 +321,13 @@ func sendUpstreamDelta(deltaUpstream xds.DeltaDiscoveryClient, req *discovery.De
 }
 
 func sendDownstreamDelta(deltaDownstream xds.DeltaDiscoveryStream, res *discovery.DeltaDiscoveryResponse) error {
+	tStart := time.Now()
+	defer func() {
+		// This is a hint to help debug slow responses.
+		if time.Since(tStart) > 10*time.Second {
+			proxyLog.Warnf("sendDownstreamDelta took %v", time.Since(tStart))
+		}
+	}()
 	return istiogrpc.Send(deltaDownstream.Context(), func() error { return deltaDownstream.Send(res) })
 }
 

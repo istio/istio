@@ -23,6 +23,8 @@ spec:
     allowedRoutes:
       namespaces:
         from: All
+      kinds:
+      - kind: GRPCRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2
 kind: GRPCRoute

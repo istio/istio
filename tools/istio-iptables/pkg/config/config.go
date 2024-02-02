@@ -44,6 +44,7 @@ func DefaultConfig() *Config {
 		ProbeTimeout:            constants.DefaultProbeTimeout,
 		OwnerGroupsInclude:      constants.OwnerGroupsInclude.DefaultValue,
 		OwnerGroupsExclude:      constants.OwnerGroupsExclude.DefaultValue,
+		HostIPv4LoopbackCidr:    constants.HostIPv4LoopbackCidr.DefaultValue,
 	}
 }
 
@@ -86,6 +87,7 @@ type Config struct {
 	TraceLogging            bool          `json:"IPTABLES_TRACE_LOGGING"`
 	DualStack               bool          `json:"DUAL_STACK"`
 	HostIP                  netip.Addr    `json:"HOST_IP"`
+	HostIPv4LoopbackCidr    string        `json:"HOST_IPV4_LOOPBACK_CIDR"`
 }
 
 func (c *Config) String() string {
@@ -129,7 +131,10 @@ func (c *Config) Print() {
 }
 
 func (c *Config) Validate() error {
-	return ValidateOwnerGroups(c.OwnerGroupsInclude, c.OwnerGroupsExclude)
+	if err := ValidateOwnerGroups(c.OwnerGroupsInclude, c.OwnerGroupsExclude); err != nil {
+		return err
+	}
+	return ValidateIPv4LoopbackCidr(c.HostIPv4LoopbackCidr)
 }
 
 var envoyUserVar = env.Register(constants.EnvoyUser, "istio-proxy", "Envoy proxy username")
@@ -138,6 +143,8 @@ func (c *Config) FillConfigFromEnvironment() {
 	// Fill in env-var only options
 	c.OwnerGroupsInclude = constants.OwnerGroupsInclude.Get()
 	c.OwnerGroupsExclude = constants.OwnerGroupsExclude.Get()
+
+	c.HostIPv4LoopbackCidr = constants.HostIPv4LoopbackCidr.Get()
 
 	// TODO: Make this more configurable, maybe with an allowlist of users to be captured for output instead of a denylist.
 	if c.ProxyUID == "" {

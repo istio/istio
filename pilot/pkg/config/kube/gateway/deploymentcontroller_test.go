@@ -26,6 +26,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	kubeVersion "k8s.io/apimachinery/pkg/version"
+	fakediscovery "k8s.io/client-go/discovery/fake"
 	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
 	"sigs.k8s.io/gateway-api/apis/v1alpha2"
 	"sigs.k8s.io/gateway-api/apis/v1beta1"
@@ -43,9 +45,11 @@ import (
 	"istio.io/istio/pkg/config/schema/gvk"
 	"istio.io/istio/pkg/config/schema/gvr"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/kube/namespace"
 	istiolog "istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/revisions"
 	"istio.io/istio/pkg/test"
@@ -53,9 +57,11 @@ import (
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 func TestConfigureIstioGateway(t *testing.T) {
+	discoveryNamespacesFilter := &fakeDiscoveryNamespacesFilter{namespaces: sets.New("default")}
 	defaultNamespace := &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "default"}}
 	customClass := &v1beta1.GatewayClass{
 		ObjectMeta: metav1.ObjectMeta{
@@ -76,7 +82,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 		Spec: &istioio_networking_v1beta1.ProxyConfig{
 			Selector: &istio_type_v1beta1.WorkloadSelector{
 				MatchLabels: map[string]string{
-					"istio.io/gateway-name": "default",
+					"gateway.networking.k8s.io/gateway-name": "default",
 				},
 			},
 			Image: &istioio_networking_v1beta1.ProxyImage{
@@ -88,11 +94,30 @@ func TestConfigureIstioGateway(t *testing.T) {
 	}
 	proxyConfig := model.GetProxyConfigs(store, mesh.DefaultMeshConfig())
 	tests := []struct {
-		name    string
-		gw      v1beta1.Gateway
-		objects []runtime.Object
-		pcs     *model.ProxyConfigs
+		name                     string
+		gw                       v1beta1.Gateway
+		objects                  []runtime.Object
+		pcs                      *model.ProxyConfigs
+		values                   string
+		discoveryNamespaceFilter namespace.DiscoveryNamespacesFilter
+		ignore                   bool
 	}{
+		{
+			name: "simple",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default",
+					Namespace:   "default",
+					Labels:      map[string]string{"should": "see"},
+					Annotations: map[string]string{"should": "see"},
+				},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: defaultClassName,
+				},
+			},
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
+		},
 		{
 			name: "simple",
 			gw: v1beta1.Gateway{
@@ -104,7 +129,9 @@ func TestConfigureIstioGateway(t *testing.T) {
 					GatewayClassName: defaultClassName,
 				},
 			},
-			objects: defaultObjects,
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: &fakeDiscoveryNamespacesFilter{namespaces: sets.New("non-default")},
+			ignore:                   true,
 		},
 		{
 			name: "manual-sa",
@@ -118,7 +145,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 					GatewayClassName: defaultClassName,
 				},
 			},
-			objects: defaultObjects,
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
 		},
 		{
 			name: "manual-ip",
@@ -136,7 +164,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 					}},
 				},
 			},
-			objects: defaultObjects,
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
 		},
 		{
 			name: "cluster-ip",
@@ -158,7 +187,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 					}},
 				},
 			},
-			objects: defaultObjects,
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
 		},
 		{
 			name: "multinetwork",
@@ -178,7 +208,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 					}},
 				},
 			},
-			objects: defaultObjects,
+			objects:                  defaultObjects,
+			discoveryNamespaceFilter: discoveryNamespacesFilter,
 		},
 		{
 			name: "waypoint",
@@ -187,7 +218,7 @@ func TestConfigureIstioGateway(t *testing.T) {
 					Name:      "namespace",
 					Namespace: "default",
 					Labels: map[string]string{
-						"topology.istio.io/network": "network-1",
+						"topology.istio.io/network": "network-1", // explicitly set network won't be overwritten
 					},
 				},
 				Spec: v1beta1.GatewaySpec{
@@ -200,6 +231,32 @@ func TestConfigureIstioGateway(t *testing.T) {
 				},
 			},
 			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  network: network-2`,
+		},
+		{
+			name: "waypoint-no-network-label",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "namespace",
+					Namespace: "default",
+				},
+				Spec: v1beta1.GatewaySpec{
+					GatewayClassName: constants.WaypointGatewayClassName,
+					Listeners: []v1beta1.Listener{{
+						Name:     "mesh",
+						Port:     v1beta1.PortNumber(15008),
+						Protocol: "ALL",
+					}},
+				},
+			},
+			objects: defaultObjects,
+			values: `global:
+  hub: test
+  tag: test
+  network: network-1`,
 		},
 		{
 			name: "proxy-config-crd",
@@ -228,11 +285,31 @@ func TestConfigureIstioGateway(t *testing.T) {
 			},
 			objects: defaultObjects,
 		},
+		{
+			name: "infrastructure-labels-annotations",
+			gw: v1beta1.Gateway{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:        "default",
+					Namespace:   "default",
+					Labels:      map[string]string{"should-not": "see"},
+					Annotations: map[string]string{"should-not": "see"},
+				},
+				Spec: v1alpha2.GatewaySpec{
+					GatewayClassName: defaultClassName,
+					Infrastructure: &k8sv1.GatewayInfrastructure{
+						Labels:      map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{"foo": "bar", "gateway.networking.k8s.io/ignore": "true"},
+						Annotations: map[v1beta1.AnnotationKey]v1beta1.AnnotationValue{"fizz": "buzz", "gateway.networking.k8s.io/ignore": "true"},
+					},
+				},
+			},
+			objects: defaultObjects,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			buf := &bytes.Buffer{}
 			client := kube.NewFakeClient(tt.objects...)
+			client.Kube().Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = &kubeVersion.Info{Major: "1", Minor: "28"}
 			kclient.NewWriteClient[*v1beta1.GatewayClass](client).Create(customClass)
 			kclient.NewWriteClient[*v1beta1.Gateway](client).Create(&tt.gw)
 			stop := test.NewStop(t)
@@ -241,8 +318,8 @@ func TestConfigureIstioGateway(t *testing.T) {
 			tw := revisions.NewTagWatcher(client, "")
 			go tw.Run(stop)
 			d := NewDeploymentController(
-				client, cluster.ID(features.ClusterName), env, testInjectionConfig(t), func(fn func()) {
-				}, tw, "")
+				client, cluster.ID(features.ClusterName), env, testInjectionConfig(t, tt.values), func(fn func()) {
+				}, tw, "", tt.discoveryNamespaceFilter)
 			d.patcher = func(gvr schema.GroupVersionResource, name string, namespace string, data []byte, subresources ...string) error {
 				b, err := yaml.JSONToYAML(data)
 				if err != nil {
@@ -256,8 +333,12 @@ func TestConfigureIstioGateway(t *testing.T) {
 			go d.Run(stop)
 			kube.WaitForCacheSync("test", stop, d.queue.HasSynced)
 
-			resp := timestampRegex.ReplaceAll(buf.Bytes(), []byte("lastTransitionTime: fake"))
-			util.CompareContent(t, resp, filepath.Join("testdata", "deployment", tt.name+".yaml"))
+			if tt.ignore {
+				assert.Equal(t, buf.String(), "")
+			} else {
+				resp := timestampRegex.ReplaceAll(buf.Bytes(), []byte("lastTransitionTime: fake"))
+				util.CompareContent(t, resp, filepath.Join("testdata", "deployment", tt.name+".yaml"))
+			}
 		})
 	}
 }
@@ -272,7 +353,7 @@ func TestVersionManagement(t *testing.T) {
 	})
 	tw := revisions.NewTagWatcher(c, "default")
 	env := &model.Environment{}
-	d := NewDeploymentController(c, "", env, testInjectionConfig(t), func(fn func()) {}, tw, "")
+	d := NewDeploymentController(c, "", env, testInjectionConfig(t, ""), func(fn func()) {}, tw, "", nil)
 	reconciles := atomic.NewInt32(0)
 	wantReconcile := int32(0)
 	expectReconciled := func() {
@@ -360,13 +441,23 @@ func TestVersionManagement(t *testing.T) {
 	assert.Equal(t, reconciles.Load(), wantReconcile)
 }
 
-func testInjectionConfig(t test.Failer) func() inject.WebhookConfig {
-	vc, err := inject.NewValuesConfig(`
+func testInjectionConfig(t test.Failer, values string) func() inject.WebhookConfig {
+	var vc inject.ValuesConfig
+	var err error
+	if values != "" {
+		vc, err = inject.NewValuesConfig(values)
+		if err != nil {
+			t.Fatal(err)
+		}
+	} else {
+		vc, err = inject.NewValuesConfig(`
 global:
   hub: test
   tag: test`)
-	if err != nil {
-		t.Fatal(err)
+		if err != nil {
+			t.Fatal(err)
+		}
+
 	}
 	tmpl, err := inject.ParseTemplates(map[string]string{
 		"kube-gateway": file.AsStringOrFail(t, filepath.Join(env.IstioSrc, "manifests/charts/istio-control/istio-discovery/files/kube-gateway.yaml")),
@@ -393,3 +484,37 @@ metadata:
     gateway.istio.io/controller-version: "%d"
 `, version)
 }
+
+type fakeDiscoveryNamespacesFilter struct {
+	namespaces sets.String
+}
+
+func (d *fakeDiscoveryNamespacesFilter) Filter(obj any) bool {
+	if ns, ok := obj.(string); ok {
+		return d.namespaces.Contains(ns)
+	}
+
+	// When an object is deleted, obj could be a DeletionFinalStateUnknown marker item.
+	object := controllers.ExtractObject(obj)
+	if object == nil {
+		return false
+	}
+	ns := object.GetNamespace()
+	if _, ok := object.(*corev1.Namespace); ok {
+		ns = object.GetName()
+	}
+	// permit if object resides in a namespace labeled for discovery
+	return d.namespaces.Contains(ns)
+}
+
+func (d *fakeDiscoveryNamespacesFilter) SelectorsChanged(
+	discoverySelectors []*metav1.LabelSelector,
+) {
+}
+
+// GetMembers returns member namespaces
+func (d *fakeDiscoveryNamespacesFilter) GetMembers() sets.String {
+	return d.namespaces
+}
+
+func (d *fakeDiscoveryNamespacesFilter) AddHandler(f func(ns string, event model.Event)) {}

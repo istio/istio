@@ -16,6 +16,7 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 )
 
 const (
@@ -38,6 +39,23 @@ func ValidateOwnerGroups(include, exclude string) error {
 		return fmt.Errorf("number of owner groups whose outgoing traffic "+
 			"should be redirected to Envoy cannot exceed %d, got %d: %v",
 			maxOwnerGroupsInclude, len(filter.Values), filter.Values)
+	}
+	return nil
+}
+
+func ValidateIPv4LoopbackCidr(cidr string) error {
+	ipp, err := netip.ParsePrefix(cidr)
+	if err != nil {
+		return fmt.Errorf("failed to parse CIDR %s: %v", cidr, err)
+	}
+
+	if !ipp.Addr().Is4() || !ipp.Addr().IsLoopback() {
+		return fmt.Errorf("expected valid IPv4 loopback address in CIDR %s; found %v", cidr, ipp.Addr())
+	}
+
+	ones := ipp.Bits()
+	if ones < 8 || ones > 32 {
+		return fmt.Errorf("expected CIDR %s to have mask in range [8, 32]; found %v", cidr, ones)
 	}
 	return nil
 }

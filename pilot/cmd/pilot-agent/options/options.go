@@ -121,10 +121,6 @@ var (
 	wasmHTTPRequestMaxRetries = env.Register("WASM_HTTP_REQUEST_MAX_RETRIES", wasm.DefaultHTTPRequestMaxRetries,
 		"maximum number of HTTP/HTTPS request retries for pulling a Wasm module via http/https").Get()
 
-	// Ability of istio-agent to retrieve bootstrap via XDS
-	enableBootstrapXdsEnv = env.Register("BOOTSTRAP_XDS_AGENT", false,
-		"If set to true, agent retrieves the bootstrap configuration prior to starting Envoy").Get()
-
 	enableWDSEnv = env.Register("PEER_METADATA_DISCOVERY", false,
 		"If set to true, enable the peer metadata discovery extension in Envoy").Get()
 
@@ -150,7 +146,7 @@ var (
 
 	minimumDrainDurationEnv = env.Register("MINIMUM_DRAIN_DURATION",
 		5*time.Second,
-		"The minimum duration for which agent waits before it checks for active connections and terminates proxy"+
+		"The minimum duration for which agent waits before it checks for active connections and terminates proxy "+
 			"when number of active connections become zero").Get()
 
 	exitOnZeroActiveConnectionsEnv = env.Register("EXIT_ON_ZERO_ACTIVE_CONNECTIONS",

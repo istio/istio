@@ -15,10 +15,10 @@
 package kubeauth
 
 import (
+	"context"
 	"reflect"
 	"testing"
 
-	"golang.org/x/net/context"
 	"google.golang.org/grpc/metadata"
 	k8sauth "k8s.io/api/authentication/v1"
 	"k8s.io/apimachinery/pkg/runtime"

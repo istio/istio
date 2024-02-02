@@ -18,6 +18,7 @@ package slices
 import (
 	"cmp"
 	"slices" // nolint: depguard
+	"strings"
 
 	"golang.org/x/exp/constraints"
 )
@@ -29,6 +30,23 @@ import (
 // Floating point NaNs are not considered equal.
 func Equal[E comparable](s1, s2 []E) bool {
 	return slices.Equal(s1, s2)
+}
+
+// EqualUnordered reports whether two slices are equal, ignoring order
+func EqualUnordered[E comparable](s1, s2 []E) bool {
+	if len(s1) != len(s2) {
+		return false
+	}
+	first := make(map[E]struct{}, len(s1))
+	for _, c := range s1 {
+		first[c] = struct{}{}
+	}
+	for _, c := range s2 {
+		if _, f := first[c]; !f {
+			return false
+		}
+	}
+	return true
 }
 
 // EqualFunc reports whether two slices are equal using a comparison
@@ -112,7 +130,7 @@ func Reverse[E any](r []E) []E {
 
 // FilterInPlace retains all elements in []E that f(E) returns true for.
 // The array is *mutated in place* and returned.
-// Used Filter to avoid mutation
+// Use Filter to avoid mutation
 func FilterInPlace[E any](s []E, f func(E) bool) []E {
 	n := 0
 	for _, val := range s {
@@ -121,6 +139,14 @@ func FilterInPlace[E any](s []E, f func(E) bool) []E {
 			n++
 		}
 	}
+
+	// If those elements contain pointers you might consider zeroing those elements
+	// so that objects they reference can be garbage collected."
+	var empty E
+	for i := n; i < len(s); i++ {
+		s[i] = empty
+	}
+
 	s = s[:n]
 	return s
 }
@@ -180,9 +206,35 @@ func Dereference[E any](s []*E) []E {
 
 // Flatten merges a slice of slices into a single slice.
 func Flatten[E any](s [][]E) []E {
+	if s == nil {
+		return nil
+	}
 	res := make([]E, 0)
 	for _, v := range s {
 		res = append(res, v...)
 	}
 	return res
+}
+
+// Group groups a slice by a key.
+func Group[T any, K comparable](data []T, f func(T) K) map[K][]T {
+	res := make(map[K][]T, len(data))
+	for _, e := range data {
+		k := f(e)
+		res[k] = append(res[k], e)
+	}
+	return res
+}
+
+// GroupUnique groups a slice by a key. Each key must be unique or data will be lost. To allow multiple use Group.
+func GroupUnique[T any, K comparable](data []T, f func(T) K) map[K]T {
+	res := make(map[K]T, len(data))
+	for _, e := range data {
+		res[f(e)] = e
+	}
+	return res
+}
+
+func Join(sep string, fields ...string) string {
+	return strings.Join(fields, sep)
 }

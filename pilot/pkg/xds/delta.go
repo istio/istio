@@ -149,8 +149,7 @@ func (s *DiscoveryServer) StreamDeltas(stream DeltaDiscoveryStream) error {
 	}
 }
 
-// Compute and send the new configuration for a connection. This is blocking and may be slow
-// for large configs. The method will hold a lock on con.pushMutex.
+// Compute and send the new configuration for a connection.
 func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) error {
 	pushRequest := pushEv.pushRequest
 
@@ -163,22 +162,23 @@ func (s *DiscoveryServer) pushConnectionDelta(con *Connection, pushEv *Event) er
 		deltaLog.Debugf("Skipping push to %v, no updates required", con.conID)
 		if pushRequest.Full {
 			// Only report for full versions, incremental pushes do not have a new version
-			reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, nil)
+			reportAllEventsForProxyNoPush(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 		}
 		return nil
 	}
 
 	// Send pushes to all generators
 	// Each Generator is responsible for determining if the push event requires a push
-	wrl, ignoreEvents := con.pushDetails()
+	wrl := con.orderWatchedResources()
 	for _, w := range wrl {
 		if err := s.pushDeltaXds(con, w, pushRequest); err != nil {
 			return err
 		}
 	}
+
 	if pushRequest.Full {
 		// Report all events for unwatched resources. Watched resources will be reported in pushXds or on ack.
-		reportAllEvents(s.StatusReporter, con.conID, pushRequest.Push.LedgerVersion, ignoreEvents)
+		reportEventsForUnWatched(con, s.StatusReporter, pushRequest.Push.LedgerVersion)
 	}
 
 	proxiesConvergeDelay.Record(time.Since(pushRequest.Start).Seconds())
@@ -246,7 +246,7 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 	}
 	err := istiogrpc.Send(conn.deltaStream.Context(), sendHandler)
 	if err == nil {
-		if res.Nonce != "" && !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
+		if !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
 			conn.proxy.Lock()
 			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
 				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
@@ -268,28 +268,30 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 // handles 'push' requests and close - the code will eventually call the 'push' code, and it needs more mutex
 // protection. Original code avoided the mutexes by doing both 'push' and 'process requests' in same thread.
 func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryRequest, con *Connection) error {
+	stype := v3.GetShortType(req.TypeUrl)
+	deltaLog.Debugf("ADS:%s: REQ %s resources sub:%d unsub:%d nonce:%s", stype,
+		con.conID, len(req.ResourceNamesSubscribe), len(req.ResourceNamesUnsubscribe), req.ResponseNonce)
+
 	if req.TypeUrl == v3.HealthInfoType {
 		s.handleWorkloadHealthcheck(con.proxy, deltaToSotwRequest(req))
 		return nil
 	}
 	if strings.HasPrefix(req.TypeUrl, v3.DebugType) {
-		return s.pushXds(con,
+		return s.pushDeltaXds(con,
 			&model.WatchedResource{TypeUrl: req.TypeUrl, ResourceNames: req.ResourceNamesSubscribe},
 			&model.PushRequest{Full: true, Push: con.proxy.LastPushContext})
 	}
+
 	if s.StatusReporter != nil {
 		s.StatusReporter.RegisterEvent(con.conID, req.TypeUrl, req.ResponseNonce)
 	}
+
 	shouldRespond := s.shouldRespondDelta(con, req)
 	if !shouldRespond {
 		return nil
 	}
 
-	subs := sets.New(req.ResourceNamesSubscribe...).Delete("*")
-	// InitialResourceVersions are essential subscriptions on the first request, since we don't care about the version
-	for k := range req.InitialResourceVersions {
-		subs.Insert(k)
-	}
+	subs, _ := deltaWatchedResources(nil, req)
 	request := &model.PushRequest{
 		Full:   true,
 		Push:   con.proxy.LastPushContext,
@@ -301,7 +303,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 		Start: con.proxy.LastPushTime,
 		Delta: model.ResourceDelta{
 			// Record sub/unsub, but drop synthetic wildcard info
-			Subscribed:   subs,
+			Subscribed:   sets.New(subs...),
 			Unsubscribed: sets.New(req.ResourceNamesUnsubscribe...).Delete("*"),
 		},
 	}
@@ -326,9 +328,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		errCode := codes.Code(request.ErrorDetail.Code)
 		deltaLog.Warnf("ADS:%s: ACK ERROR %s %s:%s", stype, con.conID, errCode.String(), request.ErrorDetail.GetMessage())
 		incrementXDSRejects(request.TypeUrl, con.proxy.ID, errCode.String())
-		if s.StatusGen != nil {
-			s.StatusGen.OnNack(con.proxy, deltaToSotwRequest(request))
-		}
 		return false
 	}
 
@@ -385,7 +384,6 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		xdsExpiredNonce.With(typeTag.Value(v3.GetMetricType(request.TypeUrl))).Increment()
 		return false
 	}
-
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
 	con.proxy.Lock()
@@ -397,21 +395,24 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	previousInfo.AlwaysRespond = false
 	con.proxy.Unlock()
 
-	oldAck := listEqualUnordered(previousResources, currentResources)
+	subChanged := !slices.EqualUnordered(previousResources, currentResources)
 	// Spontaneous DeltaDiscoveryRequests from the client.
 	// This can be done to dynamically add or remove elements from the tracked resource_names set.
 	// In this case response_nonce is empty.
-	newAck := request.ResponseNonce != ""
-	if newAck != oldAck {
-		// Not sure which is better, lets just log if they don't match for now and compare.
-		deltaLog.Errorf("ADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck)
+	spontaneousReq := request.ResponseNonce == ""
+	// It is invalid in the below two cases:
+	// 1. no subscribed resources change from spontaneous delta request.
+	// 2. subscribed resources changes from ACK.
+	if spontaneousReq && !subChanged || !spontaneousReq && subChanged {
+		deltaLog.Errorf("ADS:%s: Subscribed resources check mismatch: %v vs %v", stype, spontaneousReq, subChanged)
 		if features.EnableUnsafeAssertions {
-			panic(fmt.Sprintf("ADS:%s: New ACK and old ACK check mismatch: %v vs %v", stype, newAck, oldAck))
+			panic(fmt.Sprintf("ADS:%s: Subscribed resources check mismatch: %v vs %v", stype, spontaneousReq, subChanged))
 		}
 	}
+
 	// Envoy can send two DiscoveryRequests with same version and nonce
 	// when it detects a new resource. We should respond if they change.
-	if oldAck {
+	if !subChanged {
 		// We should always respond "alwaysRespond" marked requests to let Envoy finish warming
 		// even though Nonce match and it looks like an ACK.
 		if alwaysRespond {
@@ -496,14 +497,13 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	} else if req.Full {
 		// similar to sotw
 		subscribed := sets.New(w.ResourceNames...)
-		subscribed.DeleteAll(currentResources...)
-		resp.RemovedResources = sets.SortedList(subscribed)
+		removed := subscribed.DeleteAll(currentResources...)
+		resp.RemovedResources = sets.SortedList(removed)
 	}
 	if len(resp.RemovedResources) > 0 {
 		deltaLog.Debugf("ADS:%v REMOVE for node:%s %v", v3.GetShortType(w.TypeUrl), con.conID, resp.RemovedResources)
 	}
-	// normally wildcard xds `subscribe` is always nil, just in case there are some extended type not handled correctly.
-	if req.Delta.Subscribed == nil && shouldSetWatchedResources(w) {
+	if shouldSetWatchedResources(w) {
 		// this is probably a bad idea...
 		con.proxy.Lock()
 		w.ResourceNames = currentResources
@@ -534,7 +534,7 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 	}
 
 	switch {
-	case !req.Full && w.TypeUrl != v3.AddressType:
+	case !req.Full:
 		if deltaLog.DebugEnabled() {
 			deltaLog.Debugf("%s: %s%s for node:%s resources:%d size:%s%s",
 				v3.GetShortType(w.TypeUrl), ptype, req.PushReason(), con.proxy.ID, len(res), util.ByteCount(configSize), info)
@@ -556,13 +556,13 @@ func (s *DiscoveryServer) pushDeltaXds(con *Connection,
 // requiresResourceNamesModification checks if a generator needs mutable access to w.ResourceNames.
 // This is used when resources are spontaneously pushed during Delta XDS
 func requiresResourceNamesModification(url string) bool {
-	return url == v3.AddressType
+	return url == v3.AddressType || url == v3.WorkloadType
 }
 
 // shouldSetWatchedResources indicates whether we should set the watched resources for a given type.
 // for some type like `Address` we customly handle it in the generator
 func shouldSetWatchedResources(w *model.WatchedResource) bool {
-	if w.TypeUrl == v3.AddressType {
+	if w.TypeUrl == v3.AddressType || w.TypeUrl == v3.WorkloadType {
 		return false
 	}
 	// Else fallback based on type

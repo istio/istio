@@ -333,6 +333,14 @@ func TestInjection(t *testing.T) {
 				m.DefaultConfig.Tracing = &meshapi.Tracing{}
 			},
 		},
+		{
+			in:   "truncate-canonical-name-pod.yaml",
+			want: "truncate-canonical-name-pod.yaml.injected",
+		},
+		{
+			in:   "truncate-canonical-name-custom-controller-pod.yaml",
+			want: "truncate-canonical-name-custom-controller-pod.yaml.injected",
+		},
 	}
 	// Keep track of tests we add options above
 	// We will search for all test files and skip these ones

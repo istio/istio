@@ -60,10 +60,6 @@ const (
 
 	// DefaultProfileName is the name of the default profile.
 	DefaultProfileName = "default"
-
-	// InstalledSpecCRPrefix is the prefix of any IstioOperator CR stored in the cluster that is a copy of the CR used
-	// in the last install operation.
-	InstalledSpecCRPrefix = "installed-state"
 )
 
 // ComponentName is a component name string, typed to constrain allowed values.
@@ -186,7 +182,7 @@ func Namespace(componentName ComponentName, controlPlaneSpec *v1alpha1.IstioOper
 
 	componentNodeI, found, err := tpath.GetFromStructPath(controlPlaneSpec, "Components."+string(componentName)+".Namespace")
 	if err != nil {
-		return "", fmt.Errorf("error in Namepsace GetFromStructPath componentNamespace for component=%s: %s", componentName, err)
+		return "", fmt.Errorf("error in Namespace GetFromStructPath componentNamespace for component=%s: %s", componentName, err)
 	}
 	if !found {
 		return defaultNamespace, nil

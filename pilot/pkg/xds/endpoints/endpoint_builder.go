@@ -203,52 +203,52 @@ func (b *EndpointBuilder) WriteHash(h hash.Hash) {
 	if b == nil {
 		return
 	}
-	h.Write([]byte(b.clusterName))
+	h.WriteString(b.clusterName)
 	h.Write(Separator)
-	h.Write([]byte(b.network))
+	h.WriteString(string(b.network))
 	h.Write(Separator)
-	h.Write([]byte(b.clusterID))
+	h.WriteString(string(b.clusterID))
 	h.Write(Separator)
-	h.Write([]byte(b.nodeType))
+	h.WriteString(string(b.nodeType))
 	h.Write(Separator)
-	h.Write([]byte(strconv.FormatBool(b.clusterLocal)))
+	h.WriteString(strconv.FormatBool(b.clusterLocal))
 	h.Write(Separator)
 	if features.EnableHBONE && b.proxy != nil {
-		h.Write([]byte(strconv.FormatBool(b.proxy.IsProxylessGrpc())))
+		h.WriteString(strconv.FormatBool(b.proxy.IsProxylessGrpc()))
 		h.Write(Separator)
 	}
-	h.Write([]byte(util.LocalityToString(b.locality)))
+	h.WriteString(util.LocalityToString(b.locality))
 	h.Write(Separator)
 	if len(b.failoverPriorityLabels) > 0 {
 		h.Write(b.failoverPriorityLabels)
 		h.Write(Separator)
 	}
 	if b.service.Attributes.NodeLocal {
-		h.Write([]byte(b.proxy.GetNodeName()))
+		h.WriteString(b.proxy.GetNodeName())
 		h.Write(Separator)
 	}
 
 	if b.push != nil && b.push.AuthnPolicies != nil {
-		h.Write([]byte(b.push.AuthnPolicies.GetVersion()))
+		h.WriteString(b.push.AuthnPolicies.GetVersion())
 	}
 	h.Write(Separator)
 
 	for _, dr := range b.destinationRule.GetFrom() {
-		h.Write([]byte(dr.Name))
+		h.WriteString(dr.Name)
 		h.Write(Slash)
-		h.Write([]byte(dr.Namespace))
+		h.WriteString(dr.Namespace)
 	}
 	h.Write(Separator)
 
 	if b.service != nil {
-		h.Write([]byte(b.service.Hostname))
+		h.WriteString(string(b.service.Hostname))
 		h.Write(Slash)
-		h.Write([]byte(b.service.Attributes.Namespace))
+		h.WriteString(b.service.Attributes.Namespace)
 	}
 	h.Write(Separator)
 
 	if b.proxyView != nil {
-		h.Write([]byte(b.proxyView.String()))
+		h.WriteString(b.proxyView.String())
 	}
 	h.Write(Separator)
 }
@@ -649,36 +649,11 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 	util.AppendLbEndpointMetadata(meta, ep.Metadata)
 
-	address, port := e.Address, e.EndpointPort
-
-	supportsTunnel := false
-	// Other side is a waypoint proxy.
-	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
-		supportsTunnel = true
-	}
-
-	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
-	if b.push.SupportsTunnel(e.Network, e.Address) {
-		supportsTunnel = true
-	}
-	// Otherwise supports tunnel
-	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
-	// need to pick the right one based on our support overlap.
-	if e.SupportsTunnel(model.TunnelHTTP) {
-		supportsTunnel = true
-	}
-	if b.proxy.IsProxylessGrpc() {
-		// Proxyless client cannot handle tunneling, even if the server can
-		supportsTunnel = false
-	}
-
-	if !b.proxy.EnableHBONE() {
-		supportsTunnel = false
-	}
-
 	waypoint := ""
-
+	address, port := e.Address, int(e.EndpointPort)
+	tunnel := supportTunnel(b, e)
 	// Setup tunnel information, if needed
+	// This is for waypoint
 	if b.dir == model.TrafficDirectionInboundVIP {
 		// This is only used in waypoint proxy
 		inScope := waypointInScope(b.proxy, e)
@@ -689,19 +664,18 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 			return nil
 		}
 		// For inbound, we only use EDS for the VIP cases. The VIP cluster will point to encap listener.
-		if supportsTunnel {
-			address := e.Address
+		if tunnel {
 			// We will connect to CONNECT origination internal listener, telling it to tunnel to ip:15008,
 			// and add some detunnel metadata that had the original port.
-			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(e.EndpointPort), waypoint)
+			ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
 			ep = util.BuildInternalLbEndpoint(connectOriginate, ep.Metadata)
 			ep.LoadBalancingWeight = &wrapperspb.UInt32Value{
 				Value: e.GetLoadBalancingWeight(),
 			}
 		}
-	} else if supportsTunnel {
+	} else if tunnel {
 		// Support connecting to server side waypoint proxy, if the destination has one. This is for sidecars and ingress.
-		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() && !b.proxy.IsAmbient() {
+		if b.dir == model.TrafficDirectionOutbound && !b.proxy.IsWaypointProxy() {
 			workloads := findWaypoints(b.push, e)
 			if len(workloads) > 0 {
 				// TODO: load balance
@@ -710,9 +684,9 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 		}
 		// Setup tunnel metadata so requests will go through the tunnel
 		ep.HostIdentifier = &endpoint.LbEndpoint_Endpoint{Endpoint: &endpoint.Endpoint{
-			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(int(port)))),
+			Address: util.BuildInternalAddressWithIdentifier(connectOriginate, net.JoinHostPort(address, strconv.Itoa(port))),
 		}}
-		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, int(port), waypoint)
+		ep.Metadata.FilterMetadata[util.OriginalDstMetadataKey] = util.BuildTunnelMetadataStruct(address, port, waypoint)
 		ep.Metadata.FilterMetadata[util.EnvoyTransportSocketMetadataKey] = &structpb.Struct{
 			Fields: map[string]*structpb.Value{
 				model.TunnelLabelShortName: {Kind: &structpb.Value_StringValue{StringValue: model.TunnelHTTP}},
@@ -721,6 +695,35 @@ func buildEnvoyLbEndpoint(b *EndpointBuilder, e *model.IstioEndpoint, mtlsEnable
 	}
 
 	return ep
+}
+
+func supportTunnel(b *EndpointBuilder, e *model.IstioEndpoint) bool {
+	if b.proxy.IsProxylessGrpc() {
+		// Proxyless client cannot handle tunneling, even if the server can
+		return false
+	}
+
+	if !b.proxy.EnableHBONE() {
+		return false
+	}
+
+	// Other side is a waypoint proxy.
+	if al := e.Labels[constants.ManagedGatewayLabel]; al == constants.ManagedGatewayMeshControllerLabel {
+		return true
+	}
+
+	// Otherwise has ambient enabled. Note: this is a synthetic label, not existing in the real Pod.
+	if b.push.SupportsTunnel(e.Network, e.Address) {
+		return true
+	}
+	// Otherwise supports tunnel
+	// Currently we only support HTTP tunnel, so just check for that. If we support more, we will
+	// need to pick the right one based on our support overlap.
+	if e.SupportsTunnel(model.TunnelHTTP) {
+		return true
+	}
+
+	return false
 }
 
 // waypointInScope computes whether the endpoint is owned by the waypoint
@@ -757,15 +760,7 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	var lbSettings *v1alpha3.LoadBalancerSettings
 
 	port := &model.Port{Port: portNumber}
-	policy := util.MergeTrafficPolicy(nil, destinationRule.TrafficPolicy, port)
-
-	for _, subset := range destinationRule.Subsets {
-		if subset.Name == subsetName {
-			policy = util.MergeTrafficPolicy(policy, subset.TrafficPolicy, port)
-			break
-		}
-	}
-
+	policy := getSubsetTrafficPolicy(destinationRule, port, subsetName)
 	if policy != nil {
 		lbSettings = policy.LoadBalancer
 		if policy.OutlierDetection != nil {
@@ -774,6 +769,17 @@ func getOutlierDetectionAndLoadBalancerSettings(
 	}
 
 	return outlierDetectionEnabled, lbSettings
+}
+
+func getSubsetTrafficPolicy(destinationRule *v1alpha3.DestinationRule, port *model.Port, subsetName string) *v1alpha3.TrafficPolicy {
+	var subSetTrafficPolicy *v1alpha3.TrafficPolicy
+	for _, subset := range destinationRule.Subsets {
+		if subset.Name == subsetName {
+			subSetTrafficPolicy = subset.TrafficPolicy
+			break
+		}
+	}
+	return util.MergeSubsetTrafficPolicy(destinationRule.TrafficPolicy, subSetTrafficPolicy, port)
 }
 
 // getSubSetLabels returns the labels associated with a subset of a given service.

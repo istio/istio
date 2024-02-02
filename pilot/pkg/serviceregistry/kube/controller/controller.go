@@ -96,6 +96,9 @@ var (
 )
 
 func incrementEvent(kind, event string) {
+	if kind == "" || event == "" {
+		return
+	}
 	k8sEvents.With(typeTag.Value(kind), eventTag.Value(event)).Increment()
 }
 
@@ -223,6 +226,9 @@ type Controller struct {
 	ambientIndex     AmbientIndex
 	configController model.ConfigStoreController
 	configCluster    bool
+
+	networksHandlerRegistration *mesh.WatcherHandlerRegistration
+	meshHandlerRegistration     *mesh.WatcherHandlerRegistration
 }
 
 // NewController creates a new Kubernetes controller
@@ -264,7 +270,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	if !c.opts.ConfigCluster || c.opts.DiscoveryNamespacesFilter == nil {
 		c.opts.DiscoveryNamespacesFilter = namespace.NewDiscoveryNamespacesFilter(c.namespaces, options.MeshWatcher.Mesh().DiscoverySelectors)
 	}
-	c.initDiscoveryHandlers(options.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
+	c.initDiscoveryHandlers(c.opts.MeshWatcher, c.opts.DiscoveryNamespacesFilter)
 
 	c.services = kclient.NewFiltered[*v1.Service](kubeClient, kclient.Filter{ObjectFilter: c.opts.DiscoveryNamespacesFilter.Filter})
 
@@ -282,7 +288,7 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 	})
 	c.pods = newPodCache(c, c.podsClient, func(key types.NamespacedName) {
 		c.queue.Push(func() error {
-			return c.endpoints.sync(key.Name, key.Namespace, model.EventAdd, true)
+			return c.endpoints.podArrived(key.Name, key.Namespace)
 		})
 	})
 	registerHandlers[*v1.Pod](c, c.podsClient, "Pods", c.pods.onEvent, c.pods.labelFilter)
@@ -296,13 +302,12 @@ func NewController(kubeClient kubelib.Client, options Options) *Controller {
 
 	c.meshWatcher = options.MeshWatcher
 	if c.opts.MeshNetworksWatcher != nil {
-		c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
+		c.networksHandlerRegistration = c.opts.MeshNetworksWatcher.AddNetworksHandler(func() {
 			c.reloadMeshNetworks()
 			c.onNetworkChange()
 		})
 		c.reloadMeshNetworks()
 	}
-
 	return c
 }
 
@@ -368,6 +373,17 @@ func (c *Controller) Cleanup() error {
 	if c.opts.XDSUpdater != nil {
 		c.opts.XDSUpdater.RemoveShard(model.ShardKeyFromRegistry(c))
 	}
+
+	// Unregister networks handler
+	if c.networksHandlerRegistration != nil {
+		c.opts.MeshNetworksWatcher.DeleteNetworksHandler(c.networksHandlerRegistration)
+	}
+
+	// Unregister mesh handler
+	if c.meshHandlerRegistration != nil {
+		c.opts.MeshWatcher.DeleteMeshHandler(c.meshHandlerRegistration)
+	}
+
 	return nil
 }
 
@@ -381,7 +397,7 @@ func (c *Controller) onServiceEvent(pre, curr *v1.Service, event model.Event) er
 	case model.EventDelete:
 		c.deleteService(svcConv)
 	default:
-		c.addOrUpdateService(curr, svcConv, event, false)
+		c.addOrUpdateService(pre, curr, svcConv, event, false)
 	}
 
 	return nil
@@ -409,7 +425,7 @@ func (c *Controller) deleteService(svc *model.Service) {
 	c.handlers.NotifyServiceHandlers(nil, svc, event)
 }
 
-func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
+func (c *Controller) addOrUpdateService(pre, curr *v1.Service, currConv *model.Service, event model.Event, updateEDSCache bool) {
 	needsFullPush := false
 	// First, process nodePort gateway service, whose externalIPs specified
 	// and loadbalancer gateway service
@@ -455,7 +471,7 @@ func (c *Controller) addOrUpdateService(curr *v1.Service, currConv *model.Servic
 	}
 
 	// filter out same service event
-	if event == model.EventUpdate && !serviceUpdateNeedsPush(prevConv, currConv) {
+	if event == model.EventUpdate && !serviceUpdateNeedsPush(pre, curr, prevConv, currConv) {
 		return
 	}
 
@@ -518,6 +534,8 @@ func (c *Controller) onNodeEvent(_, node *v1.Node, event model.Event) error {
 // FilterOutFunc func for filtering out objects during update callback
 type FilterOutFunc[T controllers.Object] func(old, cur T) bool
 
+// registerHandlers registers a handler for a given informer
+// Note: `otype` is used for metric, if empty, no metric will be reported
 func registerHandlers[T controllers.ComparableObject](c *Controller,
 	informer kclient.Informer[T], otype string,
 	handler func(T, T, model.Event) error, filter FilterOutFunc[T],
@@ -546,7 +564,6 @@ func registerHandlers[T controllers.ComparableObject](c *Controller,
 						return
 					}
 				}
-
 				incrementEvent(otype, "update")
 				c.queue.Push(func() error {
 					return wrappedHandler(old, cur, model.EventUpdate)
@@ -904,7 +921,7 @@ func (c *Controller) workloadInstanceHandler(si *model.WorkloadInstance, event m
 	matchedHostnames := slices.Map(matchedServices, func(e *v1.Service) host.Name {
 		return kube.ServiceHostname(e.Name, e.Namespace, c.opts.DomainSuffix)
 	})
-	c.endpoints.updateEDS(matchedHostnames, si.Namespace)
+	c.endpoints.pushEDS(matchedHostnames, si.Namespace)
 }
 
 func (c *Controller) onSystemNamespaceEvent(_, ns *v1.Namespace, ev model.Event) error {
@@ -1138,17 +1155,30 @@ func (c *Controller) servicesForNamespacedName(name types.NamespacedName) []*mod
 	return nil
 }
 
-func serviceUpdateNeedsPush(prev, curr *model.Service) bool {
+func serviceUpdateNeedsPush(prev, curr *v1.Service, preConv, currConv *model.Service) bool {
 	if !features.EnableOptimizedServicePush {
 		return true
 	}
-	if prev == nil {
-		return !curr.Attributes.ExportTo.Contains(visibility.None)
+	if preConv == nil {
+		return !currConv.Attributes.ExportTo.Contains(visibility.None)
 	}
 	// if service are not exported, no need to push
-	if prev.Attributes.ExportTo.Contains(visibility.None) &&
-		curr.Attributes.ExportTo.Contains(visibility.None) {
+	if preConv.Attributes.ExportTo.Contains(visibility.None) &&
+		currConv.Attributes.ExportTo.Contains(visibility.None) {
 		return false
 	}
-	return !prev.Equals(curr)
+	// Check if there are any changes we care about by comparing `model.Service`s
+	if !preConv.Equals(currConv) {
+		return true
+	}
+	// Also check if target ports are changed since they are not included in `model.Service`
+	// `preConv.Equals(currConv)` already makes sure the length of ports is not changed
+	if prev != nil && curr != nil {
+		for i := 0; i < len(prev.Spec.Ports); i++ {
+			if prev.Spec.Ports[i].TargetPort != curr.Spec.Ports[i].TargetPort {
+				return true
+			}
+		}
+	}
+	return false
 }

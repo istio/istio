@@ -301,8 +301,8 @@ func (p *XdsProxy) StreamAggregatedResources(downstream xds.DiscoveryStream) err
 func (p *XdsProxy) handleStream(downstream adsStream) error {
 	con := &ProxyConnection{
 		conID:           connectionNumber.Inc(),
-		upstreamError:   make(chan error, 2), // can be produced by recv and send
-		downstreamError: make(chan error, 2), // can be produced by recv and send
+		upstreamError:   make(chan error), // can be produced by recv and send
+		downstreamError: make(chan error), // can be produced by recv and send
 		// Requests channel is unbounded. The Envoy<->XDS Proxy<->Istiod system produces a natural
 		// looping of Recv and Send. Due to backpressure introduced by gRPC natively (that is, Send() can
 		// only send so much data without being Recv'd before it starts blocking), along with the
@@ -368,8 +368,8 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 		metrics.IstiodConnectionErrors.Increment()
 		return err
 	}
-	proxyLog.Infof("connected to upstream XDS server: %s", p.istiodAddress)
-	defer proxyLog.Debugf("disconnected from XDS server: %s", p.istiodAddress)
+	proxyLog.Infof("connected to upstream XDS server[%d]: %s", con.conID, p.istiodAddress)
+	defer proxyLog.Debugf("disconnected from XDS server[%d]: %s", con.conID, p.istiodAddress)
 
 	con.upstream = upstream
 
@@ -379,10 +379,7 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 			// from istiod
 			resp, err := con.upstream.Recv()
 			if err != nil {
-				select {
-				case con.upstreamError <- err:
-				case <-con.stopChan:
-				}
+				upstreamErr(con, err)
 				return
 			}
 			select {
@@ -419,7 +416,7 @@ func (p *XdsProxy) handleUpstream(ctx context.Context, con *ProxyConnection, xds
 			// On downstream error, we will return. This propagates the error to downstream envoy which will trigger reconnect
 			return err
 		case <-con.stopChan:
-			proxyLog.Debugf("stream stopped")
+			proxyLog.Debugf("stream [%d] stopped", con.conID)
 			return nil
 		}
 	}
@@ -432,10 +429,7 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 			// recv xds requests from envoy
 			req, err := con.downstream.Recv()
 			if err != nil {
-				select {
-				case con.downstreamError <- err:
-				case <-con.stopChan:
-				}
+				downstreamErr(con, err)
 				return
 			}
 
@@ -485,8 +479,8 @@ func (p *XdsProxy) handleUpstreamRequest(con *ProxyConnection) {
 				p.ecdsLastNonce.Store(req.ResponseNonce)
 			}
 			if err := sendUpstream(con.upstream, req); err != nil {
-				err = fmt.Errorf("upstream [%d] send error for type url %s: %v", con.conID, req.TypeUrl, err)
-				con.upstreamError <- err
+				err = fmt.Errorf("send error for type url %s: %v", req.TypeUrl, err)
+				upstreamErr(con, err)
 				return
 			}
 		case <-con.stopChan:
@@ -501,7 +495,7 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 		select {
 		case resp := <-con.responsesChan:
 			// TODO: separate upstream response handling from requests sending, which are both time costly
-			proxyLog.Debugf("response for type url %s", resp.TypeUrl)
+			proxyLog.Debugf("upstream [%d] response for type url %s", con.conID, resp.TypeUrl)
 			metrics.XdsProxyResponses.Increment()
 			if h, f := p.handlers[resp.TypeUrl]; f {
 				if len(resp.Resources) == 0 {
@@ -559,12 +553,13 @@ func (p *XdsProxy) handleUpstreamResponse(con *ProxyConnection) {
 
 func (p *XdsProxy) rewriteAndForward(con *ProxyConnection, resp *discovery.DiscoveryResponse, forward func(resp *discovery.DiscoveryResponse)) {
 	if err := wasm.MaybeConvertWasmExtensionConfig(resp.Resources, p.wasmCache); err != nil {
-		proxyLog.Debugf("sending NACK for ECDS resources %+v", resp.Resources)
+		proxyLog.Debugf("sending NACK for ECDS resources %+v, err: %+v", resp.Resources, err)
 		con.sendRequest(&discovery.DiscoveryRequest{
 			VersionInfo:   p.ecdsLastAckVersion.Load(),
-			TypeUrl:       v3.ExtensionConfigurationType,
+			TypeUrl:       resp.TypeUrl,
 			ResponseNonce: resp.Nonce,
 			ErrorDetail: &google_rpc.Status{
+				Code:    int32(codes.Internal),
 				Message: err.Error(),
 			},
 		})
@@ -592,20 +587,8 @@ func forwardToEnvoy(con *ProxyConnection, resp *discovery.DiscoveryResponse) {
 		return
 	}
 	if err := sendDownstream(con.downstream, resp); err != nil {
-		select {
-		case con.downstreamError <- err:
-			// we cannot return partial error and hope to restart just the downstream
-			// as we are blindly proxying req/responses. For now, the best course of action
-			// is to terminate upstream connection as well and restart afresh.
-			proxyLog.Errorf("downstream [%d] send error: %v", con.conID, err)
-		default:
-			// Do not block on downstream error channel push, this could happen when forward
-			// is triggered from a separated goroutine (e.g. ECDS processing go routine) while
-			// downstream connection has already been teared down and no receiver is available
-			// for downstream error channel.
-			proxyLog.Debugf("downstream [%d] error channel full, but get downstream send error: %v", con.conID, err)
-		}
-
+		err = fmt.Errorf("send error for type url %s: %v", resp.TypeUrl, err)
+		downstreamErr(con, err)
 		return
 	}
 }
@@ -693,6 +676,13 @@ func sendUpstream(upstream xds.DiscoveryClient, request *discovery.DiscoveryRequ
 
 // sendDownstream sends discovery response.
 func sendDownstream(downstream adsStream, response *discovery.DiscoveryResponse) error {
+	tStart := time.Now()
+	defer func() {
+		// This is a hint to help debug slow responses.
+		if time.Since(tStart) > 10*time.Second {
+			proxyLog.Warnf("sendDownstream took %v", time.Since(tStart))
+		}
+	}()
 	return istiogrpc.Send(downstream.Context(), func() error { return downstream.Send(response) })
 }
 
@@ -831,4 +821,22 @@ func (p *XdsProxy) initDebugInterface(port int) error {
 	}()
 
 	return nil
+}
+
+// upstreamErr sends the error to upstreamError channel, and return immediately if the connection closed.
+func upstreamErr(con *ProxyConnection, err error) {
+	proxyLog.Errorf("upstream [%d] error: %v", con.conID, err)
+	select {
+	case con.upstreamError <- err:
+	case <-con.stopChan:
+	}
+}
+
+// downstreamErr sends the error to downstreamError channel, and return immediately if the connection closed.
+func downstreamErr(con *ProxyConnection, err error) {
+	proxyLog.Errorf("downstream [%d] error: %v", con.conID, err)
+	select {
+	case con.downstreamError <- err:
+	case <-con.stopChan:
+	}
 }

@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: bug-fix
+area: istioctl
+releaseNotes:
+- |
+  **Fixed** an issue where the IST0158 message was incorrectly reported when the `imageType` field was set by the `ProxyConfig` resource, or the resource annotation `proxy.istio.io/config`.

@@ -17,14 +17,12 @@ package dependencies
 import (
 	"fmt"
 	"io"
-	"os"
 	"os/exec"
 	"regexp"
 	"strings"
 
 	utilversion "k8s.io/apimachinery/pkg/util/version"
 
-	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tools/istio-iptables/pkg/constants"
 )
@@ -52,16 +50,6 @@ var exittypeToString = map[XTablesExittype]string{
 	XTablesVersionProblem:   "xtables version problem",
 	XTablesResourceProblem:  "xtables resource problem",
 }
-
-// XTablesCmds is the set of all the xtables-related commands currently supported.
-var XTablesCmds = sets.New(
-	constants.IPTABLES,
-	constants.IP6TABLES,
-	constants.IPTABLESRESTORE,
-	constants.IP6TABLESRESTORE,
-	constants.IPTABLESSAVE,
-	constants.IP6TABLESSAVE,
-)
 
 // XTablesWriteCmds contains all xtables commands that do write actions (and thus need a lock)
 var XTablesWriteCmds = sets.New(
@@ -138,35 +126,12 @@ func transformToXTablesErrorMessage(stderr string, err error) string {
 	return stderr
 }
 
-// RunOrFail runs a command and exits with an error message, if it fails
-func (r *RealDependencies) RunOrFail(cmd string, stdin io.ReadSeeker, args ...string) {
-	var err error
-	if XTablesCmds.Contains(cmd) {
-		err = r.executeXTables(cmd, false, stdin, args...)
-	} else {
-		err = r.execute(cmd, false, stdin, args...)
-	}
-	if err != nil {
-		log.Errorf("Failed to execute: %s %s, %v", cmd, strings.Join(args, " "), err)
-		os.Exit(-1)
-	}
-}
-
 // Run runs a command
-func (r *RealDependencies) Run(cmd string, stdin io.ReadSeeker, args ...string) (err error) {
-	if XTablesCmds.Contains(cmd) {
-		err = r.executeXTables(cmd, false, stdin, args...)
-	} else {
-		err = r.execute(cmd, false, stdin, args...)
-	}
-	return err
+func (r *RealDependencies) Run(cmd string, stdin io.ReadSeeker, args ...string) error {
+	return r.executeXTables(cmd, false, stdin, args...)
 }
 
 // RunQuietlyAndIgnore runs a command quietly and ignores errors
 func (r *RealDependencies) RunQuietlyAndIgnore(cmd string, stdin io.ReadSeeker, args ...string) {
-	if XTablesCmds.Contains(cmd) {
-		_ = r.executeXTables(cmd, true, stdin, args...)
-	} else {
-		_ = r.execute(cmd, true, stdin, args...)
-	}
+	_ = r.executeXTables(cmd, true, stdin, args...)
 }

@@ -175,7 +175,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 	// resolve policy from context
 	destinationRule := corexds.CastDestinationRule(b.node.SidecarScope.DestinationRule(
 		model.TrafficDirectionOutbound, b.node, b.svc.Hostname).GetRule())
-	trafficPolicy := util.MergeTrafficPolicy(nil, destinationRule.GetTrafficPolicy(), b.port)
+	trafficPolicy, _ := util.GetPortLevelTrafficPolicy(destinationRule.GetTrafficPolicy(), b.port)
 
 	// setup default cluster
 	b.applyTrafficPolicy(defaultCluster, trafficPolicy)
@@ -189,7 +189,7 @@ func (b *clusterBuilder) applyDestinationRule(defaultCluster *cluster.Cluster) (
 				continue
 			}
 			c := edsCluster(subsetKey)
-			trafficPolicy := util.MergeTrafficPolicy(trafficPolicy, subset.TrafficPolicy, b.port)
+			trafficPolicy := util.MergeSubsetTrafficPolicy(trafficPolicy, subset.TrafficPolicy, b.port)
 			b.applyTrafficPolicy(c, trafficPolicy)
 			subsetClusters = append(subsetClusters, c)
 		}
@@ -233,7 +233,7 @@ func (b *clusterBuilder) applyTLS(c *cluster.Cluster, policy *networking.Traffic
 	case networking.ClientTLSSettings_MUTUAL:
 		// TODO support this
 	case networking.ClientTLSSettings_ISTIO_MUTUAL:
-		tlsCtx := buildUpstreamTLSContext(b.push.ServiceAccounts(b.hostname, b.svc.Attributes.Namespace, b.portNum))
+		tlsCtx := buildUpstreamTLSContext(b.push.ServiceAccounts(b.hostname, b.svc.Attributes.Namespace))
 		c.TransportSocket = &core.TransportSocket{
 			Name:       transportSocketName,
 			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(tlsCtx)},

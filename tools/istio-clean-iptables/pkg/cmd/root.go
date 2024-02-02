@@ -39,6 +39,10 @@ func bindCmdlineFlags(cfg *config.Config, cmd *cobra.Command) {
 	// Allow binding to a different var, for consistency with other components
 	flag.AdditionalEnv(fs, constants.RedirectDNS, "ISTIO_META_DNS_CAPTURE")
 
+	flag.BindEnv(fs, constants.CaptureAllDNS, "",
+		"Instead of only capturing DNS traffic to DNS server IP, capture all DNS traffic at port 53. This setting is only effective when redirect dns is enabled.",
+		&cfg.CaptureAllDNS)
+
 	flag.BindEnv(fs, constants.InboundInterceptionMode, "m",
 		"The mode used to redirect inbound connections to Envoy, either \"REDIRECT\" or \"TPROXY\".",
 		&cfg.InboundInterceptionMode)

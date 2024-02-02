@@ -6,19 +6,4 @@ spec:
       enabled: true
       namespace: kube-system
   values:
-    cni:
-      cniBinDir: /var/lib/cni/bin
-      cniConfDir: /etc/cni/multus/net.d
-      chained: false
-      cniConfFileName: "istio-cni.conf"
-      excludeNamespaces:
-       - istio-system
-       - kube-system
-      logLevel: info
-      privileged: true
-      provider: "multus"
-    global:
-      platform: openshift
-    istio_cni:
-      enabled: true
-      chained: false
+    profile: openshift

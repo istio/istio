@@ -8,10 +8,14 @@ The included sample files are:
 
 - `root-cert.pem`: root CA certificate.
 - `root-cert-alt.pem`: alternative CA certificate.
+- `root-cert-combined.pem`: combine `root-cert.pem` and `root-cert-alt.pem` into a single file.
+- `root-cert-combined-2.pem`: combine `root-cert.pem` and two `root-cert-alt.pem` into a single file.
 - `ca-[cert|key].pem`: Citadel intermediate certificate and corresponding private key.
 - `ca-[cert-alt|key-alt].pem`: alternative intermediate certificate and corresponding private key.
+- `ca-[cert-alt-2|key-alt-2].pem`: alternative intermediate certificate and corresponding private key signed by `root-cert-alt.pem`.
 - `cert-chain.pem`: certificate trust chain.
 - `cert-chain-alt.pem`: alternative certificate chain.
+- `cert-chain-alt-2.pem`: alternative certificate chain signed by `root-cert-alt.pem`.
 - `workload-foo-[cert|key].pem`: workload certificate and key for URI SAN `spiffe://trust-domain-foo/ns/foo/sa/foo` signed by `ca-cert.key`.
 - `workload-bar-[cert|key].pem`: workload certificate and key for URI SAN `spiffe://trust-domain-bar/ns/bar/sa/bar` signed by `ca-cert.key`.
 - `workload-foo-root-certs.pem`: root and intermediate CA certificates for foo workload certificate.

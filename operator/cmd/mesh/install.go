@@ -25,24 +25,23 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/yaml"
 
 	"istio.io/api/operator/v1alpha1"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
 	revtag "istio.io/istio/istioctl/pkg/tag"
 	"istio.io/istio/istioctl/pkg/util"
-	"istio.io/istio/istioctl/pkg/verifier"
 	v1alpha12 "istio.io/istio/operator/pkg/apis/istio/v1alpha1"
 	"istio.io/istio/operator/pkg/cache"
-	"istio.io/istio/operator/pkg/controller/istiocontrolplane"
 	"istio.io/istio/operator/pkg/helmreconciler"
 	"istio.io/istio/operator/pkg/manifest"
 	"istio.io/istio/operator/pkg/name"
 	"istio.io/istio/operator/pkg/translate"
 	"istio.io/istio/operator/pkg/util/clog"
 	"istio.io/istio/operator/pkg/util/progress"
+	"istio.io/istio/operator/pkg/verifier"
 	pkgversion "istio.io/istio/operator/pkg/version"
 	operatorVer "istio.io/istio/operator/version"
 	"istio.io/istio/pkg/config/constants"
@@ -181,6 +180,11 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	// Ignore the err because we don't want to show
 	// "no running Istio pods in istio-system" for the first time
 	_ = detectIstioVersionDiff(p, tag, ns, kubeClient, iop)
+	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
+	err = detectDefaultWebhookChange(p, kubeClient, iop, exists)
+	if err != nil {
+		return fmt.Errorf("failed to detect the default webhook change: %v", err)
+	}
 
 	// Warn users if they use `istioctl install` without any config args.
 	if !rootArgs.DryRun && !iArgs.SkipConfirmation {
@@ -198,9 +202,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 	iop.Name = savedIOPName(iop)
 
 	// Detect whether previous installation exists prior to performing the installation.
-	exists := revtag.PreviousInstallExists(context.Background(), kubeClient.Kube())
-	iop, err = InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l)
-	if err != nil {
+	if err := InstallManifests(iop, iArgs.Force, rootArgs.DryRun, kubeClient, client, iArgs.ReadinessTimeout, l); err != nil {
 		return fmt.Errorf("failed to install manifests: %v", err)
 	}
 	opts := &helmreconciler.ProcessDefaultWebhookOptions{
@@ -219,7 +221,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 			return nil
 		}
 		l.LogAndPrint("\n\nVerifying installation:")
-		installationVerifier, err := verifier.NewStatusVerifier(kubeClient, iop.Namespace, iArgs.ManifestsPath,
+		installationVerifier, err := verifier.NewStatusVerifier(kubeClient, client, iop.Namespace, iArgs.ManifestsPath,
 			iArgs.InFilenames, clioptions.ControlPlaneOptions{Revision: iop.Spec.Revision},
 			verifier.WithLogger(l),
 			verifier.WithIOP(iop),
@@ -244,7 +246,7 @@ func Install(kubeClient kube.CLIClient, rootArgs *RootArgs, iArgs *InstallArgs, 
 // Returns final IstioOperator after installation if successful.
 func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kubeClient kube.Client, client client.Client,
 	waitTimeout time.Duration, l clog.Logger,
-) (*v1alpha12.IstioOperator, error) {
+) error {
 	// Needed in case we are running a test through this path that doesn't start a new process.
 	cache.FlushObjectCaches()
 	opts := &helmreconciler.Options{
@@ -253,33 +255,27 @@ func InstallManifests(iop *v1alpha12.IstioOperator, force bool, dryRun bool, kub
 	}
 	reconciler, err := helmreconciler.NewHelmReconciler(client, kubeClient, iop, opts)
 	if err != nil {
-		return iop, err
+		return err
 	}
 	status, err := reconciler.Reconcile()
 	if err != nil {
-		return iop, fmt.Errorf("errors occurred during operation: %v", err)
+		return fmt.Errorf("errors occurred during operation: %v", err)
 	}
 	if status.Status != v1alpha1.InstallStatus_HEALTHY {
-		return iop, fmt.Errorf("errors occurred during operation")
+		return fmt.Errorf("errors occurred during operation")
 	}
+
+	// Previously we may install IOP file from the old version of istioctl. Now since we won't install IOP file
+	// anymore, and it didn't provide much value, we can delete it if it exists.
+	reconciler.DeleteIOPInClusterIfExists(iop)
 
 	opts.ProgressLog.SetState(progress.StateComplete)
 
-	// Save a copy of what was installed as a CR in the cluster under an internal name.
-	if iop.Annotations == nil {
-		iop.Annotations = make(map[string]string)
-	}
-	iop.Annotations[istiocontrolplane.IgnoreReconcileAnnotation] = "true"
-	iopStr, err := yaml.Marshal(iop)
-	if err != nil {
-		return iop, err
-	}
-
-	return iop, saveIOPToCluster(reconciler, string(iopStr))
+	return nil
 }
 
 func savedIOPName(iop *v1alpha12.IstioOperator) string {
-	ret := name.InstalledSpecCRPrefix
+	ret := "installed-state"
 	if iop.Name != "" {
 		ret += "-" + iop.Name
 	}
@@ -399,4 +395,23 @@ func humanReadableJoin(ss []string) string {
 	default:
 		return strings.Join(ss[:len(ss)-1], ", ") + ", and " + ss[len(ss)-1]
 	}
+}
+
+func detectDefaultWebhookChange(p Printer, client kube.CLIClient, iop *v1alpha12.IstioOperator, exists bool) error {
+	if !helmreconciler.DetectIfTagWebhookIsNeeded(iop, exists) {
+		return nil
+	}
+	mwhs, err := client.Kube().AdmissionregistrationV1().MutatingWebhookConfigurations().List(context.Background(), metav1.ListOptions{
+		LabelSelector: "app=sidecar-injector,istio.io/rev=default,istio.io/tag=default",
+	})
+	if err != nil {
+		return err
+	}
+	// If there is no default webhook but a revisioned default webhook exists,
+	// and we are installing a new IOP with default semantics, the default webhook shifts.
+	if exists && len(mwhs.Items) == 0 && iop.Spec.GetRevision() == "" {
+		p.Println("This installation will make default injection and validation pointing to the default revision, and " +
+			"originally it was pointing to the revisioned one.")
+	}
+	return nil
 }

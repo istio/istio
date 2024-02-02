@@ -1,0 +1,6 @@
+apiVersion: release-notes/v2
+kind: feature
+area: istioctl
+releaseNotes:
+- |
+  **Added** completion for Kubernetes pods for some commands that can select pods, such as `istioctl proxy-status <pod>`.

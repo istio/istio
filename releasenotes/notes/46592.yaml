@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: security
+issue:
+  - 46592
+
+releaseNotes:
+  - |
+    **Added** Waypoint can now run as non-root.

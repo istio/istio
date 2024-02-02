@@ -9,10 +9,12 @@ data:
       controlPlaneAuthPolicy: NONE
       discoveryAddress: my-discovery:123
       drainDuration: 12s
-      proxyMetadata: {}
       tracing:
         zipkin:
           address: zipkin.istio-system:9411
+    defaultProviders:
+      metrics:
+      - prometheus
     enablePrometheusMerge: true
     outboundTrafficPolicy:
       mode: REGISTRY_ONLY

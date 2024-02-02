@@ -72,6 +72,9 @@ func TestProxyTracingOpenCensusMeshConfig(t *testing.T) {
 //go:embed testdata/otel-tracing.yaml
 var otelTracingCfg string
 
+//go:embed testdata/otel-tracing-http.yaml
+var otelTracingHTTPCfg string
+
 // TestProxyTracingOpenTelemetryProvider validates that Telemetry API configuration
 // referencing an OpenTelemetry provider will generate traces appropriately.
 // NOTE: This test relies on the priority of Telemetry API over MeshConfig tracing
@@ -98,6 +101,41 @@ func TestProxyTracingOpenTelemetryProvider(t *testing.T) {
 
 						// the OTel collector exports to Zipkin
 						traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", "provider=otel")
+						t.Logf("got traces %v from %s", traces, cluster)
+						if err != nil {
+							return fmt.Errorf("cannot get traces from zipkin: %v", err)
+						}
+						if !tracing.VerifyOtelEchoTraces(ctx, appNsInst.Name(), cluster.Name(), traces) {
+							return errors.New("cannot find expected traces")
+						}
+						return nil
+					}, retry.Delay(3*time.Second), retry.Timeout(80*time.Second))
+				})
+			}
+		})
+}
+
+func TestProxyTracingOpenTelemetryProviderHTTPExporter(t *testing.T) {
+	framework.NewTest(t).
+		Features("observability.telemetry.tracing.server").
+		Run(func(t framework.TestContext) {
+			appNsInst := tracing.GetAppNamespace()
+
+			// apply Telemetry resource with OTel provider, exporting via HTTP
+			t.ConfigIstio().YAML(appNsInst.Name(), otelTracingHTTPCfg).ApplyOrFail(t)
+
+			// TODO fix tracing tests in multi-network https://github.com/istio/istio/issues/28890
+			for _, cluster := range t.Clusters().ByNetwork()[t.Clusters().Default().NetworkName()] {
+				cluster := cluster
+				t.NewSubTest(cluster.StableName()).Run(func(ctx framework.TestContext) {
+					retry.UntilSuccessOrFail(ctx, func() error {
+						err := tracing.SendTraffic(ctx, nil, cluster)
+						if err != nil {
+							return fmt.Errorf("cannot send traffic from cluster %s: %v", cluster.Name(), err)
+						}
+
+						// the OTel collector exports to Zipkin
+						traces, err := tracing.GetZipkinInstance().QueryTraces(300, "", "provider=otel-http")
 						t.Logf("got traces %v from %s", traces, cluster)
 						if err != nil {
 							return fmt.Errorf("cannot get traces from zipkin: %v", err)
@@ -139,6 +177,16 @@ meshConfig:
     opentelemetry:
       service: opentelemetry-collector.istio-system.svc.cluster.local
       port: 4317
+  - name: test-otel-http
+    opentelemetry:
+      service: opentelemetry-collector.istio-system.svc.cluster.local
+      port: 4318
+      http:
+        path: "v1/traces"
+        timeout: 10s
+        headers:
+          - name: "some-header"
+            value: "some-value"
 `
 	cfg.Values["pilot.traceSampling"] = "100.0"
 	cfg.Values["global.proxy.tracer"] = "openCensusAgent"

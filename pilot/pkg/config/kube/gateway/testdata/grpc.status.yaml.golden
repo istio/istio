@@ -61,8 +61,6 @@ status:
     name: default
     supportedKinds:
     - group: gateway.networking.k8s.io
-      kind: HTTPRoute
-    - group: gateway.networking.k8s.io
       kind: GRPCRoute
 ---
 apiVersion: gateway.networking.k8s.io/v1alpha2

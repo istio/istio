@@ -14,8 +14,6 @@
 package schema
 
 import (
-	"fmt"
-
 	"github.com/hashicorp/go-multierror"
 
 	"istio.io/istio/pkg/config"
@@ -53,8 +51,8 @@ func AllValidationAnalyzers() []analysis.Analyzer {
 // Metadata implements Analyzer
 func (a *ValidationAnalyzer) Metadata() analysis.Metadata {
 	return analysis.Metadata{
-		Name:        fmt.Sprintf("schema.ValidationAnalyzer.%s", a.s.Kind()),
-		Description: fmt.Sprintf("Runs schema validation as an analyzer on '%s' resources", a.s.Kind()),
+		Name:        "schema.ValidationAnalyzer." + a.s.Kind(),
+		Description: "Runs schema validation as an analyzer on '" + a.s.Kind() + "' resources",
 		Inputs:      []config.GroupVersionKind{a.s.GroupVersionKind()},
 	}
 }

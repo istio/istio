@@ -78,12 +78,3 @@ func TestExists(t *testing.T) {
 	unExist := Exists("unExist")
 	assert.Equal(t, unExist, false)
 }
-
-func TestIsDirWriteable(t *testing.T) {
-	d := t.TempDir()
-	err := IsDirWriteable(d)
-	assert.NoError(t, err)
-
-	err = IsDirWriteable("unWriteAble")
-	assert.Error(t, err)
-}

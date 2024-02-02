@@ -153,10 +153,15 @@ func (c *Controller) onNetworkChange() {
 	if err := c.syncPods(); err != nil {
 		log.Errorf("one or more errors force-syncing pods: %v", err)
 	}
-	if err := c.endpoints.sync("", metav1.NamespaceAll, model.EventAdd, true); err != nil {
+	if err := c.endpoints.initializeNamespace(metav1.NamespaceAll, true); err != nil {
 		log.Errorf("one or more errors force-syncing endpoints: %v", err)
 	}
 	c.reloadNetworkGateways()
+	// This is to ensure the ambient workloads are updated dynamically, aligning them with the current network settings.
+	// With this, the pod do not need to restart when the network configuration changes.
+	if features.EnableAmbientControllers {
+		c.syncAllWorkloadsForAmbient()
+	}
 }
 
 // reloadMeshNetworks will read the mesh networks configuration to setup

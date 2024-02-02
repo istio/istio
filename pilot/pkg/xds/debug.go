@@ -139,6 +139,7 @@ type SyncedVersions struct {
 	ClusterVersion  string `json:"cluster_acked,omitempty"`
 	ListenerVersion string `json:"listener_acked,omitempty"`
 	RouteVersion    string `json:"route_acked,omitempty"`
+	EndpointVersion string `json:"endpoint_acked,omitempty"`
 }
 
 // InitDebug initializes the debug handlers and adds a debug in-memory registry.
@@ -378,6 +379,8 @@ func (s *DiscoveryServer) distributedVersions(w http.ResponseWriter, req *http.R
 					ListenerVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.ListenerType),
 						resourceID, knownVersions),
 					RouteVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.RouteType),
+						resourceID, knownVersions),
+					EndpointVersion: s.getResourceVersion(s.StatusReporter.QueryLastNonce(con.conID, v3.EndpointType),
 						resourceID, knownVersions),
 				})
 			}
@@ -800,15 +803,15 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 		return nil, err
 	}
 
-	extentionsConfig := make([]*admin.EcdsConfigDump_EcdsFilterConfig, 0)
+	extensionsConfig := make([]*admin.EcdsConfigDump_EcdsFilterConfig, 0)
 	for _, ext := range dump[v3.ExtensionConfigurationType] {
-		extentionsConfig = append(extentionsConfig, &admin.EcdsConfigDump_EcdsFilterConfig{
+		extensionsConfig = append(extensionsConfig, &admin.EcdsConfigDump_EcdsFilterConfig{
 			VersionInfo: version,
 			EcdsFilter:  ext.Resource,
 		})
 	}
-	extentionsAny, err := protoconv.MessageToAnyWithError(&admin.EcdsConfigDump{
-		EcdsFilters: extentionsConfig,
+	extensionsAny, err := protoconv.MessageToAnyWithError(&admin.EcdsConfigDump{
+		EcdsFilters: extensionsConfig,
 	})
 	if err != nil {
 		return nil, err
@@ -848,7 +851,7 @@ func (s *DiscoveryServer) connectionConfigDump(conn *Connection, includeEds bool
 		scopedRoutesAny,
 		routesAny,
 		secretsAny,
-		extentionsAny,
+		extensionsAny,
 	)
 	configDump := &admin.ConfigDump{
 		Configs: configs,

@@ -123,7 +123,7 @@ var (
 		TypedConfig: protoconv.MessageToAny(&metadataformatter.Metadata{}),
 	}
 
-	// metadataFormatter configures additional formatters needed for some of the format strings like "METADATA"
+	// celFormatter configures additional formatters needed for some of the format strings like "CEL"
 	// for more information, see https://www.envoyproxy.io/docs/envoy/latest/api-v3/extensions/formatter/cel/v3/cel.proto
 	celFormatter = &core.TypedExtensionConfig{
 		Name:        "envoy.formatter.cel",
@@ -278,6 +278,7 @@ func buildFileAccessJSONLogFormat(
 			Format: &core.SubstitutionFormatString_JsonFormat{
 				JsonFormat: jsonLogStruct,
 			},
+			JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
 		},
 	}, formatters
 }
@@ -422,6 +423,7 @@ func FileAccessLogFromMeshConfig(path string, mesh *meshconfig.MeshConfig) *acce
 				Format: &core.SubstitutionFormatString_JsonFormat{
 					JsonFormat: jsonLogStruct,
 				},
+				JsonFormatOptions: &core.JsonFormatOptions{SortProperties: true},
 			},
 		}
 	default:
@@ -487,7 +489,7 @@ func buildOpenTelemetryAccessLogConfig(logName, hostname, clusterName, format st
 			TransportApiVersion:     core.ApiVersion_V3,
 			FilterStateObjectsToLog: envoyWasmStateToLog,
 		},
-		DisableBuiltinLabels: !features.EnableOTELBuiltinResourceLables,
+		DisableBuiltinLabels: !features.EnableOTELBuiltinResourceLabels,
 	}
 
 	if format != "" {

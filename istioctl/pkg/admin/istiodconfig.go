@@ -35,6 +35,7 @@ import (
 	"istio.io/api/label"
 	"istio.io/istio/istioctl/pkg/cli"
 	"istio.io/istio/istioctl/pkg/clioptions"
+	"istio.io/istio/istioctl/pkg/completion"
 	"istio.io/istio/pkg/log"
 )
 
@@ -473,6 +474,9 @@ func istiodLogCmd(ctx cli.Context) *cobra.Command {
 				return err
 			}
 			return nil
+		},
+		ValidArgsFunction: func(cmd *cobra.Command, args []string, toComplete string) ([]string, cobra.ShellCompDirective) {
+			return completion.ValidPodsNameArgs(cmd, ctx, args, toComplete)
 		},
 	}
 	opts.AttachControlPlaneFlags(logCmd)

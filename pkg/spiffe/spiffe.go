@@ -27,7 +27,7 @@ import (
 	"sync"
 	"time"
 
-	"gopkg.in/square/go-jose.v2"
+	jose "github.com/go-jose/go-jose/v3"
 
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
@@ -134,6 +134,9 @@ func MustGenSpiffeURI(ns, serviceAccount string) string {
 //
 //	{"spiffe://td1/ns/def/sa/a", "spiffe://td2/ns/def/sa/a", "spiffe://td1/ns/def/sa/b", "spiffe://td2/ns/def/sa/b"}.
 func ExpandWithTrustDomains(spiffeIdentities sets.String, trustDomainAliases []string) sets.String {
+	if len(trustDomainAliases) == 0 {
+		return spiffeIdentities
+	}
 	out := sets.New[string]()
 	for id := range spiffeIdentities {
 		out.Insert(id)

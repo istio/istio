@@ -18,7 +18,6 @@ import (
 	"flag"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/cobra/doc"
 
 	"istio.io/istio/pkg/collateral"
 	"istio.io/istio/pkg/version"
@@ -39,7 +38,7 @@ func getRootCmd(args []string) *cobra.Command {
 
 	rootCmd.AddCommand(serverCmd())
 	rootCmd.AddCommand(version.CobraCommand())
-	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, &doc.GenManHeader{
+	rootCmd.AddCommand(collateral.CobraCommand(rootCmd, collateral.Metadata{
 		Title:   "Istio Operator",
 		Section: "operator CLI",
 		Manual:  "Istio Operator",

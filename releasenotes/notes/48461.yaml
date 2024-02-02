@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: traffic-management
+releaseNotes:
+  - |
+    **Added** support for concurrent SidecarScope conversion. You can use `PILOT_CONVERT_SIDECAR_SCOPE_CONCURRENCY` to adjust the number of concurrencies.
+    Its default value is 1 and will not be executed concurrently. 
+    When `initSidecarScopes` consumes a lot of time and you want to reduce time consumption by increasing CPU consumption,
+    you can increase the number of concurrent executions by increasing the value of `PILOT_CONVERT_SIDECAR_SCOPE_CONCURRENCY`.

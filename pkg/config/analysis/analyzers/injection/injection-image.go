@@ -59,6 +59,8 @@ func (a *ImageAnalyzer) Metadata() analysis.Metadata {
 			gvk.Namespace,
 			gvk.Pod,
 			gvk.ConfigMap,
+			gvk.MeshConfig,
+			gvk.ProxyConfig,
 		},
 	}
 }
@@ -103,6 +105,8 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 		return true
 	})
 
+	resolver := util.NewEffectiveProxyConfigResolver(c)
+
 	c.ForEach(gvk.Pod, func(r *resource.Instance) bool {
 		var injectionCMName string
 		pod := r.Message.(*v1.PodSpec)
@@ -120,6 +124,8 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			return true
 		}
 
+		variant := resolver.ImageType(r)
+
 		for _, container := range append(slices.Clone(pod.Containers), pod.InitContainers...) {
 			if container.Name != util.IstioProxyName {
 				continue
@@ -129,7 +135,7 @@ func (a *ImageAnalyzer) Analyze(c analysis.Context) {
 			if !okImage {
 				return true
 			}
-			if container.Image != proxyImage {
+			if container.Image != proxyImage && container.Image != fmt.Sprintf("%s-%s", proxyImage, variant) {
 				namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()] = append(
 					namespaceMismatchedPods[r.Metadata.FullName.Namespace.String()], r.Metadata.FullName.Name.String())
 			}

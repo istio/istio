@@ -370,7 +370,7 @@ metadata:
 spec:
   workloadSelector:
     labels:
-      istio.io/gateway-name: "{{.Destination}}"
+      gateway.networking.k8s.io/gateway-name: "{{.Destination}}"
   configPatches:
   - applyTo: HTTP_FILTER
     match:
@@ -666,6 +666,32 @@ spec:
 				}
 				src.CallOrFail(t, opt)
 			})
+			// globally peerauth == STRICT, but we have a port-specific allowlist that is PERMISSIVE,
+			// so anything hitting that port should not be rejected
+			t.NewSubTest("strict-permissive-ports").Run(func(t framework.TestContext) {
+				t.ConfigIstio().Eval(apps.Namespace.Name(), map[string]string{
+					"Destination": dst.Config().Service,
+					"Source":      src.Config().Service,
+					"Namespace":   apps.Namespace.Name(),
+				}, `
+apiVersion: security.istio.io/v1beta1
+kind: PeerAuthentication
+metadata:
+  name: global-strict
+spec:
+  selector:
+    matchLabels:
+      app: "{{ .Destination }}"
+  mtls:
+    mode: STRICT
+  portLevelMtls:
+    8080:
+      mode: PERMISSIVE
+				`).ApplyOrFail(t)
+				opt = opt.DeepCopy()
+				// Should pass for all workloads, in or out of mesh, targeting this port
+				src.CallOrFail(t, opt)
+			})
 		})
 	})
 }
@@ -727,7 +753,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
+      gateway.networking.k8s.io/gateway-name: waypoint
 `+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
@@ -772,7 +798,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
+      gateway.networking.k8s.io/gateway-name: waypoint
 `+policySpec).ApplyOrFail(t)
 				opt = opt.DeepCopy()
 				opt.Check = CheckDeny
@@ -872,7 +898,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
+      gateway.networking.k8s.io/gateway-name: waypoint
 `+policySpec+`
 ---
 apiVersion: networking.istio.io/v1alpha3
@@ -1034,7 +1060,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
+      gateway.networking.k8s.io/gateway-name: waypoint
 `+policySpec+`
 ---
 apiVersion: security.istio.io/v1beta1
@@ -1054,7 +1080,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      istio.io/gateway-name: waypoint
+      gateway.networking.k8s.io/gateway-name: waypoint
 `+denySpec).ApplyOrFail(t)
 			overrideCheck := func(opt *echo.CallOptions) {
 				switch {
@@ -2185,15 +2211,17 @@ func buildL4Query(src, dst echo.Instance) prometheus.Query {
 		"connection_security_policy":     "mutual_tls",
 		"destination_canonical_service":  dst.ServiceName(),
 		"destination_canonical_revision": dst.Config().Version,
-		//"destination_service":            fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
-		//"destination_service_name":       dst.Config().Service,
-		//"destination_service_namespace":  destns,
+		"destination_service":            fmt.Sprintf("%s.%s.svc.cluster.local", dst.Config().Service, destns),
+		"destination_service_name":       dst.Config().Service,
+		"destination_service_namespace":  destns,
 		"destination_principal":          "spiffe://" + dst.Config().ServiceAccountName(),
+		"destination_version":            dst.Config().Version,
 		"destination_workload":           deployName(dst),
 		"destination_workload_namespace": destns,
 		"source_canonical_service":       src.ServiceName(),
 		"source_canonical_revision":      src.Config().Version,
 		"source_principal":               "spiffe://" + src.Config().ServiceAccountName(),
+		"source_version":                 src.Config().Version,
 		"source_workload":                deployName(src),
 		"source_workload_namespace":      srcns,
 	}

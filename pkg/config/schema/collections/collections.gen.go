@@ -95,6 +95,21 @@ var (
 		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
+	DaemonSet = resource.Builder{
+		Identifier:    "DaemonSet",
+		Group:         "apps",
+		Kind:          "DaemonSet",
+		Plural:        "daemonsets",
+		Version:       "v1",
+		Proto:         "k8s.io.api.apps.v1.DaemonSetSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapiappsv1.DaemonSetSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/apps/v1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	Deployment = resource.Builder{
 		Identifier:    "Deployment",
 		Group:         "apps",
@@ -185,7 +200,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateGRPCRoute,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	Gateway = resource.Builder{
@@ -214,6 +229,7 @@ var (
 		Version:    "v1beta1",
 		VersionAliases: []string{
 			"v1alpha2",
+			"v1",
 		},
 		Proto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayClassStatus",
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayClassSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayClassStatus{}).Elem(),
@@ -221,7 +237,7 @@ var (
 		ClusterScoped: true,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateGatewayClass,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	HTTPRoute = resource.Builder{
@@ -232,6 +248,7 @@ var (
 		Version:    "v1beta1",
 		VersionAliases: []string{
 			"v1alpha2",
+			"v1",
 		},
 		Proto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteSpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.HTTPRouteStatus",
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.HTTPRouteSpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.HTTPRouteStatus{}).Elem(),
@@ -239,7 +256,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateHTTPRoute,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	Ingress = resource.Builder{
@@ -280,6 +297,7 @@ var (
 		Version:    "v1beta1",
 		VersionAliases: []string{
 			"v1alpha2",
+			"v1",
 		},
 		Proto: "k8s.io.gateway_api.api.v1alpha1.GatewaySpec", StatusProto: "k8s.io.gateway_api.api.v1alpha1.GatewayStatus",
 		ReflectType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewaySpec{}).Elem(), StatusType: reflect.TypeOf(&sigsk8siogatewayapiapisv1beta1.GatewayStatus{}).Elem(),
@@ -287,7 +305,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateKubernetesGateway,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	Lease = resource.Builder{
@@ -542,6 +560,21 @@ var (
 		ValidateProto: validation.ValidateSidecar,
 	}.MustBuild()
 
+	StatefulSet = resource.Builder{
+		Identifier:    "StatefulSet",
+		Group:         "apps",
+		Kind:          "StatefulSet",
+		Plural:        "statefulsets",
+		Version:       "v1",
+		Proto:         "k8s.io.api.apps.v1.StatefulSetSpec",
+		ReflectType:   reflect.TypeOf(&k8sioapiappsv1.StatefulSetSpec{}).Elem(),
+		ProtoPackage:  "k8s.io/api/apps/v1",
+		ClusterScoped: false,
+		Synthetic:     false,
+		Builtin:       true,
+		ValidateProto: validation.EmptyValidate,
+	}.MustBuild()
+
 	TCPRoute = resource.Builder{
 		Identifier: "TCPRoute",
 		Group:      "gateway.networking.k8s.io",
@@ -554,7 +587,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateTCPRoute,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	TLSRoute = resource.Builder{
@@ -569,7 +602,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateTLSRoute,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	Telemetry = resource.Builder{
@@ -599,7 +632,7 @@ var (
 		ClusterScoped: false,
 		Synthetic:     false,
 		Builtin:       false,
-		ValidateProto: validation.ValidateUDPRoute,
+		ValidateProto: validation.EmptyValidate,
 	}.MustBuild()
 
 	ValidatingWebhookConfiguration = resource.Builder{
@@ -692,6 +725,7 @@ var (
 		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
+		MustAdd(DaemonSet).
 		MustAdd(Deployment).
 		MustAdd(DestinationRule).
 		MustAdd(EndpointSlice).
@@ -720,6 +754,7 @@ var (
 		MustAdd(ServiceAccount).
 		MustAdd(ServiceEntry).
 		MustAdd(Sidecar).
+		MustAdd(StatefulSet).
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).
 		MustAdd(Telemetry).
@@ -736,6 +771,7 @@ var (
 		MustAdd(CertificateSigningRequest).
 		MustAdd(ConfigMap).
 		MustAdd(CustomResourceDefinition).
+		MustAdd(DaemonSet).
 		MustAdd(Deployment).
 		MustAdd(EndpointSlice).
 		MustAdd(Endpoints).
@@ -754,6 +790,7 @@ var (
 		MustAdd(Secret).
 		MustAdd(Service).
 		MustAdd(ServiceAccount).
+		MustAdd(StatefulSet).
 		MustAdd(TCPRoute).
 		MustAdd(TLSRoute).
 		MustAdd(UDPRoute).

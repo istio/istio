@@ -114,15 +114,13 @@ func (a *AmbientIndexImpl) handleServiceEntry(svcEntry *apiv1alpha3.ServiceEntry
 	}
 
 	for _, we := range svcEntry.Spec.Endpoints {
-		wli := a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
-		if wli != nil && event != model.EventDelete {
-			for _, networkAddr := range networkAddressFromWorkload(wli) {
-				a.byWorkloadEntry[networkAddr] = wli
-			}
-			a.byUID[c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), we.GetAddress())] = wli
-			updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wli.ResourceName()})
-			wls[wli.Uid] = wli
+		uid := c.generateServiceEntryUID(svcEntry.GetNamespace(), svcEntry.GetName(), we.GetAddress())
+		oldWl := a.byUID[uid]
+		var wl *model.WorkloadInfo
+		if event != model.EventDelete {
+			wl = a.extractWorkloadEntrySpec(we, svcEntry.GetNamespace(), svcEntry.GetName(), svcEntry, c)
 		}
+		a.updateWorkloadIndexes(oldWl, wl, updates)
 	}
 
 	vips := getVIPsFromServiceEntry(svcEntry)
@@ -221,7 +219,11 @@ func (a *AmbientIndexImpl) extractWorkloadEntry(w *apiv1alpha3.WorkloadEntry, c 
 	if w == nil {
 		return nil
 	}
-	return a.extractWorkloadEntrySpec(&w.Spec, w.Namespace, w.Name, nil, c)
+	wl := a.extractWorkloadEntrySpec(&w.Spec, w.Namespace, w.Name, nil, c)
+	if wl != nil {
+		wl.CreationTime = w.CreationTimestamp.Time
+	}
+	return wl
 }
 
 func (a *AmbientIndexImpl) extractWorkloadEntrySpec(w *v1alpha3.WorkloadEntry, ns, name string,
@@ -247,10 +249,19 @@ func (a *AmbientIndexImpl) extractWorkloadEntrySpec(w *v1alpha3.WorkloadEntry, n
 	if wl == nil {
 		return nil
 	}
-	return &model.WorkloadInfo{
+	source := model.WorkloadSourceWorkloadEntry
+	if parentServiceEntry != nil {
+		source = model.WorkloadSourceServiceEntry
+	}
+	wli := &model.WorkloadInfo{
 		Workload: wl,
 		Labels:   w.Labels,
+		Source:   source,
 	}
+	if parentServiceEntry != nil {
+		wli.CreationTime = parentServiceEntry.CreationTimestamp.Time
+	}
+	return wli
 }
 
 // NOTE: Mutex is locked prior to being called.
@@ -444,12 +455,18 @@ func (a *AmbientIndexImpl) updateWaypointForWorkload(byWorkload map[string]*mode
 		}
 		if isDelete {
 			if wl.Waypoint != nil && proto.Equal(wl.Waypoint, addr) {
-				wl.Waypoint = nil
+				var wp *workloadapi.GatewayAddress
+				// Check if there is a waypoint for the namespace
+				if scope.ServiceAccount != "" {
+					wp = a.waypoints[model.WaypointScope{Namespace: wl.Namespace}]
+				}
+				wl.Waypoint = wp
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})
 			}
 		} else {
-			if wl.Waypoint == nil || !proto.Equal(wl.Waypoint, addr) {
+			// If the workload has no waypoint, or the waypoint is for a SA, update it
+			if wl.Waypoint == nil || (!proto.Equal(wl.Waypoint, addr) && scope.ServiceAccount != "") {
 				wl.Waypoint = addr
 				// If there was a change, also update the VIPs and record for a push
 				updates.Insert(model.ConfigKey{Kind: kind.Address, Name: wl.ResourceName()})

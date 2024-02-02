@@ -30,11 +30,41 @@ import (
 	"istio.io/api/meta/v1alpha1"
 	"istio.io/istio/pkg/config/analysis/msg"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/features"
 	"istio.io/istio/pkg/test/framework/label"
 	"istio.io/istio/pkg/test/util/retry"
 )
+
+func TestWait(t *testing.T) {
+	// nolint: staticcheck
+	framework.NewTest(t).Features("usability.observability.wait").
+		RequiresSingleCluster().
+		RequiresLocalControlPlane().
+		Run(func(t framework.TestContext) {
+			ns := namespace.NewOrFail(t, t, namespace.Config{
+				Prefix: "default",
+				Inject: true,
+			})
+			t.ConfigIstio().YAML(ns.Name(), `
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: reviews
+spec:
+  gateways: [missing-gw]
+  hosts:
+  - reviews
+  http:
+  - route:
+    - destination:
+        host: reviews
+`).ApplyOrFail(t)
+			istioCtl := istioctl.NewOrFail(t, t, istioctl.Config{Cluster: t.Clusters().Default()})
+			istioCtl.InvokeOrFail(t, []string{"x", "wait", "-v", "VirtualService", "reviews." + ns.Name()})
+		})
+}
 
 func TestStatusExistsByDefault(t *testing.T) {
 	// This test is not yet implemented

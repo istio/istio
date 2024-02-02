@@ -324,9 +324,8 @@ func getSidecarIngressPortList(node *model.Proxy) sets.Set[int] {
 	return ingressPortListSet
 }
 
-func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]inboundChainConfig,
-	enableSidecarServiceInboundListenerMerge bool,
-) map[uint32]inboundChainConfig {
+func (lb *ListenerBuilder) getFilterChainsByServicePort(enableSidecarServiceInboundListenerMerge bool) map[uint32]inboundChainConfig {
+	chainsByPort := make(map[uint32]inboundChainConfig)
 	ingressPortListSet := sets.New[int]()
 	sidecarScope := lb.node.SidecarScope
 	if sidecarScope.HasIngressListener() {
@@ -360,7 +359,7 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 			hbone:             lb.node.IsWaypointProxy(),
 		}
 		// for inbound only generate a standalone listener when bindToPort=true
-		if bindToPort && conflictWithStaticListener(lb.node, cc.bind, int(port.TargetPort), port.Protocol) {
+		if bindToPort && conflictWithReservedListener(lb.node, nil, cc.bind, int(port.TargetPort), port.Protocol) {
 			log.Debugf("buildInboundListeners: skipping service port %d for node %s as it conflicts with static listener",
 				port.TargetPort, lb.node.ID)
 			continue
@@ -388,7 +387,7 @@ func (lb *ListenerBuilder) getFilterChainsByServicePort(chainsByPort map[uint32]
 
 // buildInboundChainConfigs builds all the application chain configs.
 func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
-	chainsByPort := make(map[uint32]inboundChainConfig)
+	var chainsByPort map[uint32]inboundChainConfig
 	// No user supplied sidecar scope or the user supplied one has no ingress listeners.
 	if !lb.node.SidecarScope.HasIngressListener() {
 
@@ -398,11 +397,13 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 		if lb.node.GetInterceptionMode() == model.InterceptionNone {
 			return nil
 		}
-		chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, false)
+		chainsByPort = lb.getFilterChainsByServicePort(false)
 	} else {
 		// only allow to merge inbound listeners if sidecar has ingress listener pilot has env EnableSidecarServiceInboundListenerMerge set
 		if features.EnableSidecarServiceInboundListenerMerge {
-			chainsByPort = lb.getFilterChainsByServicePort(chainsByPort, true)
+			chainsByPort = lb.getFilterChainsByServicePort(true)
+		} else {
+			chainsByPort = make(map[uint32]inboundChainConfig)
 		}
 
 		for _, i := range lb.node.SidecarScope.Sidecar.Ingress {
@@ -441,7 +442,7 @@ func (lb *ListenerBuilder) buildInboundChainConfigs() []inboundChainConfig {
 				}
 			}
 			// for inbound only generate a standalone listener when bindToPort=true
-			if bindtoPort && conflictWithStaticListener(lb.node, cc.bind, port.Port, port.Protocol) {
+			if bindtoPort && conflictWithReservedListener(lb.node, nil, cc.bind, port.Port, port.Protocol) {
 				log.Warnf("buildInboundListeners: skipping sidecar port %d for node %s as it conflicts with static listener",
 					port.TargetPort, lb.node.ID)
 				continue
@@ -729,7 +730,7 @@ func buildInboundPassthroughChains(lb *ListenerBuilder) []*listener.FilterChain 
 // This avoids a possible loop where traffic sent to this port would continually call itself indefinitely.
 func buildInboundBlackhole(lb *ListenerBuilder) *listener.FilterChain {
 	var filters []*listener.Filter
-	if !lb.node.IsAmbient() {
+	if !lb.node.IsWaypointProxy() {
 		filters = append(filters, buildMetadataExchangeNetworkFilters()...)
 	}
 	filters = append(filters, buildMetricsNetworkFilters(lb.push, lb.node, istionetworking.ListenerClassSidecarInbound)...)

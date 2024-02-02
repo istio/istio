@@ -19,6 +19,7 @@ import (
 
 	cluster "github.com/envoyproxy/go-control-plane/envoy/config/cluster/v3"
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
+	proxyprotocol "github.com/envoyproxy/go-control-plane/envoy/extensions/transport_sockets/proxy_protocol/v3"
 	http "github.com/envoyproxy/go-control-plane/envoy/extensions/upstreams/http/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/golang/protobuf/ptypes/duration"
@@ -32,6 +33,7 @@ import (
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3/loadbalancer"
+	"istio.io/istio/pilot/pkg/util/protoconv"
 	"istio.io/istio/pkg/config/protocol"
 	"istio.io/istio/pkg/log"
 )
@@ -39,7 +41,7 @@ import (
 // applyTrafficPolicy applies the trafficPolicy defined within destinationRule,
 // which can be called for both outbound and inbound cluster, but only connection pool will be applied to inbound cluster.
 func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
-	connectionPool, outlierDetection, loadBalancer, tls := selectTrafficPolicyComponents(opts.policy)
+	connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol := selectTrafficPolicyComponents(opts.policy)
 	// Connection pool settings are applicable for both inbound and outbound clusters.
 	if connectionPool == nil {
 		connectionPool = &networking.ConnectionPoolSettings{}
@@ -54,6 +56,10 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 			tls, mtlsCtxType := cb.buildUpstreamTLSSettings(tls, opts.serviceAccounts, opts.istioMtlsSni,
 				autoMTLSEnabled, opts.meshExternal, opts.serviceMTLSMode)
 			cb.applyUpstreamTLSSettings(&opts, tls, mtlsCtxType)
+			// donot apply proxy protocol for proxy that supports HBONE
+			if !cb.hbone {
+				cb.applyUpstreamProxyProtocol(&opts, proxyProtocol)
+			}
 		}
 	}
 
@@ -64,22 +70,27 @@ func (cb *ClusterBuilder) applyTrafficPolicy(opts buildClusterOpts) {
 
 // selectTrafficPolicyComponents returns the components of TrafficPolicy that should be used for given port.
 func selectTrafficPolicyComponents(policy *networking.TrafficPolicy) (
-	*networking.ConnectionPoolSettings, *networking.OutlierDetection, *networking.LoadBalancerSettings, *networking.ClientTLSSettings,
+	*networking.ConnectionPoolSettings,
+	*networking.OutlierDetection,
+	*networking.LoadBalancerSettings,
+	*networking.ClientTLSSettings,
+	*networking.TrafficPolicy_ProxyProtocol,
 ) {
 	if policy == nil {
-		return nil, nil, nil, nil
+		return nil, nil, nil, nil, nil
 	}
 	connectionPool := policy.ConnectionPool
 	outlierDetection := policy.OutlierDetection
 	loadBalancer := policy.LoadBalancer
 	tls := policy.Tls
+	proxyProtocol := policy.ProxyProtocol
 
 	// Check if CA Certificate should be System CA Certificate
 	if features.VerifyCertAtClient && tls != nil && tls.CaCertificates == "" {
 		tls.CaCertificates = "system"
 	}
 
-	return connectionPool, outlierDetection, loadBalancer, tls
+	return connectionPool, outlierDetection, loadBalancer, tls, proxyProtocol
 }
 
 // FIXME: there isn't a way to distinguish between unset values and zero values
@@ -93,6 +104,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 	threshold := getDefaultCircuitBreakerThresholds()
 	var idleTimeout *durationpb.Duration
 	var maxRequestsPerConnection uint32
+	var maxConcurrentStreams uint32
 	var maxConnectionDuration *duration.Duration
 
 	if settings.Http != nil {
@@ -112,6 +124,7 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 
 		idleTimeout = settings.Http.IdleTimeout
 		maxRequestsPerConnection = uint32(settings.Http.MaxRequestsPerConnection)
+		maxConcurrentStreams = uint32(settings.Http.MaxConcurrentStreams)
 	}
 
 	cb.applyDefaultConnectionPool(mc.cluster)
@@ -126,6 +139,9 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 		if settings.Tcp.MaxConnectionDuration != nil {
 			maxConnectionDuration = settings.Tcp.MaxConnectionDuration
 		}
+		if idleTimeout == nil {
+			idleTimeout = settings.Tcp.IdleTimeout
+		}
 	}
 	applyTCPKeepalive(mesh, mc.cluster, settings.Tcp)
 
@@ -133,23 +149,28 @@ func (cb *ClusterBuilder) applyConnectionPool(mesh *meshconfig.MeshConfig,
 		Thresholds: []*cluster.CircuitBreakers_Thresholds{threshold},
 	}
 
-	if maxConnectionDuration != nil || idleTimeout != nil || maxRequestsPerConnection > 0 {
+	if maxConnectionDuration != nil || idleTimeout != nil || maxRequestsPerConnection > 0 || maxConcurrentStreams > 0 {
 		if mc.httpProtocolOptions == nil {
 			mc.httpProtocolOptions = &http.HttpProtocolOptions{}
 		}
-		commonOptions := mc.httpProtocolOptions
-		if commonOptions.CommonHttpProtocolOptions == nil {
-			commonOptions.CommonHttpProtocolOptions = &core.HttpProtocolOptions{}
+		options := mc.httpProtocolOptions
+		if options.CommonHttpProtocolOptions == nil {
+			options.CommonHttpProtocolOptions = &core.HttpProtocolOptions{}
 		}
 		if idleTimeout != nil {
 			idleTimeoutDuration := idleTimeout
-			commonOptions.CommonHttpProtocolOptions.IdleTimeout = idleTimeoutDuration
+			options.CommonHttpProtocolOptions.IdleTimeout = idleTimeoutDuration
 		}
 		if maxRequestsPerConnection > 0 {
-			commonOptions.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrapperspb.UInt32Value{Value: maxRequestsPerConnection}
+			options.CommonHttpProtocolOptions.MaxRequestsPerConnection = &wrapperspb.UInt32Value{Value: maxRequestsPerConnection}
 		}
 		if maxConnectionDuration != nil {
-			commonOptions.CommonHttpProtocolOptions.MaxConnectionDuration = maxConnectionDuration
+			options.CommonHttpProtocolOptions.MaxConnectionDuration = maxConnectionDuration
+		}
+		// Check if cluster is HTTP2
+		http2ProtocolOptions := options.GetExplicitHttpConfig().GetHttp2ProtocolOptions()
+		if http2ProtocolOptions != nil && maxConcurrentStreams > 0 {
+			http2ProtocolOptions.MaxConcurrentStreams = &wrapperspb.UInt32Value{Value: maxConcurrentStreams}
 		}
 	}
 	if settings.Http != nil && settings.Http.UseClientProtocol {
@@ -444,6 +465,37 @@ func ApplyRingHashLoadBalancer(c *cluster.Cluster, lb *networking.LoadBalancerSe
 			RingHashLbConfig: &cluster.Cluster_RingHashLbConfig{
 				MinimumRingSize: minRingSize,
 			},
+		}
+	}
+}
+
+func (cb *ClusterBuilder) applyUpstreamProxyProtocol(
+	opts *buildClusterOpts,
+	proxyProtocol *networking.TrafficPolicy_ProxyProtocol,
+) {
+	if proxyProtocol == nil {
+		return
+	}
+	c := opts.mutable
+	if c.cluster.TransportSocket != nil {
+		// add an upstream proxy protocol wrapper for transportSocket
+		c.cluster.TransportSocket = &core.TransportSocket{
+			Name: "envoy.transport_sockets.upstream_proxy_protocol",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocolUpstreamTransport{
+				Config:          &core.ProxyProtocolConfig{Version: core.ProxyProtocolConfig_Version(proxyProtocol.Version)},
+				TransportSocket: c.cluster.TransportSocket,
+			})},
+		}
+	}
+
+	// add an upstream proxy protocol wrapper for each transportSocket
+	for _, tsm := range c.cluster.TransportSocketMatches {
+		tsm.TransportSocket = &core.TransportSocket{
+			Name: "envoy.transport_sockets.upstream_proxy_protocol",
+			ConfigType: &core.TransportSocket_TypedConfig{TypedConfig: protoconv.MessageToAny(&proxyprotocol.ProxyProtocolUpstreamTransport{
+				Config:          &core.ProxyProtocolConfig{Version: core.ProxyProtocolConfig_Version(proxyProtocol.Version)},
+				TransportSocket: tsm.TransportSocket,
+			})},
 		}
 	}
 }

@@ -36,7 +36,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking/core/v1alpha3"
 	"istio.io/istio/pilot/pkg/networking/util"
 	"istio.io/istio/pilot/pkg/simulation"
-	"istio.io/istio/pilot/pkg/xds"
+	"istio.io/istio/pilot/test/xds"
 	"istio.io/istio/pilot/test/xdstest"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/host"
@@ -116,10 +116,9 @@ func TestInboundClusters(t *testing.T) {
 		services  []*model.Service
 		instances []*model.ServiceInstance
 		// Assertions
-		clusters                  map[string][]string
-		telemetry                 map[string][]string
-		proxy                     *model.Proxy
-		disableInboundPassthrough bool
+		clusters  map[string][]string
+		telemetry map[string][]string
+		proxy     *model.Proxy
 	}{
 		// Proxy 1.8.1+ tests
 		{name: "empty"},
@@ -312,76 +311,6 @@ func TestInboundClusters(t *testing.T) {
 				"inbound|81||": {"127.0.0.1:8080"},
 			},
 		},
-
-		// Disable inbound passthrough
-		{
-			name:      "single service, partial instance",
-			services:  []*model.Service{service},
-			instances: makeInstances(proxy, service, 80, 8080),
-			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
-			},
-			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
-			},
-			disableInboundPassthrough: true,
-		},
-		{
-			name:     "single service, multiple instance",
-			services: []*model.Service{service},
-			instances: flattenInstances(
-				makeInstances(proxy, service, 80, 8080),
-				makeInstances(proxy, service, 81, 8081)),
-			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
-				"inbound|8081||": {"127.0.0.1:8081"},
-			},
-			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
-				"inbound|8081||": {string(service.Hostname)},
-			},
-			disableInboundPassthrough: true,
-		},
-		{
-			name:     "multiple services with same service port, different target",
-			services: []*model.Service{service, serviceAlt},
-			instances: flattenInstances(
-				makeInstances(proxy, service, 80, 8080),
-				makeInstances(proxy, service, 81, 8081),
-				makeInstances(proxy, serviceAlt, 80, 8082),
-				makeInstances(proxy, serviceAlt, 81, 8083)),
-			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
-				"inbound|8081||": {"127.0.0.1:8081"},
-				"inbound|8082||": {"127.0.0.1:8082"},
-				"inbound|8083||": {"127.0.0.1:8083"},
-			},
-			telemetry: map[string][]string{
-				"inbound|8080||": {string(service.Hostname)},
-				"inbound|8081||": {string(service.Hostname)},
-				"inbound|8082||": {string(serviceAlt.Hostname)},
-				"inbound|8083||": {string(serviceAlt.Hostname)},
-			},
-			disableInboundPassthrough: true,
-		},
-		{
-			name:     "multiple services with same service port and target",
-			services: []*model.Service{service, serviceAlt},
-			instances: flattenInstances(
-				makeInstances(proxy, service, 80, 8080),
-				makeInstances(proxy, service, 81, 8081),
-				makeInstances(proxy, serviceAlt, 80, 8080),
-				makeInstances(proxy, serviceAlt, 81, 8081)),
-			clusters: map[string][]string{
-				"inbound|8080||": {"127.0.0.1:8080"},
-				"inbound|8081||": {"127.0.0.1:8081"},
-			},
-			telemetry: map[string][]string{
-				"inbound|8080||": {string(serviceAlt.Hostname), string(service.Hostname)},
-				"inbound|8081||": {string(serviceAlt.Hostname), string(service.Hostname)},
-			},
-			disableInboundPassthrough: true,
-		},
 	}
 	for _, tt := range cases {
 		name := tt.name
@@ -391,11 +320,7 @@ func TestInboundClusters(t *testing.T) {
 			name += "-" + tt.proxy.Metadata.IstioVersion
 		}
 
-		if tt.disableInboundPassthrough {
-			name += "-disableinbound"
-		}
 		t.Run(name, func(t *testing.T) {
-			test.SetForTest(t, &features.EnableInboundPassthrough, !tt.disableInboundPassthrough)
 			s := v1alpha3.NewConfigGenTest(t, v1alpha3.TestOptions{
 				Services:  tt.services,
 				Instances: tt.instances,
@@ -1926,6 +1851,7 @@ spec:
 		routeName       string
 		expected        map[string][]string
 		expectedGateway map[string][]string
+		oldestWins      bool
 	}{
 		// Port 80 has special cases as there is defaulting logic around this port
 		{
@@ -2218,7 +2144,7 @@ spec:
 			},
 		},
 		{
-			name: "wildcard first then explicit",
+			name: "wildcard first then explicit (oldest wins feature flag)",
 			cfg: []Configer{
 				vsArgs{
 					Namespace: "default",
@@ -2238,6 +2164,40 @@ spec:
 			expected: map[string][]string{
 				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
 				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"}, // oldest wins
+				// Matched an exact service, so we have no route for the wildcard
+				"*.cluster.local": nil,
+			},
+			expectedGateway: map[string][]string{
+				// No overrides, use default
+				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+				// Explicit has precedence
+				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
+				// Last is our wildcard
+				"*.cluster.local": {"outbound|80||wild.example.com"},
+			},
+			oldestWins: true,
+		},
+		{
+			name: "wildcard first then explicit",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.cluster.local",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known.default.svc.cluster.local",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
+				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
 				"*.cluster.local": nil,
 			},
@@ -2270,7 +2230,7 @@ spec:
 			routeName: "80",
 			expected: map[string][]string{
 				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"}, // oldest wins
+				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
 				"*.cluster.local": nil,
 			},
@@ -2282,6 +2242,46 @@ spec:
 				// Last is our wildcard
 				"*.cluster.local": {"outbound|80||wild.example.com"},
 			},
+		},
+		{
+			name: "wildcard and explicit with sidecar (oldest wins feature flag)",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "default",
+					Match:     "*.cluster.local",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known.default.svc.cluster.local",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				},
+				scArgs{
+					Namespace: "default",
+					Egress:    []string{"default/known.default.svc.cluster.local", "default/alt-known.default.svc.cluster.local"},
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Even though we did not import `*.cluster.local`, the VS attaches
+				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
+				// Oldest wins
+				"known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.cluster.local": nil,
+			},
+			expectedGateway: map[string][]string{
+				// No rule imported
+				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+				// Imported rule
+				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
+				// Not imported
+				"*.cluster.local": nil,
+			},
+			oldestWins: true,
 		},
 		{
 			name: "wildcard and explicit with sidecar",
@@ -2308,7 +2308,8 @@ spec:
 			expected: map[string][]string{
 				// Even though we did not import `*.cluster.local`, the VS attaches
 				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
-				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"},
+				// Most exact match wins
+				"known.default.svc.cluster.local": {"outbound|80||explicit.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
 				"*.cluster.local": nil,
 			},
@@ -2352,7 +2353,7 @@ spec:
 			},
 		},
 		{
-			name: "wildcard and explicit cross namespace",
+			name: "wildcard and explicit cross namespace (oldest wins feature flag)",
 			cfg: []Configer{
 				vsArgs{
 					Namespace: "not-default",
@@ -2373,6 +2374,40 @@ spec:
 				// Wildcard is older, so it wins, even though it is cross namespace
 				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
 				"known.default.svc.cluster.local":     {"outbound|80||wild.example.com"},
+				// Matched an exact service, so we have no route for the wildcard
+				"*.cluster.local": nil,
+			},
+			expectedGateway: map[string][]string{
+				// Exact match wins
+				"alt-known.default.svc.cluster.local": {"outbound|80||alt-known.default.svc.cluster.local"},
+				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
+				// Wildcard last
+				"*.cluster.local": {"outbound|80||wild.example.com"},
+			},
+			oldestWins: true,
+		},
+		{
+			name: "wildcard and explicit cross namespace",
+			cfg: []Configer{
+				vsArgs{
+					Namespace: "not-default",
+					Match:     "*.cluster.local",
+					Dest:      "wild.example.com",
+					Time:      TimeOlder,
+				},
+				vsArgs{
+					Namespace: "default",
+					Match:     "known.default.svc.cluster.local",
+					Dest:      "explicit.example.com",
+					Time:      TimeNewer,
+				},
+			},
+			proxy:     proxy("default"),
+			routeName: "80",
+			expected: map[string][]string{
+				// Exact match wins
+				"alt-known.default.svc.cluster.local": {"outbound|80||wild.example.com"},
+				"known.default.svc.cluster.local":     {"outbound|80||explicit.example.com"},
 				// Matched an exact service, so we have no route for the wildcard
 				"*.cluster.local": nil,
 			},
@@ -2608,7 +2643,11 @@ spec:
 			for _, tt := range cases {
 				tt := tt
 				t.Run(tt.name, func(t *testing.T) {
-					t.Parallel()
+					if tt.oldestWins {
+						test.SetForTest(t, &features.PersistOldestWinsHeuristicForVirtualServiceHostMatching, true)
+					} else {
+						t.Parallel() // feature flags and parallel tests don't mix
+					}
 					cfg := knownServices
 					for _, tc := range tt.cfg {
 						cfg = cfg + "\n---\n" + tc.Config(t, variant)

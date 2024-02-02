@@ -456,7 +456,7 @@ func TestNameTable(t *testing.T) {
 			expectedNameTable: &dnsProto.NameTable{
 				Table: map[string]*dnsProto.NameTable_NameInfo{
 					serviceWithVIP1.Hostname.String(): {
-						Ips:      []string{serviceWithVIP1.DefaultAddress, serviceWithVIP2.DefaultAddress},
+						Ips:      []string{serviceWithVIP1.DefaultAddress},
 						Registry: provider.External.String(),
 					},
 				},
@@ -505,7 +505,7 @@ func TestNameTable(t *testing.T) {
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {
-			tt.proxy.SidecarScope = model.ConvertToSidecarScope(tt.push, nil, "default")
+			tt.proxy.SidecarScope = model.DefaultSidecarScopeForNamespace(tt.push, "default")
 			if diff := cmp.Diff(dnsServer.BuildNameTable(dnsServer.Config{
 				Node:                        tt.proxy,
 				Push:                        tt.push,
