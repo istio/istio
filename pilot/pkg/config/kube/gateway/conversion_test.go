@@ -1137,7 +1137,7 @@ func getStatus(t test.Failer, acfgs ...[]config.Config) []byte {
 		cfgs = append(cfgs, cl...)
 	}
 	for i, c := range cfgs {
-		if c.GroupVersionKind == gvk.GatewayClass {
+		if c.Status.(*kstatus.WrappedStatus) != nil && c.GroupVersionKind == gvk.GatewayClass {
 			// Override GatewaySupportedFeatures for the test so we dont have huge golden files plus we wont need to update them every time we support a new feature
 			c.Status.(*kstatus.WrappedStatus).Mutate(func(s config.Status) config.Status {
 				gcs := s.(*k8sv1.GatewayClassStatus)
