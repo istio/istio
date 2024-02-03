@@ -15,8 +15,6 @@
 package controller
 
 import (
-	"strconv"
-	"strings"
 	"sync"
 
 	"github.com/hashicorp/go-multierror"
@@ -59,16 +57,6 @@ func newEndpointSliceController(c *Controller) *endpointSliceController {
 	}
 	registerHandlers[*v1.EndpointSlice](c, slices, "EndpointSlice", out.onEvent, nil)
 	return out
-}
-
-// getEndpointKey generates a unique key for the endpoints based on ip addresses, portName and portNum.
-func getEndpointKey(portName string, portNum int32, ips []string) string {
-	var ipaddrs, epkey []string
-	ipaddrs = append(ipaddrs, ips...)
-	ipString := strings.Join(ipaddrs, ",")
-	portNumStr := strconv.Itoa(int(portNum))
-	epkey = append(epkey, ipString, portName, portNumStr)
-	return strings.Join(epkey, "-")
 }
 
 func (esc *endpointSliceController) podArrived(name, ns string) error {
@@ -258,7 +246,6 @@ func endpointHealthStatus(svc *model.Service, e v1.Endpoint) model.HealthStatus 
 
 func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Name, slice *v1.EndpointSlice) {
 	var endpoints []*model.IstioEndpoint
-	addEPMap := make(map[string]*model.IstioEndpoint)
 	if slice.AddressType == v1.AddressTypeFQDN {
 		// TODO(https://github.com/istio/istio/issues/34995) support FQDN endpointslice
 		return
@@ -294,24 +281,12 @@ func (esc *endpointSliceController) updateEndpointCacheForSlice(hostName host.Na
 					for _, addr := range pod.Status.PodIPs {
 						addrs = append(addrs, addr.IP)
 					}
-					epKey := getEndpointKey(portName, portNum, addrs)
-					// add the istioEndpoint pointer in map based on the unique key
-					if _, ok := addEPMap[epKey]; !ok {
-						istioEndpoint.Addresses = []string{a}
-						addEPMap[epKey] = istioEndpoint
-						endpoints = append(endpoints, istioEndpoint)
-					} else {
-						// append other ip addresses in field Addresses of istioEndpoint
-						istioEndpoint = addEPMap[epKey]
-						istioEndpoint.Addresses = append(istioEndpoint.Addresses, a)
-					}
-				} else {
-					endpoints = append(endpoints, istioEndpoint)
+					istioEndpoint.Addresses = addrs
 				}
+				endpoints = append(endpoints, istioEndpoint)
 			}
 		}
 	}
-
 	esc.endpointCache.Update(hostName, slice.Name, endpoints)
 }
 
