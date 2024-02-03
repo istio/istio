@@ -238,6 +238,9 @@ var (
 
 	VerifyCertAtClient = env.Register("VERIFY_CERTIFICATE_AT_CLIENT", true,
 		"If enabled, certificates received by the proxy will be verified against the OS CA certificate bundle.").Get()
+
+	EnableVtprotobuf = env.Register("ENABLE_VTPROTOBUF", false,
+		"If true, will use optimized vtprotobuf based marshaling").Get()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.

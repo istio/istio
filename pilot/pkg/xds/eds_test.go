@@ -402,10 +402,6 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			addUnhealthyCluster(s)
 			s.EnsureSynced(t)
 			adscon := s.Connect(nil, nil, watchEds)
-			_, err := adscon.Wait(5 * time.Second)
-			if err != nil {
-				t.Fatalf("Error in push %v", err)
-			}
 
 			validateEndpoints := func(expectPush bool, healthy []string, unhealthy []string) {
 				t.Helper()
@@ -419,8 +415,8 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 				sort.Strings(healthy)
 				sort.Strings(unhealthy)
 				if expectPush {
-					upd, _ := adscon.Wait(5*time.Second, v3.EndpointType)
-
+					upd, err := adscon.Wait(5*time.Second, v3.EndpointType)
+					assert.NoError(t, err)
 					if len(upd) > 0 && !slices.Contains(upd, v3.EndpointType) {
 						t.Fatalf("Expecting EDS push as endpoint health is changed. But received %v", upd)
 					}
@@ -445,10 +441,11 @@ func TestEDSUnhealthyEndpoints(t *testing.T) {
 			}
 
 			// Validate that we do send initial unhealthy endpoints.
+			// ExpectPush=false since we are just querying the initial state, we already got the responses in our initial connection
 			if sendUnhealthy {
-				validateEndpoints(true, nil, []string{"10.0.0.53:53"})
+				validateEndpoints(false, nil, []string{"10.0.0.53:53"})
 			} else {
-				validateEndpoints(true, nil, nil)
+				validateEndpoints(false, nil, nil)
 			}
 			adscon.WaitClear()
 
