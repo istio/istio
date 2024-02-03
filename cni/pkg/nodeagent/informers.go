@@ -207,10 +207,16 @@ func (s *InformerHandlers) reconcilePod(input any) error {
 		}
 		wasAnnotated := oldPod.Annotations != nil && oldPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
 		isAnnotated := newPod.Annotations != nil && newPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionEnabled
+		isOpOut := newPod.Annotations != nil && newPod.Annotations[constants.AmbientRedirection] == constants.AmbientRedirectionDisabled
+
 		shouldBeEnabled := util.PodRedirectionEnabled(ns, newPod)
 
-		changeNeeded := wasAnnotated != shouldBeEnabled
-		log.Debugf("Pod %s events: %+v", pod.Name, pod)
+		// We should check the latest annotation vs desired status
+		changeNeeded := isAnnotated != shouldBeEnabled
+		// Also need change for case user manually rolls out the pods
+		changeNeeded = changeNeeded || (wasAnnotated && isOpOut && !shouldBeEnabled)
+		log.Debugf("Pod %s events: wasAnnotated(%v), isAnnotated(%v), shouldBeEnabled(%v), changeNeeded(%v), oldPod(%+v), newPod(%+v)",
+			pod.Name, wasAnnotated, isAnnotated, shouldBeEnabled, changeNeeded, oldPod, newPod)
 		if !changeNeeded {
 			log.Debugf("Pod %s update event skipped, no change needed", pod.Name)
 			return nil
