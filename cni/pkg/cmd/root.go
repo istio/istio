@@ -180,7 +180,7 @@ func init() {
 		"The UDS server address which CNI plugin will forward ambient pod creation events to")
 	registerStringParameter(constants.ZtunnelUDSAddress, "/var/run/ztunnel/ztunnel.sock", "The UDS server address which ztunnel will connect to")
 	registerBooleanParameter(constants.AmbientEnabled, false, "Whether ambient controller is enabled")
-	registerBooleanParameter(constants.AmbientResetPreviousConnections, false,
+	registerBooleanParameter(constants.AmbientResetPreviousConnections, true,
 		"Whether reset previous connections when inject redirection iptables rule to pod network namespace")
 	// Repair
 	registerBooleanParameter(constants.RepairEnabled, true, "Whether to enable race condition repair or not")
