@@ -233,8 +233,8 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 
 	client := kube.NewFakeClient(ns, pod)
 
-	// We are expecting at most 3 calls to the mock, wait for them
-	wg, waitForMockCalls := NewWaitForNCalls(t, 3)
+	// We are expecting at most 2 calls to the mock, wait for them
+	wg, waitForMockCalls := NewWaitForNCalls(t, 2)
 	fs := &fakeServer{testWG: wg}
 
 	fs.On("AddPodToMesh",
@@ -261,19 +261,21 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 			constants.DataplaneMode, constants.DataplaneModeAmbient)), metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// wait for an add event
+	// wait for an update event
 	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(2))
 
 	// wait for the pod to be annotated
+	// after Pod annotated, another update event will be triggered.
 	assertPodAnnotated(t, client, pod)
 
 	// Assert expected calls actually made
 	fs.AssertExpectations(t)
 
+	// unlabelling the namespace should cause only one RemovePodFromMesh to happen
 	fs.On("RemovePodFromMesh",
 		ctx,
 		mock.Anything,
-	).Return(nil)
+	).Once().Return(nil)
 
 	// unlabel the namespace
 	labelsPatch := []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":null}}}`,
@@ -282,11 +284,102 @@ func TestExistingPodRemovedWhenNsUnlabeled(t *testing.T) {
 		types.MergePatchType, labelsPatch, metav1.PatchOptions{})
 	assert.NoError(t, err)
 
-	// TODO unlabelling the namespace causes 2x RemovePodFromMesh to happen,
-	// as the first removal removes the annotation, causing another update event to happen,
-	// triggering a "junk" removal.
-	//
-	// in practice the junk removal is a no-op/log spam, but mocks catch it.
+	// wait for another two update events
+	// total 3 update at before unlabel point: 1. init ns reconcile 2. ns label reconcile 3. pod annotation update
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(5))
+
+	waitForMockCalls()
+
+	assertPodNotAnnotated(t, client, pod)
+
+	// Assert expected calls actually made
+	fs.AssertExpectations(t)
+}
+
+func TestExistingPodRemovedWhenPodAnnotated(t *testing.T) {
+	setupLogging()
+	mt := monitortest.New(t)
+	NodeName = "testnode"
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "test",
+			Namespace: "test",
+		},
+		Spec: corev1.PodSpec{
+			NodeName: NodeName,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "11.1.1.12",
+		},
+	}
+	ns := &corev1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{Name: "test"},
+		// TODO: once we if the add pod bug, re-enable this and remove the patch below
+		//		Labels: map[string]string{constants.DataplaneMode: constants.DataplaneModeAmbient},
+
+	}
+
+	client := kube.NewFakeClient(ns, pod)
+
+	// We are expecting at most 2 calls to the mock, wait for them
+	wg, waitForMockCalls := NewWaitForNCalls(t, 2)
+	fs := &fakeServer{testWG: wg}
+
+	fs.On("AddPodToMesh",
+		ctx,
+		pod,
+		util.GetPodIPsIfPresent(pod),
+		"",
+	).Return(nil)
+
+	server := &meshDataplane{
+		kubeClient: client.Kube(),
+		netServer:  fs,
+	}
+
+	handlers := setupHandlers(ctx, client, server, "istio-system")
+	client.RunAndWait(ctx.Done())
+	go handlers.Start()
+	// wait until pod add was called
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(1))
+
+	log.Debug("labeling namespace")
+	_, err := client.Kube().CoreV1().Namespaces().Patch(ctx, ns.Name,
+		types.MergePatchType, []byte(fmt.Sprintf(`{"metadata":{"labels":{"%s":"%s"}}}`,
+			constants.DataplaneMode, constants.DataplaneModeAmbient)), metav1.PatchOptions{})
+	assert.NoError(t, err)
+
+	// wait for an update event
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(2))
+
+	// wait for the pod to be annotated
+	// after Pod annotated, another update event will be triggered.
+	assertPodAnnotated(t, client, pod)
+
+	// Assert expected calls actually made
+	fs.AssertExpectations(t)
+
+	// annotate Pod as disabled should cause only one RemovePodFromMesh to happen
+	fs.On("RemovePodFromMesh",
+		ctx,
+		mock.Anything,
+	).Once().Return(nil)
+
+	// annotate the pod
+	annotationsPatch := []byte(fmt.Sprintf(`{"metadata":{"annotations":{"%s":"%s"}}}`,
+		constants.AmbientRedirection, constants.AmbientRedirectionDisabled))
+	_, err = client.Kube().CoreV1().Pods(pod.Namespace).Patch(ctx, pod.Name,
+		types.MergePatchType, annotationsPatch, metav1.PatchOptions{})
+	assert.NoError(t, err)
+
+	// wait for an update events
+	// total 3 update at before unlabel point: 1. init ns reconcile 2. ns label reconcile 3. pod annotation update
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(4))
+
 	waitForMockCalls()
 
 	assertPodNotAnnotated(t, client, pod)
