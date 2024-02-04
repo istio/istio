@@ -85,6 +85,27 @@ func (hc hostClassification) Matches(h host.Name) bool {
 	return false
 }
 
+func (hc hostClassification) VSMatches(vsHost host.Name, useGatewaySemantics bool) bool {
+	// first, check exactHosts
+	if hc.exactHosts.Contains(vsHost) {
+		return true
+	}
+
+	// exactHosts not found, fallback to loop allHosts
+	hIsWildCard := vsHost.IsWildCarded()
+	for _, importedHost := range hc.allHosts {
+		// If both are exact hosts, then fallback is not needed.
+		// In this scenario it should be determined by exact lookup.
+		if !hIsWildCard && !importedHost.IsWildCarded() {
+			continue
+		}
+		if vsHostMatches(vsHost, importedHost, useGatewaySemantics) {
+			return true
+		}
+	}
+	return false
+}
+
 // SidecarScope is a wrapper over the Sidecar resource with some
 // preprocessed data to determine the list of services, virtualServices,
 // and destinationRules that are accessible to a given
