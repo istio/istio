@@ -82,18 +82,6 @@ func SelectVirtualServices(vsidx virtualServiceIndex, configNamespace string, ho
 	return importedVirtualServices
 }
 
-// vsHostMatches checks if the given VirtualService host matches the importedHost (from Sidecar)
-func vsHostMatches(vsHost host.Name, importedHost host.Name, useGatewaySemantics bool) bool {
-	if useGatewaySemantics {
-		// The new way. Matching logic exactly mirrors Service matching
-		// If a route defines `*.com` and we import `a.com`, it will not match
-		return vsHost.SubsetOf(importedHost)
-	}
-
-	// The old way. We check Matches which is bi-directional. This is for backwards compatibility
-	return vsHost.Matches(importedHost)
-}
-
 func resolveVirtualServiceShortnames(rule *networking.VirtualService, meta config.Meta) {
 	// Kubernetes Gateway API semantics support shortnames
 	if UseGatewaySemantics(config.Config{Meta: meta}) {
