@@ -63,7 +63,7 @@ func (e WorkloadGenerator) GenerateDeltas(
 		} else {
 			// this is from the external triggers instead of request
 			// send response for: 1. all the subscribed intersect with the updated
-			// 2. addtional subscribed calculated from updated and subs
+			// 2. additional subscribed calculated from updated and subs
 			addresses = updatedAddresses.Intersection(subs)
 			additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, updatedAddresses, subs)
 			addresses.Merge(additional)
