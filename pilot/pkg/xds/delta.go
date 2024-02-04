@@ -247,15 +247,16 @@ func (conn *Connection) sendDelta(res *discovery.DeltaDiscoveryResponse) error {
 	err := sendResonse()
 	if err == nil {
 		if !strings.HasPrefix(res.TypeUrl, v3.DebugType) {
-			conn.proxy.Lock()
-			if conn.proxy.WatchedResources[res.TypeUrl] == nil {
-				conn.proxy.WatchedResources[res.TypeUrl] = &model.WatchedResource{TypeUrl: res.TypeUrl}
-			}
-			conn.proxy.WatchedResources[res.TypeUrl].NonceSent = res.Nonce
-			if features.EnableUnsafeDeltaTest {
-				conn.proxy.WatchedResources[res.TypeUrl].LastResources = applyDelta(conn.proxy.WatchedResources[res.TypeUrl].LastResources, res)
-			}
-			conn.proxy.Unlock()
+			conn.proxy.UpdateWatchedResource(res.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
+				if wr == nil {
+					wr = &model.WatchedResource{TypeUrl: res.TypeUrl}
+				}
+				wr.NonceSent = res.Nonce
+				if features.EnableUnsafeDeltaTest {
+					wr.LastResources = applyDelta(wr.LastResources, res)
+				}
+				return wr
+			})
 		}
 	} else {
 		deltaLog.Infof("Timeout writing %s", conn.conID)
@@ -313,7 +314,7 @@ func (s *DiscoveryServer) processDeltaRequest(req *discovery.DeltaDiscoveryReque
 	if con.proxy.SidecarScope != nil && con.proxy.SidecarScope.Version != request.Push.PushVersion {
 		s.computeProxyState(con.proxy, request)
 	}
-	return s.pushDeltaXds(con, con.Watched(req.TypeUrl), request)
+	return s.pushDeltaXds(con, con.proxy.GetWatchedResource(req.TypeUrl), request)
 }
 
 // shouldRespondDelta determines whether this request needs to be responded back. It applies the ack/nack rules as per xds protocol
@@ -331,9 +332,7 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		return false
 	}
 
-	con.proxy.RLock()
-	previousInfo := con.proxy.WatchedResources[request.TypeUrl]
-	con.proxy.RUnlock()
+	previousInfo := con.proxy.GetWatchedResource(request.TypeUrl)
 
 	// This can happen in two cases:
 	// 1. Envoy initially send request to Istiod
@@ -348,15 +347,12 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 			deltaLog.Debugf("ADS:%s: INIT %s %s", stype, con.conID, request.ResponseNonce)
 		}
 
-		con.proxy.Lock()
-		defer con.proxy.Unlock()
-
 		res, wildcard := deltaWatchedResources(nil, request)
-		con.proxy.WatchedResources[request.TypeUrl] = &model.WatchedResource{
+		con.proxy.AddOrUpdateWatchedResource(&model.WatchedResource{
 			TypeUrl:       request.TypeUrl,
 			ResourceNames: res,
 			Wildcard:      wildcard,
-		}
+		})
 		// For all EDS requests that we have already responded with in the same stream let us
 		// force the response. It is important to respond to those requests for Envoy to finish
 		// warming of those resources(Clusters).
@@ -368,9 +364,13 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 		// 5. We should respond to the EDS request with Endpoints to let Envoy finish cluster warming.
 		// Refer to https://github.com/envoyproxy/envoy/issues/13009 for more details.
 		for _, dependent := range warmingDependencies(request.TypeUrl) {
-			if dwr, exists := con.proxy.WatchedResources[dependent]; exists {
-				dwr.AlwaysRespond = true
-			}
+			con.proxy.UpdateWatchedResource(dependent, func(wr *model.WatchedResource) *model.WatchedResource {
+				if wr == nil {
+					return nil
+				}
+				wr.AlwaysRespond = true
+				return wr
+			})
 		}
 		return true
 	}
@@ -386,14 +386,17 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	}
 	// If it comes here, that means nonce match. This an ACK. We should record
 	// the ack details and respond if there is a change in resource names.
-	con.proxy.Lock()
-	previousResources := con.proxy.WatchedResources[request.TypeUrl].ResourceNames
-	currentResources, _ := deltaWatchedResources(previousResources, request)
-	con.proxy.WatchedResources[request.TypeUrl].NonceAcked = request.ResponseNonce
-	con.proxy.WatchedResources[request.TypeUrl].ResourceNames = currentResources
-	alwaysRespond := previousInfo.AlwaysRespond
-	previousInfo.AlwaysRespond = false
-	con.proxy.Unlock()
+	var previousResources, currentResources []string
+	var alwaysRespond bool
+	con.proxy.UpdateWatchedResource(request.TypeUrl, func(wr *model.WatchedResource) *model.WatchedResource {
+		previousResources = wr.ResourceNames
+		currentResources, _ = deltaWatchedResources(previousResources, request)
+		wr.NonceAcked = request.ResponseNonce
+		wr.ResourceNames = currentResources
+		alwaysRespond = wr.AlwaysRespond
+		wr.AlwaysRespond = false
+		return wr
+	})
 
 	subChanged := !slices.EqualUnordered(previousResources, currentResources)
 	// Spontaneous DeltaDiscoveryRequests from the client.

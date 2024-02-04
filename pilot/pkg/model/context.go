@@ -1343,6 +1343,50 @@ func (node *Proxy) WorkloadEntry() (string, bool) {
 	return node.workloadEntryName, node.workloadEntryAutoCreated
 }
 
+func (node *Proxy) GetWatchedResourceTypes() sets.String {
+	node.RLock()
+	defer node.RUnlock()
+
+	ret := sets.NewWithLength[string](len(node.WatchedResources))
+	for typeURL := range node.WatchedResources {
+		ret.Insert(typeURL)
+	}
+	return ret
+}
+
+func (node *Proxy) GetWatchedResource(typeURL string) *WatchedResource {
+	node.RLock()
+	defer node.RUnlock()
+
+	return node.WatchedResources[typeURL]
+}
+
+func (node *Proxy) AddOrUpdateWatchedResource(r *WatchedResource) {
+	if r == nil {
+		return
+	}
+	node.Lock()
+	defer node.Unlock()
+	node.WatchedResources[r.TypeUrl] = r
+}
+
+func (node *Proxy) UpdateWatchedResource(typeURL string, updateFn func(*WatchedResource) *WatchedResource) {
+	node.Lock()
+	defer node.Unlock()
+	r := node.WatchedResources[typeURL]
+	r = updateFn(r)
+	if r != nil {
+		node.WatchedResources[typeURL] = r
+	}
+}
+
+func (node *Proxy) Unsubscribe(typeURL string) {
+	node.Lock()
+	defer node.Unlock()
+
+	delete(node.WatchedResources, typeURL)
+}
+
 // SupportsEnvoyExtendedJwt indicates that the proxy JWT extension is capable of
 // replacing istio_authn filter.
 func (node *Proxy) SupportsEnvoyExtendedJwt() bool {
