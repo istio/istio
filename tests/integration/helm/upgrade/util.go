@@ -81,17 +81,17 @@ func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile s
 	}
 
 	if isAmbient {
-		// Upgrade ztunnel chart
-		err = h.UpgradeChart(helmtest.ZtunnelReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.ZtunnelChartsDir),
-			helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout)
-		if err != nil {
-			ctx.Fatalf("failed to upgrade istio %s chart", helmtest.ZtunnelReleaseName)
-		}
 		// Upgrade istio-cni chart
 		err = h.UpgradeChart(helmtest.CniReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.CniChartsDir),
 			helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout)
 		if err != nil {
 			ctx.Fatalf("failed to upgrade istio %s chart", helmtest.CniReleaseName)
+		}
+		// Upgrade ztunnel chart
+		err = h.UpgradeChart(helmtest.ZtunnelReleaseName, filepath.Join(helmtest.ManifestsChartPath, helmtest.ZtunnelChartsDir),
+			helmtest.IstioNamespace, overrideValuesFile, helmtest.Timeout)
+		if err != nil {
+			ctx.Fatalf("failed to upgrade istio %s chart", helmtest.ZtunnelReleaseName)
 		}
 	}
 

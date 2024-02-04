@@ -68,6 +68,9 @@ func TestAmbientInstall(t *testing.T) {
 global:
   hub: %s
   tag: %s
+  variant: ""
+pilot:
+  variant: ""
 `
 	framework.
 		NewTest(t).
