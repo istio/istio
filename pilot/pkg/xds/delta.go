@@ -343,9 +343,9 @@ func (s *DiscoveryServer) shouldRespondDelta(con *Connection, request *discovery
 	// We should always respond with the current resource names.
 	if previousInfo == nil {
 		if len(request.InitialResourceVersions) > 0 {
-			deltaLog.Debugf("ADS:%s: RECONNECT %s %s resources:%v", stype, con.conID, request.ResponseNonce, len(request.InitialResourceVersions))
+			deltaLog.Infof("ADS:%s: RECONNECT %s %s resources:%v", stype, con.conID, request.ResponseNonce, len(request.InitialResourceVersions))
 		} else {
-			deltaLog.Debugf("ADS:%s: INIT %s %s", stype, con.conID, request.ResponseNonce)
+			deltaLog.Infof("ADS:%s: INIT %s %s", stype, con.conID, request.ResponseNonce)
 		}
 
 		con.proxy.Lock()

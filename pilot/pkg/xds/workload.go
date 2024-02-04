@@ -51,22 +51,23 @@ func (e WorkloadGenerator) GenerateDeltas(
 		// Nothing changed..
 		return nil, nil, model.XdsLogDetails{}, false, nil
 	}
+
 	subs := sets.New(w.ResourceNames...)
-	addresses := updatedAddresses
-	// If it is not a wildcard, filter out resources we are not subscribed to
-	if !w.Wildcard {
-		addresses = addresses.Intersection(subs)
-	}
-	// Specific requested resource: always include
-	addresses = addresses.Merge(req.Delta.Subscribed)
-	addresses = addresses.Difference(req.Delta.Unsubscribed)
-	if !w.Wildcard {
-		// We only need this for on-demand. This allows us to subscribe the client to resources they
-		// didn't explicitly request.
-		// For wildcard, they subscribe to everything already.
-		// TODO: optimize me
-		additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
-		addresses.Merge(additional)
+	var addresses sets.String
+	if isReq {
+		// this is from request, we only send response for the subscribed address
+		addresses = req.Delta.Subscribed
+	} else {
+		if w.Wildcard {
+			addresses = updatedAddresses
+		} else {
+			// this is from the external triggers instead of request
+			// send response for: 1. all the subscribed intersect with the updated
+			// 2. addtional subscribed calculated from updated and subs
+			addresses = updatedAddresses.Intersection(subs)
+			additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, updatedAddresses, subs)
+			addresses.Merge(additional)
+		}
 	}
 
 	// TODO: it is needlessly wasteful to do a full sync just because the rest of Istio thought it was "full"
