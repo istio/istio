@@ -346,16 +346,37 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
+	out.collectImportedServices(ps, configNamespace)
+
+	// Now that we have all the services that sidecars using this scope (in
+	// this config namespace) will see, identify all the destinationRules
+	// that these services need
+	out.selectDestinationRules(ps, configNamespace)
+
+	if sidecar.OutboundTrafficPolicy == nil {
+		if ps.Mesh.OutboundTrafficPolicy != nil {
+			out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
+				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
+			}
+		}
+	} else {
+		out.OutboundTrafficPolicy = sidecar.OutboundTrafficPolicy
+	}
+
+	return out
+}
+
+func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace string) {
 	servicesAdded := make(map[host.Name]sidecarServiceIndex)
-	for _, listener := range out.EgressListeners {
+	for _, listener := range sc.EgressListeners {
 		// First add the explicitly requested services, which take priority
 		for _, s := range listener.services {
-			out.appendSidecarServices(servicesAdded, s)
+			sc.appendSidecarServices(servicesAdded, s)
 		}
 		// add dependencies on delegate virtual services
 		delegates := ps.DelegateVirtualServices(listener.virtualServices)
 		for _, delegate := range delegates {
-			out.AddConfigDependencies(delegate)
+			sc.AddConfigDependencies(delegate)
 		}
 
 		// Infer more possible destinations from virtual services
@@ -364,7 +385,7 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 		// want in the hosts field, and the potentially random choice below won't matter
 		for _, vs := range listener.virtualServices {
 			for _, cfg := range VirtualServiceDependencies(vs) {
-				out.AddConfigDependencies(cfg.HashCode())
+				sc.AddConfigDependencies(cfg.HashCode())
 			}
 
 			v := vs.Spec.(*networking.VirtualService)
@@ -379,7 +400,7 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 						vss = serviceMatchingVirtualServicePorts(s, ports)
 					}
 					if vss != nil {
-						out.appendSidecarServices(servicesAdded, vss)
+						sc.appendSidecarServices(servicesAdded, vss)
 					}
 				} else {
 
@@ -410,53 +431,40 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 							vss = serviceMatchingVirtualServicePorts(byNamespace[ns[0]], ports)
 						}
 						if vss != nil {
-							out.appendSidecarServices(servicesAdded, vss)
+							sc.appendSidecarServices(servicesAdded, vss)
 						}
 					}
 				}
 			}
 		}
 	}
+}
 
-	// Now that we have all the services that sidecars using this scope (in
-	// this config namespace) will see, identify all the destinationRules
-	// that these services need
-	out.destinationRules = make(map[host.Name][]*ConsolidatedDestRule)
-	out.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
-	for _, s := range out.services {
+func (sc *SidecarScope) selectDestinationRules(ps *PushContext, configNamespace string) {
+	sc.destinationRules = make(map[host.Name][]*ConsolidatedDestRule)
+	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
+	for _, s := range sc.services {
 		drList := ps.destinationRule(configNamespace, s)
 		if drList != nil {
-			out.destinationRules[s.Hostname] = drList
+			sc.destinationRules[s.Hostname] = drList
 			for _, dr := range drList {
 				for _, key := range dr.from {
-					out.AddConfigDependencies(ConfigKey{
+					sc.AddConfigDependencies(ConfigKey{
 						Kind:      kind.DestinationRule,
 						Name:      key.Name,
 						Namespace: key.Namespace,
 					}.HashCode())
 
-					out.destinationRulesByNames[key] = dr.rule
+					sc.destinationRulesByNames[key] = dr.rule
 				}
 			}
 		}
-		out.AddConfigDependencies(ConfigKey{
+		sc.AddConfigDependencies(ConfigKey{
 			Kind:      kind.ServiceEntry,
 			Name:      string(s.Hostname),
 			Namespace: s.Attributes.Namespace,
 		}.HashCode())
 	}
-
-	if sidecar.OutboundTrafficPolicy == nil {
-		if ps.Mesh.OutboundTrafficPolicy != nil {
-			out.OutboundTrafficPolicy = &networking.OutboundTrafficPolicy{
-				Mode: networking.OutboundTrafficPolicy_Mode(ps.Mesh.OutboundTrafficPolicy.Mode),
-			}
-		}
-	} else {
-		out.OutboundTrafficPolicy = sidecar.OutboundTrafficPolicy
-	}
-
-	return out
 }
 
 func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
