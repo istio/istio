@@ -14,7 +14,11 @@
 
 package krt
 
-import "istio.io/istio/pkg/ptr"
+import (
+	"go.uber.org/atomic"
+
+	"istio.io/istio/pkg/ptr"
+)
 
 // RecomputeTrigger trigger provides an escape hatch to allow krt transformations to depend on external state and recompute
 // correctly when those change.
@@ -24,19 +28,21 @@ import "istio.io/istio/pkg/ptr"
 // RecomputeTrigger works around this by allowing an explicit call to recompute a collection; the caller must be sure to call Trigger()
 // any time the state changes.
 type RecomputeTrigger struct {
-	inner StaticSingleton[int]
-	i     int
+	inner StaticSingleton[int32]
+	// krt will suppress events for unchanged resources. To workaround this, we constantly change and int each time TriggerRecomputation
+	// is called to ensure our event is not suppressed.
+	i *atomic.Int32
 }
 
 func NewRecomputeTrigger() *RecomputeTrigger {
-	inner := NewStatic[int](ptr.Of(0))
-	return &RecomputeTrigger{inner: inner, i: 0}
+	inner := NewStatic[int32](ptr.Of(int32(0)))
+	return &RecomputeTrigger{inner: inner, i: atomic.NewInt32(0)}
 }
 
 // TriggerRecomputation tells all dependants to recompute
 func (r *RecomputeTrigger) TriggerRecomputation() {
-	r.i++
-	r.inner.Set(ptr.Of(r.i))
+	v := r.i.Inc()
+	r.inner.Set(ptr.Of(v))
 }
 
 // MarkDependant marks the given context as depending on this trigger. This registers it to be recomputed when TriggerRecomputation
