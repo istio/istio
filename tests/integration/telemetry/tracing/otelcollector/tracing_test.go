@@ -163,6 +163,8 @@ func setupConfig(_ resource.Context, cfg *istio.Config) {
 meshConfig:
   enableTracing: true
   defaultConfig:
+    proxyMetadata:
+      OTEL_RESOURCE_ATTRIBUTES: "my.attribute=myvalue"
     tracing:
       openCensusAgent:
         address: "dns:opentelemetry-collector.istio-system.svc:55678"
