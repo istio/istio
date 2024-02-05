@@ -232,8 +232,6 @@ func doAddRun(args *skel.CmdArgs, conf *Config) error {
 		} else {
 			log.Debugf("istio-cni ambient cmdAdd podName: %s - not ambient enabled, ignoring", podName)
 		}
-
-		return nil
 	}
 	// End ambient plugin logic
 
