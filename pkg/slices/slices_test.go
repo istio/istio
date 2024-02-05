@@ -862,3 +862,99 @@ func BenchmarkEqualUnordered(b *testing.B) {
 		EqualUnordered(l, notEqual)
 	}
 }
+
+func TestReplaceAndInsert(t *testing.T) {
+	f := func(e int) (bool, int) {
+		if e == 1 {
+			return true, 10
+		}
+		return false, 0
+	}
+	cases := []struct {
+		name         string
+		input        []int
+		replace      []int
+		insertBefore []int
+		insertAfter  []int
+		applied      bool
+	}{
+		{
+			name:         "nil slice",
+			input:        nil,
+			replace:      nil,
+			insertBefore: nil,
+			insertAfter:  nil,
+			applied:      false,
+		},
+		{
+			name:         "the first",
+			input:        []int{1, 2, 3},
+			replace:      []int{10, 2, 3},
+			insertBefore: []int{10, 1, 2, 3},
+			insertAfter:  []int{1, 10, 2, 3},
+			applied:      true,
+		},
+		{
+			name:         "the middle",
+			input:        []int{0, 1, 2, 3},
+			replace:      []int{0, 10, 2, 3},
+			insertBefore: []int{0, 10, 1, 2, 3},
+			insertAfter:  []int{0, 1, 10, 2, 3},
+			applied:      true,
+		},
+		{
+			name:         "the last",
+			input:        []int{3, 2, 1},
+			replace:      []int{3, 2, 10},
+			insertBefore: []int{3, 2, 10, 1},
+			insertAfter:  []int{3, 2, 1, 10},
+			applied:      true,
+		},
+		{
+			name:         "match multiple",
+			input:        []int{1, 2, 1},
+			replace:      []int{10, 2, 1},
+			insertBefore: []int{10, 1, 2, 1},
+			insertAfter:  []int{1, 10, 2, 1},
+			applied:      true,
+		},
+		{
+			name:         "not exists",
+			input:        []int{2, 3},
+			replace:      []int{2, 3},
+			insertBefore: []int{2, 3},
+			insertAfter:  []int{2, 3},
+			applied:      false,
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			// ReplaceFunc
+			got, applied := ReplaceFunc(Clone(c.input), f)
+			if !reflect.DeepEqual(c.replace, got) {
+				t.Errorf("slice: want %+v but got %+v", c.replace, got)
+			}
+			if !reflect.DeepEqual(c.replace, got) {
+				t.Errorf("applied: want %+v but got %+v", c.applied, applied)
+			}
+
+			// InsertBeforeFunc
+			got, applied = InsertBeforeFunc(Clone(c.input), f)
+			if !reflect.DeepEqual(c.insertBefore, got) {
+				t.Errorf("slice: want %+v but got %+v", c.insertBefore, got)
+			}
+			if !reflect.DeepEqual(c.insertBefore, got) {
+				t.Errorf("applied: want %+v but got %+v", c.applied, applied)
+			}
+
+			// InsertAfterFunc
+			got, applied = InsertAfterFunc(Clone(c.input), f)
+			if !reflect.DeepEqual(c.insertAfter, got) {
+				t.Errorf("slice: want %+v but got %+v", c.insertAfter, got)
+			}
+			if !reflect.DeepEqual(c.insertAfter, got) {
+				t.Errorf("applied: want %+v but got %+v", c.applied, applied)
+			}
+		})
+	}
+}

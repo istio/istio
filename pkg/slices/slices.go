@@ -238,3 +238,74 @@ func GroupUnique[T any, K comparable](data []T, f func(T) K) map[K]T {
 func Join(sep string, fields ...string) string {
 	return strings.Join(fields, sep)
 }
+
+// ReplaceFunc find and replace the first matching element.
+// If the f function returns true, the returned value will be used for replacement.
+func ReplaceFunc[E any](s []E, f func(e E) (bool, E)) ([]E, bool) {
+	applied := false
+	for k, v := range s {
+		if ok, r := f(v); ok {
+			s[k] = r
+			applied = true
+			break
+		}
+	}
+	return s, applied
+}
+
+// InsertBeforeFunc find and insert an element before the found element.
+// If the f function returns true, the returned value will be inserted before the found element.
+func InsertBeforeFunc[E any](s []E, f func(e E) (bool, E)) ([]E, bool) {
+	var toInsert E
+	idx := -1
+	for k, v := range s {
+		if ok, r := f(v); ok {
+			toInsert = r
+			idx = k
+			break
+		}
+	}
+
+	if idx == -1 {
+		return s, false
+	}
+
+	s = append(s, toInsert) // for grow the cap
+	copy(s[idx+1:], s[idx:])
+	s[idx] = toInsert
+
+	return s, true
+}
+
+// InsertAfterFunc find and insert an element after the found element.
+// If the f function returns true, the returned value will be inserted after the found element.
+func InsertAfterFunc[E any](s []E, f func(e E) (bool, E)) ([]E, bool) {
+	var toInsert E
+	idx := -1
+	for k, v := range s {
+		if ok, r := f(v); ok {
+			toInsert = r
+			idx = k
+			break
+		}
+	}
+
+	if idx == -1 {
+		return s, false
+	}
+
+	// insert after the last element
+	if idx == len(s) {
+		s = append(s, toInsert)
+		return s, true
+	}
+
+	// insert after not the last element
+	// this equals insert before idx+1
+	idx++
+	s = append(s, toInsert) // for grow the cap
+	copy(s[idx+1:], s[idx:])
+	s[idx] = toInsert
+
+	return s, true
+}
