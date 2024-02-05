@@ -73,6 +73,7 @@ import (
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/security/pkg/pki/ca"
 	"istio.io/istio/security/pkg/pki/ra"
+	caserver "istio.io/istio/security/pkg/server/ca"
 	"istio.io/istio/security/pkg/server/ca/authenticate"
 	"istio.io/istio/security/pkg/server/ca/authenticate/kubeauth"
 )
@@ -137,8 +138,9 @@ type Server struct {
 	cacertsWatcher *fsnotify.Watcher
 	dnsNames       []string
 
-	CA *ca.IstioCA
-	RA ra.RegistrationAuthority
+	CA       *ca.IstioCA
+	RA       ra.RegistrationAuthority
+	caServer *caserver.Server
 
 	// TrustAnchors for workload to workload mTLS
 	workloadTrustBundle     *tb.TrustBundle
@@ -1180,19 +1182,21 @@ func (s *Server) startCA(caOpts *caOptions) {
 	if s.CA == nil && s.RA == nil {
 		return
 	}
+	// init the RA server if configured, else start init CA server
+	if s.RA != nil {
+		log.Infof("initializing CA server with RA")
+		s.initCAServer(s.RA, caOpts)
+	} else if s.CA != nil {
+		log.Infof("initializing CA server with IstioD CA")
+		s.initCAServer(s.CA, caOpts)
+	}
 	s.addStartFunc("ca", func(stop <-chan struct{}) error {
 		grpcServer := s.secureGrpcServer
 		if s.secureGrpcServer == nil {
 			grpcServer = s.grpcServer
 		}
-		// Start the RA server if configured, else start the CA server
-		if s.RA != nil {
-			log.Infof("Starting RA")
-			s.RunCA(grpcServer, s.RA, caOpts)
-		} else if s.CA != nil {
-			log.Infof("Starting IstioD CA")
-			s.RunCA(grpcServer, s.CA, caOpts)
-		}
+		log.Infof("starting CA server")
+		s.RunCA(grpcServer)
 		return nil
 	})
 }
