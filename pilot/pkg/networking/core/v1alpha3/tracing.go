@@ -53,11 +53,6 @@ const (
 	envoyZipkin        = "envoy.tracers.zipkin"
 )
 
-const (
-	environmentResourceDetector = "type.googleapis.com/istio.mesh.v1alpha1.MeshConfig.ExtensionProvider.OpenTelemetryTracingProvider.EnvironmentResourceDetector"
-	dynatraceResourceDetector   = "type.googleapis.com/istio.mesh.v1alpha1.MeshConfig.ExtensionProvider.OpenTelemetryTracingProvider.DynatraceResourceDetector"
-)
-
 // this is used for testing. it should not be changed in regular code.
 var clusterLookupFn = model.LookupCluster
 
