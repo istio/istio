@@ -194,18 +194,17 @@ EOF
   # TODO: Will need updating when mc ambient tests are created if we want our own CNI
   if [[ "$CONFIG" = *"ambient-sc.yaml" ]]; then
     echo "Setting up ambient cluster, 3rd party CNI will be used."
-    which helm
-    helm version
-    helm repo add cilium https://helm.cilium.io/
-    helm repo update
+    CONFIG_DIR="$(dirname "$CONFIG")"
+    # which helm
+    # helm version
+    # helm repo add cilium https://helm.cilium.io/
+    # helm repo update
     # helm install cilium cilium/cilium --version 1.15.0 --namespace kube-system --set externalIPs.enabled=true,bpf.masquerade=false,image.pullPolicy=IfNotPresent,ipam.mode=kubernetes,l7Proxy=false,cni.exclusive=false
     # kubectl wait --for=condition=ready --timeout=60s -n kube-system pod -l=k8s-app=cilium
     kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/tigera-operator.yaml
-    kubectl create -f custom-resources.yaml
-    kubectl wait --for=condition=ready --timeout=60s -n calico-system pod -l=k8s-app=calico-node
-    # kubectl create -f https://raw.githubusercontent.com/projectcalico/calico/v3.27.0/manifests/custom-resources.yaml
-    kubectl rollout restart -n kube-system deployment/coredns
-    # kubectl wait --for=condition=ready --timeout=60s -n kube-system pod -l=k8s-app=kube-dns
+    kubectl create -f "${CONFIG_DIR}"/calico.yaml
+    # kubectl wait --for=condition=ready --timeout=60s -n calico-system pod -l=k8s-app=calico-node
+    # kubectl rollout restart -n kube-system deployment/coredns
   fi
 
   # If metrics server configuration directory is specified then deploy in

@@ -1258,16 +1258,82 @@ spec:
 	})
 }
 
+// Relies on the suite running in a cluster with a CNI which enforces K8s netpol but presently has no check
+func TestStrictHBONE(t *testing.T) {
+	framework.NewTest(t).
+		Features("security.reachability").
+		Run(func(t framework.TestContext) {
+			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
+
+			// configure a NetPol which will only allow HBONE traffic in the test app namespace
+			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/only-hbone.yaml").ApplyOrFail(t)
+
+			Always := func(echo.Instance, echo.CallOptions) bool {
+				return true
+			}
+			Never := func(echo.Instance, echo.CallOptions) bool {
+				return false
+			}
+			SameNetwork := func(from echo.Instance, to echo.Target) echo.Instances {
+				return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
+			}
+			SupportsHBone :=
+				func(from echo.Instance, opts echo.CallOptions) bool {
+					if !from.Config().IsUncaptured() && !opts.To.Config().IsUncaptured() {
+						return true
+					}
+					if !from.Config().IsUncaptured() && opts.To.Config().HasSidecar() {
+						return true
+					}
+					if from.Config().HasSidecar() && !opts.To.Config().IsUncaptured() {
+						return true
+					}
+					if from.Config().HasSidecar() && opts.To.Config().HasSidecar() {
+						return true
+					}
+					return false
+				}
+			_ = Never
+			_ = SameNetwork
+			testCases := []reachability.TestCase{
+				{
+					ConfigFile:    "beta-mtls-on.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: SupportsHBone,
+					// we do not expect HBONE traffic to have mutated user traffic
+					// presently ExpectMTLS is checking that headers were added to user traffic
+					ExpectMTLS: Never,
+				},
+				{
+					ConfigFile:    "beta-mtls-permissive.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: SupportsHBone,
+					// we do not expect HBONE traffic to have mutated user traffic
+					// presently ExpectMTLS is checking that headers were added to user traffic
+					ExpectMTLS: Never,
+				},
+				{
+					ConfigFile:    "beta-mtls-off.yaml",
+					Namespace:     systemNM,
+					Include:       Always,
+					ExpectSuccess: SupportsHBone,
+					// we do not expect HBONE traffic to have mutated user traffic
+					// presently ExpectMTLS is checking that headers were added to user traffic
+					ExpectMTLS: Never,
+				},
+			}
+			RunReachability(testCases, t)
+		})
+}
+
 func TestMTLS(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
 		Run(func(t framework.TestContext) {
 			t.Skip("https://github.com/istio/istio/issues/42696")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
-			// need add a netpol denying anything other than 15008
-			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/a.yaml").ApplyOrFail(t)
-
-			// t.ConfigKube(t.AllClusters()...).YAML().ApplyOrFail()
 			// mtlsOnExpect defines our expectations for when mTLS is expected when its enabled
 			mtlsOnExpect := func(from echo.Instance, opts echo.CallOptions) bool {
 				if from.Config().IsNaked() || opts.To.Config().IsNaked() {
