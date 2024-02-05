@@ -63,6 +63,7 @@ type hostClassification struct {
 	allHosts   []host.Name
 }
 
+// Matches checks if the hostClassification(sidecar egress hosts) matches the Service's hostname
 func (hc hostClassification) Matches(h host.Name) bool {
 	// exact lookup is fast, so check that first
 	if hc.exactHosts.Contains(h) {
@@ -79,6 +80,38 @@ func (hc hostClassification) Matches(h host.Name) bool {
 		}
 		// Check if the hostnames match per usual hostname matching rules
 		if h.SubsetOf(importedHost) {
+			return true
+		}
+	}
+	return false
+}
+
+// VSMatches checks if the hostClassification(sidecar egress hosts) matches the VirtualService's host
+func (hc hostClassification) VSMatches(vsHost host.Name, useGatewaySemantics bool) bool {
+	// first, check exactHosts
+	if hc.exactHosts.Contains(vsHost) {
+		return true
+	}
+
+	// exactHosts not found, fallback to loop allHosts
+	hIsWildCard := vsHost.IsWildCarded()
+	for _, importedHost := range hc.allHosts {
+		// If both are exact hosts, then fallback is not needed.
+		// In this scenario it should be determined by exact lookup.
+		if !hIsWildCard && !importedHost.IsWildCarded() {
+			continue
+		}
+
+		var match bool
+		if useGatewaySemantics {
+			// The new way. Matching logic exactly mirrors Service matching
+			// If a route defines `*.com` and we import `a.com`, it will not match
+			match = vsHost.SubsetOf(importedHost)
+		} else {
+			// The old way. We check Matches which is bi-directional. This is for backwards compatibility
+			match = vsHost.Matches(importedHost)
+		}
+		if match {
 			return true
 		}
 	}
