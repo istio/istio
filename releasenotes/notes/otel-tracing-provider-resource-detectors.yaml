@@ -5,4 +5,4 @@ issue:
   - 48885
 releaseNotes:
   - |
-    **Allow** configuring Resource Detectors for the `OpenTelemetryTracingProvider` in `MeshConfig`.
+    **Enabled** configuring Resource Detectors for the `OpenTelemetryTracingProvider` in `MeshConfig`.
