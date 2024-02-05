@@ -62,12 +62,17 @@ func (e WorkloadGenerator) GenerateDeltas(
 			addresses = updatedAddresses
 		} else {
 			// this is from the external triggers instead of request
-			// send response for: 1. all the subscribed intersect with the updated
-			// 2. additional subscribed calculated from updated and subs
+			// send response for all the subscribed intersect with the updated
 			addresses = updatedAddresses.Intersection(subs)
-			additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, updatedAddresses, subs)
-			addresses.Merge(additional)
 		}
+	}
+
+	if !w.Wildcard {
+		// We only need this for on-demand. This allows us to subscribe the client to resources they
+		// didn't explicitly request.
+		// For wildcard, they subscribe to everything already.
+		additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
+		addresses.Merge(additional)
 	}
 
 	// TODO: it is needlessly wasteful to do a full sync just because the rest of Istio thought it was "full"

@@ -188,11 +188,11 @@ func TestWorkload(t *testing.T) {
 		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod4", "default/svc1.default.svc.cluster.local")
 		// Adding a pod in the service should not trigger an update for that pod - we didn't explicitly subscribe
 		createPod(s, "pod5", "not-sa", "127.0.0.5", "not-node")
-		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod5")
+		ads.ExpectNoResponse()
 
 		// And if the service changes to no longer select them, we should see them *removed* (not updated)
 		createService(s, "svc1", "default", map[string]string{"app": "nothing"})
-		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod4", "Kubernetes//Pod/default/pod5", "default/svc1.default.svc.cluster.local")
+		expect(ads.ExpectResponse(), "Kubernetes//Pod/default/pod4", "default/svc1.default.svc.cluster.local")
 	})
 	t.Run("wildcard", func(t *testing.T) {
 		expect := buildExpect(t)
