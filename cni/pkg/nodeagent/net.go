@@ -225,7 +225,7 @@ func realDependencies() *dep.RealDependencies {
 // Remove pod from mesh: pod is not deleted, we just want to remove it from the mesh.
 func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
-	log.Debugf("Pod is now stopped or opt out... cleaning up.")
+	log.Debugf("Pod is now opt out... cleaning up.")
 
 	openNetns := s.currentPodSnapshot.Take(string(pod.UID))
 	if openNetns == nil {
@@ -254,7 +254,7 @@ func (s *NetServer) RemovePodFromMesh(ctx context.Context, pod *corev1.Pod) erro
 // Delete pod from mesh: pod is deleted. iptables rules will die with it, we just need to update ztunnel
 func (s *NetServer) DelPodFromMesh(ctx context.Context, pod *corev1.Pod) error {
 	log := log.WithLabels("ns", pod.Namespace, "name", pod.Name)
-	log.Debug("Pod is now stopped or opt out... cleaning up.")
+	log.Debug("Pod is now stopped... cleaning up.")
 
 	if err := removePodFromHostNSIpset(pod, &s.hostsideProbeIPSet); err != nil {
 		log.Errorf("failed to remove pod %s from host ipset, error was: %v", pod.Name, err)
