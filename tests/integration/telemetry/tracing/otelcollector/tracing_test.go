@@ -184,11 +184,11 @@ meshConfig:
             value: "some-value"
   - name: test-otel-res-detectors
     opentelemetry:
-       service: opentelemetry-collector.istio-system.svc.cluster.local
-       port: 4317
-       resource_detectors:
-         environment: {}
-         dynatrace: {}
+      service: opentelemetry-collector.istio-system.svc.cluster.local
+      port: 4317
+      resource_detectors:
+        environment: {}
+        dynatrace: {}
 `
 	cfg.Values["pilot.traceSampling"] = "100.0"
 	cfg.Values["global.proxy.tracer"] = "openCensusAgent"
