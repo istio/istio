@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	cmp2 "github.com/google/go-cmp/cmp"
+
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/tests/util/leak"
 )
