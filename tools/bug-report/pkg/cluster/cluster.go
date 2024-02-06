@@ -236,7 +236,7 @@ func GetClusterResources(ctx context.Context, clientset *kubernetes.Clientset, c
 			out.CniPod[PodKey(p.Namespace, p.Name)] = &pods.Items[i]
 		}
 
-		if inject.IgnoredNamespaces.Contains(p.Namespace) {
+		if common.IgnoredNamespaces.Contains(p.Namespace) {
 			continue
 		}
 		if skip := shouldSkipPod(&p, config); skip {

@@ -34,6 +34,7 @@ import (
 	"istio.io/istio/pilot/pkg/config/file"
 	"istio.io/istio/pilot/pkg/config/kube/crdclient"
 	"istio.io/istio/pilot/pkg/config/memory"
+	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pilot/pkg/leaderelection/k8sleaderelection/k8sresourcelock"
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
@@ -47,7 +48,6 @@ import (
 	"istio.io/istio/pkg/config/schema/collections"
 	"istio.io/istio/pkg/config/schema/gvk"
 	kubelib "istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kubetypes"
 	"istio.io/istio/pkg/util/sets"
 )
@@ -281,7 +281,7 @@ func (sa *IstiodAnalyzer) addReaderKubeSourceInternal(readers []ReaderSource, in
 		if cfg.Meta.GroupVersionKind.Kind == gvk.Namespace.Kind {
 			meta = cfg.GetName()
 		}
-		return !inject.IgnoredNamespaces.Contains(meta)
+		return !features.InjectionIgnoredNamespaces.Contains(meta)
 	})
 
 	var errs error
@@ -340,8 +340,8 @@ func (sa *IstiodAnalyzer) AddRunningKubeSourceWithRevision(c kubelib.Client, rev
 	// This is a best effort optimization only; the code would behave correctly if we watched all secrets.
 
 	ignoredNamespacesSelectorForField := func(field string) string {
-		selectors := make([]fields.Selector, 0, len(inject.IgnoredNamespaces))
-		for _, ns := range inject.IgnoredNamespaces.UnsortedList() {
+		selectors := make([]fields.Selector, 0, len(features.InjectionIgnoredNamespaces))
+		for _, ns := range features.InjectionIgnoredNamespaces.UnsortedList() {
 			selectors = append(selectors, fields.OneTermNotEqualSelector(field, ns))
 		}
 		return fields.AndSelectors(selectors...).String()

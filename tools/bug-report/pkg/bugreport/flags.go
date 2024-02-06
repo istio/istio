@@ -24,8 +24,8 @@ import (
 	"github.com/spf13/cobra"
 	"sigs.k8s.io/yaml"
 
-	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/slices"
+	"istio.io/istio/tools/bug-report/pkg/common"
 	config2 "istio.io/istio/tools/bug-report/pkg/config"
 )
 
@@ -136,7 +136,7 @@ func parseConfig() (*config2.BugReportConfig, error) {
 		if err := ess.UnmarshalJSON([]byte(s)); err != nil {
 			return nil, err
 		}
-		ess.Namespaces = slices.FilterInPlace(ess.Namespaces, func(ns string) bool { return !inject.IgnoredNamespaces.Contains(ns) })
+		ess.Namespaces = slices.FilterInPlace(ess.Namespaces, func(ns string) bool { return !common.IgnoredNamespaces.Contains(ns) })
 		if len(ess.Namespaces) > 0 {
 			gConfig.Exclude = append(gConfig.Exclude, ess)
 		}

@@ -34,7 +34,6 @@ import (
 	"istio.io/istio/istioctl/pkg/util/ambient"
 	"istio.io/istio/operator/pkg/util"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/proxy"
 	"istio.io/istio/pkg/util/sets"
@@ -57,7 +56,7 @@ const (
 var (
 	bugReportDefaultIstioNamespace = "istio-system"
 	bugReportDefaultInclude        = []string{""}
-	bugReportDefaultExclude        = []string{strings.Join(sets.SortedList(inject.IgnoredNamespaces), ",")}
+	bugReportDefaultExclude        = []string{strings.Join(sets.SortedList(common.IgnoredNamespaces), ",")}
 )
 
 // Cmd returns a cobra command for bug-report.

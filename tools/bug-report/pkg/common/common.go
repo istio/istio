@@ -19,7 +19,9 @@ import (
 	"fmt"
 	"strings"
 
+	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const (
@@ -31,9 +33,15 @@ const (
 	OperatorContainerName  = "istio-operator"
 
 	// namespaceAll is the default argument of across all namespaces
-	NamespaceAll        = ""
-	StrNamespaceAll     = "allNamespaces"
-	KubeSystemNamespace = "kube-system"
+	NamespaceAll    = ""
+	StrNamespaceAll = "allNamespaces"
+)
+
+var IgnoredNamespaces = sets.New(
+	constants.KubeSystemNamespace,
+	constants.KubePublicNamespace,
+	constants.KubeNodeLeaseNamespace,
+	constants.LocalPathStorageNamespace,
 )
 
 type kv struct {

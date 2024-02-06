@@ -241,6 +241,28 @@ var (
 
 	EnableVtprotobuf = env.Register("ENABLE_VTPROTOBUF", false,
 		"If true, will use optimized vtprotobuf based marshaling").Get()
+
+	// InjectionIgnoredNamespaces contains the system namespaces referenced from Kubernetes:
+	// Ref: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/#viewing-namespaces
+	// "kube-system": The namespace for objects created by the Kubernetes system.
+	// "kube-public": This namespace is mostly reserved for cluster usage.
+	// "kube-node-lease": This namespace for the lease objects associated with each node
+	// which improves the performance of the node heartbeats as the cluster scales.
+	// "local-path-storage": Dynamically provisioning persistent local storage with Kubernetes.
+	//
+	//	used with Kind cluster: https://github.com/rancher/local-path-provisioner
+	InjectionIgnoredNamespaces = func() sets.String {
+		v := env.Register(
+			"INJECTION_IGNORED_NAMESPACES",
+			strings.Join([]string{
+				constants.KubeSystemNamespace,
+				constants.KubePublicNamespace,
+				constants.KubeNodeLeaseNamespace,
+				constants.LocalPathStorageNamespace,
+			}, ","),
+			"Comma separated list of namespaces for which sidecar injection is disabled.").Get()
+		return sets.New(strings.Split(v, ",")...)
+	}()
 )
 
 // UnsafeFeaturesEnabled returns true if any unsafe features are enabled.
