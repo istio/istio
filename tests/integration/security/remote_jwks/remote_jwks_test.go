@@ -76,7 +76,7 @@ func TestRemoteJwks(t *testing.T) {
 				{
 					name:       "remote-jwks-with-service-entry",
 					policyFile: "./testdata/requestauthn-with-se-timeout.yaml.tmpl",
-					timeout:    "1s",
+					timeout:    "20ms",
 					delay:      "2s",
 					customizeCall: func(t framework.TestContext, from echo.Instance, opts *echo.CallOptions) {
 						opts.HTTP.Path = "/valid-token-forward-remote-jwks"
