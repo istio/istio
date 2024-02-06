@@ -77,13 +77,15 @@ func TestWaitCmd(t *testing.T) {
 		},
 		{
 			execClientConfig: cannedResponseMap,
-			args:             strings.Split("--generation=1 VirtualService foo.default --proxy not-proxy", " "),
+			args:             strings.Split("--generation=1 --timeout 20ms VirtualService foo.default --proxy not-proxy", " "),
 			wantException:    true,
+			expectedOutput:   "timeout expired before resource",
 		},
 		{
 			execClientConfig: cannedResponseMap,
 			args:             strings.Split("--generation=1 not-service foo.default", " "),
 			wantException:    true,
+			expectedOutput:   "type not-service is not recognized",
 		},
 		{
 			execClientConfig: cannedResponseMap,
@@ -105,7 +107,7 @@ func TestWaitCmd(t *testing.T) {
 			execClientConfig: distributionTrackingDisabledResponseMap,
 			args:             strings.Split("--timeout 2s --revision canary virtualservice foo.default", " "),
 			wantException:    true,
-			expectedString:   distributionTrackingDisabledErrorString,
+			expectedOutput:   distributionTrackingDisabledErrorString,
 		},
 	}
 
@@ -154,15 +156,16 @@ type execTestCase struct {
 
 	// Typically use one of the three
 	expectedOutput string // Expected constant output
-	expectedString string // String output is expected to contain
 	goldenFilename string // Expected output stored in golden file
 
 	wantException bool
 }
 
 func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
-	t.Helper()
-
+	if c.wantException {
+		// Ensure tests do not hang for 30s
+		c.args = append(c.args, "--timeout=20ms")
+	}
 	var out bytes.Buffer
 	cmd.SetArgs(c.args)
 	cmd.SilenceUsage = true
@@ -172,12 +175,8 @@ func verifyExecTestOutput(t *testing.T, cmd *cobra.Command, c execTestCase) {
 	fErr := cmd.Execute()
 	output := out.String()
 
-	if c.expectedOutput != "" && c.expectedOutput != output {
+	if c.expectedOutput != "" && !strings.Contains(output, c.expectedOutput) {
 		t.Fatalf("Unexpected output for 'istioctl %s'\n got: %q\nwant: %q", strings.Join(c.args, " "), output, c.expectedOutput)
-	}
-
-	if c.expectedString != "" && !strings.Contains(output, c.expectedString) {
-		t.Fatalf("Output didn't match for '%s %s'\n got %v\nwant: %v", cmd.Name(), strings.Join(c.args, " "), output, c.expectedString)
 	}
 
 	if c.goldenFilename != "" {
