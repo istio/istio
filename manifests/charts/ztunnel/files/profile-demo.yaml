@@ -11,7 +11,7 @@ meshConfig:
         port: 4317
     - name: skywalking
       skywalking:
-        service: tracing.observability.svc.cluster.local
+        service: tracing.istio-system.svc.cluster.local
         port: 11800
     - name: otel-tracing
       opentelemetry:
