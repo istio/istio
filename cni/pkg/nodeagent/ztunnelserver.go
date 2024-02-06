@@ -145,10 +145,7 @@ func (z *ztunnelServer) Close() error {
 }
 
 func (z *ztunnelServer) Run(ctx context.Context) {
-	go func() {
-		<-ctx.Done()
-		z.Close()
-	}()
+	context.AfterFunc(ctx, func() { _ = z.Close() })
 
 	for {
 		log.Debug("accepting conn")
@@ -179,11 +176,11 @@ func (z *ztunnelServer) Run(ctx context.Context) {
 // nolint: unparam
 func (z *ztunnelServer) handleConn(ctx context.Context, conn *ZtunnelConnection) error {
 	defer conn.Close()
-	go func() {
-		<-ctx.Done()
+
+	context.AfterFunc(ctx, func() {
 		log.Debug("context cancelled - closing conn")
 		conn.Close()
-	}()
+	})
 
 	// before doing anything, add the connection to the list of active connections
 	z.conns.addConn(conn)

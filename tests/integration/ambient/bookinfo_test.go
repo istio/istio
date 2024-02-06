@@ -64,14 +64,13 @@ func TestBookinfo(t *testing.T) {
 			nsConfig, err := namespace.New(t, namespace.Config{
 				Prefix: "bookinfo",
 				Inject: false,
-				Labels: map[string]string{
-					constants.DataplaneMode: "ambient",
-				},
 			})
 			if err != nil {
 				t.Fatal(err)
 			}
 			setupBookinfo(t, nsConfig)
+			// add namespace to ambient mesh
+			nsConfig.SetLabel(constants.DataplaneMode, "ambient")
 			applyDefaultRouting(t, nsConfig)
 
 			jar, err := cookiejar.New(nil)
