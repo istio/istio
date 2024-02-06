@@ -157,6 +157,10 @@ spec:
             value: "{{ $val }}"
           {{- end }}
           {{- end }}
+{{- if .Values.pilot.injectionIgnoredNamespaces }}
+          - name: INJECTION_IGNORED_NAMESPACES
+            value: "{{ join "," .Values.pilot.injectionIgnoredNamespaces }}"
+{{- end }}
 {{- if .Values.pilot.traceSampling }}
           - name: PILOT_TRACE_SAMPLING
             value: "{{ .Values.pilot.traceSampling }}"

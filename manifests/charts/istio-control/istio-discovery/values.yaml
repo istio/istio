@@ -88,6 +88,13 @@ defaults:
     ipFamilyPolicy: ""
     ipFamilies: []
 
+    # Namespaces in which istio-ca-root-cert is not created and sidecar injection is disabled
+    injectionIgnoredNamespaces:
+      - kube-system
+      - kube-public
+      - kube-node-lease
+      - local-path-storage
+
   sidecarInjectorWebhook:
     # You can use the field called alwaysInjectSelector and neverInjectSelector which will always inject the sidecar or
     # always skip the injection on pods that match that label selector, regardless of the global policy.
