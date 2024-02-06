@@ -12,7 +12,7 @@
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
 
-FROM gradle:4.8.1 as builder
+FROM gradle:8.6.0-jdk8 as builder
 
 # Not sure why but we need root to build. Ignore lint error, this is for a multistage builder so it doesn't matter.
 # hadolint ignore=DL3002
@@ -23,7 +23,7 @@ RUN gradle build
 
 # Use library image once https://github.com/OpenLiberty/ci.docker/issues/241
 # is fixed
-FROM gcr.io/istio-testing/websphere-liberty:22.0.0.8-full-java8-ibmjava
+FROM open-liberty:24.0.0.1-kernel-slim-java17-openj9
 
 ENV SERVERDIRNAME reviews
 
