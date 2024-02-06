@@ -180,8 +180,23 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 					return false, nil
 				},
 			)
-		} else if rp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE || rp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
-			// insert before/first without a route match is same as insert in the beginning
+		} else if rp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
+			// insert before without a route match is same as insert in the beginning
+			if !hasRouteMatch(rp) {
+				virtualHost.Routes = append([]*route.Route{proto.Clone(rp.Value).(*route.Route)}, virtualHost.Routes...)
+				continue
+			}
+			virtualHost.Routes, applied = insertBeforeFunc(
+				virtualHost.Routes,
+				func(e *route.Route) (bool, *route.Route) {
+					if routeMatch(e, rp) {
+						return true, proto.Clone(rp.Value).(*route.Route)
+					}
+					return false, nil
+				},
+			)
+		} else if rp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
+			// insert first without a route match is same as insert in the beginning
 			if !hasRouteMatch(rp) {
 				virtualHost.Routes = append([]*route.Route{proto.Clone(rp.Value).(*route.Route)}, virtualHost.Routes...)
 				continue
@@ -204,14 +219,7 @@ func patchHTTPRoutes(patchContext networking.EnvoyFilter_PatchContext,
 			applied = true
 
 			// In case of INSERT_FIRST, if a match is found, still insert it at the top of the routes.
-			if rp.Operation == networking.EnvoyFilter_Patch_INSERT_FIRST {
-				insertPosition = 0
-			}
-
-			clonedVal := proto.Clone(rp.Value).(*route.Route)
-			virtualHost.Routes = append(virtualHost.Routes, clonedVal)
-			copy(virtualHost.Routes[insertPosition+1:], virtualHost.Routes[insertPosition:])
-			virtualHost.Routes[insertPosition] = clonedVal
+			virtualHost.Routes = append([]*route.Route{proto.Clone(rp.Value).(*route.Route)}, virtualHost.Routes...)
 		}
 		IncrementEnvoyFilterMetric(rp.Key(), Route, applied)
 	}
