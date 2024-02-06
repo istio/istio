@@ -123,6 +123,44 @@ func TestGetPublicKey(t *testing.T) {
 	}
 }
 
+func TestGetPublicKeyWithTimeout(t *testing.T) {
+	r := NewJwksResolver(JwtPubKeyEvictionDuration, JwtPubKeyRefreshInterval, JwtPubKeyRefreshIntervalOnFailure, testRetryInterval)
+	defer r.Close()
+	serverDelay := 100 * time.Millisecond
+	ms, err := test.StartNewServerWithHandlerDelay(serverDelay)
+	defer ms.Stop()
+	if err != nil {
+		t.Fatal("failed to start a mock server")
+	}
+
+	mockCertURL := ms.URL + "/oauth2/v3/certs"
+
+	cases := []struct {
+		in              []string
+		timeout         time.Duration
+		expectedFailure bool
+	}{
+		{
+			in:              []string{"testIssuer", mockCertURL},
+			timeout:         5 * time.Second,
+			expectedFailure: false,
+		},
+		{
+			in:              []string{"testIssuer2", mockCertURL}, // Send two same request, mock server is expected to hit only once because of the cache.
+			timeout:         20 * time.Millisecond,
+			expectedFailure: true,
+		},
+	}
+	for _, c := range cases {
+		_, err := r.GetPublicKey(c.in[0], c.in[1], c.timeout)
+		if c.timeout < serverDelay && err == nil {
+			t.Errorf("GetPublicKey(\"\", %+v) fails: did not timed out as expected", c)
+		} else if c.timeout >= serverDelay && err != nil {
+			t.Errorf("GetPublicKey(\"\", %+v) fails: expected no error, got (%v)", c, err)
+		}
+	}
+}
+
 func TestGetPublicKeyReorderedKey(t *testing.T) {
 	r := NewJwksResolver(JwtPubKeyEvictionDuration, testRetryInterval*20, testRetryInterval*10, testRetryInterval)
 	defer r.Close()
