@@ -1,6 +1,3 @@
-//go:build integ
-// +build integ
-
 // Copyright Istio Authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -64,18 +61,10 @@ global:
 
 // TestAmbientInstall tests Istio ambient profile installation using Helm
 func TestAmbientInstall(t *testing.T) {
-	overrideValuesStr := `
-global:
-  hub: %s
-  tag: %s
-  variant: ""
-pilot:
-  variant: ""
-`
 	framework.
 		NewTest(t).
 		Features("installation.helm.ambient.install").
-		Run(setupInstallation(overrideValuesStr, true))
+		Run(setupInstallation(ambientProfileOverride, true))
 }
 
 func setupInstallation(overrideValuesStr string, isAmbient bool) func(t framework.TestContext) {
