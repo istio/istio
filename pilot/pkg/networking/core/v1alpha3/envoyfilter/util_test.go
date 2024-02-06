@@ -89,7 +89,7 @@ func TestReplaceAndInsert(t *testing.T) {
 	}
 
 	// all the test cases are to find the position of the number 1 in the slice,
-	// and then replace it with 10 (or insert 10 before or after it)
+	// and then replace (or insert before, or insert after) it with 10.
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			// replaceFunc
@@ -97,7 +97,7 @@ func TestReplaceAndInsert(t *testing.T) {
 			if !reflect.DeepEqual(c.replace, got) {
 				t.Errorf("replaceFunc: want %+v but got %+v", c.replace, got)
 			}
-			if !reflect.DeepEqual(c.replace, got) {
+			if !reflect.DeepEqual(c.applied, applied) {
 				t.Errorf("replaceFunc: want %+v but got %+v", c.applied, applied)
 			}
 
@@ -106,7 +106,7 @@ func TestReplaceAndInsert(t *testing.T) {
 			if !reflect.DeepEqual(c.insertBefore, got) {
 				t.Errorf("insertBeforeFunc: want %+v but got %+v", c.insertBefore, got)
 			}
-			if !reflect.DeepEqual(c.insertBefore, got) {
+			if !reflect.DeepEqual(c.applied, applied) {
 				t.Errorf("insertBeforeFunc: want %+v but got %+v", c.applied, applied)
 			}
 
@@ -115,7 +115,7 @@ func TestReplaceAndInsert(t *testing.T) {
 			if !reflect.DeepEqual(c.insertAfter, got) {
 				t.Errorf("insertAfterFunc: want %+v but got %+v", c.insertAfter, got)
 			}
-			if !reflect.DeepEqual(c.insertAfter, got) {
+			if !reflect.DeepEqual(c.applied, applied) {
 				t.Errorf("insertAfterFunc: want %+v but got %+v", c.applied, applied)
 			}
 		})
