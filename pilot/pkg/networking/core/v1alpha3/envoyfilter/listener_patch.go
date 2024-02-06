@@ -151,7 +151,7 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 				applied = true
 				continue
 			}
-			lis.ListenerFilters, applied = slices.InsertAfterFunc(
+			lis.ListenerFilters, applied = insertAfterFunc(
 				lis.ListenerFilters,
 				func(e *listener.ListenerFilter) (bool, *listener.ListenerFilter) {
 					if listenerFilterMatch(e, lp) {
@@ -166,7 +166,7 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 				lis.ListenerFilters = append([]*listener.ListenerFilter{proto.Clone(lp.Value).(*listener.ListenerFilter)}, lis.ListenerFilters...)
 				continue
 			}
-			lis.ListenerFilters, applied = slices.InsertBeforeFunc(
+			lis.ListenerFilters, applied = insertBeforeFunc(
 				lis.ListenerFilters,
 				func(e *listener.ListenerFilter) (bool, *listener.ListenerFilter) {
 					if listenerFilterMatch(e, lp) {
@@ -179,7 +179,7 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 			if !hasListenerFilterMatch(lp) {
 				continue
 			}
-			lis.ListenerFilters, applied = slices.ReplaceFunc(
+			lis.ListenerFilters, applied = replaceFunc(
 				lis.ListenerFilters,
 				func(e *listener.ListenerFilter) (bool, *listener.ListenerFilter) {
 					if listenerFilterMatch(e, lp) {
