@@ -20,7 +20,6 @@ package helmupgrade
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -40,15 +39,7 @@ import (
 )
 
 const (
-	gcrHub = "gcr.io/istio-release"
-
-	defaultValues = `
-global:
-  hub: %s
-  tag: %s
-
-revision: "%s"
-`
+	gcrHub            = "gcr.io/istio-release"
 	prodTag           = "prod"
 	canaryTag         = "canary"
 	latestRevisionTag = "latest"
@@ -56,7 +47,7 @@ revision: "%s"
 
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
-func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string, isAmbient bool) {
+func upgradeCharts(ctx framework.TestContext, cs cluster.Cluster, h *helm.Helm, overrideValuesFile string, isAmbient bool) {
 	execCmd := fmt.Sprintf(
 		"kubectl apply -n %v -f %v",
 		helmtest.IstioNamespace,
@@ -143,19 +134,6 @@ func deleteIstioRevision(h *helm.Helm, revision string) error {
 	return nil
 }
 
-// getValuesOverrides returns the values file created to pass into Helm override default values
-// for the hub and tag
-func getValuesOverrides(ctx framework.TestContext, hub, tag, revision string) string {
-	workDir := ctx.CreateTmpDirectoryOrFail("helm")
-	overrideValues := fmt.Sprintf(defaultValues, hub, tag, revision)
-	overrideValuesFile := filepath.Join(workDir, "values.yaml")
-	if err := os.WriteFile(overrideValuesFile, []byte(overrideValues), os.ModePerm); err != nil {
-		ctx.Fatalf("failed to write iop cr file: %v", err)
-	}
-
-	return overrideValuesFile
-}
-
 // performInPlaceUpgradeFunc returns the provided function necessary to run inside an integration test
 // for upgrade capability
 func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(framework.TestContext) {
@@ -168,8 +146,7 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 			// all versions
 			helmtest.DeleteIstio(t, h, cs, isAmbient)
 		})
-
-		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, "")
+		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, previousVersion, "", isAmbient)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, true, isAmbient)
 		helmtest.VerifyInstallation(t, cs, true, isAmbient)
 
@@ -177,8 +154,8 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		s := t.Settings()
-		overrideValuesFile = getValuesOverrides(t, s.Image.Hub, s.Image.Tag, "")
-		upgradeCharts(t, h, overrideValuesFile, isAmbient)
+		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, "", isAmbient)
+		upgradeCharts(t, cs, h, overrideValuesFile, isAmbient)
 		helmtest.VerifyInstallation(t, cs, true, isAmbient)
 
 		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, "")
@@ -206,7 +183,7 @@ func performCanaryUpgradeFunc(previousVersion string) func(framework.TestContext
 			}
 		})
 
-		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, "")
+		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, previousVersion, "", false)
 		helmtest.InstallIstio(t, cs, h, overrideValuesFile, previousVersion, false, false)
 		helmtest.VerifyInstallation(t, cs, false, false)
 
@@ -214,7 +191,7 @@ func performCanaryUpgradeFunc(previousVersion string) func(framework.TestContext
 		sanitycheck.RunTrafficTestClientServer(t, oldClient, oldServer)
 
 		s := t.Settings()
-		overrideValuesFile = getValuesOverrides(t, s.Image.Hub, s.Image.Tag, canaryTag)
+		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, canaryTag, false)
 		helmtest.InstallIstioWithRevision(t, cs, h, "", canaryTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, false, false)
 
@@ -258,7 +235,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		// helm install istio-base istio/base --version 1.15.0 --namespace istio-system -f values.yaml
 		// helm install istiod-1-15 istio/istiod --version 1.15.0 -f values.yaml
 		previousRevision := strings.ReplaceAll(previousVersion, ".", "-")
-		overrideValuesFile := getValuesOverrides(t, gcrHub, previousVersion, previousRevision)
+		overrideValuesFile := helmtest.GetValuesOverrides(t, gcrHub, previousVersion, previousRevision, false)
 		helmtest.InstallIstioWithRevision(t, cs, h, previousVersion, previousRevision, overrideValuesFile, false, true)
 		helmtest.VerifyInstallation(t, cs, false, false)
 
@@ -277,7 +254,7 @@ func performRevisionTagsUpgradeFunc(previousVersion string) func(framework.TestC
 		// helm upgrade istio-base ../manifests/charts/base --namespace istio-system -f values.yaml
 		// helm install istiod-latest ../manifests/charts/istio-control/istio-discovery -f values.yaml
 		s := t.Settings()
-		overrideValuesFile = getValuesOverrides(t, s.Image.Hub, s.Image.Tag, latestRevisionTag)
+		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, latestRevisionTag, false)
 		helmtest.InstallIstioWithRevision(t, cs, h, "", latestRevisionTag, overrideValuesFile, true, false)
 		helmtest.VerifyInstallation(t, cs, false, false)
 
