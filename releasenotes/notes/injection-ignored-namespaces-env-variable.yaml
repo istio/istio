@@ -1,0 +1,9 @@
+apiVersion: release-notes/v2
+kind: feature
+area: installation
+issue:
+  - 42341
+releaseNotes:
+  - |
+    **Added** environment variable `INJECTION_IGNORED_NAMESPACES` to configure in which namespaces `istio-ca-root-cert`
+    config map is created and sidecar injection is enabled.
