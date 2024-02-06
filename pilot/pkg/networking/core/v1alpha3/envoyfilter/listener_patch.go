@@ -334,66 +334,34 @@ func patchNetworkFilters(patchContext networking.EnvoyFilter_PatchContext,
 				fc.Filters = append(fc.Filters, proto.Clone(lp.Value).(*listener.Filter))
 				continue
 			}
-			// find the matching filter first
-			insertPosition := -1
-			for i := 0; i < len(fc.Filters); i++ {
-				if networkFilterMatch(fc.Filters[i], lp) {
-					insertPosition = i + 1
-					break
+			fc.Filters, applied = insertAfterFunc(fc.Filters, func(e *listener.Filter) (bool, *listener.Filter) {
+				if networkFilterMatch(e, lp) {
+					return true, proto.Clone(lp.Value).(*listener.Filter)
 				}
-			}
-
-			if insertPosition == -1 {
-				continue
-			}
-			applied = true
-			clonedVal := proto.Clone(lp.Value).(*listener.Filter)
-			fc.Filters = append(fc.Filters, clonedVal)
-			if insertPosition < len(fc.Filters)-1 {
-				copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
-				fc.Filters[insertPosition] = clonedVal
-			}
+				return false, nil
+			})
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
 			if !hasNetworkFilterMatch(lp) {
 				fc.Filters = append([]*listener.Filter{proto.Clone(lp.Value).(*listener.Filter)}, fc.Filters...)
 				continue
 			}
-			// find the matching filter first
-			insertPosition := -1
-			for i := 0; i < len(fc.Filters); i++ {
-				if networkFilterMatch(fc.Filters[i], lp) {
-					insertPosition = i
-					break
+			fc.Filters, applied = insertBeforeFunc(fc.Filters, func(e *listener.Filter) (bool, *listener.Filter) {
+				if networkFilterMatch(e, lp) {
+					return true, proto.Clone(lp.Value).(*listener.Filter)
 				}
-			}
-
-			// If matching filter is not found, then don't insert and continue.
-			if insertPosition == -1 {
-				continue
-			}
-			applied = true
-			clonedVal := proto.Clone(lp.Value).(*listener.Filter)
-			fc.Filters = append(fc.Filters, clonedVal)
-			copy(fc.Filters[insertPosition+1:], fc.Filters[insertPosition:])
-			fc.Filters[insertPosition] = clonedVal
+				return false, nil
+			})
 		} else if lp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 			if !hasNetworkFilterMatch(lp) {
 				continue
 			}
-			// find the matching filter first
-			replacePosition := -1
-			for i := 0; i < len(fc.Filters); i++ {
-				if networkFilterMatch(fc.Filters[i], lp) {
-					replacePosition = i
-					break
+			fc.Filters, applied = replaceFunc(fc.Filters, func(e *listener.Filter) (bool, *listener.Filter) {
+				if networkFilterMatch(e, lp) {
+					return true, proto.Clone(lp.Value).(*listener.Filter)
 				}
-			}
-			if replacePosition == -1 {
-				continue
-			}
-			applied = true
-			fc.Filters[replacePosition] = proto.Clone(lp.Value).(*listener.Filter)
+				return false, nil
+			})
 		} else if lp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 			if !hasNetworkFilterMatch(lp) {
 				continue
@@ -502,70 +470,43 @@ func patchHTTPFilters(patchContext networking.EnvoyFilter_PatchContext,
 				httpconn.HttpFilters = append(httpconn.HttpFilters, proto.Clone(lp.Value).(*hcm.HttpFilter))
 				continue
 			}
-
-			// find the matching filter first
-			insertPosition := -1
-			for i := 0; i < len(httpconn.HttpFilters); i++ {
-				if httpFilterMatch(httpconn.HttpFilters[i], lp) {
-					insertPosition = i + 1
-					break
-				}
-			}
-
-			if insertPosition == -1 {
-				continue
-			}
-			applied = true
-			clonedVal := proto.Clone(lp.Value).(*hcm.HttpFilter)
-			httpconn.HttpFilters = append(httpconn.HttpFilters, clonedVal)
-			if insertPosition < len(httpconn.HttpFilters)-1 {
-				copy(httpconn.HttpFilters[insertPosition+1:], httpconn.HttpFilters[insertPosition:])
-				httpconn.HttpFilters[insertPosition] = clonedVal
-			}
+			httpconn.HttpFilters, applied = insertAfterFunc(
+				httpconn.HttpFilters,
+				func(e *hcm.HttpFilter) (bool, *hcm.HttpFilter) {
+					if httpFilterMatch(e, lp) {
+						return true, proto.Clone(lp.Value).(*hcm.HttpFilter)
+					}
+					return false, nil
+				},
+			)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
 			if !hasHTTPFilterMatch(lp) {
 				httpconn.HttpFilters = append([]*hcm.HttpFilter{proto.Clone(lp.Value).(*hcm.HttpFilter)}, httpconn.HttpFilters...)
 				continue
 			}
-
-			// find the matching filter first
-			insertPosition := -1
-			for i := 0; i < len(httpconn.HttpFilters); i++ {
-				if httpFilterMatch(httpconn.HttpFilters[i], lp) {
-					insertPosition = i
-					break
-				}
-			}
-
-			if insertPosition == -1 {
-				continue
-			}
-			applied = true
-			clonedVal := proto.Clone(lp.Value).(*hcm.HttpFilter)
-			httpconn.HttpFilters = append(httpconn.HttpFilters, clonedVal)
-			copy(httpconn.HttpFilters[insertPosition+1:], httpconn.HttpFilters[insertPosition:])
-			httpconn.HttpFilters[insertPosition] = clonedVal
+			httpconn.HttpFilters, applied = insertBeforeFunc(
+				httpconn.HttpFilters,
+				func(e *hcm.HttpFilter) (bool, *hcm.HttpFilter) {
+					if httpFilterMatch(e, lp) {
+						return true, proto.Clone(lp.Value).(*hcm.HttpFilter)
+					}
+					return false, nil
+				},
+			)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 			if !hasHTTPFilterMatch(lp) {
 				continue
 			}
-
-			// find the matching filter first
-			replacePosition := -1
-			for i := 0; i < len(httpconn.HttpFilters); i++ {
-				if httpFilterMatch(httpconn.HttpFilters[i], lp) {
-					replacePosition = i
-					break
-				}
-			}
-			if replacePosition == -1 {
-				log.Debugf("EnvoyFilter patch %v is not applied because no matching HTTP filter found.", lp)
-				continue
-			}
-			applied = true
-			clonedVal := proto.Clone(lp.Value).(*hcm.HttpFilter)
-			httpconn.HttpFilters[replacePosition] = clonedVal
+			httpconn.HttpFilters, applied = replaceFunc(
+				httpconn.HttpFilters,
+				func(e *hcm.HttpFilter) (bool, *hcm.HttpFilter) {
+					if httpFilterMatch(e, lp) {
+						return true, proto.Clone(lp.Value).(*hcm.HttpFilter)
+					}
+					return false, nil
+				},
+			)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 			if !hasHTTPFilterMatch(lp) {
 				continue
