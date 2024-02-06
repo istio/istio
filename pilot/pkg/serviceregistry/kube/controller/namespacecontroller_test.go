@@ -31,7 +31,6 @@ import (
 	"istio.io/istio/pkg/config/constants"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
-	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/kube/kclient"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/test"
@@ -76,7 +75,7 @@ func TestNamespaceController(t *testing.T) {
 	deleteConfigMap(t, client.Kube(), "foo")
 	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "foo", newData)
 
-	for _, namespace := range inject.IgnoredNamespaces.UnsortedList() {
+	for _, namespace := range features.InjectionIgnoredNamespaces.UnsortedList() {
 		// Create namespace in ignored list, make sure its not created
 		createNamespace(t, client.Kube(), namespace, newData)
 		// Configmap in that namespace should not do anything either
