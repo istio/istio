@@ -131,7 +131,6 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	CreateNamespace(t, cs, IstioNamespace)
 
 	versionArgs := ""
-	profileArgs := ""
 
 	baseChartPath := RepoBaseChartPath
 	discoveryChartPath := RepoDiscoveryChartPath
@@ -166,7 +165,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 	}
 
 	// Install discovery chart
-	err = h.InstallChart(IstiodReleaseName, discoveryChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs, profileArgs)
+	err = h.InstallChart(IstiodReleaseName, discoveryChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 	if err != nil {
 		t.Fatalf("failed to install istio %s chart: %v", DiscoveryChartsDir, err)
 	}
@@ -180,7 +179,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 
 	if ambientProfile {
 		// Install cni chart
-		err = h.InstallChart(CniReleaseName, cniChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs, profileArgs)
+		err = h.InstallChart(CniReleaseName, cniChartPath, IstioNamespace, overrideValuesFile, Timeout, versionArgs)
 		if err != nil {
 			t.Fatalf("failed to install istio %s chart: %v", CniChartsDir, err)
 		}

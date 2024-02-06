@@ -47,7 +47,7 @@ const (
 
 // upgradeCharts upgrades Istio using Helm charts with the provided
 // override values file to the latest charts in $ISTIO_SRC/manifests
-func upgradeCharts(ctx framework.TestContext, cs cluster.Cluster, h *helm.Helm, overrideValuesFile string, isAmbient bool) {
+func upgradeCharts(ctx framework.TestContext, h *helm.Helm, overrideValuesFile string, isAmbient bool) {
 	execCmd := fmt.Sprintf(
 		"kubectl apply -n %v -f %v",
 		helmtest.IstioNamespace,
@@ -155,7 +155,7 @@ func performInPlaceUpgradeFunc(previousVersion string, isAmbient bool) func(fram
 
 		s := t.Settings()
 		overrideValuesFile = helmtest.GetValuesOverrides(t, s.Image.Hub, s.Image.Tag, "", isAmbient)
-		upgradeCharts(t, cs, h, overrideValuesFile, isAmbient)
+		upgradeCharts(t, h, overrideValuesFile, isAmbient)
 		helmtest.VerifyInstallation(t, cs, true, isAmbient)
 
 		_, newClient, newServer := sanitycheck.SetupTrafficTest(t, t, "")
