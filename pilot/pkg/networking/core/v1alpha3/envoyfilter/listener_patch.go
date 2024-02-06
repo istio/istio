@@ -151,67 +151,43 @@ func patchListenerFilters(patchContext networking.EnvoyFilter_PatchContext,
 				applied = true
 				continue
 			}
-
-			// find the matching filter first
-			insertPosition := -1
-			for i := 0; i < len(lis.ListenerFilters); i++ {
-				if listenerFilterMatch(lis.ListenerFilters[i], lp) {
-					insertPosition = i + 1
-					break
-				}
-			}
-
-			if insertPosition == -1 {
-				continue
-			}
-			applied = true
-			clonedVal := proto.Clone(lp.Value).(*listener.ListenerFilter)
-			lis.ListenerFilters = append(lis.ListenerFilters, clonedVal)
-			if insertPosition < len(lis.ListenerFilters)-1 {
-				copy(lis.ListenerFilters[insertPosition+1:], lis.ListenerFilters[insertPosition:])
-				lis.ListenerFilters[insertPosition] = clonedVal
-			}
+			lis.ListenerFilters, applied = insertAfterFunc(
+				lis.ListenerFilters,
+				func(e *listener.ListenerFilter) (bool, *listener.ListenerFilter) {
+					if listenerFilterMatch(e, lp) {
+						return true, proto.Clone(lp.Value).(*listener.ListenerFilter)
+					}
+					return false, nil
+				},
+			)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_INSERT_BEFORE {
 			// insert before without a filter match is same as insert in the beginning
 			if !hasListenerFilterMatch(lp) {
 				lis.ListenerFilters = append([]*listener.ListenerFilter{proto.Clone(lp.Value).(*listener.ListenerFilter)}, lis.ListenerFilters...)
 				continue
 			}
-			// find the matching filter first
-			insertPosition := -1
-			for i := 0; i < len(lis.ListenerFilters); i++ {
-				if listenerFilterMatch(lis.ListenerFilters[i], lp) {
-					insertPosition = i
-					break
-				}
-			}
-
-			// If matching filter is not found, then don't insert and continue.
-			if insertPosition == -1 {
-				continue
-			}
-			applied = true
-			clonedVal := proto.Clone(lp.Value).(*listener.ListenerFilter)
-			lis.ListenerFilters = append(lis.ListenerFilters, clonedVal)
-			copy(lis.ListenerFilters[insertPosition+1:], lis.ListenerFilters[insertPosition:])
-			lis.ListenerFilters[insertPosition] = clonedVal
+			lis.ListenerFilters, applied = insertBeforeFunc(
+				lis.ListenerFilters,
+				func(e *listener.ListenerFilter) (bool, *listener.ListenerFilter) {
+					if listenerFilterMatch(e, lp) {
+						return true, proto.Clone(lp.Value).(*listener.ListenerFilter)
+					}
+					return false, nil
+				},
+			)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_REPLACE {
 			if !hasListenerFilterMatch(lp) {
 				continue
 			}
-			// find the matching filter first
-			replacePosition := -1
-			for i := 0; i < len(lis.ListenerFilters); i++ {
-				if listenerFilterMatch(lis.ListenerFilters[i], lp) {
-					replacePosition = i
-					break
-				}
-			}
-			if replacePosition == -1 {
-				continue
-			}
-			applied = true
-			lis.ListenerFilters[replacePosition] = proto.Clone(lp.Value).(*listener.ListenerFilter)
+			lis.ListenerFilters, applied = replaceFunc(
+				lis.ListenerFilters,
+				func(e *listener.ListenerFilter) (bool, *listener.ListenerFilter) {
+					if listenerFilterMatch(e, lp) {
+						return true, proto.Clone(lp.Value).(*listener.ListenerFilter)
+					}
+					return false, nil
+				},
+			)
 		} else if lp.Operation == networking.EnvoyFilter_Patch_REMOVE {
 			if !hasListenerFilterMatch(lp) {
 				continue
