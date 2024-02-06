@@ -229,9 +229,9 @@ func doAddRun(args *skel.CmdArgs, conf *Config) error {
 				log.Errorf("istio-cni cmdAdd failed to signal node Istio CNI agent: %s", err)
 				return err
 			}
-		} else {
-			log.Debugf("istio-cni ambient cmdAdd podName: %s - not ambient enabled, ignoring", podName)
+			return nil
 		}
+		log.Debugf("istio-cni ambient cmdAdd podName: %s - not ambient enabled, ignoring", podName)
 	}
 	// End ambient plugin logic
 
