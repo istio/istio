@@ -940,10 +940,9 @@ func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string]*Service,
 			nss = append(nss, ns)
 		}
 	}
-	if len(nss) <= 0 {
-		return ""
+	if len(nss) > 0 {
+		sort.Strings(nss)
+		return nss[0]
 	}
-
-	sort.Strings(nss)
-	return nss[0]
+	return ""
 }
