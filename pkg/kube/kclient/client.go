@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -90,6 +91,11 @@ func (n *writeClient[T]) Create(object T) (T, error) {
 func (n *writeClient[T]) Update(object T) (T, error) {
 	api := kubeclient.GetWriteClient[T](n.client, object.GetNamespace())
 	return api.Update(context.Background(), object, metav1.UpdateOptions{})
+}
+
+func (n *writeClient[T]) Patch(name, namespace string, pt apitypes.PatchType, data []byte) (T, error) {
+	api := kubeclient.GetWriteClient[T](n.client, namespace)
+	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{})
 }
 
 func (n *writeClient[T]) UpdateStatus(object T) (T, error) {
