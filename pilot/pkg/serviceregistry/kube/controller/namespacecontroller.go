@@ -79,6 +79,7 @@ func NewNamespaceController(kubeClient kube.Client, caBundleWatcher *keycertbund
 		ObjectFilter:  c.GetFilter(),
 	})
 	c.namespaces = kclient.New[*v1.Namespace](kubeClient)
+	// kube-system is not skipped to enable deploying ztunnel in that namespace
 	c.ignoredNamespaces = inject.IgnoredNamespaces.Copy().Delete(constants.KubeSystemNamespace)
 
 	c.configmaps.AddEventHandler(controllers.FilteredObjectSpecHandler(c.queue.AddObject, func(o controllers.Object) bool {
