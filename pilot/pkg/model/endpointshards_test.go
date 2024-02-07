@@ -16,6 +16,8 @@ package model
 
 import (
 	"testing"
+
+	"istio.io/istio/pkg/test/util/assert"
 )
 
 func TestUpdateServiceAccount(t *testing.T) {
@@ -131,4 +133,31 @@ func TestUpdateServiceAccount(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestUpdateServiceEndpoints(t *testing.T) {
+	var (
+		c1Key = ShardKey{Cluster: "c1"}
+		c2Key = ShardKey{Cluster: "c2"}
+	)
+	endpoints := NewEndpointIndex(DisabledCache{})
+	cluster1Endppoints := []*IstioEndpoint{
+		{Addresses: []string{"10.172.0.1"}},
+		{Addresses: []string{"10.172.0.2"}},
+	}
+
+	cluster2Endppoints := []*IstioEndpoint{
+		{Addresses: []string{"10.172.0.3", "2001:1::3"}},
+		{Addresses: []string{"10.172.0.4", "2001:1::4"}},
+	}
+
+	t.Run("Check the IstioEndpoint number from EndpointShards", func(t *testing.T) {
+		endpoints.UpdateServiceEndpoints(c1Key, "foo.com", "foo", cluster1Endppoints)
+		endpoints.UpdateServiceEndpoints(c2Key, "bar.com", "bar", cluster2Endppoints)
+		fooeps, _ := endpoints.ShardsForService("foo.com", "foo")
+		bareps, _ := endpoints.ShardsForService("bar.com", "bar")
+
+		assert.Equal(t, len(fooeps.Shards[c1Key]), 2)
+		assert.Equal(t, len(bareps.Shards[c2Key]), 2)
+	})
 }
