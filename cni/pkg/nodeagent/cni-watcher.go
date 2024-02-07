@@ -99,15 +99,13 @@ func (s *CniPluginServer) Start() error {
 		}
 	}()
 
-	go func() {
-		<-s.ctx.Done()
+	context.AfterFunc(s.ctx, func() {
 		if err := s.cniListenServer.Close(); err != nil {
 			log.Errorf("CNI listen server terminated with error: %v", err)
 		} else {
 			log.Debug("CNI listen server terminated")
 		}
-	}()
-
+	})
 	return nil
 }
 

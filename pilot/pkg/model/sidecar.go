@@ -63,6 +63,7 @@ type hostClassification struct {
 	allHosts   []host.Name
 }
 
+// Matches checks if the hostClassification(sidecar egress hosts) matches the Service's hostname
 func (hc hostClassification) Matches(h host.Name) bool {
 	// exact lookup is fast, so check that first
 	if hc.exactHosts.Contains(h) {
@@ -79,6 +80,38 @@ func (hc hostClassification) Matches(h host.Name) bool {
 		}
 		// Check if the hostnames match per usual hostname matching rules
 		if h.SubsetOf(importedHost) {
+			return true
+		}
+	}
+	return false
+}
+
+// VSMatches checks if the hostClassification(sidecar egress hosts) matches the VirtualService's host
+func (hc hostClassification) VSMatches(vsHost host.Name, useGatewaySemantics bool) bool {
+	// first, check exactHosts
+	if hc.exactHosts.Contains(vsHost) {
+		return true
+	}
+
+	// exactHosts not found, fallback to loop allHosts
+	hIsWildCard := vsHost.IsWildCarded()
+	for _, importedHost := range hc.allHosts {
+		// If both are exact hosts, then fallback is not needed.
+		// In this scenario it should be determined by exact lookup.
+		if !hIsWildCard && !importedHost.IsWildCarded() {
+			continue
+		}
+
+		var match bool
+		if useGatewaySemantics {
+			// The new way. Matching logic exactly mirrors Service matching
+			// If a route defines `*.com` and we import `a.com`, it will not match
+			match = vsHost.SubsetOf(importedHost)
+		} else {
+			// The old way. We check Matches which is bi-directional. This is for backwards compatibility
+			match = vsHost.Matches(importedHost)
+		}
+		if match {
 			return true
 		}
 	}
@@ -313,105 +346,12 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 
 	// Now collect all the imported services across all egress listeners in
 	// this sidecar crd. This is needed to generate CDS output
-	servicesAdded := make(map[host.Name]sidecarServiceIndex)
-	for _, listener := range out.EgressListeners {
-		// First add the explicitly requested services, which take priority
-		for _, s := range listener.services {
-			out.appendSidecarServices(servicesAdded, s)
-		}
-		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServices(listener.virtualServices)
-		for _, delegate := range delegates {
-			out.AddConfigDependencies(delegate)
-		}
-
-		// Infer more possible destinations from virtual services
-		// Services chosen here will not override services explicitly requested in listener.services.
-		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
-		// want in the hosts field, and the potentially random choice below won't matter
-		for _, vs := range listener.virtualServices {
-			for _, cfg := range VirtualServiceDependencies(vs) {
-				out.AddConfigDependencies(cfg.HashCode())
-			}
-
-			v := vs.Spec.(*networking.VirtualService)
-			for h, ports := range virtualServiceDestinations(v) {
-				// Default to this hostname in our config namespace
-				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
-					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					var vss *Service
-					if listener.matchPort {
-						vss = serviceMatchingListenerPort(s, listener)
-					} else {
-						vss = serviceMatchingVirtualServicePorts(s, ports)
-					}
-					if vss != nil {
-						out.appendSidecarServices(servicesAdded, vss)
-					}
-				} else {
-
-					// We couldn't find the hostname in our config namespace
-					// We have to pick one arbitrarily for now, so we'll pick the first namespace alphabetically
-					// TODO: could we choose services more intelligently based on their ports?
-					byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
-					if len(byNamespace) == 0 {
-						// This hostname isn't found anywhere
-						log.Debugf("Could not find service hostname %s parsed from %s", h, vs.Key())
-						continue
-					}
-
-					ns := make([]string, 0, len(byNamespace))
-					for k := range byNamespace {
-						if ps.IsServiceVisible(byNamespace[k], configNamespace) {
-							ns = append(ns, k)
-						}
-					}
-					if len(ns) > 0 {
-						sort.Strings(ns)
-						// Pick first namespace alphabetically
-						// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-						var vss *Service
-						if listener.matchPort {
-							vss = serviceMatchingListenerPort(byNamespace[ns[0]], listener)
-						} else {
-							vss = serviceMatchingVirtualServicePorts(byNamespace[ns[0]], ports)
-						}
-						if vss != nil {
-							out.appendSidecarServices(servicesAdded, vss)
-						}
-					}
-				}
-			}
-		}
-	}
+	out.collectImportedServices(ps, configNamespace)
 
 	// Now that we have all the services that sidecars using this scope (in
 	// this config namespace) will see, identify all the destinationRules
 	// that these services need
-	out.destinationRules = make(map[host.Name][]*ConsolidatedDestRule)
-	out.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
-	for _, s := range out.services {
-		drList := ps.destinationRule(configNamespace, s)
-		if drList != nil {
-			out.destinationRules[s.Hostname] = drList
-			for _, dr := range drList {
-				for _, key := range dr.from {
-					out.AddConfigDependencies(ConfigKey{
-						Kind:      kind.DestinationRule,
-						Name:      key.Name,
-						Namespace: key.Namespace,
-					}.HashCode())
-
-					out.destinationRulesByNames[key] = dr.rule
-				}
-			}
-		}
-		out.AddConfigDependencies(ConfigKey{
-			Kind:      kind.ServiceEntry,
-			Name:      string(s.Hostname),
-			Namespace: s.Attributes.Namespace,
-		}.HashCode())
-	}
+	out.selectDestinationRules(ps, configNamespace)
 
 	if sidecar.OutboundTrafficPolicy == nil {
 		if ps.Mesh.OutboundTrafficPolicy != nil {
@@ -424,6 +364,90 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 	}
 
 	return out
+}
+
+func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace string) {
+	serviceMatchingPort := func(s *Service, ilw *IstioEgressListenerWrapper, ports sets.Set[int]) *Service {
+		if ilw.matchPort {
+			return serviceMatchingListenerPort(s, ilw)
+		}
+		return serviceMatchingVirtualServicePorts(s, ports)
+	}
+
+	servicesAdded := make(map[host.Name]sidecarServiceIndex)
+	for _, ilw := range sc.EgressListeners {
+		// First add the explicitly requested services, which take priority
+		for _, s := range ilw.services {
+			sc.appendSidecarServices(servicesAdded, s)
+		}
+
+		// add dependencies on delegate virtual services
+		delegates := ps.DelegateVirtualServices(ilw.virtualServices)
+		sc.AddConfigDependencies(delegates...)
+
+		// Infer more possible destinations from virtual services
+		// Services chosen here will not override services explicitly requested in ilw.services.
+		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
+		// want in the hosts field, and the potentially random choice below won't matter
+		for _, vs := range ilw.virtualServices {
+			for _, cfg := range VirtualServiceDependencies(vs) {
+				sc.AddConfigDependencies(cfg.HashCode())
+			}
+			v := vs.Spec.(*networking.VirtualService)
+			for h, ports := range virtualServiceDestinations(v) {
+				byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
+				// Default to this hostname in our config namespace
+				if s, ok := byNamespace[configNamespace]; ok {
+					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
+					if matchedSvc := serviceMatchingPort(s, ilw, ports); matchedSvc != nil {
+						sc.appendSidecarServices(servicesAdded, matchedSvc)
+					}
+				} else {
+					// We couldn't find the hostname in our config namespace
+					// We have to pick one arbitrarily for now, so we'll pick the first namespace alphabetically
+					// TODO: could we choose services more intelligently based on their ports?
+					if len(byNamespace) == 0 {
+						// This hostname isn't found anywhere
+						log.Debugf("Could not find service hostname %s parsed from %s", h, vs.Key())
+						continue
+					}
+					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
+					if ns := pickFirstVisibleNamespace(ps, byNamespace, configNamespace); ns != "" {
+						if matchedSvc := serviceMatchingPort(byNamespace[ns], ilw, ports); matchedSvc != nil {
+							sc.appendSidecarServices(servicesAdded, matchedSvc)
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+func (sc *SidecarScope) selectDestinationRules(ps *PushContext, configNamespace string) {
+	sc.destinationRules = make(map[host.Name][]*ConsolidatedDestRule)
+	sc.destinationRulesByNames = make(map[types.NamespacedName]*config.Config)
+	for _, s := range sc.services {
+		drList := ps.destinationRule(configNamespace, s)
+		if drList != nil {
+			sc.destinationRules[s.Hostname] = drList
+			for _, dr := range drList {
+				for _, key := range dr.from {
+					sc.AddConfigDependencies(ConfigKey{
+						Kind:      kind.DestinationRule,
+						Name:      key.Name,
+						Namespace: key.Namespace,
+					}.HashCode())
+
+					sc.destinationRulesByNames[key] = dr.rule
+				}
+			}
+		}
+		sc.AddConfigDependencies(ConfigKey{
+			Kind:      kind.ServiceEntry,
+			Name:      string(s.Hostname),
+			Namespace: s.Attributes.Namespace,
+		}.HashCode())
+	}
 }
 
 func convertIstioListenerToWrapper(ps *PushContext, configNamespace string,
@@ -904,4 +928,21 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 			sc.servicesByHostname[s.Hostname] = s
 		}
 	}
+}
+
+// Pick the Service namespace visible to the configNamespace namespace.
+// If it does not exist, return an empty string,
+// If there are more than one, pick the first alphabetically.
+func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, configNamespace string) string {
+	nss := make([]string, 0, len(byNamespace))
+	for ns := range byNamespace {
+		if ps.IsServiceVisible(byNamespace[ns], configNamespace) {
+			nss = append(nss, ns)
+		}
+	}
+	if len(nss) > 0 {
+		sort.Strings(nss)
+		return nss[0]
+	}
+	return ""
 }
