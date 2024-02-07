@@ -27,6 +27,8 @@ import (
 	"k8s.io/client-go/tools/clientcmd/api"
 
 	networkingv1alpha3 "istio.io/client-go/pkg/apis/networking/v1alpha3"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -208,7 +210,7 @@ func TestCronJobMetadata(t *testing.T) {
 	}
 }
 
-func TestDeploymentConfigMetadata(t *testing.T) {
+func TestDeployMeta(t *testing.T) {
 	tests := []struct {
 		name               string
 		pod                *corev1.Pod
@@ -254,17 +256,39 @@ func TestDeploymentConfigMetadata(t *testing.T) {
 				Labels:       map[string]string{},
 			},
 		},
+		{
+			name: "argo-rollout",
+			pod: &corev1.Pod{
+				ObjectMeta: metav1.ObjectMeta{
+					GenerateName: "name-6dc78b855c-",
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion: "v1",
+						Controller: ptr.Of(true),
+						Kind:       "ReplicaSet",
+						Name:       "name-6dc78b855c",
+					}},
+					Labels: map[string]string{
+						"rollouts-pod-template-hash": "6dc78b855c",
+					},
+				},
+			},
+			wantTypeMetadata: metav1.TypeMeta{
+				Kind:       "Rollout",
+				APIVersion: "v1alpha1",
+			},
+			wantObjectMetadata: metav1.ObjectMeta{
+				Name:         "name",
+				GenerateName: "name-6dc78b855c-",
+				Labels:       map[string]string{"rollouts-pod-template-hash": "6dc78b855c"},
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gotObjectMeta, gotTypeMeta := GetDeployMetaFromPod(tt.pod)
-			if !reflect.DeepEqual(gotObjectMeta, tt.wantObjectMetadata) {
-				t.Errorf("Object metadata got %+v want %+v", gotObjectMeta, tt.wantObjectMetadata)
-			}
-			if !reflect.DeepEqual(gotTypeMeta, tt.wantTypeMetadata) {
-				t.Errorf("Type metadata got %+v want %+v", gotTypeMeta, tt.wantTypeMetadata)
-			}
+			assert.Equal(t, gotObjectMeta, tt.wantObjectMetadata)
+			assert.Equal(t, gotTypeMeta, tt.wantTypeMetadata)
 		})
 	}
 }
