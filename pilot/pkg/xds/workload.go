@@ -74,6 +74,9 @@ func (e WorkloadGenerator) GenerateDeltas(
 		// didn't explicitly request.
 		// For wildcard, they subscribe to everything already.
 		additional := e.Server.Env.ServiceDiscovery.AdditionalPodSubscriptions(proxy, addresses, subs)
+		if addresses == nil {
+			addresses = sets.New[string]()
+		}
 		addresses.Merge(additional)
 	}
 
