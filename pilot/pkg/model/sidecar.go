@@ -367,71 +367,54 @@ func convertToSidecarScope(ps *PushContext, sidecarConfig *config.Config, config
 }
 
 func (sc *SidecarScope) collectImportedServices(ps *PushContext, configNamespace string) {
+	serviceMatchingPort := func(s *Service, ilw *IstioEgressListenerWrapper, ports sets.Set[int]) *Service {
+		if ilw.matchPort {
+			return serviceMatchingListenerPort(s, ilw)
+		}
+		return serviceMatchingVirtualServicePorts(s, ports)
+	}
+
 	servicesAdded := make(map[host.Name]sidecarServiceIndex)
-	for _, listener := range sc.EgressListeners {
+	for _, ilw := range sc.EgressListeners {
 		// First add the explicitly requested services, which take priority
-		for _, s := range listener.services {
+		for _, s := range ilw.services {
 			sc.appendSidecarServices(servicesAdded, s)
 		}
+
 		// add dependencies on delegate virtual services
-		delegates := ps.DelegateVirtualServices(listener.virtualServices)
-		for _, delegate := range delegates {
-			sc.AddConfigDependencies(delegate)
-		}
+		delegates := ps.DelegateVirtualServices(ilw.virtualServices)
+		sc.AddConfigDependencies(delegates...)
 
 		// Infer more possible destinations from virtual services
-		// Services chosen here will not override services explicitly requested in listener.services.
+		// Services chosen here will not override services explicitly requested in ilw.services.
 		// That way, if there is ambiguity around what hostname to pick, a user can specify the one they
 		// want in the hosts field, and the potentially random choice below won't matter
-		for _, vs := range listener.virtualServices {
+		for _, vs := range ilw.virtualServices {
 			for _, cfg := range VirtualServiceDependencies(vs) {
 				sc.AddConfigDependencies(cfg.HashCode())
 			}
-
 			v := vs.Spec.(*networking.VirtualService)
 			for h, ports := range virtualServiceDestinations(v) {
+				byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
 				// Default to this hostname in our config namespace
-				if s, ok := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)][configNamespace]; ok {
+				if s, ok := byNamespace[configNamespace]; ok {
 					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-					var vss *Service
-					if listener.matchPort {
-						vss = serviceMatchingListenerPort(s, listener)
-					} else {
-						vss = serviceMatchingVirtualServicePorts(s, ports)
-					}
-					if vss != nil {
-						sc.appendSidecarServices(servicesAdded, vss)
+					if matchedSvc := serviceMatchingPort(s, ilw, ports); matchedSvc != nil {
+						sc.appendSidecarServices(servicesAdded, matchedSvc)
 					}
 				} else {
-
 					// We couldn't find the hostname in our config namespace
 					// We have to pick one arbitrarily for now, so we'll pick the first namespace alphabetically
 					// TODO: could we choose services more intelligently based on their ports?
-					byNamespace := ps.ServiceIndex.HostnameAndNamespace[host.Name(h)]
 					if len(byNamespace) == 0 {
 						// This hostname isn't found anywhere
 						log.Debugf("Could not find service hostname %s parsed from %s", h, vs.Key())
 						continue
 					}
-
-					ns := make([]string, 0, len(byNamespace))
-					for k := range byNamespace {
-						if ps.IsServiceVisible(byNamespace[k], configNamespace) {
-							ns = append(ns, k)
-						}
-					}
-					if len(ns) > 0 {
-						sort.Strings(ns)
-						// Pick first namespace alphabetically
-						// This won't overwrite hostnames that have already been found eg because they were requested in hosts
-						var vss *Service
-						if listener.matchPort {
-							vss = serviceMatchingListenerPort(byNamespace[ns[0]], listener)
-						} else {
-							vss = serviceMatchingVirtualServicePorts(byNamespace[ns[0]], ports)
-						}
-						if vss != nil {
-							sc.appendSidecarServices(servicesAdded, vss)
+					// This won't overwrite hostnames that have already been found eg because they were requested in hosts
+					if ns := pickFirstVisibleNamespace(ps, byNamespace, configNamespace); ns != "" {
+						if matchedSvc := serviceMatchingPort(byNamespace[ns], ilw, ports); matchedSvc != nil {
+							sc.appendSidecarServices(servicesAdded, matchedSvc)
 						}
 					}
 				}
@@ -945,4 +928,21 @@ func (sc *SidecarScope) appendSidecarServices(servicesAdded map[host.Name]sideca
 			sc.servicesByHostname[s.Hostname] = s
 		}
 	}
+}
+
+// Pick the Service namespace visible to the configNamespace namespace.
+// If it does not exist, return an empty string,
+// If there are more than one, pick the first alphabetically.
+func pickFirstVisibleNamespace(ps *PushContext, byNamespace map[string]*Service, configNamespace string) string {
+	nss := make([]string, 0, len(byNamespace))
+	for ns := range byNamespace {
+		if ps.IsServiceVisible(byNamespace[ns], configNamespace) {
+			nss = append(nss, ns)
+		}
+	}
+	if len(nss) > 0 {
+		sort.Strings(nss)
+		return nss[0]
+	}
+	return ""
 }
