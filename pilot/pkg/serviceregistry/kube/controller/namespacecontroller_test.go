@@ -76,7 +76,8 @@ func TestNamespaceController(t *testing.T) {
 	deleteConfigMap(t, client.Kube(), "foo")
 	expectConfigMap(t, nc.configmaps, CACertNamespaceConfigMap, "foo", newData)
 
-	for _, namespace := range inject.IgnoredNamespaces.UnsortedList() {
+	ignoredNamespaces := inject.IgnoredNamespaces.Copy().Delete(constants.KubeSystemNamespace)
+	for _, namespace := range ignoredNamespaces.UnsortedList() {
 		// Create namespace in ignored list, make sure its not created
 		createNamespace(t, client.Kube(), namespace, newData)
 		// Configmap in that namespace should not do anything either
