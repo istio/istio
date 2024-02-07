@@ -98,6 +98,8 @@ func NewCredentialsController(kc kube.Client) *CredentialsController {
 	}
 }
 
+func (s *CredentialsController) Close() {}
+
 const cacheTTL = time.Minute
 
 // clearExpiredCache iterates through the cache and removes all expired entries. Should be called with mutex held.

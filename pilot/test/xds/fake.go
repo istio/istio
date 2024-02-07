@@ -160,7 +160,7 @@ func NewFakeDiscoveryServer(t test.Failer, opts FakeOptions) *FakeDiscoveryServe
 	if opts.EnableFakeXDSUpdater {
 		xdsUpdater = xdsfake.NewWithDelegate(s)
 	}
-	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName)
+	creds := kubesecrets.NewMulticluster(opts.DefaultClusterName, nil)
 
 	configController := memory.NewSyncController(memory.MakeSkipValidation(collections.PilotGatewayAPI()))
 	for k8sCluster, objs := range k8sObjects {

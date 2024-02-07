@@ -111,7 +111,7 @@ func TestKubeConfigOverride(t *testing.T) {
 		cfg.Burst = expectedBurst
 	})
 	clientset.RunAndWait(stopCh)
-	c.AddHandler(&handler{})
+	c.Register(&handler{})
 	clientset.RunAndWait(stopCh)
 	_ = c.Run(stopCh)
 	t.Run("sync timeout", func(t *testing.T) {
@@ -240,7 +240,7 @@ func TestSecretController(t *testing.T) {
 	stopCh := test.NewStop(t)
 	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil))
 	clientset.RunAndWait(stopCh)
-	c.AddHandler(&handler{})
+	c.Register(&handler{})
 	clientset.RunAndWait(stopCh)
 	_ = c.Run(stopCh)
 	t.Run("sync timeout", func(t *testing.T) {

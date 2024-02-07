@@ -17,7 +17,6 @@ package ca
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -38,65 +37,40 @@ import (
 // Node authorizations from one cluster will be forwarded to the ClusterNodeAuthenticators for the same cluster.
 type MulticlusterNodeAuthorizor struct {
 	remoteNodeAuthenticators map[cluster.ID]*ClusterNodeAuthorizer
-	m                        sync.Mutex // protects remoteNodeAuthenticators
 	filter                   namespace.DiscoveryFilter
 	trustedNodeAccounts      sets.Set[types.NamespacedName]
+	mc                       *multicluster.MultiCluster[*ClusterNodeAuthorizer]
 }
 
 func NewMulticlusterNodeAuthenticator(filter namespace.DiscoveryFilter, trustedNodeAccounts sets.Set[types.NamespacedName],
-	addClusterHandler func(multicluster.ClusterHandler),
+	controller multicluster.TODONameGeneric,
 ) *MulticlusterNodeAuthorizor {
 	m := &MulticlusterNodeAuthorizor{
 		remoteNodeAuthenticators: map[cluster.ID]*ClusterNodeAuthorizer{},
 		filter:                   filter,
 		trustedNodeAccounts:      trustedNodeAccounts,
 	}
-	if addClusterHandler != nil {
-		addClusterHandler(m)
-	}
+	mc := multicluster.NewHandler(func(cluster *multicluster.Cluster, stop <-chan struct{}) *ClusterNodeAuthorizer {
+		na, err := NewClusterNodeAuthorizer(cluster.Client, m.filter, m.trustedNodeAccounts)
+		if err != nil {
+			serverCaLog.Errorf("failed to initialize node authorizer for cluster %v: %v", cluster.ID, err)
+			// TODO: make mc2 allow passing errors
+			return nil
+		}
+		return na
+	})
+	m.mc = mc
+	controller.RegisterHandler(mc)
 	return m
-}
-
-func (m *MulticlusterNodeAuthorizor) ClusterAdded(cluster *multicluster.Cluster, _ <-chan struct{}) {
-	na, err := NewClusterNodeAuthorizer(cluster.Client, m.filter, m.trustedNodeAccounts)
-	if err != nil {
-		serverCaLog.Errorf("failed to initialize node authorizer for cluster %v: %v", cluster.ID, err)
-		return
-	}
-	m.addCluster(cluster.ID, na)
-}
-
-func (m *MulticlusterNodeAuthorizor) ClusterUpdated(cluster *multicluster.Cluster, stop <-chan struct{}) {
-	na, err := NewClusterNodeAuthorizer(cluster.Client, m.filter, m.trustedNodeAccounts)
-	if err != nil {
-		serverCaLog.Errorf("failed to initialize node authorizer for cluster %v: %v", cluster.ID, err)
-	}
-	m.m.Lock()
-	defer m.m.Unlock()
-	m.remoteNodeAuthenticators[cluster.ID] = na
-}
-
-func (m *MulticlusterNodeAuthorizor) ClusterDeleted(key cluster.ID) {
-	m.m.Lock()
-	defer m.m.Unlock()
-	delete(m.remoteNodeAuthenticators, key)
-}
-
-func (m *MulticlusterNodeAuthorizor) addCluster(clusterID cluster.ID, na *ClusterNodeAuthorizer) {
-	m.m.Lock()
-	defer m.m.Unlock()
-	m.remoteNodeAuthenticators[clusterID] = na
 }
 
 func (m *MulticlusterNodeAuthorizor) authenticateImpersonation(ctx context.Context, caller security.KubernetesInfo, requestedIdentityString string) error {
 	clusterID := kubeauth.ExtractClusterID(ctx)
-	m.m.Lock()
-	na, found := m.remoteNodeAuthenticators[clusterID]
-	m.m.Unlock()
-	if !found {
+	na := m.mc.ForCluster(clusterID)
+	if na == nil {
 		return fmt.Errorf("no node authorizer for cluster %v", clusterID)
 	}
-	return na.authenticateImpersonation(caller, requestedIdentityString)
+	return (*na).authenticateImpersonation(caller, requestedIdentityString)
 }
 
 // ClusterNodeAuthorizer is a component that implements a subset of Kubernetes Node Authorization
@@ -138,6 +112,10 @@ func NewClusterNodeAuthorizer(client kube.Client, filter namespace.DiscoveryFilt
 		nodeIndex:           index,
 		trustedNodeAccounts: trustedNodeAccounts,
 	}, nil
+}
+
+func (na *ClusterNodeAuthorizer) Close() {
+	na.pods.ShutdownHandlers()
 }
 
 func (na *ClusterNodeAuthorizer) authenticateImpersonation(caller security.KubernetesInfo, requestedIdentityString string) error {

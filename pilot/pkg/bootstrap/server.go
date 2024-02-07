@@ -495,7 +495,7 @@ func (s *Server) initSDSServer() {
 		// Make sure we have security
 		log.Warnf("skipping Kubernetes credential reader; PILOT_ENABLE_XDS_IDENTITY_CHECK must be set to true for this feature.")
 	} else {
-		creds := kubecredentials.NewMulticluster(s.clusterID)
+		creds := kubecredentials.NewMulticluster(s.clusterID, s.multiclusterController)
 		creds.AddSecretHandler(func(name string, namespace string) {
 			s.XDSServer.ConfigUpdate(&model.PushRequest{
 				Full:           false,
@@ -504,7 +504,6 @@ func (s *Server) initSDSServer() {
 				Reason: model.NewReasonStats(model.SecretTrigger),
 			})
 		})
-		s.multiclusterController.AddHandler(creds)
 		s.environment.CredentialsController = creds
 	}
 }

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/hashicorp/go-multierror"
@@ -35,6 +36,7 @@ import (
 	"istio.io/istio/pkg/kube/kclient"
 	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
+	"istio.io/istio/pkg/maps"
 	"istio.io/istio/pkg/monitoring"
 )
 
@@ -60,10 +62,66 @@ var (
 	remoteClusters = clustersCount.With(clusterType.Value("remote"))
 )
 
-type ClusterHandler interface {
-	ClusterAdded(cluster *Cluster, stop <-chan struct{})
-	ClusterUpdated(cluster *Cluster, stop <-chan struct{})
-	ClusterDeleted(clusterID cluster.ID)
+type Closer interface {
+	Close()
+}
+
+type TODONameGeneric interface {
+	RegisterHandler(handler Handler)
+}
+
+type MultiCluster[T Closer] struct {
+	mu       sync.RWMutex
+	f        func(cluster *Cluster, stop <-chan struct{}) T
+	clusters map[cluster.ID]T
+}
+
+func (m *MultiCluster[T]) ForCluster(clusterID cluster.ID) *T {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	t, f := m.clusters[clusterID]
+	if !f {
+		return nil
+	}
+	return &t
+}
+
+func (m *MultiCluster[T]) All() []T {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	return maps.Values(m.clusters)
+}
+
+func (m *MultiCluster[T]) clusterAdded(cluster *Cluster, stop <-chan struct{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.clusters[cluster.ID] = m.f(cluster, stop)
+}
+
+func (m *MultiCluster[T]) clusterUpdated(cluster *Cluster, stop <-chan struct{}) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	// If there is an old one, close it
+	if old, f := m.clusters[cluster.ID]; f {
+		old.Close()
+	}
+	m.clusters[cluster.ID] = m.f(cluster, stop)
+}
+
+func (m *MultiCluster[T]) clusterDeleted(cluster cluster.ID) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	// If there is an old one, close it
+	if old, f := m.clusters[cluster]; f {
+		old.Close()
+	}
+	delete(m.clusters, cluster)
+}
+
+type Handler interface {
+	clusterAdded(cluster *Cluster, stop <-chan struct{})
+	clusterUpdated(cluster *Cluster, stop <-chan struct{})
+	clusterDeleted(clusterID cluster.ID)
 }
 
 // Controller is the controller implementation for Secret resources
@@ -80,7 +138,7 @@ type Controller struct {
 	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
 	cs                        *ClusterStore
 
-	handlers []ClusterHandler
+	handlers []Handler
 }
 
 // NewController returns a new secret controller
@@ -142,7 +200,14 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	return controller
 }
 
-func (c *Controller) AddHandler(h ClusterHandler) {
+func NewHandler[T Closer](f func(cluster *Cluster, stop <-chan struct{}) T) *MultiCluster[T] {
+	return &MultiCluster[T]{
+		f:        f,
+		clusters: make(map[cluster.ID]T),
+	}
+}
+
+func (c *Controller) RegisterHandler(h Handler) {
 	c.handlers = append(c.handlers, h)
 }
 
@@ -310,19 +375,19 @@ func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
 
 func (c *Controller) handleAdd(cluster *Cluster, stop <-chan struct{}) {
 	for _, handler := range c.handlers {
-		handler.ClusterAdded(cluster, stop)
+		handler.clusterAdded(cluster, stop)
 	}
 }
 
 func (c *Controller) handleUpdate(cluster *Cluster, stop <-chan struct{}) {
 	for _, handler := range c.handlers {
-		handler.ClusterUpdated(cluster, stop)
+		handler.clusterUpdated(cluster, stop)
 	}
 }
 
 func (c *Controller) handleDelete(key cluster.ID) {
 	for _, handler := range c.handlers {
-		handler.ClusterDeleted(key)
+		handler.clusterDeleted(key)
 	}
 }
 
