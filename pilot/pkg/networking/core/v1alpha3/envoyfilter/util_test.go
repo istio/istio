@@ -106,6 +106,15 @@ func TestReplaceAndInsert(t *testing.T) {
 				t.Errorf("insertBeforeFunc: want %+v but got %+v", c.insertBefore, got)
 			}
 			if c.applied != applied {
+				t.Errorf("insertBeforeFunc: want %+v but got %+v", c.applied, applied)
+			}
+
+			// insertAfterFunc
+			got, applied = insertAfterFunc(slices.Clone(c.input), f)
+			if !slices.Equal(c.insertAfter, got) {
+				t.Errorf("insertAfterFunc: want %+v but got %+v", c.insertAfter, got)
+			}
+			if c.applied != applied {
 				t.Errorf("insertAfterFunc: want %+v but got %+v", c.applied, applied)
 			}
 		})
