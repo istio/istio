@@ -74,6 +74,7 @@ global:
 revision: "%s"
 `
 	// TODO: Remove this once the previous release version for the ambient upgrade test becomes 1.21, and start using --set profile=ambient
+	// refer: https://github.com/istio/istio/issues/49242
 	ambientProfileOverride = `
 global:
   hub: %s
@@ -146,6 +147,7 @@ func InstallIstio(t framework.TestContext, cs cluster.Cluster, h *helm.Helm, ove
 		// and many of the profile override values seem to be unrecognized by the gateway installation.
 		// So, this is a workaround until we move to 1.21 where we can use --set profile=ambient for the install/upgrade.
 		// TODO: Remove this once the previous release version for the test becomes 1.21
+		// refer: https://github.com/istio/istio/issues/49242
 		if ambientProfile {
 			gatewayOverrideValuesFile = GetValuesOverrides(t, t.Settings().Image.Hub, version, "", false)
 		}
