@@ -17,6 +17,7 @@ package pluginlistener
 import (
 	"context"
 	"net"
+	"path/filepath"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -24,12 +25,13 @@ import (
 )
 
 func TestCNIListener(t *testing.T) {
-	l, err := NewListener("/tmp/test")
+	f := filepath.Join(t.TempDir(), "test")
+	l, err := NewListener(f)
 	if err != nil {
 		t.Fatalf("unexpected error %v", err)
 	}
 	defer l.Close()
-	conn, err := connect("/tmp/test")
+	conn, err := connect(f)
 	if err != nil {
 		t.Fatalf("failed to connect %v", err)
 	}
