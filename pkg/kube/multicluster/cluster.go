@@ -19,10 +19,14 @@ import (
 	"time"
 
 	"go.uber.org/atomic"
+	corev1 "k8s.io/api/core/v1"
 
 	"istio.io/istio/pilot/pkg/features"
 	"istio.io/istio/pkg/cluster"
+	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/kclient"
+	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
 )
 
@@ -44,7 +48,7 @@ type Cluster struct {
 
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
 // This should be called after each of the handlers have registered informers, and should be run in a goroutine.
-func (r *Cluster) Run(handlers []handler) {
+func (r *Cluster) Run(mesh mesh.Watcher, handlers []handler) {
 	if features.RemoteClusterTimeout > 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
 			if !r.initialSync.Load() {
@@ -54,6 +58,10 @@ func (r *Cluster) Run(handlers []handler) {
 			r.initialSyncTimeout.Store(true)
 		})
 	}
+	// Build a namespace watcher. This must have no filter, since this is our input to the filter itself.
+	namespaces := kclient.New[*corev1.Namespace](r.Client)
+	filter := filter.NewDiscoveryNamespacesFilter(namespaces, mesh, r.stop)
+	kube.SetObjectFilter(r.Client, filter)
 
 	if !r.Client.RunAndWait(r.stop) {
 		log.Warnf("remote cluster %s failed to sync", r.ID)

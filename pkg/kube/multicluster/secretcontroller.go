@@ -33,7 +33,6 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/controllers"
 	"istio.io/istio/pkg/kube/kclient"
-	filter "istio.io/istio/pkg/kube/namespace"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/monitoring"
 )
@@ -83,12 +82,10 @@ type Controller struct {
 	secrets         kclient.Client[*corev1.Secret]
 	configOverrides []func(*rest.Config)
 
-	namespaces kclient.Client[*corev1.Namespace]
+	cs *ClusterStore
 
-	DiscoveryNamespacesFilter filter.DiscoveryNamespacesFilter
-	cs                        *ClusterStore
-
-	handlers []handler
+	meshWatcher mesh.Watcher
+	handlers    []handler
 }
 
 // NewController returns a new secret controller
@@ -134,11 +131,9 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 		cs:              newClustersStore(),
 		secrets:         secrets,
 		configOverrides: configOverrides,
+		meshWatcher:     meshWatcher,
 	}
 
-	namespaces := kclient.New[*corev1.Namespace](kubeclientset)
-	controller.namespaces = namespaces
-	controller.DiscoveryNamespacesFilter = filter.NewDiscoveryNamespacesFilter(namespaces, meshWatcher.Mesh().GetDiscoverySelectors())
 	// Queue does NOT retry. The only error that can occur is if the kubeconfig is
 	// malformed. This is a static analysis that cannot be resolved by retry. Actual
 	// connectivity issues would result in HasSynced returning false rather than an
@@ -175,13 +170,6 @@ func (c *Controller) registerHandler(h handler) {
 
 // Run starts the controller until it receives a message over stopCh
 func (c *Controller) Run(stopCh <-chan struct{}) error {
-	// Normally, we let informers start after all controllers. However, in this case we need namespaces to start and sync
-	// first, so we have DiscoveryNamespacesFilter ready to go. This avoids processing objects that would be filtered during startup.
-	c.namespaces.Start(stopCh)
-	// Wait for namespace informer synced, which implies discovery filter is synced as well
-	if !kube.WaitForCacheSync("namespace", stopCh, c.namespaces.HasSynced) {
-		return fmt.Errorf("failed to sync namespaces")
-	}
 	// run handlers for the config cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
 	c.configClusterSyncers = c.handleAdd(c.configCluster)
@@ -248,6 +236,7 @@ func DefaultBuildClientsFromConfig(kubeConfig []byte, clusterID cluster.ID, conf
 	if features.WorkloadEntryCrossCluster {
 		clients = kube.EnableCrdWatcher(clients)
 	}
+
 	return clients, nil
 }
 
@@ -312,7 +301,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 		callback(remoteCluster)
 		logger.Infof("finished callback for cluster and starting to sync")
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
-		go remoteCluster.Run(c.handlers)
+		go remoteCluster.Run(c.meshWatcher, c.handlers)
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())

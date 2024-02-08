@@ -176,7 +176,7 @@ func TestSingleClusterNodeAuthorization(t *testing.T) {
 				})
 			}
 			c := kube.NewFakeClient(pods...)
-			na := NewClusterNodeAuthorizer(c, nil, tt.trustedAccounts)
+			na := NewClusterNodeAuthorizer(c, tt.trustedAccounts)
 			c.RunAndWait(test.NewStop(t))
 			kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
 
@@ -287,7 +287,7 @@ func TestMultiClusterNodeAuthorization(t *testing.T) {
 	remote2Client := kube.NewFakeClient(remoteCluster2Pods...)
 
 	mc := multicluster.NewFakeController()
-	mNa := NewMulticlusterNodeAuthenticator(nil, allowZtunnel, mc)
+	mNa := NewMulticlusterNodeAuthenticator(allowZtunnel, mc)
 	stop := test.NewStop(t)
 	mc.Add("primary", primaryClient, stop)
 	mc.Add("remote", remoteClient, stop)
