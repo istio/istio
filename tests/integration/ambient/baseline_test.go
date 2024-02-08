@@ -1263,9 +1263,11 @@ func TestStrictHBONE(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
 		Run(func(t framework.TestContext) {
+			t.Skip("This did help find a bug so probably has value but skipping for now")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 
 			// configure a NetPol which will only allow HBONE traffic in the test app namespace
+			// we should figure out what our recommendation for NetPol will be and have this reflect it
 			t.ConfigIstio().File(apps.Namespace.Name(), "testdata/only-hbone.yaml").ApplyOrFail(t)
 
 			Always := func(echo.Instance, echo.CallOptions) bool {

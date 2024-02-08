@@ -195,8 +195,10 @@ EOF
   if [[ "$CONFIG" = *"ambient-sc.yaml" ]]; then
     echo "Setting up ambient cluster, Calico CNI will be used."
     CONFIG_DIR="$(dirname "$CONFIG")" 
-    kubectl create -f "${CONFIG_DIR}"/calico-install.yaml
-    kubectl create -f "${CONFIG_DIR}"/calico-config.yaml
+    kubectl apply -f "${CONFIG_DIR}"/calico.yaml
+
+    kubectl wait --for condition=ready -n kube-system pod -l k8s-app=calico-node --timeout 90s
+    kubectl wait --for condition=ready -n kube-system pod -l k8s-app=calico-kube-controllers --timeout 90s
   fi
 
   # If metrics server configuration directory is specified then deploy in
