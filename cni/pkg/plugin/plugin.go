@@ -54,9 +54,8 @@ const (
 
 // Kubernetes a K8s specific struct to hold config
 type Kubernetes struct {
-	Kubeconfig           string   `json:"kubeconfig"`
-	InterceptRuleMgrType string   `json:"intercept_type"`
-	ExcludeNamespaces    []string `json:"exclude_namespaces"`
+	Kubeconfig        string   `json:"kubeconfig"`
+	ExcludeNamespaces []string `json:"exclude_namespaces"`
 }
 
 // Config is whatever you expect your configuration json to be. This is whatever
@@ -161,13 +160,21 @@ func CmdAdd(args *skel.CmdArgs) (err error) {
 		log.Errorf("istio-cni cmdAdd failed to parse config %v %v", string(args.StdinData), err)
 		return err
 	}
-	if err := doAddRun(args, conf); err != nil {
+
+	// Create a kube client
+	client, err := newK8sClient(*conf)
+	if err != nil {
+		return err
+	}
+
+	// Actually do the add
+	if err := doAddRun(args, conf, client, IptablesInterceptRuleMgr()); err != nil {
 		return err
 	}
 	return pluginResponse(conf)
 }
 
-func doAddRun(args *skel.CmdArgs, conf *Config) error {
+func doAddRun(args *skel.CmdArgs, conf *Config, kClient kubernetes.Interface, rulesMgr InterceptRuleMgr) error {
 	setupLogging(conf)
 
 	var loggedPrevResult any
@@ -183,11 +190,6 @@ func doAddRun(args *skel.CmdArgs, conf *Config) error {
 	k8sArgs := K8sArgs{}
 	if err := types.LoadArgs(args.Args, &k8sArgs); err != nil {
 		return err
-	}
-
-	interceptRuleMgrType := defInterceptRuleMgrType
-	if conf.Kubernetes.InterceptRuleMgrType != "" {
-		interceptRuleMgrType = conf.Kubernetes.InterceptRuleMgrType
 	}
 
 	// Check if the workload is running under Kubernetes.
@@ -206,17 +208,11 @@ func doAddRun(args *skel.CmdArgs, conf *Config) error {
 		}
 	}
 
-	// Event filtering
-	client, err := newKubeClient(*conf)
-	if err != nil {
-		return err
-	}
-
 	// Begin ambient plugin logic
 	// For ambient pods, this is all the logic we need to run
 	if conf.AmbientEnabled {
 		log.Debugf("istio-cni ambient cmdAdd podName: %s - checking if ambient enabled", podName)
-		podIsAmbient, err := isAmbientPod(client, podName, podNamespace)
+		podIsAmbient, err := isAmbientPod(kClient, podName, podNamespace)
 		if err != nil {
 			log.Errorf("istio-cni cmdAdd failed to check ambient: %s", err)
 		}
@@ -238,7 +234,7 @@ func doAddRun(args *skel.CmdArgs, conf *Config) error {
 	pi := &PodInfo{}
 	var k8sErr error
 	for attempt := 1; attempt <= podRetrievalMaxRetries; attempt++ {
-		pi, k8sErr = getKubePodInfo(client, podName, podNamespace)
+		pi, k8sErr = getK8sPodInfo(kClient, podName, podNamespace)
 		if k8sErr == nil {
 			break
 		}
@@ -301,14 +297,6 @@ func doAddRun(args *skel.CmdArgs, conf *Config) error {
 		return err
 	}
 
-	// Get the constructor for the configured type of InterceptRuleMgr
-	interceptMgrCtor := GetInterceptRuleMgrCtor(interceptRuleMgrType)
-	if interceptMgrCtor == nil {
-		log.Errorf("Pod redirect failed due to unavailable InterceptRuleMgr of type %s", interceptRuleMgrType)
-		return fmt.Errorf("redirect failed to find InterceptRuleMgr")
-	}
-
-	rulesMgr := interceptMgrCtor()
 	if err := rulesMgr.Program(podName, args.Netns, redirect); err != nil {
 		return err
 	}

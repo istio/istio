@@ -28,12 +28,6 @@ import (
 	"istio.io/istio/pkg/util/sets"
 )
 
-// newKubeClient is a unit test override variable for interface create.
-var newKubeClient = newK8sClient
-
-// getKubePodInfo is a unit test override variable for interface create.
-var getKubePodInfo = getK8sPodInfo
-
 type PodInfo struct {
 	Containers        sets.String
 	Labels            map[string]string
