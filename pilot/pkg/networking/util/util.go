@@ -34,7 +34,6 @@ import (
 	httpv3 "github.com/envoyproxy/go-control-plane/envoy/type/http/v3"
 	matcher "github.com/envoyproxy/go-control-plane/envoy/type/matcher/v3"
 	"google.golang.org/protobuf/types/known/anypb"
-	"google.golang.org/protobuf/types/known/durationpb"
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 
@@ -733,13 +732,16 @@ func MaybeBuildStatefulSessionFilterConfig(svc *model.Service) *statefulsession.
 		if !found {
 			cookiePath = "/"
 		}
+		// The cookie is using TTL=0, which means they are session cookies (browser is not saving the cookie, expires
+		// when the tab is closed). Most pods don't have ability (or code) to actually persist cookies, and expiration
+		// is better handled in the cookie content (and consistently in the header value - which doesn't have
+		// persistence semantics).
 		return &statefulsession.StatefulSession{
 			SessionState: &core.TypedExtensionConfig{
 				Name: "envoy.http.stateful_session.cookie",
 				TypedConfig: protoconv.MessageToAny(&cookiev3.CookieBasedSessionState{
 					Cookie: &httpv3.Cookie{
 						Path: cookiePath,
-						Ttl:  &durationpb.Duration{Seconds: 120},
 						Name: cookieName,
 					},
 				}),
