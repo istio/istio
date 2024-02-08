@@ -65,8 +65,6 @@ defaults:
     configSource:
       subscribedResources: []
 
-    plugins: []
-
     # The following is used to limit how long a sidecar can be connected
     # to a pilot. It balances out load across pilot instances at the cost of
     # increasing system churn.
