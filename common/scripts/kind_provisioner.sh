@@ -182,8 +182,15 @@ EOF
     fi
   fi
 
+  KIND_WAIT_FLAG="--wait=180s"
+  KIND_DISABLE_CNI="false"
+  if [[ -n "${KUBERNETES_CNI:-}" ]]; then
+    unset KIND_WAIT_FLAG
+    KIND_DISABLE_CNI="true"
+  fi
+
   # Create KinD cluster
-  if ! (kind create cluster --name="${NAME}" --config "${CONFIG}" -v4 --retain --image "${IMAGE}" ); then
+  if ! (yq w "${CONFIG}" 'networking.disableDefaultCNI' "${KIND_DISABLE_CNI}" | kind create cluster --name="${NAME}" -v4 --retain --image "${IMAGE}" ${KIND_WAIT_FLAG:+"$KIND_WAIT_FLAG"} --config -); then
     echo "Could not setup KinD environment. Something wrong with KinD setup. Exporting logs."
     return 9
   fi
@@ -192,7 +199,7 @@ EOF
 
   # If using the ambient config we'll need to install our own CNI
   # TODO: Will need updating when mc ambient tests are created if we want our own CNI
-  if [[ "$CONFIG" = *"ambient-sc.yaml" ]]; then
+  if [[ -n "${KUBERNETES_CNI:-}" ]]; then
     echo "Setting up ambient cluster, Calico CNI will be used."
     CONFIG_DIR="$(dirname "$CONFIG")" 
     kubectl apply -f "${CONFIG_DIR}"/calico.yaml

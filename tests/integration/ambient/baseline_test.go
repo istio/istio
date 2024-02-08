@@ -1279,22 +1279,21 @@ func TestStrictHBONE(t *testing.T) {
 			SameNetwork := func(from echo.Instance, to echo.Target) echo.Instances {
 				return match.Network(from.Config().Cluster.NetworkName()).GetMatches(to.Instances())
 			}
-			SupportsHBone :=
-				func(from echo.Instance, opts echo.CallOptions) bool {
-					if !from.Config().IsUncaptured() && !opts.To.Config().IsUncaptured() {
-						return true
-					}
-					if !from.Config().IsUncaptured() && opts.To.Config().HasSidecar() {
-						return true
-					}
-					if from.Config().HasSidecar() && !opts.To.Config().IsUncaptured() {
-						return true
-					}
-					if from.Config().HasSidecar() && opts.To.Config().HasSidecar() {
-						return true
-					}
-					return false
+			SupportsHBone := func(from echo.Instance, opts echo.CallOptions) bool {
+				if !from.Config().IsUncaptured() && !opts.To.Config().IsUncaptured() {
+					return true
 				}
+				if !from.Config().IsUncaptured() && opts.To.Config().HasSidecar() {
+					return true
+				}
+				if from.Config().HasSidecar() && !opts.To.Config().IsUncaptured() {
+					return true
+				}
+				if from.Config().HasSidecar() && opts.To.Config().HasSidecar() {
+					return true
+				}
+				return false
+			}
 			_ = Never
 			_ = SameNetwork
 			testCases := []reachability.TestCase{

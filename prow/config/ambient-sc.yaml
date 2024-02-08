@@ -3,8 +3,7 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 networking:
   # disable CNI to allow installing one which supports K8s Network Policy
-  disableDefaultCNI: true
-  # podSubnet: 192.168.0.0/16
+  disableDefaultCNI: false
 nodes:
 - role: control-plane
 - role: worker
