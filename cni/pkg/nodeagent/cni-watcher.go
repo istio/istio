@@ -28,7 +28,6 @@ import (
 
 	pconstants "istio.io/istio/cni/pkg/constants"
 	"istio.io/istio/cni/pkg/pluginlistener"
-	"istio.io/istio/pkg/network"
 )
 
 // Just a composite of the CNI plugin add event struct + some extracted "args"
@@ -94,8 +93,15 @@ func (s *CniPluginServer) Start() error {
 		return fmt.Errorf("failed to create CNI listener: %v", err)
 	}
 	go func() {
-		if err := s.cniListenServer.Serve(unixListener); network.IsUnexpectedListenerError(err) {
-			log.Errorf("Error running CNI listener server: %v", err)
+		err := s.cniListenServer.Serve(unixListener)
+
+		select {
+		case <-s.ctx.Done():
+			// ctx done, we should silently go away
+			return
+		default:
+			// If the cniListener exits, at least we should record an error log
+			log.Errorf("CNI listener server exiting unexpectedly: %v", err)
 		}
 	}()
 
