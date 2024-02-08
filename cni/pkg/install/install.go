@@ -176,7 +176,7 @@ func (in *Installer) Cleanup() error {
 	return nil
 }
 
-// sleepWatchInstall  blocks until any file change for the binaries or config are detected.
+// sleepWatchInstall blocks until any file change for the binaries or config are detected.
 // At that point, the func yields so the caller can recheck the validity of the install.
 // If an error occurs or context is canceled, the function will return an error.
 func (in *Installer) sleepWatchInstall(ctx context.Context, installedBinFiles sets.String) error {
@@ -210,31 +210,29 @@ func (in *Installer) sleepWatchInstall(ctx context.Context, installedBinFiles se
 		watcher.Close()
 	}()
 
-	for {
-		// Before we process whether any file events have been triggered, we must check that the file is correct
-		// at this moment, and if not, yield. This is to catch other CNIs which might have mutated the file between
-		// the (theoretical) window after we initially install/write, but before we actually start the filewatch.
-		if err := checkValidCNIConfig(in.cfg, in.cniConfigFilepath); err != nil {
-			return nil
-		}
+	// Before we process whether any file events have been triggered, we must check that the file is correct
+	// at this moment, and if not, yield. This is to catch other CNIs which might have mutated the file between
+	// the (theoretical) window after we initially install/write, but before we actually start the filewatch.
+	if err := checkValidCNIConfig(in.cfg, in.cniConfigFilepath); err != nil {
+		return nil
+	}
 
-		// If a file we are watching has a change event, yield and let caller check validity
-		select {
-		case <-watcher.Events:
-			// Something changed, and we must yield
-			return nil
-		case err := <-watcher.Errors:
-			// We had a watch error - that's no good
-			return err
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			// Valid configuration; set isReady to true and wait for modifications before checking again
-			setReady(in.isReady)
-			cniInstalls.With(resultLabel.Value(resultSuccess)).Increment()
-			// Pod set to "NotReady" before termination
-			return watcher.Wait(ctx)
-		}
+	// If a file we are watching has a change event, yield and let caller check validity
+	select {
+	case <-watcher.Events:
+		// Something changed, and we must yield
+		return nil
+	case err := <-watcher.Errors:
+		// We had a watch error - that's no good
+		return err
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+		// Valid configuration; set isReady to true and wait for modifications before checking again
+		setReady(in.isReady)
+		cniInstalls.With(resultLabel.Value(resultSuccess)).Increment()
+		// Pod set to "NotReady" before termination
+		return watcher.Wait(ctx)
 	}
 }
 
