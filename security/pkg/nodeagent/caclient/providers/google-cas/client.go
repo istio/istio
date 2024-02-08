@@ -45,7 +45,6 @@ func NewGoogleCASClient(capool string, options ...option.ClientOption) (security
 	var err error
 
 	caClient.caClient, err = privateca.NewCertificateAuthorityClient(ctx, options...)
-
 	if err != nil {
 		googleCASClientLog.Errorf("unable to initialize google cas caclient: %v", err)
 		return nil, err

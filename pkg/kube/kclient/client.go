@@ -23,6 +23,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	apitypes "k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/cache"
 
 	"istio.io/istio/pilot/pkg/features"
@@ -92,6 +93,11 @@ func (n *writeClient[T]) Update(object T) (T, error) {
 	return api.Update(context.Background(), object, metav1.UpdateOptions{})
 }
 
+func (n *writeClient[T]) Patch(name, namespace string, pt apitypes.PatchType, data []byte) (T, error) {
+	api := kubeclient.GetWriteClient[T](n.client, namespace)
+	return api.Patch(context.Background(), name, pt, data, metav1.PatchOptions{})
+}
+
 func (n *writeClient[T]) UpdateStatus(object T) (T, error) {
 	api, ok := kubeclient.GetWriteClient[T](n.client, object.GetNamespace()).(kubetypes.WriteStatusAPI[T])
 	if !ok {
@@ -123,7 +129,11 @@ func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 		},
 		Handler: h,
 	}
-	reg, _ := n.informer.AddEventHandler(fh)
+	reg, err := n.informer.AddEventHandler(fh)
+	if err != nil {
+		// Should only happen if its already stopped. We should exit early.
+		return
+	}
 	n.handlerMu.Lock()
 	defer n.handlerMu.Unlock()
 	n.registeredHandlers = append(n.registeredHandlers, reg)

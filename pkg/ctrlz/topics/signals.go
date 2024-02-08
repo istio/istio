@@ -15,11 +15,10 @@
 package topics
 
 import (
-	"fmt"
 	"net/http"
+	"os"
 	"syscall"
 
-	"istio.io/istio/pkg/appsignals"
 	"istio.io/istio/pkg/ctrlz/fw"
 	"istio.io/istio/pkg/ctrlz/topics/assets"
 )
@@ -47,7 +46,11 @@ func (signalsTopic) Activate(context fw.TopicContext) {
 	})
 
 	_ = context.JSONRouter().StrictSlash(true).NewRoute().Methods("PUT", "POST").Path("/SIGUSR1").HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		appsignals.Notify(fmt.Sprintf("Remote: %v", req.RemoteAddr), syscall.SIGUSR1)
+		err := syscall.Kill(os.Getpid(), syscall.SIGUSR1)
+		if err != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		w.WriteHeader(http.StatusAccepted)
 	})
 }

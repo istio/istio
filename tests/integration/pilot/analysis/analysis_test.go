@@ -236,7 +236,6 @@ spec:
 
 			// update this new status
 			_, err = t.Clusters().Default().Istio().NetworkingV1alpha3().WorkloadEntries(ns.Name()).UpdateStatus(context.TODO(), we, metav1.UpdateOptions{})
-
 			if err != nil {
 				t.Error(err)
 			}
