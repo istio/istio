@@ -129,7 +129,11 @@ func (n *informerClient[T]) AddEventHandler(h cache.ResourceEventHandler) {
 		},
 		Handler: h,
 	}
-	reg, _ := n.informer.AddEventHandler(fh)
+	reg, err := n.informer.AddEventHandler(fh)
+	if err != nil {
+		// Should only happen if its already stopped. We should exit early.
+		return
+	}
 	n.handlerMu.Lock()
 	defer n.handlerMu.Unlock()
 	n.registeredHandlers = append(n.registeredHandlers, reg)
