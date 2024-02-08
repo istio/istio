@@ -24,7 +24,6 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
-	resourcedetectors "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/resource_detectors/v3"
 	envoy_type_metadata_v3 "github.com/envoyproxy/go-control-plane/envoy/type/metadata/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
@@ -38,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
@@ -318,16 +318,10 @@ func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.
 		rd := otelProvider.ResourceDetectors
 
 		if rd.Environment != nil {
-			res = append(res, &core.TypedExtensionConfig{
-				Name:        "envoy.tracers.opentelemetry.resource_detectors.environment",
-				TypedConfig: protoconv.MessageToAny(&resourcedetectors.EnvironmentResourceDetectorConfig{}),
-			})
+			res = append(res, xdsfilters.EnvironmentResourceDetector)
 		}
 		if rd.Dynatrace != nil {
-			res = append(res, &core.TypedExtensionConfig{
-				Name:        "envoy.tracers.opentelemetry.resource_detectors.dynatrace",
-				TypedConfig: protoconv.MessageToAny(&resourcedetectors.DynatraceResourceDetectorConfig{}),
-			})
+			res = append(res, xdsfilters.DynatraceResourceDetector)
 		}
 		oc.ResourceDetectors = res
 	}
