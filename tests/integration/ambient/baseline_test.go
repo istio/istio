@@ -1259,7 +1259,7 @@ spec:
 }
 
 // Relies on the suite running in a cluster with a CNI which enforces K8s netpol but presently has no check
-func TestStrictHBONE(t *testing.T) {
+func TestK8sNetPol(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
 		Run(func(t framework.TestContext) {
