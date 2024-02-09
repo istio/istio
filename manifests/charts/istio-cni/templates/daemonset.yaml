@@ -87,7 +87,6 @@ spec:
             runAsNonRoot: false
             # Both ambient and sidecar repair mode require elevated node privileges to function.
             # But we don't need _everything_ in `privileged`, so drop+readd capabilities based on feature.
-{{- if or .Values.cni.ambient.enabled .Values.cni.repair.enabled }}
             # privileged is redundant with CAP_SYS_ADMIN
             # since it's redundant, hardcode it to `true`, then manually drop ALL + readd granular
             # capabilities we actually require
@@ -103,7 +102,6 @@ spec:
               # network namespaces in `/proc` to obtain descriptors for entering pod netnamespaces.
               # There does not appear to be a more granular capability for this.
               - SYS_ADMIN
-{{- end }}
 {{- if .Values.cni.seccompProfile }}
             seccompProfile:
 {{ toYaml .Values.cni.seccompProfile | trim | indent 14 }}
