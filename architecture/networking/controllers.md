@@ -52,7 +52,7 @@ See the [krt README](../../pkg/kube/krt/README.md) for more information.
 
 *krt is currently experimental; please ask maintainers before utilizing it in new areas.*
 
-## Controllers
+## Writing Controllers
 
 The `controllers` package offers a variety of helpers for writing controllers.
 These operate in a similar manner as [`controller-runtime`](https://github.com/kubernetes-sigs/controller-runtime) but are *far* smaller and less abstract.
@@ -67,6 +67,12 @@ Running the controller actually starts processing things.
 Normally, this just means running the queue.
 All informers created by `kube.Client` are kept track in the client, and started in one go with `RunAndWait` in one centralized call.
 As a result, each individual controllers should simply wait until informers have synced, then run the queue to start processing things.
+
+A queue is used to give a few properties:
+* Ability to serially process updates received from a variety of different sources. This avoids need for other synchronization mechanisms like mutexes.
+* Correctness at startup; with the sequencing above, items are only processed once all informers are synced. This means queries will not return stale data at startup.
+* Deduping of identical events
+* Automatic retrying of failed events (configurable)
 
 The above logic is critical to handle correctly to ensure correctness of a controller.
 The [Example Controller](../../pkg/kube/controllers/example_test.go) is a key reference point for any controller development;
