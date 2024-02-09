@@ -120,7 +120,7 @@ func TestSecretsController(t *testing.T) {
 		wrongKeys,
 	}
 	client := kube.NewFakeClient(secrets...)
-	sc := NewCredentialsController(client)
+	sc := NewCredentialsController(client, nil)
 	client.RunAndWait(test.NewStop(t))
 	cases := []struct {
 		name            string
@@ -287,7 +287,7 @@ func TestDockerCredentials(t *testing.T) {
 		genericCert,
 	}
 	client := kube.NewFakeClient(secrets...)
-	sc := NewCredentialsController(client)
+	sc := NewCredentialsController(client, nil)
 	client.RunAndWait(test.NewStop(t))
 	cases := []struct {
 		name                string

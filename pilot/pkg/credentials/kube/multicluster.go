@@ -34,11 +34,11 @@ var _ credentials.MulticlusterController = &Multicluster{}
 func NewMulticluster(configCluster cluster.ID, controller multicluster.ComponentBuilder) *Multicluster {
 	m := &Multicluster{
 		configCluster: configCluster,
-		component: multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster, stop <-chan struct{}) *CredentialsController {
-			return NewCredentialsController(cluster.Client)
-		}),
 	}
 
+	m.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster, stop <-chan struct{}) *CredentialsController {
+		return NewCredentialsController(cluster.Client, m.secretHandlers)
+	})
 	return m
 }
 
@@ -64,9 +64,6 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 
 func (m *Multicluster) AddSecretHandler(h func(name string, namespace string)) {
 	m.secretHandlers = append(m.secretHandlers, h)
-	for _, c := range m.component.All() {
-		c.AddEventHandler(h)
-	}
 }
 
 type AggregateController struct {
