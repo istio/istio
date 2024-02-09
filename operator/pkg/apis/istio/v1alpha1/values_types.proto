@@ -756,8 +756,6 @@ message PilotConfig {
 
   string jwksResolverExtraRootCA = 32;
 
-  repeated string plugins = 33;
-
   string hub = 34;
 
   google.protobuf.Value tag = 35;
