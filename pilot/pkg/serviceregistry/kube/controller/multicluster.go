@@ -92,6 +92,7 @@ type Multicluster struct {
 
 	// secretNamespace where we get cluster-access secrets
 	secretNamespace string
+	component       *multicluster.Component[*kubeController]
 }
 
 // NewMulticluster initializes data structure to store multicluster information
@@ -107,7 +108,7 @@ func NewMulticluster(
 	startNsController bool,
 	clusterLocal model.ClusterLocalProvider,
 	s server.Instance,
-	controller multicluster.TODONameGeneric,
+	controller *multicluster.Controller,
 ) *Multicluster {
 	mc := &Multicluster{
 		serverID:               serverID,
@@ -123,11 +124,11 @@ func NewMulticluster(
 		client:                 kc,
 		s:                      s,
 	}
-	mm := multicluster.NewHandler(func(cluster *multicluster.Cluster, stop <-chan struct{}) *kubeController {
+	mc.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster, stop <-chan struct{}) *kubeController {
 		client := cluster.Client
-		configCluster := mc.opts.ClusterID == cluster.ID
+		configCluster := opts.ClusterID == cluster.ID
 
-		options := mc.opts
+		options := opts
 		options.ClusterID = cluster.ID
 		if !configCluster {
 			options.SyncTimeout = features.RemoteClusterTimeout
@@ -138,30 +139,19 @@ func NewMulticluster(
 		if !configCluster {
 			options.DiscoveryNamespacesFilter = nil
 		}
-		options.ConfigController = mc.configController
+		options.ConfigController = configController
 		log.Infof("Initializing Kubernetes service registry %q", options.ClusterID)
 		options.ConfigCluster = configCluster
 		kubeRegistry := NewController(client, options)
 		kubeController := &kubeController{
-			Controller: kubeRegistry,
+			MeshServiceController: opts.MeshServiceController,
+			Controller:            kubeRegistry,
 		}
 		mc.initializeCluster(cluster, kubeController, kubeRegistry, options, configCluster, stop)
 		return kubeController
 	})
-	controller.RegisterHandler(mm)
 
 	return mc
-}
-
-func (m *Multicluster) Run(stopCh <-chan struct{}) error {
-	// Wait for server shutdown.
-	<-stopCh
-	return m.close()
-}
-
-func (m *Multicluster) close() error {
-	// TODO
-	return nil
 }
 
 // initializeCluster initializes the cluster by setting various handlers.

@@ -26,26 +26,24 @@ import (
 type Multicluster struct {
 	configCluster  cluster.ID
 	secretHandlers []func(name string, namespace string)
-	mc             *multicluster.MultiCluster[*CredentialsController]
+	component      *multicluster.Component[*CredentialsController]
 }
 
 var _ credentials.MulticlusterController = &Multicluster{}
 
-func NewMulticluster(configCluster cluster.ID, controller multicluster.TODONameGeneric) *Multicluster {
+func NewMulticluster(configCluster cluster.ID, controller multicluster.ComponentBuilder) *Multicluster {
 	m := &Multicluster{
 		configCluster: configCluster,
+		component: multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster, stop <-chan struct{}) *CredentialsController {
+			return NewCredentialsController(cluster.Client)
+		}),
 	}
-	mc := multicluster.NewHandler(func(cluster *multicluster.Cluster, stop <-chan struct{}) *CredentialsController {
-		return NewCredentialsController(cluster.Client)
-	})
-	controller.RegisterHandler(mc)
-	m.mc = mc
 
 	return m
 }
 
 func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller, error) {
-	cc := m.mc.ForCluster(clusterID)
+	cc := m.component.ForCluster(clusterID)
 	if cc == nil {
 		return nil, fmt.Errorf("cluster %v is not configured", clusterID)
 	}
@@ -58,7 +56,7 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 		// Authorization will always use the proxy cluster.
 		agg.controllers = append(agg.controllers, *cc)
 	}
-	if cc := m.mc.ForCluster(m.configCluster); cc != nil {
+	if cc := m.component.ForCluster(m.configCluster); cc != nil {
 		agg.controllers = append(agg.controllers, *cc)
 	}
 	return agg, nil
@@ -66,7 +64,7 @@ func (m *Multicluster) ForCluster(clusterID cluster.ID) (credentials.Controller,
 
 func (m *Multicluster) AddSecretHandler(h func(name string, namespace string)) {
 	m.secretHandlers = append(m.secretHandlers, h)
-	for _, c := range m.mc.All() {
+	for _, c := range m.component.All() {
 		c.AddEventHandler(h)
 	}
 }

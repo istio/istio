@@ -178,7 +178,7 @@ func New(
 	ttl time.Duration,
 	authenticators []security.Authenticator,
 	filter namespace.DiscoveryFilter,
-	controller multicluster.TODONameGeneric,
+	controller multicluster.ComponentBuilder,
 ) (*Server, error) {
 	certBundle := ca.GetCAKeyCertBundle()
 	if len(certBundle.GetRootCertPem()) != 0 {
