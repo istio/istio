@@ -16,7 +16,6 @@ package controller
 
 import (
 	"context"
-	"istio.io/istio/pkg/test/util/assert"
 	"testing"
 	"time"
 
@@ -34,6 +33,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/multicluster"
 	"istio.io/istio/pkg/test"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
 )
 

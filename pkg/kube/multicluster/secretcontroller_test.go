@@ -77,8 +77,6 @@ func TestKubeConfigOverride(t *testing.T) {
 		cfg.Burst = expectedBurst
 	})
 	clientset.RunAndWait(stopCh)
-	// c.Register(&handler{})
-	clientset.RunAndWait(stopCh)
 	_ = c.Run(stopCh)
 	t.Run("sync timeout", func(t *testing.T) {
 		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
@@ -208,7 +206,7 @@ func TestSecretController(t *testing.T) {
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
 	iter := 0
 	component := BuildMultiClusterComponent(c, func(cluster *Cluster, stop <-chan struct{}) testHandler {
-		iter += 1
+		iter++
 		return testHandler{ID: cluster.ID, Iter: iter}
 	})
 	client.RunAndWait(stopCh)

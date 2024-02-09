@@ -76,9 +76,8 @@ type Multicluster struct {
 	opts Options
 
 	// client for reading remote-secrets to initialize multicluster registries
-	client  kubernetes.Interface
-	s       server.Instance
-	closing bool
+	client kubernetes.Interface
+	s      server.Instance
 
 	serviceEntryController *serviceentry.Controller
 	configController       model.ConfigStoreController
