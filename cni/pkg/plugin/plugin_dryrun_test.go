@@ -142,15 +142,13 @@ func TestIPTablesRuleGeneration(t *testing.T) {
 			name:        "DNS",
 			annotations: map[string]string{annotation.SidecarStatus.Name: "true"},
 			proxyEnv:    []corev1.EnvVar{{Name: options.DNSCaptureByAgent.Name, Value: "true"}},
-			// ProxyEnvironments: map[string]string{options.DNSCaptureByAgent.Name: "true"},
-			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/dns.txt.golden"),
+			golden:      filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/dns.txt.golden"),
 		},
 		{
 			name:        "invalid-drop",
 			annotations: map[string]string{annotation.SidecarStatus.Name: "true"},
 			proxyEnv:    []corev1.EnvVar{{Name: cmd.InvalidDropByIptables, Value: "true"}},
-			// ProxyEnvironments: map[string]string{cmd.InvalidDropByIptables: "true"},
-			golden: filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/invalid-drop.txt.golden"),
+			golden:      filepath.Join(env.IstioSrc, "cni/pkg/plugin/testdata/invalid-drop.txt.golden"),
 		},
 		{
 			name:        "custom-uid",

@@ -226,20 +226,6 @@ func testDoAddRun(t *testing.T, stdinData, nsName string, objects ...runtime.Obj
 	return mockRedir
 }
 
-// func TestEmitsCorrectVersionInResult() {
-// 	// Plugin must return result in same version as specified in netconf
-// 	versionDecoder := &version.ConfigDecoder{}
-// 	confVersion, err := versionDecoder.Decode(conf)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-
-// 	result, err := version.NewResult(confVersion, out)
-// 	if err != nil {
-// 		return nil, nil, err
-// 	}
-// }
-
 func TestCmdAddAmbientEnabledOnNS(t *testing.T) {
 	url, serverClose := setupCNIEventClientWithMockServer(false)
 
