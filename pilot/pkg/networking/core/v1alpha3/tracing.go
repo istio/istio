@@ -37,6 +37,7 @@ import (
 	"istio.io/istio/pilot/pkg/networking"
 	authz_model "istio.io/istio/pilot/pkg/security/authz/model"
 	"istio.io/istio/pilot/pkg/util/protoconv"
+	xdsfilters "istio.io/istio/pilot/pkg/xds/filters"
 	"istio.io/istio/pilot/pkg/xds/requestidextension"
 	"istio.io/istio/pkg/bootstrap/platform"
 	"istio.io/istio/pkg/config/constants"
@@ -269,17 +270,17 @@ func datadogConfig(serviceName, hostname, cluster string) (*anypb.Any, error) {
 }
 
 func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.MeshConfig_ExtensionProvider_OpenTelemetryTracingProvider) (*anypb.Any, error) {
-	var oc *tracingcfg.OpenTelemetryConfig
+	oc := &tracingcfg.OpenTelemetryConfig{
+		ServiceName: serviceName,
+	}
 
 	if otelProvider.GetHttp() == nil {
 		// export via gRPC
-		oc = &tracingcfg.OpenTelemetryConfig{
-			GrpcService: &core.GrpcService{
-				TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
-					EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
-						ClusterName: cluster,
-						Authority:   hostname,
-					},
+		oc.GrpcService = &core.GrpcService{
+			TargetSpecifier: &core.GrpcService_EnvoyGrpc_{
+				EnvoyGrpc: &core.GrpcService_EnvoyGrpc{
+					ClusterName: cluster,
+					Authority:   hostname,
 				},
 			},
 		}
@@ -290,18 +291,15 @@ func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.
 		if err != nil {
 			return nil, fmt.Errorf("could not parse otlp/http traces endpoint: %v", err)
 		}
-		oc = &tracingcfg.OpenTelemetryConfig{
-			HttpService: &core.HttpService{
-				HttpUri: &core.HttpUri{
-					Uri: te,
-					HttpUpstreamType: &core.HttpUri_Cluster{
-						Cluster: cluster,
-					},
-					Timeout: httpService.GetTimeout(),
+		oc.HttpService = &core.HttpService{
+			HttpUri: &core.HttpUri{
+				Uri: te,
+				HttpUpstreamType: &core.HttpUri_Cluster{
+					Cluster: cluster,
 				},
+				Timeout: httpService.GetTimeout(),
 			},
 		}
-
 		for _, h := range httpService.GetHeaders() {
 			hvo := &core.HeaderValueOption{
 				AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
@@ -314,7 +312,20 @@ func otelConfig(serviceName, hostname, cluster string, otelProvider *meshconfig.
 		}
 	}
 
-	oc.ServiceName = serviceName
+	// Add configured resource detectors
+	if otelProvider.ResourceDetectors != nil {
+		res := []*core.TypedExtensionConfig{}
+		rd := otelProvider.ResourceDetectors
+
+		if rd.Environment != nil {
+			res = append(res, xdsfilters.EnvironmentResourceDetector)
+		}
+		if rd.Dynatrace != nil {
+			res = append(res, xdsfilters.DynatraceResourceDetector)
+		}
+		oc.ResourceDetectors = res
+	}
+
 	return anypb.New(oc)
 }
 
