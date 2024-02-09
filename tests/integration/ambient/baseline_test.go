@@ -1263,7 +1263,7 @@ func TestK8sNetPol(t *testing.T) {
 	framework.NewTest(t).
 		Features("security.reachability").
 		Run(func(t framework.TestContext) {
-			t.Skip("This did help find a bug so probably has value but skipping for now")
+			t.Skip("https://github.com/istio/istio/issues/49301")
 			systemNM := istio.ClaimSystemNamespaceOrFail(t, t)
 
 			// configure a NetPol which will only allow HBONE traffic in the test app namespace
