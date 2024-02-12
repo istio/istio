@@ -214,8 +214,8 @@ func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.Ad
 		// istiod is exposed via LoadBalancer since we won't have ingress outside of a cluster;a cluster that is;
 		// a control cluster, but not config cluster is supposed to simulate istiod outside of k8s or "external"
 		address, err := retry.UntilComplete(func() (any, bool, error) {
-			return getRemoteServiceAddress(i.env.Settings(), primary, i.cfg.SystemNamespace, istiodLabel,
-				istiodSvcName, discoveryPort)
+			addrs, outcome, err := getRemoteServiceAddresses(i.env.Settings(), primary, i.cfg.SystemNamespace, istiodLabel, istiodSvcName, discoveryPort)
+			return addrs[0], outcome, err
 		}, getAddressTimeout, getAddressDelay)
 		if err != nil {
 			return netip.AddrPort{}, err

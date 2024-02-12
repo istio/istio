@@ -91,13 +91,13 @@ func (c *ingressImpl) Close() error {
 	return c.caller.Close()
 }
 
-// getAddressInner returns the external address for the given port. When we don't have support for LoadBalancer,
+// getAddressInner returns the external addresses for the given port. When we don't have support for LoadBalancer,
 // the returned net.Addr will have the externally reachable NodePort address and port.
-func (c *ingressImpl) getAddressInner(port int) (string, int, error) {
+func (c *ingressImpl) getAddressesInner(port int) ([]string, []int, error) {
 	attempts := 0
-	addr, err := retry.UntilComplete(func() (result any, completed bool, err error) {
+	remoteAddrs, err := retry.UntilComplete(func() (addrs any, completed bool, err error) {
 		attempts++
-		result, completed, err = getRemoteServiceAddress(c.env.Settings(), c.cluster, c.service.Namespace, c.labelSelector, c.service.Name, port)
+		addrs, completed, err = getRemoteServiceAddresses(c.env.Settings(), c.cluster, c.service.Namespace, c.labelSelector, c.service.Name, port)
 		if err != nil && attempts > 1 {
 			// Log if we fail more than once to avoid test appearing to hang
 			// LB provision be slow, so timeout here needs to be long we should give context
@@ -105,36 +105,48 @@ func (c *ingressImpl) getAddressInner(port int) (string, int, error) {
 		}
 		return
 	}, getAddressTimeout, getAddressDelay)
+	var anyRemoteAddrs []interface{}
+	// Perform type assertion and construct a new slice of `any`
+	anyRemoteAddrs, _ = remoteAddrs.([]any)
+
 	if err != nil {
-		return "", 0, err
+		return nil, nil, err
+	}
+	var addrs []string
+	var ports []int
+	for _, addr := range anyRemoteAddrs {
+		switch v := addr.(type) {
+		case string:
+			host, portStr, err := net.SplitHostPort(v)
+			if err != nil {
+				return nil, nil, err
+			}
+			mappedPort, err := strconv.Atoi(portStr)
+			if err != nil {
+				return nil, nil, err
+			}
+			addrs = append(addrs, host)
+			ports = append(ports, mappedPort)
+		case netip.AddrPort:
+			addrs = append(addrs, v.Addr().String())
+			ports = append(ports, int(v.Port()))
+		}
+	}
+	if len(addrs) > 0 {
+		return addrs, ports, nil
 	}
 
-	switch v := addr.(type) {
-	case string:
-		host, portStr, err := net.SplitHostPort(v)
-		if err != nil {
-			return "", 0, err
-		}
-		mappedPort, err := strconv.Atoi(portStr)
-		if err != nil {
-			return "", 0, err
-		}
-		return host, mappedPort, nil
-	case netip.AddrPort:
-		return v.Addr().String(), int(v.Port()), nil
-	}
-
-	return "", 0, fmt.Errorf("failed to get address for port %v", port)
+	return nil, nil, fmt.Errorf("failed to get address for port %v", port)
 }
 
 // AddressForPort returns the externally reachable host and port of the component for the given port.
 func (c *ingressImpl) AddressForPort(port int) (string, int) {
-	host, port, err := c.getAddressInner(port)
+	addrs, ports, err := c.getAddressesInner(port)
 	if err != nil {
 		scopes.Framework.Error(err)
 		return "", 0
 	}
-	return host, port
+	return addrs[0], ports[0]
 }
 
 func (c *ingressImpl) Cluster() cluster.Cluster {
