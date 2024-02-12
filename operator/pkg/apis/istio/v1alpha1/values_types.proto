@@ -43,7 +43,7 @@ message ArchConfig {
 
 // Configuration for CNI.
 message CNIConfig {
-  // Controls whether CNI is enabled.
+  // Controls whether CNI is installed.
   google.protobuf.BoolValue enabled = 1;
 
   string hub = 2;
@@ -95,6 +95,14 @@ message CNIConfig {
 
   // K8s rolling update strategy
   IntOrString rollingMaxUnavailable = 23;
+}
+
+// Configures whether to use an existing CNI installation for workloads
+message CNIUsageConfig {
+  // Controls whether CNI should be used.
+  google.protobuf.BoolValue enabled = 1;
+
+  google.protobuf.BoolValue chained = 2;
 }
 
 message CNIAmbientConfig {
@@ -1156,7 +1164,7 @@ message Values {
 
   SidecarInjectorConfig sidecarInjectorWebhook = 13;
 
-  CNIConfig istio_cni = 19;
+  CNIUsageConfig istio_cni = 19;
 
   string revision = 21;
 
