@@ -361,20 +361,6 @@ func checkDeprecatedHPAFields(iop *v1alpha1.IstioOperatorSpec) bool {
 	return false
 }
 
-// translateDeprecatedAutoscalingFields checks for existence of deprecated HPA fields, if found, set values.global.autoscalingv2API to false
-// It only needs to run the logic for the first component because we are setting the values.global field instead of per component ones.
-// we do not set per component values because we may want to avoid mixture of v2 and v2beta1 autoscaling templates usage
-func (t *Translator) translateDeprecatedAutoscalingFields(values map[string]any, iop *v1alpha1.IstioOperatorSpec) error {
-	if t.checkedDeprecatedAutoscalingFields || checkDeprecatedHPAFields(iop) {
-		path := util.PathFromString("global.autoscalingv2API")
-		if err := tpath.WriteNode(values, path, false); err != nil {
-			return fmt.Errorf("failed to set autoscalingv2API path: %v", err)
-		}
-		t.checkedDeprecatedAutoscalingFields = true
-	}
-	return nil
-}
-
 func skipReplicaCountWithAutoscaleEnabled(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) bool {
 	values := iop.GetValues().AsMap()
 	path, ok := componentToAutoScaleEnabledPath[componentName]
@@ -540,11 +526,6 @@ func (t *Translator) ProtoToValues(ii *v1alpha1.IstioOperatorSpec) (string, erro
 
 	// Special additional handling not covered by simple translation rules.
 	if err := t.setComponentProperties(root, ii); err != nil {
-		return "", err
-	}
-
-	// Special handling of the settings of legacy fields in autoscaling/v2beta1
-	if err := t.translateDeprecatedAutoscalingFields(root, ii); err != nil {
 		return "", err
 	}
 
