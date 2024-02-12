@@ -140,13 +140,13 @@ func (c *ingressImpl) getAddressesInner(port int) ([]string, []int, error) {
 }
 
 // AddressForPort returns the externally reachable host and port of the component for the given port.
-func (c *ingressImpl) AddressForPort(port int) (string, int) {
+func (c *ingressImpl) AddressesForPort(port int) ([]string, []int) {
 	addrs, ports, err := c.getAddressesInner(port)
 	if err != nil {
 		scopes.Framework.Error(err)
-		return "", 0
+		return nil, nil
 	}
-	return addrs[0], ports[0]
+	return addrs, ports
 }
 
 func (c *ingressImpl) Cluster() cluster.Cluster {
@@ -155,27 +155,63 @@ func (c *ingressImpl) Cluster() cluster.Cluster {
 
 // HTTPAddress returns the externally reachable HTTP host and port (80) of the component.
 func (c *ingressImpl) HTTPAddress() (string, int) {
-	return c.AddressForPort(80)
+	addrs, ports := c.AddressesForPort(80)
+	return addrs[0], ports[0]
 }
 
 // TCPAddress returns the externally reachable TCP host and port (31400) of the component.
 func (c *ingressImpl) TCPAddress() (string, int) {
-	return c.AddressForPort(31400)
+	addrs, ports := c.AddressesForPort(31400)
+	return addrs[0], ports[0]
 }
 
 // HTTPSAddress returns the externally reachable TCP host and port (443) of the component.
 func (c *ingressImpl) HTTPSAddress() (string, int) {
-	return c.AddressForPort(443)
+	addrs, ports := c.AddressesForPort(443)
+	return addrs[0], ports[0]
 }
 
 // DiscoveryAddress returns the externally reachable discovery address (15012) of the component.
 func (c *ingressImpl) DiscoveryAddress() netip.AddrPort {
-	host, port := c.AddressForPort(discoveryPort)
-	ip, err := netip.ParseAddr(host)
+	hosts, ports := c.AddressesForPort(discoveryPort)
+	ip, err := netip.ParseAddr(hosts[0])
 	if err != nil {
 		return netip.AddrPort{}
 	}
-	return netip.AddrPortFrom(ip, uint16(port))
+	return netip.AddrPortFrom(ip, uint16(ports[0]))
+}
+
+// HTTPAddress returns the externally reachable HTTP hosts and port (80) of the component.
+func (c *ingressImpl) HTTPAddresses() ([]string, []int) {
+	return c.AddressesForPort(80)
+}
+
+// TCPAddress returns the externally reachable TCP hosts and port (31400) of the component.
+func (c *ingressImpl) TCPAddresses() ([]string, []int) {
+	return c.AddressesForPort(31400)
+}
+
+// HTTPSAddress returns the externally reachable TCP hosts and port (443) of the component.
+func (c *ingressImpl) HTTPSAddresses() ([]string, []int) {
+	return c.AddressesForPort(443)
+}
+
+// DiscoveryAddress returns the externally reachable discovery addresses (15012) of the component.
+func (c *ingressImpl) DiscoveryAddresses() []netip.AddrPort {
+	hosts, ports := c.AddressesForPort(discoveryPort)
+	var addrs []netip.AddrPort
+	if hosts == nil {
+		return []netip.AddrPort{{}}
+	}
+	for i, host := range hosts {
+		ip, err := netip.ParseAddr(host)
+		if err != nil {
+			return []netip.AddrPort{}
+		}
+		addrs = append(addrs, netip.AddrPortFrom(ip, uint16(ports[i])))
+	}
+
+	return addrs
 }
 
 func (c *ingressImpl) Call(options echo.CallOptions) (echo.CallResult, error) {
@@ -197,7 +233,8 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 		port int
 	)
 	opts = opts.DeepCopy()
-
+	var addrs []string
+	var ports []int
 	if opts.Port.ServicePort == 0 {
 		s, err := c.schemeFor(opts)
 		if err != nil {
@@ -208,22 +245,22 @@ func (c *ingressImpl) callEcho(opts echo.CallOptions) (echo.CallResult, error) {
 		// Default port based on protocol
 		switch s {
 		case scheme.HTTP:
-			addr, port = c.HTTPAddress()
+			addrs, ports = c.HTTPAddresses()
 		case scheme.HTTPS:
-			addr, port = c.HTTPSAddress()
+			addrs, ports = c.HTTPSAddresses()
 		case scheme.TCP:
-			addr, port = c.TCPAddress()
+			addrs, ports = c.TCPAddresses()
 		default:
 			return echo.CallResult{}, fmt.Errorf("ingress: scheme %v not supported. Options: %v+", s, opts)
 		}
 	} else {
-		addr, port = c.AddressForPort(opts.Port.ServicePort)
+		addrs, ports = c.AddressesForPort(opts.Port.ServicePort)
 	}
-
-	if addr == "" || port == 0 {
+	if addrs == nil || ports == nil {
 		scopes.Framework.Warnf("failed to get host and port for %s/%d", opts.Port.Protocol, opts.Port.ServicePort)
 	}
-
+	addr = addrs[0]
+	port = ports[0]
 	// Even if they set ServicePort, when load balancer is disabled, we may need to switch to NodePort, so replace it.
 	opts.Port.ServicePort = port
 	if opts.HTTP.Headers == nil {

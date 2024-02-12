@@ -46,9 +46,21 @@ type Instance interface {
 	// DiscoveryAddress returns the external XDS (15012) address on the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer).
 	DiscoveryAddress() netip.AddrPort
+	// HTTPAddress returns the external HTTP (80) address of the ingress gateway ((or the NodePort address,
+	//	// when in an environment that doesn't support LoadBalancer).
+	HTTPAddresses() ([]string, []int)
+	// HTTPSAddress returns the external HTTPS (443) address of the ingress gateway (or the NodePort address,
+	//	// when in an environment that doesn't support LoadBalancer).
+	HTTPSAddresses() ([]string, []int)
+	// TCPAddress returns the external TCP (31400) address of the ingress gateway (or the NodePort address,
+	// when in an environment that doesn't support LoadBalancer).
+	TCPAddresses() ([]string, []int)
+	// DiscoveryAddress returns the external XDS (15012) address on the ingress gateway (or the NodePort address,
+	// when in an environment that doesn't support LoadBalancer).
+	DiscoveryAddresses() []netip.AddrPort
 	// AddressForPort returns the external address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer) for the given port.
-	AddressForPort(port int) (string, int)
+	AddressesForPort(port int) ([]string, []int)
 
 	// PodID returns the name of the ingress gateway pod of index i. Returns error if failed to get the pod
 	// or the index is out of boundary.
