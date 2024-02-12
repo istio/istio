@@ -153,18 +153,6 @@ func (c *ingressImpl) Cluster() cluster.Cluster {
 	return c.cluster
 }
 
-// HTTPAddress returns the externally reachable HTTP host and port (80) of the component.
-func (c *ingressImpl) HTTPAddress() (string, int) {
-	addrs, ports := c.AddressesForPort(80)
-	return addrs[0], ports[0]
-}
-
-// TCPAddress returns the externally reachable TCP host and port (31400) of the component.
-func (c *ingressImpl) TCPAddress() (string, int) {
-	addrs, ports := c.AddressesForPort(31400)
-	return addrs[0], ports[0]
-}
-
 // HTTPSAddress returns the externally reachable TCP host and port (443) of the component.
 func (c *ingressImpl) HTTPSAddress() (string, int) {
 	addrs, ports := c.AddressesForPort(443)
@@ -181,22 +169,22 @@ func (c *ingressImpl) DiscoveryAddress() netip.AddrPort {
 	return netip.AddrPortFrom(ip, uint16(ports[0]))
 }
 
-// HTTPAddress returns the externally reachable HTTP hosts and port (80) of the component.
+// HTTPAddresses returns the externally reachable HTTP hosts and port (80) of the component.
 func (c *ingressImpl) HTTPAddresses() ([]string, []int) {
 	return c.AddressesForPort(80)
 }
 
-// TCPAddress returns the externally reachable TCP hosts and port (31400) of the component.
+// TCPAddresses returns the externally reachable TCP hosts and port (31400) of the component.
 func (c *ingressImpl) TCPAddresses() ([]string, []int) {
 	return c.AddressesForPort(31400)
 }
 
-// HTTPSAddress returns the externally reachable TCP hosts and port (443) of the component.
+// HTTPSAddresses returns the externally reachable TCP hosts and port (443) of the component.
 func (c *ingressImpl) HTTPSAddresses() ([]string, []int) {
 	return c.AddressesForPort(443)
 }
 
-// DiscoveryAddress returns the externally reachable discovery addresses (15012) of the component.
+// DiscoveryAddresses returns the externally reachable discovery addresses (15012) of the component.
 func (c *ingressImpl) DiscoveryAddresses() []netip.AddrPort {
 	hosts, ports := c.AddressesForPort(discoveryPort)
 	var addrs []netip.AddrPort

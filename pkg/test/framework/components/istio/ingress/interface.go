@@ -34,15 +34,9 @@ func (i Instances) Callers() echo.Callers {
 // Instance represents a deployed Ingress Gateway instance.
 type Instance interface {
 	echo.Caller
-	// HTTPAddress returns the external HTTP (80) address of the ingress gateway ((or the NodePort address,
-	//	// when in an environment that doesn't support LoadBalancer).
-	HTTPAddress() (string, int)
 	// HTTPSAddress returns the external HTTPS (443) address of the ingress gateway (or the NodePort address,
 	//	// when in an environment that doesn't support LoadBalancer).
 	HTTPSAddress() (string, int)
-	// TCPAddress returns the external TCP (31400) address of the ingress gateway (or the NodePort address,
-	// when in an environment that doesn't support LoadBalancer).
-	TCPAddress() (string, int)
 	// DiscoveryAddress returns the external XDS (15012) address on the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer).
 	DiscoveryAddress() netip.AddrPort

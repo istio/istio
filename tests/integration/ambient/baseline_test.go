@@ -1652,7 +1652,9 @@ spec:
       http: {{.IngressHttpPort}}`).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
-			ip, port := istio.DefaultIngressOrFail(t, t).HTTPAddress()
+			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
+			ip := ips[0]
+			port := ports[0]
 			for _, tc := range testCases {
 				tc := tc
 				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
@@ -1768,7 +1770,9 @@ spec:
       app: selected`).
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
-			ip, port := istio.DefaultIngressOrFail(t, t).HTTPAddress()
+			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
+			ip := ips[0]
+			port := ports[0]
 			for _, tc := range testCases {
 				tc := tc
 				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
