@@ -205,7 +205,7 @@ func TestSecretController(t *testing.T) {
 	client.RunAndWait(stopCh)
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
 	iter := 0
-	component := BuildMultiClusterComponent(c, func(cluster *Cluster, stop <-chan struct{}) testHandler {
+	component := BuildMultiClusterComponent(c, func(cluster *Cluster) testHandler {
 		iter++
 		return testHandler{ID: cluster.ID, Iter: iter}
 	})

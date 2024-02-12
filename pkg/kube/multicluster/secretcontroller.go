@@ -61,8 +61,8 @@ var (
 )
 
 type handler interface {
-	clusterAdded(cluster *Cluster, stop <-chan struct{})
-	clusterUpdated(cluster *Cluster, stop <-chan struct{})
+	clusterAdded(cluster *Cluster)
+	clusterUpdated(cluster *Cluster)
 	clusterDeleted(clusterID cluster.ID)
 }
 
@@ -146,10 +146,14 @@ type ComponentBuilder interface {
 	registerHandler(h handler)
 }
 
-func BuildMultiClusterComponent[T Closer](c ComponentBuilder, f func(cluster *Cluster, stop <-chan struct{}) T) *Component[T] {
+// BuildMultiClusterComponent constructs a new multicluster component. For each cluster, the constructor will be called.
+// If the cluster is removed, the T.Close() method will be called.
+// Constructors MUST not do blocking IO; they will block other operations.
+// During a cluster update, a new component is constructed before the old one is removed for seamless migration.
+func BuildMultiClusterComponent[T Closer](c ComponentBuilder, constructor func(cluster *Cluster) T) *Component[T] {
 	comp := &Component[T]{
-		f:        f,
-		clusters: make(map[cluster.ID]T),
+		constructor: constructor,
+		clusters:    make(map[cluster.ID]T),
 	}
 	c.registerHandler(comp)
 	return comp
@@ -171,7 +175,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	// run handlers for the config cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
 	configCluster := &Cluster{Client: c.configClusterClient, ID: c.configClusterID}
-	c.handleAdd(configCluster, stopCh)
+	c.handleAdd(configCluster)
 	go func() {
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
@@ -184,6 +188,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
 		c.queue.Run(stopCh)
+		c.handleDelete(c.configClusterID)
 	}()
 	return nil
 }
@@ -289,7 +294,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			errs = multierror.Append(errs, err)
 			continue
 		}
-		callback(remoteCluster, remoteCluster.stop)
+		callback(remoteCluster)
 		logger.Infof("finished callback for cluster and starting to sync")
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
 		go remoteCluster.Run()
@@ -321,15 +326,15 @@ func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }
 
-func (c *Controller) handleAdd(cluster *Cluster, stop <-chan struct{}) {
+func (c *Controller) handleAdd(cluster *Cluster) {
 	for _, handler := range c.handlers {
-		handler.clusterAdded(cluster, stop)
+		handler.clusterAdded(cluster)
 	}
 }
 
-func (c *Controller) handleUpdate(cluster *Cluster, stop <-chan struct{}) {
+func (c *Controller) handleUpdate(cluster *Cluster) {
 	for _, handler := range c.handlers {
-		handler.clusterUpdated(cluster, stop)
+		handler.clusterUpdated(cluster)
 	}
 }
 

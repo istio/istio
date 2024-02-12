@@ -34,7 +34,7 @@ func (f *Fake) Add(id cluster.ID, client kube.Client, stop chan struct{}) {
 			Client:        client,
 			kubeConfigSha: [32]byte{},
 			stop:          stop,
-		}, stop)
+		})
 	}
 }
 

@@ -36,7 +36,7 @@ func NewMulticluster(configCluster cluster.ID, controller multicluster.Component
 		configCluster: configCluster,
 	}
 
-	m.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster, stop <-chan struct{}) *CredentialsController {
+	m.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster) *CredentialsController {
 		return NewCredentialsController(cluster.Client, m.secretHandlers)
 	})
 	return m

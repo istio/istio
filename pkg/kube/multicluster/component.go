@@ -26,9 +26,9 @@ type Closer interface {
 }
 
 type Component[T Closer] struct {
-	mu       sync.RWMutex
-	f        func(cluster *Cluster, stop <-chan struct{}) T
-	clusters map[cluster.ID]T
+	mu          sync.RWMutex
+	constructor func(cluster *Cluster) T
+	clusters    map[cluster.ID]T
 }
 
 func (m *Component[T]) ForCluster(clusterID cluster.ID) *T {
@@ -47,20 +47,22 @@ func (m *Component[T]) All() []T {
 	return maps.Values(m.clusters)
 }
 
-func (m *Component[T]) clusterAdded(cluster *Cluster, stop <-chan struct{}) {
+func (m *Component[T]) clusterAdded(cluster *Cluster) {
+	comp := m.constructor(cluster)
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	m.clusters[cluster.ID] = m.f(cluster, stop)
+	m.clusters[cluster.ID] = comp
 }
 
-func (m *Component[T]) clusterUpdated(cluster *Cluster, stop <-chan struct{}) {
+func (m *Component[T]) clusterUpdated(cluster *Cluster) {
+	comp := m.constructor(cluster)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	// If there is an old one, close it
 	if old, f := m.clusters[cluster.ID]; f {
 		old.Close()
 	}
-	m.clusters[cluster.ID] = m.f(cluster, stop)
+	m.clusters[cluster.ID] = comp
 }
 
 func (m *Component[T]) clusterDeleted(cluster cluster.ID) {

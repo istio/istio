@@ -50,9 +50,11 @@ type kubeController struct {
 	MeshServiceController *aggregate.Controller
 	*Controller
 	workloadEntryController *serviceentry.Controller
+	stop                    chan struct{}
 }
 
 func (k *kubeController) Close() {
+	close(k.stop)
 	clusterID := k.Controller.clusterID
 	k.MeshServiceController.UnRegisterHandlersForCluster(clusterID)
 	k.MeshServiceController.DeleteRegistry(clusterID, provider.Kubernetes)
@@ -123,7 +125,8 @@ func NewMulticluster(
 		client:                 kc,
 		s:                      s,
 	}
-	mc.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster, stop <-chan struct{}) *kubeController {
+	mc.component = multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster) *kubeController {
+		stop := make(chan struct{})
 		client := cluster.Client
 		configCluster := opts.ClusterID == cluster.ID
 
@@ -145,6 +148,7 @@ func NewMulticluster(
 		kubeController := &kubeController{
 			MeshServiceController: opts.MeshServiceController,
 			Controller:            kubeRegistry,
+			stop:                  stop,
 		}
 		mc.initializeCluster(cluster, kubeController, kubeRegistry, options, configCluster, stop)
 		return kubeController

@@ -176,14 +176,11 @@ func TestSingleClusterNodeAuthorization(t *testing.T) {
 				})
 			}
 			c := kube.NewFakeClient(pods...)
-			na, err := NewClusterNodeAuthorizer(c, nil, tt.trustedAccounts)
-			if err != nil {
-				t.Fatal(err)
-			}
+			na := NewClusterNodeAuthorizer(c, nil, tt.trustedAccounts)
 			c.RunAndWait(test.NewStop(t))
 			kube.WaitForCacheSync("test", test.NewStop(t), na.pods.HasSynced)
 
-			err = na.authenticateImpersonation(tt.caller, tt.requestedIdentityString)
+			err := na.authenticateImpersonation(tt.caller, tt.requestedIdentityString)
 			if tt.wantErr == "" && err != nil {
 				t.Fatalf("wanted no error, got %v", err)
 			}

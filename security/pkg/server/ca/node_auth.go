@@ -48,14 +48,8 @@ func NewMulticlusterNodeAuthenticator(
 	m := &MulticlusterNodeAuthorizor{
 		filter:              filter,
 		trustedNodeAccounts: trustedNodeAccounts,
-		component: multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster, stop <-chan struct{}) *ClusterNodeAuthorizer {
-			na, err := NewClusterNodeAuthorizer(cluster.Client, filter, trustedNodeAccounts)
-			if err != nil {
-				serverCaLog.Errorf("failed to initialize node authorizer for cluster %v: %v", cluster.ID, err)
-				// TODO: make mc2 allow passing errors
-				return nil
-			}
-			return na
+		component: multicluster.BuildMultiClusterComponent(controller, func(cluster *multicluster.Cluster) *ClusterNodeAuthorizer {
+			return NewClusterNodeAuthorizer(cluster.Client, filter, trustedNodeAccounts)
 		}),
 	}
 	return m
@@ -83,7 +77,7 @@ type ClusterNodeAuthorizer struct {
 
 func NewClusterNodeAuthorizer(client kube.Client, filter namespace.DiscoveryFilter,
 	trustedNodeAccounts sets.Set[types.NamespacedName],
-) (*ClusterNodeAuthorizer, error) {
+) *ClusterNodeAuthorizer {
 	pods := kclient.NewFiltered[*v1.Pod](client, kclient.Filter{
 		ObjectFilter:    filter,
 		ObjectTransform: kube.StripPodUnusedFields,
@@ -108,7 +102,7 @@ func NewClusterNodeAuthorizer(client kube.Client, filter namespace.DiscoveryFilt
 		pods:                pods,
 		nodeIndex:           index,
 		trustedNodeAccounts: trustedNodeAccounts,
-	}, nil
+	}
 }
 
 func (na *ClusterNodeAuthorizer) Close() {
