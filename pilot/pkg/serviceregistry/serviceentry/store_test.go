@@ -24,6 +24,8 @@ import (
 	"istio.io/istio/pilot/pkg/model"
 	"istio.io/istio/pkg/config"
 	"istio.io/istio/pkg/config/constants"
+	"istio.io/istio/pkg/ptr"
+	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/util/sets"
 )
 
@@ -143,6 +145,8 @@ func TestServiceStore(t *testing.T) {
 // are created with different/same endpoints, we only consider the first service because
 // Envoy's LogicalDNS type of cluster does not allow more than one locality LB Endpoint.
 func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
+	otherNs := ptr.Of(dnsRoundRobinLBSE1.DeepCopy())
+	otherNs.Namespace = "other"
 	store := serviceInstancesStore{
 		ip2instance:            map[string][]*model.ServiceInstance{},
 		instances:              map[instancesKey]map[configKey][]*model.ServiceInstance{},
@@ -159,17 +163,32 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	}
 	// Add instance related to first Service Entry and validate they are added correctly.
 	store.addInstances(cKey, instances)
-	gotInstances := store.getByKey(instancesKey{
-		hostname:  "example.com",
-		namespace: "dns",
-	})
+
+	store.addInstances(
+		configKey{namespace: otherNs.Namespace, name: otherNs.Name},
+		[]*model.ServiceInstance{
+			makeInstance(otherNs, "1.1.1.1", 444, otherNs.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+			makeInstance(otherNs, "1.1.1.1", 445, otherNs.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
+		},
+	)
+
 	expected := []*model.ServiceInstance{
 		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 444, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
 		makeInstance(dnsRoundRobinLBSE1, "1.1.1.1", 445, dnsRoundRobinLBSE1.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}
-	if !reflect.DeepEqual(gotInstances, expected) {
-		t.Errorf("got unexpected instances : %v", gotInstances)
+	assert.Equal(t, store.getByKey(instancesKey{
+		hostname:  "example.com",
+		namespace: "dns",
+	}), expected)
+
+	otherNsExpected := []*model.ServiceInstance{
+		makeInstance(otherNs, "1.1.1.1", 444, otherNs.Spec.(*networking.ServiceEntry).Ports[0], nil, PlainText),
+		makeInstance(otherNs, "1.1.1.1", 445, otherNs.Spec.(*networking.ServiceEntry).Ports[1], nil, PlainText),
 	}
+	assert.Equal(t, store.getByKey(instancesKey{
+		hostname:  "example.com",
+		namespace: otherNs.Namespace,
+	}), otherNsExpected)
 
 	// Add instance related to second Service Entry and validate it is ignored.
 	instances = []*model.ServiceInstance{
@@ -181,11 +200,12 @@ func TestServiceInstancesForDnsRoundRobinLB(t *testing.T) {
 	}
 	store.addInstances(cKey, instances)
 
-	gotInstances = store.getByKey(instancesKey{
+	assert.Equal(t, store.getByKey(instancesKey{
 		hostname:  "example.com",
 		namespace: "dns",
-	})
-	if !reflect.DeepEqual(gotInstances, expected) {
-		t.Errorf("got unexpected instances : %v", gotInstances)
-	}
+	}), expected)
+	assert.Equal(t, store.getByKey(instancesKey{
+		hostname:  "example.com",
+		namespace: otherNs.Namespace,
+	}), otherNsExpected)
 }
