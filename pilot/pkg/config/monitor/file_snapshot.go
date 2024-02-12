@@ -126,5 +126,5 @@ func (rs byKey) Swap(i, j int) {
 }
 
 func (rs byKey) Less(i, j int) bool {
-	return compareIds(rs[i], rs[j]) < 0
+	return compareIDs(rs[i], rs[j]) < 0
 }
