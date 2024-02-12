@@ -52,10 +52,6 @@ const (
 	HelmValuesHubSubpath = "hub"
 	// HelmValuesTagSubpath is the subpath from the component root to the tag parameter.
 	HelmValuesTagSubpath = "tag"
-	// default ingress gateway name
-	defaultIngressGWName = "istio-ingressgateway"
-	// default egress gateway name
-	defaultEgressGWName = "istio-egressgateway"
 )
 
 var scope = log.RegisterScope("translator", "API translator")
@@ -74,9 +70,6 @@ type Translator struct {
 	GlobalNamespaces map[name.ComponentName]string `yaml:"globalNamespaces"`
 	// ComponentMaps is a set of mappings for each Istio component.
 	ComponentMaps map[name.ComponentName]*ComponentMaps `yaml:"componentMaps"`
-	// checkedDeprecatedAutoscalingFields represents whether the translator already checked the deprecated fields already.
-	// Different components do not need to rerun the translation logic
-	checkedDeprecatedAutoscalingFields bool
 }
 
 // ComponentMaps is a set of mappings for an Istio component.
@@ -312,53 +305,6 @@ var componentToAutoScaleEnabledPath = map[name.ComponentName]string{
 	name.PilotComponentName:   "pilot.autoscaleEnabled",
 	name.IngressComponentName: "gateways.istio-ingressgateway.autoscaleEnabled",
 	name.EgressComponentName:  "gateways.istio-egressgateway.autoscaleEnabled",
-}
-
-// checkDeprecatedHPAFields is a helper function to check for the deprecated fields usage in HorizontalPodAutoscalerSpec
-func checkDeprecatedHPAFields(iop *v1alpha1.IstioOperatorSpec) bool {
-	hpaSpecs := []*v1alpha1.HorizontalPodAutoscalerSpec{}
-	if iop.GetComponents().GetPilot().GetK8S().GetHpaSpec() != nil {
-		hpaSpecs = append(hpaSpecs, iop.GetComponents().GetPilot().GetK8S().GetHpaSpec())
-	}
-	for _, gwSpec := range iop.GetComponents().GetIngressGateways() {
-		if gwSpec.Name == defaultIngressGWName && gwSpec.GetK8S().GetHpaSpec() != nil {
-			hpaSpecs = append(hpaSpecs, gwSpec.GetK8S().GetHpaSpec())
-		}
-	}
-	for _, gwSpec := range iop.GetComponents().GetEgressGateways() {
-		if gwSpec.Name == defaultEgressGWName && gwSpec.GetK8S().GetHpaSpec() != nil {
-			hpaSpecs = append(hpaSpecs, gwSpec.GetK8S().GetHpaSpec())
-		}
-	}
-	for _, hpaSpec := range hpaSpecs {
-		if hpaSpec.GetMetrics() != nil {
-			for _, me := range hpaSpec.GetMetrics() {
-				// nolint: staticcheck
-				if me.GetObject().GetMetricName() != "" || me.GetObject().GetAverageValue() != nil ||
-					// nolint: staticcheck
-					me.GetObject().GetSelector() != nil || me.GetObject().GetTargetValue() != nil {
-					return true
-				}
-				// nolint: staticcheck
-				if me.GetPods().GetMetricName() != "" || me.GetPods().GetSelector() != nil ||
-					// nolint: staticcheck
-					me.GetPods().GetTargetAverageValue() != nil {
-					return true
-				}
-				// nolint: staticcheck
-				if me.GetResource().GetTargetAverageValue() != nil || me.GetResource().GetTargetAverageUtilization() != 0 {
-					return true
-				}
-				// nolint: staticcheck
-				if me.GetExternal().GetTargetAverageValue() != nil || me.GetExternal().GetTargetValue() != nil ||
-					// nolint: staticcheck
-					me.GetExternal().GetMetricName() != "" || me.GetExternal().GetMetricSelector() != nil {
-					return true
-				}
-			}
-		}
-	}
-	return false
 }
 
 func skipReplicaCountWithAutoscaleEnabled(iop *v1alpha1.IstioOperatorSpec, componentName name.ComponentName) bool {
