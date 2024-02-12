@@ -91,8 +91,8 @@ func (c *ingressImpl) Close() error {
 	return c.caller.Close()
 }
 
-// getAddressInner returns the external addresses for the given port. When we don't have support for LoadBalancer,
-// the returned net.Addr will have the externally reachable NodePort address and port.
+// getAddressesInner returns the external addresses for the given port. When we don't have support for LoadBalancer,
+// the returned list will contain will have the externally reachable NodePort address and port.
 func (c *ingressImpl) getAddressesInner(port int) ([]string, []int, error) {
 	attempts := 0
 	remoteAddrs, err := retry.UntilComplete(func() (addrs any, completed bool, err error) {
