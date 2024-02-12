@@ -52,10 +52,6 @@ const (
 	HelmValuesHubSubpath = "hub"
 	// HelmValuesTagSubpath is the subpath from the component root to the tag parameter.
 	HelmValuesTagSubpath = "tag"
-	// default ingress gateway name
-	defaultIngressGWName = "istio-ingressgateway"
-	// default egress gateway name
-	defaultEgressGWName = "istio-egressgateway"
 )
 
 var scope = log.RegisterScope("translator", "API translator")
@@ -74,9 +70,6 @@ type Translator struct {
 	GlobalNamespaces map[name.ComponentName]string `yaml:"globalNamespaces"`
 	// ComponentMaps is a set of mappings for each Istio component.
 	ComponentMaps map[name.ComponentName]*ComponentMaps `yaml:"componentMaps"`
-	// checkedDeprecatedAutoscalingFields represents whether the translator already checked the deprecated fields already.
-	// Different components do not need to rerun the translation logic
-	checkedDeprecatedAutoscalingFields bool
 }
 
 // ComponentMaps is a set of mappings for an Istio component.
@@ -365,12 +358,11 @@ func checkDeprecatedHPAFields(iop *v1alpha1.IstioOperatorSpec) bool {
 // It only needs to run the logic for the first component because we are setting the values.global field instead of per component ones.
 // we do not set per component values because we may want to avoid mixture of v2 and v2beta1 autoscaling templates usage
 func (t *Translator) translateDeprecatedAutoscalingFields(values map[string]any, iop *v1alpha1.IstioOperatorSpec) error {
-	if t.checkedDeprecatedAutoscalingFields || checkDeprecatedHPAFields(iop) {
+	if checkDeprecatedHPAFields(iop) {
 		path := util.PathFromString("global.autoscalingv2API")
 		if err := tpath.WriteNode(values, path, false); err != nil {
 			return fmt.Errorf("failed to set autoscalingv2API path: %v", err)
 		}
-		t.checkedDeprecatedAutoscalingFields = true
 	}
 	return nil
 }
