@@ -15,22 +15,27 @@
 package multicluster
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
 	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	klabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/client-go/rest"
 
 	"istio.io/istio/pkg/cluster"
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
+	"istio.io/istio/pkg/kube/controllers"
+	"istio.io/istio/pkg/kube/kclient"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
 	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
+	"istio.io/istio/pkg/util/sets"
 )
 
 const secretNamespace string = "istio-system"
@@ -78,9 +83,7 @@ func TestKubeConfigOverride(t *testing.T) {
 	}
 	client.RunAndWait(stopCh)
 	assert.NoError(t, c.Run(stopCh))
-	t.Run("sync timeout", func(t *testing.T) {
-		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
-	})
+	retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	secret0 := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0-0")})
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
 	t.Run("test kube config override", func(t *testing.T) {
@@ -128,8 +131,11 @@ func buildTestController(t *testing.T, synced bool) testController {
 	return tc
 }
 
+var kubeconfig = 0
+
 func (t *testController) AddSecret(secretName, clusterID string) {
-	t.secrets.CreateOrUpdate(makeSecret(secretNamespace, secretName, clusterCredential{clusterID, []byte("test")}))
+	kubeconfig++
+	t.secrets.CreateOrUpdate(makeSecret(secretNamespace, secretName, clusterCredential{clusterID, []byte(fmt.Sprintf("kubeconfig-%d", kubeconfig))}))
 }
 
 func (t *testController) DeleteSecret(secretName string) {
@@ -145,6 +151,38 @@ func (t *testController) Run(stop chan struct{}) {
 	t.client.RunAndWait(stop)
 }
 
+func TestListRemoteClusters(t *testing.T) {
+	stop := make(chan struct{})
+	c := buildTestController(t, false)
+	c.AddSecret("s0", "c0")
+	c.AddSecret("s1", "c1")
+	c.Run(stop)
+
+	// before sync
+	assert.EventuallyEqual(t, c.controller.ListRemoteClusters, []cluster.DebugInfo{
+		{ID: "config", SyncStatus: "syncing"},
+		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: "syncing"},
+		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: "syncing"},
+	})
+
+	// Sync
+	for _, c := range c.component.All() {
+		c.Synced.Store(true)
+	}
+	assert.EventuallyEqual(t, c.controller.ListRemoteClusters, []cluster.DebugInfo{
+		{ID: "config", SyncStatus: "synced"},
+		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: "synced"},
+		{ID: "c1", SecretName: "istio-system/s1", SyncStatus: "synced"},
+	})
+
+	// Remove one
+	c.DeleteSecret("s1")
+	assert.EventuallyEqual(t, c.controller.ListRemoteClusters, []cluster.DebugInfo{
+		{ID: "config", SyncStatus: "synced"},
+		{ID: "c0", SecretName: "istio-system/s0", SyncStatus: "synced"},
+	})
+}
+
 func TestShutdown(t *testing.T) {
 	stop := make(chan struct{})
 	c := buildTestController(t, true)
@@ -158,7 +196,7 @@ func TestShutdown(t *testing.T) {
 	}))
 
 	// Remove secret, it should be marked as closed
-	c.DeleteSecret("s1")
+	c.DeleteSecret("s" + string(components[2].ID[1]))
 	assert.EventuallyEqual(t, func() []bool {
 		return slices.Map(components, func(e testHandler) bool {
 			return e.Closed.Load()
@@ -168,10 +206,88 @@ func TestShutdown(t *testing.T) {
 	// close everything
 	close(stop)
 
-	// We should not shutdown anything else
+	// We should *not* shutdown anything else
+	// In theory we could, but we only shut down the controller when the entire application is closing so we don't bother
 	assert.Equal(t, []bool{false, false, true}, slices.Map(components, func(e testHandler) bool {
 		return e.Closed.Load()
 	}))
+}
+
+type informerHandler[T controllers.ComparableObject] struct {
+	client kclient.Client[T]
+}
+
+func (i *informerHandler[T]) Close() {
+	i.client.ShutdownHandlers()
+}
+
+func (i *informerHandler[T]) HasSynced() bool {
+	return i.client.HasSynced()
+}
+
+// Test our (lack of) ability to do seamless updates of a cluster.
+// Tracking improvements in https://github.com/istio/istio/issues/49349
+func TestSeamlessMigration(t *testing.T) {
+	stop := make(chan struct{})
+	c := buildTestController(t, true)
+	tt := assert.NewTracker[string](t)
+	initial := kube.NewFakeClient(
+		&v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "initial"},
+		},
+		&v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "common"},
+		},
+	)
+	later := kube.NewFakeClient(
+		&v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "later"},
+		},
+		&v1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{Name: "common"},
+		},
+	)
+	nextClient := initial
+	c.controller.clientBuilder = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		ret := nextClient
+		nextClient = later
+		return ret, nil
+	}
+	component := BuildMultiClusterComponent(c.controller, func(cluster *Cluster) *informerHandler[*v1.ConfigMap] {
+		cl := kclient.New[*v1.ConfigMap](cluster.Client)
+		cl.AddEventHandler(clienttest.TrackerHandler(tt))
+		return &informerHandler[*v1.ConfigMap]{client: cl}
+	})
+	c.AddSecret("s0", "c0")
+	c.Run(stop)
+	retry.UntilOrFail(t, c.controller.HasSynced, retry.Timeout(2*time.Second))
+	assert.Equal(t,
+		clienttest.Names((*component.ForCluster("c0")).client.List(metav1.NamespaceAll, klabels.Everything())),
+		sets.New("initial", "common"))
+
+	tt.WaitUnordered("add/common", "add/initial")
+
+	// Update the cluster
+	c.AddSecret("s0", "c0")
+	var fatal error
+	retry.UntilOrFail(t, func() bool {
+		have := clienttest.Names((*component.ForCluster("c0")).client.List(metav1.NamespaceAll, klabels.Everything()))
+		if have.Equals(sets.New("later", "common")) {
+			return true
+		}
+		if !have.Equals(sets.New("initial", "common")) {
+			fatal = fmt.Errorf("unexpected contents: %v", have)
+			// TODO: return true here, then assert.NoError(t, fatal) after
+			// This would properly check that we do not go from `old -> empty -> new` and instead go from `old -> new` seamlessly
+			// However, the code does not currently handler this case.
+			return false
+		}
+		return false
+	})
+	_ = fatal
+	// We get ADD again! Oops. Ideally we would be abstracted from the cluster update and instead get 'delete/initial, add/later, update/common'.
+	// See discussion in https://github.com/istio/enhancements/pull/107
+	tt.WaitUnordered("add/common", "add/later")
 }
 
 func TestSecretController(t *testing.T) {
@@ -194,6 +310,10 @@ func TestSecretController(t *testing.T) {
 			clusterCredential{"c1", []byte("kubeconfig1-0")})
 		otherNSSecret = makeSecret("some-other-namespace", "s2",
 			clusterCredential{"c1", []byte("kubeconfig1-0")})
+		secret2Cluster0 = makeSecret(secretNamespace, "s2",
+			clusterCredential{"c0", []byte("kubeconfig1-1")})
+		configCluster = makeSecret(secretNamespace, "s3",
+			clusterCredential{"config", []byte("kubeconfig3-0")})
 	)
 
 	secret0UpdateKubeconfigSame.Annotations = map[string]string{"foo": "bar"}
@@ -257,6 +377,16 @@ func TestSecretController(t *testing.T) {
 			want: []result{{"config", 1}, {"c0", 3}, {"c1", 6}},
 		},
 		{
+			name: "Add secret s2, with already existing cluster",
+			add:  secret2Cluster0,
+			want: []result{{"config", 1}, {"c0", 3}, {"c1", 6}},
+		},
+		{
+			name:   "Delete secret s2, with already existing cluster",
+			delete: secret2Cluster0,
+			want:   []result{{"config", 1}, {"c0", 3}, {"c1", 6}},
+		},
+		{
 			name:   "Delete secret s0, which will delete remote cluster c0",
 			delete: secret0,
 			want:   []result{{"config", 1}, {"c1", 6}},
@@ -270,6 +400,16 @@ func TestSecretController(t *testing.T) {
 			name: "Add secret from another namespace",
 			add:  otherNSSecret,
 			want: []result{{"config", 1}},
+		},
+		{
+			name: "Add secret referencing config cluster",
+			add:  configCluster,
+			want: []result{{"config", 1}},
+		},
+		{
+			name:   "Delete secret referencing config cluster",
+			delete: configCluster,
+			want:   []result{{"config", 1}},
 		},
 	}
 

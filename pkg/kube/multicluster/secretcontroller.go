@@ -209,12 +209,9 @@ func (c *Controller) HasSynced() bool {
 	}
 	// Check all config cluster components are synced
 	// c.ConfigClusterHandler.HasSynced does not work; config cluster is handle specially
-	for _, h := range c.configClusterSyncers {
-		if !h.HasSynced() {
-			return false
-		}
+	if !kube.AllSynced(c.configClusterSyncers) {
+		return false
 	}
-
 	// Check all remote clusters are synced (or timed out)
 	return c.cs.HasSynced()
 }
@@ -366,8 +363,13 @@ func (c *Controller) handleDelete(key cluster.ID) {
 // ListRemoteClusters provides debug info about connected remote clusters.
 func (c *Controller) ListRemoteClusters() []cluster.DebugInfo {
 	// Start with just the config cluster
+	configCluster := "syncing"
+	if kube.AllSynced(c.configClusterSyncers) {
+		configCluster = "synced"
+	}
 	out := []cluster.DebugInfo{{
-		ID: c.configClusterID,
+		ID:         c.configClusterID,
+		SyncStatus: configCluster,
 	}}
 	// Append each cluster derived from secrets
 	for secretName, clusters := range c.cs.All() {
