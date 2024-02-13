@@ -15,11 +15,10 @@
 package multicluster
 
 import (
-	"context"
 	"testing"
 	"time"
 
-	. "github.com/onsi/gomega"
+	"go.uber.org/atomic"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/rest"
@@ -28,6 +27,7 @@ import (
 	"istio.io/istio/pkg/config/mesh"
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/kube/kclient/clienttest"
+	"istio.io/istio/pkg/slices"
 	"istio.io/istio/pkg/test"
 	"istio.io/istio/pkg/test/util/assert"
 	"istio.io/istio/pkg/test/util/retry"
@@ -64,48 +64,117 @@ func TestKubeConfigOverride(t *testing.T) {
 		expectedBurst = 200
 	)
 	fakeRestConfig := &rest.Config{}
-	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+	client := kube.NewFakeClient()
+	stopCh := test.NewStop(t)
+	c := NewController(client, secretNamespace, "", mesh.NewFixedWatcher(nil), func(cfg *rest.Config) {
+		cfg.QPS = expectedQPS
+		cfg.Burst = expectedBurst
+	})
+	c.clientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		for _, override := range configOverrides {
 			override(fakeRestConfig)
 		}
 		return kube.NewFakeClient(), nil
 	}
-	clientset := kube.NewFakeClient()
-	stopCh := test.NewStop(t)
-	c := NewController(clientset, secretNamespace, "", mesh.NewFixedWatcher(nil), func(cfg *rest.Config) {
-		cfg.QPS = expectedQPS
-		cfg.Burst = expectedBurst
-	})
-	clientset.RunAndWait(stopCh)
-	_ = c.Run(stopCh)
+	client.RunAndWait(stopCh)
+	assert.NoError(t, c.Run(stopCh))
 	t.Run("sync timeout", func(t *testing.T) {
 		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	})
-	kube.WaitForCacheSync("test", stopCh, c.HasSynced)
-	secret0 := makeSecret(secretNamespace, "s0",
-		clusterCredential{"c0", []byte("kubeconfig0-0")})
-
+	secret0 := makeSecret(secretNamespace, "s0", clusterCredential{"c0", []byte("kubeconfig0-0")})
+	secrets := clienttest.NewWriter[*v1.Secret](t, client)
 	t.Run("test kube config override", func(t *testing.T) {
-		g := NewWithT(t)
-		_, err := clientset.Kube().CoreV1().Secrets(secret0.Namespace).Create(context.TODO(), secret0, metav1.CreateOptions{})
-		g.Expect(err).Should(BeNil())
-
-		g.Eventually(func() *Cluster {
-			return c.cs.GetByID("c0")
-		}, 10*time.Second).ShouldNot(BeNil())
-
-		g.Expect(fakeRestConfig).Should(Equal(&rest.Config{
+		secrets.Create(secret0)
+		assert.EventuallyEqual(t, func() bool {
+			return c.cs.GetByID("c0") != nil
+		}, true)
+		assert.Equal(t, fakeRestConfig, &rest.Config{
 			QPS:   expectedQPS,
 			Burst: expectedBurst,
-		}))
+		})
 	})
 }
 
-func TestSecretController(t *testing.T) {
-	BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
-		return kube.NewFakeClient(), nil
-	}
+func TestingBuildClientsFromConfig(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+	return kube.NewFakeClient(), nil
+}
 
+type testController struct {
+	controller *Controller
+	client     kube.Client
+	component  *Component[testHandler]
+	t          *testing.T
+	secrets    clienttest.TestWriter[*v1.Secret]
+}
+
+func buildTestController(t *testing.T, synced bool) testController {
+	tc := testController{
+		client: kube.NewFakeClient(),
+		t:      t,
+	}
+	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
+	tc.controller = NewController(tc.client, secretNamespace, "config", mesh.NewFixedWatcher(nil))
+	tc.controller.clientBuilder = TestingBuildClientsFromConfig
+	iter := 0
+	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
+		iter++
+		return testHandler{
+			ID:     cluster.ID,
+			Iter:   iter,
+			Closed: atomic.NewBool(false),
+			Synced: atomic.NewBool(synced),
+		}
+	})
+	return tc
+}
+
+func (t *testController) AddSecret(secretName, clusterID string) {
+	t.secrets.CreateOrUpdate(makeSecret(secretNamespace, secretName, clusterCredential{clusterID, []byte("test")}))
+}
+
+func (t *testController) DeleteSecret(secretName string) {
+	t.secrets.Delete(secretName, secretNamespace)
+}
+
+func (t *testController) ConfigClusterHandler() testHandler {
+	return t.component.clusters["config"]
+}
+
+func (t *testController) Run(stop chan struct{}) {
+	assert.NoError(t.t, t.controller.Run(stop))
+	t.client.RunAndWait(stop)
+}
+
+func TestShutdown(t *testing.T) {
+	stop := make(chan struct{})
+	c := buildTestController(t, true)
+	c.AddSecret("s0", "c0")
+	c.AddSecret("s1", "c1")
+	c.Run(stop)
+	retry.UntilOrFail(t, c.controller.HasSynced, retry.Timeout(2*time.Second))
+	components := c.component.All()
+	assert.Equal(t, []bool{false, false, false}, slices.Map(components, func(e testHandler) bool {
+		return e.Closed.Load()
+	}))
+
+	// Remove secret, it should be marked as closed
+	c.DeleteSecret("s1")
+	assert.EventuallyEqual(t, func() []bool {
+		return slices.Map(components, func(e testHandler) bool {
+			return e.Closed.Load()
+		})
+	}, []bool{false, false, true})
+
+	// close everything
+	close(stop)
+
+	// We should not shutdown anything else
+	assert.Equal(t, []bool{false, false, true}, slices.Map(components, func(e testHandler) bool {
+		return e.Closed.Load()
+	}))
+}
+
+func TestSecretController(t *testing.T) {
 	client := kube.NewFakeClient()
 
 	var (
@@ -129,6 +198,11 @@ func TestSecretController(t *testing.T) {
 
 	secret0UpdateKubeconfigSame.Annotations = map[string]string{"foo": "bar"}
 
+	type result struct {
+		ID   cluster.ID
+		Iter int
+	}
+
 	steps := []struct {
 		name string
 		// only set one of these per step. The others should be nil.
@@ -136,81 +210,91 @@ func TestSecretController(t *testing.T) {
 		update *v1.Secret
 		delete *v1.Secret
 
-		want []testHandler
+		want []result
 	}{
 		{
 			name: "Create secret s0 and add kubeconfig for cluster c0, which will add remote cluster c0",
 			add:  secret0,
-			want: []testHandler{{"config", 1}, {"c0", 2}},
+			want: []result{{"config", 1}, {"c0", 2}},
 		},
 		{
 			name:   "Update secret s0 and update the kubeconfig of cluster c0, which will update remote cluster c0",
 			update: secret0UpdateKubeconfigChanged,
-			want:   []testHandler{{"config", 1}, {"c0", 3}},
+			want:   []result{{"config", 1}, {"c0", 3}},
 		},
 		{
 			name:   "Update secret s0 but keep the kubeconfig of cluster c0 unchanged, which will not update remote cluster c0",
 			update: secret0UpdateKubeconfigSame,
-			want:   []testHandler{{"config", 1}, {"c0", 3}},
+			want:   []result{{"config", 1}, {"c0", 3}},
 		},
 		{
 			name: "Update secret s0 and add kubeconfig for cluster c0-1 but keep the kubeconfig of cluster c0 unchanged, " +
 				"which will add remote cluster c0-1 but will not update remote cluster c0",
 			update: secret0AddCluster,
-			want:   []testHandler{{"config", 1}, {"c0", 3}, {"c0-1", 4}},
+			want:   []result{{"config", 1}, {"c0", 3}, {"c0-1", 4}},
 		},
 		{
 			name: "Update secret s0 and delete cluster c0-1 but keep the kubeconfig of cluster c0 unchanged, " +
 				"which will delete remote cluster c0-1 but will not update remote cluster c0",
 			update: secret0DeleteCluster,
-			want:   []testHandler{{"config", 1}, {"c0", 3}},
+			want:   []result{{"config", 1}, {"c0", 3}},
 		},
 		{
 			name: "Update secret s0 and re-add kubeconfig for cluster c0-1 but keep the kubeconfig of cluster c0 unchanged, " +
 				"which will add remote cluster c0-1 but will not update remote cluster c0",
 			update: secret0ReAddCluster,
-			want:   []testHandler{{"config", 1}, {"c0", 3}, {"c0-1", 5}},
+			want:   []result{{"config", 1}, {"c0", 3}, {"c0-1", 5}},
 		},
 		{
 			name: "Update secret s0 and re-delete cluster c0-1 but keep the kubeconfig of cluster c0 unchanged, " +
 				"which will delete remote cluster c0-1 but will not update remote cluster c0",
 			update: secret0ReDeleteCluster,
-			want:   []testHandler{{"config", 1}, {"c0", 3}},
+			want:   []result{{"config", 1}, {"c0", 3}},
 		},
 		{
 			name: "Create secret s1 and add kubeconfig for cluster c1, which will add remote cluster c1",
 			add:  secret1,
-			want: []testHandler{{"config", 1}, {"c0", 3}, {"c1", 6}},
+			want: []result{{"config", 1}, {"c0", 3}, {"c1", 6}},
 		},
 		{
 			name:   "Delete secret s0, which will delete remote cluster c0",
 			delete: secret0,
-			want:   []testHandler{{"config", 1}, {"c1", 6}},
+			want:   []result{{"config", 1}, {"c1", 6}},
 		},
 		{
 			name:   "Delete secret s1, which will delete remote cluster c1",
 			delete: secret1,
-			want:   []testHandler{{"config", 1}},
+			want:   []result{{"config", 1}},
 		},
 		{
 			name: "Add secret from another namespace",
 			add:  otherNSSecret,
-			want: []testHandler{{"config", 1}},
+			want: []result{{"config", 1}},
 		},
 	}
 
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
 	c := NewController(client, secretNamespace, "config", mesh.NewFixedWatcher(nil))
+	c.clientBuilder = TestingBuildClientsFromConfig
 	client.RunAndWait(stopCh)
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
 	iter := 0
 	component := BuildMultiClusterComponent(c, func(cluster *Cluster) testHandler {
 		iter++
-		return testHandler{ID: cluster.ID, Iter: iter}
+		return testHandler{
+			ID:     cluster.ID,
+			Iter:   iter,
+			Closed: atomic.NewBool(false),
+			Synced: atomic.NewBool(false),
+		}
 	})
 	client.RunAndWait(stopCh)
-	_ = c.Run(stopCh)
+	assert.NoError(t, c.Run(stopCh))
+	// Should not be synced...
+	assert.Equal(t, c.HasSynced(), false)
+	// Now mark the config cluster as synced
+	component.All()[0].Synced.Store(true)
 	t.Run("sync timeout", func(t *testing.T) {
 		retry.UntilOrFail(t, c.HasSynced, retry.Timeout(2*time.Second))
 	})
@@ -227,15 +311,26 @@ func TestSecretController(t *testing.T) {
 				secrets.Delete(step.delete.Name, step.delete.Namespace)
 			}
 
-			assert.EventuallyEqual(t, component.All, step.want)
+			assert.EventuallyEqual(t, func() []result {
+				return slices.Map(component.All(), func(e testHandler) result {
+					return result{e.ID, e.Iter}
+				})
+			}, step.want)
 		})
 	}
 }
 
 type testHandler struct {
-	ID   cluster.ID
-	Iter int
+	ID     cluster.ID
+	Iter   int
+	Closed *atomic.Bool
+	Synced *atomic.Bool
 }
 
 func (h testHandler) Close() {
+	h.Closed.Store(true)
+}
+
+func (h testHandler) HasSynced() bool {
+	return h.Synced.Load()
 }

@@ -110,6 +110,10 @@ func (s *CredentialsController) Close() {
 	s.secrets.ShutdownHandlers()
 }
 
+func (s *CredentialsController) HasSynced() bool {
+	return s.secrets.HasSynced()
+}
+
 const cacheTTL = time.Minute
 
 // clearExpiredCache iterates through the cache and removes all expired entries. Should be called with mutex held.

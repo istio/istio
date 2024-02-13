@@ -61,19 +61,28 @@ var (
 )
 
 type handler interface {
-	clusterAdded(cluster *Cluster)
+	clusterAdded(cluster *Cluster) ComponentConstraint
 	clusterUpdated(cluster *Cluster)
 	clusterDeleted(clusterID cluster.ID)
+	HasSynced() bool
 }
+
+// ClientBuilder builds a new kube.Client from a kubeconfig. Mocked out for testing
+type ClientBuilder = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error)
 
 // Controller is the controller implementation for Secret resources
 type Controller struct {
-	namespace           string
-	configClusterID     cluster.ID
-	configClusterClient kube.Client
-	queue               controllers.Queue
-	secrets             kclient.Client[*corev1.Secret]
-	configOverrides     []func(*rest.Config)
+	namespace            string
+	configClusterID      cluster.ID
+	configCluster        *Cluster
+	initialHandlers      []handler
+	configClusterSyncers []ComponentConstraint
+
+	clientBuilder ClientBuilder
+
+	queue           controllers.Queue
+	secrets         kclient.Client[*corev1.Secret]
+	configOverrides []func(*rest.Config)
 
 	namespaces kclient.Client[*corev1.Namespace]
 
@@ -119,12 +128,13 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	remoteClusters.Record(0.0)
 
 	controller := &Controller{
-		namespace:           namespace,
-		configClusterID:     clusterID,
-		configClusterClient: kubeclientset,
-		cs:                  newClustersStore(),
-		secrets:             secrets,
-		configOverrides:     configOverrides,
+		clientBuilder:   DefaultBuildClientsFromConfig,
+		namespace:       namespace,
+		configClusterID: clusterID,
+		configCluster:   &Cluster{Client: kubeclientset, ID: clusterID},
+		cs:              newClustersStore(),
+		secrets:         secrets,
+		configOverrides: configOverrides,
 	}
 
 	namespaces := kclient.New[*corev1.Namespace](kubeclientset)
@@ -150,7 +160,7 @@ type ComponentBuilder interface {
 // If the cluster is removed, the T.Close() method will be called.
 // Constructors MUST not do blocking IO; they will block other operations.
 // During a cluster update, a new component is constructed before the old one is removed for seamless migration.
-func BuildMultiClusterComponent[T Closer](c ComponentBuilder, constructor func(cluster *Cluster) T) *Component[T] {
+func BuildMultiClusterComponent[T ComponentConstraint](c ComponentBuilder, constructor func(cluster *Cluster) T) *Component[T] {
 	comp := &Component[T]{
 		constructor: constructor,
 		clusters:    make(map[cluster.ID]T),
@@ -174,8 +184,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 	}
 	// run handlers for the config cluster; do not store this *Cluster in the ClusterStore or give it a SyncTimeout
 	// this is done outside the goroutine, we should block other Run/startFuncs until this is registered
-	configCluster := &Cluster{Client: c.configClusterClient, ID: c.configClusterID}
-	c.handleAdd(configCluster)
+	c.configClusterSyncers = c.handleAdd(c.configCluster)
 	go func() {
 		t0 := time.Now()
 		log.Info("Starting multicluster remote secrets controller")
@@ -188,7 +197,6 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
 		c.queue.Run(stopCh)
-		c.handleDelete(c.configClusterID)
 	}()
 	return nil
 }
@@ -199,6 +207,15 @@ func (c *Controller) HasSynced() bool {
 		// we haven't finished processing the secrets that were present at startup
 		return false
 	}
+	// Check all config cluster components are synced
+	// c.ConfigClusterHandler.HasSynced does not work; config cluster is handle specially
+	for _, h := range c.configClusterSyncers {
+		if !h.HasSynced() {
+			return false
+		}
+	}
+
+	// Check all remote clusters are synced (or timed out)
 	return c.cs.HasSynced()
 }
 
@@ -219,8 +236,8 @@ func (c *Controller) processItem(key types.NamespacedName) error {
 	return nil
 }
 
-// BuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overridden for testing only
-var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+// DefaultBuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overridden for testing only
+func DefaultBuildClientsFromConfig(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 	restConfig, err := kube.NewUntrustedRestConfig(kubeConfig, configOverrides...)
 	if err != nil {
 		return nil, err
@@ -237,7 +254,7 @@ var BuildClientsFromConfig = func(kubeConfig []byte, clusterId cluster.ID, confi
 }
 
 func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*Cluster, error) {
-	clients, err := BuildClientsFromConfig(kubeConfig, cluster.ID(clusterID), c.configOverrides...)
+	clients, err := c.clientBuilder(kubeConfig, cluster.ID(clusterID), c.configOverrides...)
 	if err != nil {
 		return nil, err
 	}
@@ -270,7 +287,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 			continue
 		}
 
-		action, callback := "Adding", c.handleAdd
+		action, callback := "Adding", func(cluster *Cluster) { c.handleAdd(cluster) }
 		if prev := c.cs.Get(secretKey, cluster.ID(clusterID)); prev != nil {
 			action, callback = "Updating", c.handleUpdate
 			// clusterID must be unique even across multiple secrets
@@ -297,7 +314,7 @@ func (c *Controller) addSecret(name types.NamespacedName, s *corev1.Secret) erro
 		callback(remoteCluster)
 		logger.Infof("finished callback for cluster and starting to sync")
 		c.cs.Store(secretKey, remoteCluster.ID, remoteCluster)
-		go remoteCluster.Run()
+		go remoteCluster.Run(c.handlers)
 	}
 
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
@@ -326,10 +343,12 @@ func (c *Controller) deleteCluster(secretKey string, cluster *Cluster) {
 	log.Infof("Number of remote clusters: %d", c.cs.Len())
 }
 
-func (c *Controller) handleAdd(cluster *Cluster) {
+func (c *Controller) handleAdd(cluster *Cluster) []ComponentConstraint {
+	syncers := make([]ComponentConstraint, 0, len(c.handlers))
 	for _, handler := range c.handlers {
-		handler.clusterAdded(cluster)
+		syncers = append(syncers, handler.clusterAdded(cluster))
 	}
+	return syncers
 }
 
 func (c *Controller) handleUpdate(cluster *Cluster) {

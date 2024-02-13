@@ -109,6 +109,10 @@ func (na *ClusterNodeAuthorizer) Close() {
 	na.pods.ShutdownHandlers()
 }
 
+func (na *ClusterNodeAuthorizer) HasSynced() bool {
+	return na.pods.HasSynced()
+}
+
 func (na *ClusterNodeAuthorizer) authenticateImpersonation(caller security.KubernetesInfo, requestedIdentityString string) error {
 	callerSa := types.NamespacedName{
 		Namespace: caller.PodNamespace,

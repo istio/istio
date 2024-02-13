@@ -21,11 +21,12 @@ import (
 	"istio.io/istio/pkg/maps"
 )
 
-type Closer interface {
+type ComponentConstraint interface {
 	Close()
+	HasSynced() bool
 }
 
-type Component[T Closer] struct {
+type Component[T ComponentConstraint] struct {
 	mu          sync.RWMutex
 	constructor func(cluster *Cluster) T
 	clusters    map[cluster.ID]T
@@ -47,11 +48,12 @@ func (m *Component[T]) All() []T {
 	return maps.Values(m.clusters)
 }
 
-func (m *Component[T]) clusterAdded(cluster *Cluster) {
+func (m *Component[T]) clusterAdded(cluster *Cluster) ComponentConstraint {
 	comp := m.constructor(cluster)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.clusters[cluster.ID] = comp
+	return comp
 }
 
 func (m *Component[T]) clusterUpdated(cluster *Cluster) {
@@ -73,4 +75,13 @@ func (m *Component[T]) clusterDeleted(cluster cluster.ID) {
 		old.Close()
 	}
 	delete(m.clusters, cluster)
+}
+
+func (m *Component[T]) HasSynced() bool {
+	for _, c := range m.All() {
+		if !c.HasSynced() {
+			return false
+		}
+	}
+	return true
 }

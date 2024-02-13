@@ -44,7 +44,8 @@ type Cluster struct {
 
 // Run starts the cluster's informers and waits for caches to sync. Once caches are synced, we mark the cluster synced.
 // This should be called after each of the handlers have registered informers, and should be run in a goroutine.
-func (r *Cluster) Run() {
+func (r *Cluster) Run(handlers []handler) {
+	log.Errorf("howardjohn: run cluster %v!", r.ID)
 	if features.RemoteClusterTimeout > 0 {
 		time.AfterFunc(features.RemoteClusterTimeout, func() {
 			if !r.initialSync.Load() {
@@ -58,6 +59,13 @@ func (r *Cluster) Run() {
 	if !r.Client.RunAndWait(r.stop) {
 		log.Warnf("remote cluster %s failed to sync", r.ID)
 		return
+	}
+	log.Errorf("howardjohn: sync %v handlers for %v", handlers, r.ID)
+	for _, h := range handlers {
+		if !kube.WaitForCacheSync("cluster"+string(r.ID), r.stop, h.HasSynced) {
+			log.Warnf("remote cluster %s failed to sync handler", r.ID)
+			return
+		}
 	}
 
 	r.initialSync.Store(true)
@@ -77,6 +85,7 @@ func (r *Cluster) HasSynced() bool {
 	// It could happen when a wrong credential provide, this cluster has no chance to run.
 	// In this case, the `initialSyncTimeout` will never be set
 	// In order not block istiod start up, check close as well.
+	log.Errorf("howardjohn: %v || %v/%v", r.initialSync.Load(), r.initialSyncTimeout.Load(), r.Closed())
 	if r.Closed() {
 		return true
 	}
