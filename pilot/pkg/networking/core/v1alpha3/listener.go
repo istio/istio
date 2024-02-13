@@ -156,7 +156,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 
 	switch {
 	case serverTLSSettings.Mode == networking.ServerTLSSettings_ISTIO_MUTUAL:
-		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, []string{}, validateClient)
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, proxy, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl, []string{}, validateClient)
 	// If credential name is specified at gateway config, create  SDS config for gateway to fetch key/cert from Istiod.
 	case serverTLSSettings.CredentialName != "":
 		authnmodel.ApplyCredentialSDSToServerCommonTLSContext(ctx.CommonTlsContext, serverTLSSettings, credentialSocketExist)
@@ -170,7 +170,7 @@ func BuildListenerTLSContext(serverTLSSettings *networking.ServerTLSSettings,
 			TLSServerRootCert:  serverTLSSettings.CaCertificates,
 		}
 
-		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, []string{}, validateClient)
+		authnmodel.ApplyToCommonTLSContext(ctx.CommonTlsContext, certProxy, serverTLSSettings.SubjectAltNames, serverTLSSettings.CaCrl, []string{}, validateClient)
 	}
 
 	if isSimpleOrMutual(serverTLSSettings.Mode) {
