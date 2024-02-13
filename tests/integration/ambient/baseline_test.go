@@ -304,7 +304,6 @@ func TestWaypointChanges(t *testing.T) {
 		retry.UntilOrFail(t, func() bool {
 			return getGracePeriod(3)
 		})
-
 	})
 }
 
