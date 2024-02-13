@@ -144,8 +144,9 @@ func getRemoteServiceAddresses(s *kube.Settings, cluster cluster.Cluster, ns, la
 				return nil, false, err
 			}
 			addrs = append(addrs, netip.AddrPortFrom(ipaddr, uint16(port)))
+		} else {
+			addrs = append(addrs, net.JoinHostPort(ingr.Hostname, strconv.Itoa(port)))
 		}
-		addrs = append(addrs, net.JoinHostPort(ingr.Hostname, strconv.Itoa(port)))
 	}
 	return addrs, true, nil
 }
