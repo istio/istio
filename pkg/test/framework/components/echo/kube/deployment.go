@@ -306,7 +306,7 @@ func getVMOverrideForIstiodDNS(ctx resource.Context, cfg echo.Config) (istioHost
 	istioRevision := getIstioRevision(cfg.Namespace)
 	istioHost = istioctlcmd.IstiodHost(istioNS, istioRevision)
 
-	istioIPAddr := ist.EastWestGatewayFor(cfg.Cluster).DiscoveryAddress().Addr()
+	istioIPAddr := ist.EastWestGatewayFor(cfg.Cluster).DiscoveryAddresses()[0].Addr()
 	if !istioIPAddr.IsValid() {
 		log.Warnf("VM config failed to get east-west gateway IP for %s", cfg.Cluster.Name())
 		istioHost, istioIP = "", ""

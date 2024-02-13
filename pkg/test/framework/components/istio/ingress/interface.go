@@ -34,25 +34,19 @@ func (i Instances) Callers() echo.Callers {
 // Instance represents a deployed Ingress Gateway instance.
 type Instance interface {
 	echo.Caller
-	// HTTPSAddress returns the external HTTPS (443) address of the ingress gateway (or the NodePort address,
-	//	// when in an environment that doesn't support LoadBalancer).
-	HTTPSAddress() (string, int)
-	// DiscoveryAddress returns the external XDS (15012) address on the ingress gateway (or the NodePort address,
-	// when in an environment that doesn't support LoadBalancer).
-	DiscoveryAddress() netip.AddrPort
-	// HTTPAddress returns the external HTTP (80) address of the ingress gateway ((or the NodePort address,
+	// HTTPAddresses returns the external HTTP (80) address of the ingress gateway ((or the NodePort address,
 	//	// when in an environment that doesn't support LoadBalancer).
 	HTTPAddresses() ([]string, []int)
-	// HTTPSAddress returns the external HTTPS (443) address of the ingress gateway (or the NodePort address,
+	// HTTPSAddresses returns the external HTTPS (443) address of the ingress gateway (or the NodePort address,
 	//	// when in an environment that doesn't support LoadBalancer).
 	HTTPSAddresses() ([]string, []int)
-	// TCPAddress returns the external TCP (31400) address of the ingress gateway (or the NodePort address,
+	// TCPAddresses returns the external TCP (31400) address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer).
 	TCPAddresses() ([]string, []int)
-	// DiscoveryAddress returns the external XDS (15012) address on the ingress gateway (or the NodePort address,
+	// DiscoveryAddresses returns the external XDS (15012) address on the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer).
 	DiscoveryAddresses() []netip.AddrPort
-	// AddressForPort returns the external address of the ingress gateway (or the NodePort address,
+	// AddressesForPort returns the external address of the ingress gateway (or the NodePort address,
 	// when in an environment that doesn't support LoadBalancer) for the given port.
 	AddressesForPort(port int) ([]string, []int)
 

@@ -223,7 +223,7 @@ func (i *istioImpl) RemoteDiscoveryAddressFor(cluster cluster.Cluster) (netip.Ad
 		addr = address.(netip.AddrPort)
 	} else {
 		name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.cfg.SystemNamespace}
-		addr = i.CustomIngressFor(primary, name, eastWestIngressIstioLabel).DiscoveryAddress()
+		addr = i.CustomIngressFor(primary, name, eastWestIngressIstioLabel).DiscoveryAddresses()[0]
 	}
 	if !addr.IsValid() {
 		return netip.AddrPort{}, fmt.Errorf("failed to get ingress IP for %s", primary.Name())
@@ -395,7 +395,7 @@ func newKube(ctx resource.Context, cfg Config) (Instance, error) {
 
 			// Wait for the eastwestgateway to have a public IP.
 			name := types.NamespacedName{Name: eastWestIngressServiceName, Namespace: i.cfg.SystemNamespace}
-			_ = i.CustomIngressFor(c, name, eastWestIngressIstioLabel).DiscoveryAddress()
+			_ = i.CustomIngressFor(c, name, eastWestIngressIstioLabel).DiscoveryAddresses()
 		}
 	}
 

@@ -81,6 +81,7 @@ func TestBookinfo(t *testing.T) {
 			ingressClient := http.Client{}
 			ingressInst := istio.DefaultIngressOrFail(t, t)
 			addrs, ingrPorts := ingressInst.HTTPAddresses()
+			fmt.Printf("My httpaddress ports %v", addrs)
 			var ingressURLs []string
 			for i, addr := range addrs {
 				ingressURLs = append(ingressURLs, fmt.Sprintf("http://%v:%v", addr, ingrPorts[i]))

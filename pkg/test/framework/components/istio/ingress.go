@@ -153,22 +153,6 @@ func (c *ingressImpl) Cluster() cluster.Cluster {
 	return c.cluster
 }
 
-// HTTPSAddress returns the externally reachable TCP host and port (443) of the component.
-func (c *ingressImpl) HTTPSAddress() (string, int) {
-	addrs, ports := c.AddressesForPort(443)
-	return addrs[0], ports[0]
-}
-
-// DiscoveryAddress returns the externally reachable discovery address (15012) of the component.
-func (c *ingressImpl) DiscoveryAddress() netip.AddrPort {
-	hosts, ports := c.AddressesForPort(discoveryPort)
-	ip, err := netip.ParseAddr(hosts[0])
-	if err != nil {
-		return netip.AddrPort{}
-	}
-	return netip.AddrPortFrom(ip, uint16(ports[0]))
-}
-
 // HTTPAddresses returns the externally reachable HTTP hosts and port (80) of the component.
 func (c *ingressImpl) HTTPAddresses() ([]string, []int) {
 	return c.AddressesForPort(80)
