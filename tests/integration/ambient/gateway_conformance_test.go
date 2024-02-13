@@ -29,6 +29,7 @@ import (
 	"istio.io/istio/pkg/kube"
 	"istio.io/istio/pkg/log"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
 	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/scopes"
 )
@@ -135,4 +136,17 @@ func TestGatewayConformance(t *testing.T) {
 				})
 			}
 		})
+}
+
+func setupWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa string) {
+	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+		"x",
+		"waypoint",
+		"apply",
+		"--namespace",
+		nsConfig.Name(),
+		"--service-account",
+		sa,
+		"--wait",
+	})
 }

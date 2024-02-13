@@ -56,16 +56,22 @@ var (
 type EchoDeployments struct {
 	// Namespace echo apps will be deployed
 	Namespace         namespace.Instance
+	// Waypoint echo service 
 	Waypoint          echo.Instances
+	// Captured echo service
 	Captured          echo.Instances
+	// Uncaptured echo Service
 	Uncaptured        echo.Instances
 	SidecarWaypoint   echo.Instances
 	SidecarCaptured   echo.Instances
+	// Uncaptured echo services with sidecar
 	SidecarUncaptured echo.Instances
 	All               echo.Instances
+	// Echo services that are in the mesh
 	Mesh              echo.Instances
+	// Echo services that are not in mesh
 	MeshExternal      echo.Instances
-
+	// Waypoint proxy for the echo service with waypoint
 	WaypointProxy ambient.WaypointProxy
 }
 
