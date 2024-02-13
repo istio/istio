@@ -19,6 +19,7 @@ package ambient
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -32,9 +33,11 @@ import (
 
 	"istio.io/api/networking/v1alpha3"
 	"istio.io/istio/pkg/http/headers"
+	"istio.io/istio/pkg/kube/inject"
 	"istio.io/istio/pkg/ptr"
 	echot "istio.io/istio/pkg/test/echo"
 	"istio.io/istio/pkg/test/echo/common/scheme"
+	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
 	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
@@ -47,14 +50,23 @@ import (
 	"istio.io/istio/pkg/test/framework/components/echo/match"
 	"istio.io/istio/pkg/test/framework/components/istio"
 	"istio.io/istio/pkg/test/framework/components/istio/ingress"
+	"istio.io/istio/pkg/test/framework/components/istioctl"
+	"istio.io/istio/pkg/test/framework/components/namespace"
 	"istio.io/istio/pkg/test/framework/components/prometheus"
 	"istio.io/istio/pkg/test/framework/resource/config/apply"
+	"istio.io/istio/pkg/test/framework/resource/config/cleanup"
+	kubetest "istio.io/istio/pkg/test/kube"
 	"istio.io/istio/pkg/test/util/assert"
+	"istio.io/istio/pkg/test/util/file"
 	"istio.io/istio/pkg/test/util/retry"
 	"istio.io/istio/pkg/util/sets"
 	"istio.io/istio/tests/common/jwt"
 	"istio.io/istio/tests/integration/security/util/reachability"
 	util "istio.io/istio/tests/integration/telemetry"
+)
+
+const (
+	templateFile = "manifests/charts/istio-control/istio-discovery/files/waypoint.yaml"
 )
 
 func IsL7() echo.Checker {
@@ -294,6 +306,72 @@ func TestServerSideLB(t *testing.T) {
 		opt.Check = check.And(check.OK(), c)
 		opt.NewConnectionPerRequest = false
 		src.CallOrFail(t, opt)
+	})
+}
+
+func TestWaypointChanges(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		getGracePeriod := func(want int64) bool {
+			pods, err := kubetest.NewPodFetch(t.AllClusters()[0], apps.Namespace.Name(), constants.GatewayNameLabel+"=waypoint")()
+			assert.NoError(t, err)
+			for _, p := range pods {
+				grace := p.Spec.TerminationGracePeriodSeconds
+				if grace != nil && *grace == want {
+					return true
+				}
+			}
+			return false
+		}
+		// check that waypoint deployment is unmodified
+		retry.UntilOrFail(t, func() bool {
+			return getGracePeriod(2)
+		})
+		// change the waypoint template
+		istio.GetOrFail(t, t).UpdateInjectionConfig(t, func(cfg *inject.Config) error {
+			mainTemplate := file.MustAsString(filepath.Join(env.IstioSrc, templateFile))
+			cfg.RawTemplates["waypoint"] = strings.ReplaceAll(mainTemplate, "terminationGracePeriodSeconds: 2", "terminationGracePeriodSeconds: 3")
+			return nil
+		}, cleanup.Always)
+
+		retry.UntilOrFail(t, func() bool {
+			return getGracePeriod(3)
+		})
+	})
+}
+
+func TestOtherRevisionIgnored(t *testing.T) {
+	framework.NewTest(t).Run(func(t framework.TestContext) {
+		// This is a negative test, ensuring gateways with tags other
+		// than my tags do not get controlled by me.
+		nsConfig, err := namespace.New(t, namespace.Config{
+			Prefix: "badgateway",
+			Inject: false,
+			Labels: map[string]string{
+				constants.DataplaneMode: "ambient",
+			},
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+			"x",
+			"waypoint",
+			"apply",
+			"--namespace",
+			nsConfig.Name(),
+			"--revision",
+			"foo",
+		})
+		waypointError := retry.UntilSuccess(func() error {
+			fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+"sa")
+			if _, err := kubetest.CheckPodsAreReady(fetch); err != nil {
+				return fmt.Errorf("gateway is not ready: %v", err)
+			}
+			return nil
+		}, retry.Timeout(15*time.Second), retry.BackoffDelay(time.Millisecond*100))
+		if waypointError == nil {
+			t.Fatal("Waypoint for non-existent tag foo created deployment!")
+		}
 	})
 }
 
@@ -2445,4 +2523,29 @@ func TestDirect(t *testing.T) {
 			})
 		})
 	})
+}
+
+func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa string) {
+	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+		"x",
+		"waypoint",
+		"delete",
+		"--namespace",
+		nsConfig.Name(),
+		"--service-account",
+		sa,
+	})
+	waypointError := retry.UntilSuccess(func() error {
+		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+sa)
+		pods, err := kubetest.CheckPodsAreReady(fetch)
+		if err != nil && !errors.Is(err, kubetest.ErrNoPodsFetched) {
+			return fmt.Errorf("cannot fetch pod: %v", err)
+		} else if len(pods) != 0 {
+			return fmt.Errorf("waypoint pod is not deleted")
+		}
+		return nil
+	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
+	if waypointError != nil {
+		t.Fatal(waypointError)
+	}
 }
