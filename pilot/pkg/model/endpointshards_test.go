@@ -156,6 +156,8 @@ func TestUpdateServiceEndpoints(t *testing.T) {
 		name      string
 		shardKey  ShardKey
 		endpoints []*IstioEndpoint
+		namespace string
+		hostname  string
 		expect    int
 	}{
 		{
@@ -179,7 +181,7 @@ func TestUpdateServiceEndpoints(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			endpoints.UpdateServiceEndpoints(tc.shardKey, tc.hostname, tc.namespace, tc.endpoints)
-			eps , _ := endpoints.ShardsForService(tc.hostname, tc.namespace)
+			eps, _ := endpoints.ShardsForService(tc.hostname, tc.namespace)
 			assert.Equal(t, len(eps.Shards[tc.shardKey]), tc.expect)
 		})
 	}
