@@ -2158,6 +2158,7 @@ spec:
 			// Ingress proxy receives waypoint updates
 			deleteWaypoints(t, dst.Config().Namespace, "waypoint")
 			src.CallOrFail(t, opt)
+			setupWaypoints(t, dst.Config().Namespace, "waypoint")
 		}
 	})
 }
