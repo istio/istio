@@ -1653,32 +1653,32 @@ spec:
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
 			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
-			ip := ips[0]
-			port := ports[0]
 			for _, tc := range testCases {
 				tc := tc
-				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
-					echotest.
-						New(t, apps.All).
-						// TODO eventually we can do this for uncaptured -> l7
-						FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
-							Name:      "uncaptured",
-							Namespace: apps.Namespace,
-						}))).
-						Config(cfg.WithParams(param.Params{
-							"Resolution":      tc.resolution.String(),
-							"Location":        tc.location.String(),
-							"IngressIp":       ip,
-							"IngressHttpPort": port,
-						})).
-						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
-							from.CallOrFail(t, echo.CallOptions{
-								Address: "111.111.222.222",
-								Port:    to.PortForName("http"),
+				for i, ip := range ips {
+					t.NewSubTestf("%s %s %s", tc.location, tc.resolution, ip).Run(func(t framework.TestContext) {
+						echotest.
+							New(t, apps.All).
+							// TODO eventually we can do this for uncaptured -> l7
+							FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
+								Name:      "uncaptured",
+								Namespace: apps.Namespace,
+							}))).
+							Config(cfg.WithParams(param.Params{
+								"Resolution":      tc.resolution.String(),
+								"Location":        tc.location.String(),
+								"IngressIp":       ip,
+								"IngressHttpPort": ports[i],
+							})).
+							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+								from.CallOrFail(t, echo.CallOptions{
+									Address: "111.111.222.222",
+									Port:    to.PortForName("http"),
+								})
 							})
-						})
-				})
+					})
+				}
 			}
 		})
 }
@@ -1771,32 +1771,33 @@ spec:
 				WithParams(param.Params{}.SetWellKnown(param.Namespace, apps.Namespace))
 
 			ips, ports := istio.DefaultIngressOrFail(t, t).HTTPAddresses()
-			ip := ips[0]
-			port := ports[0]
 			for _, tc := range testCases {
 				tc := tc
-				t.NewSubTestf("%s %s", tc.location, tc.resolution).Run(func(t framework.TestContext) {
-					echotest.
-						New(t, apps.All).
-						// TODO eventually we can do this for uncaptured -> l7
-						FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
-							Name:      "uncaptured",
-							Namespace: apps.Namespace,
-						}))).
-						Config(cfg.WithParams(param.Params{
-							"Resolution":      tc.resolution.String(),
-							"Location":        tc.location.String(),
-							"IngressIp":       ip,
-							"IngressHttpPort": port,
-						})).
-						Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
-							// TODO validate L7 processing/some headers indicating we reach the svc we wanted
-							from.CallOrFail(t, echo.CallOptions{
-								Address: "111.111.222.222",
-								Port:    to.PortForName("http"),
+				for i, ip := range ips {
+					t.NewSubTestf("%s %s %s", tc.location, tc.resolution, ip).Run(func(t framework.TestContext) {
+						echotest.
+							New(t, apps.All).
+							// TODO eventually we can do this for uncaptured -> l7
+							FromMatch(match.Not(match.ServiceName(echo.NamespacedName{
+								Name:      "uncaptured",
+								Namespace: apps.Namespace,
+							}))).
+							Config(cfg.WithParams(param.Params{
+								"Resolution":      tc.resolution.String(),
+								"Location":        tc.location.String(),
+								"IngressIp":       ip,
+								"IngressHttpPort": ports[i],
+							})).
+							Run(func(t framework.TestContext, from echo.Instance, to echo.Target) {
+								// TODO validate L7 processing/some headers indicating we reach the svc we wanted
+								from.CallOrFail(t, echo.CallOptions{
+									Address: "111.111.222.222",
+									Port:    to.PortForName("http"),
+								})
 							})
-						})
-				})
+					})
+				}
+
 			}
 		})
 }
