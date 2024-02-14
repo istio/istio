@@ -35,6 +35,7 @@ import (
 	"istio.io/istio/pkg/test/echo/common/scheme"
 	"istio.io/istio/pkg/test/env"
 	"istio.io/istio/pkg/test/framework"
+	"istio.io/istio/pkg/test/framework/components/ambient"
 	"istio.io/istio/pkg/test/framework/components/echo"
 	"istio.io/istio/pkg/test/framework/components/echo/check"
 	"istio.io/istio/pkg/test/framework/components/echo/common"
@@ -2158,7 +2159,7 @@ spec:
 			// Ingress proxy receives waypoint updates
 			deleteWaypoints(t, dst.Config().Namespace, "waypoint")
 			src.CallOrFail(t, opt)
-			setupWaypoints(t, dst.Config().Namespace, "waypoint")
+			apps.WaypointProxy = ambient.NewWaypointProxyOrFail(t, apps.Waypoint.Config().Namespace, "waypoint")
 		}
 	})
 }
