@@ -384,6 +384,16 @@ func TestExistingPodRemovedWhenPodAnnotated(t *testing.T) {
 
 	assertPodNotAnnotated(t, client, pod)
 
+	// patch a test label to emulate a non-annotation POD update event
+	_, err = client.Kube().CoreV1().Pods(pod.Namespace).Patch(ctx, pod.Name,
+		types.MergePatchType, []byte(`{"metadata":{"labels":{"test":"update"}}}`), metav1.PatchOptions{})
+	assert.NoError(t, err)
+
+	// wait for an update events
+	mt.Assert(EventTotals.Name(), map[string]string{"type": "update"}, monitortest.AtLeast(5))
+
+	assertPodNotAnnotated(t, client, pod)
+
 	// Assert expected calls actually made
 	fs.AssertExpectations(t)
 }

@@ -146,6 +146,9 @@ func IsExpectedGRPCError(err error) bool {
 	if strings.Contains(err.Error(), "stream terminated by RST_STREAM with error code: NO_ERROR") {
 		return true
 	}
+	if strings.Contains(err.Error(), "received prior goaway: code: NO_ERROR") {
+		return true
+	}
 
 	return false
 }

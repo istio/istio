@@ -12,15 +12,23 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package plugin
+package gateway
 
-// InterceptRuleMgr configures networking tables (e.g. iptables or nftables) for
-// redirecting traffic to an Istio proxy.
-type InterceptRuleMgr interface {
-	Program(podName, netns string, redirect *Redirect) error
-}
+import (
+	k8sv1 "sigs.k8s.io/gateway-api/apis/v1"
+	"sigs.k8s.io/gateway-api/conformance/utils/suite"
 
-// Constructor for iptables InterceptRuleMgr
-func IptablesInterceptRuleMgr() InterceptRuleMgr {
-	return newIPTables()
+	"istio.io/istio/pkg/util/sets"
+)
+
+var SupportedFeatures = suite.AllFeatures
+
+var gatewaySupportedFeatures = getSupportedFeatures()
+
+func getSupportedFeatures() []k8sv1.SupportedFeature {
+	ret := sets.New[k8sv1.SupportedFeature]()
+	for _, feature := range SupportedFeatures.UnsortedList() {
+		ret.Insert(k8sv1.SupportedFeature(feature))
+	}
+	return sets.SortedList(ret)
 }

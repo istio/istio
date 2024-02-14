@@ -15,7 +15,6 @@
 package envoyfilter
 
 import (
-	"reflect"
 	"testing"
 
 	"istio.io/istio/pkg/slices"
@@ -94,28 +93,28 @@ func TestReplaceAndInsert(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			// replaceFunc
 			got, applied := replaceFunc(slices.Clone(c.input), f)
-			if !reflect.DeepEqual(c.replace, got) {
+			if !slices.Equal(c.replace, got) {
 				t.Errorf("replaceFunc: want %+v but got %+v", c.replace, got)
 			}
-			if !reflect.DeepEqual(c.applied, applied) {
+			if c.applied != applied {
 				t.Errorf("replaceFunc: want %+v but got %+v", c.applied, applied)
 			}
 
 			// insertBeforeFunc
 			got, applied = insertBeforeFunc(slices.Clone(c.input), f)
-			if !reflect.DeepEqual(c.insertBefore, got) {
+			if !slices.Equal(c.insertBefore, got) {
 				t.Errorf("insertBeforeFunc: want %+v but got %+v", c.insertBefore, got)
 			}
-			if !reflect.DeepEqual(c.applied, applied) {
+			if c.applied != applied {
 				t.Errorf("insertBeforeFunc: want %+v but got %+v", c.applied, applied)
 			}
 
 			// insertAfterFunc
 			got, applied = insertAfterFunc(slices.Clone(c.input), f)
-			if !reflect.DeepEqual(c.insertAfter, got) {
+			if !slices.Equal(c.insertAfter, got) {
 				t.Errorf("insertAfterFunc: want %+v but got %+v", c.insertAfter, got)
 			}
-			if !reflect.DeepEqual(c.applied, applied) {
+			if c.applied != applied {
 				t.Errorf("insertAfterFunc: want %+v but got %+v", c.applied, applied)
 			}
 		})

@@ -1,0 +1,11 @@
+apiVersion: release-notes/v2
+
+kind: feature
+area: traffic-management
+issue:
+  - https://github.com/kubernetes-sigs/gateway-api/issues/2162
+
+releaseNotes:
+- |
+  **Added** the controller now publishes gateway-api supportedFeatures on Gateway Class Status before accepting the Gateway Class.
+

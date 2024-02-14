@@ -20,6 +20,7 @@ import (
 	core "github.com/envoyproxy/go-control-plane/envoy/config/core/v3"
 	tracingcfg "github.com/envoyproxy/go-control-plane/envoy/config/trace/v3"
 	hcm "github.com/envoyproxy/go-control-plane/envoy/extensions/filters/network/http_connection_manager/v3"
+	resourcedetectors "github.com/envoyproxy/go-control-plane/envoy/extensions/tracers/opentelemetry/resource_detectors/v3"
 	tracing "github.com/envoyproxy/go-control-plane/envoy/type/tracing/v3"
 	xdstype "github.com/envoyproxy/go-control-plane/envoy/type/v3"
 	"github.com/google/go-cmp/cmp"
@@ -186,6 +187,15 @@ func TestConfigureTracing(t *testing.T) {
 			inSpec:             fakeTracingSpec(fakeOpenTelemetryHTTP(), 99.999, false, true),
 			opts:               fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI(),
 			want:               fakeTracingConfig(fakeOpenTelemetryHTTPProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
+			wantStartChildSpan: false,
+			wantReqIDExtCtx:    &defaultUUIDExtensionCtx,
+		},
+		{
+			name:   "basic config (with opentelemetry provider with resource detectors)",
+			inSpec: fakeTracingSpec(fakeOpenTelemetryResourceDetectors(), 99.999, false, true),
+			opts:   fakeOptsOnlyOpenTelemetryResourceDetectorsTelemetryAPI(),
+			want: fakeTracingConfig(
+				fakeOpenTelemetryResourceDetectorsProvider(clusterName, authority), 99.999, 256, append(defaultTracingTags(), fakeEnvTag)),
 			wantStartChildSpan: false,
 			wantReqIDExtCtx:    &defaultUUIDExtensionCtx,
 		},
@@ -583,6 +593,17 @@ func fakeOpenTelemetryHTTP() *meshconfig.MeshConfig_ExtensionProvider {
 	}
 }
 
+func fakeOpenTelemetryResourceDetectors() *meshconfig.MeshConfig_ExtensionProvider {
+	ep := fakeOpenTelemetryHTTP()
+
+	ep.GetOpentelemetry().ResourceDetectors = &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors{
+		Environment: &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors_EnvironmentResourceDetector{},
+		Dynatrace:   &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors_DynatraceResourceDetector{},
+	}
+
+	return ep
+}
+
 func fakeOptsOnlyOpenTelemetryGrpcTelemetryAPI() gatewayListenerOpts {
 	var opts gatewayListenerOpts
 	opts.push = &model.PushContext{
@@ -642,6 +663,18 @@ func fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI() gatewayListenerOpts {
 		Metadata: &model.NodeMetadata{
 			ProxyConfig: &model.NodeMetaProxyConfig{},
 		},
+	}
+
+	return opts
+}
+
+func fakeOptsOnlyOpenTelemetryResourceDetectorsTelemetryAPI() gatewayListenerOpts {
+	opts := fakeOptsOnlyOpenTelemetryHTTPTelemetryAPI()
+
+	ep := opts.push.Mesh.ExtensionProviders[0]
+	ep.GetOpentelemetry().ResourceDetectors = &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors{
+		Environment: &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors_EnvironmentResourceDetector{},
+		Dynatrace:   &meshconfig.MeshConfig_ExtensionProvider_ResourceDetectors_DynatraceResourceDetector{},
 	}
 
 	return opts
@@ -858,6 +891,44 @@ func fakeOpenTelemetryHTTPProvider(expectClusterName, expectAuthority string) *t
 					},
 					AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
 				},
+			},
+		},
+	}
+	fakeOtelHTTPAny := protoconv.MessageToAny(fakeOTelHTTPProviderConfig)
+	return &tracingcfg.Tracing_Http{
+		Name:       envoyOpenTelemetry,
+		ConfigType: &tracingcfg.Tracing_Http_TypedConfig{TypedConfig: fakeOtelHTTPAny},
+	}
+}
+
+func fakeOpenTelemetryResourceDetectorsProvider(expectClusterName, expectAuthority string) *tracingcfg.Tracing_Http {
+	fakeOTelHTTPProviderConfig := &tracingcfg.OpenTelemetryConfig{
+		HttpService: &core.HttpService{
+			HttpUri: &core.HttpUri{
+				Uri: expectAuthority + "/v1/traces",
+				HttpUpstreamType: &core.HttpUri_Cluster{
+					Cluster: expectClusterName,
+				},
+				Timeout: &durationpb.Duration{Seconds: 3},
+			},
+			RequestHeadersToAdd: []*core.HeaderValueOption{
+				{
+					Header: &core.HeaderValue{
+						Key:   "custom-header",
+						Value: "custom-value",
+					},
+					AppendAction: core.HeaderValueOption_OVERWRITE_IF_EXISTS_OR_ADD,
+				},
+			},
+		},
+		ResourceDetectors: []*core.TypedExtensionConfig{
+			{
+				Name:        "envoy.tracers.opentelemetry.resource_detectors.environment",
+				TypedConfig: protoconv.MessageToAny(&resourcedetectors.EnvironmentResourceDetectorConfig{}),
+			},
+			{
+				Name:        "envoy.tracers.opentelemetry.resource_detectors.dynatrace",
+				TypedConfig: protoconv.MessageToAny(&resourcedetectors.DynatraceResourceDetectorConfig{}),
 			},
 		},
 	}

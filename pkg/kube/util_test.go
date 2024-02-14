@@ -149,7 +149,7 @@ func TestCronJobMetadata(t *testing.T) {
 			jobName: "sec-1234567890",
 			wantTypeMetadata: metav1.TypeMeta{
 				Kind:       "CronJob",
-				APIVersion: "batch/v1beta1",
+				APIVersion: "batch/v1",
 			},
 			wantObjectMetadata: metav1.ObjectMeta{
 				Name:         "sec",
@@ -161,7 +161,7 @@ func TestCronJobMetadata(t *testing.T) {
 			jobName: "min-12345678",
 			wantTypeMetadata: metav1.TypeMeta{
 				Kind:       "CronJob",
-				APIVersion: "batch/v1beta1",
+				APIVersion: "batch/v1",
 			},
 			wantObjectMetadata: metav1.ObjectMeta{
 				Name:         "min",

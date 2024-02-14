@@ -103,9 +103,6 @@ spec:
           - "-a"
           - {{ .Release.Namespace }}
 {{- end }}
-{{- if .Values.pilot.plugins }}
-          - --plugins={{ .Values.pilot.plugins }}
-{{- end }}
           - --keepaliveMaxServerConnectionAge
           - "{{ .Values.pilot.keepaliveMaxServerConnectionAge }}"
 {{- if .Values.pilot.extraContainerArgs }}
