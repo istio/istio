@@ -18,6 +18,7 @@
 package ambient
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -2153,6 +2154,11 @@ spec:
         host: "{{.Destination}}"
 `).ApplyOrFail(t)
 		src.CallOrFail(t, opt)
+		if dst.NamespacedName() == apps.Waypoint.NamespacedName() {
+			// Ingress proxy receives waypoint updates
+			deleteWaypoints(t, dst.Config().Namespace, "waypoint")
+			src.CallOrFail(t, opt)
+		}
 	})
 }
 
@@ -2508,4 +2514,29 @@ func TestDirect(t *testing.T) {
 			})
 		})
 	})
+}
+
+func deleteWaypoints(t framework.TestContext, nsConfig namespace.Instance, sa string) {
+	istioctl.NewOrFail(t, t, istioctl.Config{}).InvokeOrFail(t, []string{
+		"x",
+		"waypoint",
+		"delete",
+		"--namespace",
+		nsConfig.Name(),
+		"--service-account",
+		sa,
+	})
+	waypointError := retry.UntilSuccess(func() error {
+		fetch := kubetest.NewPodFetch(t.AllClusters()[0], nsConfig.Name(), constants.GatewayNameLabel+"="+sa)
+		pods, err := kubetest.CheckPodsAreReady(fetch)
+		if err != nil && !errors.Is(err, kubetest.ErrNoPodsFetched) {
+			return fmt.Errorf("cannot fetch pod: %v", err)
+		} else if len(pods) != 0 {
+			return fmt.Errorf("waypoint pod is not deleted")
+		}
+		return nil
+	}, retry.Timeout(time.Minute), retry.BackoffDelay(time.Millisecond*100))
+	if waypointError != nil {
+		t.Fatal(waypointError)
+	}
 }
