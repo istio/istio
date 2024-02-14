@@ -655,6 +655,14 @@ func validateTLSOptions(tls *networking.ServerTLSSettings) (v Validation) {
 			v = appendValidation(v, fmt.Errorf("MUTUAL TLS requires a client CA bundle"))
 		}
 	}
+	if tls.CaCrl != "" {
+		if tls.CredentialName != "" {
+			v = appendValidation(v, fmt.Errorf("CRL is not supported with credentialName. CRL has to be specified in the credential"))
+		}
+		if tls.Mode == networking.ServerTLSSettings_SIMPLE {
+			v = appendValidation(v, fmt.Errorf("CRL is not supported with SIMPLE TLS"))
+		}
+	}
 	return
 }
 

@@ -1671,6 +1671,23 @@ func TestValidateTlsOptions(t *testing.T) {
 			},
 			"requires a private key", "not-a-cipher-suite",
 		},
+		{
+			"crl specified for SIMPLE TLS",
+			&networking.ServerTLSSettings{
+				Mode:  networking.ServerTLSSettings_SIMPLE,
+				CaCrl: "crl",
+			},
+			"CRL is not supported with SIMPLE TLS", "",
+		},
+		{
+			"crl specified for CredentialName",
+			&networking.ServerTLSSettings{
+				Mode:           networking.ServerTLSSettings_SIMPLE,
+				CaCrl:          "crl",
+				CredentialName: "credential",
+			},
+			"", "",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
