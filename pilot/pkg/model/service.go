@@ -484,9 +484,9 @@ type IstioEndpoint struct {
 	// Labels points to the workload or deployment labels.
 	Labels labels.Instance
 
-	// Addresses is the address of the endpoint, using envoy proto:
+	// Addresses are the addresses of the endpoint, using envoy proto:
 	// https://www.envoyproxy.io/docs/envoy/latest/api-v3/config/endpoint/v3/endpoint_components.proto#config-endpoint-v3-endpoint-additionaladdress
-	// This filed can support multiple addresses for an Dual Stack endpoint, especially for an endpoint which contains both ipv4 or ipv6 addresses.
+	// This field can support multiple addresses for an Dual Stack endpoint, especially for an endpoint which contains both ipv4 or ipv6 addresses.
 	// There should be some constraints below:
 	// 1. Each address of the endpoint must have the same metadata.
 	// 2. The function Key() of IstioEndpoint returns the first IP address of this field in string format.

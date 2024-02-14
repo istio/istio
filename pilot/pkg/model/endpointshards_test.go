@@ -26,7 +26,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		c2Key = ShardKey{Cluster: "c2"}
 	)
 
-	cluster1Endppoints := []*IstioEndpoint{
+	cluster1Endpoints := []*IstioEndpoint{
 		{Addresses: []string{"10.172.0.1"}, ServiceAccount: "sa1"},
 		{Addresses: []string{"10.172.0.2"}, ServiceAccount: "sa-vm1"},
 	}
@@ -40,26 +40,26 @@ func TestUpdateServiceAccount(t *testing.T) {
 		{
 			name:      "added new endpoint",
 			shardKey:  c1Key,
-			endpoints: append(cluster1Endppoints, &IstioEndpoint{Addresses: []string{"10.172.0.3"}, ServiceAccount: "sa1"}),
+			endpoints: append(cluster1Endpoints, &IstioEndpoint{Addresses: []string{"10.172.0.3"}, ServiceAccount: "sa1"}),
 			expect:    false,
 		},
 
 		{
 			name:      "added new endpoint with multiple addresses",
 			shardKey:  c1Key,
-			endpoints: append(cluster1Endppoints, &IstioEndpoint{Addresses: []string{"10.171.0.1", "2001:1::1"}, ServiceAccount: "sa1"}),
+			endpoints: append(cluster1Endpoints, &IstioEndpoint{Addresses: []string{"10.171.0.1", "2001:1::1"}, ServiceAccount: "sa1"}),
 			expect:    false,
 		},
 		{
 			name:      "added new sa",
 			shardKey:  c1Key,
-			endpoints: append(cluster1Endppoints, &IstioEndpoint{Addresses: []string{"10.172.0.3"}, ServiceAccount: "sa2"}),
+			endpoints: append(cluster1Endpoints, &IstioEndpoint{Addresses: []string{"10.172.0.3"}, ServiceAccount: "sa2"}),
 			expect:    true,
 		},
 		{
 			name:      "added new sa of an endpoint with multiple addresses",
 			shardKey:  c1Key,
-			endpoints: append(cluster1Endppoints, &IstioEndpoint{Addresses: []string{"10.172.0.3", "2001:1::3"}, ServiceAccount: "sa2"}),
+			endpoints: append(cluster1Endpoints, &IstioEndpoint{Addresses: []string{"10.172.0.3", "2001:1::3"}, ServiceAccount: "sa2"}),
 			expect:    true,
 		},
 		{
@@ -117,7 +117,7 @@ func TestUpdateServiceAccount(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			originalEndpointsShard := &EndpointShards{
 				Shards: map[ShardKey][]*IstioEndpoint{
-					c1Key: cluster1Endppoints,
+					c1Key: cluster1Endpoints,
 					c2Key: {{Addresses: []string{"10.244.0.1"}, ServiceAccount: "sa1"}, {Addresses: []string{"10.244.0.2"}, ServiceAccount: "sa-vm2"}},
 				},
 				ServiceAccounts: map[string]struct{}{
@@ -141,23 +141,46 @@ func TestUpdateServiceEndpoints(t *testing.T) {
 		c2Key = ShardKey{Cluster: "c2"}
 	)
 	endpoints := NewEndpointIndex(DisabledCache{})
-	cluster1Endppoints := []*IstioEndpoint{
-		{Addresses: []string{"10.172.0.1"}},
-		{Addresses: []string{"10.172.0.2"}},
+
+	cluster1Endpoints := []*IstioEndpoint{
+		{Addresses: []string{"10.172.0.1"}, Namespace: "foo", HostName: "foo.com"},
+		{Addresses: []string{"10.172.0.2"}, Namespace: "foo", HostName: "foo.com"},
 	}
 
-	cluster2Endppoints := []*IstioEndpoint{
-		{Addresses: []string{"10.172.0.3", "2001:1::3"}},
-		{Addresses: []string{"10.172.0.4", "2001:1::4"}},
+	cluster2Endpoints := []*IstioEndpoint{
+		{Addresses: []string{"10.172.0.3", "2001:1::3"}, Namespace: "bar", HostName: "bar.com"},
+		{Addresses: []string{"10.172.0.4", "2001:1::4"}, Namespace: "bar", HostName: "bar.com"},
 	}
 
-	t.Run("Check the IstioEndpoint number from EndpointShards", func(t *testing.T) {
-		endpoints.UpdateServiceEndpoints(c1Key, "foo.com", "foo", cluster1Endppoints)
-		endpoints.UpdateServiceEndpoints(c2Key, "bar.com", "bar", cluster2Endppoints)
-		fooeps, _ := endpoints.ShardsForService("foo.com", "foo")
-		bareps, _ := endpoints.ShardsForService("bar.com", "bar")
+	testCases := []struct {
+		name      string
+		shardKey  ShardKey
+		endpoints []*IstioEndpoint
+		expect    int
+	}{
+		{
+			name:      "istioEndpoint with IPv4 only address",
+			shardKey:  c1Key,
+			endpoints: cluster1Endpoints,
+			namespace: "foo",
+			hostname:  "foo.com",
+			expect:    2,
+		},
+		{
+			name:      "istioEndpoint with both IPv4/6 addresses",
+			shardKey:  c2Key,
+			endpoints: cluster2Endpoints,
+			namespace: "bar",
+			hostname:  "bar.com",
+			expect:    2,
+		},
+	}
 
-		assert.Equal(t, len(fooeps.Shards[c1Key]), 2)
-		assert.Equal(t, len(bareps.Shards[c2Key]), 2)
-	})
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			endpoints.UpdateServiceEndpoints(tc.shardKey, tc.hostname, tc.namespace, tc.endpoints)
+			eps , _ := endpoints.ShardsForService(tc.hostname, tc.namespace)
+			assert.Equal(t, len(eps.Shards[tc.shardKey]), tc.expect)
+		})
+	}
 }

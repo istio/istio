@@ -303,9 +303,15 @@ func (e *EndpointIndex) UpdateServiceEndpoints(
 		// Add new endpoints only if they are ever ready once to shards
 		// so that full push does not send them from shards.
 		for _, oie := range oldIstioEndpoints {
+			if oie.Key() == "" {
+				continue
+			}
 			emap[oie.Key()] = oie
 		}
 		for _, nie := range istioEndpoints {
+			if nie.Key() == "" {
+				continue
+			}
 			nmap[nie.Key()] = nie
 		}
 		for _, nie := range istioEndpoints {
