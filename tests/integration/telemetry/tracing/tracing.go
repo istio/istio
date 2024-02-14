@@ -35,11 +35,11 @@ import (
 )
 
 var (
-	client, server echo.Instances
-	ist            istio.Instance
-	ingInst        ingress.Instance
-	zipkinInst     zipkin.Instance
-	appNsInst      namespace.Instance
+	client, server  echo.Instances
+	ist             istio.Instance
+	ingInst         ingress.Instance
+	zipkinInstances []zipkin.Instance
+	appNsInst       namespace.Instance
 )
 
 const (
@@ -59,8 +59,8 @@ func GetIngressInstance() ingress.Instance {
 	return ingInst
 }
 
-func GetZipkinInstance() zipkin.Instance {
-	return zipkinInst
+func GetZipkinInstances() []zipkin.Instance {
+	return zipkinInstances
 }
 
 func TestSetup(ctx resource.Context) (err error) {
@@ -116,7 +116,8 @@ func TestSetup(ctx resource.Context) (err error) {
 	server = match.ServiceName(echo.NamespacedName{Name: "server", Namespace: appNsInst}).GetMatches(echos)
 	ingInst = ist.IngressFor(ctx.Clusters().Default())
 	addrs, _ := ingInst.HTTPAddresses()
-	zipkinInst, err = zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default(), IngressAddr: addrs[0]})
+	zipkinInst, err := zipkin.New(ctx, zipkin.Config{Cluster: ctx.Clusters().Default(), IngressAddr: addrs[0]})
+	zipkinInstances = append(zipkinInstances, zipkinInst)
 	if err != nil {
 		return
 	}
