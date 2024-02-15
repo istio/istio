@@ -154,6 +154,7 @@ type meshConfig struct {
 	ServiceSettings                []*meshConfigServiceSettings                              `json:"serviceSettings" patchStrategy:"replace"`
 	DefaultProviders               *meshConfigDefaultProviders                               `json:"defaultProviders" patchStrategy:"merge"`
 	ExtensionProviders             []*meshConfigExtensionProvider                            `json:"extensionProviders" patchStrategy:"merge" patchMergeKey:"name"`
+	CompliancePolicy               string                                                    `json:"compliancePolicy" patchStrategy:"replace"`
 }
 
 type (

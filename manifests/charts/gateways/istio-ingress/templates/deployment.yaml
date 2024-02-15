@@ -230,6 +230,12 @@ spec:
             valueFrom:
               fieldRef:
                 fieldPath: spec.nodeName
+          {{- if eq .Values.meshConfig.compliancePolicy "fips-140-2" }}
+          - name: ISTIO_META_FIPS
+            value: "true"
+          - name: GRPC_SSL_CIPHER_SUITES
+            value: ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384
+          {{- end }}
           volumeMounts:
           - name: workload-socket
             mountPath: /var/run/secrets/workload-spiffe-uds

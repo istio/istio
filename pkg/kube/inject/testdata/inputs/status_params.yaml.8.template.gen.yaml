@@ -313,6 +313,12 @@ templates:
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+        {{- if eq .MeshConfig.CompliancePolicy "fips-140-2" }}
+        - name: ISTIO_META_FIPS
+          value: "true"
+        - name: GRPC_SSL_CIPHER_SUITES
+          value: ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384
+        {{- end }}
         - name: ISTIO_META_CLUSTER_ID
           value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
         - name: ISTIO_META_NODE_NAME
@@ -663,6 +669,12 @@ templates:
           valueFrom:
             resourceFieldRef:
               resource: limits.cpu
+        {{- if eq .MeshConfig.CompliancePolicy "fips-140-2" }}
+        - name: ISTIO_META_FIPS
+          value: "true"
+        - name: GRPC_SSL_CIPHER_SUITES
+          value: ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384
+        {{- end }}
         - name: ISTIO_META_APP_CONTAINERS
           value: "{{ $containers | join "," }}"
         - name: ISTIO_META_CLUSTER_ID
@@ -1352,6 +1364,12 @@ templates:
               valueFrom:
                 resourceFieldRef:
                   resource: limits.cpu
+            {{- if eq .MeshConfig.CompliancePolicy "fips-140-2" }}
+            - name: ISTIO_META_FIPS
+              value: "true"
+            - name: GRPC_SSL_CIPHER_SUITES
+              value: ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384
+            {{- end }}
             - name: ISTIO_META_CLUSTER_ID
               value: "{{ valueOrDefault .Values.global.multiCluster.clusterName `Kubernetes` }}"
             {{- $network := valueOrDefault (index .InfrastructureLabels `topology.istio.io/network`) .Values.global.network }}

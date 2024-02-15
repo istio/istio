@@ -283,6 +283,7 @@ func TestGolden(t *testing.T) {
 			base: "lrs",
 			envVars: map[string]string{
 				"ISTIO_META_LOAD_STATS_CONFIG_JSON": `{"api_type": "GRPC", "transport_api_version": "V3"}`,
+				"ISTIO_META_FIPS":                   "true",
 			},
 		},
 		{

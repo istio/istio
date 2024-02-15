@@ -30,3 +30,6 @@ spec:
     gateways:
       istio-ingressgateway: {}
       istio-egressgateway: {}
+
+  meshConfig:
+    compliancePolicy: "fips-140-2"

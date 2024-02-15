@@ -308,9 +308,10 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 	opts = append(opts, getStatsOptions(node.Metadata)...)
 
+	_, fips := node.RawMetadata["FIPS"]
 	opts = append(opts,
 		option.NodeMetadata(node.Metadata, node.RawMetadata),
-		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig)),
+		option.RuntimeFlags(extractRuntimeFlags(node.Metadata.ProxyConfig, fips)),
 		option.EnvoyStatusPort(node.Metadata.EnvoyStatusPort),
 		option.EnvoyPrometheusPort(node.Metadata.EnvoyPrometheusPort))
 	return opts
@@ -318,7 +319,7 @@ func getNodeMetadataOptions(node *model.Node) []option.Instance {
 
 var StripFragment = env.Register("HTTP_STRIP_FRAGMENT_FROM_PATH_UNSAFE_IF_DISABLED", true, "").Get()
 
-func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
+func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig, fips bool) map[string]any {
 	// Setup defaults
 	runtimeFlags := map[string]any{
 		"overload.global_downstream_max_connections": "2147483647",
@@ -326,6 +327,10 @@ func extractRuntimeFlags(cfg *model.NodeMetaProxyConfig) map[string]any {
 		"envoy.deprecated_features:envoy.config.listener.v3.Listener.hidden_envoy_deprecated_use_original_dst": true,
 		"envoy.reloadable_features.http_reject_path_with_fragment":                                             false,
 		"envoy.restart_features.use_eds_cache_for_ads":                                                         true,
+	}
+	// This flag limits google_grpc to TLSv1.2 as the maximum version.
+	if fips {
+		runtimeFlags["envoy.reloadable_features.google_grpc_disable_tls_13"] = true
 	}
 	if !StripFragment {
 		// Note: the condition here is basically backwards. This was a mistake in the initial commit and cannot be reverted
