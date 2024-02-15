@@ -75,10 +75,9 @@ type Controller struct {
 	namespace            string
 	configClusterID      cluster.ID
 	configCluster        *Cluster
-	initialHandlers      []handler
 	configClusterSyncers []ComponentConstraint
 
-	clientBuilder ClientBuilder
+	ClientBuilder ClientBuilder
 
 	queue           controllers.Queue
 	secrets         kclient.Client[*corev1.Secret]
@@ -128,7 +127,7 @@ func NewController(kubeclientset kube.Client, namespace string, clusterID cluste
 	remoteClusters.Record(0.0)
 
 	controller := &Controller{
-		clientBuilder:   DefaultBuildClientsFromConfig,
+		ClientBuilder:   DefaultBuildClientsFromConfig,
 		namespace:       namespace,
 		configClusterID: clusterID,
 		configCluster:   &Cluster{Client: kubeclientset, ID: clusterID},
@@ -197,6 +196,7 @@ func (c *Controller) Run(stopCh <-chan struct{}) error {
 		}
 		log.Infof("multicluster remote secrets controller cache synced in %v", time.Since(t0))
 		c.queue.Run(stopCh)
+		c.handleDelete(c.configClusterID)
 	}()
 	return nil
 }
@@ -234,13 +234,13 @@ func (c *Controller) processItem(key types.NamespacedName) error {
 }
 
 // DefaultBuildClientsFromConfig creates kube.Clients from the provided kubeconfig. This is overridden for testing only
-func DefaultBuildClientsFromConfig(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+func DefaultBuildClientsFromConfig(kubeConfig []byte, clusterID cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 	restConfig, err := kube.NewUntrustedRestConfig(kubeConfig, configOverrides...)
 	if err != nil {
 		return nil, err
 	}
 
-	clients, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), clusterId)
+	clients, err := kube.NewClient(kube.NewClientConfigForRestConfig(restConfig), clusterID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create kube clients: %v", err)
 	}
@@ -251,7 +251,7 @@ func DefaultBuildClientsFromConfig(kubeConfig []byte, clusterId cluster.ID, conf
 }
 
 func (c *Controller) createRemoteCluster(kubeConfig []byte, clusterID string) (*Cluster, error) {
-	clients, err := c.clientBuilder(kubeConfig, cluster.ID(clusterID), c.configOverrides...)
+	clients, err := c.ClientBuilder(kubeConfig, cluster.ID(clusterID), c.configOverrides...)
 	if err != nil {
 		return nil, err
 	}

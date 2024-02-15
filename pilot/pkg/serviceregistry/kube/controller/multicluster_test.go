@@ -80,14 +80,14 @@ func verifyControllers(t *testing.T, m *Multicluster, expectedControllerCount in
 
 func initController(client kube.CLIClient, ns string, stop <-chan struct{}) *multicluster.Controller {
 	sc := multicluster.NewController(client, ns, "cluster-1", mesh.NewFixedWatcher(nil))
+	sc.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+		return kube.NewFakeClient(), nil
+	}
 	client.RunAndWait(stop)
 	return sc
 }
 
 func Test_KubeSecretController(t *testing.T) {
-	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
-		return kube.NewFakeClient(), nil
-	}
 	clientset := kube.NewFakeClient()
 	stop := test.NewStop(t)
 	s := server.New()
@@ -98,10 +98,11 @@ func Test_KubeSecretController(t *testing.T) {
 		MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		MeshServiceController: mockserviceController,
 	}, nil, nil, nil, "default", false, nil, s, mcc)
-	_ = mcc.Run(stop)
+	assert.NoError(t, mcc.Run(stop))
+	go mockserviceController.Run(stop)
+	clientset.RunAndWait(stop)
 	kube.WaitForCacheSync("test", stop, mcc.HasSynced)
 	_ = s.Start(stop)
-	go mockserviceController.Run(stop)
 
 	verifyControllers(t, mc, 1, "create local controller")
 
@@ -129,9 +130,6 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 	test.SetForTest(t, &features.ExternalIstiod, true)
 	test.SetForTest(t, &features.InjectionWebhookConfigName, "")
 	clientset := kube.NewFakeClient()
-	multicluster.BuildClientsFromConfig = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
-		return kube.NewFakeClient(), nil
-	}
 	stop := test.NewStop(t)
 	s := server.New()
 	certWatcher := keycertbundle.NewWatcher()
@@ -142,10 +140,11 @@ func Test_KubeSecretController_ExternalIstiod_MultipleClusters(t *testing.T) {
 		MeshWatcher:           mesh.NewFixedWatcher(&meshconfig.MeshConfig{}),
 		MeshServiceController: mockserviceController,
 	}, nil, nil, certWatcher, "default", false, nil, s, mcc)
-	_ = mcc.Run(stop)
+	assert.NoError(t, mcc.Run(stop))
+	go mockserviceController.Run(stop)
+	clientset.RunAndWait(stop)
 	kube.WaitForCacheSync("test", stop, mcc.HasSynced)
 	_ = s.Start(stop)
-	go mockserviceController.Run(stop)
 
 	// the multicluster controller will register the local cluster
 	verifyControllers(t, mc, 1, "registered local cluster controller")

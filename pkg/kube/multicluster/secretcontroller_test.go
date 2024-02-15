@@ -75,7 +75,7 @@ func TestKubeConfigOverride(t *testing.T) {
 		cfg.QPS = expectedQPS
 		cfg.Burst = expectedBurst
 	})
-	c.clientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+	c.ClientBuilder = func(kubeConfig []byte, c cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		for _, override := range configOverrides {
 			override(fakeRestConfig)
 		}
@@ -117,7 +117,7 @@ func buildTestController(t *testing.T, synced bool) testController {
 	}
 	tc.secrets = clienttest.NewWriter[*v1.Secret](t, tc.client)
 	tc.controller = NewController(tc.client, secretNamespace, "config", mesh.NewFixedWatcher(nil))
-	tc.controller.clientBuilder = TestingBuildClientsFromConfig
+	tc.controller.ClientBuilder = TestingBuildClientsFromConfig
 	iter := 0
 	tc.component = BuildMultiClusterComponent(tc.controller, func(cluster *Cluster) testHandler {
 		iter++
@@ -248,7 +248,7 @@ func TestSeamlessMigration(t *testing.T) {
 		},
 	)
 	nextClient := initial
-	c.controller.clientBuilder = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
+	c.controller.ClientBuilder = func(kubeConfig []byte, clusterId cluster.ID, configOverrides ...func(*rest.Config)) (kube.Client, error) {
 		ret := nextClient
 		nextClient = later
 		return ret, nil
@@ -416,7 +416,7 @@ func TestSecretController(t *testing.T) {
 	// Start the secret controller and sleep to allow secret process to start.
 	stopCh := test.NewStop(t)
 	c := NewController(client, secretNamespace, "config", mesh.NewFixedWatcher(nil))
-	c.clientBuilder = TestingBuildClientsFromConfig
+	c.ClientBuilder = TestingBuildClientsFromConfig
 	client.RunAndWait(stopCh)
 	secrets := clienttest.NewWriter[*v1.Secret](t, client)
 	iter := 0

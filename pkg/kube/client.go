@@ -526,14 +526,13 @@ func (c *client) RunAndWait(stop <-chan struct{}) bool {
 			return false, nil
 		})
 		return err == nil
-	} else {
-		if c.crdWatcher != nil {
-			if !c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced) {
-				return false
-			}
-		}
-		return c.informerFactory.WaitForCacheSync(stop)
 	}
+	if c.crdWatcher != nil {
+		if !c.WaitForCacheSync("crd watcher", stop, c.crdWatcher.HasSynced) {
+			return false
+		}
+	}
+	return c.informerFactory.WaitForCacheSync(stop)
 }
 
 func (c *client) Shutdown() {
