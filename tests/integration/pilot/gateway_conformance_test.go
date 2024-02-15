@@ -20,7 +20,7 @@ package pilot
 import (
 	"testing"
 
-	k8ssets "k8s.io/apimachinery/pkg/util/sets"
+	k8ssets "k8s.io/apimachinery/pkg/util/sets" //nolint: depguard
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	controllruntimelog "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/gateway-api/conformance/tests"
